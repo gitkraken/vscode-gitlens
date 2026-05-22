@@ -46,6 +46,7 @@ import {
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
+	EnsureRowRequest,
 	GetAgentSessionsRequest,
 	GetOverviewEnrichmentRequest,
 	ResolveGraphScopeRequest,
@@ -505,6 +506,32 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _pendingScope: GraphScope | undefined;
 
 	/**
+	 * Anchor stash for an upgrade that's waiting on the merge-base row to land. Set when
+	 * `applyAnchorToPendingScope` resolved a `mergeBase` whose row isn't in the loaded window —
+	 * the bare scope can't apply the boundary yet, but as soon as paging brings the row in (via
+	 * the looping `EnsureRowRequest` we issue), the `DidChangeRowsNotification` handler upgrades
+	 * the live scope. Cleared on re-scope / clear so a stale stash from a previous branch can't
+	 * apply on top of a newer one.
+	 */
+	private _pendingAnchorForMergeBaseLoad: { branchRef: string; anchor: ResolvedScopeAnchor } | undefined;
+
+	/**
+	 * Sha of the merge-base row currently being requested via `EnsureRowRequest`. Used to dedupe
+	 * concurrent issues for the same sha — graph-app's parallel `EnsureRowRequest` for the focal
+	 * tip can cancel ours mid-flight, so the rows-arrival handler may re-issue, and we don't
+	 * want overlapping requests for the same sha. Cleared when the request settles.
+	 */
+	private _inFlightEnsureMergeBaseSha: string | undefined;
+
+	/**
+	 * Last `{sha, rowCount-at-issue}` pair we sent an `EnsureRowRequest` for. When the
+	 * rows-arrival handler considers re-issuing for the same sha and the row count hasn't grown,
+	 * the host either exhausted paging or hit its iteration cap without finding the sha — giving
+	 * up here prevents a retry-storm. Cleared on scope change.
+	 */
+	private _lastEnsureMergeBaseAttempt: { sha: string; count: number } | undefined;
+
+	/**
 	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
 	 * scope clear coalesces with the resulting `DidChangeRefsVisibilityNotification` rather than
 	 * causing an immediate minimap reset followed by a separate filter-update repaint.
@@ -515,6 +542,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// Cancel any in-flight `setScope` publish so a cache-miss resolve can't sneak a new
 		// scope in after the imminent visibility change clears `this.scope`.
 		this._pendingScope = undefined;
+		this._pendingAnchorForMergeBaseLoad = undefined;
+		this._lastEnsureMergeBaseAttempt = undefined;
 		if (this.scope == null) return;
 
 		this._scopeClearDeferred = true;
@@ -553,6 +582,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 */
 	async setScope(scope: GraphScope): Promise<void> {
 		this._pendingScope = scope;
+
+		// Drop any prior anchor-upgrade stash whose branch doesn't match the new scope — the
+		// `tryUpgradeScopeFromPendingAnchor` check guards against applying it anyway, but clearing
+		// here keeps the stash from holding a stale anchor across rapid re-scopes.
+		if (this._pendingAnchorForMergeBaseLoad?.branchRef !== scope.branchRef) {
+			this._pendingAnchorForMergeBaseLoad = undefined;
+			this._lastEnsureMergeBaseAttempt = undefined;
+		}
 
 		// Publish a bare scope synchronously — see method docs.
 		this.scope = stripUnpairedMergeTarget(scope);
@@ -643,18 +680,25 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	/**
 	 * Called after the anchor IPC returns to upgrade the already-published bare scope with
-	 * `mergeBase` / `mergeTargetTipSha`. Skipped when the user re-scoped or cleared while the
-	 * resolve was in flight (compared by `branchRef`). When the host bailed (anchor missing or
-	 * empty), the bare scope stays as-is — the foreign-ref heuristic continues to bound
-	 * visibility.
+	 * `mergeBase` / `mergeTargetTipSha` / `focalBranchTipSha`. Skipped when the user re-scoped
+	 * or cleared while the resolve was in flight (compared by `branchRef`). When the host
+	 * bailed (anchor missing or every field undefined), the bare scope stays as-is — the
+	 * foreign-ref heuristic continues to bound visibility.
 	 *
-	 * Also skipped when the anchor's `mergeBase` isn't in the loaded rows: the
-	 * gitkraken-components scope walk requires the boundary to be loaded in order to terminate,
-	 * and a "not loaded" merge base means the walk would expose every first-parent ancestor of
-	 * the focal branch. Common causes are stale resolved targets (e.g. an unfetched
-	 * remote-tracking branch whose tip lands many commits before the graph's loaded window) or
-	 * very deep merge bases. The bare scope keeps the foreign-ref heuristic active, which bounds
-	 * visibility against currently-loaded refs.
+	 * `mergeBase` is only applied when its row is in loaded rows: the gitkraken-components scope
+	 * walk requires the boundary to be loaded in order to terminate, and a "not loaded" merge
+	 * base means the walk would expose every first-parent ancestor of the focal branch. Common
+	 * causes are stale resolved targets (e.g. an unfetched remote-tracking branch whose tip
+	 * lands many commits before the graph's loaded window) or very deep merge bases. When the
+	 * merge base can't be applied, `mergeTargetTipSha` is also dropped to keep the bundle's
+	 * scope walk on the safer foreign-ref heuristic (the pairing reason from
+	 * `stripUnpairedMergeTarget`).
+	 *
+	 * `focalBranchTipSha` is always applied when the host returned one, independent of the
+	 * merge-base loaded state. It carries no pairing requirement on its own, and
+	 * `_pendingFocalTipBranchRef` in `graph-app.ts` drains on this field to load the focal tip
+	 * for selection — branches whose merge target resolves to themselves (and so produce a
+	 * focal-tip-only anchor) would otherwise never select the tip.
 	 */
 	private applyAnchorToPendingScope(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
 		const pending = this._pendingScope;
@@ -663,22 +707,46 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._pendingScope = undefined;
 
 		// Host bailed — bare scope already published synchronously by `setScope`; nothing to upgrade.
-		if (anchor == null || (anchor.mergeBase == null && anchor.mergeTargetTipSha == null)) return;
-
-		// Merge base resolved but not loaded — see method docs.
-		if (anchor.mergeBase != null && !this.isShaLoaded(anchor.mergeBase.sha)) return;
+		if (anchor == null) return;
+		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
+			return;
+		}
 
 		// Build the anchored scope from the latest pending (preserves a fresher upstream/target
-		// that landed mid-resolve). Restore the caller-supplied `mergeTargetTipSha` (stripped in
-		// the bare publish) when the anchor carries one — `setScope` strips it without `mergeBase`,
-		// but a successful anchor pairs both so the bundle scope walk can use them properly.
+		// that landed mid-resolve).
 		const next: GraphScope = { ...pending };
-		if (anchor.mergeBase != null) {
+
+		const mergeBaseUsable = anchor.mergeBase != null && this.isShaLoaded(anchor.mergeBase.sha);
+		if (mergeBaseUsable) {
 			next.mergeBase = anchor.mergeBase;
+			// Pair mergeTargetTipSha with mergeBase — restoring the caller-supplied tip that the
+			// bare publish stripped, or applying the anchor-supplied one when the resolver paired
+			// them.
+			if (anchor.mergeTargetTipSha != null) {
+				next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+			}
+			this._pendingAnchorForMergeBaseLoad = undefined;
+		} else {
+			// Merge base unusable. If the host actually resolved one (just not loaded yet), stash
+			// the anchor and request the row via `EnsureRowRequest` — the host's looping handler
+			// pages until the sha is loaded or paging is exhausted. graph-app's parallel
+			// EnsureRow for the focal tip can temporarily cancel ours, in which case
+			// `tryUpgradeScopeFromPendingAnchor` re-issues from the rows-arrival handler.
+			if (anchor.mergeBase != null) {
+				this._pendingAnchorForMergeBaseLoad = { branchRef: scope.branchRef, anchor: anchor };
+				this.requestEnsureRowForMergeBase(anchor.mergeBase.sha);
+			} else {
+				this._pendingAnchorForMergeBaseLoad = undefined;
+			}
+			// Strip any caller-supplied `mergeTargetTipSha` that survived through `pending`, for
+			// the pairing reason `stripUnpairedMergeTarget` documents.
+			delete next.mergeTargetTipSha;
 		}
-		if (anchor.mergeTargetTipSha != null) {
-			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+
+		if (anchor.focalBranchTipSha != null) {
+			next.focalBranchTipSha = anchor.focalBranchTipSha;
 		}
+
 		this.scope = next;
 	}
 
@@ -687,6 +755,76 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private isShaLoaded(sha: string): boolean {
 		const rows = this._state.rows;
 		return rows?.some(r => r.sha === sha) ?? false;
+	}
+
+	/**
+	 * Called after a row delivery (`DidChangeRowsNotification`). If a previous anchor resolve
+	 * stashed an upgrade because its merge-base row wasn't loaded, and the row is now in the
+	 * loaded set, upgrade the bare scope to the full anchor. Skipped when the user re-scoped or
+	 * cleared the scope in the meantime (compared by `branchRef`).
+	 */
+	private tryUpgradeScopeFromPendingAnchor(): void {
+		const pending = this._pendingAnchorForMergeBaseLoad;
+		if (pending == null) return;
+
+		const current = this.scope;
+		if (current?.branchRef !== pending.branchRef) {
+			this._pendingAnchorForMergeBaseLoad = undefined;
+			return;
+		}
+
+		const mergeBase = pending.anchor.mergeBase;
+		if (mergeBase == null) {
+			this._pendingAnchorForMergeBaseLoad = undefined;
+			return;
+		}
+
+		if (!this.isShaLoaded(mergeBase.sha)) {
+			// Rows arrived but the merge base isn't among them — either graph-app's parallel
+			// `EnsureRowRequest` for the focal tip cancelled ours, or paging is still walking
+			// back. Re-issue (deduped by `_inFlightEnsureMergeBaseSha`; the request gives up
+			// when rows haven't grown across attempts).
+			this.requestEnsureRowForMergeBase(mergeBase.sha);
+			return;
+		}
+
+		this._pendingAnchorForMergeBaseLoad = undefined;
+		this._lastEnsureMergeBaseAttempt = undefined;
+
+		const next: GraphScope = { ...current, mergeBase: mergeBase };
+		if (pending.anchor.mergeTargetTipSha != null) {
+			next.mergeTargetTipSha = pending.anchor.mergeTargetTipSha;
+		}
+		this.scope = next;
+	}
+
+	/**
+	 * Issue an `EnsureRowRequest` for the resolved merge base so the host pages until its row
+	 * lands. Deduped: skips when a request for the same sha is already in flight, AND when a
+	 * prior attempt at the current row count returned without progress (the host exhausted
+	 * paging or hit its iteration cap — re-issuing wouldn't help).
+	 */
+	private requestEnsureRowForMergeBase(sha: string): void {
+		if (this._inFlightEnsureMergeBaseSha === sha) return;
+
+		const currentRowCount = this._state.rows?.length ?? 0;
+		if (
+			this._lastEnsureMergeBaseAttempt?.sha === sha &&
+			this._lastEnsureMergeBaseAttempt.count >= currentRowCount
+		) {
+			// We already issued at this row count and rows haven't grown since — the host
+			// gave up. Drop the stash so `tryUpgradeScopeFromPendingAnchor` doesn't keep trying.
+			this._pendingAnchorForMergeBaseLoad = undefined;
+			return;
+		}
+
+		this._lastEnsureMergeBaseAttempt = { sha: sha, count: currentRowCount };
+		this._inFlightEnsureMergeBaseSha = sha;
+		void this.ipc.sendRequest(EnsureRowRequest, { id: sha, select: false }).finally(() => {
+			if (this._inFlightEnsureMergeBaseSha === sha) {
+				this._inFlightEnsureMergeBaseSha = undefined;
+			}
+		});
 	}
 
 	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
@@ -779,6 +917,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					for (const ref of branchRefs) {
 						this._mergeBaseCache.delete(ref);
 						this._mergeBasePromises.delete(ref);
+						if (this._pendingAnchorForMergeBaseLoad?.branchRef === ref) {
+							this._pendingAnchorForMergeBaseLoad = undefined;
+							this._lastEnsureMergeBaseAttempt = undefined;
+						}
 					}
 				} else {
 					for (const key of [...this._mergeBaseCache.keys()]) {
@@ -790,6 +932,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						if (key.startsWith(prefix)) {
 							this._mergeBasePromises.delete(key);
 						}
+					}
+					if (this._pendingAnchorForMergeBaseLoad?.branchRef.startsWith(prefix)) {
+						this._pendingAnchorForMergeBaseLoad = undefined;
+						this._lastEnsureMergeBaseAttempt = undefined;
 					}
 				}
 
@@ -857,6 +1003,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// Drop any in-flight `setScope` publish — otherwise a cache-miss resolve could
 					// re-publish a scope the user just cleared by switching visibility modes.
 					this._pendingScope = undefined;
+					this._pendingAnchorForMergeBaseLoad = undefined;
+					this._lastEnsureMergeBaseAttempt = undefined;
 					if (wasScoped) {
 						emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
 							name: 'graph/scope/cleared',
@@ -962,6 +1110,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 
 				this.updateState(updates);
+
+				// If a previous scope-anchor resolve stashed an anchor because its merge-base row
+				// wasn't loaded, see whether this row delivery brought the row in. When it has, and
+				// the live scope still points at the same branch, upgrade the bare scope to the
+				// full anchor so the bundle scope walk can use the merge-base boundary.
+				this.tryUpgradeScopeFromPendingAnchor();
+
 				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
 				break;
 			}

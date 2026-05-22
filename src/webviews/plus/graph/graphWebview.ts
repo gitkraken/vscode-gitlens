@@ -3461,21 +3461,24 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onEnsureRowRequest(params: IpcParams<typeof EnsureRowRequest>) {
 		if (this._graph == null) return { id: undefined };
 
-		let id: string | undefined;
 		if (this._graph.ids.has(params.id)) {
-			id = params.id;
-		} else {
-			await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
-			if (this._graph.ids.has(params.id)) {
-				id = params.id;
-			}
-
-			if (id != null && params.select) {
-				this.setSelectedRows(id);
-			}
-
-			void this.notifyDidChangeRows(params.select ?? false);
+			return { id: params.id };
 		}
+
+		// Walk until the sha is found or the underlying `git log` stream exhausts. Passing
+		// `limit=0` engages `getCommitsForGraphCore`'s "no count cap" mode (`!limit && sha &&
+		// found`) — one streaming git invocation, O(N) work in commits walked, terminates on
+		// `found`. The default skip-based pagination would be O(N²) here: each `--skip=N
+		// --max-count=500` call walks N+500 commits, so 30 iterations chasing a 50k-deep sha
+		// would walk ~150k commits across 30 git process spawns. A single `--max-count`-less
+		// call covers the same range in one stream.
+		await this.updateGraphWithMoreRows(this._graph, params.id, this._search, 0);
+
+		const id = this._graph.ids.has(params.id) ? params.id : undefined;
+		if (id != null && params.select) {
+			this.setSelectedRows(id);
+		}
+		void this.notifyDidChangeRows(params.select ?? false);
 
 		return { id: id };
 	}
@@ -4725,44 +4728,51 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// to wait on PR API — base/default fall back covers the cold path while the eventual PR
 		// answer (if any) reaches the scope via overview enrichment, where `reconcileScopeMergeTarget`
 		// re-anchors live.
-		const targetName =
-			(targetInfo.mergeTargetBranch.paused ? undefined : targetInfo.mergeTargetBranch.value) ??
-			targetInfo.baseBranch ??
-			targetInfo.defaultBranch;
-		if (targetName == null) return { focalBranchTipSha: focalBranchTipSha };
+		// Walk the candidate target names in priority order: stored merge target (if not paused) →
+		// base branch (reflog-derived) → default branch. Each layer can disagree about what's
+		// actually mergeable — e.g. the reflog "Created from X" for a branch made via
+		// `git branch X origin/Y` returns the branch's own upstream as the "base", which collapses
+		// to the focal tip and isn't a real merge target. Skipping those and trying the next
+		// candidate recovers the default branch as the fallback merge target.
+		const candidates = [
+			targetInfo.mergeTargetBranch.paused ? undefined : targetInfo.mergeTargetBranch.value,
+			targetInfo.baseBranch,
+			targetInfo.defaultBranch,
+		];
 
-		// Prefer the in-memory branch list for the target tip, just like the focal branch above.
-		const targetBranch = this._graph?.branches.get(targetName) ?? (await svc.branches.getBranch(targetName));
-		const mergeTargetTipSha = targetBranch?.sha;
+		for (const candidate of candidates) {
+			if (candidate == null) continue;
 
-		// Bail when the resolved target tip is the same commit as the focal branch's tip —
-		// there's no real merge to anchor, so the merge-target concept doesn't apply. This
-		// happens for the default branch (the fallback chain has no other branch to land on
-		// and returns the focal branch itself) and for any feature branch transiently equal
-		// to its merge target. If we let it through, two things break: `mergeBase` collapses
-		// to the same sha and pins the visible window to a single row, and the GK component's
-		// `shouldHideWipRowForScope` treats that sha as a merge-target boundary and hides the
-		// WIP row of every worktree on the scoped branch. Returning just the focal tip drops the
-		// merge-target overlay and lets the scope walk all ancestors of `branchRef` /
-		// `upstreamRef` as if no target was configured.
-		if (mergeTargetTipSha == null || mergeTargetTipSha === focalBranchTipSha) {
-			return { focalBranchTipSha: focalBranchTipSha };
+			// Prefer the in-memory branch list for the target tip, just like the focal branch above.
+			const targetBranch = this._graph?.branches.get(candidate) ?? (await svc.branches.getBranch(candidate));
+			const mergeTargetTipSha = targetBranch?.sha;
+			if (mergeTargetTipSha == null) continue;
+
+			// Skip when the resolved target tip is the same commit as the focal branch's tip —
+			// there's no real merge to anchor (e.g. focused branch is the default branch, or its
+			// reflog-derived base collapses to the branch's own upstream). Try the next candidate;
+			// if every candidate collapses, fall through to the focal-tip-only return below, which
+			// drops the merge-target overlay and lets the scope walk all ancestors of
+			// `branchRef` / `upstreamRef` as if no target was configured.
+			if (mergeTargetTipSha === focalBranchTipSha) continue;
+
+			const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, candidate);
+			if (mergeBaseSha == null) continue;
+
+			// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit
+			// fetch for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
+			const dates = await svc.commits.getCommitDates?.(mergeBaseSha);
+			const committerDate = dates?.committerDate ?? (await svc.commits.getCommit(mergeBaseSha))?.committer.date;
+			if (committerDate == null) continue;
+
+			return {
+				focalBranchTipSha: focalBranchTipSha,
+				mergeBase: { sha: mergeBaseSha, date: committerDate.getTime() },
+				mergeTargetTipSha: mergeTargetTipSha,
+			};
 		}
 
-		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
-		if (mergeBaseSha == null) return { focalBranchTipSha: focalBranchTipSha };
-
-		// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit fetch
-		// for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
-		const dates = await svc.commits.getCommitDates?.(mergeBaseSha);
-		const committerDate = dates?.committerDate ?? (await svc.commits.getCommit(mergeBaseSha))?.committer.date;
-		if (committerDate == null) return { focalBranchTipSha: focalBranchTipSha };
-
-		return {
-			focalBranchTipSha: focalBranchTipSha,
-			mergeBase: { sha: mergeBaseSha, date: committerDate.getTime() },
-			mergeTargetTipSha: mergeTargetTipSha,
-		};
+		return { focalBranchTipSha: focalBranchTipSha };
 	}
 
 	private _fireSelectionChangedDebounced: Deferrable<GraphWebviewProvider['fireSelectionChanged']> | undefined =
