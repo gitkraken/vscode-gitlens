@@ -3,6 +3,7 @@ import { ContextProvider } from '@lit/context';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
@@ -753,7 +754,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// `_state` here would see a stale anchor-only map and the merge would drop the
 				// freshly-fetched `workDirStats` from every secondary row (visible pill flash).
 				const incoming = msg.params.state;
-				const next =
+				const next: Partial<State> =
 					incoming.wipMetadataBySha != null
 						? {
 								...incoming,
@@ -763,7 +764,18 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 									lastKnownWorkDirStatsBySha,
 								),
 							}
-						: incoming;
+						: { ...incoming };
+				// Drop `branchState` and `lastFetched` when the full-state push carries values
+				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
+				// `DidFetch`) land these ~20-30ms before the heavier full-state rebuild; without this
+				// guard the bulk push re-assigns the same values and Lit's identity-based reactivity
+				// forces a redundant header re-render for every pull/push/fetch.
+				if (areEqual(next.branchState, this._state.branchState)) {
+					delete next.branchState;
+				}
+				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
+					delete next.lastFetched;
+				}
 				this.updateState(next);
 				break;
 			}

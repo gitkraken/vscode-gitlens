@@ -2965,21 +2965,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		// Index-only changes (staging/unstaging) don't affect the graph structure,
-		// but do affect working tree stats — use the lightweight refresh path
-		if (e.changed('index')) {
-			void this.notifyDidChangeWorkingTree();
-		}
-
-		// Worktree topology changes (add/remove of a secondary worktree). These affect
-		// `wipMetadataBySha` — the set of secondary-worktree anchor SHAs surfaced in the graph
-		// header and details-pane WIP. They do NOT affect the commit log. Fire the partial
-		// `DidChangeWorkingTreeNotification` (a few KB) for fast UI response, AND let the event
-		// fall through to the structural gate below for a backstop full-state push. The full push
-		// is near-free thanks to the row-fingerprint dedup (rows/avatars/downstreams suppressed
-		// when unchanged), but it always carries `wipMetadataBySha`, which closes a delivery gap
-		// where the partial notify can be dropped when the webview transiently isn't ready.
-		if (e.changed('worktrees')) {
+		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), secondary-worktree
+		// add/remove (`worktrees` → wipMetadataBySha; also falls through to the structural gate
+		// below as a backstop full-state push), and tracking changes (`head|heads|remotes` →
+		// wip.branch.upstream, which drives the "Publish" ↔ "Create PR" next-step row in the
+		// details panel). Unioned so the in-flight coalescer can't double-fire on a single
+		// multi-flag event (e.g. Pull's `head, heads, remotes, index`).
+		if (e.changed('head', 'heads', 'index', 'remotes', 'worktrees')) {
 			void this.notifyDidChangeWorkingTree();
 		}
 
@@ -3042,16 +3034,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.notifySidebarInvalidated();
 		}
 
-		// Fast-path: push a header-only branchState refresh in parallel with the full state rebuild
-		// so push/pull/fetch numbers land in the header immediately on tracking-affecting events
-		// instead of waiting for the full graph rebuild to finish. The full state pass re-sends the
-		// same branchState alongside graph rows, so the worst case here is a redundant IPC.
-		// Also refresh WIP — heads/remotes changes can alter `wip.branch.upstream` and tracking
-		// (e.g., publishing a branch establishes upstream) which the details panel reads to pick
-		// between the "Publish" and "Create PR" next-step rows.
+		// Fast-path: refresh branchState immediately so push/pull/fetch ahead/behind land in the
+		// header without waiting for the full graph rebuild. The full state pipeline re-sends
+		// branchState; the webview dedups equal values (see `DidChangeNotification` in
+		// stateProvider.ts), so the worst case is a redundant IPC discarded on receipt.
 		if (e.changed('head', 'heads', 'remotes')) {
 			void this.notifyDidChangeBranchStateOnly();
-			void this.notifyDidChangeWorkingTree();
 		}
 
 		// Unless we don't know what changed, update the state immediately
