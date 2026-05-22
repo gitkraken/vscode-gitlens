@@ -243,18 +243,30 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// stay attached for the lifetime of the component and become inert in split mode.
 		document.addEventListener('focusout', this._handleSidebarOverlayFocusOut, true);
 		document.addEventListener('pointerdown', this._handleSidebarOverlayPointerDown, true);
+		document.addEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.addEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
+		window.addEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		document.removeEventListener('focusout', this._handleSidebarOverlayFocusOut, true);
 		document.removeEventListener('pointerdown', this._handleSidebarOverlayPointerDown, true);
+		document.removeEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.removeEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
+		window.removeEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
 	}
+
+	// Set when a right-click / context-menu request is in flight. VS Code's native context menu
+	// steals webview focus on open, which would otherwise cascade through focusout +
+	// webview-blur and dismiss the overlay sidebar before the user can interact with the menu.
+	// Cleared on webview-focus (when the menu closes and focus returns) or on the next primary
+	// pointerdown (safety net in case no menu actually appears).
+	private _suppressOverlayCollapseForMenu = false;
 
 	private _handleSidebarOverlayFocusOut = (e: FocusEvent): void => {
 		if (!this.shouldAutoCollapseOverlay()) return;
+		if (this._suppressOverlayCollapseForMenu) return;
 
 		const next = e.relatedTarget as Node | null;
 		// Focus left the webview entirely — handled by _handleSidebarOverlayWebviewBlur, not
@@ -267,6 +279,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private _handleSidebarOverlayPointerDown = (e: PointerEvent): void => {
 		if (!this.shouldAutoCollapseOverlay()) return;
+		if (e.button !== 0) {
+			// Non-primary button — almost certainly a right-click context menu. Set a flag
+			// before the focusout/webview-blur cascade so they don't dismiss the sidebar.
+			this._suppressOverlayCollapseForMenu = true;
+			return;
+		}
+
+		// Primary button — clear any stale suppression (e.g. a prior right-click that opened
+		// no menu and never received a webview-focus to clear the flag).
+		this._suppressOverlayCollapseForMenu = false;
 
 		const target = e.target as Node | null;
 		if (target == null) return;
@@ -275,10 +297,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.scheduleAutoCollapse();
 	};
 
-	private _handleSidebarOverlayWebviewBlur = (): void => {
+	private _handleSidebarOverlayContextMenu = (): void => {
+		// Covers keyboard-triggered context menus (Shift+F10, ContextMenu key) which fire no
+		// pointerdown. For mouse-triggered menus, the pointerdown handler has already set the
+		// flag; setting it again here is a harmless no-op.
 		if (!this.shouldAutoCollapseOverlay()) return;
 
+		this._suppressOverlayCollapseForMenu = true;
+	};
+
+	private _handleSidebarOverlayWebviewBlur = (): void => {
+		if (!this.shouldAutoCollapseOverlay()) return;
+		if (this._suppressOverlayCollapseForMenu) return;
+
 		this.scheduleAutoCollapse();
+	};
+
+	private _handleSidebarOverlayWebviewFocus = (): void => {
+		// Menu closed (or focus otherwise returned) — clear the suppression so subsequent
+		// click-outside interactions collapse normally.
+		this._suppressOverlayCollapseForMenu = false;
 	};
 
 	// Pre-collapse sidebarVisible captured synchronously when the auto-collapse fires. The
