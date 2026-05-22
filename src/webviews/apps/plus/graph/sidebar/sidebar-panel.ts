@@ -1000,7 +1000,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					firstIndex: index,
 					name:
 						session.worktree?.name ??
-						(session.worktreePath ? basename(session.worktreePath) : 'Unattached'),
+						(session.worktreePath
+							? basename(session.worktreePath)
+							: session.workspacePath
+								? basename(session.workspacePath)
+								: 'Unattached'),
 					type: session.worktreePath != null ? 'worktree' : 'folder',
 					// Sessions in a group share the same worktree → share the same anchor.
 					anchor: this.resolveAgentAnchor(session, graphAnchor),
