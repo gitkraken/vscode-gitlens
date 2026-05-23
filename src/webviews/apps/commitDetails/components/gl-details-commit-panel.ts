@@ -2,7 +2,6 @@ import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { getAltKeySymbol } from '@env/platform.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -471,39 +470,27 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const context = this.getCommitOrStashContext();
 		if (context == null) return nothing;
 
-		return html`<gl-tooltip
-			class="metadata-bar__more-tooltip"
-			content="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-		>
-			<button
-				class="metadata-bar__action metadata-bar__action--more"
-				type="button"
-				aria-label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-				data-vscode-context=${context}
-				@click=${this.onMoreActionsClick}
-			>
-				<code-icon icon="kebab-vertical"></code-icon>
-			</button>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--more"
+			icon="kebab-vertical"
+			label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
+			data-vscode-context=${context}
+			@click=${this.onMoreActionsClick}
+		></gl-action-chip>`;
 	}
 
 	private renderStashApplyButton() {
 		if (this.commit?.stashNumber == null) return nothing;
 
 		const isPop = this.isPopMode;
-		return html`<gl-tooltip>
-			<button
-				class="metadata-bar__action metadata-bar__action--apply"
-				type="button"
-				aria-label="${isPop ? 'Pop Stash' : 'Apply Stash'}"
-				@click=${this.onStashApplyClick}
-			>
-				<code-icon icon="${isPop ? 'git-stash-pop' : 'git-stash-apply'}"></code-icon>
-			</button>
-			<span slot="content"
-				>${isPop ? html`Pop Stash` : html`Apply Stash<br />[${getAltKeySymbol()}] Pop Stash`}</span
-			>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--apply"
+			icon=${isPop ? 'git-stash-pop' : 'git-stash-apply'}
+			label=${isPop ? 'Pop Stash' : 'Apply Stash'}
+			alt-icon=${isPop ? nothing : 'git-stash-pop'}
+			alt-label=${isPop ? nothing : 'Pop Stash'}
+			@click=${this.onStashApplyClick}
+		></gl-action-chip>`;
 	}
 
 	private onJumpToNearestWipClick = (): void => {

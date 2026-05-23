@@ -234,39 +234,6 @@ export const detailsCommitPanelStyles = css`
 		font-size: var(--gl-font-base);
 	}
 
-	/* Negate the parent flex gap on the tooltip wrapper so the kebab sits flush against
-	   the SHA chip (the inner button can't move it — the tooltip is the flex item). */
-	:host([variant='embedded']) .metadata-bar__more-tooltip {
-		margin-left: -0.4rem;
-	}
-
-	:host([variant='embedded']) .metadata-bar__action {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 2.4rem;
-		height: 2.4rem;
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		padding: 0;
-		border-radius: var(--gk-action-radius, 0.3rem);
-		color: var(--color-foreground--65);
-		font: inherit;
-		line-height: 1;
-	}
-	:host([variant='embedded']) .metadata-bar__action:hover {
-		background: var(--vscode-toolbar-hoverBackground);
-		color: var(--color-foreground);
-	}
-	:host([variant='embedded']) .metadata-bar__action code-icon {
-		display: inline-flex;
-	}
-	:host([variant='embedded']) .metadata-bar__action--apply {
-		color: var(--color-foreground);
-	}
-
 	:host([variant='embedded']) .metadata-bar__branch {
 		flex: 0 1 auto;
 		min-width: 0;
@@ -295,8 +262,10 @@ export const detailsCommitPanelStyles = css`
 		cursor: pointer;
 		flex-shrink: 1;
 		min-width: 0;
+		min-height: 2rem;
+		box-sizing: border-box;
 		overflow: hidden;
-		padding: 0.4rem;
+		padding: 0 0.4rem;
 		border-radius: var(--gk-action-radius, 0.3rem);
 		color: var(--color-foreground--65);
 		font-size: inherit;

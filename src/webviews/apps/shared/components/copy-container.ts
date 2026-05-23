@@ -40,7 +40,7 @@ export class GlCopyContainer extends LitElement {
 			--copy-hover-background: var(--vscode-toolbar-hoverBackground);
 			--copy-border: transparent;
 			--copy-border-radius: var(--gk-action-radius, 0.3rem);
-			--copy-padding: 0.4rem;
+			--copy-padding: 0 0.4rem;
 
 			border: 1px solid var(--copy-border);
 			border-radius: var(--copy-border-radius);
@@ -62,7 +62,7 @@ export class GlCopyContainer extends LitElement {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			min-height: 1.8rem;
+			min-height: 2rem;
 			box-sizing: border-box;
 		}
 

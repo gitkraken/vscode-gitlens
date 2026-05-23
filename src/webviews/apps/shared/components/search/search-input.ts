@@ -306,7 +306,7 @@ export class GlSearchInput extends GlElement {
 		} */
 
 		gl-copy-container {
-			margin-top: -0.1rem;
+			--copy-padding: 0 0.1rem;
 		}
 	`;
 
