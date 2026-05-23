@@ -2422,7 +2422,7 @@ export class DetailsActions {
 		this.graphState?.setWip(wip.repo.path, updatedWip);
 	}
 
-	canCommit(): boolean {
+	canCommitReason(): 'no-message' | 'no-staged' | undefined {
 		const message = this.state.commitMessage.get();
 		const isAmend = this.state.amend.get();
 		const wip = this.state.wip.get();
@@ -2430,7 +2430,14 @@ export class DetailsActions {
 		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
 		const smartCommit = prefs?.enableSmartCommit ?? false;
 		const hasChanges = (wip?.changes?.files?.length ?? 0) > 0;
-		return Boolean(message.trim()) && (isAmend || hasStagedFiles || (smartCommit && hasChanges));
+
+		if (!message.trim()) return 'no-message';
+		if (!isAmend && !hasStagedFiles && !(smartCommit && hasChanges)) return 'no-staged';
+		return undefined;
+	}
+
+	canCommit(): boolean {
+		return this.canCommitReason() == null;
 	}
 
 	async commit(repoPath: string | undefined, sha: string | undefined): Promise<void> {

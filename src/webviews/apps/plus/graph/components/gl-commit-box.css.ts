@@ -196,6 +196,10 @@ export const commitBoxStyles = css`
 		pointer-events: auto;
 	}
 
+	.commit-btn-wrapper {
+		display: block;
+	}
+
 	.commit-btn {
 		flex: 1;
 		min-width: 0;

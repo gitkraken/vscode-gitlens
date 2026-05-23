@@ -1530,6 +1530,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.generating=${this._state.generating.get()}
 									.branchName=${branchName}
 									.canCommit=${this._actions.canCommit()}
+									.disabledReason=${this._actions.canCommitReason()}
 									.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 									.commitError=${this._state.commitError.get()}
 									@message-change=${this.handleCommitMessageChange}
