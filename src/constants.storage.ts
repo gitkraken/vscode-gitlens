@@ -196,6 +196,9 @@ interface WorkspaceStorageCore {
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
 	'graph:state': StoredGraphState;
+	/** Per-repo, per-worktree commit draft for the Graph's WIP details panel. Inner key is the
+	 *  worktree's fsPath (equal to the repoPath for the primary worktree). */
+	'graph:wipDraftsByRepo': Record<string, Record<string, StoredGraphWipDraft>>;
 	/** Unified onboarding/dismissible UI state (workspace-scoped items) */
 	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;
@@ -413,6 +416,19 @@ export interface StoredGraphState {
 	overview?: {
 		recentThreshold?: OverviewRecentThreshold;
 	};
+}
+
+export interface StoredGraphWipDraft {
+	/** The commit message currently in the WIP commit input. */
+	message: string;
+	/** `true` when the message is user-authored (typed, AI-generated, or restored from an undone
+	 *  commit) and must not be dropped by the HEAD-move auto-clear path. Mirrors the in-memory
+	 *  `commitMessageDirty` signal on the details panel. */
+	messageDirty: boolean;
+	/** Present iff amend mode was active when the draft was saved. `baseSha` records the worktree
+	 *  HEAD the amend was bound to so the existing HEAD-move auto-clear (in
+	 *  `gl-graph-details-panel.ts`) can detect a stale amend on restore. */
+	amend?: { baseSha: string };
 }
 
 export type StoredGraphExcludeTypes = 'remotes' | 'stashes' | 'tags';

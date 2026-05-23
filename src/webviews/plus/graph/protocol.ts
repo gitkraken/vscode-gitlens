@@ -42,6 +42,7 @@ import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config.js';
+import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
@@ -277,7 +278,11 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		visible?: boolean;
 		position?: number;
 	};
-	pendingAction?: { action: GraphShowAction; target?: GraphActionTarget };
+	pendingAction?: { action: GraphShowAction; target?: GraphActionTarget; commitMessage?: string };
+	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
+	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
+	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
+	wipDrafts?: Record<string, StoredGraphWipDraft>;
 	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
 	timeline?: {
 		period?: TimelinePeriod;
@@ -543,6 +548,16 @@ export interface UpdateSelectionParams {
 	selection: GraphSelection[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
+
+export interface UpdateWipDraftParams {
+	repoPath: string;
+	/** Worktree fsPath this draft belongs to. Equals `repoPath` for the primary worktree;
+	 *  for secondary worktrees, the worktree's own fsPath. */
+	worktreePath: string;
+	/** `null` ⇒ delete the entry. */
+	draft: StoredGraphWipDraft | null;
+}
+export const UpdateWipDraftCommand = new IpcCommand<UpdateWipDraftParams>(scope, 'wipDraft/update');
 
 // REQUESTS
 
@@ -903,6 +918,17 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 	'repositories/integration/didChange',
 );
 
+export interface DidChangeWipDraftsParams {
+	wipDrafts: Record<string, StoredGraphWipDraft> | undefined;
+}
+/** Fired when `graph:wipDraftsByRepo` changes in workspace storage. Lets a concurrent webview
+ *  instance (e.g. sidebar + editor view open simultaneously, or two editor instances) refresh
+ *  its in-memory `wipDrafts` from storage without waiting for a full state push. */
+export const DidChangeWipDraftsNotification = new IpcNotification<DidChangeWipDraftsParams>(
+	scope,
+	'wipDrafts/didChange',
+);
+
 export interface DidChangeParams {
 	state: State;
 }
@@ -985,6 +1011,9 @@ export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidR
 export interface DidRequestGraphActionParams {
 	action: GraphShowAction;
 	target?: GraphActionTarget;
+	/** Optional seed value for the WIP details panel's commit message input. Currently used after
+	 *  Undo Commit to restore the undone commit's message into the box where the user will redo it. */
+	commitMessage?: string;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

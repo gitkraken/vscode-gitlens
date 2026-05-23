@@ -111,7 +111,7 @@ import type { ContextKeys } from '../../../constants.context.js';
 import type { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import { supportedOrderedCloudIssuesIntegrationIds } from '../../../constants.integrations.js';
 import { GlyphChars } from '../../../constants.js';
-import type { StoredGraphFilters, StoredGraphRefType } from '../../../constants.storage.js';
+import type { StoredGraphFilters, StoredGraphRefType, StoredGraphWipDraft } from '../../../constants.storage.js';
 import type {
 	GraphShownTelemetryContext,
 	GraphTelemetryContext,
@@ -377,6 +377,7 @@ import {
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
 	DidChangeVisualizationsButtonCallout,
+	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -430,6 +431,7 @@ import {
 	UpdatePinnedRefCommand,
 	UpdateRefsVisibilityCommand,
 	UpdateSelectionCommand,
+	UpdateWipDraftCommand,
 } from './protocol.js';
 import type { GraphWebviewShowingArgs, ShowInCommitGraphCommandArgs } from './registration.js';
 import { SearchHistory } from './searchHistory.js';
@@ -589,6 +591,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidChangeScrollMarkersNotification, this.notifyDidChangeScrollMarkers],
 		[DidChangeSelectionNotification, this.notifyDidChangeSelection],
 		[DidChangeSubscriptionNotification, this.notifyDidChangeSubscription],
+		[DidChangeWipDraftsNotification, this.notifyDidChangeWipDrafts],
 		[DidChangeWorkingTreeNotification, this.notifyDidChangeWorkingTree],
 		[DidFetchNotification, this.notifyDidFetch],
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
@@ -698,6 +701,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// the repositories selector list, which is recomputed on the next legitimate state refresh.
 					const added = e.added ?? [];
 					const removed = e.removed ?? [];
+					if (removed.length > 0) {
+						this.pruneWipDraftsForRemovedRepos(removed.map(r => r.path));
+					}
 					if (removed.length === 0 && (added.length === 0 || added.every(r => r.isWorktree))) {
 						this._etag = this.container.git.etag;
 						return;
@@ -2955,17 +2961,38 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace({ args: false })
 	private onStorageChanged(e: StorageChangeEvent): void {
-		if (e.type !== 'workspace' || !e.keys.includes('graph:state')) return;
+		if (e.type !== 'workspace') return;
 
-		// If the minimap just became visible and we skipped stats on the last fetch, refetch now
-		if (
-			this.isMinimapVisible() &&
-			configuration.get('graph.minimap.enabled') &&
-			configuration.get('graph.minimap.dataType') === 'lines' &&
-			!this._graph?.includes?.stats
-		) {
-			this.updateState();
+		if (e.keys.includes('graph:state')) {
+			// If the minimap just became visible and we skipped stats on the last fetch, refetch now
+			if (
+				this.isMinimapVisible() &&
+				configuration.get('graph.minimap.enabled') &&
+				configuration.get('graph.minimap.dataType') === 'lines' &&
+				!this._graph?.includes?.stats
+			) {
+				this.updateState();
+			}
 		}
+
+		if (e.keys.includes('graph:wipDraftsByRepo') && this.repository != null) {
+			// Push the latest scoped draft map to this webview so a concurrent provider's write
+			// (other graph instance, host-initiated undo from a different webview) lands here
+			// without waiting for the next full state push.
+			void this.notifyDidChangeWipDrafts();
+		}
+	}
+
+	@trace()
+	private async notifyDidChangeWipDrafts(): Promise<boolean> {
+		if (this.repository == null) return false;
+		if (!this.host.ready || !this.host.visible) {
+			this.host.addPendingIpcNotification(DidChangeWipDraftsNotification, this._ipcNotificationMap, this);
+			return false;
+		}
+		return this.host.notify(DidChangeWipDraftsNotification, {
+			wipDrafts: this.container.storage.getWorkspace('graph:wipDraftsByRepo')?.[this.repository.path],
+		});
 	}
 
 	private isMinimapVisible(): boolean {
@@ -6682,6 +6709,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				visible: storedPanels?.minimap?.visible ?? true,
 			},
 			pendingAction: this._pendingAction,
+			wipDrafts: this.container.storage.getWorkspace('graph:wipDraftsByRepo')?.[this.repository.path],
 			timeline: {
 				period: storedGraphState?.timeline?.period,
 				sliceBy: storedGraphState?.timeline?.sliceBy,
@@ -6701,6 +6729,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		void this.container.storage.storeWorkspace('graph:columns', columns).catch();
 		void this.notifyDidChangeColumns();
+	}
+
+	@ipcCommand(UpdateWipDraftCommand)
+	private onWipDraftUpdate(params: IpcParams<typeof UpdateWipDraftCommand>) {
+		this.writeWipDraftToStorage(params.repoPath, params.worktreePath, params.draft);
+	}
+
+	/** Read-merge-write of `graph:wipDraftsByRepo` for one `(repoPath, worktreePath)` slot.
+	 *  Pass `draft: null` to delete the slot; prunes empty repo maps. Used by the webview's
+	 *  `UpdateWipDraftCommand` handler AND by host-initiated writes (Undo Commit) that need
+	 *  to persist a draft without waiting for the webview to round-trip a flush. */
+	private writeWipDraftToStorage(repoPath: string, worktreePath: string, draft: StoredGraphWipDraft | null): void {
+		const current = this.container.storage.getWorkspace('graph:wipDraftsByRepo');
+		const currentRepo = current?.[repoPath];
+
+		const nextRepo = updateRecordValue(currentRepo, worktreePath, draft ?? undefined);
+		const nextRepoValue = Object.keys(nextRepo).length === 0 ? undefined : nextRepo;
+		const next = updateRecordValue(current, repoPath, nextRepoValue);
+
+		void this.container.storage.storeWorkspace('graph:wipDraftsByRepo', next).catch();
+	}
+
+	private pruneWipDraftsForRemovedRepos(removedPaths: string[]) {
+		const current = this.container.storage.getWorkspace('graph:wipDraftsByRepo');
+		if (current == null) return;
+
+		let next = current;
+		let changed = false;
+		for (const path of removedPaths) {
+			if (next[path] == null) continue;
+
+			next = updateRecordValue(next, path, undefined);
+			changed = true;
+		}
+		if (!changed) return;
+
+		void this.container.storage.storeWorkspace('graph:wipDraftsByRepo', next).catch();
 	}
 
 	// Reset columns wrappers
@@ -8048,9 +8113,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private async undoCommit(item?: GraphItemContext) {
 		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return Promise.resolve();
+		if (ref == null) return;
 
-		await undoCommit(this.container, ref);
+		// `mainRepoPath` is the outer wipDrafts key (the graph's repo); `ref.repoPath` is the
+		// inner key — equals `mainRepoPath` for the primary worktree, the worktree's own path
+		// for a secondary worktree.
+		const mainRepoPath = this._graph?.repoPath ?? ref.repoPath;
+		const wipSha = createWipSha(ref.repoPath, mainRepoPath);
+
+		await undoCommit(this.container, ref, {
+			onBeforeReset: message => {
+				// Batch the selection move, draft seed, and details-panel open before the reset
+				// fires its file-watcher event, so the webview sees one coherent transition rather
+				// than three across the refresh boundary. `_honorSelectedId = true` protects the
+				// WIP selection from the post-refresh `data.id` override at getState().
+				// `writeWipDraftToStorage` is the durable mirror of the webview-side flush so the
+				// message persists across sessions even if the user never edits.
+				this.writeWipDraftToStorage(mainRepoPath, ref.repoPath, {
+					message: message,
+					messageDirty: true,
+				});
+				this._honorSelectedId = true;
+				this.setSelectedRows(wipSha);
+				void this.notifyDidChangeSelection();
+				void this.host.notify(DidRequestGraphActionNotification, {
+					action: 'show-wip',
+					target: { sha: wipSha, repoPath: ref.repoPath },
+					commitMessage: message,
+				});
+			},
+		});
 	}
 
 	@command('gitlens.stashSave:')

@@ -9,14 +9,21 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
+import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
 import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
-import { isWipSha } from '../../../../plus/graph/protocol.js';
+import {
+	getSecondaryWipPath,
+	isSecondaryWipSha,
+	isWipSha,
+	UpdateWipDraftCommand,
+} from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -101,6 +108,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private _graphState?: typeof graphStateContext.__context__;
+
+	@consume({ context: ipcContext })
+	private _ipc?: typeof ipcContext.__context__;
 
 	/** Provider lives on `gl-graph-app`. The workflow controller writes the running-modes
 	 *  registry through this; other panes (graph row component) read it for adornments. */
@@ -419,6 +429,168 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._agentStatusExpand = 'expanded';
 	}
 
+	/** Maps a graph-row sha to the worktree fsPath it represents. For the primary WIP
+	 *  (sha === `uncommitted`) the worktree path is the active repo path; for secondary
+	 *  worktree WIPs the path is embedded in the synthetic sha by `createSecondaryWipSha`. */
+	private computeWorktreePathFromSha(sha: string | undefined): string | undefined {
+		if (sha == null) return undefined;
+		if (isSecondaryWipSha(sha)) return getSecondaryWipPath(sha);
+		if (sha === uncommitted) return this.effectiveRepoPath;
+		return undefined;
+	}
+
+	/** Restore the commit-form signals for `(repoPath, worktreePath)` from the persisted draft
+	 *  (if any), or reset to a fresh state. Also re-seeds the flush fingerprint so the immediate
+	 *  following `updated()` pass doesn't echo the same data back to the host as a redundant
+	 *  IPC. */
+	private loadWipDraft(repoPath: string, worktreePath: string): void {
+		const draft = this._graphState?.wipDrafts?.[worktreePath];
+
+		this._state.commitError.set(undefined);
+		this._state.generating.set(false);
+
+		if (draft != null) {
+			this._state.commitMessage.set(draft.message);
+			this._state.commitMessageDirty.set(draft.messageDirty);
+			this._state.amend.set(draft.amend != null);
+			this._state.amendBaseSha.set(draft.amend?.baseSha);
+		} else {
+			this._state.commitMessage.set('');
+			this._state.commitMessageDirty.set(false);
+			this._state.amend.set(false);
+			this._state.amendBaseSha.set(undefined);
+		}
+
+		this.cancelWipDraftFlushTimer();
+		this._lastFlushedWipDraftKey = this.computeWipDraftKey(
+			repoPath,
+			worktreePath,
+			this._state.commitMessage.get(),
+			this._state.commitMessageDirty.get(),
+			this._state.amend.get(),
+			this._state.amendBaseSha.get(),
+		);
+		this._lastLoadedWipTarget = `${repoPath}\x1f${worktreePath}`;
+		this._lastLoadedDraftRef = draft;
+	}
+
+	private computeWipDraftKey(
+		repoPath: string,
+		worktreePath: string,
+		message: string,
+		messageDirty: boolean,
+		amend: boolean,
+		amendBaseSha: string | undefined,
+	): string {
+		// `\x1f` (unit separator) keeps the fingerprint cheap and unambiguous without JSON overhead.
+		return `${repoPath}\x1f${worktreePath}\x1f${message}\x1f${messageDirty ? '1' : '0'}\x1f${
+			amend && amendBaseSha != null ? amendBaseSha : ''
+		}`;
+	}
+
+	/** Cancels the debounced flush AND drops the pending payload. Use when swapping to a
+	 *  different WIP row — the new row schedules its own payload. NOT for use in disconnect:
+	 *  see {@link disconnectedCallback}. */
+	private cancelWipDraftFlushTimer(): void {
+		this._pendingWipDraft = undefined;
+		if (this._flushWipDraftTimer == null) return;
+
+		clearTimeout(this._flushWipDraftTimer);
+		this._flushWipDraftTimer = undefined;
+	}
+
+	/** Send the pending payload (if any) now. Clears the timer and the pending slot. Idempotent. */
+	private flushPendingWipDraftNow(): void {
+		const pending = this._pendingWipDraft;
+		this._pendingWipDraft = undefined;
+		if (this._flushWipDraftTimer != null) {
+			clearTimeout(this._flushWipDraftTimer);
+			this._flushWipDraftTimer = undefined;
+		}
+		if (pending == null) return;
+
+		this._lastFlushedWipDraftKey = pending.key;
+
+		// Optimistically mirror the flush into local `wipDrafts` state so the next loadWipDraft
+		// (e.g., when the user swaps off this WIP row and back within the same session) sees the
+		// just-written draft without waiting for a host state push. Routes through `setWipDraft`
+		// so the provider's internal `_state.wipDrafts` snapshot stays in sync alongside the
+		// signal accessor; the host's storage write below is the source of truth for
+		// cross-session restore.
+		this._graphState?.setWipDraft(pending.worktreePath, pending.draft);
+
+		this._ipc?.sendCommand(UpdateWipDraftCommand, {
+			repoPath: pending.repoPath,
+			worktreePath: pending.worktreePath,
+			draft: pending.draft,
+		});
+	}
+
+	/** Snapshot the commit-form signals and schedule a debounced flush to the host. Re-runs on
+	 *  every `updated()` (SignalWatcher re-runs `updated()` when the signals it reads change),
+	 *  so a single guard fingerprint suffices to avoid redundant IPC. */
+	private maybeScheduleWipDraftFlush(): void {
+		if (!this.isWip) {
+			this.cancelWipDraftFlushTimer();
+			return;
+		}
+
+		const repoPath = this.effectiveRepoPath;
+		const worktreePath = this.computeWorktreePathFromSha(this.sha);
+		if (repoPath == null || worktreePath == null) return;
+
+		const message = this._state.commitMessage.get();
+		const messageDirty = this._state.commitMessageDirty.get();
+		const amend = this._state.amend.get();
+		const amendBaseSha = this._state.amendBaseSha.get();
+
+		const key = this.computeWipDraftKey(repoPath, worktreePath, message, messageDirty, amend, amendBaseSha);
+		if (key === this._lastFlushedWipDraftKey) return;
+
+		const isEmpty = message === '' && !amend;
+
+		// Bootstrap guard: on the first render where `loadWipDraft` hasn't yet seeded our key
+		// (typically because the panel anchored on WIP before the WIP-target-change branch ran,
+		// or because the wip data hadn't loaded), the form's empty state would otherwise emit
+		// `draft: null` and clobber a persisted draft in storage we haven't read yet. Seed the
+		// key so subsequent diffs are honest, but don't send the IPC.
+		if (this._lastFlushedWipDraftKey === undefined && isEmpty) {
+			this._lastFlushedWipDraftKey = key;
+			return;
+		}
+
+		const draft: StoredGraphWipDraft | null = isEmpty
+			? null
+			: {
+					message: message,
+					messageDirty: messageDirty,
+					amend: amend && amendBaseSha != null ? { baseSha: amendBaseSha } : undefined,
+				};
+
+		this._pendingWipDraft = { repoPath: repoPath, worktreePath: worktreePath, draft: draft, key: key };
+		if (this._flushWipDraftTimer != null) {
+			clearTimeout(this._flushWipDraftTimer);
+		}
+		this._flushWipDraftTimer = setTimeout(() => this.flushPendingWipDraftNow(), 250);
+	}
+
+	/** Seed the WIP commit input with a caller-supplied message. Used after Undo Commit to
+	 *  restore the undone commit's message into the box where the user will redo it. Marks
+	 *  the message as user-authored (`commitMessageDirty`) so the wipDraft flush picks it up
+	 *  and persists, and the amend HEAD-move auto-clear path won't drop it.
+	 *  Skipped while a workflow mode (compose/review) is active — the mode owns commit-form
+	 *  state, and the seed is already in `wipDrafts` storage; the deferred-load fallback in
+	 *  `updated()` will rehydrate `commitMessage` from it on mode exit.
+	 *  Also skipped if the panel isn't currently anchored to `repoPath` — defensive against
+	 *  the panel having moved on to a different repo's WIP between the IPC dispatch and consumption. */
+	setCommitMessage(repoPath: string, message: string): void {
+		if (this._state.activeMode.get() != null) return;
+		if (this.effectiveRepoPath !== repoPath) return;
+
+		this._state.commitMessage.set(message);
+		this._state.commitMessageDirty.set(true);
+	}
+
 	/** Entry point for the WIP-row Compose/Review buttons. Re-clicking while already engaged
 	 *  on the same anchor is a no-op (re-focus); otherwise toggleMode handles enter/replace. */
 	enterModeForWip(mode: 'compose' | 'review', repoPath: string, sha: string): void {
@@ -478,6 +650,31 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  crash, but leaks DOM references for the timer's lifetime and stacks under rapid toggling). */
 	private _suppressContentOverflowTimer?: ReturnType<typeof setTimeout>;
 	private _suppressModePanelOverflowTimer?: ReturnType<typeof setTimeout>;
+	/** Debounced WIP-draft flush. Cleared on row swap (the new selection schedules its own). */
+	private _flushWipDraftTimer?: ReturnType<typeof setTimeout>;
+	/** Payload that will be sent when {@link _flushWipDraftTimer} fires — kept on the instance
+	 *  (not captured in the timer closure) so {@link disconnectedCallback} can flush it
+	 *  synchronously instead of dropping it on a fast close-after-commit. */
+	private _pendingWipDraft?: {
+		repoPath: string;
+		worktreePath: string;
+		draft: StoredGraphWipDraft | null;
+		key: string;
+	};
+	/** Fingerprint of the last (repoPath, worktreePath, message, dirty, amendBase) tuple we
+	 *  flushed. Skipping when unchanged avoids redundant IPC on every re-render. */
+	private _lastFlushedWipDraftKey?: string;
+	/** Fingerprint of the last `(repoPath, worktreePath)` we successfully loaded a draft for.
+	 *  Decoupled from the `changedProperties` gate so a deferred load (e.g., the WIP target
+	 *  was set on the first render but `effectiveRepoPath` only became valid after wip data
+	 *  arrived in a later signal-driven re-render) still fires. */
+	private _lastLoadedWipTarget?: string;
+	/** Reference to the draft object that {@link loadWipDraft} last consumed from `wipDrafts`
+	 *  state. Used to detect content changes for the *current* target (e.g., a concurrent
+	 *  webview's flush or a host-initiated undo write) so we can reload — while preserving
+	 *  the user's in-flight typing by comparing local `commitMessage` against the last loaded
+	 *  draft's message before reloading. */
+	private _lastLoadedDraftRef?: StoredGraphWipDraft;
 
 	private suppressContentOverflow(): void {
 		const el = this.querySelector<HTMLElement>('.details-content');
@@ -563,6 +760,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._suppressContentOverflowTimer = undefined;
 		clearTimeout(this._suppressModePanelOverflowTimer);
 		this._suppressModePanelOverflowTimer = undefined;
+		// Flush rather than cancel — closing the webview within the debounce window after a
+		// commit (which sets message='' + amend=false) would otherwise drop the `draft: null`
+		// IPC, leaving the just-committed message stale in the memento.
+		this.flushPendingWipDraftNow();
 		// Repo-change subscription teardown is handled by DetailsWorkflowController via its
 		// `hostDisconnected` hook — no manual cleanup needed here.
 		this._state.resetAll();
@@ -728,12 +929,27 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const repoChanged =
 					changedProperties.has('repoPath') && changedProperties.get('repoPath') !== this.repoPath;
 
-				if (repoChanged) {
-					// Repo identity changed (worktree switch, repo swap, etc.). Commit-form
-					// state is per-repo — it was authored against the prior repo's HEAD and
-					// would be wrong for the new repo. Wipe everything so the new repo's WIP
-					// (whether reached now or later) starts fresh. The form isn't visible
-					// during this transition, so clearing is invisible to the user.
+				const repoPath = this.effectiveRepoPath;
+				const nowOnWip = this.isWip;
+				const currentWorktreePath = nowOnWip ? this.computeWorktreePathFromSha(this.sha) : undefined;
+				const prevWorktreePath = prevWasWip ? this.computeWorktreePathFromSha(prevSha) : undefined;
+				// True when the active WIP target (repo+worktree) is different from the prior
+				// selection's WIP target — covers repo switches, primary↔secondary WIP swaps
+				// within the same repo, and entering WIP from a non-WIP commit selection.
+				const wipTargetChanged =
+					nowOnWip && (repoChanged || !prevWasWip || prevWorktreePath !== currentWorktreePath);
+
+				if (wipTargetChanged && repoPath != null && currentWorktreePath != null) {
+					// Entering (or swapping into) a WIP row. Restore the draft if one is persisted
+					// for this (repo, worktree); otherwise start fresh. Per-attempt transient state
+					// (`commitError`, `generating`) always resets — it doesn't belong to the draft.
+					this.loadWipDraft(repoPath, currentWorktreePath);
+				} else if (repoChanged) {
+					// Repo identity changed AND we're not landing on a WIP row (commit selection in
+					// a different repo, repo dropdown switch with no WIP target, etc.). Wipe form
+					// state — it was authored against the prior repo's HEAD and would be wrong
+					// for the new repo. The form isn't visible during this transition, so the
+					// clearing is invisible to the user.
 					this._state.amend.set(false);
 					this._state.amendBaseSha.set(undefined);
 					this._state.commitMessage.set('');
@@ -754,6 +970,55 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// is observable during render (avoids a blank frame between prop change and the
 			// signal-driven re-render). Repo-change subscription re-wires via the controller's
 			// hostUpdate hook.
+		}
+
+		// Deferred-load fallback: the wipTargetChanged branch above only fires when sha/shas/
+		// repoPath are in `changedProperties` AND `effectiveRepoPath`/`worktreePath` are valid
+		// at that exact render. On bootstrap, the WIP target is set before `effectiveRepoPath`
+		// resolves (wip data arrives in a later signal-driven re-render), so loadWipDraft is
+		// skipped and the persisted draft never lands. Re-check every render: if we're on a
+		// WIP target we haven't loaded for yet AND conditions are now valid, load.
+		// Mirrors the gate on the wipTargetChanged branch above: in compose/review mode the
+		// workflow owns commit-form state, so swapping it out from under the mode would break
+		// the user's in-flight session. The seed still lands in `wipDrafts` via the host write;
+		// on mode exit the panel reverts and the next render rehydrates `commitMessage` from it.
+		if (this.isWip && this._state.activeMode.get() == null) {
+			const repoPath = this.effectiveRepoPath;
+			const worktreePath = this.computeWorktreePathFromSha(this.sha);
+			if (repoPath != null && worktreePath != null) {
+				const target = `${repoPath}\x1f${worktreePath}`;
+				const currentDraft = this._graphState?.wipDrafts?.[worktreePath];
+				if (target !== this._lastLoadedWipTarget) {
+					// New WIP target — load fresh (covers initial bootstrap + WIP-target swaps where
+					// the wipTargetChanged branch above couldn't fire because `effectiveRepoPath`
+					// wasn't valid yet).
+					this.loadWipDraft(repoPath, worktreePath);
+				} else if (currentDraft !== this._lastLoadedDraftRef) {
+					// Same target but the stored draft changed (concurrent webview's flush, host
+					// undo write, etc.). Reload IFF the user hasn't typed since the last load —
+					// otherwise their in-flight edit wins locally and we just mark the new draft
+					// as seen so we don't re-evaluate every render.
+					const lastLoadedMessage = this._lastLoadedDraftRef?.message ?? '';
+					if (this._state.commitMessage.get() === lastLoadedMessage) {
+						this.loadWipDraft(repoPath, worktreePath);
+					} else {
+						// User diverged from the loaded draft — preserve their typing. Re-seed the
+						// flush fingerprint from the live signal state so the next
+						// `maybeScheduleWipDraftFlush` compares against an accurate baseline
+						// (instead of the stale pre-divergence loaded-draft key, which would
+						// schedule a flush on first sight that the live key already implies).
+						this._lastLoadedDraftRef = currentDraft;
+						this._lastFlushedWipDraftKey = this.computeWipDraftKey(
+							repoPath,
+							worktreePath,
+							this._state.commitMessage.get(),
+							this._state.commitMessageDirty.get(),
+							this._state.amend.get(),
+							this._state.amendBaseSha.get(),
+						);
+					}
+				}
+			}
 		}
 
 		// Auto-clear amend if its basis HEAD has moved (external commit, pull, fetch, etc.).
@@ -809,6 +1074,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		} else {
 			this.removeAttribute('data-mode');
 		}
+
+		// Snapshot the commit-form signals and persist any change to the host's per-worktree
+		// memento. Reads the same signals the auto-clear logic above just mutated, so this
+		// captures HEAD-move clears, manual amend toggles, AI generations, and user typing
+		// through a single debounced exit point.
+		this.maybeScheduleWipDraftFlush();
 	}
 
 	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats

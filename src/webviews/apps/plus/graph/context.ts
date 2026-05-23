@@ -1,5 +1,6 @@
 import { createContext } from '@lit/context';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
+import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type {
 	GetOverviewWipResponse,
 	GraphColumnName,
@@ -105,6 +106,15 @@ export interface AppState extends State {
 	 * implementation — callers only need to pass the secondary set.
 	 */
 	updateActiveWipWatchers(repoPaths: Iterable<string>): void;
+
+	/**
+	 * Patch one `(worktreePath, draft)` slot in the per-repo wipDrafts map (routed through
+	 * `updateState` so `_state.wipDrafts` stays in sync with the signal accessor). Pass
+	 * `draft: null` to delete; prunes the parent map to `undefined` when empty. Used by the
+	 * details panel to optimistically mirror a flushed draft so the next `loadWipDraft` (e.g.,
+	 * swap-away-and-back within the same session) sees it without waiting for a host state push.
+	 */
+	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void;
 }
 
 export const graphStateContext = createContext<AppState>('graph-state-context');

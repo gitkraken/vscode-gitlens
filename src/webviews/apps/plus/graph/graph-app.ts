@@ -379,8 +379,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async consumePendingAction(pending: {
 		action: GraphShowAction;
 		target?: { sha: string; repoPath: string };
+		commitMessage?: string;
 	}): Promise<void> {
-		const { action, target } = pending;
+		const { action, target, commitMessage } = pending;
 		if (action === 'scope-to-branch') {
 			this.scopeToBranch();
 			return;
@@ -406,6 +407,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				rightRef: sha,
 				includeWorkingTree: true,
 			});
+		}
+
+		// Seed the WIP details commit input AFTER the panel has reconciled to the target row —
+		// the panel clears `commitMessage` when its repo identity changes, so writing before
+		// reconciliation can be wiped out. Used after Undo Commit so the user can immediately
+		// edit and re-commit the message in the same box they'd normally type into.
+		if (commitMessage != null && action === 'show-wip') {
+			this.detailsPanelEl?.setCommitMessage(repoPath, commitMessage);
 		}
 	}
 

@@ -978,9 +978,13 @@ export async function openOnlyChangedFiles(_container: Container, commitOrFiles:
 	}));
 }
 
-export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
+export async function undoCommit(
+	container: Container,
+	commit: GitRevisionReference,
+	options?: { onBeforeReset?: (message: string) => void },
+): Promise<string | undefined> {
 	const svc = container.git.getRepositoryService(commit.repoPath);
-	if (svc.ops == null) return;
+	if (svc.ops == null) return undefined;
 
 	const headCommit = await svc.commits.getCommit('HEAD');
 
@@ -992,7 +996,7 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 			})} cannot be undone, because it is no longer the most recent commit.`,
 		);
 
-		return;
+		return undefined;
 	}
 
 	// Check for uncommitted changes before prompting
@@ -1013,24 +1017,24 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 			cancel,
 		);
 
-		if (result !== confirm) return;
+		if (result !== confirm) return undefined;
 	}
 
-	let message;
+	try {
+		await GitCommit.ensureFullDetails(headCommit);
+	} catch {}
 
-	const scmRepo = await svc.getScmRepository();
-	if (scmRepo != null) {
-		try {
-			await GitCommit.ensureFullDetails(headCommit);
-		} catch {}
-		message = headCommit.message ?? headCommit.summary;
-	}
+	const message = headCommit.message ?? headCommit.summary ?? '';
+	options?.onBeforeReset?.(message);
 
 	await svc.ops.reset('HEAD~1', { mode: 'soft' });
 
+	const scmRepo = await svc.getScmRepository();
 	if (scmRepo != null && message) {
 		scmRepo.inputBox.value = message;
 	}
+
+	return message;
 }
 
 async function confirmOpenIfNeeded(

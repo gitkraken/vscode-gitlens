@@ -3,7 +3,8 @@ import { ContextProvider } from '@lit/context';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { areEqual } from '@gitlens/utils/object.js';
+import { areEqual, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
+import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
@@ -39,6 +40,7 @@ import {
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
 	DidChangeVisualizationsButtonCallout,
+	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
 	DidInvalidateScopeAnchorsNotification,
@@ -190,6 +192,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor pendingAction: AppState['pendingAction'];
+
+	@signalState()
+	accessor wipDrafts: State['wipDrafts'];
 
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
@@ -993,8 +998,22 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidRequestGraphActionNotification.is(msg):
+				// Pre-populate the WIP draft for the target worktree FIRST so `loadWipDraft` (which
+				// fires when the panel anchors on the new WIP row in this same render cycle) finds
+				// the seeded message on its first pass — avoids a one-frame empty box before the
+				// post-`updateComplete` `setCommitMessage` would override it.
+				if (msg.params.action === 'show-wip' && msg.params.commitMessage != null && msg.params.target != null) {
+					this.setWipDraft(msg.params.target.repoPath, {
+						message: msg.params.commitMessage,
+						messageDirty: true,
+					});
+				}
 				this.updateState({
-					pendingAction: { action: msg.params.action, target: msg.params.target },
+					pendingAction: {
+						action: msg.params.action,
+						target: msg.params.target,
+						commitMessage: msg.params.commitMessage,
+					},
 					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
 				});
 				break;
@@ -1129,6 +1148,16 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
+				break;
+
+			case DidChangeWipDraftsNotification.is(msg):
+				// Skip when the incoming map is structurally identical to ours — most commonly the
+				// self-fire after our own flush (our own write triggers the storage onDidChange,
+				// which fans the notification back to us). Avoids a redundant render cycle on
+				// every flush.
+				if (!areEqual(this.wipDrafts, msg.params.wipDrafts)) {
+					this.updateState({ wipDrafts: msg.params.wipDrafts });
+				}
 				break;
 		}
 	}
@@ -1278,6 +1307,28 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// Primary repo is unioned in dynamically at read time (see `getWipState`) so this method
 		// only tracks the secondary set — no need to re-fire when `selectedRepository` changes.
 		this._activeWipWatchers = new Set(repoPaths);
+	}
+
+	/** Patch one `(worktreePath, draft)` slot in the per-repo wipDrafts map. Routes through
+	 *  {@link updateState} so `_state.wipDrafts` stays in sync with the signal accessor. Pass
+	 *  `draft: null` to delete; prunes the parent map to `undefined` when empty. Short-circuits
+	 *  when the slot's content is unchanged so per-keystroke flushes don't trigger redundant
+	 *  panel re-renders. */
+	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void {
+		const current = this.wipDrafts;
+		const existing = current?.[worktreePath];
+		if (
+			draft != null &&
+			existing?.message === draft.message &&
+			existing?.messageDirty === draft.messageDirty &&
+			existing?.amend?.baseSha === draft.amend?.baseSha
+		) {
+			return;
+		}
+		if (draft == null && existing == null) return;
+
+		const merged = updateRecordValue(current, worktreePath, draft ?? undefined);
+		this.updateState({ wipDrafts: hasKeys(merged) ? merged : undefined });
 	}
 
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
