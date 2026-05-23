@@ -60,7 +60,7 @@ export class GlCommitsScopePane extends LitElement {
 	// deferred via rAF, recompute would see the pre-scroll positions and briefly
 	// flip an offscreen flag → proxy renders → user sees a flash before the rAF
 	// scrolls things back into place.
-	private _pendingKeyboardFocus: 'row-end' | 'handle-start' | 'handle-end' | undefined;
+	private _pendingKeyboardFocus: 'row-end' | 'row-end-keep-viewport' | 'handle-start' | 'handle-end' | undefined;
 	private _dragAc: AbortController | undefined;
 	private _scrollAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
@@ -192,6 +192,8 @@ export class GlCommitsScopePane extends LitElement {
 		this._pendingKeyboardFocus = undefined;
 		if (pending === 'row-end') {
 			this.focusEndEdgeRow();
+		} else if (pending === 'row-end-keep-viewport') {
+			this.focusEndEdgeRow({ scroll: false });
 		} else if (pending === 'handle-start' || pending === 'handle-end') {
 			const type = pending === 'handle-start' ? 'start' : 'end';
 			this.focusHandle(type);
@@ -600,12 +602,14 @@ export class GlCommitsScopePane extends LitElement {
 		this.emitScopeChange();
 	}
 
-	private focusEndEdgeRow(): void {
+	private focusEndEdgeRow(options?: { scroll?: boolean }): void {
 		const row = this.renderRoot.querySelector<HTMLElement>(`.scope-row[data-index="${this.rangeEnd}"]`);
 		if (row == null) return;
 
 		row.focus({ preventScroll: true });
-		this.scrollRowIntoViewIfNeeded(row);
+		if (options?.scroll !== false) {
+			this.scrollRowIntoViewIfNeeded(row);
+		}
 	}
 
 	private scrollRowIntoViewIfNeeded(row: HTMLElement): void {
@@ -677,13 +681,13 @@ export class GlCommitsScopePane extends LitElement {
 		} else {
 			this._userRangeEndId = this.items[clamped].id;
 		}
-		// Restore the invariant "focused row = rangeEnd". If the click moved end,
-		// the clicked row *is* the new end row — focus lands there. If the click
-		// moved start (review only), focus would otherwise stay on the clicked
-		// (start) row, leaving ↑/↓ operating on the end while focus visually
-		// anchors at the start. Synchronous-in-`updated()` so the proxy doesn't
+		// Keep the invariant "focused row = rangeEnd" so ↑/↓ continue to operate
+		// on the end edge. But when the click moved the start edge, the user is
+		// looking at the top of the range — scrolling down to rangeEnd would yank
+		// the viewport away from where they just clicked. Focus silently, no
+		// scroll, in that case. Synchronous-in-`updated()` so the proxy doesn't
 		// flash between render commit and scroll.
-		this._pendingKeyboardFocus = 'row-end';
+		this._pendingKeyboardFocus = edge === 'end' ? 'row-end' : 'row-end-keep-viewport';
 		this.emitScopeChange();
 	}
 
