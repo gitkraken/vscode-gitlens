@@ -27,7 +27,7 @@ import GraphContainer, {
 } from '@gitkraken/gitkraken-components';
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getPlatform } from '@env/platform.js';
+import { getAltKeySymbol, getPlatform } from '@env/platform.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
@@ -856,33 +856,26 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			for (const row of rows) {
 				if (cancellation.aborted) return {};
 
-				if (row.type === 'work-dir-changes') {
-					const isSecondaryWip = isSecondaryWipSha(row.sha);
-					// Secondary WIPs default to hover/focus/selected to keep the graph quiet, but
-					// pin them visible whenever a review/compose operation OR an agent is attached
-					// to the row so the status overlay stays readable without requiring hover.
-					const hasOperation = props.runningOperationByRowSha?.get(row.sha) != null;
-					const hasAgent = props.agentStatusByRowSha?.get(row.sha) != null;
-					adornments[row.sha] = {
-						visibility: !isSecondaryWip || hasOperation || hasAgent ? true : ['hover', 'focus', 'selected'],
-					};
-					continue;
+				switch (row.type) {
+					case 'work-dir-changes': {
+						const isSecondaryWip = isSecondaryWipSha(row.sha);
+						// Secondary WIPs default to hover/focus/selected to keep the graph quiet, but
+						// pin them visible whenever a review/compose operation OR an agent is attached
+						// to the row so the status overlay stays readable without requiring hover.
+						const hasOperation = props.runningOperationByRowSha?.get(row.sha) != null;
+						const hasAgent = props.agentStatusByRowSha?.get(row.sha) != null;
+						adornments[row.sha] = {
+							visibility:
+								!isSecondaryWip || hasOperation || hasAgent ? true : ['hover', 'focus', 'selected'],
+						};
+						break;
+					}
+					case 'stash-node':
+					case 'commit-node':
+					case 'merge-node':
+						adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+						break;
 				}
-
-				// TODO@eamodio after release
-				// switch (row.type) {
-				// 	case 'work-dir-changes':
-				// 		adornments[row.sha] = { visibility: true };
-				// 		break;
-				// 	case 'stash-node':
-				// 		adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
-				// 		break;
-				// 	case 'commit-node':
-				// 		if (row.heads?.length) {
-				// 			adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
-				// 		}
-				// 		break;
-				// }
 			}
 
 			return adornments;
@@ -974,42 +967,46 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						</div>
 					);
 				}
-				// case 'stash-node':
-				// 	return (
-				// 		<div className="graph-row-actions">
-				// 			<gl-button
-				// 				appearance="toolbar"
-				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-pop', row: row })}
-				// 				tooltip="Pop Stash..."
-				// 				aria-label="Pop Stash..."
-				// 			>
-				// 				<code-icon icon="git-stash-pop"></code-icon>
-				// 			</gl-button>
-				// 			<gl-button
-				// 				appearance="toolbar"
-				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-drop', row: row })}
-				// 				tooltip="Drop Stash..."
-				// 				aria-label="Drop Stash..."
-				// 			>
-				// 				<code-icon icon="trash"></code-icon>
-				// 			</gl-button>
-				// 		</div>
-				// 	);
-				// case 'commit-node':
-				// 	if (row.heads?.length) {
-				// 		return (
-				// 			<div className="graph-row-actions">
-				// 				<gl-button
-				// 					onClick={() => initProps.onRowAction?.({ action: 'recompose-branch', row: row })}
-				// 					tooltip="Recompose Branch..."
-				// 					aria-label="Recompose Branch..."
-				// 				>
-				// 					<code-icon slot="prefix" icon="wand"></code-icon>Recompose Branch...
-				// 				</gl-button>
-				// 			</div>
-				// 		);
-				// 	}
-				// 	break;
+				case 'stash-node':
+					return (
+						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							<gl-button
+								appearance="toolbar"
+								onClick={() => initProps.onRowAction?.({ action: 'stash-apply', row: row })}
+								tooltip="Apply Stash..."
+								aria-label="Apply Stash..."
+							>
+								<code-icon icon="git-stash-apply"></code-icon>
+							</gl-button>
+							<gl-button
+								appearance="toolbar"
+								onClick={() => initProps.onRowAction?.({ action: 'stash-drop', row: row })}
+								tooltip="Drop Stash..."
+								aria-label="Drop Stash..."
+							>
+								<code-icon icon="trash"></code-icon>
+							</gl-button>
+						</div>
+					);
+				case 'commit-node':
+				case 'merge-node':
+					return (
+						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							<gl-button
+								appearance="toolbar"
+								onClick={e =>
+									initProps.onRowAction?.({
+										action: e.altKey ? 'open-changes-with-working' : 'open-changes',
+										row: row,
+									})
+								}
+								tooltip={`Open All Changes\n[${getAltKeySymbol()}] Open All Changes with Working Tree)`}
+								aria-label="Open All Changes"
+							>
+								<code-icon icon="diff-multiple"></code-icon>
+							</gl-button>
+						</div>
+					);
 			}
 			return null;
 		},

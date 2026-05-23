@@ -3980,36 +3980,47 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'stash-save':
 				await StashActions.push(rowRepoPath);
 				break;
-			// case 'recompose-branch': {
-			// 	const row = this._graph?.rows.find(r => r.sha === params.row.id);
-			// 	const branchName = row?.heads?.[0]?.name;
-			// 	if (branchName != null) {
-			// 		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
-			// 			repoPath: repoPath,
-			// 			branchName: branchName,
-			// 			source: 'graph',
-			// 		});
-			// 	}
-			// 	break;
-			// }
-			// case 'stash-pop': {
-			// 	const ref = createReference(params.row.id, repoPath, {
-			// 		refType: 'stash',
-			// 		name: params.row.id,
-			// 		number: undefined,
-			// 	});
-			// 	await StashActions.pop(repoPath, ref);
-			// 	break;
-			// }
-			// case 'stash-drop': {
-			// 	const ref = createReference(params.row.id, repoPath, {
-			// 		refType: 'stash',
-			// 		name: params.row.id,
-			// 		number: undefined,
-			// 	});
-			// 	await StashActions.drop(repoPath, [ref]);
-			// 	break;
-			// }
+			case 'stash-apply': {
+				const ref = createReference(params.row.id, rowRepoPath, {
+					refType: 'stash',
+					name: params.row.id,
+					number: undefined,
+				});
+				await StashActions.apply(rowRepoPath, ref);
+				break;
+			}
+			case 'stash-pop': {
+				const ref = createReference(params.row.id, rowRepoPath, {
+					refType: 'stash',
+					name: params.row.id,
+					number: undefined,
+				});
+				await StashActions.pop(rowRepoPath, ref);
+				break;
+			}
+			case 'stash-drop': {
+				const ref = createReference(params.row.id, rowRepoPath, {
+					refType: 'stash',
+					name: params.row.id,
+					number: undefined,
+				});
+				await StashActions.drop(rowRepoPath, [ref]);
+				break;
+			}
+			case 'open-changes':
+			case 'open-changes-with-working': {
+				const commit = await this.container.git
+					.getRepositoryService(rowRepoPath)
+					.commits.getCommit(params.row.id);
+				if (commit == null) break;
+
+				if (params.action === 'open-changes-with-working') {
+					await openCommitChangesWithWorking(this.container, commit, false, this.getOpenEditorShowOptions());
+				} else {
+					await openCommitChanges(this.container, commit, false, this.getOpenEditorShowOptions());
+				}
+				break;
+			}
 		}
 	}
 
