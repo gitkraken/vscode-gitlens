@@ -63,6 +63,7 @@ gl-details-wip-panel {
 	justify-content: space-between;
 	gap: 0.4rem;
 	border-top: 2px solid var(--color-background--level-15);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 
 	&__tabs {
 		flex: none;

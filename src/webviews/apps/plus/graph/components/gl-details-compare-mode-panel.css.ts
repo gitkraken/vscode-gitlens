@@ -43,6 +43,7 @@ export const compareModePanelStyles = css`
 		padding: 0.5rem 1.2rem;
 		background: var(--gl-metadata-bar-bg);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		flex: none;
 	}
 

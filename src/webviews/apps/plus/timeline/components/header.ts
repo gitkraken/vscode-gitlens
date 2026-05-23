@@ -99,6 +99,7 @@ export class GlTimelineHeader extends LitElement {
 				margin: 0.5rem 1rem;
 				gap: 1rem;
 				min-width: 0;
+				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 
 			:host([placement='editor']) .header {

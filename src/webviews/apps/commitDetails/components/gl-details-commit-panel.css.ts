@@ -116,7 +116,7 @@ export const detailsCommitPanelStyles = css`
 
 	.mode-title__icon {
 		flex: 0 0 auto;
-		color: var(--mode-accent, var(--vscode-foreground));
+		color: var(--vscode-foreground);
 	}
 
 	.mode-title__subtitle {
@@ -125,6 +125,10 @@ export const detailsCommitPanelStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.metadata-bar {
+		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
 	}
 
 	/* Right-side mode-status snippet in the metadata bar (compose/review). Replaces the
@@ -471,7 +475,7 @@ export const detailsCommitPanelStyles = css`
 		margin-left: auto;
 		margin-right: -0.4rem;
 		margin-bottom: -2.4rem;
-		background: var(--titlebar-bg, var(--color-background));
+		background: var(--vscode-sideBar-background, var(--color-background));
 		padding: 0.2rem;
 		border-radius: 0.3rem;
 		opacity: 1;

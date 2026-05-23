@@ -59,7 +59,7 @@ import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
-import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css.js';
+import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
@@ -128,7 +128,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		ruleStyles,
 		actionButton,
 		titlebarStyles,
-		repoHeaderStyles,
 		graphHeaderControlStyles,
 		css`
 			:focus,

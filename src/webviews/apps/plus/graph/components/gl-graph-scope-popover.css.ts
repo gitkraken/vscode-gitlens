@@ -14,7 +14,7 @@ export const graphScopePopoverStyles = css`
 		gap: 0.4rem;
 		padding: 0.2rem 0.3rem 0.2rem 0.4rem;
 		background: transparent;
-		color: var(--color-foreground);
+		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		border: 1px solid transparent;
 		border-radius: 0.3rem;
 		font: inherit;

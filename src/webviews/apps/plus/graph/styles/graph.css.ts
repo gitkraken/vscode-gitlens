@@ -25,8 +25,7 @@ export const actionButton = css`
 		// background-color: var(--color-graph-actionbar-background);
 		background-color: transparent;
 		border: none;
-		color: inherit;
-		color: var(--color-foreground);
+		color: var(--vscode-foreground);
 		padding: 0 0.75rem;
 		cursor: pointer;
 		border-radius: 3px;
@@ -47,7 +46,7 @@ export const actionButton = css`
 
 	.action-button:hover {
 		background-color: var(--color-graph-actionbar-selectedBackground);
-		color: var(--color-foreground);
+		color: var(--vscode-foreground);
 		text-decoration: none;
 	}
 

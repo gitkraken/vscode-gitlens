@@ -161,6 +161,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
+			--button-foreground: var(--color-view-foreground--65);
+		}
+
+		.display-mode-toggle:hover {
+			--button-foreground: var(--color-view-foreground);
 		}
 
 		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button

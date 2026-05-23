@@ -28,7 +28,7 @@ export class WebviewPane extends LitElement {
 				flex: none;
 				display: flex;
 				background-color: var(--vscode-sideBarSectionHeader-background);
-				color: var(--vscode-sideBarSectionHeader-foreground);
+				color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
 				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 				position: relative;
 			}

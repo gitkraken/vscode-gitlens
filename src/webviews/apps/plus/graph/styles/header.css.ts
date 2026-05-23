@@ -1,11 +1,5 @@
 import { css } from 'lit';
 
-export const repoHeaderStyles = css`
-	.jump-to-ref {
-		--button-foreground: var(--color-foreground);
-	}
-`;
-
 export const titlebarStyles = css`
 	.titlebar {
 		background: var(--titlebar-bg);
