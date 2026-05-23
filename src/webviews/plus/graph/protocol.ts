@@ -467,7 +467,9 @@ export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetai
 export type RowAction =
 	| 'compose-commits'
 	| 'generate-commit-message'
-	| 'recompose-branch'
+	| 'open-changes'
+	| 'open-changes-with-working'
+	| 'stash-apply'
 	| 'stash-drop'
 	| 'stash-pop'
 	| 'stash-save';
