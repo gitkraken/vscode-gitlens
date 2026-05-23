@@ -4022,31 +4022,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			case 'stash-save':
 				await StashActions.push(rowRepoPath);
 				break;
-			case 'stash-apply': {
-				const ref = createReference(params.row.id, rowRepoPath, {
-					refType: 'stash',
-					name: params.row.id,
-					number: undefined,
-				});
-				await StashActions.apply(rowRepoPath, ref);
-				break;
-			}
-			case 'stash-pop': {
-				const ref = createReference(params.row.id, rowRepoPath, {
-					refType: 'stash',
-					name: params.row.id,
-					number: undefined,
-				});
-				await StashActions.pop(rowRepoPath, ref);
-				break;
-			}
+			case 'stash-apply':
+			case 'stash-pop':
 			case 'stash-drop': {
+				// Look up the real stash so we pass the proper `stashName`/`stashNumber`. The wizards
+				// build `stash@{N}` from these, and a missing number produces an invalid `stash@{undefined}`
+				// that fails the deleteStash/pop identity check and silently throws.
+				const stash = this._graph?.stashes?.get(params.row.id);
+				if (stash == null) break;
+
 				const ref = createReference(params.row.id, rowRepoPath, {
 					refType: 'stash',
-					name: params.row.id,
-					number: undefined,
+					name: stash.stashName ?? params.row.id,
+					number: stash.stashNumber,
+					message: stash.message,
 				});
-				await StashActions.drop(rowRepoPath, [ref]);
+
+				if (params.action === 'stash-apply') {
+					await StashActions.apply(rowRepoPath, ref);
+				} else if (params.action === 'stash-pop') {
+					await StashActions.pop(rowRepoPath, ref);
+				} else {
+					await StashActions.drop(rowRepoPath, [ref]);
+				}
 				break;
 			}
 			case 'open-changes':
@@ -9786,9 +9784,16 @@ function buildGraphFingerprint(
 			const hl = r.heads?.length;
 			const tl = r.tags?.length;
 			const rl = r.remotes?.length;
-			if (!hl && !tl && !rl) continue;
+			// Stash rows never carry heads/tags/remotes; include them explicitly so a stash
+			// drop in the middle of a limit-bound graph (where rowCount/first/last all stay put)
+			// still busts the fingerprint and re-ships rows.
+			const isStash = r.type === 'stash-node';
+			if (!hl && !tl && !rl && !isStash) continue;
 
 			parts.push(`|${r.sha}:`);
+			if (isStash) {
+				parts.push('S;');
+			}
 			if (hl) {
 				for (const h of r.heads!) {
 					// Include worktreeId (adding/removing a worktree flips it for an existing
