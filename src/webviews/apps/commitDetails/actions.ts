@@ -532,10 +532,18 @@ export class CommitDetailsActions {
 	// File Actions
 	// ============================================================
 
-	/** Get the current commit SHA for file actions (undefined in WIP mode → uses uncommitted). */
-	private getCurrentRef(): string | undefined {
+	/**
+	 * Get the current commit's ref + whether it's a stash for file actions. WIP mode returns
+	 * undefined so callers fall through the `ref == null` branches (uncommitted path). The
+	 * `stash` flag lets `FilesService` route stash refs through the stash sub-provider (which
+	 * has untracked files in its fileset) instead of `commits.getCommit` (which doesn't).
+	 */
+	private getCurrentRef(): { ref: string; stash?: boolean } | undefined {
 		if (this.state.mode.get() === 'wip') return undefined;
-		return this.state.currentCommit.get()?.sha;
+
+		const commit = this.state.currentCommit.get();
+		if (commit?.sha == null) return undefined;
+		return { ref: commit.sha, stash: commit.stashNumber != null };
 	}
 
 	openFile(file: GitFileChangeShape, showOptions?: FileShowOptions): void {

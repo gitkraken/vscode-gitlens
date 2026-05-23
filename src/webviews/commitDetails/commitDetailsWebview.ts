@@ -780,7 +780,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		params: ExecuteFileActionParams,
 	): Promise<[commit: GitCommit, file: GitFileChange] | [commit?: undefined, file?: undefined]> {
 		if (params.repoPath == null) return [];
-		return getCommitAndFileByPath(params.repoPath, params.path, params.ref, params.staged);
+		const ref = params.ref != null ? { ref: params.ref, stash: params.stash } : undefined;
+		return getCommitAndFileByPath(params.repoPath, params.path, ref, params.staged);
 	}
 
 	private onShowCommitPicker() {

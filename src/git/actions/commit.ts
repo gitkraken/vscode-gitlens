@@ -229,7 +229,9 @@ export async function openMultipleChanges(
 
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
-		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, refs.rhs))!;
+		// Untracked files in a stash live in the `^3` parent (status `?` implies stash, by convention).
+		const rhsRef = file.status === '?' ? `${refs.rhs}^3` : refs.rhs;
+		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, rhsRef))!;
 		if (refs.rhs === '') {
 			if (rhs != null) {
 				rhs = await svc.getWorkingUri(rhs);
@@ -474,7 +476,7 @@ export async function openChanges(
 		return;
 	}
 
-	const refs: RefRange = hasCommit
+	let refs: RefRange = hasCommit
 		? {
 				repoPath: commitOrRefs.repoPath,
 				rhs: commitOrRefs.sha,
@@ -482,6 +484,13 @@ export async function openChanges(
 				lhs: commitOrRefs.unresolvedPreviousSha,
 			}
 		: commitOrRefs;
+
+	// For an untracked file in a stash, the content lives in the `^3` parent and there is no
+	// "previous" content to compare against. Build a fresh refs object so we don't mutate a
+	// caller-owned RefRange in the !hasCommit path.
+	if (file.status === '?') {
+		refs = { repoPath: refs.repoPath, lhs: deletedOrMissing, rhs: `${refs.rhs}^3` };
+	}
 
 	const rhsUri = GitUri.fromFile(file, refs.repoPath);
 	const lhsUri =
@@ -658,8 +667,13 @@ export async function openFile(
 		const ref = refOrOptions as GitRevisionReference;
 
 		uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
-		// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
-		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
+		// An untracked file in a stash typically has no working-tree copy to open. Mirror the
+		// warning surfaced by `gitlens.openWorkingFile:command` for the same case so the click
+		// isn't a silent no-op; users wanting the stashed content can pick "Open File at Revision".
+		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') {
+			void window.showWarningMessage('Unable to open working file. File could not be found in the working tree');
+			return;
+		}
 	}
 
 	options = { preserveFocus: true, preview: false, ...options };
@@ -708,7 +722,11 @@ export async function openFileAtRevision(
 		uri = Container.instance.git
 			.getRepositoryService(commit.repoPath)
 			.getRevisionUri(
-				file.status === 'D' ? ((await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing) : commit.sha,
+				file.status === 'D'
+					? ((await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing)
+					: file.status === '?'
+						? `${commit.sha}^3`
+						: commit.sha,
 				file,
 			);
 	}

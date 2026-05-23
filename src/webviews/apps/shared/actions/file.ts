@@ -19,40 +19,54 @@ export type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/serv
 // ============================================================
 
 export function openFile(
-	commands: { openFile(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> },
+	commands: {
+		openFile(
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+			ref?: { ref: string; stash?: boolean },
+		): Promise<void>;
+	},
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
-	ref?: string,
+	ref?: { ref: string; stash?: boolean },
 ): void {
 	fireAndForget(commands.openFile(file, showOptions, ref), 'open file');
 }
 
 export function openFileOnRemote(
-	commands: { openFileOnRemote(file: GitFileChangeShape, ref?: string): Promise<void> },
+	commands: { openFileOnRemote(file: GitFileChangeShape, ref?: { ref: string; stash?: boolean }): Promise<void> },
 	file: GitFileChangeShape,
-	ref?: string,
+	ref?: { ref: string; stash?: boolean },
 ): void {
 	fireAndForget(commands.openFileOnRemote(file, ref), 'open file on remote');
 }
 
 export function openFileCompareWorking(
 	commands: {
-		openFileCompareWorking(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void>;
+		openFileCompareWorking(
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+			ref?: { ref: string; stash?: boolean },
+		): Promise<void>;
 	},
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
-	ref?: string,
+	ref?: { ref: string; stash?: boolean },
 ): void {
 	fireAndForget(commands.openFileCompareWorking(file, showOptions, ref), 'compare file with working');
 }
 
 export function openFileComparePrevious(
 	commands: {
-		openFileComparePrevious(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void>;
+		openFileComparePrevious(
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+			ref?: { ref: string; stash?: boolean },
+		): Promise<void>;
 	},
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
-	ref?: string,
+	ref?: { ref: string; stash?: boolean },
 ): void {
 	fireAndForget(commands.openFileComparePrevious(file, showOptions, ref), 'compare file with previous');
 }
@@ -136,11 +150,15 @@ export function openVirtualMultipleChanges(
 
 export function executeFileAction(
 	commands: {
-		executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void>;
+		executeFileAction(
+			file: GitFileChangeShape,
+			showOptions?: FileShowOptions,
+			ref?: { ref: string; stash?: boolean },
+		): Promise<void>;
 	},
 	file: GitFileChangeShape,
 	showOptions?: FileShowOptions,
-	ref?: string,
+	ref?: { ref: string; stash?: boolean },
 ): void {
 	fireAndForget(commands.executeFileAction(file, showOptions, ref), 'file action');
 }

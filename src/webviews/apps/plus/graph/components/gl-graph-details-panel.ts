@@ -68,6 +68,12 @@ interface ResolvedContent {
 	context: DetailsContext;
 }
 
+/** Wraps a possibly-undefined sha string into the `{ ref, stash? }` shape expected by file
+ *  actions. Used for multi-commit (range) refs whose source returns a bare string. */
+function asRefObj(ref: string | undefined): { ref: string } | undefined {
+	return ref != null ? { ref: ref } : undefined;
+}
+
 /** Renders a mode-status counts snippet with leading icons — "🟢 1 commit · 📄 2 files".
  *  When `onResume` is provided, the whole snippet becomes a clickable "Resume" affordance
  *  prefixed with the verb and trailed with an arrow — replaces the old in-panel resume bar. */
@@ -1830,10 +1836,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** When the user has scoped the compare file list to a single commit, file actions should
 	 *  resolve against THAT commit (so "previous" means commit~1, not the comparison's other side).
-	 *  Otherwise fall through to the comparison's left ref (branch-vs-branch semantics). */
-	private compareFileRef(leftRef: string | undefined): string | undefined {
-		const selected = this._state.branchCompareSelectedCommitSha.get();
-		return selected ?? leftRef;
+	 *  Otherwise fall through to the comparison's left ref (branch-vs-branch semantics). The
+	 *  returned ref isn't tagged as a stash — compare-mode refs are branches/tags/commits, and
+	 *  the safety net in `getCommitAndFileByPath` handles the rare stash-in-compare case. */
+	private compareFileRef(leftRef: string | undefined): { ref: string } | undefined {
+		const ref = this._state.branchCompareSelectedCommitSha.get() ?? leftRef;
+		return ref != null ? { ref: ref } : undefined;
 	}
 
 	/**
@@ -1981,7 +1989,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// default, replacing the editor the sub-panel just opened.
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFile(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.openFile(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@file-compare-between=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
@@ -1995,17 +2003,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFileCompareWorking(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.openFileCompareWorking(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFileComparePrevious(e.detail, this._actions.fromSha(shas, swapped));
+				this._actions.openFileComparePrevious(e.detail, asRefObj(this._actions.fromSha(shas, swapped)));
 			}}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.executeFileAction(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.executeFileAction(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@swap-selection=${() => this._actions.swap(shas)}
 			@gl-explain=${(e: CustomEvent<{ prompt?: string }>) =>
@@ -2392,20 +2400,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 
+	/** Single-commit selection's ref + stash hint — `commitLite` carries `stashNumber` from the graph row. */
+	private get currentRef(): { ref: string; stash?: boolean } | undefined {
+		if (this.sha == null) return undefined;
+		return { ref: this.sha, stash: this.commitLite?.stashNumber != null };
+	}
+
 	private handleFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFile(e.detail, this.sha);
+		this._actions.openFile(e.detail, this.currentRef);
 	};
 
 	private handleFileOpenOnRemote = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileOnRemote(e.detail, this.sha);
+		this._actions.openFileOnRemote(e.detail, this.currentRef);
 	};
 
 	private handleFileCompareWorking = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileCompareWorking(e.detail, this.sha);
+		this._actions.openFileCompareWorking(e.detail, this.currentRef);
 	};
 
 	private handleFileComparePrevious = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileComparePrevious(e.detail, this.sha);
+		this._actions.openFileComparePrevious(e.detail, this.currentRef);
 	};
 
 	private handleFileCompareWipChanges = (e: CustomEvent<FileChangeListItemDetail>) => {
@@ -2413,7 +2427,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleFileMoreActions = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.executeFileAction(e.detail, this.sha);
+		this._actions.executeFileAction(e.detail, this.currentRef);
 	};
 
 	private handleFileOpenConflictCurrent = (e: CustomEvent<FileChangeListItemDetail>) => {

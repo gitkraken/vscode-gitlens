@@ -2194,19 +2194,19 @@ export class DetailsActions {
 		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
-	openFile(detail: FileChangeListItemDetail, ref?: string): void {
+	openFile(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFile(this.services.files, detail, detail.showOptions, ref);
 	}
 
-	openFileOnRemote(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileOnRemote(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileOnRemote(this.services.files, detail, ref);
 	}
 
-	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileCompareWorking(this.services.files, detail, detail.showOptions, ref);
 	}
 
-	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
 	}
 
@@ -2264,7 +2264,7 @@ export class DetailsActions {
 		}
 	}
 
-	executeFileAction(detail: FileChangeListItemDetail, ref?: string): void {
+	executeFileAction(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
 	}
 

@@ -146,6 +146,12 @@ export interface ExecuteCommitActionsParams {
 export interface ExecuteFileActionParams extends GitFileChangeShape {
 	/** Commit ref (SHA) for this file action. Required for committed files. */
 	ref?: string;
+	/**
+	 * `true` when `ref` is a stash — routes the lookup through the stash sub-provider so
+	 * untracked-file entries (which live in `stash^3` and are absent from `git log`-based
+	 * fetches) resolve correctly.
+	 */
+	stash?: boolean;
 	showOptions?: FileShowOptions;
 }
 
