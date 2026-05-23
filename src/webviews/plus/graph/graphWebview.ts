@@ -528,6 +528,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.ensureRepositorySubscriptions(true);
 		void this.ensureAutoFetch();
 
+		// Sidebar `Resource<T>` caches are panel-keyed, not repo-keyed — without a bump, the previous
+		// repo's data stays visible until the next sidebar-relevant repo event.
+		this._sidebarEventCounter.next();
+
 		if (previousPath != null && previousPath !== value?.path) {
 			void this.host.notify(DidInvalidateScopeAnchorsNotification, { repoPath: previousPath });
 		}
@@ -626,6 +630,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 * Cleared on reconnect / repository switch so the next push reseeds the webview with rows.
 	 */
 	private _lastSentGraphFingerprint: string | undefined;
+	/**
+	 * Counter of sidebar-relevant repo events. `notifyDidChangeState` fires `notifySidebarInvalidated()`
+	 * post-rebuild when `_firedSidebarEventSeq` lags the captured value. A counter (vs a boolean)
+	 * preserves a delta when a second event lands mid-rebuild, so the trailing run still fires against
+	 * a graph that reflects it.
+	 */
+	private _sidebarEventCounter = getScopedCounter();
+	/** Watermark: counter values up to here have already fired their post-rebuild invalidation. */
+	private _firedSidebarEventSeq = 0;
 	private static readonly stateFreshnessMs = 500;
 
 	private isWindowFocused: boolean = true;
@@ -3044,8 +3057,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Invalidate sidebar panels only for changes that actually affect their data. Skipping this for
 		// config/unknown/pausedOp changes prevents the sidebar from showing a spinner during unrelated
 		// repo activity (e.g. worktrees discovered during graph scroll fire `unknown` repo events).
+		// Deferred to post-rebuild (see consumer in `notifyDidChangeState`) so the webview's refetch
+		// reads the updated `_graph`.
 		if (e.changed('heads', 'remotes', 'stash', 'tags')) {
-			this.notifySidebarInvalidated();
+			this._sidebarEventCounter.next();
 		}
 
 		// Fast-path: refresh branchState immediately so push/pull/fetch ahead/behind land in the
@@ -5460,15 +5475,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const promise = (async () => {
 			try {
+				// Snapshot before `getState()` so a mid-rebuild event leaves a delta for the trailing run.
+				const seqAtRebuildStart = this._sidebarEventCounter.current;
+
 				const op = this.getState();
 				this._pendingStateOp = op;
 				const state = await op;
 
-				// Sidebar invalidation is intentionally NOT fired here — firing on every state notify causes
-				// the sidebar to reset its counts + show a spinner on unrelated repo activity (e.g. new worktrees
-				// discovered during graph scroll). The sidebar's counts/panels only need refreshing when
-				// branches/remotes/tags/stashes actually change, which is handled by targeted invalidations in
-				// `onRepositoryChanged` and the cold-open microtask.
+				// `setGraph(data)` has run inside `getState()`, so the webview's refetch will read the
+				// fresh graph. Commit the *captured* value (not current) so a mid-rebuild event remains
+				// unfired for the trailing run.
+				if (seqAtRebuildStart !== this._firedSidebarEventSeq) {
+					this._firedSidebarEventSeq = seqAtRebuildStart;
+					this.notifySidebarInvalidated();
+				}
 
 				// Identity fingerprint of the rows/avatars/downstreams payload: when this matches the
 				// last successful send, the webview already has identical row data — re-shipping is
@@ -6470,6 +6490,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					void this.notifyDidChangeRefsVisibility();
 					void this.notifyDidChangePinnedRef();
 					void this.notifyDidChangeRows(selectionChanged);
+					// Commit so the next `notifyDidChangeState` doesn't double-fire for events covered
+					// by this rebuild's invalidation.
+					this._firedSidebarEventSeq = this._sidebarEventCounter.current;
 					this.notifySidebarInvalidated();
 				} catch {}
 			});
@@ -6986,6 +7009,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._stateNotifyDirty = false;
 		this._lastSentBranchState = undefined;
 		this._lastSentGraphFingerprint = undefined;
+		// Not resetting `_sidebarEventCounter` / `_firedSidebarEventSeq`: an in-flight rebuild has
+		// already captured its `seqAtRebuildStart` and will commit it as the fired watermark — zeroing
+		// here would strand the next repo's events below it. Monotonic growth is safe; only deltas matter.
 		this._lastFetchedHandlerDebounced?.cancel();
 		this._graphDetailsDiffCache.clear();
 		this.invalidateScopeAnchors();
