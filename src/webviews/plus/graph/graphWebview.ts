@@ -7947,9 +7947,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.hideRef(item, { group: true });
 	}
 
-	@command('gitlens.graph.pinBranchToLeft')
+	@command('gitlens.graph.pinBranchToEdge')
 	@debug()
-	private pinBranchToLeft(item?: GraphItemContext) {
+	private pinBranchToEdge(item?: GraphItemContext) {
 		if (!isGraphItemRefContext(item)) return Promise.resolve();
 
 		const { ref } = item.webviewItemValue;
@@ -7965,9 +7965,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return Promise.resolve();
 	}
 
-	@command('gitlens.graph.unpinBranchFromLeft')
+	@command('gitlens.graph.unpinBranchFromEdge')
 	@debug()
-	private unpinBranchFromLeft(_item?: GraphItemContext) {
+	private unpinBranchFromEdge(_item?: GraphItemContext) {
 		this.updatePinnedRef(this._graph?.repoPath, null);
 		return Promise.resolve();
 	}

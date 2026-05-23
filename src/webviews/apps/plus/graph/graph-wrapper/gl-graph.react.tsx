@@ -822,7 +822,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				<gl-button
 					className="jump-to-pinned-branch"
 					appearance="toolbar"
-					tooltip="Jump to pinned branch"
+					tooltip="Jump to Pinned Branch"
 					onClick={handleJumpToPinnedBranch}
 				>
 					<code-icon icon="pinned"></code-icon>

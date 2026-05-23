@@ -7759,8 +7759,8 @@
 				"title": "Open Changed & Close Unchanged Files"
 			},
 			{
-				"command": "gitlens.graph.pinBranchToLeft",
-				"title": "Pin to Left"
+				"command": "gitlens.graph.pinBranchToEdge",
+				"title": "Pin Branch to Edge"
 			},
 			{
 				"command": "gitlens.graph.pull",
@@ -7962,8 +7962,8 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.graph.unpinBranchFromLeft",
-				"title": "Unpin from Left"
+				"command": "gitlens.graph.unpinBranchFromEdge",
+				"title": "Unpin Branch from Edge"
 			},
 			{
 				"command": "gitlens.inviteToLiveShare",
@@ -13196,7 +13196,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.pinBranchToLeft",
+					"command": "gitlens.graph.pinBranchToEdge",
 					"when": "false"
 				},
 				{
@@ -13364,7 +13364,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.unpinBranchFromLeft",
+					"command": "gitlens.graph.unpinBranchFromEdge",
 					"when": "false"
 				},
 				{
@@ -26327,6 +26327,16 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.pinBranchToEdge",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@8"
+				},
+				{
+					"command": "gitlens.graph.unpinBranchFromEdge",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@8"
+				},
+				{
 					"command": "gitlens.graph.soloBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b/",
 					"group": "8_gitlens_actions@9"
@@ -26345,16 +26355,6 @@
 					"command": "gitlens.graph.hideRemoteBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+remote\\b)(?!.*?\\b\\+current\\b)/",
 					"group": "8_gitlens_actions@11"
-				},
-				{
-					"command": "gitlens.graph.pinBranchToLeft",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@13"
-				},
-				{
-					"command": "gitlens.graph.unpinBranchFromLeft",
-					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@13"
 				},
 				{
 					"command": "gitlens.openWorktreeInNewWindow:graph",

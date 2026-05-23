@@ -3438,14 +3438,14 @@
 				]
 			}
 		},
-		"gitlens.graph.pinBranchToLeft": {
-			"label": "Pin to Left",
+		"gitlens.graph.pinBranchToEdge": {
+			"label": "Pin Branch to Edge",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
 						"group": "8_gitlens_actions",
-						"order": 13
+						"order": 8
 					}
 				]
 			}
@@ -4023,14 +4023,14 @@
 				]
 			}
 		},
-		"gitlens.graph.unpinBranchFromLeft": {
-			"label": "Unpin from Left",
+		"gitlens.graph.unpinBranchFromEdge": {
+			"label": "Unpin Branch from Edge",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
 						"group": "8_gitlens_actions",
-						"order": 13
+						"order": 8
 					}
 				]
 			}
