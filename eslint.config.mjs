@@ -417,9 +417,11 @@ export default defineConfig(
 			'import-x/extensions': ['.ts', '.tsx'],
 			'import-x/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
 			'import-x/resolver-next': [createCustomTypeScriptImportResolver()],
-			// Force Node subpath imports (`#...`) into the `internal` group so import-x/order is
-			// stable regardless of whether the target package's `dist/` exists at lint time.
-			'import-x/internal-regex': '^#',
+			// Force Node subpath imports (`#...`), the `@env/*` alias, and workspace `@gitlens/*`
+			// packages into the `internal` group so import-x/order is stable regardless of whether
+			// the typescript resolver can locate them (e.g., missing `dist/` or `node_modules`
+			// symlink at lint time).
+			'import-x/internal-regex': '^(#|@env/|@gitlens/)',
 		},
 	},
 
