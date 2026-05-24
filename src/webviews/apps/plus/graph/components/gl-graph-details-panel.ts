@@ -300,7 +300,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 * Threaded through to each detail-panel mode's `gl-file-tree-pane`.
 	 */
 	@property({ type: Boolean, attribute: 'show-search-box' })
-	showSearchBox = false;
+	showSearchBox = true;
 
 	/**
 	 * Persisted preference: how the file-tree search box presents non-matches —

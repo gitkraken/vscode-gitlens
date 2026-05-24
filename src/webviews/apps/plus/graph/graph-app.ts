@@ -657,7 +657,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.graphReachability=${single?.reachability}
 					.commitLite=${single?.commitLite}
 					.commitLites=${multi?.commitLites}
-					.showSearchBox=${this.graphState.details?.showSearchBox ?? false}
+					.showSearchBox=${this.graphState.details?.showSearchBox ?? true}
 					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
 					@select-commit=${this.handleSelectCommit}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
