@@ -440,16 +440,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  worktree WIPs the path is embedded in the synthetic sha by `createSecondaryWipSha`. */
 	private computeWorktreePathFromSha(sha: string | undefined): string | undefined {
 		if (sha == null) return undefined;
-		if (isSecondaryWipSha(sha)) return getSecondaryWipPath(sha);
 		if (sha === uncommitted) return this.effectiveRepoPath;
+		if (isSecondaryWipSha(sha)) return getSecondaryWipPath(sha);
 		return undefined;
 	}
 
-	/** Restore the commit-form signals for `(repoPath, worktreePath)` from the persisted draft
-	 *  (if any), or reset to a fresh state. Also re-seeds the flush fingerprint so the immediate
-	 *  following `updated()` pass doesn't echo the same data back to the host as a redundant
-	 *  IPC. */
-	private loadWipDraft(repoPath: string, worktreePath: string): void {
+	/** Restore the commit-form signals for `worktreePath` from the persisted draft (if any), or
+	 *  reset to a fresh state. Also re-seeds the flush fingerprint so the immediate following
+	 *  `updated()` pass doesn't echo the same data back to the host as a redundant IPC. */
+	private loadWipDraft(worktreePath: string): void {
+		// Flush any pending payload BEFORE swapping — the pending belongs to the OUTGOING WIP
+		// and would be silently dropped by the cancel below, losing typing within the debounce
+		// window when the user navigates rows quickly.
+		this.flushPendingWipDraftNow();
+
 		const draft = this._graphState?.wipDrafts?.[worktreePath];
 
 		this._state.commitError.set(undefined);
@@ -467,21 +471,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._state.amendBaseSha.set(undefined);
 		}
 
-		this.cancelWipDraftFlushTimer();
 		this._lastFlushedWipDraftKey = this.computeWipDraftKey(
-			repoPath,
 			worktreePath,
 			this._state.commitMessage.get(),
 			this._state.commitMessageDirty.get(),
 			this._state.amend.get(),
 			this._state.amendBaseSha.get(),
 		);
-		this._lastLoadedWipTarget = `${repoPath}\x1f${worktreePath}`;
+		this._lastLoadedWipTarget = worktreePath;
 		this._lastLoadedDraftRef = draft;
 	}
 
 	private computeWipDraftKey(
-		repoPath: string,
 		worktreePath: string,
 		message: string,
 		messageDirty: boolean,
@@ -489,20 +490,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		amendBaseSha: string | undefined,
 	): string {
 		// `\x1f` (unit separator) keeps the fingerprint cheap and unambiguous without JSON overhead.
-		return `${repoPath}\x1f${worktreePath}\x1f${message}\x1f${messageDirty ? '1' : '0'}\x1f${
+		return `${worktreePath}\x1f${message}\x1f${messageDirty ? '1' : '0'}\x1f${
 			amend && amendBaseSha != null ? amendBaseSha : ''
 		}`;
-	}
-
-	/** Cancels the debounced flush AND drops the pending payload. Use when swapping to a
-	 *  different WIP row — the new row schedules its own payload. NOT for use in disconnect:
-	 *  see {@link disconnectedCallback}. */
-	private cancelWipDraftFlushTimer(): void {
-		this._pendingWipDraft = undefined;
-		if (this._flushWipDraftTimer == null) return;
-
-		clearTimeout(this._flushWipDraftTimer);
-		this._flushWipDraftTimer = undefined;
 	}
 
 	/** Send the pending payload (if any) now. Clears the timer and the pending slot. Idempotent. */
@@ -526,7 +516,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._graphState?.setWipDraft(pending.worktreePath, pending.draft);
 
 		this._ipc?.sendCommand(UpdateWipDraftCommand, {
-			repoPath: pending.repoPath,
 			worktreePath: pending.worktreePath,
 			draft: pending.draft,
 		});
@@ -537,21 +526,28 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  so a single guard fingerprint suffices to avoid redundant IPC. */
 	private maybeScheduleWipDraftFlush(): void {
 		if (!this.isWip) {
-			this.cancelWipDraftFlushTimer();
+			// Leaving WIP entirely (e.g., user clicked a commit row). The pending payload belongs
+			// to the just-left WIP — flush rather than cancel so typing within the debounce
+			// window isn't lost.
+			this.flushPendingWipDraftNow();
 			return;
 		}
 
-		const repoPath = this.effectiveRepoPath;
 		const worktreePath = this.computeWorktreePathFromSha(this.sha);
-		if (repoPath == null || worktreePath == null) return;
+		if (worktreePath == null) return;
 
 		const message = this._state.commitMessage.get();
 		const messageDirty = this._state.commitMessageDirty.get();
 		const amend = this._state.amend.get();
 		const amendBaseSha = this._state.amendBaseSha.get();
 
-		const key = this.computeWipDraftKey(repoPath, worktreePath, message, messageDirty, amend, amendBaseSha);
+		const key = this.computeWipDraftKey(worktreePath, message, messageDirty, amend, amendBaseSha);
 		if (key === this._lastFlushedWipDraftKey) return;
+		// Skip when the pending payload already reflects this exact content — otherwise every
+		// signal-driven re-render (graph data refresh, concurrent webview echo, etc.) within
+		// the 250ms window would reset the debounce timer and indefinitely postpone the flush
+		// of typing the user already finished.
+		if (this._pendingWipDraft?.key === key) return;
 
 		const isEmpty = message === '' && !amend;
 
@@ -573,7 +569,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					amend: amend && amendBaseSha != null ? { baseSha: amendBaseSha } : undefined,
 				};
 
-		this._pendingWipDraft = { repoPath: repoPath, worktreePath: worktreePath, draft: draft, key: key };
+		this._pendingWipDraft = { worktreePath: worktreePath, draft: draft, key: key };
 		if (this._flushWipDraftTimer != null) {
 			clearTimeout(this._flushWipDraftTimer);
 		}
@@ -662,18 +658,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  (not captured in the timer closure) so {@link disconnectedCallback} can flush it
 	 *  synchronously instead of dropping it on a fast close-after-commit. */
 	private _pendingWipDraft?: {
-		repoPath: string;
 		worktreePath: string;
 		draft: StoredGraphWipDraft | null;
 		key: string;
 	};
-	/** Fingerprint of the last (repoPath, worktreePath, message, dirty, amendBase) tuple we
-	 *  flushed. Skipping when unchanged avoids redundant IPC on every re-render. */
+	/** Fingerprint of the last (worktreePath, message, dirty, amendBase) tuple we flushed.
+	 *  Skipping when unchanged avoids redundant IPC on every re-render. */
 	private _lastFlushedWipDraftKey?: string;
-	/** Fingerprint of the last `(repoPath, worktreePath)` we successfully loaded a draft for.
-	 *  Decoupled from the `changedProperties` gate so a deferred load (e.g., the WIP target
-	 *  was set on the first render but `effectiveRepoPath` only became valid after wip data
-	 *  arrived in a later signal-driven re-render) still fires. */
+	/** The `worktreePath` we last loaded a draft for. Decoupled from the `changedProperties`
+	 *  gate so a deferred load (e.g., the WIP target was set on the first render but
+	 *  `effectiveRepoPath` only became valid after wip data arrived in a later signal-driven
+	 *  re-render) still fires. */
 	private _lastLoadedWipTarget?: string;
 	/** Reference to the draft object that {@link loadWipDraft} last consumed from `wipDrafts`
 	 *  state. Used to detect content changes for the *current* target (e.g., a concurrent
@@ -935,21 +930,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const repoChanged =
 					changedProperties.has('repoPath') && changedProperties.get('repoPath') !== this.repoPath;
 
-				const repoPath = this.effectiveRepoPath;
 				const nowOnWip = this.isWip;
 				const currentWorktreePath = nowOnWip ? this.computeWorktreePathFromSha(this.sha) : undefined;
 				const prevWorktreePath = prevWasWip ? this.computeWorktreePathFromSha(prevSha) : undefined;
-				// True when the active WIP target (repo+worktree) is different from the prior
-				// selection's WIP target — covers repo switches, primary↔secondary WIP swaps
-				// within the same repo, and entering WIP from a non-WIP commit selection.
+				// True when the active WIP target (worktree) is different from the prior selection's
+				// WIP target — covers repo switches, primary↔secondary WIP swaps within the same
+				// repo, and entering WIP from a non-WIP commit selection.
 				const wipTargetChanged =
 					nowOnWip && (repoChanged || !prevWasWip || prevWorktreePath !== currentWorktreePath);
 
-				if (wipTargetChanged && repoPath != null && currentWorktreePath != null) {
+				if (wipTargetChanged && currentWorktreePath != null) {
 					// Entering (or swapping into) a WIP row. Restore the draft if one is persisted
-					// for this (repo, worktree); otherwise start fresh. Per-attempt transient state
+					// for this worktree; otherwise start fresh. Per-attempt transient state
 					// (`commitError`, `generating`) always resets — it doesn't belong to the draft.
-					this.loadWipDraft(repoPath, currentWorktreePath);
+					this.loadWipDraft(currentWorktreePath);
 				} else if (repoChanged) {
 					// Repo identity changed AND we're not landing on a WIP row (commit selection in
 					// a different repo, repo dropdown switch with no WIP target, etc.). Wipe form
@@ -989,16 +983,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the user's in-flight session. The seed still lands in `wipDrafts` via the host write;
 		// on mode exit the panel reverts and the next render rehydrates `commitMessage` from it.
 		if (this.isWip && this._state.activeMode.get() == null) {
-			const repoPath = this.effectiveRepoPath;
 			const worktreePath = this.computeWorktreePathFromSha(this.sha);
-			if (repoPath != null && worktreePath != null) {
-				const target = `${repoPath}\x1f${worktreePath}`;
+			if (worktreePath != null) {
 				const currentDraft = this._graphState?.wipDrafts?.[worktreePath];
-				if (target !== this._lastLoadedWipTarget) {
+				if (worktreePath !== this._lastLoadedWipTarget) {
 					// New WIP target — load fresh (covers initial bootstrap + WIP-target swaps where
 					// the wipTargetChanged branch above couldn't fire because `effectiveRepoPath`
 					// wasn't valid yet).
-					this.loadWipDraft(repoPath, worktreePath);
+					this.loadWipDraft(worktreePath);
 				} else if (currentDraft !== this._lastLoadedDraftRef) {
 					// Same target but the stored draft changed (concurrent webview's flush, host
 					// undo write, etc.). Reload IFF the user hasn't typed since the last load —
@@ -1006,7 +998,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					// as seen so we don't re-evaluate every render.
 					const lastLoadedMessage = this._lastLoadedDraftRef?.message ?? '';
 					if (this._state.commitMessage.get() === lastLoadedMessage) {
-						this.loadWipDraft(repoPath, worktreePath);
+						this.loadWipDraft(worktreePath);
 					} else {
 						// User diverged from the loaded draft — preserve their typing. Re-seed the
 						// flush fingerprint from the live signal state so the next
@@ -1015,7 +1007,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						// schedule a flush on first sight that the live key already implies).
 						this._lastLoadedDraftRef = currentDraft;
 						this._lastFlushedWipDraftKey = this.computeWipDraftKey(
-							repoPath,
 							worktreePath,
 							this._state.commitMessage.get(),
 							this._state.commitMessageDirty.get(),

@@ -196,9 +196,9 @@ interface WorkspaceStorageCore {
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
 	'graph:state': StoredGraphState;
-	/** Per-repo, per-worktree commit draft for the Graph's WIP details panel. Inner key is the
-	 *  worktree's fsPath (equal to the repoPath for the primary worktree). */
-	'graph:wipDraftsByRepo': Record<string, Record<string, StoredGraphWipDraft>>;
+	/** Per-worktree commit draft for the Graph's WIP details panel. Key is the worktree's
+	 *  fsPath — invariant whether the user opens the main repo or the worktree directly. */
+	'graph:wipDrafts': Record<string, StoredGraphWipDraft>;
 	/** Unified onboarding/dismissible UI state (workspace-scoped items) */
 	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;

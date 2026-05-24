@@ -2975,7 +2975,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
-		if (e.keys.includes('graph:wipDraftsByRepo') && this.repository != null) {
+		if (e.keys.includes('graph:wipDrafts') && this.repository != null) {
 			// Push the latest scoped draft map to this webview so a concurrent provider's write
 			// (other graph instance, host-initiated undo from a different webview) lands here
 			// without waiting for the next full state push.
@@ -2991,7 +2991,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 		return this.host.notify(DidChangeWipDraftsNotification, {
-			wipDrafts: this.container.storage.getWorkspace('graph:wipDraftsByRepo')?.[this.repository.path],
+			wipDrafts: this.container.storage.getWorkspace('graph:wipDrafts'),
 		});
 	}
 
@@ -6707,7 +6707,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				visible: storedPanels?.minimap?.visible ?? true,
 			},
 			pendingAction: this._pendingAction,
-			wipDrafts: this.container.storage.getWorkspace('graph:wipDraftsByRepo')?.[this.repository.path],
+			wipDrafts: this.container.storage.getWorkspace('graph:wipDrafts'),
 			timeline: {
 				period: storedGraphState?.timeline?.period,
 				sliceBy: storedGraphState?.timeline?.sliceBy,
@@ -6731,26 +6731,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(UpdateWipDraftCommand)
 	private onWipDraftUpdate(params: IpcParams<typeof UpdateWipDraftCommand>) {
-		this.writeWipDraftToStorage(params.repoPath, params.worktreePath, params.draft);
+		this.writeWipDraftToStorage(params.worktreePath, params.draft);
 	}
 
-	/** Read-merge-write of `graph:wipDraftsByRepo` for one `(repoPath, worktreePath)` slot.
-	 *  Pass `draft: null` to delete the slot; prunes empty repo maps. Used by the webview's
-	 *  `UpdateWipDraftCommand` handler AND by host-initiated writes (Undo Commit) that need
-	 *  to persist a draft without waiting for the webview to round-trip a flush. */
-	private writeWipDraftToStorage(repoPath: string, worktreePath: string, draft: StoredGraphWipDraft | null): void {
-		const current = this.container.storage.getWorkspace('graph:wipDraftsByRepo');
-		const currentRepo = current?.[repoPath];
-
-		const nextRepo = updateRecordValue(currentRepo, worktreePath, draft ?? undefined);
-		const nextRepoValue = Object.keys(nextRepo).length === 0 ? undefined : nextRepo;
-		const next = updateRecordValue(current, repoPath, nextRepoValue);
-
-		void this.container.storage.storeWorkspace('graph:wipDraftsByRepo', next).catch();
+	/** Read-merge-write of `graph:wipDrafts` for one worktree's slot. Pass `draft: null` to
+	 *  delete the slot. Used by the webview's `UpdateWipDraftCommand` handler AND by
+	 *  host-initiated writes (Undo Commit) that need to persist a draft without waiting for the
+	 *  webview to round-trip a flush. Key is the worktree's own fsPath — invariant across
+	 *  whether the user opens the main repo or the worktree directly. */
+	private writeWipDraftToStorage(worktreePath: string, draft: StoredGraphWipDraft | null): void {
+		const current = this.container.storage.getWorkspace('graph:wipDrafts');
+		const next = updateRecordValue(current, worktreePath, draft ?? undefined);
+		void this.container.storage.storeWorkspace('graph:wipDrafts', next).catch();
 	}
 
 	private pruneWipDraftsForRemovedRepos(removedPaths: string[]) {
-		const current = this.container.storage.getWorkspace('graph:wipDraftsByRepo');
+		const current = this.container.storage.getWorkspace('graph:wipDrafts');
 		if (current == null) return;
 
 		let next = current;
@@ -6763,7 +6759,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		if (!changed) return;
 
-		void this.container.storage.storeWorkspace('graph:wipDraftsByRepo', next).catch();
+		void this.container.storage.storeWorkspace('graph:wipDrafts', next).catch();
 	}
 
 	// Reset columns wrappers
@@ -8113,11 +8109,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const ref = this.getGraphItemRef(item, 'revision');
 		if (ref == null) return;
 
-		// `mainRepoPath` is the outer wipDrafts key (the graph's repo); `ref.repoPath` is the
-		// inner key — equals `mainRepoPath` for the primary worktree, the worktree's own path
-		// for a secondary worktree.
-		const mainRepoPath = this._graph?.repoPath ?? ref.repoPath;
-		const wipSha = createWipSha(ref.repoPath, mainRepoPath);
+		// `createWipSha` needs the graph's anchor repo path to distinguish the primary
+		// 'work-dir-changes' sha from a secondary `worktree-wip::<path>` sha. NEVER coalesce the
+		// second arg to `ref.repoPath` — `createWipSha(p, p)` collapses to `uncommitted` and we'd
+		// emit a primary-WIP sha for what is actually a secondary worktree. Use the bound
+		// repository's path rather than `this._graph?.repoPath` — the Repository is set when the
+		// webview activates, well before graph data loads, and is always present by the time the
+		// context-menu reaches this command.
+		const wipSha = createWipSha(ref.repoPath, this.repository?.path);
 
 		await undoCommit(this.container, ref, {
 			onBeforeReset: message => {
@@ -8127,10 +8126,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// WIP selection from the post-refresh `data.id` override at getState().
 				// `writeWipDraftToStorage` is the durable mirror of the webview-side flush so the
 				// message persists across sessions even if the user never edits.
-				this.writeWipDraftToStorage(mainRepoPath, ref.repoPath, {
-					message: message,
-					messageDirty: true,
-				});
+				this.writeWipDraftToStorage(ref.repoPath, { message: message, messageDirty: true });
 				this._honorSelectedId = true;
 				this.setSelectedRows(wipSha);
 				void this.notifyDidChangeSelection();

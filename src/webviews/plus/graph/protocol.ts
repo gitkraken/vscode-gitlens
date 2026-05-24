@@ -69,8 +69,8 @@ export function createSecondaryWipSha(path: string): string {
 	return `${secondaryWipShaPrefix}${path}`;
 }
 
-export function createWipSha(path: string, repoPath: string): string {
-	return path === repoPath ? uncommitted : createSecondaryWipSha(path);
+export function createWipSha(path: string, selectedRepoPath: string | undefined): string {
+	return path === selectedRepoPath ? uncommitted : createSecondaryWipSha(path);
 }
 
 export function getSecondaryWipPath(sha: string): string {
@@ -550,9 +550,8 @@ export interface UpdateSelectionParams {
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
 
 export interface UpdateWipDraftParams {
-	repoPath: string;
-	/** Worktree fsPath this draft belongs to. Equals `repoPath` for the primary worktree;
-	 *  for secondary worktrees, the worktree's own fsPath. */
+	/** Worktree fsPath this draft belongs to — the storage key. Equals the main repo path for
+	 *  the primary worktree; the worktree's own fsPath for secondary worktrees. */
 	worktreePath: string;
 	/** `null` ⇒ delete the entry. */
 	draft: StoredGraphWipDraft | null;
@@ -921,7 +920,7 @@ export const DidChangeRepoConnectionNotification = new IpcNotification<DidChange
 export interface DidChangeWipDraftsParams {
 	wipDrafts: Record<string, StoredGraphWipDraft> | undefined;
 }
-/** Fired when `graph:wipDraftsByRepo` changes in workspace storage. Lets a concurrent webview
+/** Fired when `graph:wipDrafts` changes in workspace storage. Lets a concurrent webview
  *  instance (e.g. sidebar + editor view open simultaneously, or two editor instances) refresh
  *  its in-memory `wipDrafts` from storage without waiting for a full state push. */
 export const DidChangeWipDraftsNotification = new IpcNotification<DidChangeWipDraftsParams>(

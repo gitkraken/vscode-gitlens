@@ -3,7 +3,7 @@ import { ContextProvider } from '@lit/context';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
-import { areEqual, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
+import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
@@ -1309,11 +1309,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._activeWipWatchers = new Set(repoPaths);
 	}
 
-	/** Patch one `(worktreePath, draft)` slot in the per-repo wipDrafts map. Routes through
+	/** Patch one `(worktreePath, draft)` slot in the wipDrafts map. Routes through
 	 *  {@link updateState} so `_state.wipDrafts` stays in sync with the signal accessor. Pass
-	 *  `draft: null` to delete; prunes the parent map to `undefined` when empty. Short-circuits
-	 *  when the slot's content is unchanged so per-keystroke flushes don't trigger redundant
-	 *  panel re-renders. */
+	 *  `draft: null` to delete; the parent map collapses to `undefined` when empty.
+	 *  Short-circuits when the slot's content is unchanged so per-keystroke flushes don't
+	 *  trigger redundant panel re-renders.
+	 *  Builds a fresh outer map rather than mutating — the signal accessor uses `Object.is`
+	 *  comparison, so passing the same outer reference back through `updateState` would
+	 *  silently skip the change notification and downstream subscribers wouldn't re-render. */
 	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void {
 		const current = this.wipDrafts;
 		const existing = current?.[worktreePath];
@@ -1327,8 +1330,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 		if (draft == null && existing == null) return;
 
-		const merged = updateRecordValue(current, worktreePath, draft ?? undefined);
-		this.updateState({ wipDrafts: hasKeys(merged) ? merged : undefined });
+		let merged: Record<string, StoredGraphWipDraft> | undefined;
+		if (draft != null) {
+			merged = { ...current, [worktreePath]: { ...draft } };
+		} else {
+			const { [worktreePath]: _, ...rest } = current ?? {};
+			merged = hasKeys(rest) ? rest : undefined;
+		}
+		this.updateState({ wipDrafts: merged });
 	}
 
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
