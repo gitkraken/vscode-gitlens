@@ -115,7 +115,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	@property({ type: Boolean, attribute: 'compare-enabled' })
 	compareEnabled = false;
 
-	/** Host opts in to showing the "Jump to Nearest Working Changes" action (graph host only). */
+	/** Host opts in to showing the "Jump to Working Changes" action (graph host only). */
 	@property({ type: Boolean, attribute: 'show-jump-to-nearest-wip' })
 	showJumpToNearestWip = false;
 
@@ -391,7 +391,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					html`<gl-action-chip
 						slot="actions"
 						icon="arrow-up"
-						label="Jump to Nearest Working Changes"
+						label="Jump to Working Changes"
 						overlay="tooltip"
 						@click=${this.onJumpToNearestWipClick}
 					></gl-action-chip>`,

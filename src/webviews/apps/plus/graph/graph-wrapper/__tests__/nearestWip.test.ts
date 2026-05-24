@@ -1,9 +1,9 @@
 import * as assert from 'assert';
-import type { GraphRow } from '@gitkraken/gitkraken-components';
+import type { ColumnNumberBySha, GraphRow } from '@gitkraken/gitkraken-components';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { createSecondaryWipSha } from '../../../../../plus/graph/protocol.js';
 import type { WipCandidate } from '../nearestWip.js';
-import { findNearestWipSha } from '../nearestWip.js';
+import { filterWipsInLaneOf, findNearestWipSha } from '../nearestWip.js';
 
 function commit(sha: string, parents: string[] = []): GraphRow {
 	return { sha: sha, parents: parents, type: 'commit-node' } as unknown as GraphRow;
@@ -94,5 +94,44 @@ suite('findNearestWipSha', () => {
 		];
 
 		assert.strictEqual(findNearestWipSha('B1', wips, rows), secondarySha);
+	});
+});
+
+suite('filterWipsInLaneOf', () => {
+	const secondarySha = createSecondaryWipSha('/repo/wt');
+	const wips: WipCandidate[] = [
+		{ sha: uncommitted, anchor: 'A1' },
+		{ sha: secondarySha, anchor: 'B1' },
+	];
+
+	test('keeps WIPs whose anchor shares the clicked commit column', () => {
+		const columns: ColumnNumberBySha = { A1: 0, A2: 0, B1: 1 };
+		const result = filterWipsInLaneOf('A2', wips, columns);
+		assert.strictEqual(result.length, 1);
+		assert.strictEqual(result[0].sha, uncommitted);
+	});
+
+	test('drops off-column WIPs', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1, X: 0 };
+		const result = filterWipsInLaneOf('X', wips, columns);
+		assert.deepStrictEqual(
+			result.map(w => w.sha),
+			[uncommitted],
+		);
+	});
+
+	test('returns input identity when columnsBySha is undefined', () => {
+		assert.strictEqual(filterWipsInLaneOf('A1', wips, undefined), wips);
+	});
+
+	test('returns input identity when fromSha column is unknown', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1 };
+		assert.strictEqual(filterWipsInLaneOf('unknown', wips, columns), wips);
+	});
+
+	test('returns empty array when no WIPs share the clicked commit column', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1, X: 2 };
+		const result = filterWipsInLaneOf('X', wips, columns);
+		assert.deepStrictEqual(result, []);
 	});
 });

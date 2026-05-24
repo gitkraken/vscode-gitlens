@@ -1,4 +1,5 @@
 import type {
+	ColumnNumberBySha,
 	CommitType,
 	CssVariables,
 	ExcludeRefsById,
@@ -144,6 +145,7 @@ export interface GraphWrapperEvents {
 	onScopeAnchorsUnreachable?: (unreachableAnchors: Set<string>) => void;
 	onWipShasMissingStats?: (shas: Record<string, true>) => void;
 	onVisibleWipShasChanged?: (shas: Record<string, true>) => void;
+	onColumnsCalculated?: (columnsBySha: ColumnNumberBySha) => void;
 }
 
 const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -1096,6 +1098,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			onScopeAnchorsUnreachable={initProps.onScopeAnchorsUnreachable}
 			onWipShasMissingStats={initProps.onWipShasMissingStats}
 			onVisibleWipShasChanged={initProps.onVisibleWipShasChanged}
+			onColumnsCalculated={initProps.onColumnsCalculated}
 		/>
 	);
 });

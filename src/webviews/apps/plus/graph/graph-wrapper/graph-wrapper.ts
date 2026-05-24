@@ -1,6 +1,7 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
 import type {
+	ColumnNumberBySha,
 	CssVariables,
 	GraphRow,
 	GraphZoneType,
@@ -66,7 +67,7 @@ import {
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import type { WipCandidate } from './nearestWip.js';
-import { findNearestWipSha } from './nearestWip.js';
+import { filterWipsInLaneOf, findNearestWipSha } from './nearestWip.js';
 import './gl-graph.js';
 
 // Builds the display message for a WIP row. The label (worktree name) is appended in parens for
@@ -213,6 +214,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.ensureAndSelectCommit(e.detail.sha);
 	};
 
+	// Per-SHA column assignments from the GK component (`onColumnsCalculated`). Held on the
+	// instance and consulted on-demand by `onJumpToNearestWip` so the jump never crosses lanes
+	// to a different worktree's WIP. Stays undefined until the first layout pass — callers
+	// must handle that as "lane filter unavailable" (see `filterWipsInLaneOf`).
+	private _columnsBySha: ColumnNumberBySha | undefined;
+
+	private onColumnsCalculated = (event: CustomEvent<ColumnNumberBySha>): void => {
+		this._columnsBySha = event.detail;
+	};
+
 	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>) => {
 		const wips: WipCandidate[] = [];
 
@@ -230,7 +241,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 		}
 
-		const target = findNearestWipSha(e.detail.fromSha, wips, this.graphState.rows);
+		// Restrict to WIPs rendered in the same column as the clicked commit so the jump never
+		// crosses into another worktree/branch's lane. When column data isn't available yet,
+		// `filterWipsInLaneOf` returns the input untouched and we degrade to the prior
+		// nearest-by-ancestry behavior.
+		const inLane = filterWipsInLaneOf(e.detail.fromSha, wips, this._columnsBySha);
+
+		// Lane data was available but no WIP shares the clicked commit's lane — fall back to the
+		// primary WIP (the current branch's Working Changes). Predictable and matches the chip's
+		// "Jump to Working Changes" label.
+		if (inLane.length === 0) {
+			this.ensureAndSelectCommit(uncommitted);
+			return;
+		}
+
+		const target = findNearestWipSha(e.detail.fromSha, inLane, this.graphState.rows);
 		if (target == null) return;
 
 		this.ensureAndSelectCommit(target);
@@ -574,6 +599,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@scopeanchorsunreachable=${this.onScopeAnchorsUnreachable}
 			@wipshasmissingstats=${this.onWipShasMissingStats}
 			@visiblewipshaschanged=${this.onVisibleWipShasChanged}
+			@columnscalculated=${this.onColumnsCalculated}
 		></gl-graph>`;
 	}
 

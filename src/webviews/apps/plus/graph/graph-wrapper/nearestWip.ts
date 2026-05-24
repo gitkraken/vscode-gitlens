@@ -1,4 +1,4 @@
-import type { GraphRow, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
+import type { ColumnNumberBySha, GraphRow, ReadonlyGraphRow } from '@gitkraken/gitkraken-components';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 
 type Row = GraphRow | ReadonlyGraphRow;
@@ -6,6 +6,25 @@ type Row = GraphRow | ReadonlyGraphRow;
 export interface WipCandidate {
 	sha: string;
 	anchor: string;
+}
+
+/**
+ * Restricts WIP candidates to those whose `anchor` is rendered in the same graph column as
+ * `fromSha`. Returns the input untouched when `columnsBySha` is undefined or when `fromSha`'s
+ * column isn't known yet — callers should treat that as "lane filter unavailable" and fall
+ * through to whatever the rest of the pipeline does.
+ */
+export function filterWipsInLaneOf(
+	fromSha: string,
+	wips: readonly WipCandidate[],
+	columnsBySha: ColumnNumberBySha | undefined,
+): readonly WipCandidate[] {
+	if (columnsBySha == null) return wips;
+
+	const fromColumn = columnsBySha[fromSha];
+	if (fromColumn == null) return wips;
+
+	return wips.filter(w => columnsBySha[w.anchor] === fromColumn);
 }
 
 export function findNearestWipSha(
