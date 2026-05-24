@@ -44,10 +44,12 @@ async function buildTests(target) {
 	config.alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : 'node'),
 		'@gitlens/utils': path.resolve(__dirname, 'packages', 'utils', 'src'),
+		'@gitlens/ipc': path.resolve(__dirname, 'packages', 'ipc', 'src'),
 		'@gitlens/git': path.resolve(__dirname, 'packages', 'git', 'src'),
 		'@gitlens/git-cli': path.resolve(__dirname, 'packages', 'git-cli', 'src'),
 		'@gitlens/git-github': path.resolve(__dirname, 'packages', 'plus', 'git-github', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
+		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
 
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),

@@ -182,9 +182,15 @@ suite('setupSubscriptions Test Suite', () => {
 	suite('onRepositoryChanged dispatch', () => {
 		async function run(
 			changes: RepositoryChange[],
-			repoPath = '/repo/selected',
-			overviewRepoPath: string | undefined = '/repo/selected',
+			repoPath?: string,
+			...overviewRepoPathArg: [overviewRepoPath?: string | undefined]
 		): Promise<{ activeCalls: number; inactiveCalls: number; overviewCalls: number }> {
+			// Defaults are applied manually so an explicit `undefined` for `overviewRepoPath`
+			// is preserved (a `param = default` declaration replaces explicit `undefined` with
+			// the default, masking the "no overview repo selected" test case).
+			repoPath ??= '/repo/selected';
+			const overviewRepoPath = overviewRepoPathArg.length > 0 ? overviewRepoPathArg[0] : '/repo/selected';
+
 			const state = {
 				home: createHomeState(new InMemoryStorage()),
 				integrations: createIntegrationsState(),

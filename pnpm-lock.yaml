@@ -83,6 +83,9 @@ importers:
       '@gitlens/git-github':
         specifier: workspace:*
         version: link:packages/plus/git-github
+      '@gitlens/ipc':
+        specifier: workspace:*
+        version: link:packages/ipc
       '@gitlens/utils':
         specifier: workspace:*
         version: link:packages/utils

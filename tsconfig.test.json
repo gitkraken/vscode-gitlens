@@ -1,6 +1,7 @@
 {
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
+		"noEmit": true,
 		"rootDir": ".",
 		"outDir": "out/tests",
 		"paths": {
