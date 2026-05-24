@@ -175,11 +175,8 @@ import {
 	getRemoteProviderUrl,
 	remoteSupportsIntegration,
 } from '../../../git/utils/-webview/remote.utils.js';
-import {
-	getOpenedWorktreesByBranch,
-	getWorktreeHasWorkingChanges,
-	getWorktreesByBranch,
-} from '../../../git/utils/-webview/worktree.utils.js';
+import type { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktree.utils.js';
+import { getOpenedWorktreesByBranch, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
@@ -246,7 +243,7 @@ import type {
 	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
-import { getOverviewEnrichment, getOverviewWip, getOverviewWipBasic } from '../../shared/overviewEnrichment.utils.js';
+import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
@@ -366,7 +363,6 @@ import {
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
-	DidChangeOverviewWipNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
@@ -2283,15 +2279,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onGetOverviewWip(params: IpcParams<typeof GetOverviewWipRequest>): Promise<GetOverviewWipResponse> {
 		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
 
-		// Default eager path uses the lightweight clean/dirty probe — full add/changed/deleted
-		// breakdown is fetched on demand by the rich hover via `GetOverviewWipDetailedRequest`.
-		const data = this._graph;
-		return getOverviewWipBasic(
-			this.container,
-			data.branches.values(),
-			data.worktreesByBranch ?? new Map(),
-			params.branchIds,
-		);
+		// Visibility-refresh path: webview asks for current overview WIP on panel mount / focus.
+		// Routes through the shared `_wipStatusCache`, so when the per-event push has just
+		// populated entries (within 10s TTL) this is essentially free — no extra `git status`.
+		// Cold entries (off-screen worktree without active watcher) miss → fetched once →
+		// populated for any subsequent reader (rich hover, worktrees panel, next event push).
+		return this.computeOverviewWipFromCache(params.branchIds);
 	}
 
 	@ipcRequest(GetOverviewWipDetailedRequest)
@@ -2300,13 +2293,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	): Promise<GetOverviewWipResponse> {
 		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
 
-		const data = this._graph;
-		return getOverviewWip(
-			this.container,
-			data.branches.values(),
-			data.worktreesByBranch ?? new Map(),
-			params.branchIds,
-		);
+		return this.computeOverviewWipFromCache(params.branchIds);
+	}
+
+	private computeOverviewWipFromCache(branchIds: string[]): Promise<GetOverviewWipResponse> {
+		const data = this._graph!;
+		return getOverviewWip(this.container, data.branches.values(), data.worktreesByBranch ?? new Map(), branchIds, {
+			fetchStatus: (path, signal) => {
+				const svc = this.container.git.getRepositoryService(path);
+				return this._wipStatusCache.getOrCreate(
+					path,
+					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+					{ cancellation: signal },
+				);
+			},
+		});
 	}
 
 	@ipcRequest(GetOverviewEnrichmentRequest)
@@ -5254,8 +5255,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		try {
 			const results = await Promise.allSettled(
 				worktrees.map(async w => {
-					const hasChanges = await getWorktreeHasWorkingChanges(this.container, w);
-					return [w.uri.fsPath, hasChanges] as const;
+					if (w.type === 'bare') return [w.uri.fsPath, undefined] as const;
+
+					// Route through `_wipStatusCache` so the worktrees panel shares status data
+					// with the WIP/overview paths — when the per-event push has just populated the
+					// cache for this worktree, the panel fetch is free.
+					const path = w.uri.fsPath;
+					const svc = this.container.git.getRepositoryService(path);
+					const status = await this._wipStatusCache.getOrCreate(path, (_cacheable, factorySignal) =>
+						svc.status.getStatus(undefined, factorySignal),
+					);
+					return [path, status != null ? status.files.length > 0 : undefined] as const;
 				}),
 			);
 
@@ -5314,6 +5324,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const repo = this.repository;
 		if (repo == null || !this.container.git.repositoryCount) return false;
 
+		// Working-tree event means this repo's status has changed; drop any cached `_wipStatusCache`
+		// entry so the fetch below sees fresh data. Mirrors the secondary worktree watcher's
+		// invalidate-then-refetch pattern (see `_wipWatches` setup) — without this, rapid-succession
+		// primary edits within the 10s TTL would serve stale data through the per-event push.
+		this._wipStatusCache.invalidate(repo.path);
+
 		// Single `git status` per working-tree tick. The details panel previously did a second
 		// `getWip` RPC after the host sent stats — both runs returned the same status data, just
 		// derived differently. Pushing the full WIP here eliminates the round-trip AND removes
@@ -5328,37 +5344,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// a fabricated zero state. The next tick re-tries.
 		if (wipAndStatsResult === undefined) return false;
 
-		const result = this.host.notify(DidChangeWorkingTreeNotification, {
+		// Overview entries for this repo's branch are updated inline by the webview's notification
+		// handler from the same `wip` payload above (`mergeOverviewWipForRepo`). The previous bulk
+		// fanout that re-probed every visible branch on every primary FS event is gone — non-live
+		// entries (opened worktrees whose graph WIP row is off-screen) refresh lazily when the
+		// overview panel becomes visible, served from `_wipStatusCache` when warm.
+		return this.host.notify(DidChangeWorkingTreeNotification, {
 			stats: wipAndStatsResult.stats,
 			wipMetadataBySha: wipMetadataBySha,
 			wip: wipAndStatsResult.wip,
 			repoPath: repo.path,
 		});
-
-		// Also push WIP updates for overview branches.
-		void this.notifyDidChangeOverviewWip();
-
-		return result;
-	}
-
-	private async notifyDidChangeOverviewWip() {
-		if (!this.host.ready || !this.host.visible) return;
-		if (this._graph == null) return;
-
-		const worktreesByBranch = this._graph.worktreesByBranch ?? new Map();
-		const branchIds: string[] = [];
-		for (const branch of this._graph.branches.values()) {
-			if (branch.remote) continue;
-
-			if (branch.current || worktreesByBranch.get(branch.id)?.opened) {
-				branchIds.push(branch.id);
-			}
-		}
-		if (branchIds.length === 0) return;
-
-		const wip = await this.onGetOverviewWip({ branchIds: branchIds });
-
-		void this.host.notify(DidChangeOverviewWipNotification, { branchIds: branchIds, wip: wip });
 	}
 
 	@trace()
@@ -6261,8 +6257,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		signal?.throwIfAborted();
 
 		const svc = this.container.git.getRepositoryService(repo.path);
+		// Route `getStatus` through `_wipStatusCache` so every WIP/overview/worktrees code path
+		// shares the same status data within the cache's TTL — FS-watcher invalidations keep it
+		// honest, and the lazy overview-panel-visibility refresh + worktrees-panel fetch get
+		// served from cache when warm (often right after we just populated it here).
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			svc.status.getStatus(undefined, signal),
+			this._wipStatusCache.getOrCreate(
+				repo.path,
+				(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+				{ cancellation: signal },
+			),
 			svc.pausedOps?.getPausedOperationStatus?.(signal),
 		]);
 		const status = getSettledValue(statusResult);

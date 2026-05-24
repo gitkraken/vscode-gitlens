@@ -1,5 +1,6 @@
 import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
+import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -29,7 +30,6 @@ import {
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
-	DidChangeOverviewWipNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
@@ -1037,10 +1037,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ overview: msg.params.overview });
 				break;
 
-			case DidChangeOverviewWipNotification.is(msg):
-				this.overviewWip = msg.params;
-				break;
-
 			case DidChangeAgentSessionsNotification.is(msg):
 				this.agentSessions = sortAgentSessions(msg.params.sessions);
 				break;
@@ -1099,6 +1095,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					this.cacheWip(msg.params.repoPath, msg.params.wip);
 				}
 				this.updateState(updates);
+				// Merge the overview entry for the primary's current branch from the same fetch,
+				// so the overview card's dirty/clean indicator stays live without the bulk probe.
+				// Skip on detached HEAD (no branch to key by).
+				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip);
 				break;
 			}
 
@@ -1142,6 +1142,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						}
 					}
 					this.updateState(updates);
+					// Merge the overview entry from the same fetch. For secondaries the branchId
+					// lives on `wipMetadataBySha[secondarySha].branchRef` (pre-computed host-side
+					// with the MAIN repo path); fall back to deriving from the wip payload's
+					// branch name if absent.
+					this.mergeOverviewWipForRepo(repoPath, msg.params.wip);
 				}
 				break;
 			}
@@ -1264,6 +1269,46 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private cacheWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
 		this._pendingLocalEditPaths.delete(repoPath);
+	}
+
+	/**
+	 * Merge a single overview entry from a host wip push. Pushes a partial `overviewWip` with just
+	 * the one branchId — the consumer at `graph-overview.ts` iterates `pushedWip.branchIds` and
+	 * preserves untouched entries via the spread in `nextWipData`. New object reference forces the
+	 * consumer's `_lastPushedWip !==` check to re-process.
+	 *
+	 * Discriminates by `repoPath === selectedRepository` rather than "try secondary lookup, fall
+	 * back to deriving": a secondary push that lands before its `wipMetadataBySha` entry exists
+	 * (early-mount race) must NOT fall back to deriving `getBranchId(secondaryPath, ...)` — that
+	 * produces a phantom branchId no card renders, silently losing the update.
+	 */
+	private mergeOverviewWipForRepo(repoPath: string | undefined, wip: Wip | undefined): void {
+		if (repoPath == null || wip == null) return;
+
+		let branchId: string | undefined;
+		if (repoPath === this.selectedRepository) {
+			// Primary repo: derive directly from the wip payload's branch name + primary path.
+			const branchName = wip.changes?.branchName;
+			if (!branchName) return; // detached HEAD or empty
+
+			branchId = getBranchId(repoPath, false, branchName);
+		} else {
+			// Secondary worktree: branchRef is pre-computed host-side with the MAIN repo path,
+			// which is the format overview entries are keyed by. If metadata hasn't loaded yet,
+			// skip — the next event for this worktree will recover once metadata lands.
+			const secondarySha = createSecondaryWipSha(repoPath);
+			branchId = this.wipMetadataBySha?.[secondarySha]?.branchRef;
+			if (branchId == null) return;
+		}
+
+		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
+		const pausedOpStatus = wip.changes?.pausedOpStatus;
+
+		const prev = this.overviewWip;
+		this.overviewWip = {
+			branchIds: [branchId],
+			wip: { ...(prev?.wip ?? {}), [branchId]: { hasChanges: hasChanges, pausedOpStatus: pausedOpStatus } },
+		};
 	}
 
 	/**

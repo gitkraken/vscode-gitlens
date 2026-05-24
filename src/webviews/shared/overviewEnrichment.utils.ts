@@ -229,77 +229,25 @@ export async function getPullRequestInfo(
 	};
 }
 
-/**
- * Lightweight wip lookup — uses `git diff --quiet` (binary clean/dirty) plus a paused-op probe.
- * Avoids `getStatus`'s full file enumeration, which is what the eager overview load needs to
- * render a dirty indicator. The full breakdown shown in the rich hover is fetched separately via
- * {@link getOverviewWip}.
- */
-export async function getOverviewWipBasic(
-	container: Container,
-	branches: Iterable<GitBranch>,
-	worktreesByBranch: ReadonlyMap<string, GitWorktree>,
-	branchIds: string[],
-	options?: { signal?: AbortSignal },
-): Promise<GetOverviewWipResponse> {
-	if (branchIds.length === 0) return {};
-
-	const signal = options?.signal;
-
-	const branchesById = new Map<string, GitBranch>();
-	for (const branch of branches) {
-		if (branch.remote) continue;
-
-		branchesById.set(branch.id, branch);
-	}
-
-	const result: GetOverviewWipResponse = {};
-
-	await Promise.allSettled(
-		branchIds.map(async branchId => {
-			const branch = branchesById.get(branchId);
-			if (branch == null) return;
-
-			const wt = worktreesByBranch.get(branchId);
-			// Mirror getOverviewWip's branch-selection logic — only branches with a working tree
-			// (current branch in main repo or any worktree-backed branch) have wip to inspect.
-			if (wt == null && !branch.current) return;
-
-			const isActive = branch.current || wt?.opened === true;
-			const repoPath = wt?.path ?? branch.repoPath;
-			const svc = container.git.getRepositoryService(repoPath);
-
-			const [hasChangesResult, pausedOpStatusResult] = await Promise.allSettled([
-				svc.status.hasWorkingChanges(undefined, signal),
-				isActive ? svc.pausedOps?.getPausedOperationStatus?.(signal) : undefined,
-			]);
-
-			const hasChanges = getSettledValue(hasChangesResult) ?? false;
-			const pausedOpStatus = getSettledValue(pausedOpStatusResult);
-
-			if (hasChanges || pausedOpStatus != null) {
-				result[branchId] = {
-					hasChanges: hasChanges,
-					pausedOpStatus: pausedOpStatus,
-				};
-			}
-		}),
-	);
-
-	options?.signal?.throwIfAborted();
-	return result;
-}
-
 export async function getOverviewWip(
 	container: Container,
 	branches: Iterable<GitBranch>,
 	worktreesByBranch: ReadonlyMap<string, GitWorktree>,
 	branchIds: string[],
-	options?: { priority?: GitCommandPriority; signal?: AbortSignal },
+	options?: {
+		priority?: GitCommandPriority;
+		signal?: AbortSignal;
+		/**
+		 * Optional cache-aware status fetcher. Callers (the Graph webview) supply a callback that
+		 * routes through their `_wipStatusCache` so repeat hovers / overview refreshes within the
+		 * cache TTL don't re-fetch. When omitted, falls back to direct fetches (Home uses this).
+		 */
+		fetchStatus?: (repoPath: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
+	},
 ): Promise<GetOverviewWipResponse> {
 	if (branchIds.length === 0) return {};
 
-	const { priority, signal } = options ?? {};
+	const { priority, signal, fetchStatus } = options ?? {};
 	const statusOptions = priority != null ? { priority: priority } : undefined;
 
 	const branchesById = new Map<string, GitBranch>();
@@ -319,11 +267,16 @@ export async function getOverviewWip(
 
 		const wt = worktreesByBranch.get(branchId);
 		if (wt != null) {
-			statusPromises.set(branchId, GitWorktree.getStatus(wt, statusOptions, signal));
+			const wtStatusPromise =
+				fetchStatus != null && wt.type !== 'bare'
+					? fetchStatus(wt.uri.fsPath, signal)
+					: GitWorktree.getStatus(wt, statusOptions, signal);
+			statusPromises.set(branchId, wtStatusPromise);
 		} else if (branch.current) {
-			repoStatusPromise ??= container.git
-				.getRepositoryService(branch.repoPath)
-				.status.getStatus(statusOptions, signal);
+			repoStatusPromise ??=
+				fetchStatus != null
+					? fetchStatus(branch.repoPath, signal)
+					: container.git.getRepositoryService(branch.repoPath).status.getStatus(statusOptions, signal);
 			statusPromises.set(branchId, repoStatusPromise);
 		}
 	}
@@ -331,11 +284,16 @@ export async function getOverviewWip(
 	await Promise.allSettled(
 		Array.from(statusPromises.entries(), async ([branchId, statusPromise]) => {
 			const branch = branchesById.get(branchId)!;
-			const isActive = branch.current || worktreesByBranch.get(branchId)?.opened === true;
+			const wt = worktreesByBranch.get(branchId);
+			const isActive = branch.current || wt?.opened === true;
+			// Paused-op must come from the same repo as the status — for a worktree-backed branch,
+			// `branch.repoPath` is the MAIN repo, so a worktree mid-rebase/merge/cherry-pick would
+			// otherwise show the main repo's paused-op state (likely none) instead of its own.
+			const repoPath = wt?.uri.fsPath ?? branch.repoPath;
 			const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 				statusPromise,
 				isActive
-					? container.git.getRepositoryService(branch.repoPath).pausedOps?.getPausedOperationStatus?.(signal)
+					? container.git.getRepositoryService(repoPath).pausedOps?.getPausedOperationStatus?.(signal)
 					: undefined,
 			]);
 

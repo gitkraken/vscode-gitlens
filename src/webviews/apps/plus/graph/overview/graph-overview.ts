@@ -209,6 +209,13 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				recentThreshold: this._state.overviewRecentThreshold,
 			});
 		} else {
+			// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
+			// drift accumulated while the overview panel was hidden (e.g. file edits in opened
+			// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
+			// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
+			// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+			// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
+			this._lastOverviewFingerprint = undefined;
 			this.maybeRefetchOverviewData(this._state.overview);
 		}
 	}
