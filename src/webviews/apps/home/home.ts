@@ -126,12 +126,104 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	private _agentResource?: Resource<GetInactiveOverviewResponse>;
 	private _inactiveFilter?: Partial<OverviewFilters>;
 	private readonly _refreshOverviewDebounced = debounce(() => {
-		void this._activeResource?.fetch();
-		void this._inactiveResource?.fetch();
+		void this._fetchActiveCoalesced();
+		void this._fetchInactiveCoalesced();
+	}, 500);
+	// Active-only refresh: FS events and per-flag dispatches that can't shift the inactive
+	// list (e.g. `index`/`pausedOp`) target this debounce instead of `_refreshOverviewDebounced`,
+	// so the inactive resource doesn't re-fetch its full skeleton + WIP + enrichment for an
+	// edit that only touched the current branch's working tree.
+	private readonly _refreshActiveDebounced = debounce(() => {
+		void this._fetchActiveCoalesced();
 	}, 500);
 	private readonly _refreshInactiveDebounced = debounce(() => {
-		void this._inactiveResource?.fetch();
+		void this._fetchInactiveCoalesced();
 	}, 100);
+
+	// Per-resource in-flight gates. Concurrent callers receive the in-flight promise instead
+	// of triggering a `Resource.fetch()` that would cancel-and-restart the existing one (its
+	// default behavior is `cancelPrevious=true`). A trailing-edge re-fire after settle ensures
+	// the latest request gets fresh data. Same shape as Graph's `_wipNotifyInFlight` /
+	// `_wipNotifyDirty` pattern in graphWebview.ts.
+	//
+	// `replaceOverview` bypasses these gates — it explicitly cancels and force-fetches; the
+	// reset helper below clears in-flight tracking so the new fetch isn't shadowed by a
+	// just-canceled promise.
+	private _activeFetchInFlight?: Promise<void>;
+	private _activeFetchDirty = false;
+	private _inactiveFetchInFlight?: Promise<void>;
+	private _inactiveFetchDirty = false;
+	private _agentFetchInFlight?: Promise<void>;
+	private _agentFetchDirty = false;
+
+	private _fetchActiveCoalesced(): Promise<void> {
+		const resource = this._activeResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._activeFetchInFlight != null) {
+			this._activeFetchDirty = true;
+			return this._activeFetchInFlight;
+		}
+
+		const run = resource.fetch().finally(() => {
+			this._activeFetchInFlight = undefined;
+			if (this._activeFetchDirty) {
+				this._activeFetchDirty = false;
+				void this._fetchActiveCoalesced();
+			}
+		});
+		this._activeFetchInFlight = run;
+		return run;
+	}
+
+	private _fetchInactiveCoalesced(): Promise<void> {
+		const resource = this._inactiveResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._inactiveFetchInFlight != null) {
+			this._inactiveFetchDirty = true;
+			return this._inactiveFetchInFlight;
+		}
+
+		const run = resource.fetch().finally(() => {
+			this._inactiveFetchInFlight = undefined;
+			if (this._inactiveFetchDirty) {
+				this._inactiveFetchDirty = false;
+				void this._fetchInactiveCoalesced();
+			}
+		});
+		this._inactiveFetchInFlight = run;
+		return run;
+	}
+
+	private _fetchAgentCoalesced(): Promise<void> {
+		const resource = this._agentResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._agentFetchInFlight != null) {
+			this._agentFetchDirty = true;
+			return this._agentFetchInFlight;
+		}
+
+		const run = resource.fetch().finally(() => {
+			this._agentFetchInFlight = undefined;
+			if (this._agentFetchDirty) {
+				this._agentFetchDirty = false;
+				void this._fetchAgentCoalesced();
+			}
+		});
+		this._agentFetchInFlight = run;
+		return run;
+	}
+
+	private _resetFetchGates(): void {
+		this._activeFetchInFlight = undefined;
+		this._activeFetchDirty = false;
+		this._inactiveFetchInFlight = undefined;
+		this._inactiveFetchDirty = false;
+		this._agentFetchInFlight = undefined;
+		this._agentFetchDirty = false;
+	}
 
 	/**
 	 * Unsubscribe function for RPC event subscriptions.
@@ -213,6 +305,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 		// Dispose and clear resource references
 		this._refreshOverviewDebounced.cancel();
+		this._refreshActiveDebounced.cancel();
 		this._refreshInactiveDebounced.cancel();
 		this._activeResource?.dispose();
 		this._inactiveResource?.dispose();
@@ -518,7 +611,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 			void (async () => {
 				const unsubscribe = (await repository.onRepositoryWorkingChanged(repoPath, () => {
-					this._refreshOverviewDebounced();
+					// FS events in the selected overview repo can only shift the active branch's
+					// WIP — inactive branches root their working trees elsewhere. Targeting the
+					// active-only debounce avoids re-running the inactive skeleton + WIP +
+					// enrichment pipeline on every file save.
+					this._refreshActiveDebounced();
 				})) as unknown as (() => void) | undefined;
 				if (typeof unsubscribe !== 'function') return;
 				if (watchWipRepoPath !== repoPath) {
@@ -531,13 +628,17 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		};
 		const replaceOverview = (): void => {
 			this._refreshOverviewDebounced.cancel();
+			this._refreshActiveDebounced.cancel();
 			this._refreshInactiveDebounced.cancel();
 			this._activeResource?.cancel();
 			this._inactiveResource?.cancel();
 			this._agentResource?.cancel();
-			void this._activeResource?.fetch();
-			void this._inactiveResource?.fetch();
-			void this._agentResource?.fetch();
+			// Clear coalesce tracking before re-fetching — otherwise the next coalesced caller
+			// would receive the just-canceled in-flight promise.
+			this._resetFetchGates();
+			void this._fetchActiveCoalesced();
+			void this._fetchInactiveCoalesced();
+			void this._fetchAgentCoalesced();
 			// Re-subscribe FS watcher for the (possibly new) overview repo
 			watchWipForRepo(this._homeState.overviewRepositoryPath.get());
 		};
@@ -546,6 +647,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const actions: SubscriptionActions = {
 			refreshOverview: () => {
 				this._refreshOverviewDebounced();
+			},
+			refreshActiveOverview: () => {
+				this._refreshActiveDebounced();
 			},
 			refreshInactiveOverview: () => {
 				this._refreshInactiveDebounced();
@@ -567,7 +671,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				}
 			},
 			refreshAgentOverview: () => {
-				void this._agentResource?.fetch();
+				void this._fetchAgentCoalesced();
 			},
 		};
 		this._unsubscribeEvents = await phaseTimeout(
@@ -600,6 +704,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const onVisibilityChange = (): void => {
 			if (document.visibilityState !== 'visible') {
 				this._refreshOverviewDebounced.cancel();
+				this._refreshActiveDebounced.cancel();
 				this._refreshInactiveDebounced.cancel();
 				replaceOverviewDebounced.cancel();
 				return;
@@ -607,7 +712,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 			// Visibility restored — refresh overview and launchpad
 			this._refreshOverviewDebounced();
-			void this._agentResource?.fetch();
+			void this._fetchAgentCoalesced();
 			if (launchpad != null) {
 				void fetchLaunchpadSummary(root.launchpad, launchpad);
 			}
