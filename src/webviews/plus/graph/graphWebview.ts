@@ -6821,32 +6821,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/**
 	 * Resolves the include-only ref set for the `agents` branches-visibility scope. Qualifying
 	 * agents are those whose `phase` is active (working or waiting) OR whose last activity is
-	 * within the `agentBranchesIdleThresholdMs` window. Branches are matched to agents by
-	 * worktree path.
+	 * within the `agentBranchesIdleThresholdMs` window. Sessions are scoped to this graph's repo
+	 * via worktree path; the matching branch comes from the session's own `worktree.branch.name`
+	 * (host-resolved), so the default-worktree case works without depending on `branch.worktree`
+	 * being populated on graph branches. `graph.branches` is keyed by branch name (see
+	 * `graphRowProcessor.ts`'s `context.branches.get(head.name)`), so we look up by name.
 	 */
 	private getAgentBranchRefs(graph: GitGraph): Map<string, GraphIncludeOnlyRef> {
 		const refs = new Map<string, GraphIncludeOnlyRef>();
 		const sessions = this.container.agentStatus?.getSerializedSessions();
 		if (!sessions?.length) return refs;
 
+		// Worktree paths belonging to this graph's repo (default + named). Used to scope
+		// cross-repo sessions out before name-matching, since branch names alone aren't
+		// repo-unique.
+		const repoWorktreePaths = new Set<string>([graph.repoPath]);
+		if (graph.worktreesByBranch != null) {
+			for (const wt of graph.worktreesByBranch.values()) {
+				repoWorktreePaths.add(wt.path);
+			}
+		}
+
 		const now = Date.now();
-		const qualifyingPaths = new Set<string>();
 		for (const s of sessions) {
-			if (s.worktreePath == null) continue;
+			if (s.worktreePath == null || s.worktree?.branch?.name == null) continue;
+			if (!repoWorktreePaths.has(s.worktreePath)) continue;
 
 			// `Math.max(0, …)` clamps clock-skew (future-dated timestamps) so a stale clock
 			// can't pin a session as permanently "recent".
 			const recent =
 				Math.max(0, now - s.lastActivity.getTime()) < GraphWebviewProvider.agentBranchesIdleThresholdMs;
-			if (isActiveAgentPhase(s.phase) || recent) {
-				qualifyingPaths.add(s.worktreePath);
-			}
-		}
-		if (qualifyingPaths.size === 0) return refs;
+			if (!isActiveAgentPhase(s.phase) && !recent) continue;
 
-		for (const branch of graph.branches.values()) {
-			const worktree = branch.worktree;
-			if (worktree && qualifyingPaths.has(worktree.path)) {
+			const branch = graph.branches.get(s.worktree.branch.name);
+			if (branch != null && !refs.has(branch.id)) {
 				refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
 			}
 		}
