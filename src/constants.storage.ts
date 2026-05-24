@@ -203,6 +203,8 @@ interface WorkspaceStorageCore {
 	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;
 	'views:commitDetails:pullRequestExpanded': boolean;
+	'views:commitDetails:showSearchBox': boolean;
+	'views:commitDetails:searchBoxFilter': boolean;
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;

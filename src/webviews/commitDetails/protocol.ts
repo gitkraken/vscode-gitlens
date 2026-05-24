@@ -61,6 +61,10 @@ export interface Preferences {
 	aiEnabled: boolean;
 	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;
+	/** Whether the file-tree search box is visible. Persisted per workspace; defaults to `true`. */
+	showSearchBox: boolean;
+	/** Search-box presentation: `true` filters (hides) non-matches, `false` dims them. */
+	searchBoxFilter: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 

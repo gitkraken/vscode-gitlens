@@ -516,6 +516,10 @@ export class DetailsActions {
 			aiEnabled: aiEnabled,
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges,
+			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`
+			// from `graph:state`; these fields satisfy the shared `Preferences` shape only.
+			showSearchBox: true,
+			searchBoxFilter: true,
 		});
 		this.state.autolinksEnabled.set(autolinksEnabled ?? true);
 		this.state.hasIntegrationsConnected.set(integrations?.some(i => i.connected) ?? false);

@@ -389,6 +389,44 @@ export class CommitDetailsActions {
 		);
 	}
 
+	updateShowSearchBox(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+				'update showSearchBox',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, showSearchBox: value },
+			this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+			'update showSearchBox',
+		);
+	}
+
+	updateSearchBoxFilter(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+				'update searchBoxFilter',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, searchBoxFilter: value },
+			this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+			'update searchBoxFilter',
+		);
+	}
+
 	updateFilesLayout(files: {
 		compact?: boolean;
 		icon?: 'type' | 'status';
@@ -1004,28 +1042,38 @@ export class CommitDetailsActions {
 	 */
 	async fetchPreferences(): Promise<void> {
 		try {
-			const [pullRequestExpandedResult, configResult, coreConfigResult, aiEnabledResult] =
-				await Promise.allSettled([
-					this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
-					this.services.config.getMany(
-						'views.commitDetails.avatars',
-						'defaultCurrentUserNameStyle',
-						'defaultDateFormat',
-						'defaultDateStyle',
-						'views.commitDetails.files',
-						'signing.showSignatureBadges',
-						'views.commitDetails.autolinks.enabled',
-						'ai.experimental.composer.enabled',
-					),
-					this.services.config.getManyCore(
-						'workbench.tree.renderIndentGuides',
-						'workbench.tree.indent',
-						'git.enableSmartCommit',
-					),
-					this.services.ai.isEnabled(),
-				]);
+			const [
+				pullRequestExpandedResult,
+				showSearchBoxResult,
+				searchBoxFilterResult,
+				configResult,
+				coreConfigResult,
+				aiEnabledResult,
+			] = await Promise.allSettled([
+				this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
+				this.services.storage.getWorkspace('views:commitDetails:showSearchBox'),
+				this.services.storage.getWorkspace('views:commitDetails:searchBoxFilter'),
+				this.services.config.getMany(
+					'views.commitDetails.avatars',
+					'defaultCurrentUserNameStyle',
+					'defaultDateFormat',
+					'defaultDateStyle',
+					'views.commitDetails.files',
+					'signing.showSignatureBadges',
+					'views.commitDetails.autolinks.enabled',
+					'ai.experimental.composer.enabled',
+				),
+				this.services.config.getManyCore(
+					'workbench.tree.renderIndentGuides',
+					'workbench.tree.indent',
+					'git.enableSmartCommit',
+				),
+				this.services.ai.isEnabled(),
+			]);
 
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
+			const showSearchBox = getSettledValue(showSearchBoxResult);
+			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
 			const [
 				avatars,
 				currentUserNameStyle,
@@ -1057,6 +1105,8 @@ export class CommitDetailsActions {
 				aiEnabled: aiEnabled ?? false,
 				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,
+				showSearchBox: showSearchBox ?? true,
+				searchBoxFilter: searchBoxFilter ?? true,
 			});
 			if (autolinksEnabled != null) {
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
