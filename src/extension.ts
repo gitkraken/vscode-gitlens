@@ -106,6 +106,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 				return undefined;
 			},
 			hash: microhash,
+			// Redact env var maps (e.g. `GitOperationRunOptions.env` carrying SSH_ASKPASS tokens) from debug logs.
+			sanitizeKeys: new Set(['env']),
 		},
 		context.extensionMode === ExtensionMode.Development,
 	);
