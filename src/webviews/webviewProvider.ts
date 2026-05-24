@@ -121,7 +121,7 @@ export interface WebviewHost<ID extends WebviewIds | CustomEditorIds> {
 
 	addPendingIpcNotification(
 		type: IpcNotification<any>,
-		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
+		mapping: Map<IpcNotification<any>, () => Promise<boolean | void>>,
 		thisArg: any,
 	): void;
 	clearPendingIpcNotifications(): void;

@@ -519,6 +519,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// the previous path stranded. Notify for the previous path explicitly to drop them.
 		const previousPath = this._repository?.path;
 		this._repository = value;
+		// Clear per-repo state that survived `resetRepositoryState` historically — `_selection` (last
+		// clicked commit ref) and `_searchRequest` (queued search-from-show) both stored repoPath
+		// implicitly. Done here in the setter — not in `resetRepositoryState`, which also runs on
+		// force-refresh and should preserve them.
+		this._selection = undefined;
+		this._searchRequest = undefined;
 		// Clear the auto-fetch attempt floor so the new repo gets a fresh schedule rather than
 		// inheriting a recent attempt timestamp from the previous repo.
 		this._lastAutoFetchAttemptAt = undefined;
@@ -577,7 +583,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		GraphWebviewProvider._diffCacheCap,
 	);
 
-	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean>>([
+	// Map value type is `() => Promise<boolean | void>` so we can include notify methods that don't
+	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
+	// The consumer in `sendPendingIpcNotifications` `void`s the call so the boolean is unused.
+	private readonly _ipcNotificationMap = new Map<IpcNotification<any>, () => Promise<boolean | void>>([
+		[DidChangeBranchStateNotification, this.notifyDidChangeBranchStateOnly],
 		[DidChangeColumnsNotification, this.notifyDidChangeColumns],
 		[DidChangeGraphConfigurationNotification, this.notifyDidChangeConfiguration],
 		[DidChangeNotification, this.notifyDidChangeState],
@@ -638,6 +648,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _sidebarEventCounter = getScopedCounter();
 	/** Watermark: counter values up to here have already fired their post-rebuild invalidation. */
 	private _firedSidebarEventSeq = 0;
+	// Per-Map sizes shipped on the previous `notifyDidChangeRows`. These accumulate monotonically
+	// across pagination so a size that hasn't changed means no new entries; a larger size means
+	// some entries were appended. Cleared in `setGraph` on graph identity change.
+	private _lastSentAvatarsSize: number | undefined;
+	private _lastSentRowsStatsSize: number | undefined;
 	private static readonly stateFreshnessMs = 500;
 
 	private isWindowFocused: boolean = true;
@@ -737,6 +752,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			clearTimeout(this._stateFreshnessRetryTimer);
 			this._stateFreshnessRetryTimer = undefined;
 		}
+		// Cancel and dispose every in-flight cancellation token. Previously these survived dispose:
+		// the in-flight awaitee would resolve and call `host.notify` on a torn-down host (wasted
+		// work + logged errors), and each source's internal listeners leaked for the extension's
+		// lifetime.
+		for (const source of this._cancellations.values()) {
+			source.cancel();
+			source.dispose();
+		}
+		this._cancellations.clear();
+		// Cancel any in-flight load-more so its `graph.more()` resolution can't call setGraph on a
+		// disposed instance.
+		if (this._pendingRowsQuery != null) {
+			this._pendingRowsQuery.cancellable.cancel();
+			this._pendingRowsQuery.cancellable.dispose();
+			this._pendingRowsQuery = undefined;
+		}
+		this._notifyDidChangeRefsMetadataDebounced?.cancel();
+		// Cancel the other debounced notifiers too — a trailing fire after dispose would call
+		// `host.notify()` on a torn-down host (the exact class of bug this dispose pass exists
+		// to fix). `_fireSelectionChangedDebounced` is technically host-I/O-free but cancelling
+		// it still clears its pending timer.
+		this._notifyDidChangeAvatarsDebounced?.cancel();
+		this._notifyDidChangeStateDebounced?.cancel();
+		this._fireSelectionChangedDebounced?.cancel();
+		// The periodic interval set by `ensureLastFetchedSubscription` was previously not cleaned
+		// up in dispose — the interval kept firing forever, holding the entire provider+host+repo
+		// chain alive across every panel open/close cycle.
+		this._lastFetchedDisposable?.dispose();
+		this._lastFetchedDisposable = undefined;
 		for (const t of this._wipWatchRemoveTimers.values()) {
 			clearTimeout(t);
 		}
@@ -2272,7 +2316,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (params.recentThreshold != null) {
 			this._overviewRecentThreshold = params.recentThreshold;
 		}
-		return this.getOverviewData();
+		try {
+			return this.getOverviewData();
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverview');
+			// Ship a structurally-valid shape so the frontend's `.length`/`.map` reads don't crash.
+			return { active: [], recent: [], error: ex instanceof Error ? ex.message : String(ex) };
+		}
 	}
 
 	@ipcRequest(GetOverviewWipRequest)
@@ -2284,7 +2334,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// populated entries (within 10s TTL) this is essentially free — no extra `git status`.
 		// Cold entries (off-screen worktree without active watcher) miss → fetched once →
 		// populated for any subsequent reader (rich hover, worktrees panel, next event push).
-		return this.computeOverviewWipFromCache(params.branchIds);
+		try {
+			return await this.computeOverviewWipFromCache(params.branchIds);
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewWip');
+			// Record-shaped response — empty map is safe; frontend reads `response[sha]` and gets `undefined`.
+			return {};
+		}
 	}
 
 	@ipcRequest(GetOverviewWipDetailedRequest)
@@ -2293,7 +2349,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	): Promise<GetOverviewWipResponse> {
 		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
 
-		return this.computeOverviewWipFromCache(params.branchIds);
+		try {
+			return await this.computeOverviewWipFromCache(params.branchIds);
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewWipDetailed');
+			return {};
+		}
 	}
 
 	private computeOverviewWipFromCache(branchIds: string[]): Promise<GetOverviewWipResponse> {
@@ -2353,53 +2414,59 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const response: GetWipStatsResponse = {};
 		if (params.shas.length === 0) return response;
 
-		// When the user has disabled per-worktree WIP stats, short-circuit the library-triggered
-		// missing-stats calls. The GK component's `requestedMissingWipStats` dedup marks each sha
-		// as "asked" on first request and never re-asks, so leaving `workDirStats` undefined keeps
-		// the stats pill hidden. Selection-driven fetches pass `force: true` to bypass the gate.
-		if (!params.force && !configuration.get('graph.showWorktreeWipStats')) {
+		try {
+			// When the user has disabled per-worktree WIP stats, short-circuit the library-triggered
+			// missing-stats calls. The GK component's `requestedMissingWipStats` dedup marks each sha
+			// as "asked" on first request and never re-asks, so leaving `workDirStats` undefined keeps
+			// the stats pill hidden. Selection-driven fetches pass `force: true` to bypass the gate.
+			if (!params.force && !configuration.get('graph.showWorktreeWipStats')) {
+				return response;
+			}
+
+			const cancellation = this.createCancellation('wipStats');
+			const signal = toAbortSignal(cancellation.token);
+
+			await Promise.allSettled(
+				params.shas.map(async sha => {
+					if (!isSecondaryWipSha(sha)) return;
+
+					const path = getSecondaryWipPath(sha);
+					const svc = this.container.git.getRepositoryService(path);
+
+					// Fetch the paused-op status in parallel with the cached status read so the
+					// secondary WIP row can render the same in-progress indicator (rebase/merge/
+					// cherry-pick) the primary's action bar does. `pausedOps` is optional on the
+					// service surface; older providers may not implement it.
+					const [statusResult, pausedOpResult] = await Promise.allSettled([
+						this._wipStatusCache.getOrCreate(
+							path,
+							(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+							{ cancellation: signal },
+						),
+						svc.pausedOps?.getPausedOperationStatus?.(signal),
+					]);
+					if (cancellation.token.isCancellationRequested) return;
+
+					const status = getSettledValue(statusResult);
+					const diff = status?.diffStatus;
+					const pausedOpStatus = getSettledValue(pausedOpResult);
+					response[sha] = {
+						workDirStats: {
+							added: diff?.added ?? 0,
+							deleted: diff?.deleted ?? 0,
+							modified: diff?.changed ?? 0,
+						},
+						pausedOpStatus: pausedOpStatus,
+					};
+				}),
+			);
+
+			return response;
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetWipStats');
+			// Record-shaped response — partial successes are preserved; missing keys read as undefined frontend-side.
 			return response;
 		}
-
-		const cancellation = this.createCancellation('wipStats');
-		const signal = toAbortSignal(cancellation.token);
-
-		await Promise.allSettled(
-			params.shas.map(async sha => {
-				if (!isSecondaryWipSha(sha)) return;
-
-				const path = getSecondaryWipPath(sha);
-				const svc = this.container.git.getRepositoryService(path);
-
-				// Fetch the paused-op status in parallel with the cached status read so the
-				// secondary WIP row can render the same in-progress indicator (rebase/merge/
-				// cherry-pick) the primary's action bar does. `pausedOps` is optional on the
-				// service surface; older providers may not implement it.
-				const [statusResult, pausedOpResult] = await Promise.allSettled([
-					this._wipStatusCache.getOrCreate(
-						path,
-						(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
-						{ cancellation: signal },
-					),
-					svc.pausedOps?.getPausedOperationStatus?.(signal),
-				]);
-				if (cancellation.token.isCancellationRequested) return;
-
-				const status = getSettledValue(statusResult);
-				const diff = status?.diffStatus;
-				const pausedOpStatus = getSettledValue(pausedOpResult);
-				response[sha] = {
-					workDirStats: {
-						added: diff?.added ?? 0,
-						deleted: diff?.deleted ?? 0,
-						modified: diff?.changed ?? 0,
-					},
-					pausedOpStatus: pausedOpStatus,
-				};
-			}),
-		);
-
-		return response;
 	}
 
 	private async onGetSidebarData(
@@ -3020,6 +3087,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		// Filter out queued events from a previous repo. `_repository` swaps before the prior
+		// subscription is disposed, so a queued `onDidChange` from the old repo can dispatch in
+		// the window and drive notifications against the new one. Same guard as
+		// `onRepositoryWorkingTreeChanged`.
+		if (e.repository.id !== this.repository?.id) return;
+
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), secondary-worktree
 		// add/remove (`worktrees` → wipMetadataBySha; also falls through to the structural gate
 		// below as a backstop full-state push), and tracking changes (`head|heads|remotes` →
@@ -3327,88 +3400,99 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this.cancelOperation('hover');
 
-		if (this._graph != null) {
-			const id = params.id;
+		try {
+			if (this._graph != null) {
+				const id = params.id;
 
-			let markdown = this._hoverCache.get(id);
-			if (markdown == null) {
-				const cancellation = this.createCancellation('hover');
+				let markdown = this._hoverCache.get(id);
+				if (markdown == null) {
+					const cancellation = this.createCancellation('hover');
 
-				let cache = true;
-				let commit;
-				let secondaryWorktree;
-				try {
-					const isSecondaryWip = params.type === 'work-dir-changes' && isSecondaryWipSha(id);
-					const hoverRepoPath = isSecondaryWip ? getSecondaryWipPath(id) : this._graph.repoPath;
-					const svc = this.container.git.getRepositoryService(hoverRepoPath);
-					switch (params.type) {
-						case 'work-dir-changes':
-							cache = false;
-							[commit, secondaryWorktree] = await Promise.all([
-								svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token)),
-								isSecondaryWip
-									? svc.worktrees?.getWorktree(
-											wt => wt.path === hoverRepoPath,
-											toAbortSignal(cancellation.token),
-										)
-									: undefined,
-							]);
-							break;
-						case 'stash-node': {
-							const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
-							commit = stash?.stashes.get(params.id);
-							break;
+					let cache = true;
+					let commit;
+					let secondaryWorktree;
+					try {
+						const isSecondaryWip = params.type === 'work-dir-changes' && isSecondaryWipSha(id);
+						const hoverRepoPath = isSecondaryWip ? getSecondaryWipPath(id) : this._graph.repoPath;
+						const svc = this.container.git.getRepositoryService(hoverRepoPath);
+						switch (params.type) {
+							case 'work-dir-changes':
+								cache = false;
+								[commit, secondaryWorktree] = await Promise.all([
+									svc.commits.getCommit(uncommitted, toAbortSignal(cancellation.token)),
+									isSecondaryWip
+										? svc.worktrees?.getWorktree(
+												wt => wt.path === hoverRepoPath,
+												toAbortSignal(cancellation.token),
+											)
+										: undefined,
+								]);
+								break;
+							case 'stash-node': {
+								const stash = await svc.stash?.getStash(undefined, toAbortSignal(cancellation.token));
+								commit = stash?.stashes.get(params.id);
+								break;
+							}
+							default: {
+								commit = await svc.commits.getCommit(params.id, toAbortSignal(cancellation.token));
+								break;
+							}
 						}
-						default: {
-							commit = await svc.commits.getCommit(params.id, toAbortSignal(cancellation.token));
-							break;
-						}
+					} catch (ex) {
+						if (!isCancellationError(ex)) throw ex;
 					}
-				} catch (ex) {
-					if (!isCancellationError(ex)) throw ex;
-				}
 
-				if (commit != null && !cancellation.token.isCancellationRequested) {
-					// Check if we have calculated stats for the row and if so apply it to the commit
-					const stats = this._graph.rowsStats?.get(commit.sha);
-					if (stats != null) {
-						commit = commit.with({
-							stats: {
-								...commit.stats,
-								additions: stats.additions,
-								deletions: stats.deletions,
-								// If `changedFiles` already exists, then use it, otherwise use the files count
-								files: commit.stats?.files ? commit.stats.files : stats.files,
+					if (commit != null && !cancellation.token.isCancellationRequested) {
+						// Check if we have calculated stats for the row and if so apply it to the commit
+						const stats = this._graph.rowsStats?.get(commit.sha);
+						if (stats != null) {
+							commit = commit.with({
+								stats: {
+									...commit.stats,
+									additions: stats.additions,
+									deletions: stats.deletions,
+									// If `changedFiles` already exists, then use it, otherwise use the files count
+									files: commit.stats?.files ? commit.stats.files : stats.files,
+								},
+							});
+						}
+
+						markdown = this.getCommitTooltip(commit, cancellation.token, secondaryWorktree).catch(
+							(ex: unknown) => {
+								this._hoverCache.delete(id);
+								throw ex;
 							},
-						});
+						);
+						if (cache) {
+							this._hoverCache.set(id, markdown);
+						}
 					}
+				}
 
-					markdown = this.getCommitTooltip(commit, cancellation.token, secondaryWorktree).catch(
-						(ex: unknown) => {
-							this._hoverCache.delete(id);
-							throw ex;
-						},
-					);
-					if (cache) {
-						this._hoverCache.set(id, markdown);
+				if (markdown != null) {
+					try {
+						hover.markdown = {
+							status: 'fulfilled' as const,
+							value: await markdown,
+						};
+					} catch (ex) {
+						hover.markdown = { status: 'rejected' as const, reason: ex };
 					}
 				}
 			}
 
-			if (markdown != null) {
-				try {
-					hover.markdown = {
-						status: 'fulfilled' as const,
-						value: await markdown,
-					};
-				} catch (ex) {
-					hover.markdown = { status: 'rejected' as const, reason: ex };
-				}
-			}
+			hover.markdown ??= { status: 'rejected' as const, reason: new CancellationError() };
+			return hover;
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onHoverRowRequest');
+			// Return a structurally-valid response so the webview's `getResponsePromise` resolves
+			// in milliseconds (not the 5-min timeout) and the hover render can show a fallback.
+			return {
+				id: params.id,
+				markdown: { status: 'rejected' as const, reason: ex },
+				error: ex instanceof Error ? ex.message : String(ex),
+			};
 		}
-
-		hover.markdown ??= { status: 'rejected' as const, reason: new CancellationError() };
-		return hover;
 	}
 
 	private async getCommitTooltip(
@@ -3522,23 +3606,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onEnsureRowRequest(params: IpcParams<typeof EnsureRowRequest>) {
 		if (this._graph == null) return { id: undefined };
 
-		let id: string | undefined;
-		if (this._graph.ids.has(params.id)) {
-			id = params.id;
-		} else {
-			await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
+		try {
+			let id: string | undefined;
+			let loadedNewRows = false;
 			if (this._graph.ids.has(params.id)) {
 				id = params.id;
+			} else {
+				await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
+				if (this._graph.ids.has(params.id)) {
+					id = params.id;
+				}
+				loadedNewRows = true;
 			}
 
 			if (id != null && params.select) {
 				this.setSelectedRows(id);
+				if (loadedNewRows) {
+					// New rows were loaded — full `notifyDidChangeRows` (heavy: ships rows + avatars +
+					// downstreams + rowsStats + refsMetadata) so the webview can render them.
+					void this.notifyDidChangeRows(true);
+				} else {
+					// Row was already loaded — only the selection changed. Use the lightweight
+					// selection-only notification (kB-scale Record<sha,true>) instead of the
+					// heavy `notifyDidChangeRows` (which would re-ship the full accumulated payload).
+					void this.notifyDidChangeSelection();
+				}
+			} else if (loadedNewRows) {
+				// New rows were loaded but caller didn't ask for selection — still ship the rows.
+				void this.notifyDidChangeRows(false);
 			}
 
-			void this.notifyDidChangeRows(params.select ?? false);
+			return { id: id };
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onEnsureRowRequest');
+			return { id: undefined, error: ex instanceof Error ? ex.message : String(ex) };
 		}
-
-		return { id: id };
 	}
 
 	@ipcCommand(GetMissingAvatarsCommand)
@@ -4083,9 +4185,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		try {
 			await this._searchHistory.store(params.search);
-		} finally {
-			// eslint-disable-next-line no-unsafe-finally
 			return { history: this._searchHistory.get() };
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryStoreRequest');
+			// Surface storage errors to the frontend instead of swallowing in `finally` and pretending
+			// success — the user thought the entry was saved; on reload it would be missing.
+			return { history: this._searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
@@ -4095,9 +4200,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._searchHistory ??= new SearchHistory(this.container.storage, this.repository?.path);
 		try {
 			await this._searchHistory.delete(params.query);
-		} finally {
-			// eslint-disable-next-line no-unsafe-finally
 			return { history: this._searchHistory.get() };
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onSearchHistoryDeleteRequest');
+			return { history: this._searchHistory.get(), error: ex instanceof Error ? ex.message : String(ex) };
 		}
 	}
 
@@ -4234,13 +4340,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let firstResultSelected = false;
 
+		// Captured once and used for both the cached-results notify and the final return so that
+		// awaits in either branch can't race a newer search bumping `_searchIdCounter.current` and
+		// stamping our response with the wrong (newer) id. In the new-search branch this gets
+		// reassigned to the bumped value.
+		let searchId = this._searchIdCounter.current;
+
 		if (search?.comparisonKey !== getSearchQueryComparisonKey(e.search)) {
 			if (this.repository == null) {
 				return {
 					search: e.search,
 					results: { error: 'No repository' },
 					partial: false,
-					searchId: this._searchIdCounter.current,
+					searchId: searchId,
 				};
 			}
 
@@ -4249,7 +4361,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 
 			// Increment search ID for new search
-			const searchId = this._searchIdCounter.next();
+			searchId = this._searchIdCounter.next();
 			this._search = undefined;
 
 			// Clear previous search results immediately
@@ -4324,7 +4436,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			// Send notification with cached results (only if not superseded and not resuming)
 			// When resuming (e.more), don't send cached results - let progressive notifications handle it
-			if (this._searchIdCounter.current != null && progressive && !e.more) {
+			if (searchId != null && progressive && !e.more) {
 				// Use search.query to include any mode changes (filter toggle) that happened during the search
 				void this.host.notify(DidSearchNotification, {
 					search: search.query,
@@ -4335,7 +4447,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					},
 					selectedRows: firstResultSelected ? convertSelectedRows(this._selectedRows) : undefined,
 					partial: false,
-					searchId: this._searchIdCounter.current,
+					searchId: searchId,
 				});
 			}
 		}
@@ -4345,7 +4457,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			results: this.getSearchResultsData(search) ?? { count: 0, hasMore: false, commitsLoaded: { count: 0 } },
 			selectedRows: firstResultSelected ? convertSelectedRows(this._selectedRows) : undefined,
 			partial: false, // Final results
-			searchId: this._searchIdCounter.current,
+			searchId: searchId,
 		};
 	}
 
@@ -4382,6 +4494,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				searchId: this._searchIdCounter.current,
 			};
 		}
+
+		// Cancel any in-flight regular search before superseding. Otherwise the regular search's
+		// git stream keeps running until the outer function unwinds, wasting work and (paired with
+		// stale `_search` reads) potentially poisoning the WIP search's results.
+		this.cancelOperation('search');
 
 		const searchId = this._searchIdCounter.next();
 		this._search = undefined;
@@ -4456,6 +4573,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		graph: GitGraph,
 		options?: { selectFirstResult?: boolean },
 	): Promise<GitGraphSearch | undefined> {
+		// Snapshot `_search` so we can restore it if this stream gets superseded — the in-loop write
+		// at `this._search = updateSearchMode(...)` below stamps partial results of THIS search into
+		// `_search`, and if a newer search starts mid-loop those partial results would otherwise
+		// survive and poison `getSearchContext`, `updateGraphWithMoreRows`, and the bootstrap state.
+		// We compare by object identity (not just truthiness) so we never clobber the newer search's
+		// `_search` if it already wrote past ours.
+		const priorSearch = this._search;
+		let ourLastWrite: GitGraphSearch | undefined;
 		let search: GitGraphSearch | undefined;
 		let firstResultSelected = false;
 
@@ -4492,6 +4617,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				};
 			}
 			this._search = updateSearchMode(this.container, search);
+			ourLastWrite = this._search;
 
 			// Select first result as soon as we find one (only once)
 			let selectedRows: GraphSelectedRows | undefined;
@@ -4518,6 +4644,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Skip final result processing if this search has been superseded
 		if (searchId !== this._searchIdCounter.current) {
+			// Restore the pre-loop `_search` only if it still holds OUR partial write — by the time
+			// we get here the newer search's processStream may have already written its own results;
+			// identity comparison guards against clobbering them.
+			if (this._search === ourLastWrite) {
+				this._search = priorSearch;
+			}
 			return search;
 		}
 
@@ -4597,22 +4729,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onChooseRef(params: IpcParams<typeof ChooseRefRequest>) {
 		if (this.repository == null) return undefined;
 
-		const result = await showReferencePicker2(this.repository.path, params.title, params.placeholder, {
-			allowedAdditionalInput: params.allowedAdditionalInput,
-			include: params.include ?? ['branches', 'tags'],
-			picked: params.picked,
-		});
-		const pick = result?.value;
+		try {
+			const result = await showReferencePicker2(this.repository.path, params.title, params.placeholder, {
+				allowedAdditionalInput: params.allowedAdditionalInput,
+				include: params.include ?? ['branches', 'tags'],
+				picked: params.picked,
+			});
+			const pick = result?.value;
 
-		return pick?.sha != null
-			? {
-					id: pick.id,
-					name: pick.name,
-					sha: pick.sha,
-					refType: pick.refType,
-					graphRefType: convertRefToGraphRefType(pick),
-				}
-			: undefined;
+			return pick?.sha != null
+				? {
+						id: pick.id,
+						name: pick.name,
+						sha: pick.sha,
+						refType: pick.refType,
+						graphRefType: convertRefToGraphRefType(pick),
+					}
+				: undefined;
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onChooseRef');
+			// The response type is `DidChooseRefParams | undefined`; `undefined` is the existing
+			// no-pick semantics so the frontend treats it as "user cancelled" rather than crashing.
+			return undefined;
+		}
 	}
 
 	@ipcRequest(ChooseComparisonRequest)
@@ -4706,15 +4845,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async onResolveGraphScope(
 		params: IpcParams<typeof ResolveGraphScopeRequest>,
 	): Promise<IpcResponse<typeof ResolveGraphScopeRequest>> {
-		const anchor = await this.resolveScopeAnchor(params.repoPath, params.scope.branchName);
-		return {
-			scope: {
-				...params.scope,
-				mergeBase: anchor?.mergeBase,
-				resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
-				resolvedFocalBranchTipSha: anchor?.focalBranchTipSha,
-			},
-		};
+		try {
+			const anchor = await this.resolveScopeAnchor(params.repoPath, params.scope.branchName);
+			return {
+				scope: {
+					...params.scope,
+					mergeBase: anchor?.mergeBase,
+					resolvedMergeTargetTipSha: anchor?.mergeTargetTipSha,
+					resolvedFocalBranchTipSha: anchor?.focalBranchTipSha,
+				},
+			};
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onResolveGraphScope');
+			// Return the caller-supplied scope as a fallback so consumers reading `scope.mergeBase`,
+			// `scope.resolvedMergeTargetTipSha`, etc. don't crash on undefined property access.
+			return { scope: params.scope, error: ex instanceof Error ? ex.message : String(ex) };
+		}
 	}
 
 	private invalidateScopeAnchors(): void {
@@ -4852,7 +4998,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private fireSelectionChanged(id: string | undefined, type: GitGraphRowType | undefined) {
 		if (this.repository == null) return;
 
-		const commit = this.getRevisionReference(this.repository.path, id, type);
+		// Secondary-WIP rows live in peer worktrees; the synthetic id encodes the worktree path.
+		// Use it (not the primary repo path) so fallback-to-activeSelection commands operate on
+		// the worktree the user actually clicked.
+		const repoPath =
+			type === 'work-dir-changes' && id != null && isSecondaryWipSha(id)
+				? getSecondaryWipPath(id)
+				: this.repository.path;
+		const commit = this.getRevisionReference(repoPath, id, type);
 		this._selection = commit != null ? [commit] : undefined;
 	}
 
@@ -4953,7 +5106,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 */
 	@trace()
 	private async notifyDidChangeBranchStateOnly(): Promise<void> {
-		if (this.repository == null || !this.host.ready || !this.host.visible) return;
+		if (this.repository == null) return;
+		if (!this.host.ready || !this.host.visible) {
+			// Queue so the header refreshes immediately on panel reveal, instead of silently
+			// dropping the notify (current behavior) and waiting for the full graph rebuild.
+			// `_lastSentBranchState` dedupe inside `notifyDidChangeBranchState` correctly skips
+			// no-change replays.
+			this.host.addPendingIpcNotification(DidChangeBranchStateNotification, this._ipcNotificationMap, this);
+			return;
+		}
 
 		const cancellation = this.createCancellation('branchStateOnly');
 		const signal = toAbortSignal(cancellation.token);
@@ -5180,14 +5341,39 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.getFiltersByRepo(graph.repoPath)?.pinnedRef?.id,
 		);
 
+		// `avatars`, `downstreams`, and `rowsStats` accumulate monotonically across pagination — once
+		// a sha → stats / email → avatar / upstream → downstreams entry is added it doesn't get
+		// removed within a graph session. Tracking the last-sent count lets us:
+		//   - rowsStats: ship only entries past the previous size (frontend spread-merges, so deltas
+		//     work). Cuts the dominant N²-ish IPC payload on big-repo scrolls.
+		//   - avatars: ship `undefined` when the size hasn't changed (frontend reducer has been
+		//     updated to keep its existing state when undefined). Avoids the `Object.fromEntries`
+		//     cost on pure-rows page loads. SAFE because every avatar write at graphRowProcessor
+		//     is gated by `!context.avatars.has(row.email)` — values never change for existing keys.
+		// `downstreams` is NOT dedupe-able by size: the provider mutates existing arrays in place
+		// (`downstreams.push(tip)` in packages/git-cli/src/providers/graph.ts), so the Map size can
+		// stay constant while array values grow. Always ship the full Record.
+		// Reset by `setGraph` on graph identity change.
+		const avatarsSize = graph.avatars.size;
+		const rowsStatsSize = graph.rowsStats?.size ?? 0;
+
+		const avatarsChanged = avatarsSize !== this._lastSentAvatarsSize;
+		const rowsStatsDelta =
+			graph.rowsStats != null && rowsStatsSize > (this._lastSentRowsStatsSize ?? 0)
+				? takeEntriesAfter(graph.rowsStats, this._lastSentRowsStatsSize ?? 0)
+				: undefined;
+
+		this._lastSentAvatarsSize = avatarsSize;
+		this._lastSentRowsStatsSize = rowsStatsSize;
+
 		return this.host.notify(
 			DidChangeRowsNotification,
 			{
 				rows: graph.rows,
-				avatars: Object.fromEntries(graph.avatars),
+				avatars: avatarsChanged ? Object.fromEntries(graph.avatars) : undefined,
 				downstreams: Object.fromEntries(graph.downstreams),
 				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
-				rowsStats: graph.rowsStats?.size ? Object.fromEntries(graph.rowsStats) : undefined,
+				rowsStats: rowsStatsDelta,
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 				rowsStatsIncluded: graph.includes?.stats === true,
@@ -5214,8 +5400,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async notifyDidChangeRowsStats(graph: GitGraph) {
 		if (graph.rowsStats == null) return;
 
+		// Deferred-stats path: also ship a delta of just the keys added since the previous send
+		// so a 100k-commit repo's stats-loading completion doesn't ship the full Map again.
+		// Frontend reducer for `rowsStats` is spread-merge.
+		const rowsStatsSize = graph.rowsStats.size;
+		const lastSent = this._lastSentRowsStatsSize ?? 0;
+		const delta = rowsStatsSize > lastSent ? takeEntriesAfter(graph.rowsStats, lastSent) : undefined;
+		this._lastSentRowsStatsSize = rowsStatsSize;
+		if (delta == null) {
+			// No new entries — just ship the loading flag.
+			return this.host.notify(DidChangeRowsStatsNotification, {
+				rowsStats: {},
+				rowsStatsLoading:
+					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
+			});
+		}
 		return this.host.notify(DidChangeRowsStatsNotification, {
-			rowsStats: Object.fromEntries(graph.rowsStats),
+			rowsStats: delta,
 			rowsStatsLoading: graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 		});
 	}
@@ -5657,6 +5858,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private async ensureAutoFetch(): Promise<void> {
+		// `triggerAutoFetch`'s `finally { void this.ensureAutoFetch() }` re-arms a fresh timer if
+		// the fetch happened to land just before dispose — gate here so a post-dispose schedule
+		// can't survive.
+		if (this._disposed) return;
 		// Short-circuit cheaply before clearing the existing timer, so rapid signals (visibility +
 		// focus + repo change firing within a tick) don't repeatedly tear down and re-arm an
 		// already-correct schedule.
@@ -5712,13 +5917,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repo == null) return;
 		if (!this.host.visible || !this.isWindowFocused) return;
 
-		const intervalSeconds = this.getAutoFetchIntervalSeconds();
-		const lastFetched = (await repo.getLastFetched()) ?? 0;
-		const sinceLastFetchedMs = lastFetched > 0 ? Date.now() - lastFetched : 0;
-
+		// Set the flag BEFORE any awaits so a concurrent caller (e.g. a manual fetch event firing
+		// while this one is mid-`getLastFetched`) can't also pass the gate at line 5804.
 		this._autoFetchInFlight = true;
-		this._lastAutoFetchAttemptAt = Date.now();
 		try {
+			const intervalSeconds = this.getAutoFetchIntervalSeconds();
+			const lastFetched = (await repo.getLastFetched()) ?? 0;
+			const sinceLastFetchedMs = lastFetched > 0 ? Date.now() - lastFetched : 0;
+
+			// Re-validate after the await — if the repo swapped during `getLastFetched`, bail
+			// rather than auto-fetch a repo the user no longer has open. The `finally` will reset
+			// the in-flight flag and re-arm via `ensureAutoFetch` which targets the current repo.
+			if (this._repository !== repo) return;
+
+			this._lastAutoFetchAttemptAt = Date.now();
 			// Skip the interactive Fetch wizard (and its progress notification) — auto-fetch is silent
 			// by design; the live "Fetch (now)" label will reflect completion via the lastFetched event.
 			await repo.git.fetch({ progress: false });
@@ -5732,7 +5944,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} finally {
 			this._autoFetchInFlight = false;
 			// Re-arm directly as a safety net; the natural `'lastFetched'` event will also trigger
-			// `ensureAutoFetch`, but on failure there's no `lastFetched` change.
+			// `ensureAutoFetch`, but on failure there's no `lastFetched` change. The `_disposed`
+			// gate inside `ensureAutoFetch` guards against re-arming after panel close.
 			void this.ensureAutoFetch();
 		}
 	}
@@ -7127,6 +7340,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private setGraph(graph: GitGraph | undefined) {
 		this._graph = graph;
 		if (graph == null) {
+			// Reset the per-Map "last-sent size" counters only when the graph is cleared. Repo swaps
+			// route through `resetRepositoryState` → `setGraph(undefined)` first, so this branch
+			// covers them. Pagination (which calls `setGraph(updatedGraph)` directly with a new
+			// `GitGraph` instance that EXTENDS the prior content) must NOT reset — otherwise the
+			// next `notifyDidChangeRows` re-ships the full cumulative Maps instead of just the
+			// page-delta, defeating Phase 7's primary perf win.
+			this._lastSentAvatarsSize = undefined;
+			this._lastSentRowsStatsSize = undefined;
 			this._graphLoading = undefined;
 			this.resetHoverCache();
 			this.resetRefsMetadata();
@@ -9703,8 +9924,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private cancelOperation(op: CancellableOperations) {
-		this._cancellations.get(op)?.cancel();
-		this._cancellations.delete(op);
+		const source = this._cancellations.get(op);
+		if (source != null) {
+			source.cancel();
+			// `CancellationTokenSource` holds internal event-emitter listeners. Without `.dispose()`
+			// every supersede leaks those listeners — bounded by the number of distinct `op` keys
+			// in flight, but still observable across long sessions.
+			source.dispose();
+			this._cancellations.delete(op);
+		}
 	}
 }
 
@@ -9746,6 +9974,27 @@ function convertRefToGraphRefType(ref: GitReference): GraphRefType | undefined {
 
 function convertSelectedRows(selectedRows: Record<string, SelectedRowState> | undefined): GraphSelectedRows {
 	return filterMapObject(selectedRows, (_, v) => (v.selected ? true : undefined));
+}
+
+/**
+ * Build a Record of entries that were appended to `map` after position `skip`. Relies on
+ * Map iteration being insertion-order-stable: any entry at index >= `skip` is by definition
+ * one that was added since the prior snapshot, assuming append-only writes between snapshots
+ * (which is the case for the graph's `avatars` and `rowsStats` Maps; NOT for `downstreams`,
+ * which mutates existing arrays — see notifyDidChangeRows).
+ */
+function takeEntriesAfter<V>(map: Map<string, V>, skip: number): Record<string, V> {
+	const result: Record<string, V> = {};
+	if (skip >= map.size) return result;
+
+	let i = 0;
+	for (const [k, v] of map) {
+		if (i >= skip) {
+			result[k] = v;
+		}
+		i++;
+	}
+	return result;
 }
 
 /**

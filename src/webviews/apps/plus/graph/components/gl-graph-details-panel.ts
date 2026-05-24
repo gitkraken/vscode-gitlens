@@ -342,7 +342,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private get effectiveRepoPath(): string | undefined {
-		return this._state.activeModeRepoPath.get() ?? this._state.wip.get()?.repo?.path ?? this.repoPath;
+		// Precedence: mode anchor > attribute (set by parent on selection) > last-known wip repo.
+		// The attribute is set synchronously on row click and is correct per-row (primary worktree
+		// for primary-WIP, secondary worktree for secondary-WIP). `_state.wip.get()?.repo?.path`
+		// is updated lazily and can briefly hold the prior selection's wip — preferring it over the
+		// attribute caused file/diff/stage operations on secondary-WIP rows to target the primary
+		// repo during that window. Falling back to it only when the attribute hasn't bound yet
+		// preserves the cold-bootstrap behavior.
+		return this._state.activeModeRepoPath.get() ?? this.repoPath ?? this._state.wip.get()?.repo?.path;
 	}
 
 	/** Returns snapshotted shas when in a mode, live shas otherwise. */

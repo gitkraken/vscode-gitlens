@@ -174,6 +174,9 @@ export interface GraphActionTarget {
 export interface GraphOverviewData {
 	active: OverviewBranch[];
 	recent: OverviewBranch[];
+	/** Set when the host couldn't compute the overview. `active`/`recent` are still
+	 *  structurally-valid (empty arrays) so existing consumers don't crash on `.length`. */
+	error?: string;
 }
 
 export interface GraphScope {
@@ -627,6 +630,9 @@ export interface ResolveGraphScopeParams {
 }
 export interface DidResolveGraphScopeParams {
 	scope: ResolvedGraphScope;
+	/** Set when the scope-anchor resolver threw. `scope` is the unresolved caller-supplied scope
+	 *  as a fallback so consumers reading `scope.mergeBase` etc. don't crash. */
+	error?: string;
 }
 export const ResolveGraphScopeRequest = new IpcRequest<ResolveGraphScopeParams, DidResolveGraphScopeParams>(
 	scope,
@@ -639,6 +645,8 @@ export interface EnsureRowParams {
 }
 export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
+	/** Set when the host couldn't load the row. `id` is undefined alongside. */
+	error?: string;
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
@@ -647,6 +655,9 @@ export interface SearchHistoryGetParams {
 }
 export interface DidSearchHistoryGetParams {
 	history: SearchQuery[];
+	/** Set when the store/delete operation failed. `history` reflects the last-known state from
+	 *  storage so the UI can still render something coherent. */
+	error?: string;
 }
 export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
 	scope,
@@ -855,6 +866,9 @@ export type GetRowHoverParams = {
 export interface DidGetRowHoverParams {
 	id: string;
 	markdown: PromiseSettledResult<string>;
+	/** Set when the host couldn't even start building the hover (e.g. repo lookup threw).
+	 *  `markdown` is still present as a structurally-valid rejected `PromiseSettledResult`. */
+	error?: string;
 }
 
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
@@ -1069,10 +1083,19 @@ export const DidChangePinnedRefNotification = new IpcNotification<DidChangePinne
 
 export interface DidChangeRowsParams {
 	rows: GraphRow[];
-	avatars: Record<string, string>;
+	/** Undefined when the backing `avatars` Map's size hasn't changed since the last notification —
+	 *  the host skips the `Object.fromEntries` cost and the frontend reducer keeps its existing
+	 *  state. Present (full Map) when new avatar entries were added. */
+	avatars: Record<string, string> | undefined;
+	/** Always present — the graph provider mutates downstream arrays in place
+	 *  (`downstreams.push(tip)` for existing upstream keys), so size-based dedupe would miss
+	 *  array-mutation cases. Frontend wholesale-replaces. */
 	downstreams: Record<string, string[]>;
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
+	/** Delta of `rowsStats` entries added since the last notification. The frontend reducer
+	 *  spread-merges into its existing state, so shipping only new keys is sufficient and avoids
+	 *  the N² IPC payload on pagination of big repos. Undefined when no new entries. */
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
 	rowsStatsIncluded?: boolean;

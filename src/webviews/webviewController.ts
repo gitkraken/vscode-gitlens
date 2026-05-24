@@ -1087,13 +1087,13 @@ export class WebviewController<
 
 	private _pendingIpcNotifications = new Map<
 		IpcNotification,
-		{ msg: IpcMessage | (() => Promise<boolean>); timestamp: number }
+		{ msg: IpcMessage | (() => Promise<boolean | void>); timestamp: number }
 	>();
 	private _pendingIpcPromiseNotifications = new Set<{ msg: IpcMessage; timestamp: number }>();
 
 	addPendingIpcNotification(
 		type: IpcNotification<any>,
-		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
+		mapping: Map<IpcNotification<any>, () => Promise<boolean | void>>,
 		thisArg: any,
 	): void {
 		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
@@ -1101,7 +1101,7 @@ export class WebviewController<
 
 	private addPendingIpcNotificationCore(
 		type: IpcNotification<any>,
-		msgOrFn: IpcMessage | (() => Promise<boolean>) | undefined,
+		msgOrFn: IpcMessage | (() => Promise<boolean | void>) | undefined,
 	) {
 		if (type.reset) {
 			this._pendingIpcNotifications.clear();

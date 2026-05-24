@@ -936,7 +936,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					}
 				}
 
-				updates.avatars = msg.params.avatars;
+				// `avatars` is sent as `undefined` when its backing Map size hasn't changed since
+				// the last notification (host-side dedupe). Keep our existing state in that case
+				// instead of replacing with undefined and losing it. `downstreams` is always
+				// present — the provider mutates existing arrays in place, so size-based dedupe
+				// is unsafe and the host always ships the full Record.
+				if (msg.params.avatars != null) {
+					updates.avatars = msg.params.avatars;
+				}
 				updates.downstreams = msg.params.downstreams;
 				if (msg.params.refsMetadata !== undefined) {
 					updates.refsMetadata = msg.params.refsMetadata;
