@@ -165,10 +165,16 @@ export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'o
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the
  *  action targets a worktree other than the primary). When absent, the webview falls back to
- *  its primary repo + `uncommitted`. */
+ *  its primary repo + `uncommitted`.
+ *
+ *  `worktreePath` is the row's own worktree path — for the primary WIP this equals the repo
+ *  path; for secondary WIP rows it's the named worktree's path. It is also the key the
+ *  graph webview uses to look up persisted WIP drafts, so callers must populate it from the
+ *  row's worktree (typically `ref.repoPath` since `GitGraphRowRef.repoPath` is set to the
+ *  worktree path for secondary rows), not the parent repository's path. */
 export interface GraphActionTarget {
 	sha: string;
-	repoPath: string;
+	worktreePath: string;
 }
 
 export interface GraphOverviewData {

@@ -1007,19 +1007,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					if (this._state.commitMessage.get() === lastLoadedMessage) {
 						this.loadWipDraft(worktreePath);
 					} else {
-						// User diverged from the loaded draft — preserve their typing. Re-seed the
-						// flush fingerprint from the live signal state so the next
-						// `maybeScheduleWipDraftFlush` compares against an accurate baseline
-						// (instead of the stale pre-divergence loaded-draft key, which would
-						// schedule a flush on first sight that the live key already implies).
+						// User diverged from the loaded draft — preserve their typing and let
+						// the trailing `maybeScheduleWipDraftFlush` at the end of `updated()`
+						// persist it, overwriting the incoming concurrent draft. Update the
+						// loaded-ref so we don't re-enter this branch, but DO NOT reseed
+						// `_lastFlushedWipDraftKey` to the local state — that would mark the
+						// in-memory text as already-persisted and the user could close the
+						// panel believing it was saved, while storage still holds the other
+						// instance's draft. Leaving the key at the prior loaded draft's value
+						// lets the next flush schedule trigger correctly.
 						this._lastLoadedDraftRef = currentDraft;
-						this._lastFlushedWipDraftKey = this.computeWipDraftKey(
-							worktreePath,
-							this._state.commitMessage.get(),
-							this._state.commitMessageDirty.get(),
-							this._state.amend.get(),
-							this._state.amendBaseSha.get(),
-						);
 					}
 				}
 			}

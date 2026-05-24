@@ -378,7 +378,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private async consumePendingAction(pending: {
 		action: GraphShowAction;
-		target?: { sha: string; repoPath: string };
+		target?: { sha: string; worktreePath: string };
 		commitMessage?: string;
 	}): Promise<void> {
 		const { action, target, commitMessage } = pending;
@@ -389,7 +389,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		// When a target is supplied (e.g. context-menu invocation on a secondary WIP row), route
 		// the action to that row's worktree; otherwise fall back to the primary repo + uncommitted.
-		const repoPath = target?.repoPath ?? this.fallbackRepoPath ?? '';
+		const repoPath = target?.worktreePath ?? this.fallbackRepoPath ?? '';
 		const sha = target?.sha ?? uncommitted;
 		this._selectedCommit = { sha: sha, repoPath: repoPath };
 		this._selectedCommits = undefined;

@@ -6,6 +6,7 @@ import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../constants.onboarding.js';
@@ -136,9 +137,12 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	private readonly _refreshActiveDebounced = debounce(() => {
 		void this._fetchActiveCoalesced();
 	}, 500);
+	// Inactive list is driven by discrete RepositoryChange events (no FS-watcher noise),
+	// and the user isn't focused there — afford a longer window so bursts (branch ops,
+	// fetch fan-out) coalesce into a single fetch.
 	private readonly _refreshInactiveDebounced = debounce(() => {
 		void this._fetchInactiveCoalesced();
-	}, 100);
+	}, 500);
 
 	// Per-resource in-flight gates. Concurrent callers receive the in-flight promise instead
 	// of triggering a `Resource.fetch()` that would cancel-and-restart the existing one (its
@@ -147,14 +151,18 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	// `_wipNotifyDirty` pattern in graphWebview.ts.
 	//
 	// `replaceOverview` bypasses these gates — it explicitly cancels and force-fetches; the
-	// reset helper below clears in-flight tracking so the new fetch isn't shadowed by a
-	// just-canceled promise.
+	// reset helper below clears in-flight tracking AND bumps the generation counters so any
+	// orphaned `.finally()` from a just-canceled promise no-ops instead of clobbering the
+	// new in-flight reference.
 	private _activeFetchInFlight?: Promise<void>;
 	private _activeFetchDirty = false;
+	private readonly _activeFetchGen = getScopedCounter();
 	private _inactiveFetchInFlight?: Promise<void>;
 	private _inactiveFetchDirty = false;
+	private readonly _inactiveFetchGen = getScopedCounter();
 	private _agentFetchInFlight?: Promise<void>;
 	private _agentFetchDirty = false;
+	private readonly _agentFetchGen = getScopedCounter();
 
 	private _fetchActiveCoalesced(): Promise<void> {
 		const resource = this._activeResource;
@@ -165,7 +173,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			return this._activeFetchInFlight;
 		}
 
+		const gen = this._activeFetchGen.next();
 		const run = resource.fetch().finally(() => {
+			if (this._activeFetchGen.current !== gen) return;
+
 			this._activeFetchInFlight = undefined;
 			if (this._activeFetchDirty) {
 				this._activeFetchDirty = false;
@@ -185,7 +196,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			return this._inactiveFetchInFlight;
 		}
 
+		const gen = this._inactiveFetchGen.next();
 		const run = resource.fetch().finally(() => {
+			if (this._inactiveFetchGen.current !== gen) return;
+
 			this._inactiveFetchInFlight = undefined;
 			if (this._inactiveFetchDirty) {
 				this._inactiveFetchDirty = false;
@@ -205,7 +219,10 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			return this._agentFetchInFlight;
 		}
 
+		const gen = this._agentFetchGen.next();
 		const run = resource.fetch().finally(() => {
+			if (this._agentFetchGen.current !== gen) return;
+
 			this._agentFetchInFlight = undefined;
 			if (this._agentFetchDirty) {
 				this._agentFetchDirty = false;
@@ -217,10 +234,15 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	private _resetFetchGates(): void {
+		// Bumping the generations invalidates any in-flight `.finally()` callbacks from
+		// the canceled promises so they don't clobber the next fetch's tracking reference.
+		this._activeFetchGen.next();
 		this._activeFetchInFlight = undefined;
 		this._activeFetchDirty = false;
+		this._inactiveFetchGen.next();
 		this._inactiveFetchInFlight = undefined;
 		this._inactiveFetchDirty = false;
+		this._agentFetchGen.next();
 		this._agentFetchInFlight = undefined;
 		this._agentFetchDirty = false;
 	}

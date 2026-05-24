@@ -1010,7 +1010,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// the seeded message on its first pass — avoids a one-frame empty box before the
 				// post-`updateComplete` `setCommitMessage` would override it.
 				if (msg.params.action === 'show-wip' && msg.params.commitMessage != null && msg.params.target != null) {
-					this.setWipDraft(msg.params.target.repoPath, {
+					this.setWipDraft(msg.params.target.worktreePath, {
 						message: msg.params.commitMessage,
 						messageDirty: true,
 					});

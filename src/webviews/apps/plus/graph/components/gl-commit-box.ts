@@ -133,7 +133,7 @@ export class GlCommitBox extends LitElement {
 					: '';
 
 		return html`
-			<gl-tooltip content=${disabledTooltip} ?disabled=${this.canCommit} placement="bottom">
+			<gl-tooltip content=${disabledTooltip} ?disabled=${this.canCommit || !disabledTooltip} placement="bottom">
 				<span class="commit-btn-wrapper">
 					<gl-button
 						class="commit-btn"

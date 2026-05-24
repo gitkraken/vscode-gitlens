@@ -3051,6 +3051,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	private _lastSentWipDrafts: Record<string, StoredGraphWipDraft> | undefined;
+	private _lastSentWipDraftsInitialized = false;
+
 	@trace()
 	private async notifyDidChangeWipDrafts(): Promise<boolean> {
 		if (this.repository == null) return false;
@@ -3058,9 +3061,44 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.host.addPendingIpcNotification(DidChangeWipDraftsNotification, this._ipcNotificationMap, this);
 			return false;
 		}
-		return this.host.notify(DidChangeWipDraftsNotification, {
-			wipDrafts: this.container.storage.getWorkspace('graph:wipDrafts'),
-		});
+
+		// Slice the storage record to entries this panel's repo can display so an unrelated
+		// repo's keystroke doesn't fan a full cross-repo map to every open graph instance.
+		// Self-echo from this panel's own write short-circuits via the `areEqual` check below.
+		// Use a separate `_initialized` flag rather than a `!== undefined` sentinel so the
+		// short-circuit also covers the "storage is empty, slice is undefined" case after the
+		// first send — otherwise every storage event would re-send `{ wipDrafts: undefined }`.
+		const slice = this.sliceWipDraftsForPanel();
+		if (this._lastSentWipDraftsInitialized && areEqual(this._lastSentWipDrafts, slice)) {
+			return false;
+		}
+
+		this._lastSentWipDrafts = slice;
+		this._lastSentWipDraftsInitialized = true;
+		return this.host.notify(DidChangeWipDraftsNotification, { wipDrafts: slice });
+	}
+
+	private sliceWipDraftsForPanel(): Record<string, StoredGraphWipDraft> | undefined {
+		const all = this.container.storage.getWorkspace('graph:wipDrafts');
+		if (all == null) return undefined;
+
+		const repoPath = this.repository?.path;
+		const worktrees = this._graph?.worktrees;
+		// Pre-graph load — fall back to the full map so initial state isn't blanked.
+		if (repoPath == null || worktrees == null) return all;
+
+		const paths = new Set<string>([repoPath]);
+		for (const wt of worktrees) {
+			paths.add(wt.path);
+		}
+		const slice: Record<string, StoredGraphWipDraft> = {};
+		for (const path of paths) {
+			const draft = all[path];
+			if (draft != null) {
+				slice[path] = draft;
+			}
+		}
+		return slice;
 	}
 
 	private isMinimapVisible(): boolean {
@@ -4030,6 +4068,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			try {
 				const result = await this.getWipForRepoAndStats(entry.repo);
 				if (result == null) return;
+				// Re-check teardown state — the await above may have spanned a dispose or watcher
+				// removal. Don't gate on `host.ready` though: `host.notify` queues when not ready
+				// and replays on reconnect, so the secondary refetch isn't dropped during a reload.
+				if (this._disposed || !this._wipWatches.has(sha)) return;
 
 				void this.host.notify(DidRequestWipRefetchNotification, {
 					repoPath: entry.repo.path,
@@ -5363,10 +5405,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? takeEntriesAfter(graph.rowsStats, this._lastSentRowsStatsSize ?? 0)
 				: undefined;
 
-		this._lastSentAvatarsSize = avatarsSize;
-		this._lastSentRowsStatsSize = rowsStatsSize;
-
-		return this.host.notify(
+		const success = await this.host.notify(
 			DidChangeRowsNotification,
 			{
 				rows: graph.rows,
@@ -5394,6 +5433,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			completionId,
 		);
+		// Only advance the last-sent counters on confirmed delivery. When `notify` returns false
+		// (webview not ready / postMessage failed), the message is requeued by type so a later
+		// notification REPLACES it — if we'd advanced counters speculatively, the replacement's
+		// delta would skip avatars/rowsStats the webview never received.
+		if (success) {
+			this._lastSentAvatarsSize = avatarsSize;
+			this._lastSentRowsStatsSize = rowsStatsSize;
+		}
+		return success;
 	}
 
 	@trace({ args: false })
@@ -5406,19 +5454,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const rowsStatsSize = graph.rowsStats.size;
 		const lastSent = this._lastSentRowsStatsSize ?? 0;
 		const delta = rowsStatsSize > lastSent ? takeEntriesAfter(graph.rowsStats, lastSent) : undefined;
-		this._lastSentRowsStatsSize = rowsStatsSize;
+
 		if (delta == null) {
-			// No new entries — just ship the loading flag.
+			// No new entries — just ship the loading flag. The counter doesn't need to advance.
 			return this.host.notify(DidChangeRowsStatsNotification, {
 				rowsStats: {},
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 			});
 		}
-		return this.host.notify(DidChangeRowsStatsNotification, {
+
+		const success = await this.host.notify(DidChangeRowsStatsNotification, {
 			rowsStats: delta,
 			rowsStatsLoading: graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
 		});
+		// See `notifyDidChangeRows` — only advance on confirmed delivery so a replaced-pending
+		// notification doesn't leave the webview missing rowsStats entries.
+		if (success) {
+			this._lastSentRowsStatsSize = rowsStatsSize;
+		}
+		return success;
 	}
 
 	@trace()
@@ -6924,7 +6979,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				visible: storedPanels?.minimap?.visible ?? true,
 			},
 			pendingAction: this._pendingAction,
-			wipDrafts: this.container.storage.getWorkspace('graph:wipDrafts'),
+			wipDrafts: this.sliceWipDraftsForPanel(),
 			timeline: {
 				period: storedGraphState?.timeline?.period,
 				sliceBy: storedGraphState?.timeline?.sliceBy,
@@ -6942,7 +6997,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		for (const [key, value] of Object.entries(columnsCfg)) {
 			columns = updateRecordValue(columns, key, value);
 		}
-		void this.container.storage.storeWorkspace('graph:columns', columns).catch();
+		void this.container.storage
+			.storeWorkspace('graph:columns', columns)
+			.catch((ex: unknown) => Logger.error(ex, 'graph: failed to persist columns'));
 		void this.notifyDidChangeColumns();
 	}
 
@@ -6959,7 +7016,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private writeWipDraftToStorage(worktreePath: string, draft: StoredGraphWipDraft | null): void {
 		const current = this.container.storage.getWorkspace('graph:wipDrafts');
 		const next = updateRecordValue(current, worktreePath, draft ?? undefined);
-		void this.container.storage.storeWorkspace('graph:wipDrafts', next).catch();
+		void this.container.storage
+			.storeWorkspace('graph:wipDrafts', next)
+			.catch((ex: unknown) => Logger.error(ex, 'graph: failed to persist WIP draft'));
 	}
 
 	private pruneWipDraftsForRemovedRepos(removedPaths: string[]) {
@@ -6976,7 +7035,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 		if (!changed) return;
 
-		void this.container.storage.storeWorkspace('graph:wipDrafts', next).catch();
+		void this.container.storage
+			.storeWorkspace('graph:wipDrafts', next)
+			.catch((ex: unknown) => Logger.error(ex, 'graph: failed to prune WIP drafts'));
 	}
 
 	// Reset columns wrappers
@@ -7047,10 +7108,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Worktree paths belonging to this graph's repo (default + named). Used to scope
 		// cross-repo sessions out before name-matching, since branch names alone aren't
-		// repo-unique.
+		// repo-unique. Iterate `graph.worktrees` (full list) rather than `worktreesByBranch`,
+		// which has the default worktree entry stripped during graph construction.
 		const repoWorktreePaths = new Set<string>([graph.repoPath]);
-		if (graph.worktreesByBranch != null) {
-			for (const wt of graph.worktreesByBranch.values()) {
+		if (graph.worktrees != null) {
+			for (const wt of graph.worktrees) {
 				repoWorktreePaths.add(wt.path);
 			}
 		}
@@ -7348,6 +7410,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// page-delta, defeating Phase 7's primary perf win.
 			this._lastSentAvatarsSize = undefined;
 			this._lastSentRowsStatsSize = undefined;
+			this._lastSentWipDrafts = undefined;
+			this._lastSentWipDraftsInitialized = false;
 			this._graphLoading = undefined;
 			this.resetHoverCache();
 			this.resetRefsMetadata();
@@ -8365,7 +8429,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.notifyDidChangeSelection();
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: 'show-wip',
-					target: { sha: wipSha, repoPath: ref.repoPath },
+					target: { sha: wipSha, worktreePath: ref.repoPath },
 					commitMessage: message,
 				});
 			},
@@ -9731,7 +9795,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// inline Compose-button path (`handleWipRowOpen`) so context-menu and button stay aligned.
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-compose',
-			target: { sha: uncommitted, repoPath: ref.repoPath },
+			target: { sha: uncommitted, worktreePath: ref.repoPath },
 		});
 	}
 
