@@ -208,8 +208,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<'file-history-
 	}
 
 	@debug()
-	async showHistoryForUri(uri: GitUri): Promise<void> {
-		this.setUri(uri);
+	async showHistoryForUri(uri: GitUri, selectSha?: string): Promise<void> {
+		this.setUri(uri, selectSha);
 		await this.triggerChange();
 	}
 

@@ -446,7 +446,7 @@ interface ResolvedScopeAnchor {
 	mergeTargetTipSha?: string;
 }
 
-function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery } {
+function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery; selectSha?: string } {
 	return arg?.repository != null && arg?.search != null;
 }
 
@@ -2101,6 +2101,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		} else if (hasSearchQuery(arg)) {
 			this.repository = arg.repository;
 			this._searchRequest = arg.search;
+			if (arg.selectSha) {
+				this._honorSelectedId = true;
+				this.setSelectedRows(arg.selectSha);
+
+				if (this._graph != null) {
+					if (this._graph.ids.has(arg.selectSha)) {
+						void this.notifyDidChangeSelection();
+					} else {
+						void this.onGetMoreRows({ id: arg.selectSha }, true);
+					}
+				}
+			}
 			this.updateState();
 		} else if (hasSidebarPanel(arg)) {
 			if (loading) {

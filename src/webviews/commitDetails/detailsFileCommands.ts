@@ -16,6 +16,7 @@ import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
 import type { CreatePatchCommandArgs } from '../../commands/patches.js';
+import type { ShowQuickFileHistoryCommandArgs } from '../../commands/showQuickFileHistory.js';
 import type { Container } from '../../container.js';
 import type { EventBusSource } from '../../eventBus.js';
 import {
@@ -392,8 +393,14 @@ export class DetailsFileCommands {
 	}
 	@command('gitlens.openFileHistory:')
 	@debug()
-	openFileHistory(_commit: GitCommit, file: GitFileChange): void {
-		void executeCommand('gitlens.openFileHistory', file.uri);
+	openFileHistory(commit: GitCommit, file: GitFileChange): void {
+		// Skip the reference for uncommitted (no commit to select) and for stashes (file history view
+		// doesn't include stash commits, so the sha would never resolve to a visible row).
+		const args: ShowQuickFileHistoryCommandArgs | undefined =
+			isUncommitted(commit.sha) || GitCommit.isStash(commit)
+				? undefined
+				: { reference: createReference(commit.sha, commit.repoPath, { refType: 'revision' }) };
+		void executeCommand('gitlens.openFileHistory', file.uri, args);
 	}
 
 	@command('gitlens.quickOpenFileHistory:')
@@ -410,8 +417,11 @@ export class DetailsFileCommands {
 
 	@command('gitlens.openFileHistoryInGraph:')
 	@debug()
-	openFileHistoryInGraph(_commit: GitCommit, file: GitFileChange): void {
-		void executeCommand('gitlens.openFileHistoryInGraph', file.uri);
+	openFileHistoryInGraph(commit: GitCommit, file: GitFileChange): void {
+		// Skip the selection for uncommitted and stashes; the graph doesn't surface either by default,
+		// so the sha would never resolve to a visible row.
+		const selectSha = isUncommitted(commit.sha) || GitCommit.isStash(commit) ? undefined : commit.sha;
+		void executeCommand('gitlens.openFileHistoryInGraph', file.uri, selectSha);
 	}
 	@command('gitlens.views.selectFileForCompare:')
 	@debug()

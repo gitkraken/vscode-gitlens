@@ -39,6 +39,7 @@ export type ShowInCommitGraphCommandArgs =
 	| {
 			repository: GlRepository;
 			search?: SearchQuery;
+			selectSha?: string;
 			preserveFocus?: boolean;
 			source?: Source;
 			viewColumn?: ViewColumn;
@@ -162,7 +163,12 @@ export function registerGraphWebviewCommands<T>(
 			matchRegex: false,
 		};
 
-		showInCommitGraph({ repository: repository, search: searchQuery });
+		// Optional sha passed by callers that have a commit context (e.g. graph details file commands).
+		// Fall back to `gitUri.sha` when the URI itself carries a revision (e.g. Search & Compare results,
+		// graph compare-mode/multicommit panels whose context builds a `gitlens-git://` URI).
+		const selectSha = typeof args[1] === 'string' ? args[1] : gitUri.sha;
+
+		showInCommitGraph({ repository: repository, search: searchQuery, selectSha: selectSha });
 	}
 	async function openFolderHistoryInGraph(...args: any[]): Promise<void> {
 		const uri = getUriFromArgs(args);
