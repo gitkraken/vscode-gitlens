@@ -220,6 +220,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@query('gl-graph-wrapper')
 	graph!: GlGraphWrapper;
 
+	@query('.graph')
+	private readonly graphRootEl: HTMLElement | undefined;
+
 	@query('gl-graph-header')
 	private readonly graphHeader!: GlGraphHeader;
 
@@ -238,6 +241,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _detailsShownAt: number | undefined;
 	private _detailsTelemetryFirstRender = true;
 
+	/**
+	 * Last observed non-zero size of the top-level `.graph` element, used to freeze it
+	 * across editor-tab hide/show transitions. Without this freeze the external GK
+	 * GraphContainer's internal ResizeObserver sees the iframe's layout collapse to 0 (and
+	 * then re-expand on restore), producing a visible re-layout cascade. VS Code applies
+	 * `display: none` to the webview iframe even with `retainContextWhenHidden: true` —
+	 * that flag preserves the iframe content but not its layout visibility.
+	 */
+	private _lastGraphSize: { width: number; height: number } | undefined;
+	private _graphSizeObserver: ResizeObserver | undefined;
+	private _releaseSuspensionRafId: number | undefined;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		// Overlay mode auto-collapse — listeners gate themselves on mode + visibility, so they
@@ -247,6 +262,33 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.addEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.addEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
 		window.addEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
+
+		this._graphSizeObserver = new ResizeObserver(entries => {
+			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
+			// `style.width/height` sets when applied with `box-sizing: border-box`. Using
+			// contentRect would leave a 2× padding gap (.graph has `padding: 0.1rem`), which
+			// cascades into a visible 2–10px row jump in the GK GraphContainer on restore.
+			const box = entries[0]?.borderBoxSize?.[0];
+			if (box == null) return;
+
+			const width = Math.round(box.inlineSize);
+			const height = Math.round(box.blockSize);
+			// Only remember non-zero sizes — when the iframe is hidden the element collapses
+			// to 0, and we want to keep the LAST good measurement for use across the
+			// hide/show cycle.
+			if (width > 0 && height > 0) {
+				this._lastGraphSize = { width: width, height: height };
+			}
+		});
+	}
+
+	protected override firstUpdated(): void {
+		// Observe the outer `.graph` div once it's been rendered. It contains the entire
+		// layout — header, panes, sidebar, the React mount — so freezing this single element
+		// freezes everything inside it without needing to touch other components.
+		if (this.graphRootEl != null) {
+			this._graphSizeObserver?.observe(this.graphRootEl);
+		}
 	}
 
 	override disconnectedCallback(): void {
@@ -256,6 +298,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.removeEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.removeEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
 		window.removeEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
+
+		this._graphSizeObserver?.disconnect();
+		this._graphSizeObserver = undefined;
+		if (this._releaseSuspensionRafId != null) {
+			cancelAnimationFrame(this._releaseSuspensionRafId);
+			this._releaseSuspensionRafId = undefined;
+		}
 	}
 
 	// Set when a right-click / context-menu request is in flight. VS Code's native context menu
@@ -356,6 +405,46 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	onWebviewVisibilityChanged(visible: boolean): void {
+		// Freeze the layout across the hide/show cycle so the ResizeObserver cascade that
+		// VS Code's iframe resize (down to ~300x150 then back) produces does NOT propagate
+		// into the GK GraphContainer. The IPC `visible=false` arrives with ~1.5s of headroom
+		// before the queued RO callbacks fire, so we can apply explicit pixel dimensions +
+		// `contain: size layout` to `.graph` and the cascade sees zero delta. `document.
+		// visibilitychange` doesn't fire for editor-tab transitions in VS Code webviews,
+		// so IPC is the only reliable signal.
+		const graph = this.graphRootEl;
+		if (graph != null) {
+			if (!visible) {
+				// At this point `body` has typically already shrunk to 300x150, but
+				// `_lastGraphSize` still holds the pre-shrink size because the RO callbacks
+				// are throttled until visibility is restored.
+				const size = this._lastGraphSize;
+				if (size != null) {
+					graph.style.width = `${size.width}px`;
+					graph.style.height = `${size.height}px`;
+					graph.style.contain = 'size layout';
+				}
+				if (this._releaseSuspensionRafId != null) {
+					cancelAnimationFrame(this._releaseSuspensionRafId);
+					this._releaseSuspensionRafId = undefined;
+				}
+			} else if (graph.style.contain !== '') {
+				// Release on the next animation frame so the frozen box is still in effect
+				// when the GraphContainer's internal RO runs its first post-restore callback
+				// (same size → no-op), then drops back to natural sizing for live
+				// drag-resizes.
+				if (this._releaseSuspensionRafId != null) {
+					cancelAnimationFrame(this._releaseSuspensionRafId);
+				}
+				this._releaseSuspensionRafId = requestAnimationFrame(() => {
+					this._releaseSuspensionRafId = undefined;
+					graph.style.width = '';
+					graph.style.height = '';
+					graph.style.contain = '';
+				});
+			}
+		}
+
 		if (!visible) return;
 
 		this._hoverTrackingCounter.reset();
