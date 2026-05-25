@@ -25,6 +25,7 @@ import {
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
 	DidChangeGraphWalkthroughComplete,
+	DidChangeGraphWalkthroughStarted,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -383,6 +384,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	canInstallClaudeHook?: boolean | undefined;
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
+	graphWalkthroughStarted?: boolean | undefined;
 	visualizationsButtonCalloutDismissed?: boolean | undefined;
 
 	constructor(
@@ -1068,6 +1070,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeGraphWalkthroughComplete.is(msg):
 				this.updateState({ graphWalkthroughComplete: msg.params });
+				break;
+
+			case DidChangeGraphWalkthroughStarted.is(msg):
+				this.updateState({ graphWalkthroughStarted: msg.params });
 				break;
 
 			case DidChangeVisualizationsButtonCallout.is(msg):

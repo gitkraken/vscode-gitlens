@@ -178,6 +178,7 @@ import {
 import type { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktree.utils.js';
 import { getOpenedWorktreesByBranch, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
+import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
@@ -358,6 +359,7 @@ import {
 	DidChangeGraphConfigurationNotification,
 	DidChangeGraphWalkthroughBanner,
 	DidChangeGraphWalkthroughComplete,
+	DidChangeGraphWalkthroughStarted,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
@@ -696,6 +698,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			this.container.onboarding.onDidChange(this.onOnboardingChanged, this),
 			this.container.walkthrough.onDidChangeProgress(this.onGraphWalkthroughProgressChanged, this),
+			this.container.usage.onDidChange(this.onUsageChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
 			this.container.subscription.onDidChangeFeaturePreview(this.onFeaturePreviewChanged, this),
 			this.container.git.onDidChangeRepositories(async e => {
@@ -3293,9 +3296,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(CloseGraphWalkthroughBannerCommand)
 	private onCloseGraphWalkthroughBanner(params: CloseGraphWalkthroughBannerParams) {
-		void this.container.onboarding.dismiss('graph-walkthrough:banner');
 		if (params.openWelcome) {
+			void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
 			void commands.executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
+		} else {
+			void this.container.onboarding.dismiss('graph-walkthrough:banner');
 		}
 	}
 
@@ -3355,6 +3360,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.host.notify(DidChangeGraphWalkthroughComplete, this.getGraphWalkthroughComplete());
 	}
 
+	private onUsageChanged(e: UsageChangeEvent | undefined) {
+		if (e?.key === 'action:gitlens.graph.walkthrough.started:happened') {
+			this.onGraphWalkthroughStartedChanged();
+		}
+	}
+
+	private onGraphWalkthroughStartedChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeGraphWalkthroughStarted, this.getGraphWalkthroughStarted());
+	}
+
 	private getGraphWalkthroughBannerState(): GraphWalkthroughBannerState {
 		return {
 			dismissed: this.container.onboarding.isDismissed('graph-walkthrough:banner'),
@@ -3362,7 +3379,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private getGraphWalkthroughComplete() {
-		return this.container.walkthrough.graphProgress >= 1;
+		return this.container.walkthrough.graphDoneCount >= this.container.walkthrough.graphWalkthroughSize;
+	}
+
+	private getGraphWalkthroughStarted() {
+		return this.container.usage.isUsed('action:gitlens.graph.walkthrough.started:happened');
 	}
 
 	private onThemeChanged(theme: ColorTheme) {
@@ -6989,6 +7010,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			canInstallClaudeHook: this._lastCanInstallClaudeHook ?? false,
 			graphWalkthroughBannerCollapsed: graphWalkthroughBanner.dismissed,
 			graphWalkthroughComplete: this.getGraphWalkthroughComplete(),
+			graphWalkthroughStarted: this.getGraphWalkthroughStarted(),
 			visualizationsButtonCalloutDismissed: this.container.onboarding.isDismissed(
 				'graph:visualizations:buttonCallout',
 			),

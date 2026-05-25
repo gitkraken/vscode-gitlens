@@ -1215,16 +1215,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphWalkthroughBanner(state: State) {
-		const dismissed = state.graphWalkthroughBannerCollapsed ?? true;
+		const dismissed = (state.graphWalkthroughBannerCollapsed ?? true) || (state.graphWalkthroughComplete ?? false);
 
 		if (dismissed) {
 			return nothing;
 		}
 
-		const highlighted = !state.graphWalkthroughComplete;
+		const highlighted = !(state.graphWalkthroughStarted ?? false);
 
 		return html`
-			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" open>
+			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" ?open=${highlighted}>
 				<button
 					type="button"
 					class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"

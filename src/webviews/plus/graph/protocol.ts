@@ -264,6 +264,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	canInstallClaudeHook?: boolean;
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
+	graphWalkthroughStarted?: boolean;
 	visualizationsButtonCalloutDismissed?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
@@ -1001,6 +1002,11 @@ export const DidChangeGraphWalkthroughBanner = new IpcNotification<GraphWalkthro
 export const DidChangeGraphWalkthroughComplete = new IpcNotification<boolean>(
 	scope,
 	'graphWalkthrough/complete/didChange',
+);
+
+export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
+	scope,
+	'graphWalkthrough/started/didChange',
 );
 
 export const DidChangeVisualizationsButtonCallout = new IpcNotification<boolean>(
