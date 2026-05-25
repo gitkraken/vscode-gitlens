@@ -577,6 +577,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 	private renderDefaultAgentStatus() {
 		if (!this.aiEnabled) return nothing;
+
 		const agent = this.ai.defaultAgent;
 		return html`<span class="integration status--${agent != null ? 'connected' : 'disconnected'}" slot="anchor">
 			<code-icon icon="robot"></code-icon>
