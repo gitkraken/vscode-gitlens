@@ -216,7 +216,15 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		gl-card.is-scoped {
-			outline: 1px solid var(--vscode-focusBorder);
+			--gl-card-background: color-mix(in srgb, var(--gl-chip-scoped-color) 10%, var(--vscode-sideBar-background));
+			--gl-card-hover-background: color-mix(
+				in srgb,
+				var(--gl-chip-scoped-color) 14%,
+				var(--vscode-sideBar-background)
+			);
+		}
+		gl-card.is-scoped::part(base) {
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gl-chip-scoped-color) 35%, transparent);
 		}
 
 		gl-card.is-launchpad-mergeable::part(base) {
@@ -608,7 +616,7 @@ export class GlGraphOverviewCard extends LitElement {
 		return html`
 			<gl-popover
 				hoist
-				trigger="hover focus"
+				trigger="hover focus-visible"
 				placement="right"
 				@gl-popover-show=${this.onPopoverShow}
 				@click=${this.onActionItemClick}
@@ -770,7 +778,15 @@ export class GlGraphOverviewCard extends LitElement {
 	// anchor, but `<gl-card focusable>` keeps the focusable target inside its shadow root and
 	// the underlying `focus` event isn't composed — so the popover never sees it. Wire
 	// focusin/focusout on the card host explicitly to drive the popover's show/hide.
-	private readonly onCardFocusIn = () => {
+	private readonly onCardFocusIn = (e: FocusEvent) => {
+		// Mirror the popover's `focus-visible` trigger semantics: only show on keyboard focus,
+		// not on mouse-induced focus. `e.target` is retargeted to the gl-card host across the
+		// shadow boundary, and `:focus-visible` doesn't reliably propagate from a delegated
+		// descendant to the host — so reach into composedPath to find the actual focused
+		// element (the innermost element along the event path) and check :focus-visible there.
+		const focused = e.composedPath()[0];
+		if (!(focused instanceof Element) || !focused.matches(':focus-visible')) return;
+
 		const popover = this.shadowRoot?.querySelector<
 			HTMLElement & { show: (triggeredBy?: 'hover' | 'focus' | 'click' | 'manual') => void }
 		>('gl-popover');

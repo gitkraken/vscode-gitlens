@@ -593,6 +593,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
+		const scopedBranchId = this._state.scope?.branchRef;
 
 		return html`
 			<div class="cards">
@@ -621,6 +622,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								.enrichment=${this._enrichmentData[b.id]}
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
+								.scoped=${scopedBranchId != null && b.id === scopedBranchId}
 							></gl-graph-overview-card>
 						`;
 					},
