@@ -24,6 +24,7 @@ type MergeTargetPromise = Promise<OverviewBranchMergeTarget | undefined> | undef
 const mergeTargetStyles = css`
 	.header__actions {
 		margin-top: 0.4rem;
+		margin-left: auto;
 	}
 
 	.content {
