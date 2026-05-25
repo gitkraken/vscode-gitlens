@@ -5138,6 +5138,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const mergeBaseSha = await svc.refs.getMergeBase(branch.ref, targetName);
 		if (mergeBaseSha == null) return { focalBranchTipSha: focalBranchTipSha };
 
+		// Bail when the target tip is already an ancestor of the focal branch — focal merely
+		// descends from target, with no real divergence to anchor a merge boundary at. The
+		// merge-base equals the target tip in that case. Letting it through puts the GK
+		// component's `shouldHideWipRowForScope` into the same "hide every worktree's WIP on
+		// the scoped branch" path as the equal-tip case (handled above). Common when scoping
+		// to a feature branch that's 1+ commits ahead of its merge target with no merges-back.
+		if (mergeBaseSha === mergeTargetTipSha) {
+			return { focalBranchTipSha: focalBranchTipSha };
+		}
+
 		// Prefer the cheap dates-only lookup on desktop (git-cli); fall back to a full commit fetch
 		// for providers that don't implement it (e.g. the GitHub provider used in vscode.dev).
 		const dates = await svc.commits.getCommitDates?.(mergeBaseSha);

@@ -1,5 +1,6 @@
 import * as assert from 'assert';
-import type { emptySetMarker, WorkDirStats } from '@gitkraken/gitkraken-components';
+import type { emptySetMarker, GraphRow, WorkDirStats } from '@gitkraken/gitkraken-components';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type {
 	GraphIncludeOnlyRef,
 	GraphIncludeOnlyRefs,
@@ -9,9 +10,12 @@ import type {
 import type { GetOverviewEnrichmentResponse } from '../../../../shared/overviewBranches.js';
 import type { AppState } from '../context.js';
 import { mergeWipMetadata, reconcileScopeMergeTarget } from '../stateProvider.js';
+import type { SelectionBranch, SelectionContext } from '../utils/branchSelection.utils.js';
+import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import {
 	filterSecondariesForIncludeOnlyRefs,
 	filterSecondariesForScope,
+	filterSecondariesForScopeAndVisibility,
 	shouldShowPrimaryWipRow,
 } from '../utils/wip.utils.js';
 
@@ -342,22 +346,25 @@ suite('filterSecondariesForScope', () => {
 		assert.strictEqual(result?.['worktree-wip::/coincident'], undefined);
 	});
 
-	test('keeps detached worktrees (branchRef undefined) — defers to SHA filter', () => {
+	test('drops detached worktrees (branchRef undefined) under an active scope', () => {
+		// A detached worktree has no branch identity to attribute to the scoped branch.
+		// Surfacing it as a second "Working Changes (…)" row adjacent to the scoped worktree's
+		// WIP just adds an unrelated entry to the user's view.
 		const meta: GraphWipMetadataBySha = { 'worktree-wip::/detached': entry('detached', 'sha1') };
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
-		assert.strictEqual(result, meta, 'detached entry passes through unchanged');
+		assert.deepStrictEqual(result, {}, 'detached entry dropped under scope');
 	});
 
-	test('does not match entries with undefined branchRef when scope upstream is missing', () => {
+	test('drops entries with undefined branchRef even when scope has no upstream — does not match a bogus undefined slot', () => {
 		// Regression guard: building the scope-ref set must not insert `undefined`. If it did,
-		// detached entries would match the bogus undefined slot. They should pass via the
-		// branchRef == null fall-through instead.
+		// detached entries would match the bogus undefined slot. The new policy drops them
+		// outright instead of relying on the fall-through.
 		const meta: GraphWipMetadataBySha = {
 			'worktree-wip::/detached': entry('detached', 'sha1'),
 			'worktree-wip::/unrelated': entry('unrelated', 'sha2', otherRef),
 		};
 		const result = filterSecondariesForScope(meta, { branchRef: branchRef, branchName: 'feature' });
-		assert.ok(result?.['worktree-wip::/detached'], 'detached kept');
+		assert.strictEqual(result?.['worktree-wip::/detached'], undefined, 'detached dropped');
 		assert.strictEqual(result?.['worktree-wip::/unrelated'], undefined, 'unrelated dropped');
 	});
 
@@ -440,10 +447,16 @@ suite('filterSecondariesForIncludeOnlyRefs', () => {
 		assert.deepStrictEqual(result, {}, 'every real-branch entry dropped');
 	});
 
-	test('keeps detached worktrees (branchRef undefined) — defers to SHA filter', () => {
+	test('keeps detached worktrees (branchRef undefined) — defers to SHA filter under visibility-only mode', () => {
+		// IMPORTANT: this helper applies under visibility filtering ONLY (no scope). It keeps
+		// detached worktrees so the GK SHA-based filter decides whether they appear. The sibling
+		// `filterSecondariesForScope` has the OPPOSITE policy under an active scope — it DROPS
+		// detached worktrees because they can't be attributed to the scoped branch. If a future
+		// cleanup decides 'these two helpers handle detached identically' and unifies the
+		// policy in either direction, ONE of the two suites will fail loudly. Keep both pinned.
 		const meta: GraphWipMetadataBySha = { 'worktree-wip::/detached': entry('detached', 'sha1') };
 		const result = filterSecondariesForIncludeOnlyRefs(meta, 'agents', refsFor(branchRef));
-		assert.strictEqual(result, meta, 'detached entry passes through unchanged');
+		assert.strictEqual(result, meta, 'detached entry passes through unchanged under visibility-only');
 	});
 });
 
@@ -548,6 +561,100 @@ suite('shouldShowPrimaryWipRow', () => {
 	});
 });
 
+suite('filterSecondariesForScopeAndVisibility', () => {
+	const scopedRef = '/repo|heads/main';
+	const otherRef = '/repo|heads/other';
+
+	test('without scope, applies the visibility filter', () => {
+		// Mirrors `filterSecondariesForIncludeOnlyRefs` behavior — entries not in `includeOnlyRefs` drop.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1', scopedRef),
+			'worktree-wip::/b': entry('b', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'agents', refsFor(scopedRef));
+		assert.ok(result?.['worktree-wip::/a']);
+		assert.strictEqual(result?.['worktree-wip::/b'], undefined);
+	});
+
+	test('with scope, skips the visibility filter — scoped entry survives even when missing from includeOnlyRefs', () => {
+		// Pins the bug fix: scoping the graph from a `gitlens-debug` worktree to the `main` worktree's
+		// branch under `'current'`/`'agents'`/`'favorited'` modes — `main` isn't in `includeOnlyRefs`
+		// (which is anchored on the open repo's HEAD, the debug branch), but the user's explicit scope
+		// pick should override and keep `main`'s secondary WIP visible.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/main': entry('main', 'sha1', scopedRef),
+			'worktree-wip::/other': entry('other', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScopeAndVisibility(
+			meta,
+			scopeFor(scopedRef),
+			'current',
+			refsFor('/repo|heads/debug'),
+		);
+		assert.ok(result?.['worktree-wip::/main'], 'scoped entry survives despite visibility filter');
+		assert.strictEqual(result?.['worktree-wip::/other'], undefined, 'non-scoped entry dropped by scope filter');
+	});
+
+	test('with scope, off-scope entries are still dropped by the scope filter', () => {
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/main': entry('main', 'sha1', scopedRef),
+			'worktree-wip::/other': entry('other', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
+		assert.ok(result?.['worktree-wip::/main']);
+		assert.strictEqual(result?.['worktree-wip::/other'], undefined);
+	});
+
+	test('with scope on `all` visibility, scoped entry survives (no filter applied)', () => {
+		const meta: GraphWipMetadataBySha = { 'worktree-wip::/main': entry('main', 'sha1', scopedRef) };
+		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
+		assert.ok(result?.['worktree-wip::/main']);
+	});
+
+	test('without scope and `all` visibility, returns input unchanged', () => {
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1', scopedRef),
+			'worktree-wip::/b': entry('b', 'sha2', otherRef),
+		};
+		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'all', undefined);
+		assert.strictEqual(result, meta);
+	});
+
+	test('returns undefined when metadata is undefined', () => {
+		const result = filterSecondariesForScopeAndVisibility(
+			undefined,
+			scopeFor(scopedRef),
+			'current',
+			refsFor(scopedRef),
+		);
+		assert.strictEqual(result, undefined);
+	});
+
+	test('with scope, drops detached worktree entries (branchRef undefined)', () => {
+		// Regression guard at the COMPOSER level — if a future refactor swaps the order or
+		// short-circuits the inner helpers, the inner-helper test alone wouldn't catch it.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/main': entry('main', 'sha1', scopedRef),
+			'worktree-wip::/detached': entry('detached', 'sha2'),
+		};
+		const result = filterSecondariesForScopeAndVisibility(meta, scopeFor(scopedRef), 'all', undefined);
+		assert.ok(result?.['worktree-wip::/main'], 'scoped entry kept');
+		assert.strictEqual(result?.['worktree-wip::/detached'], undefined, 'detached dropped under scope');
+	});
+
+	test('without scope, keeps detached worktree entries under visibility-only mode', () => {
+		// Mirror pin for the no-scope branch — the visibility helper's keep-detached policy
+		// must survive at the composer level too.
+		const meta: GraphWipMetadataBySha = {
+			'worktree-wip::/a': entry('a', 'sha1', scopedRef),
+			'worktree-wip::/detached': entry('detached', 'sha2'),
+		};
+		const result = filterSecondariesForScopeAndVisibility(meta, undefined, 'agents', refsFor(scopedRef));
+		assert.ok(result?.['worktree-wip::/a']);
+		assert.ok(result?.['worktree-wip::/detached'], 'detached kept under visibility-only');
+	});
+});
+
 function refsFor(...ids: string[]): GraphIncludeOnlyRefs {
 	const result: GraphIncludeOnlyRefs = {};
 	for (const id of ids) {
@@ -575,3 +682,136 @@ function scopeFor(branchRef: string, opts?: { additionalBranchRefs?: string[] })
 		...(opts?.additionalBranchRefs ? { additionalBranchRefs: opts.additionalBranchRefs } : {}),
 	};
 }
+
+suite('getOverviewBranchSelectionSha', () => {
+	const repoPath = '/repo';
+	const branchId = `${repoPath}|heads/feature`;
+	const tipSha = '1111111111111111111111111111111111111111';
+	const otherSha = '2222222222222222222222222222222222222222';
+
+	function branchFor(overrides: Partial<SelectionBranch> = {}): SelectionBranch {
+		return {
+			id: branchId,
+			repoPath: repoPath,
+			opened: false,
+			reference: { sha: tipSha },
+			...overrides,
+		};
+	}
+
+	function ctxFor(overrides: Partial<SelectionContext> = {}): SelectionContext {
+		return {
+			wipMetadataBySha: undefined,
+			rows: undefined,
+			branchesVisibility: 'all',
+			includeOnlyRefs: undefined,
+			...overrides,
+		};
+	}
+
+	function row(sha: string): GraphRow {
+		// Only `sha` is read by `getOverviewBranchSelectionSha` (via the `loadedShas` Set);
+		// other fields are filled in as no-op defaults that satisfy GraphRow's type.
+		const r: GraphRow = {
+			sha: sha,
+			parents: [],
+			author: '',
+			email: '',
+			date: 0,
+			message: '',
+			type: 'commit-node',
+			heads: [],
+			remotes: [],
+			tags: [],
+		};
+		return r;
+	}
+
+	test('case 1: secondary worktree on different path + parent in loaded rows → worktree WIP sha', () => {
+		const wipMeta: GraphWipMetadataBySha = { 'worktree-wip::/wt': entry('feature', tipSha, branchId) };
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ worktree: { path: '/wt' } }),
+			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+		);
+		assert.strictEqual(result, 'worktree-wip::/wt');
+	});
+
+	test('case 1: worktree exists but metadata is missing → falls through (does NOT return unselectable WIP)', () => {
+		// Regression guard: the prior `meta == null` short-circuit silently returned an
+		// unselectable WIP sha. Cold-metadata path should NOT short-circuit.
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ worktree: { path: '/wt' } }),
+			ctxFor({ wipMetadataBySha: undefined, rows: [row(tipSha)] }),
+		);
+		assert.strictEqual(result, tipSha, 'fell through to tip when metadata was cold');
+	});
+
+	test('case 1: worktree + metadata present but parent NOT in loaded rows → falls through', () => {
+		const wipMeta: GraphWipMetadataBySha = { 'worktree-wip::/wt': entry('feature', otherSha, branchId) };
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ worktree: { path: '/wt' } }),
+			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+		);
+		assert.strictEqual(result, tipSha, 'parent not in loaded rows → tip');
+	});
+
+	test('case 2: default-worktree fallback via wipMetadataBySha branchRef match', () => {
+		// OverviewBranch.worktree is undefined (default-worktree strip at provider boundary),
+		// but wipMetadataBySha has an entry whose branchRef matches branch.id. Should select WIP.
+		const wipMeta: GraphWipMetadataBySha = { 'worktree-wip::/default': entry('feature', tipSha, branchId) };
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ worktree: undefined }),
+			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+		);
+		assert.strictEqual(result, 'worktree-wip::/default');
+	});
+
+	test('case 2: parent NOT in loaded rows → falls through', () => {
+		const wipMeta: GraphWipMetadataBySha = { 'worktree-wip::/default': entry('feature', otherSha, branchId) };
+		const result = getOverviewBranchSelectionSha(
+			branchFor(),
+			ctxFor({ wipMetadataBySha: wipMeta, rows: [row(tipSha)] }),
+		);
+		assert.strictEqual(result, tipSha);
+	});
+
+	test('case 3: branch.opened under `all` visibility → uncommitted', () => {
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ opened: true }),
+			ctxFor({ branchesVisibility: 'all' }),
+		);
+		assert.strictEqual(result, uncommitted);
+	});
+
+	test("case 3: branch.opened under 'agents' visibility but branchId in includeOnlyRefs → uncommitted", () => {
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ opened: true }),
+			ctxFor({ branchesVisibility: 'agents', includeOnlyRefs: refsFor(branchId) }),
+		);
+		assert.strictEqual(result, uncommitted);
+	});
+
+	test("case 3: branch.opened under 'agents' visibility BUT branchId NOT in includeOnlyRefs → tip (regression guard)", () => {
+		// Without this gate the helper would return `uncommitted` and `ensureAndSelectCommit`
+		// would retry 10 RAFs against a primary WIP row the wrapper never injected.
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ opened: true }),
+			ctxFor({ branchesVisibility: 'agents', includeOnlyRefs: refsFor('/repo|heads/other') }),
+		);
+		assert.strictEqual(result, tipSha);
+	});
+
+	test('case 4: not opened, no worktree match, no wipMeta match → branch tip', () => {
+		const result = getOverviewBranchSelectionSha(branchFor(), ctxFor());
+		assert.strictEqual(result, tipSha);
+	});
+
+	test('case 4: undefined rows means we cannot gate on parentSha — case 1 still returns WIP', () => {
+		const wipMeta: GraphWipMetadataBySha = { 'worktree-wip::/wt': entry('feature', otherSha, branchId) };
+		const result = getOverviewBranchSelectionSha(
+			branchFor({ worktree: { path: '/wt' } }),
+			ctxFor({ wipMetadataBySha: wipMeta, rows: undefined }),
+		);
+		assert.strictEqual(result, 'worktree-wip::/wt', 'no rows info → trust metadata');
+	});
+});

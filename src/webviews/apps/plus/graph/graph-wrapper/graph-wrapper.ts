@@ -59,11 +59,7 @@ import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
-import {
-	filterSecondariesForIncludeOnlyRefs,
-	filterSecondariesForScope,
-	shouldShowPrimaryWipRow,
-} from '../utils/wip.utils.js';
+import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import type { WipCandidate } from './nearestWip.js';
@@ -262,12 +258,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	// Cache keyed by (rows, wipMetadataBySha, workingTreeStats, scope, branchesVisibility,
 	// includeOnlyRefs, branch.id) — any reference change invalidates. Scope must be in the key
-	// because `filterSecondariesForScope` reads `scope.branchRef`/`upstreamRef`/`additionalBranchRefs`
+	// because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
+	// `additionalBranchRefs` AND switches off the visibility filter entirely when scope is active,
 	// AND `shouldShowPrimaryWipRow` reads `scope.branchRef` to enforce the "primary WIP belongs
 	// only to the focal branch when focal === current" convention; `branchesVisibility` +
 	// `includeOnlyRefs` + `currentBranchId` must also be in the key because the WIP-visibility
-	// helpers below (`filterSecondariesForIncludeOnlyRefs`, `shouldShowPrimaryWipRow`) read them
-	// when the scope picker is in a non-`all` mode (current/smart/favorited/agents).
+	// helpers read them when the scope picker is in a non-`all` mode (current/smart/favorited/agents)
+	// AND when no scope is active.
 	private _decoratedRowsCache?: {
 		rows: GraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
@@ -303,13 +300,21 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			cached.includeOnlyRefs === includeOnlyRefs &&
 			cached.currentBranchId === currentBranchId
 		) {
+			// Return the cached `result` object identity-stable. The render boundary still
+			// slices `.rows` defensively (the GK component mutates the array it receives), so
+			// gl-graph sees a fresh array reference per render and runs its own dirty-check —
+			// the cache's benefit here is avoiding the O(n*m) interleave work, NOT skipping
+			// gl-graph re-renders. The shared `result.rows` reference inside the cache is
+			// pristine because the slice-at-boundary keeps GK's mutations confined to the
+			// downstream copy.
 			return cached.result;
 		}
 
 		const showPrimary = shouldShowPrimaryWipRow(branchesVisibility, includeOnlyRefs, currentBranchId, scope);
 
-		const filteredMetadata = filterSecondariesForIncludeOnlyRefs(
-			filterSecondariesForScope(wipMetadataBySha, scope),
+		const filteredMetadata = filterSecondariesForScopeAndVisibility(
+			wipMetadataBySha,
+			scope,
 			branchesVisibility,
 			includeOnlyRefs,
 		);
@@ -392,6 +397,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			resultRows = rows?.slice();
 		}
 
+		// Cache the pristine `result` for re-use on subsequent renders with identical inputs.
+		// The defensive slice happens at the `gl-graph` prop boundary in `render()` so the
+		// cache and consumer never share an array reference (the GK component mutates the
+		// passed array; see the `render()` `.rows=` binding comment).
 		const result = { rows: resultRows, showPrimary: showPrimary };
 		this._decoratedRowsCache = {
 			rows: rows,
@@ -547,6 +556,27 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
 
+		// The GK component runs this on every render against `rows[0]`:
+		//   if (shouldShowWip(stats, wipVisibility) && rows.length && !isWipType(rows[0].type)) rows.unshift(autoPrimary)
+		//   else if (!shouldShowWip(...) && rows.length && isWipType(rows[0].type))            rows.shift()  // ← removes our injected secondary
+		// When we inject a secondary WIP that lands at `rows[0]` (scope to a worktree whose tip
+		// is the first loaded commit, e.g. `feature/agents-collapse-modes` at the top of the
+		// rows), the `else if` would shift it out under our default `auto`/`undefined` props.
+		// Force `'always'` + a stats sentinel when our WIP is at index 0 so GK no-ops on it.
+		// We don't always pass `'always'` because when there's no WIP at index 0 and we do, GK
+		// unshifts its own primary WIP at index 0 — that produces a duplicate.
+		const wipAtTop = decoratedRows?.[0]?.type === 'work-dir-changes';
+		const wipVisibility = showPrimary || wipAtTop ? 'always' : 'auto';
+		// Sentinel zero-stats keeps the no-op branch live without colliding with our row (GK
+		// only reads `workingTreeStats` to build its own auto-primary, which it skips when
+		// `rows[0]` is already a WIP). When we show our primary, pass the real stats so the
+		// primary row can display them.
+		const workingTreeStats = showPrimary
+			? graphState.workingTreeStats
+			: wipAtTop
+				? GlGraphWrapper.sentinelWorkingTreeStats
+				: undefined;
+
 		return html`<gl-graph
 			.setRef=${this.onSetRef}
 			.activeFilterColumns=${graphState.activeFilterColumns}
@@ -560,11 +590,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.excludeTypes=${graphState.excludeTypes}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
 			.pinnedRef=${graphState.pinnedRef}
-			?loading=${graphState.loading}
+			?loading=${graphState.loading || graphState.scopeLoading}
 			nonce=${ifDefined(graphState.nonce)}
 			.paging=${graphState.paging}
 			.refsMetadata=${graphState.refsMetadata}
-			.rows=${decoratedRows}
+			.rows=${decoratedRows?.slice()}
 			.rowsStats=${graphState.rowsStats}
 			?rowsStatsLoading=${graphState.rowsStatsLoading}
 			.searchMode=${graphState.searchMode}
@@ -572,10 +602,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.selectedRows=${graphState.selectedRows}
 			.theming=${this.theming}
 			?windowFocused=${graphState.windowFocused}
-			.workingTreeStats=${showPrimary ? graphState.workingTreeStats : undefined}
+			.workingTreeStats=${workingTreeStats}
 			.wipMetadataBySha=${graphState.wipMetadataBySha}
 			.wipShasSettleDelayMs=${GlGraphWrapper.wipShasSettleDelayMs}
-			.wipVisibility=${showPrimary ? 'always' : 'auto'}
+			.wipVisibility=${wipVisibility}
 			.scope=${graphState.scope}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
@@ -911,6 +941,18 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 * its `requestedMissingWipStats` dedup for shas that leave the viewport.
 	 */
 	private static readonly wipShasSettleDelayMs = 350;
+
+	/**
+	 * Zero-stats sentinel passed down to GK's `workingTreeStats` prop when our injected
+	 * secondary WIP lands at `rows[0]` and we're not showing the primary WIP. GK uses
+	 * `workingTreeStats` + `wipVisibility` together to decide whether to keep / shift the
+	 * row at index 0. Pinning a stable identity (rather than `{}` each render) avoids
+	 * triggering needless `componentDidUpdate` work in GK on every wrapper render.
+	 * `Object.freeze` ensures any downstream consumer that decides to mutate the prop
+	 * (defensive copy helpers, future instrumentation hooks) throws in strict mode
+	 * instead of silently poisoning the singleton for every future render.
+	 */
+	private static readonly sentinelWorkingTreeStats = Object.freeze({ added: 0, deleted: 0, modified: 0 } as const);
 
 	private onVisibleWipShasChanged(event: CustomEvent<Record<string, true>>) {
 		// The GK component tells us the full current set of secondary WIP rows in the viewport.

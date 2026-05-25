@@ -61,6 +61,7 @@ import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } fro
 import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
 import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './sidebar/sidebar-panel.js';
 import type { GraphSidebarDisplayModeChangeEventDetail, GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
+import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import './gate.js';
@@ -472,7 +473,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}): Promise<void> {
 		const { action, target, commitMessage } = pending;
 		if (action === 'scope-to-branch') {
-			this.scopeToBranch();
+			await this.scopeToBranch();
 			return;
 		}
 
@@ -507,7 +508,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private scopeToBranch(): void {
+	private async scopeToBranch(): Promise<void> {
 		const branch = this.graphState.branch;
 		if (branch == null) {
 			this._pendingScopeToBranch = true;
@@ -518,7 +519,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const repoPath = this.fallbackRepoPath;
 		if (repoPath != null) {
 			const branchRef = getBranchId(repoPath, false, branch.name);
-			this.setScope(
+			await this.setScope(
 				{
 					branchRef: branchRef,
 					branchName: branch.name,
@@ -1311,10 +1312,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	};
 
-	private handleOverviewBranchSelected(
+	private async handleOverviewBranchSelected(
 		e: CustomEvent<{ branchId: string; branchName: string; mergeTargetTipSha?: string }>,
-	) {
-		this.scopeToBranchById(e.detail.branchId, e.detail.mergeTargetTipSha);
+	): Promise<void> {
+		// Await scope publish so the post-scope `ensureAndSelectCommit` runs against the settled
+		// GK row index — eliminates the "WIP-not-selected on first scope" race where the bare
+		// publish hadn't yet been replaced by the anchored publish at selection time.
+		await this.scopeToBranchById(e.detail.branchId, e.detail.mergeTargetTipSha);
+		// Supersession guard: a concurrent click on another branch can land while our `await` is
+		// parked, publishing a different scope. If `this.graphState.scope` is no longer for our
+		// branch by the time we resume, the newer scope owns the selection — don't fire a stale
+		// `ensureAndSelectCommit` against the wrong scope.
+		if (this.graphState.scope?.branchRef !== e.detail.branchId) return;
 
 		const sha = this.getOverviewBranchSelectionSha(e.detail.branchId);
 		if (sha != null) {
@@ -1360,10 +1369,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const branch = overview?.active.find(b => b.id === branchId) ?? overview?.recent.find(b => b.id === branchId);
 		if (branch == null) return undefined;
 
-		return getOverviewBranchSelectionSha(branch, this.graphState.workingTreeStats);
+		return getOverviewBranchSelectionSha(branch, {
+			wipMetadataBySha: this.graphState.wipMetadataBySha,
+			rows: this.graphState.rows,
+			branchesVisibility: this.graphState.branchesVisibility,
+			includeOnlyRefs: this.graphState.includeOnlyRefs,
+		});
 	}
 
-	private handleScopeToBranchFromHeader(e: CustomEvent<{ branchName: string; upstreamName?: string }>) {
+	private async handleScopeToBranchFromHeader(
+		e: CustomEvent<{ branchName: string; upstreamName?: string }>,
+	): Promise<void> {
 		// Use the selected repo's actual path (the opened workspace's path). That's what the host
 		// passes as `this.repository.path` when building the graph's row index AND the
 		// `wipMetadataBySha` branchRefs, so any scope/lookup branchRef constructed here must use
@@ -1381,13 +1397,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			overview?.active.find(b => b.name === branchName) ?? overview?.recent.find(b => b.name === branchName);
 		if (branch != null) {
 			const mergeTargetTipSha = this.graphState.overviewEnrichment?.[branch.id]?.mergeTarget?.sha;
-			this.scopeToBranchById(branch.id, mergeTargetTipSha, 'popover');
+			await this.scopeToBranchById(branch.id, mergeTargetTipSha, 'popover');
+			// Supersession guard: a concurrent `setScope` for a different branch can land while
+			// our `await` is parked. If `this.graphState.scope` is no longer for our branch by the
+			// time we resume, the newer call owns the selection — don't fire a stale one against
+			// the wrong scope (would land selection on the previous click's WIP/tip).
+			if (this.graphState.scope?.branchRef !== branch.id) return;
 
-			// Mirror the overview-card click flow: after scoping, select the Working Changes row
-			// (when the scoped branch is the current opened branch with WIP, or has a worktree
-			// with WIP) or the focal branch tip. Otherwise the prior selection (often the target
-			// branch tip the user just clicked) sticks and the new scope renders pinned to the
-			// wrong row.
 			const sha = this.getOverviewBranchSelectionSha(branch.id);
 			if (sha != null) {
 				this.graph?.ensureAndSelectCommit(sha);
@@ -1395,12 +1411,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Fallback: branch isn't in the overview's active/recent list. `setScope` fires
-		// `resolveScopeMergeBase`, which now lands `mergeTargetTipSha` directly from the
-		// host-side scope-anchor resolver — no need to also fire a full enrichment IPC for the
-		// PR/autolinks/issues/conflict status fields the scope flow doesn't render.
+		// Fallback: branch isn't in the overview's active/recent list. Synthesize a minimal
+		// `OverviewBranch` and route through the helper — keeps a single source of truth for
+		// the selection cascade. Without this, the inline cascade silently drifted from the
+		// helper (e.g., missed the `loadedShas` gate, kept a stale `stats > 0` predicate).
 		const branchRef = getBranchId(repoPath, false, branchName);
-		this.setScope(
+		await this.setScope(
 			{
 				branchRef: branchRef,
 				branchName: branchName,
@@ -1408,35 +1424,32 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			},
 			'popover',
 		);
+		// Same supersession guard as above.
+		if (this.graphState.scope?.branchRef !== branchRef) return;
 
-		// Same selection cascade as `getOverviewBranchSelectionSha`, inlined because the helper
-		// needs an `OverviewBranch` that this fallback path doesn't have:
-		//   1. Secondary WIP entry whose `branchRef` matches the scoped branch (worktree-bound WIP).
-		//   2. Scoped branch IS the current branch AND working changes exist → primary WIP.
-		//      Mirror the helper's `branch.opened` gate: the Working Changes row anchors to HEAD,
-		//      so it only "belongs" to the scoped branch when the scoped branch is current.
-		//   3. Focal branch tip from the loaded rows.
-		const wipMetadataBySha = this.graphState.wipMetadataBySha;
-		if (wipMetadataBySha != null) {
-			for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
-				if (meta.branchRef === branchRef) {
-					this.graph?.ensureAndSelectCommit(sha);
-					return;
-				}
-			}
-		}
-
-		const stats = this.graphState.workingTreeStats;
 		const isCurrent = this.graphState.branch?.name === branchName;
-		const hasWip = stats != null && stats.added + stats.modified + stats.deleted > 0;
-		if (isCurrent && hasWip) {
-			this.graph?.ensureAndSelectCommit(uncommitted);
-			return;
-		}
-
 		const tipSha = this.graphState.rows?.find(r => r.heads?.some(h => h.id === branchRef))?.sha;
-		if (tipSha != null) {
-			this.graph?.ensureAndSelectCommit(tipSha);
+		// `worktree: undefined` is correct here — no overview hit means we don't know the
+		// worktree affiliation, and the helper's case (2) recovers via `wipMetadataBySha`
+		// lookup by `branch.id`. Synthesizes the minimal `SelectionBranch` shape so the same
+		// cascade serves both overview-card and header-popover paths.
+		const synthesizedBranch: SelectionBranch = {
+			id: branchRef,
+			repoPath: repoPath,
+			opened: isCurrent,
+			reference: { sha: tipSha },
+		};
+		const sha = getOverviewBranchSelectionSha(synthesizedBranch, {
+			wipMetadataBySha: this.graphState.wipMetadataBySha,
+			rows: this.graphState.rows,
+			branchesVisibility: this.graphState.branchesVisibility,
+			includeOnlyRefs: this.graphState.includeOnlyRefs,
+		});
+		if (sha != null && sha !== '') {
+			// If the helper returned the tip and tip isn't loaded, the IPC `EnsureRowRequest`
+			// fallback in `ensureAndSelectCommit` will fetch it; otherwise the fast path or
+			// synthetic-WIP retry handles it.
+			this.graph?.ensureAndSelectCommit(sha);
 			return;
 		}
 
@@ -1447,11 +1460,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._pendingFocalTipBranchRef = branchRef;
 	}
 
-	private scopeToBranchById(
+	private async scopeToBranchById(
 		branchId: string,
 		mergeTargetTipSha?: string,
 		source: 'popover' | 'overview-card' = 'overview-card',
-	): void {
+	): Promise<void> {
 		const overview = this.graphState.overview;
 		if (overview == null) return;
 
@@ -1467,7 +1480,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// enrichment so repeated calls pick up data that's arrived since the previous call.
 		const sha = mergeTargetTipSha ?? this.graphState.overviewEnrichment?.[branchId]?.mergeTarget?.sha;
 
-		this.setScope(
+		await this.setScope(
 			{
 				// The graph component indexes rows by head id (e.g. `{repoPath}|heads/{name}`), not bare branch name
 				branchRef: branch.id,
@@ -1479,7 +1492,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private setScope(scope: NonNullable<typeof this.graphState.scope>, source: 'popover' | 'overview-card'): void {
+	private async setScope(
+		scope: NonNullable<typeof this.graphState.scope>,
+		source: 'popover' | 'overview-card',
+	): Promise<void> {
 		// Skip re-assignment when structurally equal so GraphContainer doesn't re-evaluate
 		// scope highlighting on unrelated graph updates.
 		const current = this.graphState.scope;
@@ -1501,10 +1517,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				'scope.hasMergeTarget': scope.mergeTargetTipSha != null,
 			},
 		});
-		// Delegate publication to `stateProvider.setScope` — it publishes a bare scope
-		// synchronously so the graph component's filter activates before any concurrent
-		// scroll/select work, then resolves and applies the anchor via IPC.
-		void this.graphState.setScope(scope);
+		// `stateProvider.setScope` resolves after the final scope publish (anchored when the
+		// anchor IPC supplies a usable merge base, bare otherwise). Awaiting keeps the post-scope
+		// selection cascade timed correctly — `ensureAndSelectCommit` sees the GK row index in
+		// the settled state and can lock onto the WIP/tip without racing the bare→anchored render.
+		await this.graphState.setScope(scope);
 	}
 
 	private _cachedScopeWindow:

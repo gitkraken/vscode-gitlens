@@ -26,6 +26,9 @@ export interface AppState extends State {
 	agentSessions: AgentSessionState[];
 	isBusy: boolean;
 	loading: boolean;
+	/** Composed with `loading` at the `gl-graph` render boundary — true while a scope-anchor
+	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
+	scopeLoading: boolean;
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
