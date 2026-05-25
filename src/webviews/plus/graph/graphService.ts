@@ -273,6 +273,7 @@ export interface GraphInspectService {
 	trackReviewAction(args: { action: 'copy'; granularity: 'review' | 'focusArea' | 'finding' }): Promise<void>;
 	generateCommitMessage(
 		repoPath: string,
+		currentMessage: string | undefined,
 		signal?: AbortSignal,
 	): Promise<{ summary: string; body?: string } | undefined>;
 	composeChanges(

@@ -1496,7 +1496,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { ok: false, reason: 'error', message: message };
 					}
 				},
-				generateCommitMessage: async (repoPath, signal) => {
+				generateCommitMessage: async (repoPath, currentMessage, signal) => {
 					// Pass the Repository (not a raw diff) so the AI service applies its
 					// staged-first → unstaged-fallback convention. The previous implementation
 					// always grabbed the full uncommitted diff (staged + unstaged), which produced
@@ -1512,7 +1512,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const result = await this.container.ai.actions.generateCommitMessage(
 							repo,
 							{ source: 'graph-details' },
-							{ cancellation: cancellation },
+							{ context: currentMessage, cancellation: cancellation },
 						);
 						if (result === 'cancelled' || result == null) return undefined;
 

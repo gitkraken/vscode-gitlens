@@ -2719,7 +2719,12 @@ export class DetailsActions {
 		this._generateMessageController = controller;
 		this.state.generating.set(true);
 		try {
-			const result = await this.services.graphInspect.generateCommitMessage(repoPath, controller.signal);
+			const currentMessage = this.state.commitMessage.get().trim() || undefined;
+			const result = await this.services.graphInspect.generateCommitMessage(
+				repoPath,
+				currentMessage,
+				controller.signal,
+			);
 			// Guard against a late response after the user cancelled or kicked off
 			// a new generation — only land the result if this controller is still current.
 			if (this._generateMessageController !== controller) return;
