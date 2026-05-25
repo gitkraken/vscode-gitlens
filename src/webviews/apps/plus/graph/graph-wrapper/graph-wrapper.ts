@@ -67,7 +67,7 @@ import {
 import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import type { WipCandidate } from './nearestWip.js';
-import { filterWipsInLaneOf, findNearestWipSha } from './nearestWip.js';
+import { findNearestWipByAncestry, findWipInColumn } from './nearestWip.js';
 import './gl-graph.js';
 
 // Builds the display message for a WIP row. The label (worktree name) is appended in parens for
@@ -216,8 +216,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	// Per-SHA column assignments from the GK component (`onColumnsCalculated`). Held on the
 	// instance and consulted on-demand by `onJumpToNearestWip` so the jump never crosses lanes
-	// to a different worktree's WIP. Stays undefined until the first layout pass — callers
-	// must handle that as "lane filter unavailable" (see `filterWipsInLaneOf`).
+	// to a different worktree's WIP. Stays undefined until the first layout pass; individual
+	// shas may also be missing during the partial-load window after a scope change or paging.
+	// Both gaps are handled — see `findWipInColumn`'s early-return on missing data and the
+	// defensive BFS fallback in `onJumpToNearestWip` below.
 	private _columnsBySha: ColumnNumberBySha | undefined;
 
 	private onColumnsCalculated = (event: CustomEvent<ColumnNumberBySha>): void => {
@@ -225,40 +227,37 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	};
 
 	private onJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>) => {
-		const wips: WipCandidate[] = [];
-
-		const primaryAnchor = this.graphState.branch?.sha ?? this.graphState.rows?.[0]?.sha;
-		if (primaryAnchor != null) {
-			wips.push({ sha: uncommitted, anchor: primaryAnchor });
-		}
-
+		const rows = this.graphState.rows;
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
-		if (wipMetadataBySha != null) {
-			for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
-				if (meta.parentSha) {
-					wips.push({ sha: sha, anchor: meta.parentSha });
+		const primaryAnchor = this.graphState.branch?.sha;
+
+		// Primary strategy: pick the WIP in the same column as the clicked commit (the
+		// "visual lane" the user sees). Exact-anchor match (clicked commit IS a branch tip
+		// with a WIP) overrides — jumps directly to that branch's WIP regardless of column.
+		let target = findWipInColumn(e.detail.fromSha, rows, primaryAnchor, wipMetadataBySha, this._columnsBySha);
+
+		// Defensive fallback when column data for the clicked commit is unavailable — either
+		// the cold-start window before any `onColumnsCalculated`, OR the brief partial-load
+		// gap after scope change / paging where the clicked row is in `rows` but not yet in
+		// the column map. Without this, clicks during the gap blindly snap to primary.
+		// Once the column for the clicked commit lands, the column rule dominates.
+		if (target == null && this._columnsBySha?.[e.detail.fromSha] == null) {
+			const wips: WipCandidate[] = [];
+			if (primaryAnchor != null) {
+				wips.push({ sha: uncommitted, anchor: primaryAnchor });
+			}
+			if (wipMetadataBySha != null) {
+				for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
+					if (meta.parentSha != null) {
+						wips.push({ sha: sha, anchor: meta.parentSha });
+					}
 				}
 			}
+			target = findNearestWipByAncestry(e.detail.fromSha, wips, rows);
 		}
 
-		// Restrict to WIPs rendered in the same column as the clicked commit so the jump never
-		// crosses into another worktree/branch's lane. When column data isn't available yet,
-		// `filterWipsInLaneOf` returns the input untouched and we degrade to the prior
-		// nearest-by-ancestry behavior.
-		const inLane = filterWipsInLaneOf(e.detail.fromSha, wips, this._columnsBySha);
-
-		// Lane data was available but no WIP shares the clicked commit's lane — fall back to the
-		// primary WIP (the current branch's Working Changes). Predictable and matches the chip's
-		// "Jump to Working Changes" label.
-		if (inLane.length === 0) {
-			this.ensureAndSelectCommit(uncommitted);
-			return;
-		}
-
-		const target = findNearestWipSha(e.detail.fromSha, inLane, this.graphState.rows);
-		if (target == null) return;
-
-		this.ensureAndSelectCommit(target);
+		// Last-resort: no in-column WIP and no ancestry match → jump to the primary (uncommitted).
+		this.ensureAndSelectCommit(target ?? uncommitted);
 	};
 
 	// Cache keyed by (rows, wipMetadataBySha, workingTreeStats, scope, branchesVisibility,
