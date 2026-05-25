@@ -113,14 +113,22 @@ export type BranchComparisonFile = CommitFileChange;
  *  needed to render the panel meaningfully. Per-side commits + files are fetched lazily on tab
  *  activation via {@link BranchComparisonSide}. */
 export type BranchComparisonSummary = {
+	/** Commits reachable from rightRef (Compare) but not from leftRef (Base) — `git rev-list leftRef..rightRef`. */
 	aheadCount: number;
+	/** Commits reachable from leftRef (Base) but not from rightRef (Compare) — `git rev-list rightRef..leftRef`. */
 	behindCount: number;
 	allFilesCount: number;
-	/** Files from the unified 2-dot `right..left` diff, plus current worktree files when enabled. */
+	/** Files from the unified 2-dot `leftRef..rightRef` diff (Base → Compare), plus current worktree
+	 *  files when enabled. */
 	allFiles: readonly BranchComparisonFile[];
-	/** Path of the worktree currently checked out at leftRef, if any. Right ref's worktree is
-	 *  intentionally not tracked — IWT only reads the left side's working tree. */
-	leftRefWorktreePath?: string;
+	/** Path of the worktree currently checked out at rightRef (the Compare side), if any. The Base
+	 *  side's (leftRef) worktree is intentionally not tracked — IWT only reads the Compare side's
+	 *  working tree, so exposing the Base side's would invite asymmetric comparisons we don't support. */
+	rightRefWorktreePath?: string;
+	/** Merge base of leftRef and rightRef, when one exists. Threaded to the panel so per-side file
+	 *  lists and file actions anchor on the divergence point (Ahead = `mergeBase..Compare`,
+	 *  Behind = `mergeBase..Base`) instead of the symmetric 2-dot diff. Undefined for disjoint refs. */
+	mergeBase?: string;
 };
 
 /** Phase 2: a single side's commits, with files for the entire side.
@@ -129,6 +137,9 @@ export type BranchComparisonSide = {
 	commits: BranchComparisonCommit[];
 	/** Union of all file changes across this side's commits */
 	files: BranchComparisonFile[];
+	/** True when there are more commits beyond the returned slice — drives the panel's "Load
+	 *  More" affordance. Falls back to `false` if the underlying log call didn't return a result. */
+	hasMore: boolean;
 };
 
 export type BranchComparisonCommit = {
@@ -147,6 +158,13 @@ export type BranchComparisonCommit = {
 
 export type BranchComparisonOptions = {
 	includeWorkingTree?: boolean;
+	/** Cap on the number of commits returned by `getBranchComparisonSide`. Defaults to 100 when
+	 *  unset. Bumped by the panel's "Load More" affordance via the limit-replace pattern: the
+	 *  side is re-fetched with a larger limit, idempotently superseding the smaller result. */
+	limit?: number;
+	/** Optional merge base, reused from the summary fetch to avoid a duplicate `git merge-base`
+	 *  call on the side fetch. When omitted, the side fetch resolves its own merge base. */
+	mergeBase?: string;
 };
 
 export type BranchComparisonContributorsScope = 'all' | 'ahead' | 'behind';
@@ -291,7 +309,11 @@ export interface GraphInspectService {
 		scope: BranchComparisonContributorsScope,
 		signal?: AbortSignal,
 	): Promise<BranchComparisonContributorsResult | undefined>;
-	chooseRef(repoPath: string, title: string, picked?: string): Promise<{ name: string; sha: string } | undefined>;
+	chooseRef(
+		repoPath: string,
+		title: string,
+		picked?: string,
+	): Promise<{ name: string; sha: string; refType: 'branch' | 'tag' | 'commit' } | undefined>;
 	getMergeTargetComparisonRef(repoPath: string, branchName?: string): Promise<string | undefined>;
 	/** Reveals the current compare-mode comparison as a saved node in the Search & Compare view —
 	 *  the persistence escape hatch for users who want to keep an ad-hoc graph comparison around. */

@@ -112,9 +112,13 @@ export class DetailsFileCommands {
 			.refs.getMergeBase(comparison.sha, commit.sha);
 		if (mergeBase == null) return;
 
+		// `comparison.sha` is the lhs (Base / older / "from") per the file-context convention; the
+		// rhs we want to anchor to is the commit being inspected (`commit.sha`), so this shows the
+		// diff from the merge base to the Compare side — matching PR-review semantics ("what does
+		// this branch add since divergence").
 		void openChanges(
 			file,
-			{ repoPath: commit.repoPath, lhs: mergeBase, rhs: comparison.sha },
+			{ repoPath: commit.repoPath, lhs: mergeBase, rhs: commit.sha },
 			{ preserveFocus: true, preview: true, ...showOptions, lhsTitle: `${basename(file.path)} (Base)` },
 		);
 	}

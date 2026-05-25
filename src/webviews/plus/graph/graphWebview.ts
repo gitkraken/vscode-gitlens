@@ -1716,48 +1716,66 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
-					// Phase 1 — counts + the unified All Files diff. Smallest payload to land the user
-					// on a useful panel; per-side commits + their files are fetched on demand via
-					// `getBranchComparisonSide`.
+					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
+					// to land the user on a useful panel; per-side commits + their files are fetched
+					// on demand via `getBranchComparisonSide`.
+					//
+					// Convention: leftRef = Base (older / "from"), rightRef = Compare (newer / "to").
+					// The working tree, when included, lives on the Compare side (rightRef).
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Working-tree-aware mode: when IWT is on AND leftRef is checked out in some
-					// worktree, query that worktree directly so the unified `git diff rightRef ..`
-					// (with `includeUntracked: true`) reflects the user's actual on-disk state.
-					const leftRefWorktreePath =
-						options?.includeWorkingTree === true
-							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
-							: undefined;
+					// Always resolve rightRef's (Compare) worktree path — independent of the IWT
+					// toggle's current state. This separates two concerns the old code conflated:
+					//  (a) "does a worktree exist for rightRef?" — drives the IWT toggle's visibility.
+					//  (b) "should the diff include working-tree changes?" — drives the data shape.
+					// Conflating them caused the toggle to disappear after the user turned IWT off
+					// (issue #5269 in the old left-anchored model; preserved here for the Compare side).
+					// `useWorktree` below combines both concerns to gate only the data-shape branches.
+					const rightRefWorktreePath = await this.resolveRightRefWorktreePath(repoPath, rightRef, signal);
 					signal?.throwIfAborted();
+					const useWorktree = options?.includeWorkingTree === true && rightRefWorktreePath != null;
 
 					// Promise.allSettled per project convention — independent parallel awaits
 					// shouldn't let one failure abort the rest of the comparison. Missing pieces
 					// degrade gracefully into the partial-data path below (e.g. a diff-status
 					// failure still shows the commit counts).
-					const [countsResult, filesResult] = await Promise.allSettled([
+					//
+					// `mergeBase` anchors the per-side file lists in `getBranchComparisonSide`. For
+					// divergent branches, `mergeBase..rightRef` gives only the Compare side's
+					// additions and `mergeBase..leftRef` only the Base side's additions — distinct
+					// from the cumulative `leftRef..rightRef` which is shown on the All Files tab.
+					// A null result (disjoint refs) lets the side fetch fall back to 2-dot ranges.
+					const [countsResult, filesResult, mergeBaseResult] = await Promise.allSettled([
 						svc.commits.getLeftRightCommitCount(`${leftRef}...${rightRef}`),
-						leftRefWorktreePath != null
+						useWorktree
 							? this.container.git
-									.getRepositoryService(leftRefWorktreePath)
-									.diff.getDiffStatus(rightRef, undefined, { includeUntracked: true })
-							: svc.diff.getDiffStatus(`${rightRef}..${leftRef}`),
+									.getRepositoryService(rightRefWorktreePath)
+									.diff.getDiffStatus(leftRef, undefined, { includeUntracked: true })
+							: svc.diff.getDiffStatus(`${leftRef}..${rightRef}`),
+						svc.refs.getMergeBase(leftRef, rightRef),
 					]);
 					signal?.throwIfAborted();
 					const counts = getSettledValue(countsResult);
 					const files = getSettledValue(filesResult);
+					const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
 
-					// Commit-count semantics: `aheadCount`/`behindCount` reflect real git commits
-					// on each side, matching `git rev-list rightRef..leftRef` and vice versa. The
-					// "Working Changes" pseudo-commit row injected by `getBranchComparisonSide` is
-					// still visible in the Ahead-tab commit list, but doesn't inflate the badge.
-					const aheadCount = counts?.left ?? 0;
-					const behindCount = counts?.right ?? 0;
+					// Commit-count semantics from the Compare side's perspective:
+					//  - `aheadCount` = commits the Compare branch has that Base doesn't
+					//    (`git rev-list leftRef..rightRef`, returned as `.right` from --left-right).
+					//  - `behindCount` = commits Base has that Compare doesn't
+					//    (`git rev-list rightRef..leftRef`, returned as `.left`).
+					// The "Working Changes" pseudo-commit row injected by `getBranchComparisonSide`
+					// is still visible in the Ahead-tab commit list, but doesn't inflate the badge.
+					const aheadCount = counts?.right ?? 0;
+					const behindCount = counts?.left ?? 0;
 
-					// File `repoPath` follows the worktree path when IWT is anchored there — file
-					// URIs and multi-diff requests resolve against the working directory that owns
-					// the diff. Falls back to `repoPath` for the committed-only path.
-					const filesRepoPath = leftRefWorktreePath ?? repoPath;
+					// File `repoPath` follows the worktree path ONLY when IWT is actively in use —
+					// not just because a worktree exists. With the toggle off (or no worktree), file
+					// URIs/multi-diff requests resolve against the panel's `repoPath`. The conditional
+					// is on `useWorktree` (not `rightRefWorktreePath != null`) so toggle-off state
+					// doesn't accidentally route through the worktree.
+					const filesRepoPath = useWorktree ? rightRefWorktreePath : repoPath;
 					const allFiles: BranchComparisonFile[] = (files ?? []).map(f => ({
 						repoPath: filesRepoPath,
 						path: f.path,
@@ -1772,38 +1790,70 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						behindCount: behindCount,
 						allFilesCount: allFiles.length,
 						allFiles: allFiles,
-						leftRefWorktreePath: leftRefWorktreePath,
+						rightRefWorktreePath: rightRefWorktreePath,
+						mergeBase: mergeBase,
 					};
 				},
 				getBranchComparisonSide: async (repoPath, leftRef, rightRef, side, options, signal) => {
 					// Phase 2 — that side's commits without inline files.
 					// We fetch files on demand when a commit is selected.
+					//
+					// Convention: leftRef = Base, rightRef = Compare. The Ahead side carries the
+					// Compare branch's new commits + (when IWT is on) the working tree pseudo-commit.
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
-					// Resolve leftRef's worktree path only for the Ahead side — the Behind side never
-					// shows WT files, so its worktree is intentionally not looked up.
-					const leftRefWorktreePath =
+					// Resolve rightRef's (Compare) worktree path only for the Ahead side — the Behind
+					// side shows the Base branch's commits and never has WT files, so its worktree is
+					// intentionally not looked up.
+					//
+					// Merge base: reuse the value the summary fetch already resolved (threaded via
+					// `options.mergeBase`) to avoid a duplicate `git merge-base` call AND to ensure
+					// the side fetch and summary agree on the same divergence point even if the
+					// branches were rebased between the two calls. Only resolve from scratch when
+					// the option is absent (e.g., a direct side fetch with no prior summary).
+					//
+					// Promise.allSettled per project convention — independent parallel awaits
+					// shouldn't let one failure abort the rest. Both branches degrade gracefully:
+					// missing worktree path disables IWT for this side; missing merge base falls
+					// back to the 2-dot symmetric range.
+					const [worktreeResult, mergeBaseResult] = await Promise.allSettled([
 						side === 'ahead' && options?.includeWorkingTree === true
-							? await this.resolveLeftRefWorktreePath(repoPath, leftRef, signal)
-							: undefined;
+							? this.resolveRightRefWorktreePath(repoPath, rightRef, signal)
+							: Promise.resolve(undefined),
+						options?.mergeBase != null
+							? Promise.resolve(options.mergeBase)
+							: svc.refs.getMergeBase(leftRef, rightRef),
+					]);
 					signal?.throwIfAborted();
+					const rightRefWorktreePath = getSettledValue(worktreeResult);
+					const mergeBase = getSettledValue(mergeBaseResult) ?? undefined;
 
-					// Two-dot range — commits reachable from one side but not the other.
-					const range = side === 'ahead' ? `${rightRef}..${leftRef}` : `${leftRef}..${rightRef}`;
+					// Commit log uses the 2-dot range — commits reachable from one side but not the
+					// other (equivalent to merge-base-anchored for divergent branches; no need to
+					// resolve mergeBase first).
+					const commitRange = side === 'ahead' ? `${leftRef}..${rightRef}` : `${rightRef}..${leftRef}`;
+					// File diff is merge-base-anchored when available — Ahead shows `mergeBase..Compare`
+					// (only what Compare contributed since divergence), Behind shows `mergeBase..Base`
+					// (only what Base contributed). Falls back to the 2-dot symmetric form when there
+					// is no merge base.
+					const target = side === 'ahead' ? rightRef : leftRef;
+					const diffRange = mergeBase != null ? `${mergeBase}..${target}` : commitRange;
 					// Promise.allSettled per project convention — see the sibling
 					// `getBranchComparisonSummary` for rationale.
+					const limit = options?.limit ?? 100;
 					const [logResult, comparisonFilesResult, workingTreeFilesResult] = await Promise.allSettled([
-						svc.commits.getLog(range, { limit: 100, includeFiles: false }, signal),
-						svc.diff.getDiffStatus(range),
-						leftRefWorktreePath != null
-							? this.getBranchComparisonWorkingTreeFiles(leftRefWorktreePath, true, signal)
+						svc.commits.getLog(commitRange, { limit: limit, includeFiles: false }, signal),
+						svc.diff.getDiffStatus(diffRange),
+						rightRefWorktreePath != null
+							? this.getBranchComparisonWorkingTreeFiles(rightRefWorktreePath, true, signal)
 							: Promise.resolve([]),
 					]);
 					signal?.throwIfAborted();
 					const log = getSettledValue(logResult);
 					const comparisonFiles = getSettledValue(comparisonFilesResult);
 					const workingTreeFiles = getSettledValue(workingTreeFilesResult) ?? [];
+					const hasMore = log?.hasMore ?? false;
 
 					const mappedFiles: BranchComparisonFile[] = [];
 					for (const f of comparisonFiles ?? []) {
@@ -1848,19 +1898,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commits.push(entry);
 					}
 
-					return { commits: commits, files: allFilesForSide };
+					return { commits: commits, files: allFilesForSide, hasMore: hasMore };
 				},
 				getContributorsForBranchComparison: async (repoPath, leftRef, rightRef, scope, signal) => {
 					signal?.throwIfAborted();
 					const svc = this.container.git.getRepositoryService(repoPath);
 
 					// Two-dot for ahead/behind (commits only on one side); three-dot for the
-					// symmetric "all" union — matches the ranges used by `getBranchComparison`.
+					// symmetric "all" union — matches the ranges used by `getBranchComparisonSide`.
+					// Convention: leftRef = Base, rightRef = Compare.
+					//  - Ahead = Base..Compare (commits Compare contributed)
+					//  - Behind = Compare..Base (commits Base contributed)
 					const rev =
 						scope === 'ahead'
-							? `${rightRef}..${leftRef}`
+							? `${leftRef}..${rightRef}`
 							: scope === 'behind'
-								? `${leftRef}..${rightRef}`
+								? `${rightRef}..${leftRef}`
 								: `${leftRef}...${rightRef}`;
 
 					const result = await svc.contributors.getContributors(rev, { stats: true }, signal);
@@ -1893,7 +1946,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						picked: picked,
 					});
 					const pick = result?.value;
-					return pick?.sha != null ? { name: pick.name, sha: pick.sha } : undefined;
+					if (pick?.sha == null) return undefined;
+
+					// Map GitReference.refType to the compare panel's narrower refType union.
+					// Branches/tags map 1:1; anything else (commits via revision input) gets 'commit'
+					// so the panel renders the commit icon.
+					const refType: 'branch' | 'tag' | 'commit' =
+						pick.refType === 'branch' || pick.refType === 'tag' ? pick.refType : 'commit';
+					return { name: pick.name, sha: pick.sha, refType: refType };
 				},
 				getMergeTargetComparisonRef: async (repoPath, branchName) => {
 					try {
@@ -8040,13 +8100,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (selection?.length !== 2) return Promise.resolve();
 
 		const [commit1, commit2] = selection;
-		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, commit1.repoPath, commit1.ref, commit2.ref);
+		// `getOrderedComparisonRefs` returns `[newer, older]`. Compare convention is
+		// `leftRef = Base (older)`, `rightRef = Compare (newer)`, so older goes on the left.
+		const [newer, older] = await getOrderedComparisonRefs(
+			this.container,
+			commit1.repoPath,
+			commit1.ref,
+			commit2.ref,
+		);
 
 		return this.notifyOpenCompareMode({
 			repoPath: commit1.repoPath,
-			leftRef: ref1,
+			leftRef: older,
 			leftRefType: 'commit',
-			rightRef: ref2,
+			rightRef: newer,
 			rightRefType: 'commit',
 		});
 	}
@@ -8724,12 +8791,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commonAncestor = await svc.refs.getMergeBase(currentBranch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
+		// Convention: leftRef = Base (older), rightRef = Compare (newer / has WT). The merge base
+		// is the older anchor; the current branch carries the working tree.
 		return this.notifyOpenCompareMode({
 			repoPath: currentRepoPath,
-			leftRef: currentBranch.ref,
-			leftRefType: 'branch',
-			rightRef: commonAncestor,
-			rightRefType: 'commit',
+			leftRef: commonAncestor,
+			leftRefType: 'commit',
+			rightRef: currentBranch.ref,
+			rightRefType: 'branch',
 			includeWorkingTree: true,
 		});
 	}
@@ -8746,14 +8815,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
 		const headRef = currentBranch?.ref ?? 'HEAD';
 
-		const [ref1, ref2] = await getOrderedComparisonRefs(this.container, currentRepoPath, headRef, ref.ref);
-		const ref1IsHead = ref1 === headRef;
+		// `getOrderedComparisonRefs` returns `[newer, older]`. Convention is leftRef = Base (older),
+		// rightRef = Compare (newer), so the older ref lands on the left.
+		const [newer, older] = await getOrderedComparisonRefs(this.container, currentRepoPath, headRef, ref.ref);
+		const newerIsHead = newer === headRef;
 		return this.notifyOpenCompareMode({
 			repoPath: currentRepoPath,
-			leftRef: ref1,
-			leftRefType: ref1IsHead ? 'branch' : this.graphCompareRefType(ref.refType),
-			rightRef: ref2,
-			rightRefType: ref1IsHead ? this.graphCompareRefType(ref.refType) : 'branch',
+			leftRef: older,
+			leftRefType: newerIsHead ? this.graphCompareRefType(ref.refType) : 'branch',
+			rightRef: newer,
+			rightRefType: newerIsHead ? 'branch' : this.graphCompareRefType(ref.refType),
 		});
 	}
 
@@ -8795,12 +8866,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const commonAncestor = await svc.refs.getMergeBase(currentBranch.ref, ref.ref);
 		if (commonAncestor == null) return undefined;
 
+		// Convention: leftRef = Base (older = merge base), rightRef = Compare (newer = clicked ref).
 		return this.notifyOpenCompareMode({
 			repoPath: currentRepoPath,
-			leftRef: ref.ref,
-			leftRefType: this.graphCompareRefType(ref.refType),
-			rightRef: commonAncestor,
-			rightRefType: 'commit',
+			leftRef: commonAncestor,
+			leftRefType: 'commit',
+			rightRef: ref.ref,
+			rightRefType: this.graphCompareRefType(ref.refType),
 		});
 	}
 
@@ -8855,11 +8927,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.upstream != null) {
+				// Convention: leftRef = Base (upstream / what we're comparing against),
+				// rightRef = Compare (local branch we want to inspect for divergence).
 				return this.notifyOpenCompareMode({
 					repoPath: ref.repoPath,
-					leftRef: ref.ref,
+					leftRef: ref.upstream.name,
 					leftRefType: 'branch',
-					rightRef: ref.upstream.name,
+					rightRef: ref.ref,
 					rightRefType: 'branch',
 				});
 			}
@@ -8889,14 +8963,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// the current worktree's path makes the WT and the resolved branch ref both belong to
 		// where the user is actually working — not to whichever worktree the clicked ref happens
 		// to live in.
+		//
+		// Convention: leftRef = Base (the clicked ref we're comparing against),
+		// rightRef = Compare (the current branch, which carries the working tree).
 		const currentRepoPath = this.getCurrentRepoPath(ref.repoPath);
 		const currentBranch = await this.container.git.getRepositoryService(currentRepoPath).branches.getBranch();
 
 		await this.notifyOpenCompareMode({
 			repoPath: currentRepoPath,
-			leftRef: currentBranch?.ref ?? 'HEAD',
+			leftRef: ref.ref,
 			leftRefType: 'branch',
-			rightRef: ref.ref,
+			rightRef: currentBranch?.ref ?? 'HEAD',
 			rightRefType: 'branch',
 			includeWorkingTree: true,
 		});
@@ -9192,39 +9269,49 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return files;
 	}
 
-	/** Returns the worktree path currently checked out at `leftRef`, or `undefined` when leftRef
-	 *  isn't checked out anywhere, when the worktree's HEAD has drifted away from leftRef (e.g.
-	 *  external `git checkout` in that worktree), or when the branch lookup fails. The right ref's
-	 *  worktree is intentionally not resolved — IWT only reads the left side's working tree, so
-	 *  exposing the right side's would invite asymmetric comparisons we don't support. */
-	private async resolveLeftRefWorktreePath(
+	/** Returns the worktree path currently checked out at `rightRef` (the Compare side), or
+	 *  `undefined` when rightRef isn't checked out anywhere, when the worktree's HEAD has drifted
+	 *  away from rightRef (e.g. external `git checkout` in that worktree), or when the branch
+	 *  lookup fails. The left ref's (Base) worktree is intentionally not resolved — IWT only reads
+	 *  the Compare side's working tree, so exposing the Base side's would invite asymmetric
+	 *  comparisons we don't support. */
+	private async resolveRightRefWorktreePath(
 		repoPath: string,
-		leftRef: string,
+		rightRef: string,
 		signal?: AbortSignal,
 	): Promise<string | undefined> {
 		try {
 			const svc = this.container.git.getRepositoryService(repoPath);
-			const branch = await svc.branches.getBranch(leftRef);
+			const branch = await svc.branches.getBranch(rightRef);
 			signal?.throwIfAborted();
 			if (branch == null) return undefined;
 
 			const worktree = branch.worktree;
 			if (worktree == null || worktree === false) return undefined;
 
-			// Validate the worktree's HEAD still matches leftRef — guards against drift from an
+			// Validate the worktree's HEAD still matches rightRef — guards against drift from an
 			// external `git checkout` in that worktree that we haven't observed yet.
 			const candidatePath = worktree.path;
 			const wtBranch = await this.container.git.getRepositoryService(candidatePath).branches.getBranch();
 			signal?.throwIfAborted();
-			if (wtBranch == null || (wtBranch.name !== leftRef && wtBranch.ref !== leftRef)) {
+			if (wtBranch == null || (wtBranch.name !== rightRef && wtBranch.ref !== rightRef)) {
 				console.warn(
-					`[graph] resolveLeftRefWorktreePath: worktree at ${candidatePath} no longer at ${leftRef}; falling back to no-worktree mode`,
+					`[graph] resolveRightRefWorktreePath: worktree at ${candidatePath} no longer at ${rightRef}; falling back to no-worktree mode`,
 				);
 				return undefined;
 			}
 			return candidatePath;
 		} catch (ex) {
-			console.warn(`[graph] resolveLeftRefWorktreePath failed for ${leftRef}: ${String(ex)}`);
+			// Re-throw cancellation so the caller's `signal?.throwIfAborted()` after the await
+			// propagates correctly; without this, an in-flight ref change that aborts mid-resolve
+			// would be treated as a generic failure and the rest of the summary fetch would
+			// continue with `undefined` instead of bailing out. Check `ex` itself (rather than
+			// just `signal?.aborted`) so an unrelated git error that happens to coincide with
+			// an abort isn't silently re-thrown as a cancellation — that masks real failures
+			// behind the resource layer's cancel-swallowing guard.
+			if (ex instanceof DOMException && ex.name === 'AbortError') throw ex;
+
+			console.warn(`[graph] resolveRightRefWorktreePath failed for ${rightRef}: ${String(ex)}`);
 			return undefined;
 		}
 	}

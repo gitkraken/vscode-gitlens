@@ -177,6 +177,19 @@ function createDurableState() {
 	// panel. Cleared whenever the comparison identity changes.
 	const branchCompareAheadLoaded = signal(false);
 	const branchCompareBehindLoaded = signal(false);
+	// Per-side "has more commits beyond the current limit" — drives the "Load More" affordance
+	// at the bottom of each commit list. Cleared on identity changes alongside the loaded flags.
+	const branchCompareAheadHasMore = signal(false);
+	const branchCompareBehindHasMore = signal(false);
+	// Per-side current commit-limit. Bumped by `loadMoreCompareCommits` (limit-replace pattern
+	// matching `loadMoreBranchCommits`): we re-fetch with a larger limit and the resource value
+	// idempotently supersedes the smaller one. Reset to the default page size on identity change.
+	const branchCompareAheadLimit = signal(100);
+	const branchCompareBehindLimit = signal(100);
+	// Per-side "load-more in flight" flag. Drives the spinner inside the load-more row so the
+	// button visually indicates the fetch is happening and is disabled to prevent double-fires.
+	const branchCompareAheadLoadingMore = signal(false);
+	const branchCompareBehindLoadingMore = signal(false);
 
 	// Branch-comparison enrichment caches keyed by scope (active tab). Switching tabs
 	// reads from these maps; only newly-visited scopes trigger a fetch. Caches reset only
@@ -263,6 +276,12 @@ function createDurableState() {
 		branchCompareBehindFiles: branchCompareBehindFiles,
 		branchCompareAheadLoaded: branchCompareAheadLoaded,
 		branchCompareBehindLoaded: branchCompareBehindLoaded,
+		branchCompareAheadHasMore: branchCompareAheadHasMore,
+		branchCompareBehindHasMore: branchCompareBehindHasMore,
+		branchCompareAheadLimit: branchCompareAheadLimit,
+		branchCompareBehindLimit: branchCompareBehindLimit,
+		branchCompareAheadLoadingMore: branchCompareAheadLoadingMore,
+		branchCompareBehindLoadingMore: branchCompareBehindLoadingMore,
 
 		branchCompareAutolinksByScope: branchCompareAutolinksByScope,
 		branchCompareEnrichedAutolinksByScope: branchCompareEnrichedAutolinksByScope,
@@ -366,12 +385,19 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
-	// Worktree path currently checked out at `branchCompareLeftRef`, populated by each summary
-	// fetch. Drives IWT-toggle visibility and routes WT-touching file ops to the correct repo path.
-	// Cleared synchronously on leftRef changes so the toggle hides during in-flight fetches.
-	const branchCompareLeftRefWorktreePath = signal<string | undefined>(undefined);
+	// Worktree path currently checked out at `branchCompareRightRef` (the Compare side), populated
+	// by each summary fetch. Drives IWT-toggle visibility and routes WT-touching file ops to the
+	// correct repo path. Cleared synchronously on rightRef changes so the toggle hides during
+	// in-flight fetches. The left ref's (Base) worktree is intentionally not resolved — IWT only
+	// reads the Compare side's working tree, so exposing the Base side's would invite asymmetric
+	// comparisons we don't support.
+	const branchCompareRightRefWorktreePath = signal<string | undefined>(undefined);
+	// Merge base of leftRef and rightRef, populated by each summary fetch. Anchors the per-side file
+	// list and per-tab diff/file-action direction so Ahead/Behind reflect each side's divergence
+	// instead of the symmetric 2-dot diff. Cleared synchronously on identity changes.
+	const branchCompareMergeBase = signal<string | undefined>(undefined);
 	const branchCompareStale = signal(false);
-	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('all');
+	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('ahead');
 	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
 	// to e.g. Ahead with a previously-selected commit X restores the scoped file view (alongside
 	// the cached scroll/expand state). The 'all' tab has no commit list so isn't keyed here.
@@ -433,7 +459,8 @@ function createTransientState() {
 		branchCompareRightRef: branchCompareRightRef,
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
-		branchCompareLeftRefWorktreePath: branchCompareLeftRefWorktreePath,
+		branchCompareRightRefWorktreePath: branchCompareRightRefWorktreePath,
+		branchCompareMergeBase: branchCompareMergeBase,
 		branchCompareStale: branchCompareStale,
 		branchCompareActiveTab: branchCompareActiveTab,
 		branchCompareSelectedCommitShaByTab: branchCompareSelectedCommitShaByTab,

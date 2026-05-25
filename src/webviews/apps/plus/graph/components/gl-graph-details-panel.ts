@@ -1740,14 +1740,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private renderCompareMode() {
 		const branch = this._state.wip.get()?.branch;
 		const repoPath = this.effectiveRepoPath;
-		// The left ref has a worktree when the host resolved a path during the last summary fetch —
-		// covers the current branch AND any other branch checked out in a workspace peer or
-		// off-workspace worktree.
-		const leftRefWorktreePath = this._state.branchCompareLeftRefWorktreePath.get();
-		const hasWorktree = leftRefWorktreePath != null;
+		// The right ref (Compare side) has a worktree when the host resolved a path during the last
+		// summary fetch — covers the current branch AND any other branch checked out in a workspace
+		// peer or off-workspace worktree.
+		const rightRefWorktreePath = this._state.branchCompareRightRefWorktreePath.get();
+		const hasWorktree = rightRefWorktreePath != null;
+		const mergeBase = this._state.branchCompareMergeBase.get();
 		const activeTab = this._state.branchCompareActiveTab.get();
 		const allFiles = this._state.branchCompareAllFiles.get() ?? [];
 		const leftRef = this._state.branchCompareLeftRef.get();
+		const rightRef = this._state.branchCompareRightRef.get();
 
 		const autolinksByScope = this._state.branchCompareAutolinksByScope.get();
 		const enrichedByScope = this._state.branchCompareEnrichedAutolinksByScope.get();
@@ -1765,12 +1767,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.generateChangelogBusy=${this._state.compareGenerateChangelogBusy.get()}
 			.leftRef=${leftRef}
 			.leftRefType=${this._state.branchCompareLeftRefType.get()}
-			.rightRef=${this._state.branchCompareRightRef.get()}
+			.rightRef=${rightRef}
 			.rightRefType=${this._state.branchCompareRightRefType.get()}
 			.includeWorkingTree=${this._state.branchCompareIncludeWorkingTree.get()}
 			.stale=${this._state.branchCompareStale.get()}
 			.hasWorktree=${hasWorktree}
-			.leftRefWorktreePath=${leftRefWorktreePath}
+			.rightRefWorktreePath=${rightRefWorktreePath}
+			.mergeBase=${mergeBase}
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
 			.allFilesCount=${this._state.branchCompareAllFilesCount.get()}
@@ -1780,6 +1783,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.behindFiles=${this._state.branchCompareBehindFiles.get()}
 			.aheadLoaded=${this._state.branchCompareAheadLoaded.get()}
 			.behindLoaded=${this._state.branchCompareBehindLoaded.get()}
+			.aheadHasMore=${this._state.branchCompareAheadHasMore.get()}
+			.behindHasMore=${this._state.branchCompareBehindHasMore.get()}
+			.aheadLoadingMore=${this._state.branchCompareAheadLoadingMore.get()}
+			.behindLoadingMore=${this._state.branchCompareBehindLoadingMore.get()}
 			.allFiles=${allFiles}
 			.loading=${this._actions.resources.branchCompareSummary.loading.get() ||
 			this._actions.resources.branchCompareSide.loading.get()}
@@ -1799,15 +1806,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 			.hasAccount=${this._state.hasAccount.get()}
 			@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFile(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFile(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFileComparePrevious(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFileComparePrevious(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-compare-between=${(e: CustomEvent<FileCompareBetweenDetail>) =>
 				this._actions.openFileCompareBetween(e.detail, e.detail.lhsRef, e.detail.rhsRef)}
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFileCompareWorking(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFileCompareWorking(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.executeFileAction(e.detail, this.compareFileRef(leftRef))}
+				this._actions.executeFileAction(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@change-ref=${(e: CustomEvent<{ side: 'left' | 'right' }>) =>
 				void this._actions.changeCompareRef(e.detail.side, repoPath)}
@@ -1815,6 +1822,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@open-in-search-and-compare=${() => this._actions.openCompareInSearchAndCompare(repoPath)}
 			@toggle-working-tree=${() => this._actions.toggleCompareWorkingTree(repoPath)}
 			@refresh-compare=${() => this._actions.refreshBranchCompare(repoPath)}
+			@load-more-compare-commits=${(e: CustomEvent<{ side: 'ahead' | 'behind' }>) =>
+				void this._actions.loadMoreCompareCommits(e.detail.side, repoPath)}
 			@switch-tab=${(e: CustomEvent<{ tab: 'all' | 'ahead' | 'behind' }>) =>
 				this._actions.switchCompareTab(e.detail.tab, repoPath)}
 			@scope-to-commit=${(e: CustomEvent<{ sha: string | undefined }>) =>
@@ -1832,11 +1841,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** When the user has scoped the compare file list to a single commit, file actions should
 	 *  resolve against THAT commit (so "previous" means commit~1, not the comparison's other side).
-	 *  Otherwise fall through to the comparison's left ref (branch-vs-branch semantics). The
-	 *  returned ref isn't tagged as a stash — compare-mode refs are branches/tags/commits, and
-	 *  the safety net in `getCommitAndFileByPath` handles the rare stash-in-compare case. */
-	private compareFileRef(leftRef: string | undefined): { ref: string } | undefined {
-		const ref = this._state.branchCompareSelectedCommitSha.get() ?? leftRef;
+	 *  Otherwise fall through to the tab's "owning" ref:
+	 *    - Ahead / All Files → rightRef (Compare side; the file's latest state lives there)
+	 *    - Behind → leftRef (Base side; the file's "owner" is Base for Behind rows)
+	 *  Matches the per-tab diff direction set in `gl-details-compare-mode-panel.getFileContext` so
+	 *  "Open File" lands on the same ref the right-click commands assume. The returned ref isn't
+	 *  tagged as a stash — compare-mode refs are branches/tags/commits, and the safety net in
+	 *  `getCommitAndFileByPath` handles the rare stash-in-compare case. */
+	private compareFileRef(
+		activeTab: 'all' | 'ahead' | 'behind',
+		leftRef: string | undefined,
+		rightRef: string | undefined,
+	): { ref: string } | undefined {
+		const fallback = activeTab === 'behind' ? leftRef : rightRef;
+		const ref = this._state.branchCompareSelectedCommitSha.get() ?? fallback;
 		return ref != null ? { ref: ref } : undefined;
 	}
 
@@ -2352,13 +2370,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		void this.fetchLaunchpadSummary(this._remoteServices);
 	};
 
-	private handleCompareWithMergeTarget = (
-		e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,
-	) => {
+	private handleCompareWithMergeTarget = (e: CustomEvent<{ leftRef: string; leftRefType: 'branch' | 'commit' }>) => {
 		e.preventDefault();
+		// The merge target is the Base of the comparison — forward it as `leftRef` so the
+		// selection-derived `rightRef` (the user's current branch / WIP / commit) survives.
+		// Previously this dispatched as `rightRef`, which clobbered the WIP-seeded right side
+		// and let `initCompareDefaults` fill `leftRef` from the same merge target — producing a
+		// degenerate `mergeTarget ↔ mergeTarget` self-comparison.
 		this._workflow.openCompare(this.currentSelection(), {
-			rightRef: e.detail.rightRef,
-			rightRefType: e.detail.rightRefType,
+			leftRef: e.detail.leftRef,
+			leftRefType: e.detail.leftRefType,
 		});
 	};
 

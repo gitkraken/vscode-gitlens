@@ -610,8 +610,13 @@ export class GlMergeTargetStatus extends LitElement {
 	}
 
 	private onCompareClick(e: MouseEvent, targetBranchName: string) {
+		// The merge target is the BASE of the comparison ("what I'm measuring my changes against"),
+		// so it goes into `leftRef` per the compare-panel convention (leftRef = Base / older,
+		// rightRef = Compare / newer / current branch). The graph compare workflow seeds rightRef
+		// from the active WIP/commit selection, so dispatching only leftRef here leaves the
+		// selection-derived Compare side intact rather than clobbering it.
 		const event = new CustomEvent('compare-with-merge-target', {
-			detail: { rightRef: targetBranchName, rightRefType: 'branch' },
+			detail: { leftRef: targetBranchName, leftRefType: 'branch' },
 			bubbles: true,
 			composed: true,
 			cancelable: true,

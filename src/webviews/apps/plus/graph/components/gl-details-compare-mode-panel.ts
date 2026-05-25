@@ -109,11 +109,19 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ type: Boolean, attribute: 'has-worktree' })
 	hasWorktree = false;
 
-	/** Path of the worktree currently checked out at leftRef, when one exists. Used to route
-	 *  WT-touching file operations (single-file diffs, multi-diff, folder context) to the
-	 *  worktree's repoPath. Falls back to `repoPath` when undefined. */
-	@property({ attribute: 'left-ref-worktree-path' })
-	leftRefWorktreePath?: string;
+	/** Path of the worktree currently checked out at rightRef (the Compare side), when one exists.
+	 *  Used to route WT-touching file operations (single-file diffs, multi-diff, folder context)
+	 *  to the worktree's repoPath. Falls back to `repoPath` when undefined. */
+	@property({ attribute: 'right-ref-worktree-path' })
+	rightRefWorktreePath?: string;
+
+	/** Merge base of leftRef and rightRef, when one exists. Used by per-tab file diff direction:
+	 *  - Ahead tab anchors on `mergeBase → rightRef` (what Compare contributed since divergence).
+	 *  - Behind tab anchors on `mergeBase → leftRef` (what Base contributed since divergence).
+	 *  - All Files tab stays on `leftRef → rightRef` (cumulative latest-of-both).
+	 *  Undefined for disjoint refs; tab logic falls back to the 2-dot symmetric form. */
+	@property({ attribute: 'merge-base' })
+	mergeBase?: string;
 
 	@property({ type: Number, attribute: 'ahead-count' })
 	aheadCount = 0;
@@ -151,6 +159,23 @@ export class GlDetailsCompareModePanel extends LitElement {
 	@property({ type: Boolean, attribute: 'behind-loaded' })
 	behindLoaded = false;
 
+	/** True when the active side has more commits beyond the currently-loaded slice — drives
+	 *  the "Load More" row's visibility at the bottom of the commit list. Per-tab; the panel
+	 *  consults whichever side matches `activeTab`. */
+	@property({ type: Boolean, attribute: 'ahead-has-more' })
+	aheadHasMore = false;
+
+	@property({ type: Boolean, attribute: 'behind-has-more' })
+	behindHasMore = false;
+
+	/** True while the side's load-more fetch is in flight. Disables the load-more button and
+	 *  swaps its icon to a spinner so users don't double-click. Per-tab. */
+	@property({ type: Boolean, attribute: 'ahead-loading-more' })
+	aheadLoadingMore = false;
+
+	@property({ type: Boolean, attribute: 'behind-loading-more' })
+	behindLoadingMore = false;
+
 	@property({ type: Boolean })
 	loading = false;
 
@@ -158,7 +183,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 	errorMessage?: string;
 
 	@property({ attribute: 'active-tab' })
-	activeTab: 'all' | 'ahead' | 'behind' = 'all';
+	activeTab: 'all' | 'ahead' | 'behind' = 'ahead';
 
 	@property({ attribute: 'selected-commit-sha' })
 	selectedCommitSha?: string;
@@ -228,9 +253,15 @@ export class GlDetailsCompareModePanel extends LitElement {
 	protected override willUpdate(changedProperties: PropertyValues): void {
 		super.willUpdate?.(changedProperties);
 
+		// `mergeBase` is included here because per-tab `getActiveTabRefs` and `getFileContext`
+		// produce different `(lhs, rhs)` and `(sha, comparisonSha)` pairs depending on whether
+		// it's defined — a late-arriving mergeBase silently swaps the file-context behind the
+		// user's cursor (e.g. between hovering a row and right-clicking it). Treating its change
+		// as identity-changing flashes the loading state so the swap is at least visible.
 		const identityChanged =
 			changedProperties.has('leftRef') ||
 			changedProperties.has('rightRef') ||
+			changedProperties.has('mergeBase') ||
 			changedProperties.has('includeWorkingTree') ||
 			changedProperties.has('branchName') ||
 			changedProperties.has('repoPath');
@@ -410,24 +441,53 @@ export class GlDetailsCompareModePanel extends LitElement {
 	];
 
 	private renderComparisonBar() {
-		const leftRef = this.leftRef ?? this.branchName ?? 'HEAD';
-		const rightRef = this.rightRef ?? '';
+		// Convention: leftRef = Base (target / older), rightRef = Compare (feature / newer).
+		// The current branch (`branchName`) defaults to rightRef when unset — it's the side the
+		// user is typically inspecting against a base.
+		const leftRef = this.leftRef ?? '';
+		const rightRef = this.rightRef ?? this.branchName ?? '';
 		const showWorkingTreeToggle = this.hasWorktree;
-		const leftTooltip = leftRef;
+		const leftTooltip = leftRef || 'Choose a Reference';
 		const rightTooltip = rightRef || 'Choose a Reference';
 
 		return html`<div class="compare-bar">
 			<div class="compare-bar__refs">
 				<gl-tooltip placement="bottom">
+					<code-icon class="compare-role-icon" icon="target"></code-icon>
+					<span slot="content">Base Reference Branch (the target or baseline for the comparison)</span>
+				</gl-tooltip>
+				<gl-tooltip placement="bottom">
 					<gl-branch-name
-						class="compare-ref compare-ref--ahead"
+						class="compare-ref compare-ref--behind"
 						appearance="button"
 						chevron
-						.name=${leftRef}
+						.name=${leftRef || 'Choose…'}
 						.icon=${this.getRefIcon(this.leftRefType)}
 						@click=${() => this.dispatchChangeRef('left')}
 					></gl-branch-name>
 					<span slot="content">${leftTooltip}</span>
+				</gl-tooltip>
+				<gl-action-chip
+					class="compare-swap"
+					icon="arrow-swap"
+					label="Swap Direction"
+					overlay="tooltip"
+					@click=${this.dispatchSwapRefs}
+				></gl-action-chip>
+				<gl-tooltip placement="bottom">
+					<code-icon class="compare-role-icon" icon="git-compare"></code-icon>
+					<span slot="content">Compare Branch (the feature or topic branch containing the changes)</span>
+				</gl-tooltip>
+				<gl-tooltip placement="bottom">
+					<gl-branch-name
+						class="compare-ref compare-ref--ahead"
+						appearance="button"
+						chevron
+						.name=${rightRef || 'Choose…'}
+						.icon=${this.getRefIcon(this.rightRefType)}
+						@click=${() => this.dispatchChangeRef('right')}
+					></gl-branch-name>
+					<span slot="content">${rightTooltip}</span>
 				</gl-tooltip>
 				${showWorkingTreeToggle
 					? html`<gl-action-chip
@@ -440,24 +500,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 							@click=${this.dispatchToggleWorkingTree}
 						></gl-action-chip>`
 					: nothing}
-				<gl-action-chip
-					class="compare-swap"
-					icon="arrow-swap"
-					label="Swap Direction"
-					overlay="tooltip"
-					@click=${this.dispatchSwapRefs}
-				></gl-action-chip>
-				<gl-tooltip placement="bottom">
-					<gl-branch-name
-						class="compare-ref compare-ref--behind"
-						appearance="button"
-						chevron
-						.name=${rightRef || 'Choose…'}
-						.icon=${this.getRefIcon(this.rightRefType)}
-						@click=${() => this.dispatchChangeRef('right')}
-					></gl-branch-name>
-					<span slot="content">${rightTooltip}</span>
-				</gl-tooltip>
 			</div>
 			<div class="compare-bar__actions">
 				<gl-action-chip
@@ -479,9 +521,29 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private renderTabs() {
+		const leftRef = this.leftRef ?? '';
+		const rightRef = this.rightRef ?? '';
+		const baseLabel = leftRef || 'Base';
+		const compareLabel = rightRef || 'Compare';
 		return html`<div class="compare-tabs" role="tablist" @keydown=${this.handleTabKeydown}>
-			${this.renderTab('all', 'All Files', this.allFilesCount)}
-			${this.renderTab('ahead', 'Ahead', this.aheadCount)} ${this.renderTab('behind', 'Behind', this.behindCount)}
+			${this.renderTab(
+				'ahead',
+				'Ahead',
+				this.aheadCount,
+				`Commits in ${compareLabel} that are missing from ${baseLabel}`,
+			)}
+			${this.renderTab(
+				'behind',
+				'Behind',
+				this.behindCount,
+				`Commits in ${baseLabel} that are missing from ${compareLabel}`,
+			)}
+			${this.renderTab(
+				'all',
+				'All Files',
+				this.allFilesCount,
+				'File differences between the latest commits of both branches',
+			)}
 		</div>`;
 	}
 
@@ -492,7 +554,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return this.aheadCommits[0]?.sha === uncommitted;
 	}
 
-	private renderTab(tab: 'all' | 'ahead' | 'behind', label: string, count: number) {
+	private renderTab(tab: 'all' | 'ahead' | 'behind', label: string, count: number, tooltip: string) {
 		const isActive = this.activeTab === tab;
 		const isEmpty = count === 0 && !(tab === 'ahead' && this.aheadHasWip);
 		const classes = [
@@ -504,22 +566,25 @@ export class GlDetailsCompareModePanel extends LitElement {
 			.filter(Boolean)
 			.join(' ');
 
-		return html`<button
-			id="compare-tab-${tab}"
-			class=${classes}
-			role="tab"
-			aria-selected=${isActive}
-			aria-controls="compare-tabpanel-${tab}"
-			tabindex=${isActive ? 0 : -1}
-			@click=${() => this.dispatchSwitchTab(tab)}
-		>
-			<span class="compare-tab__label">${label}</span>
-			<span class="compare-tab__count">
-				${this._comparisonChanging
-					? html`<code-icon icon="sync" class="compare-tab__count-spinner"></code-icon>`
-					: count}
-			</span>
-		</button>`;
+		return html`<gl-tooltip placement="bottom">
+			<button
+				id="compare-tab-${tab}"
+				class=${classes}
+				role="tab"
+				aria-selected=${isActive}
+				aria-controls="compare-tabpanel-${tab}"
+				tabindex=${isActive ? 0 : -1}
+				@click=${() => this.dispatchSwitchTab(tab)}
+			>
+				<span class="compare-tab__label">${label}</span>
+				<span class="compare-tab__count">
+					${this._comparisonChanging
+						? html`<code-icon icon="sync" class="compare-tab__count-spinner"></code-icon>`
+						: count}
+				</span>
+			</button>
+			<span slot="content">${tooltip}</span>
+		</gl-tooltip>`;
 	}
 
 	private renderCommitList(commits: BranchComparisonCommit[]) {
@@ -540,7 +605,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 			}
 
 			const isUpToDate = this.aheadCount === 0 && this.behindCount === 0 && !this.aheadHasWip;
-			const rightRef = this.rightRef ?? '';
+			const baseLabel = this.leftRef ?? 'Base';
 			if (isUpToDate) {
 				return html`<div
 					id="compare-tabpanel-${this.activeTab}"
@@ -549,19 +614,31 @@ export class GlDetailsCompareModePanel extends LitElement {
 					aria-labelledby="compare-tab-${this.activeTab}"
 				>
 					<code-icon icon="check"></code-icon>
-					<span>Up to date with ${rightRef}</span>
+					<span>Up to date with ${baseLabel}</span>
 				</div>`;
 			}
+
+			// Empty-side phrasing from the Compare side's perspective: "ahead of [base]" /
+			// "behind [base]" reads naturally and matches the natural git mental model. Only
+			// Ahead/Behind reach `renderCommitList`; the All Files tab uses `renderAllFilesTab`.
+			const emptyText =
+				this.activeTab === 'behind' ? `No commits behind ${baseLabel}` : `No commits ahead of ${baseLabel}`;
 			return html`<div
 				id="compare-tabpanel-${this.activeTab}"
 				class="compare-empty compare-empty--no-commits"
 				role="tabpanel"
 				aria-labelledby="compare-tab-${this.activeTab}"
 			>
-				<span>No commits ${this.activeTab} ${rightRef}</span>
+				<span>${emptyText}</span>
 			</div>`;
 		}
 
+		const hasMore = this.activeTab === 'behind' ? this.behindHasMore : this.aheadHasMore;
+		const loadingMore = this.activeTab === 'behind' ? this.behindLoadingMore : this.aheadLoadingMore;
+		// Load-more row sits inside the scrollable container as the last child — behaves like
+		// another row in the list, so scrolling reaches it naturally. `box-sizing: border-box`
+		// on the button (see CSS) keeps `width: 100%` honest so the button doesn't push past
+		// the scroll container and trigger a horizontal scrollbar.
 		return html`<div
 			id="compare-tabpanel-${this.activeTab}"
 			class="compare-commits scrollable"
@@ -575,7 +652,22 @@ export class GlDetailsCompareModePanel extends LitElement {
 					commit => this.renderCommitRow(commit),
 				)}
 			</gl-tree>
+			${hasMore ? this.renderLoadMoreRow(loadingMore) : nothing}
 		</div>`;
+	}
+
+	/** "Load More" row that pulls the next page of commits for the active side. Styled to mirror
+	 *  the scope-pane's load-more row (`gl-commits-scope-pane.renderLoadMore`) so users see the
+	 *  same affordance pattern across surfaces. Disabled while the fetch is in flight; the icon
+	 *  swaps to a spinner so the visual state matches the action's progress. */
+	private renderLoadMoreRow(loadingMore: boolean) {
+		return html`<button class="compare-load-more" ?disabled=${loadingMore} @click=${this.dispatchLoadMore}>
+			<code-icon
+				icon=${loadingMore ? 'loading' : 'fold-down'}
+				?modifier=${loadingMore ? 'spin' : false}
+			></code-icon>
+			<span>${loadingMore ? 'Loading…' : 'Load More Commits'}</span>
+		</button>`;
 	}
 
 	private renderCommitRow(commit: BranchComparisonCommit) {
@@ -609,22 +701,42 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const repoPath = this.repoPath;
 		if (!leftRef || !rightRef || !repoPath) return undefined;
 
-		// Uniform comparison context for every row in compare mode. Stage/Unstage/Discard
-		// belong to WIP management (the WIP details panel) — not to a "compare these
-		// branches" workflow. Cumulative-IWT rows that touched the working tree still
-		// get the comparison context here; the click handler's state-based routing
-		// picks the right diff direction without needing per-file source.
+		// Per the file-context convention shared with multicommit/review-compare panels:
+		//   `sha` = rhs (newer / "to" side of the diff)
+		//   `comparisonSha` = lhs (older / "from" side of the diff)
+		// Every comparison-using file handler in `detailsFileCommands.ts` reads this convention.
+		//
+		// Tab-aware so the file's right-click actions (Open Changes, Apply, Restore Previous, Copy
+		// Patch, etc.) follow the same diff direction the file row visually represents:
+		//  - Ahead: `mergeBase → rightRef` — what Compare added since divergence.
+		//  - Behind: `mergeBase → leftRef` — what Base added since divergence.
+		//  - All Files: `leftRef → rightRef` — cumulative latest-of-both.
+		// Falls back to the 2-dot symmetric form when there's no merge base (disjoint refs).
+		//
 		// `file.repoPath` follows the worktree when the host routed it there; falls back to the
 		// panel's `repoPath` for committed-only rows so file actions resolve against the right
 		// working directory.
+		let sha: string;
+		let comparisonSha: string;
+		if (this.activeTab === 'ahead') {
+			sha = rightRef;
+			comparisonSha = this.mergeBase ?? leftRef;
+		} else if (this.activeTab === 'behind') {
+			sha = leftRef;
+			comparisonSha = this.mergeBase ?? rightRef;
+		} else {
+			sha = rightRef;
+			comparisonSha = leftRef;
+		}
+
 		const context: DetailsItemTypedContext = {
 			webviewItem: 'gitlens:file:comparison',
 			webviewItemValue: {
 				type: 'file',
 				path: file.path,
 				repoPath: file.repoPath || repoPath,
-				sha: leftRef,
-				comparisonSha: rightRef,
+				sha: sha,
+				comparisonSha: comparisonSha,
 				status: file.status,
 			},
 		};
@@ -641,7 +753,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// against the working directory that actually owns the files.
 		const activeRefs = this.getActiveTabRefs();
 		const isWtTouching = activeRefs?.wip === true || activeRefs?.rhs === '';
-		const folderRepoPath = isWtTouching ? (this.leftRefWorktreePath ?? this.repoPath) : this.repoPath;
+		const folderRepoPath = isWtTouching ? (this.rightRefWorktreePath ?? this.repoPath) : this.repoPath;
 		// Show the loading state when the comparison itself is changing (initial load,
 		// ref/worktree change) OR when a per-commit file fetch is in flight for the selected sha.
 		// For tab switches with cache misses we briefly show the pane's "No changes" empty state,
@@ -1007,12 +1119,21 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  click both consume this so they always agree on direction — and on whether the right side
 	 *  is committed, the working tree, or per-file WIP semantics.
 	 *
-	 *  - **WIP scope** (`selectedCommitSha === uncommitted`): `lhs = leftRef, rhs = '', wip: true`.
-	 *    Host renders HEAD↔index↔working per file.
-	 *  - **All tab + IWT on, unscoped**: `lhs = rightRef, rhs = ''` (S&C-style cumulative
+	 *  Convention: leftRef = Base, rightRef = Compare. The merge base anchors per-side diffs so
+	 *  Ahead/Behind reflect each side's contribution since divergence — distinct from All Files,
+	 *  which stays on the cumulative 2-dot diff between the latest commits.
+	 *
+	 *  - **WIP scope** (`selectedCommitSha === uncommitted`): `lhs = rightRef, rhs = '', wip: true`.
+	 *    The WIP belongs to the Compare side (rightRef is checked out); host renders HEAD↔index↔
+	 *    working per file from there.
+	 *  - **All tab + IWT on, unscoped**: `lhs = leftRef, rhs = ''` (S&C-style cumulative
 	 *    `base → working tree`). Gated to the All tab because Ahead/Behind file lists stay
 	 *    committed-only when IWT is on, so their direction must match their stat pills.
-	 *  - **Otherwise**: tab-aware committed range. All/Ahead → `rightRef → leftRef`; Behind inverts.
+	 *  - **Ahead tab**: `lhs = mergeBase, rhs = rightRef` (what Compare added since divergence).
+	 *    Falls back to `lhs = leftRef` when no merge base exists (disjoint refs).
+	 *  - **Behind tab**: `lhs = mergeBase, rhs = leftRef` (what Base added since divergence).
+	 *    Falls back to `lhs = rightRef` when no merge base exists.
+	 *  - **All Files tab** (no IWT): `lhs = leftRef, rhs = rightRef` (cumulative latest-of-both).
 	 *
 	 *  Returns `undefined` if leftRef/rightRef aren't set yet (refs still loading). */
 	private getActiveTabRefs(): { lhs: string; rhs: string; wip?: boolean } | undefined {
@@ -1021,16 +1142,22 @@ export class GlDetailsCompareModePanel extends LitElement {
 		if (!leftRef || !rightRef) return undefined;
 
 		if (this.selectedCommitSha === uncommitted) {
-			return { lhs: leftRef, rhs: '', wip: true };
+			return { lhs: rightRef, rhs: '', wip: true };
 		}
 
 		const cumulative = this.includeWorkingTree && this.selectedCommitSha == null && this.activeTab === 'all';
 		if (cumulative) {
-			return { lhs: rightRef, rhs: '' };
+			return { lhs: leftRef, rhs: '' };
 		}
 
-		const reverse = this.activeTab === 'behind';
-		return { lhs: reverse ? leftRef : rightRef, rhs: reverse ? rightRef : leftRef };
+		if (this.activeTab === 'ahead') {
+			return { lhs: this.mergeBase ?? leftRef, rhs: rightRef };
+		}
+		if (this.activeTab === 'behind') {
+			return { lhs: this.mergeBase ?? rightRef, rhs: leftRef };
+		}
+		// All Files tab (committed) — cumulative 2-dot between the latest commits.
+		return { lhs: leftRef, rhs: rightRef };
 	}
 
 	private getDiffTitle(refs: { lhs: string; rhs: string; wip?: boolean }): string {
@@ -1053,7 +1180,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// WT-touching diffs (per-file WIP or cumulative `base → working tree`) must be anchored
 		// to the worktree where leftRef is checked out so URIs resolve against the right files.
 		const isWtTouching = refs.wip === true || refs.rhs === '';
-		const effectiveRepoPath = isWtTouching ? (this.leftRefWorktreePath ?? repoPath) : repoPath;
+		const effectiveRepoPath = isWtTouching ? (this.rightRefWorktreePath ?? repoPath) : repoPath;
 		return { repoPath: effectiveRepoPath, ...refs, title: this.getDiffTitle(refs) };
 	}
 
@@ -1126,7 +1253,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 		e.preventDefault();
 
-		const order: ('all' | 'ahead' | 'behind')[] = ['all', 'ahead', 'behind'];
+		const order: ('all' | 'ahead' | 'behind')[] = ['ahead', 'behind', 'all'];
 		const currentIndex = order.indexOf(this.activeTab);
 		const delta = e.key === 'ArrowRight' ? 1 : -1;
 		const newTab = order[(currentIndex + delta + order.length) % order.length];
@@ -1160,6 +1287,17 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	private dispatchRefreshCompare = () => {
 		this.dispatchEvent(new CustomEvent('refresh-compare', { bubbles: true, composed: true }));
+	};
+
+	private dispatchLoadMore = () => {
+		const side = this.activeTab === 'behind' ? 'behind' : 'ahead';
+		this.dispatchEvent(
+			new CustomEvent('load-more-compare-commits', {
+				detail: { side: side },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	};
 
 	private dispatchSwitchTab(tab: 'all' | 'ahead' | 'behind') {
