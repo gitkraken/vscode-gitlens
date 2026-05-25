@@ -24,6 +24,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -708,6 +709,13 @@ export const GetOverviewRequest = new IpcRequest<GetOverviewParams, GraphOvervie
 
 export interface GetOverviewWipParams {
 	branchIds: string[];
+	/**
+	 * When true, the host probes `status.hasWorkingChanges()` (cheap `git diff --quiet` + untracked
+	 * probe) instead of running a full `git status` per branch. Result entries carry `hasChanges`
+	 * only — `workingTreeState`, conflicts, and pausedOp are filled in on hover via
+	 * {@link GetOverviewWipDetailedRequest}.
+	 */
+	cheap?: boolean;
 }
 export const GetOverviewWipRequest = new IpcRequest<GetOverviewWipParams, GetOverviewWipResponse>(
 	scope,
@@ -836,6 +844,17 @@ export interface GraphSidebarTag {
 	context?: GraphItemRefContext<GraphTagContextValue>;
 }
 
+/**
+ * Per-worktree change entry carried by `sidebarWorktreeState` push events. Both fields come from
+ * the same `getStatus()` in `doComputeWorktreeChanges`, so the worktrees-panel row's clean/dirty
+ * pill and its breakdown tooltip stay in sync without a second fetch. `workingTreeState` is
+ * optional so bare worktrees / fetch failures still produce a structurally-valid entry.
+ */
+export interface SidebarWorktreeChange {
+	hasChanges: boolean;
+	workingTreeState?: GitDiffFileStats;
+}
+
 export interface GraphSidebarWorktree {
 	name: string;
 	uri: string;
@@ -848,6 +867,12 @@ export interface GraphSidebarWorktree {
 	 *  worktree, a secondary-wip sha for others, or undefined when the worktree has no WIP row. */
 	wipSha?: string;
 	hasChanges?: boolean;
+	/**
+	 * Full add/changed/deleted breakdown for the worktree's working tree. Populated alongside
+	 * `hasChanges` by `doComputeWorktreeChanges()` from the same `git status` fetch — no extra
+	 * git work. Drives the panel row's clean/dirty pill tooltip.
+	 */
+	workingTreeState?: GitDiffFileStats;
 	status?: string;
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };

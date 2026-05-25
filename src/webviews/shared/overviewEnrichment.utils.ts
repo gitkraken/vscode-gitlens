@@ -243,11 +243,19 @@ export async function getOverviewWip(
 		 * cache TTL don't re-fetch. When omitted, falls back to direct fetches (Home uses this).
 		 */
 		fetchStatus?: (repoPath: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
+		/**
+		 * Cheap mode for Recent worktree-backed branches: probes `status.hasWorkingChanges()`
+		 * (`git diff --quiet` + `git ls-files`) per worktree instead of running a full status. Result
+		 * carries `hasChanges` only — `workingTreeState`, conflicts, and pausedOp are all undefined
+		 * and get filled in lazily on hover via `GetOverviewWipDetailedRequest`. The probe is
+		 * `@gate`d at the sub-provider so concurrent identical calls dedup.
+		 */
+		cheap?: boolean;
 	},
 ): Promise<GetOverviewWipResponse> {
 	if (branchIds.length === 0) return {};
 
-	const { priority, signal, fetchStatus } = options ?? {};
+	const { priority, signal, fetchStatus, cheap } = options ?? {};
 	const statusOptions = priority != null ? { priority: priority } : undefined;
 
 	const branchesById = new Map<string, GitBranch>();
@@ -258,6 +266,34 @@ export async function getOverviewWip(
 	}
 
 	const result: GetOverviewWipResponse = {};
+
+	if (cheap) {
+		// Cheap path: dirty-bit only, no paused-op, no breakdown. Used for Recent worktree-backed
+		// cards so they can show a clean/dirty indicator without paying for a full `git status` per
+		// branch. The full breakdown is fetched on hover via `GetOverviewWipDetailedRequest`.
+		await Promise.allSettled(
+			branchIds.map(async branchId => {
+				if (!branchesById.has(branchId)) return;
+
+				const wt = worktreesByBranch.get(branchId);
+				const path = wt != null && wt.type !== 'bare' ? wt.uri.fsPath : undefined;
+				if (path == null) return;
+
+				// Pin staged/unstaged/untracked to true so this matches `status.files.length > 0`
+				// (the full-status path's dirty check). Without it, defaults could exclude one of
+				// those categories and the cheap probe would disagree with the on-hover detailed
+				// fetch — e.g. an all-staged worktree showing the clean pill until hover.
+				const hasChanges = await container.git
+					.getRepositoryService(path)
+					.status.hasWorkingChanges({ staged: true, unstaged: true, untracked: true }, signal);
+				result[branchId] = { hasChanges: hasChanges };
+			}),
+		);
+
+		signal?.throwIfAborted();
+		return result;
+	}
+
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
 

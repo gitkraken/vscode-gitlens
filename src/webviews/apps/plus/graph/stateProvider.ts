@@ -1109,9 +1109,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 				this.updateState(updates);
 				// Merge the overview entry for the primary's current branch from the same fetch,
-				// so the overview card's dirty/clean indicator stays live without the bulk probe.
-				// Skip on detached HEAD (no branch to key by).
-				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip);
+				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
+				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
+				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.stats);
 				break;
 			}
 
@@ -1158,8 +1158,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// Merge the overview entry from the same fetch. For secondaries the branchId
 					// lives on `wipMetadataBySha[secondarySha].branchRef` (pre-computed host-side
 					// with the MAIN repo path); fall back to deriving from the wip payload's
-					// branch name if absent.
-					this.mergeOverviewWipForRepo(repoPath, msg.params.wip);
+					// branch name if absent. `stats` carries the breakdown for the inline counts.
+					this.mergeOverviewWipForRepo(repoPath, msg.params.wip, stats);
 				}
 				break;
 			}
@@ -1295,7 +1295,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * (early-mount race) must NOT fall back to deriving `getBranchId(secondaryPath, ...)` — that
 	 * produces a phantom branchId no card renders, silently losing the update.
 	 */
-	private mergeOverviewWipForRepo(repoPath: string | undefined, wip: Wip | undefined): void {
+	private mergeOverviewWipForRepo(
+		repoPath: string | undefined,
+		wip: Wip | undefined,
+		stats: WorkDirStats | undefined,
+	): void {
 		if (repoPath == null || wip == null) return;
 
 		let branchId: string | undefined;
@@ -1316,11 +1320,33 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 		const pausedOpStatus = wip.changes?.pausedOpStatus;
-
+		// Carry the breakdown when the push provides it — the active overview card renders inline
+		// `commit-stats` from `workingTreeState` and would otherwise lag behind real-time edits
+		// (only `hasChanges` would flip, leaving the counts frozen at the initial fetch values).
+		// Mapped: `WorkDirStats.modified` → `GitDiffFileStats.changed`.
+		// When stats is absent, intentionally omit the key from the merged entry so the consumer's
+		// spread (`{ ...prev, ...wip }` in graph-overview.ts) preserves any cached breakdown.
 		const prev = this.overviewWip;
+		const prevEntry = prev?.wip?.[branchId];
 		this.overviewWip = {
 			branchIds: [branchId],
-			wip: { ...(prev?.wip ?? {}), [branchId]: { hasChanges: hasChanges, pausedOpStatus: pausedOpStatus } },
+			wip: {
+				...(prev?.wip ?? {}),
+				[branchId]: {
+					...prevEntry,
+					hasChanges: hasChanges,
+					pausedOpStatus: pausedOpStatus,
+					...(stats != null
+						? {
+								workingTreeState: {
+									added: stats.added,
+									changed: stats.modified,
+									deleted: stats.deleted,
+								},
+							}
+						: {}),
+				},
+			},
 		};
 	}
 

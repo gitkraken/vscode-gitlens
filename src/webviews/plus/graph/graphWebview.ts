@@ -340,6 +340,7 @@ import type {
 	GraphWalkthroughBannerState,
 	GraphWipMetadataBySha,
 	GraphWorkingTreeStats,
+	SidebarWorktreeChange,
 	State,
 } from './protocol.js';
 import {
@@ -873,7 +874,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private readonly _sidebarInvalidatedEvent = createRpcEvent<undefined>('sidebarInvalidated', 'signal');
 	private readonly _sidebarWorktreeEvent = createRpcEvent<{
-		changes: Record<string, boolean | undefined>;
+		changes: Record<string, SidebarWorktreeChange | undefined>;
 	}>('sidebarWorktreeState', 'save-last');
 	private readonly _composeProgressEvent = createRpcEvent<ComposeProgressUpdate | undefined>(
 		'composeProgress',
@@ -2421,12 +2422,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (params.branchIds.length === 0 || this._graph == null || this.repository == null) return {};
 
 		// Visibility-refresh path: webview asks for current overview WIP on panel mount / focus.
-		// Routes through the shared `_wipStatusCache`, so when the per-event push has just
-		// populated entries (within 10s TTL) this is essentially free — no extra `git status`.
+		// Default mode routes through the shared `_wipStatusCache`, so when the per-event push has
+		// just populated entries (within 10s TTL) this is essentially free — no extra `git status`.
 		// Cold entries (off-screen worktree without active watcher) miss → fetched once →
 		// populated for any subsequent reader (rich hover, worktrees panel, next event push).
+		// `cheap` mode (Recent worktree-backed cards) probes `status.hasWorkingChanges()` per
+		// worktree — `@gate`d at the sub-provider so concurrent identical calls dedup. It bypasses
+		// the status cache entirely; the breakdown arrives later via the hover-triggered detailed
+		// fetch which goes through the cache.
 		try {
-			return await this.computeOverviewWipFromCache(params.branchIds);
+			return await this.computeOverviewWipFromCache(params.branchIds, params.cheap);
 		} catch (ex) {
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetOverviewWip');
 			// Record-shaped response — empty map is safe; frontend reads `response[sha]` and gets `undefined`.
@@ -2448,18 +2453,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private computeOverviewWipFromCache(branchIds: string[]): Promise<GetOverviewWipResponse> {
+	private computeOverviewWipFromCache(branchIds: string[], cheap?: boolean): Promise<GetOverviewWipResponse> {
 		const data = this._graph!;
-		return getOverviewWip(this.container, data.branches.values(), data.worktreesByBranch ?? new Map(), branchIds, {
-			fetchStatus: (path, signal) => {
-				const svc = this.container.git.getRepositoryService(path);
-				return this._wipStatusCache.getOrCreate(
-					path,
-					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
-					{ cancellation: signal },
-				);
-			},
-		});
+		// Cheap mode probes `hasWorkingChanges()` directly (dirty bit only) and bypasses the
+		// shared `_wipStatusCache`; the cheap probe's `@gate` dedups concurrent identical calls.
+		// Full breakdown arrives on hover via the non-cheap path through the cache.
+		const options = cheap
+			? { cheap: true }
+			: {
+					fetchStatus: (path: string, signal?: AbortSignal) =>
+						this._wipStatusCache.getOrCreate(
+							path,
+							(_cacheable, factorySignal) =>
+								this.container.git
+									.getRepositoryService(path)
+									.status.getStatus(undefined, factorySignal),
+							{ cancellation: signal },
+						),
+				};
+		return getOverviewWip(
+			this.container,
+			data.branches.values(),
+			data.worktreesByBranch ?? new Map(),
+			branchIds,
+			options,
+		);
 	}
 
 	@ipcRequest(GetOverviewEnrichmentRequest)
@@ -5630,11 +5648,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					const status = await this._wipStatusCache.getOrCreate(path, (_cacheable, factorySignal) =>
 						svc.status.getStatus(undefined, factorySignal),
 					);
-					return [path, status != null ? status.files.length > 0 : undefined] as const;
+					const entry: SidebarWorktreeChange | undefined =
+						status != null
+							? { hasChanges: status.files.length > 0, workingTreeState: status.diffStatus }
+							: undefined;
+					return [path, entry] as const;
 				}),
 			);
 
-			const changes: Record<string, boolean | undefined> = {};
+			const changes: Record<string, SidebarWorktreeChange | undefined> = {};
 			for (const result of results) {
 				if (result.status === 'fulfilled') {
 					changes[result.value[0]] = result.value[1];

@@ -14,7 +14,12 @@ import type {
 	TimelineScopeSerialized,
 } from '../timeline/protocol.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
-import type { DidGetCountParams, DidGetSidebarDataParams, GraphSidebarPanel } from './protocol.js';
+import type {
+	DidGetCountParams,
+	DidGetSidebarDataParams,
+	GraphSidebarPanel,
+	SidebarWorktreeChange,
+} from './protocol.js';
 
 export type ComposeProgressUpdate = { phase: string; message: string };
 
@@ -328,7 +333,7 @@ export interface GraphSidebarService {
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
 
 	onSidebarInvalidated: RpcEventSubscription<undefined>;
-	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, boolean | undefined> }>;
+	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, SidebarWorktreeChange | undefined> }>;
 }
 
 export interface GraphTimelineService {

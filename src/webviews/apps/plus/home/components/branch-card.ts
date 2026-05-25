@@ -5,7 +5,7 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
-import { interpolate, pluralize } from '@gitlens/utils/string.js';
+import { interpolate } from '@gitlens/utils/string.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
@@ -29,6 +29,7 @@ import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
+import { getWipTooltipParts } from '../../../shared/components/commit/wip-stats.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
@@ -1356,18 +1357,4 @@ function getLaunchpadItemGrouping(group: ReturnType<typeof getLaunchpadItemGroup
 	}
 
 	return undefined;
-}
-
-function getWipTooltipParts(workingTreeState: { added: number; changed: number; deleted: number }) {
-	const parts = [];
-	if (workingTreeState.added) {
-		parts.push(`${pluralize('file', workingTreeState.added ?? 0)} added`);
-	}
-	if (workingTreeState.changed) {
-		parts.push(`${pluralize('file', workingTreeState.changed ?? 0)} changed`);
-	}
-	if (workingTreeState.deleted) {
-		parts.push(`${pluralize('file', workingTreeState.deleted ?? 0)} deleted`);
-	}
-	return parts;
 }
