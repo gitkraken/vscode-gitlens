@@ -32,6 +32,11 @@
 			"icon": "$(robot)",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
 		},
+		"gitlens.agents.switchDefaultAgent": {
+			"label": "Switch Default Agent...",
+			"icon": "$(arrow-swap)",
+			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.agents.uninstallClaudeHook": {
 			"label": "Uninstall Claude Hooks",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"

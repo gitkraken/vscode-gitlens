@@ -6496,6 +6496,12 @@
 				"icon": "$(robot)"
 			},
 			{
+				"command": "gitlens.agents.switchDefaultAgent",
+				"title": "Switch Default Agent...",
+				"category": "GitLens",
+				"icon": "$(arrow-swap)"
+			},
+			{
 				"command": "gitlens.agents.uninstallClaudeHook",
 				"title": "Uninstall Claude Hooks",
 				"category": "GitLens"
@@ -12208,6 +12214,10 @@
 				{
 					"command": "gitlens.agents.openSession",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.agents.switchDefaultAgent",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.agents.uninstallClaudeHook",

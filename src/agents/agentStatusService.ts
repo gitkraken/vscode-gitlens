@@ -356,6 +356,10 @@ export class AgentStatusService implements Disposable {
 				}
 			}),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
+			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
+				const { pickAndSetDefaultAgent } = await import('../plus/agents/agentPicker.js');
+				await pickAndSetDefaultAgent();
+			}),
 			registerCommand('gitlens.agents.openPlanFile', async (planFilePath?: string) => {
 				if (!planFilePath) return;
 
