@@ -4572,6 +4572,19 @@
 				]
 			}
 		},
+		"gitlens.openInIntegratedTerminal:graph": {
+			"label": "Open in Integrated Terminal",
+			"icon": "$(terminal)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.openIssueOnRemote": {
 			"label": "Open Issue on Remote",
 			"icon": "$(globe)"
@@ -5670,6 +5683,19 @@
 					{
 						"when": "viewItem =~ /gitlens:commit\\b/ && view =~ /gitlens\\.views\\.(?!commits|branches\\b)/ && !listMultiSelection",
 						"group": "3_gitlens_explore",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.reviewChanges:graph": {
+			"label": "Review Changes (Preview)...",
+			"icon": "$(checklist)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted",
+						"group": "1_gitlens",
 						"order": 2
 					}
 				]

@@ -9128,6 +9128,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.recomposeFromCommit(item);
 	}
 
+	@command('gitlens.reviewChanges:')
+	private reviewChangesCommand(item?: GraphItemContext) {
+		return this.reviewChanges(item);
+	}
+
 	private getReviewTypeForScope(scope: ScopeSelection): 'wip' | 'compare' | 'commit' {
 		switch (scope.type) {
 			case 'wip':
@@ -9614,6 +9619,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this.openWorktree(item, { location: 'newWindow' });
 	}
 
+	@command('gitlens.openInIntegratedTerminal:')
+	@debug()
+	private openInIntegratedTerminal(item?: GraphItemContext | { worktreeUri: string }) {
+		// Header button path: a full URI string is provided so remote-dev schemes are preserved.
+		if (item != null && typeof item === 'object' && 'worktreeUri' in item && typeof item.worktreeUri === 'string') {
+			return executeCoreCommand('openInIntegratedTerminal', Uri.parse(item.worktreeUri));
+		}
+
+		// Context-menu path: the WIP row's ref carries the worktree's own repoPath.
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return Promise.resolve();
+
+		return executeCoreCommand('openInIntegratedTerminal', Uri.file(ref.repoPath));
+	}
+
 	@command('gitlens.graph.revealWorktreeInExplorer')
 	@debug()
 	private async revealWorktreeInExplorer(item?: GraphItemContext) {
@@ -9848,6 +9868,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// inline Compose-button path (`handleWipRowOpen`) so context-menu and button stay aligned.
 		await this.host.notify(DidRequestGraphActionNotification, {
 			action: 'enter-compose',
+			target: { sha: uncommitted, worktreePath: ref.repoPath },
+		});
+	}
+
+	@debug()
+	private async reviewChanges(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item);
+		if (ref == null) return;
+
+		// Mirrors `composeCommits` but enters the review mode instead — the webview routes via
+		// `enterModeForWip('review', repoPath, uncommitted)`, matching the in-header `review` chip.
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-review',
 			target: { sha: uncommitted, worktreePath: ref.repoPath },
 		});
 	}

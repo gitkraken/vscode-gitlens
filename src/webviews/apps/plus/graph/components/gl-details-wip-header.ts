@@ -131,6 +131,15 @@ export class GlDetailsWipHeader extends LitElement {
 									}),
 								)}
 						></gl-action-chip>
+						<gl-action-chip
+							slot="actions"
+							icon="terminal"
+							label="Open in Integrated Terminal"
+							overlay="tooltip"
+							href=${this._webview.createCommandLink('gitlens.openInIntegratedTerminal:', {
+								worktreeUri: wip.repo.uri,
+							})}
+						></gl-action-chip>
 						${isSecondaryWorktree
 							? html`<gl-action-chip
 									slot="actions"

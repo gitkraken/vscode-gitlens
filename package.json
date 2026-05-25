@@ -8160,6 +8160,11 @@
 				"icon": "$(gitlens-graph)"
 			},
 			{
+				"command": "gitlens.openInIntegratedTerminal:graph",
+				"title": "Open in Integrated Terminal",
+				"icon": "$(terminal)"
+			},
+			{
 				"command": "gitlens.openIssueOnRemote",
 				"title": "Open Issue on Remote",
 				"icon": "$(globe)"
@@ -8567,6 +8572,11 @@
 				"command": "gitlens.revealCommitInView",
 				"title": "Reveal Commit in Side Bar",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.reviewChanges:graph",
+				"title": "Review Changes (Preview)...",
+				"icon": "$(checklist)"
 			},
 			{
 				"command": "gitlens.setRemoteAsDefault:graph",
@@ -13516,6 +13526,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.openInIntegratedTerminal:graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openIssueOnRemote",
 					"when": "false"
 				},
@@ -13822,6 +13836,10 @@
 				{
 					"command": "gitlens.revealCommitInView",
 					"when": "resource in gitlens:tabs:blameable"
+				},
+				{
+					"command": "gitlens.reviewChanges:graph",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.setRemoteAsDefault:graph",
@@ -26939,9 +26957,19 @@
 					"group": "0_gitlens_worktree_1@1"
 				},
 				{
+					"command": "gitlens.openInIntegratedTerminal:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_1@2"
+				},
+				{
 					"command": "gitlens.composeCommits:graph",
 					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.reviewChanges:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted",
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.stashSave:graph",
