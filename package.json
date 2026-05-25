@@ -17391,7 +17391,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
-					"when": "webviewItem !~ /^gitlens:wip\\b/",
+					"when": "webviewItem =~ /^(?!gitlens:wip\\b)/",
 					"group": "1_gitlens@3"
 				},
 				{

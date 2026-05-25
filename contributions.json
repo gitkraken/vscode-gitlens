@@ -3352,7 +3352,7 @@
 			"menus": {
 				"gitlens/graph/commit/changes": [
 					{
-						"when": "webviewItem !~ /^gitlens:wip\\b/",
+						"when": "webviewItem =~ /^(?!gitlens:wip\\b)/",
 						"group": "1_gitlens",
 						"order": 3
 					}
