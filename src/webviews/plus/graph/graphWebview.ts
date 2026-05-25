@@ -724,6 +724,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 			}),
 			window.onDidChangeActiveColorTheme(this.onThemeChanged, this),
+			// GitLens-initiated git ops fire this synchronously before their RPC returns to the
+			// webview, so invalidating here makes the post-op revalidate see fresh `git status`
+			// data instead of the entry the FS-watcher-driven invalidator (`runNotifyDidChangeWorkingTree`)
+			// won't drop until its 250ms debounce expires.
+			this.container.events.on('git:cache:reset', e => {
+				if (e.data.types != null && !e.data.types.includes('status')) return;
+
+				if (e.data.repoPath == null) {
+					this._wipStatusCache.clear();
+				} else {
+					// `delete` (hard-evict) rather than `invalidate` (soft) — invalidate keeps an
+					// in-flight pre-op `git status` promise alive and lets the post-op revalidate
+					// join it, flashing stale data into the panel.
+					this._wipStatusCache.delete(e.data.repoPath);
+				}
+			}),
 			{
 				dispose: () => {
 					if (this._repositoryEventsDisposable == null) return;

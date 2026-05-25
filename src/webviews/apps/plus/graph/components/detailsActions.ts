@@ -2426,6 +2426,34 @@ export class DetailsActions {
 		this.graphState?.setWip(wip.repo.path, updatedWip);
 	}
 
+	// Drops the files that the just-completed `git commit` removed from the WIP, so the panel
+	// can flip to the "no changes" UI (or to the remaining unstaged subset) in the same task
+	// instead of waiting for the host's debounced repo-change push to land.
+	// - `all` (smart-commit / `git commit -a`): tracked changes are committed; untracked stays.
+	// - Otherwise (including `--amend` without `all`): only staged entries are committed; the
+	//   unstaged side of mixed files stays.
+	private optimisticallyClearCommittedFiles(all: boolean): void {
+		const wip = this.state.wip.get();
+		if (!wip?.changes?.files?.length) return;
+
+		const nextFiles = all
+			? wip.changes.files.filter(f => f.status === '?')
+			: wip.changes.files.filter(f => !f.staged);
+		if (nextFiles.length === wip.changes.files.length) return;
+
+		// When the WIP fully empties, also clear paused-op + conflict chrome — a successful
+		// commit ends a paused merge/cherry-pick and can't leave conflicts behind. Partial
+		// commits keep both flags as-is so a still-paused op stays visible until the host
+		// push reconciles.
+		const nextChanges =
+			nextFiles.length === 0
+				? { ...wip.changes, files: nextFiles, hasConflicts: false, pausedOpStatus: undefined }
+				: { ...wip.changes, files: nextFiles };
+		const updatedWip = { ...wip, changes: nextChanges };
+		this.state.wip.set(updatedWip);
+		this.graphState?.setWip(wip.repo.path, updatedWip);
+	}
+
 	canCommitReason(): 'no-message' | 'no-staged' | undefined {
 		const message = this.state.commitMessage.get();
 		const isAmend = this.state.amend.get();
@@ -2468,6 +2496,8 @@ export class DetailsActions {
 			this.state.amend.set(false);
 			this.state.amendBaseSha.set(undefined);
 			this.state.commitError.set(undefined);
+			// Must run before `fetchDetails`, which reads `graphState.getWipState()` synchronously.
+			this.optimisticallyClearCommittedFiles(all);
 			this.refreshWip();
 			void this.fetchDetails(sha, repoPath);
 		} catch (ex) {
