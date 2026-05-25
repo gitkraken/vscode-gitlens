@@ -546,7 +546,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const reachState = mapReachabilityStatus(reachStatus);
 		const searchCtx = s.searchContext.get();
 		const draft = s.draftState.get();
-		const experimentalComposer = s.capabilities.experimentalComposerEnabled;
 
 		return html`
 			<div class="commit-detail-panel scrollable">
@@ -614,7 +613,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 							></gl-details-commit-panel>`,
 						() =>
 							html`<gl-details-wip-panel
-								.experimentalComposerEnabled=${experimentalComposer}
 								.wip=${wip}
 								.pullRequest=${s.pullRequest.get()}
 								.codeSuggestions=${s.codeSuggestions.get()}

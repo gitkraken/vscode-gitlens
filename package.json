@@ -1483,7 +1483,10 @@
 						"default": 100,
 						"markdownDescription": "(Experimental) Specifies a limit on the number of pull requests to be queried in the _Launchpad_",
 						"scope": "window",
-						"order": 1100
+						"order": 1100,
+						"tags": [
+							"experimental"
+						]
 					}
 				}
 			},
@@ -4283,16 +4286,6 @@
 					"preview"
 				],
 				"properties": {
-					"gitlens.ai.experimental.composer.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable the experimental version of the commit composer",
-						"scope": "window",
-						"order": 10,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.ai.model": {
 						"type": [
 							"string",

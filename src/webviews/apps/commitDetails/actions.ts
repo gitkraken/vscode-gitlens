@@ -843,9 +843,6 @@ export class CommitDetailsActions {
 			void this.services.config
 				.get('views.commitDetails.autolinks.enabled')
 				.then(a => (this.state.capabilities.autolinksEnabled = a), noop);
-			void this.services.config
-				.get('ai.experimental.composer.enabled')
-				.then(c => (this.state.capabilities.experimentalComposerEnabled = c), noop);
 			// Note: hasAccount and orgSettings use RemoteSignalBridge (connected in commitDetails.ts)
 			void this.services.integrations
 				.getIntegrationStates()
@@ -1061,7 +1058,6 @@ export class CommitDetailsActions {
 					'views.commitDetails.files',
 					'signing.showSignatureBadges',
 					'views.commitDetails.autolinks.enabled',
-					'ai.experimental.composer.enabled',
 				),
 				this.services.config.getManyCore(
 					'workbench.tree.renderIndentGuides',
@@ -1074,16 +1070,8 @@ export class CommitDetailsActions {
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
 			const showSearchBox = getSettledValue(showSearchBoxResult);
 			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
-			const [
-				avatars,
-				currentUserNameStyle,
-				dateFormat,
-				dateStyle,
-				files,
-				showSignatureBadges,
-				autolinksEnabled,
-				experimentalComposerEnabled,
-			] = getSettledValue(configResult) ?? [];
+			const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, autolinksEnabled] =
+				getSettledValue(configResult) ?? [];
 			const [indentGuides, indent, enableSmartCommit] = getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
 
@@ -1110,9 +1098,6 @@ export class CommitDetailsActions {
 			});
 			if (autolinksEnabled != null) {
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
-			}
-			if (experimentalComposerEnabled != null) {
-				this.state.capabilities.experimentalComposerEnabled = experimentalComposerEnabled;
 			}
 		} catch (ex) {
 			Logger.error(ex, 'Failed to fetch preferences');

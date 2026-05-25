@@ -2845,7 +2845,6 @@ or
   'context.config.details.location': 'right' | 'bottom',
   'context.config.dimMergeCommits': boolean,
   'context.config.editorOpeningBehavior': 'active' | 'auto',
-  'context.config.experimental.renderer.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,

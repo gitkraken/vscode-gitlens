@@ -99,9 +99,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ type: Object })
 	generate?: GenerateState;
 
-	@property({ type: Boolean })
-	experimentalComposerEnabled = false;
-
 	@property({ type: String, attribute: 'worktree-path' })
 	worktreePath?: string;
 

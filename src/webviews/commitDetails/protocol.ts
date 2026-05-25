@@ -119,7 +119,6 @@ export interface State extends WebviewState<'gitlens.views.commitDetails'> {
 
 	commit?: CommitDetails;
 	autolinksEnabled: boolean;
-	experimentalComposerEnabled: boolean;
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
