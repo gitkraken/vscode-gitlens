@@ -1,4 +1,4 @@
-import type { QuickPickItem } from 'vscode';
+import type { QuickInputButton, QuickPickItem } from 'vscode';
 import { ConfigurationTarget, QuickInputButtons, QuickPickItemKind, ThemeIcon, window } from 'vscode';
 import type {
 	AsyncStepResultGenerator,
@@ -8,19 +8,25 @@ import type {
 import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { Container } from '../../container.js';
+import { executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { AgentDescriptor, AgentRoute } from './agentDescriptor.js';
 import { getSupportedAgents, resolveDefaultAgent } from './agentRegistry.js';
 
-const starEmpty = new ThemeIcon('star-empty');
-const starFull = new ThemeIcon('star-full');
+const passEmpty = new ThemeIcon('pass');
+const passFilled = new ThemeIcon('pass-filled');
 
-function starButton(isCurrentDefault: boolean, label: string) {
+function checkButton(isCurrentDefault: boolean, label: string): QuickInputButton {
 	return {
-		iconPath: isCurrentDefault ? starFull : starEmpty,
+		iconPath: isCurrentDefault ? passFilled : passEmpty,
 		tooltip: isCurrentDefault ? `Unset as default (${label})` : `Always ${label.toLowerCase()} (set as default)`,
 	};
 }
+
+const settingsButton: QuickInputButton = {
+	iconPath: new ThemeIcon('gear'),
+	tooltip: 'Open Default Agent Setting',
+};
 
 interface RouteItem extends QuickPickItem {
 	readonly route: 'manual' | 'agent';
@@ -32,7 +38,7 @@ interface AgentItem extends QuickPickItem {
 }
 
 const ideChatIcon = new ThemeIcon('comment-discussion');
-const extensionIcon = new ThemeIcon('extensions');
+const claudeIcon = new ThemeIcon('claude');
 const cliIcon = new ThemeIcon('terminal');
 
 function iconFor(kind: AgentDescriptor['kind']): ThemeIcon {
@@ -40,17 +46,10 @@ function iconFor(kind: AgentDescriptor['kind']): ThemeIcon {
 		case 'ide-chat':
 			return ideChatIcon;
 		case 'claude-extension':
-			return extensionIcon;
+			return claudeIcon;
 		case 'cli':
 			return cliIcon;
 	}
-}
-
-function detailFor(descriptor: AgentDescriptor): string | undefined {
-	if (descriptor.kind === 'cli' && typeof descriptor.agent.executable === 'string') {
-		return `$(file) ${descriptor.agent.executable}`;
-	}
-	return undefined;
 }
 
 function descriptionFor(descriptor: AgentDescriptor): string {
@@ -77,7 +76,7 @@ function sectionLabelFor(kind: AgentDescriptor['kind']): string | undefined {
 
 /**
  * Step 1 of the agent flow — yields a wizard step that asks "Continue manually" vs "Open in an agent",
- * with toggled-star buttons for setting the default. Returns the chosen route, or `StepResultBreak`
+ * with a checkbox toggle for setting the default. Returns the chosen route, or `StepResultBreak`
  * when the user backs out (the wizard machinery handles the back navigation).
  */
 export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResultGenerator<'manual' | 'agent'> {
@@ -89,20 +88,20 @@ export function* pickRouteStep(options?: { showBackButton?: boolean }): StepResu
 			label: '$(robot) Open in an agent',
 			description: 'Open a chat or CLI session with the issue context',
 			picked: currentDefault === 'agent',
-			buttons: [starButton(currentDefault === 'agent', 'Open in an agent')],
+			buttons: [checkButton(currentDefault === 'agent', 'Open in an agent')],
 		},
 		{
 			route: 'manual',
 			label: '$(arrow-right) Continue manually',
-			description: 'Create the branch/worktree and stop',
+			description: 'Creates the branch/worktree based on your previous selection',
 			picked: currentDefault === 'manual',
-			buttons: [starButton(currentDefault === 'manual', 'Continue manually')],
+			buttons: [checkButton(currentDefault === 'manual', 'Continue manually')],
 		},
 	];
 
 	const step = createPickStep<RouteItem>({
-		title: 'How would you like to continue?',
-		placeholder: 'Choose how to continue · ⭐ next to a row to set as default',
+		title: 'Start with Agent',
+		placeholder: 'Choose to continue with an agent or manually · mark the checkbox of a row to set as default',
 		items: buildItems(current),
 		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
 		onDidClickItemButton: async (qp, _button, item) => {
@@ -178,22 +177,31 @@ export async function* pickAgentStep(
 				descriptor: d,
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
-				detail: detailFor(d),
 				picked: currentDefaultId === d.id,
-				buttons: [starButton(currentDefaultId === d.id, `Use ${d.label}`)],
+				buttons: [checkButton(currentDefaultId === d.id, `Use ${d.label}`)],
 			});
 		}
 		return items;
 	};
+
+	const titleButtons: QuickInputButton[] = [settingsButton];
+	if (options?.showBackButton) {
+		titleButtons.unshift(QuickInputButtons.Back);
+	}
 
 	const step = createPickStep<AgentItem>({
 		title: options?.title ?? 'Choose an agent',
 		placeholder:
 			available.length === 0
 				? 'No agents available'
-				: `${options?.placeholder ?? 'Select where to proceed'} · ⭐ next to a row to set as default`,
+				: `${options?.placeholder ?? 'Select where to proceed'} · mark the checkbox of a row to set as default`,
 		items: buildItems(currentDefault),
-		buttons: options?.showBackButton ? [QuickInputButtons.Back] : undefined,
+		buttons: titleButtons,
+		onDidClickButton: (_qp, button) => {
+			if (button === settingsButton) {
+				void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
+			}
+		},
 		onDidClickItemButton: async (qp, _button, item) => {
 			if (item.descriptor == null) return false;
 
@@ -260,9 +268,8 @@ export async function pickAgentStandalone(options?: AgentPickerOptions): Promise
 				descriptor: d,
 				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
 				description: descriptionFor(d),
-				detail: detailFor(d),
 				picked: currentDefaultId === d.id,
-				buttons: [starButton(currentDefaultId === d.id, `Use ${d.label}`)],
+				buttons: [checkButton(currentDefaultId === d.id, `Use ${d.label}`)],
 			});
 		}
 		return items;
@@ -273,12 +280,18 @@ export async function pickAgentStandalone(options?: AgentPickerOptions): Promise
 		qp.placeholder =
 			available.length === 0
 				? 'No agents available'
-				: `${options?.placeholder ?? 'Select where to proceed'} · ⭐ next to a row to set as default`;
+				: `${options?.placeholder ?? 'Select where to proceed'} · mark the checkbox of a row to set as default`;
+		qp.buttons = [settingsButton];
 		qp.items = buildItems(currentDefault);
 		qp.activeItems = qp.items.filter(i => i.picked);
 
 		return await new Promise<AgentDescriptor | undefined>(resolve => {
 			disposables.push(
+				qp.onDidTriggerButton(button => {
+					if (button === settingsButton) {
+						void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
+					}
+				}),
 				qp.onDidTriggerItemButton(async e => {
 					if (e.item.descriptor == null) return;
 
@@ -294,6 +307,89 @@ export async function pickAgentStandalone(options?: AgentPickerOptions): Promise
 				}),
 				qp.onDidAccept(() => {
 					const item = qp.selectedItems[0];
+					resolve(item?.descriptor);
+				}),
+				qp.onDidHide(() => resolve(undefined)),
+			);
+			qp.show();
+		});
+	} finally {
+		for (const d of disposables) {
+			d.dispose();
+		}
+	}
+}
+
+/**
+ * Picks an agent and persists the selection to `gitlens.ai.defaultAgent` (writes immediately on
+ * accept). Unlike {@link pickAgentStandalone}, no per-item checkbox/toggle is shown — choosing an
+ * item IS the action. The current default is pre-selected as the active item.
+ *
+ * Returns the chosen descriptor, or `undefined` when the user dismisses the picker (no write).
+ */
+export async function pickAndSetDefaultAgent(options?: AgentPickerOptions): Promise<AgentDescriptor | undefined> {
+	const available = await getSupportedAgents();
+	const currentDefault: string | null = configuration.get('ai.defaultAgent') ?? null;
+
+	const qp = window.createQuickPick<AgentItem>();
+	const disposables: { dispose: () => void }[] = [qp];
+
+	const buildItems = (): AgentItem[] => {
+		if (available.length === 0) {
+			return [
+				{
+					label: '$(warning) No agents available',
+					description: 'No supported IDE chat host, no Claude extension, no detected CLIs',
+					kind: QuickPickItemKind.Separator,
+				},
+				{
+					label: '$(close) Close',
+				},
+			];
+		}
+
+		const items: AgentItem[] = [];
+		let lastKind: AgentDescriptor['kind'] | undefined;
+		for (const d of available) {
+			if (d.kind !== lastKind) {
+				const sep = sectionLabelFor(d.kind);
+				if (sep != null) {
+					items.push({ label: sep, kind: QuickPickItemKind.Separator });
+				}
+				lastKind = d.kind;
+			}
+			items.push({
+				descriptor: d,
+				label: `$(${(iconFor(d.kind) as { id?: string }).id ?? 'circle-outline'}) ${d.label}`,
+				description: descriptionFor(d),
+			});
+		}
+		return items;
+	};
+
+	try {
+		qp.title = options?.title ?? 'Switch Default Agent';
+		qp.placeholder =
+			available.length === 0 ? 'No agents available' : (options?.placeholder ?? 'Select the default agent');
+		qp.buttons = [settingsButton];
+		qp.items = buildItems();
+		const active = qp.items.find((i): i is AgentItem => 'descriptor' in i && i.descriptor?.id === currentDefault);
+		if (active != null) {
+			qp.activeItems = [active];
+		}
+
+		return await new Promise<AgentDescriptor | undefined>(resolve => {
+			disposables.push(
+				qp.onDidTriggerButton(button => {
+					if (button === settingsButton) {
+						void executeCoreCommand('workbench.action.openSettings', 'gitlens.ai.defaultAgent');
+					}
+				}),
+				qp.onDidAccept(async () => {
+					const item = qp.selectedItems[0];
+					if (item?.descriptor != null) {
+						await configuration.update('ai.defaultAgent', item.descriptor.id, ConfigurationTarget.Global);
+					}
 					resolve(item?.descriptor);
 				}),
 				qp.onDidHide(() => resolve(undefined)),
