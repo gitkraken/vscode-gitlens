@@ -22,6 +22,7 @@ import {
 } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
+import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
@@ -38,6 +39,7 @@ import type { DetailsContext, DetailsState, RunningOperation, RunningOperationEx
 import { createDetailsState } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
+import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
 import type {
@@ -228,38 +230,199 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _agentStatusSplitAdjusted = false;
 	private _agentStatusSplitPosition?: number;
 
-	/** Single source of truth for the agents-pane expand tri-state. The
-	 *  `<gl-details-agent-status>` component renders from this property (passed down on every
-	 *  template instantiation), so a remount can't reset it. User chevron clicks dispatch a
-	 *  request event that this panel honors by writing the new value back here — mirroring
-	 *  how `activeMode` is driven by the workflow signal store for compose/review. */
+	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
+	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
+	 *  third surface state — `partial`, only needs-input cards — is derived (not stored here):
+	 *  set transiently by {@link _agentStatusAutoPartial} when an incoming session event signals
+	 *  a new (or changed) needs-input while the user is collapsed. */
 	@state()
-	private _agentStatusExpand: import('./gl-details-agent-status.js').ExpandState = 'closed';
+	private _agentUserMode: 'collapsed' | 'expanded' = 'collapsed';
+
+	/** Transient pseudo-expand flag — true when an agent event triggered an auto-surface and
+	 *  the user hasn't dismissed it yet. Only meaningful while `_agentUserMode === 'collapsed'`
+	 *  (a manual expand subsumes it). Cleared when the last needs-input resolves OR when the
+	 *  user clicks the chevron to collapse. */
+	@state()
+	private _agentStatusAutoPartial = false;
+
+	/** Per-session snapshot of category + pending-permission identity from the last update.
+	 *  Drives the auto-partial trigger in {@link applyAgentAutoSurface}: a session that newly
+	 *  enters `needs-input`, or whose pending permission key changes while it stays in
+	 *  needs-input, flips `_agentStatusAutoPartial` true. */
+	private _prevAgentSnapshot: Map<string, { category: AgentSessionCategory; permKey: string }> = new Map();
+
+	/** Measured natural pixel size of the agents pane, locked on each visible-card-count
+	 *  change. Stops the pane from re-sizing as individual cards' inner content grows/shrinks
+	 *  (agent status detail, prompt body, etc.) — only a card count change re-measures. When
+	 *  unset, the split-panel falls back to the CSS `--auto-size` / `--no-cards` rules that
+	 *  use `fit-content(var(--_start-size))`. Cleared while the count is 0 (collapsed) or
+	 *  when the user has dragged the splitter in expanded mode (drag value wins). */
+	@state()
+	private _agentStatusLockedSize?: string;
+
+	/** Last visible-card count the locked size was measured against. `-1` forces an initial
+	 *  measurement on first paint. */
+	private _agentStatusLockedForCount = -1;
 
 	/** Clamps drag to the [10%, 80%] envelope. The visual "shrink to content when too small"
 	 *  behavior is handled by CSS `fit-content(--_start-size)` — the snap function only enforces
 	 *  the absolute floor/ceiling on the user's intended size. */
 	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) => Math.max(10, Math.min(pos, 80));
 
-	private readonly _onAgentStatusExpandRequest = (
-		e: CustomEvent<{ next: import('./gl-details-agent-status.js').ExpandState }>,
-	) => {
-		this._agentStatusExpand = e.detail.next;
+	private readonly _onAgentStatusExpandRequest = () => {
+		// Chevron click: collapsed → expanded; partial or expanded → collapsed. Branch on the
+		// DERIVED state (not `_agentUserMode`) so a click from `partial` — where user mode is
+		// still 'collapsed' under the hood — collapses instead of expanding. Always clears the
+		// auto-partial flag so a manual collapse genuinely silences the section until the next
+		// qualifying agent event. Drag-adjusted size (`_agentStatusSplitAdjusted` /
+		// `_agentStatusSplitPosition`) is intentionally preserved across collapse cycles so
+		// re-expanding restores the user's last chosen size; double-click on the sash resets it.
+		const wasCollapsed = this.agentStatusExpand === 'collapsed';
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = wasCollapsed ? 'expanded' : 'collapsed';
+		// User collapsed the section via chevron — the prior highlight intent is gone. Without
+		// clearing, the next manual expand would re-paint card--selected on the stale id and
+		// falsely suggest the card was just re-selected. Only fires on the collapse direction;
+		// expanding from collapsed preserves any sidebar-selected session for highlight.
+		if (!wasCollapsed) {
+			this._selectedAgentSessionId = undefined;
+		}
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — closed/partial use the forced auto-cap
+		// Only persist user drag while in `expanded` — collapsed/partial use the forced auto-cap
 		// position, and storing those values would clobber the saved expanded-mode position.
-		if (this._agentStatusExpand !== 'expanded') return;
+		if (this.agentStatusExpand !== 'expanded') return;
 
 		this._agentStatusSplitPosition = e.detail.position;
+		// Commit `adjusted = true` only when split-panel is actively dragging — this event also
+		// fires from split-panel's internal ResizeObserver (container resize) and keyboard
+		// nudges, neither of which should latch the user-size mode and silently disable the
+		// measured natural-height lock. The `dragging` attribute is the host's source of truth
+		// for "pointer is down on the divider"; drag-end will still set adjusted as a fallback.
+		const splitPanel = e.currentTarget;
+		if (splitPanel instanceof HTMLElement && splitPanel.hasAttribute('dragging')) {
+			this._agentStatusSplitAdjusted = true;
+		}
 	};
 
 	private readonly _onAgentStatusSplitDragEnd = () => {
-		if (this._agentStatusExpand !== 'expanded') return;
+		if (this.agentStatusExpand !== 'expanded') return;
 
 		this._agentStatusSplitAdjusted = true;
 	};
+
+	/** Derived render mode for `<gl-details-agent-status>`. Expanded wins over auto-partial
+	 *  (a manual expand already shows everything); auto-partial only surfaces while collapsed. */
+	private get agentStatusExpand(): ExpandState {
+		if (this._agentUserMode === 'expanded') return 'expanded';
+		return this._agentStatusAutoPartial ? 'partial' : 'collapsed';
+	}
+
+	/** Measures the natural pane height for the current visible-card set and locks it.
+	 *  Polls the inner `.section` element's natural height every 50ms for ~400ms and locks to
+	 *  the MAXIMUM observed value — `agentStatus.updateComplete` and `ResizeObserver` both fail
+	 *  here because nested web components (gl-tooltip / gl-popover / gl-action-chip /
+	 *  gl-agent-prompt-detail) finish their upgrade + render cycles at unpredictable later
+	 *  paint frames. The section grows monotonically as those settle; tracking the max captures
+	 *  the post-settled height even if a stability check would lock early on a transient small
+	 *  reading. */
+	private async measureAgentStatusHeight(): Promise<void> {
+		const lockedForCount = this._agentStatusLockedForCount;
+		const agentStatus = this.renderRoot.querySelector('gl-details-agent-status');
+		// Section element lives in agent-status's shadow DOM — that's the actual content node
+		// whose height reflects the card list, even when the outer `.agent-status-split__top`
+		// wrapper is constrained by a stale lock.
+		const section = (agentStatus as { renderRoot?: ParentNode } | null)?.renderRoot?.querySelector(
+			'.section',
+		) as HTMLElement | null;
+		if (section == null) return;
+
+		const intervalMs = 50;
+		const iterations = 8;
+		let maxHeight = 0;
+		for (let i = 0; i < iterations; i++) {
+			await new Promise<void>(resolve => setTimeout(resolve, intervalMs));
+			// Bail if disconnected — late writes would land on a detached host and a re-mount
+			// would inherit a stale measurement taken against the OLD shadow-DOM nodes.
+			if (!this.isConnected) return;
+			// Bail if the count changed while we were waiting — a newer measurement is in flight.
+			if (this._agentStatusLockedForCount !== lockedForCount) return;
+
+			const h = section.offsetHeight;
+			if (h > maxHeight) {
+				maxHeight = h;
+			}
+		}
+		if (maxHeight > 0) {
+			this._agentStatusLockedSize = `${maxHeight}px`;
+		}
+	}
+
+	/** Visible-card count for the agents pane under the current derived expand state.
+	 *  Drives the locked-size invalidation in {@link updated} — only a change here re-measures
+	 *  the natural pane size, not in-card content changes. */
+	private agentStatusVisibleCardCount(): number {
+		if (!this.isWip) return 0;
+
+		const wip = this._state.wip.get();
+		if (wip == null) return 0;
+
+		const sessions = this.getWorktreeAgentSessions(wip);
+		if (sessions == null) return 0;
+
+		const cats = expandVisibleCategories[this.agentStatusExpand];
+		if (cats.size === 0) return 0;
+
+		let count = 0;
+		for (const s of sessions) {
+			if (cats.has(agentPhaseToCategory[s.phase])) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/** Diff incoming worktree-matched sessions against the prior snapshot and flip
+	 *  `_agentStatusAutoPartial` according to the rules:
+	 *   - Any session that wasn't `needs-input` before and is now → surface (true).
+	 *   - Any session that stayed `needs-input` but with a different pending payload → surface.
+	 *   - No needs-input remaining → clear (auto-collapse out of partial).
+	 *  Called from {@link willUpdate} only when the panel is rendering a WIP row with resolved
+	 *  wip data — so the snapshot reflects the current worktree's session set. Off-WIP cycles
+	 *  skip this entirely, preserving the prior snapshot for when the user returns. */
+	private applyAgentAutoSurface(sessions: AgentSessionState[] | undefined): void {
+		const next = new Map<string, { category: AgentSessionCategory; permKey: string }>();
+		let anyNeedsInput = false;
+		let triggered = false;
+
+		for (const s of sessions ?? []) {
+			const category = agentPhaseToCategory[s.phase];
+			// JSON-stringify the full pending permission so every meaningful field participates
+			// in the diff: suggestions, toolInputDescription, questionCount, etc. A pipe-joined
+			// subset misses these and also collides when free-form text contains the delimiter.
+			const permKey = s.pendingPermission != null ? JSON.stringify(s.pendingPermission) : '';
+			next.set(s.id, { category: category, permKey: permKey });
+
+			if (category !== 'needs-input') continue;
+
+			anyNeedsInput = true;
+
+			const prev = this._prevAgentSnapshot.get(s.id);
+			if (prev?.category !== 'needs-input' || prev.permKey !== permKey) {
+				triggered = true;
+			}
+		}
+
+		this._prevAgentSnapshot = next;
+
+		if (triggered) {
+			this._agentStatusAutoPartial = true;
+		} else if (!anyNeedsInput && this._agentStatusAutoPartial) {
+			// Last needs-input cleared → drop the auto-surface so the section snaps back to bar-only.
+			this._agentStatusAutoPartial = false;
+		}
+	}
 
 	private readonly _onAgentStatusSplitDblClick = () => {
 		this._agentStatusSplitAdjusted = false;
@@ -434,12 +597,116 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** Entry point for the WIP-row agent indicator. Expands the agents section.
 	 *
-	 *  This is just a state write — `_agentStatusExpand` is the single source of truth and
-	 *  flows down into `<gl-details-agent-status>` as its `expand` property on every render.
-	 *  Element remounts can't reset it (no internal state to lose); user chevron clicks flow
-	 *  back through the request event. Mirrors the workflow-store pattern used by compose/review. */
+	 *  Sets the user mode to `expanded` explicitly and clears any transient auto-partial so the
+	 *  render derives a stable `expanded` state. Element remounts can't reset it (no internal
+	 *  state to lose); user chevron clicks flow back through the request event. Mirrors the
+	 *  workflow-store pattern used by compose/review. */
 	expandAgentsForWip(): void {
-		this._agentStatusExpand = 'expanded';
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = 'expanded';
+	}
+
+	/** Entry point for external callers (e.g., sidebar agent leaf click) that want to surface a
+	 *  specific session in the agents section. Force-expands so the session is renderable
+	 *  regardless of the user's current collapse preference, stores the id for the next render so
+	 *  the card picks up its `card--selected` modifier, and scrolls the card into the visible
+	 *  portion of the agents pane after Lit lands the new attribute. */
+	highlightAgentSession(sessionId: string): void {
+		// Bail when the agents section can't render. `showAgentStatus` gates on `activeMode == null`
+		// AND `worktreeAgentSessions != null` (see `renderWip`). Writing state we know won't take
+		// visible effect would leave a stale auto-expand + highlighted card waiting to pop up the
+		// next time the user exits review/compose — clearly not what they asked for.
+		if (this._state.activeMode.get() != null) return;
+		if (this._state.wip.get() == null) return;
+
+		// Highlight intent shouldn't be smothered by a tiny saved splitter size — when the user
+		// had previously dragged the agents pane very small and then collapsed it, force-expanding
+		// with the saved size still in effect can render the card inside a viewport shorter than
+		// itself. Drop adjusted only when transitioning into expanded; if the user is already
+		// expanded with a deliberate drag, leave their size alone (mirrors the dbl-click reset).
+		if (this.agentStatusExpand !== 'expanded') {
+			this._agentStatusSplitAdjusted = false;
+			this._agentStatusSplitPosition = undefined;
+		}
+
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = 'expanded';
+		this._selectedAgentSessionId = sessionId;
+		void this.scrollAgentCardIntoView(sessionId);
+	}
+
+	/** Selected-session id for `<gl-details-agent-status>`. Driven by `highlightAgentSession`.
+	 *  Cleared on: chevron-driven collapse ({@link _onAgentStatusExpandRequest}), selection move
+	 *  ({@link updated} on sha/shas/repoPath change), and panel disconnect — so the next view of
+	 *  this list doesn't re-paint a stale ring on a card the user has clearly moved on from. */
+	@state()
+	private _selectedAgentSessionId?: string;
+
+	private async scrollAgentCardIntoView(sessionId: string): Promise<void> {
+		// One updateComplete on this panel so the new selectedSessionId/expand props at least
+		// make it past Lit's render cycle to the inner element. We deliberately do NOT await the
+		// inner gl-details-agent-status's updateComplete — when the host is pushing rapid agent-
+		// session deltas (status / lastPrompt / phase changes), that promise can keep deferring
+		// to the next update and never resolve, hanging this entire function.
+		await this.updateComplete;
+
+		// Fast path: if the agents section + card + scroller are already in the DOM and laid out,
+		// scroll immediately. Skips the 250ms slow-path budget for the common case of clicking an
+		// already-visible session card. Falls through to the wait+retry loop otherwise.
+		if (this.tryScrollAgentCardOnce(sessionId)) return;
+
+		// Slow path. Initial wait covers gl-split-panel transitions and the WIP details host fetch.
+		// Outer split (graph ↔ details) AND inner split (agent-status ↔ wip) animate via CSS
+		// transitions over ~150-200ms. Sidebar-tree agent clicks ALSO trigger a scope-to-branch
+		// first, which kicks off a WIP refetch — until that lands, `worktreeAgentSessions` is
+		// undefined and the agents section doesn't render at all.
+		await new Promise<void>(resolve => setTimeout(resolve, 250));
+
+		// Retry until the agents section, the target card, AND the scroller all exist + have laid
+		// out OR we hit the budget. The scroller is in the loop too — a card-only retry can win
+		// the race but leave the scroller transiently null/zero-height, producing a silent no-op.
+		const maxAttempts = 8;
+		const stepMs = 100;
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
+			// Bail out if a newer highlight has displaced this one — `_selectedAgentSessionId` is
+			// the source of truth and a fresh click may have overwritten it during the wait.
+			if (this._selectedAgentSessionId !== sessionId) return;
+
+			if (this.tryScrollAgentCardOnce(sessionId)) return;
+
+			await new Promise<void>(resolve => setTimeout(resolve, stepMs));
+		}
+	}
+
+	/** One attempt at locating the agent card + scroller and scrolling the card into view.
+	 *  Returns `true` when the scroll math ran (card + scroller present and the scroller has
+	 *  laid out); `false` when caller should retry. Pure: no waits, no state writes. */
+	private tryScrollAgentCardOnce(sessionId: string): boolean {
+		const agentStatus = this.renderRoot.querySelector<GlDetailsAgentStatus>('gl-details-agent-status');
+		const card = agentStatus?.getSessionCard(sessionId);
+		if (card == null) return false;
+
+		const scroller = this.renderRoot.querySelector<HTMLElement>('.agent-status-split__top.scrollable');
+		if (scroller == null) return false;
+
+		const scrollerRect = scroller.getBoundingClientRect();
+		// Scroller hasn't laid out yet (mid-transition or briefly 0-height) — reading scrollTop
+		// math against this would produce a nonsense scroll.
+		if (scrollerRect.height === 0) return false;
+
+		const cardRect = card.getBoundingClientRect();
+		const padding = 12;
+
+		// Tall card OR card above viewport — align top edge with `padding` from the scroller's
+		// top. For tall cards this prioritizes the header (session name + phase) staying in view
+		// at the expected trade-off of clipping the bottom.
+		const cardTooTall = cardRect.height + padding * 2 > scrollerRect.height;
+		if (cardTooTall || cardRect.top < scrollerRect.top + padding) {
+			scroller.scrollTop -= scrollerRect.top + padding - cardRect.top;
+		} else if (cardRect.bottom > scrollerRect.bottom - padding) {
+			scroller.scrollTop += cardRect.bottom - (scrollerRect.bottom - padding);
+		}
+		return true;
 	}
 
 	/** Maps a graph-row sha to the worktree fsPath it represents. For the primary WIP
@@ -904,6 +1171,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (current != null) {
 			this._lastResolved = current;
 		}
+
+		// Diff worktree-matched agent sessions and flip the auto-partial flag accordingly.
+		// Done here (not in render) so the side-effect on `_agentStatusAutoPartial` runs before
+		// render reads `agentStatusExpand` to derive the projected mode. Skipped when not on
+		// a WIP row, wip data hasn't arrived, the worktree match returns undefined, OR the
+		// match returns a non-null but empty array (source present, no sessions for this
+		// worktree). Preserving the snapshot across all skip cases prevents a transient
+		// empty-match window from wiping it and re-triggering a stale acknowledge moments later.
+		const wip = this.isWip ? this._state.wip.get() : undefined;
+		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
+		if (sessions != null && sessions.length > 0) {
+			this.applyAgentAutoSurface(sessions);
+		}
 	}
 
 	override updated(changedProperties: Map<string, unknown>): void {
@@ -1081,6 +1361,35 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// captures HEAD-move clears, manual amend toggles, AI generations, and user typing
 		// through a single debounced exit point.
 		this.maybeScheduleWipDraftFlush();
+
+		// Lock the agents-pane size to its natural height for the current visible-card count.
+		// Only re-measures when the count itself changes; in-card content fluctuations (status
+		// detail, prompt body) no longer reflow the pane. Unlocked for the one frame between
+		// count-change and measurement so CSS `--auto-size` fit-content provides the natural
+		// fallback while the new card lays out.
+		const visCount = this.agentStatusVisibleCardCount();
+		if (visCount !== this._agentStatusLockedForCount) {
+			this._agentStatusLockedForCount = visCount;
+			this._agentStatusLockedSize = undefined;
+			if (visCount > 0) {
+				void this.measureAgentStatusHeight();
+			}
+		}
+
+		// Apply the lock imperatively to the split-panel host — `style.setProperty` cooperates
+		// with split-panel's own `style.setProperty('--_start-size', ...)` writes (both leave
+		// the other's declarations intact). A Lit `style=...` attribute binding would instead
+		// clobber the entire inline style each render, racing with split-panel and losing.
+		const splitPanel = this.renderRoot.querySelector('gl-split-panel.agent-status-split');
+		if (splitPanel instanceof HTMLElement) {
+			const useUserSize = this.agentStatusExpand === 'expanded' && this._agentStatusSplitAdjusted;
+			const lockedSize = !useUserSize ? this._agentStatusLockedSize : undefined;
+			if (lockedSize != null) {
+				splitPanel.style.setProperty('--gl-split-panel-start-size', lockedSize);
+			} else {
+				splitPanel.style.removeProperty('--gl-split-panel-start-size');
+			}
+		}
 	}
 
 	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats
@@ -1455,23 +1764,34 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
-		//  - `closed` / `partial`: auto-size with fit-content(25%) cap (~3 cards); splitter inert
-		//  - `expanded` (no drag): auto-size with fit-content(80%) cap (show what fits)
-		//  - `expanded` (dragged):  honor user's saved size verbatim — no fit-content, so empty
-		//                            space below the last card is OK if the user dragged larger
+		//  - `collapsed` / `partial`: pane locked to measured natural height for current card
+		//                              count (capped via fit-content fallback on first paint);
+		//                              splitter inert
+		//  - `expanded` (no drag):    same measured-and-locked behavior — splitter enabled but
+		//                              starts at natural size; in-card content changes don't
+		//                              reflow the pane (only card count changes do)
+		//  - `expanded` (dragged):    honor user's saved drag verbatim — overrides the measured
+		//                              lock so the pane stays exactly where the user pinned it
 		// `agentStatusUseUserSize === true` removes the `--auto-size` class so the grid uses
-		// `--_start-size` directly (no shrink-to-content). Otherwise the class applies and
-		// fit-content(--_start-size) shrinks below the auto-cap when content is small.
-		const agentStatusIsExpanded = this._agentStatusExpand === 'expanded';
+		// `--_start-size` directly (no shrink-to-content). Otherwise the inline style sets
+		// `--gl-split-panel-start-size` to the measured pixel value (or, on first frame after a
+		// count change, falls back to the CSS `--auto-size` fit-content rule).
+		const agentStatusExpand = this.agentStatusExpand;
+		const agentStatusIsExpanded = agentStatusExpand === 'expanded';
 		const agentStatusUseUserSize = agentStatusIsExpanded && this._agentStatusSplitAdjusted;
 		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : 25;
 		const agentStatusPosition = agentStatusUseUserSize
 			? (this._agentStatusSplitPosition ?? agentStatusAutoCap)
 			: agentStatusAutoCap;
+		// `--auto-size` (fit-content fallback) applies ONLY when there's no other authoritative
+		// size source. Drag wins via position; the measured lock wins via the imperative
+		// `--gl-split-panel-start-size` set in `updated()` (the class is removed in that case so
+		// they're mutually exclusive, not racing).
+		const useAutoSize = !agentStatusUseUserSize && this._agentStatusLockedSize == null;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `_agentStatusExpand`) — no event-driven mirror needed.
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
 		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
-			expandVisibleCategories[this._agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+			expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
 		);
 
 		const restContent =
@@ -1602,11 +1922,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			></gl-details-wip-header>
 			${showAgentStatus
 				? html`<gl-split-panel
-						class="agent-status-split ${agentStatusUseUserSize
-							? ''
-							: 'agent-status-split--auto-size'} ${agentStatusHasVisibleCards
-							? ''
-							: 'agent-status-split--no-cards'}"
+						class="agent-status-split ${useAutoSize
+							? 'agent-status-split--auto-size'
+							: ''} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
 						orientation="vertical"
 						primary="start"
 						position="${agentStatusPosition}"
@@ -1619,7 +1937,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
-								.expand=${this._agentStatusExpand}
+								.expand=${agentStatusExpand}
+								.selectedSessionId=${this._selectedAgentSessionId}
 								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
 							></gl-details-agent-status>
 						</div>

@@ -15,6 +15,7 @@ import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
@@ -1295,10 +1296,41 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	};
 
-	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>) {
+	private handleSidebarPanelSelect(e: CustomEvent<GraphSidebarPanelSelectEventDetail>): void {
 		this.graph?.ensureAndSelectCommit(e.detail.sha);
 		if (this.shouldAutoCollapseOverlay()) {
 			this.graph?.focus();
+		}
+
+		// Agent leaves carry a `sessionId`; when present, open the details panel anchored on the
+		// session's worktree WIP, expand the agents section, and highlight + scroll-into-view the
+		// matching session card. Non-agent leaves (branches, tags, stashes, …) leave `sessionId`
+		// undefined and skip this entirely so their existing behavior is unchanged.
+		const sessionId = e.detail.sessionId;
+		if (sessionId == null) return;
+
+		const wasAlreadyVisible = this.graphState.details?.visible === true;
+		this.setDetailsVisible(true, 'request-agents');
+		this.ensureDetailsPosition();
+		// `setDetailsVisible` short-circuits when the panel is already visible, so the
+		// `request-agents` trigger telemetry would otherwise be dropped for the common case of a
+		// user-initiated sidebar click on an open details pane. Emit explicitly to keep the
+		// per-trigger count for sidebar-driven agent navigation honest.
+		if (wasAlreadyVisible) {
+			this.emitDetailsVisibilityTelemetry(true, 'request-agents');
+		}
+
+		// Fire-and-forget the highlight: Lit @-event listeners discard returned promises, so an
+		// async handler swallows rejections silently. Keep the handler sync and catch explicitly.
+		void this.dispatchAgentHighlight(sessionId);
+	}
+
+	private async dispatchAgentHighlight(sessionId: string): Promise<void> {
+		try {
+			await this.updateComplete;
+			this.detailsPanelEl?.highlightAgentSession(sessionId);
+		} catch (ex) {
+			Logger.error(ex, 'GraphApp.dispatchAgentHighlight');
 		}
 	}
 

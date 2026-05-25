@@ -19,28 +19,25 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
-export type ExpandState = 'closed' | 'partial' | 'expanded';
+/** User-facing modes are `collapsed` (bar only) and `expanded` (all cards) — toggled by the
+ *  chevron. `partial` is a panel-driven derived state: when the user is collapsed and a session
+ *  transitions into `needs-input` (or its pending payload changes), the panel sets this so only
+ *  needs-input cards surface. A chevron click from `partial` or `expanded` lands on `collapsed`;
+ *  from `collapsed` it lands on `expanded`. */
+export type ExpandState = 'collapsed' | 'partial' | 'expanded';
 
 /** Cap on cluster dots in the section heading. Beyond this, an `+N` overflow chip takes the slot
  *  so the heading width stays bounded. */
 const maxClusterDots = 5;
 
-/** Tri-state cycle for the heading collapse toggle: closed (needs-input only) → partial
- *  (needs-input + working) → expanded (all) → closed. */
-const expandNext: Record<ExpandState, ExpandState> = {
-	closed: 'partial',
-	partial: 'expanded',
-	expanded: 'closed',
-};
-
-/** Note: chevron rotation is driven by CSS via a `data-expand` attribute on the chevron
- *  (see `.section__heading-chevron[data-expand='…']` rules in this file's styles). Closed
- *  is 0deg, partial 45deg, expanded 90deg — single chevron-right glyph that transitions
- *  between states. Keep the values here in lock-step with the CSS rules. */
+/** Note: the chevron uses two glyphs — `chevron-right` for collapsed/partial (rotated 0deg /
+ *  45deg via the `data-expand` attribute) and `chevron-down` for expanded (no rotation). The
+ *  glyph swap happens in the template; the rotation rules live in this file's styles. Keep
+ *  the template's `icon=…` branch in lock-step with the CSS rules. */
 
 export const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
-	closed: new Set<AgentSessionCategory>(['needs-input']),
-	partial: new Set<AgentSessionCategory>(['needs-input', 'working']),
+	collapsed: new Set<AgentSessionCategory>(),
+	partial: new Set<AgentSessionCategory>(['needs-input']),
 	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle']),
 };
 
@@ -51,18 +48,20 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		/** Fired when the user clicks the chevron — the consumer (panel) owns the expand state
-		 *  and decides whether to accept the request. The component renders from the `expand`
-		 *  property only, never from internal state. */
-		'gl-agent-status-expand-request': CustomEvent<{ next: ExpandState }>;
+		 *  and decides the next mode. The component renders from the `expand` property only,
+		 *  never from internal state. No payload — the panel knows its current user choice. */
+		'gl-agent-status-expand-request': CustomEvent<void>;
 	}
 }
 
 /**
  * Branch-scoped agent status display for the graph details panel. Renders a heading
  * (chevron + label + dot cluster + counts, with a hover popover for per-session detail) above
- * a cards list. The heading button cycles a tri-state filter: closed (needs-input only),
- * partial (needs-input + working), expanded (all). Needs-input and working cards adopt a
- * gradient + icon-circle treatment so each surfaces as actionable at a glance.
+ * a cards list. The heading button toggles between collapsed (bar only) and expanded (all
+ * cards). The panel can also project `partial` automatically — only needs-input cards visible —
+ * when an agent surfaces a new request while the user has the section collapsed. Needs-input
+ * and working cards adopt a gradient + icon-circle treatment so each surfaces as actionable at
+ * a glance.
  */
 @customElement('gl-details-agent-status')
 export class GlDetailsAgentStatus extends LitElement {
@@ -128,7 +127,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				padding-bottom: 0.8rem;
 			}
 
-			/* Heading doubles as the tri-state collapse toggle AND the at-a-glance phase summary —
+			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
 			   chevron + label on the left, dot cluster + counts on the right. The dots and counts
 			   remain visible in every state so the summary still informs at a glance even when
 			   most cards are filtered out.
@@ -178,23 +177,23 @@ export class GlDetailsAgentStatus extends LitElement {
 				line-height: 1;
 				/* Inherit so .section__heading:hover brightens chevron + text together. */
 				color: inherit;
-				/* Single chevron-right glyph in every state — only the rotation differs.
-				   Per-state transform rules below (driven by the data-expand attribute) animate
-				   the cycle via the shared transition. Default closed at 0deg in case the
-				   attribute is briefly missing. */
+				/* Chevron-right for collapsed/partial (rotated via data-expand below); chevron-down
+				   for expanded (no rotation — set in the template). The shared transition animates
+				   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
+				   is briefly missing. */
 				transform: rotate(0deg);
 				transition: transform 0.2s ease;
 			}
 
-			.section__heading-chevron[data-expand='closed'] {
+			.section__heading-chevron[data-expand='collapsed'] {
 				transform: rotate(0deg);
 			}
 			.section__heading-chevron[data-expand='partial'] {
 				transform: rotate(45deg);
 			}
-			.section__heading-chevron[data-expand='expanded'] {
-				transform: rotate(90deg);
-			}
+			/* No [data-expand='expanded'] rule — expanded uses the chevron-down glyph (set in
+			   the template), so the default 0deg from .section__heading-chevron keeps it
+			   upright without an explicit override. */
 
 			@media (prefers-reduced-motion: reduce) {
 				.section__heading-chevron {
@@ -404,6 +403,19 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 0.85;
 			}
 
+			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
+			   inset outline reads as "you picked this one" without overwhelming the card's
+			   own gradient/accent treatment — the prior halo+border combo was too loud against
+			   needs-input/working cards that already carry a colored gradient. outline-offset
+			   -1px tucks the ring just inside the card border so the card's footprint stays
+			   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
+			   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
+			.card--selected {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+				opacity: 1;
+			}
+
 			.card__rail {
 				grid-row: 1;
 				grid-column: 1;
@@ -521,7 +533,26 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  `gl-agent-status-expand-request` event; the panel decides whether to honor it by
 	 *  writing back to this property. */
 	@property({ type: String })
-	expand: ExpandState = 'closed';
+	expand: ExpandState = 'collapsed';
+
+	/* Note: when the section is `collapsed` we render no cards at all — the heading bar stands
+	 *  alone. The panel flips us to `partial` automatically when a new needs-input event fires
+	 *  while the user is collapsed (or has just collapsed away from a needs-input set), so the
+	 *  user is re-notified without losing the "I've acknowledged this" gesture. */
+
+	/** When set, the card matching this id receives a `card--selected` modifier (highlighted
+	 *  border, brighter accent). Set by external callers (e.g., sidebar agent leaf click) to
+	 *  surface a specific session in this section. Cleared by the consumer when no longer relevant. */
+	@property({ type: String, attribute: 'selected-session-id' })
+	selectedSessionId?: string;
+
+	/** Returns the rendered card element for `sessionId`, or `null` if no matching card is in
+	 *  this component's shadow tree (session not rendered yet, filtered out by expand state,
+	 *  etc.). Exposed so the consumer can drive its own scroll math against an outer scroller
+	 *  without piercing this component's shadow root. */
+	getSessionCard(sessionId: string): HTMLElement | null {
+		return this.renderRoot.querySelector<HTMLElement>(`[data-session-id="${CSS.escape(sessionId)}"]`) ?? null;
+	}
 
 	override render(): unknown {
 		const sessions = this.sessions;
@@ -556,10 +587,15 @@ export class GlDetailsAgentStatus extends LitElement {
 				type="button"
 				class="section__heading"
 				aria-controls="section__list"
+				aria-expanded=${state === 'expanded' ? 'true' : 'false'}
 				aria-label=${this.expandAriaLabel(state)}
 				@click=${this.onChevronClick}
 			>
-				<code-icon class="section__heading-chevron" icon="chevron-right" data-expand=${state}></code-icon>
+				<code-icon
+					class="section__heading-chevron"
+					icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
+					data-expand=${state}
+				></code-icon>
 				<span class="section__heading-label">Agents</span>
 				<gl-popover placement="bottom" hoist ?disabled=${state === 'expanded'}>
 					<span slot="anchor" class="section__cluster">
@@ -587,13 +623,12 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	/** Chevron click — emits a `gl-agent-status-expand-request` with the next state in the
-	 *  tri-state cycle. The consumer (panel) owns `expand` and decides whether to honor the
-	 *  request by writing the new value back; the component is a pure projection of the
+	 *  collapsed ↔ expanded toggle. The consumer (panel) owns `expand` and decides the next
+	 *  mode (partial folds back to collapsed). The component is a pure projection of the
 	 *  property. */
 	private onChevronClick = (): void => {
 		this.dispatchEvent(
 			new CustomEvent('gl-agent-status-expand-request', {
-				detail: { next: expandNext[this.expand] },
 				bubbles: true,
 				composed: true,
 			}),
@@ -602,12 +637,12 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	private expandAriaLabel(state: ExpandState): string {
 		switch (state) {
-			case 'closed':
-				return 'Show working sessions';
-			case 'partial':
+			case 'collapsed':
 				return 'Show all sessions';
+			case 'partial':
+				return 'Showing sessions needing input — collapse';
 			case 'expanded':
-				return 'Collapse to needs-input only';
+				return 'Showing all sessions — collapse';
 		}
 	}
 
@@ -689,9 +724,14 @@ export class GlDetailsAgentStatus extends LitElement {
 		// (owned by another GitLens window) reach the host's `resolvePermission`, which surfaces
 		// a notification rather than silently no-opping when the route is unavailable.
 		const canResolve = category === 'needs-input' && permission != null;
+		const isSelected = this.selectedSessionId != null && this.selectedSessionId === session.id;
 
 		return html`
-			<div class=${`card card--${category}`}>
+			<div
+				class=${`card card--${category}${isSelected ? ' card--selected' : ''}`}
+				data-session-id=${session.id}
+				aria-current=${isSelected ? 'true' : nothing}
+			>
 				<div class="card__rail">${this.renderCardRail(category)}</div>
 				<div class="card__body">
 					<div class="card__title-row">

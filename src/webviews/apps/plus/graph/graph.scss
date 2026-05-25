@@ -1790,25 +1790,26 @@ web-graph {
 
 			// Auto-size mode caps the agents pane at the current `--_start-size` (set by
 			// split-panel from the `position` attribute the host forces — 25% for
-			// closed/partial, 80% for expanded). Below the cap the row uses `fit-content` so
+			// collapsed/partial, 80% for expanded). Below the cap the row uses `fit-content` so
 			// it shrinks to natural content height when there are few cards.
 			&--auto-size:not([dragging]) {
 				--gl-split-panel-start-size: fit-content(var(--_start-size, 25%));
 			}
 
-			// When the agent-status section is showing no cards (e.g. collapsed to needs-input
-			// only, with no needs-input sessions), force the heading row to its content height
-			// regardless of any previously-dragged position. Without this, dragging the splitter
-			// while cards are visible and then collapsing back to no-cards leaves the heading
-			// floating in a large empty area the size of the user's drag. The split-panel still
-			// preserves `position` internally so the dragged height is restored when cards reappear.
+			// When the agent-status section is showing no cards (collapsed — bar only — or
+			// partial with no needs-input sessions present), force the heading row to its
+			// content height regardless of any previously-dragged position. Without this,
+			// dragging the splitter while cards are visible and then collapsing back to no-cards
+			// leaves the heading floating in a large empty area the size of the user's drag.
+			// The split-panel still preserves `position` internally so the dragged height is
+			// restored when cards reappear.
 			&--no-cards:not([dragging]) {
 				--gl-split-panel-start-size: max-content;
 			}
 
-			// Disabled splitter — drop the divider entirely so closed/partial states (where the
-			// agents pane is auto-sized and non-draggable) don't show a hover-affordance line
-			// implying it can be grabbed. `visibility: hidden` (not `display: none`) is
+			// Disabled splitter — drop the divider entirely so collapsed/partial states (where
+			// the agents pane is auto-sized and non-draggable) don't show a hover-affordance
+			// line implying it can be grabbed. `visibility: hidden` (not `display: none`) is
 			// load-bearing — removing the divider from the grid item flow causes auto-placement
 			// to shove the bottom slot into the 0px middle track instead of the 1fr end track,
 			// collapsing the WIP panel.

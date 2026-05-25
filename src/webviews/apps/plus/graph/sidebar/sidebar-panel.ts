@@ -130,6 +130,11 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 
 export interface GraphSidebarPanelSelectEventDetail {
 	sha: string;
+	/** Agent leaves only — the id of the session represented by the clicked tree item. Lets the
+	 *  graph-app's handler expand the agents section, highlight the matching card in the details
+	 *  pane, and scroll it into view alongside the WIP row selection. Absent on non-agent leaves
+	 *  (branches, tags, stashes, …). */
+	sessionId?: string;
 }
 
 export type GraphSidebarTogglePinnedEventDetail = void;
@@ -142,7 +147,7 @@ export interface SidebarItemScope {
 	upstreamName?: string;
 }
 
-type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope];
+type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope, sessionId?: string];
 
 interface LeafProps {
 	label: string;
@@ -1010,7 +1015,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
 			icon: { type: 'agent', phase: session.phase },
 			description: description,
-			context: [sha, scope] as SidebarItemContext,
+			context: [sha, scope, session.id] as SidebarItemContext,
 			decorations: decorations,
 			actions: actions,
 		};
@@ -1308,9 +1313,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
+		const sessionId = context?.[2];
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
-				detail: { sha: sha },
+				detail: { sha: sha, sessionId: sessionId },
 				bubbles: true,
 				composed: true,
 			}),
