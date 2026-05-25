@@ -26964,6 +26964,11 @@
 					"group": "1_gitlens_ai@10"
 				},
 				{
+					"command": "gitlens.graph.copy",
+					"when": "webviewItem =~ /^gitlens:wip\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
 					"command": "gitlens.openWorktree:graph",
 					"when": "webviewItem =~ /gitlens:worktree\\b(?!.*?\\b\\+active\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "0_gitlens_worktree@1"

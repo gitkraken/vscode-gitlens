@@ -6515,6 +6515,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					webviewItemValue: {
 						type: 'commit',
 						ref: this.getRevisionReference(wt.path, uncommitted, 'work-dir-changes')!,
+						worktreePath: wt.path,
 					},
 				}),
 			};
@@ -6651,6 +6652,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					webviewItemValue: {
 						type: 'commit',
 						ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
+						worktreePath: repo.path,
 					},
 				}),
 			},
@@ -6706,6 +6708,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.getRevisionReference(this.repository.path, uncommitted, 'work-dir-changes')!,
+					worktreePath: this.repository.path,
 				},
 			}),
 		};

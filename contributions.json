@@ -2985,6 +2985,11 @@
 						"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag|worktree)\\b/",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 1
+					},
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
 					}
 				]
 			}
