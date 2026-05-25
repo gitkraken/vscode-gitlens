@@ -142,6 +142,9 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				<gl-button appearance="secondary" @click=${() => this.emit('start-work', { showOpenInAgent: 'ask' })}>
 					Start Work on an Issue…
 				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('start-review', { showOpenInAgent: 'ask' })}>
+					Start Review on a PR…
+				</gl-button>
 				<gl-button appearance="secondary" @click=${() => this.emit('apply-stash')}>
 					Apply / Pop Stash…
 				</gl-button>

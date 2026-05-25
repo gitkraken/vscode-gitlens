@@ -1552,6 +1552,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@create-pr=${this.handleCreatePullRequest}
 									@create-pr-ai=${this.handleCreatePullRequestWithAI}
 									@start-work=${this.handleStartWork}
+									@start-review=${this.handleStartReview}
 									@apply-stash=${this.handleApplyStash}
 									@new-worktree=${this.handleNewWorktree}
 									@publish-branch=${this.handlePublishBranch}
@@ -2343,6 +2344,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
 		this._actions.startWork(e.detail?.showOpenInAgent);
+
+	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
+		this._actions.startPRReview(e.detail?.showOpenInAgent);
 
 	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
 

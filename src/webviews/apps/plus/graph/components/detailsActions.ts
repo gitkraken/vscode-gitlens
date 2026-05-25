@@ -2792,6 +2792,13 @@ export class DetailsActions {
 		});
 	}
 
+	startPRReview(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
+		void this.services.commands.execute('gitlens.startReview', {
+			source: { source: 'graph-details' },
+			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
+		});
+	}
+
 	createPullRequest(repoPath: string | undefined, options?: { describeWithAI?: boolean }): void {
 		if (!repoPath) return;
 
