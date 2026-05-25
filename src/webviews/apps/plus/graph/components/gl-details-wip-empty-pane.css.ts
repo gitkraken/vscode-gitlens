@@ -92,6 +92,7 @@ export const detailsWipEmptyPaneStyles = css`
 		   internal padding that effectively widens the gap from the section heading; bare buttons
 		   don't, so add equivalent top padding here to keep section rhythm consistent. */
 		padding-top: 0.8rem;
+		padding-inline-start: 0.6rem;
 	}
 
 	.start-new gl-button {
@@ -105,7 +106,9 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.launchpad-items {
 		list-style: none;
-		padding-inline-start: 0;
+		/* Match the left inset of Next-step rows so the launchpad items line up with the
+		   Next-steps content column rather than sitting flush with the section heading. */
+		padding-inline-start: 0.6rem;
 		/* Matches the start-new top padding so the Launchpad heading-to-content gap reads the
 		   same as the other sections — first launchpad row sits flush with where the first row
 		   of Next-steps and the first button of Start-new sit. */
