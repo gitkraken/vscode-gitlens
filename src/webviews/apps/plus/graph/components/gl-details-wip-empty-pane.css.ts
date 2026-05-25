@@ -12,18 +12,6 @@ export const detailsWipEmptyPaneStyles = css`
 		gap: 1.6rem;
 	}
 
-	.hub--idle {
-		align-items: center;
-		text-align: center;
-		gap: 1.2rem;
-	}
-
-	.caption {
-		margin: 0;
-		color: var(--color-foreground--65);
-		font-style: italic;
-	}
-
 	.section {
 		display: flex;
 		flex-direction: column;
@@ -93,28 +81,35 @@ export const detailsWipEmptyPaneStyles = css`
 		margin-right: 0.4rem;
 	}
 
-	.start-fresh {
+	.start-new {
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
 		min-width: 20rem;
 		max-width: 28rem;
 		width: 100%;
+		/* Match the visual heading-to-content gap of the Next-steps section. Next-step rows have
+		   internal padding that effectively widens the gap from the section heading; bare buttons
+		   don't, so add equivalent top padding here to keep section rhythm consistent. */
+		padding-top: 0.8rem;
 	}
 
-	.start-fresh gl-button {
+	.start-new gl-button {
 		width: 100%;
 		--button-width: 100%;
 	}
 
-	.start-fresh gl-button code-icon {
+	.start-new gl-button code-icon {
 		margin-right: 0.4rem;
 	}
 
 	.launchpad-items {
 		list-style: none;
 		padding-inline-start: 0;
-		margin-block: 0 0.6rem;
+		/* Matches the start-new top padding so the Launchpad heading-to-content gap reads the
+		   same as the other sections — first launchpad row sits flush with where the first row
+		   of Next-steps and the first button of Start-new sit. */
+		margin-block: 0.8rem 0.6rem;
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;

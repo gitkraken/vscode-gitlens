@@ -299,6 +299,7 @@ import {
 import type {
 	BranchState,
 	CloseGraphWalkthroughBannerParams,
+	DidChangeWorkingTreeParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	GetWipStatsResponse,
@@ -5683,6 +5684,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 */
 	private _wipNotifyInFlight?: Promise<boolean>;
 	private _wipNotifyDirty = false;
+	/** Last-sent payload — used to skip identical pushes. Working-tree watchers fire on any FS
+	 *  event in the repo (file saves, branch metadata writes, lock-file twiddles), so most ticks
+	 *  produce an unchanged status. Without this gate the webview re-renders the WIP details
+	 *  panel on every tick even though nothing visible changed. Same intent as `_lastSentBranchState`
+	 *  / `_lastSentWipDrafts`, but stamped AFTER notify resolves (with a repo-identity re-check)
+	 *  to avoid poisoning the cache on transport failure or repo swap mid-await. Reset alongside
+	 *  `_lastSentWipDrafts` in `setGraph(undefined)`. */
+	private _lastSentWipNotificationParams: DidChangeWorkingTreeParams | undefined;
 
 	private notifyDidChangeWorkingTree(): Promise<boolean> {
 		if (this._wipNotifyInFlight != null) {
@@ -5731,16 +5740,44 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// a fabricated zero state. The next tick re-tries.
 		if (wipAndStatsResult === undefined) return false;
 
+		// Drop the push if the active repo changed during the await — pushing RepoA's WIP after
+		// the user switched to RepoB would corrupt the webview's view of "what repo's WIP this is"
+		// and pin the wrong payload in `_lastSentWipNotificationParams`, blocking the legitimate
+		// next push for the new repo. The new repo's own watcher tick will produce a fresh push.
+		if (this.repository !== repo) return false;
+
 		// Overview entries for this repo's branch are updated inline by the webview's notification
 		// handler from the same `wip` payload above (`mergeOverviewWipForRepo`). The previous bulk
 		// fanout that re-probed every visible branch on every primary FS event is gone — non-live
 		// entries (opened worktrees whose graph WIP row is off-screen) refresh lazily when the
 		// overview panel becomes visible, served from `_wipStatusCache` when warm.
-		return this.host.notify(DidChangeWorkingTreeNotification, {
+		const params: DidChangeWorkingTreeParams = {
 			stats: wipAndStatsResult.stats,
 			wipMetadataBySha: wipMetadataBySha,
 			wip: wipAndStatsResult.wip,
 			repoPath: repo.path,
+		};
+		// Skip identical pushes. Working-tree events fire on any FS write in the repo (file saves,
+		// `.git/index.lock` twiddles, branch-metadata writes), so most ticks reproduce the prior
+		// status verbatim. Comparing the whole params object is safe: `stats`, `wipMetadataBySha`,
+		// and `wip` all derive from the same `git status` — when `wip` is unchanged the others are
+		// too. Same dedup pattern as `_lastSentBranchState`.
+		if (this._lastSentWipNotificationParams != null && areEqual(this._lastSentWipNotificationParams, params)) {
+			return false;
+		}
+
+		// Stamp the cache only AFTER the notify resolves successfully (avoids cache poisoning on
+		// transport failure — a stamped-then-failed pattern would skip the corrective next-tick
+		// push when params haven't changed). Also re-check `this.repository === repo` inside the
+		// `.then`: between the await starting and resolving, the user may have switched repos and
+		// `setGraph(undefined)` may have cleared the cache. Without the re-check, the resolved-
+		// successfully notify (for the OLD repo's payload) would re-pin stale params into the
+		// just-cleared cache, blocking the NEW repo's first push.
+		return this.host.notify(DidChangeWorkingTreeNotification, params).then(success => {
+			if (success && this.repository === repo) {
+				this._lastSentWipNotificationParams = params;
+			}
+			return success;
 		});
 	}
 
@@ -6603,9 +6640,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace({ exit: r => `secondaryWorktrees=${Object.keys(r).length}` })
 	private async getWipMetadataBySha(cancellation?: CancellationToken): Promise<GraphWipMetadataBySha> {
 		const result: GraphWipMetadataBySha = {};
-		if (this.repository == null) return result;
+		// Capture the active repo at entry so the post-await reads below see a stable target. If
+		// the user switches repos while `getWorktrees` is in flight, `this.repository` may have
+		// moved to a different repo by the time we filter and assemble — the captured `repo` keeps
+		// the function's output internally consistent (matches the worktrees it just fetched).
+		const repo = this.repository;
+		if (repo == null) return result;
 
-		const worktrees = await this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
+		const worktrees = await repo.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
 		if (!worktrees?.length) return result;
 
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
@@ -6617,7 +6659,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// would leave a phantom anchor in the webview state until another full push arrived.
 		for (const wt of worktrees) {
 			if (wt.type === 'bare' || wt.sha == null) continue;
-			if (wt.path === this.repository.path) continue;
+			if (wt.path === repo.path) continue;
 
 			// Use the MAIN repo's path for branchRef so it matches the format scope uses (see
 			// `setScope` in graph-app.ts) — `GitWorktree.repoPath` is the main repo's path anyway.
@@ -6628,7 +6670,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				repoPath: wt.path,
 				parentSha: wt.sha,
 				label: wt.name,
-				branchRef: branchName != null ? getBranchId(this.repository.path, false, branchName) : undefined,
+				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
 				context: serializeWebviewItemContext<GraphItemContext>({
 					webviewItem: 'gitlens:wip+worktree',
 					webviewItemValue: {
@@ -7547,6 +7589,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastSentRowsStatsSize = undefined;
 			this._lastSentWipDrafts = undefined;
 			this._lastSentWipDraftsInitialized = false;
+			this._lastSentWipNotificationParams = undefined;
 			this._graphLoading = undefined;
 			this.resetHoverCache();
 			this.resetRefsMetadata();

@@ -204,6 +204,12 @@ export const detailsWipHeaderStyles = css`
 		min-width: 0;
 	}
 
+	.graph-details-header__pull-request--loading {
+		display: inline-flex;
+		min-width: 3.9rem;
+		min-height: 2.4rem;
+	}
+
 	.graph-details-header__issues {
 		display: flex;
 		align-items: center;

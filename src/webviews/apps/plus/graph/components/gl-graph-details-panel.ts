@@ -1540,12 +1540,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.wip=${wip}
 									.aiEnabled=${false}
 									.aiCreatePrEnabled=${aiCreatePrEnabled}
-									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
-									this._state.wipPullRequest.get() != null}
+									.pullRequest=${this._state.wipPullRequest.get()}
+									.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
 									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
 									.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
 									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
+									show-launchpad
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
 									@create-pr=${this.handleCreatePullRequest}

@@ -325,8 +325,18 @@ export class GlDetailsWipHeader extends LitElement {
 		if (this.wip?.branch == null) return nothing;
 
 		const pr = this.pullRequest;
-		// Skip entirely when no PR and not loading — many branches don't have a PR.
-		if (pr == null) return nothing;
+		if (pr == null) {
+			// While loading reserve a small footprint so a landing PR chip doesn't pop the
+			// branch-identity row sideways. Mirrors the merge-target slot's loading pattern.
+			// Collapses to nothing once loading settles with no PR — many branches don't have one.
+			if (this.pullRequestLoading) {
+				return html`<span
+					class="graph-details-header__pull-request graph-details-header__pull-request--loading"
+					aria-busy="true"
+				></span>`;
+			}
+			return nothing;
+		}
 
 		const status = pr.state === 'merged' || pr.state === 'closed' ? pr.state : 'opened';
 		return html`<gl-autolink-chip
