@@ -4,7 +4,11 @@ import { html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { Color } from '@gitlens/utils/color.js';
 import type { GraphServices } from '../../../plus/graph/graphService.js';
-import type { DidRequestOpenCompareModeParams, State } from '../../../plus/graph/protocol.js';
+import type {
+	DidRequestOpenCompareModeParams,
+	DidRequestOpenTimelineScopeParams,
+	State,
+} from '../../../plus/graph/protocol.js';
 import { GlAppHost } from '../../shared/appHost.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
@@ -73,6 +77,10 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-open-compare-mode',
 			this._handleRequestOpenCompareMode as EventListener,
 		);
+		this.addEventListener(
+			'gl-graph-request-open-timeline-scope',
+			this._handleRequestOpenTimelineScope as EventListener,
+		);
 	}
 
 	override disconnectedCallback(): void {
@@ -81,11 +89,19 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-open-compare-mode',
 			this._handleRequestOpenCompareMode as EventListener,
 		);
+		this.removeEventListener(
+			'gl-graph-request-open-timeline-scope',
+			this._handleRequestOpenTimelineScope as EventListener,
+		);
 		this._sidebarActions.dispose();
 	}
 
 	private _handleRequestOpenCompareMode = (e: CustomEvent<DidRequestOpenCompareModeParams>): void => {
 		this.appElement?.openCompareMode(e.detail);
+	};
+
+	private _handleRequestOpenTimelineScope = (e: CustomEvent<DidRequestOpenTimelineScopeParams>): void => {
+		this.appElement?.openTimelineScope(e.detail);
 	};
 
 	override render() {

@@ -4250,14 +4250,14 @@
 			}
 		},
 		"gitlens.openFileHistory:graphDetails": {
-			"label": "Open File History",
+			"label": "Open File History in View",
 			"icon": "$(history)",
 			"menus": {
 				"gitlens/commit/file/history": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_gitlens",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -4305,14 +4305,14 @@
 			}
 		},
 		"gitlens.openFileHistoryInGraph:graphDetails": {
-			"label": "Open File History in Commit Graph",
+			"label": "Open File History",
 			"icon": "$(gitlens-graph)",
 			"menus": {
 				"gitlens/commit/file/history": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 1
 					}
 				]
 			}
@@ -4512,13 +4512,13 @@
 			}
 		},
 		"gitlens.openFolderHistory:graphDetails": {
-			"label": "Open Folder History",
+			"label": "Open Folder History in View",
 			"menus": {
 				"gitlens/webview/folder/history": [
 					{
 						"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 						"group": "1_gitlens",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -4553,14 +4553,14 @@
 			}
 		},
 		"gitlens.openFolderHistoryInGraph:graphDetails": {
-			"label": "Open Folder History in Commit Graph",
+			"label": "Open Folder History",
 			"icon": "$(gitlens-graph)",
 			"menus": {
 				"gitlens/webview/folder/history": [
 					{
 						"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 						"group": "1_gitlens",
-						"order": 2
+						"order": 1
 					}
 				]
 			}

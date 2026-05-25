@@ -1,5 +1,6 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
@@ -70,6 +71,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 	@property({ type: String, reflect: true })
 	placement: 'editor' | 'view' = 'editor';
+
+	/** External file/folder scope pushed in by a graph context-menu action. When set (new object
+	 *  identity), `willUpdate` adopts it as the local scope; `updated` then signals it was applied
+	 *  so the host can clear it (one-shot). */
+	@property({ attribute: false })
+	scope?: { type: 'file' | 'folder'; relativePath: string };
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -163,7 +170,15 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private static readonly maxAllTimePageAttempts = 200;
 	private _allTimePageAttempts = 0;
 
-	override willUpdate(): void {
+	override willUpdate(changedProperties: PropertyValues): void {
+		// Adopt an externally-pushed scope (graph context-menu action) as the local scope. Done
+		// first so the repo-change reset below doesn't wipe it on a fresh mount (where
+		// `_lastRepoPath` is still undefined).
+		const injectedScope = changedProperties.has('scope') && this.scope != null;
+		if (injectedScope) {
+			this._localScope = { type: this.scope!.type, relativePath: this.scope!.relativePath };
+		}
+
 		// Reset the local file/folder scope if the active repo changed underneath us — paths
 		// don't carry across repos. Also wipe windowed-mode caches so the new repo's WIP doesn't
 		// inherit the prior repo's anchor timestamp.
@@ -171,7 +186,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (repoPath !== this._lastRepoPath) {
 			this._lastRepoPath = repoPath;
 			this._resetWindowedCaches();
-			if (this._localScope != null) {
+			if (this._localScope != null && !injectedScope) {
 				this._localScope = undefined;
 				// Don't bail — rebuild below for the new (still-windowed) state in this same cycle.
 			}
@@ -220,6 +235,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			// Reset the counter when the user navigates away from `'all'` so a future `'all'`
 			// switch gets a fresh budget.
 			this._allTimePageAttempts = 0;
+		}
+	}
+
+	override updated(changedProperties: PropertyValues): void {
+		// Signal that an externally-pushed scope has been adopted so the host can clear it — keeps
+		// the push one-shot (a later manual graph↔timeline toggle won't re-apply a stale scope).
+		if (changedProperties.has('scope') && this.scope != null) {
+			this.dispatchEvent(new CustomEvent('gl-graph-timeline-scope-applied', { bubbles: true, composed: true }));
 		}
 	}
 

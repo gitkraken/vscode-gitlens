@@ -302,6 +302,7 @@ import type {
 	DidChangeWorkingTreeParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
+	DidRequestOpenTimelineScopeParams,
 	GetWipStatsResponse,
 	GraphActionTarget,
 	GraphAutoFetchMode,
@@ -384,6 +385,7 @@ import {
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
+	DidRequestOpenTimelineScopeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
@@ -2324,6 +2326,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// also wired to folder context — when the menu fires them on a folder row, route to the
 		// folder commands instance instead of running the file lookup (which would no-op).
 		for (const { command: cmd, handler } of getDetailsFileCommands()) {
+			// Visual File History is graph-specific — registered separately below to open the
+			// embedded timeline instead of the standalone Visual History editor.
+			if (cmd === 'gitlens.visualizeHistory.file:') continue;
+
 			const folderRoute = sharedDetailsFolderCommandRoutes[cmd];
 			commands.push(
 				this.host.registerWebviewCommandForId(
@@ -2352,6 +2358,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Folder-only commands (Folder History submenu).
 		for (const { command: cmd, handler } of getDetailsFolderCommands()) {
 			if (cmd in sharedDetailsFolderCommandRoutes) continue;
+			// Visual Folder History is graph-specific — registered separately below.
+			if (cmd === 'gitlens.visualizeHistory.folder:') continue;
 
 			commands.push(
 				this.host.registerWebviewCommandForId(
@@ -2365,6 +2373,37 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				),
 			);
 		}
+
+		// Visual File/Folder History open the graph's own embedded timeline (Visual History)
+		// instead of the standalone Visual History editor that the shared Details handlers invoke.
+		commands.push(
+			this.host.registerWebviewCommandForId(
+				this.host.id,
+				getWebviewCommand('gitlens.visualizeHistory.file:', 'graphDetails'),
+				(item?: DetailsItemContext) => {
+					if (!isDetailsFileContext(item)) return;
+
+					this.notifyOpenTimelineScope({
+						type: 'file',
+						relativePath: item.webviewItemValue.path,
+						repoPath: item.webviewItemValue.repoPath,
+					});
+				},
+			),
+			this.host.registerWebviewCommandForId(
+				this.host.id,
+				getWebviewCommand('gitlens.visualizeHistory.folder:', 'graphDetails'),
+				(item?: DetailsItemContext) => {
+					if (!isDetailsFolderContext(item)) return;
+
+					this.notifyOpenTimelineScope({
+						type: 'folder',
+						relativePath: item.webviewItemValue.path,
+						repoPath: item.webviewItemValue.repoPath,
+					});
+				},
+			),
+		);
 	}
 
 	onWindowFocusChanged(focused: boolean): void {
@@ -10087,6 +10126,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private notifyOpenCompareMode(params: DidRequestOpenCompareModeParams): Promise<void> {
 		void this.host.notify(DidRequestOpenCompareModeNotification, params);
 		return Promise.resolve();
+	}
+
+	/** Pushes the request to the graph webview to switch into its embedded Visual History
+	 *  (timeline) display mode, scoped to the given file/folder. Fire-and-forget. */
+	private notifyOpenTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
+		void this.host.notify(DidRequestOpenTimelineScopeNotification, params);
 	}
 
 	/**

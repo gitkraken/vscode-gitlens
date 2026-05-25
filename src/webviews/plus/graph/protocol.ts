@@ -1171,6 +1171,16 @@ export const DidRequestOpenCompareModeNotification = new IpcNotification<DidRequ
 	'compareMode/didRequestOpen',
 );
 
+export interface DidRequestOpenTimelineScopeParams {
+	type: 'file' | 'folder';
+	relativePath: string;
+	repoPath: string;
+}
+export const DidRequestOpenTimelineScopeNotification = new IpcNotification<DidRequestOpenTimelineScopeParams>(
+	scope,
+	'timeline/didRequestOpenScope',
+);
+
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;

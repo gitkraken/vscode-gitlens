@@ -8048,7 +8048,7 @@
 			},
 			{
 				"command": "gitlens.openFileHistory:graphDetails",
-				"title": "Open File History",
+				"title": "Open File History in View",
 				"icon": "$(history)"
 			},
 			{
@@ -8074,7 +8074,7 @@
 			},
 			{
 				"command": "gitlens.openFileHistoryInGraph:graphDetails",
-				"title": "Open File History in Commit Graph",
+				"title": "Open File History",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -8131,7 +8131,7 @@
 			},
 			{
 				"command": "gitlens.openFolderHistory:graphDetails",
-				"title": "Open Folder History"
+				"title": "Open Folder History in View"
 			},
 			{
 				"command": "gitlens.openFolderHistoryInGraph",
@@ -8150,7 +8150,7 @@
 			},
 			{
 				"command": "gitlens.openFolderHistoryInGraph:graphDetails",
-				"title": "Open Folder History in Commit Graph",
+				"title": "Open Folder History",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -17022,18 +17022,18 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFileHistory:graphDetails",
+					"command": "gitlens.openFileHistoryInGraph:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFileHistoryInGraph:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
+					"command": "gitlens.openFileHistory:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.openFileHistoryInGraph:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"command": "gitlens.openFileHistoryInGraph:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -19349,12 +19349,12 @@
 			],
 			"gitlens/webview/folder/history": [
 				{
-					"command": "gitlens.openFolderHistory:graphDetails",
+					"command": "gitlens.openFolderHistoryInGraph:graphDetails",
 					"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFolderHistoryInGraph:graphDetails",
+					"command": "gitlens.openFolderHistory:graphDetails",
 					"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 					"group": "1_gitlens@2"
 				},

@@ -1,7 +1,8 @@
-import type { TextEditor } from 'vscode';
-import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { Disposable, ViewColumn, window } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { isUri } from '@gitlens/utils/uri.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
@@ -294,9 +295,9 @@ function getUriFromArgs(args: any[]): Uri | undefined {
 
 	if (args.length > 0) {
 		const [arg] = args;
-		if (arg instanceof Uri) {
+		if (isUri(arg)) {
 			uri = arg;
-		} else if (arg?.uri instanceof Uri) {
+		} else if (isUri(arg?.uri)) {
 			uri = arg.uri;
 		} else if (arg?.editor != null) {
 			editor = arg.editor;

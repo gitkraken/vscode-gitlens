@@ -20,6 +20,7 @@ import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
 	DidRequestOpenCompareModeParams,
+	DidRequestOpenTimelineScopeParams,
 	GraphDisplayMode,
 	GraphMinimapMarkerTypes,
 	GraphShowAction,
@@ -239,6 +240,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-details-panel')
 	private readonly detailsPanelEl: GlGraphDetailsPanel | undefined;
+
+	/** One-shot file/folder scope pushed into the embedded timeline (Visual History) by a graph
+	 *  context-menu action. Cleared once `gl-graph-timeline` reports it applied. */
+	@state()
+	private _timelineScope?: { type: 'file' | 'folder'; relativePath: string };
 
 	private _detailsShownAt: number | undefined;
 	private _detailsTelemetryFirstRender = true;
@@ -465,6 +471,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.detailsPanelEl?.openCompareMode(params);
 	}
 
+	/** Routed from {@link GraphAppHost} when a graph context-menu action requests showing a
+	 *  file/folder in the graph's embedded Visual History. Switches to timeline display mode and
+	 *  pushes the scope down to `gl-graph-timeline` (which mounts on demand). */
+	openTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
+		this.graphState.displayMode = 'timeline';
+		this._timelineScope = { type: params.type, relativePath: params.relativePath };
+	}
+
+	private handleTimelineScopeApplied = (): void => {
+		this._timelineScope = undefined;
+	};
+
 	private _pendingScopeToBranch = false;
 
 	private async consumePendingAction(pending: {
@@ -675,6 +693,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const searchRequest = this.graphState.searchRequest;
 		if (searchRequest && searchRequest !== this._lastSearchRequest) {
 			this._lastSearchRequest = searchRequest;
+			// An external search targets the graph — leave Visual History (timeline) mode so the
+			// filtered graph is actually visible. Also drop any pending one-shot timeline scope:
+			// the timeline unmounts before its `updated()` would fire `scope-applied`, so without
+			// this clear a prior scope could be re-applied the next time timeline mode is entered.
+			if (this.graphState.displayMode === 'timeline') {
+				this.graphState.displayMode = 'graph';
+			}
+			this._timelineScope = undefined;
 			// Wait for next render cycle to ensure graphHeader is ready
 			void this.updateComplete.then(() => {
 				this.graphHeader?.setExternalSearchQuery(searchRequest);
@@ -816,9 +842,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const placement: 'editor' | 'view' = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'view';
 		return html`<gl-graph-timeline
 			placement=${placement}
+			.scope=${this._timelineScope}
 			@gl-graph-timeline-commit-select=${this.handleTimelineCommitSelect}
 			@gl-graph-timeline-config-change=${this.handleTimelineConfigChange}
 			@gl-graph-timeline-close=${this.handleTimelineClose}
+			@gl-graph-timeline-scope-applied=${this.handleTimelineScopeApplied}
 		></gl-graph-timeline>`;
 	}
 

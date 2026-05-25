@@ -287,7 +287,13 @@ export async function findCommitFile(
 	options?: { allowFilteredFiles?: boolean; include?: { stats?: boolean } },
 ): Promise<GitFileChange | undefined> {
 	if (!commit.hasFullDetails(options)) {
-		await GitCommit.ensureFullDetails(commit, options);
+		// For uncommitted commits, explicitly request the working-tree files — otherwise
+		// `ensureFullDetailsCore` only loads them when the repo's working-tree etag is set (an
+		// active watch session), silently leaving the fileset empty otherwise.
+		await GitCommit.ensureFullDetails(
+			commit,
+			commit.isUncommitted ? { ...options, include: { ...options?.include, uncommittedFiles: true } } : options,
+		);
 		if (commit.fileset == null) return undefined;
 	}
 

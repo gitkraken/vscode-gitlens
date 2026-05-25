@@ -48,6 +48,7 @@ import {
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
+	DidRequestOpenTimelineScopeNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
@@ -1055,6 +1056,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidRequestOpenCompareModeNotification.is(msg):
 				this.host.dispatchEvent(
 					new CustomEvent('gl-graph-request-open-compare-mode', {
+						detail: msg.params,
+						bubbles: true,
+					}),
+				);
+				break;
+
+			case DidRequestOpenTimelineScopeNotification.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-open-timeline-scope', {
 						detail: msg.params,
 						bubbles: true,
 					}),
