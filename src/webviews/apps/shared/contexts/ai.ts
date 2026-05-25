@@ -21,6 +21,7 @@ export function createAIState(): AIContextState {
 				claude: { detected: false, supported: false, installed: false },
 				canInstallClaudeHook: false,
 			},
+			defaultAgent: undefined,
 		}),
 		resetAll: resetAll,
 	};

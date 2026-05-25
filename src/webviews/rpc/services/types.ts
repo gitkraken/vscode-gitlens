@@ -180,6 +180,11 @@ export interface AIState {
 		 */
 		readonly canInstallClaudeHook: boolean;
 	};
+	/**
+	 * Currently-selected default coding agent (resolved from `gitlens.ai.defaultAgent`).
+	 * Undefined when no default is set or the persisted agent is not currently available.
+	 */
+	readonly defaultAgent: { readonly id: string; readonly label: string } | undefined;
 }
 
 // ============================================================
