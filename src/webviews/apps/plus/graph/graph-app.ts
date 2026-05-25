@@ -29,6 +29,7 @@ import type {
 	OverviewRecentThreshold,
 } from '../../../plus/graph/protocol.js';
 import {
+	createWipSha,
 	DismissVisualizationsButtonCalloutCommand,
 	GetRowHoverRequest,
 	getSecondaryWipPath,
@@ -55,6 +56,7 @@ import type {
 } from './components/gl-graph-timeline.js';
 import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
+import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import type { GraphCrossPaneState } from './graphCrossPaneState.js';
@@ -79,6 +81,7 @@ import '../../shared/components/mcp-banner.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import './components/gl-graph-details-panel.js';
+import './components/gl-graph-kanban.js';
 import './components/gl-graph-timeline.js';
 
 const sidebarDefaultPct = 20;
@@ -167,21 +170,36 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@state()
 	private _selectedCommits?: GraphSelectedCommits;
 
-	/** Timeline-mode (Visual History) selection. Separate slot so graph selection changes — which
-	 *  keep arriving because the graph subtree stays mounted in timeline mode — don't clobber what
-	 *  the details panel shows while the timeline is the visible pane. Timeline is single-select
-	 *  only. Don't read directly — see {@link activeSelection}. */
+	/** Alternate-mode (visualizations / kanban) selection. Separate slot so graph selection changes
+	 *  — which keep arriving because the graph subtree stays mounted in non-graph modes — don't
+	 *  clobber what the details panel shows while an alternate body is the visible pane. Both
+	 *  alternate modes are single-select only; they're mutually exclusive so a shared slot is safe.
+	 *  Don't read directly — see {@link activeSelection}. */
 	@state()
-	private _timelineSelectedCommit?: GraphSelectedCommit;
+	private _altModeSelectedCommit?: GraphSelectedCommit;
+
+	/** Effective display mode after gating. Persisted `displayMode === 'kanban'` is downgraded
+	 *  to `'graph'` when the experimental kanban flag is off — keeps `renderGraphPaneContent`,
+	 *  `handleSelectCommit`, the mode-leave cleanup, and the host-sync IPC all making the same
+	 *  decision about which body is actually visible. Reading raw `graphState.displayMode` in
+	 *  any of those paths produces silent desync (graph rendered but kanban-branch logic runs).
+	 *  Visualizations is never gated this way — its toggle is always available.
+	 *
+	 *  Delegates to the shared {@link getEffectiveDisplayMode} helper so the header (and any
+	 *  future surface that mirrors the same decision) can compute the same value from the same
+	 *  inputs without duplicating the gating rule. */
+	private get effectiveDisplayMode(): GraphDisplayMode {
+		return getEffectiveDisplayMode(this.graphState);
+	}
 
 	/** The selection that drives the details panel, picked by the active `displayMode`. In
-	 *  timeline mode only the timeline slot is honored; otherwise the graph slots. */
+	 *  any non-graph mode the alternate-mode slot is honored; otherwise the graph slots. */
 	private get activeSelection(): {
 		single: GraphSelectedCommit | undefined;
 		multi: GraphSelectedCommits | undefined;
 	} {
-		if ((this.graphState.displayMode ?? 'graph') === 'timeline') {
-			return { single: this._timelineSelectedCommit, multi: undefined };
+		if (this.effectiveDisplayMode !== 'graph') {
+			return { single: this._altModeSelectedCommit, multi: undefined };
 		}
 		return { single: this._selectedCommit, multi: this._selectedCommits };
 	}
@@ -194,6 +212,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (found != null) return found;
 		}
 		return repos?.[0]?.path;
+	}
+
+	/** Graph's currently-selected repo "family" — `commonPath` when available, otherwise the
+	 *  repo path itself. Mirrors {@link GraphRepository.commonPath} semantics in `sidebar-panel`'s
+	 *  `resolveGraphAnchorContext`. Used to gate cross-repo session interactions: a kanban click
+	 *  on a session whose `commonPath` doesn't match the graph's family cannot resolve a row in
+	 *  the currently-rendered graph, so we don't drive `ensureAndSelectCommit` for it. */
+	private get fallbackRepoFamily(): string | undefined {
+		const repoId = this.graphState.selectedRepository;
+		const repos = this.graphState.repositories;
+		const repo = repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
+		return repo?.commonPath ?? repo?.path;
 	}
 
 	// use Light DOM
@@ -476,7 +506,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  file/folder in the graph's embedded Visual History. Switches to timeline display mode and
 	 *  pushes the scope down to `gl-graph-timeline` (which mounts on demand). */
 	openTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
-		this.graphState.displayMode = 'timeline';
+		this.graphState.displayMode = 'visualizations';
+		// TODO: When we add the different visualizations we will need to apply the timeline here
 		this._timelineScope = { type: params.type, relativePath: params.relativePath };
 	}
 
@@ -510,7 +541,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this.graphState.searchRequest != null) {
 			this.graphState.searchRequest = undefined;
 		}
-		if (this.graphState.displayMode === 'timeline') {
+		if (this.graphState.displayMode !== 'graph') {
 			this.graphState.displayMode = 'graph';
 		}
 		this._timelineScope = undefined;
@@ -658,18 +689,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			}
 		}
 
-		// Drop the timeline selection whenever we leave timeline mode, so a stale (possibly
-		// cross-repo) selection doesn't flash in the details panel on the next entry — the chart
-		// re-emits its first-paint auto-select on remount. Tracked here rather than in
-		// `handleDisplayModeChange` so it covers every `displayMode` writer (sidebar toggle,
-		// `openTimelineScope`, the search-request path that forces `'graph'`).
-		const displayMode = this.graphState.displayMode ?? 'graph';
+		// Drop the alternate-mode selection whenever we leave a non-graph mode, so a stale (possibly
+		// cross-repo) selection doesn't flash in the details panel on the next entry — the timeline
+		// chart re-emits its first-paint auto-select on remount, and kanban re-resolves on the next
+		// card click. Tracked here rather than in `handleDisplayModeChange` so it covers every
+		// `displayMode` writer (sidebar toggle, `openTimelineScope`, the search-request path that
+		// forces `'graph'`, kanban close button). Use the EFFECTIVE mode (post-gating) for both the
+		// transition detection and the host notification. The raw persisted `displayMode === 'kanban'`
+		// value can survive across the experimental flag being turned off, and we don't want to tell
+		// the host we're in kanban (or fire kanban cleanup) when the body is actually rendering as graph.
+		const displayMode = this.effectiveDisplayMode;
 		if (displayMode !== this._wasDisplayMode) {
-			if (this._wasDisplayMode === 'timeline') {
-				this._timelineSelectedCommit = undefined;
+			if (this._wasDisplayMode != null && this._wasDisplayMode !== 'graph') {
+				this._altModeSelectedCommit = undefined;
 			}
 			this._wasDisplayMode = displayMode;
-			// Notify the host so it can fetch row stats when entering Timeline mode (stats are
+			// Notify the host so it can fetch row stats when entering Visualizations mode (stats are
 			// otherwise only loaded when the minimap or changes column is visible).
 			this._ipc.sendCommand(UpdateGraphDisplayModeCommand, { mode: displayMode });
 		}
@@ -729,11 +764,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const searchRequest = this.graphState.searchRequest;
 		if (searchRequest && searchRequest !== this._lastSearchRequest) {
 			this._lastSearchRequest = searchRequest;
-			// An external search targets the graph — leave Visual History (timeline) mode so the
-			// filtered graph is actually visible. Also drop any pending one-shot timeline scope:
-			// the timeline unmounts before its `updated()` would fire `scope-applied`, so without
-			// this clear a prior scope could be re-applied the next time timeline mode is entered.
-			if (this.graphState.displayMode === 'timeline') {
+			// An external search targets the graph — leave any non-graph mode (Visualizations OR
+			// kanban) so the filtered graph is actually visible. Mirrors `applyExternalSearchRequest`.
+			// Also drop any pending one-shot timeline scope: the timeline unmounts before its
+			// `updated()` would fire `scope-applied`, so without this clear a prior scope could be
+			// re-applied the next time visualizations mode is entered.
+			if ((this.graphState.displayMode ?? 'graph') !== 'graph') {
 				this.graphState.displayMode = 'graph';
 			}
 			this._timelineScope = undefined;
@@ -823,12 +859,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleSelectCommit(e: CustomEvent<{ sha: string }>) {
-		// In timeline mode the graph is hidden and its selection isn't what the details panel
-		// renders — drive the timeline slot directly so details-panel-internal navigations
-		// (parent SHA, autolinks) actually update the panel.
-		if ((this.graphState.displayMode ?? 'graph') === 'timeline') {
-			const repoPath = this._timelineSelectedCommit?.repoPath ?? this.fallbackRepoPath ?? '';
-			this._timelineSelectedCommit = { sha: e.detail.sha, repoPath: repoPath };
+		const displayMode = this.effectiveDisplayMode;
+		// In alternate (non-graph) modes the graph is hidden and its selection isn't what the
+		// details panel renders — drive the alt slot directly so details-panel-internal navigations
+		// (parent SHA, autolinks) actually update the panel. Driving `selectCommits` on the hidden
+		// graph would trigger an async `gl-graph-change-selection` that races with the alt slot
+		// and clobbers it via `handleGraphSelectionChanged`.
+		if (displayMode !== 'graph') {
+			const repoPath = this._altModeSelectedCommit?.repoPath ?? this.fallbackRepoPath ?? '';
+			this._altModeSelectedCommit = { sha: e.detail.sha, repoPath: repoPath };
 			return;
 		}
 
@@ -847,12 +886,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphPaneContent() {
-		const displayMode: GraphDisplayMode = this.graphState.displayMode ?? 'graph';
-		const isTimeline = displayMode === 'timeline';
+		// Use the gated effective mode (see `effectiveDisplayMode`) so the body, the sidebar
+		// toggle visibility, `handleSelectCommit` routing, and the mode-leave cleanup all agree
+		// on what's actually visible — important when the user has disabled the kanban
+		// experimental flag while persisted `displayMode === 'kanban'`.
+		const displayMode = this.effectiveDisplayMode;
+		const isGraphMode = displayMode === 'graph';
 		// Always render the graph subtree to avoid the cascade of remounts (split-panels +
 		// React root + GK GraphContainer) that produces a visible "smaller, then bigger"
 		// resize when returning from Visual History. Mirrors the always-render pattern used
-		// by `renderDetailsPanel`. Timeline still mounts/unmounts on demand.
+		// by `renderDetailsPanel`. Alternate-mode bodies still mount/unmount on demand.
 		return html`
 			<div class="graph__graph-pane-body">
 				${when(
@@ -867,11 +910,100 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						></gl-graph-sidebar>`,
 				)}
 				${this.graphState.config?.sidebar
-					? this.renderSidebarSplit(isTimeline)
-					: html`<div class="graph__graph-content" ?hidden=${isTimeline}>${this.renderGraphMain()}</div>`}
-				${isTimeline ? html`<div class="graph__graph-content">${this.renderTimelineMain()}</div>` : nothing}
+					? this.renderSidebarSplit(!isGraphMode)
+					: html`<div class="graph__graph-content" ?hidden=${!isGraphMode}>${this.renderGraphMain()}</div>`}
+				${displayMode === 'visualizations'
+					? html`<div class="graph__graph-content">${this.renderTimelineMain()}</div>`
+					: nothing}
+				${displayMode === 'kanban'
+					? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
+					: nothing}
 			</div>
 		`;
+	}
+
+	private renderKanbanMain() {
+		return html`<gl-graph-kanban
+			@gl-graph-kanban-close=${this.handleAlternateModeClose}
+			@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
+		></gl-graph-kanban>`;
+	}
+
+	private handleAlternateModeClose = (): void => {
+		const gs = this.graphState;
+		if (gs.displayMode == null || gs.displayMode === 'graph') return;
+
+		// `updated()` clears `_altModeSelectedCommit` on the mode transition; no explicit cleanup
+		// of `_selectedCommit` / `_selectedCommits` needed here since alt modes don't write them.
+		gs.displayMode = 'graph';
+		this.persistState();
+	};
+
+	/** Kanban session-card click — open the details panel on that session's worktree WIP without
+	 *  leaving kanban mode. The details panel lives in the outer split alongside the graph pane,
+	 *  so the kanban body stays in the `start` slot while details slides in on the `end` slot.
+	 *  Mirrors `handleWipRowOpen`'s selection + details-open flow minus the mode switch. */
+	private handleKanbanOpenSession = (
+		e: CustomEvent<{ worktreePath: string | undefined; commonPath: string | undefined; sessionId: string }>,
+	): void => {
+		void this.dispatchKanbanOpenSession(e.detail);
+	};
+
+	private async dispatchKanbanOpenSession(detail: {
+		worktreePath: string | undefined;
+		commonPath: string | undefined;
+		sessionId: string;
+	}): Promise<void> {
+		try {
+			const { worktreePath, commonPath, sessionId } = detail;
+
+			// Gate on `session.commonPath === graph.family` — same rule the sidebar tree applies
+			// for its agent-leaf clicks (sidebar-panel.ts `resolveAgentAnchor`). A kanban click on
+			// a session whose owning repo differs from the graph's currently-selected family
+			// would resolve a WIP sha against a repo the details panel can't reconcile with the
+			// visible graph. Bail early so cross-repo cards stay no-op rather than producing
+			// half-applied state. No fallback — `commonPath` is the authoritative repo identity,
+			// and the cold-cache window before `resolveGitInfo` lands is narrow.
+			const graphFamily = this.fallbackRepoFamily;
+			if (commonPath == null || graphFamily == null || commonPath !== graphFamily) return;
+
+			// `createWipSha` compares `worktreePath` against the GRAPH'S selected repo path (not
+			// commonPath) to decide primary-vs-secondary. Passing commonPath here would return
+			// `uncommitted` whenever `worktreePath === commonPath` — true for any session on the
+			// main worktree (where `resolveGitInfo` sets commonPath = repo.path) — and the details
+			// panel would then paint the graph's primary WIP (i.e., the currently-viewed worktree)
+			// instead of the clicked session's worktree. Mirrors sidebar-panel.ts `resolveAgentAnchor`.
+			const graphRepoPath = this.fallbackRepoPath;
+			if (graphRepoPath == null) return;
+
+			const repoPath = worktreePath ?? commonPath;
+			if (repoPath == null || repoPath === '') return;
+
+			const sha = worktreePath != null ? createWipSha(worktreePath, graphRepoPath) : uncommitted;
+
+			// Write the alt-mode slot — kanban's `activeSelection` reads it directly. We deliberately
+			// do NOT call `graph?.ensureAndSelectCommit(sha)` here: the graph is hidden in kanban
+			// mode and its async `gl-graph-change-selection` would race the alt slot via
+			// `handleGraphSelectionChanged`, snapping the details panel back to whatever row the
+			// graph resolved (typically its primary WIP) instead of the clicked session's worktree.
+			this._altModeSelectedCommit = { sha: sha, repoPath: repoPath };
+
+			const wasAlreadyVisible = this.graphState.details?.visible === true;
+			this.setDetailsVisible(true, 'request-agents');
+			this.ensureDetailsPosition();
+			// `setDetailsVisible` short-circuits when the panel is already visible, so the
+			// `request-agents` trigger telemetry would otherwise be dropped for the common case
+			// of clicking a kanban card while details is open. Emit explicitly to keep per-trigger
+			// counts honest — mirrors `handleSidebarPanelSelect`'s compensation for the same race.
+			if (wasAlreadyVisible) {
+				this.emitDetailsVisibilityTelemetry(true, 'request-agents');
+			}
+
+			await this.updateComplete;
+			this.detailsPanelEl?.highlightAgentSession(sessionId);
+		} catch (ex) {
+			Logger.error(ex, 'GraphApp.dispatchKanbanOpenSession');
+		}
 	}
 
 	private renderTimelineMain() {
@@ -1294,7 +1426,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// host's `_graph.includes.stats`) so it aligns with the host's refetch decision — checking
 		// `_state.rowsStats` presence here would miss the stale-entries case where a prior stats-
 		// bearing graph left keys behind but the current graph was rebuilt without stats.
-		if (e.detail.mode === 'timeline' && !this.graphState.rowsStatsIncluded) {
+		if (e.detail.mode === 'visualizations' && !this.graphState.rowsStatsIncluded) {
 			gs.rowsStatsLoading = true;
 		}
 
@@ -1316,8 +1448,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
 		// Defensive — the timeline element only exists in timeline mode, but a queued event could
-		// in theory land just after a mode flip; don't let it write the timeline slot then.
-		if ((this.graphState.displayMode ?? 'graph') !== 'timeline') return;
+		// in theory land just after a mode flip; don't let it write the alt slot then.
+		if ((this.graphState.displayMode ?? 'graph') !== 'visualizations') return;
 
 		const { sha, repoPath, datum } = e.detail;
 		const fallbackRepoPath = repoPath || this.fallbackRepoPath || '';
@@ -1327,7 +1459,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const commitLite = datum != null ? toCommitLiteFromTimelineDatum(datum, fallbackRepoPath) : undefined;
 
 		const effectiveSha = sha === '' ? uncommitted : sha;
-		this._timelineSelectedCommit = { sha: effectiveSha, repoPath: fallbackRepoPath, commitLite: commitLite };
+		this._altModeSelectedCommit = { sha: effectiveSha, repoPath: fallbackRepoPath, commitLite: commitLite };
 
 		// Show the details panel on first selection, the same way graph-row double-click does.
 		if (!this.graphState.details?.visible) {

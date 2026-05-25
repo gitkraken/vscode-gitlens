@@ -75,5 +75,6 @@
   "continue": 61768,
   "skip": 61769,
   "abort": 61770,
-  "pause": 61771
+  "pause": 61771,
+  "kanban-view": 61772
 }

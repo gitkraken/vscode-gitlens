@@ -2,7 +2,7 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { badgeBase } from './badges.css.js';
 
-export type BadgeAppearance = 'filled' | 'warning';
+export type BadgeAppearance = 'filled' | 'warning' | 'experimental';
 
 @customElement('gl-badge')
 export class Badge extends LitElement {

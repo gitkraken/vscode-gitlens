@@ -1331,6 +1331,16 @@
 						"markdownDescription": "Specifies whether to show the _Commit Graph_ in the status bar",
 						"scope": "window",
 						"order": 1000
+					},
+					"gitlens.graph.experimental.kanban.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to enable the Agent Kanban mode on the _Commit Graph_",
+						"scope": "window",
+						"order": 1100,
+						"tags": [
+							"experimental"
+						]
 					}
 				}
 			},
@@ -12187,6 +12197,13 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14b"
+				}
+			},
+			"gitlens-kanban-view": {
+				"description": "kanban-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14c"
 				}
 			}
 		},

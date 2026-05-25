@@ -568,7 +568,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _graph?: GitGraph;
 	private _graphLoading?: Promise<GitGraph>;
 	private _graphRowProcessor?: GlGraphRowProcessor;
-	/** Mirrors the webview's `displayMode` (session-only); Timeline mode needs row stats. */
+	/** Mirrors the webview's `displayMode` (session-only); Visualizations mode needs row stats. */
 	private _displayMode: GraphDisplayMode = 'graph';
 	/** Virtual FS session backing the compose panel's per-proposed-commit diffs. Lazy-initialized on first compose. */
 	private _composeVirtual?: {
@@ -3576,8 +3576,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		this._displayMode = params.mode;
 
-		// Timeline (Visual History) needs row stats — refetch if the current graph was loaded without them.
-		if (params.mode === 'timeline' && !this._graph?.includes?.stats) {
+		// Visualizations (Visual History) needs row stats — refetch if the current graph was loaded without them.
+		if (params.mode === 'visualizations' && !this._graph?.includes?.stats) {
 			// Flip the loading flag eagerly so the timeline shows its overlay during the refetch
 			// (updateState is debounced 250ms + git query time — without this the timeline would
 			// briefly paint with zero stats before the new state lands).
@@ -6640,6 +6640,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			detailsLocation: configuration.get('graph.details.location') ?? 'right',
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
+			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			minimap: configuration.get('graph.minimap.enabled'),
@@ -7024,7 +7025,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							configuration.get('graph.minimap.dataType') === 'lines' &&
 							this.isMinimapVisible()) ||
 						!columnSettings.changes.isHidden ||
-						this._displayMode === 'timeline',
+						this._displayMode === 'visualizations',
 				},
 				limit: limit,
 				rowProcessor: this.graphRowProcessor,

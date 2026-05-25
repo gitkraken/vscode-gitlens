@@ -159,7 +159,7 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
 
 /** Top-level rendering mode for the Graph webview. New modes (e.g. 'treemap') plug in here. */
-export type GraphDisplayMode = 'graph' | 'timeline';
+export type GraphDisplayMode = 'graph' | 'visualizations' | 'kanban';
 
 export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
 
@@ -294,7 +294,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
 	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
 	wipDrafts?: Record<string, StoredGraphWipDraft>;
-	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
+	// Persisted Visualizations-mode chart options (when `displayMode === 'visualizations'`).
+	// Field name stays `timeline` since it persists the embedded Timeline component's settings;
+	// only the display-mode value changed to align with the user-facing "Show Visualizations" label.
 	timeline?: {
 		period?: TimelinePeriod;
 		sliceBy?: TimelineSliceBy;
@@ -398,6 +400,7 @@ export interface GraphComponentConfig {
 	detailsLocation?: 'right' | 'bottom';
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
+	experimentalKanbanEnabled?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;

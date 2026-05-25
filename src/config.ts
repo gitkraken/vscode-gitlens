@@ -428,6 +428,11 @@ export interface GraphConfig {
 	};
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
+	readonly experimental: {
+		readonly kanban: {
+			readonly enabled: boolean;
+		};
+	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {

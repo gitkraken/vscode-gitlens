@@ -55,6 +55,7 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
+import { getEffectiveDisplayMode } from './displayMode.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError } from './stateProvider.js';
@@ -1316,7 +1317,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const filtered = isGraphFiltered(this.graphState);
 		const rowClass = scoped ? 'titlebar__row--scoped' : filtered ? 'titlebar__row--filtered' : '';
 
-		const isTimelineMode = (this.graphState.displayMode ?? 'graph') === 'timeline';
+		// Search applies to the graph rows; any alternate display mode (visualizations, kanban)
+		// hides the graph body and shouldn't accept search input — typing would silently scroll
+		// a graph the user can't see and Prev/Next on results would jump the invisible viewport.
+		// Use the EFFECTIVE mode so a persisted `'kanban'` state that's been gated off (experimental
+		// flag toggled off after the user entered kanban) reads as `'graph'` here and the search
+		// box re-enables for the now-visible graph body.
+		const displayMode = getEffectiveDisplayMode(this.graphState);
+		const isAlternateMode = displayMode !== 'graph';
 		return html`
 			<div class="titlebar__row titlebar__row--search ${rowClass}">
 				<div class="titlebar__group">
@@ -1324,9 +1332,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						excludeRefs,
 					)}
 					<gl-search-box
-						class=${isTimelineMode ? 'search-box--disabled' : ''}
-						?inert=${isTimelineMode}
-						aria-disabled=${isTimelineMode ? 'true' : 'false'}
+						class=${isAlternateMode ? 'search-box--disabled' : ''}
+						?inert=${isAlternateMode}
+						aria-disabled=${isAlternateMode ? 'true' : 'false'}
 						?aiAllowed=${this.aiAllowed}
 						errorMessage=${searchResultsError?.error ?? ''}
 						?filter=${searchMode === 'filter'}
