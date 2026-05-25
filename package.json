@@ -6620,10 +6620,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.ai.generateCommitMessage:graph",
-				"title": "Generate Commit Message"
-			},
-			{
 				"command": "gitlens.ai.generateCommitMessage:scm",
 				"title": "Generate Commit Message with GitLens",
 				"icon": "$(sparkle)"
@@ -12311,10 +12307,6 @@
 				{
 					"command": "gitlens.ai.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:graph",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.generateCommitMessage:scm",

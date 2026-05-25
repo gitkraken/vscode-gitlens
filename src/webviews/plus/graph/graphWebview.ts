@@ -93,7 +93,6 @@ import type { ExplainStashCommandArgs } from '../../../commands/explainStash.js'
 import type { ExplainWipCommandArgs } from '../../../commands/explainWip.js';
 import type { GenerateChangelogCommandArgs } from '../../../commands/generateChangelog.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
-import type { GenerateCommitMessageCommandArgs } from '../../../commands/generateCommitMessage.js';
 import type { OpenIssueOnRemoteCommandArgs } from '../../../commands/openIssueOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../../commands/openOnRemote.js';
 import type { OpenPullRequestOnRemoteCommandArgs } from '../../../commands/openPullRequestOnRemote.js';
@@ -248,7 +247,6 @@ import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnri
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../../webviewProvider.js';
 import type { WebviewPanelShowCommandArgs, WebviewShowOptions } from '../../webviewsController.js';
 import { isSerializedState } from '../../webviewsController.js';
-import type { ComposerCommandArgs } from '../composer/registration.js';
 import type { Change } from '../patchDetails/protocol.js';
 import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol.js';
@@ -4319,18 +4317,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				: primaryRepoPath;
 
 		switch (params.action) {
-			case 'compose-commits':
-				await executeCommand<ComposerCommandArgs>('gitlens.composeCommits', {
-					repoPath: rowRepoPath,
-					source: 'graph',
-				});
-				break;
-			case 'generate-commit-message':
-				await executeCommand<GenerateCommitMessageCommandArgs>('gitlens.ai.generateCommitMessage', {
-					repoPath: rowRepoPath,
-					source: 'graph',
-				});
-				break;
 			case 'stash-save':
 				await StashActions.push(rowRepoPath);
 				break;
@@ -9138,18 +9124,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (ref == null) return Promise.resolve();
 
 		return WorktreeActions.copyChangesToWorktree('working-tree', ref.repoPath);
-	}
-
-	@command('gitlens.ai.generateCommitMessage:')
-	@debug()
-	private generateCommitMessage(item?: GraphItemContext) {
-		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
-
-		return executeCommand<GenerateCommitMessageCommandArgs>('gitlens.ai.generateCommitMessage', {
-			repoPath: ref.repoPath,
-			source: 'graph',
-		});
 	}
 
 	@command('gitlens.ai.explainUnpushed:')

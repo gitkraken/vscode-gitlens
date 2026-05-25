@@ -355,9 +355,6 @@
 			"label": "Generate Commit Message",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
 		},
-		"gitlens.ai.generateCommitMessage:graph": {
-			"label": "Generate Commit Message"
-		},
 		"gitlens.ai.generateCommitMessage:scm": {
 			"label": "Generate Commit Message with GitLens",
 			"icon": "$(sparkle)",
