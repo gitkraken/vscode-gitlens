@@ -636,12 +636,21 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (action === 'enter-review' || action === 'enter-compose') {
 			this.detailsPanelEl?.enterModeForWip(action === 'enter-review' ? 'review' : 'compose', repoPath, sha);
 		} else if (action === 'open-compare') {
-			this.detailsPanelEl?.openCompareMode({
-				repoPath: repoPath,
-				leftRef: this.graphState.branch?.name ?? 'HEAD',
-				rightRef: sha,
-				includeWorkingTree: true,
-			});
+			if (target != null) {
+				this.detailsPanelEl?.openCompareMode({
+					repoPath: repoPath,
+					leftRef: this.graphState.branch?.name ?? 'HEAD',
+					rightRef: sha,
+					includeWorkingTree: true,
+				});
+			} else {
+				this.detailsPanelEl?.openCompareMode({
+					repoPath: repoPath,
+					rightRef: this.graphState.branch?.name ?? 'HEAD',
+					rightRefType: 'branch',
+					includeWorkingTree: true,
+				});
+			}
 		}
 
 		// Seed the WIP details commit input AFTER the panel has reconciled to the target row —

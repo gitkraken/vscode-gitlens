@@ -511,7 +511,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  overrides. */
 	openCompareMode(params: {
 		repoPath: string;
-		leftRef: string;
+		leftRef?: string;
 		leftRefType?: 'branch' | 'tag' | 'commit';
 		rightRef: string;
 		rightRefType?: 'branch' | 'tag' | 'commit';
