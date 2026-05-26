@@ -1,6 +1,5 @@
 import { commands, env, ThemeIcon, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
-import { callUsingClipboard } from '../../system/-webview/clipboard.js';
 import { executeCoreCommand } from '../../system/-webview/command.js';
 import type { ChatMode } from '../chat/utils/-webview/chat.utils.js';
 import { openChat } from '../chat/utils/-webview/chat.utils.js';
@@ -8,7 +7,11 @@ import type { AgentDescriptor } from './agentDescriptor.js';
 import { claudeExtensionOpenCommand, isAgentAvailable } from './agentRegistry.js';
 
 const defaultBootDelayMs = 1500;
-const postPasteWaitMs = 150;
+
+// VT bracketed-paste markers (xterm convention). Wrapping a payload between these tells the TUI
+// "this is one paste block" so embedded CRs are content (soft newlines), not submissions.
+const bpmStart = '\u001b[200~';
+const bpmEnd = '\u001b[201~';
 
 const wait = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
@@ -93,16 +96,15 @@ async function dispatchCli(
 	terminal.show();
 
 	// Launch the CLI bare. Multi-line argv is unreliable across shells; deliver the prompt
-	// via bracketed paste once the TUI is ready. See `src/agents/utils/__tests__/terminalBracketedPaste.test.ts`.
+	// via paste block once the TUI is ready.
 	terminal.sendText(executable, true);
 	await wait(defaultBootDelayMs);
 	terminal.show();
 
-	await callUsingClipboard(prompt, async () => {
-		await executeCoreCommand('workbench.action.terminal.paste');
-		await wait(postPasteWaitMs);
-		await executeCoreCommand('workbench.action.terminal.sendSequence', { text: '\r' });
-	});
+	// Use `sendSequence` with BPM markers instead of `terminal.paste` to avoid VS Code's paste warning
+	// and clobbering the user's clipboard. Newlines are normalized to \r so the TUI sees one atomic paste.
+	const payload = `${bpmStart}${prompt.replace(/\r?\n/g, '\r')}${bpmEnd}\r`;
+	await executeCoreCommand('workbench.action.terminal.sendSequence', { text: payload });
 }
 
 async function copyPromptAsFallback(prompt: string): Promise<void> {
