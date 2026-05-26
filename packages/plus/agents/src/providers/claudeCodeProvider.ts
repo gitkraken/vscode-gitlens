@@ -14,6 +14,7 @@ import {
 	extractPlanSummary,
 	extractQuestionDetails,
 	getToolFilePath,
+	getToolReadPath,
 	isProcessAlive,
 	rehydrateSubagents,
 } from '../stateMachine.js';
@@ -81,6 +82,13 @@ interface SessionBookkeeping {
 	 *  Edit/Write to the same path doesn't flicker the WIP decoration. A fresh Pre on the same
 	 *  path cancels its pending clear. */
 	pendingFileClears: Map<string, NodeJS.Timeout>;
+	/** Refcount of in-flight read-only file tool calls (Read/NotebookRead) per absolute path.
+	 *  Mirrors {@link currentFileCounts} so consumers can distinguish "looking at" from "working
+	 *  on" without overloading `currentFiles`. */
+	currentReadCounts: Map<string, number>;
+	/** Per-path cooldown timers for reads — same semantics as {@link pendingFileClears}, keeps a
+	 *  recently-read file visible briefly after the read completes. */
+	pendingReadClears: Map<string, NodeJS.Timeout>;
 	/** Set to true when `resolveGitInfo` for the session's current cwd returned `undefined`
 	 *  (cwd is not a git repo). Prevents the `ensureSession` retry from firing forever on
 	 *  every subsequent hook event. Cleared when the session's cwd changes (re-resolution
@@ -93,9 +101,11 @@ interface SessionBookkeeping {
 }
 
 const staleCheckIntervalMs = 60 * 1000; // 1 minute
-/** Cooldown between PostToolUse and dropping the file from `currentFiles`. Keeps the WIP "agent
- *  editing this file" decoration stable across rapid sequential tool calls to the same path. */
-const postToolUseClearDelayMs = 20000;
+/** Cooldown between PostToolUse and dropping the file from `currentFiles`. Held long enough that
+ *  surfaces consuming the list (WIP file decoration, treemap activity overlay) keep showing a file
+ *  the agent just touched well past the moment the tool call completed — a single edit reads as a
+ *  sustained presence rather than a flash. */
+const postToolUseClearDelayMs = 120000;
 
 /** Grace period before `Stop` commits to `idle`. Long enough to absorb a same-turn continuation
  *  (hook-driven re-prompt, IPC event reordering, auto-resume); short enough that legitimate idle
@@ -276,6 +286,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		this._pendingPermissions.clear();
 		for (const bk of this._sessionBookkeeping.values()) {
 			this.cancelPendingFileClears(bk);
+			this.cancelPendingReadClears(bk);
 		}
 		for (const timer of this._pendingIdleTimers.values()) {
 			clearTimeout(timer);
@@ -448,6 +459,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const bk = this._sessionBookkeeping.get(event.sessionId);
 				if (bk != null) {
 					this.cancelPendingFileClears(bk);
+					this.cancelPendingReadClears(bk);
 				}
 
 				this._sessionBookkeeping.delete(event.sessionId);
@@ -480,6 +492,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount++;
 				const filesChanged = this.trackToolUseFile(event.sessionId, event);
+				const readsChanged = this.trackToolUseRead(event.sessionId, event);
 				// Resolve a rich `Bash(grep …)`-style detail via the same tool_input passthrough the
 				// PermissionRequest handler uses, so working sessions surface what their tool is
 				// actually doing — not just the bare tool name. Falls back to bare name when no
@@ -500,7 +513,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					...eventContext,
 					statusDetail: statusDetail,
 				});
-				if (filesChanged && !statusWillFire) {
+				if ((filesChanged || readsChanged) && !statusWillFire) {
 					this._onDidChangeSessions.fire();
 				}
 				break;
@@ -515,6 +528,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				// follow-up Edit/Write to the same path doesn't blink. The deferred clear fires its
 				// own change event when it expires.
 				this.scheduleClearToolUseFile(event.sessionId, event);
+				this.scheduleClearToolUseRead(event.sessionId, event);
 				if (bk.activeToolCount === 0) {
 					this.updateSessionStatus(event.sessionId, 'thinking', eventContext);
 				}
@@ -639,6 +653,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				this.untrackToolUseFile(event.sessionId, event);
+				this.untrackToolUseRead(event.sessionId, event);
 				this.updateSessionStatus(
 					event.sessionId,
 					bk.activeToolCount > 0 ? 'tool_use' : 'thinking',
@@ -755,6 +770,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				activeToolCount: 0,
 				currentFileCounts: new Map(),
 				pendingFileClears: new Map(),
+				currentReadCounts: new Map(),
+				pendingReadClears: new Map(),
 				gitInfoUnresolvable: false,
 			};
 			this._sessionBookkeeping.set(sessionId, bk);
@@ -768,8 +785,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		bk.pendingPermission = undefined;
 		this.cancelPendingFileClears(bk);
 		bk.currentFileCounts.clear();
+		this.cancelPendingReadClears(bk);
+		bk.currentReadCounts.clear();
 		bk.gitInfoUnresolvable = false;
 		this.syncSessionCurrentFiles(sessionId, bk);
+		this.syncSessionCurrentReads(sessionId, bk);
 	}
 
 	private cancelPendingFileClears(bk: SessionBookkeeping): void {
@@ -777,6 +797,13 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			clearTimeout(timer);
 		}
 		bk.pendingFileClears.clear();
+	}
+
+	private cancelPendingReadClears(bk: SessionBookkeeping): void {
+		for (const timer of bk.pendingReadClears.values()) {
+			clearTimeout(timer);
+		}
+		bk.pendingReadClears.clear();
 	}
 
 	/** Extracts the targeted file path from a PreToolUse/PostToolUse event. Tries the raw
@@ -895,6 +922,103 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (currentFilesEqual(prev.currentFiles, next)) return false;
 
 		this._sessions[index] = { ...prev, currentFiles: next };
+		return true;
+	}
+
+	/** Mirror of {@link getEventFilePath} for read-only file tools. */
+	private getEventReadPath(event: AgentSessionEvent): string | undefined {
+		const toolName = (event.hookInput?.tool_name as string | undefined) ?? event.toolName;
+		if (toolName == null) return undefined;
+
+		const rawHookInput = event.hookInput?.tool_input as Record<string, unknown> | undefined;
+		const hookInputPopulated = rawHookInput != null && Object.keys(rawHookInput).length > 0;
+		const toolInput = hookInputPopulated ? rawHookInput : event.toolInput;
+		return getToolReadPath(toolName, toolInput);
+	}
+
+	/** Refcount mirror of {@link trackToolUseFile} for read-only file tools. */
+	private trackToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
+		const filePath = this.getEventReadPath(event);
+		if (filePath == null) return false;
+
+		const bk = this.getBookkeeping(sessionId);
+		const pendingClear = bk.pendingReadClears.get(filePath);
+		if (pendingClear != null) {
+			clearTimeout(pendingClear);
+			bk.pendingReadClears.delete(filePath);
+		}
+		bk.currentReadCounts.set(filePath, (bk.currentReadCounts.get(filePath) ?? 0) + 1);
+		return this.syncSessionCurrentReads(sessionId, bk);
+	}
+
+	/** Cooldown mirror of {@link scheduleClearToolUseFile} for read-only file tools. */
+	private scheduleClearToolUseRead(sessionId: string, event: AgentSessionEvent): void {
+		const filePath = this.getEventReadPath(event);
+		if (filePath == null) return;
+
+		const bk = this.getBookkeeping(sessionId);
+		const count = bk.currentReadCounts.get(filePath);
+		if (count == null) return;
+
+		const next = count - 1;
+		bk.currentReadCounts.set(filePath, next);
+		if (next > 0) return;
+
+		const existing = bk.pendingReadClears.get(filePath);
+		if (existing != null) {
+			clearTimeout(existing);
+		}
+
+		const timer = setTimeout(() => {
+			if (this._disposed) return;
+
+			const cur = this._sessionBookkeeping.get(sessionId);
+			if (cur == null) return;
+
+			cur.pendingReadClears.delete(filePath);
+			if ((cur.currentReadCounts.get(filePath) ?? 0) > 0) return;
+
+			cur.currentReadCounts.delete(filePath);
+			if (this.syncSessionCurrentReads(sessionId, cur)) {
+				this._onDidChangeSessions.fire();
+			}
+		}, postToolUseClearDelayMs);
+		bk.pendingReadClears.set(filePath, timer);
+	}
+
+	/** Immediate-drop mirror of {@link untrackToolUseFile} for read-only file tools. */
+	private untrackToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
+		const filePath = this.getEventReadPath(event);
+		if (filePath == null) return false;
+
+		const bk = this.getBookkeeping(sessionId);
+		const count = bk.currentReadCounts.get(filePath);
+		if (count == null) return false;
+		if (count > 1) {
+			bk.currentReadCounts.set(filePath, count - 1);
+			return false;
+		}
+
+		const pending = bk.pendingReadClears.get(filePath);
+		if (pending != null) {
+			clearTimeout(pending);
+			bk.pendingReadClears.delete(filePath);
+		}
+		bk.currentReadCounts.delete(filePath);
+		return this.syncSessionCurrentReads(sessionId, bk);
+	}
+
+	/** Sync mirror of {@link syncSessionCurrentFiles} for read paths. Uses {@link currentFilesEqual}
+	 *  (which is just a generic order-insensitive `string[] | undefined` comparator). */
+	private syncSessionCurrentReads(sessionId: string, bk: SessionBookkeeping): boolean {
+		const index = this._sessions.findIndex(s => s.id === sessionId);
+		if (index < 0) return false;
+
+		const prev = this._sessions[index];
+		const next = bk.currentReadCounts.size > 0 ? [...bk.currentReadCounts.keys()] : undefined;
+		if (currentFilesEqual(prev.currentReads, next)) return false;
+
+		this._sessions[index] = { ...prev, currentReads: next };
 		return true;
 	}
 
@@ -1453,6 +1577,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							// Owned by the peer (it's the hook recipient); we never originate these
 							// fields for a remote session.
 							currentFiles: peerSession.currentFiles,
+							currentReads: peerSession.currentReads,
 							commonPath: peerSession.commonPath ?? existing.commonPath,
 							// Pick up the peer's latest cwd so our backfill probe (queued below)
 							// targets the right path. Stale-cwd locally would just re-probe the

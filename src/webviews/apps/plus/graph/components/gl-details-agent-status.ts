@@ -586,6 +586,13 @@ export class GlDetailsAgentStatus extends LitElement {
 		return this.renderRoot.querySelector<HTMLElement>(`[data-session-id="${CSS.escape(sessionId)}"]`) ?? null;
 	}
 
+	/** When true, render only the dot-cluster + counts popover anchor — drop the chevron, "Agents"
+	 *  label, and the cards body. Used by surfaces (e.g. the treemap's Activity toolbar) that
+	 *  want the live-status glance but don't need the inline expanded view; per-session detail is
+	 *  still available via hover on the cluster. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
 	/** Build a stable string capturing every input the component renders against. Identical
 	 *  fingerprint between two parent passes → skip the render entirely via {@link shouldUpdate}.
 	 *
@@ -659,7 +666,41 @@ export class GlDetailsAgentStatus extends LitElement {
 		const sessions = this.sessions;
 		if (sessions == null || sessions.length === 0) return nothing;
 
+		if (this.compact) {
+			return this.renderClusterOnly(sessions);
+		}
 		return this.renderSection(sessions, this.tally(sessions));
+	}
+
+	/** Compact render: just the cluster + counts popover, no surrounding heading button or cards.
+	 *  Hover still surfaces the per-session detail via the same shared popover body. */
+	private renderClusterOnly(sessions: AgentSessionState[]): unknown {
+		const counts = this.tally(sessions);
+		const visibleDots = sessions.slice(0, maxClusterDots);
+		const overflow = sessions.length - visibleDots.length;
+		return html`
+			<gl-popover placement="bottom" hoist>
+				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
+					<span class="section__cluster-dots">
+						${visibleDots.map(
+							s =>
+								html`<span
+									class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
+								></span>`,
+						)}
+						${overflow > 0
+							? html`<span
+									class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+								>
+									+${overflow}
+								</span>`
+							: nothing}
+					</span>
+					<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
+				</span>
+				<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+			</gl-popover>
+		`;
 	}
 
 	/* ---------- Section (heading + cards list) ---------- */

@@ -146,6 +146,11 @@ export interface AgentSession {
 	 *  Mutable array form so `Shape<AgentSession>` projects it as `string[]` (the `Shape<>` type
 	 *  mangles `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
 	currentFiles?: string[];
+	/** Absolute paths of files the agent recently *read* (Read/NotebookRead). Populated on
+	 *  PreToolUse, drained on PostToolUse/PermissionDenied with the same cooldown as
+	 *  `currentFiles`. Distinct from `currentFiles` which tracks write-class tools so consumers can
+	 *  visualize "looking at" vs "working on" differently. Treat as immutable. */
+	currentReads?: string[];
 	/** `true` when the session was discovered via peer IPC sync (i.e. another GitLens window hosts
 	 *  the agent's hook flow and Claude Code extension panel). Locally-owned sessions leave this
 	 *  unset. The dispatcher uses this to route opens through the peer's IPC route + an OS-level

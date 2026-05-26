@@ -380,6 +380,7 @@ import {
 	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidInvalidateGraphTreemapNotification,
 	DidInvalidateScopeAnchorsNotification,
 	DidRequestActiveSidebarPanelNotification,
 	DidRequestGraphActionNotification,
@@ -618,6 +619,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
 	private _lastFetchedDisposable: Disposable | undefined;
+	private _treemapInvalidateSubscription: Disposable | undefined;
 	private _searchHistory: SearchHistory | undefined;
 
 	// Timeframe for the Overview panel's "Recent" section. Seeded from the `graph:state` memento
@@ -755,6 +757,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					this._repositoryEventsDisposable = undefined;
 				},
 			},
+			// Forward treemap aggregator invalidations to the webview so it drops its cached
+			// treemap data and re-requests on next mode/scope read. The subscription is gated
+			// behind `graph.experimental.visualizations.enabled` so we avoid both lazy-constructing
+			// the aggregator service and firing IPC notifications when the treemap will never mount.
+			{
+				dispose: () => {
+					this._treemapInvalidateSubscription?.dispose();
+					this._treemapInvalidateSubscription = undefined;
+				},
+			},
 			this.container.integrations.onDidChangeConnectionState(this.onIntegrationConnectionChanged, this),
 			this.container.agentStatus?.onDidChangeSessions(this.onAgentSessionsChanged, this) ?? {
 				dispose: () => {},
@@ -764,6 +776,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this,
 			) ?? { dispose: () => {} },
 		);
+
+		this.subscribeToTreemapInvalidations();
+	}
+
+	private subscribeToTreemapInvalidations(): void {
+		this._treemapInvalidateSubscription?.dispose();
+		this._treemapInvalidateSubscription = undefined;
+
+		// Avoid even constructing the aggregator service (its getter is lazy) when the experimental
+		// flag is off — and skip the IPC notify path entirely since the treemap will never mount.
+		if (configuration.get('graph.experimental.visualizations.enabled') !== true) return;
+
+		this._treemapInvalidateSubscription = this.container.treemapAggregator.onDidInvalidate(repoPath => {
+			void this.host.notify(DidInvalidateGraphTreemapNotification, { repoPath: repoPath });
+		});
 	}
 
 	private _disposed = false;
@@ -2022,6 +2049,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				choosePath: params => this.onTimelineChoosePath(params),
 			},
+			graphTreemap: {
+				getData: async (repoPath, mode, config, signal) => {
+					const data = await this.container.treemapAggregator.getData(repoPath, mode, config, signal);
+					return { root: data.root, frequencies: data.frequencies };
+				},
+			},
 		} satisfies GraphServices);
 	}
 
@@ -3156,6 +3189,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// here we only need to re-arm the auto-fetch loop when the toggle flips.
 		if (configuration.changed(e, 'graph.autoFetch.enabled')) {
 			void this.ensureAutoFetch();
+		}
+
+		if (configuration.changed(e, 'graph.experimental.visualizations.enabled')) {
+			this.subscribeToTreemapInvalidations();
 		}
 
 		if (configuration.changed(e, 'graph.commitOrdering')) {
@@ -6641,6 +6678,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
+			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			minimap: configuration.get('graph.minimap.enabled'),
@@ -7268,6 +7306,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				showAllBranches: storedGraphState?.timeline?.showAllBranches,
 			},
 			overviewRecentThreshold: this._overviewRecentThreshold,
+			visualizationMode: storedGraphState?.visualizationMode,
+			treemapMode: storedGraphState?.treemap?.mode,
 		};
 		this._pendingSidebarPanel = undefined;
 		this._pendingAction = undefined;

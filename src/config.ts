@@ -432,6 +432,9 @@ export interface GraphConfig {
 		readonly kanban: {
 			readonly enabled: boolean;
 		};
+		readonly visualizations: {
+			readonly enabled: boolean;
+		};
 	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';

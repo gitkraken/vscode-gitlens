@@ -202,6 +202,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor wipDrafts: State['wipDrafts'];
 
+	@signalState()
+	accessor visualizationMode: AppState['visualizationMode'];
+
+	@signalState()
+	accessor treemapMode: AppState['treemapMode'];
+
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
 	}

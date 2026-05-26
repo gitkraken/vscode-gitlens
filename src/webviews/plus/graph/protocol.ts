@@ -59,6 +59,7 @@ import type {
 	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
+import type { TreemapMode } from '../treemap/protocol.js';
 import type { Wip } from './detailsProtocol.js';
 
 export type { Wip };
@@ -158,7 +159,7 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 
 export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
 
-/** Top-level rendering mode for the Graph webview. New modes (e.g. 'treemap') plug in here. */
+/** Top-level rendering mode for the Graph webview. New modes (e.g. kanban) plug in here. */
 export type GraphDisplayMode = 'graph' | 'visualizations' | 'kanban';
 
 export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
@@ -177,6 +178,15 @@ export interface GraphActionTarget {
 	sha: string;
 	worktreePath: string;
 }
+/** Sub-visualization shown when `displayMode === 'visualizations'`.
+ *  Adding a new visualization is a 4-step extension: extend this union, render its component in
+ *  `gl-graph-visualizations`, persist any per-visualization config in `graph-app.persistStateNow`,
+ *  and add the host-side data service to `GraphServices`. */
+export type VisualizationMode = 'timeline' | 'treemap';
+
+/** Aliased from the canonical treemap protocol so both the storage type and the graph state refer
+ *  to the same union — adding a fourth mode in `treemap/protocol.ts` flows here automatically. */
+export type GraphTreemapMode = TreemapMode;
 
 export interface GraphOverviewData {
 	active: OverviewBranch[];
@@ -313,6 +323,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		top: number;
 		bottom: number;
 	};
+
+	// Persisted Visualizations-mode state (when `displayMode === 'visualizations'`).
+	visualizationMode?: VisualizationMode;
+	treemapMode?: GraphTreemapMode;
 }
 
 export interface BranchState extends GitTrackingState {
@@ -401,6 +415,7 @@ export interface GraphComponentConfig {
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalKanbanEnabled?: boolean;
+	experimentalVisualizationsEnabled?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;
@@ -1222,6 +1237,14 @@ export interface DidInvalidateScopeAnchorsParams {
 export const DidInvalidateScopeAnchorsNotification = new IpcNotification<DidInvalidateScopeAnchorsParams>(
 	scope,
 	'scope/anchors/didInvalidate',
+);
+
+export interface DidInvalidateGraphTreemapParams {
+	repoPath: string;
+}
+export const DidInvalidateGraphTreemapNotification = new IpcNotification<DidInvalidateGraphTreemapParams>(
+	scope,
+	'treemap/didInvalidate',
 );
 
 export interface DidStartFeaturePreviewParams {

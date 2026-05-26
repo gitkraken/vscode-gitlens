@@ -23,6 +23,7 @@ import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import './gl-graph-visualizations-switcher.js';
 
 export interface GlGraphTimelineCommitSelectDetail {
 	sha: string;
@@ -49,8 +50,36 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			overflow: hidden;
 		}
 
-		gl-timeline-header {
+		.header-row {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
 			flex: none;
+			padding: 0.4rem 1rem;
+			min-height: 3.2rem;
+			min-width: 0;
+			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+		}
+
+		.header-row gl-graph-visualizations-switcher {
+			flex: none;
+		}
+
+		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
+		 * label anchors both header rows identically. Sits between the icon switcher and the
+		 * shared timeline header so the standalone Visual History webview (which doesn't use this
+		 * file) keeps its existing chrome. */
+		.header-row__title {
+			flex: none;
+			font-size: 1.1rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			white-space: nowrap;
+		}
+
+		.header-row gl-timeline-header {
+			flex: 1 1 auto;
+			min-width: 0;
 		}
 
 		.empty {
@@ -818,47 +847,51 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		</div>`;
 
 		return html`
-			<gl-timeline-header
-				placement=${this.placement}
-				host="graph"
-				.repository=${repoWithRef}
-				.repositoryCount=${this.graphState.repositories?.length ?? 0}
-				.headRef=${this.graphState.branch}
-				.scopeType=${localScopeType}
-				.relativePath=${localRelativePath}
-				.period=${this.period}
-				.visibleSpanMs=${this._visibleSpanMs}
-				.sliceBy=${this.effectiveSliceBy}
-				.showAllBranches=${this.showAllBranchesEffective}
-				.showAllBranchesSupported=${false}
-				.sliceBySupported=${this.sliceBySupportedEffective}
-				@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
-				@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
-				@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
-				@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
-				@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
-			>
-				${this.placement === 'view'
-					? html`<gl-button
-							slot="toolbox"
-							appearance="toolbar"
-							href="command:gitlens.views.graph.openTimelineInTab"
-							tooltip="Open in Editor"
-							aria-label="Open in Editor"
-						>
-							<code-icon icon="link-external"></code-icon>
-						</gl-button>`
-					: nothing}
-				<gl-button
-					slot="toolbox"
-					appearance="toolbar"
-					tooltip="Close Visualizations"
-					aria-label="Close Visualizations"
-					@click=${this.onCloseClick}
+			<div class="header-row">
+				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
+				${this._localScope == null ? html`<span class="header-row__title">Visual History</span>` : nothing}
+				<gl-timeline-header
+					placement=${this.placement}
+					host="graph"
+					.repository=${repoWithRef}
+					.repositoryCount=${this.graphState.repositories?.length ?? 0}
+					.headRef=${this.graphState.branch}
+					.scopeType=${localScopeType}
+					.relativePath=${localRelativePath}
+					.period=${this.period}
+					.visibleSpanMs=${this._visibleSpanMs}
+					.sliceBy=${this.effectiveSliceBy}
+					.showAllBranches=${this.showAllBranchesEffective}
+					.showAllBranchesSupported=${false}
+					.sliceBySupported=${this.sliceBySupportedEffective}
+					@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
+					@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
+					@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
+					@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
+					@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
 				>
-					<code-icon icon="close"></code-icon>
-				</gl-button>
-			</gl-timeline-header>
+					${this.placement === 'view'
+						? html`<gl-button
+								slot="toolbox"
+								appearance="toolbar"
+								href="command:gitlens.views.graph.openTimelineInTab"
+								tooltip="Open in Editor"
+								aria-label="Open in Editor"
+							>
+								<code-icon icon="link-external"></code-icon>
+							</gl-button>`
+						: nothing}
+					<gl-button
+						slot="toolbox"
+						appearance="toolbar"
+						tooltip="Close Visualizations"
+						aria-label="Close Visualizations"
+						@click=${this.onCloseClick}
+					>
+						<code-icon icon="close"></code-icon>
+					</gl-button>
+				</gl-timeline-header>
+			</div>
 			<gl-timeline-chart
 				placement="${this.placement}"
 				currentUserNameStyle="nameAndYou"

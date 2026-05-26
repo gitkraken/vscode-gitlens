@@ -1341,6 +1341,16 @@
 						"tags": [
 							"experimental"
 						]
+					},
+					"gitlens.graph.experimental.visualizations.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to enable the Treemap visualization modes (Files, Commits, Agent Activity) alongside the Visual History timeline on the _Commit Graph_. When disabled, only the timeline visualization is available.",
+						"scope": "window",
+						"order": 1110,
+						"tags": [
+							"experimental"
+						]
 					}
 				}
 			},

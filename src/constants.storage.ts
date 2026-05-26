@@ -12,7 +12,12 @@ import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
-import type { GraphDisplayMode, GraphSidebarPanel } from './webviews/plus/graph/protocol.js';
+import type {
+	GraphDisplayMode,
+	GraphSidebarPanel,
+	GraphTreemapMode,
+	VisualizationMode,
+} from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
 import type { OverviewRecentThreshold } from './webviews/shared/overviewBranches.js';
 
@@ -388,6 +393,7 @@ export interface StoredGraphColumn {
 
 export interface StoredGraphState {
 	displayMode?: GraphDisplayMode;
+	visualizationMode?: VisualizationMode;
 	panels?: {
 		details?: {
 			visible?: boolean;
@@ -410,13 +416,16 @@ export interface StoredGraphState {
 			position?: number;
 		};
 	};
+	overview?: {
+		recentThreshold?: OverviewRecentThreshold;
+	};
 	timeline?: {
 		period?: TimelinePeriod;
 		sliceBy?: TimelineSliceBy;
 		showAllBranches?: boolean;
 	};
-	overview?: {
-		recentThreshold?: OverviewRecentThreshold;
+	treemap?: {
+		mode?: GraphTreemapMode;
 	};
 }
 

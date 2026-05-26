@@ -2846,6 +2846,7 @@ or
   'context.config.dimMergeCommits': boolean,
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.kanban.enabled': boolean,
+  'context.config.experimental.visualizations.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,

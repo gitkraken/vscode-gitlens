@@ -27,6 +27,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
+	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
 	createWipSha,
@@ -54,6 +55,8 @@ import type {
 	GlGraphTimelineCommitSelectDetail,
 	GlGraphTimelineConfigChangeDetail,
 } from './components/gl-graph-timeline.js';
+import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
+import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
 import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
@@ -83,6 +86,7 @@ import '../../shared/components/code-icon.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-timeline.js';
+import './components/gl-graph-visualizations.js';
 
 const sidebarDefaultPct = 20;
 const sidebarMinPct = 15;
@@ -119,6 +123,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _wasSidebarVisible = false;
 	private _wasSidebarActivePanel: string | null | undefined;
 	private _wasDisplayMode: GraphDisplayMode | undefined;
+	/** Tracks the last observed `selectedRepository` so a repo switch mid-scope can invalidate
+	 *  the captured `_modeBeforeScope` — otherwise repo B's scope-applied (or another path that
+	 *  triggers restore) could restore a mode that was meant for repo A. */
+	private _wasSelectedRepository: string | undefined;
 
 	/** Set by the popover's fallback path when it couldn't find the focal branch tip locally
 	 *  (branch's tip wasn't in `graphState.rows`). Drained in `updated` once the async scope-anchor
@@ -277,6 +285,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@state()
 	private _timelineScope?: { type: 'file' | 'folder'; relativePath: string };
 
+	/** Captured visualization mode prior to a forced `'timeline'` flip in `openTimelineScope`,
+	 *  so `handleTimelineScopeApplied` can restore the user's preferred mode (e.g. Treemap)
+	 *  once the scope has been consumed. Without this, every scope-open silently overwrites
+	 *  the persisted preference. */
+	private _modeBeforeScope: VisualizationMode | undefined;
+
 	private _detailsShownAt: number | undefined;
 	private _detailsTelemetryFirstRender = true;
 
@@ -332,6 +346,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
+		// Flush any pending debounced persist write so close-within-200ms-of-a-toggle doesn't
+		// lose the last visualization choice. The debouncer is leading-trailing by default;
+		// `flush()` runs the queued trailing call immediately, no-ops if nothing's queued.
+		this._persistStateDebounced.flush();
 		document.removeEventListener('focusout', this._handleSidebarOverlayFocusOut, true);
 		document.removeEventListener('pointerdown', this._handleSidebarOverlayPointerDown, true);
 		document.removeEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
@@ -507,12 +525,50 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  pushes the scope down to `gl-graph-timeline` (which mounts on demand). */
 	openTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
 		this.graphState.displayMode = 'visualizations';
-		// TODO: When we add the different visualizations we will need to apply the timeline here
+		// Capture the user's prior choice (e.g. Treemap) so `handleTimelineScopeApplied` (or
+		// `clearTimelineScope` on abandonment) can restore it after the one-shot scope is consumed.
+		// Guard on `!== 'timeline'` so a second openTimelineScope arriving after the first has
+		// flipped mode to `'timeline'` (but before scope-applied fires) preserves the ORIGINAL
+		// captured prior mode rather than stranding it as `'timeline'` itself.
+		if (this.graphState.visualizationMode !== 'timeline') {
+			this._modeBeforeScope = this.graphState.visualizationMode;
+		}
+		// Force the timeline sub-view — treemap doesn't consume scope, so without this
+		// the persisted treemapMode would silently swallow the scope request and leave
+		// `_timelineScope` orphaned until the user manually flips back to timeline.
+		// Intentionally do NOT call `persistState()` here: the `'timeline'` flip is a transient
+		// side-effect of opening the scope. Committing it to the memento would destructively
+		// overwrite the user's persisted preference (e.g. Treemap) if they escape before
+		// scope-applied fires. The persist happens on the restoration path (in
+		// `handleTimelineScopeApplied` or `clearTimelineScope`).
+		this.graphState.visualizationMode = 'timeline';
 		this._timelineScope = { type: params.type, relativePath: params.relativePath };
+	}
+
+	private clearTimelineScope(): void {
+		this._timelineScope = undefined;
+		// Treat an abandoned scope (escape, external search, repo switch) as a restoration path —
+		// the temporary `'timeline'` flip was a side-effect of the now-abandoned op, so put the
+		// user's prior mode back AND persist it (the in-memory flip was never persisted by
+		// `openTimelineScope`, so without this restore we'd leave the in-memory state as
+		// `'timeline'` even though the persisted memento still says e.g. `'treemap'`).
+		if (this._modeBeforeScope != null) {
+			this.graphState.visualizationMode = this._modeBeforeScope;
+			this._modeBeforeScope = undefined;
+			this.persistState();
+		}
 	}
 
 	private handleTimelineScopeApplied = (): void => {
 		this._timelineScope = undefined;
+		// Restore the user's prior visualization mode (e.g. Treemap) if `openTimelineScope` had
+		// temporarily forced `'timeline'` to consume the scope. The scope IS now applied
+		// (timeline received it), so the user can navigate back to their preferred mode.
+		if (this._modeBeforeScope != null) {
+			this.graphState.visualizationMode = this._modeBeforeScope;
+			this._modeBeforeScope = undefined;
+			this.persistState();
+		}
 	};
 
 	/** Routed from {@link GraphAppHost} when an external caller pushes a search query directly —
@@ -544,7 +600,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this.graphState.displayMode !== 'graph') {
 			this.graphState.displayMode = 'graph';
 		}
-		this._timelineScope = undefined;
+		// Route through `clearTimelineScope` so the captured `_modeBeforeScope` is restored
+		// (and persisted) rather than leaked stale — otherwise the next openTimelineScope-and-apply
+		// cycle would restore a mode that was meant for a long-abandoned scope.
+		this.clearTimelineScope();
 		void this.updateComplete.then(() => {
 			this.graphHeader?.setExternalSearchQuery(params.search);
 		});
@@ -652,6 +711,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
+		// always belongs to the repo that was active when `openTimelineScope` ran. If the user
+		// switches repos before scope-applied fires, restoring that mode on the new repo would
+		// apply a stale intent. Drop the one-shot scope alongside it for the same reason.
+		const selectedRepository = this.graphState.selectedRepository;
+		if (selectedRepository !== this._wasSelectedRepository) {
+			if (this._wasSelectedRepository !== undefined && this._modeBeforeScope != null) {
+				this.clearTimelineScope();
+			}
+			this._wasSelectedRepository = selectedRepository;
+		}
 
 		// Drain a pending focal-tip selection once the scope-anchor resolver lands the tip on the
 		// active scope. branchRef equality guards against a fast re-scope landing the wrong branch's
@@ -772,7 +843,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if ((this.graphState.displayMode ?? 'graph') !== 'graph') {
 				this.graphState.displayMode = 'graph';
 			}
-			this._timelineScope = undefined;
+			// Scope is abandoned (not applied) — drop the auto-restore alongside it so a future
+			// scope-applied (re-entered via timeline mode later) doesn't restore a stale mode.
+			this.clearTimelineScope();
 			// Wait for next render cycle to ensure graphHeader is ready
 			void this.updateComplete.then(() => {
 				this.graphHeader?.setExternalSearchQuery(searchRequest);
@@ -913,7 +986,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					? this.renderSidebarSplit(!isGraphMode)
 					: html`<div class="graph__graph-content" ?hidden=${!isGraphMode}>${this.renderGraphMain()}</div>`}
 				${displayMode === 'visualizations'
-					? html`<div class="graph__graph-content">${this.renderTimelineMain()}</div>`
+					? html`<div class="graph__graph-content">${this.renderVisualizationsMain()}</div>`
 					: nothing}
 				${displayMode === 'kanban'
 					? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
@@ -1006,16 +1079,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private renderTimelineMain() {
+	private renderVisualizationsMain() {
 		const placement: 'editor' | 'view' = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'view';
-		return html`<gl-graph-timeline
+		return html`<gl-graph-visualizations
 			placement=${placement}
 			.scope=${this._timelineScope}
+			@gl-graph-visualization-mode-change=${this.handleVisualizationModeChange}
 			@gl-graph-timeline-commit-select=${this.handleTimelineCommitSelect}
 			@gl-graph-timeline-config-change=${this.handleTimelineConfigChange}
 			@gl-graph-timeline-close=${this.handleTimelineClose}
 			@gl-graph-timeline-scope-applied=${this.handleTimelineScopeApplied}
-		></gl-graph-timeline>`;
+			@gl-graph-treemap-mode-change=${this.handleTreemapModeChange}
+		></gl-graph-visualizations>`;
 	}
 
 	private renderSidebarSplit(hidden = false) {
@@ -1126,7 +1201,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		const gs = this.graphState;
 		// `displayMode` is intentionally NOT persisted — every session starts in Graph mode.
-		// Toggling to Timeline is an in-memory affordance only; users opt back in per session.
+		// Toggling to Visualizations is an in-memory affordance only; users opt back in per session.
+		// `visualizationMode` and `treemapMode` ARE persisted so the user's last visualization choice
+		// (and treemap sub-mode) carries forward across sessions when they re-enter Visualizations.
 		const state = {
 			panels: {
 				details: { ...gs.details },
@@ -1134,6 +1211,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				minimap: { ...gs.minimap },
 			},
 			timeline: { ...gs.timeline },
+			treemap: {
+				mode: gs.treemapMode,
+			},
+			visualizationMode: gs.visualizationMode,
 			overview: {
 				recentThreshold: gs.overviewRecentThreshold,
 			},
@@ -1478,7 +1559,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleTimelineConfigChange = (e: CustomEvent<GlGraphTimelineConfigChangeDetail>): void => {
 		const gs = this.graphState;
-		const next: NonNullable<typeof gs.timeline> = {};
+		// Merge with existing gs.timeline — partial config events (e.g. the treemap
+		// dispatches only `{ period }` from its shared period picker) must NOT erase
+		// the timeline's `sliceBy` / `showAllBranches` selections.
+		const next: NonNullable<typeof gs.timeline> = { ...gs.timeline };
 		if (e.detail.period != null) {
 			next.period = e.detail.period;
 		}
@@ -1489,6 +1573,26 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			next.showAllBranches = e.detail.showAllBranches;
 		}
 		gs.timeline = next;
+		this.persistState();
+	};
+
+	private handleVisualizationModeChange = (e: CustomEvent<GraphVisualizationModeChangeDetail>): void => {
+		const gs = this.graphState;
+		if (gs.visualizationMode === e.detail.mode) return;
+
+		// User-driven mode change while a scope-open auto-restore is pending: drop the captured
+		// prior mode so `handleTimelineScopeApplied` doesn't clobber the user's explicit choice.
+		this._modeBeforeScope = undefined;
+
+		gs.visualizationMode = e.detail.mode;
+		this.persistState();
+	};
+
+	private handleTreemapModeChange = (e: CustomEvent<GraphTreemapModeChangeDetail>): void => {
+		const gs = this.graphState;
+		if (gs.treemapMode === e.detail.mode) return;
+
+		gs.treemapMode = e.detail.mode;
 		this.persistState();
 	};
 

@@ -13,6 +13,7 @@ import type {
 	TimelineDatasetResult,
 	TimelineScopeSerialized,
 } from '../timeline/protocol.js';
+import type { TreemapConfig, TreemapData, TreemapMode } from '../treemap/protocol.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
 import type {
 	DidGetCountParams,
@@ -363,11 +364,26 @@ export interface GraphTimelineService {
 	choosePath(params: ChoosePathParams): Promise<DidChoosePathParams>;
 }
 
+export interface GraphTreemapService {
+	/**
+	 * Fetch the per-repo file tree + commit-frequency aggregate for the Graph webview's Treemap
+	 * visualization. The host caches per-repo aggregates so toggling between Files/Commits modes
+	 * doesn't re-walk the file system. Frequencies are scoped via `config` (branch visibility,
+	 * additional refs, window) so the treemap mirrors what the Graph is currently showing.
+	 *
+	 * Agent activity (used by the Activity mode) is not part of this service — the webview already
+	 * receives `AgentSessionState[]` via `DidChangeAgentSessionsNotification` and reads
+	 * `session.currentFiles` directly. No separate streaming RPC is needed.
+	 */
+	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
 	readonly launchpad: GraphLaunchpadService;
 	readonly sidebar: GraphSidebarService;
 	readonly graphTimeline: GraphTimelineService;
+	readonly graphTreemap: GraphTreemapService;
 }
 
 export interface GraphLaunchpadService {
