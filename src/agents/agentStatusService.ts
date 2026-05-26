@@ -9,6 +9,7 @@ import type { AgentSessionState, AgentSessionWorktreeMetadata } from './models/a
 import { getSessionDisplayName, serializeAgentSession } from './models/agentSessionState.js';
 import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
 import { isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
+import { canResumeSession, resumeClaudeSessionInTerminal } from './utils/-webview/claudeResume.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -511,7 +512,8 @@ export class AgentStatusService implements Disposable {
 			Logger.warn(
 				`AgentStatusService.dispatchSessionAction: in-workspace open failed for session ${session.id} (host=${host ?? 'unknown'}, pid=${session.pid ?? 'none'}, extensionAvailable=${extensionAvailable})`,
 			);
-			void window.showWarningMessage(
+			await this.offerResumeOrWarn(
+				session,
 				host === 'extension' && !extensionAvailable
 					? 'The Claude Code extension is not installed or not available.'
 					: 'Unable to open agent session.',
@@ -525,7 +527,25 @@ export class AgentStatusService implements Disposable {
 		Logger.warn(
 			`AgentStatusService.dispatchSessionAction: no actionable target for session ${session.id} (isInWorkspace=${session.isInWorkspace}, workspacePath=${session.workspacePath ?? 'none'}, pid=${session.pid ?? 'none'})`,
 		);
-		void window.showWarningMessage('Unable to open agent session.');
+		await this.offerResumeOrWarn(session, 'Unable to open agent session.');
+	}
+
+	/** Shared dead-end handler for every open path that can't reach the live session. When the
+	 *  session is resumable (idle, or waiting on user input — see {@link canResumeSession}),
+	 *  prompts the user to spawn a fresh terminal running `claude --resume <id>`; otherwise just
+	 *  surfaces the original warning. Keeps the prompt single-action so a dismiss is the obvious
+	 *  "no" — the warning text itself communicates the failure that triggered the fallback. */
+	private async offerResumeOrWarn(session: AgentSession, warning: string): Promise<void> {
+		if (!canResumeSession(session)) {
+			void window.showWarningMessage(warning);
+			return;
+		}
+
+		const action = 'Resume in Terminal';
+		const choice = await window.showWarningMessage(`${warning} Resume it in a terminal?`, action);
+		if (choice === action) {
+			await resumeClaudeSessionInTerminal(session);
+		}
 	}
 
 	/** Routes a session that's owned by another VS Code window. Notifies the owning peer (if it
@@ -589,7 +609,8 @@ export class AgentStatusService implements Disposable {
 			`AgentStatusService.dispatchPeerOwnedSession: routed via info hint (pid=${session.pid ?? 'none'}, workspacePath=${session.workspacePath ?? 'none'}, cwd=${session.cwd ?? 'none'})`,
 		);
 		const cwdHint = session.cwd ? ` (${session.cwd})` : '';
-		void window.showInformationMessage(
+		await this.offerResumeOrWarn(
+			session,
 			`This session is running in another VS Code window${cwdHint}. Switch to it to view.`,
 		);
 	}
