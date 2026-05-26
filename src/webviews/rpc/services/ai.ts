@@ -9,8 +9,8 @@
 import { Disposable } from 'vscode';
 import { getClaudeAgent } from '@env/providers.js';
 import type { Container } from '../../../container.js';
-import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
+import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 import { mcpRegistrationAllowed } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
