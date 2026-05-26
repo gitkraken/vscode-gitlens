@@ -714,30 +714,34 @@ export class AIProviderService implements AIService, Disposable {
 		return pending;
 	}
 
-	private async getBestFallbackModel(): Promise<AIModel | undefined> {
+	private async getBestFallbackModel(scope?: AIModelScope): Promise<AIModel | undefined> {
 		let model: AIModel | undefined;
 		let models: readonly AIModel[];
 
 		const orgAIConfig = getOrgAIConfig();
-		// First, use Copilot GPT 4.1 or first model
-		if (isProviderEnabledByOrg('vscode', orgAIConfig)) {
-			try {
-				models = await this.getModels('vscode');
-				if (models.length) {
-					model = models.find(m => m.id === 'copilot:gpt-4.1') ?? models[0];
-					if (model != null) return model;
-				}
-			} catch {}
-		}
+		const isComposeOrReviewScope = scope === 'compose' || scope === 'review';
 
-		// Second, use the GitKraken AI default or first model
+		// First, use the GitKraken AI scope-preferred (compose/review), default, or first model
 		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
 			try {
 				const subscription = await this.container.subscription.getSubscription();
 				if (subscription.account?.verified) {
 					models = await this.getModels('gitkraken');
+					const scopedDefault = isComposeOrReviewScope
+						? models.find(m => m.id === 'gemini:gemini-3-flash-preview')
+						: undefined;
+					model = scopedDefault ?? models.find(m => m.default) ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
 
-					model = models.find(m => m.default) ?? models[0];
+		// Second, use Copilot GPT 4.1 or first model
+		if (isProviderEnabledByOrg('vscode', orgAIConfig)) {
+			try {
+				models = await this.getModels('vscode');
+				if (models.length) {
+					model = models.find(m => m.id === 'copilot:gpt-4.1') ?? models[0];
 					if (model != null) return model;
 				}
 			} catch {}
@@ -807,7 +811,7 @@ export class AIProviderService implements AIService, Disposable {
 			cfg?.provider != null && cfg?.model != null
 				? lazy(() => this.getOrUpdateModel(cfg.provider, cfg.model, scopeForPersist))
 				: undefined;
-		const fallbackModel = lazy(() => this.getBestFallbackModel());
+		const fallbackModel = lazy(() => this.getBestFallbackModel(scope));
 
 		if (!options?.silent) {
 			if (!options?.force) {
@@ -836,7 +840,14 @@ export class AIProviderService implements AIService, Disposable {
 				}
 
 				if (chosenModel == null) {
-					const result = await showAIModelPicker(this.container, chosenProviderId, cfg, source, titles.model);
+					const result = await showAIModelPicker(
+						this.container,
+						chosenProviderId,
+						cfg,
+						source,
+						titles.model,
+						scope,
+					);
 					if (result == null || (isDirective(result) && result !== Directive.Back)) {
 						chosenModel = undefined;
 						break;
@@ -1967,7 +1978,7 @@ function isAIModelScope(value: unknown): value is AIModelScope {
 
 function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 	provider: { title: string; placeholder: string; scope: AIModelScope } | undefined;
-	model: { title: string; placeholder: string } | undefined;
+	model: { title: string; placeholder: string; scope: AIModelScope } | undefined;
 } {
 	if (scope === 'compose') {
 		return {
@@ -1976,7 +1987,11 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 				placeholder: 'Choose an AI provider for composing',
 				scope: scope,
 			},
-			model: { title: 'Select AI Model for Composing', placeholder: 'Choose an AI model for composing' },
+			model: {
+				title: 'Select AI Model for Composing',
+				placeholder: 'Choose an AI model for composing',
+				scope: scope,
+			},
 		};
 	}
 	if (scope === 'review') {
@@ -1986,7 +2001,11 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 				placeholder: 'Choose an AI provider for reviewing',
 				scope: scope,
 			},
-			model: { title: 'Select AI Model for Reviewing', placeholder: 'Choose an AI model for reviewing' },
+			model: {
+				title: 'Select AI Model for Reviewing',
+				placeholder: 'Choose an AI model for reviewing',
+				scope: scope,
+			},
 		};
 	}
 	return { provider: undefined, model: undefined };

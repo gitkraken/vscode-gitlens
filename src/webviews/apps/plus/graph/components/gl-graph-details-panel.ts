@@ -1914,7 +1914,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// open the picker first so the click never produces a silent no-op. The user
 			// re-clicks Compose after selecting — keeps the dispatch path single-shot.
 			if (this._state.aiModel.get() == null) {
-				this._actions.switchAIModel();
+				this._actions.switchAIModel('compose');
 				return;
 			}
 
@@ -2397,7 +2397,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('review');
 					return;
 				}
 
