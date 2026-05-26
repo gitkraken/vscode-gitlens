@@ -425,6 +425,7 @@ import {
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphOverviewShownCommand,
 	TrackGraphScopeChangedCommand,
+	TreemapFileActionCommand,
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -4441,6 +4442,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 				break;
 			}
+		}
+	}
+
+	@ipcCommand(TreemapFileActionCommand)
+	@debug()
+	private async onTreemapFileAction(params: IpcParams<typeof TreemapFileActionCommand>): Promise<void> {
+		// Rehydrate the file URI through the repo's own URI so the original scheme survives —
+		// `Uri.file()` would coerce virtual-workspace paths (vscode-vfs://, GitHub virtual provider)
+		// to a non-resolving file:// URI.
+		const repo = this.container.git.getRepository(params.repoPath);
+		if (repo == null) return;
+
+		const uri = Uri.joinPath(repo.uri, params.path);
+		switch (params.action) {
+			case 'open':
+				await commands.executeCommand('vscode.open', uri);
+				return;
+			case 'history':
+				await commands.executeCommand('gitlens.openFileHistory', uri);
 		}
 	}
 
