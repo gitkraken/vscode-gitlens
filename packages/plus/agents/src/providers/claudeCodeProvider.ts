@@ -652,13 +652,19 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				this.clearStalePermission(event.sessionId, 'PermissionDenied');
 				const bk = this.getBookkeeping(event.sessionId);
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
-				this.untrackToolUseFile(event.sessionId, event);
-				this.untrackToolUseRead(event.sessionId, event);
-				this.updateSessionStatus(
-					event.sessionId,
-					bk.activeToolCount > 0 ? 'tool_use' : 'thinking',
-					eventContext,
-				);
+				const filesChanged = this.untrackToolUseFile(event.sessionId, event);
+				const readsChanged = this.untrackToolUseRead(event.sessionId, event);
+				// When a parallel tool is still active the next status equals the current one and
+				// updateSessionStatus short-circuits — without an explicit fire, the dropped path
+				// would never reach subscribers (treemap activity overlay, WIP decoration).
+				const nextStatus = bk.activeToolCount > 0 ? 'tool_use' : 'thinking';
+				const sessionIndex = this._sessions.findIndex(s => s.id === event.sessionId);
+				const prevStatus = sessionIndex >= 0 ? this._sessions[sessionIndex].status : undefined;
+				const statusWillFire = prevStatus !== nextStatus;
+				this.updateSessionStatus(event.sessionId, nextStatus, eventContext);
+				if ((filesChanged || readsChanged) && !statusWillFire) {
+					this._onDidChangeSessions.fire();
+				}
 				break;
 			}
 
@@ -854,7 +860,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		const bk = this.getBookkeeping(sessionId);
 		const count = bk.currentFileCounts.get(filePath);
-		if (count == null) return;
+		// A duplicate / out-of-order Post during cooldown (count is already 0) would drive the
+		// refcount negative and schedule a second timer — ignore those so the cooldown stays
+		// authoritative until either its timer fires or a fresh Pre bumps the count back up.
+		if (count == null || count <= 0) return;
 
 		const next = count - 1;
 		bk.currentFileCounts.set(filePath, next);
@@ -958,7 +967,9 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		const bk = this.getBookkeeping(sessionId);
 		const count = bk.currentReadCounts.get(filePath);
-		if (count == null) return;
+		// Same guard as scheduleClearToolUseFile — duplicate / out-of-order Posts during cooldown
+		// would otherwise drive the refcount negative and stack up redundant clear timers.
+		if (count == null || count <= 0) return;
 
 		const next = count - 1;
 		bk.currentReadCounts.set(filePath, next);
@@ -1564,6 +1575,17 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 					if (peerActivity > existing.lastActivity) {
 						const idx = this._sessions.indexOf(existing);
+						// Peer is the authoritative hook recipient for this session, so wipe any
+						// local bookkeeping that survived from a previous local-ownership window.
+						// Without this, refcounts/timers from a prior local-hosting stretch would
+						// resurface stale paths if ownership ever flips back to us.
+						const bk = this._sessionBookkeeping.get(peerSession.id);
+						if (bk != null) {
+							this.cancelPendingFileClears(bk);
+							this.cancelPendingReadClears(bk);
+							bk.currentFileCounts.clear();
+							bk.currentReadCounts.clear();
+						}
 						this._sessions[idx] = {
 							...existing,
 							status: peerSession.status,

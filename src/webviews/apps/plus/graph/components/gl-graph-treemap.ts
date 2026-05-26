@@ -341,6 +341,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		// reference — also catches the case where two sessions share an `undefined` `currentFiles`
 		// and collapse into a single Set slot, hiding a session-count change.
 		totalLength: number;
+		// Session repo-family fingerprint. Without this, a peer-sync that flips a session's
+		// `commonPath`/`worktreePath` (e.g., worktree reparenting) without touching its
+		// `currentFiles`/`currentReads` references would yield a cache hit even though the session
+		// no longer belongs to the active repo's family.
+		familyPaths: Set<string | undefined>;
 		repo: unknown;
 		value: ReadonlyMap<string, ActivityEntry>;
 	};
@@ -652,11 +657,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		// compare sizes + identities so a host re-sort (Working↔Idle transitions reorder slots)
 		// doesn't invalidate the cache on every state transition.
 		const allFiles = new Set<readonly string[] | undefined>();
+		const familyPaths = new Set<string | undefined>();
 		let totalLength = 0;
 		if (sessions != null) {
 			for (const s of sessions) {
 				allFiles.add(s.currentFiles);
 				allFiles.add(s.currentReads);
+				familyPaths.add(s.commonPath ?? s.worktreePath);
 				totalLength += s.currentFiles?.length ?? 0;
 				totalLength += s.currentReads?.length ?? 0;
 			}
@@ -666,13 +673,22 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			cache != null &&
 			cache.repo === repo &&
 			cache.totalLength === totalLength &&
-			cache.allFiles.size === allFiles.size
+			cache.allFiles.size === allFiles.size &&
+			cache.familyPaths.size === familyPaths.size
 		) {
 			let identical = true;
 			for (const f of allFiles) {
 				if (!cache.allFiles.has(f)) {
 					identical = false;
 					break;
+				}
+			}
+			if (identical) {
+				for (const p of familyPaths) {
+					if (!cache.familyPaths.has(p)) {
+						identical = false;
+						break;
+					}
 				}
 			}
 			if (identical) return cache.value;
@@ -682,6 +698,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		this._activeFilesCache = {
 			allFiles: allFiles,
 			totalLength: totalLength,
+			familyPaths: familyPaths,
 			repo: repo,
 			value: value,
 		};
