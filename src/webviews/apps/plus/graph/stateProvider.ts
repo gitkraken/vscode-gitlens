@@ -1,6 +1,8 @@
 import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import type { Counter } from '@gitlens/utils/counter.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -12,6 +14,7 @@ import type {
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
+	GraphWorkingTreeStats,
 	State,
 	Wip,
 } from '../../../plus/graph/protocol.js';
@@ -1171,6 +1174,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
 				// every secondary row (the visible pill flash).
 				const updates: Partial<State> = { workingTreeStats: msg.params.stats };
+				// Invalidate any in-flight panel-driven `getWip` RPC: if a response is mid-await
+				// when this push lands, its older stats would otherwise clobber this fresher one.
+				this._workingTreeStatsGen.next();
 				if (msg.params.wipMetadataBySha != null) {
 					updates.wipMetadataBySha = mergeWipMetadata(
 						this.wipMetadataBySha,
@@ -1210,6 +1216,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// the per-file classifier doesn't match `git diff --shortstat` semantics).
 					if (stats != null && repoPath === this.selectedRepository) {
 						updates.workingTreeStats = stats;
+						// Same in-flight-RPC invalidation rationale as the `DidChangeWorkingTree` branch.
+						this._workingTreeStatsGen.next();
 					}
 
 					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
@@ -1439,6 +1447,40 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	setWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
 		this._pendingLocalEditPaths.add(repoPath);
+	}
+
+	/** Bumped on every write to `workingTreeStats` (both IPC-driven host pushes and the
+	 *  panel-driven `setWorkingTreeStats` reseed). Callers about to issue a `getWip` RPC snapshot
+	 *  this before the await and pass it back into `setWorkingTreeStats`; if a host FS-watcher
+	 *  push lands during the await, the counter advances and the older RPC response is dropped
+	 *  rather than clobbering the fresher stats. Read via `workingTreeStatsGen`. */
+	private readonly _workingTreeStatsGen: Counter = getScopedCounter();
+
+	get workingTreeStatsGen(): number {
+		return this._workingTreeStatsGen.current;
+	}
+
+	/**
+	 * Reseed `workingTreeStats` from a panel-driven `getWip` cold-load. The header WIP badge and
+	 * the primary "Working Changes" row badge both read this slot; they otherwise refresh only
+	 * via the host's FS-watcher push channel, which can land late or be missed on init — leaving
+	 * the badges stuck on stale stats while the details panel (driven by `wip`) shows the truth.
+	 *
+	 * Repo-path guard mirrors `DidRequestWipRefetchNotification`'s primary-only update: the badges
+	 * always reflect the active/selected repo, so a secondary worktree's `getWip` must NOT
+	 * overwrite the primary's stats.
+	 *
+	 * `expectedGen` (optional) is the value of `workingTreeStatsGen` captured BEFORE the caller's
+	 * `getWip` await. When provided and stale (counter advanced during the await), drops the
+	 * write — a host FS-watcher push landed in the meantime and its stats are fresher than this
+	 * response. Without this guard, an older RPC snapshot can clobber a newer push.
+	 */
+	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats, expectedGen?: number): void {
+		if (repoPath !== this.selectedRepository) return;
+		if (expectedGen != null && expectedGen !== this._workingTreeStatsGen.current) return;
+
+		this._workingTreeStatsGen.next();
+		this.updateState({ workingTreeStats: stats });
 	}
 
 	/**

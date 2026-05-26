@@ -44,6 +44,7 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import type { GraphWorkingTreeStats } from '../../../../plus/graph/protocol.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -123,7 +124,7 @@ export interface ResolvedServices {
 
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<Wip | undefined, [string]>;
+	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -750,14 +751,20 @@ export class DetailsActions {
 						// background so the panel converges without blocking the initial paint.
 						void (async () => {
 							try {
+								// Snapshot the stats generation BEFORE the await — if a host
+								// FS-watcher push lands during the in-flight RPC, the counter
+								// advances and `setWorkingTreeStats` drops our older response.
+								const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 								await this.resources.wip.fetch(repoPath);
 								if (this._lastFetchedKey !== key) return;
 
 								if (this.resources.wip.status.get() === 'success') {
-									const wip = this.resources.wip.value.get();
-									if (wip != null) {
+									const result = this.resources.wip.value.get();
+									if (result != null) {
+										const { wip, stats } = result;
 										this.state.wip.set(wip);
 										this.graphState?.setWip(repoPath, wip);
+										this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -776,16 +783,21 @@ export class DetailsActions {
 						})();
 					}
 				} else {
-					// Missing cache entry — block and fetch
+					// Missing cache entry — block and fetch. Same in-flight-RPC race rationale
+					// as the background-revalidate branch: snapshot the stats generation BEFORE
+					// the await so a host push landing mid-fetch isn't clobbered by our response.
+					const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 					await this.resources.wip.fetch(repoPath);
 
 					if (this._lastFetchedKey !== key) return;
 
 					if (this.resources.wip.status.get() === 'success') {
-						const wip = this.resources.wip.value.get();
-						if (wip != null) {
+						const result = this.resources.wip.value.get();
+						if (result != null) {
+							const { wip, stats } = result;
 							this.state.wip.set(wip);
 							this.graphState?.setWip(repoPath, wip);
+							this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -2551,13 +2563,20 @@ export class DetailsActions {
 	async refetchWipQuiet(repoPath: string): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
 		this._lastFetchedKey = undefined;
+		// Snapshot the stats generation BEFORE the await — a host FS-watcher push landing
+		// during the in-flight RPC has fresher stats than ours, so we shouldn't overwrite.
+		const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 		await this.resources.wip.fetch(repoPath);
 		if (this.resources.wip.status.get() !== 'success') return;
 
-		const wip = this.resources.wip.value.get();
-		if (wip == null) return;
+		const result = this.resources.wip.value.get();
+		if (result == null) return;
 
-		this.applyWipPayload(wip, repoPath);
+		this.applyWipPayload(result.wip, repoPath);
+		// Reseed the header/row badge source from the same `git status` the panel just ran —
+		// closes the staleness gap when the prior `workingTreeStats` push was missed or wrong.
+		// Generation guard at the helper drops this if a fresher host push raced us.
+		this.graphState?.setWorkingTreeStats(repoPath, result.stats, expectedStatsGen);
 	}
 
 	/**

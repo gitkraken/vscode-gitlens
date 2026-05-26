@@ -1115,7 +1115,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						commitCount: getSettledValue(countResult),
 					};
 				},
-				getWip: async (repoPath: string, signal?: AbortSignal): Promise<Wip | undefined> => {
+				getWip: async (
+					repoPath: string,
+					signal?: AbortSignal,
+				): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> => {
 					signal?.throwIfAborted();
 
 					// Secondary worktrees may not be pre-registered as Repository instances;
@@ -1125,8 +1128,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						(await this.container.git.getOrOpenRepository(Uri.file(repoPath), { closeOnOpen: true }));
 					if (repo == null) return undefined;
 
-					const result = await this.getWipForRepoAndStats(repo, signal);
-					return result?.wip;
+					// Returning both halves lets the cold-load path reseed the webview's
+					// `workingTreeStats` slot from the same `git status` the panel uses — if a prior
+					// initial-state fetch landed with bad data and no FS event has fired since, the
+					// header/row badges stay stuck on stale stats until the next incidental tick.
+					return this.getWipForRepoAndStats(repo, signal);
 				},
 				explainCommit: async (
 					repoPath: string,
@@ -2425,6 +2431,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	onWindowFocusChanged(focused: boolean): void {
 		this.isWindowFocused = focused;
 		void this.ensureAutoFetch();
+		if (focused) {
+			this.recoverWorkingTreeStatsIfStuck();
+		}
 	}
 
 	onVisibilityChanged(visible: boolean): void {
@@ -2441,6 +2450,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		void this.ensureAutoFetch();
+		if (visible) {
+			this.recoverWorkingTreeStatsIfStuck();
+		}
+	}
+
+	/** Lazy escalation for the rare case where both the initial-state stats fetch AND the
+	 *  500ms one-shot retry returned undefined (git busy / locked / antivirus during ready-up).
+	 *  `_lastSentWipNotificationParams == null` means no authoritative working-tree push has ever
+	 *  landed for this graph — so the header/row badges are rendering nothing. Recover on the
+	 *  next visibility/focus transition: cheap (a single `git status` only when actually needed)
+	 *  and aligned with when the user is actually looking. No-op once any push has succeeded. */
+	private recoverWorkingTreeStatsIfStuck(): void {
+		if (this._disposed || this.repository == null) return;
+		if (this._lastSentWipNotificationParams != null) return;
+
+		void this.notifyDidChangeWorkingTree();
 	}
 
 	@ipcRequest(GetCountsRequest)
@@ -5763,6 +5788,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return run;
 	}
 
+	/** Recovery for transient initial-state cancellations. Fires once shortly after a `getState`
+	 *  whose `getWorkingTreeStatsAndPausedOperations` returned undefined — without it, the
+	 *  webview would sit on `workingTreeStats: undefined` (and the header/row badges would render
+	 *  nothing) until an unrelated FS event happened to trigger the watcher.
+	 *
+	 *  Resets the dedup cache before re-notifying so a prior stale-but-non-null
+	 *  `_lastSentWipNotificationParams` (e.g. a partial push during ready-up) can't dedup-equal
+	 *  the corrective payload and suppress it — the whole point of the retry is to force a
+	 *  fresh push through. The repo-identity guard inside `runNotifyDidChangeWorkingTree` still
+	 *  protects against pushing for a stale repo if the user swapped during the 500ms window. */
+	private scheduleInitialWorkingTreeStatsRetry(): void {
+		setTimeout(() => {
+			if (this._disposed || this.repository == null) return;
+
+			this._lastSentWipNotificationParams = undefined;
+			void this.notifyDidChangeWorkingTree();
+		}, 500);
+	}
+
 	@trace()
 	private async runNotifyDidChangeWorkingTree(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
@@ -7120,10 +7164,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// below — keeps host-pushed overview updates in sync with the persisted choice on reload.
 		this._overviewRecentThreshold = storedGraphState?.overview?.recentThreshold ?? 'OneWeek';
 
-		// If the underlying fetch returned undefined (cancelled/failed), we still send fallback
-		// zeros below so the UI has a value to render. The next `notifyDidChangeWorkingTree`
-		// tick will push authoritative data.
+		// If the underlying fetch returned undefined (cancelled/failed), leave `workingTreeStats`
+		// undefined rather than fabricating a confident `{0,0,0}` — `gl-wip-stats` renders
+		// `nothing` for an all-undefined state, which is honest. A misleading clean ✓ would stick
+		// until the next FS event landed, and there's no guarantee one will: if the user already
+		// had changes when the webview loaded, the working tree won't change of its own accord.
+		// The one-shot retry below also seeds an authoritative push shortly after init to recover
+		// from transient cancellations during ready-up.
 		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
+		if (resolvedWorkingTreeStats == null) {
+			this.scheduleInitialWorkingTreeStatsRetry();
+		}
 
 		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
 
@@ -7175,7 +7226,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			includeOnlyRefs: refsVisibility.includeOnlyRefs,
 			pinnedRef: this.getPinnedRef(filters, data),
 			nonce: this.host.cspNonce,
-			workingTreeStats: resolvedWorkingTreeStats ?? { added: 0, deleted: 0, modified: 0 },
+			workingTreeStats: resolvedWorkingTreeStats,
 			wipMetadataBySha: getSettledValue(wipMetadataResult),
 			searchMode: searchMode,
 			useNaturalLanguageSearch: useNaturalLanguageSearch,

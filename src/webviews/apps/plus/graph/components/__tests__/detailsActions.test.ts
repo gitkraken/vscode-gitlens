@@ -396,8 +396,9 @@ suite('DetailsActions', () => {
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
 		};
+		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => wip),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 
@@ -417,8 +418,9 @@ suite('DetailsActions', () => {
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
 		};
+		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => wip),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 

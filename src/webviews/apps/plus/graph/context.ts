@@ -8,6 +8,7 @@ import type {
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSelectedRows,
+	GraphWorkingTreeStats,
 	State,
 	Wip,
 } from '../../../plus/graph/protocol.js';
@@ -91,6 +92,26 @@ export interface AppState extends State {
 	 * `DidRequestWipRefetch`) seed the cache through an internal path that clears that flag.
 	 */
 	setWip(repoPath: string, wip: Wip): void;
+
+	/**
+	 * Monotonic counter bumped on every write to `workingTreeStats` (host pushes + the
+	 * `setWorkingTreeStats` reseed). Callers about to issue a `getWip` RPC snapshot this BEFORE
+	 * the await and pass it to `setWorkingTreeStats` as `expectedGen`; a host push landing
+	 * during the await advances the counter and the older RPC response is dropped instead of
+	 * clobbering the fresher stats.
+	 */
+	readonly workingTreeStatsGen: number;
+
+	/**
+	 * Reseed `workingTreeStats` from a panel-driven `getWip` cold-load. No-op unless `repoPath`
+	 * matches the selected repository — the header/row badges only render the active repo's
+	 * stats. Closes the staleness gap when a prior FS-watcher push was missed or wrong (the
+	 * panel still recovers on its own because it tracks `wip` independently).
+	 *
+	 * `expectedGen` is the value of `workingTreeStatsGen` captured BEFORE the `getWip` await;
+	 * when the counter advanced during the await (host push landed), the write is dropped.
+	 */
+	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats, expectedGen?: number): void;
 
 	/**
 	 * Return the cached WIP for `repoPath` plus liveness metadata. `isLive` reflects whether the

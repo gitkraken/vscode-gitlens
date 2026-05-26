@@ -18,6 +18,7 @@ import type {
 	DidGetCountParams,
 	DidGetSidebarDataParams,
 	GraphSidebarPanel,
+	GraphWorkingTreeStats,
 	SidebarWorktreeChange,
 } from './protocol.js';
 
@@ -230,7 +231,7 @@ export interface GraphInspectService {
 	 * embedded file trees so they reflect the graph's current search state.
 	 */
 	getSearchContext(sha: string): Promise<GitCommitSearchContext | undefined>;
-	getWip(repoPath: string, signal?: AbortSignal): Promise<Wip | undefined>;
+	getWip(repoPath: string, signal?: AbortSignal): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined>;
 	explainCommit(repoPath: string, sha: string, prompt?: string, signal?: AbortSignal): Promise<ExplainResult>;
 	explainCompare(
 		repoPath: string,
