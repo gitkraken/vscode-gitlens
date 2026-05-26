@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { URI } from 'vscode-uri';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -1086,6 +1087,25 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						? basename(group.worktreePath)
 						: undefined;
 
+				const actions: TreeItemAction[] =
+					group.type === 'worktree' && group.worktreePath != null
+						? [
+								{
+									icon: 'terminal',
+									label: 'Open in Integrated Terminal',
+									action: 'gitlens.openInIntegratedTerminal:graph',
+								},
+							]
+						: [];
+
+				// The command is registered through `WebviewCommandRegistrar` and requires
+				// `webview`/`webviewInstance` to be present on the arg — the host augments those when
+				// dispatching via `params.context`, so route the worktree URI through `contextData`.
+				const contextData =
+					group.type === 'worktree' && group.worktreePath != null
+						? JSON.stringify({ worktreeUri: URI.file(group.worktreePath).toString() })
+						: undefined;
+
 				return {
 					branch: true,
 					expanded: true,
@@ -1096,7 +1116,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					description: description !== group.name ? description : undefined,
 					checkable: false,
 					context: [group.anchor.wipSha, group.anchor.scope] as SidebarItemContext,
+					contextData: contextData,
 					children: children,
+					actions: actions,
 				};
 			});
 	}
