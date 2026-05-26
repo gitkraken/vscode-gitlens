@@ -171,14 +171,14 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar__description {
 			/* Two render slots:
-			 *   - Standalone (no breadcrumbs): a plain toolbar child, sitting after the title.
-			 *   - Inside gl-breadcrumbs: slotted with order:9999 so it appears at the end of the
-			 *     crumb chain (the breadcrumb host assigns crumb items orders at idx * 2, so any
-			 *     large order lands them after every crumb).
-			 * Either way flex:none keeps the count text at natural width — the breadcrumb host or
-			 * toolbar's overflow:hidden clips at extreme narrow widths as a final safety net. */
+			 *   - Standalone (no breadcrumbs): plain toolbar child sitting in DOM order right
+			 *     after the title — no flex order forcing needed (and applying one here would push
+			 *     the count past .toolbar__right's margin-left:auto, landing it past the X button).
+			 *   - Slotted into gl-breadcrumbs: see .toolbar__crumbs .toolbar__description below,
+			 *     which lifts it past every crumb via flex order.
+			 * flex:none keeps the count at natural width; the breadcrumb host or toolbar's
+			 * overflow:hidden clips at extreme narrow widths as a final safety net. */
 			flex: none;
-			order: 9999;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: 1.1rem;
@@ -186,10 +186,11 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			white-space: nowrap;
 		}
 
-		/* In the standalone (no-crumbs) slot the toolbar's gap:0.8rem already separates the
-		 * description from the title; when slotted into gl-breadcrumbs (gap:0) we need to add the
-		 * gap ourselves so the counts don't butt up against the last crumb. */
+		/* When slotted into gl-breadcrumbs (gap:0, children ordered idx*2), force the count past
+		 * every crumb via a large flex order, and add the gap the breadcrumb host doesn't provide
+		 * so the count doesn't butt up against the last crumb. */
 		.toolbar__crumbs .toolbar__description {
+			order: 9999;
 			margin-left: 0.8rem;
 		}
 
