@@ -130,8 +130,9 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		.notice--blur {
-			backdrop-filter: blur(2px);
-			background: color-mix(in srgb, var(--vscode-editor-background) 50%, transparent);
+			backdrop-filter: blur(8px);
+			-webkit-backdrop-filter: blur(8px);
+			background: color-mix(in srgb, var(--vscode-editor-background) 60%, transparent);
 		}
 
 		/* Floating hint shown over the dim treemap when Activity mode is on but no agent is
@@ -841,7 +842,7 @@ export class GlTreemapChart extends LitElement {
 			${showActivityHint
 				? html`<div class="activity-hint">
 						<code-icon icon="robot"></code-icon>
-						<span>Waiting for agent edits — files will light up here as agents touch them</span>
+						<span>Waiting for agent activity — files will light up here as agents read or edit them</span>
 					</div>`
 				: nothing}
 			${this._tooltipPos.visible

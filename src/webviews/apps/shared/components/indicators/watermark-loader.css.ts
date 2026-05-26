@@ -21,10 +21,22 @@ export const baseStyles = css`
 	}
 
 	.watermark {
+		position: relative;
 		width: 12rem;
 		height: 12rem;
-		fill: color-mix(in srgb, var(--color-foreground) 15%, var(--color-background));
+	}
+
+	.watermark-piece {
+		position: absolute;
+		inset: 0;
 		transform-origin: center;
+	}
+
+	.watermark-piece svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		fill: color-mix(in srgb, var(--color-foreground) 40%, var(--color-background));
 	}
 `;
 
@@ -41,36 +53,26 @@ export const pulseStyles = css`
 		}
 	}
 
-	.watermark--pulse .watermark-path {
+	/* Animate the HTML wrapper, not the SVG path — Blink composites HTML transforms,
+	   but the same animation on SVG sub-elements runs on the main thread. */
+	.watermark--pulse .watermark-piece {
 		transform: scale(0.9);
 		animation: pulse 1.8s ease-in-out infinite;
-		transform-origin: center;
+		will-change: transform;
 	}
 
-	/* Stagger the pulse animation for a wave effect on all paths */
-	/* Targeting all paths using their order within the SVG */
-	.watermark-path:nth-of-type(1) {
-		/* Target the outer circle path */
+	/* Stagger the pulse for a wave effect across the watermark pieces. */
+	.watermark-piece:nth-of-type(1) {
 		animation-delay: 0.2s;
 	}
 
-	.watermark-path:nth-of-type(2) {
-		/* Target the connection path */
+	.watermark-piece:nth-of-type(2) {
 		animation-delay: 0.4s;
 	}
 
-	.watermark-path:nth-of-type(3) {
-		/* Target the first dot path */
-		animation-delay: 0.1s;
-	}
-
-	.watermark-path:nth-of-type(4) {
-		/* Target the second dot path */
-		animation-delay: 0.1s;
-	}
-
-	.watermark-path:nth-of-type(5) {
-		/* Target the third dot path */
+	.watermark-piece:nth-of-type(3),
+	.watermark-piece:nth-of-type(4),
+	.watermark-piece:nth-of-type(5) {
 		animation-delay: 0.1s;
 	}
 `;
