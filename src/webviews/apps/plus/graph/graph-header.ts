@@ -1141,7 +1141,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										<a href=${createCommandLink('gitlens.agents.installClaudeHook')}
 											>Install Claude Code Hooks</a
 										>
-										to let GitLens intercept Claude Code permission requests.
+										to see and manage your parallel agent work from GitLens.
 									`,
 								)}
 							</div>
@@ -1159,8 +1159,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</button>
 							<div class="hooks-tooltip__content" slot="content">
 								<strong>Install Claude Code Hooks</strong><br />
-								Configure Claude to send status updates to GitLens so you can see and manage your agents
-								here.
+								Configure Claude to send status updates to GitLens so you can see and manage your
+								parallel agent work.
 								<br /><br />
 								<a href=${createCommandLink('gitlens.agents.installClaudeHook')}>Install</a>
 								&middot;
