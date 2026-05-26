@@ -309,21 +309,35 @@ export function showIntegrationRequestTimedOutWarningMessage(providerName: strin
 export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const releaseNotes = { title: 'View Release Notes' };
-	const result = await showMessage(
-		'info',
-		`GitLens upgraded to ${majorVersion}${
-			majorVersion === '17'
-				? ' with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.'
-				: " — see what's new."
-		}`,
-		undefined,
-		null,
-		releaseNotes,
-		confirm,
-	);
+	const openWalkthrough = { title: 'Open Walkthrough' };
+
+	let message: string;
+	switch (majorVersion) {
+		case '18':
+			message =
+				'GitLens upgraded to 18 — the Commit Graph is all new with agent integration, multi-worktree WIP rows, AI-powered Review and Compose modes, and more.';
+			break;
+		case '17':
+			message =
+				'GitLens upgraded to 17 with the all new [GitKraken AI](https://gitkraken.com/solutions/gitkraken-ai?source=gitlens&product=gitlens&utm_source=gitlens-extension&utm_medium=in-app-links) access included in GitLens Pro, AI changelog and pull request creation, and Bitbucket integration.';
+			break;
+		default:
+			message = `GitLens upgraded to ${majorVersion} — see what's new.`;
+			break;
+	}
+
+	const actions: MessageItem[] = [releaseNotes];
+	if (majorVersion === '18') {
+		actions.push(openWalkthrough);
+	}
+	actions.push(confirm);
+
+	const result = await showMessage('info', message, undefined, null, ...actions);
 
 	if (result === releaseNotes) {
 		void openUrl(urls.releaseNotes);
+	} else if (result === openWalkthrough) {
+		void executeCommand('gitlens.showWelcomeView', { mode: 'graph' });
 	}
 }
 
