@@ -21,6 +21,7 @@ import type { CommitDetails } from '../../../commitDetails/protocol.js';
 import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
+	DidRequestSearchParams,
 	GraphDisplayMode,
 	GraphMinimapMarkerTypes,
 	GraphShowAction,
@@ -482,6 +483,41 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleTimelineScopeApplied = (): void => {
 		this._timelineScope = undefined;
 	};
+
+	/** Routed from {@link GraphAppHost} when an external caller pushes a search query directly —
+	 *  e.g. "Open File History" filtering the graph. Bypasses the heavy host-side state-refresh
+	 *  pipeline that the prior `state.searchRequest` path went through. Mirrors the timeline-scope
+	 *  pattern: switch out of timeline mode and clear any one-shot scope, then hand the query to
+	 *  the header to dispatch.
+	 *
+	 *  `params.selectSha` is intentionally NOT forwarded to the header: the host-side
+	 *  `hasSearchQuery` handler already calls `setSelectedRows` and (when needed) `onGetMoreRows`
+	 *  synchronously before firing this notification. The selection update reaches the webview via
+	 *  the separate `DidChangeSelectionNotification` push, not via the search query.
+	 *
+	 *  Sets `_lastSearchRequest` so the cold-show path's `state.searchRequest` consumer (in
+	 *  `updated()`) treats this request as already handled if the same query also lands in state. */
+	applyExternalSearchRequest(params: DidRequestSearchParams): void {
+		this._lastSearchRequest = params.search;
+		// Keep `state.searchRequest` in sync with the just-applied query: the cold-show path
+		// publishes the search via `state.searchRequest` and stamps `_lastSearchRequest` here in
+		// the consumer (see `updated()` below). After a cold show, `state.searchRequest` retains
+		// the cold query reference. Without this clear, a subsequent warm invocation would set
+		// `_lastSearchRequest = params.search` (new ref), causing the `updated()` dedup check
+		// `state.searchRequest !== _lastSearchRequest` to be TRUE — silently re-firing the stale
+		// cold query through `setExternalSearchQuery`. Clearing the state signal here is the
+		// one-shot complement.
+		if (this.graphState.searchRequest != null) {
+			this.graphState.searchRequest = undefined;
+		}
+		if (this.graphState.displayMode === 'timeline') {
+			this.graphState.displayMode = 'graph';
+		}
+		this._timelineScope = undefined;
+		void this.updateComplete.then(() => {
+			this.graphHeader?.setExternalSearchQuery(params.search);
+		});
+	}
 
 	private _pendingScopeToBranch = false;
 

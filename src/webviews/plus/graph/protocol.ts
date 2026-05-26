@@ -1179,6 +1179,12 @@ export const DidRequestOpenTimelineScopeNotification = new IpcNotification<DidRe
 	'timeline/didRequestOpenScope',
 );
 
+export interface DidRequestSearchParams {
+	search: SearchQuery;
+	selectSha?: string;
+}
+export const DidRequestSearchNotification = new IpcNotification<DidRequestSearchParams>(scope, 'search/didRequest');
+
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;

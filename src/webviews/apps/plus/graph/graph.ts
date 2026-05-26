@@ -7,6 +7,7 @@ import type { GraphServices } from '../../../plus/graph/graphService.js';
 import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
+	DidRequestSearchParams,
 	State,
 } from '../../../plus/graph/protocol.js';
 import { GlAppHost } from '../../shared/appHost.js';
@@ -81,6 +82,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-open-timeline-scope',
 			this._handleRequestOpenTimelineScope as EventListener,
 		);
+		this.addEventListener('gl-graph-request-search', this._handleRequestSearch as EventListener);
 	}
 
 	override disconnectedCallback(): void {
@@ -93,6 +95,7 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 			'gl-graph-request-open-timeline-scope',
 			this._handleRequestOpenTimelineScope as EventListener,
 		);
+		this.removeEventListener('gl-graph-request-search', this._handleRequestSearch as EventListener);
 		this._sidebarActions.dispose();
 	}
 
@@ -102,6 +105,10 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 
 	private _handleRequestOpenTimelineScope = (e: CustomEvent<DidRequestOpenTimelineScopeParams>): void => {
 		this.appElement?.openTimelineScope(e.detail);
+	};
+
+	private _handleRequestSearch = (e: CustomEvent<DidRequestSearchParams>): void => {
+		this.appElement?.applyExternalSearchRequest(e.detail);
 	};
 
 	override render() {

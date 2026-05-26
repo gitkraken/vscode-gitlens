@@ -301,6 +301,7 @@ import type {
 	DidGetSidebarDataParams,
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
+	DidRequestSearchParams,
 	GetWipStatsResponse,
 	GraphActionTarget,
 	GraphAutoFetchMode,
@@ -384,6 +385,7 @@ import {
 	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
 	DidRequestOpenTimelineScopeNotification,
+	DidRequestSearchNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
@@ -2180,8 +2182,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.onGetMoreRows({ id: id }, true);
 			}
 		} else if (hasSearchQuery(arg)) {
+			const repoChanged = this._repository !== arg.repository;
 			this.repository = arg.repository;
-			this._searchRequest = arg.search;
 			if (arg.selectSha) {
 				this._honorSelectedId = true;
 				this.setSelectedRows(arg.selectSha);
@@ -2194,7 +2196,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				}
 			}
-			this.updateState();
+			// Three cases routed through the state-bootstrap path (`_searchRequest` → `getState`):
+			//   1. Cold show (`loading`): webview isn't ready, a standalone notification would
+			//      queue in `_pendingIpcNotifications` and get wiped by the bootstrap
+			//      `clearPendingIpcNotifications()`.
+			//   2. Repo swap (`repoChanged`): the repository setter triggers a full `updateState`
+			//      refetch anyway; pipe the search through it so it lands with the new repo's rows
+			//      instead of racing against the just-cleared `_graph`.
+			//   3. Force-refresh in flight (`!host.ready`): same wipe risk as #1 — the reconnect
+			//      handler clears pending notifications before flushing them.
+			// Otherwise (warm + same-repo + ready) use the lightweight notification — bypasses
+			// the ~750ms `updateState` → `getState` pipeline since the only delta is the search.
+			// Mirrors the `DidRequestOpenCompareMode` / `DidRequestOpenTimelineScope` pattern.
+			if (loading || repoChanged || !this.host.ready) {
+				this._searchRequest = arg.search;
+			} else {
+				this.notifyRequestSearch({ search: arg.search, selectSha: arg.selectSha });
+			}
 		} else if (hasSidebarPanel(arg)) {
 			if (loading) {
 				this._pendingSidebarPanel = arg.sidebarPanel;
@@ -10106,6 +10124,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  (timeline) display mode, scoped to the given file/folder. Fire-and-forget. */
 	private notifyOpenTimelineScope(params: DidRequestOpenTimelineScopeParams): void {
 		void this.host.notify(DidRequestOpenTimelineScopeNotification, params);
+	}
+
+	/** Pushes a search query to the graph webview without triggering a full state refresh — the
+	 *  webview applies it directly via `graphHeader.setExternalSearchQuery`. Used by callers like
+	 *  "Open File History" that want to filter the graph without re-fetching rows/refs/stats. */
+	private notifyRequestSearch(params: DidRequestSearchParams): void {
+		void this.host.notify(DidRequestSearchNotification, params);
 	}
 
 	/**
