@@ -3,7 +3,8 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
-import { DidInvalidateGraphTreemapNotification } from '../../../../plus/graph/protocol.js';
+import type { TreemapFileActionParams } from '../../../../plus/graph/protocol.js';
+import { DidInvalidateGraphTreemapNotification, TreemapFileActionCommand } from '../../../../plus/graph/protocol.js';
 import type { TimelinePeriod } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import type {
@@ -16,7 +17,11 @@ import type {
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
 import { periodLabels } from '../../timeline/components/header.js';
-import type { GlTreemapChart, TreemapZoomChangeDetail } from '../../treemap/components/treemap-chart.js';
+import type {
+	GlTreemapChart,
+	TreemapFileClickDetail,
+	TreemapZoomChangeDetail,
+} from '../../treemap/components/treemap-chart.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import './gl-details-agent-status.js';
@@ -911,6 +916,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					.activity=${this.activeFiles}
 					?loading=${this._loading}
 					@gl-treemap-zoom-change=${this.onChartZoomChange}
+					@gl-treemap-file-click=${this.onChartFileClick}
 				></gl-treemap-chart>
 				${this._error
 					? html`<div class="overlay" role="alert">
@@ -925,6 +931,108 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	private readonly onChartZoomChange = (e: CustomEvent<TreemapZoomChangeDetail>): void => {
 		this._zoomPath = e.detail.path;
 	};
+
+	/** Per-mode primary action for a file-leaf click. Folder clicks zoom (handled in the chart);
+	 *  this handler only fires for leaves. Files mode opens the working file; Commits mode opens
+	 *  the File History sidebar view; Activity mode always opens the file AND additionally focuses
+	 *  the agent session reading/writing it when one can be identified (sidebar reveal + editor
+	 *  focus land in different surfaces, so the user gets both pieces of context at once). */
+	private readonly onChartFileClick = (e: CustomEvent<TreemapFileClickDetail>): void => {
+		const absPath = e.detail.node.path;
+
+		switch (this.mode) {
+			case 'files':
+				this.sendFileAction('open', absPath);
+				return;
+
+			case 'commits':
+				this.sendFileAction('history', absPath);
+				return;
+
+			case 'activity': {
+				// Dispatch the session-focus FIRST so the editor open (which steals focus) is the
+				// last surface change the user sees — landing on the file matches the click intent
+				// while the kanban session detail quietly slides in beside it.
+				const session = this.findSessionForFile(absPath);
+				if (session != null) {
+					this.dispatchEvent(
+						new CustomEvent('gl-graph-kanban-open-session', {
+							detail: {
+								sessionId: session.id,
+								worktreePath: session.worktreePath,
+								commonPath: session.commonPath,
+							},
+							bubbles: true,
+							composed: true,
+						}),
+					);
+				}
+
+				this.sendFileAction('open', absPath);
+				return;
+			}
+
+			default: {
+				// Exhaustiveness assertion — turns "added a new TreemapMode without updating this
+				// switch" into a compile error instead of a silently-dead click.
+				const _exhaustive: never = this.mode;
+				return _exhaustive;
+			}
+		}
+	};
+
+	private sendFileAction(action: TreemapFileActionParams['action'], absPath: string): void {
+		// Send the repo-relative path + the repo it belongs to, so the host can scheme-preserve
+		// the URI rehydration (Uri.file() on the host would coerce virtual-workspace paths to
+		// non-resolving file:// URIs). Skip if we can't resolve a repo — shouldn't happen for a
+		// node already painted in the tree, but defensive against transient state.
+		const data = this.effectiveData;
+		const rootPath = data?.root?.path;
+		if (rootPath == null) return;
+
+		const relPath = toRepoRelative(rootPath, absPath);
+		if (relPath == null) return;
+
+		this._ipc?.sendCommand(TreemapFileActionCommand, {
+			action: action,
+			repoPath: rootPath,
+			path: relPath,
+		});
+	}
+
+	/** Locate the agent session currently reading or writing the clicked file. Both sides are
+	 *  normalized to repo-relative paths first — sessions in sibling worktrees of the same repo
+	 *  family carry absolute paths anchored at their own `worktreePath`, so a raw `===` against the
+	 *  active worktree's `node.path` would miss every cross-worktree match. Returns the first
+	 *  match; if multiple sessions touch the same file we just pick whoever sorts first (rare and
+	 *  not worth a UI for now). */
+	private findSessionForFile(absPath: string): AgentSessionState | undefined {
+		const data = this.effectiveData;
+		const rootPath = data?.root?.path;
+		if (rootPath == null) return undefined;
+
+		const nodeRel = toRepoRelative(rootPath, absPath);
+		if (nodeRel == null) return undefined;
+
+		for (const session of this.repoFamilySessions) {
+			const sessionBase = session.worktreePath ?? session.commonPath;
+			if (sessionBase == null) continue;
+
+			const files = session.currentFiles;
+			if (files != null) {
+				for (const p of files) {
+					if (toRepoRelative(sessionBase, p) === nodeRel) return session;
+				}
+			}
+			const reads = session.currentReads;
+			if (reads != null) {
+				for (const p of reads) {
+					if (toRepoRelative(sessionBase, p) === nodeRel) return session;
+				}
+			}
+		}
+		return undefined;
+	}
 
 	/** Description that trails the breadcrumbs in the toolbar — file count for Files / Activity
 	 *  and a "X files · Y commits" pair for Commits. Scoped to whatever the current zoom path is

@@ -80,6 +80,10 @@ export interface TreemapZoomChangeDetail {
 	path: TreemapNode[];
 }
 
+export interface TreemapFileClickDetail {
+	node: TreemapNode;
+}
+
 /**
  * Canvas-based treemap renderer. Pure presentation: takes a tree + (optional) commit frequencies +
  * a mode and draws a squarified treemap. Owns interactive zoom/breadcrumbs and tooltip; emits
@@ -725,9 +729,10 @@ export class GlTreemapChart extends LitElement {
 		// re-render. mousemove fires at ~60Hz, so guarding the writes (set only on actual change)
 		// avoids running the entire update/render pipeline per mouse pixel.
 		if (node != null) {
-			const nextCursor = node.children.length > 0 ? 'pointer' : 'default';
-			if (canvas.style.cursor !== nextCursor) {
-				canvas.style.cursor = nextCursor;
+			// Every non-root hit is now actionable — folders zoom, file leaves dispatch
+			// `gl-treemap-file-click` (wrapper routes to open / file history / focus session).
+			if (canvas.style.cursor !== 'pointer') {
+				canvas.style.cursor = 'pointer';
 			}
 			const nextText = this.getTooltipText(node);
 			if (this._tooltipText !== nextText) {
@@ -769,14 +774,20 @@ export class GlTreemapChart extends LitElement {
 		const hit = this.hitTest(e.clientX - rect.left, e.clientY - rect.top);
 		if (hit == null) return;
 
-		// Folder click → zoom into that folder. File click → zoom to its parent folder so the user
-		// can keep scoping in via the canvas without having to find and click a tiny folder header.
-		// Skips `hit.parent === layout` (the synthetic root) because zooming to root means "no zoom"
-		// and that's already the default when no folder has been clicked.
-		const target = hit.children.length > 0 ? hit.data : hit.parent?.parent != null ? hit.parent.data : undefined;
-		if (target != null) {
-			this.zoomTo(target);
+		// Folder click → zoom into that folder. File click → emit a domain-agnostic `file-click`
+		// event; the wrapper interprets it per mode (open / file history / focus agent session).
+		if (hit.data.type === 'file') {
+			this.dispatchEvent(
+				new CustomEvent<TreemapFileClickDetail>('gl-treemap-file-click', {
+					detail: { node: hit.data },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			return;
 		}
+
+		this.zoomTo(hit.data);
 	};
 
 	/** Programmatically zoom to a specific node. Public so the wrapper's toolbar breadcrumbs can
@@ -892,6 +903,7 @@ function resolvePathInTree(root: TreemapNode, path: TreemapNode[]): TreemapNode[
 declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-treemap-zoom-change': CustomEvent<TreemapZoomChangeDetail>;
+		'gl-treemap-file-click': CustomEvent<TreemapFileClickDetail>;
 	}
 	interface HTMLElementTagNameMap {
 		'gl-treemap-chart': GlTreemapChart;

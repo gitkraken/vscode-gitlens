@@ -985,8 +985,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// React root + GK GraphContainer) that produces a visible "smaller, then bigger"
 		// resize when returning from Visual History. Mirrors the always-render pattern used
 		// by `renderDetailsPanel`. Alternate-mode bodies still mount/unmount on demand.
+		// `gl-graph-kanban-open-session` is listened for at the pane-body level (not on
+		// `<gl-graph-kanban>` alone) so both the kanban view AND the Activity-mode treemap inside
+		// `<gl-graph-visualizations>` can route a session-card / file click through the same
+		// handler. These two subtrees are mutually exclusive sibling render branches — without
+		// hoisting, a bubbled event from the treemap would never reach a listener.
 		return html`
-			<div class="graph__graph-pane-body">
+			<div class="graph__graph-pane-body" @gl-graph-kanban-open-session=${this.handleKanbanOpenSession}>
 				${when(
 					this.graphState.config?.sidebar,
 					() =>
@@ -1012,10 +1017,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private renderKanbanMain() {
-		return html`<gl-graph-kanban
-			@gl-graph-kanban-close=${this.handleAlternateModeClose}
-			@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
-		></gl-graph-kanban>`;
+		return html`<gl-graph-kanban @gl-graph-kanban-close=${this.handleAlternateModeClose}></gl-graph-kanban>`;
 	}
 
 	private handleAlternateModeClose = (): void => {

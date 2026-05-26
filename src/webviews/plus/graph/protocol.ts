@@ -512,6 +512,18 @@ export interface RowActionParams {
 }
 export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
 
+export interface TreemapFileActionParams {
+	action: 'open' | 'history';
+	/** Repo this click belongs to — the host rehydrates the file URI via
+	 *  `Uri.joinPath(repository.uri, path)` so the original scheme (file://, vscode-vfs://, etc.)
+	 *  is preserved for virtual workspaces. */
+	repoPath: string;
+	/** Forward-slash, repo-relative path of the clicked treemap leaf. Relative (not absolute) so
+	 *  the host can scheme-preserve the rehydration; `vscode.Uri` instances can't cross IPC. */
+	path: string;
+}
+export const TreemapFileActionCommand = new IpcCommand<TreemapFileActionParams>(scope, 'treemap/file/action');
+
 export interface SearchOpenInViewParams {
 	search: SearchQuery;
 }
