@@ -2666,7 +2666,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
 							{ cancellation: signal },
 						),
-						svc.pausedOps?.getPausedOperationStatus?.(signal),
+						// `force` so a missed `'pausedOp'` FS-watcher tick on this secondary worktree
+						// can't leave the WIP row stuck on a stale in-progress indicator.
+						svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
 					]);
 					if (cancellation.token.isCancellationRequested) return;
 
@@ -6845,7 +6847,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
 				{ cancellation: signal },
 			),
-			svc.pausedOps?.getPausedOperationStatus?.(signal),
+			// `force` so a missed `'pausedOp'` FS-watcher tick (common on secondary worktrees
+			// whose `GlRepository` is closed) can't leave the WIP row stuck on a stale indicator.
+			svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
 		]);
 		const status = getSettledValue(statusResult);
 		if (status == null) return undefined;
@@ -6979,7 +6983,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 			hasWorkingChanges ? svc.status.getStatus(undefined, toAbortSignal(cancellation)) : undefined,
-			svc.pausedOps?.getPausedOperationStatus?.(toAbortSignal(cancellation)),
+			// `force` so a missed `'pausedOp'` FS-watcher tick can't leave the primary's working-tree
+			// badges stuck on a stale in-progress indicator after a CLI-driven completion.
+			svc.pausedOps?.getPausedOperationStatus?.({ force: true }, toAbortSignal(cancellation)),
 		]);
 
 		if (cancellation?.isCancellationRequested) return undefined;

@@ -43,9 +43,17 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	@debug()
 	getPausedOperationStatus(
 		repoPath: string,
+		options?: { force?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<GitPausedOperationStatus | undefined> {
 		const scope = getScopedLogger();
+
+		// Self-heal callers (WIP refresh) bypass the cache so a missed `'pausedOp'` FS-watcher
+		// event (CLI-driven completion, torn-down secondary-worktree watcher) can't leave the
+		// status stuck — the readdir-based detection is cheap enough to repeat on every tick.
+		if (options?.force) {
+			this.cache.pausedOperationStatus.delete(repoPath);
+		}
 
 		const status = this.cache.pausedOperationStatus.getOrCreate(repoPath, async _cancellable => {
 			const gitDir = await this.provider.config.getGitDir(repoPath);

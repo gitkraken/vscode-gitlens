@@ -329,7 +329,9 @@ export async function getOverviewWip(
 			const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 				statusPromise,
 				isActive
-					? container.git.getRepositoryService(repoPath).pausedOps?.getPausedOperationStatus?.(signal)
+					? container.git
+							.getRepositoryService(repoPath)
+							.pausedOps?.getPausedOperationStatus?.(undefined, signal)
 					: undefined,
 			]);
 
