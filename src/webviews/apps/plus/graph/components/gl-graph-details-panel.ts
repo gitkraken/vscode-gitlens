@@ -222,6 +222,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _workflow!: DetailsWorkflowController;
 
 	private _servicesResolved = false;
+	private _pendingCompare?: {
+		params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0];
+		onReady?: () => void;
+	};
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
@@ -509,14 +513,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
 	 *  overrides. */
-	openCompareMode(params: {
-		repoPath: string;
-		leftRef?: string;
-		leftRefType?: 'branch' | 'tag' | 'commit';
-		rightRef: string;
-		rightRefType?: 'branch' | 'tag' | 'commit';
-		includeWorkingTree?: boolean;
-	}): void {
+	openCompareMode(
+		params: {
+			repoPath: string;
+			leftRef?: string;
+			leftRefType?: 'branch' | 'tag' | 'commit';
+			rightRef: string;
+			rightRefType?: 'branch' | 'tag' | 'commit';
+			includeWorkingTree?: boolean;
+		},
+		onReady?: () => void,
+	): boolean {
+		if (this._workflow == null) {
+			this._pendingCompare = { params: params, onReady: onReady };
+			return false;
+		}
+
+		if (onReady != null) {
+			onReady();
+		}
 		const selection: DetailsSelection = {
 			...this.currentSelection(),
 			repoPath: params.repoPath,
@@ -528,6 +543,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			rightRefType: params.rightRefType,
 			includeWorkingTree: params.includeWorkingTree,
 		});
+		return true;
 	}
 
 	/** Entry point for the WIP-row agent indicator. Expands the agents section.
@@ -1462,6 +1478,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
+
+		if (this._pendingCompare != null) {
+			const { params, onReady } = this._pendingCompare;
+			this._pendingCompare = undefined;
+			this.openCompareMode(params, onReady);
+		}
 
 		void this._actions.fetchCapabilities();
 		// Fetched eagerly (not gated on isWip) because resolveServices runs once on
