@@ -103,21 +103,30 @@ export async function startReviewFromLaunchpadItem(
 				? { type: 'startReview', pr: serializePullRequest(pr), instructions: instructions, agent: agent }
 				: undefined,
 		);
-	} else {
-		// Worktree already exists - handle chat and workspace opening manually
-		if (openChatOnComplete) {
-			await storeChatActionDeepLink(
-				container,
-				{
-					type: 'startReview',
-					pr: serializePullRequest(pr),
-					instructions: instructions,
-					agent: agent,
-					worktreePath: worktree.uri.fsPath,
-				},
-				worktree.uri.fsPath,
-			);
+	} else if (openChatOnComplete) {
+		// Worktree already exists - handle chat and workspace opening manually.
+		// Agent-aware dispatch mirrors createPullRequestWorktree:
+		//   - CLI agent: dispatch inline in the current window with `cwd = worktree.uri.fsPath`.
+		//     A window switch would tear down the terminal before it can run the prompt.
+		//   - Non-CLI (IDE chat, Claude extension) or legacy: stash the deep link and open the
+		//     new window so the bridge fires on activation.
+		const chatAction: StartReviewChatAction = {
+			type: 'startReview',
+			pr: serializePullRequest(pr),
+			instructions: instructions,
+			agent: agent,
+			worktreePath: worktree.uri.fsPath,
+		};
+
+		if (agent?.kind === 'cli') {
+			void executeCommand('gitlens.openChatAction', {
+				chatAction: chatAction,
+			} as OpenChatActionCommandArgs);
+		} else {
+			await storeChatActionDeepLink(container, chatAction, worktree.uri.fsPath);
+			openWorkspace(worktree.uri, { location: 'newWindow' });
 		}
+	} else {
 		openWorkspace(worktree.uri, { location: 'newWindow' });
 	}
 
