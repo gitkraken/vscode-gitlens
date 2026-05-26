@@ -248,23 +248,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Per-session snapshot of category + pending-permission identity from the last update.
 	 *  Drives the auto-partial trigger in {@link applyAgentAutoSurface}: a session that newly
 	 *  enters `needs-input`, or whose pending permission key changes while it stays in
-	 *  needs-input, flips `_agentStatusAutoPartial` true. */
+	 *  needs-input, flips `_agentStatusAutoPartial` true. Cleared on every selection change in
+	 *  {@link willUpdate} so re-entering a WIP row re-treats current sessions as freshly seen —
+	 *  any pending needs-input session re-surfaces partial mode automatically. */
 	private _prevAgentSnapshot: Map<string, { category: AgentSessionCategory; permKey: string }> = new Map();
-
-	/** Measured natural pixel size of the agents pane, locked on each visible-card-count
-	 *  change. Stops the pane from re-sizing as individual cards' inner content grows/shrinks
-	 *  (agent status detail, prompt body, etc.) — only a card count change re-measures. Applied
-	 *  only in collapsed / partial states: while unset there, the split-panel falls back to the
-	 *  CSS `--auto-size` rule (`fit-content(var(--_start-size))`) or `--no-cards` (`max-content`).
-	 *  Cleared unconditionally on entry to expanded mode — there the splitter position drives
-	 *  the pane size directly via the split-panel's default grid template, with no fit-content
-	 *  fallback and no measured lock. */
-	@state()
-	private _agentStatusLockedSize?: string;
-
-	/** Last visible-card count the locked size was measured against. `-1` forces an initial
-	 *  measurement on first paint. */
-	private _agentStatusLockedForCount = -1;
 
 	/** Worktree-matched agent sessions captured once per update cycle in {@link willUpdate}.
 	 *  Both `applyAgentAutoSurface` (the auto-partial trigger) AND `renderWip` (the source for
@@ -329,67 +316,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this._agentStatusAutoPartial ? 'partial' : 'collapsed';
 	}
 
-	/** Measures the natural pane height for the current visible-card set and locks it.
-	 *  Polls the inner `.section` element's natural height every 50ms for ~400ms and locks to
-	 *  the MAXIMUM observed value — `agentStatus.updateComplete` and `ResizeObserver` both fail
-	 *  here because nested web components (gl-tooltip / gl-popover / gl-action-chip /
-	 *  gl-agent-prompt-detail) finish their upgrade + render cycles at unpredictable later
-	 *  paint frames. The section grows monotonically as those settle; tracking the max captures
-	 *  the post-settled height even if a stability check would lock early on a transient small
-	 *  reading. */
-	private async measureAgentStatusHeight(): Promise<void> {
-		const lockedForCount = this._agentStatusLockedForCount;
-		const agentStatus = this.renderRoot.querySelector('gl-details-agent-status');
-		// Section element lives in agent-status's shadow DOM — that's the actual content node
-		// whose height reflects the card list, even when the outer `.agent-status-split__top`
-		// wrapper is constrained by a stale lock.
-		const section = (agentStatus as { renderRoot?: ParentNode } | null)?.renderRoot?.querySelector(
-			'.section',
-		) as HTMLElement | null;
-		if (section == null) return;
-
-		const intervalMs = 50;
-		const iterations = 8;
-		let maxHeight = 0;
-		for (let i = 0; i < iterations; i++) {
-			await new Promise<void>(resolve => setTimeout(resolve, intervalMs));
-			// Bail if disconnected — late writes would land on a detached host and a re-mount
-			// would inherit a stale measurement taken against the OLD shadow-DOM nodes.
-			if (!this.isConnected) return;
-			// Bail if the count changed while we were waiting — a newer measurement is in flight.
-			if (this._agentStatusLockedForCount !== lockedForCount) return;
-
-			const h = section.offsetHeight;
-			if (h > maxHeight) {
-				maxHeight = h;
-			}
-		}
-		if (maxHeight > 0) {
-			this._agentStatusLockedSize = `${maxHeight}px`;
-		}
-	}
-
-	/** Visible-card count for the agents pane under the current derived expand state.
-	 *  Drives the locked-size invalidation in {@link updated} — only a change here re-measures
-	 *  the natural pane size, not in-card content changes. Reads from {@link _cycleAgentSessions}
-	 *  (the cycle-stable snapshot captured in {@link willUpdate}) so the count, the auto-partial
-	 *  trigger, and the rendered card list all agree on a single source within an update. */
-	private agentStatusVisibleCardCount(): number {
-		const sessions = this._cycleAgentSessions;
-		if (sessions == null || sessions.length === 0) return 0;
-
-		const cats = expandVisibleCategories[this.agentStatusExpand];
-		if (cats.size === 0) return 0;
-
-		let count = 0;
-		for (const s of sessions) {
-			if (cats.has(agentPhaseToCategory[s.phase])) {
-				count++;
-			}
-		}
-		return count;
-	}
-
 	/** Diff incoming worktree-matched sessions against the prior snapshot and flip
 	 *  `_agentStatusAutoPartial` according to the rules:
 	 *   - Any session that wasn't `needs-input` before and is now → surface (true).
@@ -397,7 +323,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *   - No needs-input remaining → clear (auto-collapse out of partial).
 	 *  Called from {@link willUpdate} only when the panel is rendering a WIP row with resolved
 	 *  wip data — so the snapshot reflects the current worktree's session set. Off-WIP cycles
-	 *  skip this entirely, preserving the prior snapshot for when the user returns. */
+	 *  skip this entirely; the snapshot is wiped on every selection change in {@link willUpdate}
+	 *  so re-entering a WIP row replays the diff against an empty `_prevAgentSnapshot` and any
+	 *  pending needs-input session re-triggers partial mode. */
 	private applyAgentAutoSurface(sessions: AgentSessionState[] | undefined): void {
 		const next = new Map<string, { category: AgentSessionCategory; permKey: string }>();
 		let anyNeedsInput = false;
@@ -1061,6 +989,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const selectionChanged =
 			changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath');
 
+		// On any selection change, drop the per-session snapshot that `applyAgentAutoSurface`
+		// diffs against. Entering a WIP row (from another WIP row, a commit, or anywhere else)
+		// then re-treats every current session as "newly seen", so a still-pending needs-input
+		// session re-surfaces partial mode automatically — matching the user expectation that
+		// leaving and returning to a WIP row re-opens the auto-surface peek. Has no effect on
+		// non-WIP selections: `applyAgentAutoSurface` only runs when worktree-matched sessions
+		// are non-empty (gated in willUpdate below), so a wiped snapshot is harmless there and
+		// gets repopulated the next time we land on a WIP row with sessions.
+		if (selectionChanged && this._prevAgentSnapshot.size > 0) {
+			this._prevAgentSnapshot = new Map();
+		}
+
 		// Locked-panel case: a commit/multi-commit running session keeps the details panel
 		// anchored to its entry-time selection even when the graph's selection moves elsewhere.
 		// Skip both the controller-side anchor-switch AND the selection-driven fetch so the
@@ -1181,11 +1121,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// symptom: chevron at 45deg over an empty section, only resolved by the next unrelated
 		// update).
 		// `_cycleAgentSessions` is REFRESHED every cycle (set to whatever the match returns,
-		// including `undefined` or `[]`). The diff side-effect — `applyAgentAutoSurface` and
-		// its `_prevAgentSnapshot` — is what's preserved across "no useful data" cycles: we
-		// skip the call when the match returns undefined or an empty array so a transient
-		// empty-match window doesn't wipe `_prevAgentSnapshot` and re-trigger a stale
-		// acknowledge moments later.
+		// including `undefined` or `[]`). `_prevAgentSnapshot` is preserved across "no useful
+		// data" cycles WITHIN a selection: we skip the call when the match returns undefined or
+		// an empty array so a transient empty-match window doesn't wipe the snapshot and
+		// re-trigger a stale acknowledge moments later. Across SELECTIONS the snapshot is wiped
+		// at the top of willUpdate so re-entering a WIP row re-evaluates current sessions fresh.
 		const wip = this.isWip ? this._state.wip.get() : undefined;
 		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
 		this._cycleAgentSessions = sessions;
@@ -1378,47 +1318,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// captures HEAD-move clears, manual amend toggles, AI generations, and user typing
 		// through a single debounced exit point.
 		this.maybeScheduleWipDraftFlush();
-
-		// Lock the agents-pane size to its natural height for the current visible-card count.
-		// Only re-measures when the count itself changes; in-card content fluctuations (status
-		// detail, prompt body) no longer reflow the pane. Unlocked for the one frame between
-		// count-change and measurement so CSS `--auto-size` fit-content provides the natural
-		// fallback while the new card lays out. Skipped entirely in `expanded` mode — there the
-		// splitter position is authoritative (no fit-content, no measured lock).
-		const isExpanded = this.agentStatusExpand === 'expanded';
-		if (isExpanded) {
-			// Clear any prior lock so re-entering collapsed/partial re-measures cleanly and the
-			// inline style below removes any stale pixel cap from a previous non-expanded cycle.
-			if (this._agentStatusLockedForCount !== -1 || this._agentStatusLockedSize != null) {
-				this._agentStatusLockedForCount = -1;
-				this._agentStatusLockedSize = undefined;
-			}
-		} else {
-			const visCount = this.agentStatusVisibleCardCount();
-			if (visCount !== this._agentStatusLockedForCount) {
-				this._agentStatusLockedForCount = visCount;
-				this._agentStatusLockedSize = undefined;
-				if (visCount > 0) {
-					void this.measureAgentStatusHeight();
-				}
-			}
-		}
-
-		// Apply the lock imperatively to the split-panel host — `style.setProperty` cooperates
-		// with split-panel's own `style.setProperty('--_start-size', ...)` writes (both leave
-		// the other's declarations intact). A Lit `style=...` attribute binding would instead
-		// clobber the entire inline style each render, racing with split-panel and losing.
-		// In expanded mode the inline override is never set: the splitter position drives the
-		// pane size directly via the split-panel's default grid template.
-		const splitPanel = this.renderRoot.querySelector('gl-split-panel.agent-status-split');
-		if (splitPanel instanceof HTMLElement) {
-			const lockedSize = !isExpanded ? this._agentStatusLockedSize : undefined;
-			if (lockedSize != null) {
-				splitPanel.style.setProperty('--gl-split-panel-start-size', lockedSize);
-			} else {
-				splitPanel.style.removeProperty('--gl-split-panel-start-size');
-			}
-		}
 	}
 
 	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats
@@ -1812,16 +1711,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const agentStatusExpand = this.agentStatusExpand;
 		const agentStatusIsExpanded = agentStatusExpand === 'expanded';
 		const agentStatusUseUserSize = agentStatusIsExpanded && this._agentStatusSplitAdjusted;
-		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : 25;
+		// Auto-cap differentiates by mode: 80% for expanded (splitter-authoritative), 50% for
+		// partial (peek with one or two needs-input cards — generous so the cards aren't clipped),
+		// 25% for collapsed (heading bar only). The cap drives `--_start-size`, which `--auto-size`
+		// then wraps as `fit-content(<cap>)` so the pane shrinks to natural content height below
+		// the cap but never exceeds it.
+		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : agentStatusExpand === 'partial' ? 50 : 25;
 		const agentStatusPosition = agentStatusUseUserSize
 			? (this._agentStatusSplitPosition ?? agentStatusAutoCap)
 			: agentStatusAutoCap;
-		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — where
-		// the section is non-draggable and the intent is "snug to content". Expanded never uses
+		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
+		// section is non-draggable there and the intent is "snug to content". Expanded never uses
 		// it: the split-panel's default grid template (`min(--_start-size, …)`) reflects the
-		// splitter position directly. The measured lock (`_agentStatusLockedSize`) likewise
-		// applies only to non-expanded states via the inline style in `updated()`.
-		const useAutoSize = !agentStatusIsExpanded && this._agentStatusLockedSize == null;
+		// splitter position directly.
+		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
 		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
 		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
