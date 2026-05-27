@@ -59,6 +59,7 @@ export class GlFeatureBadge extends LitElement {
 				border-radius: 1rem;
 				padding: 0 0.8rem 0.1rem 0.8rem;
 				white-space: nowrap;
+				display: inline-block;
 			}
 
 			.badge:focus-visible {

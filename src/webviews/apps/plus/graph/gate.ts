@@ -15,6 +15,11 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
 		css`
+			gl-feature-gate::part(section) {
+				width: 90vw;
+				max-width: 90rem;
+			}
+
 			.intro {
 				display: flex;
 				flex-direction: column;
@@ -44,13 +49,21 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 				line-height: 1.5;
 			}
 
+			.intro__lede--sub {
+				display: inline-block;
+				margin: 0;
+				color: var(--color-foreground--85);
+				line-height: 1.5;
+				font-size: 1.1rem;
+			}
+
 			.intro__features {
 				list-style: none;
 				margin-block: 0.6rem;
 				margin-inline: 0;
 				padding: 1.2rem;
-				display: flex;
-				flex-direction: column;
+				display: grid;
+				grid-template-columns: repeat(2, 1fr);
 				gap: 1.2rem;
 				background: color-mix(in srgb, #000 18%, transparent);
 				border-radius: 0.6rem;
@@ -61,6 +74,15 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 				align-items: flex-start;
 				gap: 0.8rem;
 				line-height: 1.5;
+				font-size: 1.1rem;
+				opacity: 0.9;
+			}
+
+			.intro__feature strong {
+				text-transform: uppercase;
+				margin-right: 0.4rem;
+				font-size: 1.2rem;
+				opacity: 1;
 			}
 
 			.intro__feature code-icon {
@@ -101,36 +123,59 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 					></gl-feature-badge>
 				</h2>
 				<p class="intro__lede">
-					Where your development and agentic workflows come together. Go beyond history visualization to
-					manage, execute, and parallelize your entire Git workflow.
+					Where your development and agentic workflows come together
+					<span class="intro__lede--sub"
+						>Parallelize your workflow—manage multiple active worktrees, orchestrate concurrent agents, and
+						execute your entire Git lifecycle without context-switching</span
+					>
 				</p>
 				<ul class="intro__features">
 					<li class="intro__feature">
-						<code-icon icon="pass"></code-icon>
+						<code-icon icon="layout"></code-icon>
 						<span
-							><strong>Deep Visualization:</strong> Instantly search commits, branches, files, and code
-							changes across your entire repository history.</span
+							><strong>Unified Workspace</strong> Centralize your workflow with the Side Bar and dockable
+							Details Panel. Detach the graph into a separate window to maximize your editor space</span
+						>
+					</li>
+
+					<li class="intro__feature">
+						<code-icon icon="robot"></code-icon>
+						<span
+							><strong>Orchestrate Agents</strong> Launch, monitor, and interact with agents from the
+							graph, Agents Side Bar, or Kanban board to approve permissions and view execution plans
+							inline</span
 						>
 					</li>
 					<li class="intro__feature">
-						<code-icon icon="pass"></code-icon>
+						<code-icon icon="shield"></code-icon>
 						<span
-							><strong>Visual Command Center:</strong> Compare branches, review PRs, and compose commits
-							directly from the interactive canvas.</span
+							><strong>Command Center</strong> Review changes, stage files, create or compose commits, and
+							resolve conflicts. On a clean worktree the Details Panel guides your next steps—like
+							pulling, pushing, or drafting a PR</span
 						>
 					</li>
 					<li class="intro__feature">
-						<code-icon icon="pass"></code-icon>
+						<code-icon icon="arrow-swap"></code-icon>
 						<span
-							><strong>Parallel Worktrees:</strong> Manage multiple active branches side-by-side and run
-							coding agents concurrently without stashing or context-switching.</span
+							><strong>Parallelize Work</strong> Juggle multiple active worktrees and agent sessions
+							within a single view. Focus the graph on specific changes instantly to review and track
+							where agents are working in real-time</span
 						>
 					</li>
 					<li class="intro__feature">
-						<code-icon icon="pass"></code-icon>
+						<code-icon icon="wand"></code-icon>
 						<span
-							><strong>Agentic Workflows:</strong> Launch AI coding agents to automate complex development
-							tasks and track their live execution progress directly on the graph.</span
+							><strong>AI Compose & Review</strong> Bring order from chaos. Restructure changes into
+							clean, review-ready commits automatically. Catch issues early with severity-tagged reviews
+							that you can delegate directly to an agent</span
+						>
+					</li>
+					<li class="intro__feature">
+						<code-icon icon="pulse"></code-icon>
+						<span
+							><strong>Deep Visualizations</strong> Analyze repo evolution with the Visual History.
+							Pinpoint hotspots and trends or watch agent activity in real-time using the Files, Commits,
+							and Agent Activity treemaps</span
 						>
 					</li>
 				</ul>
