@@ -200,6 +200,7 @@ function createAiModelPort(container: Container, source: Source): AiModelPort {
 							outputTokens: params.maxTokens,
 							temperature: params.temperature,
 						},
+						throwAIErrors: true,
 					},
 				);
 

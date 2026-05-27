@@ -1111,6 +1111,7 @@ export class AIProviderService implements AIService, Disposable {
 			generating?: Deferred<AIModel>;
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			progress?: ProgressOptions;
+			throwAIErrors?: boolean;
 		},
 	): Promise<AIProviderResult<void> | 'cancelled' | undefined> {
 		const scope = getScopedLogger();
@@ -1355,10 +1356,14 @@ export class AIProviderService implements AIService, Disposable {
 									if (!fulfilled) {
 										options?.generating?.cancel();
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.NoRequestData:
 									void window.showInformationMessage(error.message);
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 
 								case AIErrorReason.NoEntitlement: {
@@ -1392,6 +1397,8 @@ export class AIProviderService implements AIService, Disposable {
 										}
 									}
 
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.RequestTooLarge: {
@@ -1403,6 +1410,8 @@ export class AIProviderService implements AIService, Disposable {
 									if (result === switchModel) {
 										void this.switchModel(source);
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.UserQuotaExceeded: {
@@ -1416,6 +1425,8 @@ export class AIProviderService implements AIService, Disposable {
 										void this.container.subscription.manageSubscription(source);
 									}
 
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.RateLimitExceeded: {
@@ -1428,6 +1439,8 @@ export class AIProviderService implements AIService, Disposable {
 										void this.switchModel(source);
 									}
 
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.RateLimitOrFundsExceeded: {
@@ -1439,6 +1452,8 @@ export class AIProviderService implements AIService, Disposable {
 									if (result === switchModel) {
 										void this.switchModel(source);
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.ServiceCapacityExceeded: {
@@ -1446,6 +1461,8 @@ export class AIProviderService implements AIService, Disposable {
 										'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
 										'OK',
 									);
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.ModelNotSupported: {
@@ -1457,6 +1474,8 @@ export class AIProviderService implements AIService, Disposable {
 									if (result === switchModel) {
 										void this.switchModel(source);
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.Unauthorized: {
@@ -1468,6 +1487,8 @@ export class AIProviderService implements AIService, Disposable {
 									if (result === switchModel) {
 										void this.switchModel(source);
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 								case AIErrorReason.DeniedByUser: {
@@ -1479,9 +1500,13 @@ export class AIProviderService implements AIService, Disposable {
 									if (result === switchModel) {
 										void this.switchModel(source);
 									}
+									if (options?.throwAIErrors) throw error;
+
 									return undefined;
 								}
 							}
+
+							if (options?.throwAIErrors) throw error;
 
 							return undefined;
 						}
