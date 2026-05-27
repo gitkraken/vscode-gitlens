@@ -2741,9 +2741,25 @@ export class DetailsActions {
 		this.state.generating.set(true);
 		try {
 			const currentMessage = this.state.commitMessage.get().trim() || undefined;
+
+			// When amending, the message must describe what the amend will actually produce, not
+			// just the working changes. Mirror `commit()`'s staged-vs-all decision so the host can
+			// diff against the amend's parent and fold in the existing commit's content.
+			let amend: { sha: string; all: boolean } | undefined;
+			if (this.state.amend.get()) {
+				const amendingSha = this.state.amendBaseSha.get();
+				if (amendingSha != null) {
+					const wip = this.state.wip.get();
+					const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+					const smartCommit = this.state.preferences.get()?.enableSmartCommit ?? false;
+					amend = { sha: amendingSha, all: !hasStagedFiles && smartCommit };
+				}
+			}
+
 			const result = await this.services.graphInspect.generateCommitMessage(
 				repoPath,
 				currentMessage,
+				amend,
 				controller.signal,
 			);
 			// Guard against a late response after the user cancelled or kicked off

@@ -280,6 +280,7 @@ export interface GraphInspectService {
 	generateCommitMessage(
 		repoPath: string,
 		currentMessage: string | undefined,
+		amend: { sha: string; all: boolean } | undefined,
 		signal?: AbortSignal,
 	): Promise<{ summary: string; body?: string } | undefined>;
 	composeChanges(
