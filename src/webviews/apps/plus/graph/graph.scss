@@ -1788,12 +1788,14 @@ web-graph {
 			flex: 1;
 			min-height: 0;
 
-			// Auto-size mode caps the agents pane at the current `--_start-size` (set by
-			// split-panel from the `position` attribute the host forces — 25% for
-			// collapsed/partial, 80% for expanded). Below the cap the row uses `fit-content` so
-			// it shrinks to natural content height when there are few cards.
+			// Auto-size mode (collapsed / partial) caps the agents pane at a fixed 80% — content
+			// in these modes (heading bar or a handful of needs-input cards) almost always lands
+			// well below the cap, so `fit-content` resolves to the natural content height. The
+			// cap matters only in the edge case of many concurrent needs-input cards in partial
+			// mode, where it prevents the auto-peek from completely swallowing the WIP content.
+			// Kept in sync with `AGENT_STATUS_MAX_PCT` in gl-graph-details-panel.ts.
 			&--auto-size:not([dragging]) {
-				--gl-split-panel-start-size: fit-content(var(--_start-size, 25%));
+				--gl-split-panel-start-size: fit-content(80%);
 			}
 
 			// When the agent-status section is showing no cards (collapsed — bar only — or
