@@ -1535,7 +1535,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { ok: false, reason: 'error', message: message };
 					}
 				},
-				generateCommitMessage: async (repoPath, currentMessage, signal) => {
+				generateCommitMessage: async (repoPath, currentMessage, amend, signal) => {
 					// Pass the Repository (not a raw diff) so the AI service applies its
 					// staged-first → unstaged-fallback convention. The previous implementation
 					// always grabbed the full uncommitted diff (staged + unstaged), which produced
@@ -1548,8 +1548,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const repo = this.container.git.getRepository(repoPath);
 						if (repo == null) return undefined;
 
+						// When amending, generate against what the amend will actually produce: the
+						// existing commit's content plus the changes being folded in. Diff from the
+						// amend target's parent (`sha^`) to the index (staged-only) or working tree
+						// (`all`), matching the staged-vs-all decision the commit itself makes. If
+						// that yields nothing (a message-only amend with no new changes), fall back
+						// to the existing commit's own diff so the AI still has content to describe.
+						let changesOrRepo: GlRepository | string = repo;
+						if (amend != null) {
+							const from = `${amend.sha}^`;
+							let diff = await repo.git.diff.getDiff?.(
+								amend.all ? uncommitted : uncommittedStaged,
+								from,
+								undefined,
+								signal,
+							);
+							if (!diff?.contents) {
+								diff = await repo.git.diff.getDiff?.(amend.sha, undefined, undefined, signal);
+							}
+							if (diff?.contents) {
+								changesOrRepo = diff.contents;
+							}
+						}
+
 						const result = await this.container.ai.actions.generateCommitMessage(
-							repo,
+							changesOrRepo,
 							{ source: 'graph-details' },
 							{ context: currentMessage, cancellation: cancellation },
 						);
