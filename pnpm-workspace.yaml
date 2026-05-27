@@ -3,31 +3,31 @@ packages:
     - 'packages/*'
     - 'packages/plus/*'
 
+allowBuilds:
+    '@parcel/watcher': false
+    '@playwright/browser-chromium': false
+    '@swc/core': false
+    '@vscode/vsce-sign': false
+    es5-ext: false
+    esbuild: false
+    keytar: false
+    rs-module-lexer: false
+    sharp: false
+    ttf2woff2: false
+    unrs-resolver: false
+
+blockExoticSubdeps: true
+
 catalog:
     '@types/mocha': 10.0.10
     '@types/sinon': 21.0.1
-    mocha: 11.7.5
-    sinon: 21.1.2
-    tinybench: 6.0.1
-    tsx: 4.21.0
+    mocha: 11.7.6
+    sinon: 22.0.0
+    tinybench: 6.0.2
+    tsx: 4.22.3
     typescript: 6.0.3
 
-blockExoticSubdeps: true
 enableGlobalVirtualStore: true
-
-ignoredBuiltDependencies:
-    - '@parcel/watcher'
-    - '@playwright/browser-chromium'
-    - '@swc/core'
-    - '@vscode/vsce-sign'
-    - es5-ext
-    - esbuild
-    - keytar
-    - protobufjs
-    - rs-module-lexer
-    - sharp
-    - ttf2woff2
-    - unrs-resolver
 
 minimumReleaseAge: 7200
 
@@ -35,7 +35,12 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'marked@18.0.4'
+
+packageExtensions:
+    '@gitkraken/gitkraken-components':
+        dependencies:
+            '@types/react': '*'
+            '@types/react-dom': '*'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

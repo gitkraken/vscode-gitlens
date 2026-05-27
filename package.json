@@ -28678,8 +28678,8 @@
 		"playwright": "1.60.0",
 		"prettier": "3.8.3",
 		"regex-to-strings": "2.1.0",
-		"sass-embedded": "1.99.0",
-		"sass-loader": "16.0.8",
+		"sass-embedded": "1.100.0",
+		"sass-loader": "17.0.0",
 		"schema-utils": "4.3.3",
 		"sharp": "0.34.5",
 		"sinon": "catalog:",
@@ -28696,16 +28696,6 @@
 		"webpack-require-from": "1.8.6",
 		"zod": "4.4.3"
 	},
-	"pnpm": {
-		"packageExtensions": {
-			"@gitkraken/gitkraken-components": {
-				"dependencies": {
-					"@types/react": "*",
-					"@types/react-dom": "*"
-				}
-			}
-		}
-	},
 	"resolutions": {
 		"@types/vscode": "1.101.0",
 		"esbuild": "0.28.0",
@@ -28714,5 +28704,5 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"
 	},
-	"packageManager": "pnpm@10.33.4"
+	"packageManager": "pnpm@11.4.0"
 }
