@@ -68,7 +68,9 @@ export async function resolveDetailsActions(
 		commit: createResource((signal, repoPath: string, sha: string) =>
 			graphInspect.getCommit(repoPath, sha, signal),
 		),
-		wip: createResource((signal, repoPath: string) => graphInspect.getWip(repoPath, signal)),
+		wip: createResource((signal, repoPath: string, force?: boolean) =>
+			graphInspect.getWip(repoPath, signal, force),
+		),
 		compare: createResource((signal, repoPath: string, fromSha: string, toSha: string) =>
 			graphInspect.getCompareDiff(repoPath, fromSha, toSha, signal),
 		),

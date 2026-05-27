@@ -1441,8 +1441,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (repoPath == null) return;
 
 		// Bypass fetchDetails dedup so a same-selection click always re-queries the host.
+		// `force` bypasses the host's `_wipStatusCache` for a genuinely fresh `git status`.
 		if (this.isWip) {
-			void this._actions.refetchWipQuiet(repoPath);
+			void this._actions.refetchWipQuiet(repoPath, true);
 			void this._actions.fetchBranchCommits(repoPath);
 		} else if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, repoPath, this.commitLites);
@@ -2566,8 +2567,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private handleRefreshWip = () => {
-		this._actions.refreshWip();
-		void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
+		// The WIP refresh button must run a genuinely fresh `git status` — route through
+		// `refetchWipQuiet(force=true)` which bypasses the host's `_wipStatusCache` and reseeds
+		// both the panel's file list AND the header/row `workingTreeStats`. The old path
+		// (`refreshWip()` + `fetchDetails()`) hit the cache-hit branch and re-applied a possibly
+		// stale cached value — the button appeared to do nothing.
+		const repoPath = this.effectiveRepoPath;
+		if (this.isWip && repoPath != null) {
+			void this._actions.refetchWipQuiet(repoPath, true);
+		} else {
+			this._actions.refreshWip();
+			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
+		}
 	};
 
 	private handleSwitchBranch = () => this._actions.switchBranch(this.effectiveRepoPath);
