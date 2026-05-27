@@ -7490,8 +7490,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (!isActiveAgentPhase(s.phase) && !recent) continue;
 
 			const branch = graph.branches.get(s.worktree.branch.name);
-			if (branch != null && !refs.has(branch.id)) {
+			if (branch == null) continue;
+
+			if (!refs.has(branch.id)) {
 				refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
+			}
+			// Mirror `getVisibleRefs`: pull in the upstream so the remote tracking branch is
+			// kept in the include set alongside its local. Without this the graph drops the
+			// `origin/<branch>` label and any commits only reachable from the upstream side.
+			const upstreamRef = convertBranchUpstreamToIncludeOnlyRef(branch);
+			if (upstreamRef != null && !refs.has(upstreamRef.id)) {
+				refs.set(upstreamRef.id, upstreamRef);
 			}
 		}
 		return refs;
