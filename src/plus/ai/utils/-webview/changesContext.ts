@@ -125,6 +125,7 @@ async function resolveOwningBranchForCommits(
 		return undefined;
 	}
 	if (!names.length) return undefined;
+
 	signal?.throwIfAborted?.();
 
 	let allBranches;
@@ -174,6 +175,7 @@ async function collectBranchAssociations(
 	if (issues != null) {
 		for (const issue of issues) {
 			if (items.length >= maxItems) break;
+
 			registerItem(items, seen, issueToItem(issue, { source: 'branch-associated', branch: branch.name }));
 		}
 	}
@@ -191,6 +193,7 @@ async function collectCommitAutolinks(
 	for (const commit of commits) {
 		if (items.length >= maxItems) break;
 		if (!commit.message || seenMessages.has(commit.message)) continue;
+
 		seenMessages.add(commit.message);
 
 		let enriched;
@@ -209,8 +212,10 @@ async function collectCommitAutolinks(
 
 		for (const settled of resolutions) {
 			if (items.length >= maxItems) break;
+
 			const value = getSettledValue(settled);
 			if (value == null) continue;
+
 			registerItem(items, seen, issueOrPrToItem(value, { source: 'autolink', commit: commit.sha }));
 		}
 	}
@@ -218,8 +223,10 @@ async function collectCommitAutolinks(
 
 function registerItem(items: ChangesContextItem[], seen: Set<string>, item: ChangesContextItem | undefined): boolean {
 	if (item == null) return false;
+
 	const key = `${item.kind}:${item.url || `${providerKeyFallback(item)}:${item.id}`}`;
 	if (seen.has(key)) return false;
+
 	seen.add(key);
 	items.push(item);
 	return true;
@@ -282,6 +289,7 @@ async function resolveMaybePaused<T>(
 	if (result == null) return undefined;
 	if (!result.paused) return result.value;
 	if (signal?.aborted) return undefined;
+
 	try {
 		return await result.value;
 	} catch {
@@ -291,6 +299,7 @@ async function resolveMaybePaused<T>(
 
 function truncateBody(body: string | undefined): string | undefined {
 	if (!body) return undefined;
+
 	const trimmed = body.trim();
 	if (!trimmed) return undefined;
 	if (trimmed.length <= maxBodyChars) return trimmed;

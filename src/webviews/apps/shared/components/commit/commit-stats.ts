@@ -64,12 +64,12 @@ export class CommitStats extends LitElement {
 				var(--vscode-sideBarSectionHeader-background) 90%,
 				var(--vscode-foreground) 10%
 			);
-			border: 1px solid
-				color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%);
+			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
 			border-radius: 0.4rem;
-			padding: 0 0.8rem 0 0.6rem;
+			padding: var(--commit-stats-pill-padding, 0 0.8rem 0 0.6rem);
 			white-space: nowrap;
-			line-height: 1.5rem;
+			line-height: var(--commit-stats-pill-line-height, 1.5rem);
+			min-height: var(--commit-stats-pill-line-height, 1.5rem);
 		}
 
 		:host-context(.vscode-light):host([appearance='pill']),
@@ -131,13 +131,13 @@ export class CommitStats extends LitElement {
 	`;
 
 	@property({ type: Number })
-	added: number | undefined = 0;
+	added: number | undefined;
 
 	@property({ type: Number })
-	modified: number | undefined = 0;
+	modified: number | undefined;
 
 	@property({ type: Number })
-	removed: number | undefined = 0;
+	removed: number | undefined;
 
 	@property({ type: Number })
 	additions: number | undefined;
@@ -156,10 +156,10 @@ export class CommitStats extends LitElement {
 
 	override render(): unknown {
 		const stats = statToSymbol.map(([key, value]) => this.renderStat(key, value));
-		if (this.noTooltip) return stats;
+		if (this.noTooltip) return html`${stats}<slot></slot>`;
 
 		return html`<gl-tooltip>
-			${stats}
+			${stats}<slot></slot>
 			<div slot="content">${this.renderTooltipContent()}</div>
 		</gl-tooltip>`;
 	}

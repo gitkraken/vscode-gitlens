@@ -16,6 +16,10 @@ export const detailsBaseStyles = [
 			display: contents;
 		}
 
+		.commit-stats-subtitle {
+			opacity: 1;
+		}
+
 		a {
 			text-decoration: none;
 		}
@@ -24,7 +28,9 @@ export const detailsBaseStyles = [
 		}
 
 		.compare-header__title {
-			display: block;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.5rem;
 			font-weight: 500;
 			font-size: var(--gl-font-base);
 			color: var(--color-foreground--85);
@@ -32,6 +38,11 @@ export const detailsBaseStyles = [
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
+		}
+
+		.compare-header__mode-icon {
+			flex: 0 0 auto;
+			color: var(--mode-accent, var(--vscode-foreground));
 		}
 
 		/* Section layout */

@@ -140,11 +140,13 @@ export class GlRebaseEntryElement extends LitElement {
 	private onShaClick = (e: MouseEvent) => {
 		e.preventDefault();
 		if (!isCommitEntry(this.entry)) return;
+
 		this.dispatchRevealCommit();
 	};
 
 	private dispatchRevealCommit() {
 		if (!isCommitEntry(this.entry)) return;
+
 		this.dispatchEvent(
 			new CustomEvent('gl-reveal-commit', {
 				detail: { sha: this.entry.sha },

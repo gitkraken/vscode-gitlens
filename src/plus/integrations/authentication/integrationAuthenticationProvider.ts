@@ -217,6 +217,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 			void this.connectCloudSession(false, options?.source);
 			return undefined;
 		}
+
 		// TODO: This is a stopgap to make sure we're not hammering the api on automatic calls to get the session.
 		// Ultimately we want to timestamp calls to syncCloudIntegrations and use that to determine whether we should
 		// make the call or not.
@@ -229,6 +230,7 @@ export abstract class CloudIntegrationAuthenticationProvider<
 		if (shouldCreateSession) {
 			const connected = await this.connectCloudSession(true, options?.source);
 			if (!connected) return undefined;
+
 			// This should get us the session we just created with connectCloudSession, because a syncCloudIntegrations run from
 			// integration service should have resulted in it being created and stored by this provider
 			session = await this.getSession(descriptor, { source: options?.source });

@@ -521,6 +521,7 @@ export class GitCommit implements GitRevisionReference {
 
 	protected computeFileStats(): void {
 		if (!this._recomputeStats || this._fileset == null) return;
+
 		this._recomputeStats = false;
 
 		const changedFiles = { added: 0, deleted: 0, changed: 0 };

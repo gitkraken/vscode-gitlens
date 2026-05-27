@@ -848,6 +848,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					if (selectedId === this._oldestCommitId && (action === 'squash' || action === 'fixup')) {
 						continue;
 					}
+
 					entries.push({ sha: selectedId, action: action });
 				}
 			}
@@ -856,6 +857,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 			if (sha === this._oldestCommitId && (action === 'squash' || action === 'fixup')) {
 				return;
 			}
+
 			entries = [{ sha: sha, action: action }];
 		}
 
@@ -963,6 +965,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private handleKeyboardNavigate(e: Event, sortedIndex: number, key: string): void {
 		if (!this.isNavigationKey(key)) return;
+
 		e.preventDefault();
 
 		const isDownward = this.isDownwardKey(key);
@@ -976,6 +979,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private handleKeyboardMultiSelect(e: Event, sortedIndex: number, key: string): void {
 		if (!this.isNavigationKey(key)) return;
+
 		e.preventDefault();
 
 		const isDownward = this.isDownwardKey(key);
@@ -1194,6 +1198,30 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 		// Rebuild sorted entries and index map
 		this.refreshIndices();
 
+		// Drop selection/focus/anchor references to entries that no longer exist (e.g., after an
+		// external `git rebase --continue` moved entries from `entries` to `doneEntries`, or an
+		// entry was dropped externally). Otherwise stale ids hang around and confuse range/shift logic.
+		if (this.selectedIds.size) {
+			let staleCount = 0;
+			const pruned = new Set<string>();
+			for (const id of this.selectedIds) {
+				if (this._idToSortedIndex.has(id)) {
+					pruned.add(id);
+				} else {
+					staleCount++;
+				}
+			}
+			if (staleCount > 0) {
+				this.selectedIds = pruned;
+			}
+		}
+		if (this.anchoredEntryId != null && !this._idToSortedIndex.has(this.anchoredEntryId)) {
+			this.anchoredEntryId = undefined;
+		}
+		if (this.focusedEntryId != null && !this._idToSortedIndex.has(this.focusedEntryId)) {
+			this.focusedEntryId = undefined;
+		}
+
 		// Recompute conflict tree model when conflictFiles or layout changes
 		const conflictFiles = this.state?.conflictFiles;
 		if (conflictFiles !== this._prevConflictFiles || _changedProperties.has('_conflictFilesLayout' as keyof this)) {
@@ -1400,6 +1428,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					<code-icon icon="loading" modifier="spin"></code-icon>
 				</span>`;
 			}
+
 			const conflictCount = result?.status === 'conflicts' ? (result.conflict?.shas?.length ?? 0) : 0;
 			if (conflictCount) {
 				return html`<gl-tooltip
@@ -1471,7 +1500,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 						tabindex="0"
 						@click=${this.onCurrentCommitClick}
 						@keydown=${this.onCurrentCommitKeydown}
-						style="cursor: pointer"
+						class="clickable"
 					></gl-commit-sha>
 				</gl-tooltip>`
 			: nothing;
@@ -1706,6 +1735,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 	private onCurrentCommitClick = () => {
 		const sha = this.rebaseStatus?.currentCommit;
 		if (!sha) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: sha });
 	};
 
@@ -1803,7 +1833,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 					tabindex="0"
 					@click=${this.onBranchClick}
 					@keydown=${this.onBranchKeydown}
-					style="cursor: pointer"
+					class="clickable"
 				></gl-branch-name>
 			</gl-tooltip>
 			${this.state.onto
@@ -1815,7 +1845,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 								tabindex="0"
 								@click=${this.onOntoClick}
 								@keydown=${this.onOntoKeydown}
-								style="cursor: pointer"
+								class="clickable"
 							></gl-commit-sha>
 						</gl-tooltip>
 					</span>`
@@ -1830,6 +1860,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onBranchClick = () => {
 		if (!this.state?.branch) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'branch', ref: this.state.branch });
 	};
 
@@ -1842,6 +1873,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 
 	private onOntoClick = () => {
 		if (!this.state?.onto?.sha) return;
+
 		this._ipc.sendCommand(RevealRefCommand, { type: 'commit', ref: this.state.onto.sha });
 	};
 
@@ -1947,6 +1979,7 @@ export class GlRebaseEditor extends GlAppHost<State, RebaseStateProvider> {
 				this._conflictResult?.status === 'conflicts' ? (this._conflictResult.conflict?.shas ?? []) : undefined;
 		} catch {
 			if (generation !== this._conflictCheckGeneration) return;
+
 			this._conflictResult = undefined;
 			this._conflictingShas = undefined;
 		} finally {

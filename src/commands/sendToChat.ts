@@ -1,5 +1,6 @@
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import type { ChatMode } from '../plus/chat/utils/-webview/chat.utils.js';
 import { openChat } from '../plus/chat/utils/-webview/chat.utils.js';
 import { command } from '../system/-webview/command.js';
 import { GlCommandBase } from './commandBase.js';
@@ -19,6 +20,12 @@ export interface SendToChatCommandArgs {
 	 * Whether the chat will await more input from the user.
 	 */
 	execute?: boolean;
+
+	/**
+	 * Chat mode to request (Copilot Chat). Other hosts ignore this — Cursor/Windsurf/Kiro/Trae
+	 * already open agent-mode sessions via their dedicated commands.
+	 */
+	mode?: ChatMode;
 }
 
 /**
@@ -35,6 +42,8 @@ export class SendToChatCommand extends GlCommandBase {
 			throw new Error('Prompt is required for sendToChat command');
 		}
 
-		return openChat(args.query, args.execute != null ? { execute: args.execute } : undefined);
+		const options =
+			args.execute != null || args.mode != null ? { execute: args.execute, mode: args.mode } : undefined;
+		return openChat(args.query, options);
 	}
 }

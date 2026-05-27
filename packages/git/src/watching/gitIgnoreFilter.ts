@@ -1,7 +1,7 @@
-import { getScopedCounter } from '@gitlens/utils/counter.js';
-import { fileUri } from '@gitlens/utils/uri.js';
 import type { Ignore } from 'ignore';
 import ignore from 'ignore';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { fileUri } from '@gitlens/utils/uri.js';
 import type { FileSystemProvider } from '../context.js';
 
 export interface GitIgnoreFilterOptions {

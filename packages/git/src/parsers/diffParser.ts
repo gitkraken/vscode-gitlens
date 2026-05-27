@@ -413,6 +413,7 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 			i++;
 			continue;
 		}
+
 		const tabIndex2 = field.indexOf('\t', tabIndex1 + 1);
 		if (tabIndex2 === -1) {
 			i++;
@@ -427,6 +428,7 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 		if (path === '') {
 			// Rename or copy: next two fields are oldPath and newPath (summary pass distinguishes R vs C)
 			if (i + 2 >= fields.length) break;
+
 			originalPath = fields[++i];
 			path = fields[++i];
 		}

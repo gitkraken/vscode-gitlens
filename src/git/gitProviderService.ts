@@ -29,6 +29,7 @@ import type {
 	RepositoryVisibility,
 	RepositoryVisibilityInfo,
 } from '@gitlens/git/providers/types.js';
+import type { ValidateRepoResult } from '@gitlens/git/service.js';
 import { GitService } from '@gitlens/git/service.js';
 import { getBlameRange } from '@gitlens/git/utils/blame.utils.js';
 import { calculateDistribution } from '@gitlens/git/utils/contributor.utils.js';
@@ -363,6 +364,17 @@ export class GitProviderService implements UnifiedDisposable {
 			...this.registerCommands(),
 		);
 
+		if (DEBUG) {
+			void import(/* webpackChunkName: "__debug__" */ './__debug__visibilityDebug.js').then(m => {
+				m.registerVisibilityDebug(this, {
+					clearAccessCache: () => this.clearAccessCache(),
+					invalidateReposVisibilityCache: () => this._reposVisibilityCache.invalidate('visibility'),
+					fireRepositoriesChanged: () =>
+						this._onDidChangeRepositories.fire({ added: [], removed: [], etag: this._etag }),
+				});
+			});
+		}
+
 		this.container.BranchDateFormatting.reset();
 		this.container.CommitDateFormatting.reset();
 		this.container.CommitShaFormatting.reset();
@@ -579,6 +591,12 @@ export class GitProviderService implements UnifiedDisposable {
 		);
 		for (const provider of providers) {
 			this._providerDisposables.push(this.register(provider.descriptor.id, provider));
+			// Eagerly register the provider with the package-level GitService so path-based APIs
+			// (`forRepo`, `validateRepo`, `getRepositoryService`) work for any path before
+			// `registrationComplete`'s discovery has fired. Without this, calls like
+			// `getRepositoryService` for a path outside the workspace (e.g. a rebase started from
+			// a terminal in a homebrew tap) race against discovery and can throw.
+			provider.ensureRegistered();
 		}
 
 		// Don't wait here otherwise we will deadlock in certain places
@@ -1627,6 +1645,7 @@ export class GitProviderService implements UnifiedDisposable {
 					this.ensureUncommittedBlameCommit(uri, dirtyBlame);
 					return dirtyBlame;
 				}
+
 				// Ensure uncommitted commit exists for updated snapshots that may contain uncommitted lines from a previous dirty→save cycle
 				this.ensureUncommittedBlameCommit(uri, doc.blameSnapshot.blame);
 				return doc.blameSnapshot.blame;
@@ -1822,6 +1841,7 @@ export class GitProviderService implements UnifiedDisposable {
 			let blameLine = blame.lines[editorLine];
 			if (blameLine == null) {
 				if (blame.lines.length !== editorLine) return undefined;
+
 				blameLine = blame.lines[editorLine - 1];
 			}
 
@@ -1892,6 +1912,7 @@ export class GitProviderService implements UnifiedDisposable {
 			blameLine = blame.lines[editorLineOrCommitLine];
 			if (blameLine == null) {
 				if (blame.lines.length !== editorLineOrCommitLine) return undefined;
+
 				blameLine = blame.lines[editorLineOrCommitLine - 1];
 			}
 		} else {
@@ -2343,10 +2364,46 @@ export class GitProviderService implements UnifiedDisposable {
 			if (repoService == null) {
 				throw new Error(`RepositoryService not available for '${path}' — provider may not be registered`);
 			}
+
 			service = new GitRepositoryService(this, provider, path, repoService, this.container.events);
 			services.set(path, service);
 		}
 		return service;
+	}
+
+	/**
+	 * Like {@link getRepositoryService}, but first validates that the path points at a
+	 * (safe) git repository via {@link GitService.validateRepo} and uses the validated
+	 * canonical repo path. Use this when receiving paths from outside the workspace
+	 * (e.g. opening a file by URI from a terminal) where we don't yet know whether the
+	 * path is a repository at all.
+	 */
+	@debug()
+	async getValidatedRepositoryService(repoPath: string | Uri): Promise<GitRepositoryService> {
+		const result = await this._gitService.validateRepo(repoPath);
+		if (!result.valid) {
+			throw new Error(
+				`Path is not a git repository: '${repoPath instanceof Uri ? repoPath.toString() : repoPath}'`,
+			);
+		}
+		if (!result.safe) {
+			throw new Error(
+				`Repository is not in a safe state: '${repoPath instanceof Uri ? repoPath.toString() : repoPath}'`,
+			);
+		}
+
+		return this.getRepositoryService(result.repoPath);
+	}
+
+	/**
+	 * Pre-discovery: validates whether `pathOrUri` points to (or resides inside) a git
+	 * repository, returning `repoPath` / `gitDir` / `commonGitDir` / `superprojectPath` when it
+	 * does. Has no side effects — does not register the repository or fire any events. Useful
+	 * when a host-side caller needs gitDir info for an arbitrary cwd without forcing the repo
+	 * to be opened.
+	 */
+	validateRepo(pathOrUri: string | Uri): Promise<ValidateRepoResult> {
+		return this._gitService.validateRepo(pathOrUri);
 	}
 
 	@debug()

@@ -827,7 +827,7 @@ export class SettingsApp extends App<State> {
 		}get access to automatic rich Jira autolinks.`;
 		if (hasAccount && hasConnectedJira) {
 			messageJira =
-				'<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Jira connected &mdash; automatic rich Jira autolinks are enabled.';
+				'<i class="codicon codicon-check codicon--inline"></i> Jira connected &mdash; automatic rich Jira autolinks are enabled.';
 		}
 		let messageLinear = `<a href="${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
 			'gitlens.plus.cloudIntegrations.connect',
@@ -846,7 +846,7 @@ export class SettingsApp extends App<State> {
 		}get access to automatic rich Linear autolinks.`;
 		if (hasAccount && hasConnectedLinear) {
 			messageLinear =
-				'<i class="codicon codicon-check" style="vertical-align: text-bottom"></i> Linear connected &mdash; automatic rich Linear autolinks are enabled.';
+				'<i class="codicon codicon-check codicon--inline"></i> Linear connected &mdash; automatic rich Linear autolinks are enabled.';
 		}
 
 		$root.innerHTML = `${messageJira}<br/>${messageLinear}`;
@@ -858,7 +858,7 @@ export class SettingsApp extends App<State> {
 
 		const helpTemplate = () => `
 			<div class="setting__hint">
-				<span style="line-height: 2rem">
+				<span class="setting__hint--tall">
 					<i class="icon icon--sm icon__info"></i> Matches prefixes that are followed by a reference value within commit messages.<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The URL must contain a <code>&lt;num&gt;</code> for the reference value to be included in the link.
 				</span>
 			</div>

@@ -47,6 +47,28 @@ export const commitsScopePaneStyles = css`
 		background: var(--vscode-list-inactiveSelectionBackground, rgba(86, 156, 214, 0.06));
 	}
 
+	/* Click-to-set-edge: clicking a row snaps the nearer range edge to it. The
+	   pointer cue tells users the row is interactive; the hover wash mirrors how
+	   VS Code list rows highlight on hover. Suppress hover wash while a drag is
+	   in progress so the row under the cursor doesn't double-highlight. */
+	.scope-row--clickable {
+		cursor: pointer;
+	}
+
+	.details-scope-pane:not(.details-scope-pane--dragging) .scope-row--clickable:hover {
+		background: var(--vscode-list-hoverBackground);
+	}
+
+	/* The end-edge row is the Tab stop, but the focus *indicator* belongs on the
+	   adjacent end-handle bar — a tight ring on the bar is the natural visual
+	   anchor for "this is the active edge," rather than bracketing the whole row.
+	   Suppress the row's own outline; the actual ring is drawn further down on
+	   .scope-handle__bar via a sibling selector. */
+	.scope-row:focus,
+	.scope-row:focus-visible {
+		outline: none;
+	}
+
 	/* Dim row content (including the connector segments inside this row's
 	   dot-col, so the line fades with its dots) WITHOUT dimming tooltip
 	   hosts — opacity on a gl-tooltip / formatted-date / gl-avatar carries
@@ -222,13 +244,28 @@ export const commitsScopePaneStyles = css`
 
 	.scope-handle:hover .scope-handle__bar,
 	.scope-handle:focus-visible .scope-handle__bar,
+	.scope-row:focus-visible + .scope-handle .scope-handle__bar,
 	.scope-handle--active .scope-handle__bar {
 		opacity: 0.85;
 	}
 
+	/* Suppress the browser default outline on the handle itself — the wider hit
+	   area shouldn't take the focus indicator. The ring lives on the bar (below). */
+	.scope-handle:focus,
 	.scope-handle:focus-visible {
+		outline: none;
+	}
+
+	/* Focus ring lives on the handle bar — a small ring around the visible
+	   interactive element rather than a rectangle around the whole row. Two
+	   focus paths land here:
+	   - Start handle (review-mode Tab stop) — its own :focus-visible.
+	   - End handle (no Tab stop) — adjacent end-edge row has focus; the
+	     sibling selector hops the indicator onto the trailing handle bar. */
+	.scope-handle:focus-visible .scope-handle__bar,
+	.scope-row:focus-visible + .scope-handle .scope-handle__bar {
 		outline: 1px solid var(--vscode-focusBorder);
-		outline-offset: -1px;
+		outline-offset: 2px;
 	}
 
 	/* Proxy handle: pinned to the top/bottom edge of the scroll container when

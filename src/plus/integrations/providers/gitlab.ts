@@ -261,6 +261,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		if (!username) {
 			return Promise.resolve([]);
 		}
+
 		const apiResult = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: isEnterprise,
 			baseUrl: isEnterprise ? `https://${this.domain}` : undefined,
@@ -381,6 +382,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		},
 	): Promise<boolean> {
 		if (!this.isPullRequest(pr)) return false;
+
 		const api = await this.getProvidersApi();
 		const isEnterprise =
 			this.id === GitSelfManagedHostIntegrationId.GitLabSelfHosted ||

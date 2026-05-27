@@ -459,6 +459,7 @@ export class BitbucketApi implements Disposable {
 				undefined,
 			);
 			if (!prResponse) return undefined;
+
 			const providersPr = normalizeBitbucketServerPullRequest(prResponse);
 			const gitlensPr = fromProviderPullRequest(providersPr, provider);
 			return gitlensPr;
@@ -531,6 +532,7 @@ export class BitbucketApi implements Disposable {
 					return undefined;
 				}
 			}
+
 			scope?.error(ex);
 			return undefined;
 		}

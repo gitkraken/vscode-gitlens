@@ -163,6 +163,7 @@ export function parseDeepLinkUri(uri: Uri): DeepLink | undefined {
 			if (target === DeepLinkType.Comparison) {
 				const split = joined.split(/(\.\.\.|\.\.)/);
 				if (split.length !== 3) return undefined;
+
 				targetId = split[0];
 				secondaryTargetId = split[2];
 				secondaryRemoteUrl = urlParams.get('prRepoUrl') ?? undefined;
@@ -336,6 +337,10 @@ export interface DeepLinkServiceContext {
 	prData?: PullRequestShape | undefined;
 	issueData?: IssueShape | undefined;
 	instructions?: string | undefined;
+	/** Optional agent descriptor for Start Work / Start Review with `showOpenInAgent`. */
+	agent?: import('../../plus/agents/agentDescriptor.js').AgentDescriptor | undefined;
+	/** Worktree path for CLI dispatch `cwd`. */
+	worktreePath?: string | undefined;
 }
 
 export const deepLinkStateTransitionTable: Record<string, Record<string, DeepLinkServiceState>> = {

@@ -77,8 +77,12 @@ export class GlFeatureGatePlusState extends LitElement {
 				margin-bottom: 0;
 			}
 
-			.actions {
+			.centered {
 				text-align: center;
+			}
+
+			.preview-image {
+				width: 100%;
 			}
 
 			.actions-row {
@@ -91,6 +95,11 @@ export class GlFeatureGatePlusState extends LitElement {
 
 			.hint {
 				border-bottom: 1px dashed currentColor;
+			}
+
+			hr {
+				border: none;
+				border-top: 1px solid color-mix(in srgb, var(--section-border-color) 20%, transparent);
 			}
 		`,
 		linkStyles,
@@ -144,7 +153,7 @@ export class GlFeatureGatePlusState extends LitElement {
 			case SubscriptionState.VerificationRequired:
 				return html`
 					<slot name="feature"></slot>
-					<p class="actions">
+					<p class="centered">
 						<gl-button
 							class="inline"
 							appearance="${ifDefined(appearance)}"
@@ -158,7 +167,8 @@ export class GlFeatureGatePlusState extends LitElement {
 							><code-icon icon="refresh"></code-icon
 						></gl-button>
 					</p>
-					<p>You must verify your email before you can continue.</p>
+					<hr />
+					<p class="centered">Check your inbox for a verification link, then refresh once you've verified.</p>
 				`;
 
 			case SubscriptionState.Community:
@@ -167,7 +177,7 @@ export class GlFeatureGatePlusState extends LitElement {
 				}
 
 				return html`<slot name="feature"></slot>
-					<p>
+					<p class="centered">
 						${this.featureRestriction === 'private-repos'
 							? 'Unlock this feature for privately hosted repos with '
 							: 'Unlock this feature with '} <a href="${urls.communityVsPro}">GitLens Pro</a>.
@@ -185,14 +195,17 @@ export class GlFeatureGatePlusState extends LitElement {
 							></span
 						>
 					</p>
-					<p>
-						Get ${pluralize('day', proTrialLengthInDays)} of
-						<a href="${urls.communityVsPro}">GitLens Pro</a> for free — no credit card required.
+					<hr />
+					<p class="centered">
+						<a href="${urls.communityVsPro}"
+							>Get ${pluralize('day', proTrialLengthInDays)} of GitLens Pro free</a
+						>
+						— no credit card required.
 					</p>`;
 
 			case SubscriptionState.TrialExpired:
 				return html`<slot name="feature"></slot>
-					<p>
+					<p class="centered">
 						${this.featureRestriction === 'private-repos'
 							? 'Unlock this feature for privately hosted repos with '
 							: 'Unlock this feature with '} <a href="${urls.communityVsPro}">GitLens Pro</a>.
@@ -208,7 +221,12 @@ export class GlFeatureGatePlusState extends LitElement {
 							>Upgrade to Pro</gl-button
 						>
 					</p>
-					<p>${this.renderPromo()}</p>`;
+					<hr />
+					<p class="centered">
+						Your trial has ended — upgrade to keep ${this.featureWithArticleIfNeeded ?? 'all Pro features'}
+						unlocked.
+					</p>
+					<p class="centered">${this.renderPromo()}</p>`;
 
 			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>
@@ -220,10 +238,11 @@ export class GlFeatureGatePlusState extends LitElement {
 							>Continue</gl-button
 						>
 					</p>
-					<p>
-						Reactivate your GitLens Pro trial and experience
+					<hr />
+					<p class="centered">
+						Reactivate your Pro trial to experience
 						${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} and ` : ''}all the new
-						Pro features — free for another ${pluralize('day', proTrialLengthInDays)}!
+						Pro features — free for another ${pluralize('day', proTrialLengthInDays)}.
 					</p> `;
 		}
 
@@ -236,18 +255,21 @@ export class GlFeatureGatePlusState extends LitElement {
 
 		if (used === 0) {
 			return html`<slot name="feature"></slot>
-				<gl-button appearance="${ifDefined(appearance)}" href="${ifDefined(this.featurePreviewCommandLink)}"
-					>Continue</gl-button
-				>
-				<p>
-					Continue to preview
-					${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately hosted
-					repos, or
+				<p class="actions-row">
+					<gl-button
+						.appearance=${ifDefined(appearance) ?? undefined}
+						href="${ifDefined(this.featurePreviewCommandLink)}"
+						>Continue</gl-button
+					>
+				</p>
+				<hr />
+				<p class="centered">
+					Already have an account?
 					<a href="${createCommandLink<Source>('gitlens.plus.login', this.source)}" title="Sign In">sign in</a
-					>.<br />
-					${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+					><br />
+					${appearance !== 'alert' ? html`<br />` : ''}
 					<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-						>start your free ${proTrialLengthInDays}-day Pro trial</a
+						>Want full access to all Pro features? Start your free ${proTrialLengthInDays}-day Pro trial</a
 					>
 					— no credit card required.
 				</p> `;
@@ -270,13 +292,14 @@ export class GlFeatureGatePlusState extends LitElement {
 					></span
 				>
 			</p>
-			<p>
-				After continuing, you will have ${pluralize('day', left, { infix: ' more ' })} to preview
-				${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on` : ''} privately hosted
+			<hr />
+			<p class="centered">
+				${pluralize('day', left, { infix: ' more ' })} to preview
+				${this.featureWithArticleIfNeeded ? `${this.featureWithArticleIfNeeded} on ` : ''}privately hosted
 				repos.<br />
-				${appearance !== 'alert' ? html`<br />` : ''} For full access to all GitLens Pro features,
+				${appearance !== 'alert' ? html`<br />` : ''}
 				<a href="${createCommandLink<Source>('gitlens.plus.signUp', this.source)}"
-					>start your free ${proTrialLengthInDays}-day Pro trial</a
+					>Want full access to all Pro features? Start your free ${proTrialLengthInDays}-day Pro trial</a
 				>
 				— no credit card required.
 			</p>
@@ -295,8 +318,8 @@ export class GlFeatureGatePlusState extends LitElement {
 							</p>
 							<p>
 								<img
+									class="preview-image"
 									src="${this.webroot ?? ''}/media/graph-commit-search.webp"
-									style="width:100%"
 									alt="Graph Commit Search"
 								/>
 							</p> `;
@@ -310,8 +333,8 @@ export class GlFeatureGatePlusState extends LitElement {
 							</p>
 							<p>
 								<img
+									class="preview-image"
 									src="${this.webroot ?? ''}/media/graph-minimap.webp"
-									style="width:100%"
 									alt="Graph Minimap"
 								/>
 							</p>

@@ -56,6 +56,7 @@ export class StagingGitSubProvider implements GitStagingSubProvider {
 					// Copy the current index to preserve staged state
 					const gitDir = await this.provider.config.getGitDir?.(repoPath);
 					if (gitDir == null) throw new Error(`Unable to determine git directory for ${repoPath}`);
+
 					const currentIndex = joinPaths(gitDir.uri.fsPath, 'index');
 					await fs.copyFile(currentIndex, tempIndex);
 					break;

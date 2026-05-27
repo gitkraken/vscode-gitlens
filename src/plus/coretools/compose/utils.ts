@@ -21,11 +21,13 @@ export function cancellationTokenToSignal(token: CancellationToken | undefined):
 	dispose: () => void;
 } {
 	if (!token) return { signal: undefined, dispose: noop };
+
 	const controller = new AbortController();
 	if (token.isCancellationRequested) {
 		controller.abort();
 		return { signal: controller.signal, dispose: noop };
 	}
+
 	const subscription = token.onCancellationRequested(() => controller.abort());
 	return {
 		signal: controller.signal,

@@ -27,12 +27,55 @@ import type {
 	AIState,
 	IntegrationChangeEventData,
 	RepositoriesState,
+	RepositoryChange,
 	RepositoryChangeEventData,
 	Unsubscribe,
 } from '../../rpc/services/types.js';
 import { sortAgentSessions } from '../shared/agentUtils.js';
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import type { HomeRootState } from './state.js';
+
+/**
+ * Per-change overview-refresh scope.
+ *
+ * - `'active'` — only the active branch's slice can shift (WIP, paused-op progress); skip inactive.
+ * - `'both'` — could affect inactive list ordering, presence, or enrichment; refresh both.
+ * - `'none'` — irrelevant to overview surfaces; skip refresh entirely.
+ *
+ * Defined as an exhaustive `Record<RepositoryChange, …>` so adding a new `RepositoryChange`
+ * value forces a classification decision at compile time (no silent fallthrough).
+ */
+type OverviewChangeScope = 'none' | 'active' | 'both';
+const overviewChangeScope: Record<RepositoryChange, OverviewChangeScope> = {
+	// Active-only — WIP / paused-op state on the current branch
+	index: 'active',
+	pausedOp: 'active',
+	cherryPick: 'active',
+	merge: 'active',
+	rebase: 'active',
+	revert: 'active',
+
+	// Both — topology, HEAD movement, or enrichment-affecting (PR/tracking)
+	head: 'both',
+	heads: 'both',
+	worktrees: 'both',
+	remotes: 'both',
+
+	// Conservative — system-level events that could shift anything
+	unknown: 'both',
+	closed: 'both',
+	opened: 'both',
+
+	// Irrelevant — overview surfaces don't render these
+	tags: 'none',
+	stash: 'none',
+	config: 'none',
+	starred: 'none',
+	ignores: 'none',
+	remoteProviders: 'none',
+	gkConfig: 'none',
+	lastFetched: 'none',
+};
 
 /**
  * Resolved sub-services (after awaiting the sub-service properties from the Remote proxy).
@@ -55,6 +98,8 @@ interface ResolvedServices {
 export interface SubscriptionActions {
 	/** Called when the overview data should be refreshed. */
 	refreshOverview(): void;
+	/** Called when only the active overview data should be refreshed (FS edits, index changes — anything that can't shift the inactive list). */
+	refreshActiveOverview(): void;
 	/** Called when only the inactive overview data should be refreshed. */
 	refreshInactiveOverview(): void;
 	/** Called when the current overview should be replaced immediately. */
@@ -125,11 +170,31 @@ export function setupSubscriptions(
 		// Per-repository git-level changes (index, head, etc.)
 		// Uses the all-repos event because the overview shows WIP across worktrees
 		// which may be in different repo paths.
+		// Dispatch by `event.changes` via the `overviewChangeScope` map below so that flags
+		// which can only shift the active branch's data (e.g. `index`/`pausedOp`) don't
+		// re-fetch the inactive list's skeleton + WIP + enrichment for every commit.
 		() =>
 			services.repositories.onRepositoryChanged((event: RepositoryChangeEventData) => {
 				const overviewRepo = state.home.overviewRepositoryPath.get();
-				if (overviewRepo != null && event.repoPath === overviewRepo) {
-					actions.refreshOverview();
+				if (overviewRepo == null || event.repoPath !== overviewRepo) return;
+
+				let needsActive = false;
+				let needsInactive = false;
+				for (const c of event.changes) {
+					const scope = overviewChangeScope[c];
+					if (scope === 'active') {
+						needsActive = true;
+					} else if (scope === 'both') {
+						needsActive = true;
+						needsInactive = true;
+					}
+				}
+
+				if (needsActive) {
+					actions.refreshActiveOverview();
+				}
+				if (needsInactive) {
+					actions.refreshInactiveOverview();
 				}
 			}),
 
@@ -206,10 +271,23 @@ export function setupSubscriptions(
 		// Agent sessions — from HomeViewService
 		// ============================================================
 
-		() =>
-			services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
+		// The agent status service emits bursts of `onAgentSessionsChanged` as it scans state
+		// from disk (phase/status/timestamp churn on the same set of sessions). Refetching the
+		// agent overview on every event cascades through `createResource`'s cancelPrevious=true
+		// and starves the in-flight RPC. The branch list rendered by the agent overview is
+		// keyed on `worktreePath` (see `findOverviewBranchForSession`), so the overview only
+		// needs to refetch when that set changes — session churn is covered by the
+		// `agentSessions` signal write above.
+		() => {
+			let lastAgentBranchKey: string | undefined;
+			return services.home.onAgentSessionsChanged((sessions: AgentSessionState[]) => {
 				state.home.agentSessions.set(sortAgentSessions(sessions));
-				actions.refreshAgentOverview();
-			}),
+				const key = [...new Set(sessions.map(s => s.worktreePath ?? ''))].sort().join('\n');
+				if (key !== lastAgentBranchKey) {
+					lastAgentBranchKey = key;
+					actions.refreshAgentOverview();
+				}
+			});
+		},
 	]);
 }

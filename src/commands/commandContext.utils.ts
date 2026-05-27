@@ -9,6 +9,7 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import { GitRemote } from '@gitlens/git/models/remote.js';
 import { GitTag } from '@gitlens/git/models/tag.js';
 import { GitWorktree } from '@gitlens/git/models/worktree.js';
+import { isUri } from '@gitlens/utils/uri.js';
 import type { GlCommands, GlCommandsDeprecated } from '../constants.commands.js';
 import type { StoredNamedRef } from '../constants.storage.js';
 import { GlRepository } from '../git/models/repository.js';
@@ -160,6 +161,7 @@ export function isCommandContextViewNodeHasWorkspace(
 	context: CommandContext,
 ): context is CommandViewNodeContext & { node: ViewNode & { workspace: CloudWorkspace | LocalWorkspace } } {
 	if (context.type !== 'viewItem') return false;
+
 	const workspace = (context.node as ViewNode & { workspace?: CloudWorkspace | LocalWorkspace }).workspace;
 	return workspace instanceof CloudWorkspace || workspace instanceof LocalWorkspace;
 }
@@ -185,7 +187,7 @@ export function parseCommandContext(
 			firstArg = args[0];
 		}
 
-		if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
+		if (args.length > 0 && (firstArg == null || isUri(firstArg))) {
 			const [uri, ...rest] = args as [Uri, any];
 			if (uri != null) {
 				// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor

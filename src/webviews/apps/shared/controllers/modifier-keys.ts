@@ -38,6 +38,13 @@ class ModifierKeysTracker {
 		this._listening = true;
 		window.addEventListener('keydown', this._onKey, { capture: true });
 		window.addEventListener('keyup', this._onKey, { capture: true });
+		// `keydown`/`keyup` only fire when the webview iframe has keyboard focus — mouse hover
+		// alone doesn't grant focus, so hover-triggered tooltips can't react to alt presses
+		// through the keyboard path. Pointer events always carry the live modifier state in
+		// their `MouseEvent`, so listening to them here lets the tracker pick up alt the moment
+		// the user moves the mouse (no focus required).
+		window.addEventListener('mousemove', this._onPointer, { capture: true });
+		window.addEventListener('mouseover', this._onPointer, { capture: true });
 		window.addEventListener('blur', this._onBlur);
 	}
 
@@ -45,6 +52,8 @@ class ModifierKeysTracker {
 		this._listening = false;
 		window.removeEventListener('keydown', this._onKey, { capture: true });
 		window.removeEventListener('keyup', this._onKey, { capture: true });
+		window.removeEventListener('mousemove', this._onPointer, { capture: true });
+		window.removeEventListener('mouseover', this._onPointer, { capture: true });
 		window.removeEventListener('blur', this._onBlur);
 		this._reset();
 	}
@@ -71,10 +80,28 @@ class ModifierKeysTracker {
 		if (this._altKey === alt && this._shiftKey === shift && this._ctrlKey === ctrl && this._metaKey === meta) {
 			return;
 		}
+
 		this._altKey = alt;
 		this._shiftKey = shift;
 		this._ctrlKey = ctrl;
 		this._metaKey = meta;
+		this._notify();
+	};
+
+	private _onPointer = (e: MouseEvent): void => {
+		if (
+			this._altKey === e.altKey &&
+			this._shiftKey === e.shiftKey &&
+			this._ctrlKey === e.ctrlKey &&
+			this._metaKey === e.metaKey
+		) {
+			return;
+		}
+
+		this._altKey = e.altKey;
+		this._shiftKey = e.shiftKey;
+		this._ctrlKey = e.ctrlKey;
+		this._metaKey = e.metaKey;
 		this._notify();
 	};
 

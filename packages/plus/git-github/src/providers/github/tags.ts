@@ -32,6 +32,7 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 		cancellation?: AbortSignal,
 	): Promise<PagedResult<GitTag>> {
 		if (repoPath == null) return emptyPagedResult;
+
 		const path = repoPath;
 
 		const scope = getScopedLogger();

@@ -1,5 +1,5 @@
 import { cursor, env, lm, version } from 'vscode';
-import { isOffline, isWeb } from '@env/platform.js';
+import { getIsOffline, isWeb } from '@env/platform.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
@@ -36,7 +36,7 @@ export function supportsCursorMcpRegistration(): boolean {
 }
 
 export function mcpRegistrationEnabled(container: Container): boolean {
-	if (isWeb || isOffline) {
+	if (isWeb || getIsOffline()) {
 		return false;
 	}
 

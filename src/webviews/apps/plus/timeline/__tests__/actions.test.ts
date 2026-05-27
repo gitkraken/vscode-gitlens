@@ -158,13 +158,13 @@ suite('TimelineActions', () => {
 		const actions = new TimelineActions(
 			state,
 			{
-				telemetry: {
+				telemetry: Promise.resolve({
 					updateContext: () => Promise.resolve(),
 					sendEvent: (name: string, data?: Record<string, unknown>) => {
 						telemetryEvents.push({ name: name, data: data });
 						return Promise.resolve();
 					},
-				},
+				}),
 				repositories: {
 					getRepositoriesState: async () => ({ count: 1, openCount: 1 }),
 				},

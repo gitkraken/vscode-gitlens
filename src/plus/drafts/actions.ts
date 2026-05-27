@@ -19,6 +19,7 @@ export async function showPatchesView(createOrOpen: ShowCreateOrOpen, options?: 
 		);
 
 		if (result !== confirm) return;
+
 		await configuration.updateEffective('cloudPatches.enabled', true);
 	}
 

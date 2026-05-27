@@ -48,6 +48,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		} else {
 			uri = args.uri;
 		}
+
 		args.range ??= selectionToDiffRange(editor?.selection);
 
 		let gitUri;

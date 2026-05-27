@@ -1,5 +1,5 @@
 import { Uri, workspace } from 'vscode';
-import type { RebaseTodoEntry } from '@gitlens/git/models/rebase.js';
+import type { RebaseTodoAction, RebaseTodoEntry } from '@gitlens/git/models/rebase.js';
 import { parseRebaseTodo } from '@gitlens/git/parsers/rebaseTodoParser.js';
 
 export {
@@ -7,6 +7,23 @@ export {
 	formatUpdateRefLine,
 	processRebaseEntries,
 } from '@gitlens/git/utils/rebase.utils.js';
+
+/** A rebase todo action that, as the last completed entry, indicates the rebase is paused
+ *  waiting for explicit user action (not just a conflict resolution). */
+export type ActionablePauseAction = 'edit' | 'reword' | 'break' | 'exec';
+
+/** Returns the action if it indicates the rebase is paused for user action, otherwise undefined. */
+export function getActionablePauseAction(action: RebaseTodoAction | undefined): ActionablePauseAction | undefined {
+	switch (action) {
+		case 'edit':
+		case 'reword':
+		case 'break':
+		case 'exec':
+			return action;
+		default:
+			return undefined;
+	}
+}
 
 export interface ParsedRebaseDone {
 	readonly entries: RebaseTodoEntry[];

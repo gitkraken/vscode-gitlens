@@ -145,6 +145,7 @@ export class BlameSnapshot {
 					continue;
 				}
 			}
+
 			// Unmapped or uncommitted — use HEAD blame if available
 			if (headBlame != null) {
 				const headLine = headBlame.lines[headIdx];

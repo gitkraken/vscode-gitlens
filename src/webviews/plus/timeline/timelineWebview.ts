@@ -557,6 +557,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				// Re-check before blanking; state may have changed during the 1s wait
 				if (this._tabsChangedSeq.current !== seq) return;
 				if (this.isCurrentScopeVisible()) return;
+
 				this._onScopeChanged.fire(undefined);
 				this.host.sendTelemetryEvent('timeline/editor/changed');
 			}, 1000);

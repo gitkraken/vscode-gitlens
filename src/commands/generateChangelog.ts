@@ -19,6 +19,7 @@ import { GlCommandBase } from './commandBase.js';
 export interface GenerateChangelogCommandArgs {
 	repoPath?: string;
 	head?: GitReference;
+	base?: GitReference;
 	source?: Source;
 }
 
@@ -32,6 +33,7 @@ export class GenerateChangelogCommand extends GlCommandBase {
 		try {
 			const result = await showComparisonPicker(this.container, args?.repoPath, {
 				head: args?.head,
+				base: args?.base,
 				getTitleAndPlaceholder: step => {
 					switch (step) {
 						case 1:

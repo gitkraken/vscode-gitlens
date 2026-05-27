@@ -1,4 +1,5 @@
 import type {
+	ColumnNumberBySha,
 	CommitType,
 	CssVariables,
 	ExcludeRefsById,
@@ -19,10 +20,15 @@ import type {
 	RowAdornment,
 	RowAdornmentProvider,
 } from '@gitkraken/gitkraken-components';
-import GraphContainer, { CommitDateTimeSources, emptySetMarker, refZone } from '@gitkraken/gitkraken-components';
+import GraphContainer, {
+	CommitDateTimeSources,
+	emptySetMarker,
+	refZone,
+	RowAdornmentInvalidateEvent,
+} from '@gitkraken/gitkraken-components';
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getPlatform } from '@env/platform.js';
+import { getAltKeySymbol, getPlatform } from '@env/platform.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
@@ -47,6 +53,10 @@ import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 import type { GlButton } from '../../../shared/components/button.js';
 import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
+import type { RunningOperationBucket } from '../components/detailsState.js';
+import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
+import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 import { getCommitDateFromRow } from '../utils/row.utils.js';
 import '../../../shared/components/button.js';
@@ -74,9 +84,31 @@ export type GraphWrapperProps = Pick<
 	| 'rowsStatsLoading'
 	| 'workingTreeStats'
 > &
-	Pick<GraphStateProvider, 'activeRow' | 'scope' | 'searchMode' | 'searchResults' | 'wipMetadataBySha'> & {
+	Pick<
+		GraphStateProvider,
+		'activeFilterColumns' | 'activeRow' | 'scope' | 'searchMode' | 'searchResults' | 'wipMetadataBySha'
+	> & {
+		/** Cross-pane signal projection: maps a graph row's `sha` (the synthetic value, e.g.
+		 *  `work-dir-changes` for the primary WIP or `worktree-wip::<path>` for secondaries)
+		 *  to the running compose/review mode for that anchor when one exists. Owned by
+		 *  `graphCrossPaneContext`; the graph-wrapper Lit element translates the canonical
+		 *  anchor-keyed map into this row-keyed shape so the React render is a plain
+		 *  prop comparison and the React layer doesn't have to know about anchor-key
+		 *  derivation. */
+		runningOperationByRowSha?: ReadonlyMap<string, RunningOperationBucket>;
+		/** Per-WIP-row agent status — same anchor-keying scheme as `runningOperationByRowSha`,
+		 *  resolved from `agentSessions × wipMetadataBySha` in the Lit wrapper so the React render
+		 *  is a plain prop comparison. `undefined` when no WIP row has a surfacing agent. */
+		agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
 		theming?: GraphWrapperTheming;
 		wipShasSettleDelayMs?: number;
+		/**
+		 * Controls whether the GK component auto-injects the primary "Working Changes" row.
+		 * `'always'` is the default (matches previous behavior); `'auto'` defers to
+		 * `workingTreeStats` (and shows nothing when those are undefined) so the host can
+		 * suppress the primary row when the current branch is out of scope.
+		 */
+		wipVisibility?: 'always' | 'auto';
 	};
 
 export interface GraphWrapperEvents {
@@ -88,12 +120,14 @@ export interface GraphWrapperEvents {
 		state: GraphSelectionState,
 	) => void;
 	onChangeVisibleDays?: (detail: { top: number; bottom: number }) => void;
+	onFilterColumn?: (detail: { zone: GraphZoneType }) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
 	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
+	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
@@ -111,6 +145,7 @@ export interface GraphWrapperEvents {
 	onScopeAnchorsUnreachable?: (unreachableAnchors: Set<string>) => void;
 	onWipShasMissingStats?: (shas: Record<string, true>) => void;
 	onVisibleWipShasChanged?: (shas: Record<string, true>) => void;
+	onColumnsCalculated?: (columnsBySha: ColumnNumberBySha) => void;
 }
 
 const getGraphDateFormatter = (config: GraphComponentConfig): OnFormatCommitDateTime => {
@@ -240,6 +275,9 @@ export type GraphWrapperInitProps = GraphWrapperProps &
 	};
 
 const emptyRows: GraphRow[] = [];
+
+// Note: `statusIconFor` extracted to `../components/runningOperationStatus.ts` so the details
+// header (Lit) and the WIP-row adornment (React) share one mapping. Imported above.
 
 function checkUniqueBranchSelection(selectedRows: GraphRow[]): boolean {
 	if (selectedRows.length === 0) return false;
@@ -410,29 +448,49 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		[initProps.onChangeColumns],
 	);
 
+	// Mirror `props.rows` into a ref so the visible-rows handler can resolve WIP rows against the
+	// LIVE rows array without re-creating the handler each time rows change. Recreating the handler
+	// on every rows update churns the GK component's event-binding cache, which has been observed to
+	// call back with a stale handler closure during the WIP→commit scroll transition.
+	const rowsRef = useRef(props.rows);
+	rowsRef.current = props.rows;
+
 	const handleOnGraphVisibleRowsChanged = useCallback(
 		(top: GraphRow, bottom: GraphRow) => {
-			// Synthetic WIP rows use `Date.now()` as their commit date so the GK component sorts them
-			// to "now". For visible-day projection, that anchors the overlay at "today" even when all
-			// real visible commits are older — overshooting the actual visible time range and making
-			// the overlay overlap a scope highlight that's days away. Resolve WIP rows to their parent
-			// commit so the overlay reflects only real commit dates. `commitDateOf` then pulls the
-			// committer-date (always populated by the row source, even when `row.date` follows author-
-			// date ordering) so the overlay aligns with the minimap spline + scope highlight.
-			const dateForRow = (row: GraphRow): number => {
+			// Synthetic WIP rows use `Date.now()` as their commit date and aren't real points on the
+			// timeline, so they shouldn't expand the visible-window range. Resolve a visible WIP to
+			// the nearest real row INSIDE the viewport: walk forward for `top` (newer edge → toward
+			// older), walk backward for `bottom` (older edge → toward newer). Either direction lands
+			// on the adjacent non-WIP row that's still inside the viewport, so the overlay reflects
+			// only the REAL commits actually visible — never spilling past WIPs sitting at either
+			// edge of the viewport.
+			const dateForRow = (row: GraphRow, step: 1 | -1): number => {
 				if (row.type === 'work-dir-changes') {
-					const parentSha = row.parents?.[0];
-					const parent = parentSha ? props.rows?.find(r => r.sha === parentSha) : undefined;
-					if (parent != null) return getCommitDateFromRow(parent);
+					const rows = rowsRef.current;
+					if (rows != null) {
+						// The GK component wraps incoming rows into processed objects pushed into its
+						// internal `orderedGraphRows`, so the row reference passed to this callback is
+						// NOT the same instance as our decorated rows. Look up by `sha`, which is
+						// invariant across the wrap.
+						const sha = row.sha;
+						const idx = rows.findIndex(r => r.sha === sha);
+						if (idx !== -1) {
+							for (let i = idx + step; i >= 0 && i < rows.length; i += step) {
+								if (rows[i].type !== 'work-dir-changes') {
+									return getCommitDateFromRow(rows[i]);
+								}
+							}
+						}
+					}
 				}
 				return getCommitDateFromRow(row);
 			};
 			initProps.onChangeVisibleDays?.({
-				top: new Date(dateForRow(top)).setHours(23, 59, 59, 999),
-				bottom: new Date(dateForRow(bottom)).setHours(0, 0, 0, 0),
+				top: new Date(dateForRow(top, 1)).setHours(23, 59, 59, 999),
+				bottom: new Date(dateForRow(bottom, -1)).setHours(0, 0, 0, 0),
 			});
 		},
-		[initProps.onChangeVisibleDays, props.rows],
+		[initProps.onChangeVisibleDays],
 	);
 
 	const handleOnGraphColumnsReOrdered = useCallback(
@@ -642,6 +700,41 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	const emptyConfig = useMemo(() => ({}) as unknown as NonNullable<typeof props.config>, []);
 	const config = useMemo(() => props.config ?? emptyConfig, [props.config, emptyConfig]);
 
+	// Augment the host-supplied columns with client-side `isFilterActive` flags derived from
+	// the current search query. The host config stays unaware of search state.
+	const columnsSettings = useMemo<GraphColumnsSettings | undefined>(() => {
+		const columns = props.columns;
+		if (columns == null) return undefined;
+
+		const active = props.activeFilterColumns;
+		if (active == null || active.size === 0) return columns;
+
+		const result: GraphColumnsSettings = { ...columns };
+		for (const [name, setting] of Object.entries(columns) as [GraphColumnName, GraphColumnSetting][]) {
+			if (active.has(name)) {
+				result[name] = { ...setting, isFilterActive: true };
+			}
+		}
+		return result;
+	}, [props.columns, props.activeFilterColumns]);
+
+	// In filter mode, once the search result set is fully loaded there's nothing more for commit
+	// paging to surface — stop the GK component's `loadMoreCommitsIfNecessary` loop from paging
+	// through the entire history to "fill" the viewport. (For `type:wip` the synthetic result set
+	// is always reported as fully loaded, so this short-circuits immediately.)
+	const hasMoreCommits = useMemo(() => {
+		const results = props.searchResults;
+		if (
+			props.searchMode === 'filter' &&
+			results != null &&
+			!results.hasMore &&
+			results.commitsLoaded.count === results.count
+		) {
+			return false;
+		}
+		return props.paging?.hasMore;
+	}, [props.searchMode, props.searchResults, props.paging?.hasMore]);
+
 	// Memoize highlightedShas to avoid creating new object references
 	const highlightedShas = useMemo(() => {
 		if (props.searchResults == null) return undefined;
@@ -731,7 +824,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				<gl-button
 					className="jump-to-pinned-branch"
 					appearance="toolbar"
-					tooltip="Jump to pinned branch"
+					tooltip="Jump to Pinned Branch"
 					onClick={handleJumpToPinnedBranch}
 				>
 					<code-icon icon="pinned"></code-icon>
@@ -740,7 +833,21 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		};
 	}, [props.pinnedRef, handleJumpToPinnedBranch]);
 
-	const invalidateTarget = new EventTarget();
+	// Stable EventTarget across renders — the gitkraken graph subscribes once and listens for
+	// `invalidate` events to drop cached adornments. A fresh target per render would leave
+	// the graph subscribed to a target nobody dispatches on.
+	const invalidateTarget = useMemo(() => new EventTarget(), []);
+
+	// Bust the adornment cache when the row-keyed running-modes OR agent-status maps change.
+	// Must dispatch a RowAdornmentInvalidateEvent (a CustomEvent carrying `detail.type`) — the
+	// graph's `onInvalidate` handler destructures `e.detail`, so a plain `Event` throws there
+	// and the cache never clears. `'all'` re-runs BOTH `provideAdornments` (visibility —
+	// secondary WIPs pin their adornment visible when an operation or agent attaches to the
+	// row) AND `resolveAdornment` (the overlay icons).
+	useEffect(() => {
+		invalidateTarget.dispatchEvent(new RowAdornmentInvalidateEvent('all'));
+	}, [props.runningOperationByRowSha, props.agentStatusByRowSha, invalidateTarget]);
+
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
 		provideAdornments: (
@@ -751,28 +858,26 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			for (const row of rows) {
 				if (cancellation.aborted) return {};
 
-				if (row.type === 'work-dir-changes') {
-					const isSecondaryWip = isSecondaryWipSha(row.sha);
-					adornments[row.sha] = {
-						visibility: isSecondaryWip ? ['hover', 'focus', 'selected'] : true,
-					};
-					continue;
+				switch (row.type) {
+					case 'work-dir-changes': {
+						const isSecondaryWip = isSecondaryWipSha(row.sha);
+						// Secondary WIPs default to hover/focus/selected to keep the graph quiet, but
+						// pin them visible whenever a review/compose operation OR an agent is attached
+						// to the row so the status overlay stays readable without requiring hover.
+						const hasOperation = props.runningOperationByRowSha?.get(row.sha) != null;
+						const hasAgent = props.agentStatusByRowSha?.get(row.sha) != null;
+						adornments[row.sha] = {
+							visibility:
+								!isSecondaryWip || hasOperation || hasAgent ? true : ['hover', 'focus', 'selected'],
+						};
+						break;
+					}
+					case 'stash-node':
+					case 'commit-node':
+					case 'merge-node':
+						adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+						break;
 				}
-
-				// TODO@eamodio after release
-				// switch (row.type) {
-				// 	case 'work-dir-changes':
-				// 		adornments[row.sha] = { visibility: true };
-				// 		break;
-				// 	case 'stash-node':
-				// 		adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
-				// 		break;
-				// 	case 'commit-node':
-				// 		if (row.heads?.length) {
-				// 			adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
-				// 		}
-				// 		break;
-				// }
 			}
 
 			return adornments;
@@ -784,35 +889,74 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		): ReactNode | null | Promise<ReactNode | null> => {
 			switch (row.type) {
 				case 'work-dir-changes': {
-					const isSecondaryWip = isSecondaryWipSha(row.sha);
+					const bucket = props.runningOperationByRowSha?.get(row.sha);
+					const composeHasResult = bucket?.compose?.result != null;
+					const reviewHasResult = bucket?.review?.result != null;
+					const composeStatusIcon =
+						bucket?.compose != null ? statusIconFor(bucket.compose.execState, composeHasResult) : null;
+					const reviewStatusIcon =
+						bucket?.review != null ? statusIconFor(bucket.review.execState, reviewHasResult) : null;
+					const composeTooltip = rowAdornmentTooltipFor(
+						'compose',
+						bucket?.compose?.execState,
+						composeHasResult,
+					);
+					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState, reviewHasResult);
+
+					const agentStatus = props.agentStatusByRowSha?.get(row.sha);
+					const agentSuffix = agentStatus != null ? agentSuffixIconFor(agentStatus.category) : undefined;
+					const agentTooltip =
+						agentStatus != null ? agentIndicatorTooltipFor(agentStatus.category) : undefined;
 
 					return (
 						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							{agentStatus != null && (
+								<gl-button
+									className={`agent-indicator agent-indicator--${agentStatus.category}`}
+									appearance="toolbar"
+									onClick={() => initProps.onWipRowOpen?.({ target: 'agents', row: row })}
+									tooltip={agentTooltip}
+									aria-label={agentTooltip}
+								>
+									<code-icon icon="robot"></code-icon>
+									{agentSuffix != null && (
+										<code-icon
+											slot="suffix"
+											icon={agentSuffix}
+											modifier={agentStatus.category === 'working' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
 							<gl-button
-								onClick={() => initProps.onRowAction?.({ action: 'compose-commits', row: row })}
-								tooltip="Compose Commits..."
-								aria-label="Compose Commits..."
+								onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
+								tooltip={composeTooltip}
+								aria-label={composeTooltip}
 							>
-								{isSecondaryWip ? (
-									<code-icon icon="wand"></code-icon>
-								) : (
-									<>
-										<code-icon slot="prefix" icon="wand"></code-icon>
-										Compose...
-									</>
+								<code-icon icon="wand"></code-icon>
+								{composeStatusIcon != null && (
+									<code-icon
+										slot="suffix"
+										icon={composeStatusIcon}
+										modifier={composeStatusIcon === 'loading' ? 'spin' : ''}
+									></code-icon>
+								)}
+							</gl-button>
+							<gl-button
+								onClick={() => initProps.onWipRowOpen?.({ target: 'review', row: row })}
+								tooltip={reviewTooltip}
+								aria-label={reviewTooltip}
+							>
+								<code-icon icon="checklist"></code-icon>
+								{reviewStatusIcon != null && (
+									<code-icon
+										slot="suffix"
+										icon={reviewStatusIcon}
+										modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
+									></code-icon>
 								)}
 							</gl-button>
 							<div>
-								<gl-button
-									appearance="toolbar"
-									onClick={() =>
-										initProps.onRowAction?.({ action: 'generate-commit-message', row: row })
-									}
-									tooltip="Generate Commit Message"
-									aria-label="Generate Commit Message"
-								>
-									<code-icon icon="sparkle"></code-icon>
-								</gl-button>
 								<gl-button
 									appearance="toolbar"
 									onClick={() => initProps.onRowAction?.({ action: 'stash-save', row: row })}
@@ -825,42 +969,46 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						</div>
 					);
 				}
-				// case 'stash-node':
-				// 	return (
-				// 		<div className="graph-row-actions">
-				// 			<gl-button
-				// 				appearance="toolbar"
-				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-pop', row: row })}
-				// 				tooltip="Pop Stash..."
-				// 				aria-label="Pop Stash..."
-				// 			>
-				// 				<code-icon icon="git-stash-pop"></code-icon>
-				// 			</gl-button>
-				// 			<gl-button
-				// 				appearance="toolbar"
-				// 				onClick={() => initProps.onRowAction?.({ action: 'stash-drop', row: row })}
-				// 				tooltip="Drop Stash..."
-				// 				aria-label="Drop Stash..."
-				// 			>
-				// 				<code-icon icon="trash"></code-icon>
-				// 			</gl-button>
-				// 		</div>
-				// 	);
-				// case 'commit-node':
-				// 	if (row.heads?.length) {
-				// 		return (
-				// 			<div className="graph-row-actions">
-				// 				<gl-button
-				// 					onClick={() => initProps.onRowAction?.({ action: 'recompose-branch', row: row })}
-				// 					tooltip="Recompose Branch..."
-				// 					aria-label="Recompose Branch..."
-				// 				>
-				// 					<code-icon slot="prefix" icon="wand"></code-icon>Recompose Branch...
-				// 				</gl-button>
-				// 			</div>
-				// 		);
-				// 	}
-				// 	break;
+				case 'stash-node':
+					return (
+						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							<gl-button
+								appearance="toolbar"
+								onClick={() => initProps.onRowAction?.({ action: 'stash-apply', row: row })}
+								tooltip="Apply Stash..."
+								aria-label="Apply Stash..."
+							>
+								<code-icon icon="git-stash-apply"></code-icon>
+							</gl-button>
+							<gl-button
+								appearance="toolbar"
+								onClick={() => initProps.onRowAction?.({ action: 'stash-drop', row: row })}
+								tooltip="Drop Stash..."
+								aria-label="Drop Stash..."
+							>
+								<code-icon icon="trash"></code-icon>
+							</gl-button>
+						</div>
+					);
+				case 'commit-node':
+				case 'merge-node':
+					return (
+						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							<gl-button
+								appearance="toolbar"
+								onClick={e =>
+									initProps.onRowAction?.({
+										action: e.altKey ? 'open-changes-with-working' : 'open-changes',
+										row: row,
+									})
+								}
+								tooltip={`Open All Changes\n[${getAltKeySymbol()}] Open All Changes with Working Tree)`}
+								aria-label="Open All Changes"
+							>
+								<code-icon icon="diff-multiple"></code-icon>
+							</gl-button>
+						</div>
+					);
 			}
 			return null;
 		},
@@ -871,7 +1019,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			ref={graphRef}
 			rowAdornmentProvider={rowAdornmentProvider}
 			avatarUrlByEmail={props.avatars}
-			columnsSettings={props.columns}
+			columnsSettings={columnsSettings}
 			contexts={context}
 			formatCommitMessage={formatCommitMessage}
 			cssVariables={props.theming?.cssVariables}
@@ -889,7 +1037,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			formatCommitDateTime={getGraphDateFormatter(config)}
 			getExternalIcon={getIconElementLibrary}
 			graphRows={props.rows ?? emptyRows}
-			hasMoreCommits={props.paging?.hasMore}
+			hasMoreCommits={hasMoreCommits}
 			hasMoreSearchResults={props.searchResults?.hasMore}
 			highlightedShas={highlightedShas}
 			highlightRowsOnRefHover={config.highlightRowsOnRefHover}
@@ -922,6 +1070,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 					graphZoneType: graphZoneType,
 				})
 			}
+			onFilterColumnClick={(_e, graphZoneType) => initProps.onFilterColumn?.({ zone: graphZoneType })}
 			onRowContextMenu={handleRowContextMenu}
 			onSettingsClick={handleToggleColumnSettings}
 			onSelectGraphRows={handleSelectGraphRows}
@@ -942,13 +1091,14 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			themeOpacityFactor={props.theming?.themeOpacityFactor}
 			useAuthorInitialsForAvatars={!config.avatars}
 			workDirStats={props.workingTreeStats}
-			wipVisibility="always"
+			wipVisibility={props.wipVisibility ?? 'always'}
 			wipNodeMetadataBySha={props.wipMetadataBySha}
 			wipShasSettleDelayMs={props.wipShasSettleDelayMs}
 			scope={props.scope}
 			onScopeAnchorsUnreachable={initProps.onScopeAnchorsUnreachable}
 			onWipShasMissingStats={initProps.onWipShasMissingStats}
 			onVisibleWipShasChanged={initProps.onVisibleWipShasChanged}
+			onColumnsCalculated={initProps.onColumnsCalculated}
 		/>
 	);
 });
@@ -1001,6 +1151,7 @@ declare global {
 		}>;
 		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
 		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
+		'graph-filtercolumn': CustomEvent<{ zone: GraphZoneType }>;
 		'graph-missingavatars': CustomEvent<GraphAvatars>;
 		'graph-missingrefsmetadata': CustomEvent<GraphMissingRefsMetadata>;
 		'graph-morerows': CustomEvent<string | undefined>;

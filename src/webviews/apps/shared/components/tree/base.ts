@@ -1,3 +1,4 @@
+import type { TemplateResult } from 'lit';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts.js';
@@ -20,6 +21,11 @@ export interface TreeItemBase {
 	checked?: boolean | 'indeterminate';
 	disableCheck?: boolean;
 	checkableTooltip?: string;
+	/** Alt-action tooltip — surfaced only when the checkbox has a distinct alt+click behavior
+	 *  (currently set by `gl-file-tree-pane` for mixed-state files where alt+click flips to
+	 *  unstage). When set, `tree-item` adds an alt-key hint line and swaps to this label while
+	 *  the user holds Alt. */
+	checkableAltTooltip?: string;
 
 	/**
 	 * Indicates the file has hunks in BOTH staged and unstaged. Set by gl-wip-tree-pane
@@ -53,7 +59,17 @@ export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	icon: string;
 }
 
-export type TreeItemDecorationKind = 'added' | 'deleted' | 'modified' | 'untracked' | 'renamed' | 'conflict' | 'muted';
+export type TreeItemDecorationKind =
+	| 'added'
+	| 'deleted'
+	| 'modified'
+	| 'untracked'
+	| 'renamed'
+	| 'conflict'
+	| 'muted'
+	| 'agent-working'
+	| 'agent-waiting'
+	| 'agent-idle';
 
 export interface TreeItemDecorationText extends TreeItemDecorationBase {
 	type: 'text';
@@ -80,12 +96,28 @@ export interface TreeItemDecorationConflict extends TreeItemDecorationBase {
 	kind?: TreeItemDecorationKind;
 }
 
+export interface TreeItemDecorationAgent extends TreeItemDecorationBase {
+	type: 'agent';
+	phase: AgentSessionPhase;
+	tooltip?: string;
+}
+
+export interface TreeItemDecorationWip extends TreeItemDecorationBase {
+	type: 'wip';
+	hasChanges: boolean;
+	added?: number;
+	changed?: number;
+	deleted?: number;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
 	| TreeItemDecorationStatus
 	| TreeItemDecorationTracking
-	| TreeItemDecorationConflict;
+	| TreeItemDecorationConflict
+	| TreeItemDecorationAgent
+	| TreeItemDecorationWip;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;
@@ -100,9 +132,14 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	actions?: TreeItemAction[];
 	decorations?: TreeItemDecoration[];
 	contextData?: unknown;
-	tooltip?: string;
+	/** Hover tooltip. A `string` is rendered as markdown (via `gl-markdown`); a Lit `TemplateResult`
+	 *  is rendered directly, bypassing markdown — letting callers produce richer layouts with
+	 *  their own scoped styles when a markdown string would be too constrained. */
+	tooltip?: string | TemplateResult;
 	filterText?: string;
 	matched?: boolean;
+	/** Lower sorts first within its parent; treated as `0` when unset. */
+	priority?: number;
 }
 
 export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {

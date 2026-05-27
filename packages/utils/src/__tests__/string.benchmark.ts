@@ -5,8 +5,8 @@
  * to determine optimal thresholds for the maybeIterateByDelimiter() function.
  */
 
-import { iterateByDelimiter } from '@gitlens/utils/string.js';
 import { Bench } from 'tinybench';
+import { iterateByDelimiter } from '../string.js';
 import {
 	consumeArray,
 	consumeIterator,
@@ -34,6 +34,7 @@ function* iterateByDelimiterGenerator(data: string | Iterable<string>, delimiter
 			}
 
 			yield data.substring(i, j);
+
 			i = j + delimiterLen;
 		}
 
@@ -63,6 +64,7 @@ function* iterateByDelimiterGenerator(data: string | Iterable<string>, delimiter
 				}
 
 				yield s.substring(i, j);
+
 				i = j + delimiterLen;
 			}
 		}
@@ -82,6 +84,7 @@ function* iterateByDelimiterGenerator(data: string | Iterable<string>, delimiter
 			}
 
 			yield buffer.substring(i, j);
+
 			i = j + delimiterLen;
 		}
 
@@ -168,11 +171,13 @@ async function analyze(testData: ReturnType<typeof generateGitTestData>): Promis
 			console.log(`  ${test.name} | Winner: unknown | split() did not complete`);
 			continue;
 		}
+
 		const iterResult = bench.tasks.find(t => t.name === 'iterator')?.result;
 		if (iterResult?.state !== 'completed') {
 			console.log(`  ${test.name} | Winner: unknown | iterateByDelimiter() did not complete`);
 			continue;
 		}
+
 		const genResult = bench.tasks.find(t => t.name === 'generator')?.result;
 		if (genResult?.state !== 'completed') {
 			console.log(`  ${test.name} | Winner: unknown | iterateByDelimiterGenerator() did not complete`);

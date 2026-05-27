@@ -4,8 +4,8 @@
  * Compares performance of generator-based vs iterator-based implementations for common iterable operations used throughout GitLens
  */
 
-import { chunk, filter, map, skip, take } from '@gitlens/utils/iterable.js';
 import { Bench } from 'tinybench';
+import { chunk, filter, map, skip, take } from '../iterable.js';
 import {
 	consumeIterator,
 	displayAnalysisHeader,
@@ -37,6 +37,7 @@ function* takeGenerator<T>(source: Iterable<T>, count: number): Iterable<T> {
 		let i = 0;
 		for (const item of source) {
 			yield item;
+
 			i++;
 			if (i >= count) break;
 		}
@@ -47,6 +48,7 @@ function* skipGenerator<T>(source: Iterable<T>, count: number): IterableIterator
 	let i = 0;
 	for (const item of source) {
 		if (i >= count) yield item;
+
 		i++;
 	}
 }
@@ -61,6 +63,7 @@ function* chunkGenerator<T>(source: T[], size: number): Iterable<T[]> {
 		}
 
 		yield chunk;
+
 		chunk = [];
 	}
 
@@ -509,6 +512,7 @@ async function analyzeOverall(): Promise<void> {
 			console.log(`  ${op.padEnd(10)} | Winner: unknown | Generator did not complete`);
 			continue;
 		}
+
 		const iterResult = bench.tasks.find(t => t.name === 'iterator')?.result;
 		if (iterResult?.state !== 'completed') {
 			console.log(`  ${op.padEnd(10)} | Winner: unknown | Iterator did not complete`);

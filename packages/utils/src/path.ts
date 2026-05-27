@@ -25,6 +25,7 @@ export function commonBase(s: string[], delimiter: string, ignoreCase?: boolean)
 	for (let i = 1; i < s.length; i++) {
 		const index = commonBaseIndex(common, s[i], delimiter, ignoreCase);
 		if (index === 0) return undefined;
+
 		common = common.substring(0, index + 1);
 	}
 

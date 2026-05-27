@@ -11,6 +11,7 @@ import { debounce } from '@gitlens/utils/debounce.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { concat, filterMap, find, first, join, last, map } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { extname, normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -33,7 +34,11 @@ import {
 	getCommitFormattedDate,
 } from '../../git/utils/-webview/commit.utils.js';
 import { countConflictMarkers } from '../../git/utils/-webview/mergeConflicts.utils.js';
-import { processRebaseEntries, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
+import {
+	getActionablePauseAction,
+	processRebaseEntries,
+	readAndParseRebaseDoneFile,
+} from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
@@ -118,6 +123,10 @@ export class RebaseWebviewProvider implements Disposable {
 	private _conflictMarkerCache = new Map<string, { mtime: number; count: number }>();
 	private readonly _disposables: Disposable[] = [];
 	private _enrichment: Enrichment;
+	private _etagRepository?: number;
+	private _lastSentState?: State;
+	private _pendingStateNotify: Promise<void> | undefined;
+	private _stateNotifyDirty = false;
 	private readonly _todoDocument: RebaseTodoDocument;
 
 	// Telemetry context - tracks composer-specific data for getTelemetryContext
@@ -184,12 +193,20 @@ export class RebaseWebviewProvider implements Disposable {
 		// Subscribe to repository changes
 		const repo = this.container.git.getRepository(this.repoPath);
 		if (repo != null) {
+			this._etagRepository = repo.etag;
 			this._disposables.push(
 				repo.onDidChange(async e => {
+					// Invalidate cached branch name when refs move so a rename mid-session is picked up
+					if (e.changed('heads')) {
+						this._branchName = undefined;
+					}
+
 					if (e.changed('rebase')) {
 						// Check if the rebase todo file still exists, if not close the editor
 						if (await exists(this._todoDocument.uri)) {
-							this.updateState();
+							// Rebase mutations (continue/skip/abort from terminal) are rare and
+							// user-initiated — skip the 250ms debounce so the UI reflects them immediately
+							this.updateState(true);
 						} else if (!this._closing) {
 							this._closing = true;
 							void closeTab(this._todoDocument.uri);
@@ -252,10 +269,18 @@ export class RebaseWebviewProvider implements Disposable {
 	}
 
 	onVisibilityChanged(visible: boolean): void {
-		if (visible) {
-			// If there was a pending change while hidden, update now
+		if (!visible) return;
+
+		// Only refresh if the repo has changed while we were hidden; otherwise just flush any
+		// notifications that were queued while host.visible was false.
+		const repo = this.container.git.getRepository(this.repoPath);
+		if (repo != null && repo.etag !== this._etagRepository) {
+			this._etagRepository = repo.etag;
 			this.updateState();
+			return;
 		}
+
+		this.host.sendPendingIpcNotifications();
 	}
 
 	private onSubscriptionChanged(subscription: Subscription): void {
@@ -354,6 +379,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onStageCurrentChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
 		const path = item?.webviewItemValue?.path;
 		if (path == null) return;
+
 		await this.stageConflictResolution(path, 'current');
 	}
 
@@ -362,6 +388,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onStageIncomingChangesFromContext(item: ConflictFileWebviewContext | undefined): Promise<void> {
 		const path = item?.webviewItemValue?.path;
 		if (path == null) return;
+
 		await this.stageConflictResolution(path, 'incoming');
 	}
 
@@ -1017,7 +1044,11 @@ export class RebaseWebviewProvider implements Disposable {
 
 		// Get onto from parsed header or active rebase status
 		const onto = parsed.info?.onto ?? rebaseStatus?.onto ?? '';
-		this._enrichment.onto ??= { sha: onto };
+		// Reset the enrichment cache when the onto target changes so a re-run with a different
+		// --onto target (or a rewritten todo header) doesn't keep showing the original commit
+		if (this._enrichment.onto?.sha !== onto) {
+			this._enrichment.onto = { sha: onto };
+		}
 
 		let { entries } = processed;
 		const { authors, commits, onto: ontoCommit } = this._enrichment;
@@ -1083,22 +1114,6 @@ export class RebaseWebviewProvider implements Disposable {
 			conflictFiles: conflictFiles,
 			closeWarningDismissed: this.container.onboarding.isDismissed('rebaseEditor:closeWarning'),
 		};
-	}
-
-	/** Detects the reason the rebase is paused based on the last done entry's action */
-	private detectPauseReason(lastAction: RebaseTodoAction | undefined): RebasePauseReason | undefined {
-		switch (lastAction) {
-			case 'edit':
-				return 'edit';
-			case 'reword':
-				return 'reword';
-			case 'break':
-				return 'break';
-			case 'exec':
-				return 'exec';
-			default:
-				return undefined;
-		}
 	}
 
 	/** Enriches entries with commit data */
@@ -1180,7 +1195,7 @@ export class RebaseWebviewProvider implements Disposable {
 		// Determine pause reason based on last done entry and conflict status
 		const pauseReason: RebasePauseReason | undefined = hasConflicts
 			? 'conflict'
-			: this.detectPauseReason(lastAction);
+			: getActionablePauseAction(lastAction);
 
 		return {
 			status: {
@@ -1226,16 +1241,55 @@ export class RebaseWebviewProvider implements Disposable {
 	private async notifyDidChangeState(): Promise<void> {
 		if (!this.host.visible) return;
 
-		const state = await this.parseState();
-
-		// Close the editor if rebase is complete (no entries, no done entries, and no active rebase)
-		if (!state.entries.length && !state.doneEntries?.length && state.rebaseStatus == null) {
-			this._closing = true;
-			await closeTab(this._todoDocument.uri);
+		// Coalesce: if a notify is already in flight, mark dirty so a trailing run picks up any
+		// changes that landed mid-flight, then piggyback on the in-flight promise.
+		if (this._pendingStateNotify != null) {
+			this._stateNotifyDirty = true;
+			await this._pendingStateNotify;
 			return;
 		}
 
-		void this.host.notify(DidChangeNotification, { state: state });
+		// Reset before kicking off the in-flight build so calls that arrive during this run flip it back on
+		this._stateNotifyDirty = false;
+
+		const promise = (async () => {
+			try {
+				const state = await this.parseState();
+
+				// Close the editor if rebase is complete (no entries, no done entries, and no active rebase)
+				if (!state.entries.length && !state.doneEntries?.length && state.rebaseStatus == null) {
+					this._closing = true;
+					await closeTab(this._todoDocument.uri);
+					return;
+				}
+
+				// If a newer update was requested while we were parsing, drop this stale send —
+				// the trailing replay below will deliver fresher state
+				if (this._stateNotifyDirty) return;
+
+				// Skip the notify if nothing the webview cares about has changed since the last send
+				if (this._lastSentState != null && isStateUnchanged(state, this._lastSentState)) return;
+
+				this._lastSentState = state;
+				const repo = this.container.git.getRepository(this.repoPath);
+				if (repo != null) {
+					this._etagRepository = repo.etag;
+				}
+
+				await this.host.notify(DidChangeNotification, { state: state });
+			} finally {
+				this._pendingStateNotify = undefined;
+				// Trailing run: if a change arrived during the in-flight notify, kick off another pass
+				// so the late change isn't silently lost
+				if (this._stateNotifyDirty) {
+					this._stateNotifyDirty = false;
+					void this.notifyDidChangeState();
+				}
+			}
+		})();
+
+		this._pendingStateNotify = promise;
+		await promise;
 	}
 
 	private notifyDidChangeStateDebounced?: Deferrable<RebaseWebviewProvider['notifyDidChangeState']>;
@@ -1401,6 +1455,13 @@ export class RebaseWebviewProvider implements Disposable {
 		// Rewrite entries in new order
 		await this._todoDocument.reorderEntries(newEntries, needsOldestFix ? oldestCommit : undefined);
 	}
+}
+
+function isStateUnchanged(a: State, b: State): boolean {
+	// Compare ignoring `timestamp`, which is regenerated on every send
+	const { timestamp: _a, ...aRest } = a;
+	const { timestamp: _b, ...bRest } = b;
+	return areEqual(aRest, bRest);
 }
 
 function convertCommit(commit: GitCommit, defaultDateFormat: string | null): Commit {

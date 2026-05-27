@@ -95,6 +95,7 @@ export class GlPatchDetailsApp extends GlElement {
 	private updateDocumentProperties() {
 		const preference = this.state?.preferences?.indent;
 		if (preference === this.indentPreference) return;
+
 		this.indentPreference = preference ?? 16;
 
 		const rootStyle = document.documentElement.style;

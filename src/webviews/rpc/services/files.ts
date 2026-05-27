@@ -23,6 +23,7 @@ import {
 	openFile,
 	openFileOnRemote,
 	openMultipleChanges,
+	openWipChanges,
 	openWipMultipleChanges,
 	showDetailsQuickPick,
 } from '../../../git/actions/commit.js';
@@ -54,8 +55,12 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens the file
 	 * via the working-file command.
 	 */
-	async openFile(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+	async openFile(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			void openFile(file, makeWipRef(file.repoPath), { preserveFocus: true, preview: true, ...showOptions });
 			return;
 		}
@@ -72,7 +77,7 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens
 	 * the file on the remote via the openFileOnRemote command.
 	 */
-	async openFileOnRemote(file: GitFileChangeShape, ref?: string): Promise<void> {
+	async openFileOnRemote(file: GitFileChangeShape, ref?: { ref: string; stash?: boolean }): Promise<void> {
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
 
@@ -85,8 +90,12 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens a
 	 * diff view comparing the committed version with working tree.
 	 */
-	async openFileCompareWorking(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+	async openFileCompareWorking(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			void openChangesWithWorking(file, makeWipRef(file.repoPath), {
 				preserveFocus: true,
 				preview: true,
@@ -110,9 +119,9 @@ export class FilesService {
 	async openFileComparePrevious(
 		file: GitFileChangeShape,
 		showOptions?: FileShowOptions,
-		ref?: string,
+		ref?: { ref: string; stash?: boolean },
 	): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			// "Previous" for the working tree means HEAD vs working tree — `openChanges` with
 			// rhs='' and lhs='HEAD' delegates to `openChangesWithWorking` with the HEAD ref.
 			void openChanges(
@@ -130,9 +139,25 @@ export class FilesService {
 	}
 
 	/**
+	 * Open a WIP file's diff routed by `file.staged`:
+	 * - `staged: true`  → HEAD ↔ index  (the staged-portion diff)
+	 * - `staged: false` → index ↔ working tree (the unstaged-portion diff; equals HEAD ↔ working
+	 *   when the file has no staged content, so single-state rows render the same diff users expect)
+	 *
+	 * Mirrors the per-file routing in {@link openWipMultipleChanges} so single-row and multi-diff
+	 * views agree on what "this row's changes" means for mixed files.
+	 */
+	async openFileCompareWipChanges(file: GitFileChangeShape, showOptions?: FileShowOptions): Promise<void> {
+		if (file.repoPath == null) return;
+
+		await openWipChanges(file, file.repoPath, { preserveFocus: true, preview: true, ...showOptions });
+	}
+
+	/**
 	 * Compare a file between two specific refs (e.g. for commit range comparisons).
 	 *
-	 * Opens a diff editor showing the file at `lhsRef` vs `rhsRef`.
+	 * Opens a diff editor showing the file at `lhsRef` vs `rhsRef`. When `rhsRef === ''`
+	 * the right side is the working tree (S&C-style cumulative `lhsRef ↔ working` diff).
 	 */
 	// eslint-disable-next-line @typescript-eslint/require-await
 	async openFileCompareBetween(
@@ -144,7 +169,13 @@ export class FilesService {
 		if (file.repoPath == null || lhsRef == null || rhsRef == null) return;
 
 		const lhsUri = GitUri.fromFile(file.originalPath ?? file.path, file.repoPath, lhsRef);
-		const rhsUri = GitUri.fromFile(file, file.repoPath, rhsRef);
+		// `rhsRef === ''` means "working tree": construct an absolute `file://` URI directly.
+		// Cannot route through `openChangesWithWorking(file, commit-at-lhsRef)` — that requires
+		// the file to be in the commit's own fileset, which is false for most comparison-base
+		// refs (the base commit didn't itself change that file).
+		const svc = this.container.git.getRepositoryService(file.repoPath);
+		const rhsUri =
+			rhsRef === '' ? svc.getAbsoluteUri(file.path, file.repoPath) : GitUri.fromFile(file, file.repoPath, rhsRef);
 
 		void executeCommand('gitlens.diffWith', {
 			repoPath: file.repoPath,
@@ -197,7 +228,11 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then shows
 	 * the details quick pick with all available file actions.
 	 */
-	async executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
+	async executeFileAction(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
 		void showOptions; // Reserved for future use (e.g. viewColumn context)
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
@@ -215,10 +250,10 @@ export class FilesService {
 	async openMultipleChanges(args: OpenMultipleChangesArgs): Promise<void> {
 		if (!args.files.length) return;
 
-		// WIP mode: route per-file so a path that appears as both staged and unstaged
-		// yields two entries with different diffs (HEAD↔index and index↔working) instead
-		// of two identical HEAD↔working-tree entries.
-		if (args.rhs === '') {
+		// WIP mode: per-file HEAD↔index↔working, so a path that appears as both staged
+		// and unstaged yields two entries with different diffs (HEAD↔index and
+		// index↔working) instead of two identical HEAD↔working-tree entries.
+		if (args.wip === true) {
 			await openWipMultipleChanges(
 				this.container,
 				args.files,
@@ -228,6 +263,10 @@ export class FilesService {
 			return;
 		}
 
+		// Standard `lhs → rhs` per-file diff. The per-file loop in `openMultipleChanges`
+		// already handles `rhs === ''` by resolving each file's right side to the working
+		// tree via `getWorkingUri` — so passing `{ lhs: someCommittedRef, rhs: '' }`
+		// correctly produces a cumulative `commit ↔ working tree` multi-diff.
 		await openMultipleChanges(
 			this.container,
 			args.files,
@@ -294,7 +333,7 @@ export class FilesService {
 
 	async #getFileCommit(
 		file: GitFileChangeShape,
-		ref?: string,
+		ref?: { ref: string; stash?: boolean },
 	): Promise<[commit: GitCommit, file: GitFileChange] | [commit?: undefined, file?: undefined]> {
 		if (file.repoPath == null) return [];
 		return getCommitAndFileByPath(file.repoPath, file.path, ref, file.staged);

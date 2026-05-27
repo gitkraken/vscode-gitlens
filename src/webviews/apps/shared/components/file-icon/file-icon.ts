@@ -5,10 +5,9 @@
  * and renders the appropriate font glyph with color.
  */
 
-import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import type { SetiIcon } from './seti-icons.js';
+import { cspStyleMap } from '../csp-style-map.directive.js';
 import { resolveSetiFileIcon } from './seti-icons.js';
 
 @customElement('gl-file-icon')
@@ -37,32 +36,20 @@ export class GlFileIcon extends LitElement {
 	@property()
 	filename?: string;
 
-	private _icon?: SetiIcon;
-
-	override willUpdate(changed: PropertyValues): void {
-		if (!changed.has('filename')) return;
-
-		if (this.filename == null) {
-			this._icon = undefined;
-			return;
-		}
+	override render(): unknown {
+		if (this.filename == null) return nothing;
 
 		const isLight =
 			document.body.classList.contains('vscode-light') ||
 			document.body.classList.contains('vscode-high-contrast-light');
-		this._icon = resolveSetiFileIcon(this.filename, isLight);
-	}
+		const icon = resolveSetiFileIcon(this.filename, isLight);
+		if (icon == null) return nothing;
 
-	override updated(changed: PropertyValues): void {
-		if (!changed.has('filename')) return;
-		// Set color via CSSOM on the host (inherits to .font-icon) — the webview CSP forbids
-		// inline `style="…"` attributes; direct property writes are allowed.
-		this.style.color = this._icon?.color ?? '';
-	}
-
-	override render(): unknown {
-		if (this._icon == null) return nothing;
-		return html`<span class="font-icon">${parseFontCharacter(this._icon.character)}</span>`;
+		// Color is inheritable — apply on the span directly via `cspStyleMap` (CSSOM) since the
+		// webview CSP forbids inline `style="…"` attributes.
+		return html`<span class="font-icon" style=${cspStyleMap({ color: icon.color || 'inherit' })}
+			>${parseFontCharacter(icon.character)}</span
+		>`;
 	}
 }
 

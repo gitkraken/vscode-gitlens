@@ -16,6 +16,9 @@ export class GlTrackingPill extends LitElement {
 			}
 
 			.state {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.1rem;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
@@ -87,7 +90,7 @@ export class GlTrackingPill extends LitElement {
 			}
 
 			return html`<span part="base" class="pill${this.outlined ? ' pill--outlined' : ''}">
-				<span class="state${this.colorized ? ' state--ahead' : ''}"><code-icon icon="check"></code-icon></span>
+				<span class="state${this.colorized ? ' state--ahead' : ''}"><code-icon icon="sync"></code-icon></span>
 			</span>`;
 		}
 

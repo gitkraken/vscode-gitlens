@@ -4,7 +4,6 @@ export const detailsWipHeaderStyles = css`
 	:host {
 		display: contents;
 		--mode-header-bg: var(--titlebar-bg, var(--color-background--level-05));
-		--mode-header-tint: 20%;
 	}
 
 	.graph-details-header__title-group {
@@ -13,9 +12,13 @@ export const detailsWipHeaderStyles = css`
 		gap: 1.2rem;
 		min-width: 0;
 		flex: 1;
+		--commit-stats-pill-line-height: 2rem;
 	}
 
 	.graph-details-header__wip-title {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 		min-width: 0;
 		font-weight: 500;
 		font-size: var(--gl-font-base);
@@ -23,6 +26,12 @@ export const detailsWipHeaderStyles = css`
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	/* Mode icon prefixed to the title in compose/review — same icon as the active chip
+	   so the visual link reinforces what mode you're in. */
+	.graph-details-header__mode-icon {
+		flex: 0 0 auto;
 	}
 
 	.graph-details-header__paused-op {
@@ -53,7 +62,7 @@ export const detailsWipHeaderStyles = css`
 		display: flex;
 		align-items: center;
 		gap: 0.6rem;
-		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.6rem var(--gl-panel-padding-left, 1.2rem);
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
 		background-color: var(--gl-metadata-bar-bg);
 		border-top: 1px solid var(--gl-metadata-bar-border);
@@ -71,6 +80,12 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		gap: 0.6rem;
 		min-height: 2.4rem;
+		--commit-stats-pill-line-height: 2rem;
+		--gl-pill-line-height: 2rem;
+		--gl-pill-min-height: 2rem;
+		--gl-pill-padding: 0 0.6rem;
+		--gl-pill-font-size: 1.1rem;
+		--gl-pill-border-radius: 0.4rem;
 	}
 
 	.branch-identity {
@@ -92,14 +107,70 @@ export const detailsWipHeaderStyles = css`
 		margin-left: auto;
 	}
 
-	.no-changes {
-		min-width: 0;
-		flex: 0 1 auto;
-		color: var(--color-foreground--50);
-		font-size: var(--gl-font-base);
+	/* Right-side mode-status snippet (only present when in compose/review). Replaces the
+	   branch-ops cluster slot with text describing the mode's current state — scope file
+	   count, "Generating…", commit/finding counts, or "Error". Pre-formatted by the host so
+	   we just render whatever string lands here. */
+	.mode-status {
+		flex: 0 0 auto;
+		margin-left: auto;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.mode-status__group {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.mode-status__group code-icon {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
+	/* Clickable "Resume" affordance — replaces the in-panel resume bar. Active when a back-preview
+	   snapshot is present (forward-available state). The whole pill is the click target. */
+	.mode-status__resume {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		padding: 0.2rem 0.6rem;
+		font: inherit;
+		color: inherit;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		cursor: pointer;
+	}
+
+	.mode-status__resume:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+
+	.mode-status__resume:focus-visible {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+	}
+
+	.mode-status__resume-verb {
+		font-weight: 500;
+	}
+
+	.mode-status__resume-arrow {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
 	}
 
 	.graph-details-header__branch-link {
@@ -131,6 +202,12 @@ export const detailsWipHeaderStyles = css`
 	.graph-details-header__pull-request {
 		flex: 0 1 auto;
 		min-width: 0;
+	}
+
+	.graph-details-header__pull-request--loading {
+		display: inline-flex;
+		min-width: 3.9rem;
+		min-height: 2.4rem;
 	}
 
 	.graph-details-header__issues {
@@ -196,10 +273,14 @@ export const detailsWipHeaderStyles = css`
 		opacity: 1;
 	}
 
-	.issue-chip-group__remove:hover,
+	.issue-chip-group__remove:hover {
+		color: var(--vscode-errorForeground);
+	}
+
 	.issue-chip-group__remove:focus-visible {
 		color: var(--vscode-errorForeground);
-		outline: none;
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.associate-issue-action {

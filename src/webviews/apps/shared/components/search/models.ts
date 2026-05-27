@@ -128,10 +128,10 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 	},
 	{
 		operator: 'type:',
-		description: 'Filter by commit type — view only stashes or branch & tag tips',
+		description: 'Filter by commit type — view stashes, branch & tag tips, or working tree changes',
 		icon: 'symbol-misc',
 		aliases: ['is:'],
-		// example: html`Use <code>is:stash</code> for stashes or <code>is:tip</code> for branch & tag tips`,
+		// example: html`Use <code>is:stash</code> for stashes, <code>is:tip</code> for branch & tag tips, or <code>is:wip</code> for working tree changes`,
 		values: [
 			{
 				value: 'stash',
@@ -144,6 +144,12 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 				label: 'tip',
 				description: 'Filter commits to only show commits pointed to by branches or tags',
 				icon: 'git-branch',
+			},
+			{
+				value: 'wip',
+				label: 'wip',
+				description: 'Filter to only show working tree changes (current and other worktrees)',
+				icon: 'gl-wip',
 			},
 		],
 	},

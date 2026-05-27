@@ -249,6 +249,7 @@ export function buildDirtyBlame(cleanBlame: GitBlame, mapping: LineMappingResult
 	const lineCountsBySha = new Map<string, number>();
 	for (const blameLine of dirtyBlameLines) {
 		if (blameLine == null) continue;
+
 		lineCountsBySha.set(blameLine.sha, (lineCountsBySha.get(blameLine.sha) ?? 0) + 1);
 	}
 
@@ -276,6 +277,7 @@ export function buildDirtyBlame(cleanBlame: GitBlame, mapping: LineMappingResult
 	for (const [, c] of commits) {
 		if (!c.author.name) continue;
 		if (authors.has(c.author.name)) continue;
+
 		authors.set(c.author.name, { name: c.author.name, lineCount: 0, current: c.author.current });
 	}
 

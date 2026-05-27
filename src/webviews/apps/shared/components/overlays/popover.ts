@@ -21,7 +21,7 @@ interface CloseWatcherOptions {
 	signal: AbortSignal;
 }
 
-type TriggerType = 'hover' | 'focus' | 'click' | 'manual';
+type TriggerType = 'hover' | 'focus' | 'focus-visible' | 'click' | 'manual';
 type Combine<T extends string, U extends string = T> = T extends any ? T | `${T} ${Combine<Exclude<U, T>>}` : never;
 type Triggers = Combine<TriggerType>;
 
@@ -58,6 +58,7 @@ const allResizeHandles: readonly ResizeHandle[] = [
  */
 function isHandleAnchored(handle: ResizeHandle, placement: string | undefined): boolean {
 	if (!placement) return false;
+
 	const [side, align] = placement.split('-');
 
 	// Main axis: the edge opposite the placement side.
@@ -104,6 +105,7 @@ function isShadowIncludingAncestor(possibleAncestor: Node, node: Node): boolean 
 	let current: Node | null = node;
 	while (current != null) {
 		if (current === possibleAncestor) return true;
+
 		current = current.parentNode ?? (current instanceof ShadowRoot ? current.host : null);
 	}
 	return false;
@@ -111,6 +113,7 @@ function isShadowIncludingAncestor(possibleAncestor: Node, node: Node): boolean 
 
 function parseResizeHandles(value: string | undefined): ResizeHandle[] {
 	if (!value) return [];
+
 	const result = new Set<ResizeHandle>();
 	for (const token of value.trim().split(/\s+/)) {
 		switch (token) {
@@ -180,7 +183,7 @@ export class GlPopover extends GlElement {
 		scrollableBase,
 		css`
 			:host {
-				--hide-delay: 0ms;
+				--hide-delay: 100ms;
 				--show-delay: 500ms;
 
 				display: contents;
@@ -218,6 +221,7 @@ export class GlPopover extends GlElement {
 			.popover__body {
 				display: block;
 				width: fit-content;
+				min-width: 0;
 				border: 1px solid var(--gl-tooltip-border-color);
 				border-radius: var(--wa-tooltip-border-radius);
 				box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
@@ -233,6 +237,7 @@ export class GlPopover extends GlElement {
 				user-select: none;
 				-webkit-user-select: none;
 				max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
+				overflow: hidden;
 				pointer-events: all;
 			}
 
@@ -589,9 +594,11 @@ export class GlPopover extends GlElement {
 
 	private handleResizePointerDown = (e: PointerEvent): void => {
 		if (e.button !== 0) return;
+
 		const handle = e.currentTarget as HTMLElement;
 		const pos = handle.dataset.handle as ResizeHandle | undefined;
 		if (pos == null) return;
+
 		e.preventDefault();
 
 		const growsRight = pos === 'right' || pos === 'top-right' || pos === 'bottom-right';
@@ -649,6 +656,7 @@ export class GlPopover extends GlElement {
 			}
 			return undefined;
 		}
+
 		if (this._triggeredBy == null || triggeredBy !== 'hover') {
 			this._triggeredBy = triggeredBy;
 		}
@@ -676,7 +684,7 @@ export class GlPopover extends GlElement {
 	}
 
 	private readonly handleTriggerBlur = (e: FocusEvent) => {
-		if (this.open && this.hasTrigger('focus')) {
+		if (this.open && (this.hasTrigger('focus') || this.hasTrigger('focus-visible'))) {
 			if (e.relatedTarget && this.contains(e.relatedTarget as Node)) return;
 
 			void this.hide();
@@ -706,7 +714,8 @@ export class GlPopover extends GlElement {
 
 	private _skipHideOnClick = false;
 	private readonly handleTriggerMouseDown = (e: MouseEvent) => {
-		if (this.hasTrigger('click') && this.hasTrigger('focus') && !this.matches(':focus-within')) {
+		const hasFocusTrigger = this.hasTrigger('focus') || this.hasTrigger('focus-visible');
+		if (this.hasTrigger('click') && hasFocusTrigger && !this.matches(':focus-within')) {
 			this._skipHideOnClick = true;
 		} else {
 			this._skipHideOnClick = false;
@@ -741,13 +750,25 @@ export class GlPopover extends GlElement {
 		this.suppressed = false;
 	};
 
-	private readonly handleTriggerFocus = () => {
-		if (this.hasTrigger('focus')) {
-			if (this.open && this._triggeredBy !== 'hover' && !this.hasPopupFocus()) {
-				void this.hide();
-			} else {
-				void this.show('focus');
+	private readonly handleTriggerFocus = (e: FocusEvent) => {
+		const hasFocus = this.hasTrigger('focus');
+		const hasFocusVisible = this.hasTrigger('focus-visible');
+		if (!hasFocus && !hasFocusVisible) return;
+
+		// When only focus-visible is configured, gate on :focus-visible matching so the popover
+		// only opens for keyboard (or otherwise focus-visible) focus, not mouse-induced focus.
+		// When `focus` is also configured, the broader trigger wins (back-compat).
+		if (!hasFocus && hasFocusVisible) {
+			const target = e.target as Element | null;
+			if (target == null || typeof target.matches !== 'function' || !target.matches(':focus-visible')) {
+				return;
 			}
+		}
+
+		if (this.open && this._triggeredBy !== 'hover' && !this.hasPopupFocus()) {
+			void this.hide();
+		} else {
+			void this.show('focus');
 		}
 	};
 
@@ -824,7 +845,7 @@ export class GlPopover extends GlElement {
 			document.addEventListener('focusin', this.handlePopupBlur);
 			window.addEventListener('webview-blur', this.handleWebviewBlur, false);
 
-			if (this.hasTrigger('click') || this.hasTrigger('focus')) {
+			if (this.hasTrigger('click') || this.hasTrigger('focus') || this.hasTrigger('focus-visible')) {
 				document.addEventListener('mousedown', this.handleDocumentMouseDown);
 			}
 

@@ -51,6 +51,7 @@ export class CloudIntegrationService {
 			scope?.error(undefined, `Unsupported cloud integration type: ${id}`);
 			return undefined;
 		}
+
 		const reqInitOptions = refreshToken
 			? {
 					method: 'POST',

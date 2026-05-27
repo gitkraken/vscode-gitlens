@@ -825,8 +825,6 @@ button:not([disabled]),
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('git-branch');
-			top: 0px;
-			margin: 0 0 0 0;
 		}
 	}
 
@@ -841,8 +839,6 @@ button:not([disabled]),
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('git-commit');
-			top: 0px;
-			margin: 0 0 0 0;
 		}
 	}
 
@@ -940,13 +936,121 @@ button:not([disabled]),
 		}
 	}
 
-	&--filter,
+	&--filter {
+		&::before {
+			font-family: codicon;
+			@include iconUtils.codicon('filter');
+		}
+	}
+
 	&--undefined-icon {
 		&::before {
 			font-family: codicon;
 			@include iconUtils.codicon('blank');
 		}
 	}
+}
+
+// Header icons render at the library's expected metrics, not the global `.graph-icon`
+// `14px / line-height: 2rem` which would stretch the header row.
+.gk-graph .graph-header .graph-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.6rem;
+	height: 1.6rem;
+	font-size: 1.4rem;
+	line-height: 1;
+}
+
+// Vertically center every header item (zone icon, filter button, label) in the row.
+// `:has()` covers both `.resizable > .contents > div > .columns-btn` and `.is-last-header
+// > div > .columns-btn`. `.columns-filter-icon` uses `!important` to beat the library's
+// inline `height: 22px; margin-bottom: 2px` (which overflows the padded filter button).
+.gk-graph .graph-header div:has(> .columns-btn) {
+	display: flex;
+	align-items: center;
+	height: 100%;
+}
+.gk-graph .graph-header .header-columns-icons {
+	top: 0;
+	bottom: 0;
+	display: flex;
+	align-items: center;
+
+	// Swap rendered order so the filter funnel appears before the settings gear.
+	// The library renders settings first in the DOM; the parent is already flex,
+	// so `order` reorders them without touching the external component.
+	.columns-filter {
+		order: 0;
+	}
+	.columns-settings {
+		order: 1;
+	}
+}
+.gk-graph .graph-header .columns-filter-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: auto !important;
+	margin-bottom: 0 !important;
+}
+.gk-graph .graph-header .columns-btn {
+	align-items: center;
+	margin-top: 0;
+}
+
+// In narrow columns (compact mode shrinks zone buttons to a few px) the GitLens override
+// at L1290 `justify-content: center` would center a 16px icon inside a 5px box, overflowing
+// left and getting clipped by `.contents { overflow: hidden }`. Pin to icon width.
+.gk-graph .graph-header .columns-btn.small-btn.justify-start {
+	min-width: 1.6rem;
+}
+
+// Filter button: hidden until header hover/focus or `.filtering` (active filter). Active
+// state is signalled by the filled glyph alone — `.button.active`'s background and the
+// library's `--text-selected` recolor are both overridden away.
+// `.columns-btn.columns-filter` matches the library's `.columns-btn.small-btn` specificity
+// so our padding wins on every variant (incl. the ref column's non-small-btn filter).
+.gk-graph .graph-header .columns-btn.columns-filter {
+	margin-right: 0.3rem;
+	padding: 0.2rem;
+	cursor: pointer;
+
+	&:not(.filtering) {
+		opacity: 0;
+		transition: opacity 120ms ease;
+
+		&:hover {
+			background-color: var(--vscode-toolbar-hoverBackground);
+		}
+	}
+
+	&.filtering,
+	&.filtering:hover {
+		background-color: transparent;
+
+		.columns-filter-icon {
+			color: inherit;
+
+			.icon--filter::before {
+				@include iconUtils.codicon('filter-filled');
+			}
+		}
+	}
+}
+.gk-graph .graph-header:hover .columns-filter:not(.filtering),
+.gk-graph .graph-header .columns-filter:not(.filtering):focus-visible,
+.gk-graph .graph-header .columns-filter:not(.filtering):focus-within {
+	opacity: 1;
+}
+
+// Frost the graph rows behind the floating HEAD pill — the library paints it with a 10%
+// tinted but otherwise transparent fill, which gets lost over dense lane/SHA content.
+// Skip hover/focus since the library already swaps to an opaque background there.
+.gk-graph .graph-component .graph-head-pill:not(:hover):not(:focus-visible) {
+	backdrop-filter: blur(0.6rem) saturate(1.2);
+	-webkit-backdrop-filter: blur(0.6rem) saturate(1.2);
 }
 
 // header - move to graph.css.ts
@@ -1209,6 +1313,55 @@ web-graph {
 	}
 }
 
+// Reformat the third-party graph component's TARGET/BASE pills:
+//   - Default state shows "<icon> TARGET" / "<icon> BASE".
+//   - When the ref column is shrunk, the pill collapses to icon-only.
+// The pill itself stays flex-shrink: 0 so it never gets squished; the
+// container query on the .flex parent (which has the column-width inline
+// style) drives the icon-only ↔ icon+text mode swap. Padding/margin are
+// tightened so the dashed right border doesn't clip against the parent's
+// overflow:hidden at minimum width.
+.gk-graph .ref-zone > .flex:has(> .merge-target-ref-node),
+.gk-graph .ref-zone > .flex:has(> .merge-base-ref-node) {
+	container-type: inline-size;
+	container-name: refcol;
+}
+
+.gk-graph .ref-zone .merge-base-ref-node,
+.gk-graph .ref-zone .merge-target-ref-node {
+	flex-shrink: 0;
+	white-space: nowrap;
+	font-size: 0;
+	margin-left: 0;
+	padding: 0 4px;
+	align-items: center;
+
+	&::before {
+		font-size: 13px;
+		line-height: 1;
+		display: inline-block;
+	}
+}
+
+.gk-graph .ref-zone .merge-target-ref-node::before {
+	font-family: 'glicons';
+	@include iconUtils.glicon('merge-target');
+}
+
+.gk-graph .ref-zone .merge-base-ref-node::before {
+	font-family: codicon;
+	@include iconUtils.codicon('git-branch');
+}
+
+@container refcol (min-width: 100px) {
+	.gk-graph .ref-zone .merge-base-ref-node,
+	.gk-graph .ref-zone .merge-target-ref-node {
+		font-size: 11px;
+		padding: 0 6px;
+		gap: 4px;
+	}
+}
+
 // Light DOM
 .graph-app:not(:hover) {
 	.gk-graph .graph-header {
@@ -1220,6 +1373,8 @@ web-graph {
 
 // Light DOM
 .graph-container {
+	container-type: inline-size;
+
 	& .resizable-handle.horizontal {
 		display: none;
 	}
@@ -1230,7 +1385,7 @@ web-graph {
 
 	& .graph-adjust-commit-count {
 		display: flex;
-		width: calc(100vw - var(--graph-column-scrollbar-thickness));
+		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
 	}
@@ -1479,11 +1634,34 @@ web-graph {
 			flex: 1;
 			min-height: 0;
 			overflow: hidden;
-			background-color: var(--titlebar-bg);
+			position: relative;
+		}
+
+		// Single accent for both modes — the title verb ("Composing Changes" / "Reviewing
+		// Changes"), the chip icon (wand / checklist), and the active-state chip together
+		// carry mode identity, so color is redundant. Using one accent unifies the visual
+		// vocabulary. `--color-highlight` is GitLens's brand accent (wraps the VS Code button
+		// background), with `--vscode-focusBorder` as a safety fallback.
+		gl-graph-details-panel[data-mode='compose'],
+		gl-graph-details-panel[data-mode='review'] {
+			--mode-accent: var(--color-highlight, var(--vscode-focusBorder));
 		}
 
 		// Override graph-column scrollbar thickness for the details pane
 		--graph-column-scrollbar-thickness: 10px;
+
+		// Non-scrolling wrapper that anchors the compare sheet's positioning to the visible
+		// viewport — `.details-content` itself scrolls, so an absolutely-positioned sheet inside
+		// it would scroll along with the content. Hosting the sheet as a sibling of
+		// `.details-content` keeps the sheet header pinned to the top of the panel.
+		.details-host {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			position: relative;
+			overflow: hidden;
+		}
 
 		.details-content {
 			display: flex;
@@ -1495,6 +1673,18 @@ web-graph {
 			position: relative;
 			border-color: transparent;
 			transition: border-color 1s linear;
+		}
+
+		// Commit box pinned to the bottom of the scrolling area so it stays visible while the
+		// file list scrolls behind it. The host has no background of its own — supply one here
+		// to obscure files scrolling past. Matches both the no-agents case (commit-box is a
+		// direct child of .details-content) and the agents case (commit-box sits inside
+		// .agent-status-split__bottom, which is itself inside .details-content).
+		.details-content gl-commit-box {
+			position: sticky;
+			bottom: 0;
+			z-index: 1;
+			background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
 		}
 
 		&:hover .details-content,
@@ -1515,6 +1705,75 @@ web-graph {
 			overflow: visible;
 		}
 
+		// Pinned-compare nested split layout. The host details-content lives in the start slot
+		// and the compare panel lives in the end slot — both sides are siblings of a horizontal
+		// or vertical split, share the panel area, and stay independently scrollable.
+		// `display` is intentionally NOT overridden here — gl-split-panel's shadow CSS sets
+		// `:host { display: grid }` to power position-driven sizing. Override that and the
+		// position attribute silently does nothing and you fall back to 50/50.
+		.compare-pinned-split {
+			flex: 1;
+			min-height: 0;
+		}
+
+		.compare-pinned-split__start,
+		.compare-pinned-split__end {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			min-width: 0;
+			overflow: hidden;
+		}
+
+		.compare-pinned-host {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-height: 0;
+			background: var(--vscode-sideBar-background, var(--color-background));
+			border-left: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
+		}
+
+		.compare-pinned-host__header {
+			flex: 0 0 auto;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.8rem;
+			padding: 0.8rem 0.8rem 0.8rem 1.6rem;
+			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
+			min-height: 4.2rem;
+			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
+			box-sizing: border-box;
+		}
+
+		.compare-pinned-host__title {
+			flex: 1 1 auto;
+			min-width: 0;
+			font-size: 1.4rem;
+			font-weight: 600;
+			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.compare-pinned-host__actions {
+			flex: 0 0 auto;
+			display: inline-flex;
+			align-items: center;
+			gap: 0.2rem;
+		}
+
+		.compare-pinned-host__body {
+			flex: 1 1 auto;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+		}
+
 		.commit-panel {
 			&__files {
 				display: flex;
@@ -1522,6 +1781,94 @@ web-graph {
 				flex: 1;
 				min-height: 100px;
 				overflow: visible;
+			}
+		}
+
+		.agent-status-split {
+			flex: 1;
+			min-height: 0;
+
+			// Auto-size mode (collapsed / partial) caps the agents pane at a fixed 80% — content
+			// in these modes (heading bar or a handful of needs-input cards) almost always lands
+			// well below the cap, so `fit-content` resolves to the natural content height. The
+			// cap matters only in the edge case of many concurrent needs-input cards in partial
+			// mode, where it prevents the auto-peek from completely swallowing the WIP content.
+			// Kept in sync with `AGENT_STATUS_MAX_PCT` in gl-graph-details-panel.ts.
+			&--auto-size:not([dragging]) {
+				--gl-split-panel-start-size: fit-content(80%);
+			}
+
+			// When the agent-status section is showing no cards (collapsed — bar only — or
+			// partial with no needs-input sessions present), force the heading row to its
+			// content height regardless of any previously-dragged position. Without this,
+			// dragging the splitter while cards are visible and then collapsing back to no-cards
+			// leaves the heading floating in a large empty area the size of the user's drag.
+			// The split-panel still preserves `position` internally so the dragged height is
+			// restored when cards reappear.
+			&--no-cards:not([dragging]) {
+				--gl-split-panel-start-size: max-content;
+			}
+
+			// Disabled splitter — drop the divider entirely so collapsed/partial states (where
+			// the agents pane is auto-sized and non-draggable) don't show a hover-affordance
+			// line implying it can be grabbed. `visibility: hidden` (not `display: none`) is
+			// load-bearing — removing the divider from the grid item flow causes auto-placement
+			// to shove the bottom slot into the 0px middle track instead of the 1fr end track,
+			// collapsing the WIP panel.
+			&[disabled]:not([dragging]) {
+				--gl-split-panel-divider-width: 0px;
+			}
+
+			&[disabled]:not([dragging])::part(divider) {
+				visibility: hidden;
+			}
+
+			// Sash gets a 1px line at rest, grows to fill on hover/drag (cf. rebase .conflict-split).
+			&:not([disabled])::part(divider) {
+				background-image: linear-gradient(
+					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border)),
+					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border))
+				);
+				background-size: 100% 1px;
+				background-position: center;
+				background-repeat: no-repeat;
+				transition: background-color 0.1s ease-out;
+			}
+
+			&:not([disabled])::part(divider):hover,
+			&:not([disabled])[dragging]::part(divider) {
+				background-image: linear-gradient(
+					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder)),
+					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
+				);
+				background-size: 100% 100%;
+				transition: background-color 0.1s ease-out 0.2s;
+			}
+
+			&__top {
+				display: flex;
+				flex-direction: column;
+				overflow-y: auto;
+			}
+
+			// Bottom slot is a non-scrolling flex column: the file panel (.commit-panel__files)
+			// fills the available height and scrolls internally via webview-pane's `.content`,
+			// while `gl-commit-box` sits flex-pinned at the bottom — outside the scroll. This is
+			// why files don't disappear "behind" the commit box: they never share a scroll
+			// region with it.
+			&__bottom {
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+				overflow: hidden;
+			}
+
+			&__bottom .commit-panel__files {
+				display: flex;
+				flex-direction: column;
+				flex: 1;
+				min-height: 0;
+				overflow: hidden;
 			}
 		}
 	}
@@ -1673,6 +2020,31 @@ web-graph {
 
 	gl-button {
 		height: 100%;
+	}
+
+	// Agent indicator — leftmost button on a WIP row when the worktree has at least one
+	// surfacing agent. Color drives both the main `robot` glyph and the suffix modifier so
+	// the dot of color reads as a status badge rather than two unrelated icons. Tokens come
+	// from theme.scss so this stays aligned with gl-details-agent-status, the status pill,
+	// and the WIP file decoration. `--button-gap: 0` collapses the slot gap inside gl-button
+	// so the robot and its phase suffix sit flush, reading as a single status badge rather
+	// than two adjacent icons.
+	.agent-indicator {
+		--agent-indicator-color: inherit;
+		--button-gap: 0;
+		color: var(--agent-indicator-color);
+
+		&--needs-input {
+			--agent-indicator-color: var(--gl-agent-waiting-color);
+		}
+
+		&--working {
+			--agent-indicator-color: var(--gl-agent-working-color);
+		}
+
+		&--idle {
+			--agent-indicator-color: var(--gl-agent-idle-color);
+		}
 	}
 }
 

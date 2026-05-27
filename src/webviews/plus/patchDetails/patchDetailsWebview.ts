@@ -416,6 +416,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 						cancel,
 					);
 					if (result !== confirm) throw new CancellationError();
+
 					shouldStash = true;
 				}
 
@@ -549,10 +550,12 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			if (params.role === 'remove') {
 				const selection = userSelections.findIndex(u => u.member.id === params.selection.member.id);
 				if (selection === -1) return;
+
 				userSelections.splice(selection, 1);
 			} else {
 				const selection = userSelections.find(u => u.member.id === params.selection.member.id);
 				if (selection == null) return;
+
 				selection.pendingRole = params.role;
 			}
 
@@ -917,6 +920,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		if (changes.length === 0 && adds.length === 0) {
 			return;
 		}
+
 		if (changes.length !== 0) {
 			const results = await Promise.all(changes);
 			console.log(results);
@@ -1025,6 +1029,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 			if (updated.size !== changesetByRepo.size) {
 				for (const [uri, repoChange] of changesetByRepo) {
 					if (updated.has(uri)) continue;
+
 					repoChange.checked = false;
 				}
 			}
@@ -1210,6 +1215,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		if (this._context.draftUserState != null && options?.force !== true) {
 			return;
 		}
+
 		// try to create the state if it doesn't exist
 		try {
 			const draftUsers = await this.container.drafts.getDraftUsers(draft.id);

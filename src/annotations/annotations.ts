@@ -176,6 +176,7 @@ function computeGutterWidth(
 			chars = -1;
 			break;
 		}
+
 		chars += token.truncateTo;
 	}
 

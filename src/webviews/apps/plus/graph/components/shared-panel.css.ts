@@ -24,7 +24,8 @@ export const panelHostStyles = [
 
 export const panelActionInputStyles = css`
 	.review-action-input,
-	gl-ai-input {
+	gl-ai-input,
+	gl-compare-ai-actions {
 		flex: none;
 		width: calc(100% - var(--gl-panel-padding-left, 1.2rem) - var(--gl-panel-padding-right, 1.2rem));
 		max-width: var(--gl-max-input);
@@ -72,8 +73,8 @@ export const resumeBarStyles = css`
 	}
 
 	.resume-bar:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
-		outline-offset: -1px;
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.resume-bar__title {
@@ -166,6 +167,10 @@ export const panelScopeSplitStyles = css`
 	}
 
 	.scope-split__picker {
+		/* border-box so the padding + border-bottom live INSIDE height: 100% — otherwise (the UA
+		   default content-box) they render outside the grid track, pushing the picker ~13px past
+		   the split divider so the two overlap. */
+		box-sizing: border-box;
 		height: 100%;
 		overflow: hidden;
 		display: flex;
@@ -207,30 +212,45 @@ export const panelScopeSplitStyles = css`
 `;
 
 export const panelErrorStyles = css`
-	.review-error {
+	.panel-error {
 		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		padding: 1rem;
+		flex-direction: column;
+		gap: 0.8rem;
+		padding: 1rem 1.2rem;
 		margin: 0.8rem 1.2rem;
 		font-size: var(--gl-font-base);
-		color: var(--vscode-editorError-foreground);
-		background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.1));
+		color: var(--vscode-foreground);
+		background: var(--vscode-inputValidation-errorBackground, rgba(255, 0, 0, 0.08));
+		border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
 		border-radius: 0.4rem;
 	}
 
-	.review-error__retry {
-		margin-left: auto;
-		color: var(--vscode-textLink-foreground);
-		background: transparent;
-		border: none;
-		cursor: pointer;
-		font-size: inherit;
-		font-family: inherit;
-		text-decoration: underline;
+	.panel-error__header {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
 	}
 
-	.review-error__retry:hover {
-		color: var(--vscode-textLink-activeForeground);
+	.panel-error__icon {
+		flex-shrink: 0;
+		color: var(--vscode-editorError-foreground);
+		font-size: 1.4rem;
+	}
+
+	.panel-error__title {
+		font-weight: 600;
+		color: var(--vscode-foreground);
+	}
+
+	.panel-error__message {
+		color: var(--vscode-foreground);
+		line-height: 1.4;
+		word-break: break-word;
+	}
+
+	.panel-error__actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.6rem;
 	}
 `;

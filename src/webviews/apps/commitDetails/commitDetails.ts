@@ -204,6 +204,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			explain: createResource<ExplainState | undefined, [string | undefined]>(async (signal, prompt) => {
 				const commit = s.currentCommit.get();
 				if (commit == null) return undefined;
+
 				try {
 					const result = await inspect.explainCommit(commit.repoPath, commit.sha, prompt, signal);
 					if (result.error) {
@@ -217,6 +218,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			generate: createResource<GenerateState | undefined>(async signal => {
 				const repoPath = s.wipState.get()?.repo?.path ?? s.currentCommit.get()?.repoPath;
 				if (repoPath == null) return undefined;
+
 				try {
 					const result = await inspect.generateDescription(repoPath, signal);
 					if (result.error) {
@@ -364,6 +366,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const prefs = this._state.preferences.get();
 		const preference = prefs?.indent;
 		if (preference === this.indentPreference) return;
+
 		this.indentPreference = preference ?? 16;
 
 		const rootStyle = document.documentElement.style;
@@ -543,7 +546,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const reachState = mapReachabilityStatus(reachStatus);
 		const searchCtx = s.searchContext.get();
 		const draft = s.draftState.get();
-		const experimentalComposer = s.capabilities.experimentalComposerEnabled;
 
 		return html`
 			<div class="commit-detail-panel scrollable">
@@ -561,6 +563,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								.loading=${resources?.commit.loading.get() ?? false}
 								.files=${commit?.files}
 								.preferences=${prefs}
+								.showSearchBox=${prefs?.showSearchBox ?? true}
+								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
 								.orgSettings=${org}
 								.isUncommitted=${s.isUncommitted.get()}
 								.filesCollapsable=${false}
@@ -602,15 +606,20 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
 								@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
+								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateShowSearchBox(e.detail)}
+								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateSearchBoxFilter(e.detail)}
 							></gl-details-commit-panel>`,
 						() =>
 							html`<gl-details-wip-panel
-								.experimentalComposerEnabled=${experimentalComposer}
 								.wip=${wip}
 								.pullRequest=${s.pullRequest.get()}
 								.codeSuggestions=${s.codeSuggestions.get()}
 								.files=${wip?.changes?.files}
 								.preferences=${prefs}
+								.showSearchBox=${prefs?.showSearchBox ?? true}
+								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
 								.orgSettings=${org}
 								.generate=${generate}
 								.isUncommitted=${true}
@@ -624,10 +633,19 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 									actions?.openFile(e.detail, e.detail.showOptions)}
 								@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
+								@file-compare-wip=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openFileCompareWipChanges(e.detail, e.detail.showOptions)}
 								@file-stage=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.stageFile(e.detail)}
 								@file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.unstageFile(e.detail)}
+								@file-discard=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.discardFile(e.detail)}
+								@discard-unstaged=${() => actions?.discardUnstagedFiles()}
+								@file-open-current=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openConflictChanges(e.detail, 'current')}
+								@file-open-incoming=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									actions?.openConflictChanges(e.detail, 'incoming')}
 								@data-action=${(e: CustomEvent<{ name: string }>) => this.onBranchAction(e.detail.name)}
 								@gl-inspect-create-suggestions=${(e: CustomEvent<CreatePatchEventDetail>) =>
 									actions?.suggestChanges(e.detail)}
@@ -649,6 +667,10 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
+								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateShowSearchBox(e.detail)}
+								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateSearchBoxFilter(e.detail)}
 							></gl-details-wip-panel>`,
 					)}
 				</main>
@@ -679,6 +701,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	private onCreatePatchFromWip(checked: boolean | 'staged' = true): void {
 		const wip = this._state.wipState.get();
 		if (wip?.changes == null) return;
+
 		this._actions?.createPatchFromWip(wip.changes, checked);
 	}
 

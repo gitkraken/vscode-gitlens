@@ -2,6 +2,7 @@ import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/re
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GlCommands } from '../../../constants.commands.js';
+import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import type { SharedWebviewServices } from '../../rpc/services/common.js';
 import type { RpcEventSubscription } from '../../rpc/services/types.js';
@@ -12,8 +13,15 @@ import type {
 	TimelineDatasetResult,
 	TimelineScopeSerialized,
 } from '../timeline/protocol.js';
+import type { TreemapConfig, TreemapData, TreemapMode } from '../treemap/protocol.js';
 import type { CommitDetails, CommitFileChange, CompareDiff, Wip } from './detailsProtocol.js';
-import type { DidGetCountParams, DidGetSidebarDataParams, GraphSidebarPanel } from './protocol.js';
+import type {
+	DidGetCountParams,
+	DidGetSidebarDataParams,
+	GraphSidebarPanel,
+	GraphWorkingTreeStats,
+	SidebarWorktreeChange,
+} from './protocol.js';
 
 export type ComposeProgressUpdate = { phase: string; message: string };
 
@@ -35,6 +43,18 @@ export type ScopeSelection =
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
+
+export type AddressReviewFindingsResult =
+	| { ok: true }
+	| { ok: false; reason: 'no-agents' | 'no-ai-model' | 'error'; message?: string };
+
+export interface AddressReviewFindingsArgs {
+	repoPath: string;
+	scopeLabel: string;
+	reviewMarkdown: string;
+	granularity: 'review' | 'focusArea' | 'finding';
+	instructions?: string;
+}
 
 export type ProposedCommitFile = GitFileChangeShape & {
 	/** Topmost layer this file's hunks come from in the AI-grouped commit. */
@@ -88,26 +108,34 @@ export type ComposeResult =
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
 	base: ComposeBaseCommit;
-	mode: 'all' | 'up-to';
-	upToIndex?: number;
+	/** When provided, only commits whose `id` is in this list are applied. `undefined` means all. */
+	includedCommitIds?: readonly string[];
 };
 
 export type CommitResult = { success: true } | { success: true; warning: string } | { error: { message: string } };
 
-export type BranchComparisonFile = CommitFileChange & {
-	/** Marks files added from the current worktree when compare's worktree toggle is enabled. */
-	source?: 'comparison' | 'workingTree';
-};
+export type BranchComparisonFile = CommitFileChange;
 
 /** Phase 1 of the branch-compare progressive load: counts + the All Files diff. Smallest payload
  *  needed to render the panel meaningfully. Per-side commits + files are fetched lazily on tab
  *  activation via {@link BranchComparisonSide}. */
 export type BranchComparisonSummary = {
+	/** Commits reachable from rightRef (Compare) but not from leftRef (Base) — `git rev-list leftRef..rightRef`. */
 	aheadCount: number;
+	/** Commits reachable from leftRef (Base) but not from rightRef (Compare) — `git rev-list rightRef..leftRef`. */
 	behindCount: number;
 	allFilesCount: number;
-	/** Files from the unified 2-dot `right..left` diff, plus current worktree files when enabled. */
+	/** Files from the unified 2-dot `leftRef..rightRef` diff (Base → Compare), plus current worktree
+	 *  files when enabled. */
 	allFiles: readonly BranchComparisonFile[];
+	/** Path of the worktree currently checked out at rightRef (the Compare side), if any. The Base
+	 *  side's (leftRef) worktree is intentionally not tracked — IWT only reads the Compare side's
+	 *  working tree, so exposing the Base side's would invite asymmetric comparisons we don't support. */
+	rightRefWorktreePath?: string;
+	/** Merge base of leftRef and rightRef, when one exists. Threaded to the panel so per-side file
+	 *  lists and file actions anchor on the divergence point (Ahead = `mergeBase..Compare`,
+	 *  Behind = `mergeBase..Base`) instead of the symmetric 2-dot diff. Undefined for disjoint refs. */
+	mergeBase?: string;
 };
 
 /** Phase 2: a single side's commits, with files for the entire side.
@@ -116,6 +144,9 @@ export type BranchComparisonSide = {
 	commits: BranchComparisonCommit[];
 	/** Union of all file changes across this side's commits */
 	files: BranchComparisonFile[];
+	/** True when there are more commits beyond the returned slice — drives the panel's "Load
+	 *  More" affordance. Falls back to `false` if the underlying log call didn't return a result. */
+	hasMore: boolean;
 };
 
 export type BranchComparisonCommit = {
@@ -134,6 +165,13 @@ export type BranchComparisonCommit = {
 
 export type BranchComparisonOptions = {
 	includeWorkingTree?: boolean;
+	/** Cap on the number of commits returned by `getBranchComparisonSide`. Defaults to 100 when
+	 *  unset. Bumped by the panel's "Load More" affordance via the limit-replace pattern: the
+	 *  side is re-fetched with a larger limit, idempotently superseding the smaller result. */
+	limit?: number;
+	/** Optional merge base, reused from the summary fetch to avoid a duplicate `git merge-base`
+	 *  call on the side fetch. When omitted, the side fetch resolves its own merge base. */
+	mergeBase?: string;
 };
 
 export type BranchComparisonContributorsScope = 'all' | 'ahead' | 'behind';
@@ -173,6 +211,10 @@ export type BranchCommitsResult = {
 
 export interface BranchCommitsOptions {
 	limit?: number;
+	/** When true, allow extending past the merge base into ancestor history if the
+	 *  current merge-base scope can't fill the requested page. Set by `Load more` so
+	 *  the user can opt into older history even with no unpushed/WIP changes. */
+	includePastMergeBase?: boolean;
 }
 
 export interface GraphInspectService {
@@ -190,7 +232,7 @@ export interface GraphInspectService {
 	 * embedded file trees so they reflect the graph's current search state.
 	 */
 	getSearchContext(sha: string): Promise<GitCommitSearchContext | undefined>;
-	getWip(repoPath: string, signal?: AbortSignal): Promise<Wip | undefined>;
+	getWip(repoPath: string, signal?: AbortSignal): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined>;
 	explainCommit(repoPath: string, sha: string, prompt?: string, signal?: AbortSignal): Promise<ExplainResult>;
 	explainCompare(
 		repoPath: string,
@@ -199,6 +241,7 @@ export interface GraphInspectService {
 		prompt?: string,
 		signal?: AbortSignal,
 	): Promise<ExplainResult>;
+	generateChangelogCompare(repoPath: string, fromRef: string, toRef: string, signal?: AbortSignal): Promise<void>;
 	getScopeFiles(repoPath: string, scope: ScopeSelection, signal?: AbortSignal): Promise<GitFileChangeShape[]>;
 	reviewChanges(
 		repoPath: string,
@@ -217,12 +260,30 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ReviewDetailResult>;
-	generateCommitMessage(repoPath: string): Promise<{ summary: string; body?: string } | undefined>;
+	/**
+	 * Sends the review findings (entire review, a focus area, or a single finding) to the user's
+	 * AI agent chat. The webview pre-renders the markdown so Copy and Send-to-agent produce
+	 * byte-identical content. Returns an `ok: false` result when no chat host is available, no
+	 * AI model is selected, or the dispatch fails — the webview surfaces these inline.
+	 */
+	addressReviewFindingsInChat(args: AddressReviewFindingsArgs): Promise<AddressReviewFindingsResult>;
+	/**
+	 * Fire-and-forget telemetry hop for review-panel actions that happen entirely in the webview
+	 * (clipboard copies). Granularity distinguishes review-wide vs per-focus-area vs per-finding
+	 * actions so dashboards can compare which scopes users actually copy.
+	 */
+	trackReviewAction(args: { action: 'copy'; granularity: 'review' | 'focusArea' | 'finding' }): Promise<void>;
+	generateCommitMessage(
+		repoPath: string,
+		currentMessage: string | undefined,
+		signal?: AbortSignal,
+	): Promise<{ summary: string; body?: string } | undefined>;
 	composeChanges(
 		repoPath: string,
 		scope: ScopeSelection,
 		instructions?: string,
 		excludedFiles?: string[],
+		aiExcludedFiles?: string[],
 		signal?: AbortSignal,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
@@ -256,7 +317,11 @@ export interface GraphInspectService {
 		scope: BranchComparisonContributorsScope,
 		signal?: AbortSignal,
 	): Promise<BranchComparisonContributorsResult | undefined>;
-	chooseRef(repoPath: string, title: string, picked?: string): Promise<{ name: string; sha: string } | undefined>;
+	chooseRef(
+		repoPath: string,
+		title: string,
+		picked?: string,
+	): Promise<{ name: string; sha: string; refType: 'branch' | 'tag' | 'commit' } | undefined>;
 	getMergeTargetComparisonRef(repoPath: string, branchName?: string): Promise<string | undefined>;
 	/** Reveals the current compare-mode comparison as a saved node in the Search & Compare view —
 	 *  the persistence escape hatch for users who want to keep an ad-hoc graph comparison around. */
@@ -271,7 +336,7 @@ export interface GraphSidebarService {
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
 
 	onSidebarInvalidated: RpcEventSubscription<undefined>;
-	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, boolean | undefined> }>;
+	onWorktreeStateChanged: RpcEventSubscription<{ changes: Record<string, SidebarWorktreeChange | undefined> }>;
 }
 
 export interface GraphTimelineService {
@@ -299,8 +364,28 @@ export interface GraphTimelineService {
 	choosePath(params: ChoosePathParams): Promise<DidChoosePathParams>;
 }
 
+export interface GraphTreemapService {
+	/**
+	 * Fetch the per-repo file tree + commit-frequency aggregate for the Graph webview's Treemap
+	 * visualization. The host caches per-repo aggregates so toggling between Files/Commits modes
+	 * doesn't re-walk the file system. Frequencies are scoped via `config` (branch visibility,
+	 * additional refs, window) so the treemap mirrors what the Graph is currently showing.
+	 *
+	 * Agent activity (used by the Activity mode) is not part of this service — the webview already
+	 * receives `AgentSessionState[]` via `DidChangeAgentSessionsNotification` and reads
+	 * `session.currentFiles` directly. No separate streaming RPC is needed.
+	 */
+	getData(repoPath: string, mode: TreemapMode, config: TreemapConfig, signal?: AbortSignal): Promise<TreemapData>;
+}
+
 export interface GraphServices extends SharedWebviewServices {
 	readonly graphInspect: GraphInspectService;
+	readonly launchpad: GraphLaunchpadService;
 	readonly sidebar: GraphSidebarService;
 	readonly graphTimeline: GraphTimelineService;
+	readonly graphTreemap: GraphTreemapService;
+}
+
+export interface GraphLaunchpadService {
+	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
 }

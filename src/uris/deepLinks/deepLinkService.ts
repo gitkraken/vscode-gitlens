@@ -25,6 +25,7 @@ import { openComparisonChanges, openFileAtRevision } from '../../git/actions/com
 import { executeGitCommand } from '../../git/actions.js';
 import type { GlRepository, RepositoryChangeEvent } from '../../git/models/repository.js';
 import { isWalkthroughSupported } from '../../onboarding/walkthroughStateProvider.js';
+import { isAgentDescriptor } from '../../plus/agents/agentDescriptor.js';
 import { ensureAccount } from '../../plus/gk/utils/-webview/acount.utils.js';
 import { ensurePaidPlan } from '../../plus/gk/utils/-webview/plus.utils.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
@@ -138,6 +139,8 @@ export class DeepLinkService implements Disposable {
 			prData: undefined,
 			issueData: undefined,
 			instructions: undefined,
+			agent: undefined,
+			worktreePath: undefined,
 		};
 	}
 
@@ -340,6 +343,11 @@ export class DeepLinkService implements Disposable {
 		} catch {
 			Logger.warn(scope, `Failed to parse pending deep link issue data: ${pendingDeepLink.issueData}`);
 		}
+		// Agent descriptor and worktree path for Start Work / Start Review chat actions that
+		// were stored with an explicit agent selection (see `storeChatActionDeepLink`).
+		this._context.agent = isAgentDescriptor(pendingDeepLink.agent) ? pendingDeepLink.agent : undefined;
+		this._context.worktreePath =
+			typeof pendingDeepLink.worktreePath === 'string' ? pendingDeepLink.worktreePath : undefined;
 
 		if (this.container.git.isDiscoveringRepositories) {
 			await this.container.git.isDiscoveringRepositories;
@@ -439,6 +447,7 @@ export class DeepLinkService implements Disposable {
 	): Promise<[string, string] | undefined> {
 		const sha1 = await this.getRefSha(targetId);
 		if (sha1 == null) return undefined;
+
 		const sha2 = await this.getRefSha(secondaryTargetId);
 		if (sha2 == null) return undefined;
 		return [sha1, sha2];
@@ -863,6 +872,7 @@ export class DeepLinkService implements Disposable {
 						action = DeepLinkServiceAction.DeepLinkCancelled;
 						break;
 					}
+
 					this._context.repoOpenLocation = repoOpenLocation;
 
 					this._context.repoOpenUri ??= (
@@ -1523,6 +1533,7 @@ export class DeepLinkService implements Disposable {
 						}
 						break;
 					}
+
 					await openComparisonChanges(
 						this.container,
 						{
@@ -1663,6 +1674,8 @@ export class DeepLinkService implements Disposable {
 								type: 'startReview',
 								pr: pr,
 								instructions: this._context.instructions,
+								agent: this._context.agent,
+								worktreePath: this._context.worktreePath,
 							},
 						} as OpenChatActionCommandArgs);
 						action = DeepLinkServiceAction.DeepLinkResolved;
@@ -1687,6 +1700,8 @@ export class DeepLinkService implements Disposable {
 								type: 'startWork',
 								issue: issue,
 								instructions: this._context.instructions,
+								agent: this._context.agent,
+								worktreePath: this._context.worktreePath,
 							},
 						} as OpenChatActionCommandArgs);
 						action = DeepLinkServiceAction.DeepLinkResolved;

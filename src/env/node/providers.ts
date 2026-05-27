@@ -1,4 +1,4 @@
-import { basename, dirname, resolve } from 'path';
+import { dirname, resolve } from 'path';
 import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
 import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
@@ -10,6 +10,7 @@ import { findGitPath } from '@gitlens/git-cli/exec/locator.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
+import { tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtension.js';
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
@@ -97,7 +98,8 @@ export function getGkCliIntegrationProvider(container: Container): GkCliIntegrat
 	return new GkCliIntegrationProvider(container);
 }
 
-export { isClaudeAvailable } from './agents/detectClaude.js';
+export { getClaudeAgent, invalidateAgentsCache } from './gk/cli/agents.js';
+export type { GkAgent } from './gk/cli/agents.js';
 
 export async function getMcpProviders(container: Container): Promise<Disposable[] | undefined> {
 	if (mcpRegistrationEnabled(container)) {
@@ -137,28 +139,40 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 				}
 			},
 			runCLICommand: (args, opts) => runCLICommand(args, opts),
+			openSessionInClaudeExtension: async sessionId => {
+				// Shared editor → primaryEditor → sidebar fallback chain so the peer-side open
+				// honors a specific session through the same rungs the local-window path uses.
+				// Throws when all three rungs fail so the IPC handler can report
+				// `{ opened: false }` to the initiating window.
+				if (!(await tryOpenClaudeSession(sessionId))) {
+					throw new Error('Claude Code extension did not respond to any open command');
+				}
+			},
 			resolveGitInfo: async cwd => {
-				const opts = { cwd: cwd, errors: 'ignore' as const, timeout: 5000 };
-				const [branchResult, toplevelResult, commonDirResult, gitDirResult] = await Promise.all([
-					git(container, opts, 'rev-parse', '--abbrev-ref', 'HEAD'),
-					git(container, opts, 'rev-parse', '--show-toplevel'),
-					git(container, opts, 'rev-parse', '--git-common-dir'),
-					git(container, opts, 'rev-parse', '--git-dir'),
-				]);
+				// Fast path: cwd is in an already-loaded repo — fully synchronous, no shell calls.
+				const repo = container.git.getRepository(cwd);
+				if (repo != null) {
+					return {
+						repoRoot: repo.isWorktree && repo.commonPath ? repo.commonPath : repo.path,
+						isWorktree: repo.isWorktree,
+						worktreePath: repo.path,
+					};
+				}
 
-				const branch = String(branchResult.stdout).trim() || undefined;
-				const toplevel = String(toplevelResult.stdout).trim() || undefined;
-				const commonDir = String(commonDirResult.stdout).trim() || undefined;
-				const gitDir = String(gitDirResult.stdout).trim() || undefined;
+				// Cold path: cwd is outside any loaded repo. validateRepo runs ONE combined
+				// `git rev-parse` via the package's `config.getRepositoryInfo`, with no
+				// repo-registration side effects. Routes through the same provider lookup
+				// the rest of the host uses, so safe-path handling is consistent.
+				const info = await container.git.validateRepo(cwd);
+				if (!info.valid || !info.safe) return undefined;
 
-				if (toplevel == null) return undefined;
-
-				const isWorktree = commonDir != null && gitDir != null && commonDir !== gitDir;
+				const isWorktree = info.commonGitDir != null && info.commonGitDir !== info.gitDir;
 				return {
-					branch: branch,
-					repoRoot: normalizePath(isWorktree && commonDir ? dirname(resolve(cwd, commonDir)) : toplevel),
+					repoRoot: normalizePath(
+						isWorktree && info.commonGitDir ? dirname(resolve(cwd, info.commonGitDir)) : info.repoPath,
+					),
 					isWorktree: isWorktree,
-					worktreeName: isWorktree ? basename(toplevel) : undefined,
+					worktreePath: normalizePath(info.repoPath),
 				};
 			},
 		}),

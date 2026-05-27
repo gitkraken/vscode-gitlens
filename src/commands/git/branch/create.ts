@@ -17,10 +17,12 @@ import type { Container } from '../../../container.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { addAssociatedIssueToBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
-import type { ChatActions } from '../../../plus/chat/chatActions.js';
+import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
 import { getIssueOwner } from '../../../plus/integrations/providers/utils.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
+import { executeCommand } from '../../../system/-webview/command.js';
+import type { OpenChatActionCommandArgs } from '../../openChatAction.js';
 import type {
 	PartialStepState,
 	StepGenerator,
@@ -70,13 +72,13 @@ interface State<Repo = string | GlRepository> {
 	associateWithIssue?: IssueShape;
 
 	// Pass through to worktree command
-	worktreeDefaultOpen?: 'new' | 'current';
+	worktreeDefaultOpen?: 'new' | 'current' | 'none';
 
 	// Result tracking
 	result?: Deferred<{ branch: GitBranch; worktree?: GitWorktree }>;
 
 	// Chat action for deeplink storage
-	chatAction?: ChatActions;
+	chatAction?: StartWorkChatAction | StartReviewChatAction;
 }
 export type BranchCreateState = State;
 
@@ -185,6 +187,7 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				}
 
 				if (!steps.isAtStepOrUnset(Steps.Confirm)) continue;
+
 				if (this.confirm(state.confirm)) {
 					using step = steps.enterStep(Steps.Confirm);
 
@@ -305,6 +308,17 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 					} else {
 						state.result.cancel();
 					}
+				}
+
+				// Non-worktree paths don't go through the deep-link bridge (which only fires on
+				// new-window worktree open). When `chatAction.agent` is set, the user explicitly
+				// chose an agent — fire the dispatch inline in the current window so the agent
+				// actually launches. Without this, picking `--switch` (no worktree) silently
+				// drops the agent dispatch.
+				if (state.chatAction?.agent != null && !state.flags.includes('--worktree')) {
+					void executeCommand('gitlens.openChatAction', {
+						chatAction: state.chatAction,
+					} as OpenChatActionCommandArgs);
 				}
 			}
 		} finally {

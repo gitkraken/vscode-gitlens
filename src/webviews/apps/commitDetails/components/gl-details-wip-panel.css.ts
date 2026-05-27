@@ -57,8 +57,10 @@ export const detailsWipPanelStyles = css`
 	}
 
 	/* Child Shadow DOM component overrides */
+	/* !important is required: webview-pane's own .header rule (specificity 0,1,0) outranks this
+	   ::part() selector, so without it webview-pane's default border-top bleeds through. */
 	:host([variant='embedded']) webview-pane::part(header) {
-		border-top: none;
+		border-top: none !important;
 		padding-right: calc(var(--gl-panel-padding-right) - 0.4rem);
 		background-color: inherit;
 	}

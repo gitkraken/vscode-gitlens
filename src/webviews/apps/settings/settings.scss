@@ -16,6 +16,14 @@ body {
 	}
 }
 
+.codicon--inline {
+	vertical-align: text-bottom;
+}
+
+.setting__hint--tall {
+	line-height: 2rem;
+}
+
 header {
 	display: flex;
 	flex-direction: row;

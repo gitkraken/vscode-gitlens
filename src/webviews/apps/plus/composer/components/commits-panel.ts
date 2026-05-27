@@ -300,7 +300,7 @@ export class CommitsPanel extends LitElement {
 				width: 100%;
 				padding: 0.5rem;
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 3px;
+				border-radius: var(--gl-input-border-radius);
 				background: var(--vscode-input-background);
 				color: var(--vscode-input-foreground);
 				font-family: inherit;
@@ -582,6 +582,7 @@ export class CommitsPanel extends LitElement {
 				filter: (_evt, target) => {
 					const commitId = target.dataset.commitId;
 					if (!commitId) return false;
+
 					const commit = this.commits.find(c => c.id === commitId);
 					return commit?.locked === true;
 				},
@@ -1038,6 +1039,7 @@ export class CommitsPanel extends LitElement {
 		const gen = ++this._pendingDispatch;
 		setTimeout(() => {
 			if (gen !== this._pendingDispatch || !this.isConnected) return;
+
 			this.dispatchEvent(event);
 		}, 0);
 	}

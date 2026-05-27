@@ -28,8 +28,9 @@ const packages = [
 	{ name: '@gitlens/ipc', srcDir: 'packages/ipc', dest: 'ipc' },
 	{ name: '@gitlens/git', srcDir: 'packages/git', dest: 'git' },
 	{ name: '@gitlens/git-cli', srcDir: 'packages/git-cli', dest: 'git-cli' },
-	{ name: '@gitlens/ai', srcDir: 'packages/plus/ai', dest: 'plus/ai' },
 	{ name: '@gitlens/git-github', srcDir: 'packages/plus/git-github', dest: 'plus/git-github' },
+	{ name: '@gitlens/ai', srcDir: 'packages/plus/ai', dest: 'plus/ai' },
+	{ name: '@gitlens/agents', srcDir: 'packages/plus/agents', dest: 'plus/agents' },
 ];
 
 const nameToDest = Object.fromEntries(packages.map(p => [p.name, p.dest]));

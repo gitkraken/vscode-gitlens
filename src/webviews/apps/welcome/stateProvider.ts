@@ -1,7 +1,13 @@
 import { ContextProvider } from '@lit/context';
 import type { IpcMessage } from '../../ipc/models/ipc.js';
 import type { State } from '../../welcome/protocol.js';
-import { DidChangeSubscription, DidChangeWalkthroughProgress, DidFocusWalkthrough } from '../../welcome/protocol.js';
+import {
+	DidChangeGraphWalkthroughProgress,
+	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
+	DidFocusWalkthrough,
+	DidSwitchWalkthroughMode,
+} from '../../welcome/protocol.js';
 import type { ReactiveElementHost } from '../shared/appHost.js';
 import { StateProviderBase } from '../shared/stateProviderBase.js';
 import { stateContext } from './context.js';
@@ -27,6 +33,20 @@ export class WelcomeStateProvider extends StateProviderBase<State['webviewId'], 
 
 			case DidChangeWalkthroughProgress.is(msg):
 				this._state.walkthroughProgress = msg.params.walkthroughProgress;
+				this._state.timestamp = Date.now();
+
+				this.provider.setValue(this._state, true);
+				break;
+
+			case DidChangeGraphWalkthroughProgress.is(msg):
+				this._state.graphWalkthroughProgress = msg.params.graphWalkthroughProgress;
+				this._state.timestamp = Date.now();
+
+				this.provider.setValue(this._state, true);
+				break;
+
+			case DidSwitchWalkthroughMode.is(msg):
+				this._state.mode = msg.params.mode;
 				this._state.timestamp = Date.now();
 
 				this.provider.setValue(this._state, true);

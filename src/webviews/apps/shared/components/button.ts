@@ -156,7 +156,7 @@ export class GlButton extends LitElement {
 
 			/* Solid buttons (default and secondary) with variants get full color treatment */
 			:host([variant='danger']) {
-				--button-foreground: var(--vscode-errorForeground, #f48771);
+				--button-foreground: var(--vscode-inputValidation-errorForeground, #f48771);
 				--button-background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
 				--button-hover-background: color-mix(
 					in srgb,
@@ -167,20 +167,14 @@ export class GlButton extends LitElement {
 			}
 
 			:host([variant='warning']) {
-				--button-foreground: #fff;
-				--button-background: var(
-					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
-					#cc6600
-				);
+				--button-foreground: var(--vscode-inputValidation-warningForeground, #ffcc66);
+				--button-background: var(--vscode-inputValidation-warningBackground, #352a05);
 				--button-hover-background: color-mix(
 					in srgb,
-					#000 20%,
-					var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #cc6600)
+					#000 30%,
+					var(--vscode-inputValidation-warningBorder, #b89500)
 				);
-				--button-border: var(
-					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
-					#cc6600
-				);
+				--button-border: var(--vscode-inputValidation-warningBorder, #b89500);
 			}
 
 			:host([variant='success']) {
@@ -203,10 +197,7 @@ export class GlButton extends LitElement {
 			:host([appearance='toolbar'][variant='warning']),
 			:host([appearance='input'][variant='warning']),
 			:host([appearance='alert'][variant='warning']) {
-				--button-foreground: var(
-					--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
-					#cc6600
-				);
+				--button-foreground: var(--vscode-editorWarning-foreground, #cca700);
 				--button-background: transparent;
 				--button-border: transparent;
 			}
@@ -237,10 +228,12 @@ export class GlButton extends LitElement {
 				width: max-content;
 			}
 
-			/* Give solid-filled buttons a bit more horizontal breathing room */
+			/* Give solid-filled buttons a bit more horizontal breathing room. Exposed via a
+			   CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
+			   square icon button. */
 			:host(:not([appearance])) .control,
 			:host([appearance='secondary']) .control {
-				padding-inline: 0.8rem;
+				padding-inline: var(--button-padding-inline, 0.8rem);
 			}
 
 			:host([density='compact']) .control {

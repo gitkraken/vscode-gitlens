@@ -48,3 +48,19 @@ export function unstageFile(
 ): void {
 	fireRpc(errorSignal, git.unstageFile(file), 'unstage file');
 }
+
+export function discardFile(
+	errorSignal: Signal.State<string | undefined>,
+	git: { discardFile(file: GitFileChangeShape): Promise<void> },
+	file: GitFileChangeShape,
+): void {
+	fireRpc(errorSignal, git.discardFile(file), 'discard file');
+}
+
+export function discardUnstagedFiles(
+	errorSignal: Signal.State<string | undefined>,
+	git: { discardUnstagedFiles(repoPath: string): Promise<void> },
+	repoPath: string,
+): void {
+	fireRpc(errorSignal, git.discardUnstagedFiles(repoPath), 'discard unstaged files');
+}

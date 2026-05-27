@@ -55,7 +55,9 @@ export function createResource<T, TArgs extends unknown[] = []>(
 
 	function cancel(): void {
 		if (_controller != null) {
-			_controller.abort();
+			// Tag the abort reason so any rejection that escapes the consumer chain is diagnosable
+			// rather than the opaque default "signal is aborted without reason".
+			_controller.abort(new DOMException('resource: cancelled by newer fetch', 'AbortError'));
 			_controller = undefined;
 		}
 		_loading.set(false);
@@ -80,10 +82,12 @@ export function createResource<T, TArgs extends unknown[] = []>(
 		try {
 			const result = await fetcher(controller.signal, ...args);
 			if (controller.signal.aborted || requestId !== _currentRequestId) return;
+
 			_value.set(result);
 			_hasResolved.set(true);
 		} catch (ex) {
 			if (controller.signal.aborted || requestId !== _currentRequestId) return;
+
 			_error.set(ex instanceof Error ? ex.message : String(ex));
 		} finally {
 			if (_controller === controller) {
@@ -100,6 +104,7 @@ export function createResource<T, TArgs extends unknown[] = []>(
 
 	function mutate(value: T): void {
 		if (_disposed) return;
+
 		_value.set(value);
 		_error.set(undefined);
 		_hasResolved.set(true);

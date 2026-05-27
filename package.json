@@ -963,6 +963,13 @@
 						"scope": "window",
 						"order": 2
 					},
+					"gitlens.graph.autoFetch.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether to auto-fetch the repository while the _Commit Graph_ is in view. The interval is controlled by the built-in `#git.autofetchPeriod#` setting. If `#git.autofetch#` is enabled, VS Code handles auto-fetching and this setting has no effect.",
+						"scope": "window",
+						"order": 2
+					},
 					"gitlens.graph.details.location": {
 						"type": "string",
 						"default": "right",
@@ -1135,13 +1142,15 @@
 							"all",
 							"smart",
 							"current",
-							"favorited"
+							"favorited",
+							"agents"
 						],
 						"enumDescriptions": [
 							"Shows all branches",
 							"Shows only relevant branches",
 							"Shows only the current branch",
-							"Shows only favorited branches"
+							"Shows only favorited branches",
+							"Shows only branches associated with active agents (running or idle less than 24 hours)"
 						],
 						"default": "all",
 						"markdownDescription": "Specifies the visibility of branches on the _Commit Graph_",
@@ -1158,10 +1167,10 @@
 							"head"
 						],
 						"enumDescriptions": [
-							"Selects the working changes (WIP) row when there are uncommitted changes, otherwise selects the HEAD row",
-							"Always selects the HEAD row"
+							"Selects the \"Work in progress\" (WIP) row",
+							"Selects the HEAD row"
 						],
-						"markdownDescription": "Specifies whether to select the \"Work in progress\" (WIP) row instead of HEAD if there are uncommitted changes in the _Commit Graph_",
+						"markdownDescription": "Specifies which row to select by default in the _Commit Graph_",
 						"scope": "window",
 						"order": 501
 					},
@@ -1323,12 +1332,22 @@
 						"scope": "window",
 						"order": 1000
 					},
-					"gitlens.graph.experimentalFeatures.enabled": {
+					"gitlens.graph.experimental.kanban.enabled": {
 						"type": "boolean",
-						"default": false,
-						"markdownDescription": "(Experimental) Specifies whether to enable experimental Commit Graph features",
+						"default": true,
+						"markdownDescription": "(Experimental) Specifies whether to enable the Agent Kanban mode on the _Commit Graph_",
 						"scope": "window",
 						"order": 1100,
+						"tags": [
+							"experimental"
+						]
+					},
+					"gitlens.graph.experimental.visualizations.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "(Experimental) Specifies whether to enable the Treemap visualization modes (Files, Commits, Agent Activity) alongside the Visual History timeline on the _Commit Graph_. When disabled, only the timeline visualization is available.",
+						"scope": "window",
+						"order": 1110,
 						"tags": [
 							"experimental"
 						]
@@ -1484,7 +1503,10 @@
 						"default": 100,
 						"markdownDescription": "(Experimental) Specifies a limit on the number of pull requests to be queried in the _Launchpad_",
 						"scope": "window",
-						"order": 1100
+						"order": 1100,
+						"tags": [
+							"experimental"
+						]
 					}
 				}
 			},
@@ -4248,9 +4270,12 @@
 						]
 					},
 					"gitlens.gitkraken.cli.insiders.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable experimental insiders version of the GitKraken CLI",
+						"type": [
+							"boolean",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Specifies whether to enable the experimental insiders version of the GitKraken CLI. When not set, it is automatically enabled in pre-release and debugging builds of GitLens",
 						"scope": "window",
 						"order": 40,
 						"tags": [
@@ -4281,16 +4306,6 @@
 					"preview"
 				],
 				"properties": {
-					"gitlens.ai.experimental.composer.enabled": {
-						"type": "boolean",
-						"default": false,
-						"markdownDescription": "Specifies whether to enable the experimental version of the commit composer",
-						"scope": "window",
-						"order": 10,
-						"tags": [
-							"experimental"
-						]
-					},
 					"gitlens.ai.model": {
 						"type": [
 							"string",
@@ -4387,7 +4402,7 @@
 					},
 					"gitlens.ai.largePromptWarningThreshold": {
 						"type": "number",
-						"default": 20000,
+						"default": 120000,
 						"markdownDescription": "Specifies the threshold (in tokens) for when to show a warning about the prompt being too large",
 						"scope": "window",
 						"order": 80,
@@ -4463,6 +4478,39 @@
 						"markdownDescription": "Specifies whether to enable GitLens' AI-powered features",
 						"scope": "window",
 						"order": 2,
+						"tags": [
+							"preview"
+						]
+					},
+					"gitlens.ai.openInAgent": {
+						"type": "string",
+						"enum": [
+							"ask",
+							"manual",
+							"agent"
+						],
+						"enumDescriptions": [
+							"Ask each time (default)",
+							"Always continue manually",
+							"Always open in an agent"
+						],
+						"default": "ask",
+						"markdownDescription": "Default route for Start Work / Start PR Review when `#showOpenInAgent#` is set: `ask` shows the manual-vs-agent picker; `manual` skips it and continues manually; `agent` skips it and opens the agent picker (or the persisted `#gitlens.ai.defaultAgent#` if set).",
+						"scope": "window",
+						"order": 3,
+						"tags": [
+							"preview"
+						]
+					},
+					"gitlens.ai.defaultAgent": {
+						"type": [
+							"string",
+							"null"
+						],
+						"default": null,
+						"markdownDescription": "Default agent for Start Work / Start PR Review when the route is `agent`. Stored as an opaque id (e.g. `ide-chat`, `claude-extension`, `cli:claude-cli`). When the persisted agent is no longer available, falls through to the agent picker.",
+						"scope": "window",
+						"order": 4,
 						"tags": [
 							"preview"
 						]
@@ -6451,18 +6499,24 @@
 			},
 			{
 				"command": "gitlens.agents.installClaudeHook",
-				"title": "Install Claude Hook",
+				"title": "Install Claude Hooks",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.agents.openSession",
 				"title": "Open AI Agent Session",
 				"category": "GitLens",
-				"icon": "$(hubot)"
+				"icon": "$(robot)"
+			},
+			{
+				"command": "gitlens.agents.switchDefaultAgent",
+				"title": "Switch Default Agent...",
+				"category": "GitLens",
+				"icon": "$(arrow-swap)"
 			},
 			{
 				"command": "gitlens.agents.uninstallClaudeHook",
-				"title": "Uninstall Claude Hook",
+				"title": "Uninstall Claude Hooks",
 				"category": "GitLens"
 			},
 			{
@@ -6584,10 +6638,6 @@
 				"command": "gitlens.ai.generateCommitMessage",
 				"title": "Generate Commit Message",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.ai.generateCommitMessage:graph",
-				"title": "Generate Commit Message"
 			},
 			{
 				"command": "gitlens.ai.generateCommitMessage:scm",
@@ -7724,8 +7774,8 @@
 				"title": "Open Changed & Close Unchanged Files"
 			},
 			{
-				"command": "gitlens.graph.pinBranchToLeft",
-				"title": "Pin to Left"
+				"command": "gitlens.graph.pinBranchToEdge",
+				"title": "Pin Branch to Edge"
 			},
 			{
 				"command": "gitlens.graph.pull",
@@ -7927,8 +7977,8 @@
 				"enablement": "!operationInProgress"
 			},
 			{
-				"command": "gitlens.graph.unpinBranchFromLeft",
-				"title": "Unpin from Left"
+				"command": "gitlens.graph.unpinBranchFromEdge",
+				"title": "Unpin Branch from Edge"
 			},
 			{
 				"command": "gitlens.inviteToLiveShare",
@@ -8014,7 +8064,7 @@
 			},
 			{
 				"command": "gitlens.openFileHistory:graphDetails",
-				"title": "Open File History",
+				"title": "Open File History in View",
 				"icon": "$(history)"
 			},
 			{
@@ -8040,7 +8090,7 @@
 			},
 			{
 				"command": "gitlens.openFileHistoryInGraph:graphDetails",
-				"title": "Open File History in Commit Graph",
+				"title": "Open File History",
 				"icon": "$(gitlens-graph)"
 			},
 			{
@@ -8097,7 +8147,7 @@
 			},
 			{
 				"command": "gitlens.openFolderHistory:graphDetails",
-				"title": "Open Folder History"
+				"title": "Open Folder History in View"
 			},
 			{
 				"command": "gitlens.openFolderHistoryInGraph",
@@ -8116,13 +8166,18 @@
 			},
 			{
 				"command": "gitlens.openFolderHistoryInGraph:graphDetails",
-				"title": "Open Folder History in Commit Graph",
+				"title": "Open Folder History",
 				"icon": "$(gitlens-graph)"
 			},
 			{
 				"command": "gitlens.openFolderHistoryInGraph:scm",
 				"title": "Open Folder History in Commit Graph",
 				"icon": "$(gitlens-graph)"
+			},
+			{
+				"command": "gitlens.openInIntegratedTerminal:graph",
+				"title": "Open in Integrated Terminal",
+				"icon": "$(terminal)"
 			},
 			{
 				"command": "gitlens.openIssueOnRemote",
@@ -8534,6 +8589,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.reviewChanges:graph",
+				"title": "Review Changes (Preview)...",
+				"icon": "$(checklist)"
+			},
+			{
 				"command": "gitlens.setRemoteAsDefault:graph",
 				"title": "Set as Default"
 			},
@@ -8899,13 +8959,25 @@
 			},
 			{
 				"command": "gitlens.startReview",
-				"title": "Start Review",
+				"title": "Start PR Review",
+				"category": "GitLens",
+				"icon": "$(git-pull-request)"
+			},
+			{
+				"command": "gitlens.startReview.openInAgent",
+				"title": "Start PR Review with Agent",
 				"category": "GitLens",
 				"icon": "$(git-pull-request)"
 			},
 			{
 				"command": "gitlens.startWork",
 				"title": "Start Work",
+				"category": "GitLens",
+				"icon": "$(rocket)"
+			},
+			{
+				"command": "gitlens.startWork.openInAgent",
+				"title": "Start Work with Agent",
 				"category": "GitLens",
 				"icon": "$(rocket)"
 			},
@@ -12136,6 +12208,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14b"
 				}
+			},
+			"gitlens-kanban-view": {
+				"description": "kanban-view icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14c"
+				}
 			}
 		},
 		"menus": {
@@ -12151,6 +12230,10 @@
 				{
 					"command": "gitlens.agents.openSession",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders && gitlens:agents:enabled"
+				},
+				{
+					"command": "gitlens.agents.switchDefaultAgent",
+					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.agents.uninstallClaudeHook",
@@ -12251,10 +12334,6 @@
 				{
 					"command": "gitlens.ai.generateCommitMessage",
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
-				},
-				{
-					"command": "gitlens.ai.generateCommitMessage:graph",
-					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.generateCommitMessage:scm",
@@ -13149,7 +13228,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.pinBranchToLeft",
+					"command": "gitlens.graph.pinBranchToEdge",
 					"when": "false"
 				},
 				{
@@ -13317,7 +13396,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.unpinBranchFromLeft",
+					"command": "gitlens.graph.unpinBranchFromEdge",
 					"when": "false"
 				},
 				{
@@ -13466,6 +13545,10 @@
 				},
 				{
 					"command": "gitlens.openFolderHistoryInGraph:scm",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openInIntegratedTerminal:graph",
 					"when": "false"
 				},
 				{
@@ -13777,6 +13860,10 @@
 					"when": "resource in gitlens:tabs:blameable"
 				},
 				{
+					"command": "gitlens.reviewChanges:graph",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.setRemoteAsDefault:graph",
 					"when": "false"
 				},
@@ -14037,8 +14124,16 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.startReview.openInAgent",
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
+				},
+				{
 					"command": "gitlens.startWork",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.startWork.openInAgent",
+					"when": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 				},
 				{
 					"command": "gitlens.stashApply:graph",
@@ -16946,18 +17041,18 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFileHistory:graphDetails",
+					"command": "gitlens.openFileHistoryInGraph:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFileHistoryInGraph:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
+					"command": "gitlens.openFileHistory:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.openFileHistoryInGraph:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"command": "gitlens.openFileHistoryInGraph:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
 					"group": "1_gitlens@2"
 				},
 				{
@@ -17336,7 +17431,7 @@
 				},
 				{
 					"command": "gitlens.graph.openChangedFileDiffsWithWorking",
-					"when": "webviewItem != gitlens:wip",
+					"when": "webviewItem =~ /^(?!gitlens:wip\\b)/",
 					"group": "1_gitlens@3"
 				},
 				{
@@ -19273,12 +19368,12 @@
 			],
 			"gitlens/webview/folder/history": [
 				{
-					"command": "gitlens.openFolderHistory:graphDetails",
+					"command": "gitlens.openFolderHistoryInGraph:graphDetails",
 					"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.openFolderHistoryInGraph:graphDetails",
+					"command": "gitlens.openFolderHistory:graphDetails",
 					"when": "webview == gitlens.graph || webview == gitlens.views.graph",
 					"group": "1_gitlens@2"
 				},
@@ -19576,10 +19671,10 @@
 					"group": "8_gitlens_actions@99"
 				},
 				{
-					"command": "gitlens.openWorktree:views",
+					"command": "gitlens.openWorktreeInNewWindow:views",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)(?!.*?\\b\\+(current|closed|opened)\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "inline@7",
-					"alt": "gitlens.openWorktreeInNewWindow:views"
+					"alt": "gitlens.openWorktree:views"
 				},
 				{
 					"command": "gitlens.switchToAnotherBranch:views",
@@ -26067,7 +26162,7 @@
 			],
 			"webview/context": [
 				{
-					"command": "gitlens.openWorktree:graph",
+					"command": "gitlens.openWorktreeInNewWindow:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@1"
 				},
@@ -26082,7 +26177,7 @@
 					"group": "1_gitlens_action@1"
 				},
 				{
-					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"command": "gitlens.openWorktree:graph",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@2"
 				},
@@ -26248,7 +26343,7 @@
 				},
 				{
 					"command": "gitlens.graph.copy",
-					"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag)\\b/",
+					"when": "webviewItem =~ /gitlens:(branch|commit|contributor|launchpad:item|pullrequest|stash|tag|worktree)\\b/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
@@ -26272,6 +26367,16 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.pinBranchToEdge",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@8"
+				},
+				{
+					"command": "gitlens.graph.unpinBranchFromEdge",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@8"
+				},
+				{
 					"command": "gitlens.graph.soloBranch",
 					"when": "webviewItem =~ /gitlens:branch\\b/",
 					"group": "8_gitlens_actions@9"
@@ -26292,22 +26397,12 @@
 					"group": "8_gitlens_actions@11"
 				},
 				{
-					"command": "gitlens.graph.pinBranchToLeft",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@13"
-				},
-				{
-					"command": "gitlens.graph.unpinBranchFromLeft",
-					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@13"
-				},
-				{
-					"command": "gitlens.openWorktree:graph",
+					"command": "gitlens.openWorktreeInNewWindow:graph",
 					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@1"
 				},
 				{
-					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"command": "gitlens.openWorktree:graph",
 					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_action@2"
 				},
@@ -26869,34 +26964,59 @@
 					"group": "1_gitlens_actions@3"
 				},
 				{
+					"command": "gitlens.openWorktree:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree@1"
+				},
+				{
+					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree@2"
+				},
+				{
+					"command": "gitlens.graph.revealWorktreeInExplorer",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection",
+					"group": "0_gitlens_worktree_1@1"
+				},
+				{
+					"command": "gitlens.openInIntegratedTerminal:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_1@2"
+				},
+				{
 					"command": "gitlens.composeCommits:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.ai.generateCommitMessage:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"command": "gitlens.reviewChanges:graph",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted",
 					"group": "1_gitlens@2"
 				},
 				{
-					"command": "gitlens.graph.commitViaSCM",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection",
-					"group": "1_gitlens@3"
-				},
-				{
 					"command": "gitlens.stashSave:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.copyWorkingChangesToWorktree:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.graph.deleteWorktree",
+					"when": "webviewItem =~ /^gitlens:wip\\b(?=.*?\\b\\+worktree\\b)/ && !listMultiSelection && !gitlens:readonly",
+					"group": "1_gitlens_actions_2@3"
+				},
+				{
 					"command": "gitlens.ai.explainWip:graph",
-					"when": "webviewItem == gitlens:wip && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
+				},
+				{
+					"command": "gitlens.graph.copy",
+					"when": "webviewItem =~ /^gitlens:wip\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.openWorktree:graph",
@@ -28387,7 +28507,7 @@
 		"build:webviews:quick": "node ./scripts/build.mjs --build=webviews --quick=true",
 		"build:webviews:turbo": "node ./scripts/build.mjs --build=webviews --quick=turbo",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
-		"build:packages": "tsc -b packages/utils packages/ipc packages/git packages/git-cli packages/plus/git-github packages/plus/ai",
+		"build:packages": "tsc -b packages/utils packages/ipc packages/git packages/git-cli packages/plus/git-github packages/plus/ai packages/plus/agents",
 		"build:core": "pnpm run build:packages && pnpm --filter @gitkraken/core-gitlens run bundle",
 		"pack:core": "pnpm --filter @gitkraken/core-gitlens pack",
 		"benchmark": "node ./scripts/runBenchmark.mjs",
@@ -28452,20 +28572,22 @@
 		"prepare": "husky"
 	},
 	"dependencies": {
-		"@awesome.me/webawesome": "3.6.0",
+		"@awesome.me/webawesome": "3.7.0",
 		"@eamodio/supertalk": "0.0.7",
 		"@eamodio/supertalk-core": "0.0.6",
 		"@eamodio/supertalk-signals": "0.0.6",
-		"@gitkraken/compose-tools": "0.2.0",
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.32",
+		"@gitkraken/compose-tools": "0.3.1",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.35",
 		"@gitkraken/provider-apis": "0.40.0",
-		"@gitkraken/shared-tools": "0.1.1",
+		"@gitkraken/shared-tools": "0.2.0",
+		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-cli": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
+		"@gitlens/ipc": "workspace:*",
 		"@gitlens/utils": "workspace:*",
-		"@lit-labs/signals": "0.2.0",
+		"@lit-labs/signals": "0.3.0",
 		"@lit-labs/virtualizer": "2.1.1",
 		"@lit/context": "1.1.6",
 		"@lit/react": "1.0.8",
@@ -28475,22 +28597,22 @@
 		"@octokit/request-error": "7.1.0",
 		"@octokit/types": "16.0.0",
 		"@opentelemetry/api": "1.9.1",
-		"@opentelemetry/exporter-trace-otlp-http": "0.216.0",
+		"@opentelemetry/exporter-trace-otlp-http": "0.218.0",
 		"@opentelemetry/resources": "2.7.1",
 		"@opentelemetry/sdk-trace-base": "2.7.1",
-		"@opentelemetry/semantic-conventions": "1.40.0",
+		"@opentelemetry/semantic-conventions": "1.41.1",
 		"@vscode/codicons": "0.0.45",
 		"diff2html": "3.4.56",
 		"dragula": "3.7.3",
 		"driver.js": "1.4.0",
-		"fflate": "0.8.2",
+		"fflate": "0.8.3",
 		"ignore": "7.0.5",
-		"lit": "3.3.2",
-		"marked": "18.0.3",
+		"lit": "3.3.3",
+		"marked": "18.0.4",
 		"os-browserify": "0.3.0",
 		"path-browserify": "1.0.1",
-		"react": "19.2.5",
-		"react-dom": "19.2.5",
+		"react": "19.2.6",
+		"react-dom": "19.2.6",
 		"signal-polyfill": "0.2.2",
 		"signal-utils": "0.21.1",
 		"slug": "11.0.1",
@@ -28499,12 +28621,12 @@
 	},
 	"devDependencies": {
 		"@custom-elements-manifest/analyzer": "0.11.0",
-		"@e18e/eslint-plugin": "0.4.1",
+		"@e18e/eslint-plugin": "0.5.0",
 		"@eamodio/eslint-lite-webpack-plugin": "0.5.0",
-		"@eslint/compat": "2.0.5",
+		"@eslint/compat": "2.1.0",
 		"@eslint/js": "10.0.1",
 		"@modelcontextprotocol/sdk": "^1.29.0",
-		"@playwright/test": "1.59.1",
+		"@playwright/test": "1.60.0",
 		"@prettier/plugin-oxc": "0.1.4",
 		"@profoundlogic/hogan": "3.0.4",
 		"@swc/core": "1.15.33",
@@ -28516,7 +28638,7 @@
 		"@types/slug": "5.0.9",
 		"@types/sortablejs": "1.15.9",
 		"@types/vscode": "1.101.0",
-		"@typescript-eslint/parser": "8.59.1",
+		"@typescript-eslint/parser": "8.59.4",
 		"@vscode/test-cli": "0.0.12",
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.80",
@@ -28528,16 +28650,16 @@
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "7.1.4",
 		"css-minimizer-webpack-plugin": "8.0.0",
-		"cssnano-preset-advanced": "7.0.15",
+		"cssnano-preset-advanced": "8.0.1",
 		"esbuild": "0.28.0",
 		"esbuild-loader": "4.4.3",
 		"esbuild-node-externals": "1.22.0",
 		"esbuild-sass-plugin": "3.7.0",
-		"eslint": "10.3.0",
+		"eslint": "10.4.0",
 		"eslint-import-resolver-typescript": "4.4.4",
-		"eslint-plugin-anti-trojan-source": "1.1.4",
+		"eslint-plugin-anti-trojan-source": "1.1.6",
 		"eslint-plugin-import-x": "4.16.2",
-		"eslint-plugin-lit": "2.2.1",
+		"eslint-plugin-lit": "2.3.1",
 		"eslint-plugin-react-hooks": "7.1.1",
 		"eslint-plugin-wc": "3.1.0",
 		"fantasticon": "4.1.0",
@@ -28549,24 +28671,24 @@
 		"husky": "9.1.7",
 		"image-minimizer-webpack-plugin": "5.0.0",
 		"license-checker-rseidelsohn": "4.4.2",
-		"lint-staged": "16.4.0",
+		"lint-staged": "17.0.5",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
 		"ovsx": "0.10.12",
-		"playwright": "1.59.1",
+		"playwright": "1.60.0",
 		"prettier": "3.8.3",
 		"regex-to-strings": "2.1.0",
 		"sass-embedded": "1.99.0",
-		"sass-loader": "16.0.7",
+		"sass-loader": "16.0.8",
 		"schema-utils": "4.3.3",
 		"sharp": "0.34.5",
 		"sinon": "catalog:",
 		"svgo": "4.0.1",
-		"terser-webpack-plugin": "5.5.0",
+		"terser-webpack-plugin": "5.6.0",
 		"tinybench": "catalog:",
 		"ts-loader": "9.5.7",
 		"typescript": "catalog:",
-		"typescript-eslint": "8.59.1",
+		"typescript-eslint": "8.59.4",
 		"webpack": "5.106.2",
 		"webpack-bundle-analyzer": "5.3.0",
 		"webpack-cli": "7.0.2",

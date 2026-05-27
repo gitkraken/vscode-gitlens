@@ -274,6 +274,8 @@ export function parseSearchQueryGitCommand(
 							searchArgs.add('--no-walk');
 						} else if (value === 'tip') {
 							filters.type = 'tip';
+						} else if (value === 'wip') {
+							filters.type = 'wip';
 						}
 					}
 

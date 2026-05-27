@@ -3,7 +3,7 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @awesome.me/webawesome version 3.6.0 (https://github.com/shoelace-style/webawesome)
+1. @awesome.me/webawesome version 3.7.0 (https://github.com/shoelace-style/webawesome)
 2. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
 3. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
 4. @eamodio/supertalk version 0.0.7 (https://github.com/eamodio/supertalk)
@@ -11,7 +11,7 @@ This project incorporates components from the projects listed below.
 6. @gitlens/git-cli version 0.0.1 (undefined)
 7. @gitlens/git-github version 0.0.1 (undefined)
 8. @gitlens/git version 0.0.1 (undefined)
-9. @lit-labs/signals version 0.2.0 (https://github.com/lit/lit)
+9. @lit-labs/signals version 0.3.0 (https://github.com/lit/lit)
 10. @lit-labs/virtualizer version 2.1.1 (https://github.com/lit/lit)
 11. @lit/context version 1.1.6 (https://github.com/lit/lit)
 12. @lit/react version 1.0.8 (https://github.com/lit/lit)
@@ -21,23 +21,23 @@ This project incorporates components from the projects listed below.
 16. @octokit/request version 10.0.8 (https://github.com/octokit/request.js)
 17. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
 18. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
-19. @opentelemetry/exporter-trace-otlp-http version 0.216.0 (https://github.com/open-telemetry/opentelemetry-js)
+19. @opentelemetry/exporter-trace-otlp-http version 0.218.0 (https://github.com/open-telemetry/opentelemetry-js)
 20. @opentelemetry/resources version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
 21. @opentelemetry/sdk-trace-base version 2.7.1 (https://github.com/open-telemetry/opentelemetry-js)
-22. @opentelemetry/semantic-conventions version 1.40.0 (https://github.com/open-telemetry/opentelemetry-js)
+22. @opentelemetry/semantic-conventions version 1.41.1 (https://github.com/open-telemetry/opentelemetry-js)
 23. @vscode/codicons version 0.0.45 (https://github.com/microsoft/vscode-codicons)
 24. diff2html version 3.4.56 (https://github.com/rtfpessoa/diff2html)
 25. dragula version 3.7.3 (https://github.com/bevacqua/dragula)
 26. driver.js version 1.4.0 (https://github.com/kamranahmedse/driver.js)
-27. fflate version 0.8.2 (https://github.com/101arrowz/fflate)
+27. fflate version 0.8.3 (https://github.com/101arrowz/fflate)
 28. ignore version 7.0.5 (https://github.com/kaelzhang/node-ignore)
-29. lit version 3.3.2 (https://github.com/lit/lit)
-30. marked version 18.0.3 (https://github.com/markedjs/marked)
+29. lit version 3.3.3 (https://github.com/lit/lit)
+30. marked version 18.0.4 (https://github.com/markedjs/marked)
 31. microsoft/vscode (https://github.com/microsoft/vscode)
 32. os-browserify version 0.3.0 (https://github.com/CoderPuppy/os-browserify)
 33. path-browserify version 1.0.1 (https://github.com/browserify/path-browserify)
-34. react-dom version 19.2.5 (https://github.com/facebook/react)
-35. react version 19.2.5 (https://github.com/facebook/react)
+34. react-dom version 19.2.6 (https://github.com/facebook/react)
+35. react version 19.2.6 (https://github.com/facebook/react)
 36. signal-polyfill version 0.2.2 (https://github.com/proposal-signals/signal-polyfill)
 37. signal-utils version 0.21.1 (https://github.com/proposal-signals/signal-utils)
 38. slug version 11.0.1 (https://github.com/Trott/slug)
@@ -3278,7 +3278,7 @@ END OF  driver.js NOTICES AND INFORMATION
 =========================================
 MIT License
 
-Copyright (c) 2023 Arjun Barrett
+Copyright (c) 2026 Arjun Barrett
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

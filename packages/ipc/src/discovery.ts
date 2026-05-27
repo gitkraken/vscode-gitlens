@@ -47,6 +47,7 @@ export async function writeDiscoveryFile(dir: string, data: IpcDiscoveryData): P
 
 export async function cleanupDiscoveryFile(filePath: string | undefined): Promise<void> {
 	if (filePath == null) return;
+
 	try {
 		await unlink(filePath);
 	} catch {

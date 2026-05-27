@@ -1,27 +1,39 @@
+import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
+import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import type { Counter } from '@gitlens/utils/counter.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
+import { areEqual, hasKeys } from '@gitlens/utils/object.js';
+import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
+	GraphWorkingTreeStats,
 	State,
+	Wip,
 } from '../../../plus/graph/protocol.js';
 import {
+	createSecondaryWipSha,
 	DidChangeAgentSessionsNotification,
 	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
 	DidChangeGraphConfigurationNotification,
+	DidChangeGraphWalkthroughBanner,
+	DidChangeGraphWalkthroughComplete,
+	DidChangeGraphWalkthroughStarted,
 	DidChangeHooksBanner,
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
-	DidChangeOverviewWipNotification,
 	DidChangePinnedRefNotification,
 	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
@@ -31,10 +43,16 @@ import {
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
-	DidChangeWipStaleNotification,
+	DidChangeVisualizationsButtonCallout,
+	DidChangeWipDraftsNotification,
 	DidChangeWorkingTreeNotification,
 	DidFetchNotification,
+	DidInvalidateScopeAnchorsNotification,
+	DidRequestActiveSidebarPanelNotification,
+	DidRequestGraphActionNotification,
 	DidRequestOpenCompareModeNotification,
+	DidRequestOpenTimelineScopeNotification,
+	DidRequestSearchNotification,
 	DidRequestWipRefetchNotification,
 	DidSearchNotification,
 	DidStartFeaturePreviewNotification,
@@ -67,16 +85,49 @@ export function isGraphSearchResultsError(
 	return 'error' in results;
 }
 
+/** Lightweight scope anchor returned by `ResolveGraphScopeRequest` and cached webview-side. */
+type ResolvedScopeAnchor = {
+	mergeBase: { sha: string; date: number } | undefined;
+	mergeTargetTipSha: string | undefined;
+	focalBranchTipSha: string | undefined;
+};
+
+/**
+ * Returns the scope without `mergeTargetTipSha` when `mergeBase` isn't set. Without the paired
+ * `mergeBase`, the gitkraken-components scope walk falls into a "target tip without merge base"
+ * path that only terminates when the target's ancestors are loaded — for a stale target tip
+ * many years back in history, those aren't loaded and the walk exposes every first-parent
+ * ancestor of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active,
+ * which bounds visibility against currently-loaded refs.
+ */
+function stripUnpairedMergeTarget(scope: GraphScope): GraphScope {
+	if (scope.mergeBase != null || scope.mergeTargetTipSha == null) return scope;
+
+	const { mergeTargetTipSha: _, ...rest } = scope;
+	return rest;
+}
+
 /**
  * Returns the scope with `mergeTargetTipSha` backfilled from the branch's enrichment, or the
  * original scope reference when nothing needs to change. Callers use reference-equality to know
  * whether they need to publish a new scope value.
+ *
+ * Skips the backfill when the scope has neither `mergeBase` nor a prior `mergeTargetTipSha` —
+ * the bare scope state that `setScope` leaves behind when the anchor IPC bailed or its merge
+ * base wasn't in the loaded rows. Promoting just a `mergeTargetTipSha` onto a bare scope pushes
+ * the gitkraken-components scope walk into its "target tip without merge base" path, which can
+ * only terminate when the target's ancestors are already loaded; for a stale target tip many
+ * years back in history, those aren't loaded and the walk exposes every first-parent ancestor
+ * of the focal branch. Leaving the scope bare keeps the foreign-ref heuristic active, which
+ * bounds visibility against currently-loaded refs.
  */
 export function reconcileScopeMergeTarget(
 	scope: AppState['scope'],
 	enrichment: AppState['overviewEnrichment'],
 ): AppState['scope'] {
 	if (scope == null) return scope;
+	if (scope.mergeBase == null && scope.mergeTargetTipSha == null) return scope;
+
 	const sha = enrichment?.[scope.branchRef]?.mergeTarget?.sha;
 	if (sha == null || sha === scope.mergeTargetTipSha) return scope;
 	return { ...scope, mergeTargetTipSha: sha };
@@ -98,6 +149,23 @@ function getSearchResultModel(searchResults: State['searchResults']): {
 	return { results: results, resultsError: resultsError };
 }
 
+// Sticky cache of the last-known `workDirStats` value seen for each secondary-WIP sha. Used to
+// bridge the visual gap when an entry briefly disappears from `wipMetadataBySha` and re-enters
+// via the `prevEntry == null` path — without this, the GK component renders no pill for the row
+// across the 350ms settle + IPC round trip, producing a visible flash. One GraphStateProvider
+// per webview, so module-level is effectively per-instance state.
+export const lastKnownWorkDirStatsBySha = new Map<string, WorkDirStats>();
+
+function captureLastKnownWorkDirStats(map: State['wipMetadataBySha']): void {
+	if (map == null) return;
+
+	for (const [sha, entry] of Object.entries(map)) {
+		if (entry.workDirStats != null) {
+			lastKnownWorkDirStatsBySha.set(sha, entry.workDirStats);
+		}
+	}
+}
+
 export class GraphStateProvider extends StateProviderBase<State['webviewId'], AppState, typeof graphStateContext> {
 	// Track current search ID to ignore stale updates
 	private _currentSearchId: number | undefined;
@@ -114,40 +182,31 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor activeRow: AppState['activeRow'];
 
 	@signalState()
-	accessor activeSidebarPanel: AppState['activeSidebarPanel'];
-
-	@signalState()
 	accessor displayMode: AppState['displayMode'];
 
-	@signalState()
-	accessor timelinePeriod: AppState['timelinePeriod'];
+	@signalObjectState()
+	accessor timeline: AppState['timeline'];
+
+	@signalObjectState()
+	accessor details: AppState['details'];
+
+	@signalObjectState()
+	accessor sidebar: AppState['sidebar'];
+
+	@signalObjectState()
+	accessor minimap: AppState['minimap'];
 
 	@signalState()
-	accessor timelineSliceBy: AppState['timelineSliceBy'];
+	accessor pendingAction: AppState['pendingAction'];
 
 	@signalState()
-	accessor timelineShowAllBranches: AppState['timelineShowAllBranches'];
+	accessor wipDrafts: State['wipDrafts'];
 
 	@signalState()
-	accessor detailsVisible: AppState['detailsVisible'];
+	accessor visualizationMode: AppState['visualizationMode'];
 
 	@signalState()
-	accessor detailsPosition: AppState['detailsPosition'];
-
-	@signalState()
-	accessor detailsBottomPosition: AppState['detailsBottomPosition'];
-
-	@signalState()
-	accessor sidebarVisible: AppState['sidebarVisible'];
-
-	@signalState()
-	accessor sidebarPosition: AppState['sidebarPosition'];
-
-	@signalState()
-	accessor minimapVisible: AppState['minimapVisible'];
-
-	@signalState()
-	accessor minimapPosition: AppState['minimapPosition'];
+	accessor treemapMode: AppState['treemapMode'];
 
 	get isBusy(): AppState['isBusy'] {
 		return this.loading || this.searching || /*this.rowsStatsLoading ||*/ false;
@@ -155,6 +214,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState(false)
 	accessor loading: AppState['loading'] = false;
+
+	/**
+	 * Signals that a scope-anchor IPC is in flight long enough to warrant a loading affordance.
+	 * Composed with `loading` at the `gl-graph` render boundary (see `graph-wrapper.ts`) so
+	 * scope-resolution and row-loading share the same visual indicator without sharing
+	 * lifecycle — setScope owns this signal end-to-end (set on a delay timer, cleared in its
+	 * finally), independent from the global `loading` flag managed by paging /
+	 * `EnsureRowRequest` / `DidChangeRowsNotification`.
+	 */
+	@signalState(false)
+	accessor scopeLoading: boolean = false;
 
 	@signalState<AppState['navigating']>(false)
 	accessor navigating: AppState['navigating'] = false;
@@ -176,6 +246,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor searchResults: AppState['searchResults'];
+
+	@signalState<AppState['activeFilterColumns']>(new Set())
+	accessor activeFilterColumns: AppState['activeFilterColumns'] = new Set();
 
 	@signalState()
 	accessor searchResultsError: AppState['searchResultsError'];
@@ -236,6 +309,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor rowsStatsLoading: State['rowsStatsLoading'] | undefined;
 
 	@signalState()
+	accessor rowsStatsIncluded: State['rowsStatsIncluded'];
+
+	@signalState()
 	accessor downstreams: State['downstreams'];
 
 	@signalState()
@@ -256,8 +332,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor workingTreeStats: State['workingTreeStats'];
 
-	@signalState()
+	@signalState<State['wipMetadataBySha']>(undefined, {
+		// Maintain a sticky cache of last-known `workDirStats` keyed by secondary-WIP sha so that
+		// `mergeWipMetadata` can recover stats for an entry that briefly disappears from
+		// `wipMetadataBySha` (e.g. host worktree-list flap, transient `wt.sha == null`,
+		// reduced-set full-state push) and re-enters via the `prevEntry == null` path. Without
+		// this, the GK component sees `workDirStats: undefined` and renders nothing for the row
+		// until the settle delay + IPC round trip resolves — that's the visible pill flash.
+		afterChange: (_target: GraphStateProvider, value) => captureLastKnownWorkDirStats(value),
+	})
 	accessor wipMetadataBySha: State['wipMetadataBySha'];
+
+	@signalState()
+	accessor wip: State['wip'];
 
 	@signalState()
 	accessor scope: AppState['scope'];
@@ -289,6 +376,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	@signalState()
 	accessor overview: State['overview'];
 
+	@signalState()
+	accessor overviewRecentThreshold: State['overviewRecentThreshold'];
+
 	@signalState<AppState['agentSessions']>([])
 	accessor agentSessions: AppState['agentSessions'] = [];
 
@@ -314,6 +404,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
+	graphWalkthroughBannerCollapsed?: boolean | undefined;
+	graphWalkthroughComplete?: boolean | undefined;
+	graphWalkthroughStarted?: boolean | undefined;
+	visualizationsButtonCalloutDismissed?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -345,9 +439,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 
 		this.updateState(this._state, true);
-		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting,
-		// the scope popover opening, or per-branch on-demand via `ensureEnrichmentForBranch`)
-		// rather than eagerly at bootstrap, where it competes with the graph render itself.
+		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting or
+		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
+		// graph render itself.
 
 		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(sessions => {
 			this.agentSessions = sortAgentSessions(sessions);
@@ -356,29 +450,70 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void {
 		if (overview == null) return;
+
 		const branchIds = [...overview.active.map(b => b.id), ...overview.recent.map(b => b.id)];
 		if (branchIds.length === 0) return;
 
 		const fingerprint = branchIds.toSorted().join(',');
 		if (fingerprint === this._enrichmentFingerprint) return;
+
+		// Skip the IPC entirely when overviewEnrichment (possibly populated by the sidebar's
+		// parallel fetch path) already covers every id in this composition.
+		const enrichment = this.overviewEnrichment;
+		if (enrichment != null && branchIds.every(id => id in enrichment)) {
+			this._enrichmentFingerprint = fingerprint;
+			return;
+		}
+
 		this._enrichmentFingerprint = fingerprint;
 
 		void this.ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: branchIds }).then(result => {
 			// Only publish when the overview fingerprint hasn't moved on — a newer overview
-			// in flight will trigger its own fetch whose result is authoritative.
+			// in flight will trigger its own fetch whose result is authoritative. Build the next
+			// state from `result` so stale entries (e.g. a closed/retargeted PR's enrichment) for
+			// branchIds no longer in the active/recent set are dropped, but preserve any
+			// locally-merged `mergeTarget` from `mergeMergeTargetIntoEnrichment` (overview cards /
+			// click-to-scope) — the host opts out of merge-target resolution here via
+			// `skipMergeTarget: true`, so it always returns `mergeTarget: undefined`.
 			if (this._enrichmentFingerprint === fingerprint) {
-				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
+				const previous = this.overviewEnrichment;
+				if (previous == null) {
+					this.overviewEnrichment = result;
+				} else {
+					const next: typeof result = {};
+					for (const branchId in result) {
+						const incoming = result[branchId];
+						const localMergeTarget = previous[branchId]?.mergeTarget;
+						next[branchId] =
+							localMergeTarget != null && incoming?.mergeTarget == null
+								? { ...incoming, mergeTarget: localMergeTarget }
+								: incoming;
+					}
+					this.overviewEnrichment = next;
+				}
 			}
 		});
 	}
 
-	/** In-flight single-branch enrichment fetches, keyed by branch id, so concurrent callers share one request. */
-	private _adhocEnrichmentPromises = new Map<string, Promise<void>>();
+	/** Session cache of resolved scope anchors (mergeBase + mergeTargetTipSha), keyed by `repoPath|branchRef`. */
+	private _mergeBaseCache = new Map<string, ResolvedScopeAnchor | undefined>();
+	/** In-flight scope-anchor resolves, deduped per cache key. */
+	private _mergeBasePromises = new Map<string, Promise<ResolvedScopeAnchor | undefined>>();
+	/**
+	 * Per-repo generation, bumped on `DidInvalidateScopeAnchorsNotification`. In-flight resolves
+	 * capture this before awaiting and skip writing back if it has advanced — otherwise the
+	 * post-await cache write would repopulate `_mergeBaseCache` with the pre-invalidation anchor.
+	 */
+	private _anchorGenerations = new Map<string, number>();
 
-	/** Session cache of resolved merge-bases, keyed by `repoPath|branchRef`. */
-	private _mergeBaseCache = new Map<string, { sha: string; date: number } | undefined>();
-	/** In-flight merge-base resolves, deduped per cache key. */
-	private _mergeBasePromises = new Map<string, Promise<{ sha: string; date: number } | undefined>>();
+	/**
+	 * Latest scope the user has asked to navigate to. Tracked separately from the published
+	 * `scope` signal so a cache-miss anchor resolve only publishes when the user is still
+	 * waiting for that branch — re-scoping or clearing while the IPC is in flight cancels the
+	 * pending publish. Compared by `branchRef` (not reference) so a second `setScope` to the
+	 * same branch with a fresher upstream/target still allows the in-flight resolve to publish.
+	 */
+	private _pendingScope: GraphScope | undefined;
 
 	/**
 	 * Set by callers (e.g. the scope popover) right before sending a filter-changing IPC, so the
@@ -388,31 +523,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _scopeClearDeferred = false;
 
 	deferScopeClear(): void {
+		// Cancel any in-flight `setScope` publish so a cache-miss resolve can't sneak a new
+		// scope in after the imminent visibility change clears `this.scope`.
+		this._pendingScope = undefined;
 		if (this.scope == null) return;
+
 		this._scopeClearDeferred = true;
-	}
-
-	/**
-	 * Fetch enrichment for a single branch that isn't covered by the overview (e.g. a branch picked
-	 * from the header scope popover that isn't active or recent). Merges the result into
-	 * `overviewEnrichment` so the reactive `syncScopeMergeTarget` hook can anchor the scope.
-	 */
-	ensureEnrichmentForBranch(branchId: string): Promise<void> {
-		if (this.overviewEnrichment?.[branchId] != null) return Promise.resolve();
-
-		const existing = this._adhocEnrichmentPromises.get(branchId);
-		if (existing != null) return existing;
-
-		const promise = this.ipc
-			.sendRequest(GetOverviewEnrichmentRequest, { branchIds: [branchId] })
-			.then(result => {
-				this.overviewEnrichment = { ...this.overviewEnrichment, ...result };
-			})
-			.finally(() => {
-				this._adhocEnrichmentPromises.delete(branchId);
-			});
-		this._adhocEnrichmentPromises.set(branchId, promise);
-		return promise;
 	}
 
 	/**
@@ -430,17 +546,168 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		};
 	}
 
+	/**
+	 * Publishes a freshly-picked scope. Resolves to `void` only after the scope value visible to
+	 * the graph (`this.scope`) has reached its final settled form for this call — anchored if the
+	 * anchor IPC resolves with a usable merge base, bare otherwise. Callers that need to fire a
+	 * row selection against the scoped view (`ensureAndSelectCommit`) should `await` this so the
+	 * GK row index has the post-scope set ready by the time selection runs.
+	 *
+	 * Publish strategy: ALWAYS publish exactly one `this.scope` write per `setScope` call. We
+	 * wait for the anchor IPC to resolve before publishing — bare-then-anchored two-step writes
+	 * are perceptible as commits jumping (the GK bundle's bare-scope walk uses a foreign-ref
+	 * heuristic; the anchored walk uses a real merge base, producing a different visible set).
+	 * The IPC is local-disk on desktop and well under 100ms in the common case; the chip + graph
+	 * stay on their pre-scope state until the publish lands, which is more readable than a flash.
+	 *
+	 * `mergeTargetTipSha` is stripped from the bare publish (when the anchor IPC bails) even
+	 * when the caller supplied one (e.g. `scopeToBranchById` pre-fills it from overview
+	 * enrichment): without a paired `mergeBase`, the bundle scope walk falls into a "target tip
+	 * without merge base" path that only terminates when the target's ancestors are loaded —
+	 * for a stale or deep target that's unsafe.
+	 */
+	async setScope(scope: GraphScope): Promise<void> {
+		this._pendingScope = scope;
+
+		const repoPath = scope.branchRef.split('|', 2)[0];
+		if (!repoPath) {
+			this._pendingScope = undefined;
+			return;
+		}
+
+		// `branchRef` is the cache key directly — `getBranchId` already encodes the repoPath
+		// (`${repoPath}|heads/${name}`), so it's unique across repos without re-prefixing.
+		const cacheKey = scope.branchRef;
+
+		// Cache hit — publish synchronously, single write.
+		if (this._mergeBaseCache.has(cacheKey)) {
+			this.publishResolvedScope(scope, this._mergeBaseCache.get(cacheKey));
+			return;
+		}
+
+		// Cache miss — wait for the anchor IPC, then publish once (anchored if usable, bare if
+		// the host bailed). Never write `this.scope` mid-IPC, so the user never sees the bare
+		// foreign-ref heuristic flash through.
+		//
+		// Show a loading affordance ONLY if the IPC takes long enough to be perceptible. Fast
+		// (sub-`scopeLoadingDelayMs`) paths skip the flag entirely. The flag has its own
+		// lifecycle (own signal `scopeLoading`, set here and cleared in `finally`) and doesn't
+		// share state with the global `loading` flag managed by paging / EnsureRow — so a
+		// concurrent paging IPC's loader can't be clobbered by our finally, and vice versa.
+		const loadingTimer = setTimeout(() => {
+			// Only show if this scope is still the pending one — a superseding `setScope` would
+			// own its own loader timer.
+			if (this._pendingScope !== scope) return;
+
+			this.scopeLoading = true;
+		}, GraphStateProvider.scopeLoadingDelayMs);
+
+		try {
+			const anchor = await this.fetchScopeAnchor(repoPath, scope, cacheKey);
+			this.publishResolvedScope(scope, anchor);
+		} finally {
+			clearTimeout(loadingTimer);
+			// Only clear when this call still owns the pending scope. A superseding `setScope`
+			// has already taken over (and started its own loader timer); leave `scopeLoading`
+			// alone so the newer call manages it.
+			if (this._pendingScope == null || this._pendingScope === scope) {
+				this.scopeLoading = false;
+			}
+		}
+	}
+
+	/** Soft delay before showing the scope-loading affordance — sub-threshold IPCs (the common
+	 *  case) never trigger the affordance, avoiding a visual blip on fast paths. */
+	private static readonly scopeLoadingDelayMs = 120;
+
+	/**
+	 * Publishes a scope ONCE — anchored if the resolved anchor is usable, bare otherwise. Used by
+	 * the no-bare-flash path (cache hit / fast IPC) AND the cache-miss path.
+	 *
+	 * Why an unloaded `mergeBase` falls through to bare: the gitkraken-components scope walk
+	 * requires the boundary to be loaded in order to terminate, and a "not loaded" merge base
+	 * means the walk would expose every first-parent ancestor of the focal branch. The bare
+	 * scope keeps the foreign-ref heuristic active, which bounds visibility against currently-
+	 * loaded refs.
+	 *
+	 * Preserve-anchored guard: if `this.scope` is already anchored for the same `branchRef` and
+	 * the new anchor would be a bare downgrade (host bailed OR merge base no longer loaded
+	 * because rows re-paged), we KEEP the existing anchored scope rather than wipe it. The
+	 * previous flow's `applyAnchorToPendingScope` early-returned in this case; preserve that
+	 * behavior so a stale-re-resolve never erases a working anchored state.
+	 */
+	private publishResolvedScope(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
+		const pending = this._pendingScope;
+		if (pending?.branchRef !== scope.branchRef) return;
+
+		this._pendingScope = undefined;
+
+		const anchorUsable =
+			anchor != null &&
+			(anchor.mergeBase != null || anchor.mergeTargetTipSha != null) &&
+			(anchor.mergeBase == null || this.isShaLoaded(anchor.mergeBase.sha));
+
+		if (!anchorUsable) {
+			// Preserve an already-anchored scope for the same branch — don't downgrade to bare —
+			// BUT ONLY if the existing scope's mergeBase is also still loaded. If the existing
+			// anchor's boundary is itself stale (e.g., rows re-paged past it), the GK scope walk
+			// on an unloaded boundary would expose every first-parent ancestor of the focal
+			// branch (see `isShaLoaded` docs). In that case bare is the safer state.
+			const current = this.scope;
+			if (
+				current?.branchRef === pending.branchRef &&
+				current.mergeBase != null &&
+				this.isShaLoaded(current.mergeBase.sha)
+			) {
+				return;
+			}
+
+			this.scope = stripUnpairedMergeTarget(pending);
+			return;
+		}
+
+		// `anchorUsable` is true → `anchor` is non-null here. TS narrowing through the local
+		// boolean isn't smart enough; the field-level checks below restore the narrow.
+		const next: GraphScope = { ...pending };
+		if (anchor?.mergeBase != null) {
+			next.mergeBase = anchor.mergeBase;
+		}
+		if (anchor?.mergeTargetTipSha != null) {
+			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+		}
+		this.scope = next;
+	}
+
 	async resolveScopeMergeBase(scope: GraphScope): Promise<void> {
 		const repoPath = scope.branchRef.split('|', 2)[0];
 		if (!repoPath) return;
 
-		const cacheKey = `${repoPath}|${scope.branchRef}`;
+		const cacheKey = scope.branchRef;
 
 		// Cache hit — patch and return without IPC.
 		if (this._mergeBaseCache.has(cacheKey)) {
-			this.patchScopeMergeBase(scope, this._mergeBaseCache.get(cacheKey));
+			this.patchScopeAnchor(scope, this._mergeBaseCache.get(cacheKey));
 			return;
 		}
+
+		const anchor = await this.fetchScopeAnchor(repoPath, scope, cacheKey);
+		this.patchScopeAnchor(scope, anchor);
+	}
+
+	/**
+	 * Shared anchor IPC + cache write used by both the initial `setScope` flow and the re-resolve
+	 * flow (`resolveScopeMergeBase`, invoked from `DidInvalidateScopeAnchorsNotification`). Dedupes
+	 * concurrent requests for the same `(repoPath, branchRef)` and skips the cache write when a
+	 * mid-flight invalidation has bumped the per-repo generation.
+	 */
+	private async fetchScopeAnchor(
+		repoPath: string,
+		scope: GraphScope,
+		cacheKey: string,
+	): Promise<ResolvedScopeAnchor | undefined> {
+		// Capture before await — if invalidation arrives mid-flight (refs/config moved), skip the
+		// writeback so we don't repopulate `_mergeBaseCache` with the pre-invalidation anchor.
+		const generation = this._anchorGenerations.get(repoPath) ?? 0;
 
 		let promise = this._mergeBasePromises.get(cacheKey);
 		if (promise == null) {
@@ -449,31 +716,80 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					repoPath: repoPath,
 					scope: scope,
 				})
-				.then(r => r?.scope.mergeBase)
-				.catch(() => undefined)
+				.then((r): ResolvedScopeAnchor | undefined =>
+					r == null
+						? undefined
+						: {
+								mergeBase: r.scope.mergeBase,
+								mergeTargetTipSha: r.scope.resolvedMergeTargetTipSha,
+								focalBranchTipSha: r.scope.resolvedFocalBranchTipSha,
+							},
+				)
+				.catch((): ResolvedScopeAnchor | undefined => undefined)
 				.finally(() => {
-					this._mergeBasePromises.delete(cacheKey);
+					// Only clear when the stored entry still points at *this* promise — otherwise
+					// invalidation already cleared it and a newer resolve may have taken its slot.
+					if (this._mergeBasePromises.get(cacheKey) === promise) {
+						this._mergeBasePromises.delete(cacheKey);
+					}
 				});
 			this._mergeBasePromises.set(cacheKey, promise);
 		}
 
-		const mergeBase = await promise;
-		this._mergeBaseCache.set(cacheKey, mergeBase);
-		this.patchScopeMergeBase(scope, mergeBase);
+		const anchor = await promise;
+		if ((this._anchorGenerations.get(repoPath) ?? 0) !== generation) return undefined;
+
+		this._mergeBaseCache.set(cacheKey, anchor);
+		return anchor;
 	}
 
-	private patchScopeMergeBase(scope: GraphScope, mergeBase: { sha: string; date: number } | undefined): void {
-		if (mergeBase == null) return;
+	/** True when `sha` is present in the graph's loaded rows. Used to decide whether a resolved
+	 *  scope anchor is usable — see `publishResolvedScope`. */
+	private isShaLoaded(sha: string): boolean {
+		const rows = this._state.rows;
+		return rows?.some(r => r.sha === sha) ?? false;
+	}
+
+	private patchScopeAnchor(scope: GraphScope, anchor: ResolvedScopeAnchor | undefined): void {
+		if (anchor == null) return;
+		// Host couldn't resolve any field — leave the live scope alone rather than assigning a
+		// no-op spread that would re-zoom the minimap for nothing.
+		if (anchor.mergeBase == null && anchor.mergeTargetTipSha == null && anchor.focalBranchTipSha == null) {
+			return;
+		}
+
+		// Merge base resolved but not loaded — applying it would put the bundle scope walk on
+		// an unloaded boundary; see `publishResolvedScope`.
+		if (anchor.mergeBase != null && !this.isShaLoaded(anchor.mergeBase.sha)) return;
+
 		// Only patch if the live scope still points at the same branch (user may have re-scoped
 		// or cleared while the resolve was in flight).
 		const current = this.scope;
 		if (current?.branchRef !== scope.branchRef) return;
-		// Skip if the authoritative mergeBase matches what's already on the scope — prevents a
-		// redundant signal update that would re-zoom the minimap needlessly.
-		if (current.mergeBase?.sha === mergeBase.sha && current.mergeBase?.date === mergeBase.date) {
-			return;
+
+		// Skip if every patchable field already matches — prevents a redundant signal update that
+		// would re-zoom the minimap needlessly.
+		const mergeBaseSame =
+			current.mergeBase?.sha === anchor.mergeBase?.sha && current.mergeBase?.date === anchor.mergeBase?.date;
+		// `mergeTargetTipSha` may also be supplied by enrichment via `reconcileScopeMergeTarget`.
+		// Only overwrite when the resolver returned a value AND it differs — `undefined` from the
+		// resolver shouldn't clobber an enrichment-supplied SHA.
+		const targetTipSame =
+			anchor.mergeTargetTipSha == null || anchor.mergeTargetTipSha === current.mergeTargetTipSha;
+		const focalTipSame = anchor.focalBranchTipSha == null || anchor.focalBranchTipSha === current.focalBranchTipSha;
+		if (mergeBaseSame && targetTipSame && focalTipSame) return;
+
+		const next: GraphScope = { ...current };
+		if (anchor.mergeBase != null && !mergeBaseSame) {
+			next.mergeBase = anchor.mergeBase;
 		}
-		this.scope = { ...current, mergeBase: mergeBase };
+		if (anchor.mergeTargetTipSha != null && !targetTipSame) {
+			next.mergeTargetTipSha = anchor.mergeTargetTipSha;
+		}
+		if (anchor.focalBranchTipSha != null && !focalTipSame) {
+			next.focalBranchTipSha = anchor.focalBranchTipSha;
+		}
+		this.scope = next;
 	}
 
 	protected onMessageReceived(msg: IpcMessage): void {
@@ -483,18 +799,34 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		switch (true) {
 			case DidChangeNotification.is(msg): {
 				// Preserve client-side wipMetadataBySha.workDirStats (populated via GetWipStatsRequest)
-				// across full-state pushes — the server only sends anchor info.
+				// across full-state pushes — the server only sends anchor info. Read from the
+				// accessor (signal) rather than `_state`: writebacks from `graph-wrapper.ts` and
+				// `graph-app.ts` assign through the accessor and don't update `_state`, so reading
+				// `_state` here would see a stale anchor-only map and the merge would drop the
+				// freshly-fetched `workDirStats` from every secondary row (visible pill flash).
 				const incoming = msg.params.state;
-				const next =
+				const next: Partial<State> =
 					incoming.wipMetadataBySha != null
 						? {
 								...incoming,
 								wipMetadataBySha: mergeWipMetadata(
-									this._state.wipMetadataBySha,
+									this.wipMetadataBySha,
 									incoming.wipMetadataBySha,
+									lastKnownWorkDirStatsBySha,
 								),
 							}
-						: incoming;
+						: { ...incoming };
+				// Drop `branchState` and `lastFetched` when the full-state push carries values
+				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
+				// `DidFetch`) land these ~20-30ms before the heavier full-state rebuild; without this
+				// guard the bulk push re-assigns the same values and Lit's identity-based reactivity
+				// forces a redundant header re-render for every pull/push/fetch.
+				if (areEqual(next.branchState, this._state.branchState)) {
+					delete next.branchState;
+				}
+				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
+					delete next.lastFetched;
+				}
 				this.updateState(next);
 				break;
 			}
@@ -503,6 +835,56 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this._state.lastFetched = msg.params.lastFetched;
 				this.updateState({ lastFetched: msg.params.lastFetched });
 				break;
+
+			case DidInvalidateScopeAnchorsNotification.is(msg): {
+				// Drop the mirrored merge-base cache when the host signals that refs/config moved —
+				// otherwise the next scope-resolve would hand back the cached pre-rebase anchor.
+				const { repoPath, branchRefs } = msg.params;
+				// Bump generation so any in-flight resolve for this repo skips its post-await
+				// writeback (per-repo is sufficient; in-flight resolves whose `branchRefs` weren't
+				// targeted simply re-issue on the next consumer call).
+				this._anchorGenerations.set(repoPath, (this._anchorGenerations.get(repoPath) ?? 0) + 1);
+				// Cache keys are `branchRef`s (which already include `${repoPath}|` via `getBranchId`),
+				// so targeted invalidation uses the ref directly; the bulk path matches by prefix.
+				const prefix = `${repoPath}|`;
+				if (branchRefs?.length) {
+					for (const ref of branchRefs) {
+						this._mergeBaseCache.delete(ref);
+						this._mergeBasePromises.delete(ref);
+					}
+				} else {
+					for (const key of [...this._mergeBaseCache.keys()]) {
+						if (key.startsWith(prefix)) {
+							this._mergeBaseCache.delete(key);
+						}
+					}
+					for (const key of [...this._mergeBasePromises.keys()]) {
+						if (key.startsWith(prefix)) {
+							this._mergeBasePromises.delete(key);
+						}
+					}
+				}
+
+				// Also reset enrichment so a stale `mergeTargetTipSha` doesn't survive — the next
+				// popover open or sidebar render will re-fetch and `reconcileScopeMergeTarget` will
+				// re-anchor the live scope when it lands.
+				this._enrichmentFingerprint = undefined;
+				if (this.overviewEnrichment != null) {
+					this.overviewEnrichment = undefined;
+				}
+
+				// Proactively re-resolve the live scope. The cache clear above only ensures the
+				// *next* `resolveScopeMergeBase` call won't hand back the stale anchor — it doesn't
+				// touch the live `scope.mergeBase`/`scope.mergeTargetTipSha` themselves, which were
+				// set on the prior resolve and would otherwise keep anchoring the minimap to the
+				// pre-rebase SHA until the user re-scopes. The bumped generation just above ensures
+				// any concurrently-running stale resolve can't beat this fresh one to the writeback.
+				const liveScope = this.scope;
+				if (liveScope?.branchRef.startsWith(prefix)) {
+					void this.resolveScopeMergeBase(liveScope);
+				}
+				break;
+			}
 
 			case DidChangeAvatarsNotification.is(msg):
 				this.updateState({ avatars: msg.params.avatars });
@@ -544,6 +926,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					const wasScoped = this.scope != null;
 					// Coalesce with the visibility update so the minimap and graph re-render once.
 					this.scope = undefined;
+					// Drop any in-flight `setScope` publish — otherwise a cache-miss resolve could
+					// re-publish a scope the user just cleared by switching visibility modes.
+					this._pendingScope = undefined;
 					if (wasScoped) {
 						emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
 							name: 'graph/scope/cleared',
@@ -625,7 +1010,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					}
 				}
 
-				updates.avatars = msg.params.avatars;
+				// `avatars` is sent as `undefined` when its backing Map size hasn't changed since
+				// the last notification (host-side dedupe). Keep our existing state in that case
+				// instead of replacing with undefined and losing it. `downstreams` is always
+				// present — the provider mutates existing arrays in place, so size-based dedupe
+				// is unsafe and the host always ships the full Record.
+				if (msg.params.avatars != null) {
+					updates.avatars = msg.params.avatars;
+				}
 				updates.downstreams = msg.params.downstreams;
 				if (msg.params.refsMetadata !== undefined) {
 					updates.refsMetadata = msg.params.refsMetadata;
@@ -636,6 +1028,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
 				}
 				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
+				if (msg.params.rowsStatsIncluded !== undefined) {
+					updates.rowsStatsIncluded = msg.params.rowsStatsIncluded;
+				}
 				if (msg.params.selectedRows != null) {
 					updates.selectedRows = msg.params.selectedRows;
 				}
@@ -677,6 +1072,51 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				);
 				break;
 
+			case DidRequestOpenTimelineScopeNotification.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-open-timeline-scope', {
+						detail: msg.params,
+						bubbles: true,
+					}),
+				);
+				break;
+
+			case DidRequestSearchNotification.is(msg):
+				this.host.dispatchEvent(
+					new CustomEvent('gl-graph-request-search', {
+						detail: msg.params,
+						bubbles: true,
+					}),
+				);
+				break;
+
+			case DidRequestActiveSidebarPanelNotification.is(msg):
+				this.updateState({
+					sidebar: { ...this.sidebar, visible: true, activePanel: msg.params.panel },
+				});
+				break;
+
+			case DidRequestGraphActionNotification.is(msg):
+				// Pre-populate the WIP draft for the target worktree FIRST so `loadWipDraft` (which
+				// fires when the panel anchors on the new WIP row in this same render cycle) finds
+				// the seeded message on its first pass — avoids a one-frame empty box before the
+				// post-`updateComplete` `setCommitMessage` would override it.
+				if (msg.params.action === 'show-wip' && msg.params.commitMessage != null && msg.params.target != null) {
+					this.setWipDraft(msg.params.target.worktreePath, {
+						message: msg.params.commitMessage,
+						messageDirty: true,
+					});
+				}
+				this.updateState({
+					pendingAction: {
+						action: msg.params.action,
+						target: msg.params.target,
+						commitMessage: msg.params.commitMessage,
+					},
+					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
+				});
+				break;
+
 			case DidChangeGraphConfigurationNotification.is(msg):
 				this.updateState({ config: msg.params.config });
 				break;
@@ -696,10 +1136,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ overview: msg.params.overview });
 				break;
 
-			case DidChangeOverviewWipNotification.is(msg):
-				this.overviewWip = msg.params.wip;
-				break;
-
 			case DidChangeAgentSessionsNotification.is(msg):
 				this.agentSessions = sortAgentSessions(msg.params.sessions);
 				break;
@@ -716,43 +1152,125 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ canInstallClaudeHook: msg.params });
 				break;
 
-			case DidChangeWorkingTreeNotification.is(msg):
+			case DidChangeGraphWalkthroughBanner.is(msg):
 				this.updateState({
-					workingTreeStats: msg.params.stats,
-					wipMetadataBySha: mergeWipMetadata(this._state.wipMetadataBySha, msg.params.wipMetadataBySha),
+					graphWalkthroughBannerCollapsed: msg.params.dismissed,
 				});
 				break;
 
-			case DidRequestWipRefetchNotification.is(msg): {
-				// Bump the working-tree-stats reference so the panel's willUpdate observer
-				// treats it as changed and force-runs `refetchWipQuiet(effectiveRepoPath)`.
-				// We don't have a direct path from stateProvider to actions, so we ride the
-				// existing wts-driven refresh hook. Stats values are unchanged — only the
-				// reference identity matters for the dedup at the panel side.
-				const stats = this._state.workingTreeStats;
-				if (stats != null) {
-					this.updateState({ workingTreeStats: { ...stats } });
+			case DidChangeGraphWalkthroughComplete.is(msg):
+				this.updateState({ graphWalkthroughComplete: msg.params });
+				break;
+
+			case DidChangeGraphWalkthroughStarted.is(msg):
+				this.updateState({ graphWalkthroughStarted: msg.params });
+				break;
+
+			case DidChangeVisualizationsButtonCallout.is(msg):
+				this.updateState({ visualizationsButtonCalloutDismissed: msg.params });
+				break;
+
+			case DidChangeWorkingTreeNotification.is(msg): {
+				// Host always sends `wipMetadataBySha` as an object (possibly `{}`) so the merge
+				// can correctly clear stale anchors. If a future host change ever omits the field
+				// (or it's undefined for "unchanged"), don't destructively clear — leave existing
+				// webview anchors in place. Read from the accessor (`this.wipMetadataBySha`) rather
+				// than `this._state`: writebacks from `graph-wrapper.ts` and `graph-app.ts` assign
+				// through the accessor and don't update `_state`, so reading `_state` here sees a
+				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
+				// every secondary row (the visible pill flash).
+				const updates: Partial<State> = { workingTreeStats: msg.params.stats };
+				// Invalidate any in-flight panel-driven `getWip` RPC: if a response is mid-await
+				// when this push lands, its older stats would otherwise clobber this fresher one.
+				this._workingTreeStatsGen.next();
+				if (msg.params.wipMetadataBySha != null) {
+					updates.wipMetadataBySha = mergeWipMetadata(
+						this.wipMetadataBySha,
+						msg.params.wipMetadataBySha,
+						lastKnownWorkDirStatsBySha,
+					);
 				}
+				// The host packs the full WIP into every working-tree notification (same
+				// `git status` it already ran for the stats). The panel observes this and
+				// applies it directly — no `getWip` round-trip needed.
+				if (msg.params.wip != null) {
+					updates.wip = msg.params.wip;
+					// Seed the cache so re-opening the WIP panel paints from memory while a fresh
+					// host push lands. The active-watcher set covers `isLive` derivation at read
+					// time — we don't stamp it on the entry.
+					this.cacheWip(msg.params.repoPath, msg.params.wip);
+				}
+				this.updateState(updates);
+				// Merge the overview entry for the primary's current branch from the same fetch,
+				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
+				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
+				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.stats);
 				break;
 			}
 
-			case DidChangeWipStaleNotification.is(msg): {
-				const current = this._state.wipMetadataBySha;
-				if (current == null) break;
-				// Produce a new reference so the GK component's dedup resets and re-requests stats
-				// for any currently-visible entries marked stale.
-				const next = { ...current };
-				for (const sha of msg.params.shas) {
-					const prev = next[sha];
-					if (prev == null) continue;
-					next[sha] = { ...prev, workDirStatsStale: true };
+			case DidRequestWipRefetchNotification.is(msg): {
+				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
+				// wouldn't fire for it). Push it through the same channel as the regular
+				// working-tree notification — the panel's `applyPushedWip` observer handles it.
+				if (msg.params.wip != null) {
+					const updates: Partial<State> = { wip: msg.params.wip };
+					const { repoPath, stats } = msg.params;
+					this.cacheWip(repoPath, msg.params.wip);
+
+					// Host shipped its already-computed stats — use them directly rather than
+					// deriving locally (would lose `pausedOpStatus` / `context` / `renamed`, and
+					// the per-file classifier doesn't match `git diff --shortstat` semantics).
+					if (stats != null && repoPath === this.selectedRepository) {
+						updates.workingTreeStats = stats;
+						// Same in-flight-RPC invalidation rationale as the `DidChangeWorkingTree` branch.
+						this._workingTreeStatsGen.next();
+					}
+
+					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
+					// this push is for a secondary worktree. Same accessor-read rationale as the
+					// `DidChangeWorkingTreeNotification` branch above.
+					const wipMetadataBySha = this.wipMetadataBySha;
+					if (stats != null && wipMetadataBySha != null) {
+						const secondarySha = createSecondaryWipSha(repoPath);
+						const prevSecondary = wipMetadataBySha[secondarySha];
+						if (prevSecondary != null) {
+							updates.wipMetadataBySha = {
+								...wipMetadataBySha,
+								[secondarySha]: {
+									...prevSecondary,
+									workDirStats: {
+										added: stats.added,
+										deleted: stats.deleted,
+										modified: stats.modified,
+									},
+									workDirStatsStale: false,
+									pausedOpStatus: stats.pausedOpStatus,
+								},
+							};
+						}
+					}
+					this.updateState(updates);
+					// Merge the overview entry from the same fetch. For secondaries the branchId
+					// lives on `wipMetadataBySha[secondarySha].branchRef` (pre-computed host-side
+					// with the MAIN repo path); fall back to deriving from the wip payload's
+					// branch name if absent. `stats` carries the breakdown for the inline counts.
+					this.mergeOverviewWipForRepo(repoPath, msg.params.wip, stats);
 				}
-				this.updateState({ wipMetadataBySha: next });
 				break;
 			}
 
 			case DidChangeRepoConnectionNotification.is(msg):
 				this.updateState({ repositories: msg.params.repositories });
+				break;
+
+			case DidChangeWipDraftsNotification.is(msg):
+				// Skip when the incoming map is structurally identical to ours — most commonly the
+				// self-fire after our own flush (our own write triggers the storage onDidChange,
+				// which fans the notification back to us). Avoids a redundant render cycle on
+				// every flush.
+				if (!areEqual(this.wipDrafts, msg.params.wipDrafts)) {
+					this.updateState({ wipDrafts: msg.params.wipDrafts });
+				}
 				break;
 		}
 	}
@@ -825,6 +1343,216 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 	}
 
+	/**
+	 * LRU cache of the freshest `Wip` payload keyed by repo path. Lets `fetchDetails` paint the
+	 * panel synchronously from memory while a host push lands. Private — consumers go through
+	 * `setWip` / `getWipState`, not raw access.
+	 *
+	 * Bounded at 16 entries — comfortably covers one repo's worktrees plus a few neighbors;
+	 * older entries naturally drop instead of growing without bound.
+	 */
+	private readonly _wips = new LruMap<string, { wip: Wip; timestamp: number }>(16);
+
+	/**
+	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
+	 * `getWipState().isLive` so consumers know whether a cache hit will be refreshed by a
+	 * push soon (true) or needs explicit revalidation (false).
+	 *
+	 * Membership = the primary `selectedRepository` plus any secondary worktrees in the latest
+	 * `SyncWipWatchesCommand` set (computed from visible-secondary-WIP-shas).
+	 */
+	private _activeWipWatchers = new Set<string>();
+
+	/**
+	 * Optimistic-edit marker: when a local mutation (stage/unstage) writes the cache before the
+	 * host's watcher tick lands, the entry is "ours" — `isLive` is suppressed until the next
+	 * host push reconfirms.
+	 */
+	private _pendingLocalEditPaths = new Set<string>();
+
+	/**
+	 * Seed the wip cache from a host push (working-tree notification / refetch notification).
+	 * Clears the pending-local-edit marker because this write IS the host-side reconciliation.
+	 */
+	private cacheWip(repoPath: string, wip: Wip): void {
+		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this._pendingLocalEditPaths.delete(repoPath);
+	}
+
+	/**
+	 * Merge a single overview entry from a host wip push. Pushes a partial `overviewWip` with just
+	 * the one branchId — the consumer at `graph-overview.ts` iterates `pushedWip.branchIds` and
+	 * preserves untouched entries via the spread in `nextWipData`. New object reference forces the
+	 * consumer's `_lastPushedWip !==` check to re-process.
+	 *
+	 * Discriminates by `repoPath === selectedRepository` rather than "try secondary lookup, fall
+	 * back to deriving": a secondary push that lands before its `wipMetadataBySha` entry exists
+	 * (early-mount race) must NOT fall back to deriving `getBranchId(secondaryPath, ...)` — that
+	 * produces a phantom branchId no card renders, silently losing the update.
+	 */
+	private mergeOverviewWipForRepo(
+		repoPath: string | undefined,
+		wip: Wip | undefined,
+		stats: WorkDirStats | undefined,
+	): void {
+		if (repoPath == null || wip == null) return;
+
+		let branchId: string | undefined;
+		if (repoPath === this.selectedRepository) {
+			// Primary repo: derive directly from the wip payload's branch name + primary path.
+			const branchName = wip.changes?.branchName;
+			if (!branchName) return; // detached HEAD or empty
+
+			branchId = getBranchId(repoPath, false, branchName);
+		} else {
+			// Secondary worktree: branchRef is pre-computed host-side with the MAIN repo path,
+			// which is the format overview entries are keyed by. If metadata hasn't loaded yet,
+			// skip — the next event for this worktree will recover once metadata lands.
+			const secondarySha = createSecondaryWipSha(repoPath);
+			branchId = this.wipMetadataBySha?.[secondarySha]?.branchRef;
+			if (branchId == null) return;
+		}
+
+		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
+		const pausedOpStatus = wip.changes?.pausedOpStatus;
+		// Carry the breakdown when the push provides it — the active overview card renders inline
+		// `commit-stats` from `workingTreeState` and would otherwise lag behind real-time edits
+		// (only `hasChanges` would flip, leaving the counts frozen at the initial fetch values).
+		// Mapped: `WorkDirStats.modified` → `GitDiffFileStats.changed`.
+		// When stats is absent, intentionally omit the key from the merged entry so the consumer's
+		// spread (`{ ...prev, ...wip }` in graph-overview.ts) preserves any cached breakdown.
+		const prev = this.overviewWip;
+		const prevEntry = prev?.wip?.[branchId];
+		this.overviewWip = {
+			branchIds: [branchId],
+			wip: {
+				...(prev?.wip ?? {}),
+				[branchId]: {
+					...prevEntry,
+					hasChanges: hasChanges,
+					pausedOpStatus: pausedOpStatus,
+					...(stats != null
+						? {
+								workingTreeState: {
+									added: stats.added,
+									changed: stats.modified,
+									deleted: stats.deleted,
+								},
+							}
+						: {}),
+				},
+			},
+		};
+	}
+
+	/**
+	 * Optimistic write — flag the entry so subsequent `getWipState` calls report `isLive: false`
+	 * until the host's watcher reconciles. Used by `DetailsActions.optimisticallyUpdate*` so the
+	 * details panel can paint the staged-state flip without waiting for a `git status` round-trip.
+	 */
+	setWip(repoPath: string, wip: Wip): void {
+		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this._pendingLocalEditPaths.add(repoPath);
+	}
+
+	/** Bumped on every write to `workingTreeStats` (both IPC-driven host pushes and the
+	 *  panel-driven `setWorkingTreeStats` reseed). Callers about to issue a `getWip` RPC snapshot
+	 *  this before the await and pass it back into `setWorkingTreeStats`; if a host FS-watcher
+	 *  push lands during the await, the counter advances and the older RPC response is dropped
+	 *  rather than clobbering the fresher stats. Read via `workingTreeStatsGen`. */
+	private readonly _workingTreeStatsGen: Counter = getScopedCounter();
+
+	get workingTreeStatsGen(): number {
+		return this._workingTreeStatsGen.current;
+	}
+
+	/**
+	 * Reseed `workingTreeStats` from a panel-driven `getWip` cold-load. The header WIP badge and
+	 * the primary "Working Changes" row badge both read this slot; they otherwise refresh only
+	 * via the host's FS-watcher push channel, which can land late or be missed on init — leaving
+	 * the badges stuck on stale stats while the details panel (driven by `wip`) shows the truth.
+	 *
+	 * Repo-path guard mirrors `DidRequestWipRefetchNotification`'s primary-only update: the badges
+	 * always reflect the active/selected repo, so a secondary worktree's `getWip` must NOT
+	 * overwrite the primary's stats.
+	 *
+	 * `expectedGen` (optional) is the value of `workingTreeStatsGen` captured BEFORE the caller's
+	 * `getWip` await. When provided and stale (counter advanced during the await), drops the
+	 * write — a host FS-watcher push landed in the meantime and its stats are fresher than this
+	 * response. Without this guard, an older RPC snapshot can clobber a newer push.
+	 */
+	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats, expectedGen?: number): void {
+		if (repoPath !== this.selectedRepository) return;
+		if (expectedGen != null && expectedGen !== this._workingTreeStatsGen.current) return;
+
+		this._workingTreeStatsGen.next();
+		this.updateState({ workingTreeStats: stats });
+	}
+
+	/**
+	 * Return the cached wip for `repoPath` along with metadata the caller needs to decide
+	 * whether to revalidate. `isLive` is computed at read time from the host's active-watcher
+	 * set — never stored on the entry — so a worktree that scrolls out of the viewport (no
+	 * longer in `SyncWipWatchesCommand`) flips to non-live without anyone having to mutate state.
+	 * Local optimistic edits also suppress `isLive` until the host reconciles.
+	 */
+	getWipState(repoPath: string): { wip: Wip; isLive: boolean; ageMs: number } | undefined {
+		const entry = this._wips.get(repoPath);
+		if (entry == null) return undefined;
+
+		// Primary repo is always watched while selected; secondaries come from the latest
+		// `updateActiveWipWatchers` call. Pending optimistic edits suppress `isLive` until the
+		// host's push reconciles.
+		const watched = repoPath === this.selectedRepository || this._activeWipWatchers.has(repoPath);
+		const isLive = watched && !this._pendingLocalEditPaths.has(repoPath);
+		return { wip: entry.wip, isLive: isLive, ageMs: Date.now() - entry.timestamp };
+	}
+
+	/**
+	 * Update the set of repos with active host-side watchers. Called by `graph-wrapper.ts` when
+	 * the SyncWipWatchesCommand visibility set changes, plus when `selectedRepository` changes —
+	 * the primary repo is always considered watched as long as it's selected (the active-repo
+	 * working-tree watcher is unconditionally on for it).
+	 *
+	 * Pure state — does not fire signals; reads happen on demand via `getWipState`.
+	 */
+	updateActiveWipWatchers(repoPaths: Iterable<string>): void {
+		// Primary repo is unioned in dynamically at read time (see `getWipState`) so this method
+		// only tracks the secondary set — no need to re-fire when `selectedRepository` changes.
+		this._activeWipWatchers = new Set(repoPaths);
+	}
+
+	/** Patch one `(worktreePath, draft)` slot in the wipDrafts map. Routes through
+	 *  {@link updateState} so `_state.wipDrafts` stays in sync with the signal accessor. Pass
+	 *  `draft: null` to delete; the parent map collapses to `undefined` when empty.
+	 *  Short-circuits when the slot's content is unchanged so per-keystroke flushes don't
+	 *  trigger redundant panel re-renders.
+	 *  Builds a fresh outer map rather than mutating — the signal accessor uses `Object.is`
+	 *  comparison, so passing the same outer reference back through `updateState` would
+	 *  silently skip the change notification and downstream subscribers wouldn't re-render. */
+	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void {
+		const current = this.wipDrafts;
+		const existing = current?.[worktreePath];
+		if (
+			draft != null &&
+			existing?.message === draft.message &&
+			existing?.messageDirty === draft.messageDirty &&
+			existing?.amend?.baseSha === draft.amend?.baseSha
+		) {
+			return;
+		}
+		if (draft == null && existing == null) return;
+
+		let merged: Record<string, StoredGraphWipDraft> | undefined;
+		if (draft != null) {
+			merged = { ...current, [worktreePath]: { ...draft } };
+		} else {
+			const { [worktreePath]: _, ...rest } = current ?? {};
+			merged = hasKeys(rest) ? rest : undefined;
+		}
+		this.updateState({ wipDrafts: merged });
+	}
+
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	protected updateState(partial: Partial<State>, silent?: boolean) {
@@ -864,12 +1592,37 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 }
 
+/**
+ * Sticky-restore is the only producer of `workDirStatsStale: true`. Live working-tree updates
+ * push fresh stats directly via `DidRequestWipRefetchNotification` — they don't toggle this
+ * flag. The flag exists so re-selection on a session-restored row (graph-app's
+ * `fetchSelectedWorktreeWipStats`) refetches authoritative stats instead of trusting cached
+ * guesses, and so the GK component's missing-stats request loop terminates cleanly.
+ */
 export function mergeWipMetadata(
 	prev: State['wipMetadataBySha'],
 	incoming: State['wipMetadataBySha'],
+	lastKnownStats?: ReadonlyMap<string, WorkDirStats>,
 ): State['wipMetadataBySha'] {
 	if (incoming == null) return undefined;
-	if (prev == null) return incoming;
+	if (prev == null) {
+		// No prior state to merge from. If we have remembered stats from earlier in the session
+		// for any incoming sha, seed them here so a re-introduced worktree row doesn't blink to
+		// empty while the GK component requests fresh stats.
+		if (lastKnownStats == null || lastKnownStats.size === 0) return incoming;
+
+		let seeded: NonNullable<State['wipMetadataBySha']> | undefined;
+		for (const [sha, entry] of Object.entries(incoming)) {
+			if (entry.workDirStats != null) continue;
+
+			const sticky = lastKnownStats.get(sha);
+			if (sticky == null) continue;
+
+			seeded ??= { ...incoming };
+			seeded[sha] = { ...entry, workDirStats: sticky, workDirStatsStale: true };
+		}
+		return seeded ?? incoming;
+	}
 
 	const incomingKeys = Object.keys(incoming);
 	const prevKeys = Object.keys(prev);
@@ -878,19 +1631,34 @@ export function mergeWipMetadata(
 	const result: NonNullable<State['wipMetadataBySha']> = {};
 	for (const [sha, entry] of Object.entries(incoming)) {
 		const prevEntry = prev[sha];
-		// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
-		// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
-		// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
-		result[sha] =
-			prevEntry != null
-				? { ...entry, workDirStats: prevEntry.workDirStats, workDirStatsStale: prevEntry.workDirStatsStale }
-				: entry;
+		if (prevEntry != null) {
+			// Preserve per-row derived fields fetched client-side via GetWipStatsRequest; anchor fields come from `entry`.
+			// Without this, the library's resolveWipState falls back to the primary's workDirStats for secondary rows
+			// between when the server rebuilds anchors and when fresh stats arrive, causing a visible flash.
+			result[sha] = {
+				...entry,
+				workDirStats: prevEntry.workDirStats,
+				workDirStatsStale: prevEntry.workDirStatsStale,
+				pausedOpStatus: prevEntry.pausedOpStatus,
+			};
+		} else {
+			// Newly-seen sha for this push. If we've previously seen stats for this sha during
+			// the session, restore them with `workDirStatsStale: true` so the row keeps showing
+			// values across the upcoming refetch rather than briefly rendering an empty pill.
+			const sticky = lastKnownStats?.get(sha);
+			result[sha] =
+				sticky != null && entry.workDirStats == null
+					? { ...entry, workDirStats: sticky, workDirStatsStale: true }
+					: entry;
+		}
 
 		if (changed) continue;
+
 		if (
 			entry.repoPath !== prevEntry?.repoPath ||
 			entry.parentSha !== prevEntry?.parentSha ||
-			entry.label !== prevEntry?.label
+			entry.label !== prevEntry?.label ||
+			entry.branchRef !== prevEntry?.branchRef
 		) {
 			changed = true;
 		}

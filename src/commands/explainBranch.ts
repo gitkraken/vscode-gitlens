@@ -56,6 +56,7 @@ export class ExplainBranchCommand extends ExplainCommandBase {
 					sort: { branches: { current: true } },
 				});
 				if (result.value?.ref == null) return;
+
 				args.ref = result.value.ref;
 			}
 

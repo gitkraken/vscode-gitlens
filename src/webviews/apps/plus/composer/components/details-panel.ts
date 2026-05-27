@@ -495,6 +495,7 @@ export class DetailsPanel extends LitElement {
 					this.autoScrollInterval = undefined;
 					return;
 				}
+
 				scrollContainer.scrollTop = Math.max(0, scrollContainer.scrollTop - scrollSpeed);
 			}, 16); // ~60fps
 		} else if (
@@ -510,6 +511,7 @@ export class DetailsPanel extends LitElement {
 					this.autoScrollInterval = undefined;
 					return;
 				}
+
 				scrollContainer.scrollTop = Math.min(maxScroll, scrollContainer.scrollTop + scrollSpeed);
 			}, 16); // ~60fps
 		}

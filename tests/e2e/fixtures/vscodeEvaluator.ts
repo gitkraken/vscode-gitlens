@@ -116,6 +116,7 @@ export class VSCodeEvaluator {
 			function onLine(line: string) {
 				const match = line.match(regex);
 				if (!match) return;
+
 				cleanup();
 				resolve(match);
 			}

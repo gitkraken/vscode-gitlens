@@ -23,6 +23,16 @@ export function createFocusTracker(): { onFocusIn: (e: FocusEvent) => void; onFo
 
 	const sendFocusChanged = debounce((params: { focused: boolean; inputFocused: boolean }) => {
 		const id = `webview:${++ipcIdCounter}`;
+
+		// Re-verify the actual focus state when the debouncer fires.
+		// This prevents false "blurs" when clicking non-focusable internal elements,
+		// where focusout fires but the document retains focus.
+		const actualFocused = document.hasFocus();
+		params.focused = actualFocused;
+		if (!actualFocused) {
+			params.inputFocused = false;
+		}
+
 		getHostIpcApi().postMessage({
 			id: id,
 			scope: WebviewFocusChangedCommand.scope,
@@ -43,11 +53,8 @@ export function createFocusTracker(): { onFocusIn: (e: FocusEvent) => void; onFo
 			}
 		},
 		onFocusOut: (_e: FocusEvent) => {
-			if (focused !== false || inputFocused !== false) {
-				focused = false;
-				inputFocused = false;
-				sendFocusChanged({ focused: false, inputFocused: false });
-			}
+			// Let the debouncer handle the final actual state determination
+			sendFocusChanged({ focused: false, inputFocused: false });
 		},
 	};
 }

@@ -30,10 +30,11 @@ import type {
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../quick-wizard/models/steps.quickpick.js';
 import {
-	MatchAllToggleQuickInputButton,
-	MatchCaseToggleQuickInputButton,
-	MatchRegexToggleQuickInputButton,
-	MatchWholeWordToggleQuickInputButton,
+	createMatchAllToggle,
+	createMatchCaseToggle,
+	createMatchRegexToggle,
+	createMatchWholeWordToggle,
+	flipToggle,
 	ShowResultsInSideBarQuickInputButton,
 } from '../quick-wizard/quickButtons.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
@@ -393,10 +394,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 
 		const aiAllowed = this.container.ai.enabled && this.container.ai.allowed;
 
-		const matchCaseButton = new MatchCaseToggleQuickInputButton(state.matchCase);
-		const matchAllButton = new MatchAllToggleQuickInputButton(state.matchAll);
-		const matchRegexButton = new MatchRegexToggleQuickInputButton(state.matchRegex);
-		const matchWholeWordButton = new MatchWholeWordToggleQuickInputButton(state.matchWholeWord);
+		const matchCaseButton = createMatchCaseToggle(state.matchCase);
+		const matchAllButton = createMatchAllToggle(state.matchAll);
+		const matchRegexButton = createMatchRegexToggle(state.matchRegex);
+		const matchWholeWordButton = createMatchWholeWordToggle(state.matchWholeWord);
 
 		const step = createPickStep<(typeof items)[number]>({
 			title: appendReposToTitle(context.title, state, context),
@@ -435,17 +436,13 @@ export class SearchGitCommand extends QuickCommand<State> {
 			},
 			onDidClickButton: (_quickpick, button) => {
 				if (button === matchAllButton) {
-					state.matchAll = !state.matchAll;
-					matchAllButton.on = state.matchAll;
+					state.matchAll = flipToggle(button);
 				} else if (button === matchCaseButton) {
-					state.matchCase = !state.matchCase;
-					matchCaseButton.on = state.matchCase;
+					state.matchCase = flipToggle(button);
 				} else if (button === matchRegexButton) {
-					state.matchRegex = !state.matchRegex;
-					matchRegexButton.on = state.matchRegex;
+					state.matchRegex = flipToggle(button);
 				} else if (button === matchWholeWordButton) {
-					state.matchWholeWord = !state.matchWholeWord;
-					matchWholeWordButton.on = state.matchWholeWord;
+					state.matchWholeWord = flipToggle(button);
 				}
 			},
 			onDidClickItemButton: async function (quickpick, button, item) {

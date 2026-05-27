@@ -55,6 +55,7 @@ export class LruMap<K, V> {
 	 */
 	touch(key: K): boolean {
 		if (!this._map.has(key)) return false;
+
 		const value = this._map.get(key) as V;
 		this._map.delete(key);
 		this._map.set(key, value);
@@ -81,6 +82,7 @@ export class LruMap<K, V> {
 		while (this._map.size > this.limit) {
 			const oldest = this._map.keys().next().value;
 			if (oldest === undefined) break;
+
 			this._map.delete(oldest);
 		}
 	}

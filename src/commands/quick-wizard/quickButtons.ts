@@ -1,6 +1,60 @@
 import type { QuickInput, QuickInputButton } from 'vscode';
-import { ThemeIcon, Uri } from 'vscode';
+import { QuickInputButtonLocation, ThemeIcon, Uri } from 'vscode';
 import { Container } from '../../container.js';
+import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
+
+/**
+ * Flips the checked state of a toggle button and returns the new value. For native toggles, VS Code
+ * already performed the flip before firing the trigger event, so this just reads the current value.
+ * For legacy `ToggleQuickInputButton`, this performs the flip.
+ */
+export function flipToggle(button: QuickInputButton): boolean {
+	if (button.toggle != null) return button.toggle.checked;
+	if (button instanceof ToggleQuickInputButton) {
+		button.on = !button.on;
+		return button.on;
+	}
+	return false;
+}
+
+export function getQuickInputButtonLocation(location: QuickInputButtonLocation): QuickInputButtonLocation | undefined {
+	return supportedInVSCodeVersion('quickpick-button-location') ? location : undefined;
+}
+
+/**
+ * Returns the current checked state of a toggle button regardless of whether it's a native
+ * toggle (VS Code >= 1.109, `button.toggle.checked`) or a legacy `ToggleQuickInputButton` (`.on`).
+ */
+export function isToggleChecked(button: QuickInputButton): boolean {
+	if (button.toggle != null) return button.toggle.checked;
+	return button instanceof ToggleQuickInputButton ? button.on : false;
+}
+
+/**
+ * Creates a toggle button — native (VS Code-driven checked state) on VS Code >= 1.109,
+ * otherwise delegates to the caller-provided legacy factory (typically a `SelectableQuickInputButton`
+ * subclass) so existing icon-swap behavior is preserved on older VS Code.
+ *
+ * The native path uses a single themeIcon with VS Code's built-in checked decoration; legacy paths
+ * typically flip between two paired icons.
+ */
+export function createToggleButton(options: {
+	tooltip: string;
+	icon: string | ThemeIcon | { light: Uri; dark: Uri };
+	checked: boolean;
+	location: QuickInputButtonLocation;
+	legacy: () => QuickInputButton;
+}): QuickInputButton {
+	if (supportedInVSCodeVersion('quickpick-button-toggle')) {
+		return {
+			iconPath: typeof options.icon === 'string' ? new ThemeIcon(options.icon) : options.icon,
+			tooltip: options.tooltip,
+			location: getQuickInputButtonLocation(options.location),
+			toggle: { checked: options.checked },
+		};
+	}
+	return options.legacy();
+}
 
 export class ToggleQuickInputButton implements QuickInputButton {
 	constructor(
@@ -75,11 +129,19 @@ export const FeedbackQuickInputButton: QuickInputButton = {
 export const FetchQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('repo-fetch'),
 	tooltip: 'Fetch',
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
+};
+
+export const GenerateStashMessageQuickInputButton: QuickInputButton = {
+	iconPath: new ThemeIcon('sparkle'),
+	tooltip: 'Generate Stash Message',
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Input),
 };
 
 export const LoadMoreQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('refresh'),
 	tooltip: 'Load More',
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
 };
 
 export const MatchCaseToggleQuickInputButton = class extends SelectableQuickInputButton {
@@ -105,6 +167,49 @@ export const MatchWholeWordToggleQuickInputButton = class extends SelectableQuic
 		super('Match Whole Word', { off: 'icon-match-wholeword', on: 'icon-match-wholeword-selected' }, on);
 	}
 };
+
+export function createMatchCaseToggle(checked: boolean): QuickInputButton {
+	// Native path uses the built-in `case-sensitive` codicon (same icon VS Code's Find widget uses) —
+	// it adapts to theme and the toggle's checked decoration. Our custom `icon-match-case*.svg` has
+	// a hardcoded fill color and doesn't adapt, so reserve it for the legacy path.
+	return createToggleButton({
+		tooltip: 'Match Case',
+		icon: new ThemeIcon('case-sensitive'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new MatchCaseToggleQuickInputButton(checked),
+	});
+}
+
+export function createMatchAllToggle(checked: boolean): QuickInputButton {
+	return createToggleButton({
+		tooltip: 'Match All',
+		icon: new ThemeIcon('check-all'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new MatchAllToggleQuickInputButton(checked),
+	});
+}
+
+export function createMatchRegexToggle(checked: boolean): QuickInputButton {
+	return createToggleButton({
+		tooltip: 'Match using Regular Expressions',
+		icon: new ThemeIcon('regex'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new MatchRegexToggleQuickInputButton(checked),
+	});
+}
+
+export function createMatchWholeWordToggle(checked: boolean): QuickInputButton {
+	return createToggleButton({
+		tooltip: 'Match Whole Word',
+		icon: new ThemeIcon('whole-word'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new MatchWholeWordToggleQuickInputButton(checked),
+	});
+}
 
 export const PickCommitQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('git-commit'),
@@ -191,6 +296,7 @@ export const SnoozeQuickInputButton: QuickInputButton = {
 export const RefreshQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('refresh'),
 	tooltip: 'Refresh',
+	location: getQuickInputButtonLocation(QuickInputButtonLocation.Inline),
 };
 
 export const UnsnoozeQuickInputButton: QuickInputButton = {
@@ -237,6 +343,16 @@ export const ShowTagsToggleQuickInputButton = class extends SelectableQuickInput
 		super('Show Tags', { off: new ThemeIcon('tag'), on: 'icon-tag-selected' }, on);
 	}
 };
+
+export function createShowTagsToggle(checked: boolean): QuickInputButton {
+	return createToggleButton({
+		tooltip: 'Show Tags',
+		icon: new ThemeIcon('tag'),
+		checked: checked,
+		location: QuickInputButtonLocation.Input,
+		legacy: () => new ShowTagsToggleQuickInputButton(checked),
+	});
+}
 
 export const WillConfirmForcedQuickInputButton: QuickInputButton = {
 	iconPath: new ThemeIcon('gitlens-confirm-checked'),

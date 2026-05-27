@@ -96,7 +96,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const [pausedOpStatusResult, committerDateResult, defaultWorktreePathResult, metadataMapResult] =
 			await Promise.allSettled([
 				isDetachedHead(ref.name)
-					? this.provider.pausedOps?.getPausedOperationStatus(repoPath, cancellation)
+					? this.provider.pausedOps?.getPausedOperationStatus(repoPath, undefined, cancellation)
 					: undefined,
 				this.git
 					.run(
@@ -475,6 +475,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (pr?.refs?.base != null) {
 					const branch = await this.getBranch(repoPath, ref, cancellation);
 					if (branch == null) return undefined;
+
 					mergeTarget = `${branch.remoteName}/${pr.refs.base.branch}`;
 					// Store for future reuse — turns the next call into a Tier 1 path. Skip the
 					// `branchOverviews` invalidation that the write would otherwise trigger: we're
@@ -1179,6 +1180,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			currentTreeOid = treeResult.stdout.trim();
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
+
 			scope?.error(ex, `Failed to resolve target branch '${targetBranch}'`);
 			return createConflictDetectionError('refNotFound');
 		}

@@ -11,6 +11,9 @@
 	// Input max-width (AI input / action input)
 	--gl-max-input: 560px;
 
+	// Border radius for text-entry controls (inputs, textareas) — shared across all webviews
+	--gl-input-border-radius: 0.4rem;
+
 	// Horizontal padding for detail panels (embedded + standalone). Component hosts may override.
 	--gl-panel-padding-left: 1.2rem;
 	--gl-panel-padding-right: 1.2rem;

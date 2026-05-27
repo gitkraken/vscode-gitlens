@@ -29,9 +29,10 @@ import {
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
+import type { RunningOperationExecState } from './detailsState.js';
 import { multiCommitPanelStyles, panelActionInputStyles, panelHostStyles } from './gl-details-multicommit-panel.css.js';
-import '../../../shared/components/ai-input.js';
 import '../../../shared/components/code-icon.js';
+import './gl-compare-ai-actions.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -69,6 +70,14 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 	@property({ type: Object })
 	commitTo?: CommitDetails;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
 
 	@property({ type: Array })
 	files?: readonly GitFileChangeShape[];
@@ -110,13 +119,22 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	explainBusy = false;
 
 	@property({ type: Boolean })
-	aiEnabled = false;
+	generateChangelogBusy = false;
 
 	@property({ type: Boolean })
-	experimentalFeaturesEnabled = false;
+	aiEnabled = false;
 
 	@property()
-	activeMode?: 'review' | 'compose' | 'compare' | null;
+	activeMode?: 'review' | 'compose' | null;
+
+	@property({ attribute: false })
+	modeStatus?: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>;
+
+	/** Pre-computed snippet shown in the metadata bar while in mode — mirrors WIP / commit. */
+	@property({ attribute: false }) modeStatusText?: string | import('lit').TemplateResult;
+
+	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
+	@property({ type: Boolean }) inResultsView = false;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;
@@ -200,12 +218,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		// tree retain focus, scroll position, and expansion state.
 		const hasSubPanel = this.subPanelContent != null && this.subPanelContent !== nothing;
 
-		// Compose mode replaces the comparison metadata strip with its own plan UI, and
-		// Compare mode's sub-panel already renders its own comparison bar with the left/right
-		// refs — so the host's metadata bar would just duplicate that framing. Review mode and
-		// the implicit no-mode default share the same comparison context as the host and keep
-		// the metadata bar visible above the sub-panel.
-		const showMetadataBar = this.activeMode !== 'compose' && this.activeMode !== 'compare';
+		// Compose mode replaces the comparison metadata strip with its own plan UI. Review mode
+		// and the implicit no-mode default share the same comparison context as the host and
+		// keep the metadata bar visible above the sub-panel.
+		const showMetadataBar = this.activeMode !== 'compose';
 
 		return html`
 			${isInitialLoad
@@ -216,8 +232,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 							hasSubPanel
 								? html`<div class="sub-panel-enter">${this.subPanelContent}</div>`
 								: html`<div class="compare-section">
-											${this.renderPoles()} ${this.renderAutolinksRow()}
-											${this.renderExplainInput()}
+											${this.renderPoles()} ${this.renderAutolinksRow()} ${this.renderAIActions()}
 										</div>
 										<div class="compare-files">
 											<webview-pane-group flexible>
@@ -232,6 +247,8 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													.folderContext=${(folder: { relativePath: string }) =>
 														buildFolderContext(this.commitTo?.repoPath, folder)}
 													.searchContext=${this.searchContext}
+													.showSearchBox=${this.showSearchBox}
+													.searchBoxFilter=${this.searchBoxFilter}
 													.buttons=${this.getMultiDiffRefs()
 														? ['layout', 'search', 'multi-diff']
 														: undefined}
@@ -291,6 +308,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
 		const files = this.files;
 		if (!files?.length) return undefined;
+
 		const repoPath = this.commitFrom?.repoPath ?? this.commitTo?.repoPath;
 		const lhs = this.swapped ? this.commitTo?.sha : this.commitFrom?.sha;
 		const rhs = this.swapped ? this.commitFrom?.sha : this.commitTo?.sha;
@@ -327,14 +345,41 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private renderCompareHeader() {
-		// Compare mode is always available — pivots the existing comparison through the
-		// compare-refs picker so the user can swap one side for any branch/ref.
-		const modes =
-			this.aiEnabled && this.experimentalFeaturesEnabled
-				? (['review', 'compare'] as const)
-				: (['compare'] as const);
-		return html`<gl-details-header .activeMode=${this.activeMode} .loading=${this.loading} .modes=${modes}>
-			<span class="compare-header__title">Comparing References</span>
+		// Review is the only mode here. Compare is invoked separately as a sheet — render a
+		// dedicated action chip in the actions slot when no mode is active so the user can pivot
+		// the existing comparison through the compare-refs picker.
+		const modes = this.aiEnabled ? (['review'] as const) : ([] as const);
+		return html`<gl-details-header
+			.activeMode=${this.activeMode}
+			.modeStatus=${this.modeStatus}
+			.loading=${this.loading}
+			.modes=${modes}
+			?in-results-view=${this.inResultsView}
+		>
+			<span class="compare-header__title">
+				${this.activeMode === 'review'
+					? html`<span>
+							<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>
+							Reviewing Comparison
+						</span>`
+					: html`Comparing References`}
+			</span>
+			${this.activeMode == null
+				? html`<gl-action-chip
+						slot="actions"
+						icon="compare-changes"
+						label="Compare"
+						overlay="tooltip"
+						@click=${() =>
+							this.dispatchEvent(
+								new CustomEvent('toggle-mode', {
+									detail: { mode: 'compare' },
+									bubbles: true,
+									composed: true,
+								}),
+							)}
+					></gl-action-chip>`
+				: nothing}
 		</gl-details-header>`;
 	}
 
@@ -365,7 +410,11 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					icon="git-commit"
 				></gl-commit-sha-copy>
 			</div>
-			<div class="compare-metadata__right">${this.renderCommitStats(this.stats)}</div>
+			<div class="compare-metadata__right">
+				${this.modeStatusText
+					? html`<span class="mode-status">${this.modeStatusText}</span>`
+					: this.renderCommitStats(this.stats)}
+			</div>
 		</div>`;
 	}
 
@@ -640,10 +689,14 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		this.dispatchEvent(new CustomEvent('enrich-autolinks', { bubbles: true, composed: true }));
 	}
 
-	private renderExplainInput() {
+	private renderAIActions() {
 		if (this.orgSettings?.ai === false) return nothing;
 
-		return html`<gl-ai-input multiline .busy=${this.explainBusy}></gl-ai-input>`;
+		return html`<gl-compare-ai-actions
+			.explainBusy=${this.explainBusy}
+			.generateChangelogBusy=${this.generateChangelogBusy}
+			.orgSettings=${this.orgSettings}
+		></gl-compare-ai-actions>`;
 	}
 
 	private renderCommitStats(stats?: GitCommitStats, appearance?: 'pill') {
@@ -677,7 +730,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 	private handleSwap() {
 		// Swaps the multi-commit compare selection order (from/to). Distinct from
-		// `swap-refs` in the wip-compare panel, which swaps ahead/behind refs.
+		// `swap-refs` in the compare panel, which swaps ahead/behind refs.
 		this.dispatchEvent(new CustomEvent('swap-selection', { bubbles: true, composed: true }));
 	}
 }

@@ -18,6 +18,7 @@ export function serializable(target: Function): void {
 	while (proto != null && proto !== Object.prototype) {
 		for (const key of Object.getOwnPropertyNames(proto)) {
 			if (key === 'constructor') continue;
+
 			const desc = Object.getOwnPropertyDescriptor(proto, key);
 			if (desc?.get != null) {
 				getterKeys.add(key);

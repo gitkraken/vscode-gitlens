@@ -57,6 +57,7 @@ import {
 	optimisticBatchFireAndForget,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
+import { getRemoteNameFromBranchName } from '../shared/git-utils.js';
 import type { Resource } from '../shared/state/resource.js';
 import type { CreatePatchEventDetail } from './components/gl-inspect-patch.js';
 import type { CommitDetailsState, ExplainState, GenerateState } from './state.js';
@@ -208,6 +209,7 @@ export class CommitDetailsActions {
 				unsubscribe();
 				return;
 			}
+
 			this._wipWatchUnsubscribe = unsubscribe;
 		})();
 	}
@@ -378,11 +380,50 @@ export class CommitDetailsActions {
 			);
 			return;
 		}
+
 		optimisticFireAndForget(
 			this.state.preferences,
 			{ ...currentPrefs, pullRequestExpanded: expanded },
 			this.services.storage.updateWorkspace('views:commitDetails:pullRequestExpanded', expanded),
 			'update pullRequestExpanded',
+		);
+	}
+
+	updateShowSearchBox(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+				'update showSearchBox',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, showSearchBox: value },
+			this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+			'update showSearchBox',
+		);
+	}
+
+	updateSearchBoxFilter(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+				'update searchBoxFilter',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, searchBoxFilter: value },
+			this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+			'update searchBoxFilter',
 		);
 	}
 
@@ -439,25 +480,67 @@ export class CommitDetailsActions {
 	fetch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.fetch(this.services.repository, repoPath);
 	}
 
 	push(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.push(this.services.repository, repoPath);
 	}
 
 	pull(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.pull(this.services.repository, repoPath);
 	}
 
 	switchBranch(): void {
 		const repoPath = this.getRepoPath();
 		if (!repoPath) return;
+
 		gitActions.switchBranch(this.services.repository, repoPath);
+	}
+
+	startWork(): void {
+		void this.services.commands.execute('gitlens.startWork', { source: 'inspect' });
+	}
+
+	createPullRequest(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+
+		const wip = this.state.wipState.get();
+		const branch = wip?.branch;
+		const upstreamName = branch?.upstream?.name;
+		if (branch?.name == null || upstreamName == null) return;
+
+		void this.services.commands.execute('gitlens.createPullRequestOnRemote', {
+			repoPath: repoPath,
+			compare: branch.name,
+			remote: getRemoteNameFromBranchName(upstreamName),
+		});
+	}
+
+	createBranch(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+
+		void this.services.repository.createBranch(repoPath);
+	}
+
+	applyStash(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+
+		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
+	}
+
+	createWorktree(): void {
+		void this.services.commands.execute('gitlens.views.createWorktree');
 	}
 
 	stageFile(file: GitFileChangeShape): void {
@@ -468,14 +551,37 @@ export class CommitDetailsActions {
 		gitActions.unstageFile(this.state.error, this.services.repository, file);
 	}
 
+	discardFile(file: GitFileChangeShape): void {
+		gitActions.discardFile(this.state.error, this.services.repository, file);
+	}
+
+	discardUnstagedFiles(): void {
+		const repoPath = this.getRepoPath();
+		if (!repoPath) return;
+
+		gitActions.discardUnstagedFiles(this.state.error, this.services.repository, repoPath);
+	}
+
+	openConflictChanges(file: GitFileChangeShape, side: 'current' | 'incoming'): void {
+		void this.services.repository.openConflictChanges(file, side);
+	}
+
 	// ============================================================
 	// File Actions
 	// ============================================================
 
-	/** Get the current commit SHA for file actions (undefined in WIP mode → uses uncommitted). */
-	private getCurrentRef(): string | undefined {
+	/**
+	 * Get the current commit's ref + whether it's a stash for file actions. WIP mode returns
+	 * undefined so callers fall through the `ref == null` branches (uncommitted path). The
+	 * `stash` flag lets `FilesService` route stash refs through the stash sub-provider (which
+	 * has untracked files in its fileset) instead of `commits.getCommit` (which doesn't).
+	 */
+	private getCurrentRef(): { ref: string; stash?: boolean } | undefined {
 		if (this.state.mode.get() === 'wip') return undefined;
-		return this.state.currentCommit.get()?.sha;
+
+		const commit = this.state.currentCommit.get();
+		if (commit?.sha == null) return undefined;
+		return { ref: commit.sha, stash: commit.stashNumber != null };
 	}
 
 	openFile(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
@@ -492,6 +598,10 @@ export class CommitDetailsActions {
 
 	openFileComparePrevious(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
 		fileActions.openFileComparePrevious(this.services.files, file, showOptions, this.getCurrentRef());
+	}
+
+	openFileCompareWipChanges(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
+		fileActions.openFileCompareWipChanges(this.services.files, file, showOptions);
 	}
 
 	executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
@@ -512,6 +622,7 @@ export class CommitDetailsActions {
 	executeCommitAction(action: 'graph' | 'more' | 'scm' | 'sha', alt?: boolean): void {
 		const commit = this.state.currentCommit.get();
 		if (!commit) return;
+
 		fireAndForget(
 			this.services.inspect.executeCommitAction(commit.repoPath, commit.sha, action, alt),
 			`commit action: ${action}`,
@@ -527,6 +638,7 @@ export class CommitDetailsActions {
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {
 		if (!repoPath) return;
+
 		void this.services.commands.execute('gitlens.openOnRemote', {
 			repoPath: repoPath,
 			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
@@ -565,24 +677,28 @@ export class CommitDetailsActions {
 	openPullRequestChanges(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestChanges(this.services.pullRequests, ctx.repoPath, ctx.refs);
 	}
 
 	openPullRequestComparison(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestComparison(this.services.pullRequests, ctx.repoPath, ctx.refs);
 	}
 
 	openPullRequestOnRemote(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestOnRemote(this.services.pullRequests, ctx.url);
 	}
 
 	openPullRequestDetails(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
+
 		prActions.openPullRequestDetails(this.services.pullRequests, ctx.repoPath, ctx.id, ctx.provider);
 	}
 
@@ -727,9 +843,6 @@ export class CommitDetailsActions {
 			void this.services.config
 				.get('views.commitDetails.autolinks.enabled')
 				.then(a => (this.state.capabilities.autolinksEnabled = a), noop);
-			void this.services.config
-				.get('ai.experimental.composer.enabled')
-				.then(c => (this.state.capabilities.experimentalComposerEnabled = c), noop);
 			// Note: hasAccount and orgSettings use RemoteSignalBridge (connected in commitDetails.ts)
 			void this.services.integrations
 				.getIntegrationStates()
@@ -862,6 +975,7 @@ export class CommitDetailsActions {
 				void this.services.repository.hasRemotes(repoPath).then(
 					enrichmentGuard(this.resources.commit, has => {
 						if (enrichSignal.aborted) return;
+
 						this.state.hasRemotes.set(has);
 					}),
 					noopUnlessReal,
@@ -925,38 +1039,39 @@ export class CommitDetailsActions {
 	 */
 	async fetchPreferences(): Promise<void> {
 		try {
-			const [pullRequestExpandedResult, configResult, coreConfigResult, aiEnabledResult] =
-				await Promise.allSettled([
-					this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
-					this.services.config.getMany(
-						'views.commitDetails.avatars',
-						'defaultCurrentUserNameStyle',
-						'defaultDateFormat',
-						'defaultDateStyle',
-						'views.commitDetails.files',
-						'signing.showSignatureBadges',
-						'views.commitDetails.autolinks.enabled',
-						'ai.experimental.composer.enabled',
-					),
-					this.services.config.getManyCore(
-						'workbench.tree.renderIndentGuides',
-						'workbench.tree.indent',
-						'git.enableSmartCommit',
-					),
-					this.services.ai.isEnabled(),
-				]);
+			const [
+				pullRequestExpandedResult,
+				showSearchBoxResult,
+				searchBoxFilterResult,
+				configResult,
+				coreConfigResult,
+				aiEnabledResult,
+			] = await Promise.allSettled([
+				this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
+				this.services.storage.getWorkspace('views:commitDetails:showSearchBox'),
+				this.services.storage.getWorkspace('views:commitDetails:searchBoxFilter'),
+				this.services.config.getMany(
+					'views.commitDetails.avatars',
+					'defaultCurrentUserNameStyle',
+					'defaultDateFormat',
+					'defaultDateStyle',
+					'views.commitDetails.files',
+					'signing.showSignatureBadges',
+					'views.commitDetails.autolinks.enabled',
+				),
+				this.services.config.getManyCore(
+					'workbench.tree.renderIndentGuides',
+					'workbench.tree.indent',
+					'git.enableSmartCommit',
+				),
+				this.services.ai.isEnabled(),
+			]);
 
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
-			const [
-				avatars,
-				currentUserNameStyle,
-				dateFormat,
-				dateStyle,
-				files,
-				showSignatureBadges,
-				autolinksEnabled,
-				experimentalComposerEnabled,
-			] = getSettledValue(configResult) ?? [];
+			const showSearchBox = getSettledValue(showSearchBoxResult);
+			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
+			const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, autolinksEnabled] =
+				getSettledValue(configResult) ?? [];
 			const [indentGuides, indent, enableSmartCommit] = getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
 
@@ -978,12 +1093,11 @@ export class CommitDetailsActions {
 				aiEnabled: aiEnabled ?? false,
 				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,
+				showSearchBox: showSearchBox ?? true,
+				searchBoxFilter: searchBoxFilter ?? true,
 			});
 			if (autolinksEnabled != null) {
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
-			}
-			if (experimentalComposerEnabled != null) {
-				this.state.capabilities.experimentalComposerEnabled = experimentalComposerEnabled;
 			}
 		} catch (ex) {
 			Logger.error(ex, 'Failed to fetch preferences');
@@ -1025,6 +1139,21 @@ export class CommitDetailsActions {
 				break;
 			case 'switch':
 				this.switchBranch();
+				break;
+			case 'create-pr':
+				this.createPullRequest();
+				break;
+			case 'start-work':
+				this.startWork();
+				break;
+			case 'create-branch':
+				this.createBranch();
+				break;
+			case 'apply-stash':
+				this.applyStash();
+				break;
+			case 'new-worktree':
+				this.createWorktree();
 				break;
 			case 'open-pr-changes':
 				this.openPullRequestChanges();

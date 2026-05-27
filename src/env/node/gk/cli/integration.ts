@@ -19,15 +19,17 @@ import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { getCliPublishInfo } from '../../ipc/ipcService.js';
-import { getPlatform, isOffline, isWeb } from '../../platform.js';
+import { getIsOffline, getPlatform, isWeb } from '../../platform.js';
+import type { GkAgent } from './agents.js';
 import { CliCommandHandlers } from './commands.js';
 import { showMcpAgentPicker } from './mcpAgentPicker.js';
-import type { McpAgent } from './mcpAgents.js';
 import {
+	clearResolvedCLIExecutableCache,
 	extractZipFile,
 	getCLIExecutable,
 	getCLIVersions,
 	getDevCLILocalPath,
+	isInsidersCLIEnabled,
 	isLockedBinaryError,
 	resolveCLIExecutable,
 	runCLICommand,
@@ -112,6 +114,14 @@ export class GkCliIntegrationProvider implements Disposable {
 	}
 
 	private onConfigurationChanged(e?: ConfigurationChangeEvent): void {
+		if (
+			e != null &&
+			(configuration.changed(e, 'gitkraken.cli.localPath') ||
+				configuration.changed(e, 'gitkraken.cli.insiders.enabled'))
+		) {
+			clearResolvedCLIExecutableCache();
+		}
+
 		if (e == null || configuration.changed(e, 'gitkraken.mcp.autoEnabled')) {
 			if (!this.supportsCliIntegration()) {
 				this.stop();
@@ -126,7 +136,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			if (cliInstall?.status === 'completed') {
 				// Force reinstall to switch between production and insiders
 				Logger.info(
-					`${formatLoggableScopeBlock('CLI')} Forcing CLI reinstall on settings change (insiders = ${configuration.get('gitkraken.cli.insiders.enabled')})`,
+					`${formatLoggableScopeBlock('CLI')} Forcing CLI reinstall on settings change (insiders = ${isInsidersCLIEnabled()})`,
 				);
 				void this.setupMCPCore('settings', true, true).catch(() => {});
 			}
@@ -472,6 +482,7 @@ export class GkCliIntegrationProvider implements Disposable {
 		force = false,
 	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
 		const scope = getScopedLogger();
+		clearResolvedCLIExecutableCache();
 
 		const devLocalPath = getDevCLILocalPath();
 		if (devLocalPath != null) {
@@ -481,6 +492,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				const versions = await getCLIVersions();
 				return { cliVersion: versions?.core, cliPath: dirname(resolved.fsPath), status: 'completed' };
 			}
+
 			scope?.warn(`Local CLI binary not found at: ${devLocalPath}`);
 			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
 		}
@@ -498,6 +510,7 @@ export class GkCliIntegrationProvider implements Disposable {
 				if (await resolveCLIExecutable(cliPath)) {
 					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
 				}
+
 				scope?.warn(`CLI binary not found at expected path: ${getCLIExecutable(cliPath).fsPath}`);
 
 				cliInstallStatus = 'attempted';
@@ -510,7 +523,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
-		const insidersEnabled = configuration.get('gitkraken.cli.insiders.enabled');
+		const insidersEnabled = isInsidersCLIEnabled();
 
 		try {
 			if (isWeb) {
@@ -524,9 +537,10 @@ export class GkCliIntegrationProvider implements Disposable {
 				throw new CLIInstallError(CLIInstallErrorReason.UnsupportedPlatform, undefined, 'web');
 			}
 
-			if (isOffline) {
+			if (getIsOffline()) {
 				throw new CLIInstallError(CLIInstallErrorReason.Offline);
 			}
+
 			cliInstallAttempts += 1;
 			scope?.info(`Starting CLI installation (attempt ${cliInstallAttempts}/${maxAutoInstallAttempts})`);
 			if (this.container.telemetry.enabled) {
@@ -659,6 +673,7 @@ export class GkCliIntegrationProvider implements Disposable {
 						'Downloaded proxy archive data is empty',
 					);
 				}
+
 				// installer file name is the last part of the download URL
 				const cliProxyZipFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
 				cliProxyZipFilePath = Uri.joinPath(globalStorageUri, cliProxyZipFileName);
@@ -886,7 +901,7 @@ export class GkCliIntegrationProvider implements Disposable {
 
 	@debug()
 	private async installMCPForAgents(
-		agents: McpAgent[],
+		agents: GkAgent[],
 		cliPath: string,
 	): Promise<{
 		succeeded: string[];

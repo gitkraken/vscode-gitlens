@@ -398,8 +398,10 @@ export class LaunchpadProvider implements Disposable {
 		this._onDidChange.fire();
 
 		if (item.viewer.enrichedItems == null) return;
+
 		const pinned = item.viewer.enrichedItems.find(e => e.type === 'pin');
 		if (pinned == null) return;
+
 		await this.container.enrichments.unpinItem(pinned.id);
 		this._enrichedItems = undefined;
 		this._onDidChange.fire();
@@ -421,8 +423,10 @@ export class LaunchpadProvider implements Disposable {
 		this._onDidChange.fire();
 
 		if (item.viewer.enrichedItems == null) return;
+
 		const snoozed = item.viewer.enrichedItems.find(e => e.type === 'snooze');
 		if (snoozed == null) return;
+
 		await this.container.enrichments.unsnoozeItem(snoozed.id);
 		this._enrichedItems = undefined;
 		this._onDidChange.fire();
@@ -431,14 +435,17 @@ export class LaunchpadProvider implements Disposable {
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
 	async merge(item: LaunchpadItem): Promise<void> {
 		if (item.headRef?.oid == null) return;
+
 		const integrationId = item.provider.id;
 		if (!isSupportedLaunchpadIntegrationId(integrationId)) return;
+
 		const confirm = await window.showQuickPick(['Merge', 'Cancel'], {
 			placeHolder: `Are you sure you want to merge ${item.headRef?.name ?? 'this pull request'}${
 				item.baseRef?.name ? ` into ${item.baseRef.name}` : ''
 			}? This cannot be undone.`,
 		});
 		if (confirm !== 'Merge') return;
+
 		const integration = await this.container.integrations.get(integrationId);
 		if (integration == null) return;
 
@@ -449,6 +456,7 @@ export class LaunchpadProvider implements Disposable {
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
 	open(item: LaunchpadItem): void {
 		if (item.url == null) return;
+
 		void openUrl(item.url);
 		this._prs = undefined;
 	}
@@ -457,6 +465,7 @@ export class LaunchpadProvider implements Disposable {
 	openCodeSuggestion(item: LaunchpadItem, target: string): void {
 		const draft = item.codeSuggestions?.value?.find(d => d.id === target);
 		if (draft == null) return;
+
 		this._codeSuggestions?.delete(item.uuid);
 		this._prs = undefined;
 		void executeCommand<OpenCloudPatchCommandArgs>('gitlens.openCloudPatch', {
@@ -948,6 +957,7 @@ export class LaunchpadProvider implements Disposable {
 					connected.set(integrationId, false);
 					return;
 				}
+
 				const isConnected = integration.maybeConnected ?? (await integration.isConnected());
 				const hasAccess = isConnected && (await integration.access());
 				connected.set(integrationId, hasAccess);
@@ -1049,6 +1059,7 @@ export function getLaunchpadItemGroups(item: LaunchpadItem): LaunchpadGroup[] {
 
 export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]): Map<LaunchpadGroup, LaunchpadItem[]> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, LaunchpadItem[]>();
+
 	const grouped = new Map<LaunchpadGroup, LaunchpadItem[]>(launchpadGroups.map(g => [g, []]));
 
 	sortLaunchpadItems(items);
@@ -1071,6 +1082,7 @@ export function groupAndSortLaunchpadItems(items?: LaunchpadItem[]): Map<Launchp
 
 export function countLaunchpadItemGroups(items?: LaunchpadItem[]): Map<LaunchpadGroup, number> {
 	if (items == null || items.length === 0) return new Map<LaunchpadGroup, number>();
+
 	const grouped = new Map<LaunchpadGroup, number>(launchpadGroups.map(g => [g, 0]));
 
 	function incrementGroup(group: LaunchpadGroup) {

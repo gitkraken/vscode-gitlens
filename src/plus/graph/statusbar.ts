@@ -19,6 +19,7 @@ export class GraphStatusBarController implements Disposable {
 			once(container.onReady)(() => queueMicrotask(() => this.updateStatusBar())),
 			onDidChangeContext(key => {
 				if (key !== 'gitlens:enabled' && key !== 'gitlens:plus:disabled') return;
+
 				this.updateStatusBar();
 			}),
 			{ dispose: () => this._statusBarItem?.dispose() },

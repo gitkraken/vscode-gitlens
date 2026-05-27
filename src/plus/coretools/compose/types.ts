@@ -11,7 +11,6 @@
 
 export type {
 	ApplyPatchOptions,
-	ApplyUpTo,
 	CheckoutOptions,
 	CleanOptions,
 	CommitTreeOptions,
@@ -30,6 +29,7 @@ export type {
 	LogOptions,
 	OnBeforePrompt,
 	OpOptions,
+	RedactHunkContent,
 	SigningConfig,
 	StageAllOptions,
 	StashConflict,

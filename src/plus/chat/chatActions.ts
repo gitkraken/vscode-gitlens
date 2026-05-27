@@ -3,6 +3,7 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { serializeIssue } from '@gitlens/git/utils/issue.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { RunPromptInAgentCommandArgs } from '../../commands/runPromptInAgent.js';
 import type { SendToChatCommandArgs } from '../../commands/sendToChat.js';
 import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -10,17 +11,26 @@ import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
+import type { AgentDescriptor } from '../agents/agentDescriptor.js';
+import { resolveDefaultAgent } from '../agents/agentRegistry.js';
 
 export interface StartWorkChatAction {
 	type: 'startWork';
 	issue: IssueShape;
 	instructions?: string;
+	/** When set, dispatch via `gitlens.runPromptInAgent` instead of the host IDE-chat path. */
+	agent?: AgentDescriptor;
+	/** The new worktree path (used as `cwd` for CLI dispatch). Plumbed explicitly because
+	 *  `workspace.workspaceFolders[0]` may not be the worktree in multi-root workspaces. */
+	worktreePath?: string;
 }
 
 export interface StartReviewChatAction {
 	type: 'startReview';
 	pr: PullRequestShape;
 	instructions?: string;
+	agent?: AgentDescriptor;
+	worktreePath?: string;
 }
 
 export type ChatActions = StartWorkChatAction | StartReviewChatAction;
@@ -50,21 +60,41 @@ export async function executeChatAction(
 		Logger.error(ex, 'ChatActions', 'executeChatAction');
 	}
 
-	if (promptToSend != null) {
-		// Track MCP chat interaction usage
-		void container.usage.track('action:gitlens.mcp.chatInteraction:happened');
+	if (promptToSend == null) return;
 
-		return executeCommand('gitlens.sendToChat', {
-			query: promptToSend,
-			execute: true,
+	// Track MCP chat interaction usage
+	void container.usage.track('action:gitlens.ai.openInAgent:happened');
+
+	if (chatAction.agent != null) {
+		await executeCommand('gitlens.runPromptInAgent', {
+			prompt: promptToSend,
+			cwd: chatAction.worktreePath,
+			agent: chatAction.agent,
 			source: source,
-		} as SendToChatCommandArgs);
+		} as RunPromptInAgentCommandArgs);
+		return;
 	}
+
+	// startWork/startReview prompts are self-contained task instructions — auto-submit on Copilot.
+	return executeCommand('gitlens.sendToChat', {
+		query: promptToSend,
+		execute: true,
+		source: source,
+	} as SendToChatCommandArgs);
+}
+
+/** Resolves a stored `defaultAgent` setting value to a live descriptor at dispatch time.
+ *  Centralizes the lookup so callers don't have to import `agentRegistry` directly. */
+export async function resolveDefaultAgentDescriptor(
+	id: string | null | undefined,
+): Promise<AgentDescriptor | undefined> {
+	if (id == null) return undefined;
+	return resolveDefaultAgent(id);
 }
 
 export async function storeChatActionDeepLink(
 	container: Container,
-	chatAction: ChatActions,
+	chatAction: StartWorkChatAction | StartReviewChatAction,
 	repoPath: string,
 ): Promise<void> {
 	const schemeOverride = configuration.get('deepLinks.schemeOverride');
@@ -91,6 +121,10 @@ export async function storeChatActionDeepLink(
 			repoPath: repoPath,
 			...contextData,
 			instructions: chatAction.instructions,
+			// Persist the agent descriptor and worktree path so the new window's deep-link resume
+			// can reconstruct the chatAction and dispatch via runAgent.
+			agent: chatAction.agent,
+			worktreePath: chatAction.worktreePath ?? repoPath,
 			state: deepLinkState,
 		}),
 	);

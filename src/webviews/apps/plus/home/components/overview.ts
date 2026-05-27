@@ -13,9 +13,10 @@ import type {
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
 import { linkStyles } from '../../shared/components/vscode.css.js';
-import { selectStyles } from './branch-threshold-filter.js';
 import type { AgentOverviewState, InactiveOverviewState } from './overviewState.js';
 import { agentOverviewStateContext, inactiveOverviewStateContext } from './overviewState.js';
+import '../../../shared/components/code-icon.js';
+import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/skeleton-loader.js';
 import './agent-session-card.js';
 import './branch-section.js';
@@ -25,16 +26,79 @@ export const overviewTagName = 'gl-overview';
 type OverviewTab = 'recent' | 'agents';
 type AgentFilter = 'workspace' | 'all';
 
+/** Recent-timeframe options for the overview's "Recent" filter, in display order. */
+const recentThresholdItems: { value: OverviewRecentThreshold; label: string }[] = [
+	{ value: 'OneDay', label: '1 day' },
+	{ value: 'OneWeek', label: '1 week' },
+	{ value: 'OneMonth', label: '1 month' },
+];
+
 @customElement(overviewTagName)
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
-		selectStyles,
 		css`
 			:host {
 				display: block;
 				margin-bottom: 2.4rem;
 				color: var(--vscode-foreground);
+			}
+
+			/* Native <select> styling — used by the agents workspace/all filter. */
+			.select {
+				background: none;
+				outline: none;
+				border: none;
+				text-decoration: none !important;
+				font-weight: 500;
+				color: var(--color-foreground--25);
+			}
+			.select option {
+				color: var(--vscode-foreground);
+				background-color: var(--vscode-dropdown-background);
+			}
+			.select option:checked {
+				color: var(--vscode-list-activeSelectionForeground);
+				background-color: var(--vscode-list-activeSelectionBackground);
+			}
+			.select:not(:disabled) {
+				cursor: pointer;
+				color: var(--color-foreground--50);
+			}
+			.select:not(:disabled):focus {
+				outline: 1px solid var(--color-focus-border);
+			}
+			.select:not(:disabled):hover {
+				color: var(--vscode-foreground);
+				text-decoration: underline !important;
+			}
+
+			/* Recent-timeframe filter — the gl-menu-popover anchor button. */
+			.threshold-filter {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.2rem;
+				background: none;
+				border: none;
+				padding: 0;
+				font: inherit;
+				font-weight: 500;
+				color: var(--color-foreground--50);
+				cursor: pointer;
+				white-space: nowrap;
+			}
+			.threshold-filter:hover:not(:disabled) {
+				color: var(--vscode-foreground);
+			}
+			.threshold-filter:focus-visible {
+				outline: 1px solid var(--color-focus-border);
+			}
+			.threshold-filter:disabled {
+				color: var(--color-foreground--25);
+				cursor: default;
+			}
+			.threshold-filter code-icon {
+				font-size: 1rem;
 			}
 
 			.tabs {
@@ -137,6 +201,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private switchTab(tab: OverviewTab): void {
 		if (this._activeTab === tab) return;
+
 		this._activeTab = tab;
 		if (tab === 'agents') {
 			this._agentOverviewState.fetch();
@@ -175,6 +240,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderRecentOnlyComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
 		return html`
 			<gl-branch-section
@@ -183,20 +249,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				.repo=${repository.path}
 				.branches=${overview.recent}
 			>
-				<gl-branch-threshold-filter
-					slot="heading-actions"
-					@gl-change=${this.onChangeRecentThresholdFilter}
-					.options=${[
-						{ value: 'OneDay', label: '1 day' },
-						{ value: 'OneWeek', label: '1 week' },
-						{ value: 'OneMonth', label: '1 month' },
-					] satisfies {
-						value: OverviewRecentThreshold;
-						label: string;
-					}[]}
-					.disabled=${isFetching}
-					.value=${this._inactiveOverviewState.filter.recent?.threshold}
-				></gl-branch-threshold-filter>
+				${this.renderRecentThresholdFilter(isFetching)}
 			</gl-branch-section>
 			${when(
 				this._inactiveOverviewState.filter.stale?.show === true && overview.stale,
@@ -211,13 +264,45 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		`;
 	}
 
-	private readonly onChangeRecentThresholdFilter = (e: CustomEvent<{ threshold: OverviewRecentThreshold }>) => {
+	private renderRecentThresholdFilter(isFetching: boolean) {
+		const threshold = this._inactiveOverviewState.filter.recent?.threshold;
+		const label = recentThresholdItems.find(o => o.value === threshold)?.label ?? recentThresholdItems[1].label;
+		return html`
+			<gl-menu-popover
+				slot="heading-actions"
+				placement="bottom-end"
+				?disabled=${isFetching}
+				.items=${recentThresholdItems.map(o => ({
+					value: o.value,
+					label: o.label,
+					selected: o.value === threshold,
+				}))}
+				@gl-menu-select=${this.onChangeRecentThresholdFilter}
+			>
+				<button
+					slot="anchor"
+					class="threshold-filter"
+					type="button"
+					?disabled=${isFetching}
+					aria-label="Change Recent Timeframe"
+				>
+					${label}<code-icon icon="chevron-down"></code-icon>
+				</button>
+			</gl-menu-popover>
+		`;
+	}
+
+	private readonly onChangeRecentThresholdFilter = (e: CustomEvent<{ value: string }>) => {
 		if (!this._inactiveOverviewState.filter.stale || !this._inactiveOverviewState.filter.recent) {
 			return;
 		}
+
 		void this._homeCtx.homeService?.setOverviewFilter({
 			stale: this._inactiveOverviewState.filter.stale,
-			recent: { ...this._inactiveOverviewState.filter.recent, threshold: e.detail.threshold },
+			recent: {
+				...this._inactiveOverviewState.filter.recent,
+				threshold: e.detail.value as OverviewRecentThreshold,
+			},
 		});
 	};
 
@@ -253,24 +338,11 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderRecentTabComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
 		return html`
 			<gl-section ?loading=${isFetching}>
-				${this.renderTabs()}
-				<gl-branch-threshold-filter
-					slot="heading-actions"
-					@gl-change=${this.onChangeRecentThresholdFilter}
-					.options=${[
-						{ value: 'OneDay', label: '1 day' },
-						{ value: 'OneWeek', label: '1 week' },
-						{ value: 'OneMonth', label: '1 month' },
-					] satisfies {
-						value: OverviewRecentThreshold;
-						label: string;
-					}[]}
-					.disabled=${isFetching}
-					.value=${this._inactiveOverviewState.filter.recent?.threshold}
-				></gl-branch-threshold-filter>
+				${this.renderTabs()} ${this.renderRecentThresholdFilter(isFetching)}
 				${this.renderBranchCards(overview.recent, repository.path)}
 			</gl-section>
 			${when(
@@ -318,10 +390,10 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 	private renderAgentsTabComplete(overview: GetInactiveOverviewResponse, isFetching = false) {
 		if (overview == null) return nothing;
+
 		const { repository } = overview;
-		const branches = this.filterAgentBranches(overview.recent, repository.path);
-		const unrepresentedSessions =
-			this._agentFilter === 'all' ? this.getUnrepresentedAgentSessions(branches, repository.path) : [];
+		const branches = this.filterAgentBranches(overview.recent);
+		const unrepresentedSessions = this._agentFilter === 'all' ? this.getUnrepresentedAgentSessions(branches) : [];
 
 		return html`
 			<gl-section ?loading=${isFetching}>
@@ -348,33 +420,50 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		this._agentFilter = (e.target as HTMLSelectElement).value as AgentFilter;
 	};
 
-	private filterAgentBranches(branches: GetOverviewBranch[], repoPath: string): GetOverviewBranch[] {
+	private filterAgentBranches(branches: GetOverviewBranch[]): GetOverviewBranch[] {
 		if (this._agentFilter === 'all') return branches;
 
+		// Sessions associate with worktrees, keyed by full path. Build the set of worktree paths
+		// the rendered branches occupy, then keep only branches whose worktree matches a session.
+		// Match by `worktreePath` (stable identifier set by host's `resolveGitInfo`) — not
+		// `workspacePath`, which is the matched workspace folder, not a repo identifier.
+		// A branch with `worktree == null` is "not checked out anywhere" in Home's wire format
+		// (the default-worktree branch always carries `worktree.path === repoPath`), so it can't
+		// host an agent and is excluded from the join — previously these branches fell back to
+		// `repoPath` and false-matched the default-worktree session.
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
-		const workspaceBranches = new Set<string>();
+		const branchWorktreePaths = new Set<string>();
+		for (const branch of branches) {
+			if (branch.worktree?.path != null) {
+				branchWorktreePaths.add(branch.worktree.path);
+			}
+		}
+		const sessionWorktreePaths = new Set<string>();
 		for (const session of sessions) {
-			if (session.branch != null && session.workspacePath === repoPath) {
-				workspaceBranches.add(session.branch);
+			if (session.worktreePath != null && branchWorktreePaths.has(session.worktreePath)) {
+				sessionWorktreePaths.add(session.worktreePath);
 			}
 		}
 
-		return branches.filter(b => workspaceBranches.has(b.name));
+		return branches.filter(b => b.worktree?.path != null && sessionWorktreePaths.has(b.worktree.path));
 	}
 
-	private getUnrepresentedAgentSessions(
-		renderedBranches: GetOverviewBranch[],
-		repoPath: string,
-	): AgentSessionState[] {
+	private getUnrepresentedAgentSessions(renderedBranches: GetOverviewBranch[]): AgentSessionState[] {
 		const sessions = this._homeCtx.agentSessions.get() ?? [];
 		if (sessions.length === 0) return [];
 
-		const renderedBranchNames = new Set(renderedBranches.map(b => b.name));
-		return sessions.filter(s => {
-			if (s.branch == null) return true;
-			if (s.workspacePath !== repoPath) return true;
-			return !renderedBranchNames.has(s.branch);
-		});
+		// A session is "unrepresented" if its worktree path doesn't match any rendered branch's
+		// worktree. Foreign-repo sessions naturally fall into this bucket because their worktree
+		// paths don't appear in this repo's branch set. No-worktree branches contribute nothing
+		// to the rendered set — otherwise the default-worktree session would be falsely
+		// "represented" by any uncheckedout branch and never surface as its own card.
+		const renderedWorktreePaths = new Set<string>();
+		for (const branch of renderedBranches) {
+			if (branch.worktree?.path != null) {
+				renderedWorktreePaths.add(branch.worktree.path);
+			}
+		}
+		return sessions.filter(s => s.worktreePath == null || !renderedWorktreePaths.has(s.worktreePath));
 	}
 
 	private renderAgentSessionCards(sessions: AgentSessionState[]): unknown {
@@ -382,7 +471,11 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 		const groups = new Map<string, AgentSessionState[]>();
 		for (const session of sessions) {
-			const key = session.workspacePath || session.cwd || 'unknown';
+			// Group by `worktreePath` so sessions in the same worktree always share a card,
+			// regardless of which workspace folder Claude Code happened to match on launch.
+			// Fall back through `workspacePath` then `cwd` so cold-cache sessions still get a
+			// group rather than collapsing into 'unknown'.
+			const key = session.worktreePath || session.workspacePath || session.cwd || 'unknown';
 			let group = groups.get(key);
 			if (group == null) {
 				group = [];
@@ -397,7 +490,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<gl-agent-session-card
 					.label=${key !== 'unknown' ? basename(key) : 'Unknown'}
 					.labelTitle=${key !== 'unknown' ? key : ''}
-					.labelType=${groupSessions[0].workspacePath ? 'workspace' : 'cwd'}
+					.labelType=${groupSessions[0].worktreePath || groupSessions[0].workspacePath ? 'workspace' : 'cwd'}
 					.sessions=${groupSessions}
 				></gl-agent-session-card>
 			`,

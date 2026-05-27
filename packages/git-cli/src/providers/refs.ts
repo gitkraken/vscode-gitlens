@@ -241,6 +241,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 						}
 					}
 					if (next === -1) break;
+
 					start = next + 1;
 				}
 			}

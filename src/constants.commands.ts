@@ -44,8 +44,7 @@ type InternalGraphWebviewCommands =
 	| 'gitlens.pausedOperation.skip:graph'
 	| 'gitlens.pushBranch:graph'
 	| 'gitlens.rebaseCurrentOnto:graph'
-	| 'gitlens.shareWipAsCloudPatch:graph'
-	| 'gitlens.visualizeHistory.repo:graph';
+	| 'gitlens.shareWipAsCloudPatch:graph';
 
 type InternalHomeWebviewCommands =
 	| 'gitlens.git.branch.setMergeTarget:home'
@@ -84,7 +83,8 @@ type InternalHomeWebviewCommands =
 type InternalAgentCommands =
 	| 'gitlens.agents.installClaudeHook'
 	| 'gitlens.agents.uninstallClaudeHook'
-	| 'gitlens.agents.resolvePermission';
+	| 'gitlens.agents.resolvePermission'
+	| 'gitlens.agents.openPlanFile';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
@@ -164,6 +164,7 @@ type InternalGlCommands =
 	| 'gitlens.openWorkingFile:command'
 	| 'gitlens.refreshHover'
 	| 'gitlens.regenerateMarkdownDocument'
+	| 'gitlens.runPromptInAgent'
 	| 'gitlens.sendToChat'
 	| 'gitlens.showComposerPage'
 	| 'gitlens.showInCommitGraphView'
@@ -254,6 +255,8 @@ export type CoreCommands =
 	| 'workbench.action.reopenTextEditor'
 	| 'workbench.action.reopenWithEditor'
 	| 'workbench.action.reloadWindow'
+	| 'workbench.action.terminal.paste'
+	| 'workbench.action.terminal.sendSequence'
 	| 'workbench.action.toggleMaximizedPanel'
 	| 'workbench.action.focusPanel'
 	| 'workbench.action.togglePanel'

@@ -1,7 +1,12 @@
 import { signal as litSignal } from '@lit-labs/signals';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { GraphSidebarService } from '../../../../plus/graph/graphService.js';
-import type { DidGetSidebarDataParams, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
+import type {
+	DidGetSidebarDataParams,
+	GraphSidebarPanel,
+	SidebarWorktreeChange,
+} from '../../../../plus/graph/protocol.js';
 import type { Resource } from '../../../shared/state/resource.js';
 import { createResource } from '../../../shared/state/resource.js';
 
@@ -20,9 +25,8 @@ export interface SidebarActions {
 	/** The currently visible panel — set by the sidebar-panel component so invalidateAll can refetch it. */
 	activePanel: GraphSidebarPanel | undefined;
 
-	/** Persisted filter state — survives sidebar-panel destruction/recreation */
+	/** Session filter text — survives sidebar-panel destruction/recreation, NOT webview reload. */
 	filterText: string;
-	filterMode: 'filter' | 'highlight';
 
 	/** Per-panel tree expansion state — survives panel switches */
 	readonly expandedPaths: Record<GraphSidebarPanel, Set<string>>;
@@ -40,7 +44,7 @@ export interface SidebarActions {
 	refresh(panel: GraphSidebarPanel): void;
 	toggleLayout(panel: GraphSidebarPanel): void;
 	executeAction(command: GlCommands, context?: string, args?: unknown[]): void;
-	applyWorktreeChanges(changes: Record<string, boolean | undefined>): void;
+	applyWorktreeChanges(changes: Record<string, SidebarWorktreeChange | undefined>): void;
 	dispose(): void;
 }
 
@@ -126,7 +130,6 @@ export function createSidebarActions(): SidebarActions {
 		state: state,
 		activePanel: undefined,
 		filterText: '',
-		filterMode: 'filter',
 		expandedPaths: expandedPaths,
 		selectedPath: selectedPath,
 		agentsLayout: agentsLayout,
@@ -154,6 +157,7 @@ export function createSidebarActions(): SidebarActions {
 					unsub();
 					return;
 				}
+
 				unsubscribeConfig = unsub;
 			})();
 			void (async () => {
@@ -165,6 +169,7 @@ export function createSidebarActions(): SidebarActions {
 					unsub();
 					return;
 				}
+
 				unsubscribeWorktree = unsub;
 			})();
 
@@ -177,6 +182,7 @@ export function createSidebarActions(): SidebarActions {
 
 		fetchPanel: function (panel: GraphSidebarPanel) {
 			if (service == null) return;
+
 			void panels[panel].fetch();
 		},
 
@@ -195,6 +201,7 @@ export function createSidebarActions(): SidebarActions {
 		invalidateAll: function () {
 			for (const [panel, r] of Object.entries(panels)) {
 				if (panel === actions.activePanel) continue;
+
 				r.cancel();
 				r.mutate(undefined);
 			}
@@ -218,6 +225,7 @@ export function createSidebarActions(): SidebarActions {
 				agentsLayout.set(agentsLayout.get() === 'tree' ? 'list' : 'tree');
 				return;
 			}
+
 			service?.toggleLayout(panel);
 		},
 
@@ -225,16 +233,32 @@ export function createSidebarActions(): SidebarActions {
 			service?.executeAction(command, context, args);
 		},
 
-		applyWorktreeChanges: function (changes: Record<string, boolean | undefined>) {
+		applyWorktreeChanges: function (changes: Record<string, SidebarWorktreeChange | undefined>) {
 			const data = panels.worktrees.value.get();
 			if (data == null) return;
 
-			const worktrees = data.items as Array<{ uri: string; hasChanges?: boolean }>;
+			const worktrees = data.items as Array<{
+				uri: string;
+				hasChanges?: boolean;
+				workingTreeState?: GitDiffFileStats;
+			}>;
 			let changed = false;
 			for (const w of worktrees) {
-				const hasChanges = changes[w.uri];
-				if (hasChanges != null && w.hasChanges !== hasChanges) {
-					w.hasChanges = hasChanges;
+				const next = changes[w.uri];
+				if (next == null) continue;
+
+				// Value-compare the breakdown (fresh objects from each push always differ by
+				// reference) — re-rendering on every FS tick with unchanged counts would otherwise
+				// flash the panel during rapid edits/saves.
+				const prevWts = w.workingTreeState;
+				const nextWts = next.workingTreeState;
+				const wtsChanged =
+					prevWts?.added !== nextWts?.added ||
+					prevWts?.changed !== nextWts?.changed ||
+					prevWts?.deleted !== nextWts?.deleted;
+				if (w.hasChanges !== next.hasChanges || wtsChanged) {
+					w.hasChanges = next.hasChanges;
+					w.workingTreeState = next.workingTreeState;
 					changed = true;
 				}
 			}

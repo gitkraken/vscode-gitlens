@@ -33,6 +33,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { flatten } from '@gitlens/utils/object.js';
 import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { satisfies } from '@gitlens/utils/version.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
 import type { CoreColors } from '../../constants.colors.js';
 import type { GlCommands } from '../../constants.commands.js';
@@ -157,6 +158,10 @@ export class SubscriptionService implements Disposable {
 
 		this.changeSubscription(subscription, undefined, { silent: true });
 		setTimeout(() => void this.ensureSession(false, undefined), 10000);
+
+		if (container.previousVersion != null && satisfies(container.previousVersion, '< 18.0.0')) {
+			void this.container.storage.store(`plus:preview:graph:usages`, undefined);
+		}
 	}
 
 	dispose(): void {
@@ -330,6 +335,16 @@ export class SubscriptionService implements Disposable {
 					onDidCheckIn: this._onDidCheckIn,
 					changeSubscription: this.changeSubscription.bind(this),
 					getStoredSubscription: this.getStoredSubscription.bind(this),
+					refireSubscriptionChange: () => {
+						if (this._subscription == null) return;
+
+						this._etag = Date.now();
+						this._onDidChange.fire({
+							current: this._subscription,
+							previous: this._subscription,
+							etag: this._etag,
+						});
+					},
 				});
 			});
 		}
@@ -470,6 +485,7 @@ export class SubscriptionService implements Disposable {
 
 	private async showPlanMessage(source: Source | undefined) {
 		if (!(await this.ensureSession(false, source))) return;
+
 		const {
 			account,
 			plan: { actual, effective },
@@ -563,6 +579,7 @@ export class SubscriptionService implements Disposable {
 
 	async loginWithCode(authentication: { code: string; state?: string }, source?: Source): Promise<boolean> {
 		if (!(await ensurePlusFeaturesEnabled())) return false;
+
 		if (this.container.telemetry.enabled) {
 			this.container.telemetry.sendEvent('subscription/action', { action: 'sign-in' }, source);
 		}
@@ -1664,6 +1681,7 @@ export class SubscriptionService implements Disposable {
 	async checkUpdatedSubscription(source: Source | undefined): Promise<SubscriptionState | undefined> {
 		const scope = getScopedLogger();
 		if (this._session == null) return undefined;
+
 		const oldSubscriptionState = this._subscription.state;
 		try {
 			await this.checkInAndValidate(this._session, source, { force: true });

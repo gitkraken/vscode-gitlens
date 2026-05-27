@@ -1,6 +1,3 @@
-import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
-import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
 import { exhaustiveArray } from '@gitlens/utils/array.js';
 import { raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
@@ -32,6 +29,9 @@ import type { GitCommitReachability, LeftRightCommitCountResult } from './provid
 import type { GitContributorsResult } from './providers/contributors.js';
 import type { ResolvedRevision } from './providers/revision.js';
 import type { GitResult } from './run.types.js';
+import { getBranchId } from './utils/branch.utils.js';
+import { createReference } from './utils/reference.utils.js';
+import { getCommonRepositoryPath, getRepositoryOrWorktreePath } from './utils/repository.utils.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
 
 type RepoPath = string;
@@ -93,7 +93,6 @@ interface Caches {
 	gitDir: Map<RepoPath, GitDir> | undefined;
 	gitIgnore: Map<RepoPath, GitIgnoreFilter> | undefined;
 	ignoreRevsFile: PromiseCache<string, boolean> | undefined;
-	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	leftRightCommitCount: RepoPromiseCacheMap<string, LeftRightCommitCountResult | undefined> | undefined;
 	mergeBase: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	pausedOperationStatus: PromiseMap<RepoPath, GitPausedOperationStatus | undefined> | undefined;
@@ -119,6 +118,8 @@ interface SharedCaches {
 	gkConfigKeys: RepoPromiseCacheMap<string, string | undefined> | undefined;
 	gkConfigPatterns: RepoPromiseCacheMap<string, Map<string, string>> | undefined;
 	initialCommitSha: PromiseMap<RepoPath, string | undefined> | undefined;
+	/** Keyed by commonPath — `FETCH_HEAD` lives in the common git dir, shared across worktrees. */
+	lastFetched: PromiseCache<RepoPath, number | undefined> | undefined;
 	logShas: RepoPromiseCacheMap<string, string[]> | undefined;
 	refs: PromiseMap<RepoPath, RefRecord[]> | undefined;
 	refTips: PromiseMap<RepoPath, GitRefTip[]> | undefined;
@@ -149,6 +150,7 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 		'gkConfigKeys',
 		'gkConfigPatterns',
 		'initialCommitSha',
+		'lastFetched',
 		'logShas',
 		'refs',
 		'refTips',
@@ -633,12 +635,14 @@ export class Cache implements Disposable {
 					invalidate.call(cache, commonPath);
 					for (const worktreePath of this.getWorktreePaths(commonPath)) {
 						if (worktreePath === commonPath) continue;
+
 						invalidate.call(cache, worktreePath);
 					}
 				} else {
 					cache.delete(commonPath);
 					for (const worktreePath of this.getWorktreePaths(commonPath)) {
 						if (worktreePath === commonPath) continue;
+
 						cache.delete(worktreePath);
 					}
 				}
@@ -1308,6 +1312,7 @@ export class Cache implements Disposable {
 					if (cacheable.invalidated) {
 						for (const worktreePath of this.getWorktreePaths(commonPath)) {
 							if (worktreePath === commonPath) continue;
+
 							cache.invalidate(worktreePath);
 						}
 					}
@@ -1364,6 +1369,7 @@ export class Cache implements Disposable {
 					if (cacheable.invalidated) {
 						for (const worktreePath of this.getWorktreePaths(commonPath)) {
 							if (worktreePath === commonPath) continue;
+
 							cache.invalidate(worktreePath, cacheKey);
 						}
 					}

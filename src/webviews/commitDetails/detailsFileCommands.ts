@@ -16,6 +16,7 @@ import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
 import type { OpenFileOnRemoteCommandArgs } from '../../commands/openFileOnRemote.js';
 import type { OpenOnRemoteCommandArgs } from '../../commands/openOnRemote.js';
 import type { CreatePatchCommandArgs } from '../../commands/patches.js';
+import type { ShowQuickFileHistoryCommandArgs } from '../../commands/showQuickFileHistory.js';
 import type { Container } from '../../container.js';
 import type { EventBusSource } from '../../eventBus.js';
 import {
@@ -25,6 +26,7 @@ import {
 	openFile,
 	openFileAtRevision,
 	openFileOnRemote,
+	openWipChanges,
 	restoreFile,
 } from '../../git/actions/commit.js';
 import { showGitErrorMessage } from '../../messages.js';
@@ -58,6 +60,11 @@ export class DetailsFileCommands {
 				{ repoPath: commit.repoPath, lhs: comparison.sha, rhs: commit.sha },
 				{ preserveFocus: true, preview: true, ...showOptions },
 			);
+		} else if (commit.isUncommitted) {
+			// WIP file context: route through openWipChanges so the diff uses SCM-compatible
+			// (git: scheme) URIs for the index side, letting VS Code's gutter "Stage Hunk" /
+			// "Unstage Hunk" and SCM diff toolbar actions work in the opened editor.
+			void openWipChanges(file, commit.repoPath, { preserveFocus: true, preview: true, ...showOptions });
 		} else {
 			void openChanges(file, commit, { preserveFocus: true, preview: true, ...showOptions });
 		}
@@ -80,6 +87,11 @@ export class DetailsFileCommands {
 				{ repoPath: commit.repoPath, ref: comparison.sha },
 				{ preserveFocus: true, preview: true, ...showOptions },
 			);
+		} else if (commit.isUncommitted) {
+			// WIP file context: route through openWipChanges so the diff uses SCM-compatible
+			// (git: scheme) URIs for the index side, letting VS Code's gutter "Stage Hunk" /
+			// "Unstage Hunk" and SCM diff toolbar actions work in the opened editor.
+			void openWipChanges(file, commit.repoPath, { preserveFocus: true, preview: true, ...showOptions });
 		} else {
 			void openChangesWithWorking(file, commit, { preserveFocus: true, preview: true, ...showOptions });
 		}
@@ -100,9 +112,13 @@ export class DetailsFileCommands {
 			.refs.getMergeBase(comparison.sha, commit.sha);
 		if (mergeBase == null) return;
 
+		// `comparison.sha` is the lhs (Base / older / "from") per the file-context convention; the
+		// rhs we want to anchor to is the commit being inspected (`commit.sha`), so this shows the
+		// diff from the merge base to the Compare side — matching PR-review semantics ("what does
+		// this branch add since divergence").
 		void openChanges(
 			file,
-			{ repoPath: commit.repoPath, lhs: mergeBase, rhs: comparison.sha },
+			{ repoPath: commit.repoPath, lhs: mergeBase, rhs: commit.sha },
 			{ preserveFocus: true, preview: true, ...showOptions, lhsTitle: `${basename(file.path)} (Base)` },
 		);
 	}
@@ -228,6 +244,7 @@ export class DetailsFileCommands {
 			void window.showWarningMessage('Unable to open the merge editor, no working file found');
 			return;
 		}
+
 		const input2: MergeEditorInputs['input2'] = {
 			uri: workingUri,
 			title: 'Current',
@@ -380,8 +397,14 @@ export class DetailsFileCommands {
 	}
 	@command('gitlens.openFileHistory:')
 	@debug()
-	openFileHistory(_commit: GitCommit, file: GitFileChange): void {
-		void executeCommand('gitlens.openFileHistory', file.uri);
+	openFileHistory(commit: GitCommit, file: GitFileChange): void {
+		// Skip the reference for uncommitted (no commit to select) and for stashes (file history view
+		// doesn't include stash commits, so the sha would never resolve to a visible row).
+		const args: ShowQuickFileHistoryCommandArgs | undefined =
+			isUncommitted(commit.sha) || GitCommit.isStash(commit)
+				? undefined
+				: { reference: createReference(commit.sha, commit.repoPath, { refType: 'revision' }) };
+		void executeCommand('gitlens.openFileHistory', file.uri, args);
 	}
 
 	@command('gitlens.quickOpenFileHistory:')
@@ -398,8 +421,11 @@ export class DetailsFileCommands {
 
 	@command('gitlens.openFileHistoryInGraph:')
 	@debug()
-	openFileHistoryInGraph(_commit: GitCommit, file: GitFileChange): void {
-		void executeCommand('gitlens.openFileHistoryInGraph', file.uri);
+	openFileHistoryInGraph(commit: GitCommit, file: GitFileChange): void {
+		// Skip the selection for uncommitted and stashes; the graph doesn't surface either by default,
+		// so the sha would never resolve to a visible row.
+		const selectSha = isUncommitted(commit.sha) || GitCommit.isStash(commit) ? undefined : commit.sha;
+		void executeCommand('gitlens.openFileHistoryInGraph', file.uri, selectSha);
 	}
 	@command('gitlens.views.selectFileForCompare:')
 	@debug()

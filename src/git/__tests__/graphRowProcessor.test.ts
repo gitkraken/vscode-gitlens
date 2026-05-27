@@ -49,6 +49,7 @@ function createRemoteHead(name: string, owner: string, id: string): GitGraphRowR
 
 function getWebviewItem(context: string | object | undefined): string {
 	if (context == null) return '';
+
 	const parsed: { webviewItem?: string } =
 		typeof context === 'string' ? (JSON.parse(context) as { webviewItem?: string }) : context;
 	return parsed.webviewItem ?? '';

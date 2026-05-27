@@ -420,6 +420,7 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 				endIndex = line.indexOf(' ', startIndex);
 				if (endIndex === -1) continue;
+
 				const newMode = line.substring(startIndex, endIndex);
 
 				// Parse old_sha and new_sha positions

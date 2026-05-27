@@ -173,6 +173,7 @@ export class WorkspacesView extends ViewBase<'workspaces', WorkspacesViewNode, W
 					}
 
 					if (repos.length === 0) return;
+
 					await this.container.workspaces.createCloudWorkspace({ repos: repos });
 					void this.ensureRoot().triggerChange(true);
 				},

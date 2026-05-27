@@ -1,6 +1,7 @@
-import type { CancellationToken, Disposable, Event, MessageItem, ProgressOptions } from 'vscode';
-import { CancellationTokenSource, env, EventEmitter, window } from 'vscode';
+import type { CancellationToken, Event, MessageItem, ProgressOptions } from 'vscode';
+import { CancellationTokenSource, Disposable, env, EventEmitter, window } from 'vscode';
 import { fetch } from '@env/fetch.js';
+import { getIsOffline } from '@env/platform.js';
 import type { AIPrimaryProviders, AIProviderAndModel, AIProviders, SupportedAIModels } from '@gitlens/ai/constants.js';
 import {
 	anthropicProviderDescriptor,
@@ -39,6 +40,7 @@ import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { DedupedAsyncCache } from '@gitlens/utils/dedupedAsyncCache.js';
 import { map } from '@gitlens/utils/iterable.js';
 import type { Lazy } from '@gitlens/utils/lazy.js';
 import { lazy } from '@gitlens/utils/lazy.js';
@@ -49,7 +51,13 @@ import { getSettledValue, getSettledValues } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { Source, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { AIError, AIErrorReason, AINoRequestDataError, AuthenticationRequiredError } from '../../errors.js';
+import {
+	AIError,
+	AIErrorReason,
+	AINoRequestDataError,
+	AuthenticationRequiredError,
+	classifyNetworkError,
+} from '../../errors.js';
 import type { AIFeatures } from '../../features.js';
 import { isAdvancedFeature } from '../../features.js';
 import type { GlRepository } from '../../git/models/repository.js';
@@ -97,8 +105,30 @@ export interface AIResult<T = void> {
 export interface AIResultContext extends Serialized<Omit<AIResponse<any>, 'content' | 'result'>, string> {}
 export type AISourceContext<T> = Source & { context: T };
 
+/**
+ * Identifies an operation that maintains its own remembered AI model, independent of the
+ * global default. Picking a model from a scoped surface (the composer chip, the graph
+ * compose/review mode chip) writes only to that scope's storage — the global `ai.model`
+ * config and other features (commit messages, explain, etc.) are untouched.
+ */
+export type AIModelScope = 'compose' | 'review';
+
 export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
+	/** Scope whose model changed, or `undefined` when the global default changed. */
+	readonly scope?: AIModelScope;
+}
+
+/** Maps an `AIActionType` to its remembered scope, or `undefined` for unscoped actions. */
+export function scopeForAction(action: AIActionType): AIModelScope | undefined {
+	switch (action) {
+		case 'generate-commits':
+			return 'compose';
+		case 'review-changes':
+			return 'review';
+		default:
+			return undefined;
+	}
 }
 
 // Order matters for sorting the picker
@@ -325,6 +355,17 @@ export class AIProviderService implements AIService, Disposable {
 	private _provider: AIProvider | undefined;
 	private _providerDisposable: Disposable | undefined;
 
+	// Resolved AIModel per scope ('global' for the global default). Populated lazily by `getModel`
+	// and proactively by `getOrUpdateModel` after every persist. Invalidated on config changes,
+	// subscription changes, provider state changes, and `force` reads. Lets repeated silent reads
+	// (graph details, composer event handler, etc.) skip the full resolve pipeline and the network
+	// `provider.getModels()` call inside it.
+	private readonly _modelCache = new DedupedAsyncCache<AIModelScope | 'global', AIModel | undefined>();
+	// Per-provider available-models list cache. Dedupes concurrent `provider.getModels()` calls so
+	// scope reads on the same provider don't each hit the network. Cleared on provider change,
+	// subscription change, and force.
+	private readonly _providerModelsCache = new Map<AIProviders, Promise<readonly AIModel[]>>();
+
 	private _actions: AIActions | undefined;
 	get actions(): AIActions {
 		this._actions ??= new AIActions(this);
@@ -343,7 +384,41 @@ export class AIProviderService implements AIService, Disposable {
 		readonly container: Container,
 		private readonly connection: ServerConnection,
 	) {
-		this._disposable = this.container.subscription.onDidChange(() => this._promptTemplates.clear());
+		this._disposable = Disposable.from(
+			this.container.subscription.onDidChange(e => {
+				// Prompt templates are tied to account identity & subscription state — clear on every
+				// fire. Model caches are heavier and only affected by account identity or plan changes
+				// (which can shift available providers/entitlements); filter to avoid wiping the cache
+				// on no-op subscription ticks like session refresh.
+				this._promptTemplates.clear();
+				const accountChanged = e.current.account?.id !== e.previous.account?.id;
+				const planChanged = e.current.plan?.actual?.id !== e.previous.plan?.actual?.id;
+				if (accountChanged || planChanged) {
+					this._modelCache.clear();
+					this._providerModelsCache.clear();
+				}
+			}),
+			configuration.onDidChange(e => {
+				if (!configuration.changed(e, 'ai')) return;
+
+				// Only invalidate when the configured global model actually drifted from what's
+				// cached. Our own `updateEffective` writes inside `getOrUpdateModel` also trigger
+				// this listener, but the cache was already populated proactively for them — a
+				// matching compare lets us skip the redundant invalidate-and-reresolve cycle. An
+				// external settings edit will produce a mismatch and correctly invalidate.
+				if (!this._modelCache.has('global')) return;
+
+				const cached = this._modelCache.get('global');
+				const cfg = this.getConfiguredModel()?.descriptor;
+				const matches =
+					cfg == null ? cached == null : cfg.provider === cached?.provider.id && cfg.model === cached.id;
+				if (matches) return;
+
+				// Drift detected — any scope whose `fromScope: false` resolution used the global
+				// fallback could now be stale, so clear everything.
+				this._modelCache.clear();
+			}),
+		);
 
 		if (DEBUG) {
 			void import(/* webpackChunkName: "__debug__" */ './__debug__aiSimulator.js').then(m =>
@@ -440,6 +515,7 @@ export class AIProviderService implements AIService, Disposable {
 									input.validationMessage = 'Please enter a valid URL';
 									return;
 								}
+
 								try {
 									new URL(value);
 								} catch {
@@ -451,6 +527,7 @@ export class AIProviderService implements AIService, Disposable {
 									input.validationMessage = error;
 									return;
 								}
+
 								resolve(value);
 							}),
 						);
@@ -546,8 +623,21 @@ export class AIProviderService implements AIService, Disposable {
 		await configuration.updateEffective('ai.enabled', true);
 	}
 
-	private getConfiguredModel(): AIModelDescriptor | undefined {
-		const qualifiedModelId = configuration.get('ai.model') ?? undefined;
+	/**
+	 * Resolves the configured model for the given scope. Returns `fromScope: true` when the
+	 * value was read from the scope's Memento storage; `false` when it fell back to the
+	 * global `ai.model` config (or scope was undefined). Callers use this to decide whether
+	 * a subsequent persist should write to scope storage — silent reads that fell back to
+	 * global must NOT auto-populate scope storage, otherwise the scope would "snapshot" the
+	 * global default at first read and stop tracking later changes.
+	 */
+	private getConfiguredModel(
+		scope?: AIModelScope,
+	): { descriptor: AIModelDescriptor; fromScope: boolean } | undefined {
+		const scopedQualifiedModelId =
+			scope != null ? this.container.storage.get(`ai:scope:${scope}:model`) : undefined;
+		const fromScope = scopedQualifiedModelId != null;
+		const qualifiedModelId = scopedQualifiedModelId ?? configuration.get('ai.model') ?? undefined;
 		if (qualifiedModelId == null) return undefined;
 
 		const index = qualifiedModelId.indexOf(':');
@@ -556,13 +646,16 @@ export class AIProviderService implements AIService, Disposable {
 
 		if (providerId != null && this.supports(providerId)) {
 			if (modelId != null) {
-				return { provider: providerId, model: modelId };
+				return { descriptor: { provider: providerId, model: modelId }, fromScope: fromScope };
 			} else if (isPrimaryAIProvider(providerId)) {
+				// Primary providers may store just the providerId in `ai.model` and the model id
+				// in `ai.${providerId}.model`. Scoped storage always carries the qualified form,
+				// so this path only matters for the global fallback (always `fromScope: false`).
 				modelId = configuration.get(`ai.${providerId}.model`) ?? undefined;
 				if (modelId != null) {
 					// Model ids are in the form of `provider:model`
 					if (/^(.+):(.+)$/.test(modelId)) {
-						return { provider: providerId, model: modelId };
+						return { descriptor: { provider: providerId, model: modelId }, fromScope: false };
 					}
 				}
 			}
@@ -597,12 +690,53 @@ export class AIProviderService implements AIService, Disposable {
 		return modelResults.flatMap(m => getSettledValue(m, []));
 	}
 
-	private async getBestFallbackModel(): Promise<AIModel | undefined> {
+	/**
+	 * Returns the available-models list for `provider`, deduping concurrent and repeated calls via
+	 * a per-providerId Promise cache. Without this, every cache-miss `getOrUpdateModel` (e.g. two
+	 * scopes resolving on the same provider) independently calls `provider.getModels()` and hammers
+	 * the network. Invalidated on provider change, `provider.onDidChange`, subscription change, and
+	 * `force` reads.
+	 */
+	private getCachedProviderModels(provider: AIProvider, providerId: AIProviders): Promise<readonly AIModel[]> {
+		let pending = this._providerModelsCache.get(providerId);
+		if (pending == null) {
+			pending = (async () => {
+				try {
+					return await provider.getModels();
+				} catch (ex) {
+					// Don't cache a failure — let the next call retry.
+					this._providerModelsCache.delete(providerId);
+					throw ex;
+				}
+			})();
+			this._providerModelsCache.set(providerId, pending);
+		}
+		return pending;
+	}
+
+	private async getBestFallbackModel(scope?: AIModelScope): Promise<AIModel | undefined> {
 		let model: AIModel | undefined;
 		let models: readonly AIModel[];
 
 		const orgAIConfig = getOrgAIConfig();
-		// First, use Copilot GPT 4.1 or first model
+		const isComposeOrReviewScope = scope === 'compose' || scope === 'review';
+
+		// First, use the GitKraken AI scope-preferred (compose/review), default, or first model
+		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
+			try {
+				const subscription = await this.container.subscription.getSubscription();
+				if (subscription.account?.verified) {
+					models = await this.getModels('gitkraken');
+					const scopedDefault = isComposeOrReviewScope
+						? models.find(m => m.id === 'gemini:gemini-3-flash-preview')
+						: undefined;
+					model = scopedDefault ?? models.find(m => m.default) ?? models[0];
+					if (model != null) return model;
+				}
+			} catch {}
+		}
+
+		// Second, use Copilot GPT 4.1 or first model
 		if (isProviderEnabledByOrg('vscode', orgAIConfig)) {
 			try {
 				models = await this.getModels('vscode');
@@ -613,26 +747,61 @@ export class AIProviderService implements AIService, Disposable {
 			} catch {}
 		}
 
-		// Second, use the GitKraken AI default or first model
-		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
-			try {
-				const subscription = await this.container.subscription.getSubscription();
-				if (subscription.account?.verified) {
-					models = await this.getModels('gitkraken');
-
-					model = models.find(m => m.default) ?? models[0];
-					if (model != null) return model;
-				}
-			} catch {}
-		}
-
 		return model;
 	}
 
-	async getModel(options?: { force?: boolean; silent?: boolean }, source?: Source): Promise<AIModel | undefined> {
-		const cfg = this.getConfiguredModel();
+	async getModel(
+		options?: { force?: boolean; silent?: boolean; scope?: AIModelScope },
+		source?: Source,
+	): Promise<AIModel | undefined> {
+		const scope = options?.scope;
+		const cacheKey: AIModelScope | 'global' = scope ?? 'global';
+
+		if (options?.force) {
+			// User explicitly wants to re-resolve (switch model picker, etc.) — invalidate the
+			// caches for this scope so we don't short-circuit and so the picker sees a fresh
+			// `provider.getModels()` list.
+			this._modelCache.delete(cacheKey);
+			this._providerModelsCache.clear();
+		} else if (options?.silent) {
+			// Silent reads are the hot path (graph details, composer event handler, RPC chip reads).
+			// Cache hits skip the storage/config reads + `getOrUpdateModel` + `provider.getModels()`
+			// network call entirely. The picker / non-silent path always falls through to the full
+			// pipeline below; `getOrUpdateModel` repopulates the cache after a successful resolve.
+			if (this._modelCache.has(cacheKey)) {
+				const cached = this._modelCache.get(cacheKey);
+				// If a cached model's provider was org-disabled since we cached it, the configured
+				// model is no longer usable — drop the entry and re-resolve so the fallback path runs.
+				if (cached == null || isProviderEnabledByOrg(cached.provider.id)) {
+					return cached;
+				}
+
+				this._modelCache.delete(cacheKey);
+			}
+
+			return this._modelCache.getOrResolve(cacheKey, () => this.resolveModelUncached(options, source));
+		}
+
+		return this.resolveModelUncached(options, source);
+	}
+
+	private async resolveModelUncached(
+		options?: { force?: boolean; silent?: boolean; scope?: AIModelScope },
+		source?: Source,
+	): Promise<AIModel | undefined> {
+		const scope = options?.scope;
+		const cfgResult = this.getConfiguredModel(scope);
+		const cfg = cfgResult?.descriptor;
+		// Persist to scope storage only when (a) the value already exists in scope storage —
+		// a write-through update — or (b) the user explicitly picks via a scoped picker (set
+		// inside the loop below). Silent reads that fell back to the global default must NOT
+		// auto-populate scope storage, otherwise the scope would "snapshot" the global default
+		// at first read and stop tracking later global changes.
+		const cfgFromScope = cfgResult?.fromScope ?? false;
+		let scopeForPersist: AIModelScope | undefined = cfgFromScope ? scope : undefined;
+
 		if (!options?.force && cfg?.provider != null && cfg?.model != null) {
-			const model = await this.getOrUpdateModel(cfg.provider, cfg.model);
+			const model = await this.getOrUpdateModel(cfg.provider, cfg.model, scopeForPersist);
 			if (model != null) return model;
 		}
 
@@ -640,9 +809,9 @@ export class AIProviderService implements AIService, Disposable {
 		let chosenProviderId: AIProviders | undefined;
 		const currentModel =
 			cfg?.provider != null && cfg?.model != null
-				? lazy(() => this.getOrUpdateModel(cfg.provider, cfg.model))
+				? lazy(() => this.getOrUpdateModel(cfg.provider, cfg.model, scopeForPersist))
 				: undefined;
-		const fallbackModel = lazy(() => this.getBestFallbackModel());
+		const fallbackModel = lazy(() => this.getBestFallbackModel(scope));
 
 		if (!options?.silent) {
 			if (!options?.force) {
@@ -650,8 +819,11 @@ export class AIProviderService implements AIService, Disposable {
 				chosenProviderId = chosenModel?.provider.id;
 			}
 
+			const titles = getPickerTitlesForScope(scope);
+
 			while (true) {
-				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg, source))?.provider;
+				chosenProviderId ??= (await showAIProviderPicker(this.container, cfg, source, titles.provider))
+					?.provider;
 				if (chosenProviderId == null) {
 					chosenModel = undefined;
 					break;
@@ -668,7 +840,14 @@ export class AIProviderService implements AIService, Disposable {
 				}
 
 				if (chosenModel == null) {
-					const result = await showAIModelPicker(this.container, chosenProviderId, cfg, source);
+					const result = await showAIModelPicker(
+						this.container,
+						chosenProviderId,
+						cfg,
+						source,
+						titles.model,
+						scope,
+					);
 					if (result == null || (isDirective(result) && result !== Directive.Back)) {
 						chosenModel = undefined;
 						break;
@@ -679,6 +858,8 @@ export class AIProviderService implements AIService, Disposable {
 					}
 
 					chosenModel = result.model;
+					// User explicitly picked from a scoped picker — persist to scope going forward.
+					scopeForPersist = scope;
 				}
 
 				break;
@@ -686,7 +867,7 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		chosenModel ??= currentModel != null ? await currentModel.value : await fallbackModel.value;
-		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel);
+		const model = chosenModel == null ? undefined : await this.getOrUpdateModel(chosenModel, scopeForPersist);
 		if (options?.silent) return model;
 
 		this.container.telemetry.sendEvent(
@@ -736,24 +917,39 @@ export class AIProviderService implements AIService, Disposable {
 		}
 	}
 
-	private getOrUpdateModel(model: AIModel): Promise<AIModel | undefined>;
-	private getOrUpdateModel<T extends AIProviders>(providerId: T, modelId: string): Promise<AIModel | undefined>;
+	private getOrUpdateModel(model: AIModel, scope?: AIModelScope): Promise<AIModel | undefined>;
+	private getOrUpdateModel<T extends AIProviders>(
+		providerId: T,
+		modelId: string,
+		scope?: AIModelScope,
+	): Promise<AIModel | undefined>;
 	private async getOrUpdateModel(
 		modelOrProviderId: AIModel | AIProviders,
-		modelId?: string,
+		modelIdOrScope?: string | AIModelScope,
+		maybeScope?: AIModelScope,
 	): Promise<AIModel | undefined> {
 		let providerId: AIProviders;
 		let model: AIModel | undefined;
+		let modelId: string | undefined;
+		let scope: AIModelScope | undefined;
 		if (typeof modelOrProviderId === 'string') {
 			providerId = modelOrProviderId;
+			modelId =
+				typeof modelIdOrScope === 'string' && !isAIModelScope(modelIdOrScope) ? modelIdOrScope : undefined;
+			scope = maybeScope ?? (isAIModelScope(modelIdOrScope) ? modelIdOrScope : undefined);
 		} else {
 			model = modelOrProviderId;
 			providerId = model.provider.id;
+			scope = isAIModelScope(modelIdOrScope) ? modelIdOrScope : undefined;
 		}
 
 		if (providerId && !isProviderEnabledByOrg(providerId)) {
-			this._provider = undefined;
-			this._model = undefined;
+			// Only clear the singleton cache when working on the global default — the cache
+			// represents "currently active global provider/model", not scoped state.
+			if (scope == null) {
+				this._provider = undefined;
+				this._model = undefined;
+			}
 			return undefined;
 		}
 
@@ -761,8 +957,13 @@ export class AIProviderService implements AIService, Disposable {
 
 		if (providerId !== this._provider?.id) {
 			changed = true;
+			const oldProviderId = this._provider?.id;
 			this._providerDisposable?.dispose();
 			this._provider?.dispose();
+			if (oldProviderId != null) {
+				// Old provider's models list is no longer relevant to anyone awaiting `_provider`.
+				this._providerModelsCache.delete(oldProviderId);
+			}
 
 			const type = await supportedAIProviders.get(providerId)?.type.value;
 			if (type == null) {
@@ -773,14 +974,31 @@ export class AIProviderService implements AIService, Disposable {
 			}
 
 			this._provider = new type(this.createAIProviderContext(providerId));
-			this._providerDisposable = this._provider?.onDidChange?.(
+			const newProvider = this._provider;
+			this._providerDisposable = newProvider?.onDidChange?.(
 				debounce(async () => {
-					if (this._model != null) return;
+					// Provider's internal state changed (VSCode chat models list updated, etc.) —
+					// drop the resolved/list caches so subsequent reads pick up the new state.
+					this._modelCache.clear();
+					this._providerModelsCache.delete(providerId);
+
+					// Validate the singleton against the fresh models list — the provider may have
+					// un-registered the model that's currently selected. Without this, the next read
+					// would cache-miss, fall into `getOrUpdateModel`, match `modelId === _model.id`,
+					// and return the now-removed model.
+					if (this._model != null && this._provider === newProvider) {
+						const models = await this.getCachedProviderModels(newProvider, providerId);
+						if (models.some(m => m.id === this._model?.id)) return;
+
+						this._model = undefined;
+					} else if (this._model != null) {
+						return;
+					}
 
 					const model = await this.getModel({ silent: true });
 					if (model == null) return;
 
-					this._onDidChangeModel.fire({ model: this._model });
+					this._onDidChangeModel.fire({ model: model, scope: undefined });
 				}, 250),
 				this,
 			);
@@ -792,11 +1010,13 @@ export class AIProviderService implements AIService, Disposable {
 			} else {
 				changed = true;
 
-				const models = await this._provider.getModels();
+				const models = await this.getCachedProviderModels(this._provider, providerId);
 				model = models?.find(m => m.id === modelId);
 				if (model == null) {
 					this._model = undefined;
-
+					// Cache the "no model configured" outcome so silent reads don't keep re-running
+					// the full pipeline (and re-hitting the network) just to land back on `undefined`.
+					this._modelCache.set(scope ?? 'global', undefined);
 					return undefined;
 				}
 			}
@@ -805,9 +1025,21 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		this._model = model;
+		// Mirror the resolved value into the per-scope cache. This is the source of truth for the
+		// hot `getModel({ silent: true })` path — populated here on every successful resolve so
+		// subsequent reads (including same-scope re-reads from event handlers) skip the network.
+		this._modelCache.set(scope ?? 'global', model);
 
 		if (changed) {
-			if (isPrimaryAIProviderModel(model)) {
+			if (scope != null) {
+				// Scoped persistence: only the scope's Memento key is updated. The global default
+				// `ai.model` config is intentionally NOT touched so other features keep their model.
+				// Scoped storage uses the fully qualified `provider:model` form for ALL providers
+				// (including primaries) so a single read resolves the model without consulting any
+				// global `ai.${providerId}.model` config — keeping scope isolation airtight.
+				const qualified: AIProviderAndModel = `${model.provider.id}:${model.id}`;
+				await this.container.storage.store(`ai:scope:${scope}:model`, qualified);
+			} else if (isPrimaryAIProviderModel(model)) {
 				await configuration.updateEffective(`ai.model`, model.provider.id);
 				await configuration.updateEffective(`ai.${model.provider.id}.model`, model.id);
 			} else {
@@ -816,16 +1048,32 @@ export class AIProviderService implements AIService, Disposable {
 					`${model.provider.id}:${model.id}` as SupportedAIModels,
 				);
 			}
-			this._onDidChangeModel.fire({ model: model });
+			this._onDidChangeModel.fire({ model: model, scope: scope });
 		}
 
 		return model;
 	}
 
+	/**
+	 * Resolves an AI provider instance scoped to a single request. Always constructs a fresh
+	 * provider rather than returning the cached `this._provider` — even when the ids match —
+	 * because a concurrent `getOrUpdateModel(different-provider)` would otherwise dispose the
+	 * cached instance mid-flight on an unrelated request. Provider construction is cheap;
+	 * decoupling lifetime is the safer trade-off. The caller MUST `dispose()` when finished.
+	 */
+	private async getProviderForModel(
+		model: AIModel,
+	): Promise<{ provider: AIProvider; dispose: () => void } | undefined> {
+		const type = await supportedAIProviders.get(model.provider.id)?.type.value;
+		if (type == null) return undefined;
+
+		const provider = new type(this.createAIProviderContext(model.provider.id));
+		return { provider: provider, dispose: () => provider.dispose() };
+	}
+
 	private async ensureFeatureAccess(feature: AIFeatures, source: Source): Promise<boolean> {
 		if (!(await ensureAccess(this.container, undefined, source))) return false;
 
-		if (feature === 'generate-commitMessage') return true;
 		const suffix = isAdvancedFeature(feature)
 			? 'requires GitLens Advanced or a trial'
 			: 'requires GitLens Pro or a trial';
@@ -875,7 +1123,7 @@ export class AIProviderService implements AIService, Disposable {
 			return 'cancelled';
 		}
 
-		model ??= await this.getModel(undefined, source);
+		model ??= await this.getModel({ scope: scopeForAction(action) }, source);
 		if (model == null || options?.cancellation?.isCancellationRequested) {
 			scope?.setFailed(model != null ? 'cancelled: user cancelled' : 'cancelled: no model set');
 			options?.generating?.cancel();
@@ -883,6 +1131,25 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		const telementry = provider.getTelemetryInfo(model, 0);
+
+		// Resolve the provider for the resolved model independent of `this._provider` — the
+		// singleton cache reflects whichever `getModel` ran most recently, which races with
+		// concurrent ops on different models. Ownership transfers to the inner promise once
+		// the request loop owns it; until then, every early-return path must dispose.
+		const requestProviderRef = await this.getProviderForModel(model);
+		if (requestProviderRef == null) {
+			scope?.setFailed('cancelled: provider not available');
+			options?.generating?.cancel();
+			return 'cancelled';
+		}
+
+		let providerDisposed = false;
+		const disposeRequestProvider = () => {
+			if (providerDisposed) return;
+
+			providerDisposed = true;
+			requestProviderRef.dispose();
+		};
 
 		const cancellationSource = new CancellationTokenSource();
 		if (options?.cancellation) {
@@ -911,12 +1178,13 @@ export class AIProviderService implements AIService, Disposable {
 			);
 
 			options?.generating?.cancel();
+			disposeRequestProvider();
 			return 'cancelled';
 		}
 
 		let apiKey: string | undefined;
 		try {
-			apiKey = await this._provider!.getApiKey(false);
+			apiKey = await requestProviderRef.provider.getApiKey(false);
 		} catch (ex) {
 			if (isCancellationError(ex)) {
 				scope?.setFailed('cancelled: user cancelled');
@@ -927,9 +1195,11 @@ export class AIProviderService implements AIService, Disposable {
 				);
 
 				options?.generating?.cancel();
+				disposeRequestProvider();
 				return 'cancelled';
 			}
 
+			disposeRequestProvider();
 			throw ex;
 		}
 
@@ -942,6 +1212,7 @@ export class AIProviderService implements AIService, Disposable {
 			);
 
 			options?.generating?.cancel();
+			disposeRequestProvider();
 			return 'cancelled';
 		}
 
@@ -954,235 +1225,286 @@ export class AIProviderService implements AIService, Disposable {
 			);
 
 			options?.generating?.cancel();
+			disposeRequestProvider();
 			return undefined;
 		}
 
-		const controller = new AbortController();
-		cancellation.onCancellationRequested(() => controller.abort());
-
-		const requestPromise = this._provider!.sendRequest(
-			action,
-			model,
-			apiKey,
-			provider.getMessages.bind(this, model, telementry.data, cancellation),
-			{
-				signal: controller.signal,
-				modelOptions: options?.modelOptions,
-			},
-		);
-		options?.generating?.fulfill(model);
-
-		const start = performance.now();
 		const promise = (async (): Promise<AIProviderResponse<void> | 'cancelled' | undefined> => {
+			let fulfilled = false;
 			try {
-				const result = await (options?.progress != null
-					? window.withProgress(
-							{ ...options.progress, cancellable: true, title: provider.getProgressTitle(model, 0) },
-							(_progress, token) => {
-								token.onCancellationRequested(() => cancellationSource.cancel());
-								return requestPromise;
+				while (true) {
+					const controller = new AbortController();
+					const cancellationListener = cancellation.onCancellationRequested(() => controller.abort());
+					const start = performance.now();
+					try {
+						if (getIsOffline()) {
+							throw new AIError(AIErrorReason.NoNetwork);
+						}
+
+						const requestPromise = requestProviderRef.provider.sendRequest(
+							action,
+							model,
+							apiKey,
+							provider.getMessages.bind(this, model, telementry.data, cancellation),
+							{ signal: controller.signal, modelOptions: options?.modelOptions },
+						);
+						if (!fulfilled) {
+							options?.generating?.fulfill(model);
+							fulfilled = true;
+						}
+
+						const result = await (options?.progress != null
+							? window.withProgress(
+									{
+										...options.progress,
+										cancellable: true,
+										title: provider.getProgressTitle(model, 0),
+									},
+									(_progress, token) => {
+										token.onCancellationRequested(() => cancellationSource.cancel());
+										return requestPromise;
+									},
+								)
+							: requestPromise);
+
+						telementry.data['output.length'] = result?.content?.length;
+						telementry.data['usage.promptTokens'] = result?.usage?.promptTokens;
+						telementry.data['usage.completionTokens'] = result?.usage?.completionTokens;
+						telementry.data['usage.totalTokens'] = result?.usage?.totalTokens;
+						telementry.data['usage.limits.used'] = result?.usage?.limits?.used;
+						telementry.data['usage.limits.limit'] = result?.usage?.limits?.limit;
+						telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
+
+						scope?.addExitInfo(`id: ${result?.id}`);
+						this.container.telemetry.sendEvent(
+							telementry.key,
+							{ ...telementry.data, duration: performance.now() - start, id: result?.id },
+							source,
+						);
+
+						if (result != null && supportedAIProviders.get(model.provider.id)?.requiresUserKey) {
+							void this.reportBYOKUsage(action, result);
+						}
+
+						if (!isGkModel) {
+							void this.showAiAllAccessNotificationIfNeeded();
+						}
+
+						return result;
+					} catch (ex) {
+						if (isCancellationError(ex)) {
+							scope?.setFailed('cancelled: user cancelled');
+							this.container.telemetry.sendEvent(
+								telementry.key,
+								{
+									...telementry.data,
+									duration: performance.now() - start,
+									failed: true,
+									'failed.reason': 'user-cancelled',
+								},
+								source,
+							);
+
+							if (!fulfilled) {
+								options?.generating?.cancel();
+							}
+							return 'cancelled';
+						}
+
+						const networkReason = ex instanceof AIError ? undefined : classifyNetworkError(ex);
+						const error =
+							networkReason != null
+								? new AIError(networkReason, ex instanceof Error ? ex : undefined)
+								: ex;
+
+						if (error instanceof AIError) {
+							scope?.setFailed(
+								`failed: ${String(error)}${error.original ? ` (${String(error.original)})` : ''}`,
+							);
+
+							this.container.telemetry.sendEvent(
+								telementry.key,
+								{
+									...telementry.data,
+									duration: performance.now() - start,
+									failed: true,
+									'failed.error': String(error),
+									'failed.error.detail': error.original ? String(error.original) : undefined,
+								},
+								source,
+							);
+
+							switch (error.reason) {
+								case AIErrorReason.NoNetwork:
+								case AIErrorReason.Unreachable: {
+									const retry: MessageItem = { title: 'Retry' };
+									const result = await window.showErrorMessage(
+										error.reason === AIErrorReason.NoNetwork
+											? 'Unable to reach the AI service. Please check your internet connection and try again.'
+											: 'The AI service is temporarily unreachable. Please try again.',
+										retry,
+									);
+									if (cancellation.isCancellationRequested) {
+										if (!fulfilled) {
+											options?.generating?.cancel();
+										}
+										return 'cancelled';
+									}
+									if (result === retry) continue;
+
+									if (!fulfilled) {
+										options?.generating?.cancel();
+									}
+									return undefined;
+								}
+								case AIErrorReason.NoRequestData:
+									void window.showInformationMessage(error.message);
+									return undefined;
+
+								case AIErrorReason.NoEntitlement: {
+									const sub = await this.container.subscription.getSubscription();
+
+									if (isSubscriptionPaid(sub)) {
+										const plan =
+											compareSubscriptionPlans(sub.plan.actual.id, 'advanced') <= 0
+												? 'teams'
+												: 'advanced';
+
+										const upgrade = { title: `Upgrade to ${getSubscriptionPlanName(plan)}` };
+										const result = await window.showErrorMessage(
+											"This AI feature isn't included in your current plan. Please upgrade and try again.",
+											upgrade,
+										);
+
+										if (result === upgrade) {
+											void this.container.subscription.manageSubscription(source);
+										}
+									} else {
+										// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
+										const upgrade = { title: 'Upgrade to Pro' };
+										const result = await window.showErrorMessage(
+											'Please upgrade to GitLens Pro to access this AI feature and try again.',
+											upgrade,
+										);
+
+										if (result === upgrade) {
+											void this.container.subscription.upgrade('pro', source);
+										}
+									}
+
+									return undefined;
+								}
+								case AIErrorReason.RequestTooLarge: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+									return undefined;
+								}
+								case AIErrorReason.UserQuotaExceeded: {
+									const increaseLimit: MessageItem = { title: 'Increase Limit' };
+									const result = await window.showErrorMessage(
+										"Your request could not be completed because you've reached the weekly AI usage limit for your current plan. Upgrade to unlock more AI-powered actions.",
+										increaseLimit,
+									);
+
+									if (result === increaseLimit) {
+										void this.container.subscription.manageSubscription(source);
+									}
+
+									return undefined;
+								}
+								case AIErrorReason.RateLimitExceeded: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+
+									return undefined;
+								}
+								case AIErrorReason.RateLimitOrFundsExceeded: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+									return undefined;
+								}
+								case AIErrorReason.ServiceCapacityExceeded: {
+									void window.showErrorMessage(
+										'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
+										'OK',
+									);
+									return undefined;
+								}
+								case AIErrorReason.ModelNotSupported: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'The selected model is not supported for this request. Please select a different model and try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+									return undefined;
+								}
+								case AIErrorReason.Unauthorized: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'You do not have access to the selected model. Please select a different model and try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+									return undefined;
+								}
+								case AIErrorReason.DeniedByUser: {
+									const switchModel: MessageItem = { title: 'Switch Model' };
+									const result = await window.showErrorMessage(
+										'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
+										switchModel,
+									);
+									if (result === switchModel) {
+										void this.switchModel(source);
+									}
+									return undefined;
+								}
+							}
+
+							return undefined;
+						}
+
+						scope?.setFailed(`failed: ${String(ex)}${ex.original ? ` (${String(ex.original)})` : ''}`);
+						this.container.telemetry.sendEvent(
+							telementry.key,
+							{
+								...telementry.data,
+								duration: performance.now() - start,
+								failed: true,
+								'failed.error': String(ex),
+								'failed.error.detail': ex.original ? String(ex.original) : undefined,
 							},
-						)
-					: requestPromise);
-
-				telementry.data['output.length'] = result?.content?.length;
-				telementry.data['usage.promptTokens'] = result?.usage?.promptTokens;
-				telementry.data['usage.completionTokens'] = result?.usage?.completionTokens;
-				telementry.data['usage.totalTokens'] = result?.usage?.totalTokens;
-				telementry.data['usage.limits.used'] = result?.usage?.limits?.used;
-				telementry.data['usage.limits.limit'] = result?.usage?.limits?.limit;
-				telementry.data['usage.limits.resetsOn'] = result?.usage?.limits?.resetsOn?.toISOString();
-
-				scope?.addExitInfo(`id: ${result?.id}`);
-				this.container.telemetry.sendEvent(
-					telementry.key,
-					{ ...telementry.data, duration: performance.now() - start, id: result?.id },
-					source,
-				);
-
-				if (result != null && supportedAIProviders.get(model.provider.id)?.requiresUserKey) {
-					void this.reportBYOKUsage(action, result);
-				}
-
-				if (!isGkModel) {
-					void this.showAiAllAccessNotificationIfNeeded();
-				}
-
-				return result;
-			} catch (ex) {
-				if (isCancellationError(ex)) {
-					scope?.setFailed('cancelled: user cancelled');
-					this.container.telemetry.sendEvent(
-						telementry.key,
-						{
-							...telementry.data,
-							duration: performance.now() - start,
-							failed: true,
-							'failed.reason': 'user-cancelled',
-						},
-						source,
-					);
-
-					return 'cancelled';
-				}
-				if (ex instanceof AIError) {
-					scope?.setFailed(`failed: ${String(ex)} (${String(ex.original)})`);
-
-					this.container.telemetry.sendEvent(
-						telementry.key,
-						{
-							...telementry.data,
-							duration: performance.now() - start,
-							failed: true,
-							'failed.error': String(ex),
-							'failed.error.detail': String(ex.original),
-						},
-						source,
-					);
-
-					switch (ex.reason) {
-						case AIErrorReason.NoRequestData:
-							void window.showInformationMessage(ex.message);
-							return undefined;
-
-						case AIErrorReason.NoEntitlement: {
-							const sub = await this.container.subscription.getSubscription();
-
-							if (isSubscriptionPaid(sub)) {
-								const plan =
-									compareSubscriptionPlans(sub.plan.actual.id, 'advanced') <= 0
-										? 'teams'
-										: 'advanced';
-
-								const upgrade = { title: `Upgrade to ${getSubscriptionPlanName(plan)}` };
-								const result = await window.showErrorMessage(
-									"This AI feature isn't included in your current plan. Please upgrade and try again.",
-									upgrade,
-								);
-
-								if (result === upgrade) {
-									void this.container.subscription.manageSubscription(source);
-								}
-							} else {
-								// Users without accounts would never get here since they would have been blocked by `ensureFeatureAccess`
-								const upgrade = { title: 'Upgrade to Pro' };
-								const result = await window.showErrorMessage(
-									'Please upgrade to GitLens Pro to access this AI feature and try again.',
-									upgrade,
-								);
-
-								if (result === upgrade) {
-									void this.container.subscription.upgrade('pro', source);
-								}
-							}
-
-							return undefined;
-						}
-						case AIErrorReason.RequestTooLarge: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'Your request is too large. Please reduce the size of your request or switch to a different model, and then try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-							return undefined;
-						}
-						case AIErrorReason.UserQuotaExceeded: {
-							const increaseLimit: MessageItem = { title: 'Increase Limit' };
-							const result = await window.showErrorMessage(
-								"Your request could not be completed because you've reached the weekly AI usage limit for your current plan. Upgrade to unlock more AI-powered actions.",
-								increaseLimit,
-							);
-
-							if (result === increaseLimit) {
-								void this.container.subscription.manageSubscription(source);
-							}
-
-							return undefined;
-						}
-						case AIErrorReason.RateLimitExceeded: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'Rate limit exceeded. Please wait a few moments or switch to a different model, and then try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-
-							return undefined;
-						}
-						case AIErrorReason.RateLimitOrFundsExceeded: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'Rate limit exceeded, or your account is out of funds. Please wait a few moments, check your account balance, or switch to a different model, and then try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-							return undefined;
-						}
-						case AIErrorReason.ServiceCapacityExceeded: {
-							void window.showErrorMessage(
-								'GitKraken AI is temporarily unable to process your request due to high volume. Please wait a few moments and try again. If this issue persists, please contact support.',
-								'OK',
-							);
-							return undefined;
-						}
-						case AIErrorReason.ModelNotSupported: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'The selected model is not supported for this request. Please select a different model and try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-							return undefined;
-						}
-						case AIErrorReason.Unauthorized: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'You do not have access to the selected model. Please select a different model and try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-							return undefined;
-						}
-						case AIErrorReason.DeniedByUser: {
-							const switchModel: MessageItem = { title: 'Switch Model' };
-							const result = await window.showErrorMessage(
-								'You have denied access to the selected model. Please provide access or select a different model, and then try again.',
-								switchModel,
-							);
-							if (result === switchModel) {
-								void this.switchModel(source);
-							}
-							return undefined;
-						}
+							source,
+						);
+						throw ex;
+					} finally {
+						cancellationListener.dispose();
 					}
-
-					return undefined;
 				}
-
-				scope?.setFailed(`failed: ${String(ex)}${ex.original ? ` (${String(ex.original)})` : ''}`);
-				this.container.telemetry.sendEvent(
-					telementry.key,
-					{
-						...telementry.data,
-						duration: performance.now() - start,
-						failed: true,
-						'failed.error': String(ex),
-						'failed.error.detail': ex.original ? String(ex.original) : undefined,
-					},
-					source,
-				);
-				throw ex;
+			} finally {
+				disposeRequestProvider();
 			}
 		})();
 
@@ -1534,8 +1856,8 @@ export class AIProviderService implements AIService, Disposable {
 		return supportedAIProviders.has(provider as AIProviders);
 	}
 
-	switchModel(source?: Source): Promise<AIModel | undefined> {
-		return this.getModel({ force: true }, source);
+	switchModel(source?: Source, options?: { scope?: AIModelScope }): Promise<AIModel | undefined> {
+		return this.getModel({ force: true, scope: options?.scope }, source);
 	}
 
 	private async showAiAllAccessNotificationIfNeeded(usingGkProvider?: boolean): Promise<void> {
@@ -1607,7 +1929,7 @@ export class AIProviderService implements AIService, Disposable {
 					);
 				}
 
-				this._onDidChangeModel.fire({ model: defaultModel });
+				this._onDidChangeModel.fire({ model: defaultModel, scope: undefined });
 			}
 		}
 	}
@@ -1648,4 +1970,43 @@ function isPrimaryAIProvider(provider: AIProviders): provider is AIPrimaryProvid
 
 function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryProviders, AIProviderAndModel> {
 	return isPrimaryAIProvider(model.provider.id);
+}
+
+function isAIModelScope(value: unknown): value is AIModelScope {
+	return value === 'compose' || value === 'review';
+}
+
+function getPickerTitlesForScope(scope: AIModelScope | undefined): {
+	provider: { title: string; placeholder: string; scope: AIModelScope } | undefined;
+	model: { title: string; placeholder: string; scope: AIModelScope } | undefined;
+} {
+	if (scope === 'compose') {
+		return {
+			provider: {
+				title: 'Select AI Provider for Composing',
+				placeholder: 'Choose an AI provider for composing',
+				scope: scope,
+			},
+			model: {
+				title: 'Select AI Model for Composing',
+				placeholder: 'Choose an AI model for composing',
+				scope: scope,
+			},
+		};
+	}
+	if (scope === 'review') {
+		return {
+			provider: {
+				title: 'Select AI Provider for Reviewing',
+				placeholder: 'Choose an AI provider for reviewing',
+				scope: scope,
+			},
+			model: {
+				title: 'Select AI Model for Reviewing',
+				placeholder: 'Choose an AI model for reviewing',
+				scope: scope,
+			},
+		};
+	}
+	return { provider: undefined, model: undefined };
 }

@@ -9,7 +9,11 @@ import type { RepositoryService } from '@gitlens/git/repositoryService.js';
 import type { UnsafeGit } from '@gitlens/git/run.types.js';
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { getRemoteThemeIconString } from '@gitlens/git/utils/remote.utils.js';
+import type { WatcherRepoChangeEvent, WorkingTreeChangeEvent } from '@gitlens/git/watching/changeEvent.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import { mixinDisposable } from '@gitlens/utils/disposable.js';
+import type { Event } from '@gitlens/utils/event.js';
 import { groupByFilterMap } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -54,6 +58,7 @@ export class GitRepositoryService {
 		for (const key of Object.keys(descriptors)) {
 			// Skip properties already defined on GitRepositoryService
 			if (skipOverlappingProperties.has(key)) continue;
+
 			Object.defineProperty(this, key, descriptors[key]);
 		}
 	}
@@ -80,6 +85,51 @@ export class GitRepositoryService {
 	 */
 	createUnsafeGit(): UnsafeGit | undefined {
 		return this._provider.createUnsafeGit?.(this.path);
+	}
+
+	/**
+	 * Subscribe to filesystem-driven change events for this repository — repo changes
+	 * (`onDidChange`: index, head, refs, paused-op, etc.) and working-tree edits
+	 * (`onDidChangeWorkingTree`). Routes through the shared watch service so it works
+	 * regardless of whether a corresponding {@link GlRepository} is open or closed —
+	 * closed `GlRepository` instances skip `setupWatching` and their own `watchWorkingTree`
+	 * / `onDidChange` are dead, so callers that need events for not-currently-open repos
+	 * (e.g. the Graph's secondary-worktree WIP rows) must come through this method instead
+	 * of `repo.watchWorkingTree` / `repo.onDidChange`.
+	 *
+	 * Returns `undefined` when the git directory can't be resolved (transient or non-repo
+	 * paths). The returned object disposes both event subscriptions and the underlying
+	 * service-level watch handle, decrementing the ref count so the session tears down
+	 * cleanly when the last subscriber leaves.
+	 */
+	@trace()
+	async watch(opts?: { workingTreeDelayMs?: number }): Promise<
+		| (UnifiedDisposable & {
+				readonly onDidChange: Event<WatcherRepoChangeEvent>;
+				readonly onDidChangeWorkingTree: Event<WorkingTreeChangeEvent>;
+		  })
+		| undefined
+	> {
+		const gitDir = await this.config.getGitDir?.();
+		if (gitDir == null) return undefined;
+
+		const handle = this._svc.watchService.watch(this.path, gitDir);
+		if (handle == null) return undefined;
+
+		const wtSub = handle.session.subscribeToWorkingTree({ delayMs: opts?.workingTreeDelayMs ?? 500 });
+		const repoSub = handle.session.subscribe();
+
+		return mixinDisposable(
+			{
+				onDidChange: repoSub.onDidChange,
+				onDidChangeWorkingTree: wtSub.onDidChangeWorkingTree,
+			},
+			() => {
+				wtSub.dispose();
+				repoSub.dispose();
+				handle.dispose();
+			},
+		);
 	}
 
 	@trace()
@@ -346,8 +396,14 @@ export class GitRepositoryService {
 		pull?: boolean;
 		remote?: string;
 	}) {
+		// Virtual provider — no-op rather than lying via markFetched.
+		if (this.ops == null) return;
+
 		try {
-			await this.ops?.fetch(options);
+			await this.ops.fetch(options);
+			// `markFetched` tracks the fetch attempt; modern git skips rewriting FETCH_HEAD when
+			// all refs are up-to-date, so the on-disk mtime alone can lag the actual attempt.
+			this.getRepository()?.markFetched();
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -376,14 +432,21 @@ export class GitRepositoryService {
 	}
 
 	private async pullCore(options?: { rebase?: boolean }) {
+		// Virtual provider — no-op rather than lying via markFetched.
+		if (this.ops == null) return;
+
 		const repo = this.getRepository();
+		// Pull may fail after fetch lands (e.g., merge conflict) — still mark the attempt.
+		let didFetch = false;
 		try {
 			const withTags = configuration.getCore('git.pullTags', repo?.uri);
 			if (configuration.getCore('git.fetchOnPull', repo?.uri)) {
-				await this.ops?.fetch();
+				await this.ops.fetch();
+				didFetch = true;
 			}
 
-			await this.ops?.pull({ ...options, tags: withTags });
+			await this.ops.pull({ ...options, tags: withTags });
+			didFetch = true;
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -391,6 +454,10 @@ export class GitRepositoryService {
 				void showGitErrorMessage(ex);
 			} else {
 				void showGitErrorMessage(ex, 'Unable to pull');
+			}
+		} finally {
+			if (didFetch) {
+				repo?.markFetched();
 			}
 		}
 	}

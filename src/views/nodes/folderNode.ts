@@ -69,6 +69,7 @@ export class FolderNode extends ViewNode<'folder', ViewsWithCommits | StashesVie
 				}
 
 				if (!folder.children?.size) continue;
+
 				if (folder.children.size === 1 && compact) {
 					const child = first(folder.children.values());
 					if (child?.value != null) {

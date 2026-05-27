@@ -1,12 +1,16 @@
 import { createContext } from '@lit/context';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
+import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type {
 	GetOverviewWipResponse,
+	GraphColumnName,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphSelectedRows,
+	GraphWorkingTreeStats,
 	State,
+	Wip,
 } from '../../../plus/graph/protocol.js';
 import type { GetOverviewEnrichmentResponse, OverviewBranchMergeTarget } from '../../../shared/overviewBranches.js';
 
@@ -14,14 +18,23 @@ export interface AppState extends State {
 	state: State;
 	activeDay: number | undefined;
 	activeRow: string | undefined;
+	/**
+	 * Columns whose search operator is currently present in the search query, derived from
+	 * the parsed search query. Used by gl-graph.react.tsx to set `isFilterActive` on each
+	 * column before passing settings to GraphContainer.
+	 */
+	activeFilterColumns: ReadonlySet<GraphColumnName>;
 	agentSessions: AgentSessionState[];
 	isBusy: boolean;
 	loading: boolean;
+	/** Composed with `loading` at the `gl-graph` render boundary — true while a scope-anchor
+	 *  IPC is in flight past `scopeLoadingDelayMs`. Owned by `GraphStateProvider.setScope`. */
+	scopeLoading: boolean;
 	mcpBannerCollapsed?: boolean | undefined;
 	hooksBannerCollapsed?: boolean | undefined;
 	canInstallClaudeHook?: boolean | undefined;
 	navigating: 'next' | 'previous' | false;
-	overviewWip?: GetOverviewWipResponse;
+	overviewWip?: { branchIds: string[]; wip: GetOverviewWipResponse };
 	overviewEnrichment?: GetOverviewEnrichmentResponse;
 	scope: GraphScope | undefined;
 	searching: boolean;
@@ -32,9 +45,6 @@ export interface AppState extends State {
 	currentSearchId: number | undefined;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
-
-	/** Fetch enrichment for a branch not covered by the overview — used by the header scope popover. */
-	ensureEnrichmentForBranch(branchId: string): Promise<void>;
 
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph
@@ -52,10 +62,19 @@ export interface AppState extends State {
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void;
 
 	/**
-	 * Resolve the authoritative `mergeBase` for a scope and patch it onto the current scope signal.
-	 * Called by pickers (scope popover, overview card) at the moment of selection so the concern of
-	 * "completing" a scope lives with whoever picks it rather than with downstream consumers. Cheap
-	 * on re-picks due to session caching (webview-side + server-side).
+	 * Publish a freshly-picked scope to the `scope` signal — synchronously in its bare form
+	 * (without `mergeBase` / `mergeTargetTipSha`) so the graph component's scope filter activates
+	 * before any concurrent scroll-to-commit / select-row work. The anchor is resolved
+	 * asynchronously via IPC and applied afterward; if the resolved merge base isn't in the
+	 * loaded rows (stale or deep target), the bare scope stays and the foreign-ref heuristic
+	 * bounds visibility.
+	 */
+	setScope(scope: GraphScope): Promise<void>;
+
+	/**
+	 * Re-resolve the authoritative `mergeBase` for an already-published scope. Called from the
+	 * `DidInvalidateScopeAnchorsNotification` handler after refs/config move so the live scope
+	 * picks up the fresh anchor without the user re-picking. Initial picks go through `setScope`.
 	 */
 	resolveScopeMergeBase(scope: GraphScope): Promise<void>;
 
@@ -65,6 +84,61 @@ export interface AppState extends State {
 	 * a single coordinated re-render instead of a minimap reset followed by a separate filter update.
 	 */
 	deferScopeClear(): void;
+
+	/**
+	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
+	 * unstage). The entry is flagged so subsequent `getWipState` calls report `isLive: false`
+	 * until the host's watcher reconciles. The host-driven push paths (`DidChangeWorkingTree` /
+	 * `DidRequestWipRefetch`) seed the cache through an internal path that clears that flag.
+	 */
+	setWip(repoPath: string, wip: Wip): void;
+
+	/**
+	 * Monotonic counter bumped on every write to `workingTreeStats` (host pushes + the
+	 * `setWorkingTreeStats` reseed). Callers about to issue a `getWip` RPC snapshot this BEFORE
+	 * the await and pass it to `setWorkingTreeStats` as `expectedGen`; a host push landing
+	 * during the await advances the counter and the older RPC response is dropped instead of
+	 * clobbering the fresher stats.
+	 */
+	readonly workingTreeStatsGen: number;
+
+	/**
+	 * Reseed `workingTreeStats` from a panel-driven `getWip` cold-load. No-op unless `repoPath`
+	 * matches the selected repository — the header/row badges only render the active repo's
+	 * stats. Closes the staleness gap when a prior FS-watcher push was missed or wrong (the
+	 * panel still recovers on its own because it tracks `wip` independently).
+	 *
+	 * `expectedGen` is the value of `workingTreeStatsGen` captured BEFORE the `getWip` await;
+	 * when the counter advanced during the await (host push landed), the write is dropped.
+	 */
+	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats, expectedGen?: number): void;
+
+	/**
+	 * Return the cached WIP for `repoPath` plus liveness metadata. `isLive` reflects whether the
+	 * host currently has an active working-tree watcher for that repo — `true` for the primary
+	 * repo while it's selected, `true` for any secondary whose row is in the latest
+	 * `SyncWipWatchesCommand` set, `false` otherwise (and after a local optimistic edit until
+	 * the host reconciles). `ageMs` is the time since the entry was last written. Consumers use
+	 * `isLive` to decide whether to background-revalidate on cache hit.
+	 */
+	getWipState(repoPath: string): { wip: Wip; isLive: boolean; ageMs: number } | undefined;
+
+	/**
+	 * Update the set of repos the host currently has working-tree watchers for. Called by
+	 * `graph-wrapper.ts` whenever it sends `SyncWipWatchesCommand` (visible secondaries) and on
+	 * `selectedRepository` change. The primary `selectedRepository` is always included by the
+	 * implementation — callers only need to pass the secondary set.
+	 */
+	updateActiveWipWatchers(repoPaths: Iterable<string>): void;
+
+	/**
+	 * Patch one `(worktreePath, draft)` slot in the per-repo wipDrafts map (routed through
+	 * `updateState` so `_state.wipDrafts` stays in sync with the signal accessor). Pass
+	 * `draft: null` to delete; prunes the parent map to `undefined` when empty. Used by the
+	 * details panel to optimistically mirror a flushed draft so the next `loadWipDraft` (e.g.,
+	 * swap-away-and-back within the same session) sees it without waiting for a host state push.
+	 */
+	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void;
 }
 
 export const graphStateContext = createContext<AppState>('graph-state-context');

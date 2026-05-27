@@ -6,8 +6,8 @@
  * Tests realistic Git command streaming scenarios with various chunk sizes.
  */
 
-import { iterateAsyncByDelimiter } from '@gitlens/utils/string.js';
 import { Bench } from 'tinybench';
+import { iterateAsyncByDelimiter } from '../string.js';
 import {
 	consumeAsyncIterator,
 	displayAnalysisHeader,
@@ -41,6 +41,7 @@ async function* iterateAsyncByDelimiterGenerator(
 			}
 
 			yield buffer.substring(i, j);
+
 			i = j + delimiterLen;
 		}
 
@@ -59,6 +60,7 @@ async function* iterateAsyncByDelimiterGenerator(
 async function* createAsyncIterable(data: string, chunkSize: number = 1024): AsyncGenerator<string> {
 	for (let i = 0; i < data.length; i += chunkSize) {
 		yield data.substring(i, i + chunkSize);
+
 		// Add tiny delay to simulate async I/O
 		await new Promise(resolve => setImmediate(resolve));
 	}
@@ -133,6 +135,7 @@ async function analyze(testData: ReturnType<typeof generateGitTestData>): Promis
 			console.log(`  ${test.name} | Winner: unknown | Iterator did not complete`);
 			continue;
 		}
+
 		const genResult = bench.tasks.find(t => t.name === 'generator')?.result;
 		if (genResult?.state !== 'completed') {
 			console.log(`  ${test.name} | Winner: unknown | Generator did not complete`);

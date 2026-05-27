@@ -2,6 +2,10 @@ import { css } from 'lit';
 
 /** Rebase webview layout and global styles */
 export const rebaseStyles = css`
+	.clickable {
+		cursor: pointer;
+	}
+
 	/* ==========================================================================
 	   CSS Custom Properties (Theme Variables)
 	   ========================================================================== */

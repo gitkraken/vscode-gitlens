@@ -43,6 +43,7 @@ export function getRefParser(supportedFeatures: FilteredGitFeatures<'git:for-eac
 		_refParserWithWorktree ??= createRefParser(refMappingSupportsWorktreePath);
 		return _refParserWithWorktree;
 	}
+
 	_refParser ??= createRefParser(refMapping);
 	return _refParser;
 }

@@ -381,6 +381,7 @@ function parseVstsHttpsUrl(url: URL): [owner: string, project: string, repo: str
 	if (match == null) {
 		throw new Error(`Invalid VSTS URL: ${url.toString()}`);
 	}
+
 	const [, project, repo] = match;
 	return [owner, project, repo];
 }
@@ -392,6 +393,7 @@ function parseAzureNewStyleUrl(url: URL): [owner: string, project: string, repo:
 	if (match == null) {
 		throw new Error(`Invalid Azure URL: ${url.toString()}`);
 	}
+
 	const [, owner, project, repo] = match;
 	return [owner, project, repo];
 }
@@ -414,6 +416,7 @@ export function getAzurePullRequestWebUrl(pr: AzurePullRequest): string {
 	if (isVSTS) {
 		return `${baseUrl}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 	}
+
 	const owner = getAzureDevOpsOwner(url);
 	return `${baseUrl}/${owner}/${repoPath}/pullrequest/${pr.pullRequestId}`;
 }

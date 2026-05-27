@@ -1,7 +1,6 @@
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { getCssVariable } from '@gitlens/utils/color.js';
-import { debug } from '@gitlens/utils/decorators/log.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { capitalize, pluralize } from '@gitlens/utils/string.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
@@ -478,6 +477,7 @@ export class GlGraphMinimap extends GlElement {
 		const top = this.visibleDays?.top;
 		const bottom = this.visibleDays?.bottom;
 		if (top === this._lastVisibleTop && bottom === this._lastVisibleBottom) return;
+
 		this._lastVisibleTop = top;
 		this._lastVisibleBottom = bottom;
 		this.requestDraw();
@@ -489,6 +489,7 @@ export class GlGraphMinimap extends GlElement {
 		this._resizeObserver = new ResizeObserver(entries => {
 			const rect = entries[0]?.contentRect;
 			if (rect == null) return;
+
 			const w = Math.round(rect.width);
 			const h = Math.round(rect.height);
 			// Any resize (including parent split-panel drags) potentially shifts the canvas origin,
@@ -544,6 +545,7 @@ export class GlGraphMinimap extends GlElement {
 			this.unselect(undefined, trackOnly);
 			return;
 		}
+
 		const day = getDay(date);
 		if (trackOnly) {
 			// Transient hover — e.g., graph row hover shadows through to the minimap without touching
@@ -574,6 +576,7 @@ export class GlGraphMinimap extends GlElement {
 			this._viewModel = undefined;
 			return;
 		}
+
 		const todayMidnight = new Date().setHours(0, 0, 0, 0);
 		this._viewModel = buildViewModel(this.data, this.dataType, todayMidnight);
 	}
@@ -583,6 +586,7 @@ export class GlGraphMinimap extends GlElement {
 			this._zoomedViewModel = undefined;
 			return;
 		}
+
 		// Source data may have shrunk or a day-boundary roll-over may have moved the full-timeline
 		// bounds; re-clamp the zoom window before re-slicing and reset to unzoomed if the intersection
 		// is empty or too narrow to be meaningful.
@@ -595,6 +599,7 @@ export class GlGraphMinimap extends GlElement {
 			this.resetZoom();
 			return;
 		}
+
 		this._zoomOldest = oldest;
 		this._zoomNewest = newest;
 		this._zoomedViewModel = sliceViewModel(this._viewModel, oldest, newest);
@@ -610,6 +615,7 @@ export class GlGraphMinimap extends GlElement {
 
 	applyZoom(oldest: number, newest: number, options?: { minRange?: number; extendOnClamp?: boolean }): void {
 		if (this._viewModel == null) return;
+
 		const fullOldest = this._viewModel.days.at(-1)!;
 		const fullNewest = this._viewModel.days[0];
 
@@ -663,6 +669,7 @@ export class GlGraphMinimap extends GlElement {
 
 	resetZoom(): void {
 		if (this._zoomedViewModel == null) return;
+
 		this._zoomOldest = undefined;
 		this._zoomNewest = undefined;
 		this._zoomMinRange = undefined;
@@ -694,9 +701,11 @@ export class GlGraphMinimap extends GlElement {
 		) {
 			return;
 		}
+
 		const fullOldest = this._viewModel.days.at(-1)!;
 		const fullNewest = this._viewModel.days[0];
 		if (fullNewest <= fullOldest) return;
+
 		const shift = scrollbarDeltaToTimestampShift(deltaX, fullOldest, fullNewest, this._layout);
 
 		const width = this._thumbDragStartNewest - this._thumbDragStartOldest;
@@ -717,6 +726,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private pageJump(side: 'newer' | 'older'): void {
 		if (this._zoomOldest == null || this._zoomNewest == null || this._viewModel == null) return;
+
 		const fullOldest = this._viewModel.days.at(-1)!;
 		const fullNewest = this._viewModel.days[0];
 		const width = this._zoomNewest - this._zoomOldest;
@@ -739,6 +749,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private requestDraw() {
 		if (this._drawRAF != null) return;
+
 		this._drawRAF = requestAnimationFrame(() => {
 			this._drawRAF = undefined;
 			this.drawNow();
@@ -752,6 +763,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private drawNow() {
 		if (this._ctx == null || this._observedWidth === 0 || this._observedHeight === 0) return;
+
 		const dpr = window.devicePixelRatio || 1;
 		if (this._viewModel == null) {
 			const backingW = Math.round(this._observedWidth * dpr);
@@ -936,6 +948,7 @@ export class GlGraphMinimap extends GlElement {
 	private onPointerDown = (e: PointerEvent) => {
 		if (e.button !== 0) return;
 		if (this._viewModel == null || this._layout == null) return;
+
 		const rect = this.canvasRect;
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
@@ -981,6 +994,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private onPointerMove = (e: PointerEvent) => {
 		if (this._viewModel == null || this._layout == null) return;
+
 		const rect = this.canvasRect;
 		const x = e.clientX - rect.left;
 		const y = e.clientY - rect.top;
@@ -1027,6 +1041,7 @@ export class GlGraphMinimap extends GlElement {
 
 		const active = this.activeViewModel;
 		if (active == null) return;
+
 		const day = xToDay(x, active, this._layout);
 		if (day == null) {
 			if (this._hoverDay !== undefined) {
@@ -1036,6 +1051,7 @@ export class GlGraphMinimap extends GlElement {
 			this.hideTooltip();
 			return;
 		}
+
 		const dayChanged = day !== this._hoverDay;
 		this._hoverDay = day;
 		if (dayChanged) {
@@ -1071,8 +1087,10 @@ export class GlGraphMinimap extends GlElement {
 			const x = e.clientX - this.canvasRect.left;
 			this._pointerDownX = undefined;
 			if (active == null) return;
+
 			const day = xToDay(x, active, this._layout);
 			if (day == null) return;
+
 			const sha = this.searchResults?.get(day)?.sha ?? this.data?.get(day)?.sha;
 			queueMicrotask(() => {
 				this.emit('gl-graph-minimap-selected', { date: new Date(day), sha: sha });
@@ -1096,6 +1114,7 @@ export class GlGraphMinimap extends GlElement {
 		// Keep brush/thumb state intact — pointer capture will keep events flowing to us — but clear
 		// the passive hover indicator so it doesn't linger after the pointer exits the canvas.
 		if (this._brushing || this._thumbDragging) return;
+
 		if (this._hoverDay !== undefined) {
 			this._hoverDay = undefined;
 			this.requestDraw();
@@ -1111,6 +1130,7 @@ export class GlGraphMinimap extends GlElement {
 		// Any double-click inside the minimap resets the zoom — the scrollbar track is still the
 		// most discoverable reset target, but restricting only to it is frustrating in practice.
 		if (!this.isZoomed) return;
+
 		e.preventDefault();
 		this.resetZoom();
 	};
@@ -1127,6 +1147,7 @@ export class GlGraphMinimap extends GlElement {
 
 	private onWheel = (e: WheelEvent) => {
 		if (this._viewModel == null) return;
+
 		const deltaY =
 			e.deltaMode === WheelEvent.DOM_DELTA_LINE
 				? e.deltaY * wheelLineHeightPx
@@ -1134,6 +1155,7 @@ export class GlGraphMinimap extends GlElement {
 					? e.deltaY * wheelPageHeightPx
 					: e.deltaY;
 		if (deltaY === 0) return;
+
 		e.preventDefault();
 		this.emit('gl-graph-minimap-wheel', { deltaY: deltaY });
 	};

@@ -234,6 +234,7 @@ export class BlameGitSubProvider implements GitBlameSubProvider {
 			let blameLine = blame.lines[editorLine];
 			if (blameLine == null) {
 				if (blame.lines.length !== editorLine) return undefined;
+
 				blameLine = blame.lines[editorLine - 1];
 			}
 

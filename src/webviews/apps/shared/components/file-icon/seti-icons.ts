@@ -1361,6 +1361,7 @@ export function resolveSetiFileIcon(filename: string, isLight = false): SetiIcon
 	while (dotIndex !== -1 && dotIndex < lower.length - 1) {
 		defId = extMap[lower.substring(dotIndex + 1)];
 		if (defId != null) return lookup(defId);
+
 		dotIndex = lower.indexOf('.', dotIndex + 1);
 	}
 

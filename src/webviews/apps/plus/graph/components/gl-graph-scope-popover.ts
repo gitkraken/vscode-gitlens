@@ -44,7 +44,7 @@ declare global {
 	}
 }
 
-type DisplayedMode = 'all' | 'current' | 'smart' | 'favorited' | 'scoped';
+type DisplayedMode = 'all' | 'current' | 'smart' | 'favorited' | 'agents' | 'scoped';
 
 export function getDisplayedMode(graphState: typeof graphStateContext.__context__): DisplayedMode {
 	if (graphState.scope != null) return 'scoped';
@@ -171,6 +171,11 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				label = 'Favorites';
 				tooltip = 'Showing Favorited Branches Only';
 				break;
+			case 'agents':
+				icon = 'robot';
+				label = 'Agents';
+				tooltip = 'Showing Agent Branches Only';
+				break;
 			case 'scoped':
 				icon = 'eye';
 				label = scopedName ?? 'Scoped';
@@ -236,6 +241,14 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					this.repo?.virtual ?? false,
 				)}
 				${this.renderModeMenuItem(
+					'agents',
+					'robot',
+					'Agent Branches',
+					'Shows only branches with currently running agents or agents idle for less than 24 hours',
+					mode,
+					this.repo?.virtual ?? false,
+				)}
+				${this.renderModeMenuItem(
 					'favorited',
 					'star-empty',
 					'Favorited Branches',
@@ -243,9 +256,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 					mode,
 					this.repo?.virtual ?? false,
 				)}
-				${this.graphState.config?.experimentalFeaturesEnabled === true
-					? this.renderFocusBranchRow(mode)
-					: nothing}
+				${this.renderFocusBranchRow(mode)}
 				<menu-divider></menu-divider>
 				${this.renderGraphFiltersSection()}
 			</div>
@@ -510,6 +521,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		const branchName = context?.[0];
 		// Skip folder nodes (branch name is empty) — let the tree handle expansion, don't close the popover.
 		if (branchName == null || branchName === '') return;
+
 		this.handleScopeToBranch(branchName, context?.[1]);
 	};
 
@@ -581,6 +593,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	private focusTreeView(): boolean {
 		const tree = this.renderRoot.querySelector<HTMLElement>('gl-tree-view');
 		if (tree == null) return false;
+
 		tree.focus();
 		return true;
 	}
@@ -620,6 +633,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			this.clearBranchesFetchRetry();
 			return;
 		}
+
 		actions?.fetchPanel('branches');
 		// If service isn't ready yet, fetchPanel is a no-op; poll until it succeeds — but cap
 		// attempts so a stuck service doesn't trap the popover on "Loading…" indefinitely.
@@ -630,6 +644,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 				this._branchesFetchExhausted = true;
 				return;
 			}
+
 			if (this._branchesFetchRetryTimer != null) {
 				clearTimeout(this._branchesFetchRetryTimer);
 			}
@@ -661,6 +676,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 		if (cache?.branches === branches && cache.layout === layout && cache.scopedBranchName === scopedBranchName) {
 			return cache.model;
 		}
+
 		const model =
 			layout === 'tree'
 				? buildBranchTreeModel(branches, scopedBranchName)
@@ -677,6 +693,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 	private hideModePopover(): void {
 		const popover = this.renderRoot.querySelector<GlPopover>('gl-popover.mode-popover');
 		if (popover == null) return;
+
 		void popover.hide();
 	}
 
@@ -709,6 +726,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 
 	private handleModeClearKeydown = (e: KeyboardEvent) => {
 		if (e.key !== 'Enter' && e.key !== ' ') return;
+
 		this.handleModeClear(e);
 	};
 

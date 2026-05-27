@@ -54,6 +54,18 @@ export class GlDetailsBase extends LitElement {
 	@property({ attribute: 'empty-text' })
 	emptyText? = 'No Files';
 
+	/**
+	 * Controlled-when-bound: parent-supplied visibility of the file-tree search box. Forwarded
+	 * to `gl-file-tree-pane`. Hosts that don't set it (e.g. the standalone inspect view) leave
+	 * the pane in its uncontrolled default.
+	 */
+	@property({ type: Boolean, attribute: 'show-search-box' })
+	showSearchBox?: boolean;
+
+	/** Controlled-when-bound: parent-supplied search-box filter mode (`true` = filter, `false` = highlight). */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
+
 	protected _getFileActions = (file: File, opts?: Partial<TreeItemBase>) => this.getFileActions(file, opts);
 	protected _getFileContext = (file: File) => this.getFileContext(file);
 	protected _getFolderContext = (folder: { name: string; relativePath: string; repoPath?: string }) =>
@@ -64,7 +76,7 @@ export class GlDetailsBase extends LitElement {
 		_mode: Mode,
 		options?: {
 			stats?: import('@gitlens/git/models/commit.js').GitCommitStats;
-			multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+			multiDiff?: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string };
 			loading?: boolean;
 		},
 	): TemplateResult<1> {
@@ -91,12 +103,16 @@ export class GlDetailsBase extends LitElement {
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.buttons=${buttons}
+				.showSearchBox=${this.showSearchBox}
+				.searchBoxFilter=${this.searchBoxFilter}
 				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
 				@file-checked=${this._onFileChecked}
 				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 			>
 				${options?.stats
-					? html`<span slot="subtitle" style="opacity: 1">${this.renderCommitStats(options.stats)}</span>`
+					? html`<span class="commit-stats-subtitle" slot="subtitle"
+							>${this.renderCommitStats(options.stats)}</span
+						>`
 					: nothing}
 				${isLoadingEmpty
 					? html`<div slot="before-tree" class="files-loading" aria-busy="true">
@@ -109,7 +125,7 @@ export class GlDetailsBase extends LitElement {
 		`;
 	}
 
-	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
 		const files = this.files;
 		if (!files?.length) return;
 
@@ -120,6 +136,7 @@ export class GlDetailsBase extends LitElement {
 					repoPath: refs.repoPath,
 					lhs: refs.lhs,
 					rhs: refs.rhs,
+					wip: refs.wip,
 					title: refs.title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,
@@ -142,6 +159,7 @@ export class GlDetailsBase extends LitElement {
 
 	protected onShareWipChanges(_e: Event, staged: boolean, hasFiles: boolean): void {
 		if (!hasFiles) return;
+
 		const event = new CustomEvent('share-wip', {
 			detail: {
 				checked: staged,

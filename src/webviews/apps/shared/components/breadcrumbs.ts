@@ -2,6 +2,7 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { ref } from 'lit/directives/ref.js';
+import { cspStyleMap } from './csp-style-map.directive.js';
 import { focusableBaseStyles, srOnlyStyles } from './styles/lit/a11y.css.js';
 import './code-icon.js';
 import './overlays/popover.js';
@@ -175,16 +176,19 @@ export class GlBreadcrumbs extends LitElement {
 			.assignedElements({ flatten: true })
 			.filter((el): el is GlBreadcrumbItem => el.tagName.toLowerCase() === 'gl-breadcrumb-item');
 
-		// Pre-compute effective priorities so we can identify the highest tier; items in the highest
-		// tier keep their per-item flex-shrink (so the file/leaf can ellipsize as a last resort),
-		// while everyone else gets flex-shrink: 0 in outer-in mode so the host actually overflows
-		// (rather than items shrinking to fit, which would defeat the overflow detection).
+		// Pre-compute effective priorities so we can identify the highest tier. When the outer-in
+		// collapse algorithm can run, items in the highest tier keep their per-item flex-shrink
+		// (so the file/leaf can ellipsize as a last resort), while everyone else gets flex-shrink: 0
+		// so the host actually overflows (rather than items shrinking to fit, which would defeat the
+		// overflow detection). With <= 2 items, outer-in compaction is disabled, so keep per-item
+		// shrink behavior for all crumbs.
 		const priorities: number[] = [];
 		this._items = items;
 		items.forEach((item, idx) => {
 			priorities[idx] = this.getEffectivePriority(item, idx);
 		});
 		const maxPriority = priorities.length > 0 ? Math.max(...priorities) : 0;
+		const canOuterInCollapse = this.collapse === 'outer-in' && items.length > 2;
 
 		items.forEach((item, idx) => {
 			if (idx === items.length - 1) {
@@ -195,7 +199,7 @@ export class GlBreadcrumbs extends LitElement {
 			// flex order: items at even orders, overflow indicators slot in at odd orders
 			// based on the run's first hidden index — see renderOverflowIndicator.
 			item.style.order = String(idx * 2);
-			if (this.collapse === 'outer-in' && priorities[idx] !== maxPriority) {
+			if (canOuterInCollapse && priorities[idx] !== maxPriority) {
 				item.style.flexShrink = '0';
 			} else {
 				item.style.flexShrink = '';
@@ -208,6 +212,7 @@ export class GlBreadcrumbs extends LitElement {
 
 	private scheduleRecompute(): void {
 		if (this.rafId != null) return;
+
 		this.rafId = requestAnimationFrame(() => {
 			this.rafId = undefined;
 			void this.recompute();
@@ -269,8 +274,10 @@ export class GlBreadcrumbs extends LitElement {
 		for (const idx of initiallyCompact) {
 			if (idx >= this._items.length - 1) continue;
 			if (!hidden.has(idx + 1)) continue;
+
 			const item = this._items[idx];
 			if (!item.foldable || !item.icon) continue;
+
 			compact.delete(idx);
 			hidden.add(idx);
 		}
@@ -344,19 +351,13 @@ export class GlBreadcrumbs extends LitElement {
 	private renderOverflowIndicator(run: { startIdx: number; items: GlBreadcrumbItem[] }) {
 		// Position the indicator at an odd flex `order` between the previous visible item
 		// (order = (startIdx - 1) * 2) and the run's would-be slot (order = startIdx * 2).
-		// Set via CSSOM (ref callback) instead of an inline `style="..."` attribute — VS Code
-		// webview CSP forbids inline style attributes; direct property writes are allowed.
+		// Applied via `cspStyleMap` (CSSOM) — the webview CSP forbids inline `style="…"` attributes.
 		const order = run.startIdx * 2 - 1;
-		const setOrder = (el: Element | undefined) => {
-			if (el instanceof HTMLElement) {
-				el.style.order = String(order);
-			}
-		};
 		// If the run starts with a folded fold-target, its icon becomes the popover trigger
 		// instead of the default `…` glyph.
 		const first = run.items[0];
 		const foldedIcon = first?.foldable && first.icon ? first.icon : undefined;
-		return html`<span class="overflow-wrapper" ${ref(setOrder)}>
+		return html`<span class="overflow-wrapper" style=${cspStyleMap({ order: String(order) })}>
 			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} distance="0">
 				<gl-breadcrumb-item
 					slot="anchor"
@@ -430,6 +431,13 @@ export class GlBreadcrumbItem extends LitElement {
 			   toolbar widget heights so the row stays tight. The inner gl-button's
 			   --button-padding/--button-line-height live in compactBreadcrumbsConsumerStyles
 			   (must be in consumer scope to cross the shadow boundary). */
+			:host([has-widget]) .breadcrumb-label {
+				overflow: visible;
+			}
+			:host([has-widget]) .separator {
+				margin-left: 0;
+			}
+
 			:host([density='compact']) {
 				--code-icon-size: 1.3rem;
 				--gl-file-icon-size: 1.3rem;
@@ -674,16 +682,30 @@ export class GlBreadcrumbItem extends LitElement {
 	private updateTruncated(): void {
 		const el = this.labelEl;
 		if (!el) return;
+
 		this._truncated = el.scrollWidth > el.clientWidth;
 	}
 
 	private onLabelSlotChange = (e: Event): void => {
 		const slot = e.target as HTMLSlotElement;
-		this._labelText = slot
-			.assignedNodes({ flatten: true })
+		const nodes = slot.assignedNodes({ flatten: true });
+		this._labelText = nodes
 			.map(n => n.textContent ?? '')
 			.join('')
 			.trim();
+
+		const hasWidget = nodes.some(n => {
+			if (n.nodeType !== Node.ELEMENT_NODE) return false;
+
+			const tag = (n as Element).tagName.toLowerCase();
+			return tag === 'gl-repo-button-group' || tag === 'gl-ref-button';
+		});
+		if (hasWidget) {
+			this.setAttribute('has-widget', '');
+		} else {
+			this.removeAttribute('has-widget');
+		}
+
 		this.updateTruncated();
 	};
 

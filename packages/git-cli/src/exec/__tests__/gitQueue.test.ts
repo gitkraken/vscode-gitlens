@@ -162,7 +162,9 @@ suite('GitQueue Test Suite', () => {
 			assert.ok(!normalRan, 'Normal task should be queued when at burst capacity');
 
 			// Clean up
-			for (const d of deferreds) d.resolve();
+			for (const d of deferreds) {
+				d.resolve();
+			}
 			interactiveDeferred.resolve();
 			secondDeferred.resolve();
 			await Promise.all([interactiveTask, secondTask, normalTask]);

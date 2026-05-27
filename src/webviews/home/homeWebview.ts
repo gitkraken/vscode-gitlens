@@ -168,8 +168,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			getOverviewBranches: (type?: 'active' | 'inactive', signal?: AbortSignal) =>
 				this.getOverviewBranches(type, signal),
 			getOverviewWip: (branchIds: string[], signal?: AbortSignal) => this.getOverviewWip(branchIds, signal),
-			getOverviewEnrichment: (branchIds: string[], signal?: AbortSignal) =>
-				this.getOverviewEnrichment(branchIds, signal),
+			getOverviewEnrichment: (
+				branchIds: string[],
+				options?: { skipMergeTarget?: boolean },
+				signal?: AbortSignal,
+			) => this.getOverviewEnrichment(branchIds, options, signal),
 			getOverviewFilterState: () => Promise.resolve(this._overviewBranchFilter),
 			setOverviewFilter: filter => {
 				this._overviewBranchFilter = filter;
@@ -181,6 +184,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 			changeOverviewRepository: async () => {
 				const repo = await this.onChooseRepository();
 				if (repo == null) return;
+
 				this.fireOverviewRepositoryChanged(repo.path);
 			},
 			onOverviewRepositoryChanged: this._overviewRepoChangedEvent.subscribe(buffer, tracker),
@@ -222,9 +226,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 					const wire = () => {
 						serviceSubscription?.dispose();
-						serviceSubscription = this.container.agentStatus?.onDidChangeSerializedSessions(state =>
-							buffered(state),
-						);
+						serviceSubscription = this.container.agentStatus?.onDidChangeSessions(state => buffered(state));
 					};
 
 					wire();
@@ -306,6 +308,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 				});
 				return [true, undefined];
 			}
+
 			this._pendingFocusAccount = true;
 		}
 
@@ -605,6 +608,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		void executeCommand<StartWorkCommandArgs>('gitlens.startWork', {
 			command: 'startWork',
 			source: 'home',
+			showOpenInAgent: 'ask',
 		});
 	}
 
@@ -746,6 +750,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 		const repo = this.getSelectedRepository();
 		if (repo == null) return undefined;
+
 		signal?.throwIfAborted();
 
 		const [branchesAndWorktreesResult, formatRepositoryResult] = await Promise.allSettled([
@@ -757,21 +762,39 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const { branches, worktreesByBranch } = getSettledValue(branchesAndWorktreesResult)!;
 		const repository = getSettledValue(formatRepositoryResult)!;
 
-		// Agent branches: return only branches that have an active agent session
+		// Agent branches: return only branches whose worktree has an active agent session.
+		// Sessions associate with worktrees by full path — the worktree's *current* branch is
+		// the agent's effective branch. Filter by intersecting on the worktree path itself
+		// (which is unique per branch within a repo and globally), not by `session.workspacePath`
+		// — `workspacePath` is whichever workspace folder contained the cwd and can be either the
+		// common path or a worktree path depending on how Claude Code was launched, so it's not a
+		// reliable repo-identity proxy.
 		if (type === 'agents') {
 			const sessions = this.container.agentStatus?.sessions ?? [];
 			const repoPath = repo.path;
-			const agentBranchNames = new Set<string>();
+			const branchWorktreePaths = new Set<string>();
+			for (const branch of branches) {
+				const wt = worktreesByBranch.get(branch.id);
+				branchWorktreePaths.add(wt != null && !wt.isDefault ? wt.path : repoPath);
+			}
+
+			const agentWorktreePaths = new Set<string>();
 			for (const session of sessions) {
-				if (session.branch != null && session.workspacePath === repoPath) {
-					agentBranchNames.add(session.branch);
+				// Only `worktreePath` — no `workspacePath` fallback. A non-repo workspace-folder
+				// session has no worktreePath; it can't legitimately match any branch's worktree,
+				// so matching its `workspacePath` against a branch path would just be coincidence.
+				if (session.worktreePath != null && branchWorktreePaths.has(session.worktreePath)) {
+					agentWorktreePaths.add(session.worktreePath);
 				}
 			}
 
 			const agentBranches: OverviewBranch[] = [];
 			for (const branch of branches) {
-				if (agentBranchNames.has(branch.name)) {
-					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, false));
+				const wt = worktreesByBranch.get(branch.id);
+				const branchWorktreePath = wt != null && !wt.isDefault ? wt.path : repoPath;
+				if (agentWorktreePaths.has(branchWorktreePath)) {
+					const opened = branch.current || wt?.opened === true;
+					agentBranches.push(toOverviewBranch(branch, worktreesByBranch, opened));
 				}
 			}
 
@@ -846,6 +869,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private async getOverviewEnrichment(
 		branchIds: string[],
+		options?: { skipMergeTarget?: boolean },
 		signal?: AbortSignal,
 	): Promise<GetOverviewEnrichmentResponse> {
 		if (branchIds.length === 0) return {};
@@ -867,10 +891,14 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		// straight to `branches.getBranchContributionsOverview`, whose `branchOverviews` cache
 		// keyed on `${ref}|${mergeTarget}` dedupes concurrent in-flight callers natively, so
 		// no per-webview cache is needed.
+		// `skipMergeTarget` is passed through so callers (gl-overview's inactive/agent paths) can
+		// defer the ~4 git/integration ops per branch to a lazy fetch on card expand. The active
+		// path leaves it off so the always-expanded active card resolves merge-target eagerly.
 		return getOverviewEnrichment(this.container, branches, branchIds, {
 			isPro: isPro,
 			signal: signal,
 			priority: 'background',
+			skipMergeTarget: options?.skipMergeTarget,
 		});
 	}
 
@@ -969,6 +997,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 					if (!isSupportedCloudIntegrationId(i.integrationId)) {
 						return undefined;
 					}
+
 					const supportedCloudDescriptor = supportedCloudIntegrationDescriptors.find(
 						item => item.id === i.integrationId,
 					);
@@ -1083,8 +1112,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		const waiting = service.sessions.filter(
 			s => !s.isSubagent && (s.status === 'waiting' || s.status === 'permission_requested'),
 		).length;
-
 		if (waiting === this._lastBadgeWaiting) return;
+
 		this._lastBadgeWaiting = waiting;
 		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}

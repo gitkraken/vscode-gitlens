@@ -30,9 +30,11 @@ export interface CachedPlan {
 	snapshot: ComposeApplyPlan['snapshot'];
 	source: ComposeSource;
 	sourceHunks: ComposeHunk[];
-	/** File paths the user (or AI policy) excluded at compose time. The apply step
-	 *  must re-apply the same filter, otherwise the diff-hash safety check fails. */
+	/** File paths the user unchecked in the compose UI. Hunks for these paths were dropped from
+	 *  the plan via `hunkFilter`. The apply step must re-apply the same filter, otherwise the
+	 *  cached snapshot's diff hash won't match the freshly collected diff. */
 	excludedFiles?: readonly string[];
+	aiExcludedFiles?: readonly string[];
 }
 
 /**
@@ -250,10 +252,13 @@ function buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
 	let hasConfirmed = initiallySuppressed;
 	return async (info): Promise<boolean> => {
 		if (hasConfirmed) return true;
+
 		const threshold = configuration.get('ai.largePromptWarningThreshold', undefined, 10000);
 		if (info.tokenEstimate <= threshold) return true;
+
 		const proceed = await showLargePromptWarning(Math.ceil(info.tokenEstimate / 100) * 100, threshold);
 		if (!proceed) return false;
+
 		hasConfirmed = true;
 		return true;
 	};

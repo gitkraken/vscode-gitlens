@@ -9,22 +9,24 @@ import {
 	Directive,
 	isDirectiveQuickPickItem,
 } from '../../../../quickpicks/items/directive.js';
-import type { McpAgent } from './mcpAgents.js';
-import { getDetectedAgents } from './mcpAgents.js';
+import type { GkAgent } from './agents.js';
+import { getAllAgents, ideAgentIds } from './agents.js';
 
-type McpAgentQuickPickItem = QuickPickItemOfT<McpAgent>;
+type McpAgentQuickPickItem = QuickPickItemOfT<GkAgent>;
 type McpAgentPickItem = McpAgentQuickPickItem | DirectiveQuickPickItem;
 
 export async function showMcpAgentPicker(
 	cliPath?: string,
 	options?: { showEmptyState?: boolean },
-): Promise<McpAgent[] | undefined> {
-	const detected = await getDetectedAgents(cliPath);
-	const selectable = detected.filter(a => !a.installed);
+): Promise<GkAgent[] | undefined> {
+	const all = await getAllAgents(cliPath);
+	// Detected, MCP-supported, non-IDE agents — the same population the legacy `getDetectedAgents` produced.
+	const detected = all.filter(a => a.detected && a.mcpSupported && !ideAgentIds.has(a.name));
+	const selectable = detected.filter(a => !a.mcpInstalled);
 
 	if (selectable.length === 0 && !options?.showEmptyState) return undefined;
 
-	const deferred = defer<McpAgent[] | undefined>();
+	const deferred = defer<GkAgent[] | undefined>();
 	const disposables: Disposable[] = [];
 
 	try {
@@ -49,7 +51,7 @@ export async function showMcpAgentPicker(
 		if (selectable.length === 0) {
 			quickpick.placeholder =
 				detected.length === 0
-					? 'No additional MCP agents were detected on your machine'
+					? 'No additional MCP-ready agents were detected on your machine'
 					: 'All detected agents have the GitKraken MCP installed';
 			quickpick.items = [createDirectiveQuickPickItem(Directive.Cancel)];
 		} else {

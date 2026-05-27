@@ -61,6 +61,7 @@ export function computeSubscriptionState(subscription: Optional<Subscription, 's
 	if (compareSubscriptionPlans(actual.id, 'community-with-account') > 0) {
 		return SubscriptionState.Paid;
 	}
+
 	switch (effective.id) {
 		case 'community':
 			return SubscriptionState.Community;

@@ -144,6 +144,7 @@ function getAuthorAndCoAuthorsForCommit(commitHunks: ComposerHunk[]): {
 	const coAuthors = new Map<string, GitCommitIdentityShape>();
 	for (const hunk of commitHunks) {
 		if (hunk.author == null) continue;
+
 		coAuthors.set(hunk.author.name, hunk.author);
 		hunk.coAuthors?.forEach(coAuthor => coAuthors.set(coAuthor.name, coAuthor));
 		authorContributionWeights.set(
@@ -648,6 +649,7 @@ export async function getBranchCommits(
 		if (!mergeBase) {
 			return undefined;
 		}
+
 		// Get the base commit from the merge base
 		const baseCommit = await repo.git.commits.getCommit(mergeBase);
 		if (!baseCommit) {

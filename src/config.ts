@@ -108,7 +108,7 @@ export type DateSource = 'authored' | 'committed';
 export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
-export type GraphBranchesVisibility = 'all' | 'smart' | 'current' | 'favorited';
+export type GraphBranchesVisibility = 'all' | 'smart' | 'current' | 'favorited' | 'agents';
 export type GraphMultiSelectionMode = boolean | 'topological';
 export type GraphScrollMarkersAdditionalTypes =
 	| 'localBranches'
@@ -214,14 +214,11 @@ export interface AdvancedConfig {
 
 interface AIConfig {
 	readonly enabled: boolean;
+	readonly openInAgent: 'ask' | 'manual' | 'agent';
+	readonly defaultAgent: string | null;
 	readonly exclude: {
 		/** Glob patterns for files to exclude from AI prompts (like files.exclude). May be undefined on extension upgrade due to VS Code bug. */
 		readonly files: Record<string, boolean> | undefined;
-	};
-	readonly experimental: {
-		readonly composer: {
-			readonly enabled: boolean;
-		};
 	};
 	readonly azure: {
 		readonly url: string | null;
@@ -404,7 +401,7 @@ interface GitKrakenConfig {
 interface GitKrakenCliConfig {
 	readonly localPath: string | null;
 	readonly insiders: {
-		readonly enabled: boolean;
+		readonly enabled: boolean | null;
 	};
 }
 
@@ -417,6 +414,9 @@ interface GitKrakenMcpConfig {
 
 export interface GraphConfig {
 	readonly allowMultiple: boolean;
+	readonly autoFetch: {
+		readonly enabled: boolean;
+	};
 	readonly avatars: boolean;
 	readonly branchesVisibility: GraphBranchesVisibility;
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
@@ -429,12 +429,12 @@ export interface GraphConfig {
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
-		readonly renderer: {
+		readonly kanban: {
 			readonly enabled: boolean;
 		};
-	};
-	readonly experimentalFeatures: {
-		readonly enabled: boolean;
+		readonly visualizations: {
+			readonly enabled: boolean;
+		};
 	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';

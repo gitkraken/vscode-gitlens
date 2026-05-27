@@ -3,11 +3,15 @@ import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
+import type { AgentSessionPhase } from '@gitlens/agents/types.js';
+import { isActiveAgentPhase } from '@gitlens/agents/types.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
+import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
+import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { Draft } from '../../../../plus/drafts/models/drafts.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
@@ -32,7 +36,41 @@ import '../../shared/components/commit/commit-stats.js';
 import '../../shared/components/pills/tracking.js';
 import '../../shared/components/tree/gl-wip-tree-pane.js';
 import '../../plus/shared/components/merge-rebase-status.js';
+import '../../plus/graph/components/gl-details-wip-empty-pane.js';
 import './gl-inspect-patch.js';
+
+// Stable references for the inline tree-item actions so each render reuses the same objects
+// instead of allocating fresh ones per file. Lit's array diffing in gl-tree-item is identity-
+// based, so reusing these also avoids spurious re-renders downstream.
+const openCurrentChangesAction: TreeItemAction = {
+	icon: 'gl-diff-left',
+	label: 'Open Current Changes',
+	action: 'file-open-current',
+};
+const openIncomingChangesAction: TreeItemAction = {
+	icon: 'gl-diff-right',
+	label: 'Open Incoming Changes',
+	action: 'file-open-incoming',
+};
+const stageConflictAction: TreeItemAction = { icon: 'add', label: 'Stage', action: 'file-stage' };
+const stageAction: TreeItemAction = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
+const unstageAction: TreeItemAction = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
+const discardAction: TreeItemAction = { icon: 'discard', label: 'Discard Changes', action: 'file-discard' };
+// `file-compare-wip-staged` is bridged by gl-wip-tree-pane into `file-compare-wip` with
+// `staged: true` overridden so the diff resolves to staged ↔ HEAD even though the deduped
+// row carries `staged: false` (preferred-unstaged precedence from the tree pane dedup).
+const openStagedChangesAction: TreeItemAction = {
+	icon: 'diff-single',
+	label: 'Open Staged Changes',
+	action: 'file-compare-wip-staged',
+};
+
+const conflictedCheckboxActions: TreeItemAction[] = [openCurrentChangesAction, openIncomingChangesAction];
+const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
+const checkboxDiscardOnly: TreeItemAction[] = [discardAction];
+const checkboxMixedActions: TreeItemAction[] = [openStagedChangesAction, discardAction];
+const stagedActions: TreeItemAction[] = [unstageAction, discardAction];
+const unstagedActions: TreeItemAction[] = [stageAction, discardAction];
 
 @customElement('gl-details-wip-panel')
 export class GlDetailsWipPanel extends GlDetailsBase {
@@ -61,9 +99,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ type: Object })
 	generate?: GenerateState;
 
-	@property({ type: Boolean })
-	experimentalComposerEnabled = false;
-
 	@property({ type: String, attribute: 'worktree-path' })
 	worktreePath?: string;
 
@@ -75,6 +110,57 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	 * vouch that bulk resolve is supported (currently graph WIP + paused rebase). */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Active agent sessions matched to this worktree (already filtered by the graph host).
+	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
+	@property({ attribute: false })
+	agentSessions?: AgentSessionState[];
+
+	/** Repo-relative normalized paths the connected agent(s) are actively editing right now,
+	 *  mapped to the most-active phase. Recomputed in {@link willUpdate} only when
+	 *  {@link agentSessions} or {@link wip} changes so unrelated WIP snapshot pushes (file stats,
+	 *  tracking info) don't churn the downstream tree-pane model. */
+	@state()
+	private _agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
+	private computeAgentTouchedFiles(): ReadonlyMap<string, AgentSessionPhase> | undefined {
+		const sessions = this.agentSessions;
+		const repoPath = this.wip?.repo?.path;
+		if (!sessions?.length || repoPath == null) return undefined;
+
+		let touched: Map<string, AgentSessionPhase> | undefined;
+		for (const s of sessions) {
+			if (!isActiveAgentPhase(s.phase)) continue;
+
+			const files = s.currentFiles;
+			if (!files?.length) continue;
+
+			for (const abs of files) {
+				const normalized = normalizePath(abs);
+				if (!isDescendant(normalized, repoPath)) continue;
+
+				const rel = relative(repoPath, normalized);
+				if (!rel || rel === normalized) continue;
+
+				touched ??= new Map();
+				// 'working' wins over 'waiting' if multiple sessions claim the same file.
+				const existing = touched.get(rel);
+				if (existing !== 'working') {
+					touched.set(rel, s.phase);
+				}
+			}
+		}
+
+		return touched;
+	}
+
+	protected override willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
+		super.willUpdate?.(changedProperties);
+
+		if (changedProperties.has('agentSessions') || changedProperties.has('wip')) {
+			this._agentTouchedFiles = this.computeAgentTouchedFiles();
+		}
+	}
 
 	@state()
 	get inReview(): boolean {
@@ -420,6 +506,26 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			return this.renderEmbedded();
 		}
 
+		const hasFiles = (this.files?.length ?? 0) > 0;
+		if (!hasFiles && !this.inReview) {
+			return html`
+				${this.renderActions()} ${this.renderPausedOpStatus()}
+				<gl-details-wip-empty-pane
+					.wip=${this.wip}
+					.pullRequest=${this.pullRequest}
+					@publish-branch=${() => this.onDataActionClick('publish-branch')}
+					@pull=${() => this.onDataActionClick('pull')}
+					@push=${() => this.onDataActionClick('push')}
+					@create-pr=${() => this.onDataActionClick('create-pr')}
+					@start-work=${() => this.onDataActionClick('start-work')}
+					@switch-branch=${() => this.onDataActionClick('switch')}
+					@create-branch=${() => this.onDataActionClick('create-branch')}
+					@apply-stash=${() => this.onDataActionClick('apply-stash')}
+					@new-worktree=${() => this.onDataActionClick('new-worktree')}
+				></gl-details-wip-empty-pane>
+			`;
+		}
+
 		return html`
 			${this.renderActions()} ${this.renderPausedOpStatus()}
 			<webview-pane-group flexible>
@@ -464,11 +570,15 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?show-file-icons=${this.fileIcons}
 				?checkable=${this.checkboxMode}
 				?bulk-conflict-actions=${this.bulkConflictActions}
+				.showSearchBox=${this.showSearchBox}
+				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.multiDiff=${this.getMultiDiffRefs()}
+				.agentTouchedFiles=${this._agentTouchedFiles}
+				empty-text=${this.emptyText}
 				@file-checked=${this._onFileChecked}
 			>
 				${this.renderChangedFilesSlottedContent()}
@@ -476,11 +586,16 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		`;
 	}
 
-	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+	private getMultiDiffRefs():
+		| { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }
+		| undefined {
 		const repoPath = this.wip?.repo?.path ?? this.files?.find(f => f.repoPath)?.repoPath;
 		if (!repoPath) return undefined;
 
-		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', title: 'Working Changes' };
+		// `wip: true` forces the host to per-file HEAD↔index↔working semantics regardless of
+		// `lhs`/`rhs`. The OpenMultipleChangesArgs routing switched from `rhs === ''` to an
+		// explicit `wip` flag, so the WIP details panel must set it here.
+		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
 	}
 
 	protected override onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
@@ -555,32 +670,24 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	}
 
 	override getFileActions(file: File, options?: Partial<TreeItemBase>): TreeItemAction[] {
-		// Conflicted files get rebase-editor-style "Open Current/Incoming Changes" + Stage —
-		// these replace the generic Open File button (the row click already opens the file).
-		// Stage routes through the existing `file-stage` event, which prompts when unresolved
-		// conflict markers remain.
+		// Conflicted files get rebase-editor-style "Open Current/Incoming Changes". In non-checkbox
+		// mode we also surface Stage — checkbox mode hides it because the row's checkbox already
+		// performs staging. Stage routes through the existing `file-stage` event, which prompts
+		// when unresolved conflict markers remain.
 		if (isConflictStatus(file.status)) {
-			return [
-				{ icon: 'gl-diff-left', label: 'Open Current Changes', action: 'file-open-current' },
-				{ icon: 'gl-diff-right', label: 'Open Incoming Changes', action: 'file-open-incoming' },
-				{ icon: 'add', label: 'Stage', action: 'file-stage' },
-			];
+			return this.checkboxMode ? conflictedCheckboxActions : conflictedActions;
 		}
 
-		// Non-conflicted files: row click opens, so no Open File button. Checkbox mode handles
-		// staging via the row checkbox; non-checkbox mode shows Stage/Unstage buttons.
-		if (this.checkboxMode) return [];
-
-		const stage = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
-		const unstage = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
-
-		if (options?.mixed) {
-			return [stage, unstage];
+		// Non-conflicted files: row click opens, so no Open File button.
+		if (this.checkboxMode) {
+			// Mixed (deduped) gets an extra "Open Staged Changes" view button alongside Discard.
+			return options?.mixed ? checkboxMixedActions : checkboxDiscardOnly;
 		}
-		if (file.staged === true) {
-			return [unstage];
-		}
-		return [stage];
+
+		// Non-checkbox mode never sees `options.mixed === true` because gl-wip-tree-pane only
+		// computes `mixedPaths` under `if (this.checkable)`. Each row of a mixed file appears in
+		// its own staged/unstaged group and gets the natural Stage/Unstage button.
+		return file.staged === true ? stagedActions : unstagedActions;
 	}
 
 	override getFolderContext(folder: { relativePath: string }): string | undefined {

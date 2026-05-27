@@ -463,6 +463,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 
 		const context = await this.provider.ensureRepositoryContext(repoPath);
 		if (context == null) return undefined;
+
 		const { metadata, github, session } = context;
 
 		const uri = this.provider.getAbsoluteUri(path, repoPath);

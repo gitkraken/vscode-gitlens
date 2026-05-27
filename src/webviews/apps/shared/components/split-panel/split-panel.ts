@@ -142,6 +142,7 @@ export class GlSplitPanel extends LitElement {
 	/** Update the cached pixel width of the primary panel from the current position and size. */
 	private updateCachedPrimaryPx(): void {
 		if (this._size <= 0) return;
+
 		if (this.primary === 'end') {
 			this._cachedPrimaryPx = ((100 - this._position) / 100) * this._size;
 		} else {
@@ -159,6 +160,7 @@ export class GlSplitPanel extends LitElement {
 			// emits a spurious change event that persists corrupted state, and causes a one-frame
 			// flash of the collapsed position when the element is re-shown.
 			if (size === 0) return;
+
 			if (size !== this._size) {
 				const oldPos = this._position;
 				this._size = size;
@@ -280,8 +282,10 @@ export class GlSplitPanel extends LitElement {
 	 */
 	private emitClosedIfChanged(): void {
 		if (this.primary == null) return;
+
 		const closed = this.computeClosed(this._position);
 		if (this._closedState === closed) return;
+
 		this._closedState = closed;
 		// Do NOT bubble — split-panels are legitimately nested (details > sidebar > minimap),
 		// so bubbling would fire outer handlers for an inner split's transition, corrupting
@@ -296,6 +300,7 @@ export class GlSplitPanel extends LitElement {
 
 	private handlePointerDown(e: PointerEvent): void {
 		if (this.disabled || e.button !== 0) return;
+
 		e.preventDefault();
 
 		// Detect double-click from pointer events (dblclick is suppressed by preventDefault above)
@@ -305,6 +310,7 @@ export class GlSplitPanel extends LitElement {
 			this.dispatchEvent(new CustomEvent('gl-split-panel-dblclick', { bubbles: true, composed: true }));
 			return;
 		}
+
 		this._lastPointerDownTime = now;
 
 		const horiz = this.isHorizontal;
@@ -339,6 +345,7 @@ export class GlSplitPanel extends LitElement {
 
 		const onMove = (ev: PointerEvent) => {
 			if (this._size <= 0) return;
+
 			const rect = this.getBoundingClientRect();
 			const posPx = (horiz ? ev.clientX - rect.left : ev.clientY - rect.top) - offsetPx;
 			const posPct = (posPx / this._size) * 100;

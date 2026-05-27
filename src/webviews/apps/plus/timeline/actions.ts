@@ -136,6 +136,7 @@ export class TimelineActions {
 				unsubscribe();
 				return;
 			}
+
 			this._wipWatchUnsubscribe = unsubscribe;
 		})();
 	}
@@ -317,8 +318,10 @@ export class TimelineActions {
 		// Guard against re-entry while a load-more is in flight, and skip when we've already
 		// reached end-of-history.
 		if (!s.hasMore.get() || s.loadingMore.get()) return;
+
 		const baseSpan = periodToMs(s.period.get());
 		if (baseSpan == null) return; // 'all' period — already unbounded
+
 		const chunkSpan = Math.min(
 			TimelineActions.extensionChunkMaxMs,
 			Math.max(TimelineActions.extensionChunkMinMs, baseSpan * TimelineActions.extensionChunkRatio),
@@ -479,6 +482,7 @@ export class TimelineActions {
 		const s = this._state;
 		const prevPeriod = s.period.get();
 		if (prevPeriod === period) return;
+
 		s.period.set(period);
 		this.sendConfigChangedTelemetry();
 
@@ -677,12 +681,14 @@ export class TimelineActions {
 		// Interim selections come from mid-drag slider scrub — useful for visual feedback in the
 		// chart but the editor diff would churn through every tick. Skip the host RPC for those;
 		// the slider's release event re-fires with `interim: false` and that's what opens the diff.
-		if (detail.interim) return;
+		// Auto selections are the chart's first-paint highlight — never open a diff editor unprompted.
+		if (detail.interim || detail.auto) return;
 
 		this._fireSelectDataPointDebounced ??= debounce(
 			(e: CommitEventDetail) => {
 				const scope = s.scope.get();
 				if (scope == null) return;
+
 				this._timeline.selectDataPoint({ scope: scope, ...e });
 			},
 			250,

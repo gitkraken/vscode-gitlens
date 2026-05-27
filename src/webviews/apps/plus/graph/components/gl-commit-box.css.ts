@@ -125,7 +125,7 @@ export const commitBoxStyles = css`
 		resize: none;
 		background: var(--vscode-input-background);
 		border: 1px solid var(--vscode-input-border, transparent);
-		border-radius: 0.4rem;
+		border-radius: var(--gl-input-border-radius);
 		color: var(--vscode-input-foreground);
 		font-family: inherit;
 		font-size: var(--gl-font-base);
@@ -196,9 +196,19 @@ export const commitBoxStyles = css`
 		pointer-events: auto;
 	}
 
+	.commit-btn-wrapper {
+		display: block;
+	}
+
 	.commit-btn {
 		flex: 1;
 		min-width: 0;
+	}
+
+	.commit-btn[variant='warning'] {
+		--button-background: var(--vscode-inputValidation-warningBorder, #b89500);
+		--button-foreground: #000;
+		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
 	}
 
 	.error {

@@ -28,6 +28,7 @@ async function resolveRepoAndBranch(container: Container, ref: BranchRef | { rep
 	const repo: GlRepository | undefined = container.git.getRepository(ref.repoPath);
 	if (repo == null) return { repo: undefined, branch: undefined } as const;
 	if (!('branchName' in ref) || !ref.branchName) return { repo: repo, branch: undefined } as const;
+
 	const branch = await repo.git.branches.getBranch(ref.branchName);
 	return { repo: repo, branch: branch };
 }
@@ -47,12 +48,14 @@ export function changeBranchMergeTarget(ref: BranchAndTargetRefs): void {
 export async function mergeIntoCurrent(container: Container, ref: BranchRef): Promise<void> {
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) return;
+
 	void RepoActions.merge(repo, getReferenceFromBranch(branch));
 }
 
 export async function rebaseCurrentOnto(container: Container, ref: BranchRef): Promise<void> {
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) return;
+
 	void RepoActions.rebase(repo, getReferenceFromBranch(branch));
 }
 
@@ -86,11 +89,13 @@ export async function fetchBranch(container: Container, ref?: BranchRef): Promis
 		void RepoActions.fetch(undefined);
 		return;
 	}
+
 	const { repo, branch } = await resolveRepoAndBranch(container, ref);
 	if (branch == null) {
 		void RepoActions.fetch(repo);
 		return;
 	}
+
 	void RepoActions.fetch(repo, getReferenceFromBranch(branch));
 }
 

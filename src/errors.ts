@@ -6,7 +6,13 @@ import { isSubscriptionPaidPlan } from './plus/gk/utils/subscription.utils.js';
 export type { AuthTokenInfo } from '@gitlens/git/errors.js';
 export { AuthenticationError, AuthenticationErrorReason } from '@gitlens/git/errors.js';
 export { RequestClientError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
-export { AIError, AIErrorReason, AINoRequestDataError, AuthenticationRequiredError } from '@gitlens/ai/errors.js';
+export {
+	AIError,
+	AIErrorReason,
+	AINoRequestDataError,
+	AuthenticationRequiredError,
+	classifyNetworkError,
+} from '@gitlens/ai/errors.js';
 
 export class AccessDeniedError extends Error {
 	public readonly subscription: Subscription;

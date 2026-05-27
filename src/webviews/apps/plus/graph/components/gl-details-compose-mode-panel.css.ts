@@ -132,6 +132,10 @@ export const composeModePanelStyles = css`
 	.compose-plan__split {
 		flex: 1;
 		min-height: 0;
+		/* Size the start track to the commits list (capped at the drag position) instead of a
+		   fixed 50%, so a short list doesn't leave the divider + border-bottom floating in empty
+		   space far below the last commit. Mirrors panelScopeSplitStyles' .scope-split. */
+		--gl-split-panel-start-size: fit-content(var(--_start-size, 50%));
 	}
 
 	.compose-plan__split-start,
@@ -175,14 +179,22 @@ export const composeModePanelStyles = css`
 		background: var(--vscode-list-hoverBackground);
 	}
 
+	.compose-commit:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+	}
+
 	.compose-commit--selected {
-		background: rgba(86, 156, 214, 0.08);
+		/* Theme-aware selection tint — VS Code's list-active selection token resolves correctly
+		   on both light and dark themes (the previous hardcoded rgba(86,156,214,0.08) was
+		   invisible on light themes and produced an unintended blue cast on non-default themes). */
+		background: var(--vscode-list-activeSelectionBackground);
 		border-left-color: var(--vscode-charts-purple, #7c3aed);
 	}
 
-	.compose-commit--committed {
-		opacity: 0.4;
-		pointer-events: none;
+	.compose-commit--excluded .compose-commit__num,
+	.compose-commit--excluded .compose-commit__info {
+		opacity: 0.45;
 	}
 
 	.compose-commit__num {
@@ -202,12 +214,41 @@ export const composeModePanelStyles = css`
 		gap: 0.15rem;
 	}
 
-	.compose-commit__message {
+	/* Commit message — single-line summary with a dimmed body continuation (graph-row style).
+	   The gl-popover anchor carries the inline message; hover reveals the full markdown. */
+	gl-popover.compose-commit__message {
+		--hide-delay: 100ms;
+		--wa-z-index-tooltip: 10000;
+		display: flex;
+		min-width: 0;
+		overflow: hidden;
 		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
+	}
+
+	gl-popover.compose-commit__message::part(base__popup),
+	gl-popover.compose-commit__message::part(base__hover-bridge),
+	gl-popover.compose-commit__message::part(body) {
+		pointer-events: none;
+	}
+
+	gl-popover.compose-commit__message::part(body) {
+		max-height: 50vh;
+		overflow-y: auto;
+	}
+
+	.compose-commit__message-content {
+		display: flex;
+		align-items: center;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.compose-commit__message-body {
+		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
+		margin-left: 0.8rem;
 	}
 
 	.compose-commit__stats {
@@ -223,24 +264,39 @@ export const composeModePanelStyles = css`
 		color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
 	}
 
+	/* Include/exclude toggle — gl-button skinned as a checkbox.
+	   Checked (included): solid green fill, white checkmark.
+	   Unchecked (excluded): dimmed border with a dimmed checkmark, transparent fill.
+	   Hover previews the post-click state via the gl-button hover-background var. */
 	.compose-commit__action {
 		flex-shrink: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 22px;
-		height: 22px;
-		border: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-radius: 3px;
-		background: transparent;
-		color: var(--vscode-charts-green, #4ec9b0);
-		cursor: pointer;
-		--code-icon-size: 14px;
+		--button-padding: 0.3rem;
+		--button-padding-inline: 0.3rem;
+		--button-width: 2rem;
+		--button-line-height: 1;
+		--button-gap: 0;
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: middle;
+		--check-green: color-mix(in srgb, #000 35%, var(--vscode-testing-iconPassed, #73c991));
+		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
+		   and resolves to white on most themes; falling back to literal white preserves the
+		   original intent on themes that don't define the variable. */
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-background: var(--check-green);
+		--button-border: var(--check-green);
+		--button-hover-background: color-mix(in srgb, #000 50%, var(--vscode-testing-iconPassed, #73c991));
 	}
 
-	.compose-commit__action:hover {
-		background: var(--vscode-charts-green, #4ec9b0);
-		color: #fff;
+	.compose-commit__action--excluded {
+		--button-foreground: var(--color-foreground--50);
+		--button-background: transparent;
+		--button-border: var(--color-foreground--50);
+		--button-hover-background: var(--check-green);
+	}
+
+	.compose-commit__action--excluded:hover {
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-border: var(--check-green);
 	}
 
 	.compose-base {

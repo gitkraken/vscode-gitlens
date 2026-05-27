@@ -518,6 +518,7 @@ class IterableDelimiterIterator implements IterableIterator<string> {
 						this.done = true;
 						return { done: false, value: value };
 					}
+
 					this.done = true;
 					return { done: true, value: undefined };
 				}
@@ -631,6 +632,7 @@ class AsyncIterableDelimiterIterator implements AsyncIterableIterator<string> {
 					this.done = true;
 					return { done: false, value: value };
 				}
+
 				this.done = true;
 				return { done: true, value: undefined };
 			}

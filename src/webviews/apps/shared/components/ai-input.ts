@@ -1,6 +1,8 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { cspStyleMap } from './csp-style-map.directive.js';
 import './code-icon.js';
+import './overlays/tooltip.js';
 
 try {
 	CSS.registerProperty({
@@ -65,7 +67,8 @@ export class GlAiInput extends LitElement {
 			display: flex;
 		}
 
-		/* Focus / Active: gradient border glow */
+		/* Hover / Focus / Active: gradient border glow */
+		:host(:hover) .ai-input__row,
 		:host([focused]) .ai-input__row,
 		:host([active]) .ai-input__row {
 			border-color: transparent;
@@ -138,9 +141,10 @@ export class GlAiInput extends LitElement {
 		textarea {
 			resize: none;
 			field-sizing: content;
-			/* Min-height is overridden inline via the rows property so callers can request a
-			   2-row default without affecting the explain inputs that want a single row. */
-			min-height: 1.4em;
+			/* min-height comes from --gl-ai-input-min-height (set on the host via CSSOM in
+			   updated()) so callers can request a 2-row default without affecting the explain
+			   inputs that want a single row. */
+			min-height: var(--gl-ai-input-min-height, 1.4em);
 			max-height: 6em;
 			line-height: 1.4;
 			scrollbar-width: thin;
@@ -202,7 +206,7 @@ export class GlAiInput extends LitElement {
 			color: var(--vscode-foreground);
 			border-radius: 0 0.6rem 0.6rem 0;
 			border-right: 1px solid transparent;
-			margin-right: -1px;
+			margin-right: 0;
 			transition:
 				background 0.25s,
 				color 0.25s,
@@ -211,12 +215,16 @@ export class GlAiInput extends LitElement {
 			z-index: 1;
 		}
 
-		.action-btn:hover:not(:disabled) {
+		/* Hovering anywhere in the row lights up the button too, so the pill responds as
+		   one cohesive surface (the row's conic border already reacts to :host(:hover)). */
+		.action-btn:hover:not(:disabled),
+		:host(:hover) .action-btn:not(:disabled) {
 			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
 		}
 
-		.action-btn:hover:not(:disabled) .icon-sparkle {
+		.action-btn:hover:not(:disabled) .icon-sparkle,
+		:host(:hover) .action-btn:not(:disabled) .icon-sparkle {
 			color: var(--vscode-button-foreground);
 		}
 
@@ -308,11 +316,20 @@ export class GlAiInput extends LitElement {
 	@property({ type: Boolean })
 	disabled = false;
 
+	/** One-shot initial value. Written into the internal input on `firstUpdated`; subsequent
+	 *  prop changes are intentionally ignored so we never stomp on user typing. Re-mount the
+	 *  element (e.g. via Lit's `key` directive) to reseed. */
+	@property()
+	value?: string;
+
 	@property()
 	placeholder = 'Optional guidance for the AI explanation...';
 
 	@property({ attribute: 'button-label' })
 	buttonLabel = 'Explain';
+
+	@property({ attribute: 'button-tooltip' })
+	buttonTooltip?: string;
 
 	@property({ attribute: 'busy-label' })
 	busyLabel = 'Explaining changes\u2026';
@@ -330,14 +347,27 @@ export class GlAiInput extends LitElement {
 	@property({ type: Number })
 	rows = 1;
 
+	/** Optional history value recalled by pressing ArrowUp from the start of an empty input or
+	 *  from cursor position 0. When set, gives the user a one-key "load the run's prompt back into
+	 *  this input" affordance — used by the compose panel's Refine input to recall the prompt that
+	 *  produced the current plan. Undefined means recall is disabled. */
+	@property()
+	recall?: string;
+
+	/** Programmatically focus the inner input/textarea. Called by hosts that want to land
+	 *  caret here on entry (e.g. compose/review mode toggle). */
+	override focus(options?: FocusOptions): void {
+		this.inputEl?.focus(options);
+	}
+
 	override render(): unknown {
-		const minHeight = this.rows > 1 ? `${this.rows * 1.4}em` : undefined;
-		const textareaStyle = minHeight != null ? `min-height: ${minHeight}` : undefined;
+		// `cspStyleMap` treats `null` as "remove", so single-row falls back to the CSS default.
+		const minHeight = this.rows > 1 ? `${this.rows * 1.4}em` : null;
 		const inputPart = this.multiline
 			? html`<textarea
 					part="input"
 					rows=${this.rows}
-					style=${textareaStyle ?? nothing}
+					style=${cspStyleMap({ '--gl-ai-input-min-height': minHeight })}
 					aria-label=${this.placeholder}
 					placeholder=${this.busy ? this.busyLabel : this.placeholder}
 					?disabled=${this.disabled || this.busy}
@@ -360,22 +390,24 @@ export class GlAiInput extends LitElement {
 				/>`;
 
 		return html`<div class="ai-input__row">
-				${inputPart}<button
-					class="action-btn"
-					part="button"
-					title=${this.buttonLabel}
-					aria-busy=${this.busy ? 'true' : nothing}
-					?disabled=${this.disabled || this.busy}
-					@click=${this.onSubmit}
+				${inputPart}<gl-tooltip content=${this.buttonTooltip ?? this.buttonLabel} placement="bottom"
+					><button
+						class="action-btn"
+						part="button"
+						aria-label=${this.buttonLabel}
+						aria-busy=${this.busy ? 'true' : nothing}
+						?disabled=${this.disabled || this.busy}
+						@click=${this.onSubmit}
+					>
+						${this.busy
+							? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+							: html`<span class="icon-slider"
+									><code-icon class="icon-sparkle" icon="sparkle"></code-icon
+									><code-icon class="icon-send" icon="send"></code-icon
+								></span>`}
+						<span class="action-label">${this.buttonLabel}</span>
+					</button></gl-tooltip
 				>
-					${this.busy
-						? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-						: html`<span class="icon-slider"
-								><code-icon class="icon-sparkle" icon="sparkle"></code-icon
-								><code-icon class="icon-send" icon="send"></code-icon
-							></span>`}
-					<span class="action-label">${this.buttonLabel}</span>
-				</button>
 			</div>
 			<div class="ai-input__footer" part="footer">
 				<slot name="footer" @slotchange=${this.onFooterSlotChange}></slot>
@@ -390,6 +422,14 @@ export class GlAiInput extends LitElement {
 
 	private get inputEl(): HTMLInputElement | HTMLTextAreaElement | null | undefined {
 		return this.shadowRoot?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
+	}
+
+	override firstUpdated(): void {
+		const input = this.inputEl;
+		if (input == null || this.value == null) return;
+
+		input.value = this.value;
+		this.toggleAttribute('has-value', Boolean(this.value));
 	}
 
 	private onInput(): void {
@@ -413,9 +453,27 @@ export class GlAiInput extends LitElement {
 		if (e.key === 'Enter') {
 			// Shift+Enter: always insert newline (let browser handle)
 			if (e.shiftKey) return;
+
 			// Enter or Ctrl/Cmd+Enter: submit
 			e.preventDefault();
 			this.onSubmit();
+			return;
+		}
+
+		// ArrowUp from an EMPTY input (cursor at position 0, nothing typed yet) loads `recall`.
+		// Gated on empty because: (a) cursor-at-0 on a textarea with content is reachable via Home
+		// or click, and replacing the user's typed text would be destructive + undo-stack-unfriendly;
+		// (b) position-0 alone doesn't distinguish "blank input" from "I just want to move the
+		// caret", whereas empty-input is unambiguous "give me the last prompt".
+		if (e.key === 'ArrowUp' && this.recall != null && this.recall !== '') {
+			const input = this.inputEl;
+			if (input == null) return;
+			if (input.value !== '') return;
+
+			e.preventDefault();
+			input.value = this.recall;
+			input.setSelectionRange(this.recall.length, this.recall.length);
+			this.toggleAttribute('has-value', true);
 		}
 	}
 

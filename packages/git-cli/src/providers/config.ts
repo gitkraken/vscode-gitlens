@@ -61,6 +61,7 @@ function parseConfigRegexOutput(data: string | undefined): Map<string, string> {
 
 function parseGitBoolean(value: string | undefined): boolean {
 	if (value == null) return false;
+
 	const normalized = value.toLowerCase().trim();
 	return normalized === 'true' || normalized === 'yes' || normalized === 'on' || normalized === '1';
 }
@@ -252,6 +253,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	async getDefaultWorktreePath(repoPath: string): Promise<string | undefined> {
 		const gitDir = await this.getGitDir(repoPath);
 		if (gitDir == null) return undefined;
+
 		const basePath = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		return getBestPath(normalizePath(joinPaths(basePath, '..')));
 	}
@@ -300,6 +302,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	private async getGkConfigPath(repoPath: string): Promise<string | undefined> {
 		const gitDir = await this.getGitDir(repoPath);
 		if (gitDir == null) return undefined;
+
 		// Use commonUri (main .git dir) for worktrees, otherwise use uri
 		const basePath = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		return joinPaths(basePath, 'gk', 'config');
@@ -682,6 +685,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			this._migratedRepos.add(repoPath);
 			return;
 		}
+
 		const gkConfigFolder = joinPaths(gkConfigPath, '..');
 
 		// If .git/gk/config already exists, consider migration done — it was either
@@ -696,6 +700,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		// If .git/gk/config doesn't exist, create an empty file to prevent multiple migration attempts in future sessions
 		if (!(await this.ensureGkConfigFolder(gkConfigFolder, scope))) return;
+
 		try {
 			await fs.writeFile(gkConfigPath, new Uint8Array());
 		} catch (ex) {

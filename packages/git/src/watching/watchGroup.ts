@@ -54,6 +54,7 @@ export class WatchGroup implements UnifiedDisposable {
 	/** Dispose the entire group (common watcher + all root watchers). */
 	dispose(): void {
 		if (this._disposed) return;
+
 		this._disposed = true;
 
 		for (const entry of this._sessions.values()) {
@@ -132,6 +133,7 @@ export class WatchGroup implements UnifiedDisposable {
 	private onCommonEvent(event: FileWatchEvent): void {
 		// Compute relative path from common git dir
 		if (!isDescendant(event.path, this.commonGitDir)) return;
+
 		const relativePath = relative(this.commonGitDir, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
 
@@ -161,6 +163,7 @@ export class WatchGroup implements UnifiedDisposable {
 
 	private onRootEvent(event: FileWatchEvent, entry: SessionEntry): void {
 		if (!isDescendant(event.path, entry.gitDirPath)) return;
+
 		const relativePath = relative(entry.gitDirPath, event.path);
 		if (shouldIgnoreRepoPath(relativePath)) return;
 

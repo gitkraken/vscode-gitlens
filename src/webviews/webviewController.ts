@@ -287,10 +287,15 @@ export class WebviewController<
 				isInEditor
 					? parent.onDidChangeViewState(({ webviewPanel }) => {
 							const { visible, active, viewColumn } = webviewPanel;
+							// Only treat a viewColumn change as a forceReload-worthy "move" if the webview was
+							// already alive (`_ready`). During panel restoration the first view-state event is
+							// the panel settling into its restored column — not a user move — and forcing a
+							// reload there tears down the just-created iframe mid-bootstrap, cancelling the
+							// deferred-rows delivery and leaving the Graph stuck on its loading spinner.
 							this.onParentVisibilityChanged(
 								visible,
 								active,
-								this.viewColumn != null && this.viewColumn !== viewColumn,
+								this._ready && this.viewColumn != null && this.viewColumn !== viewColumn,
 							);
 							this._viewColumn = viewColumn;
 						})
@@ -376,6 +381,7 @@ export class WebviewController<
 
 	private exposeRpc(): void {
 		if (this._rpcExposed || this._rpcHost == null) return;
+
 		this._rpcExposed = true;
 		try {
 			this._rpcHost.expose();
@@ -579,16 +585,6 @@ export class WebviewController<
 
 	@trace()
 	async refresh(force?: boolean): Promise<void> {
-		// Capture the caller for diagnosis. `refresh(force=true)` tears down the iframe, so finding
-		// unexpected callers is critical. Stack is sliced to skip the Error+refresh frames so the first
-		// useful frame is the actual caller. Debug-level so it's off by default but available with
-		// outputLevel=debug for users hitting reload-loops in the wild.
-		Logger.debug(
-			`WebviewController(${this.id}|${this.instanceId}): refresh(force=${force ?? false}) called from:\n${
-				new Error().stack?.split('\n').slice(2).join('\n') ?? '<no stack>'
-			}`,
-		);
-
 		// In-flight coalesce: piggyback on an existing refresh rather than tearing down the iframe twice.
 		if (this._refreshing != null) return this._refreshing;
 
@@ -596,9 +592,7 @@ export class WebviewController<
 		// invocation (VS Code title-bar command double-dispatch, user double-click, or a late async
 		// caller) firing shortly after the previous refresh completes and tearing down a mid-render iframe.
 		if (Date.now() - this._lastRefreshCompletedAt < WebviewController.refreshCoalesceMs) {
-			Logger.info(
-				`WebviewController(${this.id}|${this.instanceId}): refresh coalesced (within ${WebviewController.refreshCoalesceMs}ms of previous)`,
-			);
+			getScopedLogger()?.info(`refresh coalesced (within ${WebviewController.refreshCoalesceMs}ms of previous)`);
 			return;
 		}
 
@@ -1093,13 +1087,13 @@ export class WebviewController<
 
 	private _pendingIpcNotifications = new Map<
 		IpcNotification,
-		{ msg: IpcMessage | (() => Promise<boolean>); timestamp: number }
+		{ msg: IpcMessage | (() => Promise<boolean | void>); timestamp: number }
 	>();
 	private _pendingIpcPromiseNotifications = new Set<{ msg: IpcMessage; timestamp: number }>();
 
 	addPendingIpcNotification(
 		type: IpcNotification<any>,
-		mapping: Map<IpcNotification<any>, () => Promise<boolean>>,
+		mapping: Map<IpcNotification<any>, () => Promise<boolean | void>>,
 		thisArg: any,
 	): void {
 		this.addPendingIpcNotificationCore(type, mapping.get(type)?.bind(thisArg));
@@ -1107,7 +1101,7 @@ export class WebviewController<
 
 	private addPendingIpcNotificationCore(
 		type: IpcNotification<any>,
-		msgOrFn: IpcMessage | (() => Promise<boolean>) | undefined,
+		msgOrFn: IpcMessage | (() => Promise<boolean | void>) | undefined,
 	) {
 		if (type.reset) {
 			this._pendingIpcNotifications.clear();
@@ -1117,6 +1111,7 @@ export class WebviewController<
 			debugger;
 			return;
 		}
+
 		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
 	}
 
@@ -1152,6 +1147,7 @@ export class WebviewController<
 				void msg();
 				continue;
 			}
+
 			void this.postMessage(msg);
 			// Mirror notify()'s success-path buffer push for pending IpcMessages that just got flushed —
 			// otherwise pre-first-ready notifications (e.g. Graph's deferred-rows microtask firing during

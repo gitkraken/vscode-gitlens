@@ -50,6 +50,7 @@ suite('Rebase Parsing Utils Test Suite', () => {
 			const firstCommit = result.entries[0];
 			assert.strictEqual(firstCommit.type, 'commit');
 			if (firstCommit.type !== 'commit') throw new Error('Expected commit');
+
 			assert.strictEqual(firstCommit.updateRefs?.length, 3, 'Should have 3 update-refs');
 			assert.strictEqual(firstCommit.updateRefs?.[0].ref, 'refs/heads/feature-a');
 			assert.strictEqual(firstCommit.updateRefs?.[0].line, 1);
@@ -61,6 +62,7 @@ suite('Rebase Parsing Utils Test Suite', () => {
 			const secondCommit = result.entries[1];
 			assert.strictEqual(secondCommit.type, 'commit');
 			if (secondCommit.type !== 'commit') throw new Error('Expected commit');
+
 			assert.strictEqual(secondCommit.updateRefs, undefined, 'Second commit should have no update-refs');
 		});
 

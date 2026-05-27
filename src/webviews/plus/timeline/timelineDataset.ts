@@ -183,6 +183,7 @@ export async function computeTimelineDataset(
 				// commit stats are stable across `getContributors` invocations (the underlying git
 				// object is the same), so first-seen wins.
 				if (seenShas.has(contribution.sha)) continue;
+
 				seenShas.add(contribution.sha);
 
 				dataset.push({

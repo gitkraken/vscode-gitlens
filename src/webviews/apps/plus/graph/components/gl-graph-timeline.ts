@@ -1,5 +1,6 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
@@ -22,6 +23,7 @@ import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import './gl-graph-visualizations-switcher.js';
 
 export interface GlGraphTimelineCommitSelectDetail {
 	sha: string;
@@ -48,8 +50,36 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			overflow: hidden;
 		}
 
-		gl-timeline-header {
+		.header-row {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
 			flex: none;
+			padding: 0.4rem 1rem;
+			min-height: 3.2rem;
+			min-width: 0;
+			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+		}
+
+		.header-row gl-graph-visualizations-switcher {
+			flex: none;
+		}
+
+		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
+		 * label anchors both header rows identically. Sits between the icon switcher and the
+		 * shared timeline header so the standalone Visual History webview (which doesn't use this
+		 * file) keeps its existing chrome. */
+		.header-row__title {
+			flex: none;
+			font-size: 1.1rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			white-space: nowrap;
+		}
+
+		.header-row gl-timeline-header {
+			flex: 1 1 auto;
+			min-width: 0;
 		}
 
 		.empty {
@@ -70,6 +100,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 	@property({ type: String, reflect: true })
 	placement: 'editor' | 'view' = 'editor';
+
+	/** External file/folder scope pushed in by a graph context-menu action. When set (new object
+	 *  identity), `willUpdate` adopts it as the local scope; `updated` then signals it was applied
+	 *  so the host can clear it (one-shot). */
+	@property({ attribute: false })
+	scope?: { type: 'file' | 'folder'; relativePath: string };
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -163,7 +199,15 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private static readonly maxAllTimePageAttempts = 200;
 	private _allTimePageAttempts = 0;
 
-	override willUpdate(): void {
+	override willUpdate(changedProperties: PropertyValues): void {
+		// Adopt an externally-pushed scope (graph context-menu action) as the local scope. Done
+		// first so the repo-change reset below doesn't wipe it on a fresh mount (where
+		// `_lastRepoPath` is still undefined).
+		const injectedScope = changedProperties.has('scope') && this.scope != null;
+		if (injectedScope) {
+			this._localScope = { type: this.scope!.type, relativePath: this.scope!.relativePath };
+		}
+
 		// Reset the local file/folder scope if the active repo changed underneath us — paths
 		// don't carry across repos. Also wipe windowed-mode caches so the new repo's WIP doesn't
 		// inherit the prior repo's anchor timestamp.
@@ -171,7 +215,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (repoPath !== this._lastRepoPath) {
 			this._lastRepoPath = repoPath;
 			this._resetWindowedCaches();
-			if (this._localScope != null) {
+			if (this._localScope != null && !injectedScope) {
 				this._localScope = undefined;
 				// Don't bail — rebuild below for the new (still-windowed) state in this same cycle.
 			}
@@ -223,6 +267,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 	}
 
+	override updated(changedProperties: PropertyValues): void {
+		// Signal that an externally-pushed scope has been adopted so the host can clear it — keeps
+		// the push one-shot (a later manual graph↔timeline toggle won't re-apply a stale scope).
+		if (changedProperties.has('scope') && this.scope != null) {
+			this.dispatchEvent(new CustomEvent('gl-graph-timeline-scope-applied', { bubbles: true, composed: true }));
+		}
+	}
+
 	/** Compute an adaptive page size based on how many rows are already loaded — small repos
 	 *  finish snappily at the host's default while large repos accelerate as the loaded count
 	 *  grows. The growth curve assumes "if you've already paged through N rows, paging N more
@@ -251,10 +303,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._loadMoreInFlight) return;
 		if (this.graphState.paging?.hasMore !== true) return;
 		if (this._allTimePageAttempts >= GlGraphTimeline.maxAllTimePageAttempts) return;
+
 		const rows = this.graphState.rows;
 		if (rows == null || rows.length === 0) return;
+
 		const oldestSha = rows.at(-1)?.sha;
 		if (!oldestSha) return;
+
 		this._allTimePageAttempts++;
 		this._loadMoreInFlight = true;
 		this._lastSeenRowsRef = rows;
@@ -272,11 +327,11 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private get period(): TimelinePeriod {
-		return this.graphState.timelinePeriod ?? '1|M';
+		return this.graphState.timeline?.period ?? '1|M';
 	}
 
 	private get sliceBy(): TimelineSliceBy {
-		return this.graphState.timelineSliceBy ?? 'author';
+		return this.graphState.timeline?.sliceBy ?? 'author';
 	}
 
 	/** Slice-by is meaningful only for file/folder scopes — slicing the entire repo across
@@ -309,14 +364,17 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private get additionalBranchesEffective(): string[] | undefined {
 		if (this.graphState.scope != null) return undefined; // scoped to one branch — single ref via head
 		if (this.showAllBranchesEffective) return undefined; // --all covers everything
+
 		const includeOnlyRefs = this.graphState.includeOnlyRefs;
 		if (includeOnlyRefs == null) return undefined;
+
 		const names: string[] = [];
 		for (const ref of Object.values(includeOnlyRefs)) {
 			// Skip the empty-set marker ('gk.empty-set-marker') and any malformed entries — only
 			// pull genuine refs with names.
 			if (ref == null || typeof ref !== 'object' || !('name' in ref) || typeof ref.name !== 'string') continue;
 			if (!ref.name) continue;
+
 			names.push(ref.name);
 		}
 		return names.length ? names : undefined;
@@ -362,6 +420,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		) {
 			return;
 		}
+
 		// Period changed → discard the stale pseudo-anchor so the rebuild seeds a fresh one from
 		// the current data (the prior anchor was set under a different timeframe context).
 		if (cache != null && cache.period !== period) {
@@ -458,10 +517,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private onChartLoadMoreFromGraph = (_e: CustomEvent<LoadMoreEventDetail>): void => {
 		if (this._loadMoreInFlight) return; // already requested; wait for response
 		if (this.graphState.paging?.hasMore !== true) return;
+
 		const rows = this.graphState.rows;
 		if (rows == null || rows.length === 0) return;
+
 		const oldestSha = rows.at(-1)?.sha;
 		if (!oldestSha) return;
+
 		this._loadMoreInFlight = true;
 		this._lastSeenRowsRef = rows;
 		// Also flip the graph's global loading flag so the header's progress-indicator activates
@@ -485,6 +547,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	 *  non-reactive private field. */
 	private get graphIsInitialLoading(): boolean {
 		if (this._hasShownData) return false;
+
 		const hasRows = (this.graphState.rows?.length ?? 0) > 0;
 		if (!hasRows) return this.graphState.loading === true;
 		// Rows landed; we're holding for stats. Keep the overlay so bubbles render correctly when
@@ -584,6 +647,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		const data: TimelineDatum[] = [];
 		for (const row of rows) {
 			if (!shaSet.has(row.sha)) continue;
+
 			const stats = rowsStats?.[row.sha];
 			const avatarUrl = avatars != null && row.email ? avatars[row.email] : undefined;
 			// Branch attribution comes from the graph's reachability data — no per-commit
@@ -679,6 +743,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		// Skip interim slider scrubs — only commit on release. Mirrors the standalone Visual History
 		// debounce behavior so transient hovers don't churn the details panel.
 		if (e.detail.interim) return;
+
 		const sha = e.detail.id;
 		if (sha == null) return;
 
@@ -691,6 +756,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
+	};
+
+	private onCloseClick = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-graph-timeline-close', { bubbles: true, composed: true }));
 	};
 
 	private dispatchConfigChange(detail: GlGraphTimelineConfigChangeDetail): void {
@@ -729,11 +798,13 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			initialPath: this._localScope?.relativePath,
 		});
 		if (result?.picked == null) return;
+
 		this._localScope = { type: result.picked.type, relativePath: result.picked.relativePath };
 	};
 
 	private onHeaderClearScope = (): void => {
 		if (this._localScope == null) return;
+
 		this._localScope = undefined;
 	};
 
@@ -751,8 +822,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			}
 			return;
 		}
+
 		const next = { type: type, relativePath: value };
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
+
 		this._localScope = next;
 	};
 
@@ -774,38 +847,51 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		</div>`;
 
 		return html`
-			<gl-timeline-header
-				placement=${this.placement}
-				host="graph"
-				.repository=${repoWithRef}
-				.repositoryCount=${this.graphState.repositories?.length ?? 0}
-				.headRef=${this.graphState.branch}
-				.scopeType=${localScopeType}
-				.relativePath=${localRelativePath}
-				.period=${this.period}
-				.visibleSpanMs=${this._visibleSpanMs}
-				.sliceBy=${this.effectiveSliceBy}
-				.showAllBranches=${this.showAllBranchesEffective}
-				.showAllBranchesSupported=${false}
-				.sliceBySupported=${this.sliceBySupportedEffective}
-				@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
-				@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
-				@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
-				@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
-				@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
-			>
-				${this.placement === 'view'
-					? html`<gl-button
-							slot="toolbox"
-							appearance="toolbar"
-							href="command:gitlens.views.graph.openTimelineInTab"
-							tooltip="Open in Editor"
-							aria-label="Open in Editor"
-						>
-							<code-icon icon="link-external"></code-icon>
-						</gl-button>`
-					: nothing}
-			</gl-timeline-header>
+			<div class="header-row">
+				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
+				${this._localScope == null ? html`<span class="header-row__title">Visual History</span>` : nothing}
+				<gl-timeline-header
+					placement=${this.placement}
+					host="graph"
+					.repository=${repoWithRef}
+					.repositoryCount=${this.graphState.repositories?.length ?? 0}
+					.headRef=${this.graphState.branch}
+					.scopeType=${localScopeType}
+					.relativePath=${localRelativePath}
+					.period=${this.period}
+					.visibleSpanMs=${this._visibleSpanMs}
+					.sliceBy=${this.effectiveSliceBy}
+					.showAllBranches=${this.showAllBranchesEffective}
+					.showAllBranchesSupported=${false}
+					.sliceBySupported=${this.sliceBySupportedEffective}
+					@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
+					@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
+					@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
+					@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
+					@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
+				>
+					${this.placement === 'view'
+						? html`<gl-button
+								slot="toolbox"
+								appearance="toolbar"
+								href="command:gitlens.views.graph.openTimelineInTab"
+								tooltip="Open in Editor"
+								aria-label="Open in Editor"
+							>
+								<code-icon icon="link-external"></code-icon>
+							</gl-button>`
+						: nothing}
+					<gl-button
+						slot="toolbox"
+						appearance="toolbar"
+						tooltip="Close Visualizations"
+						aria-label="Close Visualizations"
+						@click=${this.onCloseClick}
+					>
+						<code-icon icon="close"></code-icon>
+					</gl-button>
+				</gl-timeline-header>
+			</div>
 			<gl-timeline-chart
 				placement="${this.placement}"
 				currentUserNameStyle="nameAndYou"

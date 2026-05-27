@@ -82,7 +82,7 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
 
 		const source = this.toLibrarySource(input.source);
-		const target = input.target ?? (source.type === 'branch' ? { type: 'branch-replace' } : { type: 'head' });
+		const target = input.target;
 
 		try {
 			const result: ComposePlanResult = await composePlan({
@@ -175,9 +175,10 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 	}
 
 	private toComposerHunk(h: ComposeHunk): ComposerHunk {
-		// Library's source values ('staged' | 'unstaged' | 'untracked' | 'branch')
-		// line up with GitLens's ComposerHunk source union (which admits arbitrary
-		// strings for branch-sourced hunks).
+		// compose-tools no longer attaches per-hunk source-layer info (combined-diff
+		// collection drops the distinction). Use the 'unknown' sentinel on the GitLens
+		// internal type so downstream categorizers can tell library-converted hunks
+		// apart from the webview composer's own staged/unstaged-tagged hunks.
 		//
 		// GitCommitIdentityShape requires a `date: Date`; the library's identity
 		// carries an optional date (workdir hunks have none). Synthesize `new Date()`
@@ -195,7 +196,7 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 			content: h.content,
 			additions: h.additions,
 			deletions: h.deletions,
-			source: h.source === 'branch' ? (h.sourceCommitSha ?? 'commits') : h.source,
+			source: 'unknown',
 			isRename: h.isRename,
 			originalFileName: h.originalFileName,
 			author: h.author

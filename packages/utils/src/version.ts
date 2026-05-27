@@ -96,6 +96,7 @@ export function compareByVersion(a: string, b: string): number {
 		} else {
 			// Compare non-digit characters lexicographically
 			if (ca !== cb) return ca - cb;
+
 			i++;
 			j++;
 		}

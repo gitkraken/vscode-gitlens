@@ -71,6 +71,7 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 	matches(urlOrDomain: string, path?: string): boolean {
 		if (path == null) {
 			if (equalsIgnoreCase(urlOrDomain, this.url)) return true;
+
 			[, urlOrDomain, path] = parseGitRemoteUrl(urlOrDomain);
 		}
 

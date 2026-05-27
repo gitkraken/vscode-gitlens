@@ -1,4 +1,5 @@
 import { flow } from '@lit-labs/virtualizer/layouts/flow.js';
+import type { TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -21,12 +22,14 @@ import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
 import '../actions/action-item.js';
 import '../branch-icon.js';
+import '../commit/wip-stats.js';
 import '../overlays/popover.js';
 import '../pills/tracking.js';
 import '../file-icon/file-icon.js';
 import '../status/git-status.js';
 import '../button.js';
 import '../code-icon.js';
+import '../overlays/tooltip.js';
 import '../markdown/markdown.js';
 import './tree-item.js';
 
@@ -77,8 +80,8 @@ export class GlTreeView extends GlElement {
 				width: 100%;
 			}
 
-			/* Dim non-matched items when highlighting */
-			:host([filtered]:not([filter-mode='filter'])) gl-tree-item:not([matched]) {
+			/* Dim non-matched items when highlighting (search-box-filter absent = highlight mode) */
+			:host([filtered]:not([search-box-filter])) gl-tree-item:not([matched]) {
 				opacity: 0.6;
 			}
 
@@ -106,7 +109,7 @@ export class GlTreeView extends GlElement {
 				color: var(--vscode-input-foreground);
 				background-color: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 2px;
+				border-radius: var(--gl-input-border-radius);
 				outline: none;
 			}
 
@@ -162,14 +165,10 @@ export class GlTreeView extends GlElement {
 
 			.hover-popover {
 				pointer-events: none;
+				--max-width: min(40rem, 90vw);
 			}
-			/* gl-popover's body uses auto-size="horizontal", which shrinks to the space left of
-			   the anchor — on a narrow webview that produces a cramped tooltip that wraps mid-path.
-			   The min-width also gives Floating UI's flip middleware a reason to prefer the
-			   opposite side when crowded. */
 			.hover-popover::part(body) {
-				min-width: 20rem;
-				max-width: min(50rem, 92vw);
+				box-sizing: border-box;
 			}
 
 			.hover-content {
@@ -192,18 +191,27 @@ export class GlTreeView extends GlElement {
 				border: 1px solid;
 			}
 
-			/* Phase-tinted hubot icon for agent leaves. Tokens mirror those used by
-			   gl-details-agent-status and gl-agent-status-pill so the sidebar leaf reads as
-			   the same status surface. code-icon's :host inherits color from its parent, so
-			   styling the element here flows through to its rendered glyph. */
+			/* Phase-tinted agent icon — pulls from the shared --gl-agent-* palette defined in
+			   theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
+			   of variables. code-icon's :host inherits color from its parent, so styling the
+			   element here flows through to its rendered glyph. */
 			code-icon.tree-icon-agent {
-				color: var(--vscode-descriptionForeground);
+				color: var(--gl-agent-idle-color);
 			}
 			code-icon.tree-icon-agent--working {
-				color: var(--vscode-progressBar-background);
+				color: var(--gl-agent-working-color);
 			}
 			code-icon.tree-icon-agent--waiting {
-				color: var(--vscode-editorWarning-foreground);
+				color: var(--gl-agent-waiting-color);
+			}
+
+			/* Pair wrapper for the robot + spinner glyphs so they sit flush as one identity
+			   marker. The decoration slot's gap applies between the wrapper and any sibling
+			   decoration but not between the icons inside. */
+			.tree-icon-agent-pair {
+				display: inline-flex;
+				align-items: center;
+				gap: 0;
 			}
 		`,
 	];
@@ -223,8 +231,21 @@ export class GlTreeView extends GlElement {
 	@property({ type: String, attribute: 'filter-placeholder' })
 	filterPlaceholder = 'Filter...';
 
-	@property({ type: String, attribute: 'filter-mode', reflect: true })
-	filterMode: 'filter' | 'highlight' = 'filter';
+	/**
+	 * Placeholder shown when `searchBoxFilter` is `false` (the input acts as a find/highlight
+	 * rather than a hide-non-matches filter). Falls back to `filterPlaceholder` when unset so
+	 * single-placeholder consumers keep their existing copy.
+	 */
+	@property({ type: String, attribute: 'search-placeholder' })
+	searchPlaceholder?: string;
+
+	/**
+	 * Filter strategy for typed-text matches. `true` (default) hides non-matching rows entirely;
+	 * `false` keeps the tree intact and dims non-matched rows. Reflected as a Boolean attribute so
+	 * shadow-DOM styles can branch via `:host([search-box-filter])`.
+	 */
+	@property({ type: Boolean, attribute: 'search-box-filter', reflect: true })
+	searchBoxFilter = true;
 
 	@property({ type: String, attribute: 'empty-text' })
 	emptyText = 'No items';
@@ -240,6 +261,7 @@ export class GlTreeView extends GlElement {
 	set filterText(value: string) {
 		const old = this._filterText;
 		if (old === value) return;
+
 		this._filterText = value;
 		clearTimeout(this._filterDebounceTimer);
 		this.applyFilterToModel();
@@ -279,7 +301,7 @@ export class GlTreeView extends GlElement {
 	private _unhoverTimer?: ReturnType<typeof setTimeout>;
 
 	@state()
-	private _hoveredTooltip?: string;
+	private _hoveredTooltip?: string | TemplateResult;
 
 	@state()
 	private _hoveredAnchor?: HTMLElement | { getBoundingClientRect: () => Omit<DOMRect, 'toJSON'> };
@@ -320,6 +342,7 @@ export class GlTreeView extends GlElement {
 				return;
 			}
 		}
+
 		this.scrollableRef.value?.focus(options);
 	}
 
@@ -361,7 +384,7 @@ export class GlTreeView extends GlElement {
 		let treeItems: TreeModelFlat[] | undefined;
 		if (this._model != null) {
 			const size = this._model.length;
-			const hideNonMatched = this.filtered && this.filterMode === 'filter';
+			const hideNonMatched = this.filtered && this.searchBoxFilter;
 			treeItems = [];
 			for (let i = 0; i < size; i++) {
 				flattenTree(this._model[i], size, i + 1, undefined, this._nodeMap, hideNonMatched, treeItems);
@@ -411,14 +434,14 @@ export class GlTreeView extends GlElement {
 	}
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
-		// `filtered` / `filterMode` gate `hideNonMatched` in the model setter. Because Lit commits
-		// property bindings in template order, consumers that bind `.model` before `.filtered` /
-		// `filter-mode` cause the model setter to flatten with STALE filter state — cycling the
-		// filter-mode button from 'matched' → 'off' re-committed a full model while `filtered`
-		// was still true, so non-matched items stayed hidden in the flattened list. By the time
-		// willUpdate runs all bindings are committed, so re-flatten here whenever either changed —
-		// cheap and correct regardless of how the consumer ordered its bindings in the template.
-		if ((changedProperties.has('filtered') || changedProperties.has('filterMode')) && this._model != null) {
+		// `filtered` / `searchBoxFilter` gate `hideNonMatched` in the model setter. Because Lit
+		// commits property bindings in template order, consumers that bind `.model` before
+		// `.filtered` / `search-box-filter` cause the model setter to flatten with STALE filter
+		// state — cycling the toggle from one mode to another re-committed a full model while
+		// `filtered` was still true, so non-matched items stayed hidden in the flattened list. By
+		// the time willUpdate runs all bindings are committed, so re-flatten here whenever either
+		// changed — cheap and correct regardless of how the consumer ordered its bindings.
+		if ((changedProperties.has('filtered') || changedProperties.has('searchBoxFilter')) && this._model != null) {
 			this.rebuildFlattenedTree();
 		}
 
@@ -434,18 +457,13 @@ export class GlTreeView extends GlElement {
 				// Scroll the focused item into view after the render completes
 				this._pendingScrollToIndex = index;
 			}
-		} else if (changedProperties.has('model') && !this.focusedPath) {
-			// Model changed with no focus hint — clear stale selection and reset to first item
-			this._lastSelectedPath = undefined;
-			if (this.treeItems?.length) {
-				this._focusedItemPath = this.treeItems[0].path;
-				this._focusedItemIndex = 0;
-			} else {
-				this._focusedItemPath = undefined;
-				this._focusedItemIndex = -1;
-			}
-			this._pendingScrollToIndex = 0;
 		}
+		// When the model changes without a focused-path hint, trust the setter's path-based
+		// reconciliation (see `set model` above): selection/focus survive if the path is still
+		// present, fall back to a positional neighbor if it's gone, undefined if the model is
+		// empty. Do NOT wipe state or force scroll-to-top here — that breaks consumers like
+		// gl-file-tree-pane whose own scrollTop save/restore relies on the position staying
+		// stable across refreshes of the same data (e.g. a WIP working-tree change).
 	}
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
@@ -454,6 +472,30 @@ export class GlTreeView extends GlElement {
 			const index = this._pendingScrollToIndex;
 			this._pendingScrollToIndex = undefined;
 			this.scrollToItem(index, false);
+		}
+
+		// lit-virtualizer dynamically imports its layout module on first mount; the initial
+		// `rangechange` event can fire before `FlowLayout`'s listener wires up, dropping the
+		// first layout pass — the tree renders blank until something (scroll, resize, items
+		// reassignment) triggers another. Force a second pass whenever treeItems transitions
+		// from empty to populated. The path-keyed diff inside the virtualizer preserves
+		// focus/selection/scroll. Upstream tracking: lit/lit#3472.
+		if (changedProperties.has('treeItems')) {
+			const prev = changedProperties.get('treeItems') as TreeModelFlat[] | undefined;
+			if (!prev?.length && (this.treeItems?.length ?? 0) > 0) {
+				void this.kickVirtualizerAfterFirstLayout();
+			}
+		}
+	}
+
+	private async kickVirtualizerAfterFirstLayout(): Promise<void> {
+		const virtualizer = this.virtualizerRef.value;
+		if (!virtualizer) return;
+
+		await virtualizer.layoutComplete;
+		// Re-check after await — the model could have been swapped to empty mid-wait.
+		if (this.treeItems?.length) {
+			this.treeItems = this.treeItems.slice();
 		}
 	}
 
@@ -491,12 +533,17 @@ export class GlTreeView extends GlElement {
 		}
 
 		if (icon.type === 'agent') {
-			// Phase classes are defined in this component's static styles; the base
-			// `tree-icon-agent` class supplies the idle (descriptionForeground) color and the
-			// modifier overrides it for working / waiting.
+			// Phase-driven glyph AND color so the leaf telegraphs state at a glance — color alone
+			// is a single-axis signal and fails for color-blind scanning. Idle keeps the Claude
+			// brand asterisk (default state retains provider identity); working spins a `sync`
+			// glyph as an activity cue; waiting flips to `warning` as a call-to-action. Colors
+			// come from the shared --gl-agent-* palette via this component's static styles.
+			const phaseIcon = icon.phase === 'working' ? 'sync' : icon.phase === 'waiting' ? 'warning' : 'claude';
+			const modifier = icon.phase === 'working' ? 'spin' : undefined;
 			return html`<code-icon
 				slot="icon"
-				icon="claude"
+				icon="${phaseIcon}"
+				modifier=${ifDefined(modifier)}
 				class="tree-icon-agent tree-icon-agent--${icon.phase}"
 			></code-icon>`;
 		}
@@ -562,6 +609,22 @@ export class GlTreeView extends GlElement {
 				></gl-tracking-pill>`;
 			}
 
+			if (decoration.type === 'wip') {
+				// `no-tooltip` so the indicator doesn't double-tooltip with the row tooltip — the
+				// row's own tooltip carries the breakdown pill (see sidebar-panel toWorktreeLeaf).
+				return html`<gl-wip-stats
+					slot=${slot}
+					part=${slot}
+					badge
+					show-clean
+					no-tooltip
+					.dirty=${decoration.hasChanges}
+					added=${decoration.added ?? nothing}
+					modified=${decoration.changed ?? nothing}
+					removed=${decoration.deleted ?? nothing}
+				></gl-wip-stats>`;
+			}
+
 			if (decoration.type === 'conflict') {
 				const classes = `conflict-count${decoration.kind ? ` conflict-count--${decoration.kind}` : ''}`;
 				return html`<span
@@ -571,6 +634,35 @@ export class GlTreeView extends GlElement {
 					aria-label=${ifDefined(decoration.tooltip ?? decoration.label)}
 					><code-icon icon="warning" size="12"></code-icon>${decoration.count}</span
 				>`;
+			}
+
+			if (decoration.type === 'agent') {
+				// Robot glyph is the agent's identity (never animates); the spinner is a separate
+				// adjacent glyph that only renders during `working`. Color comes from the shared
+				// --gl-agent-* palette via the `tree-icon-agent--${phase}` class on each
+				// `code-icon` so the CSS rules at the top of this file match the rendered markup.
+				// Both icons live inside a flex wrapper so the decoration slot's `gap: 0.4rem`
+				// only applies between the wrapper and any other decoration — not between the
+				// robot and the spinner, which should sit flush as one identity glyph.
+				const tooltip = decoration.tooltip ?? decoration.label;
+				return html`<gl-tooltip slot=${slot} part=${slot} placement="top">
+					<span class="tree-icon-agent-pair">
+						<code-icon
+							icon="robot"
+							class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+							aria-label=${ifDefined(tooltip)}
+						></code-icon>
+						${decoration.phase === 'working'
+							? html`<code-icon
+									icon="sync"
+									modifier="spin"
+									class="tree-icon-agent tree-icon-agent--${decoration.phase}"
+									aria-hidden="true"
+								></code-icon>`
+							: nothing}
+					</span>
+					<span slot="content">${tooltip}</span>
+				</gl-tooltip>`;
 			}
 
 			// TODO: implement badge and indicator decorations
@@ -595,6 +687,7 @@ export class GlTreeView extends GlElement {
 				}
 				continue;
 			}
+
 			// Fuzzy match
 			const matched = fuzzyMatch(lowerText, term);
 			if (matched != null) {
@@ -635,6 +728,7 @@ export class GlTreeView extends GlElement {
 			.checked=${model.checked ?? false}
 			.disableCheck=${model.disableCheck ?? false}
 			.checkableTooltip=${model.checkableTooltip}
+			.checkableAltTooltip=${model.checkableAltTooltip}
 			.showIcon=${model.icon != null}
 			.matched=${model.matched ?? false}
 			.selected=${isSelected}
@@ -673,7 +767,9 @@ export class GlTreeView extends GlElement {
 					aria-haspopup="tree"
 					aria-autocomplete="list"
 					aria-activedescendant=${activeDescendant || nothing}
-					placeholder="${this.filterPlaceholder}"
+					placeholder="${this.searchBoxFilter
+						? this.filterPlaceholder
+						: (this.searchPlaceholder ?? this.filterPlaceholder)}"
 					.value=${this._filterText}
 					@input=${this.handleFilterInput}
 					@keydown=${this.handleFilterKeydown}
@@ -684,10 +780,10 @@ export class GlTreeView extends GlElement {
 					<gl-button
 						appearance="input"
 						role="checkbox"
-						aria-checked=${this.filterMode === 'filter' ? 'true' : 'false'}
-						tooltip=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-						aria-label=${this.filterMode === 'filter' ? 'Filter Results' : 'Highlight Results'}
-						@click=${this.toggleFilterMode}
+						aria-checked=${this.searchBoxFilter ? 'true' : 'false'}
+						tooltip="Filter Results"
+						aria-label="Filter Results"
+						@click=${this.toggleSearchBoxFilter}
 					>
 						<code-icon icon="list-filter"></code-icon>
 					</gl-button>
@@ -749,7 +845,9 @@ export class GlTreeView extends GlElement {
 						.distance=${12}
 					>
 						<div slot="content" class="hover-content">
-							<gl-markdown density="compact" .markdown=${this._hoveredTooltip ?? ''}></gl-markdown>
+							${typeof this._hoveredTooltip === 'string'
+								? html`<gl-markdown density="compact" .markdown=${this._hoveredTooltip}></gl-markdown>`
+								: this._hoveredTooltip}
 						</div>
 					</gl-popover>`
 				: nothing}
@@ -781,7 +879,7 @@ export class GlTreeView extends GlElement {
 		// This prevents stale node references when expanding/collapsing nodes
 		this._nodeMap.clear();
 
-		const hideNonMatched = this.filtered && this.filterMode === 'filter';
+		const hideNonMatched = this.filtered && this.searchBoxFilter;
 		const size = this._model.length;
 		const newTreeItems: TreeModelFlat[] = [];
 		for (let i = 0; i < size; i++) {
@@ -849,6 +947,17 @@ export class GlTreeView extends GlElement {
 		});
 	}
 
+	// A single, persistent virtual element used as the popover anchor. We mutate its rect
+	// in place on every hover instead of allocating a fresh object — that way the popover's
+	// `.anchor` property keeps the same identity, wa-popup never runs its handleAnchorChange
+	// (which does hidePopover → rAF → showPopover and produces a visible disappear/reappear
+	// jump when the cursor hops between rows), and we just ask wa-popup to recompute the
+	// position against the updated rect via reposition().
+	private readonly _virtualAnchorRect = { x: 0, y: 0, top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 };
+	private readonly _virtualAnchor = {
+		getBoundingClientRect: (): Omit<DOMRect, 'toJSON'> => this._virtualAnchorRect,
+	};
+
 	private onTreeItemHover(event: MouseEvent, model: TreeModelFlat) {
 		if (!model.tooltip) {
 			this.onTreeItemUnhover();
@@ -864,28 +973,37 @@ export class GlTreeView extends GlElement {
 		// vertically with the row so the tooltip floats just to the side and never sits in the
 		// vertical path the cursor takes when moving between rows.
 		const x = this.tooltipAnchorRight ? this.getBoundingClientRect().right : event.clientX;
-		this._hoveredAnchor = {
-			getBoundingClientRect: () => ({
-				x: x,
-				y: itemRect.top,
-				top: itemRect.top,
-				bottom: itemRect.bottom,
-				left: x,
-				right: x,
-				width: 0,
-				height: itemRect.height,
-			}),
-		};
+		const rect = this._virtualAnchorRect;
+		rect.x = rect.left = rect.right = x;
+		rect.y = rect.top = itemRect.top;
+		rect.bottom = itemRect.bottom;
+		rect.height = itemRect.height;
+		// width stays 0
+		this._hoveredAnchor = this._virtualAnchor;
 		this._hoveredTooltip = model.tooltip;
 
 		if (this._hoverOpen) {
-			// Already showing — update immediately for the new item
+			// Already showing — anchor identity is unchanged so Lit/wa-popup won't trigger a
+			// stop/start cycle on the popover. Ask wa-popup to recompute its position against
+			// the freshly-mutated rect so the tooltip follows the new row without disappearing.
+			void this._repositionHoverPopover();
 			return;
 		}
 
 		this._hoverTimer = setTimeout(() => {
 			this._hoverOpen = true;
 		}, 500);
+	}
+
+	private async _repositionHoverPopover(): Promise<void> {
+		// Wait for Lit to flush any pending property updates (e.g. `_hoveredTooltip` →
+		// `gl-markdown`), then ask wa-popup to recompute its position.
+		await this.updateComplete;
+		const popover = this.renderRoot?.querySelector('gl-popover.hover-popover');
+		const waPopup = popover?.shadowRoot?.querySelector('wa-popup') as
+			| (HTMLElement & { reposition?: () => void })
+			| null;
+		waPopup?.reposition?.();
 	}
 
 	private onTreeItemUnhover() {
@@ -1151,6 +1269,7 @@ export class GlTreeView extends GlElement {
 						return;
 					}
 				}
+
 				targetIndex = Math.max(currentIndex - 1, 0);
 				handled = true;
 				break;
@@ -1169,6 +1288,7 @@ export class GlTreeView extends GlElement {
 				if (branchHandled) {
 					return;
 				}
+
 				// If not handled (already expanded/collapsed), navigate instead
 				if (e.key === 'ArrowRight') {
 					// Right arrow: move to next row
@@ -1301,6 +1421,7 @@ export class GlTreeView extends GlElement {
 	private scrollToItem(index: number, shouldRestoreFocus: boolean = true) {
 		// Prevent multiple simultaneous scroll operations
 		if (this._scrolling) return;
+
 		this._scrolling = true;
 
 		// Wait for render to complete with updated focused state
@@ -1408,6 +1529,7 @@ export class GlTreeView extends GlElement {
 		if (!this.treeItems) {
 			return;
 		}
+
 		let i = 0;
 		for (const item of this.treeItems) {
 			this._pathToIndexMap.set(item.path, i++);
@@ -1531,11 +1653,11 @@ export class GlTreeView extends GlElement {
 		this.scrollToItem(index, false);
 	}
 
-	private toggleFilterMode = () => {
-		this.filterMode = this.filterMode === 'filter' ? 'highlight' : 'filter';
+	private toggleSearchBoxFilter = () => {
+		this.searchBoxFilter = !this.searchBoxFilter;
 		this.dispatchEvent(
-			new CustomEvent('gl-tree-filter-mode-changed', {
-				detail: this.filterMode,
+			new CustomEvent<boolean>('gl-tree-search-box-filter-changed', {
+				detail: this.searchBoxFilter,
 				bubbles: true,
 				composed: true,
 			}),

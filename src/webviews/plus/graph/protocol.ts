@@ -24,6 +24,7 @@ import type {
 	WorkDirStats,
 } from '@gitkraken/gitkraken-components';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -36,11 +37,13 @@ import type {
 	GitTagReference,
 } from '@gitlens/git/models/reference.js';
 import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config.js';
+import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
@@ -53,22 +56,35 @@ import type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
 	OverviewBranch,
+	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 import type { TimelinePeriod, TimelineSliceBy } from '../timeline/protocol.js';
+import type { TreemapMode } from '../treemap/protocol.js';
+import type { Wip } from './detailsProtocol.js';
+
+export type { Wip };
 
 /** Prefix for synthetic row ids + shas that represent a secondary-worktree WIP row. */
-export const secondaryWipShaPrefix = 'worktree-wip::';
+const secondaryWipShaPrefix = 'worktree-wip::';
 
-export function isSecondaryWipSha(sha: string): boolean {
-	return sha.startsWith(secondaryWipShaPrefix);
+export function createSecondaryWipSha(path: string): string {
+	return `${secondaryWipShaPrefix}${path}`;
+}
+
+export function createWipSha(path: string, selectedRepoPath: string | undefined): string {
+	return path === selectedRepoPath ? uncommitted : createSecondaryWipSha(path);
 }
 
 export function getSecondaryWipPath(sha: string): string {
 	return sha.slice(secondaryWipShaPrefix.length);
 }
 
-export function makeSecondaryWipSha(path: string): string {
-	return `${secondaryWipShaPrefix}${path}`;
+export function isSecondaryWipSha(sha: string | undefined): boolean {
+	return sha?.startsWith(secondaryWipShaPrefix) ?? false;
+}
+
+export function isWipSha(sha: string | undefined): boolean {
+	return sha === uncommitted || isSecondaryWipSha(sha);
 }
 
 export type { GraphRefType } from '@gitkraken/gitkraken-components';
@@ -84,6 +100,7 @@ export type {
 	OverviewBranchPullRequest,
 	OverviewBranchRemote,
 	OverviewBranchWip,
+	OverviewRecentThreshold,
 } from '../../shared/overviewBranches.js';
 
 export const scope: IpcScope = 'graph';
@@ -142,12 +159,41 @@ export const supportedRefMetadataTypes: GraphRefMetadataType[] = ['upstream', 'p
 
 export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' | 'stashes' | 'tags' | 'worktrees';
 
-/** Top-level rendering mode for the Graph webview. New modes (e.g. 'treemap') plug in here. */
-export type GraphDisplayMode = 'graph' | 'timeline';
+/** Top-level rendering mode for the Graph webview. New modes (e.g. kanban) plug in here. */
+export type GraphDisplayMode = 'graph' | 'visualizations' | 'kanban';
+
+export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
+
+/** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
+ *  to this specific row (used by context-menu invocations on secondary WIP rows where the
+ *  action targets a worktree other than the primary). When absent, the webview falls back to
+ *  its primary repo + `uncommitted`.
+ *
+ *  `worktreePath` is the row's own worktree path — for the primary WIP this equals the repo
+ *  path; for secondary WIP rows it's the named worktree's path. It is also the key the
+ *  graph webview uses to look up persisted WIP drafts, so callers must populate it from the
+ *  row's worktree (typically `ref.repoPath` since `GitGraphRowRef.repoPath` is set to the
+ *  worktree path for secondary rows), not the parent repository's path. */
+export interface GraphActionTarget {
+	sha: string;
+	worktreePath: string;
+}
+/** Sub-visualization shown when `displayMode === 'visualizations'`.
+ *  Adding a new visualization is a 4-step extension: extend this union, render its component in
+ *  `gl-graph-visualizations`, persist any per-visualization config in `graph-app.persistStateNow`,
+ *  and add the host-side data service to `GraphServices`. */
+export type VisualizationMode = 'timeline' | 'treemap';
+
+/** Aliased from the canonical treemap protocol so both the storage type and the graph state refer
+ *  to the same union — adding a fourth mode in `treemap/protocol.ts` flows here automatically. */
+export type GraphTreemapMode = TreemapMode;
 
 export interface GraphOverviewData {
 	active: OverviewBranch[];
 	recent: OverviewBranch[];
+	/** Set when the host couldn't compute the overview. `active`/`recent` are still
+	 *  structurally-valid (empty arrays) so existing consumers don't crash on `.length`. */
+	error?: string;
 }
 
 export interface GraphScope {
@@ -156,6 +202,10 @@ export interface GraphScope {
 	branchRef: string;
 	/** Full ref id of the branch's upstream (e.g. 'refs/remotes/origin/feature/x'). */
 	upstreamRef?: string;
+	/** SHA of the focal branch's tip commit. Backfilled by the scope-anchor resolver so callers
+	 *  (e.g. the popover's fallback path) can select the focal tip even when the branch isn't in
+	 *  the loaded graph rows page. */
+	focalBranchTipSha?: string;
 	/** SHA of the merge-target tip commit. Its ancestors are NOT walked — the tip is kept as a marker. */
 	mergeTargetTipSha?: string;
 	mergeBase?: { sha: string; date: number };
@@ -189,6 +239,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	rows?: GraphRow[];
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading?: boolean;
+	/** Mirrors the host's `_graph.includes.stats` — true when the current graph build requested stats.
+	 *  Used by the webview to decide whether entering Timeline mode needs to eagerly show its loading
+	 *  overlay (stale `rowsStats` from a prior stats-bearing build can otherwise mask a missing refetch). */
+	rowsStatsIncluded?: boolean;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -197,6 +251,13 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	nonce?: string;
 	workingTreeStats?: GraphWorkingTreeStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;
+	/**
+	 * Most-recently pushed primary-repo WIP. Set on every `DidChangeWorkingTreeNotification` so
+	 * the details panel can apply changes without an extra `getWip` round-trip. Initial state
+	 * leaves this undefined — first selection of a WIP row triggers the panel's resource fetch
+	 * for the cold-load path; subsequent working-tree ticks flow through this push channel.
+	 */
+	wip?: Wip;
 	searchMode?: GraphSearchMode;
 	/** Search query to be executed once */
 	searchRequest?: SearchQuery;
@@ -212,21 +273,48 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	mcpBannerCollapsed?: boolean;
 	hooksBannerCollapsed?: boolean;
 	canInstallClaudeHook?: boolean;
+	graphWalkthroughBannerCollapsed?: boolean;
+	graphWalkthroughComplete?: boolean;
+	graphWalkthroughStarted?: boolean;
+	visualizationsButtonCalloutDismissed?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
-	detailsVisible?: boolean;
-	detailsPosition?: number;
-	detailsBottomPosition?: number;
-	sidebarVisible?: boolean;
-	activeSidebarPanel?: GraphSidebarPanel;
-	sidebarPosition?: number;
-	minimapVisible?: boolean;
-	minimapPosition?: number;
-	// Persisted Timeline-mode chart options (when `displayMode === 'timeline'`).
-	timelinePeriod?: TimelinePeriod;
-	timelineSliceBy?: TimelineSliceBy;
-	timelineShowAllBranches?: boolean;
+	details?: {
+		visible?: boolean;
+		position?: number;
+		bottomPosition?: number;
+		showSearchBox?: boolean;
+		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+		searchBoxFilter?: boolean;
+	};
+	sidebar?: {
+		visible?: boolean;
+		position?: number;
+		activePanel?: GraphSidebarPanel;
+		/** `true` = filter (hide non-matches), `false` = highlight (dim non-matches). */
+		searchBoxFilter?: boolean;
+	};
+	minimap?: {
+		visible?: boolean;
+		position?: number;
+	};
+	pendingAction?: { action: GraphShowAction; target?: GraphActionTarget; commitMessage?: string };
+	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
+	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
+	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
+	wipDrafts?: Record<string, StoredGraphWipDraft>;
+	// Persisted Visualizations-mode chart options (when `displayMode === 'visualizations'`).
+	// Field name stays `timeline` since it persists the embedded Timeline component's settings;
+	// only the display-mode value changed to align with the user-facing "Show Visualizations" label.
+	timeline?: {
+		period?: TimelinePeriod;
+		sliceBy?: TimelineSliceBy;
+		showAllBranches?: boolean;
+	};
+	// Persisted timeframe for the Overview panel's "Recent" section. Kept flat (not under `overview`)
+	// because `overview` is already used for `GraphOverviewData` (active/recent branches).
+	overviewRecentThreshold?: OverviewRecentThreshold;
 
 	// Props below are computed in the webview (not passed)
 	activeDay?: number;
@@ -235,6 +323,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		top: number;
 		bottom: number;
 	};
+
+	// Persisted Visualizations-mode state (when `displayMode === 'visualizations'`).
+	visualizationMode?: VisualizationMode;
+	treemapMode?: GraphTreemapMode;
 }
 
 export interface BranchState extends GitTrackingState {
@@ -250,6 +342,7 @@ export interface BranchState extends GitTrackingState {
 
 export type GraphWorkingTreeStats = WorkDirStats & {
 	hasConflicts?: boolean;
+	conflictsCount?: number;
 	pausedOpStatus?: GitPausedOperationStatus;
 };
 
@@ -264,6 +357,20 @@ export interface GraphWipNodeMetadata {
 	parentSha: string;
 	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
 	label: string;
+	/**
+	 * Host-only: the worktree branch in scope ref-id format (`{repoPath}|heads/{name}`), or undefined
+	 * for detached worktrees. Used by the webview's scope filter to drop secondary WIPs whose branch
+	 * isn't part of the active scope — independent of SHA collisions with scope anchors.
+	 */
+	branchRef?: string;
+	/**
+	 * Host-only: paused operation (rebase/merge/cherry-pick) running in this worktree, when any.
+	 * Mirrors the primary's `workingTreeStats.pausedOpStatus` so the secondary WIP row can render
+	 * the same indicator the action bar does. Not consumed by the GK component.
+	 */
+	pausedOpStatus?: GitPausedOperationStatus;
+	/** Host-built serialized `GraphItemContext` for the row's `contexts.row` slot (right-click menu). */
+	context?: string;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
@@ -294,15 +401,21 @@ export type GraphRemote = Remote;
 export type GraphTag = Tag;
 export type GraphBranch = Head;
 
+export type GraphAutoFetchMode = 'off' | 'vscode' | 'gitlens';
+
 export interface GraphComponentConfig {
 	aiEnabled?: boolean;
+	autoFetchEnabled?: boolean;
+	autoFetchIntervalSeconds?: number;
+	autoFetchMode?: GraphAutoFetchMode;
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	detailsLocation?: 'right' | 'bottom';
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
-	experimentalFeaturesEnabled?: boolean;
+	experimentalKanbanEnabled?: boolean;
+	experimentalVisualizationsEnabled?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;
@@ -386,9 +499,9 @@ export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetai
 );
 
 export type RowAction =
-	| 'compose-commits'
-	| 'generate-commit-message'
-	| 'recompose-branch'
+	| 'open-changes'
+	| 'open-changes-with-working'
+	| 'stash-apply'
 	| 'stash-drop'
 	| 'stash-pop'
 	| 'stash-save';
@@ -398,6 +511,18 @@ export interface RowActionParams {
 	row: { id: string; type: GitGraphRowType };
 }
 export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
+
+export interface TreemapFileActionParams {
+	action: 'open' | 'history';
+	/** Repo this click belongs to — the host rehydrates the file URI via
+	 *  `Uri.joinPath(repository.uri, path)` so the original scheme (file://, vscode-vfs://, etc.)
+	 *  is preserved for virtual workspaces. */
+	repoPath: string;
+	/** Forward-slash, repo-relative path of the clicked treemap leaf. Relative (not absolute) so
+	 *  the host can scheme-preserve the rehydration; `vscode.Uri` instances can't cross IPC. */
+	path: string;
+}
+export const TreemapFileActionCommand = new IpcCommand<TreemapFileActionParams>(scope, 'treemap/file/action');
 
 export interface SearchOpenInViewParams {
 	search: SearchQuery;
@@ -439,6 +564,11 @@ export const UpdateGraphConfigurationCommand = new IpcCommand<UpdateGraphConfigu
 	'configuration/update',
 );
 
+export interface UpdateGraphDisplayModeParams {
+	mode: GraphDisplayMode;
+}
+export const UpdateGraphDisplayModeCommand = new IpcCommand<UpdateGraphDisplayModeParams>(scope, 'displayMode/update');
+
 export interface UpdateGraphSearchModeParams {
 	searchMode: GraphSearchMode;
 	useNaturalLanguage: boolean;
@@ -457,6 +587,15 @@ export interface UpdateSelectionParams {
 	selection: GraphSelection[];
 }
 export const UpdateSelectionCommand = new IpcCommand<UpdateSelectionParams>(scope, 'selection/update');
+
+export interface UpdateWipDraftParams {
+	/** Worktree fsPath this draft belongs to — the storage key. Equals the main repo path for
+	 *  the primary worktree; the worktree's own fsPath for secondary worktrees. */
+	worktreePath: string;
+	/** `null` ⇒ delete the entry. */
+	draft: StoredGraphWipDraft | null;
+}
+export const UpdateWipDraftCommand = new IpcCommand<UpdateWipDraftParams>(scope, 'wipDraft/update');
 
 // REQUESTS
 
@@ -510,6 +649,16 @@ export const ChooseFileRequest = new IpcRequest<ChooseFileParams, DidChooseFileP
 
 export interface ResolvedGraphScope extends GraphScope {
 	mergeBase?: { sha: string; date: number };
+	/**
+	 * Resolved merge-target tip SHA. Carried alongside `mergeBase` so the lightweight scope-anchor
+	 * path can backfill the scope without forcing a parallel `getOverviewEnrichment` IPC for branches
+	 * that aren't already in active/recent.
+	 */
+	resolvedMergeTargetTipSha?: string;
+	/** Resolved focal-branch tip SHA, looked up by the scope-anchor resolver. Mirrors the
+	 *  `resolvedMergeTargetTipSha` shape — distinct response field so the patcher can tell
+	 *  "resolver had no answer" (`undefined`) from "value already on the scope". */
+	resolvedFocalBranchTipSha?: string;
 }
 export interface ResolveGraphScopeParams {
 	repoPath: string;
@@ -517,6 +666,9 @@ export interface ResolveGraphScopeParams {
 }
 export interface DidResolveGraphScopeParams {
 	scope: ResolvedGraphScope;
+	/** Set when the scope-anchor resolver threw. `scope` is the unresolved caller-supplied scope
+	 *  as a fallback so consumers reading `scope.mergeBase` etc. don't crash. */
+	error?: string;
 }
 export const ResolveGraphScopeRequest = new IpcRequest<ResolveGraphScopeParams, DidResolveGraphScopeParams>(
 	scope,
@@ -529,6 +681,8 @@ export interface EnsureRowParams {
 }
 export interface DidEnsureRowParams {
 	id?: string; // `undefined` if the row was not found
+	/** Set when the host couldn't load the row. `id` is undefined alongside. */
+	error?: string;
 }
 export const EnsureRowRequest = new IpcRequest<EnsureRowParams, DidEnsureRowParams>(scope, 'rows/ensure');
 
@@ -537,6 +691,9 @@ export interface SearchHistoryGetParams {
 }
 export interface DidSearchHistoryGetParams {
 	history: SearchQuery[];
+	/** Set when the store/delete operation failed. `history` reflects the last-known state from
+	 *  storage so the UI can still render something coherent. */
+	error?: string;
 }
 export const SearchHistoryGetRequest = new IpcRequest<SearchHistoryGetParams, DidSearchHistoryGetParams>(
 	scope,
@@ -572,10 +729,21 @@ export type DidGetCountParams =
 	| undefined;
 export const GetCountsRequest = new IpcRequest<void, DidGetCountParams>(scope, 'counts');
 
-export const GetOverviewRequest = new IpcRequest<void, GraphOverviewData>(scope, 'overview/get');
+export interface GetOverviewParams {
+	/** When set, updates the host's stored "Recent" timeframe before computing the overview. */
+	recentThreshold?: OverviewRecentThreshold;
+}
+export const GetOverviewRequest = new IpcRequest<GetOverviewParams, GraphOverviewData>(scope, 'overview/get');
 
 export interface GetOverviewWipParams {
 	branchIds: string[];
+	/**
+	 * When true, the host probes `status.hasWorkingChanges()` (cheap `git diff --quiet` + untracked
+	 * probe) instead of running a full `git status` per branch. Result entries carry `hasChanges`
+	 * only — `workingTreeState`, conflicts, and pausedOp are filled in on hover via
+	 * {@link GetOverviewWipDetailedRequest}.
+	 */
+	cheap?: boolean;
 }
 export const GetOverviewWipRequest = new IpcRequest<GetOverviewWipParams, GetOverviewWipResponse>(
 	scope,
@@ -614,7 +782,13 @@ export interface GetWipStatsParams {
 	 */
 	force?: boolean;
 }
-export type GetWipStatsResponse = Record<string, WorkDirStats | undefined>;
+/** Per-row WIP stats. Carries `workDirStats` (consumed by the GK component) plus host-only
+ *  fields like `pausedOpStatus` so the secondary WIP row can surface a paused-op indicator. */
+export interface WipRowStats {
+	workDirStats: WorkDirStats;
+	pausedOpStatus?: GitPausedOperationStatus;
+}
+export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
 export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
 
 export interface SyncWipWatchesParams {
@@ -623,19 +797,21 @@ export interface SyncWipWatchesParams {
 }
 export const SyncWipWatchesCommand = new IpcCommand<SyncWipWatchesParams>(scope, 'wip/watches/sync');
 
-export interface DidChangeWipStaleParams {
-	/** Secondary WIP shas whose cached stats should be marked stale — triggers a re-fetch on next render. */
-	shas: string[];
-}
-export const DidChangeWipStaleNotification = new IpcNotification<DidChangeWipStaleParams>(scope, 'wip/stale/didChange');
-
 export interface DidRequestWipRefetchParams {
 	/** Repo path of the WIP that should be re-fetched. */
 	repoPath: string;
+	/** Pre-fetched WIP payload — same shape as `DidChangeWorkingTreeNotification`'s `wip`. The
+	 *  panel applies this directly so the round-trip `getWip` RPC is avoided. */
+	wip?: Wip;
+	/** Pre-computed working-tree stats for this repo. Carried alongside `wip` so the webview
+	 *  doesn't have to re-derive them — the host already paid for the `git status` that produced
+	 *  the WIP payload. Used by the webview to refresh `workingTreeStats` (when this repo is the
+	 *  selected one) and the secondary row's `workDirStats`. */
+	stats?: GraphWorkingTreeStats;
 }
-/** Host → panel: force the displayed WIP to re-fetch (used after host-side mutating actions whose
- *  effects don't reach the panel via the active-repo working-tree watcher — e.g. context-menu
- *  conflict-resolution commands on a non-active worktree's WIP row). */
+/** Host → panel: push fresh WIP after host-side mutating actions whose effects don't reach the
+ *  panel via the active-repo working-tree watcher (e.g. context-menu conflict-resolution
+ *  commands on a non-active worktree's WIP row). */
 export const DidRequestWipRefetchNotification = new IpcNotification<DidRequestWipRefetchParams>(
 	scope,
 	'wip/refetch/request',
@@ -696,6 +872,17 @@ export interface GraphSidebarTag {
 	context?: GraphItemRefContext<GraphTagContextValue>;
 }
 
+/**
+ * Per-worktree change entry carried by `sidebarWorktreeState` push events. Both fields come from
+ * the same `getStatus()` in `doComputeWorktreeChanges`, so the worktrees-panel row's clean/dirty
+ * pill and its breakdown tooltip stay in sync without a second fetch. `workingTreeState` is
+ * optional so bare worktrees / fetch failures still produce a structurally-valid entry.
+ */
+export interface SidebarWorktreeChange {
+	hasChanges: boolean;
+	workingTreeState?: GitDiffFileStats;
+}
+
 export interface GraphSidebarWorktree {
 	name: string;
 	uri: string;
@@ -704,7 +891,16 @@ export interface GraphSidebarWorktree {
 	isDefault: boolean;
 	locked: boolean;
 	opened: boolean;
+	/** The graph row id this worktree's WIP anchors to: `uncommitted` for the graph's primary
+	 *  worktree, a secondary-wip sha for others, or undefined when the worktree has no WIP row. */
+	wipSha?: string;
 	hasChanges?: boolean;
+	/**
+	 * Full add/changed/deleted breakdown for the worktree's working tree. Populated alongside
+	 * `hasChanges` by `doComputeWorktreeChanges()` from the same `git status` fetch — no extra
+	 * git work. Drives the panel row's clean/dirty pill tooltip.
+	 */
+	workingTreeState?: GitDiffFileStats;
 	status?: string;
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };
@@ -730,6 +926,9 @@ export type GetRowHoverParams = {
 export interface DidGetRowHoverParams {
 	id: string;
 	markdown: PromiseSettledResult<string>;
+	/** Set when the host couldn't even start building the hover (e.g. repo lookup threw).
+	 *  `markdown` is still present as a structurally-valid rejected `PromiseSettledResult`. */
+	error?: string;
 }
 
 export const GetRowHoverRequest = new IpcRequest<GetRowHoverParams, DidGetRowHoverParams>(scope, 'row/hover/get');
@@ -767,14 +966,6 @@ export interface DidChangeOverviewParams {
 }
 export const DidChangeOverviewNotification = new IpcNotification<DidChangeOverviewParams>(scope, 'overview/didChange');
 
-export interface DidChangeOverviewWipParams {
-	wip: GetOverviewWipResponse;
-}
-export const DidChangeOverviewWipNotification = new IpcNotification<DidChangeOverviewWipParams>(
-	scope,
-	'overview/wip/didChange',
-);
-
 export interface DidChangeAgentSessionsParams {
 	sessions: AgentSessionState[];
 }
@@ -789,6 +980,17 @@ export interface DidChangeRepoConnectionParams {
 export const DidChangeRepoConnectionNotification = new IpcNotification<DidChangeRepoConnectionParams>(
 	scope,
 	'repositories/integration/didChange',
+);
+
+export interface DidChangeWipDraftsParams {
+	wipDrafts: Record<string, StoredGraphWipDraft> | undefined;
+}
+/** Fired when `graph:wipDrafts` changes in workspace storage. Lets a concurrent webview
+ *  instance (e.g. sidebar + editor view open simultaneously, or two editor instances) refresh
+ *  its in-memory `wipDrafts` from storage without waiting for a full state push. */
+export const DidChangeWipDraftsNotification = new IpcNotification<DidChangeWipDraftsParams>(
+	scope,
+	'wipDrafts/didChange',
 );
 
 export interface DidChangeParams {
@@ -831,6 +1033,68 @@ export const DidChangeCanInstallClaudeHook = new IpcNotification<boolean>(
 	scope,
 	'agents/canInstallClaudeHook/didChange',
 );
+
+export interface CloseGraphWalkthroughBannerParams {
+	openWelcome?: boolean;
+}
+
+export const CloseGraphWalkthroughBannerCommand = new IpcCommand<CloseGraphWalkthroughBannerParams>(
+	scope,
+	'graphWalkthrough/banner/close',
+);
+
+export interface GraphWalkthroughBannerState {
+	dismissed: boolean;
+}
+
+export const DidChangeGraphWalkthroughBanner = new IpcNotification<GraphWalkthroughBannerState>(
+	scope,
+	'graphWalkthrough/banner/didChange',
+);
+
+export const DidChangeGraphWalkthroughComplete = new IpcNotification<boolean>(
+	scope,
+	'graphWalkthrough/complete/didChange',
+);
+
+export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
+	scope,
+	'graphWalkthrough/started/didChange',
+);
+
+export const DidChangeVisualizationsButtonCallout = new IpcNotification<boolean>(
+	scope,
+	'visualizationsButtonCallout/didChange',
+);
+
+export const DismissVisualizationsButtonCalloutCommand = new IpcCommand(scope, 'visualizationsButtonCallout/dismiss');
+
+export interface DidRequestActiveSidebarPanelParams {
+	panel: GraphSidebarPanel;
+}
+export const DidRequestActiveSidebarPanelNotification = new IpcNotification<DidRequestActiveSidebarPanelParams>(
+	scope,
+	'sidebar/activePanel/didRequest',
+);
+
+export interface DidRequestGraphActionParams {
+	action: GraphShowAction;
+	target?: GraphActionTarget;
+	/** Optional seed value for the WIP details panel's commit message input. Currently used after
+	 *  Undo Commit to restore the undone commit's message into the box where the user will redo it. */
+	commitMessage?: string;
+}
+export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
+	scope,
+	'action/didRequest',
+);
+
+export const TrackGraphOverviewShownCommand = new IpcCommand(scope, 'track/overview/shown');
+export const TrackGraphScopeChangedCommand = new IpcCommand(scope, 'track/scope/changed');
+export const TrackGraphDetailsReviewModeCommand = new IpcCommand(scope, 'track/details/reviewMode');
+export const TrackGraphDetailsComposeModeCommand = new IpcCommand(scope, 'track/details/composeMode');
+export const TrackGraphDetailsCompareModeCommand = new IpcCommand(scope, 'track/details/compareMode');
+export const TrackGraphDetailsWipShownCommand = new IpcCommand(scope, 'track/details/wipShown');
 
 export interface DidChangeBranchStateParams {
 	branchState: BranchState;
@@ -884,12 +1148,22 @@ export const DidChangePinnedRefNotification = new IpcNotification<DidChangePinne
 
 export interface DidChangeRowsParams {
 	rows: GraphRow[];
-	avatars: Record<string, string>;
+	/** Undefined when the backing `avatars` Map's size hasn't changed since the last notification —
+	 *  the host skips the `Object.fromEntries` cost and the frontend reducer keeps its existing
+	 *  state. Present (full Map) when new avatar entries were added. */
+	avatars: Record<string, string> | undefined;
+	/** Always present — the graph provider mutates downstream arrays in place
+	 *  (`downstreams.push(tip)` for existing upstream keys), so size-based dedupe would miss
+	 *  array-mutation cases. Frontend wholesale-replaces. */
 	downstreams: Record<string, string[]>;
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
+	/** Delta of `rowsStats` entries added since the last notification. The frontend reducer
+	 *  spread-merges into its existing state, so shipping only new keys is sufficient and avoids
+	 *  the N² IPC payload on pagination of big repos. Undefined when no new entries. */
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
+	rowsStatsIncluded?: boolean;
 	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }
@@ -925,9 +1199,35 @@ export const DidRequestOpenCompareModeNotification = new IpcNotification<DidRequ
 	'compareMode/didRequestOpen',
 );
 
+export interface DidRequestOpenTimelineScopeParams {
+	type: 'file' | 'folder';
+	relativePath: string;
+	repoPath: string;
+}
+export const DidRequestOpenTimelineScopeNotification = new IpcNotification<DidRequestOpenTimelineScopeParams>(
+	scope,
+	'timeline/didRequestOpenScope',
+);
+
+export interface DidRequestSearchParams {
+	search: SearchQuery;
+	selectSha?: string;
+}
+export const DidRequestSearchNotification = new IpcNotification<DidRequestSearchParams>(scope, 'search/didRequest');
+
 export interface DidChangeWorkingTreeParams {
 	stats: WorkDirStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;
+	/**
+	 * Primary-repo WIP, captured from the same `git status` that produced `stats`. Lets the
+	 * details panel render fresh file lists without an extra `getWip` RPC. Omitted only when
+	 * the underlying status fetch fails — callers should fall back to their existing path
+	 * (resource fetch on selection) in that case.
+	 */
+	wip?: Wip;
+	/** Path of the repo whose working tree changed. Used by the webview's WIP cache to key the
+	 *  freshest `wip` payload by repo. Always set by the host. */
+	repoPath: string;
 }
 export const DidChangeWorkingTreeNotification = new IpcNotification<DidChangeWorkingTreeParams>(
 	scope,
@@ -940,6 +1240,24 @@ export interface DidFetchParams {
 	lastFetched: Date;
 }
 export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
+
+export interface DidInvalidateScopeAnchorsParams {
+	repoPath: string;
+	/** When undefined, invalidate all scope anchors for the repo. */
+	branchRefs?: string[];
+}
+export const DidInvalidateScopeAnchorsNotification = new IpcNotification<DidInvalidateScopeAnchorsParams>(
+	scope,
+	'scope/anchors/didInvalidate',
+);
+
+export interface DidInvalidateGraphTreemapParams {
+	repoPath: string;
+}
+export const DidInvalidateGraphTreemapNotification = new IpcNotification<DidInvalidateGraphTreemapParams>(
+	scope,
+	'treemap/didInvalidate',
+);
 
 export interface DidStartFeaturePreviewParams {
 	featurePreview: FeaturePreview;
@@ -1012,11 +1330,15 @@ export interface GraphRemoteContextValue {
 export interface GraphBranchContextValue {
 	type: 'branch';
 	ref: GitBranchReference;
+	/** Set when this context represents a worktree sidebar row — the worktree's filesystem path. */
+	worktreePath?: string;
 }
 
 export interface GraphCommitContextValue {
 	type: 'commit';
 	ref: GitRevisionReference;
+	/** Set when this context represents a worktree sidebar row — the worktree's filesystem path. */
+	worktreePath?: string;
 }
 
 export interface GraphStashContextValue {

@@ -63,6 +63,7 @@ gl-details-wip-panel {
 	justify-content: space-between;
 	gap: 0.4rem;
 	border-top: 2px solid var(--color-background--level-15);
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 
 	&__tabs {
 		flex: none;
@@ -133,6 +134,10 @@ gl-details-wip-panel {
 	&__content {
 		flex: 1;
 		min-width: 0;
+		// Contain children's intrinsic overflow (e.g. an unwrapped date string inside
+		// gl-inspect-nav) so it can't propagate into the outer .commit-detail-panel's
+		// scrollWidth and trigger a phantom horizontal scrollbar.
+		overflow: hidden;
 		margin: {
 			top: 0.3rem;
 			right: 0.3rem;

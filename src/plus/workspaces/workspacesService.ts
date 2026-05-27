@@ -171,6 +171,7 @@ export class WorkspacesService implements Disposable {
 			(await this._sharedStorage?.getLocalWorkspaceData())?.workspaces || {};
 		for (const workspace of Object.values(workspaceFileData)) {
 			if (workspace.localId == null || workspace.name == null) continue;
+
 			localWorkspaces.push(
 				new LocalWorkspace(
 					this.container,
@@ -246,6 +247,7 @@ export class WorkspacesService implements Disposable {
 	@debug()
 	async addMissingCurrentWorkspaceRepos(options?: { force?: boolean }): Promise<void> {
 		if (this._currentWorkspaceId == null) return;
+
 		let currentWorkspace = [...(this._cloudWorkspaces ?? []), ...(this._localWorkspaces ?? [])].find(
 			workspace => workspace.current,
 		);
@@ -256,6 +258,7 @@ export class WorkspacesService implements Disposable {
 					includeRepositories: true,
 				});
 				if (workspaceData?.data?.project == null) return;
+
 				const repoDescriptors = workspaceData.data.project.provider_data?.repositories?.nodes;
 				const repositories =
 					repoDescriptors != null
@@ -314,6 +317,7 @@ export class WorkspacesService implements Disposable {
 			}
 			return;
 		}
+
 		let chosenRepoPaths: string[] = [];
 		if (!options?.force && this._currentWorkspaceAutoAddSetting === 'prompt') {
 			const add = { title: 'Add...' };
@@ -342,12 +346,14 @@ export class WorkspacesService implements Disposable {
 				{ excludeWorktrees: true },
 			);
 			if (pick.length === 0) return;
+
 			chosenRepoPaths = pick.map(p => p.path);
 		} else {
 			chosenRepoPaths = repositoriesToAdd.map(r => r.path);
 		}
 
 		if (chosenRepoPaths.length === 0) return;
+
 		const count = workspace.workspaceFolders?.length ?? 0;
 		void window.withProgress(
 			{
@@ -766,6 +772,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 		if (confirmation == null || confirmation.title === 'Cancel') return;
+
 		try {
 			const response = await this._api.deleteWorkspace(workspaceId);
 			if (response?.data?.delete_project?.id === workspaceId) {
@@ -797,6 +804,7 @@ export class WorkspacesService implements Disposable {
 	private async filterReposForCloudWorkspace(repos: GlRepository[], workspaceId: string): Promise<GlRepository[]> {
 		const workspace = this.getCloudWorkspace(workspaceId) ?? this.getLocalWorkspace(workspaceId);
 		if (workspace == null) return repos;
+
 		const workspaceRepos = Array.from(
 			(await workspace.getRepositoriesByName()).values(),
 			match => match.repository,
@@ -867,6 +875,7 @@ export class WorkspacesService implements Disposable {
 						}
 
 						if (token.isCancellationRequested) return;
+
 						validRepos = await this.filterReposForProvider(foundRepos, workspace.provider);
 						if (validRepos.length === 0) {
 							if (!options?.suppressNotifications) {
@@ -881,6 +890,7 @@ export class WorkspacesService implements Disposable {
 						}
 
 						if (token.isCancellationRequested) return;
+
 						validRepos = await this.filterReposForCloudWorkspace(validRepos, workspaceId);
 						if (validRepos.length === 0) {
 							if (!options?.suppressNotifications) {
@@ -904,19 +914,23 @@ export class WorkspacesService implements Disposable {
 				{ excludeWorktrees: true },
 			);
 			if (pick.length === 0) return;
+
 			reposOrRepoPaths = pick.map(p => p.path);
 		}
 
 		if (reposOrRepoPaths == null) return;
+
 		for (const repoOrPath of reposOrRepoPaths) {
 			const repo =
 				repoOrPath instanceof GlRepository
 					? repoOrPath
 					: await this.container.git.getOrOpenRepository(Uri.file(repoOrPath), { closeOnOpen: true });
 			if (repo == null) continue;
+
 			const remote = (await repo.git.remotes.getRemote('origin')) || (await repo.git.remotes.getRemotes())?.[0];
 			const remoteDescriptor = await getRemoteDescriptor(remote);
 			if (remoteDescriptor == null) continue;
+
 			repoInputs.push({
 				owner: remoteDescriptor.owner,
 				repoName: remoteDescriptor.repoName,
@@ -944,6 +958,7 @@ export class WorkspacesService implements Disposable {
 					);
 
 					if (response?.data.add_repositories_to_project == null) return;
+
 					newRepoDescriptors = Object.values(response.data.add_repositories_to_project.provider_data)
 						.filter(descriptor => descriptor != null)
 						.map(descriptor => ({ ...descriptor, workspaceId: workspaceId }));
@@ -967,6 +982,7 @@ export class WorkspacesService implements Disposable {
 						r => r.name.toLowerCase() === repoName || r.url === url,
 					);
 					if (successfullyAddedDescriptor == null) continue;
+
 					await this.locateWorkspaceRepo(workspaceId, successfullyAddedDescriptor, repo);
 				}
 			},
@@ -985,6 +1001,7 @@ export class WorkspacesService implements Disposable {
 			{ title: 'Cancel', isCloseAffordance: true },
 		);
 		if (confirmation == null || confirmation.title === 'Cancel') return;
+
 		try {
 			const response = await this._api.removeReposFromWorkspace(workspaceId, [
 				{ owner: descriptor.provider_organization_id, repoName: descriptor.name },
@@ -1047,6 +1064,7 @@ export class WorkspacesService implements Disposable {
 		const reposPathMap = new Map<string, GlRepository>();
 		for (const repo of currentRepositories) {
 			if (options?.cancellation?.aborted) break;
+
 			reposPathMap.set(normalizePath(repo.uri.fsPath.toLowerCase()), repo);
 
 			if (workspace instanceof CloudWorkspace) {
@@ -1054,6 +1072,7 @@ export class WorkspacesService implements Disposable {
 				for (const remote of remotes) {
 					const remoteDescriptor = await getRemoteDescriptor(remote);
 					if (remoteDescriptor == null) continue;
+
 					reposProviderMap.set(
 						`${remoteDescriptor.provider}/${remoteDescriptor.owner}/${remoteDescriptor.repoName}`,
 						repo,
@@ -1247,6 +1266,7 @@ export class WorkspacesService implements Disposable {
 				workspaceAutoAddSetting: newWorkspaceAutoAddSetting,
 			});
 			if (!updated) return this._currentWorkspaceAutoAddSetting;
+
 			this._currentWorkspaceAutoAddSetting = newWorkspaceAutoAddSetting;
 		}
 
@@ -1280,6 +1300,7 @@ export class WorkspacesService implements Disposable {
 			);
 
 			if (openLocationChoice == null || openLocationChoice.title === 'Cancel') return;
+
 			openLocation = openLocationChoice.location ?? 'newWindow';
 		}
 
@@ -1294,6 +1315,7 @@ export class WorkspacesService implements Disposable {
 			);
 
 			if (locateChoice?.title !== 'Locate') return;
+
 			const newPath = (
 				await window.showOpenDialog({
 					defaultUri: Uri.file(workspace.localPath),
@@ -1334,6 +1356,7 @@ export class WorkspacesService implements Disposable {
 
 async function getRemoteDescriptor(remote: GitRemote): Promise<RemoteDescriptor | undefined> {
 	if (remote.provider?.owner == null) return undefined;
+
 	const remoteRepoName = remote.provider.path.split('/').pop();
 	if (remoteRepoName == null) return undefined;
 	return {

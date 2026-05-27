@@ -54,9 +54,12 @@ export const fileTreeStyles = css`
 	   the top of the header while .header-actions fills it — visually 3px too high.
 	   align-items: center re-centers .label so the title content lines up with the
 	   action buttons. */
+	/* !important is required: webview-pane's own .header rule (specificity 0,1,0) outranks this
+	   ::part() selector (0,0,2), so without it webview-pane's default border-top bleeds through
+	   wherever the --gl-file-tree-pane-header-border-top var isn't set (compose/review/etc.). */
 	webview-pane::part(header) {
 		background-color: inherit;
-		border-top: var(--gl-file-tree-pane-header-border-top, none);
+		border-top: var(--gl-file-tree-pane-header-border-top, none) !important;
 		align-items: center;
 	}
 
@@ -156,16 +159,16 @@ export const fileTreeStyles = css`
 		border-radius: 0.3rem;
 	}
 
-	/* Filter-mode-mixed: left half shows the filled funnel (icon: 'filter-filled'),
-	   right half shows the outline funnel (outline-icon: 'filter') — a visual cue that
-	   matches are highlighted, not filtered. Both glyphs share the same outer path so
-	   the edges align perfectly at the 50% split. */
-	action-item.filter-mode-mixed::part(icon) {
+	/* Context-match-visibility 'mixed' icon: left half shows the filled funnel
+	   (icon: 'filter-filled'), right half shows the outline funnel (outline-icon: 'filter') —
+	   a visual cue that matches are highlighted, not filtered. Both glyphs share the same outer
+	   path so the edges align perfectly at the 50% split. */
+	action-item.context-match-visibility-mixed::part(icon) {
 		-webkit-mask-image: linear-gradient(to right, #000 50%, transparent 50%);
 		mask-image: linear-gradient(to right, #000 50%, transparent 50%);
 	}
 
-	action-item.filter-mode-mixed::part(icon-outline) {
+	action-item.context-match-visibility-mixed::part(icon-outline) {
 		display: inline-flex;
 		-webkit-mask-image: linear-gradient(to right, transparent 50%, #000 50%);
 		mask-image: linear-gradient(to right, transparent 50%, #000 50%);

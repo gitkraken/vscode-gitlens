@@ -105,6 +105,7 @@ export function reviveUri(data: UriComponents): Uri {
 export function getRepositoryKey(pathOrUri: string | Uri): string {
 	if (typeof pathOrUri === 'string') {
 		if (!hasScheme(pathOrUri)) return normalizePath(pathOrUri);
+
 		// Parse URI strings so file: URIs get normalized to fsPath
 		pathOrUri = URI.parse(pathOrUri);
 	}

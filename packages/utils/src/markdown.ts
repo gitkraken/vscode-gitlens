@@ -88,6 +88,7 @@ export function escapeMarkdownCodeBlocks(s: string): string {
 			i += 2;
 			continue;
 		}
+
 		if (quotesOpened) {
 			buffer += char;
 		} else {

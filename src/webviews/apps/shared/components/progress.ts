@@ -11,18 +11,16 @@ export class ProgressIndicator extends LitElement {
 		:host {
 			position: absolute;
 			left: 0;
+			bottom: 0;
 			z-index: 5;
 			height: 2px;
 			width: 100%;
 			overflow: hidden;
 		}
 
-		:host([position='bottom']) {
-			bottom: 0;
-		}
-
 		:host([position='top']) {
 			top: 0;
+			bottom: auto;
 		}
 
 		.progress-bar {

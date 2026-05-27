@@ -355,11 +355,11 @@ Each sub-provider interface is defined in its own file under `providers/`:
 
 ### GitPausedOperationsSubProvider
 
-| Method                                              | Returns                                 |
-| --------------------------------------------------- | --------------------------------------- |
-| `getPausedOperationStatus(repoPath, cancellation?)` | `GitPausedOperationStatus \| undefined` |
-| `abortPausedOperation(repoPath, options?)`          | `void`                                  |
-| `continuePausedOperation(repoPath, options?)`       | `void`                                  |
+| Method                                                        | Returns                                 |
+| ------------------------------------------------------------- | --------------------------------------- |
+| `getPausedOperationStatus(repoPath, options?, cancellation?)` | `GitPausedOperationStatus \| undefined` |
+| `abortPausedOperation(repoPath, options?)`                    | `void`                                  |
+| `continuePausedOperation(repoPath, options?)`                 | `void`                                  |
 
 ### GitPatchSubProvider
 

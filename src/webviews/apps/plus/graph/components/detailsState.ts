@@ -27,6 +27,7 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
+import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import type { CommitDetails, CommitSignatureShape, Preferences, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchCommitEntry,
@@ -34,6 +35,8 @@ import type {
 	BranchComparisonContributor,
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
+	ComposeResult,
+	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
@@ -48,6 +51,54 @@ export interface ExplainState {
 	cancelled?: boolean;
 	error?: { message: string };
 	result?: { summary: string; body: string };
+}
+
+/** Execution state of a running compose/review operation on a specific anchor.
+ *  Invariants:
+ *  - `'generating'` ⇒ `result == null && abortController != null && promise != null`
+ *  - `'complete' | 'backed' | 'error'` ⇒ `result != null`
+ *  - `'orphaned'` ⇒ `result` may be absent (orphan can hit a still-generating entry)
+ *  `'backed'` means the user clicked Back from `'complete'` — the result is preserved in the
+ *  controller's `_*BackSnapshot` for `forward()`, and Close from this state destroys the entry
+ *  (the Back-then-close destroy gate). Forward flips `'backed'` → `'complete'`. */
+export type RunningOperationExecState = 'generating' | 'complete' | 'backed' | 'error' | 'orphaned';
+
+/** Identifies the selection a running operation is anchored to. */
+export interface RunningOperationAnchor {
+	kind: DetailsContext;
+	/** For secondary WIP rows, this is the worktree's path. */
+	repoPath: string;
+	sha?: string;
+	shas?: string[];
+}
+
+interface RunningOperationBase {
+	anchor: RunningOperationAnchor;
+	execState: RunningOperationExecState;
+	/** Live run handle — aborting kills the host-side AI call (signal is threaded through the
+	 *  RPC). Present while `execState === 'generating'`; absent after the run settles. */
+	abortController?: AbortController;
+	/** In-flight RPC promise — lets a re-engage re-attach rendering without re-running the AI. */
+	promise?: Promise<ReviewResult | ComposeResult>;
+	/** The user-submitted prompt that initiated this run. Set at `dispatchOperation` time and
+	 *  preserved through every entry transition (success, error, backed, retry-update) via the
+	 *  spread pattern. Drives the AI-input seed on Restart / Go Back: the panel reads it off the
+	 *  engaged entry so each anchor remembers its own run's prompt across mode toggles and anchor
+	 *  switches. Empty/undefined for runs that don't carry a prompt. */
+	prompt?: string;
+}
+
+/** A started compose/review operation. Keyed in the registry inside a {@link RunningOperationBucket}
+ *  so both a `review` and a `compose` may coexist on the same anchor. Webview-local; in-memory only.
+ *  The entry OWNS the in-flight run — switching anchors leaves it intact; the run keeps going. */
+export type RunningOperation =
+	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
+	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult });
+
+/** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
+export interface RunningOperationBucket {
+	review?: Extract<RunningOperation, { kind: 'review' }>;
+	compose?: Extract<RunningOperation, { kind: 'compose' }>;
 }
 
 /**
@@ -98,6 +149,7 @@ function createDurableState() {
 	// AI explain result (mode-adjacent but fetched)
 	const explain = signal<ExplainState | undefined>(undefined);
 	const compareExplainBusy = signal(false);
+	const compareGenerateChangelogBusy = signal(false);
 
 	// Branch commits (scope-picker source of truth)
 	const branchCommits = signal<BranchCommitEntry[] | undefined>(undefined);
@@ -125,6 +177,19 @@ function createDurableState() {
 	// panel. Cleared whenever the comparison identity changes.
 	const branchCompareAheadLoaded = signal(false);
 	const branchCompareBehindLoaded = signal(false);
+	// Per-side "has more commits beyond the current limit" — drives the "Load More" affordance
+	// at the bottom of each commit list. Cleared on identity changes alongside the loaded flags.
+	const branchCompareAheadHasMore = signal(false);
+	const branchCompareBehindHasMore = signal(false);
+	// Per-side current commit-limit. Bumped by `loadMoreCompareCommits` (limit-replace pattern
+	// matching `loadMoreBranchCommits`): we re-fetch with a larger limit and the resource value
+	// idempotently supersedes the smaller one. Reset to the default page size on identity change.
+	const branchCompareAheadLimit = signal(100);
+	const branchCompareBehindLimit = signal(100);
+	// Per-side "load-more in flight" flag. Drives the spinner inside the load-more row so the
+	// button visually indicates the fetch is happening and is disabled to prevent double-fires.
+	const branchCompareAheadLoadingMore = signal(false);
+	const branchCompareBehindLoadingMore = signal(false);
 
 	// Branch-comparison enrichment caches keyed by scope (active tab). Switching tabs
 	// reads from these maps; only newly-visited scopes trigger a fetch. Caches reset only
@@ -154,6 +219,9 @@ function createDurableState() {
 	const hasIntegrationsConnected = signal(false);
 	const hasRemotes = signal(false);
 	const aiModel = signal<AiModelInfo | undefined>(undefined);
+
+	const launchpadSummary = signal<LaunchpadSummaryResult | { error: Error } | undefined>(undefined);
+	const launchpadSummaryLoading = signal(false);
 
 	return {
 		commit: commit,
@@ -190,6 +258,7 @@ function createDurableState() {
 
 		explain: explain,
 		compareExplainBusy: compareExplainBusy,
+		compareGenerateChangelogBusy: compareGenerateChangelogBusy,
 
 		branchCommits: branchCommits,
 		branchMergeBase: branchMergeBase,
@@ -207,6 +276,12 @@ function createDurableState() {
 		branchCompareBehindFiles: branchCompareBehindFiles,
 		branchCompareAheadLoaded: branchCompareAheadLoaded,
 		branchCompareBehindLoaded: branchCompareBehindLoaded,
+		branchCompareAheadHasMore: branchCompareAheadHasMore,
+		branchCompareBehindHasMore: branchCompareBehindHasMore,
+		branchCompareAheadLimit: branchCompareAheadLimit,
+		branchCompareBehindLimit: branchCompareBehindLimit,
+		branchCompareAheadLoadingMore: branchCompareAheadLoadingMore,
+		branchCompareBehindLoadingMore: branchCompareBehindLoadingMore,
 
 		branchCompareAutolinksByScope: branchCompareAutolinksByScope,
 		branchCompareEnrichedAutolinksByScope: branchCompareEnrichedAutolinksByScope,
@@ -222,6 +297,9 @@ function createDurableState() {
 		hasIntegrationsConnected: hasIntegrationsConnected,
 		hasRemotes: hasRemotes,
 		aiModel: aiModel,
+
+		launchpadSummary: launchpadSummary,
+		launchpadSummaryLoading: launchpadSummaryLoading,
 
 		resetAll: resetAll,
 	};
@@ -239,12 +317,25 @@ function createTransientState() {
 	// Compare UI toggle
 	const swapped = signal(false);
 
-	// Workflow state machine
-	const activeMode = signal<'review' | 'compose' | 'compare' | null>(null);
+	// Workflow state machine — compose/review only. Compare is no longer a `mode`; it has its
+	// own lifecycle via `compareSheetOpen` + workflow `openCompare`/`closeCompare`.
+	const activeMode = signal<'review' | 'compose' | null>(null);
 	const activeModeContext = signal<DetailsContext | null>(null);
 	const activeModeRepoPath = signal<string | undefined>(undefined);
 	const activeModeSha = signal<string | undefined>(undefined);
 	const activeModeShas = signal<string[] | undefined>(undefined);
+
+	// Compare sheet visibility. Independent of `activeMode` — compare can coexist with an
+	// active compose/review (the sheet sits over the panel, the panel is inert beneath).
+	const compareSheetOpen = signal(false);
+
+	// Compare in panel form — a dedicated nested split inside the details panel instead of the
+	// floating sheet. Mutually exclusive with `compareSheetOpen` at any given moment, but each
+	// can be flipped independently — the user can promote (sheet → panel), restore (panel →
+	// sheet), or close from either form.
+	const compareAsPanel = signal(false);
+	const compareSplitPosition = signal(50);
+	const compareSplitOrientation = signal<'horizontal' | 'vertical'>('horizontal');
 
 	// Scope picker + AI exclusions + stale indicator
 	const scope = signal<ScopeSelection | undefined>(undefined);
@@ -272,6 +363,21 @@ function createTransientState() {
 	const composeProgressMessage = signal<string | undefined>(undefined);
 	const composeApplying = signal(false);
 
+	// Error-recovery snapshot — `*PreErrorValue` is captured BEFORE an action that could mutate
+	// the resource into an error sentinel (runReview / runCompose / composeCommitAll). The error
+	// pane's "Go Back" feeds this snapshot into the `'backed'` transition so a Resume bar can
+	// restore the prior plan/findings without re-running. Cleared by `*.invalidateErrorRecovery()`
+	// on mode entry/exit/selection change, or overwritten by the next attempt.
+	//
+	// The submitted prompt is NOT stored here — it lives on the per-anchor `RunningOperation`
+	// entry's `prompt` field (see `detailsState.ts:RunningOperationBase`). Reading it off the
+	// engaged entry means each anchor remembers its own run's prompt across mode toggles and
+	// anchor switches, and `retryFromError` / the AI-input seed both read the same source of truth.
+	const composePreErrorValue = signal<ComposeResult | undefined>(undefined);
+	const reviewPreErrorValue = signal<ReviewResult | undefined>(undefined);
+	const composeLastFailedAction = signal<'generate' | 'commit-all' | undefined>(undefined);
+	const composeLastCommitAllIncludedIds = signal<readonly string[] | undefined>(undefined);
+
 	// Compare-mode UI settings (not fetched data — user's interactive choices while in
 	// compare mode)
 	const branchCompareLeftRef = signal<string | undefined>(undefined);
@@ -279,8 +385,19 @@ function createTransientState() {
 	const branchCompareRightRef = signal<string | undefined>(undefined);
 	const branchCompareRightRefType = signal<'branch' | 'tag' | 'commit' | undefined>(undefined);
 	const branchCompareIncludeWorkingTree = signal(false);
+	// Worktree path currently checked out at `branchCompareRightRef` (the Compare side), populated
+	// by each summary fetch. Drives IWT-toggle visibility and routes WT-touching file ops to the
+	// correct repo path. Cleared synchronously on rightRef changes so the toggle hides during
+	// in-flight fetches. The left ref's (Base) worktree is intentionally not resolved — IWT only
+	// reads the Compare side's working tree, so exposing the Base side's would invite asymmetric
+	// comparisons we don't support.
+	const branchCompareRightRefWorktreePath = signal<string | undefined>(undefined);
+	// Merge base of leftRef and rightRef, populated by each summary fetch. Anchors the per-side file
+	// list and per-tab diff/file-action direction so Ahead/Behind reflect each side's divergence
+	// instead of the symmetric 2-dot diff. Cleared synchronously on identity changes.
+	const branchCompareMergeBase = signal<string | undefined>(undefined);
 	const branchCompareStale = signal(false);
-	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('all');
+	const branchCompareActiveTab = signal<'all' | 'ahead' | 'behind'>('ahead');
 	// Per-tab "scope to this commit" selection. Persisted across tab switches so that returning
 	// to e.g. Ahead with a previously-selected commit X restores the scoped file view (alongside
 	// the cached scroll/expand state). The 'all' tab has no commit list so isn't keyed here.
@@ -317,6 +434,11 @@ function createTransientState() {
 		activeModeSha: activeModeSha,
 		activeModeShas: activeModeShas,
 
+		compareSheetOpen: compareSheetOpen,
+		compareAsPanel: compareAsPanel,
+		compareSplitPosition: compareSplitPosition,
+		compareSplitOrientation: compareSplitOrientation,
+
 		scope: scope,
 		aiExcludedFiles: aiExcludedFiles,
 		wipStale: wipStale,
@@ -327,11 +449,18 @@ function createTransientState() {
 		composeProgressMessage: composeProgressMessage,
 		composeApplying: composeApplying,
 
+		composePreErrorValue: composePreErrorValue,
+		reviewPreErrorValue: reviewPreErrorValue,
+		composeLastFailedAction: composeLastFailedAction,
+		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
+
 		branchCompareLeftRef: branchCompareLeftRef,
 		branchCompareLeftRefType: branchCompareLeftRefType,
 		branchCompareRightRef: branchCompareRightRef,
 		branchCompareRightRefType: branchCompareRightRefType,
 		branchCompareIncludeWorkingTree: branchCompareIncludeWorkingTree,
+		branchCompareRightRefWorktreePath: branchCompareRightRefWorktreePath,
+		branchCompareMergeBase: branchCompareMergeBase,
 		branchCompareStale: branchCompareStale,
 		branchCompareActiveTab: branchCompareActiveTab,
 		branchCompareSelectedCommitShaByTab: branchCompareSelectedCommitShaByTab,

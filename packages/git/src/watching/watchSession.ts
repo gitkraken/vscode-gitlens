@@ -97,6 +97,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	dispose(): void {
 		if (this._disposed) return;
+
 		this._disposed = true;
 
 		this.cancelRepoTimer();
@@ -175,6 +176,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		return Object.assign(
 			createDisposable(() => {
 				if (subDisposed) return;
+
 				subDisposed = true;
 
 				this.repoDelays.delete(id);
@@ -221,6 +223,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		return Object.assign(
 			createDisposable(() => {
 				if (subDisposed) return;
+
 				subDisposed = true;
 
 				this.wtDelays.delete(id);
@@ -245,6 +248,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 	resume(delayMs?: number): void {
 		if (!this._suspended) return;
+
 		this._suspended = false;
 
 		// Flush accumulated changes
@@ -259,30 +263,35 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	/** Inject changes (e.g., after a git operation the caller performed). Goes through debounce + suspend. */
 	fireChange(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
+
 		this.coalesceRepo(changes);
 	}
 
 	/** Immediate fire, bypassing debounce + suspend (for Closed/Opened). */
 	fireChangeImmediate(...changes: RepositoryChange[]): void {
 		if (this._disposed || changes.length === 0) return;
+
 		this.repoEmitter.fire(new WatcherRepoChangeEvent(this.repoPath, changes));
 	}
 
 	/** Push interpreted repo changes into the pipeline */
 	pushRepoChanges(changes: RepositoryChange[]): void {
 		if (this._disposed) return;
+
 		this.coalesceRepo(changes);
 	}
 
 	/** Push working tree file changes into the pipeline */
 	pushWorkingTreeChanges(paths: Iterable<string>): void {
 		if (this._disposed) return;
+
 		this._etagWorkingTree++;
 		this.coalesceWT(paths);
 	}
 
 	private static minDelay(delays: Map<number, number>, fallback: number): number {
 		if (delays.size === 0) return fallback;
+
 		let min = fallback;
 		for (const d of delays.values()) {
 			if (d < min) {
@@ -304,6 +313,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.repoTimer = undefined;
 		const event = this.pendingRepoEvent;
 		if (event == null) return;
+
 		this.pendingRepoEvent = undefined;
 		this.repoEmitter.fire(event);
 		this.onDidFireRepoChangeCallback?.(event);

@@ -3,7 +3,7 @@ import { Disposable, env, EventEmitter } from 'vscode';
 import { wait } from '@gitlens/utils/promise.js';
 import { SubscriptionState } from '../constants.subscription.js';
 import type { TrackedUsageKeys } from '../constants.telemetry.js';
-import type { WalkthroughContextKeys } from '../constants.walkthroughs.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../constants.walkthroughs.js';
 import type { Container } from '../container.js';
 import type { SubscriptionChangeEvent } from '../plus/gk/subscriptionService.js';
 import { setContext } from '../system/-webview/context.js';
@@ -92,7 +92,6 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.explainWip:views:executed',
 				'command:gitlens.ai.generateChangelogFrom:graph:executed',
 				'command:gitlens.ai.generateChangelogFrom:views:executed',
-				'command:gitlens.ai.generateCommitMessage:graph:executed',
 				'command:gitlens.ai.generateCommitMessage:scm:executed',
 				'command:gitlens.ai.generateChangelog:views:executed',
 				'action:gitlens.ai.generateCommits:happened',
@@ -106,7 +105,7 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 				'command:gitlens.ai.mcp.install:executed',
 				'command:gitlens.ai.mcp.reinstall:executed',
 				'action:gitlens.mcp.ipcRequest:happened',
-				'action:gitlens.mcp.chatInteraction:happened',
+				'action:gitlens.ai.openInAgent:happened',
 				'action:gitlens.mcp.bundledMcpDefinitionProvided:happened',
 			],
 		},
@@ -119,6 +118,48 @@ const walkthroughRequiredMapping: Readonly<Map<WalkthroughContextKeys, Walkthrou
 	],
 ]);
 
+const graphWalkthroughRequiredMapping: Readonly<Map<GraphWalkthroughContextKeys, WalkthroughUsage>> = new Map<
+	GraphWalkthroughContextKeys,
+	WalkthroughUsage
+>([
+	[
+		'graphAgentMonitoring',
+		{
+			usage: ['action:gitlens.graph.overview.shown:happened'],
+		},
+	],
+	[
+		'graphParallelWork',
+		{
+			usage: ['action:gitlens.graph.scope.changed:happened'],
+		},
+	],
+	[
+		'graphAiReview',
+		{
+			usage: ['action:gitlens.graph.details.reviewMode:happened'],
+		},
+	],
+	[
+		'graphCompose',
+		{
+			usage: ['action:gitlens.graph.details.composeMode:happened'],
+		},
+	],
+	[
+		'graphCompare',
+		{
+			usage: ['action:gitlens.graph.details.compareMode:happened'],
+		},
+	],
+	[
+		'graphNextSteps',
+		{
+			usage: ['action:gitlens.graph.details.wipShown:happened'],
+		},
+	],
+]);
+
 export class WalkthroughStateProvider implements Disposable {
 	private readonly _onDidChangeProgress = new EventEmitter<void>();
 	get onDidChangeProgress(): Event<void> {
@@ -126,9 +167,11 @@ export class WalkthroughStateProvider implements Disposable {
 	}
 
 	readonly walkthroughSize = walkthroughRequiredMapping.size;
+	readonly graphWalkthroughSize = graphWalkthroughRequiredMapping.size;
 
 	protected disposables: Disposable[] = [];
 	private readonly completed = new Set<WalkthroughContextKeys>();
+	private readonly graphCompleted = new Set<GraphWalkthroughContextKeys>();
 	private subscriptionState: SubscriptionState | undefined;
 
 	readonly isWalkthroughSupported = isWalkthroughSupported();
@@ -155,6 +198,13 @@ export class WalkthroughStateProvider implements Disposable {
 				void this.completeStep(key);
 			}
 		}
+
+		for (const key of graphWalkthroughRequiredMapping.keys()) {
+			if (this.validateGraphStep(key)) {
+				void this.completeGraphStep(key);
+			}
+		}
+
 		this._onDidChangeProgress.fire(undefined);
 	}
 
@@ -180,6 +230,22 @@ export class WalkthroughStateProvider implements Disposable {
 				shouldFire = true;
 			}
 		}
+
+		const graphStepsToValidate = this.getGraphStepsFromUsage(usageTrackingKey);
+		for (const step of graphStepsToValidate) {
+			if (this.graphCompleted.has(step)) {
+				continue;
+			}
+
+			if (this.validateGraphStep(step)) {
+				void this.completeGraphStep(step);
+				this.container.telemetry.sendEvent('walkthrough/completion', {
+					'context.key': step,
+				});
+				shouldFire = true;
+			}
+		}
+
 		if (shouldFire) {
 			this._onDidChangeProgress.fire(undefined);
 		}
@@ -219,6 +285,7 @@ export class WalkthroughStateProvider implements Disposable {
 		if (this._isInitialized) {
 			return;
 		}
+
 		if (!this._initPromise) {
 			this._initPromise = wait(1000).then(() => {
 				this._isInitialized = true;
@@ -254,6 +321,22 @@ export class WalkthroughStateProvider implements Disposable {
 		return state;
 	}
 
+	get graphDoneCount(): number {
+		return this.graphCompleted.size;
+	}
+
+	get graphProgress(): number {
+		return this.graphDoneCount / this.graphWalkthroughSize;
+	}
+
+	getGraphState(): Map<GraphWalkthroughContextKeys, boolean> {
+		const state = new Map<GraphWalkthroughContextKeys, boolean>();
+		for (const key of graphWalkthroughRequiredMapping.keys()) {
+			state.set(key, this.graphCompleted.has(key));
+		}
+		return state;
+	}
+
 	dispose(): void {
 		Disposable.from(...this.disposables).dispose();
 	}
@@ -278,6 +361,33 @@ export class WalkthroughStateProvider implements Disposable {
 		}
 
 		return keys;
+	}
+
+	private async completeGraphStep(key: GraphWalkthroughContextKeys) {
+		this.graphCompleted.add(key);
+		await this.waitForWalkthroughInitialized();
+		void setContext(`gitlens:walkthroughState:${key}`, true);
+	}
+
+	private getGraphStepsFromUsage(usageKey: TrackedUsageKeys): GraphWalkthroughContextKeys[] {
+		const keys: GraphWalkthroughContextKeys[] = [];
+		for (const [key, { usage }] of graphWalkthroughRequiredMapping) {
+			if (usage.includes(usageKey)) {
+				keys.push(key);
+			}
+		}
+		return keys;
+	}
+
+	private validateGraphStep(key: GraphWalkthroughContextKeys): boolean {
+		const mapping = graphWalkthroughRequiredMapping.get(key);
+		if (mapping == null) return false;
+
+		const { usage } = mapping;
+		if (usage.length > 0 && !usage.some(event => this.container.usage.isUsed(event))) {
+			return false;
+		}
+		return true;
 	}
 
 	private validateStep(key: WalkthroughContextKeys): boolean {

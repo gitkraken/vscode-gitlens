@@ -1,12 +1,13 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
-import type { TemplateResult } from 'lit';
+import type { PropertyValues, TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
-import { interpolate, pluralize } from '@gitlens/utils/string.js';
+import { interpolate } from '@gitlens/utils/string.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
+import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import {
 	actionGroupMap,
@@ -26,8 +27,9 @@ import type {
 } from '../../../../home/protocol.js';
 import type { HomeState } from '../../../home/state.js';
 import { homeStateContext } from '../../../home/state.js';
-import { agentPhaseToCategory, getWorktreeBasename, matchAgentSessionsForBranch } from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import type { GlCard } from '../../../shared/components/card/card.js';
+import { getWipTooltipParts } from '../../../shared/components/commit/wip-stats.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
 import { srOnlyStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import type { AIContextState } from '../../../shared/contexts/ai.js';
@@ -279,7 +281,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	protected _webview!: WebviewContext;
 
 	@consume({ context: homeStateContext })
-	private _homeState!: HomeState;
+	protected _homeState!: HomeState;
 
 	@property()
 	repo!: string;
@@ -509,6 +511,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 		if (this.wip?.pausedOpStatus != null) {
 			if (this.wip?.hasConflicts) return 'conflict';
+
 			switch (this.wip.pausedOpStatus.type) {
 				case 'cherry-pick':
 					return 'cherry-picking';
@@ -571,6 +574,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	private readonly onFocus = (e: FocusEvent) => {
 		const actionElement = e.composedPath().some(el => (el as HTMLElement).matches?.('action-item') ?? false);
 		if (actionElement || this.expanded) return;
+
 		this.toggleExpanded(true);
 	};
 
@@ -801,17 +805,24 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 	}
 
 	private renderAgentPillsRow(): TemplateResult | NothingType {
-		const sessions = matchAgentSessionsForBranch(this._homeState?.agentSessions?.get(), {
-			name: this.branch.name,
+		// Home's `branch.worktree == null` means "not checked out anywhere" — never the default
+		// worktree (which surfaces with `worktree.path === repoPath`). Bailing here avoids the
+		// matcher's `worktreePath ?? repoPath` fallback, which exists for the Graph's "undefined
+		// ≡ default" convention and would otherwise false-match every no-worktree branch to the
+		// default-worktree session.
+		const worktreePath = this.branch.worktree?.path;
+		if (worktreePath == null) return nothing;
+
+		const sessions = matchAgentSessionsForWorktree(this._homeState?.agentSessions?.get(), {
 			repoPath: this.repo,
-			worktreeName: this.branch.worktree != null ? getWorktreeBasename(this.branch.worktree.uri) : undefined,
+			worktreePath: worktreePath,
 		});
 		if (sessions == null || sessions.length === 0) return nothing;
 
 		if (this.expanded) {
 			return html`
 				<div class="branch-item__agents">
-					<code-icon icon="hubot"></code-icon>
+					<code-icon icon="robot"></code-icon>
 					${sessions.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
 				</div>
 			`;
@@ -835,7 +846,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 		return html`
 			<div class="branch-item__agents">
-				<code-icon icon="hubot"></code-icon>
+				<code-icon icon="robot"></code-icon>
 				${needsInput.map(s => html`<gl-agent-status-pill .session=${s}></gl-agent-status-pill>`)}
 				${working.length > 0
 					? html`<gl-agent-status-pill
@@ -930,6 +941,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		const groupIcon = launchpadGroupIconMap.get(group);
 
 		if (groupLabel == null || groupIcon == null) return nothing;
+
 		const groupIconString = groupIcon.match(/\$\((.*?)\)/)![1].replace('gitlens', 'gl');
 
 		const tooltip = interpolate(actionGroupMap.get(this.launchpadItem.category)![1], {
@@ -1016,6 +1028,37 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 
 @customElement('gl-branch-card')
 export class GlBranchCard extends GlBranchCardBase {
+	// Subclass-owned lazy merge-target state. The base's eager `_mergeTarget` stays undefined
+	// here because the home overview's enrichment IPC opts out (`skipMergeTarget: true`) — this
+	// mirrors the graph-overview-card hover pattern by fetching on first card expand instead.
+	@state()
+	private _lazyMergeTarget?: Awaited<GetOverviewBranch['mergeTarget']>;
+
+	// True while the lazy fetch is in flight. Drives `<gl-merge-target-status loading>` so the
+	// chip's `aria-busy="true"` "Checking merge target status…" affordance covers the latency
+	// instead of rendering nothing until resolution.
+	@state()
+	private _lazyMergeTargetLoading = false;
+
+	// In-flight/resolved promise. Handed to the chip's `targetPromise` so the loading state
+	// reuses across collapse/re-expand cycles without re-firing.
+	private _lazyMergeTargetPromise?: Promise<Awaited<GetOverviewBranch['mergeTarget']>>;
+
+	// Lit's `repeat` reuses card instances when the branch list reorders, so a `branch` prop
+	// transition can swap us onto a different branch entirely. Track the id we last fetched
+	// for so `willUpdate` can drop stale state on transition.
+	private _lazyMergeTargetFetchedFor?: string;
+
+	/**
+	 * Surface the lazy-fetched merge-target through the base's `mergeTarget` getter so the
+	 * base's `branchCardIndicator` automatically returns `'branch-merged'` after resolve — no
+	 * separate indicator override needed. Lit re-renders on `_lazyMergeTarget` (`@state`) so
+	 * the swap-in is reactive.
+	 */
+	override get mergeTarget(): Awaited<GetOverviewBranch['mergeTarget']> {
+		return this._lazyMergeTarget;
+	}
+
 	override render(): unknown {
 		return html`
 			<gl-card class="branch-item" focusable .indicator=${this.cardIndicator}>
@@ -1025,6 +1068,89 @@ export class GlBranchCard extends GlBranchCardBase {
 				${this.renderCollapsedActions()}
 			</gl-card>
 		`;
+	}
+
+	override willUpdate(changed: PropertyValues<this>): void {
+		super.willUpdate?.(changed);
+
+		// Drop stale lazy state when Lit `repeat` reuses this card instance for a different branch.
+		if (changed.has('branch') && this.branch?.id !== this._lazyMergeTargetFetchedFor) {
+			this._lazyMergeTarget = undefined;
+			this._lazyMergeTargetPromise = undefined;
+			this._lazyMergeTargetFetchedFor = undefined;
+			this._lazyMergeTargetLoading = false;
+		}
+
+		// First expand for this branch kicks off the fetch; subsequent ticks short-circuit via
+		// the `_lazyMergeTargetFetchedFor` dedupe check inside `ensureMergeTargetFetched`.
+		if (this.expanded) {
+			void this.ensureMergeTargetFetched();
+		}
+	}
+
+	/**
+	 * Render the chip with the subclass's lazy promise + loading flag, replacing the base's
+	 * direct read of `this.branch.mergeTarget` (which is `Promise<undefined>` under skip).
+	 * Renders nothing until the first expand fires the fetch — matches graph-overview-card.
+	 */
+	protected override renderMergeTargetStatus(): TemplateResult | NothingType {
+		if (this.showUpgrade) {
+			return super.renderMergeTargetStatus();
+		}
+
+		const promise = this._lazyMergeTargetPromise;
+		if (promise == null) return nothing;
+		return html`<gl-merge-target-status
+			class="branch-item__merge-target"
+			.branch=${this.branch}
+			.targetPromise=${promise}
+			?loading=${this._lazyMergeTargetLoading}
+		></gl-merge-target-status>`;
+	}
+
+	private async ensureMergeTargetFetched(): Promise<void> {
+		const branch = this.branch;
+		if (branch == null) return;
+
+		// Already fetched (or in flight) for this branch — nothing to do. The promise is reused
+		// across expand cycles; the chip handles loading state internally.
+		if (this._lazyMergeTargetFetchedFor === branch.id && this._lazyMergeTargetPromise != null) {
+			return;
+		}
+
+		// Pro gate — mirror the eager path's server-side `isPro` filter. Without this, non-pro
+		// accounts would spin the `aria-busy="true"` loading chip forever because the server
+		// fast-bails and the resolved promise never produces a status. `<gl-merge-target-upgrade>`
+		// is rendered separately via `showUpgrade` so non-pro still sees the upgrade prompt.
+		const subState = this._subscription.subscription.get()?.state;
+		if (subState != null && !isSubscriptionTrialOrPaidFromState(subState)) return;
+
+		const branches = this._homeState?.branchesService;
+		if (branches == null) return;
+
+		this._lazyMergeTargetFetchedFor = branch.id;
+		this._lazyMergeTargetLoading = true;
+		const branchId = branch.id;
+		const repoPath = this.repo;
+		const branchName = branch.name;
+
+		const promise = (async (): Promise<Awaited<GetOverviewBranch['mergeTarget']>> => {
+			try {
+				const enrichment = await branches.getBranchEnrichment(repoPath, branchName);
+				return await enrichment?.mergeTargetStatus;
+			} catch {
+				return undefined;
+			}
+		})();
+		this._lazyMergeTargetPromise = promise;
+
+		const result = await promise;
+		// Bail if a `branch` prop transition reassigned us mid-await — `willUpdate` already
+		// cleared the state for the new branch and `_lazyMergeTargetFetchedFor` no longer matches.
+		if (this._lazyMergeTargetFetchedFor !== branchId) return;
+
+		this._lazyMergeTarget = result;
+		this._lazyMergeTargetLoading = false;
 	}
 
 	protected getCollapsedActions(): TemplateResult[] {
@@ -1231,18 +1357,4 @@ function getLaunchpadItemGrouping(group: ReturnType<typeof getLaunchpadItemGroup
 	}
 
 	return undefined;
-}
-
-function getWipTooltipParts(workingTreeState: { added: number; changed: number; deleted: number }) {
-	const parts = [];
-	if (workingTreeState.added) {
-		parts.push(`${pluralize('file', workingTreeState.added ?? 0)} added`);
-	}
-	if (workingTreeState.changed) {
-		parts.push(`${pluralize('file', workingTreeState.changed ?? 0)} changed`);
-	}
-	if (workingTreeState.deleted) {
-		parts.push(`${pluralize('file', workingTreeState.deleted ?? 0)} deleted`);
-	}
-	return parts;
 }

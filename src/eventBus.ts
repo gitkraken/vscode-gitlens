@@ -168,6 +168,7 @@ export class EventBus implements Disposable {
 			// eslint-disable-next-line prefer-arrow-callback
 			function (e) {
 				if (name !== e.name) return;
+
 				handler.call(thisArgs, e as EventBusEvent<T>);
 			},
 			thisArgs,

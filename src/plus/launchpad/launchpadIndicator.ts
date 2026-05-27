@@ -606,6 +606,7 @@ export class LaunchpadIndicator implements Disposable {
 
 	private storeFirstInteractionIfNeeded() {
 		if (this.container.storage.get('launchpad:indicator:hasInteracted') != null) return;
+
 		void this.container.storage.store('launchpad:indicator:hasInteracted', new Date().toISOString());
 	}
 

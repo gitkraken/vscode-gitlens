@@ -287,6 +287,7 @@ export function run<T extends number | string>(
 								`Non-UTF-8 encoding '${encoding}' requested but no decode function configured`,
 							);
 						}
+
 						stdoutDecoded = await decode(
 							Buffer.from(stdout, 'binary'),
 							encoding ? { encoding: encoding } : undefined,
@@ -311,6 +312,7 @@ export function run<T extends number | string>(
 					if (decode == null) {
 						throw new Error(`Non-UTF-8 encoding '${encoding}' requested but no decode function configured`);
 					}
+
 					resolve(
 						(await decode(
 							Buffer.from(stdout, 'binary'),

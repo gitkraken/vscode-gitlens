@@ -1,6 +1,10 @@
 import { css } from 'lit';
 
 export const detailsCommitPanelStyles = css`
+	:host {
+		--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)));
+	}
+
 	/* Split panel layout */
 	:host([variant='embedded']) .split {
 		flex: 1;
@@ -89,6 +93,104 @@ export const detailsCommitPanelStyles = css`
 		flex: 1;
 	}
 
+	/* Mode-active title (replaces the author row in review mode). Verb on top, commit
+	   message subtitle beneath. Keeps the same vertical rhythm as the author row so the
+	   header doesn't jump height when entering/leaving the mode. */
+	.mode-title {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-width: 0;
+		flex: 1;
+		gap: 0.2rem;
+	}
+
+	.mode-title__verb {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--gl-font-base);
+		font-weight: 600;
+		color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
+	}
+
+	.mode-title__icon {
+		flex: 0 0 auto;
+		color: var(--vscode-foreground);
+	}
+
+	.mode-title__subtitle {
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.metadata-bar {
+		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+	}
+
+	/* Right-side mode-status snippet in the metadata bar (compose/review). Replaces the
+	   commit-stats render when present so the bar's right side carries the mode's current
+	   state rather than the static stats. */
+	.metadata-bar .mode-status {
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
+		white-space: nowrap;
+	}
+
+	/* Resume affordance — the same snippet that the Graph's WIP / multi-commit panels render
+	   when a back-snapshot exists. The Graph renders this panel for single-commit rows, so the
+	   styles must live here too; without them the Resume button surfaces as a bare unstyled
+	   button. Mirrors gl-details-wip-header.css.ts. */
+	.metadata-bar .mode-status__group {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.metadata-bar .mode-status__group code-icon {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
+	.metadata-bar .mode-status__resume {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		padding: 0.2rem 0.6rem;
+		font: inherit;
+		color: inherit;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		cursor: pointer;
+	}
+
+	.metadata-bar .mode-status__resume:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+
+	.metadata-bar .mode-status__resume:focus-visible {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+	}
+
+	.metadata-bar .mode-status__resume-verb {
+		font-weight: 500;
+	}
+
+	.metadata-bar .mode-status__resume-arrow {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
 	/* ── Zone 2: Metadata bar ── */
 	:host([variant='embedded']) .metadata-bar {
 		display: flex;
@@ -97,6 +199,11 @@ export const detailsCommitPanelStyles = css`
 		padding: 0 var(--gl-panel-padding-right) 0 var(--gl-panel-padding-left);
 		gap: 0.6rem;
 		flex: none;
+		min-width: 0;
+		// Contain children's intrinsic overflow so an unwrapped SHA / branch name / date
+		// can't bleed into the .commit-detail-panel's scrollWidth and trigger a phantom
+		// horizontal scrollbar at narrow sidebar widths.
+		overflow: hidden;
 		min-height: var(--gl-metadata-bar-min-height);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
@@ -127,39 +234,6 @@ export const detailsCommitPanelStyles = css`
 		font-size: var(--gl-font-base);
 	}
 
-	/* Negate the parent flex gap on the tooltip wrapper so the kebab sits flush against
-	   the SHA chip (the inner button can't move it — the tooltip is the flex item). */
-	:host([variant='embedded']) .metadata-bar__more-tooltip {
-		margin-left: -0.4rem;
-	}
-
-	:host([variant='embedded']) .metadata-bar__action {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 2.4rem;
-		height: 2.4rem;
-		border: none;
-		background: transparent;
-		cursor: pointer;
-		padding: 0;
-		border-radius: var(--gk-action-radius, 0.3rem);
-		color: var(--color-foreground--65);
-		font: inherit;
-		line-height: 1;
-	}
-	:host([variant='embedded']) .metadata-bar__action:hover {
-		background: var(--vscode-toolbar-hoverBackground);
-		color: var(--color-foreground);
-	}
-	:host([variant='embedded']) .metadata-bar__action code-icon {
-		display: inline-flex;
-	}
-	:host([variant='embedded']) .metadata-bar__action--apply {
-		color: var(--color-foreground);
-	}
-
 	:host([variant='embedded']) .metadata-bar__branch {
 		flex: 0 1 auto;
 		min-width: 0;
@@ -188,8 +262,10 @@ export const detailsCommitPanelStyles = css`
 		cursor: pointer;
 		flex-shrink: 1;
 		min-width: 0;
+		min-height: 2rem;
+		box-sizing: border-box;
 		overflow: hidden;
-		padding: 0.4rem;
+		padding: 0 0.4rem;
 		border-radius: var(--gk-action-radius, 0.3rem);
 		color: var(--color-foreground--65);
 		font-size: inherit;
@@ -368,7 +444,7 @@ export const detailsCommitPanelStyles = css`
 		margin-left: auto;
 		margin-right: -0.4rem;
 		margin-bottom: -2.4rem;
-		background: var(--titlebar-bg, var(--color-background));
+		background: var(--vscode-sideBar-background, var(--color-background));
 		padding: 0.2rem;
 		border-radius: 0.3rem;
 		opacity: 1;

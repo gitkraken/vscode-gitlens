@@ -43,6 +43,22 @@ export class GlStatusNav extends LitElement {
 				overflow: hidden;
 			}
 
+			.pr-pill {
+				min-width: 0;
+				overflow: hidden;
+			}
+
+			.pr-pill > code-icon {
+				flex: none;
+			}
+
+			.pr-pill > span {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
 			.group {
 				display: flex;
 				flex: none;
@@ -104,7 +120,7 @@ export class GlStatusNav extends LitElement {
 					this.pullRequest != null,
 					() =>
 						html`<gl-popover hoist>
-							<a href="#" class="commit-action" slot="anchor"
+							<a href="#" class="commit-action pr-pill" slot="anchor"
 								><code-icon icon=${prIcon} class="pr pr--${this.pullRequest!.state}"></code-icon
 								><span>#${this.pullRequest!.id}</span></a
 							>

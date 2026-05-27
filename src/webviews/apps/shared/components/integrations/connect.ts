@@ -15,6 +15,10 @@ export class GlConnect extends LitElement {
 		.inline-popover {
 			display: inline-block;
 		}
+
+		.connected-icon {
+			vertical-align: text-bottom;
+		}
 	`;
 
 	@property()
@@ -62,9 +66,8 @@ export class GlConnect extends LitElement {
 
 	private renderText() {
 		if (this.account && this.connected) {
-			return html`<code-icon icon="check" style="vertical-align: text-bottom"></code-icon> ${this
-					.integrationLabel}
-				connected &mdash; automatic rich ${this.integrationLabel} autolinks are enabled`;
+			return html`<code-icon class="connected-icon" icon="check"></code-icon> ${this.integrationLabel} connected
+				&mdash; automatic rich ${this.integrationLabel} autolinks are enabled`;
 		}
 
 		return html`<a href="${this.connectIntegrationUrl}">Connect to ${this.integrationLabel}</a> &mdash;

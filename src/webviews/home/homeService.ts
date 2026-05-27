@@ -75,8 +75,15 @@ export interface HomeViewService {
 	/** Get WIP status for specified branches. Lightweight — local git status only. */
 	getOverviewWip(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewWipResponse>;
 
-	/** Get enrichment data (PR, autolinks, issues, contributors, merge target, remote) for specified branches. */
-	getOverviewEnrichment(branchIds: string[], signal?: AbortSignal): Promise<GetOverviewEnrichmentResponse>;
+	/** Get enrichment data (PR, autolinks, issues, contributors, merge target, remote) for specified branches.
+	 * Pass `options.skipMergeTarget` to defer merge-target computation to the consumer
+	 * (e.g. `gl-branch-card` fetches it lazily on first expand via `BranchesService.getBranchEnrichment`).
+	 */
+	getOverviewEnrichment(
+		branchIds: string[],
+		options?: { skipMergeTarget?: boolean },
+		signal?: AbortSignal,
+	): Promise<GetOverviewEnrichmentResponse>;
 
 	/** Get the current overview filter state. */
 	getOverviewFilterState(): Promise<OverviewFilters>;

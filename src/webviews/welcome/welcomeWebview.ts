@@ -1,6 +1,7 @@
 import { Disposable, env } from 'vscode';
 import { SubscriptionState } from '../../constants.subscription.js';
 import type { WebviewTelemetryContext } from '../../constants.telemetry.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { mcpRegistrationAllowed, needsCursorMcpCleanupNotice } from '../../plus/gk/utils/-webview/mcp.utils.js';
@@ -8,13 +9,20 @@ import { registerCommand } from '../../system/-webview/command.js';
 import { getContext } from '../../system/-webview/context.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from '../webviewProvider.js';
 import type { WebviewShowOptions } from '../webviewsController.js';
-import type { State, WalkthroughProgress } from './protocol.js';
-import { DidChangeSubscription, DidChangeWalkthroughProgress, DidFocusWalkthrough } from './protocol.js';
+import type { GraphWalkthroughProgress, State, WalkthroughMode, WalkthroughProgress } from './protocol.js';
+import {
+	DidChangeGraphWalkthroughProgress,
+	DidChangeSubscription,
+	DidChangeWalkthroughProgress,
+	DidFocusWalkthrough,
+	DidSwitchWalkthroughMode,
+} from './protocol.js';
 import type { WelcomeWebviewShowingArgs } from './registration.js';
 
 export class WelcomeWebviewProvider implements WebviewProvider<State, State, WelcomeWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _etagSubscription?: number;
+	private _mode: WalkthroughMode = 'main';
 
 	constructor(
 		private readonly container: Container,
@@ -39,10 +47,19 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 	onShowing(
 		loading: boolean,
 		_options?: WebviewShowOptions,
-		..._args: WebviewShowingArgs<WelcomeWebviewShowingArgs, State>
+		...args: WebviewShowingArgs<WelcomeWebviewShowingArgs, State>
 	): [boolean, Record<`context.${string}`, string | number | boolean> | undefined] {
-		// If not loading (already loaded), notify the webview to reset and focus the walkthrough
+		const modeArg = args[0];
+		const mode: WalkthroughMode = modeArg != null && 'mode' in modeArg ? (modeArg.mode ?? 'main') : 'main';
+		this._mode = mode;
+
+		if (mode === 'graph') {
+			void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
+		}
+
 		if (!loading) {
+			// If already loaded, notify the webview to switch mode and focus
+			void this.host.notify(DidSwitchWalkthroughMode, { mode: mode });
 			void this.host.notify(DidFocusWalkthrough, undefined);
 		}
 		return [true, undefined];
@@ -72,19 +89,38 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 
 	private onWalkthroughProgressChanged(): void {
 		const walkthroughProgress = this.getWalkthroughProgress();
-		if (walkthroughProgress == null) return;
+		if (walkthroughProgress != null) {
+			void this.host.notify(DidChangeWalkthroughProgress, { walkthroughProgress: walkthroughProgress });
+		}
 
-		void this.host.notify(DidChangeWalkthroughProgress, { walkthroughProgress: walkthroughProgress });
+		const graphWalkthroughProgress = this.getGraphWalkthroughProgress();
+		if (graphWalkthroughProgress != null) {
+			void this.host.notify(DidChangeGraphWalkthroughProgress, {
+				graphWalkthroughProgress: graphWalkthroughProgress,
+			});
+		}
 	}
 
 	private getWalkthroughProgress(): WalkthroughProgress | undefined {
 		const walkthroughState = this.container.walkthrough.getState();
-		const state: Record<string, boolean> = Object.fromEntries(walkthroughState);
+		const state = Object.fromEntries(walkthroughState) as Record<WalkthroughContextKeys, boolean>;
 
 		return {
 			allCount: this.container.walkthrough.walkthroughSize,
 			doneCount: this.container.walkthrough.doneCount,
 			progress: this.container.walkthrough.progress,
+			state: state,
+		};
+	}
+
+	private getGraphWalkthroughProgress(): GraphWalkthroughProgress | undefined {
+		const graphState = this.container.walkthrough.getGraphState();
+		const state = Object.fromEntries(graphState) as Record<GraphWalkthroughContextKeys, boolean>;
+
+		return {
+			allCount: this.container.walkthrough.graphWalkthroughSize,
+			doneCount: this.container.walkthrough.graphDoneCount,
+			progress: this.container.walkthrough.graphProgress,
 			state: state,
 		};
 	}
@@ -115,6 +151,8 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 			hostAppName: env.appName,
 			plusState: plusState,
 			walkthroughProgress: this.getWalkthroughProgress(),
+			graphWalkthroughProgress: this.getGraphWalkthroughProgress(),
+			mode: this._mode,
 			mcpNeedsInstall: this.getMcpNeedsInstall(),
 			mcpShowCleanupNotice: this.getMcpShowCleanupNotice(),
 		};

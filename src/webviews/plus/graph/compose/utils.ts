@@ -13,25 +13,41 @@ export const graphComposeStashPrefix = 'gitlens-compose-';
 const anchorRank: Record<ProposedCommitFile['anchor'], number> = { committed: 0, staged: 1, unstaged: 2 };
 
 /**
- * Translate the library's `ComposePlan` (plus the source hunks it collected)
- * into the graph's `ProposedCommit[]` wire format, while also producing the
- * per-commit `ComposerHunk[]` arrays used by the graph compose virtual
- * content provider.
- *
- * The `wipByPath` map carries the current working-tree status for files that
- * appear in the source — used to set `staged`/`anchor` correctly on the
- * resulting `ProposedCommitFile`s.
+ * Translate the library's `ComposePlan` (plus the source hunks it collected) into the graph's
+ * `ProposedCommit[]` wire format, while also producing the per-commit `ComposerHunk[]` arrays
+ * used by the graph compose virtual content provider.
  */
 export function libraryPlanToProposedCommits(
-	planResult: { plan: ComposePlan; sourceHunks: ComposeHunk[]; headSha: string },
+	planResult: {
+		plan: ComposePlan;
+		sourceHunks: ComposeHunk[];
+		headSha: string;
+		kind: 'wip-only' | 'wip+commits' | 'commits-only';
+	},
 	repoPath: string,
-	wipByPath: ReadonlyMap<string, { status: GitFileStatus; originalPath?: string }>,
 	createCombinedDiffForCommit: (hunks: ComposerHunk[]) => { patch: string; filePatches: Map<string, string[]> },
 ): { commits: ProposedCommit[]; commitHunksByIndex: ComposerHunk[][] } {
-	const { plan, sourceHunks, headSha } = planResult;
+	const { plan, sourceHunks, headSha, kind } = planResult;
 	const hunkByIndex = new Map<number, ComposeHunk>();
 	for (const h of sourceHunks) {
 		hunkByIndex.set(h.index, h);
+	}
+
+	const hunkAnchor: ProposedCommitFile['anchor'] = kind === 'wip-only' ? 'unstaged' : 'committed';
+
+	// The introducing hunk (rename / add / delete) for any given file lives in the earliest
+	// commit touching that path — matching the apply path's `stripRenameFromHeader` invariant.
+	// Follow-up commits' rows for the same file render as `M` with no rename arrow.
+	const earliestCommitByFile = new Map<string, number>();
+	for (let ci = 0; ci < plan.allOrderedCommits.length; ci++) {
+		for (const idx of plan.allOrderedCommits[ci].hunkIndices) {
+			const lh = hunkByIndex.get(idx);
+			if (lh == null) continue;
+
+			if (!earliestCommitByFile.has(lh.fileName)) {
+				earliestCommitByFile.set(lh.fileName, ci);
+			}
+		}
 	}
 
 	const commitHunksByIndex: ComposerHunk[][] = [];
@@ -40,29 +56,29 @@ export function libraryPlanToProposedCommits(
 		for (const idx of c.hunkIndices) {
 			const lh = hunkByIndex.get(idx);
 			if (lh == null) continue;
+
 			commitHunks.push(toComposerHunk(lh));
 		}
 		commitHunksByIndex[ci] = commitHunks;
 
 		const filesByPath = new Map<string, ProposedCommitFile>();
 		for (const lh of c.hunkIndices.map(i => hunkByIndex.get(i)).filter((h): h is ComposeHunk => h != null)) {
-			const hunkAnchor: ProposedCommitFile['anchor'] =
-				lh.source === 'unstaged' || lh.source === 'untracked'
-					? 'unstaged'
-					: lh.source === 'staged'
-						? 'staged'
-						: 'committed';
-
 			const existing = filesByPath.get(lh.fileName);
 			const anchor =
 				existing == null || anchorRank[hunkAnchor] > anchorRank[existing.anchor] ? hunkAnchor : existing.anchor;
 
-			const wip = wipByPath.get(lh.fileName);
+			const ownsIntroduction = earliestCommitByFile.get(lh.fileName) === ci;
+			const { status, originalPath } = resolveProposedFileStatus(
+				lh,
+				c.hunkIndices,
+				hunkByIndex,
+				ownsIntroduction,
+			);
 			filesByPath.set(lh.fileName, {
 				repoPath: repoPath,
 				path: lh.fileName,
-				status: wip?.status ?? 'M',
-				originalPath: wip?.originalPath ?? lh.originalFileName,
+				status: status,
+				originalPath: originalPath,
 				staged: anchor === 'staged',
 				anchor: anchor,
 				anchorSha: anchor === 'committed' ? headSha : undefined,
@@ -86,6 +102,53 @@ export function libraryPlanToProposedCommits(
 	return { commits: commits, commitHunksByIndex: commitHunksByIndex };
 }
 
+/**
+ * Per-commit per-file status + originalPath for a proposed-commit row, derived from the
+ * library's hunks for this file in this commit. Hunks reflect the combined-diff git view
+ * (with rename detection) and match what apply will produce — that's the source of truth,
+ * not the working-tree status, which can disagree (e.g. an unstaged filesystem rename
+ * shows in `git status` as `D` + `?` even when the combined diff detects it as a rename).
+ *
+ * Introducing commit: `R` when any hunk carries `originalFileName` (covers pure renames and
+ * rename-with-edits), `A` / `D` from `/dev/null` markers in the diff header, else `M`.
+ * Follow-up commits in the chain always render as `M`.
+ */
+function resolveProposedFileStatus(
+	hunk: ComposeHunk,
+	commitHunkIndices: readonly number[],
+	hunkByIndex: ReadonlyMap<number, ComposeHunk>,
+	ownsIntroduction: boolean,
+): { status: GitFileStatus; originalPath?: string } {
+	if (!ownsIntroduction) {
+		return { status: 'M', originalPath: undefined };
+	}
+
+	// Rename-with-edits emits `originalFileName` on every hunk of the file with `isRename: false`;
+	// pure renames emit one hunk with `isRename: true`. Scan all siblings to cover both shapes.
+	let originalFileName: string | undefined = hunk.originalFileName ?? undefined;
+	let diffHeader = hunk.diffHeader;
+	let foundIsRename = hunk.isRename === true;
+	for (const idx of commitHunkIndices) {
+		const sibling = hunkByIndex.get(idx);
+		if (sibling?.fileName !== hunk.fileName) continue;
+
+		originalFileName ??= sibling.originalFileName;
+		if (sibling.isRename === true) {
+			foundIsRename = true;
+		}
+		diffHeader ||= sibling.diffHeader;
+	}
+
+	if (foundIsRename || (originalFileName != null && originalFileName !== hunk.fileName)) {
+		return { status: 'R', originalPath: originalFileName };
+	}
+
+	if (/^--- \/dev\/null$/m.test(diffHeader)) return { status: 'A', originalPath: undefined };
+	if (/^\+\+\+ \/dev\/null$/m.test(diffHeader)) return { status: 'D', originalPath: undefined };
+
+	return { status: 'M', originalPath: undefined };
+}
+
 /** Recognize the library's CANCELLED error so the RPC handler can surface a clean cancel sentinel. */
 export function isComposeCancelled(ex: unknown): boolean {
 	return ex instanceof Error && ex.name === 'ComposeWorkflowError' && (ex as { code?: string }).code === 'CANCELLED';
@@ -100,7 +163,7 @@ function toComposerHunk(h: ComposeHunk): ComposerHunk {
 		content: h.content,
 		additions: h.additions,
 		deletions: h.deletions,
-		source: h.source === 'branch' ? (h.sourceCommitSha ?? 'commits') : h.source,
+		source: 'unknown',
 		isRename: h.isRename,
 		originalFileName: h.originalFileName,
 		author: h.author
@@ -126,8 +189,8 @@ export async function executeComposeCommit(
 ): Promise<CommitResult> {
 	const svc = container.git.getRepositoryService(repoPath);
 
-	const commits =
-		plan.mode === 'up-to' && plan.upToIndex != null ? plan.commits.slice(0, plan.upToIndex + 1) : plan.commits;
+	const includedIds = plan.includedCommitIds != null ? new Set(plan.includedCommitIds) : undefined;
+	const commits = includedIds != null ? plan.commits.filter(c => includedIds.has(c.id)) : plan.commits;
 	if (commits.length === 0) return { success: true as const };
 
 	const signingConfig = await svc.config.getSigningConfig?.();
@@ -144,8 +207,7 @@ export async function executeComposeCommit(
 		result = await composeTools.applyPlanForGraphDetails({
 			svc: svc,
 			cacheKey: cacheKey,
-			mode: plan.mode,
-			upToIndex: plan.upToIndex,
+			includedCommitIds: plan.includedCommitIds,
 			signing: signing,
 			telemetrySource: { source: 'graph' },
 		});
@@ -171,6 +233,7 @@ export async function executeComposeCommit(
 				},
 			};
 		}
+
 		try {
 			const force: UndoForceOptions = { dirtyWorkdir: true };
 			await composeTools.undoCompose({
@@ -244,9 +307,11 @@ async function runAbandonedStashScan(container: Container, repoPath: string): Pr
 	const abandoned: { name: string; label: string }[] = [];
 	for (const s of stashList.stashes.values()) {
 		if (s.stashName == null) continue;
+
 		const msg = s.message ?? '';
 		const ix = msg.indexOf(graphComposeStashPrefix);
 		if (ix < 0) continue;
+
 		abandoned.push({ name: s.stashName, label: msg.slice(ix) });
 	}
 	if (abandoned.length === 0) return;

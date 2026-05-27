@@ -115,6 +115,14 @@ export async function getBranchMergeTargetStatusInfo(
 	const targetBranch = await svc.branches.getBranch(target, cancellation);
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
+	// Bail when the target tip is the same commit as the focal branch's tip — there's no real
+	// merge to describe (happens on the default branch, where the fallback chain has nowhere
+	// to land, and on any feature branch transiently equal to its target). Letting it through
+	// poisons `scope.mergeTargetTipSha` via `reconcileScopeMergeTarget` / `scopeToBranchById`,
+	// and the graph component's `shouldHideWipRowForScope` then hides the WIP row of every
+	// worktree on the scoped branch because the parent sha matches the (excluded) merge-target
+	// tip. Matches the early-out in `computeScopeAnchor` (graphWebview.ts).
+	if (targetBranch.sha === branch.sha) return undefined;
 
 	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
 		svc.commits.getLeftRightCommitCount(
@@ -128,7 +136,14 @@ export async function getBranchMergeTargetStatusInfo(
 
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
-	const mergedStatus = getSettledValue(mergedStatusResult);
+	const rawMergedStatus = getSettledValue(mergedStatusResult);
+	// A branch with zero unique commits vs. its target isn't merged — it's just at (or behind) a
+	// point on the target's history. `getBranchMergedStatusCore` returns `merged: true` here because
+	// `git merge-base --is-ancestor` succeeds (every commit is an ancestor of its descendants),
+	// but no merge has actually occurred. Demote it so the indicator reports "Up to Date" / "X
+	// Commits Behind" instead of "Branch Merged".
+	const mergedStatus =
+		rawMergedStatus?.merged && status?.ahead === 0 ? ({ merged: false } as const) : rawMergedStatus;
 
 	return {
 		repoPath: branch.repoPath,
@@ -214,85 +229,71 @@ export async function getPullRequestInfo(
 	};
 }
 
-/**
- * Lightweight wip lookup — uses `git diff --quiet` (binary clean/dirty) plus a paused-op probe.
- * Avoids `getStatus`'s full file enumeration, which is what the eager overview load needs to
- * render a dirty indicator. The full breakdown shown in the rich hover is fetched separately via
- * {@link getOverviewWip}.
- */
-export async function getOverviewWipBasic(
-	container: Container,
-	branches: Iterable<GitBranch>,
-	worktreesByBranch: ReadonlyMap<string, GitWorktree>,
-	branchIds: string[],
-	options?: { signal?: AbortSignal },
-): Promise<GetOverviewWipResponse> {
-	if (branchIds.length === 0) return {};
-
-	const signal = options?.signal;
-
-	const branchesById = new Map<string, GitBranch>();
-	for (const branch of branches) {
-		if (branch.remote) continue;
-		branchesById.set(branch.id, branch);
-	}
-
-	const result: GetOverviewWipResponse = {};
-
-	await Promise.allSettled(
-		branchIds.map(async branchId => {
-			const branch = branchesById.get(branchId);
-			if (branch == null) return;
-
-			const wt = worktreesByBranch.get(branchId);
-			// Mirror getOverviewWip's branch-selection logic — only branches with a working tree
-			// (current branch in main repo or any worktree-backed branch) have wip to inspect.
-			if (wt == null && !branch.current) return;
-
-			const isActive = branch.current || wt?.opened === true;
-			const repoPath = wt?.path ?? branch.repoPath;
-			const svc = container.git.getRepositoryService(repoPath);
-
-			const [hasChangesResult, pausedOpStatusResult] = await Promise.allSettled([
-				svc.status.hasWorkingChanges(undefined, signal),
-				isActive ? svc.pausedOps?.getPausedOperationStatus?.(signal) : undefined,
-			]);
-
-			const hasChanges = getSettledValue(hasChangesResult) ?? false;
-			const pausedOpStatus = getSettledValue(pausedOpStatusResult);
-
-			if (hasChanges || pausedOpStatus != null) {
-				result[branchId] = {
-					hasChanges: hasChanges,
-					pausedOpStatus: pausedOpStatus,
-				};
-			}
-		}),
-	);
-
-	options?.signal?.throwIfAborted();
-	return result;
-}
-
 export async function getOverviewWip(
 	container: Container,
 	branches: Iterable<GitBranch>,
 	worktreesByBranch: ReadonlyMap<string, GitWorktree>,
 	branchIds: string[],
-	options?: { priority?: GitCommandPriority; signal?: AbortSignal },
+	options?: {
+		priority?: GitCommandPriority;
+		signal?: AbortSignal;
+		/**
+		 * Optional cache-aware status fetcher. Callers (the Graph webview) supply a callback that
+		 * routes through their `_wipStatusCache` so repeat hovers / overview refreshes within the
+		 * cache TTL don't re-fetch. When omitted, falls back to direct fetches (Home uses this).
+		 */
+		fetchStatus?: (repoPath: string, signal?: AbortSignal) => Promise<GitStatus | undefined>;
+		/**
+		 * Cheap mode for Recent worktree-backed branches: probes `status.hasWorkingChanges()`
+		 * (`git diff --quiet` + `git ls-files`) per worktree instead of running a full status. Result
+		 * carries `hasChanges` only — `workingTreeState`, conflicts, and pausedOp are all undefined
+		 * and get filled in lazily on hover via `GetOverviewWipDetailedRequest`. The probe is
+		 * `@gate`d at the sub-provider so concurrent identical calls dedup.
+		 */
+		cheap?: boolean;
+	},
 ): Promise<GetOverviewWipResponse> {
 	if (branchIds.length === 0) return {};
 
-	const { priority, signal } = options ?? {};
+	const { priority, signal, fetchStatus, cheap } = options ?? {};
 	const statusOptions = priority != null ? { priority: priority } : undefined;
 
 	const branchesById = new Map<string, GitBranch>();
 	for (const branch of branches) {
 		if (branch.remote) continue;
+
 		branchesById.set(branch.id, branch);
 	}
 
 	const result: GetOverviewWipResponse = {};
+
+	if (cheap) {
+		// Cheap path: dirty-bit only, no paused-op, no breakdown. Used for Recent worktree-backed
+		// cards so they can show a clean/dirty indicator without paying for a full `git status` per
+		// branch. The full breakdown is fetched on hover via `GetOverviewWipDetailedRequest`.
+		await Promise.allSettled(
+			branchIds.map(async branchId => {
+				if (!branchesById.has(branchId)) return;
+
+				const wt = worktreesByBranch.get(branchId);
+				const path = wt != null && wt.type !== 'bare' ? wt.uri.fsPath : undefined;
+				if (path == null) return;
+
+				// Pin staged/unstaged/untracked to true so this matches `status.files.length > 0`
+				// (the full-status path's dirty check). Without it, defaults could exclude one of
+				// those categories and the cheap probe would disagree with the on-hover detailed
+				// fetch — e.g. an all-staged worktree showing the clean pill until hover.
+				const hasChanges = await container.git
+					.getRepositoryService(path)
+					.status.hasWorkingChanges({ staged: true, unstaged: true, untracked: true }, signal);
+				result[branchId] = { hasChanges: hasChanges };
+			}),
+		);
+
+		signal?.throwIfAborted();
+		return result;
+	}
+
 	const statusPromises = new Map<string, Promise<GitStatus | undefined>>();
 	let repoStatusPromise: Promise<GitStatus | undefined> | undefined;
 
@@ -302,11 +303,16 @@ export async function getOverviewWip(
 
 		const wt = worktreesByBranch.get(branchId);
 		if (wt != null) {
-			statusPromises.set(branchId, GitWorktree.getStatus(wt, statusOptions, signal));
+			const wtStatusPromise =
+				fetchStatus != null && wt.type !== 'bare'
+					? fetchStatus(wt.uri.fsPath, signal)
+					: GitWorktree.getStatus(wt, statusOptions, signal);
+			statusPromises.set(branchId, wtStatusPromise);
 		} else if (branch.current) {
-			repoStatusPromise ??= container.git
-				.getRepositoryService(branch.repoPath)
-				.status.getStatus(statusOptions, signal);
+			repoStatusPromise ??=
+				fetchStatus != null
+					? fetchStatus(branch.repoPath, signal)
+					: container.git.getRepositoryService(branch.repoPath).status.getStatus(statusOptions, signal);
 			statusPromises.set(branchId, repoStatusPromise);
 		}
 	}
@@ -314,11 +320,18 @@ export async function getOverviewWip(
 	await Promise.allSettled(
 		Array.from(statusPromises.entries(), async ([branchId, statusPromise]) => {
 			const branch = branchesById.get(branchId)!;
-			const isActive = branch.current || worktreesByBranch.get(branchId)?.opened === true;
+			const wt = worktreesByBranch.get(branchId);
+			const isActive = branch.current || wt?.opened === true;
+			// Paused-op must come from the same repo as the status — for a worktree-backed branch,
+			// `branch.repoPath` is the MAIN repo, so a worktree mid-rebase/merge/cherry-pick would
+			// otherwise show the main repo's paused-op state (likely none) instead of its own.
+			const repoPath = wt?.uri.fsPath ?? branch.repoPath;
 			const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 				statusPromise,
 				isActive
-					? container.git.getRepositoryService(branch.repoPath).pausedOps?.getPausedOperationStatus?.(signal)
+					? container.git
+							.getRepositoryService(repoPath)
+							.pausedOps?.getPausedOperationStatus?.(undefined, signal)
 					: undefined,
 			]);
 
@@ -397,6 +410,7 @@ export async function getOverviewEnrichment(
 	const branchesById = new Map<string, GitBranch>();
 	for (const branch of branches) {
 		if (branch.remote) continue;
+
 		branchesById.set(branch.id, branch);
 	}
 
@@ -509,6 +523,7 @@ export async function getOverviewEnrichment(
 			const finalAutolinks: OverviewBranchIssue[] = [];
 			for (const item of rawAutolinks) {
 				if (seenUrls.has(item.url)) continue;
+
 				seenUrls.add(item.url);
 				if (item.type === 'issue') {
 					finalIssues.push(item);

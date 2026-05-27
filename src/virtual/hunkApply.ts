@@ -94,6 +94,7 @@ export function applyHunks(base: Uint8Array | undefined, hunks: readonly Applyab
 				cursor++;
 				continue;
 			}
+
 			const marker = line[0];
 			const text = line.slice(1);
 			switch (marker) {

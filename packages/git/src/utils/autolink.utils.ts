@@ -179,6 +179,7 @@ export function getBranchAutolinks(
 			for (const regex of ref.branchNameRegexes) {
 				match = branchName.match(regex);
 				if (!match?.groups) continue;
+
 				num = match.groups.issueKeyNumber;
 				const linkUrl = ref.url?.replace(numRegex, num);
 				autolinks.set(linkUrl, {

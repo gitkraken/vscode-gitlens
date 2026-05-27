@@ -194,17 +194,18 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 		const repo = overview?.repository;
 		const activeBranches = overview?.active;
 		if (!repo || !activeBranches?.length) return html`<span>None</span>`;
+
 		const hasMultipleRepositories = this._homeCtx.repositories.get().openCount > 1;
 		const primaryBranch = activeBranches[0];
 
 		return html`
 			<gl-section ?loading=${isFetching}>
 				<gl-breadcrumbs slot="heading" label="Active Work scope">
-					<gl-breadcrumb-item label="${repo.name}"
+					<gl-breadcrumb-item label="${repo.name}" .shrink=${0}
 						><gl-repo-button-group
 							.repository=${repo}
 							?disabled=${!hasMultipleRepositories}
-							?hasMultipleRepositories=${hasMultipleRepositories}
+							.hasMultipleRepositories=${hasMultipleRepositories}
 							.source=${{ source: 'graph' } as const}
 							?expandable=${true}
 							@gl-click=${this.onRepositorySelectorClicked}

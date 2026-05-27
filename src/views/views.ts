@@ -548,9 +548,7 @@ export class Views implements Disposable {
 		const buttons = newInstall ? [confirm] : [confirm, Restore];
 
 		const result = await window.showInformationMessage(
-			newInstall
-				? 'GitLens groups many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.'
-				: "In GitLens 16, we've grouped many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.",
+			'GitLens groups many related views—Commits, Branches, Stashes, etc—together for easier view management. Use the tabs in the view header to navigate, detach, or regroup views.',
 			...buttons,
 		);
 

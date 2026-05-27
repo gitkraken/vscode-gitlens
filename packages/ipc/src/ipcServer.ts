@@ -80,6 +80,7 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 		if (this.handlers.has(path)) {
 			throw new Error(`IPC handler '${name}' is already registered`);
 		}
+
 		this.handlers.set(path, handler);
 		return createDisposable(() => this.handlers.delete(path));
 	}
@@ -127,6 +128,7 @@ export class IpcServer<Request = unknown, Response = void> implements UnifiedDis
 				req.destroy();
 				return;
 			}
+
 			chunks.push(d);
 		});
 		req.on('end', async () => {

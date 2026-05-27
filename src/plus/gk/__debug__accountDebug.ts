@@ -1,10 +1,13 @@
-import type { Disposable } from 'vscode';
-import { ThemeIcon, window } from 'vscode';
+import type { Disposable, QuickInputButton } from 'vscode';
+import { QuickInputButtonLocation, ThemeIcon, window } from 'vscode';
+import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { proFeaturePreviewUsages, proTrialLengthInDays, SubscriptionState } from '../../constants.subscription.js';
 import type { Container } from '../../container.js';
+import { setSimulatedRepoVisibility } from '../../git/__debug__visibilityDebug.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import { registerCommand } from '../../system/-webview/command.js';
+import { supportedInVSCodeVersion } from '../../system/-webview/vscode.js';
 import type { OnboardingSnapshot } from '../__debug__onboardingHelper.js';
 import { dismissAllOnboarding, restoreOnboarding } from '../__debug__onboardingHelper.js';
 import type { GKCheckInResponse, GKLicenses, GKLicenseType, GKUser } from './models/checkin.js';
@@ -26,6 +29,8 @@ type SubscriptionServiceFacade = {
 	onDidCheckIn: SubscriptionService['_onDidCheckIn'];
 	changeSubscription: SubscriptionService['changeSubscription'];
 	getStoredSubscription: SubscriptionService['getStoredSubscription'];
+	/** Re-fires the subscription change event with the current value to nudge access consumers. */
+	refireSubscriptionChange: () => void;
 };
 
 export function registerAccountDebug(container: Container, service: SubscriptionServiceFacade): void {
@@ -81,8 +86,32 @@ export type SimulationState =
 
 type SimulateQuickPickItem = QuickPickItemOfT<SimulationState>;
 
+function getVisibilityButton(visibility: RepositoryVisibility | undefined): QuickInputButton {
+	const inline = supportedInVSCodeVersion('quickpick-button-location') ? QuickInputButtonLocation.Inline : undefined;
+	switch (visibility) {
+		case 'public':
+			return { iconPath: new ThemeIcon('globe'), tooltip: 'Simulating Public Repos', location: inline };
+		case 'private':
+			return { iconPath: new ThemeIcon('lock'), tooltip: 'Simulating Private Repos', location: inline };
+		default:
+			return { iconPath: new ThemeIcon('eye'), tooltip: 'Simulate Repo Visibility', location: inline };
+	}
+}
+
+function nextSimulatedVisibility(current: RepositoryVisibility | undefined): RepositoryVisibility | undefined {
+	switch (current) {
+		case undefined:
+			return 'private';
+		case 'private':
+			return 'public';
+		default:
+			return undefined;
+	}
+}
+
 class AccountDebug {
 	private simulatingPick: SimulateQuickPickItem | undefined;
+	private simulatedVisibility: RepositoryVisibility | undefined;
 	private onboardingSnapshot: OnboardingSnapshot | undefined;
 
 	constructor(
@@ -296,14 +325,23 @@ class AccountDebug {
 							return;
 						}
 
+						this.simulatingPick = item;
+
 						const [items, picked] = getItemsAndPicked(this.simulatingPick);
 						quickpick.items = items;
 						quickpick.activeItems = picked ? [picked] : [];
+					}),
+					quickpick.onDidTriggerButton(() => {
+						this.simulatedVisibility = nextSimulatedVisibility(this.simulatedVisibility);
+						setSimulatedRepoVisibility(this.simulatedVisibility);
+						this.service.refireSubscriptionChange();
+						quickpick.buttons = [getVisibilityButton(this.simulatedVisibility)];
 					}),
 				);
 
 				quickpick.title = 'Subscription Simulator';
 				quickpick.placeholder = 'Choose the subscription state to simulate';
+				quickpick.buttons = [getVisibilityButton(this.simulatedVisibility)];
 
 				const [items, picked] = getItemsAndPicked(this.simulatingPick);
 				quickpick.items = items;
@@ -319,6 +357,8 @@ class AccountDebug {
 
 	private endSimulation() {
 		this.simulatingPick = undefined;
+		this.simulatedVisibility = undefined;
+		setSimulatedRepoVisibility(undefined);
 
 		this.service.restoreFeaturePreviews();
 		this.service.restoreSession();

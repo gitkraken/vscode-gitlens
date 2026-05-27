@@ -1,14 +1,6 @@
 import { shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import { formatIndicators, formatTrackingTooltip } from '@gitlens/git/utils/tooltip.utils.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
-import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
-import {
-	agentPhaseToCategory,
-	formatAgentElapsed,
-	getAgentCategoryLabel,
-	getWorktreeBasename,
-} from '../../apps/shared/agentUtils.js';
-import type { OverviewBranch } from '../../shared/overviewBranches.js';
 import type {
 	GraphSidebarBranch,
 	GraphSidebarRemote,
@@ -77,6 +69,16 @@ export function stashTooltip(s: GraphSidebarStash, dateFormat?: string | null): 
 }
 
 export function worktreeTooltip(w: GraphSidebarWorktree): string {
+	let tooltip = worktreeTooltipWithoutChangesLine(w);
+	if (w.hasChanges != null) {
+		tooltip += w.hasChanges ? '\n\nHas Uncommitted Changes' : '\n\nNo Uncommitted Changes';
+	}
+	return tooltip;
+}
+
+/** The markdown portion of the worktree tooltip without the trailing changes-line. Used by the
+ *  webview to compose a rich tooltip where the changes-line is replaced by a `commit-stats` pill. */
+export function worktreeTooltipWithoutChangesLine(w: GraphSidebarWorktree): string {
 	const indicators: string[] = [];
 	if (w.isDefault) {
 		indicators.push('default');
@@ -104,9 +106,6 @@ export function worktreeTooltip(w: GraphSidebarWorktree): string {
 		tooltip = `${w.isDefault ? '$(pass) ' : ''}Bare Worktree${indicatorStr}${folder}`;
 	}
 
-	if (w.hasChanges != null) {
-		tooltip += w.hasChanges ? '\n\nHas Uncommitted Changes' : '\n\nNo Uncommitted Changes';
-	}
 	return tooltip;
 }
 
@@ -126,68 +125,5 @@ export function remoteTooltip(r: GraphSidebarRemote): string {
 	if (r.url) {
 		tooltip += `\n\n${r.url}`;
 	}
-	return tooltip;
-}
-
-/** Markdown tooltip for an agent leaf in the graph sidebar. Top section identifies the session
- *  (name + phase + elapsed, then the related branch/worktree). Remaining content — last prompt,
- *  current tool, or pending permission request — is divider-separated below.
- *  Action affordances stay on the row (revealed on hover) so we don't duplicate them here. */
-export function agentTooltip(session: AgentSessionState, matchingBranch: OverviewBranch | undefined): string {
-	const category = agentPhaseToCategory[session.phase];
-	const phaseLabel = getAgentCategoryLabel(category);
-	const elapsed = formatAgentElapsed(session.phaseSinceTimestamp);
-
-	const phaseIcon =
-		category === 'needs-input' ? '$(warning)' : category === 'working' ? '$(sync)' : '$(circle-filled)';
-
-	const headerParts = [phaseLabel];
-	if (elapsed != null) {
-		headerParts.push(elapsed);
-	}
-
-	let tooltip = `${phaseIcon} **${session.name}** — ${headerParts.join(' · ')}`;
-
-	// Branch line — prefer the resolved overview match (it carries the worktree URI we can show
-	// the basename of); fall back to the raw `session.branch` + `worktreeName` when the agent is
-	// on a branch outside the current overview.
-	const branchName = matchingBranch?.name ?? session.branch;
-	if (branchName) {
-		const worktreeName =
-			matchingBranch?.worktree != null ? getWorktreeBasename(matchingBranch.worktree.uri) : session.worktreeName;
-		let branchLine = `$(git-branch) \`${branchName}\``;
-		if (worktreeName) {
-			branchLine += ` — _worktree: ${worktreeName}_`;
-		}
-		tooltip += `\\\n${branchLine}`;
-	}
-
-	const sections: string[] = [];
-
-	if (session.lastPrompt) {
-		sections.push(session.lastPrompt);
-	}
-
-	if (category === 'working' && session.status === 'tool_use' && session.statusDetail) {
-		sections.push(session.statusDetail);
-	}
-
-	const detail = session.pendingPermissionDetail;
-	if (category === 'needs-input' && detail != null) {
-		const requestParts = [`\`${detail.toolName}\``];
-		if (detail.toolDescription) {
-			requestParts.push(`— ${detail.toolDescription}`);
-		}
-		let request = requestParts.join(' ');
-		if (detail.toolInputDescription) {
-			request += `\\\n${detail.toolInputDescription}`;
-		}
-		sections.push(request);
-	}
-
-	for (const section of sections) {
-		tooltip += `\n\n---\n\n${section}`;
-	}
-
 	return tooltip;
 }

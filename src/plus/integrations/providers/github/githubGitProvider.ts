@@ -129,6 +129,10 @@ export class GlGitHubGitProvider implements GlGitProvider {
 		return this.ensureProvider();
 	}
 
+	ensureRegistered(): void {
+		this.ensureProvider();
+	}
+
 	private ensureProvider(): GitHubGitProvider {
 		if (this._provider == null) {
 			if (this._providerInitializing) {

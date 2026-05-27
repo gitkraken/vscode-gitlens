@@ -133,6 +133,7 @@ export abstract class IntegrationBase<
 	private _sessionFingerprint: { session: ProviderAuthenticationSession; hash: string } | undefined;
 	get sessionFingerprint(): string | undefined {
 		if (this._session == null) return undefined;
+
 		if (this._sessionFingerprint?.session !== this._session) {
 			this._sessionFingerprint = { session: this._session, hash: fnv1aHash64(this._session.accessToken) };
 		}

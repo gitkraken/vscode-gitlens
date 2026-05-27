@@ -205,6 +205,7 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: GlRepository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No Pull Request provided' };
+
 		const [prUrl, instructions] = request.args;
 
 		try {
@@ -241,6 +242,7 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: GlRepository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No issue identifier provided' };
+
 		const [issueUrl, instructions] = request.args;
 
 		try {
@@ -297,6 +299,7 @@ export class CliCommandHandlers implements Disposable {
 		_repo?: GlRepository | undefined,
 	): Promise<CliCommandResponse> {
 		if (!request?.args?.length) return { stderr: 'No Launchpad item identifier provided' };
+
 		const [prSearch] = request.args;
 
 		let result: LaunchpadCategorizedResult;

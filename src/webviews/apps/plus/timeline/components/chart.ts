@@ -8,6 +8,7 @@ import { getCssVariable } from '@gitlens/utils/color.js';
 import { defer } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { State, TimelineDatum, TimelineSliceBy } from '../../../../plus/timeline/protocol.js';
+import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import { GlElement } from '../../../shared/components/element.js';
 import { formatDate, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
@@ -751,6 +752,7 @@ export class GlTimelineChart extends GlElement {
 	}
 	set dataPromise(value: State['dataset']) {
 		if (this._dataPromise === value) return;
+
 		this._dataPromise = value;
 		void this._loadData();
 	}
@@ -874,6 +876,7 @@ export class GlTimelineChart extends GlElement {
 
 	protected override firstUpdated(): void {
 		if (this._canvas == null) return;
+
 		this._ctx = this._canvas.getContext('2d', { alpha: false }) ?? undefined;
 		const wrapper = this.shadowRoot?.getElementById('wrapper');
 		if (wrapper && this._resizeObserver) {
@@ -1022,10 +1025,17 @@ export class GlTimelineChart extends GlElement {
 				this._scrollY = 0;
 
 				// Auto-select the most recent commit visually so the chart highlights the working
-				// tree on first paint, but DON'T emit `gl-commit-select` — the host would
-				// interpret an emit as the user picking a commit and open a diff editor unprompted.
-				// The user only opts into the diff by interacting with a bubble or the slider thumb.
+				// tree on first paint. Emit `gl-commit-select` with `auto: true` ONLY on the
+				// genuine first paint (no prior selection) so consumers can reflect the initial
+				// selection — the standalone host skips its diff-editor RPC for `auto` events, the
+				// embedded graph timeline forwards them to its details panel. Subsequent fresh
+				// datasets (period / scope change) keep the prior `_selectedSha`-set state out of
+				// the emit so we don't yank a commit the user picked.
+				const hadSelection = this._selectedSha != null;
 				this._selectedSha = data[0]?.sha;
+				if (!hadSelection && this._selectedSha != null) {
+					this.emit('gl-commit-select', { id: this._selectedSha, shift: false, auto: true });
+				}
 
 				// Seed `_zoomRange` to the configured timeframe anchored at the newest commit
 				// when `windowSpanMs` is set. That's the "unzoomed" canonical default — the
@@ -1105,6 +1115,7 @@ export class GlTimelineChart extends GlElement {
 		const lo = this._layout;
 		const vm = this._viewModel;
 		if (lo == null || vm == null) return nothing;
+
 		// `_renderTick` is read so Lit re-runs this when scroll / row height / dataset changes.
 		void this._renderTick;
 
@@ -1124,6 +1135,7 @@ export class GlTimelineChart extends GlElement {
 			if (cy < lo.swimlaneTop || cy > lo.swimlaneBottom) {
 				return nothing;
 			}
+
 			const dimmed = this._hoverSliceIndex != null && this._hoverSliceIndex !== i;
 			const active = this._hoverSliceIndex === i;
 			const hidden = this._hiddenSlices?.has(i) === true;
@@ -1146,7 +1158,7 @@ export class GlTimelineChart extends GlElement {
 					data-dimmed=${dimmed ? 'true' : 'false'}
 					data-active=${active ? 'true' : 'false'}
 					data-hidden=${hidden ? 'true' : 'false'}
-					style=${`top: ${cy}px; --rail-avatar-color: ${color};`}
+					style=${cspStyleMap({ top: `${cy}px`, '--rail-avatar-color': color })}
 					@pointerenter=${() => this._setSliceHover(i)}
 					@pointerleave=${() => this._setSliceHover(undefined)}
 					@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
@@ -1172,7 +1184,11 @@ export class GlTimelineChart extends GlElement {
 				data-dimmed=${dimmed ? 'true' : 'false'}
 				data-active=${active ? 'true' : 'false'}
 				data-hidden=${hidden ? 'true' : 'false'}
-				style=${`top: ${cy}px; --rail-avatar-color: ${color}; --gl-avatar-size: ${railSize}px;`}
+				style=${cspStyleMap({
+					top: `${cy}px`,
+					'--rail-avatar-color': color,
+					'--gl-avatar-size': `${railSize}px`,
+				})}
 				@pointerenter=${() => this._setSliceHover(i)}
 				@pointerleave=${() => this._setSliceHover(undefined)}
 				@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
@@ -1216,15 +1232,16 @@ export class GlTimelineChart extends GlElement {
 				const stops = tickCount > 0 ? pickY2TickStops(yMax, tickCount) : [];
 				const y2Ticks = stops.map(v => {
 					const y = baselineY - volumeBarHeight(v, yMax, usableH);
+					const top = `${y}px`;
 					return html`
-						<div class="rail__y2-tick" style="top: ${y}px;"></div>
-						<div class="rail__y2-label" style="top: ${y}px;">${formatY2(v)}</div>
+						<div class="rail__y2-tick" style=${cspStyleMap({ top: top })}></div>
+						<div class="rail__y2-label" style=${cspStyleMap({ top: top })}>${formatY2(v)}</div>
 					`;
 				});
 
 				y2Axis = html`
 					${showTitle
-						? html`<div class="rail__y2-title" style="top: ${(baselineY + farY) / 2}px;">
+						? html`<div class="rail__y2-title" style=${cspStyleMap({ top: `${(baselineY + farY) / 2}px` })}>
 								Lines changed
 							</div>`
 						: nothing}
@@ -1241,6 +1258,7 @@ export class GlTimelineChart extends GlElement {
 		const vm = this._viewModel;
 		const theme = this._theme;
 		if (lo == null || vm == null || theme == null) return nothing;
+
 		void this._renderTick;
 
 		const oldest = this._zoomRange?.oldest ?? vm.oldest;
@@ -1264,42 +1282,55 @@ export class GlTimelineChart extends GlElement {
 		// since they don't fit cleanly in that height.
 		const compact = lo.volumeBottom - lo.volumeTop <= 0;
 
-		const overlayStyle = [
-			`top: ${lo.axisStripTop}px`,
-			`height: ${axisHeight}px`,
-			`--axis-label-color: ${theme.axisLabel}`,
-			`--axis-domain-color: ${theme.axisDomain}`,
-			`--axis-scrollbar-track: ${theme.scrollThumb}`,
-			`--axis-scrollbar-thumb: ${theme.scrollThumbHover}`,
-		].join('; ');
-		const glassStyle = `left: ${lo.chartLeft}px; width: ${lo.chartRight - lo.chartLeft}px;`;
-		const baselineStyle = `left: 0; top: ${axisHeight - 1}px; width: 100%;`;
+		const overlayStyle = {
+			top: `${lo.axisStripTop}px`,
+			height: `${axisHeight}px`,
+			'--axis-label-color': theme.axisLabel,
+			'--axis-domain-color': theme.axisDomain,
+			'--axis-scrollbar-track': theme.scrollThumb,
+			'--axis-scrollbar-thumb': theme.scrollThumbHover,
+		};
+		const glassStyle = { left: `${lo.chartLeft}px`, width: `${lo.chartRight - lo.chartLeft}px` };
+		const baselineStyle = {
+			left: `${lo.chartLeft}px`,
+			top: `${axisHeight - 1}px`,
+			width: `${lo.chartRight - lo.chartLeft}px`,
+		};
 
 		return html`<div
 			class="axis-overlay"
 			data-compact=${compact ? 'true' : 'false'}
 			aria-hidden="true"
-			style=${overlayStyle}
+			style=${cspStyleMap(overlayStyle)}
 		>
-			<div class="axis-overlay__glass" style=${glassStyle}></div>
-			<div class="axis-overlay__baseline" style=${baselineStyle}></div>
-			${ticks.map(tick =>
-				compact
-					? html`<div class="axis-overlay__label" style=${`left: ${tick.x}px;`}>${tick.label}</div>`
+			<div class="axis-overlay__glass" style=${cspStyleMap(glassStyle)}></div>
+			<div class="axis-overlay__baseline" style=${cspStyleMap(baselineStyle)}></div>
+			${ticks.map(tick => {
+				const left = `${tick.x}px`;
+				return compact
+					? html`<div class="axis-overlay__label" style=${cspStyleMap({ left: left })}>${tick.label}</div>`
 					: html`<div
 								class="axis-overlay__tick"
-								style=${`left: ${tick.x}px; top: ${axisHeight - 2}px;`}
+								style=${cspStyleMap({ left: left, top: `${axisHeight - 2}px` })}
 							></div>
-							<div class="axis-overlay__label" style=${`left: ${tick.x}px;`}>${tick.label}</div>`,
-			)}
+							<div class="axis-overlay__label" style=${cspStyleMap({ left: left })}>${tick.label}</div>`;
+			})}
 			${scrollbar != null
 				? html`<div
 						class="axis-overlay__scrollbar"
-						style=${`left: ${scrollbar.trackX}px; top: ${scrollbar.trackY - lo.axisStripTop}px; width: ${scrollbar.trackWidth}px; height: ${scrollbar.trackHeight}px;`}
+						style=${cspStyleMap({
+							left: `${scrollbar.trackX}px`,
+							top: `${scrollbar.trackY - lo.axisStripTop}px`,
+							width: `${scrollbar.trackWidth}px`,
+							height: `${scrollbar.trackHeight}px`,
+						})}
 					>
 						<div
 							class="axis-overlay__scrollbar-thumb"
-							style=${`left: ${scrollbar.thumbX - scrollbar.trackX}px; width: ${scrollbar.thumbWidth}px;`}
+							style=${cspStyleMap({
+								left: `${scrollbar.thumbX - scrollbar.trackX}px`,
+								width: `${scrollbar.thumbWidth}px`,
+							})}
 						></div>
 					</div>`
 				: nothing}
@@ -1308,6 +1339,7 @@ export class GlTimelineChart extends GlElement {
 
 	private _setSliceHover(index: number | undefined): void {
 		if (this._hoverSliceIndex === index) return;
+
 		this._hoverSliceIndex = index;
 		this._requestDraw();
 	}
@@ -1322,6 +1354,7 @@ export class GlTimelineChart extends GlElement {
 		e.stopPropagation();
 		const vm = this._viewModel;
 		if (vm == null) return;
+
 		const totalSlices = vm.slices.length;
 		const hidden = this._hiddenSlices ?? new Set<number>();
 		const isAlreadySolo = !hidden.has(index) && totalSlices > 1 && hidden.size === totalSlices - 1;
@@ -1553,6 +1586,7 @@ export class GlTimelineChart extends GlElement {
 			const idx = vm.shaToIndex.get(sha);
 			if (idx != null) return vm.timestamps[idx];
 		}
+
 		const oldest = this._zoomRange?.oldest ?? vm?.oldest ?? Date.now();
 		const newest = this._zoomRange?.newest ?? vm?.newest ?? Date.now();
 		return (oldest + newest) / 2;
@@ -1563,8 +1597,10 @@ export class GlTimelineChart extends GlElement {
 	private _zoomToVolumeBar(idx: number): void {
 		const vm = this._viewModel;
 		if (vm == null) return;
+
 		const ts = vm.timestamps[idx];
 		if (ts == null || Number.isNaN(ts)) return;
+
 		const oldest = this._zoomRange?.oldest ?? vm.oldest;
 		const newest = this._zoomRange?.newest ?? vm.newest;
 		this._applyZoom(ts, (newest - oldest) * 0.1);
@@ -1575,6 +1611,7 @@ export class GlTimelineChart extends GlElement {
 			this.resetZoom();
 			return;
 		}
+
 		const vm = this._viewModel;
 		if (vm == null) return;
 
@@ -1612,6 +1649,7 @@ export class GlTimelineChart extends GlElement {
 	private get _a11yWrapperLabel(): string {
 		const count = this._data?.length ?? 0;
 		if (count === 0) return 'Visual History timeline';
+
 		const noun = count === 1 ? 'commit' : 'commits';
 		return `Visual History timeline showing ${count.toLocaleString()} ${noun}. Use arrow keys to navigate.`;
 	}
@@ -1641,6 +1679,7 @@ export class GlTimelineChart extends GlElement {
 			if (commit == null) {
 				return html`<div class="a11y-live" role="status" aria-live="polite" aria-atomic="true"></div>`;
 			}
+
 			text = `commit ${shortenRevision(commit.sha)} by ${formatIdentityDisplayName({ name: commit.author, current: commit.current }, this.currentUserNameStyle)} on ${formatDate(new Date(commit.date), this.dateFormat)}, +${commit.additions ?? 0} -${commit.deletions ?? 0} lines: ${commit.message}`;
 			this._a11yAnnouncementCache = { sha: sha, data: data, text: text };
 		}
@@ -1688,6 +1727,7 @@ export class GlTimelineChart extends GlElement {
 		const newest = this._zoomRange?.newest ?? this._viewModel?.newest;
 		if (oldest == null || newest == null) return;
 		if (oldest === this._lastVisibleOldest && newest === this._lastVisibleNewest) return;
+
 		this._lastVisibleOldest = oldest;
 		this._lastVisibleNewest = newest;
 		this.emit('gl-visible-range-changed', { oldest: oldest, newest: newest });
@@ -1703,6 +1743,7 @@ export class GlTimelineChart extends GlElement {
 		const data = this._data;
 		const zr = this._zoomRange;
 		if (data == null || data.length === 0 || zr == null) return false;
+
 		const tolerance = Math.max(1, (zr.newest - zr.oldest) * 0.005);
 		return zr.oldest > data.at(-1)!.sort + tolerance;
 	}
@@ -1721,6 +1762,7 @@ export class GlTimelineChart extends GlElement {
 		const data = this._data;
 		const zr = this._zoomRange;
 		if (data == null || data.length === 0 || zr == null) return false;
+
 		const tolerance = Math.max(1, (zr.newest - zr.oldest) * 0.005);
 		return zr.newest < data[0].sort - tolerance;
 	}
@@ -1735,6 +1777,7 @@ export class GlTimelineChart extends GlElement {
 	private _ensureLayout(): TimelineLayout | undefined {
 		const canvas = this._canvas;
 		if (canvas == null) return undefined;
+
 		const wrapper = canvas.parentElement;
 		if (wrapper == null) return undefined;
 
@@ -1803,6 +1846,7 @@ export class GlTimelineChart extends GlElement {
 
 	private _ensureTheme(): TimelineTheme {
 		if (this._theme) return this._theme;
+
 		const style = window.getComputedStyle(this);
 
 		const palette: string[] = [];
@@ -1880,6 +1924,7 @@ export class GlTimelineChart extends GlElement {
 
 	private _requestDraw(): void {
 		if (this._drawRAF != null) return;
+
 		this._drawRAF = requestAnimationFrame(() => {
 			this._drawRAF = undefined;
 			this._draw();
@@ -2124,6 +2169,7 @@ export class GlTimelineChart extends GlElement {
 				// (`_hasHorizontalOverflow`) hides the bar in this case; this guard makes the
 				// handler safe even when a stale layout still reports the bar as hittable.
 				if (span >= fullNewest - fullOldest) return;
+
 				const direction = hbar.side === 'before' ? -1 : 1;
 				const shift = direction * span * 0.9;
 				const newOldest = Math.max(fullOldest, Math.min(fullNewest - span, this._zoomRange.oldest + shift));
@@ -2201,6 +2247,7 @@ export class GlTimelineChart extends GlElement {
 			// chart. The visibility check should keep the thumb un-grabbable, but stale layouts
 			// can leak through; bail rather than mutate `_zoomRange` past the dataset.
 			if (span >= fullNewest - fullOldest) return;
+
 			const deltaX = e.offsetX - this._hThumbDragStartX;
 			const shift = horizontalScrollbarDeltaToTimestampShift(deltaX, lo, fullOldest, fullNewest);
 			const newOldest = Math.max(
@@ -2622,6 +2669,7 @@ export class GlTimelineChart extends GlElement {
 	private _hideTooltip(): void {
 		const tooltip = this._tooltipEl;
 		if (tooltip == null) return;
+
 		tooltip.dataset.visible = 'false';
 		this._tooltipSha = undefined;
 	}
@@ -2634,6 +2682,7 @@ export class GlTimelineChart extends GlElement {
 		if (this.windowSpanMs != null) {
 			const newest = this._viewModel?.newest ?? this._data?.[0]?.sort;
 			if (newest == null) return;
+
 			nextRange = { oldest: newest - this.windowSpanMs, newest: newest };
 			// Already at the default? No-op so we don't churn a draw cycle for nothing.
 			if (
@@ -2646,6 +2695,7 @@ export class GlTimelineChart extends GlElement {
 		} else if (this._zoomRange == null) {
 			return;
 		}
+
 		this._zoomRange = nextRange;
 		this._zoomed = false;
 		this._viewModel = undefined;
@@ -2699,6 +2749,7 @@ function easeOutCubic(t: number): number {
  */
 function computeInitials(name: string | undefined): string {
 	if (!name) return '?';
+
 	const parts = name
 		.split(/[\s_\-/.@]+/)
 		.map(p => p.trim())
@@ -2715,6 +2766,10 @@ export interface CommitEventDetail {
 	 * not committed — `actions.selectDataPoint` skips the host RPC for interim events so the
 	 * editor doesn't churn through a diff per slider tick. */
 	interim?: boolean;
+	/** True when the chart auto-selected the newest commit on a fresh dataset's first paint
+	 * (not a user action). The standalone host skips the diff-editor RPC for these; the embedded
+	 * graph timeline forwards them so its details panel reflects the initial selection. */
+	auto?: boolean;
 }
 
 /** Emitted in `windowed` mode when the user scrolls within 25% of the loaded dataset's left edge.

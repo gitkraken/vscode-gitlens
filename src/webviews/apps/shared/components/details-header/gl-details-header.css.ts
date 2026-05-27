@@ -3,6 +3,7 @@ import { css } from 'lit';
 export const detailsHeaderStyles = css`
 	:host {
 		display: contents;
+		color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
 	}
 
 	.details-header {

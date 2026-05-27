@@ -409,6 +409,19 @@ export const treeItemStyles = [
 			color: var(--vscode-descriptionForeground);
 		}
 
+		/* Agent phase decoration text — own palette (NOT SCM tokens, which semantically belong to
+		   file change states). Matches the tree-icon-agent--* colors so a leaf's icon and its
+		   phase text decoration agree. */
+		::slotted([slot^='decorations-'].decoration-text--agent-working) {
+			color: var(--gl-agent-working-color);
+		}
+		::slotted([slot^='decorations-'].decoration-text--agent-waiting) {
+			color: var(--gl-agent-waiting-color);
+		}
+		::slotted([slot^='decorations-'].decoration-text--agent-idle) {
+			color: var(--gl-agent-idle-color);
+		}
+
 		/* High Contrast Mode Support */
 		@media (forced-colors: active) {
 			:host {

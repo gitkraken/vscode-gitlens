@@ -251,6 +251,7 @@ export class IntegrationService implements Disposable {
 
 		if (account == null) {
 			if (code == null) return false;
+
 			await this.container.subscription.loginWithCode({ code: code }, source);
 			account = (await this.container.subscription.getSubscription()).account;
 			if (account == null) return false;
@@ -619,6 +620,7 @@ export class IntegrationService implements Disposable {
 			for (const remote of remotes) {
 				const remoteIntegration = await getRemoteIntegration(remote);
 				if (remoteIntegration == null) continue;
+
 				if (remoteIntegration.id === GitCloudHostIntegrationId.AzureDevOps) {
 					hasOpenAzureRepository = true;
 				}
@@ -1092,6 +1094,7 @@ export class IntegrationService implements Disposable {
 				const integrationId = toIntegrationId[p.provider];
 				// GKDev includes some integrations like "google" that we don't support
 				if (integrationId == null) return;
+
 				connectedIntegrations.add(toIntegrationId[p.provider]);
 				if (p.domain?.length > 0) {
 					try {

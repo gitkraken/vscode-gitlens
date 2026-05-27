@@ -13,6 +13,7 @@ export function createDisposable(
 	options?: { once?: boolean },
 ): UnifiedDisposable | undefined {
 	if (dispose == null) return undefined;
+
 	if (options?.once) {
 		dispose = once(dispose);
 	}
@@ -61,6 +62,7 @@ export function fromDisposables(
 	let disposed = false;
 	const dispose = () => {
 		if (disposed) return;
+
 		disposed = true;
 
 		for (const d of disposables) {

@@ -21,7 +21,16 @@ export interface ComposerHunkBase {
 	fileName: string;
 	additions: number;
 	deletions: number;
-	source: 'staged' | 'unstaged' | 'commits' | string; // commit SHA or source type
+	// Known values:
+	//   - 'staged' / 'unstaged' / 'commits' — diff-collection layer (used by the webview composer's
+	//     own `createHunksFromDiffs`)
+	//   - 'unknown' — set when the hunk came from compose-tools, which no longer attaches per-hunk
+	//     source-layer info (combined-diff collection collapses staged/unstaged/untracked/branch
+	//     into one bucket). UI categorizers should treat 'unknown' as "we don't know which layer"
+	//     and avoid asserting staged/unstaged badges off of it.
+	//   - any other string — historically a commit SHA for branch-source hunks. Reserved for the
+	//     non-compose-tools paths; the compose-tools path uses 'unknown' instead.
+	source: 'staged' | 'unstaged' | 'commits' | 'unknown' | string;
 	assigned?: boolean; // True when this hunk's index is in any commit's hunkIndices array
 	isRename?: boolean; // True for rename-only hunks
 	originalFileName?: string; // Original filename for renames

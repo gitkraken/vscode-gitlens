@@ -1,5 +1,6 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
 import type {
+	ColumnNumberBySha,
 	GraphRef,
 	GraphRow,
 	GraphSelectionState,
@@ -44,6 +45,9 @@ export class GlGraph extends LitElement {
 	};
 
 	// Properties that match GraphWrapperProps
+	@property({ attribute: false })
+	activeFilterColumns?: GraphWrapperProps['activeFilterColumns'];
+
 	@property({ type: String })
 	activeRow?: GraphWrapperProps['activeRow'];
 
@@ -105,10 +109,19 @@ export class GlGraph extends LitElement {
 	workingTreeStats?: GraphWrapperProps['workingTreeStats'];
 
 	@property({ type: Object })
+	runningOperationByRowSha?: GraphWrapperProps['runningOperationByRowSha'];
+
+	@property({ type: Object })
+	agentStatusByRowSha?: GraphWrapperProps['agentStatusByRowSha'];
+
+	@property({ type: Object })
 	wipMetadataBySha?: GraphWrapperProps['wipMetadataBySha'];
 
 	@property({ type: Number, attribute: 'wip-shas-settle-delay-ms' })
 	wipShasSettleDelayMs?: number;
+
+	@property({ type: String, attribute: 'wip-visibility' })
+	wipVisibility?: GraphWrapperProps['wipVisibility'];
 
 	@property({ type: Object })
 	scope?: GraphWrapperProps['scope'];
@@ -146,6 +159,7 @@ export class GlGraph extends LitElement {
 
 		// Debounce updates to avoid rapid re-renders
 		if (this.updateScheduled) return this.reactRoot == null;
+
 		this.updateScheduled = true;
 
 		const { provideReactState: stateUpdater } = this;
@@ -169,6 +183,7 @@ export class GlGraph extends LitElement {
 				setRef: this.setRef,
 				subscriber: this.setReactStateProvider,
 
+				activeFilterColumns: this.activeFilterColumns ?? new Set(),
 				activeRow: this.activeRow,
 				avatars: this.avatars,
 				columns: this.columns,
@@ -194,21 +209,27 @@ export class GlGraph extends LitElement {
 				workingTreeStats: this.workingTreeStats,
 				wipMetadataBySha: this.wipMetadataBySha,
 				wipShasSettleDelayMs: this.wipShasSettleDelayMs,
+				wipVisibility: this.wipVisibility,
 				scope: this.scope,
+				runningOperationByRowSha: this.runningOperationByRowSha,
+				agentStatusByRowSha: this.agentStatusByRowSha,
 
 				onChangeColumns: this.handleChangeColumns,
 				onScopeAnchorsUnreachable: this.handleScopeAnchorsUnreachable,
 				onWipShasMissingStats: this.handleWipShasMissingStats,
 				onVisibleWipShasChanged: this.handleVisibleWipShasChanged,
+				onColumnsCalculated: this.handleColumnsCalculated,
 				onChangeRefsVisibility: this.handleChangeRefsVisibility,
 				onChangeSelection: this.handleChangeSelection,
 				onChangeVisibleDays: this.handleChangeVisibleDays,
+				onFilterColumn: this.handleFilterColumn,
 				onMissingAvatars: this.handleMissingAvatars,
 				onMissingRefsMetadata: this.handleMissingRefsMetadata,
 				onMoreRows: this.handleMoreRows,
 				onMouseLeave: this.handleMouseLeave,
 				onRefDoubleClick: this.handleRefDoubleClick,
 				onRowAction: this.handleRowAction,
+				onWipRowOpen: this.handleWipRowOpen,
 				onRowContextMenu: this.handleRowContextMenu,
 				onRowDoubleClick: this.handleRowDoubleClick,
 				onRowHover: this.handleRowHover,
@@ -244,6 +265,10 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('changevisibledays', { detail: detail }));
 	};
 
+	private handleFilterColumn = (detail: { zone: GraphZoneType }): void => {
+		this.dispatchEvent(new CustomEvent('filtercolumn', { detail: detail }));
+	};
+
 	private handleMissingAvatars = (emails: GraphAvatars): void => {
 		this.dispatchEvent(new CustomEvent('missingavatars', { detail: emails }));
 	};
@@ -266,6 +291,10 @@ export class GlGraph extends LitElement {
 
 	private handleRowAction = (detail: { action: RowAction; row: GraphRow }): void => {
 		this.dispatchEvent(new CustomEvent('rowaction', { detail: detail }));
+	};
+
+	private handleWipRowOpen = (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }): void => {
+		this.dispatchEvent(new CustomEvent('wiprowopen', { detail: detail }));
 	};
 
 	private handleRowContextMenu = (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }): void => {
@@ -334,6 +363,10 @@ export class GlGraph extends LitElement {
 	private handleVisibleWipShasChanged = (shas: Record<string, true>): void => {
 		this.dispatchEvent(new CustomEvent('visiblewipshaschanged', { detail: shas }));
 	};
+
+	private handleColumnsCalculated = (columnsBySha: ColumnNumberBySha): void => {
+		this.dispatchEvent(new CustomEvent('columnscalculated', { detail: columnsBySha }));
+	};
 }
 
 // Define the element in the custom elements registry
@@ -377,5 +410,6 @@ declare global {
 		scopeanchorsunreachable: CustomEvent<Set<string>>;
 		wipshasmissingstats: CustomEvent<Record<string, true>>;
 		visiblewipshaschanged: CustomEvent<Record<string, true>>;
+		columnscalculated: CustomEvent<ColumnNumberBySha>;
 	}
 }

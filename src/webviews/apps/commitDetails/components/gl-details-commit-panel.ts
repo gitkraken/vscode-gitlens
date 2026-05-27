@@ -1,7 +1,7 @@
+import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { getAltKeySymbol } from '@env/platform.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -22,6 +22,7 @@ import type {
 	GraphItemRefContext,
 	GraphStashContextValue,
 } from '../../../plus/graph/protocol.js';
+import type { RunningOperationExecState } from '../../plus/graph/components/detailsState.js';
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
@@ -110,18 +111,32 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	@property({ type: Boolean })
 	aiEnabled = false;
 
-	@property({ type: Boolean })
-	experimentalFeaturesEnabled = true;
-
 	/** Host advertises that it supports compare mode (graph orchestrator does, standalone doesn't). */
 	@property({ type: Boolean, attribute: 'compare-enabled' })
 	compareEnabled = false;
 
+	/** Host opts in to showing the "Jump to Working Changes" action (graph host only). */
+	@property({ type: Boolean, attribute: 'show-jump-to-nearest-wip' })
+	showJumpToNearestWip = false;
+
 	@property()
-	activeMode?: 'review' | 'compose' | 'compare' | null;
+	activeMode?: 'review' | 'compose' | null;
+
+	@property({ attribute: false })
+	modeStatus?: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>;
 
 	@property({ attribute: false })
 	subPanelContent?: ReturnType<typeof html> | typeof nothing;
+
+	/** Pre-computed snippet shown in the metadata bar while in mode (see WIP header for the
+	 *  same prop). Mirrors the graph's verb-led status snippet across panel types. Accepts a
+	 *  `TemplateResult` because the back-then-forward state renders a clickable Resume button
+	 *  in place of plain text. `attribute: false` prevents Lit from attempting to reflect a
+	 *  non-string value through HTML attributes. */
+	@property({ attribute: false }) modeStatusText?: string | TemplateResult;
+
+	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
+	@property({ type: Boolean }) inResultsView = false;
 
 	@property({ type: Boolean })
 	loading = false;
@@ -259,7 +274,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return html`
 			${hasSubPanel ? nothing : this.renderHiddenNotice()} ${this.renderEmbeddedAuthorHeader()}
 			${hasSubPanel
-				? html`${this.activeMode !== 'compare' ? this.renderEmbeddedMetadataBar() : nothing}
+				? html`${this.renderEmbeddedMetadataBar()}
 						<div class="sub-panel-enter">${this.subPanelContent}</div>`
 				: html`${this.renderEmbeddedMetadataBar()}
 					${hasMessage
@@ -333,18 +348,54 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		}
 
 		const { isStash } = this;
-		const slot =
-			this.activeMode === 'compare'
-				? html`<span class="compare-header__title">Comparing References</span>`
+
+		const headerContent =
+			this.activeMode === 'review'
+				? html`<div class="mode-title">
+						<span class="mode-title__verb">
+							<code-icon class="mode-title__icon" icon="checklist"></code-icon>
+							Reviewing Commit
+						</span>
+					</div>`
 				: authorTemplate;
 
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
+			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${this.computeCommitModes()}
-			style="--mode-header-bg: var(--titlebar-bg, var(--vscode-sideBar-background, var(--color-background)))"
+			?in-results-view=${this.inResultsView}
 		>
-			${slot}
+			${headerContent}
+			${when(
+				this.compareEnabled && this.activeMode == null,
+				() =>
+					html`<gl-action-chip
+						slot="actions"
+						icon="compare-changes"
+						label="Compare"
+						overlay="tooltip"
+						@click=${() =>
+							this.dispatchEvent(
+								new CustomEvent('toggle-mode', {
+									detail: { mode: 'compare' },
+									bubbles: true,
+									composed: true,
+								}),
+							)}
+					></gl-action-chip>`,
+			)}
+			${when(
+				this.showJumpToNearestWip && !isStash && !this.isUncommitted && this.activeMode == null,
+				() =>
+					html`<gl-action-chip
+						slot="actions"
+						icon="arrow-up"
+						label="Jump to Working Changes"
+						overlay="tooltip"
+						@click=${this.onJumpToNearestWipClick}
+					></gl-action-chip>`,
+			)}
 			${when(
 				!isStash && this.hasRemotes && this.activeMode == null,
 				() =>
@@ -366,17 +417,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		</gl-details-header>`;
 	}
 
-	private computeCommitModes(): ('review' | 'compose' | 'compare')[] {
-		const modes: ('review' | 'compose' | 'compare')[] = [];
-		if (this.aiEnabled && this.experimentalFeaturesEnabled) {
-			modes.push('review');
-		}
-		// Compare mode requires the host (graph orchestrator) to wire in a compare-refs panel
-		// for the @toggle-mode event.
-		if (this.compareEnabled) {
-			modes.push('compare');
-		}
-		return modes;
+	private computeCommitModes(): ('review' | 'compose')[] {
+		if (!this.aiEnabled) return [];
+		return ['review'];
 	}
 
 	private renderEmbeddedMetadataBar() {
@@ -413,7 +456,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							? this.renderBranchIndicator()
 							: nothing}
 				</div>
-				<div class="metadata-bar__right">${this.renderCommitStats(commit.stats)}</div>
+				<div class="metadata-bar__right">
+					${this.modeStatusText
+						? html`<span class="mode-status">${this.modeStatusText}</span>`
+						: this.renderCommitStats(commit.stats)}
+				</div>
 			</div>
 			${this._reachabilityExpanded ? html`<div class="reachability">${this.renderReachability()}</div>` : nothing}`;
 	}
@@ -423,40 +470,41 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const context = this.getCommitOrStashContext();
 		if (context == null) return nothing;
 
-		return html`<gl-tooltip
-			class="metadata-bar__more-tooltip"
-			content="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-		>
-			<button
-				class="metadata-bar__action metadata-bar__action--more"
-				type="button"
-				aria-label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-				data-vscode-context=${context}
-				@click=${this.onMoreActionsClick}
-			>
-				<code-icon icon="kebab-vertical"></code-icon>
-			</button>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--more"
+			icon="kebab-vertical"
+			label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
+			data-vscode-context=${context}
+			@click=${this.onMoreActionsClick}
+		></gl-action-chip>`;
 	}
 
 	private renderStashApplyButton() {
 		if (this.commit?.stashNumber == null) return nothing;
 
 		const isPop = this.isPopMode;
-		return html`<gl-tooltip>
-			<button
-				class="metadata-bar__action metadata-bar__action--apply"
-				type="button"
-				aria-label="${isPop ? 'Pop Stash' : 'Apply Stash'}"
-				@click=${this.onStashApplyClick}
-			>
-				<code-icon icon="${isPop ? 'git-stash-pop' : 'git-stash-apply'}"></code-icon>
-			</button>
-			<span slot="content"
-				>${isPop ? html`Pop Stash` : html`Apply Stash<br />[${getAltKeySymbol()}] Pop Stash`}</span
-			>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--apply"
+			icon=${isPop ? 'git-stash-pop' : 'git-stash-apply'}
+			label=${isPop ? 'Pop Stash' : 'Apply Stash'}
+			alt-icon=${isPop ? nothing : 'git-stash-pop'}
+			alt-label=${isPop ? nothing : 'Pop Stash'}
+			@click=${this.onStashApplyClick}
+		></gl-action-chip>`;
 	}
+
+	private onJumpToNearestWipClick = (): void => {
+		const fromSha = this.commit?.sha;
+		if (!fromSha) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-jump-to-nearest-wip', {
+				detail: { fromSha: fromSha },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private onMoreActionsClick = (e: MouseEvent): void => {
 		e.preventDefault();
@@ -670,6 +718,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	private onToggleReachability() {
 		// Only allow expansion when there are refs to show
 		if (!this._reachabilityExpanded && !this.reachability?.refs?.length) return;
+
 		this._reachabilityExpanded = !this._reachabilityExpanded;
 	}
 

@@ -113,6 +113,7 @@ export class PatchGitSubProvider implements GitPatchSubProvider {
 			}
 		} catch (ex) {
 			if (ex instanceof ApplyPatchCommitError) throw ex;
+
 			scope?.error(ex);
 
 			if (CherryPickError.is(ex, 'wouldOverwriteChanges')) {

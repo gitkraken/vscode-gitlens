@@ -397,6 +397,11 @@ suite('Search Utils Test Suite', () => {
 			assert.strictEqual(result.filters.type, 'tip');
 		});
 
+		test('type:wip sets filter type to wip', () => {
+			const result = parseSearchQueryGitCommand(q('is:wip'), undefined);
+			assert.strictEqual(result.filters.type, 'wip');
+		});
+
 		test('ref: replaces --all with specific ref', () => {
 			const result = parseSearchQueryGitCommand(q('^:main'), undefined);
 			assert.ok(result.args.includes('main'));

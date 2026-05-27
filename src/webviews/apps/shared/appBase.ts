@@ -117,10 +117,9 @@ export abstract class GlWebviewApp extends GlElement {
 
 		this._ipc = new HostIpc(this.name);
 
-		const themeEvent = computeThemeColors();
+		this.disposables.push(watchThemeColors());
 		if (this.onThemeUpdated != null) {
-			this.onThemeUpdated(themeEvent);
-			this.disposables.push(watchThemeColors());
+			this.onThemeUpdated(computeThemeColors());
 			this.disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
 		}
 
@@ -341,9 +340,6 @@ export abstract class App<
 	protected onMessageReceived?(msg: IpcMessage): void;
 	protected onThemeUpdated?(e: ThemeChangeEvent): void;
 
-	private _focused?: boolean;
-	private _inputFocused?: boolean;
-
 	private bindDisposables: Disposable[] | undefined;
 	protected bind(): void {
 		document.querySelectorAll('a').forEach(a => {
@@ -358,25 +354,25 @@ export abstract class App<
 
 		// Reduces event jankiness when only moving focus
 		const sendWebviewFocusChangedCommand = debounce((params: WebviewFocusChangedParams) => {
+			// Re-verify the actual focus state when the debouncer fires.
+			// This prevents false "blurs" when clicking non-focusable internal elements,
+			// where focusout fires but the document retains focus.
+			const actualFocused = document.hasFocus();
+			params.focused = actualFocused;
+			if (!actualFocused) {
+				params.inputFocused = false;
+			}
+
 			this.sendCommand(WebviewFocusChangedCommand, params);
 		}, 150);
 
 		this.bindDisposables.push(
 			DOM.on(document, 'focusin', e => {
 				const inputFocused = e.composedPath().some(el => (el as HTMLElement).tagName === 'INPUT');
-
-				if (this._focused !== true || this._inputFocused !== inputFocused) {
-					this._focused = true;
-					this._inputFocused = inputFocused;
-					sendWebviewFocusChangedCommand({ focused: true, inputFocused: inputFocused });
-				}
+				sendWebviewFocusChangedCommand({ focused: true, inputFocused: inputFocused });
 			}),
 			DOM.on(document, 'focusout', () => {
-				if (this._focused !== false || this._inputFocused !== false) {
-					this._focused = false;
-					this._inputFocused = false;
-					sendWebviewFocusChangedCommand({ focused: false, inputFocused: false });
-				}
+				sendWebviewFocusChangedCommand({ focused: false, inputFocused: false });
 			}),
 		);
 	}

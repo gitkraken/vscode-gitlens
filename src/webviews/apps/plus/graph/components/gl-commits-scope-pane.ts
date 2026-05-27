@@ -54,12 +54,21 @@ export class GlCommitsScopePane extends LitElement {
 	@state() private _endHandleOffscreen = false;
 
 	private _scrollInterval: ReturnType<typeof setInterval> | undefined;
+	private _scrollSpeed = 0;
+	// Non-reactive: set by keyboard/click handlers, consumed in `updated()` to do
+	// focus + scroll synchronously BEFORE recomputeHandleVisibility runs. If we
+	// deferred via rAF, recompute would see the pre-scroll positions and briefly
+	// flip an offscreen flag → proxy renders → user sees a flash before the rAF
+	// scrolls things back into place.
+	private _pendingKeyboardFocus: 'row-end' | 'row-end-keep-viewport' | 'handle-start' | 'handle-end' | undefined;
 	private _dragAc: AbortController | undefined;
 	private _scrollAc: AbortController | undefined;
 	private _previousBodyCursor: string | undefined;
 	private _dragMoveRaf: number | undefined;
 	private _visibilityRaf: number | undefined;
 	private _lastDragMoveEvent: PointerEvent | undefined;
+	private _dragStartY: number | undefined;
+	private _dragHysteresisCleared = false;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -84,6 +93,8 @@ export class GlCommitsScopePane extends LitElement {
 			this._visibilityRaf = undefined;
 		}
 		this._lastDragMoveEvent = undefined;
+		this._dragStartY = undefined;
+		this._dragHysteresisCleared = false;
 	}
 
 	override firstUpdated(): void {
@@ -104,6 +115,7 @@ export class GlCommitsScopePane extends LitElement {
 			'scroll',
 			() => {
 				if (this._visibilityRaf != null) return;
+
 				this._visibilityRaf = requestAnimationFrame(() => {
 					this._visibilityRaf = undefined;
 					this.recomputeHandleVisibility();
@@ -122,12 +134,8 @@ export class GlCommitsScopePane extends LitElement {
 		if (scrollContainer == null) return;
 
 		const containerRect = scrollContainer.getBoundingClientRect();
-		const startHandle = this.renderRoot.querySelector<HTMLElement>(
-			'.scope-handle:not(.scope-handle--proxy)[aria-label="Start of selected scope"]',
-		);
-		const endHandle = this.renderRoot.querySelector<HTMLElement>(
-			'.scope-handle:not(.scope-handle--proxy)[aria-label="End of selected scope"]',
-		);
+		const startHandle = this.findHandle('start');
+		const endHandle = this.findHandle('end');
 
 		// Hysteresis: when a proxy is currently rendered it occupies its flow space (sticky
 		// elements still take their natural flow position), pushing the real handle down by
@@ -168,12 +176,30 @@ export class GlCommitsScopePane extends LitElement {
 		if (this._dragging) {
 			return;
 		}
+
 		if (changedProperties.has('items')) {
 			const prev = changedProperties.get('items') as ScopeItem[] | undefined;
 			if (!prev?.length && this.items.length > 0) {
 				this.scrollEndHandleIntoView();
 			}
 		}
+
+		// Consume any pending keyboard/click focus *before* visibility recompute.
+		// Doing the scroll first means recompute sees post-scroll handle positions
+		// and won't briefly flip an offscreen flag (which would render a proxy for
+		// 1–2 frames before the deferred scroll catches up).
+		const pending = this._pendingKeyboardFocus;
+		this._pendingKeyboardFocus = undefined;
+		if (pending === 'row-end') {
+			this.focusEndEdgeRow();
+		} else if (pending === 'row-end-keep-viewport') {
+			this.focusEndEdgeRow({ scroll: false });
+		} else if (pending === 'handle-start' || pending === 'handle-end') {
+			const type = pending === 'handle-start' ? 'start' : 'end';
+			this.focusHandle(type);
+			this.scrollActiveHandleIntoView(type);
+		}
+
 		// Refresh proxy visibility after every render — handle DOM nodes can be
 		// recreated as the active range shifts (the .map() is unkeyed) so a
 		// node-bound IntersectionObserver would miss replacements.
@@ -182,9 +208,7 @@ export class GlCommitsScopePane extends LitElement {
 
 	private scrollEndHandleIntoView(): void {
 		requestAnimationFrame(() => {
-			const handle = this.renderRoot.querySelector<HTMLElement>(
-				'.scope-handle[aria-label="End of selected scope"]',
-			);
+			const handle = this.findHandle('end');
 			if (handle != null) {
 				this.scrollHandleIntoView(handle, 'end');
 			}
@@ -221,6 +245,7 @@ export class GlCommitsScopePane extends LitElement {
 				this.syncSelectionRange();
 				return;
 			}
+
 			if (this._userRangeStartId != null && !this.items.some(i => i.id === this._userRangeStartId)) {
 				this._userRangeStartId = undefined;
 			}
@@ -260,6 +285,7 @@ export class GlCommitsScopePane extends LitElement {
 		let end = -1;
 		for (let i = 0; i < this.items.length; i++) {
 			if (!selected.has(this.items[i].id)) continue;
+
 			if (start === -1) {
 				start = i;
 			}
@@ -332,7 +358,7 @@ export class GlCommitsScopePane extends LitElement {
 	}
 
 	override render() {
-		if (!this.items.length && !this.loading) return nothing;
+		if (!this.items.length && !this.loading) return this.renderEmpty();
 
 		const end = this.rangeEnd;
 		const start = this.rangeStart;
@@ -377,17 +403,26 @@ export class GlCommitsScopePane extends LitElement {
 			(item.deletions != null && item.deletions > 0) ||
 			(item.modified != null && item.modified > 0);
 
+		const isNavigable = !isMergeBase;
 		const rowClass = isMergeBase
 			? 'scope-row scope-row--merge-base'
-			: `scope-row ${isInRange ? 'scope-row--included' : 'scope-row--excluded'}`;
+			: `scope-row scope-row--clickable ${isInRange ? 'scope-row--included' : 'scope-row--excluded'}`;
 
 		const prevState = index > 0 ? this.items[index - 1].state : nothing;
+		// The end-edge row is the keyboard target — focus *is* the active end edge,
+		// not an independent token. Only that row is in the Tab sequence; all others
+		// remain focusable on click (tabindex=-1) so they can still be set as edges.
+		const tabIndex = isNavigable && index === this.rangeEnd ? 0 : -1;
+
 		return html`<div
 			class=${rowClass}
 			role="listitem"
 			data-index=${index}
 			data-state=${item.state}
 			data-prev-state=${prevState}
+			tabindex=${tabIndex}
+			@click=${(e: MouseEvent) => this.handleRowClick(e, index)}
+			@keydown=${isNavigable ? (e: KeyboardEvent) => this.handleRowKeydown(e) : nothing}
 		>
 			<span class="scope-row__dot-col">
 				${!isFirst ? html`<span class="scope-row__connector scope-row__connector--above"></span>` : nothing}
@@ -430,21 +465,30 @@ export class GlCommitsScopePane extends LitElement {
 
 	private renderHandle(type: 'start' | 'end', upperState: ScopeItemState | undefined) {
 		const isActive = this._dragging === type;
+		// In review mode the start handle is the only keyboard path to the start edge
+		// (the end-edge row owns end-edge keyboard). Put it in the Tab sequence.
+		// The end handle stays out of Tab order — its keyboard equivalent is the
+		// end-edge row — but remains focusable on click for mouse drag continuity.
+		const tabindex = type === 'start' && this.mode === 'review' ? '0' : '-1';
 		return html`<div
 			class="scope-handle ${isActive ? 'scope-handle--active' : ''}"
 			role="slider"
-			tabindex="0"
+			tabindex=${tabindex}
 			aria-label=${type === 'start' ? 'Start of selected scope' : 'End of selected scope'}
 			aria-orientation="vertical"
 			aria-valuemin="1"
 			aria-valuemax=${Math.max(1, this.maxDraggableIndex + 1)}
 			aria-valuenow=${(type === 'start' ? this.rangeStart : this.rangeEnd) + 1}
 			aria-valuetext=${this.items[type === 'start' ? this.rangeStart : this.rangeEnd]?.label ?? ''}
+			data-handle=${type}
 			data-state=${upperState ?? nothing}
 			@pointerdown=${(e: PointerEvent) => this.handlePointerDown(e, type)}
 			@keydown=${(e: KeyboardEvent) => this.handleHandleKeydown(e, type)}
+			@focus=${() => this.scrollActiveHandleIntoView(type)}
 		>
-			<div class="scope-handle__bar"></div>
+			<gl-tooltip content="Drag to include/exclude changes" placement="top">
+				<div class="scope-handle__bar"></div>
+			</gl-tooltip>
 		</div>`;
 	}
 
@@ -455,7 +499,9 @@ export class GlCommitsScopePane extends LitElement {
 			tabindex="-1"
 			@pointerdown=${(e: PointerEvent) => this.handleProxyPointerDown(e, type)}
 		>
-			<div class="scope-handle__bar"></div>
+			<gl-tooltip content="Drag to include/exclude changes" placement=${type === 'start' ? 'bottom' : 'top'}>
+				<div class="scope-handle__bar"></div>
+			</gl-tooltip>
 			<code-icon icon=${type === 'start' ? 'chevron-up' : 'chevron-down'}></code-icon>
 		</div>`;
 	}
@@ -484,6 +530,167 @@ export class GlCommitsScopePane extends LitElement {
 		</button>`;
 	}
 
+	/**
+	 * Click-to-set-edge: snaps the nearer range edge to the clicked row, giving a
+	 * precise alternative to dragging in small viewports. In compose mode the start
+	 * is fixed (no start handle is rendered), so upward clicks become no-ops.
+	 */
+	private handleRowClick(e: MouseEvent, index: number): void {
+		if (this._dragging) return;
+
+		const item = this.items[index];
+		if (item == null || item.state === 'merge-base' || item.state === 'load-more') return;
+
+		e.preventDefault();
+		e.stopPropagation();
+		this.commitEdgeToIndex(index);
+	}
+
+	/**
+	 * The focused row IS the end edge — Arrow keys move the end edge directly,
+	 * focus follows. No navigate-then-commit dichotomy: stepping is the gesture.
+	 * Always reads `rangeEnd` regardless of the firing row, so the behavior is
+	 * uniform if focus drifts.
+	 */
+	private handleRowKeydown(e: KeyboardEvent): void {
+		let next: number | undefined;
+		switch (e.key) {
+			case 'ArrowUp':
+			case 'ArrowLeft':
+				next = this.rangeEnd - 1;
+				break;
+			case 'ArrowDown':
+			case 'ArrowRight':
+				next = this.rangeEnd + 1;
+				break;
+			case 'PageUp':
+				next = this.rangeEnd - this.pageDelta();
+				break;
+			case 'PageDown':
+				next = this.rangeEnd + this.pageDelta();
+				break;
+			case 'Home':
+				next = this.rangeStart;
+				break;
+			case 'End':
+				next = this.maxDraggableIndex;
+				break;
+			default:
+				return;
+		}
+
+		e.preventDefault();
+		e.stopPropagation();
+		this.moveEndEdgeTo(next);
+	}
+
+	/** Set `rangeEnd` to `target`, clamped to `[rangeStart, maxDraggableIndex]`. */
+	private moveEndEdgeTo(target: number): void {
+		const maxIndex = this.maxDraggableIndex;
+		if (maxIndex < 0) return;
+
+		const clamped = Math.max(this.rangeStart, Math.min(maxIndex, target));
+		const item = this.items[clamped];
+		if (item == null) return;
+		if (clamped === this.rangeEnd) return;
+
+		this._userRangeEndId = item.id;
+		// Focus + scroll happens synchronously in `updated()` (consumed via the
+		// pending flag) so the visibility recompute sees post-scroll positions
+		// and the proxy doesn't briefly render.
+		this._pendingKeyboardFocus = 'row-end';
+		this.emitScopeChange();
+	}
+
+	private focusEndEdgeRow(options?: { scroll?: boolean }): void {
+		const row = this.renderRoot.querySelector<HTMLElement>(`.scope-row[data-index="${this.rangeEnd}"]`);
+		if (row == null) return;
+
+		row.focus({ preventScroll: true });
+		if (options?.scroll !== false) {
+			this.scrollRowIntoViewIfNeeded(row);
+		}
+	}
+
+	private scrollRowIntoViewIfNeeded(row: HTMLElement): void {
+		// Include the trailing end-handle in the bounds — it carries the focus
+		// indicator. Without this, a row flush at the viewport bottom leaves its
+		// ~1.1rem handle sticking out, focus offscreen, end-proxy popping up.
+		const trailing =
+			row.nextElementSibling instanceof HTMLElement &&
+			row.nextElementSibling.classList.contains('scope-handle') &&
+			!row.nextElementSibling.classList.contains('scope-handle--proxy')
+				? row.nextElementSibling
+				: undefined;
+		const rowRect = row.getBoundingClientRect();
+		const bottom = trailing?.getBoundingClientRect().bottom ?? rowRect.bottom;
+		this.scrollIntoViewWithPadding(rowRect.top, bottom);
+	}
+
+	/**
+	 * Nudge the scope pane just enough to keep [top, bottom] inside the visible
+	 * band (viewport minus one row-height of breathing room above and below).
+	 * Delta-based so a single keypress produces a single small scroll, not a jump.
+	 */
+	private scrollIntoViewWithPadding(top: number, bottom: number): void {
+		const scrollContainer = this.renderRoot.querySelector<HTMLElement>('.details-scope-pane');
+		if (scrollContainer == null) return;
+
+		const containerRect = scrollContainer.getBoundingClientRect();
+		const padding = this.scrollPadding(containerRect.height);
+		const visibleTop = containerRect.top + padding;
+		const visibleBottom = containerRect.bottom - padding;
+		if (top >= visibleTop && bottom <= visibleBottom) return;
+
+		const offset = top < visibleTop ? top - visibleTop : bottom - visibleBottom;
+		scrollContainer.scrollTop += offset;
+	}
+
+	private scrollPadding(containerHeight: number): number {
+		return Math.min(this.measureRowHeight(), Math.max(0, Math.floor(containerHeight / 4)));
+	}
+
+	/** Shared "click or Enter commits the nearer edge to `index`" path. */
+	private commitEdgeToIndex(index: number): void {
+		const maxIndex = this.maxDraggableIndex;
+		if (maxIndex < 0) return;
+
+		const clamped = Math.min(index, maxIndex);
+
+		const start = this.rangeStart;
+		const end = this.rangeEnd;
+		const canMoveStart = this.mode === 'review';
+
+		let edge: 'start' | 'end';
+		if (clamped < start) {
+			if (!canMoveStart) return;
+
+			edge = 'start';
+		} else if (clamped > end) {
+			edge = 'end';
+		} else {
+			// Inside the range — move the nearer edge (tie → end, since end is the
+			// always-available handle in both modes).
+			const distToStart = clamped - start;
+			const distToEnd = end - clamped;
+			edge = canMoveStart && distToStart < distToEnd ? 'start' : 'end';
+		}
+
+		if (edge === 'start') {
+			this._userRangeStartId = this.items[clamped].id;
+		} else {
+			this._userRangeEndId = this.items[clamped].id;
+		}
+		// Keep the invariant "focused row = rangeEnd" so ↑/↓ continue to operate
+		// on the end edge. But when the click moved the start edge, the user is
+		// looking at the top of the range — scrolling down to rangeEnd would yank
+		// the viewport away from where they just clicked. Focus silently, no
+		// scroll, in that case. Synchronous-in-`updated()` so the proxy doesn't
+		// flash between render commit and scroll.
+		this._pendingKeyboardFocus = edge === 'end' ? 'row-end' : 'row-end-keep-viewport';
+		this.emitScopeChange();
+	}
+
 	private handleLoadMore = (e: MouseEvent): void => {
 		e.preventDefault();
 		e.stopPropagation();
@@ -498,6 +705,18 @@ export class GlCommitsScopePane extends LitElement {
 				<code-icon icon="loading" modifier="spin"></code-icon>
 			</span>
 			<span class="scope-row__label--dimmed">Loading commits…</span>
+		</div>`;
+	}
+
+	private renderEmpty() {
+		const label = this.mode === 'review' ? 'No commits to review' : 'No commits to compose';
+		return html`<div class="details-scope-pane scrollable">
+			<div class="scope-row scope-row--empty" role="listitem">
+				<span class="scope-row__dot-col">
+					<code-icon icon="git-commit"></code-icon>
+				</span>
+				<span class="scope-row__label--dimmed">${label}</span>
+			</div>
 		</div>`;
 	}
 
@@ -516,14 +735,14 @@ export class GlCommitsScopePane extends LitElement {
 		}
 	}
 
-	// --- Drag interaction ---
-
 	private handlePointerDown(e: PointerEvent, type: 'start' | 'end'): void {
 		e.preventDefault();
 		e.stopPropagation();
 
 		this._dragging = type;
 		this._dragPreview = type === 'end' ? this.rangeEnd : this.rangeStart;
+		this._dragStartY = e.clientY;
+		this._dragHysteresisCleared = false;
 
 		// Force the resize cursor globally for the duration of the drag so it doesn't
 		// snap back to default whenever the pointer leaves the thumb element. Guard the
@@ -543,17 +762,19 @@ export class GlCommitsScopePane extends LitElement {
 		window.addEventListener('pointermove', this._onDragMove, { signal: ac.signal });
 		window.addEventListener('pointerup', this._onDragEnd, { signal: ac.signal });
 		window.addEventListener('pointercancel', this._onDragEnd, { signal: ac.signal });
+
+		// `preventDefault()` above cancels the browser's default focus-on-pointerdown,
+		// which leaves keyboard focus on whatever was previously focused. Explicitly
+		// focus the real handle (resolved via `findHandle`, not `e.currentTarget` —
+		// the proxy path re-enters here with the proxy as currentTarget).
+		this.focusHandle(type);
 	}
 
 	private handleProxyPointerDown(e: PointerEvent, type: 'start' | 'end'): void {
 		e.preventDefault();
 		e.stopPropagation();
 
-		const realHandle = this.renderRoot.querySelector<HTMLElement>(
-			`.scope-handle:not(.scope-handle--proxy)[aria-label="${
-				type === 'start' ? 'Start' : 'End'
-			} of selected scope"]`,
-		);
+		const realHandle = this.findHandle(type);
 		if (realHandle == null) return;
 
 		// Snap the scroll so the real handle lands at the appropriate edge. The
@@ -578,6 +799,12 @@ export class GlCommitsScopePane extends LitElement {
 			case 'ArrowDown':
 			case 'ArrowRight':
 				delta = 1;
+				break;
+			case 'PageUp':
+				delta = -this.pageDelta();
+				break;
+			case 'PageDown':
+				delta = this.pageDelta();
 				break;
 			case 'Home':
 				delta = -Infinity;
@@ -614,16 +841,52 @@ export class GlCommitsScopePane extends LitElement {
 						: Math.max(this.rangeStart, Math.min(maxIndex, current + delta));
 			this._userRangeEndId = this.items[next]?.id;
 		}
+		// Re-focus + scroll happens synchronously in `updated()` (via the pending
+		// flag) so visibility recompute sees post-scroll positions and the proxy
+		// doesn't briefly render. Re-focus is needed because the handle is rendered
+		// inline inside the unkeyed row `.map()`: when the active edge shifts from
+		// row N to N+1, Lit tears down the handle DOM at N and mounts a new one at
+		// N+1, so focus would otherwise fall to `<body>`.
+		this._pendingKeyboardFocus = type === 'start' ? 'handle-start' : 'handle-end';
 		this.emitScopeChange();
+	}
+
+	private focusHandle(type: 'start' | 'end'): void {
+		const handle = this.findHandle(type);
+		handle?.focus({ preventScroll: true });
+	}
+
+	private findHandle(type: 'start' | 'end'): HTMLElement | null {
+		return this.renderRoot.querySelector<HTMLElement>(
+			`.scope-handle:not(.scope-handle--proxy)[data-handle="${type}"]`,
+		);
+	}
+
+	private pageDelta(): number {
+		const container = this.renderRoot.querySelector<HTMLElement>('.details-scope-pane');
+		if (container == null) return 1;
+
+		const rowHeight = this.measureRowHeight();
+		return Math.max(1, Math.floor(container.clientHeight / rowHeight) - 1);
+	}
+
+	private scrollActiveHandleIntoView(type: 'start' | 'end'): void {
+		const handle = this.findHandle(type);
+		if (handle == null) return;
+
+		const r = handle.getBoundingClientRect();
+		this.scrollIntoViewWithPadding(r.top, r.bottom);
 	}
 
 	private _onDragMove = (e: PointerEvent): void => {
 		this._lastDragMoveEvent = e;
 		if (this._dragMoveRaf != null) return;
+
 		this._dragMoveRaf = requestAnimationFrame(() => {
 			this._dragMoveRaf = undefined;
 			const last = this._lastDragMoveEvent;
 			if (last == null) return;
+
 			this._processDragMove(last);
 		});
 	};
@@ -634,6 +897,18 @@ export class GlCommitsScopePane extends LitElement {
 			this.handleEdgeScroll(e, scrollContainer);
 		}
 
+		// Clamp the cursor Y to the visible container bounds before picking the
+		// closest row. Rows scrolled offscreen still exist in the DOM at positions
+		// well past the viewport — without this clamp, a fast pointer move past the
+		// edge (clientY far below container.bottom) snaps the preview to an offscreen
+		// row, putting the handle out of view until edge-scroll's ticks catch up.
+		// The raw `e.clientY` still drives `handleEdgeScroll` above, so the scroll
+		// speed is still proportional to how far past the edge the cursor is.
+		const containerRect = scrollContainer?.getBoundingClientRect();
+		const cursorY = containerRect
+			? Math.max(containerRect.top, Math.min(containerRect.bottom, e.clientY))
+			: e.clientY;
+
 		const rows = this.renderRoot.querySelectorAll<HTMLElement>('.scope-row[data-index]');
 		let closestIndex = -1;
 		let closestDist = Infinity;
@@ -641,7 +916,7 @@ export class GlCommitsScopePane extends LitElement {
 		for (const row of rows) {
 			const rect = row.getBoundingClientRect();
 			const midY = rect.top + rect.height / 2;
-			const dist = Math.abs(e.clientY - midY);
+			const dist = Math.abs(cursorY - midY);
 			if (dist < closestDist) {
 				closestDist = dist;
 				closestIndex = parseInt(row.dataset.index!, 10);
@@ -671,6 +946,8 @@ export class GlCommitsScopePane extends LitElement {
 			this._dragMoveRaf = undefined;
 		}
 		this._lastDragMoveEvent = undefined;
+		this._dragStartY = undefined;
+		this._dragHysteresisCleared = false;
 
 		if (this._dragPreview != null) {
 			const item = this.items[this._dragPreview];
@@ -696,26 +973,105 @@ export class GlCommitsScopePane extends LitElement {
 	}
 
 	private handleEdgeScroll(e: PointerEvent, container: HTMLElement): void {
+		// Distance-based hysteresis: don't engage edge-scroll until the user has
+		// actually moved at least one row-height from drag start. Grabbing a handle
+		// near a viewport edge would otherwise insta-scroll on the first pointermove.
+		// Latched: once cleared, stays cleared for the rest of the drag.
+		if (!this._dragHysteresisCleared) {
+			const rowHeight = this.measureRowHeight();
+			if (this._dragStartY != null && Math.abs(e.clientY - this._dragStartY) < rowHeight) {
+				this.stopScrolling();
+				return;
+			}
+
+			this._dragHysteresisCleared = true;
+		}
+
 		const rect = container.getBoundingClientRect();
-		const edgeZone = 40; // px from edge to start scrolling
-		const scrollSpeed = 4; // px per tick
+		// Adaptive edge zone: scales with viewport so small panes don't have all
+		// available space consumed by the trigger area. Capped at 32px even on tall
+		// panes so the neutral middle stays generous.
+		const edgeZone = Math.max(8, Math.min(32, container.clientHeight * 0.15));
 
 		const distFromTop = e.clientY - rect.top;
 		const distFromBottom = rect.bottom - e.clientY;
+		const canScrollUp = container.scrollTop > 0 && this.edgeScrollKeepsHandleVisible('up', rect);
+		const canScrollDown =
+			container.scrollTop < container.scrollHeight - container.clientHeight &&
+			this.edgeScrollKeepsHandleVisible('down', rect);
 
-		if (distFromTop < edgeZone && container.scrollTop > 0) {
-			this.startScrolling(container, -scrollSpeed);
-		} else if (distFromBottom < edgeZone && container.scrollTop < container.scrollHeight - container.clientHeight) {
-			this.startScrolling(container, scrollSpeed);
+		if (distFromTop < edgeZone && canScrollUp) {
+			this.startScrolling(container, -this.computeScrollSpeed(distFromTop, edgeZone));
+		} else if (distFromBottom < edgeZone && canScrollDown) {
+			this.startScrolling(container, this.computeScrollSpeed(distFromBottom, edgeZone));
 		} else {
 			this.stopScrolling();
 		}
 	}
 
+	/**
+	 * If the drag preview can still advance toward `direction`, edge-scroll is
+	 * fine — the handle re-renders at the new preview row, tracking the cursor.
+	 * Only when the preview has saturated against its clamp does the handle pin to
+	 * one row; further scroll moves that pinned row across the viewport in the
+	 * opposite direction (scroll up → rows down → handle slides toward bottom;
+	 * scroll down → rows up → handle slides toward top). Allow scrolling in that
+	 * regime UNTIL the pinned row is about to leave the viewport via the opposite edge.
+	 *
+	 * Use the preview row's bounds (not the handle's) as the visibility check —
+	 * rows are stable DOM nodes through preview changes, while the handle is
+	 * unmounted/remounted as the active edge shifts and `findHandle` can transiently
+	 * return null mid-render. The handle sits flush against the row's edge, so the
+	 * row's rect is the same anchor for "is the handle visible".
+	 */
+	private edgeScrollKeepsHandleVisible(direction: 'up' | 'down', containerRect: DOMRect): boolean {
+		if (this._dragging == null || this._dragPreview == null) return true;
+
+		const min = this._dragging === 'end' ? this.rangeStart : 0;
+		const max = this._dragging === 'end' ? this.maxDraggableIndex : this.rangeEnd;
+		const saturated = direction === 'up' ? this._dragPreview <= min : this._dragPreview >= max;
+		if (!saturated) return true;
+
+		const previewRow = this.renderRoot.querySelector<HTMLElement>(`.scope-row[data-index="${this._dragPreview}"]`);
+		if (previewRow == null) return true;
+
+		const rowRect = previewRow.getBoundingClientRect();
+		const margin = Math.min(8, this.scrollPadding(containerRect.height));
+		return direction === 'up'
+			? rowRect.bottom + margin <= containerRect.bottom
+			: rowRect.top - margin >= containerRect.top;
+	}
+
+	/**
+	 * Quadratic ramp from ~0.5px/tick at the edge-zone boundary to 8px/tick at the
+	 * literal edge — so the cursor near the boundary barely scrolls and only the
+	 * deep edge accelerates, letting the user stop on a specific row.
+	 */
+	private computeScrollSpeed(distFromEdge: number, edgeZone: number): number {
+		const depth = Math.max(0, Math.min(1, (edgeZone - distFromEdge) / edgeZone));
+		return Math.max(0.5, Math.min(8, 0.5 + 7.5 * depth * depth));
+	}
+
+	private measureRowHeight(): number {
+		const row = this.renderRoot.querySelector<HTMLElement>('.scope-row[data-index]');
+		const h = row?.getBoundingClientRect().height ?? 0;
+		return h > 0 ? h : 24;
+	}
+
 	private startScrolling(container: HTMLElement, speed: number): void {
-		if (this._scrollInterval != null) return;
+		if (this._scrollInterval != null) {
+			this._scrollSpeed = speed;
+			return;
+		}
+
+		this._scrollSpeed = speed;
 		this._scrollInterval = setInterval(() => {
-			container.scrollTop += speed;
+			const before = container.scrollTop;
+			container.scrollTop += this._scrollSpeed;
+			// If we saturated against top/bottom, don't re-pick a row — the cursor
+			// hasn't moved, the rows haven't moved, the preview would just thrash.
+			if (container.scrollTop === before) return;
+
 			// Re-process using the most recent pointer position so the preview tracks
 			// rows passing under the (possibly stationary) cursor as content scrolls.
 			// Feeding a captured event back through `_onDragMove` would race the RAF

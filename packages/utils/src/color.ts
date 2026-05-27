@@ -568,6 +568,7 @@ export class Color {
 		if (of.isLighterThan(relative)) {
 			return of;
 		}
+
 		factor = factor ? factor : 0.5;
 		const lum1 = of.getRelativeLuminance();
 		const lum2 = relative.getRelativeLuminance();
@@ -579,6 +580,7 @@ export class Color {
 		if (of.isDarkerThan(relative)) {
 			return of;
 		}
+
 		factor = factor ? factor : 0.5;
 		const lum1 = of.getRelativeLuminance();
 		const lum2 = relative.getRelativeLuminance();

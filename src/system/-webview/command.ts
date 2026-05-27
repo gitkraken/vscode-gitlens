@@ -82,6 +82,7 @@ export function registerCommand(
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 				return callback.call(this, ...args);
 			}
+
 			callback.call(this, ...args);
 		},
 		thisArg,
@@ -130,6 +131,7 @@ export function registerWebviewCommand(
 				// eslint-disable-next-line @typescript-eslint/no-unsafe-return
 				return callback.call(this, ...args);
 			}
+
 			callback.call(this, ...args);
 		},
 		thisArg,

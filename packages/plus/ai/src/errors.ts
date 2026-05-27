@@ -10,6 +10,8 @@ export const enum AIErrorReason {
 	ServiceCapacityExceeded,
 	Unauthorized,
 	UserQuotaExceeded,
+	NoNetwork,
+	Unreachable,
 }
 
 export class AIError extends Error {
@@ -36,6 +38,12 @@ export class AIError extends Error {
 				break;
 			case AIErrorReason.ServiceCapacityExceeded:
 				message = 'Service capacity exceeded';
+				break;
+			case AIErrorReason.NoNetwork:
+				message = 'Unable to reach the AI service. Please check your internet connection.';
+				break;
+			case AIErrorReason.Unreachable:
+				message = 'The AI service is temporarily unreachable.';
 				break;
 			case AIErrorReason.NoRequestData:
 				message = original?.message ?? 'No data was provided for the request';
@@ -79,4 +87,36 @@ export class AINoRequestDataError extends AIError {
 
 		Error.captureStackTrace?.(this, new.target);
 	}
+}
+
+const noNetworkErrorCodes = new Set([
+	'ENOTFOUND',
+	'ECONNREFUSED',
+	'EAI_AGAIN',
+	'EHOSTUNREACH',
+	'ENETUNREACH',
+	'ENETDOWN',
+	'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+const unreachableErrorCodes = new Set(['ECONNRESET', 'ETIMEDOUT', 'UND_ERR_SOCKET']);
+
+export function classifyNetworkError(ex: unknown): AIErrorReason.NoNetwork | AIErrorReason.Unreachable | undefined {
+	let current: unknown = ex;
+	let sawFetchFailed = false;
+	for (let depth = 0; depth < 5 && current != null; depth++) {
+		if (!(current instanceof Error)) break;
+
+		if (current.name === 'TypeError' && current.message === 'fetch failed') {
+			sawFetchFailed = true;
+		}
+		const code = (current as { code?: unknown }).code;
+		if (typeof code === 'string') {
+			if (noNetworkErrorCodes.has(code)) return AIErrorReason.NoNetwork;
+			if (unreachableErrorCodes.has(code)) return AIErrorReason.Unreachable;
+		}
+
+		current = (current as { cause?: unknown }).cause;
+	}
+	return sawFetchFailed ? AIErrorReason.NoNetwork : undefined;
 }

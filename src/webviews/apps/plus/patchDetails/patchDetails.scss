@@ -202,7 +202,7 @@ gl-popover[appearance='menu'] menu-list {
 		font-size: 1.3rem;
 		line-height: 1.4;
 		width: 100%;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-input-border-radius);
 		color: var(--vscode-input-foreground);
 		font-family: inherit;
 

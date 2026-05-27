@@ -70,6 +70,7 @@ import { TelemetryService } from './telemetry/telemetry.js';
 import { GitTerminalLinkProvider } from './terminal/linkProvider.js';
 import { GitDocumentTracker } from './trackers/documentTracker.js';
 import { LineTracker } from './trackers/lineTracker.js';
+import { TreemapAggregatorService } from './treemap/treemapAggregatorService.js';
 import { DeepLinkService } from './uris/deepLinks/deepLinkService.js';
 import { UriService } from './uris/uriService.js';
 import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
@@ -800,6 +801,14 @@ export class Container {
 	private readonly _telemetry: TelemetryService;
 	get telemetry(): TelemetryService {
 		return this._telemetry;
+	}
+
+	private _treemapAggregator: TreemapAggregatorService | undefined;
+	get treemapAggregator(): TreemapAggregatorService {
+		if (this._treemapAggregator == null) {
+			this._disposables.push((this._treemapAggregator = new TreemapAggregatorService(this)));
+		}
+		return this._treemapAggregator;
 	}
 
 	private readonly _uri: UriService;

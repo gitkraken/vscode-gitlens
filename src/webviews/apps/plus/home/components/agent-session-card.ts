@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
 import '../../../shared/components/card/card.js';
 import '../../../shared/components/code-icon.js';
@@ -122,30 +123,27 @@ export class GlAgentSessionCard extends LitElement {
 	}
 
 	private renderDetails(): unknown {
-		const branches = new Set<string>();
-		const worktrees = new Map<string, string | undefined>();
+		// This card represents unrepresented sessions (those not on any rendered branch card),
+		// so the worktree's live display name carries the useful disambiguation. Branch labels
+		// appear on the proper branch card when one exists.
+		// Keyed by `worktreePath` so two sessions in the same worktree show one chip.
+		const worktrees = new Map<string, { label: string; cwd: string | undefined }>();
 		for (const s of this.sessions) {
-			if (s.branch != null) {
-				branches.add(s.branch);
-			}
-			if (s.worktreeName != null && !worktrees.has(s.worktreeName)) {
-				worktrees.set(s.worktreeName, s.cwd);
-			}
+			const path = s.worktreePath;
+			if (path == null || worktrees.has(path)) continue;
+
+			worktrees.set(path, { label: s.worktree?.name ?? basename(path), cwd: s.cwd });
 		}
 
-		if (branches.size === 0 && worktrees.size === 0) return nothing;
+		if (worktrees.size === 0) return nothing;
 
 		return html`
 			<div class="details">
 				${Array.from(
-					branches,
-					b => html`<span class="detail"><code-icon icon="git-branch" title="Branch"></code-icon>${b}</span>`,
-				)}
-				${Array.from(
-					worktrees,
-					([w, cwd]) =>
-						html`<span class="detail" title=${cwd ?? w}
-							><code-icon icon="folder-opened" title="Worktree"></code-icon>${w}</span
+					worktrees.values(),
+					({ label, cwd }) =>
+						html`<span class="detail" title=${cwd ?? label}
+							><code-icon icon="folder-opened" title="Worktree"></code-icon>${label}</span
 						>`,
 				)}
 			</div>
@@ -155,9 +153,9 @@ export class GlAgentSessionCard extends LitElement {
 	private renderSession(session: AgentSessionState): unknown {
 		return html`
 			<div class="session">
-				<code-icon icon="hubot" title="Agent"></code-icon>
+				<code-icon icon="robot" title="Agent"></code-icon>
 				<gl-agent-status-pill .session=${session}></gl-agent-status-pill>
-				<span class="session__name">${session.name}</span>
+				<span class="session__name">${session.displayName}</span>
 				${session.subagentCount > 0
 					? html`<span class="session__subagents">
 							<code-icon icon="organization" title="Subagents"></code-icon>

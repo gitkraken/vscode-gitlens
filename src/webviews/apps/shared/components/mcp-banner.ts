@@ -78,7 +78,7 @@ export class GlMcpBanner extends LitElement {
 					primary-button-href="${createCommandLink('gitlens.ai.mcp.selectAgents', {
 						source: this.source,
 					})}"
-					secondary-button=${installClaudeHookHref ? 'Install Claude Hook' : nothing}
+					secondary-button=${installClaudeHookHref ? 'Install Claude Hooks' : nothing}
 					secondary-button-href=${installClaudeHookHref ?? nothing}
 					dismissible
 					dismiss-href="${createCommandLink('gitlens.onboarding.dismiss', {
@@ -99,7 +99,7 @@ export class GlMcpBanner extends LitElement {
 				body="${bodyHtml}"
 				primary-button="Install GitKraken MCP"
 				primary-button-href="${createCommandLink('gitlens.ai.mcp.install', { source: this.source })}"
-				secondary-button=${installClaudeHookHref ? 'Install Claude Hook' : nothing}
+				secondary-button=${installClaudeHookHref ? 'Install Claude Hooks' : nothing}
 				secondary-button-href=${installClaudeHookHref ?? nothing}
 				dismissible
 				dismiss-href="${createCommandLink('gitlens.onboarding.dismiss', {

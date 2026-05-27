@@ -29,14 +29,13 @@ ignoredBuiltDependencies:
     - ttf2woff2
     - unrs-resolver
 
-minimumReleaseAge: 10080
+minimumReleaseAge: 7200
 
 minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'ovsx@0.10.12'
-    - 'zod@4.4.3'
+    - 'marked@18.0.4'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

@@ -1,20 +1,18 @@
-import type { GitFile } from '@gitlens/git/models/file.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Container } from '../../../container.js';
+import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import type { ScopeSelection } from './graphService.js';
 
 /**
  * Resolves the file list for a given {@link ScopeSelection}.
  *
- * - `commit` — the files changed by that commit vs. its parent (or vs. the empty tree
- *   for root commits).
- * - `compare` — explicit `includeShas` overrides the compare range to the union of
- *   those commits' files. `[]` means "narrow to zero" (empty result). `undefined` means
- *   "no narrowing" — fall back to the full `fromSha..toSha` range.
- * - `wip` — union of WIP files (indexStatus/workingTreeStatus-driven, not inferred
- *   from the coalesced `status` letter) and selected unpushed commit files.
+ * - `commit` — files changed by that commit vs. its parent (or vs. the empty tree for root commits).
+ * - `compare` — explicit `includeShas` overrides the compare range to `parent(oldest)..newest`;
+ *   `[]` narrows to zero; `undefined` falls back to the full `fromSha..toSha` range.
+ * - `wip` — combined diff over the selected unpushed commit range with rename detection, with
+ *   WIP files layered on top; rename chains spanning WIP + committed collapse to one entry.
  */
 export async function getScopeFiles(
 	container: Container,
@@ -33,49 +31,17 @@ export async function getScopeFiles(
 		staged: false,
 	});
 
-	// Resolve a single commit's file diff, falling back to the empty-tree root for root commits.
-	const getCommitFiles = async (sha: string): Promise<GitFile[] | undefined> => {
-		try {
-			const files = await svc.diff.getDiffStatus(`${sha}^..${sha}`);
-			signal?.throwIfAborted();
-			return files;
-		} catch {
-			signal?.throwIfAborted();
-			const files = await svc.diff.getDiffStatus(rootSha, sha);
-			signal?.throwIfAborted();
-			return files;
-		}
-	};
-
-	const mergeCommitFiles = async (
-		shas: readonly string[],
-		byPath: Map<string, GitFileChangeShape>,
-	): Promise<void> => {
-		const results = await Promise.all(shas.map(s => getCommitFiles(s)));
-		signal?.throwIfAborted();
-		for (const files of results) {
-			if (!files) continue;
-			for (const f of files) {
-				if (!byPath.has(f.path)) {
-					byPath.set(f.path, toShape(f));
-				}
-			}
-		}
-	};
-
 	if (scope.type === 'commit') {
-		const files = await getCommitFiles(scope.sha);
-		return (files ?? []).map(toShape);
+		const files = await getCommitFiles(svc, scope.sha, signal);
+		return files.map(toShape);
 	}
 
 	if (scope.type === 'compare') {
-		// Empty `includeShas` (explicit narrowing to zero) means an empty file list.
-		// `undefined` means no narrowing — fall back to the full compare range.
 		if (scope.includeShas != null) {
 			if (scope.includeShas.length === 0) return [];
-			const byPath = new Map<string, GitFileChangeShape>();
-			await mergeCommitFiles(scope.includeShas, byPath);
-			return [...byPath.values()];
+
+			const files = await collectCommittedRangeFiles(svc, scope.includeShas, signal);
+			return files.map(toShape);
 		}
 
 		const status = await svc.diff.getDiffStatus(`${scope.fromSha}..${scope.toSha}`);
@@ -83,9 +49,7 @@ export async function getScopeFiles(
 		return (status ?? []).map(toShape);
 	}
 
-	// WIP scope
-	const byPath = new Map<string, GitFileChangeShape>();
-
+	const wipEntries: GitFileChangeShape[] = [];
 	if (scope.includeStaged || scope.includeUnstaged) {
 		const wipStatus = await svc.status.getStatus(undefined, signal);
 		signal?.throwIfAborted();
@@ -96,14 +60,9 @@ export async function getScopeFiles(
 			const includeAsUnstaged = hasUnstaged && scope.includeUnstaged;
 			if (!includeAsStaged && !includeAsUnstaged) continue;
 
-			if (byPath.has(f.path)) continue;
-			// Unstaged layer takes precedence when both layers are in scope so the entry
-			// matches the `unstaged > staged > committed` ranking applied by the AI-compose
-			// path (see `anchorRank` in graphWebview.ts). Right-click actions on a
-			// mixed-state file then operate on the unstaged hunks (the topmost editable layer).
-			// The coalesced `f.status` still reflects the index status when present (see
-			// statusFile.ts `status` getter), which only affects the visual M/A/D letter.
-			byPath.set(f.path, {
+			// Unstaged > staged matches the `anchorRank` ordering in graphWebview.ts, so right-click
+			// actions land on the topmost editable layer.
+			wipEntries.push({
 				repoPath: repoPath,
 				path: f.path,
 				status: f.status,
@@ -113,9 +72,90 @@ export async function getScopeFiles(
 		}
 	}
 
-	if (scope.includeShas.length) {
-		await mergeCommitFiles(scope.includeShas, byPath);
+	const committedEntries =
+		scope.includeShas.length === 0 ? [] : await collectCommittedRangeFiles(svc, scope.includeShas, signal);
+	const committedShapes = committedEntries.map(toShape);
+	const committedByNewPath = new Map(committedShapes.map(e => [e.path, e]));
+
+	const merged = new Map<string, GitFileChangeShape>();
+	for (const wip of wipEntries) {
+		// Collapse chains where WIP renamed/modified what the committed range already renamed:
+		//   - WIP rename `B → C` on top of committed `A → B` → one entry `A → C`.
+		//   - WIP modify of a file the committed range renamed → inherit the rename's origin so
+		//     the row stays `R` (not a fresh `M` that drops the rename arrow).
+		let originalPath = wip.originalPath;
+		let status: GitFileStatus = wip.status;
+		const committedAtSamePath = committedByNewPath.get(wip.path);
+		const committedAtWipOrigin = wip.originalPath != null ? committedByNewPath.get(wip.originalPath) : undefined;
+
+		if (committedAtWipOrigin?.originalPath != null) {
+			originalPath = committedAtWipOrigin.originalPath;
+			committedByNewPath.delete(committedAtWipOrigin.path);
+		} else if (committedAtSamePath?.originalPath != null && wip.originalPath == null) {
+			originalPath = committedAtSamePath.originalPath;
+			status = 'R';
+			committedByNewPath.delete(committedAtSamePath.path);
+		} else if (committedAtSamePath != null) {
+			committedByNewPath.delete(committedAtSamePath.path);
+		}
+
+		merged.set(wip.path, { ...wip, originalPath: originalPath, status: status });
 	}
 
-	return [...byPath.values()];
+	for (const e of committedByNewPath.values()) {
+		if (!merged.has(e.path)) {
+			merged.set(e.path, e);
+		}
+	}
+
+	return [...merged.values()];
+}
+
+/**
+ * Files changed by a single commit. Falls back to the empty-tree root for root commits (no parent).
+ */
+async function getCommitFiles(
+	svc: GitRepositoryService,
+	sha: string,
+	signal?: AbortSignal,
+): Promise<{ path: string; status: GitFileStatus; originalPath?: string }[]> {
+	try {
+		const files = await svc.diff.getDiffStatus(`${sha}^..${sha}`);
+		signal?.throwIfAborted();
+		return files ?? [];
+	} catch {
+		signal?.throwIfAborted();
+		const files = await svc.diff.getDiffStatus(rootSha, sha);
+		signal?.throwIfAborted();
+		return files ?? [];
+	}
+}
+
+/**
+ * Combined `parent(oldest)..newest` diff with rename detection. Relies on the picker producing
+ * a contiguous newest-first range; multi-hop renames inside the range collapse to one entry.
+ *
+ * Falls back to the empty-tree root for ranges anchored at the initial commit.
+ */
+async function collectCommittedRangeFiles(
+	svc: GitRepositoryService,
+	includeShas: readonly string[],
+	signal?: AbortSignal,
+): Promise<{ path: string; status: GitFileStatus; originalPath?: string }[]> {
+	if (includeShas.length === 0) return [];
+
+	const newest = includeShas[0];
+	const oldest = includeShas.at(-1);
+	if (oldest == null) return [];
+
+	try {
+		const files = await svc.diff.getDiffStatus(`${oldest}^..${newest}`, undefined, { similarityThreshold: 50 });
+		signal?.throwIfAborted();
+		return files ?? [];
+	} catch {
+		signal?.throwIfAborted();
+		const files = await svc.diff.getDiffStatus(rootSha, newest, { similarityThreshold: 50 });
+		signal?.throwIfAborted();
+		return files ?? [];
+	}
 }

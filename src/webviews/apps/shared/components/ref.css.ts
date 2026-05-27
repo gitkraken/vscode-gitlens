@@ -7,7 +7,6 @@ export const refButtonBaseStyles = css`
 		align-items: center;
 
 		max-width: 100%;
-		min-width: 4.6rem;
 	}
 
 	* {
@@ -30,7 +29,7 @@ export const pickerIconStyles = css`
 export const truncatedButtonStyles = css`
 	.truncated-button {
 		max-width: 100%;
-		min-width: 4rem;
+		min-width: 0;
 	}
 	gl-button[disabled] {
 		opacity: 1;

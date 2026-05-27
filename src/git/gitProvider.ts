@@ -49,6 +49,13 @@ export interface GlGitProvider extends UnifiedDisposable {
 	readonly descriptor: GitProviderDescriptor;
 	readonly supportedSchemes: Set<string>;
 
+	/**
+	 * Ensures the provider is registered with the package-level GitService so that path-based
+	 * APIs (`forRepo`, `validateRepo`, `getRepositoryService`) can resolve the provider before
+	 * any deep operation has triggered lazy initialization. Idempotent.
+	 */
+	ensureRegistered(): void;
+
 	discoverRepositories(
 		uri: Uri,
 		options?: { cancellation?: AbortSignal; depth?: number; silent?: boolean },

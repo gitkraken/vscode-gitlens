@@ -14,8 +14,9 @@ import type {
 	WebviewTypes,
 	WebviewViewTypes,
 } from './constants.views.js';
-import type { WalkthroughContextKeys } from './constants.walkthroughs.js';
+import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
+import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
@@ -226,6 +227,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a Commit Graph command is executed */
 	'graph/command': CommandEventData;
 
+	/** Sent when GitLens auto-fetch fires a `git fetch` for the visible Commit Graph */
+	'graph/autoFetch': GraphAutoFetchEvent;
+
 	/** Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph */
 	'graph/action/jumpTo': GraphActionJumpToEvent;
 	/** Sent when the user clicks on the "Jump to HEAD"/"Jump to Reference" (alt) header button on the Commit Graph */
@@ -422,6 +426,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'startReview/title/action': StartReviewTitleActionEvent;
 	/** Sent when the user chooses to manage integrations */
 	'startReview/action': StartReviewActionEvent;
+	/** Sent when the manual-vs-agent flow resolves (manual, cancel, or a specific agent) */
+	'startReview/agent/resolved': StartReviewAgentResolvedEvent;
 
 	/** Sent when the user opens Start Work; use `instance` to correlate a StartWork "session" */
 	'startWork/open': StartWorkEventDataBase;
@@ -439,6 +445,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'startWork/title/action': StartWorkTitleActionEvent;
 	/** Sent when the user chooses to manage integrations */
 	'startWork/action': StartWorkActionEvent;
+	/** Sent when the manual-vs-agent flow resolves (manual, cancel, or a specific agent) */
+	'startWork/agent/resolved': StartWorkAgentResolvedEvent;
 
 	/** Sent when the user opens Start Work; use `instance` to correlate an Associate Issue with Branch "session" */
 	'associateIssueWithBranch/open': StartWorkEventDataBase;
@@ -948,6 +956,11 @@ type GraphShownEvent = WebviewShownEventData & GraphShownEventData;
 
 interface GraphActionJumpToEvent extends GraphContextEventData {
 	target: 'HEAD' | 'choose';
+}
+
+interface GraphAutoFetchEvent extends GraphContextEventData {
+	intervalSeconds: number;
+	sinceLastFetchedMs: number;
 }
 
 interface GraphActionSidebarEvent extends GraphContextEventData {
@@ -1551,6 +1564,8 @@ interface RepositoryVisibilityEvent extends Partial<RepositoryEventData> {
 interface StartReviewEventDataBase {
 	/** @order 1 */
 	instance: number;
+	/** Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in. */
+	'context.showOpenInAgent'?: AgentRoute;
 }
 
 interface StartReviewEventData extends StartReviewEventDataBase {
@@ -1577,9 +1592,13 @@ type StartReviewActionEvent = StartReviewConnectedEventData & {
 	action: 'manage' | 'connect';
 };
 
+type StartReviewAgentResolvedEvent = StartReviewConnectedEventData & AgentResolvedEventData;
+
 interface StartWorkEventDataBase {
 	/** @order 1 */
 	instance: number;
+	/** Route requested by the caller for the manual-vs-agent flow; `undefined` when the caller didn't opt in. */
+	'context.showOpenInAgent'?: AgentRoute;
 }
 
 interface StartWorkEventData extends StartWorkEventDataBase {
@@ -1605,6 +1624,18 @@ type StartWorkTitleActionEvent = StartWorkConnectedEventData & {
 type StartWorkActionEvent = StartWorkConnectedEventData & {
 	action: 'manage' | 'connect';
 };
+
+type StartWorkAgentResolvedEvent = StartWorkConnectedEventData & AgentResolvedEventData;
+
+type AgentResolvedEventData =
+	| {
+			'agent.resolution': 'manual' | 'cancel';
+	  }
+	| {
+			'agent.resolution': 'agent';
+			'agent.id': string;
+			'agent.kind': AgentDescriptor['kind'];
+	  };
 
 export type SubscriptionFeaturePreviewsEventData = {
 	[F in FeaturePreviews]: {
@@ -1745,7 +1776,7 @@ type WalkthroughActionEvent =
 	| { type: 'url'; name: WalkthroughActionNames; url: string; detail?: string };
 
 interface WalkthroughCompletionEvent {
-	'context.key': WalkthroughContextKeys;
+	'context.key': WalkthroughContextKeys | GraphWalkthroughContextKeys;
 }
 
 type WelcomeActionNames =
@@ -1823,6 +1854,7 @@ export type Sources =
 	| 'gk-mcp-provider'
 	| 'graph'
 	| 'graph-details'
+	| 'graph-sidebar'
 	| 'home'
 	| 'inspect'
 	| 'inspect-overview'
@@ -1880,8 +1912,19 @@ export type TrackedUsage = {
  */
 export type TrackedGlActions =
 	| 'gitlens.ai.generateCommits'
+	| 'gitlens.ai.openInAgent'
+	| 'gitlens.ai.openInAgent.dispatchFailed'
+	| 'gitlens.ai.openInAgent.useDefaultsFallback'
+	| 'gitlens.ai.review.copied'
+	| 'gitlens.ai.review.sentToChat'
+	| 'gitlens.graph.details.compareMode'
+	| 'gitlens.graph.details.composeMode'
+	| 'gitlens.graph.details.reviewMode'
+	| 'gitlens.graph.details.wipShown'
+	| 'gitlens.graph.overview.shown'
+	| 'gitlens.graph.scope.changed'
+	| 'gitlens.graph.walkthrough.started'
 	| 'gitlens.mcp.ipcRequest'
-	| 'gitlens.mcp.chatInteraction'
 	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 
 export type TrackedUsageFeatures =

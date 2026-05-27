@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -9,27 +10,12 @@ import type { OpenMultipleChangesArgs } from '../../actions/file.js';
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
-import type { FileItem } from './gl-file-tree-pane.js';
+import type { FileChangeListItemDetail, FileItem } from './gl-file-tree-pane.js';
 import './gl-file-tree-pane.js';
 import '../button.js';
 import '../code-icon.js';
 
 type Files = Mutable<FileItem[]>;
-
-/** Stable partition: conflicts first, others in original order. Used in checkbox mode where
- * grouping is suppressed so a flat list still surfaces unresolved conflicts at the top. */
-function sortConflictsToTop(files: Files): Files {
-	const conflicts: Files = [];
-	const rest: Files = [];
-	for (const f of files) {
-		if (isConflictStatus(f.status)) {
-			conflicts.push(f);
-		} else {
-			rest.push(f);
-		}
-	}
-	return conflicts.length === 0 ? files : [...conflicts, ...rest];
-}
 
 @customElement('gl-wip-tree-pane')
 export class GlWipTreePane extends LitElement {
@@ -94,6 +80,9 @@ export class GlWipTreePane extends LitElement {
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 
+	@property({ attribute: 'empty-text' })
+	emptyText = 'No Files';
+
 	@property({ type: Object, attribute: 'search-context' })
 	searchContext?: GitCommitSearchContext;
 
@@ -110,7 +99,7 @@ export class GlWipTreePane extends LitElement {
 	checkableStateDefault?: { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string };
 
 	@property({ attribute: false })
-	multiDiff?: { repoPath: string; lhs: string; rhs: string; title?: string };
+	multiDiff?: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string };
 
 	/** Opt-in for the bulk "Stage Current/Incoming for All Conflicts" toolbar buttons.
 	 * Off by default — only the graph WIP panel wires the resolve-all events and only enables
@@ -119,6 +108,22 @@ export class GlWipTreePane extends LitElement {
 	 * cherry-pick/revert pauses where clicks would silently no-op. */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Repo-relative normalized paths the connected agent(s) are actively editing, mapped to the
+	 *  agent's phase. Pass-through to `gl-file-tree-pane`. */
+	@property({ attribute: false })
+	agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
+
+	/**
+	 * Controlled-when-bound: parent-supplied visibility of the file-tree search box. Forwarded
+	 * to `gl-file-tree-pane`. Hosts that leave it undefined get the uncontrolled default.
+	 */
+	@property({ attribute: 'show-search-box', type: Boolean })
+	showSearchBox?: boolean;
+
+	/** Controlled-when-bound: parent-supplied search-box filter mode (`true` = filter, `false` = highlight). */
+	@property({ type: Boolean, attribute: 'search-box-filter' })
+	searchBoxFilter?: boolean;
 
 	private _effectiveFiles: Files = [];
 	private _effectiveStates?: Map<
@@ -130,6 +135,10 @@ export class GlWipTreePane extends LitElement {
 		| TreeItemAction[]
 		| ((file: FileItem, options?: Partial<TreeItemBase>) => TreeItemAction[])
 		| undefined;
+	/** Paths with both staged and unstaged hunks. Computed in checkbox mode during dedup; kept on
+	 *  the instance so the dispatch overrides for `file-compare-wip` (alt-click) and
+	 *  `file-compare-wip-staged` (inline button) can recognize the deduped row as mixed. */
+	private _mixedPaths: Set<string> = new Set();
 
 	override willUpdate(changedProperties: PropertyValues): void {
 		if (
@@ -154,7 +163,7 @@ export class GlWipTreePane extends LitElement {
 			const dedup = this.deduplicateFiles(files);
 			const deduped = dedup.deduped;
 			mixedPaths = dedup.mixedPaths;
-			effectiveFiles = sortConflictsToTop(deduped);
+			effectiveFiles = deduped;
 
 			// Merge computed mixed states into caller-provided checkableStates
 			if (mixedPaths.size > 0 || this.checkableStates) {
@@ -207,6 +216,7 @@ export class GlWipTreePane extends LitElement {
 		this._effectiveFiles = effectiveFiles;
 		this._effectiveStates = effectiveStates;
 		this._grouping = grouping;
+		this._mixedPaths = mixedPaths;
 	}
 
 	override render() {
@@ -230,12 +240,18 @@ export class GlWipTreePane extends LitElement {
 			?checkable=${this.checkable}
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
+			.agentTouchedFiles=${this.agentTouchedFiles}
 			.buttons=${buttons}
+			.showSearchBox=${this.showSearchBox}
+			.searchBoxFilter=${this.searchBoxFilter}
+			empty-text=${this.emptyText}
 			selection-badge-label="Staged"
-			selection-action="file-open"
+			selection-action="file-compare-wip"
 			check-verb="Stage"
 			uncheck-verb="Unstage"
 			@gl-check-all=${this.onCheckAll}
+			@file-compare-wip=${this.onFileCompareWip}
+			@file-compare-wip-staged=${this.onFileCompareWipStaged}
 			@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
@@ -292,7 +308,13 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
 	}
 
-	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; title?: string }): void {
+	// TODO: Button hidden — bulk discard-unstaged is punted until multiselect lands in trees
+	// See https://github.com/gitkraken/vscode-gitlens/pull/5207#pullrequestreview-4286302741
+	private onDiscardUnstaged() {
+		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
+	}
+
+	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
 		const files = this.files;
 		if (!files?.length) return;
 
@@ -303,6 +325,7 @@ export class GlWipTreePane extends LitElement {
 					repoPath: refs.repoPath,
 					lhs: refs.lhs,
 					rhs: refs.rhs,
+					wip: refs.wip,
 					title: refs.title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,
@@ -367,6 +390,59 @@ export class GlWipTreePane extends LitElement {
 
 		this.dispatchEvent(
 			new CustomEvent(e.detail.checked ? 'stage-all' : 'unstage-all', {
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	/**
+	 * Forks the default WIP row click so:
+	 *  - Conflicted rows fall back to `file-open` (the conflict markers are easier to deal with in
+	 *    the file itself than in a diff).
+	 *  - Mixed rows with Alt held flip the dispatched event to the staged-portion diff
+	 *    (HEAD ↔ index) — independent of the natural staged flag carried by the deduped canonical
+	 *    row, which always points at the unstaged portion. The `viewColumn` is cleared so Alt
+	 *    means "open staged" and *not* the global "open in side editor" — the user is choosing one
+	 *    semantic over the other for this surface.
+	 *  - All other rows fall through untouched so the host's `file-compare-wip` handler resolves
+	 *    them via the file's natural `staged` flag.
+	 */
+	private onFileCompareWip = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		const detail = e.detail;
+		if (isConflictStatus(detail.status)) {
+			e.stopPropagation();
+			this.dispatchEvent(new CustomEvent('file-open', { detail: detail, bubbles: true, composed: true }));
+			return;
+		}
+
+		if (detail.altKey && this._mixedPaths.has(detail.path)) {
+			e.stopPropagation();
+			this.dispatchFileCompareWipStaged(detail, { clearViewColumn: true });
+		}
+	};
+
+	/** Bridge the inline "Open Staged Changes" button (`file-compare-wip-staged`) into the host's
+	 *  `file-compare-wip` listener with `staged: true` overridden so the diff resolves to staged ↔
+	 *  HEAD regardless of the row's canonical staged flag (unstaged for deduped mixed rows).
+	 *  `viewColumn` is preserved so Alt+click on the button keeps its standard "open in side
+	 *  editor" meaning — the button already encodes the "open staged" intent. */
+	private onFileCompareWipStaged = (e: CustomEvent<FileChangeListItemDetail>): void => {
+		e.stopPropagation();
+		this.dispatchFileCompareWipStaged(e.detail);
+	};
+
+	private dispatchFileCompareWipStaged(
+		detail: FileChangeListItemDetail,
+		options?: { clearViewColumn?: boolean },
+	): void {
+		const showOptions =
+			detail.showOptions != null && options?.clearViewColumn
+				? { ...detail.showOptions, viewColumn: undefined }
+				: detail.showOptions;
+		this.dispatchEvent(
+			new CustomEvent('file-compare-wip', {
+				detail: { ...detail, staged: true, showOptions: showOptions } satisfies FileChangeListItemDetail,
 				bubbles: true,
 				composed: true,
 			}),

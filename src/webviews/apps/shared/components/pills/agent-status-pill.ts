@@ -3,28 +3,35 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
-import type { AgentSessionCategory } from '../../agentUtils.js';
+import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
+	getAgentPhaseLabel,
 } from '../../agentUtils.js';
+import { renderRunningTool } from '../agents/agent-status-render.js';
+import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
 import { elementBase, linkBase } from '../styles/lit/base.css.js';
 import '../actions/action-item.js';
 import '../actions/action-nav.js';
+import '../agents/gl-agent-prompt-detail.js';
 import '../button.js';
 import '../code-icon.js';
 import '../overlays/popover.js';
+import '../overlays/tooltip.js';
 
 interface AgentPillSummary {
 	category: AgentSessionCategory;
 	sessions: readonly AgentSessionState[];
 }
 
-function formatElapsed(timestamp: number | undefined): string | undefined {
-	if (timestamp == null) return undefined;
+function formatElapsed(value: Date | number | undefined): string | undefined {
+	if (value == null) return undefined;
 
+	const timestamp = typeof value === 'number' ? value : value.getTime();
 	const seconds = Math.floor((Date.now() - timestamp) / 1000);
 	if (seconds < 60) return `${seconds}s`;
 
@@ -48,20 +55,26 @@ export class GlAgentStatusPill extends LitElement {
 	static override styles = [
 		elementBase,
 		linkBase,
+		agentToolStyles,
+		agentPhaseElapsedStyles,
 		css`
 			:host {
 				display: inline-block;
 				--max-width: 30rem;
 
-				/* Working (blue) */
-				--gl-agent-pill-working-color: var(--vscode-progressBar-background);
+				/* Phase colors — pulled from the unified --gl-agent-working-color /
+				   --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
+				   pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
+				   source of truth. Local *-bg / *-border derivations stay because the pill
+				   applies different opacity envelopes than other surfaces. */
+				--gl-agent-pill-working-color: var(--gl-agent-working-color);
 				--gl-agent-pill-working-bg: color-mix(in srgb, var(--gl-agent-pill-working-color) 10%, transparent);
 				--gl-agent-pill-working-border: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
 
-				/* Needs Input (amber/warning). Border is brighter than the other categories
-				   (75% vs. 50%/35%) so the static state already communicates "this one's
-				   different" before the breathing animation kicks in. */
-				--gl-agent-pill-attention-color: var(--vscode-editorWarning-foreground);
+				/* Needs Input border is brighter than the other categories (75% vs. 50%/35%) so the
+				   static state already communicates "this one's different" before the breathing
+				   animation kicks in. */
+				--gl-agent-pill-attention-color: var(--gl-agent-waiting-color);
 				--gl-agent-pill-attention-bg: color-mix(in srgb, var(--gl-agent-pill-attention-color) 10%, transparent);
 				--gl-agent-pill-attention-bg-peak: color-mix(
 					in srgb,
@@ -75,7 +88,7 @@ export class GlAgentStatusPill extends LitElement {
 				);
 
 				/* Idle (muted) */
-				--gl-agent-pill-idle-color: var(--vscode-descriptionForeground);
+				--gl-agent-pill-idle-color: var(--gl-agent-idle-color);
 				--gl-agent-pill-idle-bg: color-mix(in srgb, var(--gl-agent-pill-idle-color) 10%, transparent);
 				--gl-agent-pill-idle-border: color-mix(in srgb, var(--gl-agent-pill-idle-color) 35%, transparent);
 			}
@@ -290,20 +303,6 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-section__value {
 			}
 
-			.hover-code {
-				background-color: rgba(0, 0, 0, 0.3);
-				border-radius: 2px;
-				padding: 0.3rem 0.5rem;
-				font-family: var(--vscode-editor-font-family, monospace);
-				font-size: 0.9em;
-				word-break: break-all;
-			}
-
-			:host-context(.vscode-light) .hover-code,
-			:host-context(.vscode-high-contrast-light) .hover-code {
-				background-color: rgba(0, 0, 0, 0.06);
-			}
-
 			.hover-prompt {
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
@@ -443,6 +442,12 @@ export class GlAgentStatusPill extends LitElement {
 				overflow: hidden;
 				text-overflow: ellipsis;
 			}
+
+			/* Summary-row tool detail places the shared .agent-tool composite into the row's
+			   second grid cell — visual styling lives in the shared agentToolStyles. */
+			.hover-summary-row__tool {
+				grid-column: 2 / -1;
+			}
 		`,
 	];
 
@@ -461,11 +466,19 @@ export class GlAgentStatusPill extends LitElement {
 	 *  tool context) but drops the action row to avoid duplicating the inline buttons.
 	 *
 	 *  Falls back to compact rendering when `needs-input` cannot resolve inline (`!isInWorkspace`
-	 *  or no `pendingPermissionDetail`) — a full-width pill with no actions would be a dead-end.
+	 *  or no `pendingPermission`) — a full-width pill with no actions would be a dead-end.
 	 *
 	 *  Ignored in summary mode — summary pills never surface inline actions. */
 	@property({ type: Boolean, reflect: true })
 	full = false;
+
+	/** Per-pill sticky "current tool call" resolver — see {@link createStickyDetailResolver}. The
+	 *  pill renders the running-tool composite in two places (summary-mode rows and the single-
+	 *  session hover-content "Current Tool" section); without stickiness both surfaces flicker
+	 *  between tool calls when `session.status` momentarily leaves `'tool_use'`. Single-session
+	 *  mode auto-evicts on phase change via the resolver itself; summary mode prunes orphan
+	 *  entries in `updated()` so the cache stays bounded by the current sessions list. */
+	private readonly _stickyResolver: StickyDetailResolver = createStickyDetailResolver();
 
 	private onActionMouseDown(e: MouseEvent): void {
 		// Stop mousedown from reaching the popover, which would hide it
@@ -482,6 +495,23 @@ export class GlAgentStatusPill extends LitElement {
 		this.toggleAttribute('full-active', this.full && this.summary == null && this.session != null);
 	}
 
+	override updated(_changed: PropertyValues<this>): void {
+		// Keep `_stickyResolver` bounded by the sessions the pill currently renders. Without this,
+		// a parent that re-binds the pill from one session to another (or swaps the summary list)
+		// would leave the prior session's cache entry behind for the resolver's lifetime. Single-
+		// session mode prunes to `[this.session.id]`; summary mode prunes to its array; otherwise
+		// no sessions are bound and the cache is emptied.
+		if (this._stickyResolver.size === 0) return;
+
+		if (this.summary != null) {
+			this._stickyResolver.prune(this.summary.sessions.map(s => s.id));
+		} else if (this.session != null) {
+			this._stickyResolver.prune([this.session.id]);
+		} else {
+			this._stickyResolver.prune([]);
+		}
+	}
+
 	override render(): unknown {
 		if (this.summary != null) return this.renderSummary();
 
@@ -489,9 +519,9 @@ export class GlAgentStatusPill extends LitElement {
 		if (session == null) return nothing;
 
 		const category = agentPhaseToCategory[session.phase];
-		const label = getAgentCategoryLabel(category);
-		const detail = session.pendingPermissionDetail;
-		const canResolve = category === 'needs-input' && session.isInWorkspace && detail != null;
+		const permission = session.pendingPermission;
+		const label = getAgentPhaseLabel(category, permission);
+		const canResolve = category === 'needs-input' && permission != null;
 
 		return html`
 			<gl-popover placement="bottom" hoist>
@@ -533,23 +563,44 @@ export class GlAgentStatusPill extends LitElement {
 	/** Phase column is retained per row because the elapsed-time suffix is the per-session
 	 *  signal — every row shares the category, but each carries its own "how long". */
 	private renderSummaryRow(session: AgentSessionState, category: AgentSessionCategory): unknown {
-		const elapsed = formatAgentElapsed(session.phaseSinceTimestamp);
-		const phaseLabel = getAgentCategoryLabel(category);
-		const detail = describeAgentSession(session, category, elapsed, {
-			awaitingPrefix: 'short',
-			idleFallback: 'lastPrompt',
-		});
+		const elapsed = formatAgentElapsed(session.phaseSince);
+		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
+		// Route the running-tool surface through the sticky resolver so brief gaps between tool
+		// calls (when `session.status` leaves `tool_use` and `statusDetail` empties) don't flicker
+		// the row's `[tools] X(...)` block back to the generic detail line.
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
+		const detail =
+			stickyTool != null
+				? undefined
+				: describeAgentSession(session, category, elapsed, {
+						awaitingPrefix: 'short',
+						idleFallback: 'lastPrompt',
+					});
 
 		return html`
 			<div class="hover-summary-row">
 				<span class=${`hover-summary-row__dot hover-summary-row__dot--${category}`}></span>
-				<span class="hover-summary-row__name" title=${session.name}>${session.name}</span>
+				<gl-tooltip content=${session.displayName} placement="bottom">
+					<span class="hover-summary-row__name">${session.displayName}</span>
+				</gl-tooltip>
 				<span class=${`hover-summary-row__phase hover-summary-row__phase--${category}`}>
-					${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}
+					${phaseLabel}${elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : ''}
 				</span>
-				${detail ? html`<span class="hover-summary-row__detail" title=${detail}>${detail}</span>` : nothing}
+				${this.renderSummaryRowDetail(stickyTool, detail)}
 			</div>
 		`;
+	}
+
+	private renderSummaryRowDetail(stickyTool: string | undefined, detail: string | undefined): unknown {
+		if (stickyTool != null) {
+			return html`<span class="hover-summary-row__tool">${renderRunningTool(stickyTool)}</span>`;
+		}
+		if (detail) {
+			return html`<gl-tooltip content=${detail} placement="bottom">
+				<span class="hover-summary-row__detail">${detail}</span>
+			</gl-tooltip>`;
+		}
+		return nothing;
 	}
 
 	private renderHoverContent(
@@ -557,6 +608,16 @@ export class GlAgentStatusPill extends LitElement {
 		category: AgentSessionCategory,
 		omitActions: boolean,
 	): unknown {
+		// Evict any sticky-tool entry for this session when the category is non-working —
+		// `renderNeedsInputHover` and `renderIdleHover` bypass `resolveLiveTool` (only the working
+		// hover path calls it), so without explicit eviction the entry survives a permission
+		// round-trip and the next working+empty-statusDetail push would re-paint the pre-needs-
+		// input tool name from the still-fresh cache. Matches the eviction-on-needs-input pattern
+		// in gl-graph-kanban + gl-details-agent-status.
+		if (category !== 'working') {
+			this._stickyResolver.evict(session.id);
+		}
+
 		switch (category) {
 			case 'working':
 				return this.renderWorkingHover(session, omitActions);
@@ -579,7 +640,7 @@ export class GlAgentStatusPill extends LitElement {
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
 		if (category === 'needs-input' && canResolve) {
-			const detail = session.pendingPermissionDetail!;
+			const permission = session.pendingPermission!;
 			const allowHref = createCommandLink('gitlens.agents.resolvePermission', {
 				sessionId: session.id,
 				decision: 'allow' as const,
@@ -588,18 +649,21 @@ export class GlAgentStatusPill extends LitElement {
 				sessionId: session.id,
 				decision: 'deny' as const,
 			});
-			const alwaysAllowHref = detail.hasSuggestions
-				? createCommandLink('gitlens.agents.resolvePermission', {
-						sessionId: session.id,
-						decision: 'allow' as const,
-						alwaysAllow: true,
-					})
-				: undefined;
+			const alwaysAllowHref =
+				permission.kind === 'tool' && permission.suggestions != null && permission.suggestions.length > 0
+					? createCommandLink('gitlens.agents.resolvePermission', {
+							sessionId: session.id,
+							decision: 'allow' as const,
+							alwaysAllow: true,
+						})
+					: undefined;
+			const allowLabel = permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+			const denyLabel = permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
 			return html`
 				<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
-					<action-item label="Allow" icon="check" href=${allowHref}></action-item>
-					<action-item label="Deny" icon="x" href=${denyHref}></action-item>
+					<action-item label=${allowLabel} icon="check" href=${allowHref}></action-item>
+					<action-item label=${denyLabel} icon="x" href=${denyHref}></action-item>
 					${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
 				</action-nav>
 			`;
@@ -613,13 +677,19 @@ export class GlAgentStatusPill extends LitElement {
 	}
 
 	private renderWorkingHover(session: AgentSessionState, omitActions: boolean): unknown {
-		const elapsed = formatElapsed(session.phaseSinceTimestamp);
+		const elapsed = formatElapsed(session.phaseSince);
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		// Route through the sticky resolver so the "Current Tool" section doesn't blink between
+		// tool calls — matches the kanban + details-panel running-tool surfaces. `resolveLiveTool`
+		// returns the live `statusDetail` when present and the cached one for ~3s after it drops
+		// away; on phase change (working → idle/needs-input) the cache auto-evicts so the section
+		// vanishes immediately.
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
 
 		return html`
 			<div class="hover-header">
 				<span class="hover-header__dot hover-header__dot--working"></span>
-				<span class="hover-header__text">${session.name}</span>
+				<span class="hover-header__text">${session.displayName}</span>
 				${elapsed != null ? html`<span class="hover-header__elapsed">${elapsed}</span>` : nothing}
 			</div>
 			${session.lastPrompt
@@ -630,11 +700,11 @@ export class GlAgentStatusPill extends LitElement {
 						</div>
 					`
 				: nothing}
-			${session.status === 'tool_use' && session.statusDetail
+			${stickyTool != null
 				? html`
 						<div class="hover-section">
 							<span class="hover-section__label">Current Tool</span>
-							<span class="hover-section__value">${session.statusDetail}</span>
+							<span class="hover-section__value">${stickyTool}</span>
 						</div>
 					`
 				: nothing}
@@ -652,11 +722,11 @@ export class GlAgentStatusPill extends LitElement {
 	}
 
 	private renderNeedsInputHover(session: AgentSessionState, omitActions: boolean): unknown {
-		const elapsed = formatElapsed(session.phaseSinceTimestamp);
-		const detail = session.pendingPermissionDetail;
+		const elapsed = formatElapsed(session.phaseSince);
+		const permission = session.pendingPermission;
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
 
-		const canResolve = session.isInWorkspace && detail != null;
+		const canResolve = permission != null;
 		const allowHref = canResolve
 			? createCommandLink('gitlens.agents.resolvePermission', {
 					sessionId: session.id,
@@ -664,7 +734,10 @@ export class GlAgentStatusPill extends LitElement {
 				})
 			: undefined;
 		const alwaysAllowHref =
-			canResolve && detail.hasSuggestions
+			canResolve &&
+			permission.kind === 'tool' &&
+			permission.suggestions != null &&
+			permission.suggestions.length > 0
 				? createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'allow' as const,
@@ -677,39 +750,29 @@ export class GlAgentStatusPill extends LitElement {
 					decision: 'deny' as const,
 				})
 			: undefined;
+		const allowLabel = canResolve && permission.kind === 'plan' ? 'Approve Plan' : 'Allow';
+		const denyLabel = canResolve && permission.kind === 'plan' ? 'Reject Plan' : 'Deny';
 
 		return html`
 			<div class="hover-header">
 				<span class="hover-header__dot hover-header__dot--needs-input"></span>
-				<span class="hover-header__text">${session.name}</span>
+				<span class="hover-header__text">${session.displayName}</span>
 				${elapsed != null ? html`<span class="hover-header__elapsed">${elapsed}</span>` : nothing}
 			</div>
+			${permission != null
+				? html`
+						<div class="hover-section">
+							<span class="hover-section__label">Request</span>
+							<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>
+						</div>
+					`
+				: nothing}
 			${session.lastPrompt
 				? html`
 						<div class="hover-section">
 							<span class="hover-section__label">Last Prompt</span>
 							<span class="hover-prompt">${session.lastPrompt}</span>
 						</div>
-					`
-				: nothing}
-			${detail != null
-				? html`
-						<div class="hover-section">
-							<span class="hover-section__label">Request</span>
-							<div class="hover-code">
-								${detail.toolName}${detail.toolDescription
-									? html` &mdash; ${detail.toolDescription}`
-									: nothing}
-							</div>
-						</div>
-						${detail.toolInputDescription
-							? html`
-									<div class="hover-section">
-										<span class="hover-section__label">Context</span>
-										<span class="hover-section__value">${detail.toolInputDescription}</span>
-									</div>
-								`
-							: nothing}
 					`
 				: nothing}
 			${omitActions
@@ -720,7 +783,7 @@ export class GlAgentStatusPill extends LitElement {
 								<div class="hover-actions__row">
 									<gl-button full density="compact" href=${allowHref!}>
 										<code-icon icon="check" slot="prefix"></code-icon>
-										Allow
+										${allowLabel}
 									</gl-button>
 									<gl-button
 										appearance="secondary"
@@ -730,7 +793,7 @@ export class GlAgentStatusPill extends LitElement {
 										href=${denyHref!}
 									>
 										<code-icon icon="x" slot="prefix"></code-icon>
-										Deny
+										${denyLabel}
 									</gl-button>
 									${this.renderMoreActionsMenu(openHref, alwaysAllowHref)}
 								</div>
@@ -776,7 +839,7 @@ export class GlAgentStatusPill extends LitElement {
 		return html`
 			<div class="hover-header">
 				<span class="hover-header__dot hover-header__dot--idle"></span>
-				<span class="hover-header__text">${session.name}</span>
+				<span class="hover-header__text">${session.displayName}</span>
 			</div>
 			${session.lastPrompt
 				? html`

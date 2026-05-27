@@ -48,7 +48,13 @@ export function pruneExcludedToFiles(
 	files: readonly GitFileChangeShape[] | undefined,
 ): Set<string> | undefined {
 	if (excluded.size === 0) return undefined;
-	const current = new Set((files ?? []).map(f => f.path));
+	// Skip when `files` is missing or empty: the orchestrator routinely transitions `files`
+	// through `undefined`/`[]` during a refetch (scope change, anchor change), and pruning
+	// against an empty list would wipe every user exclusion just before the real list arrives.
+	// The next non-empty `files` push runs through here and prunes correctly.
+	if (!files?.length) return undefined;
+
+	const current = new Set(files.map(f => f.path));
 	let changed = false;
 	const pruned = new Set<string>();
 	for (const path of excluded) {
@@ -68,10 +74,12 @@ export function countIncludedFiles(
 	aiExcluded: ReadonlySet<string> | undefined,
 ): number {
 	if (!files?.length) return 0;
+
 	let count = 0;
 	for (const f of files) {
 		if (excluded.has(f.path)) continue;
 		if (aiExcluded?.has(f.path)) continue;
+
 		count++;
 	}
 	return count;

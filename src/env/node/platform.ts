@@ -4,7 +4,18 @@ import { platform, env as processEnv } from 'process';
 import { env, UIKind } from 'vscode';
 
 export const isWeb = env.uiKind === UIKind.Web;
-export const isOffline = Object.values(networkInterfaces()).every(iface => iface?.every(addr => addr.internal));
+
+let cachedOffline: { value: boolean; expires: number } | undefined;
+const offlineCacheTTL = 5000;
+
+export function getIsOffline(): boolean {
+	const now = Date.now();
+	if (cachedOffline != null && cachedOffline.expires > now) return cachedOffline.value;
+
+	const value = Object.values(networkInterfaces()).every(iface => iface?.every(addr => addr.internal));
+	cachedOffline = { value: value, expires: now + offlineCacheTTL };
+	return value;
+}
 
 export const isLinux = platform === 'linux';
 export const isMac = platform === 'darwin';

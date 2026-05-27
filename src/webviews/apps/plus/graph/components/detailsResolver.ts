@@ -102,7 +102,8 @@ export async function resolveDetailsActions(
 				scope: ScopeSelection,
 				instructions: string | undefined,
 				excludedFiles: string[] | undefined,
-			) => graphInspect.composeChanges(repoPath, scope, instructions, excludedFiles, signal),
+				aiExcludedFiles: string[] | undefined,
+			) => graphInspect.composeChanges(repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal),
 		),
 		scopeFiles: createResource((signal, repoPath: string, scope: ScopeSelection) =>
 			graphInspect.getScopeFiles(repoPath, scope, signal),

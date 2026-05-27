@@ -3,6 +3,7 @@ import type { Container } from '../container.js';
 import { command, executeCoreCommand } from '../system/-webview/command.js';
 import type { HomeWebviewShowingArgs } from '../webviews/home/registration.js';
 import type { GraphWebviewShowingArgs } from '../webviews/plus/graph/registration.js';
+import type { WelcomeWebviewShowingArgs } from '../webviews/welcome/registration.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 
@@ -114,7 +115,7 @@ export class ShowViewCommand extends GlCommandBase {
 				await this.waitForRepo();
 				return this.container.views.timeline.show();
 			case 'gitlens.showWelcomeView':
-				return this.container.views.welcome.show();
+				return this.container.views.welcome.show(undefined, ...(args as WelcomeWebviewShowingArgs));
 			case 'gitlens.showWorktreesView':
 				await this.waitForRepo();
 				return this.container.views.showView('worktrees');

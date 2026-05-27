@@ -279,6 +279,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		const api = await this.container.bitbucket;
 		if (!api) return undefined;
+
 		const issueResult = await flatSettled(
 			repos.map(repo => {
 				return api.getUsersIssuesForRepo(

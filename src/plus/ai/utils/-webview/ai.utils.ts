@@ -78,6 +78,7 @@ export async function getOrPromptApiKey(
 						input.validationMessage = `Please enter a valid ${provider.name} API key`;
 						return;
 					}
+
 					input.validationMessage = undefined;
 				}),
 				input.onDidAccept(() => {

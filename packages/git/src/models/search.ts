@@ -96,8 +96,8 @@ export interface ParsedSearchQuery {
 export interface SearchQueryFilters {
 	/** Specifies whether the search results will be filtered to specific files */
 	files: boolean;
-	/** Specifies whether the search results will be filtered to a specific type, only `stash` and `tip` are supported */
-	type?: 'stash' | 'tip';
+	/** Specifies whether the search results will be filtered to a specific type, only `stash`, `tip`, and `wip` are supported */
+	type?: 'stash' | 'tip' | 'wip';
 	/** Specifies whether the search results will be filtered to a specific ref or ref range */
 	refs: boolean;
 }

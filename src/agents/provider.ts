@@ -5,7 +5,9 @@ export {
 	type AgentSessionProvider,
 	type AgentSessionStatus,
 	getPhaseForStatus,
+	isActiveAgentPhase,
 	type PendingPermission,
+	type PendingPermissionKind,
 	type PermissionDecision,
 	type PermissionSuggestion,
 } from '@gitlens/agents/types.js';

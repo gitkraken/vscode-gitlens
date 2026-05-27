@@ -580,6 +580,43 @@ suite('Cache Test Suite', () => {
 			assert.strictEqual(factoryCallCount, 2); // Uses newly populated cache
 		});
 
+		test('clearCaches invalidates lastFetched written from a worktree (commonPath-keyed)', async () => {
+			// Regression: `lastFetched` is written by commonPath via `getSharedSimple`; before
+			// moving it to `SharedCaches`, `clearCaches` used the bare worktree path and no-op'd.
+			const cache = new Cache();
+			cache.registerRepoPath(createMockUri('/code/project'), createMockGitDir(undefined));
+			cache.registerRepoPath(
+				createMockUri('/code/project-feature'),
+				createMockGitDir(createMockUri('/code/project/.git')),
+			);
+
+			let factoryCallCount = 0;
+			const factory = (_commonPath: string): number | undefined => {
+				factoryCallCount++;
+				return 1_000;
+			};
+
+			// Populate from the worktree — factory sees the commonPath and the entry is stored there.
+			const first = await cache.getLastFetchedTimestamp('/code/project-feature', factory);
+			assert.strictEqual(first, 1_000);
+			assert.strictEqual(factoryCallCount, 1);
+
+			// Reading again hits the cache, regardless of which path we ask from.
+			await cache.getLastFetchedTimestamp('/code/project-feature', factory);
+			await cache.getLastFetchedTimestamp('/code/project', factory);
+			assert.strictEqual(factoryCallCount, 1, 'cache should be shared across worktree + main paths');
+
+			// Clear via the worktree path — pre-fix this was a no-op because the entry lived under commonPath.
+			cache.clearCaches('/code/project-feature', 'lastFetched');
+
+			await cache.getLastFetchedTimestamp('/code/project-feature', factory);
+			assert.strictEqual(
+				factoryCallCount,
+				2,
+				'clearCaches issued from the worktree must invalidate the commonPath-keyed entry',
+			);
+		});
+
 		test('factory self-invalidate without rejection: subsequent worktree call does not serve stale mapper', async () => {
 			// Regression: when the shared factory calls `cacheable.invalidate()` and resolves
 			// (rather than rejecting), the commonPath entry self-evicts but the per-worktree

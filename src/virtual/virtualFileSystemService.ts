@@ -6,9 +6,9 @@ import { basename } from '@gitlens/utils/path.js';
 import { GlyphChars } from '../constants.js';
 import type { Container } from '../container.js';
 import type { VirtualContentProvider, VirtualParent, VirtualRef } from './virtualContentProvider.js';
-import { VirtualFsError } from './virtualFsError.js';
 import type { VirtualUriAuthority } from './virtualFileSystemProvider.js';
 import { encodeVirtualUri, VirtualFileSystemProvider } from './virtualFileSystemProvider.js';
+import { VirtualFsError } from './virtualFsError.js';
 
 /** A concrete ref that either lives in a virtual session or is a real git SHA. */
 export type AnyRef =
@@ -53,6 +53,7 @@ export class VirtualFileSystemService implements Disposable {
 		if (this._providers.has(namespace)) {
 			throw new Error(`VirtualFileSystemService: namespace '${namespace}' is already registered`);
 		}
+
 		this._providers.set(namespace, provider);
 
 		const sub = provider.onDidChangeContent?.(e => {
@@ -62,6 +63,7 @@ export class VirtualFileSystemService implements Disposable {
 				// Nothing to fire individually; open editors will re-stat on next focus.
 				return;
 			}
+
 			const uris = paths.map(path =>
 				encodeVirtualUri(
 					{
@@ -129,7 +131,7 @@ export class VirtualFileSystemService implements Disposable {
 
 		const leftRef: AnyRef = virtualParentToAnyRef(parent, ref);
 		const rightRef: AnyRef = { kind: 'virtual', ref: ref };
-		return this.buildDiffArgs(leftRef, rightRef, file);
+		return await this.buildDiffArgs(leftRef, rightRef, file);
 	}
 
 	/**
@@ -165,24 +167,32 @@ export class VirtualFileSystemService implements Disposable {
 		const leftRef: AnyRef = virtualParentToAnyRef(parent, ref);
 		const rightRef: AnyRef = { kind: 'virtual', ref: ref };
 
-		const resources = files.map(file => {
-			const args = this.buildDiffArgs(leftRef, rightRef, file);
-			return { uri: args.rhs, lhs: args.lhs, rhs: args.rhs };
-		});
+		const resources = await Promise.all(
+			files.map(async file => {
+				const args = await this.buildDiffArgs(leftRef, rightRef, file);
+				return { uri: args.rhs, lhs: args.lhs, rhs: args.rhs };
+			}),
+		);
 
 		const title = `Changes (${this.anyRefLabel(leftRef)} ${GlyphChars.ArrowLeftRightLong} ${this.anyRefLabel(rightRef)})`;
 		return { resources: resources, title: title };
 	}
 
-	/** Pairwise-explicit diff argument builder. Either side may be virtual or a real git ref. */
-	buildDiffArgs(leftRef: AnyRef, rightRef: AnyRef, file: GitFileChangeShape): VirtualDiffArgs {
+	/**
+	 * Pairwise-explicit diff argument builder. Either side may be virtual or a real git ref.
+	 *
+	 * The LHS ref is substituted with `deletedOrMissing` when the file doesn't exist there —
+	 * adds (`A`/`?`/`U`) and renames whose `originalPath` doesn't resolve at the left ref —
+	 * so the FS provider returns empty bytes instead of throwing `FileNotFound`.
+	 */
+	async buildDiffArgs(leftRef: AnyRef, rightRef: AnyRef, file: GitFileChangeShape): Promise<VirtualDiffArgs> {
 		const lhsPath = file.originalPath ?? file.path;
 		const rhsPath = file.path;
-		// Added files (status `A`/`?`/`U` in WIP) don't exist at the left ref. Tell `anyRefToUri`
-		// to substitute the `deletedOrMissing` ref so the GitLens FS provider returns empty bytes
-		// instead of throwing `FileNotFound` — that's what makes the diff editor render the file
-		// as a fully-added change rather than erroring out and dropping it from the multi-diff.
-		const lhsAdded = file.status === 'A' || file.status === '?' || file.status === 'U';
+		const lhsAdded =
+			file.status === 'A' ||
+			file.status === '?' ||
+			file.status === 'U' ||
+			(file.status === 'R' && !(await this.pathExistsAtRef(leftRef, lhsPath)));
 		const lhs = this.anyRefToUri(leftRef, lhsPath, lhsAdded);
 		const rhs = this.anyRefToUri(rightRef, rhsPath);
 		const title = `${basename(rhsPath)} (${this.anyRefLabel(leftRef)} ${GlyphChars.ArrowLeftRightLong} ${this.anyRefLabel(
@@ -191,8 +201,27 @@ export class VirtualFileSystemService implements Disposable {
 		return { lhs: lhs, rhs: rhs, title: title };
 	}
 
+	/**
+	 * Virtual refs always return `true` — the registered provider is responsible for resolving
+	 * paths in its own namespace and returning empty bytes when nothing matches. Real refs
+	 * check the tree entry directly.
+	 */
+	private async pathExistsAtRef(ref: AnyRef, path: string): Promise<boolean> {
+		if (ref.kind === 'virtual') return true;
+
+		try {
+			const entry = await this.container.git
+				.getRepositoryService(ref.repoPath)
+				.revision.getTreeEntryForRevision(path, ref.sha);
+			return entry != null;
+		} catch {
+			return false;
+		}
+	}
+
 	private anyRefToUri(ref: AnyRef, path: string, refersToAddedFile: boolean = false): Uri {
 		if (ref.kind === 'virtual') return this.getUri(ref.ref, path);
+
 		// Use the git provider's `getRevisionUri` so the result carries the `gitlens://` scheme
 		// with the ref encoded in the authority — that's what {@link GitFileSystemProvider} reads
 		// from when resolving content. `GitUri.fromFile` builds a tagged-but-`file://` URI, which

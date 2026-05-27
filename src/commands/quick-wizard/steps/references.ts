@@ -32,9 +32,10 @@ import type {
 } from '../models/steps.js';
 import { StepResultBreak } from '../models/steps.js';
 import {
+	createShowTagsToggle,
+	flipToggle,
 	PickCommitQuickInputButton,
 	RevealInSideBarQuickInputButton,
-	ShowTagsToggleQuickInputButton,
 } from '../quickButtons.js';
 import { createCrossCommandReference } from '../utils/quickWizard.utils.js';
 import {
@@ -291,7 +292,7 @@ export function* pickBranchOrTagStep<
 ): StepResultGenerator<GitReference> {
 	context.showTags = true;
 
-	const showTagsButton = new ShowTagsToggleQuickInputButton(context.showTags);
+	const showTagsButton = createShowTagsToggle(context.showTags);
 
 	const getBranchesAndOrTagsFn = async () => {
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
@@ -347,8 +348,7 @@ export function* pickBranchOrTagStep<
 				quickpick.busy = true;
 
 				try {
-					context.showTags = !context.showTags;
-					showTagsButton.on = context.showTags;
+					context.showTags = flipToggle(button);
 
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
 					quickpick.placeholder =
@@ -406,7 +406,7 @@ export function* pickBranchOrTagStepMultiRepo<
 ): StepResultGenerator<StepPickResult<GitReference, PickBranchOrTagStepActionResult>> {
 	context.showTags = state.repos.length === 1;
 
-	const showTagsButton = new ShowTagsToggleQuickInputButton(context.showTags);
+	const showTagsButton = createShowTagsToggle(context.showTags);
 
 	type ResultItem = StepPickResult<GitReference, PickBranchOrTagStepActionResult>;
 	const mapBranchOrTag = (ref: GitReference): ResultItem => ({ type: 'result', value: ref });
@@ -497,8 +497,7 @@ export function* pickBranchOrTagStepMultiRepo<
 				quickpick.busy = true;
 
 				try {
-					context.showTags = !context.showTags;
-					showTagsButton.on = context.showTags;
+					context.showTags = flipToggle(button);
 
 					const branchesAndOrTags = await getBranchesAndOrTagsFn();
 					quickpick.placeholder =

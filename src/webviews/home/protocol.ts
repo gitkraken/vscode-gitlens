@@ -37,7 +37,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 		ai: boolean;
 	};
 	aiEnabled: boolean;
-	experimentalComposerEnabled: boolean;
 	mcpBannerCollapsed: boolean;
 	mcpCanAutoRegister: boolean;
 	hasAnyIntegrationConnected: boolean;
@@ -226,6 +225,7 @@ export interface GetOverviewBranch {
 
 	worktree?: {
 		name: string;
+		path: string;
 		uri: string;
 		isDefault: boolean;
 	};

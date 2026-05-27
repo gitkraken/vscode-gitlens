@@ -30,7 +30,7 @@ export class GlFeatureGate extends LitElement {
 				bottom: 0;
 				right: 0;
 				overflow: auto;
-				z-index: 100;
+				z-index: 1050;
 
 				box-sizing: border-box;
 			}

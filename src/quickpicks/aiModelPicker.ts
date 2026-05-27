@@ -5,6 +5,7 @@ import type { AIModel, AIModelDescriptor, AIProviderDescriptorWithConfiguration 
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import type { AIModelScope } from '../plus/ai/aiProviderService.js';
 import { ensureAccess } from '../plus/ai/utils/-webview/ai.utils.js';
 import { isSubscriptionPaidPlan } from '../plus/gk/utils/subscription.utils.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
@@ -34,12 +35,15 @@ export async function showAIProviderPicker(
 	container: Container,
 	current: AIModelDescriptor | undefined,
 	source?: Source,
+	titles?: { title?: string; placeholder?: string; scope?: AIModelScope },
 ): Promise<ProviderQuickPickItem | undefined> {
 	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
 	const [providersResult, modelResult, subscriptionResult] = await Promise.allSettled([
 		container.ai.getProvidersConfiguration(),
-		container.ai.getModel({ silent: true }, { source: 'ai:picker' }),
+		// Fetch the *scope's* current model when invoked for a scoped operation so the
+		// "current model" detail line in the picker reflects the scope, not the global default.
+		container.ai.getModel({ silent: true, scope: titles?.scope }, { source: 'ai:picker' }),
 		container.subscription.getSubscription(),
 	]);
 
@@ -50,17 +54,17 @@ export async function showAIProviderPicker(
 
 	const quickpick = window.createQuickPick<ProviderQuickPickItem>();
 	quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
-	quickpick.title = 'Select AI Provider';
-	quickpick.placeholder = 'Choose an AI provider to use';
+	quickpick.title = titles?.title ?? 'Select AI Provider';
+	quickpick.placeholder = titles?.placeholder ?? 'Choose an AI provider to use';
 
 	const disposables: Disposable[] = [];
 
 	try {
 		const pickedProvider =
-			(current?.provider ?? providers.get('vscode')?.configured)
-				? 'vscode'
-				: providers.get('gitkraken')?.configured
-					? 'gitkraken'
+			(current?.provider ?? providers.get('gitkraken')?.configured)
+				? 'gitkraken'
+				: providers.get('vscode')?.configured
+					? 'vscode'
 					: undefined;
 
 		let addedRequiredKeySeparator = false;
@@ -133,6 +137,8 @@ export async function showAIModelPicker(
 	provider: AIProviders,
 	current?: AIModelDescriptor,
 	source?: Source,
+	titles?: { title?: string; placeholder?: string },
+	scope?: AIModelScope,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
 	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
@@ -149,15 +155,22 @@ export async function showAIModelPicker(
 			directive: Directive.Noop,
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
 	} else {
+		const scopedDefaultModelId =
+			provider === 'gitkraken' && (scope === 'compose' || scope === 'review')
+				? 'gemini:gemini-3-flash-preview'
+				: undefined;
+		const useScopedDefault = scopedDefaultModelId != null && current?.provider !== provider;
+
 		for (const m of models) {
 			if (m.hidden) continue;
 
-			const picked = m.provider.id === current?.provider && m.id === current?.model;
+			const matchesCurrent = m.provider.id === current?.provider && m.id === current?.model;
+			const picked = matchesCurrent || (useScopedDefault && m.id === scopedDefaultModelId);
 
 			items.push({
 				label: m.name,
 				description: m.default ? '  recommended' : undefined,
-				iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				iconPath: matchesCurrent ? new ThemeIcon('check') : new ThemeIcon('blank'),
 				model: m,
 				picked: picked,
 			} satisfies ModelQuickPickItem);
@@ -187,8 +200,8 @@ export async function showAIModelPicker(
 				}),
 			);
 
-			quickpick.title = 'Select AI Model';
-			quickpick.placeholder = 'Choose an AI model to use';
+			quickpick.title = titles?.title ?? 'Select AI Model';
+			quickpick.placeholder = titles?.placeholder ?? 'Choose an AI model to use';
 			quickpick.matchOnDescription = true;
 			quickpick.matchOnDetail = true;
 			quickpick.items = items;

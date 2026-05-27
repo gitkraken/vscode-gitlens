@@ -906,6 +906,7 @@ export class Git {
 		let cleanedUp = false;
 		const cleanup = () => {
 			if (cleanedUp) return;
+
 			cleanedUp = true;
 
 			try {

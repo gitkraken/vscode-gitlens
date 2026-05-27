@@ -13,6 +13,7 @@ import {
 	isUncommittedStaged,
 	shortenRevision,
 } from '@gitlens/git/utils/revision.utils.js';
+import { basename } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
@@ -32,7 +33,13 @@ import { showGitErrorMessage } from '../../messages.js';
 import { showRevisionFilesPicker } from '../../quickpicks/revisionFilesPicker.js';
 import { executeCommand, executeEditorCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { getOrOpenTextEditor, openChangesEditor, openTextEditors } from '../../system/-webview/vscode/editors.js';
+import {
+	getOrOpenTextEditor,
+	openChangesEditor,
+	openDiffEditor,
+	openTextEditor,
+	openTextEditors,
+} from '../../system/-webview/vscode/editors.js';
 import type { ViewNode } from '../../views/nodes/abstract/viewNode.js';
 import type { RevealOptions } from '../../views/viewBase.js';
 import type { ShowInCommitGraphCommandArgs } from '../../webviews/plus/graph/registration.js';
@@ -222,7 +229,9 @@ export async function openMultipleChanges(
 
 	const resources: Parameters<typeof openChangesEditor>[0] = [];
 	for (const file of files) {
-		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, refs.rhs))!;
+		// Untracked files in a stash live in the `^3` parent (status `?` implies stash, by convention).
+		const rhsRef = file.status === '?' ? `${refs.rhs}^3` : refs.rhs;
+		let rhs = file.status === 'D' ? undefined : (await svc.getBestRevisionUri(file.path, rhsRef))!;
 		if (refs.rhs === '') {
 			if (rhs != null) {
 				rhs = await svc.getWorkingUri(rhs);
@@ -335,6 +344,93 @@ export async function openWipMultipleChanges(
 	await openChangesEditor(resources, title, options);
 }
 
+/**
+ * Single-file equivalent of {@link openWipMultipleChanges}. Routes by `file.staged` and matches
+ * SCM-view behavior for the non-diff cases (untracked → open file, staged add → open index blob,
+ * staged delete → open HEAD blob). Revision URI construction delegates to
+ * {@link GitRepositoryService.getBestRevisionUri}, which:
+ *  - returns a `git:` URI (registered with VS Code's git extension) for the index when the SCM
+ *    knows about the repo — gutter Stage/Unstage Hunk + SCM toolbar work in that case
+ *  - falls back to a `gitlens:` URI served by our own FS provider otherwise — diff content is
+ *    correct but the gutter actions won't appear
+ * and crucially handles the canonical-path remapping for symlinked workspaces. Constructing
+ * `git:` URIs directly (without that probe) silently produces broken content for worktrees that
+ * the SCM hasn't registered.
+ *
+ * Routing:
+ * - `staged: true`  → HEAD ↔ index  (the staged-portion diff)
+ * - `staged: false` → index ↔ working tree (the unstaged-portion diff; equals HEAD ↔ working
+ *   when the file has no staged content)
+ *
+ * SCM-style handling for non-modified statuses:
+ *  - Untracked (`?`)                  → open the working file directly. No prior revision exists.
+ *  - Staged addition (`A` && staged)  → open the index blob as a single readonly editor.
+ *  - Staged deletion (`D` && staged)  → open the HEAD blob as a single readonly editor.
+ *  - Unstaged deletion                → diff with an empty rhs placeholder (all deletions).
+ *  - Added & non-staged (rare)        → diff with an empty lhs placeholder (all additions).
+ *  - Renamed/Copied                   → lhs uses `originalPath` so the pre-rename rev compares.
+ */
+export async function openWipChanges(
+	file: GitFileChangeShape,
+	repoPath: string,
+	options?: TextDocumentShowOptions & { sideTitle?: string },
+): Promise<void> {
+	const svc = Container.instance.git.getRepositoryService(repoPath);
+	const fileName = basename(file.path);
+
+	// Untracked: open directly — SCM parity, no diff makes sense.
+	if (file.status === '?') {
+		await openTextEditor(svc.getAbsoluteUri(file.path, repoPath), options);
+		return;
+	}
+
+	const staged = file.staged === true;
+
+	const emptyLhsUri = (): Uri => svc.getRevisionUri(deletedOrMissing, file.originalPath ?? file.path);
+	const emptyRhsUri = (): Uri => svc.getRevisionUri(deletedOrMissing, file.path);
+	// Always delegate to getBestRevisionUri so we get the SCM-aware scheme selection + canonical
+	// remapping for free. For HEAD ref it returns gitlens:; for uncommittedStaged it returns git:
+	// when the SCM knows the repo and gitlens: when not.
+	const revisionUri = async (relPath: string, ref: string, emptyFallback: () => Uri): Promise<Uri> =>
+		(await svc.getBestRevisionUri(relPath, ref)) ?? emptyFallback();
+
+	// Staged deletion: open the HEAD blob as a single readonly editor — SCM does the same because
+	// the rhs (index) has no content to diff against. Use the originalPath when present so a
+	// staged rename-delete still surfaces the right pre-rename content.
+	if (file.status === 'D' && staged) {
+		await openTextEditor(await revisionUri(file.originalPath ?? file.path, 'HEAD', emptyLhsUri), options);
+		return;
+	}
+
+	// Staged addition: open the index blob as a single readonly editor — SCM does the same
+	// because the lhs (HEAD) has no content to diff against.
+	if (file.status === 'A' && staged) {
+		await openTextEditor(await revisionUri(file.path, uncommittedStaged, emptyRhsUri), options);
+		return;
+	}
+
+	const lhsRef = staged ? 'HEAD' : uncommittedStaged;
+	const rhsRef = staged ? uncommittedStaged : '';
+
+	const lhs: Uri =
+		file.status === 'A' ? emptyLhsUri() : await revisionUri(file.originalPath ?? file.path, lhsRef, emptyLhsUri);
+
+	let rhs: Uri;
+	if (file.status === 'D') {
+		// Unstaged delete only at this point (staged delete returned above).
+		rhs = emptyRhsUri();
+	} else if (rhsRef === '') {
+		rhs = svc.getAbsoluteUri(file.path, repoPath);
+	} else {
+		rhs = await revisionUri(file.path, rhsRef, emptyRhsUri);
+	}
+
+	const sideLabel = options?.sideTitle ?? (staged ? 'Index' : 'Working Tree');
+	const title = `${fileName} (${sideLabel})`;
+
+	await openDiffEditor(lhs, rhs, title, options);
+}
+
 export async function openChanges(
 	file: string | Uri | GitFile,
 	commit: GitCommit,
@@ -380,7 +476,7 @@ export async function openChanges(
 		return;
 	}
 
-	const refs: RefRange = hasCommit
+	let refs: RefRange = hasCommit
 		? {
 				repoPath: commitOrRefs.repoPath,
 				rhs: commitOrRefs.sha,
@@ -388,6 +484,13 @@ export async function openChanges(
 				lhs: commitOrRefs.unresolvedPreviousSha,
 			}
 		: commitOrRefs;
+
+	// For an untracked file in a stash, the content lives in the `^3` parent and there is no
+	// "previous" content to compare against. Build a fresh refs object so we don't mutate a
+	// caller-owned RefRange in the !hasCommit path.
+	if (file.status === '?') {
+		refs = { repoPath: refs.repoPath, lhs: deletedOrMissing, rhs: `${refs.rhs}^3` };
+	}
 
 	const rhsUri = GitUri.fromFile(file, refs.repoPath);
 	const lhsUri =
@@ -564,8 +667,13 @@ export async function openFile(
 		const ref = refOrOptions as GitRevisionReference;
 
 		uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
-		// If the file is `?` (untracked), then this must be an untracked file in a stash, so just return
-		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') return;
+		// An untracked file in a stash typically has no working-tree copy to open. Mirror the
+		// warning surfaced by `gitlens.openWorkingFile:command` for the same case so the click
+		// isn't a silent no-op; users wanting the stashed content can pick "Open File at Revision".
+		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') {
+			void window.showWarningMessage('Unable to open working file. File could not be found in the working tree');
+			return;
+		}
 	}
 
 	options = { preserveFocus: true, preview: false, ...options };
@@ -614,7 +722,11 @@ export async function openFileAtRevision(
 		uri = Container.instance.git
 			.getRepositoryService(commit.repoPath)
 			.getRevisionUri(
-				file.status === 'D' ? ((await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing) : commit.sha,
+				file.status === 'D'
+					? ((await GitCommit.getPreviousSha(commit)) ?? deletedOrMissing)
+					: file.status === '?'
+						? `${commit.sha}^3`
+						: commit.sha,
 				file,
 			);
 	}
@@ -884,9 +996,13 @@ export async function openOnlyChangedFiles(_container: Container, commitOrFiles:
 	}));
 }
 
-export async function undoCommit(container: Container, commit: GitRevisionReference): Promise<void> {
+export async function undoCommit(
+	container: Container,
+	commit: GitRevisionReference,
+	options?: { onBeforeReset?: (message: string) => void },
+): Promise<string | undefined> {
 	const svc = container.git.getRepositoryService(commit.repoPath);
-	if (svc.ops == null) return;
+	if (svc.ops == null) return undefined;
 
 	const headCommit = await svc.commits.getCommit('HEAD');
 
@@ -898,7 +1014,7 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 			})} cannot be undone, because it is no longer the most recent commit.`,
 		);
 
-		return;
+		return undefined;
 	}
 
 	// Check for uncommitted changes before prompting
@@ -919,24 +1035,24 @@ export async function undoCommit(container: Container, commit: GitRevisionRefere
 			cancel,
 		);
 
-		if (result !== confirm) return;
+		if (result !== confirm) return undefined;
 	}
 
-	let message;
+	try {
+		await GitCommit.ensureFullDetails(headCommit);
+	} catch {}
 
-	const scmRepo = await svc.getScmRepository();
-	if (scmRepo != null) {
-		try {
-			await GitCommit.ensureFullDetails(headCommit);
-		} catch {}
-		message = headCommit.message ?? headCommit.summary;
-	}
+	const message = headCommit.message ?? headCommit.summary ?? '';
+	options?.onBeforeReset?.(message);
 
 	await svc.ops.reset('HEAD~1', { mode: 'soft' });
 
+	const scmRepo = await svc.getScmRepository();
 	if (scmRepo != null && message) {
 		scmRepo.inputBox.value = message;
 	}
+
+	return message;
 }
 
 async function confirmOpenIfNeeded(

@@ -1,7 +1,8 @@
-import type { TextEditor } from 'vscode';
-import { Disposable, Uri, ViewColumn, window } from 'vscode';
+import type { TextEditor, Uri } from 'vscode';
+import { Disposable, ViewColumn, window } from 'vscode';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
+import { isUri } from '@gitlens/utils/uri.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { GitUri } from '../../../git/gitUri.js';
@@ -23,12 +24,14 @@ import type {
 	WebviewsController,
 	WebviewViewProxy,
 } from '../../webviewsController.js';
-import type { State } from './protocol.js';
+import type { GraphShowAction, GraphSidebarPanel, State } from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
 	| { ref: GitReference; source?: Source }
 	| { repository: GlRepository; search?: SearchQuery; source?: Source }
+	| { sidebarPanel: GraphSidebarPanel; source?: Source }
+	| { action: GraphShowAction; source?: Source }
 	| undefined,
 ];
 
@@ -37,6 +40,7 @@ export type ShowInCommitGraphCommandArgs =
 	| {
 			repository: GlRepository;
 			search?: SearchQuery;
+			selectSha?: string;
 			preserveFocus?: boolean;
 			source?: Source;
 			viewColumn?: ViewColumn;
@@ -160,7 +164,12 @@ export function registerGraphWebviewCommands<T>(
 			matchRegex: false,
 		};
 
-		showInCommitGraph({ repository: repository, search: searchQuery });
+		// Optional sha passed by callers that have a commit context (e.g. graph details file commands).
+		// Fall back to `gitUri.sha` when the URI itself carries a revision (e.g. Search & Compare results,
+		// graph compare-mode/multicommit panels whose context builds a `gitlens-git://` URI).
+		const selectSha = typeof args[1] === 'string' ? args[1] : gitUri.sha;
+
+		showInCommitGraph({ repository: repository, search: searchQuery, selectSha: selectSha });
 	}
 	async function openFolderHistoryInGraph(...args: any[]): Promise<void> {
 		const uri = getUriFromArgs(args);
@@ -286,9 +295,9 @@ function getUriFromArgs(args: any[]): Uri | undefined {
 
 	if (args.length > 0) {
 		const [arg] = args;
-		if (arg instanceof Uri) {
+		if (isUri(arg)) {
 			uri = arg;
-		} else if (arg?.uri instanceof Uri) {
+		} else if (isUri(arg?.uri)) {
 			uri = arg.uri;
 		} else if (arg?.editor != null) {
 			editor = arg.editor;

@@ -47,6 +47,64 @@ export const multiCommitPanelStyles = css`
 		flex-shrink: 0;
 	}
 
+	/* Mode-status snippet — replaces commit-stats in the metadata bar's right side while in
+	   review on a multi-commit anchor. */
+	.compare-metadata__right .mode-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
+		white-space: nowrap;
+	}
+
+	.compare-metadata__right .mode-status__group {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+
+	.compare-metadata__right .mode-status__group code-icon {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
+	.compare-metadata__right .mode-status__resume {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.8rem;
+		padding: 0.2rem 0.6rem;
+		font: inherit;
+		color: inherit;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		cursor: pointer;
+	}
+
+	.compare-metadata__right .mode-status__resume:hover {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+
+	.compare-metadata__right .mode-status__resume:focus-visible {
+		background: var(--vscode-toolbar-hoverBackground);
+		color: var(--vscode-foreground);
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
+	}
+
+	.compare-metadata__right .mode-status__resume-verb {
+		font-weight: 500;
+	}
+
+	.compare-metadata__right .mode-status__resume-arrow {
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: text-bottom;
+		opacity: 0.85;
+	}
+
 	.compare-poles {
 		display: flex;
 		flex-direction: column;
@@ -123,7 +181,7 @@ export const multiCommitPanelStyles = css`
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		max-width: calc(50% - 24px);
+		max-width: calc(50% - 2.4rem);
 		padding-left: 0.5rem;
 	}
 
@@ -131,13 +189,13 @@ export const multiCommitPanelStyles = css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 16px;
-		height: 16px;
-		border: 1px solid var(--vscode-sideBarSectionHeader-border);
+		width: 1.6rem;
+		height: 1.6rem;
+		border: 0.1rem solid var(--vscode-sideBarSectionHeader-border);
 		background: var(--color-background--level-10);
 		color: var(--color-foreground--65);
 		cursor: pointer;
-		border-radius: 4px;
+		border-radius: 0.4rem;
 		flex-shrink: 0;
 		padding: 0.3rem 0.6rem;
 	}
@@ -165,7 +223,7 @@ export const multiCommitPanelStyles = css`
 
 	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
 		color: var(--color-foreground--65);
-		--code-icon-size: 12px;
+		--code-icon-size: 1.2rem;
 	}
 
 	.compare-enrichment gl-action-chip::part(base) {
@@ -212,9 +270,9 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.pole-popover__avatar {
-		width: 32px;
-		height: 32px;
-		border-radius: 8px;
+		width: 3.2rem;
+		height: 3.2rem;
+		border-radius: 0.8rem;
 		flex-shrink: 0;
 	}
 

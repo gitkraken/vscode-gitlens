@@ -14,8 +14,8 @@
  *   { "mcpServers": { "vscode-inspector": { "command": "node", "args": ["scripts/mcp-vscode-server.mjs"] } } }
  */
 import { execFileSync, execSync, spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -144,21 +144,27 @@ async function findLogs(dir, pattern, depth = 0) {
 	const results = [];
 	try {
 		const entries = await readdir(dir, { withFileTypes: true });
+		const { createInterface } = await import('node:readline');
 		for (const entry of entries) {
 			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) results.push(...(await findLogs(full, pattern, depth + 1)));
-			else if (entry.name.endsWith('.log') || entry.name.includes('output')) {
-				try {
-					const c = await readFile(full, 'utf8');
-					results.push(
-						...c
-							.split('\n')
-							.filter(l => l.includes(pattern))
-							.map(l => l.trim()),
-					);
-				} catch {
-					/* ignore unreadable log files */
+			if (entry.isDirectory()) {
+				results.push(...(await findLogs(full, pattern, depth + 1)));
+				continue;
+			}
+			if (!entry.name.endsWith('.log') && !entry.name.includes('output')) continue;
+			// Stream lines so log size doesn't bound per-call memory — VS Code logs
+			// grow throughout a session, and read_logs is called frequently.
+			const stream = createReadStream(full, { encoding: 'utf8' });
+			const rl = createInterface({ input: stream, crlfDelay: Infinity });
+			try {
+				for await (const line of rl) {
+					if (line.includes(pattern)) results.push(line.trim());
 				}
+			} catch {
+				/* ignore unreadable log files */
+			} finally {
+				rl.close();
+				stream.destroy();
 			}
 		}
 	} catch {
@@ -363,6 +369,38 @@ const defaultSettings = {
 };
 
 // =============================================================================
+// Console listener helper — attaches console+pageerror capture to a page.
+// Used by `launch` and the screenshot fallback path that re-acquires `page`.
+// In-place trim via shift() avoids the per-message slice allocation churn
+// that would otherwise fire on every console event past MAX_CONSOLE_ENTRIES.
+// =============================================================================
+function attachConsoleListeners(currentPage) {
+	// Idempotent: callers (launch, screenshot fallback) may invoke this on the
+	// same Page instance multiple times; clear our prior listeners so they don't
+	// stack into N-times-amplified pushes per console event.
+	currentPage.removeAllListeners('console');
+	currentPage.removeAllListeners('pageerror');
+	currentPage.on('console', msg => {
+		consoleBuffer.push({
+			type: msg.type(),
+			text: msg.text(),
+			url: msg.location()?.url ?? '',
+			timestamp: Date.now(),
+		});
+		while (consoleBuffer.length > MAX_CONSOLE_ENTRIES) consoleBuffer.shift();
+	});
+	currentPage.on('pageerror', error => {
+		consoleBuffer.push({
+			type: 'error',
+			text: `${error.name}: ${error.message}`,
+			url: '',
+			timestamp: Date.now(),
+		});
+		while (consoleBuffer.length > MAX_CONSOLE_ENTRIES) consoleBuffer.shift();
+	});
+}
+
+// =============================================================================
 // Cleanup helper
 // =============================================================================
 let cleaningUp = false;
@@ -392,6 +430,10 @@ async function cleanup() {
 		launchTime = null;
 		consoleBuffer = [];
 		originalWindowSize = null;
+		sessionConfig = {};
+		// Drop the ChildProcess reference. Xvfb itself stays running on :99 so the
+		// next launch reuses it via the xdpyinfo check in ensureDisplay().
+		xvfbProcess = null;
 		state = 'idle';
 		cleaningUp = false;
 	}
@@ -639,6 +681,7 @@ server.tool(
 					page = null;
 					evaluateFn = null;
 					originalWindowSize = null;
+					consoleBuffer = [];
 				}
 			});
 
@@ -655,28 +698,7 @@ server.tool(
 
 			// Capture console messages and errors from all frames (including webviews)
 			consoleBuffer = [];
-			page.on('console', msg => {
-				consoleBuffer.push({
-					type: msg.type(),
-					text: msg.text(),
-					url: msg.location()?.url ?? '',
-					timestamp: Date.now(),
-				});
-				if (consoleBuffer.length > MAX_CONSOLE_ENTRIES) {
-					consoleBuffer = consoleBuffer.slice(-MAX_CONSOLE_ENTRIES);
-				}
-			});
-			page.on('pageerror', error => {
-				consoleBuffer.push({
-					type: 'error',
-					text: `${error.name}: ${error.message}`,
-					url: '',
-					timestamp: Date.now(),
-				});
-				if (consoleBuffer.length > MAX_CONSOLE_ENTRIES) {
-					consoleBuffer = consoleBuffer.slice(-MAX_CONSOLE_ENTRIES);
-				}
-			});
+			attachConsoleListeners(page);
 
 			// Connect evaluator
 			if (sessionConfig.withEvaluator) {
@@ -791,12 +813,16 @@ server.tool(
 				const buffer = await page.screenshot(screenshotOpts);
 				return await imageResult(buffer);
 			} catch (screenshotErr) {
-				// Page may be stale after a reload — try re-acquiring
+				// Page may be stale after a reload — try re-acquiring.
+				// The stale `page` still has our console/pageerror listeners attached
+				// (and Playwright may keep it alive internally); re-attach to the new
+				// page so console capture keeps working after recovery.
 				if (electronApp) {
 					try {
 						const windows = electronApp.windows();
 						if (windows.length > 0) {
 							page = windows[0];
+							attachConsoleListeners(page);
 							const buffer = await page.screenshot({ fullPage: true });
 							return await imageResult(buffer);
 						}
@@ -804,6 +830,7 @@ server.tool(
 					// Try firstWindow as last resort
 					try {
 						page = await electronApp.firstWindow();
+						attachConsoleListeners(page);
 						const buffer = await page.screenshot({ fullPage: true });
 						return await imageResult(buffer);
 					} catch {}
@@ -1554,6 +1581,9 @@ server.tool(
 					cwd: extensionPath,
 					encoding: 'utf8',
 					stdio: ['pipe', 'pipe', 'pipe'],
+					// pnpm run build output routinely exceeds the 1 MB default — bump to
+					// 50 MB so the call surfaces real build failures instead of ENOBUFS.
+					maxBuffer: 50 * 1024 * 1024,
 					timeout: 120000, // 2 minute timeout
 				});
 			} catch (e) {

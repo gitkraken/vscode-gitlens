@@ -5,6 +5,8 @@ import { ContextProvider } from '@lit/context';
 import { html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { signalObject } from 'signal-utils/object';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { OnboardingKeys } from '../../../constants.onboarding.js';
@@ -125,9 +127,125 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	private _agentResource?: Resource<GetInactiveOverviewResponse>;
 	private _inactiveFilter?: Partial<OverviewFilters>;
 	private readonly _refreshOverviewDebounced = debounce(() => {
-		void this._activeResource?.fetch();
-		void this._inactiveResource?.fetch();
+		void this._fetchActiveCoalesced();
+		void this._fetchInactiveCoalesced();
 	}, 500);
+	// Active-only refresh: FS events and per-flag dispatches that can't shift the inactive
+	// list (e.g. `index`/`pausedOp`) target this debounce instead of `_refreshOverviewDebounced`,
+	// so the inactive resource doesn't re-fetch its full skeleton + WIP + enrichment for an
+	// edit that only touched the current branch's working tree.
+	private readonly _refreshActiveDebounced = debounce(() => {
+		void this._fetchActiveCoalesced();
+	}, 500);
+	// Inactive list is driven by discrete RepositoryChange events (no FS-watcher noise),
+	// and the user isn't focused there — afford a longer window so bursts (branch ops,
+	// fetch fan-out) coalesce into a single fetch.
+	private readonly _refreshInactiveDebounced = debounce(() => {
+		void this._fetchInactiveCoalesced();
+	}, 500);
+
+	// Per-resource in-flight gates. Concurrent callers receive the in-flight promise instead
+	// of triggering a `Resource.fetch()` that would cancel-and-restart the existing one (its
+	// default behavior is `cancelPrevious=true`). A trailing-edge re-fire after settle ensures
+	// the latest request gets fresh data. Same shape as Graph's `_wipNotifyInFlight` /
+	// `_wipNotifyDirty` pattern in graphWebview.ts.
+	//
+	// `replaceOverview` bypasses these gates — it explicitly cancels and force-fetches; the
+	// reset helper below clears in-flight tracking AND bumps the generation counters so any
+	// orphaned `.finally()` from a just-canceled promise no-ops instead of clobbering the
+	// new in-flight reference.
+	private _activeFetchInFlight?: Promise<void>;
+	private _activeFetchDirty = false;
+	private readonly _activeFetchGen = getScopedCounter();
+	private _inactiveFetchInFlight?: Promise<void>;
+	private _inactiveFetchDirty = false;
+	private readonly _inactiveFetchGen = getScopedCounter();
+	private _agentFetchInFlight?: Promise<void>;
+	private _agentFetchDirty = false;
+	private readonly _agentFetchGen = getScopedCounter();
+
+	private _fetchActiveCoalesced(): Promise<void> {
+		const resource = this._activeResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._activeFetchInFlight != null) {
+			this._activeFetchDirty = true;
+			return this._activeFetchInFlight;
+		}
+
+		const gen = this._activeFetchGen.next();
+		const run = resource.fetch().finally(() => {
+			if (this._activeFetchGen.current !== gen) return;
+
+			this._activeFetchInFlight = undefined;
+			if (this._activeFetchDirty) {
+				this._activeFetchDirty = false;
+				void this._fetchActiveCoalesced();
+			}
+		});
+		this._activeFetchInFlight = run;
+		return run;
+	}
+
+	private _fetchInactiveCoalesced(): Promise<void> {
+		const resource = this._inactiveResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._inactiveFetchInFlight != null) {
+			this._inactiveFetchDirty = true;
+			return this._inactiveFetchInFlight;
+		}
+
+		const gen = this._inactiveFetchGen.next();
+		const run = resource.fetch().finally(() => {
+			if (this._inactiveFetchGen.current !== gen) return;
+
+			this._inactiveFetchInFlight = undefined;
+			if (this._inactiveFetchDirty) {
+				this._inactiveFetchDirty = false;
+				void this._fetchInactiveCoalesced();
+			}
+		});
+		this._inactiveFetchInFlight = run;
+		return run;
+	}
+
+	private _fetchAgentCoalesced(): Promise<void> {
+		const resource = this._agentResource;
+		if (resource == null) return Promise.resolve();
+
+		if (this._agentFetchInFlight != null) {
+			this._agentFetchDirty = true;
+			return this._agentFetchInFlight;
+		}
+
+		const gen = this._agentFetchGen.next();
+		const run = resource.fetch().finally(() => {
+			if (this._agentFetchGen.current !== gen) return;
+
+			this._agentFetchInFlight = undefined;
+			if (this._agentFetchDirty) {
+				this._agentFetchDirty = false;
+				void this._fetchAgentCoalesced();
+			}
+		});
+		this._agentFetchInFlight = run;
+		return run;
+	}
+
+	private _resetFetchGates(): void {
+		// Bumping the generations invalidates any in-flight `.finally()` callbacks from
+		// the canceled promises so they don't clobber the next fetch's tracking reference.
+		this._activeFetchGen.next();
+		this._activeFetchInFlight = undefined;
+		this._activeFetchDirty = false;
+		this._inactiveFetchGen.next();
+		this._inactiveFetchInFlight = undefined;
+		this._inactiveFetchDirty = false;
+		this._agentFetchGen.next();
+		this._agentFetchInFlight = undefined;
+		this._agentFetchDirty = false;
+	}
 
 	/**
 	 * Unsubscribe function for RPC event subscriptions.
@@ -192,8 +310,9 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		// Abort any in-flight `_onRpcReady` work so phase timeouts don't fire after unmount
-		this._readyAbort?.abort();
+		// Abort any in-flight `_onRpcReady` work so phase timeouts don't fire after unmount.
+		// Tagged reason so unhandled rejections that escape consumer chains are diagnosable.
+		this._readyAbort?.abort(new DOMException('home: disconnected', 'AbortError'));
 		this._readyAbort = undefined;
 
 		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
@@ -208,6 +327,8 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 		// Dispose and clear resource references
 		this._refreshOverviewDebounced.cancel();
+		this._refreshActiveDebounced.cancel();
+		this._refreshInactiveDebounced.cancel();
 		this._activeResource?.dispose();
 		this._inactiveResource?.dispose();
 		this._agentResource?.dispose();
@@ -243,7 +364,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 	 * subscriptions and fetches initial state.
 	 */
 	private async _onRpcReady(services: Remote<HomeServices>): Promise<void> {
-		this._readyAbort?.abort();
+		this._readyAbort?.abort(new DOMException('home: re-entering _onRpcReady', 'AbortError'));
 		this._readyAbort = new AbortController();
 		const abort = this._readyAbort;
 
@@ -261,8 +382,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 					new Promise<never>((_resolve, reject) => {
 						timer = setTimeout(() => {
 							if (abort.signal.aborted) return;
+
 							Logger.warn(`Home: _onRpcReady phase "${phase}" timed out after ${ms}ms`);
-							abort.abort();
+							abort.abort(
+								new DOMException(`home: phase "${phase}" timed out after ${ms}ms`, 'AbortError'),
+							);
 							reject(new Error(`Home initialization timed out in phase: ${phase}`));
 						}, ms);
 					}),
@@ -271,6 +395,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 							reject(new Error(`Home initialization aborted during phase: ${phase}`));
 							return;
 						}
+
 						abort.signal.addEventListener(
 							'abort',
 							() => reject(new Error(`Home initialization aborted during phase: ${phase}`)),
@@ -301,6 +426,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			ai,
 			commands,
 			onboarding,
+			branches,
 		] = await Promise.all([
 			services.home,
 			services.launchpad,
@@ -312,6 +438,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			services.ai,
 			services.commands,
 			services.onboarding,
+			services.branches,
 		]);
 
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
@@ -365,13 +492,16 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const activeResource = createResource<GetActiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('active', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const activeIds = branches.active.map(b => b.id);
 			// Fire WIP + enrichment without awaiting — branch cards fill in progressively
 			// as each Promise resolves. Resource exits loading state after just the skeleton.
+			// Active branch is always-expanded, so merge-target stays eager here — deferring
+			// would only add a loading flash with no win.
 			const wipPromise = home.getOverviewWip(activeIds, signal);
-			const enrichmentPromise = home.getOverviewEnrichment(activeIds, signal);
+			const enrichmentPromise = home.getOverviewEnrichment(activeIds, undefined, signal);
 
 			return {
 				repository: branches.repository,
@@ -381,6 +511,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const inactiveResource = createResource<GetInactiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('inactive', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const allInactive = [...branches.recent, ...(branches.stale ?? [])];
@@ -388,9 +519,11 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 			const wipIds = allInactive.filter(b => b.worktree != null).map(b => b.id);
 
 			// Fire WIP + enrichment without awaiting — same progressive pattern as active.
+			// Defer merge-target — `gl-branch-card` lazy-fetches via `branches.getBranchEnrichment`
+			// on first expand, so the initial enrichment skips ~4 git/integration ops per branch.
 			const emptyWip = Promise.resolve<GetOverviewWipResponse>({});
 			const wipPromise = wipIds.length > 0 ? home.getOverviewWip(wipIds, signal) : emptyWip;
-			const enrichmentPromise = home.getOverviewEnrichment(allIds, signal);
+			const enrichmentPromise = home.getOverviewEnrichment(allIds, { skipMergeTarget: true }, signal);
 
 			return {
 				repository: branches.repository,
@@ -403,14 +536,16 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		const agentResource = createResource<GetInactiveOverviewResponse>(async signal => {
 			const branches = await home.getOverviewBranches('agents', signal);
 			if (branches == null) return undefined;
+
 			syncOverviewRepositoryPath(branches.repository.path);
 
 			const allIds = branches.recent.map(b => b.id);
 			const wipIds = branches.recent.filter(b => b.worktree != null).map(b => b.id);
 
+			// Same lazy-merge-target rationale as the inactive path.
 			const emptyWip = Promise.resolve<GetOverviewWipResponse>({});
 			const wipPromise = wipIds.length > 0 ? home.getOverviewWip(wipIds, signal) : emptyWip;
-			const enrichmentPromise = home.getOverviewEnrichment(allIds, signal);
+			const enrichmentPromise = home.getOverviewEnrichment(allIds, { skipMergeTarget: true }, signal);
 
 			return {
 				repository: branches.repository,
@@ -455,6 +590,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 		// Wire service handles to domain states
 		root.home.homeService = home;
+		root.home.branchesService = branches;
 		root.commands.service = commands;
 		root.launchpad.service = launchpad;
 
@@ -497,36 +633,51 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 
 			void (async () => {
 				const unsubscribe = (await repository.onRepositoryWorkingChanged(repoPath, () => {
-					this._refreshOverviewDebounced();
+					// FS events in the selected overview repo can only shift the active branch's
+					// WIP — inactive branches root their working trees elsewhere. Targeting the
+					// active-only debounce avoids re-running the inactive skeleton + WIP +
+					// enrichment pipeline on every file save.
+					this._refreshActiveDebounced();
 				})) as unknown as (() => void) | undefined;
 				if (typeof unsubscribe !== 'function') return;
 				if (watchWipRepoPath !== repoPath) {
 					unsubscribe();
 					return;
 				}
+
 				this._wipWatchUnsubscribe = unsubscribe;
 			})();
 		};
 		const replaceOverview = (): void => {
 			this._refreshOverviewDebounced.cancel();
+			this._refreshActiveDebounced.cancel();
+			this._refreshInactiveDebounced.cancel();
 			this._activeResource?.cancel();
 			this._inactiveResource?.cancel();
 			this._agentResource?.cancel();
-			void this._activeResource?.fetch();
-			void this._inactiveResource?.fetch();
-			void this._agentResource?.fetch();
+			// Clear coalesce tracking before re-fetching — otherwise the next coalesced caller
+			// would receive the just-canceled in-flight promise.
+			this._resetFetchGates();
+			void this._fetchActiveCoalesced();
+			void this._fetchInactiveCoalesced();
+			void this._fetchAgentCoalesced();
 			// Re-subscribe FS watcher for the (possibly new) overview repo
 			watchWipForRepo(this._homeState.overviewRepositoryPath.get());
 		};
+		const replaceOverviewDebounced = debounce(replaceOverview, 100);
+		this.disposables.push({ dispose: () => replaceOverviewDebounced.cancel() });
 		const actions: SubscriptionActions = {
 			refreshOverview: () => {
 				this._refreshOverviewDebounced();
 			},
+			refreshActiveOverview: () => {
+				this._refreshActiveDebounced();
+			},
 			refreshInactiveOverview: () => {
-				void this._inactiveResource?.fetch();
+				this._refreshInactiveDebounced();
 			},
 			replaceOverview: () => {
-				replaceOverview();
+				replaceOverviewDebounced();
 			},
 			updateOverviewFilter: (filter: OverviewFilters) => {
 				this._homeState.overviewFilter.set(filter);
@@ -542,7 +693,7 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 				}
 			},
 			refreshAgentOverview: () => {
-				void this._agentResource?.fetch();
+				void this._fetchAgentCoalesced();
 			},
 		};
 		this._unsubscribeEvents = await phaseTimeout(
@@ -567,20 +718,23 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
 		// Start FS-level WIP watcher for the initial overview repo
 		watchWipForRepo(this._homeState.overviewRepositoryPath.get());
 
-		// Cancel pending overview fetches on hide (responses would be silently
-		// dropped by VS Code); re-fetch on visibility restore
+		// Cancel pending debounced fetches on hide so they don't fire against a hidden
+		// view; intentionally do NOT cancel in-flight resource fetches here. VS Code
+		// delivers responses across visibility transitions, and a standalone cancel can
+		// strand a resource in idle/no-error state ("skeleton forever") if no follow-up
+		// fetch arrives. Re-fetch on visibility restore.
 		const onVisibilityChange = (): void => {
 			if (document.visibilityState !== 'visible') {
 				this._refreshOverviewDebounced.cancel();
-				this._activeResource?.cancel();
-				this._inactiveResource?.cancel();
-				this._agentResource?.cancel();
+				this._refreshActiveDebounced.cancel();
+				this._refreshInactiveDebounced.cancel();
+				replaceOverviewDebounced.cancel();
 				return;
 			}
 
 			// Visibility restored — refresh overview and launchpad
 			this._refreshOverviewDebounced();
-			void this._agentResource?.fetch();
+			void this._fetchAgentCoalesced();
 			if (launchpad != null) {
 				void fetchLaunchpadSummary(root.launchpad, launchpad);
 			}
@@ -672,19 +826,30 @@ export class GlHomeApp extends SignalWatcherWebviewApp {
  * branch card's Promise-to-State setters fire naturally as the RPC call
  * resolves — no micro-task render storms from `Promise.resolve()` wrapping.
  */
+function swallowCancellation<T>(reason: unknown): T | undefined {
+	if (isCancellationError(reason)) return undefined;
+	throw reason;
+}
+
 function buildBranchProgressive(
 	skeleton: OverviewBranch,
 	wipPromise: Promise<GetOverviewWipResponse>,
 	enrichmentPromise: Promise<GetOverviewEnrichmentResponse>,
 ): GetOverviewBranch {
+	// One `.catch` per shared upstream promise so the seven derived `.then(...)` chains below
+	// don't each surface their own unhandled rejection when the resource is cancelled. The
+	// skeleton already renders without these fields; treating cancellation as "no enrichment yet"
+	// keeps the UI consistent.
+	const wip = wipPromise.catch(swallowCancellation<GetOverviewWipResponse>);
+	const enrichment = enrichmentPromise.catch(swallowCancellation<GetOverviewEnrichmentResponse>);
 	return {
 		...skeleton,
-		wip: wipPromise.then(wip => wip[skeleton.id]),
-		remote: enrichmentPromise.then(e => e[skeleton.id]?.remote),
-		pr: enrichmentPromise.then(e => e[skeleton.id]?.pr),
-		autolinks: enrichmentPromise.then(e => e[skeleton.id]?.autolinks),
-		issues: enrichmentPromise.then(e => e[skeleton.id]?.issues),
-		contributors: enrichmentPromise.then(e => e[skeleton.id]?.contributors),
-		mergeTarget: enrichmentPromise.then(e => e[skeleton.id]?.mergeTarget),
+		wip: wip.then(w => w?.[skeleton.id]),
+		remote: enrichment.then(e => e?.[skeleton.id]?.remote),
+		pr: enrichment.then(e => e?.[skeleton.id]?.pr),
+		autolinks: enrichment.then(e => e?.[skeleton.id]?.autolinks),
+		issues: enrichment.then(e => e?.[skeleton.id]?.issues),
+		contributors: enrichment.then(e => e?.[skeleton.id]?.contributors),
+		mergeTarget: enrichment.then(e => e?.[skeleton.id]?.mergeTarget),
 	};
 }

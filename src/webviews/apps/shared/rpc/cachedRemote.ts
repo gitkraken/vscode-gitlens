@@ -21,6 +21,7 @@ export function cacheRemoteServices<T extends object>(remote: T): T {
 	return new Proxy(remote, {
 		get: function (target, prop, receiver) {
 			if (cache.has(prop)) return cache.get(prop);
+
 			const value: unknown = Reflect.get(target, prop, receiver);
 			if (typeof value === 'function') return value;
 			if (
@@ -30,6 +31,7 @@ export function cacheRemoteServices<T extends object>(remote: T): T {
 			) {
 				return value;
 			}
+
 			const cached = Promise.resolve(value as PromiseLike<unknown>);
 			cache.set(prop, cached);
 			return cached;

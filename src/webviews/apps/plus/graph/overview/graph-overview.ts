@@ -7,22 +7,21 @@ import { when } from 'lit/directives/when.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
 	GraphOverviewData,
+	OverviewRecentThreshold,
 } from '../../../../plus/graph/protocol.js';
 import {
 	GetOverviewEnrichmentRequest,
 	GetOverviewRequest,
 	GetOverviewWipDetailedRequest,
 	GetOverviewWipRequest,
+	TrackGraphOverviewShownCommand,
 } from '../../../../plus/graph/protocol.js';
-import {
-	getWorktreeBasename,
-	indexAgentSessionsByRepoAndBranch,
-	matchAgentSessionsForBranch,
-} from '../../../shared/agentUtils.js';
+import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { HostIpc } from '../../../shared/ipc.js';
@@ -31,6 +30,14 @@ import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import './graph-overview-card.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/menu/menu-popover.js';
+
+/** Labels for the Overview "Recent" timeframe filter, in display order. */
+const recentThresholdLabels: Record<OverviewRecentThreshold, string> = {
+	OneDay: '1 day',
+	OneWeek: '1 week',
+	OneMonth: '1 month',
+};
 
 @customElement('gl-graph-overview')
 export class GlGraphOverview extends SignalWatcher(LitElement) {
@@ -77,8 +84,45 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				margin-block: 0 0.4rem;
 			}
 
+			.group__header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 0.4rem;
+			}
+
+			.group__header .group__label {
+				margin-block: 0;
+			}
+
 			.group__count {
 				opacity: 0.7;
+			}
+
+			.threshold-filter {
+				display: inline-flex;
+				align-items: center;
+				gap: 0.2rem;
+				background: none;
+				border: none;
+				padding: 0 0.4rem;
+				font-family: inherit;
+				font-size: 1.1rem;
+				color: var(--color-foreground--50);
+				cursor: pointer;
+				white-space: nowrap;
+			}
+
+			.threshold-filter:hover {
+				color: var(--vscode-foreground);
+			}
+
+			.threshold-filter:focus-visible {
+				outline: 1px solid var(--color-focus-border);
+			}
+
+			.threshold-filter code-icon {
+				font-size: 1rem;
 			}
 
 			.section {
@@ -140,7 +184,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	private _lastOverview: GraphOverviewData | undefined;
 	private _lastOverviewFingerprint: string | undefined;
-	private _lastPushedWip: GetOverviewWipResponse | undefined;
+	private _lastPushedWip: { branchIds: string[]; wip: GetOverviewWipResponse } | undefined;
 	private _lastSelectionFingerprint: string | undefined;
 	private _selectionRecomputeToken = 0;
 	private readonly _recomputeSelectionDebounced: Deferrable<() => void> = debounce(
@@ -162,8 +206,17 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this.addEventListener('gl-graph-overview-card-request-wip-details', this.onWipDetailsRequested);
 
 		if (this._state.overview == null) {
-			void this._ipc.sendRequest(GetOverviewRequest, undefined);
+			void this._ipc.sendRequest(GetOverviewRequest, {
+				recentThreshold: this._state.overviewRecentThreshold,
+			});
 		} else {
+			// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
+			// drift accumulated while the overview panel was hidden (e.g. file edits in opened
+			// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
+			// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
+			// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+			// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
+			this._lastOverviewFingerprint = undefined;
 			this.maybeRefetchOverviewData(this._state.overview);
 		}
 	}
@@ -183,13 +236,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this._enrichmentData = {};
 		this._pendingWipDetails.clear();
 		this._state.overviewEnrichment = undefined;
-		void this._ipc.sendRequest(GetOverviewRequest, undefined);
+		void this._ipc.sendRequest(GetOverviewRequest, { recentThreshold: this._state.overviewRecentThreshold });
 	}
 
 	private readonly onWipDetailsRequested = (e: Event) => {
 		const branchId = (e as CustomEvent<{ branchId: string }>).detail?.branchId;
 		if (!branchId) return;
 		if (this._pendingWipDetails.has(branchId)) return;
+
 		void this.fetchWipDetailsForBranch(branchId);
 	};
 
@@ -199,6 +253,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			const result = await this._ipc.sendRequest(GetOverviewWipDetailedRequest, { branchIds: [branchId] });
 			const detailed = result?.[branchId];
 			if (detailed == null) return;
+
 			// Drop the result if the branch is no longer in the overview (e.g. checked out away
 			// while the fetch was in flight).
 			const overview = this._state.overview;
@@ -230,13 +285,23 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const pushedWip = this._state.overviewWip;
 		if (pushedWip != null && pushedWip !== this._lastPushedWip) {
 			this._lastPushedWip = pushedWip;
-			this._wipData = { ...this._wipData, ...pushedWip };
+			const nextWipData = { ...this._wipData };
+			for (const branchId of pushedWip.branchIds) {
+				const wip = pushedWip.wip[branchId];
+				if (wip != null) {
+					nextWipData[branchId] = { ...nextWipData[branchId], ...wip };
+				} else {
+					nextWipData[branchId] = { hasChanges: false };
+				}
+			}
+			this._wipData = nextWipData;
 		}
 
-		// Fire the shown event once overview data is available so the branch counts are accurate.
-		// Mount-time emit would always report 0/0 since the initial GetOverviewRequest is still in flight.
-		if (!this._shownEmitted && overview != null) {
+		// Fire the shown event once overview data is available AND the sidebar is visible so the
+		// walkthrough step only completes when the user actually sees the overview.
+		if (!this._shownEmitted && overview != null && this._state.sidebar?.visible) {
 			this._shownEmitted = true;
+			this._ipc.sendCommand(TrackGraphOverviewShownCommand, undefined);
 			emitTelemetrySentEvent<'graph/overview/shown'>(this, {
 				name: 'graph/overview/shown',
 				data: {
@@ -268,6 +333,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const servicesReady = this._services != null ? '1' : '0';
 		const fingerprint = `${servicesReady}|${activeRow ?? ''}|${selectedShas.join(',')}|${repoPaths.join(',')}`;
 		if (fingerprint === this._lastSelectionFingerprint) return;
+
 		this._lastSelectionFingerprint = fingerprint;
 
 		// Empty selection — clear immediately, no need to debounce or fetch.
@@ -340,6 +406,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const next = new Map<string, Set<string>>();
 		for (const { repoPath, names } of results) {
 			if (names.length === 0) continue;
+
 			let bucket = next.get(repoPath);
 			if (bucket == null) {
 				bucket = new Set();
@@ -376,6 +443,10 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		const allIds = allBranches.map(b => b.id);
 		const wipIds = overview.active.map(b => b.id);
+		// Recent worktree-backed branches get a cheap clean/dirty probe so their cards can show the
+		// same pill as Current Work. Recent branches without a worktree have no working tree of their
+		// own and are skipped — the empty default `{ hasChanges: false }` would lie there.
+		const recentWipIds = overview.recent.filter(b => b.worktree != null).map(b => b.id);
 		const keep = new Set(allIds);
 
 		// Enrichment is fetched lazily — by this panel on mount, or by the scope popover on open.
@@ -384,20 +455,52 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const sharedEnrichment = this._state.overviewEnrichment;
 		const sharedCoversAll = sharedEnrichment != null && allIds.every(id => id in sharedEnrichment);
 
-		const [wipResult, enrichmentResult] = await Promise.all([
-			wipIds.length > 0 ? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: wipIds }) : undefined,
+		// allSettled so a single transient IPC failure doesn't tank the other two — wip-only,
+		// cheap-only, or enrichment-only outages still update the rest of the overview.
+		const [wipSettled, recentWipSettled, enrichmentSettled] = await Promise.allSettled([
+			wipIds.length > 0
+				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: wipIds })
+				: Promise.resolve(undefined),
+			recentWipIds.length > 0
+				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: recentWipIds, cheap: true })
+				: Promise.resolve(undefined),
 			sharedCoversAll
 				? Promise.resolve(sharedEnrichment)
 				: this._ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: allIds }),
 		]);
 		if (this._lastOverviewFingerprint !== fingerprint) return;
 
+		const wipResult = getSettledValue(wipSettled);
+		const recentWipResult = getSettledValue(recentWipSettled);
+		const enrichmentResult = getSettledValue(enrichmentSettled);
+
 		// Prune entries for branches no longer in the overview so stale data doesn't linger.
-		this._wipData = wipResult ? filterToKeys(wipResult, keep) : {};
-		this._enrichmentData = filterToKeys(enrichmentResult, keep);
-		// Expose enrichment via shared state so other consumers (e.g. the scope popover path
-		// in graph-app) can resolve merge-target refs for the selected branch.
-		this._state.overviewEnrichment = this._enrichmentData;
+		const nextWipData = wipResult ? filterToKeys(wipResult, keep) : {};
+		if (recentWipResult) {
+			// `??=` so a cheap entry never silently downgrades a full entry. active/recent are
+			// disjoint by contract today (getBranchOverviewType), but the merge guard here keeps
+			// the active card's inline breakdown safe if that contract ever flexes.
+			const cheap = filterToKeys(recentWipResult, keep);
+			for (const id of Object.keys(cheap)) {
+				nextWipData[id] ??= cheap[id];
+			}
+		}
+		// Only the FULL probe gets the default-clean fallback. The cheap probe explicitly writes
+		// `{ hasChanges: false }` on success, so an absent id there means the call rejected and we
+		// don't know the state — leaving the entry undefined makes the card render no pill rather
+		// than misleadingly green-checking a worktree we couldn't probe.
+		if (wipResult) {
+			for (const id of wipIds) {
+				nextWipData[id] ??= { hasChanges: false };
+			}
+		}
+		this._wipData = nextWipData;
+		if (enrichmentResult != null) {
+			this._enrichmentData = filterToKeys(enrichmentResult, keep);
+			// Expose enrichment via shared state so other consumers (e.g. the scope popover path
+			// in graph-app) can resolve merge-target refs for the selected branch.
+			this._state.overviewEnrichment = this._enrichmentData;
+		}
 	}
 
 	override render() {
@@ -433,8 +536,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 					hasRecent,
 					() => html`
 						<div class="group">
-							<div class="group__label">
-								Recent <span class="group__count">(${overview.recent.length})</span>
+							<div class="group__header">
+								<div class="group__label">
+									Recent <span class="group__count">(${overview.recent.length})</span>
+								</div>
+								${this.renderRecentThresholdFilter()}
 							</div>
 							${this.renderCards(overview.recent)}
 						</div>
@@ -444,30 +550,82 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		`;
 	}
 
+	private renderRecentThresholdFilter() {
+		const threshold = this._state.overviewRecentThreshold ?? 'OneWeek';
+		const items = (Object.entries(recentThresholdLabels) as [OverviewRecentThreshold, string][]).map(
+			([value, label]) => ({ value: value, label: label, selected: threshold === value }),
+		);
+		return html`
+			<gl-menu-popover placement="bottom-end" .items=${items} @gl-menu-select=${this.onRecentThresholdSelect}>
+				<button slot="anchor" class="threshold-filter" type="button" aria-label="Change Recent Timeframe">
+					${recentThresholdLabels[threshold]}<code-icon icon="chevron-down"></code-icon>
+				</button>
+			</gl-menu-popover>
+		`;
+	}
+
+	private readonly onRecentThresholdSelect = (e: CustomEvent<{ value: string }>): void => {
+		this.onRecentThresholdSelected(e.detail.value as OverviewRecentThreshold);
+	};
+
+	private onRecentThresholdSelected(threshold: OverviewRecentThreshold): void {
+		if ((this._state.overviewRecentThreshold ?? 'OneWeek') === threshold) return;
+
+		// Let graph-app own the persisted signal + memento write (mirrors the timeline period
+		// flow); send the request here since this panel owns the overview fetch lifecycle.
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-overview-recent-threshold-change', {
+				detail: { threshold: threshold },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+		// Apply the re-partitioned response — unlike the host-pushed `DidChangeOverviewNotification`
+		// path (graph load, branch changes), a `GetOverviewRequest` reply isn't routed into state
+		// for us, so a threshold change would otherwise never re-render the Recent list.
+		void this._ipc.sendRequest(GetOverviewRequest, { recentThreshold: threshold }).then(overview => {
+			this._state.overview = overview;
+		});
+	}
+
 	private renderCards(branches: GraphOverviewData['active']) {
 		if (!branches.length) return nothing;
 
-		const sessionsByRepoAndBranch = indexAgentSessionsByRepoAndBranch(this._state.agentSessions);
+		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
+		const scopedBranchId = this._state.scope?.branchRef;
 
 		return html`
 			<div class="cards">
 				${repeat(
 					branches,
 					b => b.id,
-					b => html`
-						<gl-graph-overview-card
-							.branch=${b}
-							.wip=${this._wipData[b.id]}
-							.enrichment=${this._enrichmentData[b.id]}
-							.agentSessions=${matchAgentSessionsForBranch(sessionsByRepoAndBranch, {
-								name: b.name,
-								repoPath: b.repoPath,
-								worktreeName: b.worktree != null ? getWorktreeBasename(b.worktree.uri) : undefined,
-							})}
-							.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
-						></gl-graph-overview-card>
-					`,
+					b => {
+						// Graph strips the default worktree from `worktreesByBranch`, so an
+						// `opened` (active) branch with no `worktree` is the default-worktree's
+						// HEAD — match it via `repoPath`. A non-`opened` (recent) branch with no
+						// `worktree` isn't checked out anywhere, so no agent can run on it (skip
+						// the match so the matcher's `worktreePath ?? repoPath` fallback doesn't
+						// false-match it to the default-worktree session).
+						const matchWorktreePath = b.worktree?.path ?? (b.opened ? b.repoPath : undefined);
+						const agentSessions =
+							matchWorktreePath != null
+								? matchAgentSessionsForWorktree(sessionsByRepoAndWorktree, {
+										repoPath: b.repoPath,
+										worktreePath: matchWorktreePath,
+									})
+								: undefined;
+						return html`
+							<gl-graph-overview-card
+								.branch=${b}
+								.wip=${this._wipData[b.id]}
+								.enrichment=${this._enrichmentData[b.id]}
+								.agentSessions=${agentSessions}
+								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
+								.scoped=${scopedBranchId != null && b.id === scopedBranchId}
+							></gl-graph-overview-card>
+						`;
+					},
 				)}
 			</div>
 		`;
@@ -482,4 +640,14 @@ function filterToKeys<T>(record: Record<string, T>, keep: Set<string>): Record<s
 		}
 	}
 	return result;
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-graph-overview': GlGraphOverview;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-graph-overview-recent-threshold-change': CustomEvent<{ threshold: OverviewRecentThreshold }>;
+	}
 }

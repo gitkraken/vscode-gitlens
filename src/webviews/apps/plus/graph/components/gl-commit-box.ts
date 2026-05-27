@@ -8,6 +8,7 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/tooltip.js';
 
 // Register as a typed custom property so it can be animated/transitioned. @property in a
 // constructable stylesheet doesn't reliably register in Chromium; the JS API does.
@@ -43,21 +44,20 @@ export class GlCommitBox extends LitElement {
 	@property({ type: Boolean })
 	canCommit = false;
 
-	@property({ type: Boolean })
-	aiEnabled = false;
+	@property()
+	disabledReason?: 'no-message' | 'no-staged';
 
 	@property({ type: Boolean })
-	experimentalFeaturesEnabled = false;
+	aiEnabled = false;
 
 	@property()
 	commitError?: string;
 
 	override render() {
-		const showCompose = this.experimentalFeaturesEnabled && this.aiEnabled;
 		return html`
 			<div class="options">
 				${this.renderAmendToggle()}
-				${showCompose
+				${this.aiEnabled
 					? html`<gl-button appearance="secondary" @click=${this.onCompose}>
 							<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
 							Compose
@@ -104,10 +104,7 @@ export class GlCommitBox extends LitElement {
 								class="sparkle"
 								appearance="toolbar"
 								density="compact"
-								tooltip=${this.generating
-									? 'Generating commit message…'
-									: 'Generate commit message with AI'}
-								?disabled=${this.generating}
+								tooltip=${this.generating ? 'Cancel' : 'Generate Commit Message'}
 								aria-busy=${this.generating ? 'true' : 'false'}
 								@click=${this.onGenerateMessage}
 							>
@@ -124,19 +121,33 @@ export class GlCommitBox extends LitElement {
 	}
 
 	private renderActionBar() {
-		const label = this.amend ? 'Amend to' : 'Commit to';
+		const label = this.amend ? 'Amend Commit on' : 'Commit to';
+		const action = this.amend ? 'amend commit on' : 'commit to';
+		const branch = this.branchName;
+		const enabledTooltip = `${label} ${branch}`;
+		const disabledTooltip =
+			this.disabledReason === 'no-message'
+				? `Enter a commit message to ${action} ${branch}`
+				: this.disabledReason === 'no-staged'
+					? `Stage changes above to ${action} ${branch}`
+					: '';
 
 		return html`
-			<gl-button
-				class="commit-btn"
-				full
-				?disabled=${!this.canCommit}
-				variant=${this.amend ? 'warning' : nothing}
-				@click=${this.onCommit}
-			>
-				${label}&nbsp;
-				<gl-branch-name .name=${this.branchName}></gl-branch-name>
-			</gl-button>
+			<gl-tooltip content=${disabledTooltip} ?disabled=${this.canCommit || !disabledTooltip} placement="bottom">
+				<span class="commit-btn-wrapper">
+					<gl-button
+						class="commit-btn"
+						full
+						?disabled=${!this.canCommit}
+						variant=${this.amend ? 'warning' : nothing}
+						tooltip=${this.canCommit ? enabledTooltip : ''}
+						@click=${this.onCommit}
+					>
+						${label}&nbsp;
+						<gl-branch-name .name=${branch}></gl-branch-name>
+					</gl-button>
+				</span>
+			</gl-tooltip>
 			${this.commitError ? html`<span class="error">${this.commitError}</span>` : nothing}
 		`;
 	}

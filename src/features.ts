@@ -55,11 +55,12 @@ export type ProAIFeatures =
 	| 'generate-changelog'
 	| 'generate-create-pullRequest'
 	| 'generate-commits'
+	| 'generate-commitMessage'
 	| 'generate-searchQuery';
 
 export type AdvancedFeatures = never;
 
-export type AIFeatures = 'generate-commitMessage' | ProAIFeatures;
+export type AIFeatures = ProAIFeatures;
 
 export function isProFeature(feature: PlusFeatures): feature is ProFeatures {
 	switch (feature) {
@@ -90,6 +91,7 @@ export function isProFeatureOnAllRepos(feature: PlusFeatures): feature is ProFea
 		case 'generate-changelog':
 		case 'generate-create-pullRequest':
 		case 'generate-commits':
+		case 'generate-commitMessage':
 		case 'generate-searchQuery':
 			return true;
 		default:

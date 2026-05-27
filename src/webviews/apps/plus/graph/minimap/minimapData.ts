@@ -91,6 +91,7 @@ export function aggregate(input: MinimapAggregateInput): MinimapAggregate {
 		// `graph-wrapper.ts`), so bucketing them would bump today's commit count and let `stat.sha`
 		// resolve to a non-commit SHA (`'work-dir-changes'` / `'worktree-wip::…'`) on click.
 		if (row.type === 'work-dir-changes') continue;
+
 		// Always use committer date for the minimap (the GitGraphRow source populates `commitDate`
 		// even when `row.date` follows author-date ordering). A rebased commit's author date can be
 		// far in the past, which would shift activity/markers backward in time on the minimap and
@@ -269,6 +270,7 @@ function appendMarkers(
 		markersByDay.set(day, markers);
 		return;
 	}
+
 	for (const m of markers) {
 		existing.push(m);
 	}

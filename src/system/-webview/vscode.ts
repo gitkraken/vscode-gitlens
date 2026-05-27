@@ -174,13 +174,36 @@ export async function revealInFileExplorer(uri: Uri): Promise<void> {
 	void (await executeCoreCommand('revealFileInOS', uri));
 }
 
-export function supportedInVSCodeVersion(feature: 'language-models' | 'quickpick-resourceuri'): boolean {
-	switch (feature) {
-		case 'language-models':
-			return satisfies(codeVersion, '>= 1.90-insider');
-		case 'quickpick-resourceuri':
-			return satisfies(codeVersion, '>= 1.108');
-		default:
-			return false;
+type CodeFeatures =
+	| 'language-models'
+	| 'quickpick-resourceuri'
+	| 'quickpick-prompt'
+	| 'quickpick-button-location'
+	| 'quickpick-button-toggle';
+
+const _supportedFeatureMap = new Map<CodeFeatures, boolean>();
+
+export function supportedInVSCodeVersion(feature: CodeFeatures): boolean {
+	let supported = _supportedFeatureMap.get(feature);
+	if (supported == null) {
+		switch (feature) {
+			case 'language-models':
+				supported = satisfies(codeVersion, '>= 1.90-insider');
+				break;
+			case 'quickpick-resourceuri':
+			case 'quickpick-prompt':
+				supported = satisfies(codeVersion, '>= 1.108');
+				break;
+			case 'quickpick-button-location':
+			case 'quickpick-button-toggle':
+				supported = satisfies(codeVersion, '>= 1.109');
+				break;
+			default:
+				return false;
+		}
+
+		_supportedFeatureMap.set(feature, supported);
 	}
+
+	return supported;
 }

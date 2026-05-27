@@ -154,6 +154,7 @@ export class RepositoryIdentityService implements Disposable {
 			});
 
 			if (locatedRepo == null) return undefined;
+
 			if (
 				identity.initialCommitSha == null ||
 				(await locatedRepo.git.refs.isValidReference(identity.initialCommitSha))

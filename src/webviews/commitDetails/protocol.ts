@@ -61,6 +61,10 @@ export interface Preferences {
 	aiEnabled: boolean;
 	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;
+	/** Whether the file-tree search box is visible. Persisted per workspace; defaults to `true`. */
+	showSearchBox: boolean;
+	/** Search-box presentation: `true` filters (hides) non-matches, `false` dims them. */
+	searchBoxFilter: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 
@@ -86,6 +90,11 @@ export interface Wip {
 		uri: string;
 		name: string;
 		path: string;
+		/** True when this repo is a linked worktree (`git worktree`), false for the primary/main worktree. */
+		isWorktree: boolean;
+		provider?: {
+			supportedFeatures: { createPullRequestWithDetails?: boolean };
+		};
 	};
 }
 
@@ -110,7 +119,6 @@ export interface State extends WebviewState<'gitlens.views.commitDetails'> {
 
 	commit?: CommitDetails;
 	autolinksEnabled: boolean;
-	experimentalComposerEnabled: boolean;
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
 	wip?: Wip;
@@ -141,6 +149,12 @@ export interface ExecuteCommitActionsParams {
 export interface ExecuteFileActionParams extends GitFileChangeShape {
 	/** Commit ref (SHA) for this file action. Required for committed files. */
 	ref?: string;
+	/**
+	 * `true` when `ref` is a stash — routes the lookup through the stash sub-provider so
+	 * untracked-file entries (which live in `stash^3` and are absent from `git log`-based
+	 * fetches) resolve correctly.
+	 */
+	stash?: boolean;
 	showOptions?: FileShowOptions;
 }
 

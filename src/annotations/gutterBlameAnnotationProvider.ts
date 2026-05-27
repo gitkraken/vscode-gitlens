@@ -116,6 +116,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			this._flushViewport();
 			return;
 		}
+
 		super.restore(editor, recompute);
 	}
 
@@ -208,6 +209,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			const startAvatarFetch = (commit: GitCommit): void => {
 				const email = commit.author.email;
 				if (email == null || knownEmails!.has(email)) return;
+
 				knownEmails!.add(email);
 
 				// Check sync cache first to avoid async fetch for already-known avatars
@@ -336,6 +338,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					lastAvatarCacheSize = avatarCache.size;
 					for (let i = 0; i < lineCount; i++) {
 						if (!resolvedLines[i]) continue;
+
 						const l = blame.lines[i];
 						if (l == null) continue;
 
@@ -800,6 +803,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					vpLeader.push(ld);
 					continue;
 				}
+
 				const cd = allCompact[i];
 				if (cd != null) {
 					vpCompact.push(cd);

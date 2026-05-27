@@ -273,6 +273,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<
 		if (this.commit.file?.hasConflicts) {
 			await this.resolveConflictPaths();
 			if (token.isCancellationRequested) return item;
+
 			item.command = this.getCommand();
 		}
 		item.tooltip ??= await this.getTooltip(token);

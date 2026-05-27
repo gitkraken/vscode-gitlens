@@ -2,10 +2,12 @@ import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { createComposerComposeIntegration } from '@env/coretools/composer.js';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
+import type { AIModel } from '@gitlens/ai/models/model.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import type { SwitchAIModelCommandArgs } from '../../../commands/ai.js';
 import type { ContextKeys } from '../../../constants.context.js';
 import type {
 	ComposerTelemetryContext,
@@ -346,7 +348,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		const aiEnabled = this.getAiEnabled();
 		const aiModel = await this.container.ai.getModel(
-			{ silent: true },
+			{ silent: true, scope: 'compose' },
 			{ source: 'composer', correlationId: this.host.instanceId },
 		);
 
@@ -509,6 +511,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			if (visitedBranches.has(currentMergeTargetBranchName)) {
 				break;
 			}
+
 			visitedBranches.add(currentMergeTargetBranchName);
 
 			const mergeTargetNameResult = await getBranchMergeTargetName(this.container, currentMergeTargetBranch);
@@ -986,24 +989,30 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	private async updateAiModel(): Promise<void> {
 		try {
 			const model = await this.container.ai.getModel(
-				{ silent: true },
+				{ silent: true, scope: 'compose' },
 				{ source: 'composer', correlationId: this.host.instanceId },
 			);
-			this._context.ai.model = model;
-			this.host.sendTelemetryEvent('composer/action/changeAiModel');
-			await this.host.notify(DidChangeAiModelNotification, { model: model });
+			await this.applyAiModel(model);
 		} catch {
 			// Ignore errors when getting AI model
 		}
 	}
 
+	private async applyAiModel(model: AIModel | undefined): Promise<void> {
+		this._context.ai.model = model;
+		this.host.sendTelemetryEvent('composer/action/changeAiModel');
+		await this.host.notify(DidChangeAiModelNotification, { model: model });
+	}
+
 	@ipcCommand(OnSelectAIModelCommand)
 	private async onSelectAIModel(): Promise<void> {
-		// Trigger the AI provider/model switch command
-		await commands.executeCommand<Source>('gitlens.ai.switchProvider', {
+		// Trigger the AI provider/model switch command, scoped to compose so picking writes
+		// to the `'compose'` Memento key and leaves the global default untouched.
+		await commands.executeCommand<SwitchAIModelCommandArgs>('gitlens.ai.switchProvider', {
 			source: 'composer',
 			correlationId: this.host.instanceId,
 			detail: 'model-picker',
+			scope: 'compose',
 		});
 	}
 
@@ -1023,11 +1032,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async sendComposerAIFeedback(sentiment: 'helpful' | 'unhelpful', sessionId: string | null): Promise<void> {
 		try {
-			// Get the current AI model
-			const model = await this.container.ai.getModel(
-				{ silent: true },
-				{ source: 'composer', correlationId: this.host.instanceId },
-			);
+			// Use the cached compose-scoped model — kept fresh by initial load and `onAIModelChanged`.
+			const model = this._context.ai.model;
 			if (!model) return;
 
 			// Create a synthetic context for composer AI feedback
@@ -1070,6 +1076,18 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
+	private async resolveOldestInRange(
+		repo: GlRepository | undefined,
+		baseSha: string,
+		headSha: string,
+	): Promise<string | undefined> {
+		if (repo == null) return undefined;
+
+		const log = await repo.git.commits.getLog(`${baseSha}..${headSha}`, { limit: 0 });
+		if (!log?.commits.size) return undefined;
+		return [...log.commits.values()].at(-1)?.sha;
+	}
+
 	private subscribeToRepository(repository: GlRepository): void {
 		// Dispose existing subscription
 		this._repositorySubscription?.dispose();
@@ -1084,6 +1102,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private async onRepositoryChanged(e: RepositoryChangeEvent): Promise<void> {
 		if (e.repository.id !== this._currentRepository?.id) return;
+
 		const ignoreIndexChange = this._ignoreIndexChange;
 		this._ignoreIndexChange = false;
 		// Only care about index changes (staged/unstaged changes)
@@ -1235,12 +1254,22 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				const inRecompose = this._recompose?.enabled && this._safetyState?.hashes.commits;
 				let librarySource: import('./compose/integration.js').ComposerSource;
 				if (inRecompose && this._safetyState?.baseSha != null && this._safetyState?.headSha != null) {
-					librarySource = {
-						type: 'commit-range',
-						branch: this._recompose?.branchName ?? '',
-						from: this._safetyState.baseSha,
-						to: this._safetyState.headSha,
-					};
+					const oldestSha = await this.resolveOldestInRange(
+						this._currentRepository,
+						this._safetyState.baseSha,
+						this._safetyState.headSha,
+					);
+					if (oldestSha == null) {
+						const stagedOnly = !this._context.diff.unstagedIncluded;
+						librarySource = { type: 'workdir', stagedOnly: stagedOnly };
+					} else {
+						librarySource = {
+							type: 'commit-range',
+							branch: this._recompose?.branchName ?? '',
+							from: oldestSha,
+							to: this._safetyState.headSha,
+						};
+					}
 				} else {
 					const stagedOnly = !this._context.diff.unstagedIncluded;
 					librarySource = { type: 'workdir', stagedOnly: stagedOnly };
@@ -1898,7 +1927,20 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		}
 	}
 
-	private onAIModelChanged(_e: AIModelChangeEvent) {
+	private onAIModelChanged(e: AIModelChangeEvent) {
+		// Only refresh when the change affects the composer's scope: an explicit `'compose'`
+		// scope change, or a global default change (which the composer reads as fallback
+		// when its scoped value is unset). Ignore unrelated scopes like `'review'`.
+		if (e.scope != null && e.scope !== 'compose') return;
+
+		// The event payload already carries the new model, so apply it directly without
+		// re-fetching. For a global change while a compose-scoped value is set, the
+		// scoped value still wins — `updateAiModel()` re-reads to resolve that case.
+		if (e.scope === 'compose') {
+			void this.applyAiModel(e.model);
+			return;
+		}
+
 		void this.updateAiModel();
 	}
 

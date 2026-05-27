@@ -102,7 +102,14 @@ export function groupRepositories(repositories: Iterable<GlRepository>): Map<GlR
 }
 
 export function toRepositoryShape(repo: GlRepository): RepositoryShape {
-	return { id: repo.id, name: repo.name, path: repo.path, uri: repo.uri.toString(), virtual: repo.virtual };
+	return {
+		id: repo.id,
+		name: repo.name,
+		path: repo.path,
+		commonPath: repo.commonPath,
+		uri: repo.uri.toString(),
+		virtual: repo.virtual,
+	};
 }
 
 export async function toRepositoryShapeWithProvider(
