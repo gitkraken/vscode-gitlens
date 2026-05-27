@@ -17,6 +17,7 @@ export type {
 	Preferences,
 	State,
 	Wip,
+	WipStats,
 } from '../../commitDetails/protocol.js';
 
 export { buildFolderContext, messageHeadlineSplitterToken } from '../../commitDetails/protocol.js';
