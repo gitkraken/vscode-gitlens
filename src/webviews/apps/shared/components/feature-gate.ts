@@ -133,7 +133,7 @@ export class GlFeatureGate extends LitElement {
 				: 'default';
 
 		return html`
-			<section>
+			<section part="section">
 				<slot></slot>
 				<gl-feature-gate-plus-state
 					appearance=${appearance}

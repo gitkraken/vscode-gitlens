@@ -267,6 +267,7 @@ import type {
 	DetailsItemTypedContext,
 	GitBranchShape,
 	Wip,
+	WipStats,
 } from './detailsProtocol.js';
 import { messageHeadlineSplitterToken } from './detailsProtocol.js';
 import {
@@ -1146,6 +1147,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getWip: async (
 					repoPath: string,
 					signal?: AbortSignal,
+					force?: boolean,
 				): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> => {
 					signal?.throwIfAborted();
 
@@ -1160,7 +1162,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// `workingTreeStats` slot from the same `git status` the panel uses — if a prior
 					// initial-state fetch landed with bad data and no FS event has fired since, the
 					// header/row badges stay stuck on stale stats until the next incidental tick.
-					return this.getWipForRepoAndStats(repo, signal);
+					// `force` (user-initiated refresh) bypasses `_wipStatusCache` so the button runs
+					// a genuinely fresh `git status` rather than re-serving a possibly-stale entry.
+					return this.getWipForRepoAndStats(repo, signal, force ? { bypassCache: true } : undefined);
 				},
 				explainCommit: async (
 					repoPath: string,
@@ -1532,7 +1536,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { ok: false, reason: 'error', message: message };
 					}
 				},
-				generateCommitMessage: async (repoPath, currentMessage, signal) => {
+				generateCommitMessage: async (repoPath, currentMessage, amend, signal) => {
 					// Pass the Repository (not a raw diff) so the AI service applies its
 					// staged-first → unstaged-fallback convention. The previous implementation
 					// always grabbed the full uncommitted diff (staged + unstaged), which produced
@@ -1545,8 +1549,31 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const repo = this.container.git.getRepository(repoPath);
 						if (repo == null) return undefined;
 
+						// When amending, generate against what the amend will actually produce: the
+						// existing commit's content plus the changes being folded in. Diff from the
+						// amend target's parent (`sha^`) to the index (staged-only) or working tree
+						// (`all`), matching the staged-vs-all decision the commit itself makes. If
+						// that yields nothing (a message-only amend with no new changes), fall back
+						// to the existing commit's own diff so the AI still has content to describe.
+						let changesOrRepo: GlRepository | string = repo;
+						if (amend != null) {
+							const from = `${amend.sha}^`;
+							let diff = await repo.git.diff.getDiff?.(
+								amend.all ? uncommitted : uncommittedStaged,
+								from,
+								undefined,
+								signal,
+							);
+							if (!diff?.contents) {
+								diff = await repo.git.diff.getDiff?.(amend.sha, undefined, undefined, signal);
+							}
+							if (diff?.contents) {
+								changesOrRepo = diff.contents;
+							}
+						}
+
 						const result = await this.container.ai.actions.generateCommitMessage(
-							repo,
+							changesOrRepo,
 							{ source: 'graph-details' },
 							{ context: currentMessage, cancellation: cancellation },
 						);
@@ -6853,6 +6880,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWipForRepoAndStats(
 		repo: GlRepository,
 		signal?: AbortSignal,
+		options?: { bypassCache?: boolean },
 	): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> {
 		signal?.throwIfAborted();
 
@@ -6861,12 +6889,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// shares the same status data within the cache's TTL — FS-watcher invalidations keep it
 		// honest, and the lazy overview-panel-visibility refresh + worktrees-panel fetch get
 		// served from cache when warm (often right after we just populated it here).
+		//
+		// `bypassCache` (user-initiated refresh) runs a separate `git status` OUTSIDE the cache.
+		// We don't invalidate or write back — invalidate would fire the shared `AbortAggregate`
+		// and could cancel a concurrent watcher fetch; a write-back is unsafe because the prior
+		// in-flight entry's settle handler can delete our freshly-set value. Other consumers
+		// self-correct within the cache TTL via the next FS-watcher tick.
+		const statusFetch = options?.bypassCache
+			? svc.status.getStatus(undefined, signal)
+			: this._wipStatusCache.getOrCreate(
+					repo.path,
+					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+					{ cancellation: signal },
+				);
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			this._wipStatusCache.getOrCreate(
-				repo.path,
-				(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
-				{ cancellation: signal },
-			),
+			statusFetch,
 			// `force` so a missed `'pausedOp'` FS-watcher tick (common on secondary worktrees
 			// whose `GlRepository` is closed) can't leave the WIP row stuck on a stale indicator.
 			svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
@@ -6934,6 +6971,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const diff = status.diffStatus;
 
+		// Build the stats once and embed the SAME object reference in both `wip.stats` and the
+		// sibling `stats` field. The webview derives `workingTreeStats` from `wip.stats`, so the
+		// file list and its counts can never drift — they're one object. The sibling is kept for
+		// callers that destructure `{ wip, stats }` (refresh / cold-load paths).
+		const stats: WipStats = {
+			added: diff.added,
+			deleted: diff.deleted,
+			modified: diff.changed,
+			hasConflicts: status.hasConflicts,
+			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
+			pausedOpStatus: pausedOpStatus,
+			context: serializeWebviewItemContext<GraphItemContext>({
+				webviewItem: 'gitlens:wip',
+				webviewItemValue: {
+					type: 'commit',
+					ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
+					worktreePath: repo.path,
+				},
+			}),
+		};
+
 		return {
 			wip: {
 				changes: {
@@ -6960,23 +7018,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								}
 							: undefined,
 				},
+				stats: stats,
 			},
-			stats: {
-				added: diff.added,
-				deleted: diff.deleted,
-				modified: diff.changed,
-				hasConflicts: status.hasConflicts,
-				conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
-				pausedOpStatus: pausedOpStatus,
-				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:wip',
-					webviewItemValue: {
-						type: 'commit',
-						ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
-						worktreePath: repo.path,
-					},
-				}),
-			},
+			stats: stats,
 		};
 	}
 
@@ -7477,8 +7521,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (!isActiveAgentPhase(s.phase) && !recent) continue;
 
 			const branch = graph.branches.get(s.worktree.branch.name);
-			if (branch != null && !refs.has(branch.id)) {
+			if (branch == null) continue;
+
+			if (!refs.has(branch.id)) {
 				refs.set(branch.id, convertBranchToIncludeOnlyRef(branch));
+			}
+			// Mirror `getVisibleRefs`: pull in the upstream so the remote tracking branch is
+			// kept in the include set alongside its local. Without this the graph drops the
+			// `origin/<branch>` label and any commits only reachable from the upstream side.
+			const upstreamRef = convertBranchUpstreamToIncludeOnlyRef(branch);
+			if (upstreamRef != null && !refs.has(upstreamRef.id)) {
+				refs.set(upstreamRef.id, upstreamRef);
 			}
 		}
 		return refs;

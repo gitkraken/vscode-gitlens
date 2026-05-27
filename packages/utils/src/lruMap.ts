@@ -14,8 +14,23 @@
  */
 export class LruMap<K, V> {
 	private readonly _map = new Map<K, V>();
+	private readonly _pinned = new Set<K>();
 
 	constructor(private readonly limit: number) {}
+
+	/**
+	 * Pin a key so it's never evicted by capacity pressure (it can still be explicitly
+	 * `delete`d / `clear`ed). Use for entries that must stay available regardless of how many
+	 * other keys churn — e.g. the selected repo's WIP, which the header badge derives from.
+	 * Pinning a key not yet present is fine; it takes effect once the key is `set`.
+	 */
+	pin(key: K): void {
+		this._pinned.add(key);
+	}
+
+	unpin(key: K): void {
+		this._pinned.delete(key);
+	}
 
 	get size(): number {
 		return this._map.size;
@@ -68,6 +83,9 @@ export class LruMap<K, V> {
 
 	clear(): void {
 		this._map.clear();
+		// Drop pins too — a cleared map has no entries to protect, and leaving stale pins would
+		// wrongly shield the NEXT value set under a previously-pinned key from eviction.
+		this._pinned.clear();
 	}
 
 	keys(): IterableIterator<K> {
@@ -79,11 +97,16 @@ export class LruMap<K, V> {
 	}
 
 	private evict(): void {
-		while (this._map.size > this.limit) {
-			const oldest = this._map.keys().next().value;
-			if (oldest === undefined) break;
+		if (this._map.size <= this.limit) return;
 
-			this._map.delete(oldest);
+		// Iterate oldest-first, deleting the first non-pinned keys until back at capacity.
+		// Pinned keys are skipped — if everything is pinned the map can exceed `limit`, which
+		// is the intended trade-off (pins are deliberate and few).
+		for (const key of this._map.keys()) {
+			if (this._map.size <= this.limit) break;
+			if (this._pinned.has(key)) continue;
+
+			this._map.delete(key);
 		}
 	}
 }

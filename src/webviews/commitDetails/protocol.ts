@@ -2,6 +2,7 @@ import type { GitCommitIdentityShape, GitCommitStats } from '@gitlens/git/models
 import type { GitFileChangeShape, GitFileChangeStats } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -82,6 +83,25 @@ export interface GitBranchShape {
 	reference?: GitBranchReference;
 }
 
+/**
+ * Git-authoritative working-tree counts, computed host-side from `status.diffStatus` and embedded
+ * IN the {@link Wip} so the file list and its summary counts travel as one atomic object — they
+ * can never drift. Header / row badges read these (via the derived `workingTreeStats`); the panel
+ * reads them directly. Structurally assignable to graph's `GraphWorkingTreeStats` (which is
+ * `WorkDirStats & { hasConflicts?; conflictsCount?; pausedOpStatus? }`); `context` is the
+ * serialized `GraphItemContext` string for the WIP row's right-click menu.
+ */
+export interface WipStats {
+	added: number;
+	deleted: number;
+	modified: number;
+	renamed?: number;
+	hasConflicts?: boolean;
+	conflictsCount?: number;
+	pausedOpStatus?: GitPausedOperationStatus;
+	context?: string;
+}
+
 export interface Wip {
 	changes: WipChange | undefined;
 	repositoryCount: number;
@@ -96,6 +116,13 @@ export interface Wip {
 			supportedFeatures: { createPullRequestWithDetails?: boolean };
 		};
 	};
+	/**
+	 * Git-authoritative counts for this wip's working tree — see {@link WipStats}. Optional at the
+	 * type level because the standalone commitDetails webview constructs `Wip` without computing
+	 * diffStatus; the Graph's `getWipForRepoAndStats` ALWAYS populates it, so Graph consumers can
+	 * rely on it in practice (guard with `?.` for the shared-type contract).
+	 */
+	stats?: WipStats;
 }
 
 export interface DraftState {

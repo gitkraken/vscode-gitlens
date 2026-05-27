@@ -124,7 +124,7 @@ export interface ResolvedServices {
 
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string]>;
+	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string, boolean?]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -751,10 +751,6 @@ export class DetailsActions {
 						// background so the panel converges without blocking the initial paint.
 						void (async () => {
 							try {
-								// Snapshot the stats generation BEFORE the await — if a host
-								// FS-watcher push lands during the in-flight RPC, the counter
-								// advances and `setWorkingTreeStats` drops our older response.
-								const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 								await this.resources.wip.fetch(repoPath);
 								if (this._lastFetchedKey !== key) return;
 
@@ -764,7 +760,7 @@ export class DetailsActions {
 										const { wip, stats } = result;
 										this.state.wip.set(wip);
 										this.graphState?.setWip(repoPath, wip);
-										this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
+										this.graphState?.setWorkingTreeStats(repoPath, stats);
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -783,10 +779,7 @@ export class DetailsActions {
 						})();
 					}
 				} else {
-					// Missing cache entry — block and fetch. Same in-flight-RPC race rationale
-					// as the background-revalidate branch: snapshot the stats generation BEFORE
-					// the await so a host push landing mid-fetch isn't clobbered by our response.
-					const expectedStatsGen = this.graphState?.workingTreeStatsGen;
+					// Missing cache entry — block and fetch.
 					await this.resources.wip.fetch(repoPath);
 
 					if (this._lastFetchedKey !== key) return;
@@ -797,7 +790,7 @@ export class DetailsActions {
 							const { wip, stats } = result;
 							this.state.wip.set(wip);
 							this.graphState?.setWip(repoPath, wip);
-							this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
+							this.graphState?.setWorkingTreeStats(repoPath, stats);
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -2560,23 +2553,22 @@ export class DetailsActions {
 	 * working-tree updates, prefer `applyPushedWip` which consumes the pre-fetched WIP that
 	 * `DidChangeWorkingTreeNotification` already carries.
 	 */
-	async refetchWipQuiet(repoPath: string): Promise<void> {
+	async refetchWipQuiet(repoPath: string, force?: boolean): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
 		this._lastFetchedKey = undefined;
-		// Snapshot the stats generation BEFORE the await — a host FS-watcher push landing
-		// during the in-flight RPC has fresher stats than ours, so we shouldn't overwrite.
-		const expectedStatsGen = this.graphState?.workingTreeStatsGen;
-		await this.resources.wip.fetch(repoPath);
+		// `force` bypasses the host's `_wipStatusCache` so an explicit user refresh runs a
+		// genuinely fresh `git status` instead of re-applying a possibly-stale cached value.
+		await this.resources.wip.fetch(repoPath, force);
 		if (this.resources.wip.status.get() !== 'success') return;
 
 		const result = this.resources.wip.value.get();
 		if (result == null) return;
 
 		this.applyWipPayload(result.wip, repoPath);
-		// Reseed the header/row badge source from the same `git status` the panel just ran —
-		// closes the staleness gap when the prior `workingTreeStats` push was missed or wrong.
-		// Generation guard at the helper drops this if a fresher host push raced us.
-		this.graphState?.setWorkingTreeStats(repoPath, result.stats, expectedStatsGen);
+		// Reseed the header/row badge source from the SAME `git status` the panel just applied.
+		// `result.stats` is `result.wip.stats` (one embedded, git-authoritative object), so the
+		// panel's file list and the header counts can't disagree.
+		this.graphState?.setWorkingTreeStats(repoPath, result.stats);
 	}
 
 	/**
@@ -2739,9 +2731,25 @@ export class DetailsActions {
 		this.state.generating.set(true);
 		try {
 			const currentMessage = this.state.commitMessage.get().trim() || undefined;
+
+			// When amending, the message must describe what the amend will actually produce, not
+			// just the working changes. Mirror `commit()`'s staged-vs-all decision so the host can
+			// diff against the amend's parent and fold in the existing commit's content.
+			let amend: { sha: string; all: boolean } | undefined;
+			if (this.state.amend.get()) {
+				const amendingSha = this.state.amendBaseSha.get();
+				if (amendingSha != null) {
+					const wip = this.state.wip.get();
+					const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+					const smartCommit = this.state.preferences.get()?.enableSmartCommit ?? false;
+					amend = { sha: amendingSha, all: !hasStagedFiles && smartCommit };
+				}
+			}
+
 			const result = await this.services.graphInspect.generateCommitMessage(
 				repoPath,
 				currentMessage,
+				amend,
 				controller.signal,
 			);
 			// Guard against a late response after the user cancelled or kicked off

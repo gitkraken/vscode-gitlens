@@ -73,16 +73,31 @@ export class GlDetailsWipHeader extends LitElement {
 		const ahead = wip.branch?.tracking?.ahead ?? 0;
 		const behind = wip.branch?.tracking?.behind ?? 0;
 
-		let addedCount = 0;
-		let modifiedCount = 0;
-		let removedCount = 0;
-		for (const f of files) {
-			if (f.status === 'A' || f.status === '?') {
-				addedCount++;
-			} else if (f.status === 'D') {
-				removedCount++;
-			} else {
-				modifiedCount++;
+		// Prefer the git-authoritative counts embedded in the wip (`wip.stats`, same object the
+		// header/row badges derive `workingTreeStats` from) so the panel header and the graph
+		// header/row can never disagree. Fall back to iterating the file list only when stats are
+		// absent (e.g. a wip produced by the standalone commitDetails webview, which doesn't
+		// compute diffStatus). Note: the file list double-counts mixed staged+unstaged entries,
+		// whereas `git diff --shortstat` counts unique paths — `wip.stats` is the correct source.
+		let addedCount: number;
+		let modifiedCount: number;
+		let removedCount: number;
+		if (wip.stats != null) {
+			addedCount = wip.stats.added;
+			modifiedCount = wip.stats.modified;
+			removedCount = wip.stats.deleted;
+		} else {
+			addedCount = 0;
+			modifiedCount = 0;
+			removedCount = 0;
+			for (const f of files) {
+				if (f.status === 'A' || f.status === '?') {
+					addedCount++;
+				} else if (f.status === 'D') {
+					removedCount++;
+				} else {
+					modifiedCount++;
+				}
 			}
 		}
 

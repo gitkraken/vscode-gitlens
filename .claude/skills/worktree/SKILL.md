@@ -5,7 +5,14 @@ description: Use when starting feature work that needs isolation from current wo
 
 # GitLens Worktree Creation
 
-This project uses a custom worktree convention. The `WorktreeCreate` and `WorktreeRemove` hooks in `.claude/settings.json` handle automatic worktree creation. This skill documents the conventions for manual worktree operations.
+This project uses a custom worktree convention: worktrees live in a sibling `<repo-name>.worktrees/` directory (the layout the `worktree.mts` hook in `.claude/settings.json` is built around), **not** in the `EnterWorktree` default location.
+
+Because of that, the flow has two steps:
+
+1. **Create** the worktree with `git worktree add` following the convention below (so it lands in the sibling `.worktrees/` dir with the right name).
+2. **Switch into it** by calling the built-in `EnterWorktree` primitive with `path`. This moves the session's working directory into the worktree — a plain `cd` in Bash does not.
+
+> **Do not** call `EnterWorktree` with `name` to create the worktree. Inside a git repo it ignores the hook and places the worktree in `.claude/worktrees/` (which is not gitignored) on a branch off `origin/main`, breaking this project's convention. Always create first, then enter by `path`.
 
 ## Directory Convention
 
@@ -40,9 +47,7 @@ Follow the conventions in AGENTS.md:
 | Tech debt  | `debt/`      | `debt/library`                          |
 | With issue | include `#N` | `feature/#1234-search-natural-language` |
 
-## Manual Worktree Creation
-
-When creating a worktree manually (not via the hook):
+## Creating and Entering a Worktree
 
 ```bash
 # 1. Find the worktrees root
@@ -50,20 +55,38 @@ REPO_ROOT=$(git rev-parse --path-format=absolute --git-common-dir | sed 's|/.git
 REPO_NAME=$(basename "$REPO_ROOT")
 WORKTREES_ROOT="$REPO_ROOT/../$REPO_NAME.worktrees"
 
-# 2. Create the worktree
+# 2. Create the worktree (branch path segments map to directory nesting)
 git worktree add "$WORKTREES_ROOT/<type>/<name>" -b "<type>/<name>"
 
-# 3. Install dependencies (automatic when using the hook)
-cd "$WORKTREES_ROOT/<type>/<name>"
-pnpm install
+# 3. Install dependencies
+pnpm install --dir "$WORKTREES_ROOT/<type>/<name>"
 ```
 
-## Setup After Creation
+Then switch the session into it with the **`EnterWorktree`** primitive, passing the path you just created:
 
-The `WorktreeCreate` hook automatically runs `pnpm install` in the new worktree. No manual setup is needed. Skip test baseline verification — builds are expensive in this project; verify after implementation instead.
+```
+EnterWorktree({ path: "<absolute path to $WORKTREES_ROOT/<type>/<name>>" })
+```
+
+`EnterWorktree` requires an absolute path that already appears in `git worktree list` — which is why creation comes first. After this, all subsequent tool calls run inside the worktree.
+
+## Leaving a Worktree
+
+When the work is done (or you need to return to the original repo), call **`ExitWorktree`**:
+
+```
+ExitWorktree({ action: "keep" })
+```
+
+Use `action: "keep"` — `ExitWorktree` will **not** remove a worktree that was entered by `path` (only ones it created via `name`), so `keep` is the correct, non-destructive choice here. The worktree and its branch stay on disk; remove them later with `git worktree remove` if needed.
+
+## Setup Notes
+
+- Skip test baseline verification — builds are expensive in this project; verify after implementation instead.
 
 ## Key Differences from Default Superpowers Skill
 
 - Worktrees are **outside** the repo (sibling `.worktrees/` directory), not inside
 - No `.gitignore` verification needed — the directory is outside the repo
+- Create with `git worktree add` first, then enter via `EnterWorktree({ path })` — never create with `EnterWorktree({ name })` (it bypasses the convention)
 - Skip test baseline (build is too slow for setup)
