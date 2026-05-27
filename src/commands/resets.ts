@@ -12,14 +12,13 @@ const resetTypes = [
 	'ai',
 	'ai:confirmations',
 	'avatars',
-	'banners',
 	'integrations',
+	'onboarding',
 	'previews',
 	'promoOptIns',
 	'repositoryAccess',
 	'subscription',
 	'suppressedWarnings',
-	'usageTracking',
 	'workspace',
 ] as const;
 type ResetType = 'all' | (typeof resetTypes)[number];
@@ -49,14 +48,14 @@ export class ResetCommand extends GlCommandBase {
 				item: 'avatars',
 			},
 			{
-				label: 'Banners...',
-				detail: 'Resets dismissed banners/notices',
-				item: 'banners',
-			},
-			{
 				label: 'Integrations (Authentication)...',
 				detail: 'Clears any locally stored authentication for integrations',
 				item: 'integrations',
+			},
+			{
+				label: 'Onboarding...',
+				detail: 'Resets dismissed banners/notices and tracked usage — restores the first-time experience',
+				item: 'onboarding',
 			},
 			{
 				label: 'Repository Access...',
@@ -67,11 +66,6 @@ export class ResetCommand extends GlCommandBase {
 				label: 'Suppressed Warnings...',
 				detail: 'Clears any suppressed warnings, e.g. messages with "Don\'t Show Again" options',
 				item: 'suppressedWarnings',
-			},
-			{
-				label: 'Usage Tracking...',
-				detail: 'Clears any locally tracked usage, typically used for first time experience',
-				item: 'usageTracking',
 			},
 			{
 				label: 'Workspace Storage...',
@@ -137,13 +131,14 @@ export class ResetCommand extends GlCommandBase {
 				confirmationMessage = 'Are you sure you want to reset the avatar cache?';
 				confirm.title = 'Reset Avatars';
 				break;
-			case 'banners':
-				confirmationMessage = 'Are you sure you want to reset all dismissed banners/notices?';
-				confirm.title = 'Reset Banners';
-				break;
 			case 'integrations':
 				confirmationMessage = 'Are you sure you want to reset all of the stored integrations?';
 				confirm.title = 'Reset Integrations';
+				break;
+			case 'onboarding':
+				confirmationMessage =
+					'Are you sure you want to reset the onboarding/first-time experience? This clears all dismissed banners/notices and tracked usage.';
+				confirm.title = 'Reset Onboarding';
 				break;
 			case 'previews':
 				confirmationMessage = 'Are you sure you want to reset the stored state for feature previews?';
@@ -164,10 +159,6 @@ export class ResetCommand extends GlCommandBase {
 			case 'suppressedWarnings':
 				confirmationMessage = 'Are you sure you want to reset all of the suppressed warnings?';
 				confirm.title = 'Reset Suppressed Warnings';
-				break;
-			case 'usageTracking':
-				confirmationMessage = 'Are you sure you want to reset all of the usage tracking?';
-				confirm.title = 'Reset Usage Tracking';
 				break;
 			case 'workspace':
 				confirmationMessage = 'Are you sure you want to reset the stored data for the current workspace?';
@@ -214,20 +205,23 @@ export class ResetCommand extends GlCommandBase {
 				resetAvatarCache('all');
 				break;
 
-			case 'banners':
+			case 'integrations':
+				await this.container.integrations.reset();
+				break;
+
+			case 'onboarding':
 				await this.container.onboarding.resetAll();
+				await this.container.usage.reset();
 				await this.container.storage.delete('home:sections:collapsed');
 
-				// Deprecated keys
+				// Deprecated keys — defensive cleanup in case migration didn't run
 				await this.container.storage.delete('home:banners:dismissed');
 				await this.container.storage.delete('home:sections:dismissed');
 				await this.container.storage.delete('home:walkthrough:dismissed');
 				await this.container.storage.delete('mcp:banner:dismissed');
 				await this.container.storage.delete('views:scm:grouped:welcome:dismissed');
-				break;
-
-			case 'integrations':
-				await this.container.integrations.reset();
+				await this.container.storage.delete('composer:onboarding:dismissed');
+				await this.container.storage.delete('composer:onboarding:stepReached');
 				break;
 
 			case 'promoOptIns':
@@ -240,10 +234,6 @@ export class ResetCommand extends GlCommandBase {
 
 			case 'suppressedWarnings':
 				await configuration.update('advanced.messages', undefined, ConfigurationTarget.Global);
-				break;
-
-			case 'usageTracking':
-				await this.container.usage.reset();
 				break;
 
 			case 'workspace':

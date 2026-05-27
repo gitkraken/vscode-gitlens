@@ -64,7 +64,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		if (args?.showInSideBar) {
-			await this.container.views.fileHistory.showHistoryForUri(gitUri);
+			await this.container.views.fileHistory.showHistoryForUri(gitUri, args.reference?.sha);
 
 			return;
 		}

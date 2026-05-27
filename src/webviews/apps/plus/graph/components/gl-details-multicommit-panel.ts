@@ -358,8 +358,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		>
 			<span class="compare-header__title">
 				${this.activeMode === 'review'
-					? html`<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>Reviewing
-							Comparison`
+					? html`<span>
+							<code-icon class="compare-header__mode-icon" icon="checklist"></code-icon>
+							Reviewing Comparison
+						</span>`
 					: html`Comparing References`}
 			</span>
 			${this.activeMode == null

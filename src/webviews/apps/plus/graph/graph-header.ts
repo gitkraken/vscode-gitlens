@@ -55,11 +55,12 @@ import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import { ruleStyles } from '../shared/components/vscode.css.js';
 import { getDisplayedMode, isGraphFiltered } from './components/gl-graph-scope-popover.js';
 import { graphStateContext } from './context.js';
+import { getEffectiveDisplayMode } from './displayMode.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
 import { isGraphSearchResultsError } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
-import { graphHeaderControlStyles, repoHeaderStyles, titlebarStyles } from './styles/header.css.js';
+import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
@@ -128,7 +129,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		ruleStyles,
 		actionButton,
 		titlebarStyles,
-		repoHeaderStyles,
 		graphHeaderControlStyles,
 		css`
 			:focus,
@@ -163,9 +163,13 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			.action-button--graph-walkthrough {
-				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
-				border: 1px solid var(--vscode-panel-border);
-				outline: 1px solid var(--vscode-panel-border);
+				background: var(--vscode-button-background);
+				color: var(--vscode-button-foreground);
+				border: 1px solid var(--vscode-button-background);
+			}
+
+			.action-button--graph-walkthrough:hover {
+				background: var(--vscode-button-hoverBackground);
 			}
 
 			.preview-badge {
@@ -1137,7 +1141,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 										<a href=${createCommandLink('gitlens.agents.installClaudeHook')}
 											>Install Claude Code Hooks</a
 										>
-										to let GitLens intercept Claude Code permission requests.
+										to see and manage your parallel agent work from GitLens.
 									`,
 								)}
 							</div>
@@ -1155,8 +1159,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							</button>
 							<div class="hooks-tooltip__content" slot="content">
 								<strong>Install Claude Code Hooks</strong><br />
-								Configure Claude to send status updates to GitLens so you can see and manage your agents
-								here.
+								Configure Claude to send status updates to GitLens so you can see and manage your
+								parallel agent work.
 								<br /><br />
 								<a href=${createCommandLink('gitlens.agents.installClaudeHook')}>Install</a>
 								&middot;
@@ -1212,16 +1216,16 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 
 	private renderGraphWalkthroughBanner(state: State) {
-		const dismissed = state.graphWalkthroughBannerCollapsed ?? true;
+		const dismissed = (state.graphWalkthroughBannerCollapsed ?? true) || (state.graphWalkthroughComplete ?? false);
 
 		if (dismissed) {
 			return nothing;
 		}
 
-		const highlighted = !state.graphWalkthroughComplete;
+		const highlighted = !(state.graphWalkthroughStarted ?? false);
 
 		return html`
-			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" open>
+			<gl-popover class="graph-walkthrough-tooltip" placement="bottom" trigger="hover focus" ?open=${highlighted}>
 				<button
 					type="button"
 					class="action-button ${highlighted ? 'action-button--graph-walkthrough' : ''}"
@@ -1313,7 +1317,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		const filtered = isGraphFiltered(this.graphState);
 		const rowClass = scoped ? 'titlebar__row--scoped' : filtered ? 'titlebar__row--filtered' : '';
 
-		const isTimelineMode = (this.graphState.displayMode ?? 'graph') === 'timeline';
+		// Search applies to the graph rows; any alternate display mode (visualizations, kanban)
+		// hides the graph body and shouldn't accept search input — typing would silently scroll
+		// a graph the user can't see and Prev/Next on results would jump the invisible viewport.
+		// Use the EFFECTIVE mode so a persisted `'kanban'` state that's been gated off (experimental
+		// flag toggled off after the user entered kanban) reads as `'graph'` here and the search
+		// box re-enables for the now-visible graph body.
+		const displayMode = getEffectiveDisplayMode(this.graphState);
+		const isAlternateMode = displayMode !== 'graph';
 		return html`
 			<div class="titlebar__row titlebar__row--search ${rowClass}">
 				<div class="titlebar__group">
@@ -1321,9 +1332,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						excludeRefs,
 					)}
 					<gl-search-box
-						class=${isTimelineMode ? 'search-box--disabled' : ''}
-						?inert=${isTimelineMode}
-						aria-disabled=${isTimelineMode ? 'true' : 'false'}
+						class=${isAlternateMode ? 'search-box--disabled' : ''}
+						?inert=${isAlternateMode}
+						aria-disabled=${isAlternateMode ? 'true' : 'false'}
 						?aiAllowed=${this.aiAllowed}
 						errorMessage=${searchResultsError?.error ?? ''}
 						?filter=${searchMode === 'filter'}

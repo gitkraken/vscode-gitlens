@@ -43,6 +43,7 @@ export const compareModePanelStyles = css`
 		padding: 0.5rem 1.2rem;
 		background: var(--gl-metadata-bar-bg);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		flex: none;
 	}
 
@@ -95,6 +96,54 @@ export const compareModePanelStyles = css`
 		min-width: 5rem;
 		max-width: 100%;
 		overflow: hidden;
+	}
+
+	/* Role icons (target / git-compare) sit immediately before each branch button to identify
+	   the Base and Compare sides. They're informational only — fixed size, no flex contribution,
+	   no overflow clipping. */
+	.compare-bar__refs > gl-tooltip:has(> .compare-role-icon) {
+		min-width: 0;
+		flex: 0 0 auto;
+		overflow: visible;
+		align-items: center;
+	}
+
+	.compare-role-icon {
+		flex: 0 0 auto;
+		margin-inline: 0.2rem 0.3rem;
+		opacity: 0.55;
+	}
+
+	/* "Load More Commits" affordance at the bottom of an Ahead/Behind commit list. Styled to
+	   mirror the scope-pane's load-more row (see gl-commits-scope-pane.css.ts) so the pattern
+	   is consistent across surfaces — a row-like button with a chevron-down icon, disabled +
+	   spinning while a fetch is in flight. */
+	.compare-load-more {
+		appearance: none;
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: 100%;
+		padding: 0.6rem 1.2rem;
+		border: none;
+		background: transparent;
+		color: var(--vscode-descriptionForeground);
+		font: inherit;
+		text-align: left;
+		cursor: pointer;
+		/* Constrain the button's outer width so width:100% + horizontal padding don't push
+		   it past the wrapper's box and trigger a horizontal scrollbar on a narrow panel. */
+		box-sizing: border-box;
+	}
+
+	.compare-load-more:hover:not(:disabled) {
+		background: var(--vscode-list-hoverBackground);
+		color: var(--vscode-foreground);
+	}
+
+	.compare-load-more:disabled {
+		cursor: default;
+		opacity: 0.7;
 	}
 
 	.compare-swap {
@@ -328,7 +377,9 @@ export const compareModePanelStyles = css`
 	.compare-commits {
 		height: 100%;
 		min-height: 0;
+		min-width: 0;
 		overflow-y: auto;
+		overflow-x: hidden;
 	}
 
 	.compare-commits.scrollable {
@@ -348,9 +399,14 @@ export const compareModePanelStyles = css`
 	}
 
 	/* Zero out the tree's indent columns (flat list — no nesting). No outer padding here;
-	   horizontal insets live on the tree-item host so they match the scope-pane row rhythm. */
+	   horizontal insets live on the tree-item host so they match the scope-pane row rhythm.
+	   Override gl-tree's default :host height (100%) to auto so the element sizes to its
+	   children's total height — otherwise gl-tree's box stays viewport-tall while children
+	   overflow below into the scroll area, and any sibling (e.g. the load-more row) would be
+	   visually overlapped by the overflowing children instead of flowing after them. */
 	.compare-commits gl-tree {
 		display: block;
+		height: auto;
 		--gl-tree-indent: 0;
 		--gitlens-tree-indent: 0;
 	}

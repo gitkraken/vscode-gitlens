@@ -163,7 +163,9 @@ export function extractQuestionDetails(
 }
 
 /** Returns the file path a file-mutating tool is targeting, or `undefined` for non-mutating /
- *  non-file tools. `Read` is intentionally excluded — "working on a file" means writing to it. */
+ *  non-file tools. `Read` is intentionally excluded — "working on a file" means writing to it.
+ *  Reads are surfaced separately via {@link getToolReadPath} so consumers (e.g. the treemap
+ *  activity overlay) can render reads with a distinct visual treatment. */
 export function getToolFilePath(toolName: string, toolInput: Record<string, unknown> | undefined): string | undefined {
 	if (toolInput == null) return undefined;
 
@@ -173,6 +175,21 @@ export function getToolFilePath(toolName: string, toolInput: Record<string, unkn
 		case 'Write':
 			return toolInput.file_path as string | undefined;
 		case 'NotebookEdit':
+			return toolInput.notebook_path as string | undefined;
+		default:
+			return undefined;
+	}
+}
+
+/** Returns the file path a read-only file tool is targeting, or `undefined` for non-read /
+ *  non-file tools. Mirrors {@link getToolFilePath} but for `Read`/`NotebookRead`. */
+export function getToolReadPath(toolName: string, toolInput: Record<string, unknown> | undefined): string | undefined {
+	if (toolInput == null) return undefined;
+
+	switch (toolName) {
+		case 'Read':
+			return toolInput.file_path as string | undefined;
+		case 'NotebookRead':
 			return toolInput.notebook_path as string | undefined;
 		default:
 			return undefined;

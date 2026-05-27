@@ -39,6 +39,7 @@ import '../../../shared/components/card/card.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 import '../../../shared/components/pills/tracking-status.js';
 import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/avatar/avatar-list.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../../shared/components/rich/issue-icon.js';
@@ -129,20 +130,6 @@ function formatIssueIdentifier(id: string): string {
 	return isNaN(parseInt(id, 10)) ? id : `#${id}`;
 }
 
-function getWipTooltipParts(workingTreeState: { added: number; changed: number; deleted: number }) {
-	const parts = [];
-	if (workingTreeState.added) {
-		parts.push(`${pluralize('file', workingTreeState.added)} added`);
-	}
-	if (workingTreeState.changed) {
-		parts.push(`${pluralize('file', workingTreeState.changed)} changed`);
-	}
-	if (workingTreeState.deleted) {
-		parts.push(`${pluralize('file', workingTreeState.deleted)} deleted`);
-	}
-	return parts;
-}
-
 declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-overview-branch-selected': CustomEvent<{
@@ -229,7 +216,15 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		gl-card.is-scoped {
-			outline: 1px solid var(--vscode-focusBorder);
+			--gl-card-background: color-mix(in srgb, var(--gl-chip-scoped-color) 10%, var(--vscode-sideBar-background));
+			--gl-card-hover-background: color-mix(
+				in srgb,
+				var(--gl-chip-scoped-color) 14%,
+				var(--vscode-sideBar-background)
+			);
+		}
+		gl-card.is-scoped::part(base) {
+			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gl-chip-scoped-color) 35%, transparent);
 		}
 
 		gl-card.is-launchpad-mergeable::part(base) {
@@ -306,6 +301,19 @@ export class GlGraphOverviewCard extends LitElement {
 			align-items: center;
 			gap: 0.6rem;
 			margin-inline-start: auto;
+		}
+
+		/* One-line layout: tracking + wip pill folded into the name row's right edge when there
+		   are no issues / PRs / agents to take the second meta line. flex-none + margin-inline-start
+		   keeps the pills hugging the right edge while the name shrinks first under width pressure. */
+		.branch-item__meta-inline {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.6rem;
+			margin-inline-start: auto;
+			flex: none;
+			font-size: 0.9em;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.branch-item__count {
@@ -474,6 +482,10 @@ export class GlGraphOverviewCard extends LitElement {
 			flex-wrap: wrap;
 		}
 
+		.hover__status-group gl-tracking-status {
+			--gl-pill-padding: 0.3rem 0.8rem;
+		}
+
 		.hover__agents {
 			display: flex;
 			flex-direction: row;
@@ -584,13 +596,27 @@ export class GlGraphOverviewCard extends LitElement {
 			[`is-launchpad-${grouping ?? 'none'}`]: grouping != null,
 		});
 
+		// Pre-compute the meta pieces here so we can decide between a one-line and two-line layout
+		// for inactive cards: when an inactive card has no issues / PRs / agents (the right-side
+		// enrichment column), tracking and the wip pill fold up into the name row instead of
+		// taking a second line. Active cards always keep their two-line layout — the inline
+		// add/changed/deleted icons need the second-row real-estate.
+		const tracking = this.renderTracking();
+		const wip = this.renderWipMeta();
+		const issuesIndicator = this.renderIssuesIndicator();
+		const prIndicator = this.renderPrIndicator();
+		const agentsIndicator = this.renderAgentsIndicator();
+		const hasLeft = tracking !== nothing || wip !== nothing;
+		const hasRight = issuesIndicator !== nothing || prIndicator !== nothing || agentsIndicator !== nothing;
+		const inlineFold = !branch.opened && !hasRight && hasLeft;
+
 		// placement="right" so the popover floats over the Graph (which sits to the right of
 		// the sidebar in typical layouts) rather than into the editor's left margin. The
 		// popover's flip behavior auto-corrects when there isn't room.
 		return html`
 			<gl-popover
 				hoist
-				trigger="hover focus"
+				trigger="hover focus-visible"
 				placement="right"
 				@gl-popover-show=${this.onPopoverShow}
 				@click=${this.onActionItemClick}
@@ -609,9 +635,24 @@ export class GlGraphOverviewCard extends LitElement {
 						<p class="branch-item__grouping">
 							<span class="branch-item__icon">${this.renderBranchIcon()}</span>
 							<span class="branch-item__name">${this.branch.name}</span>
+							${when(
+								inlineFold,
+								() => html`<span class="branch-item__meta-inline">${tracking}${wip}</span>`,
+							)}
 							${this.renderInlineActions()}
 						</p>
-						${this.renderMeta()} ${this.renderActiveAgentPills()}
+						${when(!inlineFold && (hasLeft || hasRight), () =>
+							this.renderMetaRow(
+								tracking,
+								wip,
+								hasLeft,
+								issuesIndicator,
+								prIndicator,
+								agentsIndicator,
+								hasRight,
+							),
+						)}
+						${this.renderActiveAgentPills()}
 					</div>
 				</gl-card>
 				<div slot="content" class="hover">${when(this._hoverShown, () => this.renderHoverContent())}</div>
@@ -626,8 +667,9 @@ export class GlGraphOverviewCard extends LitElement {
 		// Kick off the lazy merge-target fetch on first popover open. Subsequent opens reuse
 		// `_mergeTargetPromise` (the chip short-circuits when the same promise reference is passed).
 		void this.ensureMergeTargetFetched();
-		// Ask the panel for the full add/changed/deleted breakdown so the rich hover's
-		// commit-stats can render. The eager overview load only carries the cheap clean/dirty flag.
+		// Upgrade Recent worktree cards from the cheap dirty bit to the full add/changed/deleted
+		// breakdown so the badge tooltip can show counts. Active cards already have the breakdown
+		// from the eager fetch and the upgrade short-circuits.
 		this.maybeRequestWipDetails();
 	};
 
@@ -736,7 +778,15 @@ export class GlGraphOverviewCard extends LitElement {
 	// anchor, but `<gl-card focusable>` keeps the focusable target inside its shadow root and
 	// the underlying `focus` event isn't composed — so the popover never sees it. Wire
 	// focusin/focusout on the card host explicitly to drive the popover's show/hide.
-	private readonly onCardFocusIn = () => {
+	private readonly onCardFocusIn = (e: FocusEvent) => {
+		// Mirror the popover's `focus-visible` trigger semantics: only show on keyboard focus,
+		// not on mouse-induced focus. `e.target` is retargeted to the gl-card host across the
+		// shadow boundary, and `:focus-visible` doesn't reliably propagate from a delegated
+		// descendant to the host — so reach into composedPath to find the actual focused
+		// element (the innermost element along the event path) and check :focus-visible there.
+		const focused = e.composedPath()[0];
+		if (!(focused instanceof Element) || !focused.matches(':focus-visible')) return;
+
 		const popover = this.shadowRoot?.querySelector<
 			HTMLElement & { show: (triggeredBy?: 'hover' | 'focus' | 'click' | 'manual') => void }
 		>('gl-popover');
@@ -763,17 +813,17 @@ export class GlGraphOverviewCard extends LitElement {
 		></gl-branch-icon>`;
 	}
 
-	private renderMeta() {
-		const tracking = this.renderTracking();
-		const wip = this.renderWipBasic();
-		const issuesIndicator = this.renderIssuesIndicator();
-		const prIndicator = this.renderPrIndicator();
-		const agentsIndicator = this.renderAgentsIndicator();
-
-		const hasLeft = tracking !== nothing || wip !== nothing;
-		const hasRight = issuesIndicator !== nothing || prIndicator !== nothing || agentsIndicator !== nothing;
-		if (!hasLeft && !hasRight) return nothing;
-
+	// Called from `render()` when the card needs a second meta line — i.e. active card (always)
+	// or any card with right-side enrichment. Inactive cards with neither use the inline fold.
+	private renderMetaRow(
+		tracking: unknown,
+		wip: unknown,
+		hasLeft: boolean,
+		issuesIndicator: unknown,
+		prIndicator: unknown,
+		agentsIndicator: unknown,
+		hasRight: boolean,
+	) {
 		return html`<p class="branch-item__meta">
 			${when(hasLeft, () => html`<span class="branch-item__meta-left">${tracking}${wip}</span>`)}
 			${when(
@@ -801,35 +851,58 @@ export class GlGraphOverviewCard extends LitElement {
 		></gl-tracking-status>`;
 	}
 
-	private renderWipBasic() {
-		// Card-level wip is an indicator-only — a single icon when the working tree is dirty or clean. The
-		// full added/changed/deleted breakdown surfaces in the rich hover (#5170).
-
+	private renderWipMeta() {
 		if (this.wip == null) return nothing;
 
-		return html`<gl-wip-stats badge show-clean .dirty=${this.hasWip}></gl-wip-stats>`;
+		const workingTreeState = this.wip.workingTreeState;
+
+		// Active card (single `opened` branch): inline add/changed/deleted icons inside the meta row
+		// (NOT pill form). The detailed breakdown lives in the hover popover for everyone — this
+		// inline view is the active card's at-a-glance number. No per-pill tooltip; the popover
+		// carries the descriptive content.
+		if (this.branch.opened && this.hasWip) {
+			const added = workingTreeState?.added ?? 0;
+			const changed = workingTreeState?.changed ?? 0;
+			const deleted = workingTreeState?.deleted ?? 0;
+			return html`<commit-stats
+				added=${added}
+				modified=${changed}
+				removed=${deleted}
+				symbol="icons"
+				no-tooltip
+			></commit-stats>`;
+		}
+
+		// Other cards: just the dirty/clean badge (pencil / check pill). Same component the
+		// Worktrees-panel rows use so sizing matches. Tooltip is suppressed — the rich hover
+		// popover carries the breakdown.
+		return html`<gl-wip-stats
+			badge
+			show-clean
+			no-tooltip
+			.dirty=${this.hasWip}
+			added=${workingTreeState?.added ?? nothing}
+			modified=${workingTreeState?.changed ?? nothing}
+			removed=${workingTreeState?.deleted ?? nothing}
+		></gl-wip-stats>`;
 	}
 
-	private renderWipFull() {
-		const workingTreeState = this.wip?.workingTreeState;
-		if (workingTreeState == null) return nothing;
+	// Wip pill for the hover popover. Renders for both dirty (commit-stats pill with the
+	// add/changed/deleted breakdown) and clean (check pill) states. Cheap-probed Recent cards
+	// fetch the breakdown on first hover via maybeRequestWipDetails; the popover re-renders
+	// once it lands so the dirty pill swaps from empty to numeric.
+	private renderHoverWipStats() {
+		if (this.wip == null) return nothing;
 
-		const total = workingTreeState.added + workingTreeState.changed + workingTreeState.deleted;
-		if (total === 0) return nothing;
-
-		const parts = getWipTooltipParts(workingTreeState);
-
-		return html`<gl-tooltip class="wip__pill" placement="bottom"
-			><commit-stats
-				added=${workingTreeState.added}
-				modified=${workingTreeState.changed}
-				removed=${workingTreeState.deleted}
-				symbol="icons"
-			></commit-stats>
-			<span class="wip__tooltip" slot="content">
-				<p>${parts.length ? `${parts.join(', ')} in the working tree` : 'No working tree changes'}</p>
-			</span></gl-tooltip
-		>`;
+		const workingTreeState = this.wip.workingTreeState;
+		return html`<gl-wip-stats
+			show-clean
+			no-tooltip
+			.dirty=${this.hasWip}
+			added=${workingTreeState?.added ?? nothing}
+			modified=${workingTreeState?.changed ?? nothing}
+			removed=${workingTreeState?.deleted ?? nothing}
+		></gl-wip-stats>`;
 	}
 
 	private renderIssuesIndicator() {
@@ -1194,7 +1267,7 @@ export class GlGraphOverviewCard extends LitElement {
 
 		return html`<div class="hover__section hover__section--inline">
 			<div class="hover__status-group">
-				${this.renderTracking()}${this.renderWipFull()}${this.renderHoverMergeTarget()}
+				${this.renderTracking()}${this.renderHoverWipStats()}${this.renderHoverMergeTarget()}
 			</div>
 			<div class="hover__actions">
 				<action-nav>${actions}</action-nav>

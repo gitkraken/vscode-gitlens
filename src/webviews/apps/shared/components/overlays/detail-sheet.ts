@@ -112,6 +112,7 @@ export class GlDetailSheet extends LitElement {
 				border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 				min-height: 4.2rem;
 				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
+				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 				border-top-left-radius: 0.4rem;
 				border-top-right-radius: 0.4rem;
 				box-sizing: border-box;

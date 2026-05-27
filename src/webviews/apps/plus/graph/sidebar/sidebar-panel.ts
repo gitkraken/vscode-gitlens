@@ -2,6 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { URI } from 'vscode-uri';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -25,6 +26,7 @@ import {
 	stashTooltip,
 	tagTooltip,
 	worktreeTooltip,
+	worktreeTooltipWithoutChangesLine,
 } from '../../../../plus/graph/sidebarTooltips.js';
 import {
 	agentPhaseToCategory,
@@ -47,6 +49,9 @@ import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../overview/graph-overview.js';
+import '../../../shared/components/commit/commit-stats.js';
+import '../../../shared/components/commit/wip-stats.js';
+import '../../../shared/components/markdown/markdown.js';
 import './agent-tooltip.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -126,6 +131,11 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 
 export interface GraphSidebarPanelSelectEventDetail {
 	sha: string;
+	/** Agent leaves only — the id of the session represented by the clicked tree item. Lets the
+	 *  graph-app's handler expand the agents section, highlight the matching card in the details
+	 *  pane, and scroll it into view alongside the WIP row selection. Absent on non-agent leaves
+	 *  (branches, tags, stashes, …). */
+	sessionId?: string;
 }
 
 export type GraphSidebarTogglePinnedEventDetail = void;
@@ -138,7 +148,7 @@ export interface SidebarItemScope {
 	upstreamName?: string;
 }
 
-type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope];
+type SidebarItemContext = [sha: string | undefined, scope?: SidebarItemScope, sessionId?: string];
 
 interface LeafProps {
 	label: string;
@@ -812,14 +822,61 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
+		// Place the WIP pill before the tracking arrows so the row reads `[wip][↑↓][active][lock]`,
+		// matching the overview card's left-to-right ordering. Bare worktrees never have a working
+		// tree of their own (`hasChanges` stays undefined) and stay pill-less.
+		const wipDecoration: TreeItemDecoration[] =
+			w.hasChanges != null
+				? [
+						{
+							type: 'wip',
+							label: w.hasChanges ? 'Working tree has changes' : 'No changes',
+							hasChanges: w.hasChanges,
+							added: w.workingTreeState?.added,
+							changed: w.workingTreeState?.changed,
+							deleted: w.workingTreeState?.deleted,
+						},
+					]
+				: [];
+
+		// Compose a rich row tooltip: the existing markdown text + a wip stats pill where the
+		// "Has Uncommitted Changes" line used to be. Falls back to the bare markdown when no
+		// breakdown is known (bare worktrees, or a probe that hasn't resolved yet).
+		// Trailing `\\\n` is a single markdown hard line break — keeps the wip pill / fallback
+		// from sitting flush against the markdown's last text line.
+		const tooltipMarkdown = `${worktreeTooltipWithoutChangesLine(w)}\\\n`;
+		const wts = w.workingTreeState;
+		// Destructure into locals so TS narrows the optional fields once and the template below
+		// doesn't have to repeat `wts?.` / non-null assertions.
+		const added = wts?.added ?? 0;
+		const changed = wts?.changed ?? 0;
+		const deleted = wts?.deleted ?? 0;
+		const hasBreakdown = wts != null && added + changed + deleted > 0;
+		const tooltip =
+			w.hasChanges != null
+				? html`<gl-markdown density="compact" .markdown=${tooltipMarkdown}></gl-markdown> ${hasBreakdown
+							? html`<commit-stats
+									added=${added || nothing}
+									modified=${changed || nothing}
+									removed=${deleted || nothing}
+									symbol="icons"
+									appearance="pill"
+									no-tooltip
+								></commit-stats>`
+							: html`<span class="tooltip-fallback"
+									>${w.hasChanges ? 'Has Uncommitted Changes' : 'No Uncommitted Changes'}</span
+								>`}`
+				: worktreeTooltip(w);
+
 		return {
 			label: isTree ? (branchName.split('/').pop() ?? branchName) : branchName,
 			filterText: isTree ? branchName : undefined,
-			tooltip: worktreeTooltip(w),
+			tooltip: tooltip,
 			icon: w.branch != null ? { type: 'branch', status: w.status, hasChanges: w.hasChanges } : 'git-commit',
 			description: formatWorktreeDescription(w),
 			context: [w.wipSha] as SidebarItemContext,
 			decorations: [
+				...wipDecoration,
 				...(trackingDecorations(w.tracking) ?? []),
 				...(w.opened ? [{ type: 'icon' as const, icon: 'check', label: 'Active' }] : []),
 				...(w.locked ? [{ type: 'icon' as const, icon: 'lock', label: 'Locked' }] : []),
@@ -959,7 +1016,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
 			icon: { type: 'agent', phase: session.phase },
 			description: description,
-			context: [sha, scope] as SidebarItemContext,
+			context: [sha, scope, session.id] as SidebarItemContext,
 			decorations: decorations,
 			actions: actions,
 		};
@@ -1000,7 +1057,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					firstIndex: index,
 					name:
 						session.worktree?.name ??
-						(session.worktreePath ? basename(session.worktreePath) : 'Unattached'),
+						(session.worktreePath
+							? basename(session.worktreePath)
+							: session.cwd
+								? `Unattached (${basename(session.cwd)})`
+								: 'Unattached'),
 					type: session.worktreePath != null ? 'worktree' : 'folder',
 					// Sessions in a group share the same worktree → share the same anchor.
 					anchor: this.resolveAgentAnchor(session, graphAnchor),
@@ -1026,6 +1087,25 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						? basename(group.worktreePath)
 						: undefined;
 
+				const actions: TreeItemAction[] =
+					group.type === 'worktree' && group.worktreePath != null
+						? [
+								{
+									icon: 'terminal',
+									label: 'Open in Integrated Terminal',
+									action: 'gitlens.openInIntegratedTerminal:graph',
+								},
+							]
+						: [];
+
+				// The command is registered through `WebviewCommandRegistrar` and requires
+				// `webview`/`webviewInstance` to be present on the arg — the host augments those when
+				// dispatching via `params.context`, so route the worktree URI through `contextData`.
+				const contextData =
+					group.type === 'worktree' && group.worktreePath != null
+						? JSON.stringify({ worktreeUri: URI.file(group.worktreePath).toString() })
+						: undefined;
+
 				return {
 					branch: true,
 					expanded: true,
@@ -1036,7 +1116,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					description: description !== group.name ? description : undefined,
 					checkable: false,
 					context: [group.anchor.wipSha, group.anchor.scope] as SidebarItemContext,
+					contextData: contextData,
 					children: children,
+					actions: actions,
 				};
 			});
 	}
@@ -1253,9 +1335,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
+		const sessionId = context?.[2];
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
-				detail: { sha: sha },
+				detail: { sha: sha, sessionId: sessionId },
 				bubbles: true,
 				composed: true,
 			}),

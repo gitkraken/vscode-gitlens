@@ -230,8 +230,8 @@ suite('DetailsActions', () => {
 
 	test('toggleCompareWorkingTree invalidates side data and refetches summary with the toggle enabled', async () => {
 		const state = createDetailsState();
-		state.branchCompareLeftRef.set('feature');
-		state.branchCompareRightRef.set('main');
+		state.branchCompareLeftRef.set('main');
+		state.branchCompareRightRef.set('feature');
 		state.branchCompareAheadLoaded.set(true);
 		state.branchCompareBehindLoaded.set(true);
 		state.branchCompareSelectedCommitShaByTab.set(new Map([['ahead', 'abc']]));
@@ -276,17 +276,17 @@ suite('DetailsActions', () => {
 		assert.deepStrictEqual(state.branchCompareAllFiles.get(), summary.allFiles);
 	});
 
-	test('fetchCompareSummary propagates leftRefWorktreePath from summary result', async () => {
+	test('fetchCompareSummary propagates rightRefWorktreePath from summary result', async () => {
 		const state = createDetailsState();
-		state.branchCompareLeftRef.set('feature');
-		state.branchCompareRightRef.set('main');
+		state.branchCompareLeftRef.set('main');
+		state.branchCompareRightRef.set('feature');
 
 		const summary: BranchComparisonSummary = {
 			aheadCount: 0,
 			behindCount: 0,
 			allFilesCount: 0,
 			allFiles: [],
-			leftRefWorktreePath: '/wt/foo',
+			rightRefWorktreePath: '/wt/foo',
 		};
 		const resources = createResources({
 			branchCompareSummary: createResource(async () => summary),
@@ -295,14 +295,14 @@ suite('DetailsActions', () => {
 
 		await actions.fetchCompareSummary('/repo');
 
-		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), '/wt/foo');
+		assert.strictEqual(state.branchCompareRightRefWorktreePath.get(), '/wt/foo');
 	});
 
-	test('fetchCompareSummary clears leftRefWorktreePath when summary has none', async () => {
+	test('fetchCompareSummary clears rightRefWorktreePath when summary has none', async () => {
 		const state = createDetailsState();
-		state.branchCompareLeftRef.set('feature');
-		state.branchCompareRightRef.set('main');
-		state.branchCompareLeftRefWorktreePath.set('/wt/stale');
+		state.branchCompareLeftRef.set('main');
+		state.branchCompareRightRef.set('feature');
+		state.branchCompareRightRefWorktreePath.set('/wt/stale');
 
 		const summary: BranchComparisonSummary = {
 			aheadCount: 0,
@@ -317,14 +317,14 @@ suite('DetailsActions', () => {
 
 		await actions.fetchCompareSummary('/repo');
 
-		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+		assert.strictEqual(state.branchCompareRightRefWorktreePath.get(), undefined);
 	});
 
-	test('changeCompareRef clears leftRefWorktreePath synchronously on left side change', async () => {
+	test('changeCompareRef clears rightRefWorktreePath synchronously on right side change', async () => {
 		const state = createDetailsState();
-		state.branchCompareLeftRef.set('feature');
-		state.branchCompareRightRef.set('main');
-		state.branchCompareLeftRefWorktreePath.set('/wt/stale');
+		state.branchCompareLeftRef.set('main');
+		state.branchCompareRightRef.set('feature');
+		state.branchCompareRightRefWorktreePath.set('/wt/stale');
 
 		const services = {
 			graphInspect: {
@@ -336,17 +336,17 @@ suite('DetailsActions', () => {
 		} as unknown as ResolvedServices;
 		const actions = new DetailsActions(state, services, createResources());
 
-		const pending = actions.changeCompareRef('left', '/repo');
+		const pending = actions.changeCompareRef('right', '/repo');
 		// Synchronous clear must happen before the first microtask boundary.
-		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+		assert.strictEqual(state.branchCompareRightRefWorktreePath.get(), undefined);
 		await pending;
-		assert.strictEqual(state.branchCompareLeftRefWorktreePath.get(), undefined);
+		assert.strictEqual(state.branchCompareRightRefWorktreePath.get(), undefined);
 	});
 
 	test('markBranchCompareStale only marks active working-tree comparisons and refresh clears it', async () => {
 		const state = createDetailsState();
-		state.branchCompareLeftRef.set('feature');
-		state.branchCompareRightRef.set('main');
+		state.branchCompareLeftRef.set('main');
+		state.branchCompareRightRef.set('feature');
 		state.compareSheetOpen.set(true);
 
 		const summaryFetches: BranchComparisonOptions[] = [];
@@ -396,8 +396,9 @@ suite('DetailsActions', () => {
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
 		};
+		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => wip),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 
@@ -417,8 +418,9 @@ suite('DetailsActions', () => {
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
 		};
+		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => wip),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 

@@ -206,7 +206,7 @@ export class GlAiInput extends LitElement {
 			color: var(--vscode-foreground);
 			border-radius: 0 0.6rem 0.6rem 0;
 			border-right: 1px solid transparent;
-			margin-right: -1px;
+			margin-right: 0;
 			transition:
 				background 0.25s,
 				color 0.25s,

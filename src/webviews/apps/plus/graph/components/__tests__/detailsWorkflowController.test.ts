@@ -1195,12 +1195,12 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 
 		assert.strictEqual(state.compareSheetOpen.get(), true);
-		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
-		assert.strictEqual(state.branchCompareRightRef.get(), 'main');
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'main');
+		assert.strictEqual(state.branchCompareRightRef.get(), 'feature');
 	});
 
 	test('openCompare while already-open with no overrides is a no-op (preserves in-flight comparison)', () => {
@@ -1208,15 +1208,16 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
-		// Simulate the user mutating the comparison after open
-		state.branchCompareActiveTab.set('ahead');
+		// Simulate the user mutating the comparison after open — pick a non-default tab so the
+		// no-op assertion below actually exercises preservation (not just equality with the default).
+		state.branchCompareActiveTab.set('behind');
 
 		controller.openCompare({ sha: uncommitted, shas: undefined, repoPath: '/A' });
 
-		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
-		assert.strictEqual(state.branchCompareActiveTab.get(), 'ahead', 'tab selection survives a no-op re-open');
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'main');
+		assert.strictEqual(state.branchCompareActiveTab.get(), 'behind', 'tab selection survives a no-op re-open');
 	});
 
 	test('closeCompare clears both visibility signals and all compare state', () => {
@@ -1224,9 +1225,11 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
-		state.branchCompareActiveTab.set('ahead');
+		// Pre-set to a non-default tab so the post-close assertion below actually exercises
+		// `closeCompare`'s reset (would pass vacuously if we pre-set 'ahead', the default).
+		state.branchCompareActiveTab.set('behind');
 
 		controller.closeCompare();
 
@@ -1234,7 +1237,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		assert.strictEqual(state.compareAsPanel.get(), false);
 		assert.strictEqual(state.branchCompareLeftRef.get(), undefined);
 		assert.strictEqual(state.branchCompareRightRef.get(), undefined);
-		assert.strictEqual(state.branchCompareActiveTab.get(), 'all', 'active tab resets to default');
+		assert.strictEqual(state.branchCompareActiveTab.get(), 'ahead', 'active tab resets to default');
 	});
 
 	test('openCompareAsPanel swaps sheet for panel form (visibility flip, state intact)', () => {
@@ -1242,7 +1245,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 		state.branchCompareActiveTab.set('behind');
 
@@ -1250,7 +1253,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		assert.strictEqual(state.compareSheetOpen.get(), false);
 		assert.strictEqual(state.compareAsPanel.get(), true);
-		assert.strictEqual(state.branchCompareLeftRef.get(), 'feature');
+		assert.strictEqual(state.branchCompareLeftRef.get(), 'main');
 		assert.strictEqual(state.branchCompareActiveTab.get(), 'behind', 'tab survives the form swap');
 	});
 
@@ -1259,13 +1262,13 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 		controller.openCompareAsPanel();
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'topic', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'topic', rightRefType: 'branch' },
 		);
 
 		// Any new open (with overrides) resets the form to sheet. The user re-commits to the panel
@@ -1273,7 +1276,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 		// the override path; a no-override repeat-click is the early-return no-op covered above.
 		assert.strictEqual(state.compareAsPanel.get(), false, 'panel form is dismissed on re-open');
 		assert.strictEqual(state.compareSheetOpen.get(), true, 'fresh open is always a sheet');
-		assert.strictEqual(state.branchCompareLeftRef.get(), 'topic', 'refs were updated');
+		assert.strictEqual(state.branchCompareRightRef.get(), 'topic', 'refs were updated');
 	});
 
 	test('graph-repo switch closes any open compare (sheet)', () => {
@@ -1281,7 +1284,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 		assert.strictEqual(state.compareSheetOpen.get(), true);
 
@@ -1297,7 +1300,7 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		controller.openCompare(
 			{ sha: uncommitted, shas: undefined, repoPath: '/A' },
-			{ leftRef: 'feature', leftRefType: 'branch', rightRef: 'main', rightRefType: 'branch' },
+			{ leftRef: 'main', leftRefType: 'branch', rightRef: 'feature', rightRefType: 'branch' },
 		);
 		controller.openCompareAsPanel();
 

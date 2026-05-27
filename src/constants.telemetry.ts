@@ -1923,6 +1923,7 @@ export type TrackedGlActions =
 	| 'gitlens.graph.details.wipShown'
 	| 'gitlens.graph.overview.shown'
 	| 'gitlens.graph.scope.changed'
+	| 'gitlens.graph.walkthrough.started'
 	| 'gitlens.mcp.ipcRequest'
 	| 'gitlens.mcp.bundledMcpDefinitionProvided';
 

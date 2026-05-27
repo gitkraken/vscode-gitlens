@@ -44,6 +44,7 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
+import type { GraphWorkingTreeStats } from '../../../../plus/graph/protocol.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -123,7 +124,7 @@ export interface ResolvedServices {
 
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<Wip | undefined, [string]>;
+	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -230,7 +231,14 @@ export class DetailsActions {
 		this.state.branchCompareBehindFiles.set([]);
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
-		this.state.branchCompareLeftRefWorktreePath.set(undefined);
+		this.state.branchCompareAheadHasMore.set(false);
+		this.state.branchCompareBehindHasMore.set(false);
+		this.state.branchCompareAheadLimit.set(100);
+		this.state.branchCompareBehindLimit.set(100);
+		this.state.branchCompareAheadLoadingMore.set(false);
+		this.state.branchCompareBehindLoadingMore.set(false);
+		this.state.branchCompareRightRefWorktreePath.set(undefined);
+		this.state.branchCompareMergeBase.set(undefined);
 	}
 
 	private clearCompareEnrichment(): void {
@@ -419,6 +427,12 @@ export class DetailsActions {
 		s.branchCompareBehindFiles.set([]);
 		s.branchCompareAheadLoaded.set(false);
 		s.branchCompareBehindLoaded.set(false);
+		s.branchCompareAheadHasMore.set(false);
+		s.branchCompareBehindHasMore.set(false);
+		s.branchCompareAheadLimit.set(100);
+		s.branchCompareBehindLimit.set(100);
+		s.branchCompareAheadLoadingMore.set(false);
+		s.branchCompareBehindLoadingMore.set(false);
 		s.branchCompareAutolinksByScope.set(new Map());
 		s.branchCompareEnrichedAutolinksByScope.set(new Map());
 		s.branchCompareContributorsByScope.set(new Map());
@@ -516,6 +530,10 @@ export class DetailsActions {
 			aiEnabled: aiEnabled,
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges,
+			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`
+			// from `graph:state`; these fields satisfy the shared `Preferences` shape only.
+			showSearchBox: true,
+			searchBoxFilter: true,
 		});
 		this.state.autolinksEnabled.set(autolinksEnabled ?? true);
 		this.state.hasIntegrationsConnected.set(integrations?.some(i => i.connected) ?? false);
@@ -733,14 +751,20 @@ export class DetailsActions {
 						// background so the panel converges without blocking the initial paint.
 						void (async () => {
 							try {
+								// Snapshot the stats generation BEFORE the await — if a host
+								// FS-watcher push lands during the in-flight RPC, the counter
+								// advances and `setWorkingTreeStats` drops our older response.
+								const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 								await this.resources.wip.fetch(repoPath);
 								if (this._lastFetchedKey !== key) return;
 
 								if (this.resources.wip.status.get() === 'success') {
-									const wip = this.resources.wip.value.get();
-									if (wip != null) {
+									const result = this.resources.wip.value.get();
+									if (result != null) {
+										const { wip, stats } = result;
 										this.state.wip.set(wip);
 										this.graphState?.setWip(repoPath, wip);
+										this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -759,16 +783,21 @@ export class DetailsActions {
 						})();
 					}
 				} else {
-					// Missing cache entry — block and fetch
+					// Missing cache entry — block and fetch. Same in-flight-RPC race rationale
+					// as the background-revalidate branch: snapshot the stats generation BEFORE
+					// the await so a host push landing mid-fetch isn't clobbered by our response.
+					const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 					await this.resources.wip.fetch(repoPath);
 
 					if (this._lastFetchedKey !== key) return;
 
 					if (this.resources.wip.status.get() === 'success') {
-						const wip = this.resources.wip.value.get();
-						if (wip != null) {
+						const result = this.resources.wip.value.get();
+						if (result != null) {
+							const { wip, stats } = result;
 							this.state.wip.set(wip);
 							this.graphState?.setWip(repoPath, wip);
+							this.graphState?.setWorkingTreeStats(repoPath, stats, expectedStatsGen);
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -1341,17 +1370,18 @@ export class DetailsActions {
 	}
 
 	/** Tab-aware (from, to) for compare-mode AI actions. Host treats the first ref as the BASE
-	 *  and the second as the HEAD. In compare-mode state, `leftRef` is the head (branch tip) and
-	 *  `rightRef` is the base — so the All Files / Ahead direction maps to `(rightRef → leftRef)`,
-	 *  and Behind is the inverse. Mirrors `getComparisonRefDirection()` on the panel side, keeping
-	 *  the AI's diff direction aligned with what the user is looking at on each tab. */
+	 *  and the second as the HEAD. In compare-mode state, `leftRef` is the Base (older / "from")
+	 *  and `rightRef` is the Compare (newer / "to" / branch tip) — so the All Files / Ahead
+	 *  direction maps to `(leftRef → rightRef)`, and Behind is the inverse. Mirrors
+	 *  `getActiveTabRefs()` on the panel side, keeping the AI's diff direction aligned with what
+	 *  the user is looking at on each tab. */
 	private getCompareAIRefs(): { fromRef: string; toRef: string } | undefined {
 		const leftRef = this.state.branchCompareLeftRef.get();
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!leftRef || !rightRef) return undefined;
 
 		const reverse = this.state.branchCompareActiveTab.get() === 'behind';
-		return { fromRef: reverse ? leftRef : rightRef, toRef: reverse ? rightRef : leftRef };
+		return { fromRef: reverse ? rightRef : leftRef, toRef: reverse ? leftRef : rightRef };
 	}
 
 	branchCompareExplain(repoPath: string | undefined, prompt?: string): void {
@@ -1377,8 +1407,12 @@ export class DetailsActions {
 	async initCompareDefaults(repoPath: string | undefined, branchName?: string): Promise<void> {
 		if (!repoPath) return;
 
+		// The merge target is the BASE (what the Compare branch is being measured against), so it
+		// seeds `leftRef` (Base) — not `rightRef`. The `rightRef` (Compare) is seeded separately
+		// by the workflow controller from the active selection (wip / commit / multi-commit pivot).
 		const defaultRef = await this.services.graphInspect.getMergeTargetComparisonRef(repoPath, branchName);
-		this.state.branchCompareRightRef.set(defaultRef ?? 'main');
+		this.state.branchCompareLeftRef.set(defaultRef ?? 'main');
+		this.state.branchCompareLeftRefType.set('branch');
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
 	}
@@ -1401,6 +1435,10 @@ export class DetailsActions {
 		this.state.branchCompareStale.set(false);
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareAheadHasMore.set(false);
+		this.state.branchCompareBehindHasMore.set(false);
+		this.state.branchCompareAheadLimit.set(100);
+		this.state.branchCompareBehindLimit.set(100);
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
@@ -1435,11 +1473,35 @@ export class DetailsActions {
 			return;
 		}
 
+		// Invalidate per-side loaded flags when the count changed since the last summary fetch —
+		// re-running the summary (e.g. after a commit, fetch, or rebase landed) may show new
+		// commits on a side, and `fetchCompareSideIfNeeded` short-circuits on `loaded=true`, so
+		// without this the side's commit list and contributors view would stay stale until the
+		// user manually refreshed. Identity-change paths (`changeCompareRef`, `swapCompareRefs`,
+		// `closeCompare`, etc.) already clear `loaded` themselves; this only catches in-place
+		// data changes for the same comparison identity.
+		const prevAhead = this.state.branchCompareAheadCount.get();
+		const prevBehind = this.state.branchCompareBehindCount.get();
 		this.state.branchCompareAheadCount.set(result.aheadCount);
 		this.state.branchCompareBehindCount.set(result.behindCount);
 		this.state.branchCompareAllFiles.set(result.allFiles.slice());
 		this.state.branchCompareAllFilesCount.set(result.allFilesCount);
-		this.state.branchCompareLeftRefWorktreePath.set(result.leftRefWorktreePath);
+		this.state.branchCompareRightRefWorktreePath.set(result.rightRefWorktreePath);
+		this.state.branchCompareMergeBase.set(result.mergeBase);
+
+		if (result.aheadCount !== prevAhead && this.state.branchCompareAheadLoaded.get()) {
+			this.state.branchCompareAheadLoaded.set(false);
+			// Per-scope enrichment caches are keyed by the (now-stale) commit set; evict the
+			// 'ahead' entries so contributors and autolinks refetch from the new commits. Also
+			// evict 'all' because it's the symmetric union of both sides.
+			this.invalidateBranchCompareScopeCaches('ahead');
+			this.invalidateBranchCompareScopeCaches('all');
+		}
+		if (result.behindCount !== prevBehind && this.state.branchCompareBehindLoaded.get()) {
+			this.state.branchCompareBehindLoaded.set(false);
+			this.invalidateBranchCompareScopeCaches('behind');
+			this.invalidateBranchCompareScopeCaches('all');
+		}
 
 		// Seed enrichment for the active scope. Both calls no-op on cache hit.
 		void this.fetchBranchCompareAutolinks(repoPath);
@@ -1457,8 +1519,17 @@ export class DetailsActions {
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!repoPath || !leftRef || !rightRef) return;
 
+		const limit =
+			side === 'ahead' ? this.state.branchCompareAheadLimit.get() : this.state.branchCompareBehindLimit.get();
 		const options: BranchComparisonOptions = {
 			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+			limit: limit,
+			// Reuse the merge base already resolved by the summary fetch (when present) so the
+			// host doesn't spawn a duplicate `git merge-base` process. Threading it through also
+			// guarantees side and summary anchor on the SAME divergence point — without this,
+			// a force-push between the two fetches could leave them with different bases and
+			// produce inconsistent file lists.
+			mergeBase: this.state.branchCompareMergeBase.get(),
 		};
 		const identityKey = this.getBranchCompareIdentityKey(repoPath, side);
 
@@ -1474,10 +1545,12 @@ export class DetailsActions {
 			this.state.branchCompareAheadCommits.set(result.commits);
 			this.state.branchCompareAheadFiles.set(result.files);
 			this.state.branchCompareAheadLoaded.set(true);
+			this.state.branchCompareAheadHasMore.set(result.hasMore);
 		} else {
 			this.state.branchCompareBehindCommits.set(result.commits);
 			this.state.branchCompareBehindFiles.set(result.files);
 			this.state.branchCompareBehindLoaded.set(true);
+			this.state.branchCompareBehindHasMore.set(result.hasMore);
 		}
 
 		// Side commits arrived → re-seed enrichment for the active scope (autolinks may pick up
@@ -1497,13 +1570,63 @@ export class DetailsActions {
 		await this.fetchCompareSide(repoPath, side);
 	}
 
+	/** Load the next page of compare commits for the given side. Limit-replace pattern (mirrors
+	 *  `loadMoreBranchCommits`): the side's `limit` signal is bumped by +100 and `fetchCompareSide`
+	 *  re-runs with the larger cap; the new result idempotently supersedes the smaller one
+	 *  (`git log -n` always returns from the side's tip, so the larger response includes the
+	 *  smaller one). No-ops if already loading, if the side reports `hasMore: false`, or if the
+	 *  side hasn't been loaded yet.
+	 *
+	 *  Rolls the bumped limit BACK to the prior value if the fetch didn't actually grow the
+	 *  commits array — covers cancellation (e.g. the user switched tabs and `cancelPrevious` on
+	 *  the shared `branchCompareSide` resource cancelled this fetch) and outright failures.
+	 *  Without rollback, a stranded bump would cause the NEXT Load More click to jump two
+	 *  pages (e.g. visible 100 → 300, silently skipping the next 100). */
+	async loadMoreCompareCommits(side: 'ahead' | 'behind', repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		const loadingMoreSignal =
+			side === 'ahead' ? this.state.branchCompareAheadLoadingMore : this.state.branchCompareBehindLoadingMore;
+		const hasMoreSignal =
+			side === 'ahead' ? this.state.branchCompareAheadHasMore : this.state.branchCompareBehindHasMore;
+		const limitSignal = side === 'ahead' ? this.state.branchCompareAheadLimit : this.state.branchCompareBehindLimit;
+		const loadedSignal =
+			side === 'ahead' ? this.state.branchCompareAheadLoaded : this.state.branchCompareBehindLoaded;
+		const commitsSignal =
+			side === 'ahead' ? this.state.branchCompareAheadCommits : this.state.branchCompareBehindCommits;
+
+		if (loadingMoreSignal.get() || !hasMoreSignal.get() || !loadedSignal.get()) return;
+
+		const prevLimit = limitSignal.get();
+		const prevCommitsLen = commitsSignal.get().length;
+		const nextLimit = prevLimit + 100;
+		loadingMoreSignal.set(true);
+		try {
+			limitSignal.set(nextLimit);
+			await this.fetchCompareSide(repoPath, side);
+			// If the side fetch was cancelled or errored, commits length stays at the prior
+			// value (the post-await guards in `fetchCompareSide` bail before writing). Roll the
+			// limit signal back so a subsequent retry resumes from the same page instead of
+			// skipping ahead.
+			if (commitsSignal.get().length <= prevCommitsLen) {
+				limitSignal.set(prevLimit);
+			}
+		} finally {
+			loadingMoreSignal.set(false);
+		}
+	}
+
 	async changeCompareRef(side: 'left' | 'right', repoPath: string | undefined): Promise<void> {
 		if (!repoPath) return;
 
-		// Clear synchronously BEFORE the await so the IWT toggle doesn't briefly flash for the old
-		// leftRef's worktree while the user picks a new ref (the new ref's worktree may not exist).
-		if (side === 'left') {
-			this.state.branchCompareLeftRefWorktreePath.set(undefined);
+		// Clear the rightRef's worktree path synchronously so the IWT toggle doesn't briefly flash
+		// for the old worktree while the user picks a new ref. `mergeBase` is intentionally NOT
+		// cleared here — keeping the prior value means a click during picker open still produces
+		// a coherent file context (against the OLD, unchanged comparison) instead of falling
+		// through to the 2-dot fallback and producing a diff that mismatches the visible file
+		// list. On picker confirm, `clearBranchCompareData()` below wipes mergeBase + everything.
+		if (side === 'right') {
+			this.state.branchCompareRightRefWorktreePath.set(undefined);
 		}
 
 		const currentRef =
@@ -1513,12 +1636,26 @@ export class DetailsActions {
 			'Choose a Reference to Compare',
 			currentRef,
 		);
-		if (!result) return;
+		if (!result) {
+			// Picker cancelled — restore state for the unchanged identity. For the right side
+			// specifically we already cleared `rightRefWorktreePath` synchronously above, which
+			// hid the IWT toggle. Without this refetch the toggle would stay hidden permanently
+			// even though the comparison identity didn't change.
+			if (side === 'right') {
+				void this.fetchCompareSummary(repoPath);
+			}
+			return;
+		}
 
+		// Write both the ref name AND its type so the panel's branch button renders the correct
+		// icon (branch / tag / commit) after the pick — previously only the name was updated, so
+		// picking a tag when a branch was set kept the branch icon next to the new tag name.
 		if (side === 'left') {
 			this.state.branchCompareLeftRef.set(result.name);
+			this.state.branchCompareLeftRefType.set(result.refType);
 		} else {
 			this.state.branchCompareRightRef.set(result.name);
+			this.state.branchCompareRightRefType.set(result.refType);
 		}
 		// Comparison identity changed — clear side/all-file data immediately so stale commits
 		// cannot seed enrichment while the new summary/side fetches are in flight.
@@ -1534,18 +1671,41 @@ export class DetailsActions {
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!leftRef || !rightRef) return;
 
-		void this.services.graphInspect.openComparisonInSearchAndCompare(repoPath, leftRef, rightRef);
+		// S&C's `compare(repoPath, ref1, ref2)` contract is `(head/Compare, compareWith/Base)`
+		// (see `searchAndCompareView.compare` + `selectForCompare` flow). Our convention is the
+		// opposite — `leftRef = Base, rightRef = Compare`. Swap on the wire so the S&C node opens
+		// with Ahead/Behind oriented the same way as the graph compare panel.
+		void this.services.graphInspect.openComparisonInSearchAndCompare(repoPath, rightRef, leftRef);
 	}
 
 	swapCompareRefs(repoPath: string | undefined): void {
-		const temp = this.state.branchCompareLeftRef.get();
+		const tempRef = this.state.branchCompareLeftRef.get();
+		const tempRefType = this.state.branchCompareLeftRefType.get();
 		this.state.branchCompareLeftRef.set(this.state.branchCompareRightRef.get());
-		this.state.branchCompareRightRef.set(temp);
-		this.state.branchCompareActiveTab.set('all');
+		this.state.branchCompareLeftRefType.set(this.state.branchCompareRightRefType.get());
+		this.state.branchCompareRightRef.set(tempRef);
+		this.state.branchCompareRightRefType.set(tempRefType);
+		this.state.branchCompareActiveTab.set('ahead');
+		// IWT is anchored to the (new) rightRef's worktree. After swap the new rightRef may not
+		// have a worktree, which would hide the toggle while leaving the signal at `true`; on
+		// a future swap back the toggle would silently re-apply without the user re-enabling it.
+		// Reset to off so the user re-opts-in once the new identity settles.
+		this.state.branchCompareIncludeWorkingTree.set(false);
 		// Comparison identity changed — old commit selections no longer apply to the new range.
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareAheadHasMore.set(false);
+		this.state.branchCompareBehindHasMore.set(false);
+		this.state.branchCompareAheadLimit.set(100);
+		this.state.branchCompareBehindLimit.set(100);
+		this.state.branchCompareAheadLoadingMore.set(false);
+		this.state.branchCompareBehindLoadingMore.set(false);
+		// Clear synchronously so the IWT toggle doesn't briefly flash for the prior rightRef's
+		// worktree while the new summary fetch is in flight. `fetchCompareSummary` re-populates
+		// this from the new identity's result.
+		this.state.branchCompareRightRefWorktreePath.set(undefined);
+		this.state.branchCompareMergeBase.set(undefined);
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
 	}
@@ -1555,6 +1715,10 @@ export class DetailsActions {
 		this.state.branchCompareStale.set(false);
 		this.state.branchCompareAheadLoaded.set(false);
 		this.state.branchCompareBehindLoaded.set(false);
+		this.state.branchCompareAheadHasMore.set(false);
+		this.state.branchCompareBehindHasMore.set(false);
+		this.state.branchCompareAheadLimit.set(100);
+		this.state.branchCompareBehindLimit.set(100);
 		this.state.branchCompareSelectedCommitShaByTab.set(new Map());
 		this.clearBranchCompareEnrichmentCaches();
 		void this.refreshCompare(repoPath);
@@ -1562,12 +1726,37 @@ export class DetailsActions {
 
 	switchCompareTab(tab: 'all' | 'ahead' | 'behind', repoPath: string | undefined): void {
 		this.state.branchCompareActiveTab.set(tab);
-		// 'all' tab is fully served by Phase 1; only Ahead/Behind require Phase 2. The IfNeeded
-		// variant no-ops if already loaded for the current refs/wip — second switch into a side
-		// is instant.
-		if (tab === 'ahead' || tab === 'behind') {
-			void this.fetchCompareSideIfNeeded(repoPath, tab);
+		// Re-validate counts/all-files/mergeBase on every tab switch — if the underlying repo
+		// changed since the last fetch (a new commit landed, a fetch ran, a branch was rebased),
+		// the tab badges, all-files list, and per-side commit/file lists could be stale. The
+		// summary fetch is cheap (a `--left-right` count + a diff-status); when its counts
+		// differ from the cached values, it invalidates the affected side's `loaded` flag so the
+		// subsequent `fetchCompareSideIfNeeded` refetches commits. No-ops if the data is fresh
+		// because the resource layer dedupes identical fetches.
+		void this.fetchCompareSummary(repoPath).then(() => {
+			// Guard against rapid tab switches: this `.then` was scheduled when `tab` was active,
+			// but the cancelled summary still resolves so we'd fire `fetchCompareSideIfNeeded`
+			// for the previous tab AFTER the user has moved on. The shared `branchCompareSide`
+			// resource would then cancel the new tab's in-flight side fetch via cancelPrevious,
+			// leaving the visible tab wedged in loading state.
+			if (this.state.branchCompareActiveTab.get() !== tab) return;
+
+			// 'all' tab is fully served by Phase 1; only Ahead/Behind require Phase 2. The
+			// IfNeeded variant no-ops if already loaded for the current refs/wip — second switch
+			// into a side is instant. Runs AFTER the summary so a count change can invalidate
+			// `loaded` and force a fresh side fetch here.
+			if (tab === 'ahead' || tab === 'behind') {
+				void this.fetchCompareSideIfNeeded(repoPath, tab);
+			}
+		});
+		// Contributors and autolinks are per-scope (ahead/behind/all). When the user is currently
+		// viewing the Contributors pane, switching tabs has to fetch contributors for the new
+		// scope — otherwise the pane keeps showing the previous tab's contributors. Both fetchers
+		// no-op on cache hit, so revisited scopes are instant.
+		if (this.state.branchCompareActiveView.get() === 'contributors') {
+			void this.fetchBranchCompareContributors(repoPath, tab);
 		}
+		void this.fetchBranchCompareAutolinks(repoPath, tab);
 	}
 
 	selectCompareCommit(sha: string | undefined, repoPath: string | undefined): void {
@@ -1664,6 +1853,33 @@ export class DetailsActions {
 				setLoading(false);
 			}
 		}
+	}
+
+	/** Evict the per-scope enrichment cache entries for a single scope — used when the underlying
+	 *  commit set for that scope changes without the comparison identity changing (e.g., new
+	 *  commits landed on the right branch and were picked up by a tab-switch summary refetch).
+	 *  Without this, contributors / autolinks would keep showing the previous commit set's
+	 *  enrichments. Also aborts any in-flight fetch for the scope so it doesn't overwrite the
+	 *  invalidation with stale results. */
+	private invalidateBranchCompareScopeCaches(scope: BranchComparisonContributorsScope): void {
+		this._branchCompareEnrichmentControllers.get(scope)?.abort();
+		this._branchCompareContributorsControllers.get(scope)?.abort();
+		this._branchCompareEnrichmentControllers.delete(scope);
+		this._branchCompareContributorsControllers.delete(scope);
+
+		const dropScope = <V>(map: ReadonlyMap<BranchComparisonContributorsScope, V>) => {
+			const next = new Map(map);
+			next.delete(scope);
+			return next;
+		};
+
+		this.state.branchCompareAutolinksByScope.set(dropScope(this.state.branchCompareAutolinksByScope.get()));
+		this.state.branchCompareEnrichedAutolinksByScope.set(
+			dropScope(this.state.branchCompareEnrichedAutolinksByScope.get()),
+		);
+		this.state.branchCompareContributorsByScope.set(dropScope(this.state.branchCompareContributorsByScope.get()));
+		this.state.branchCompareEnrichmentLoading.set(dropScope(this.state.branchCompareEnrichmentLoading.get()));
+		this.state.branchCompareContributorsLoading.set(dropScope(this.state.branchCompareContributorsLoading.get()));
 	}
 
 	private clearBranchCompareEnrichmentCaches(): void {
@@ -2194,19 +2410,19 @@ export class DetailsActions {
 		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
-	openFile(detail: FileChangeListItemDetail, ref?: string): void {
+	openFile(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFile(this.services.files, detail, detail.showOptions, ref);
 	}
 
-	openFileOnRemote(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileOnRemote(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileOnRemote(this.services.files, detail, ref);
 	}
 
-	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileCompareWorking(this.services.files, detail, detail.showOptions, ref);
 	}
 
-	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: string): void {
+	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
 	}
 
@@ -2264,7 +2480,7 @@ export class DetailsActions {
 		}
 	}
 
-	executeFileAction(detail: FileChangeListItemDetail, ref?: string): void {
+	executeFileAction(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
 	}
 
@@ -2347,13 +2563,20 @@ export class DetailsActions {
 	async refetchWipQuiet(repoPath: string): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
 		this._lastFetchedKey = undefined;
+		// Snapshot the stats generation BEFORE the await — a host FS-watcher push landing
+		// during the in-flight RPC has fresher stats than ours, so we shouldn't overwrite.
+		const expectedStatsGen = this.graphState?.workingTreeStatsGen;
 		await this.resources.wip.fetch(repoPath);
 		if (this.resources.wip.status.get() !== 'success') return;
 
-		const wip = this.resources.wip.value.get();
-		if (wip == null) return;
+		const result = this.resources.wip.value.get();
+		if (result == null) return;
 
-		this.applyWipPayload(wip, repoPath);
+		this.applyWipPayload(result.wip, repoPath);
+		// Reseed the header/row badge source from the same `git status` the panel just ran —
+		// closes the staleness gap when the prior `workingTreeStats` push was missed or wrong.
+		// Generation guard at the helper drops this if a fresher host push raced us.
+		this.graphState?.setWorkingTreeStats(repoPath, result.stats, expectedStatsGen);
 	}
 
 	/**
@@ -2422,7 +2645,35 @@ export class DetailsActions {
 		this.graphState?.setWip(wip.repo.path, updatedWip);
 	}
 
-	canCommit(): boolean {
+	// Drops the files that the just-completed `git commit` removed from the WIP, so the panel
+	// can flip to the "no changes" UI (or to the remaining unstaged subset) in the same task
+	// instead of waiting for the host's debounced repo-change push to land.
+	// - `all` (smart-commit / `git commit -a`): tracked changes are committed; untracked stays.
+	// - Otherwise (including `--amend` without `all`): only staged entries are committed; the
+	//   unstaged side of mixed files stays.
+	private optimisticallyClearCommittedFiles(all: boolean): void {
+		const wip = this.state.wip.get();
+		if (!wip?.changes?.files?.length) return;
+
+		const nextFiles = all
+			? wip.changes.files.filter(f => f.status === '?')
+			: wip.changes.files.filter(f => !f.staged);
+		if (nextFiles.length === wip.changes.files.length) return;
+
+		// When the WIP fully empties, also clear paused-op + conflict chrome — a successful
+		// commit ends a paused merge/cherry-pick and can't leave conflicts behind. Partial
+		// commits keep both flags as-is so a still-paused op stays visible until the host
+		// push reconciles.
+		const nextChanges =
+			nextFiles.length === 0
+				? { ...wip.changes, files: nextFiles, hasConflicts: false, pausedOpStatus: undefined }
+				: { ...wip.changes, files: nextFiles };
+		const updatedWip = { ...wip, changes: nextChanges };
+		this.state.wip.set(updatedWip);
+		this.graphState?.setWip(wip.repo.path, updatedWip);
+	}
+
+	canCommitReason(): 'no-message' | 'no-staged' | undefined {
 		const message = this.state.commitMessage.get();
 		const isAmend = this.state.amend.get();
 		const wip = this.state.wip.get();
@@ -2430,7 +2681,14 @@ export class DetailsActions {
 		const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
 		const smartCommit = prefs?.enableSmartCommit ?? false;
 		const hasChanges = (wip?.changes?.files?.length ?? 0) > 0;
-		return (Boolean(message.trim()) && (hasStagedFiles || (smartCommit && hasChanges))) || isAmend;
+
+		if (!message.trim()) return 'no-message';
+		if (!isAmend && !hasStagedFiles && !(smartCommit && hasChanges)) return 'no-staged';
+		return undefined;
+	}
+
+	canCommit(): boolean {
+		return this.canCommitReason() == null;
 	}
 
 	async commit(repoPath: string | undefined, sha: string | undefined): Promise<void> {
@@ -2457,6 +2715,8 @@ export class DetailsActions {
 			this.state.amend.set(false);
 			this.state.amendBaseSha.set(undefined);
 			this.state.commitError.set(undefined);
+			// Must run before `fetchDetails`, which reads `graphState.getWipState()` synchronously.
+			this.optimisticallyClearCommittedFiles(all);
 			this.refreshWip();
 			void this.fetchDetails(sha, repoPath);
 		} catch (ex) {
@@ -2478,7 +2738,12 @@ export class DetailsActions {
 		this._generateMessageController = controller;
 		this.state.generating.set(true);
 		try {
-			const result = await this.services.graphInspect.generateCommitMessage(repoPath, controller.signal);
+			const currentMessage = this.state.commitMessage.get().trim() || undefined;
+			const result = await this.services.graphInspect.generateCommitMessage(
+				repoPath,
+				currentMessage,
+				controller.signal,
+			);
 			// Guard against a late response after the user cancelled or kicked off
 			// a new generation — only land the result if this controller is still current.
 			if (this._generateMessageController !== controller) return;
@@ -2547,6 +2812,13 @@ export class DetailsActions {
 	startWork(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
 		void this.services.commands.execute('gitlens.startWork', {
 			source: 'graph-details' as const,
+			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
+		});
+	}
+
+	startPRReview(showOpenInAgent?: 'ask' | 'manual' | 'agent'): void {
+		void this.services.commands.execute('gitlens.startReview', {
+			source: { source: 'graph-details' },
 			...(showOpenInAgent != null ? { showOpenInAgent: showOpenInAgent } : {}),
 		});
 	}

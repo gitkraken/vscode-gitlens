@@ -1,8 +1,8 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitServiceContext } from '@gitlens/git/context.js';
 import type { GitResult } from '@gitlens/git/run.types.js';
-import * as sinon from 'sinon';
 import type { CliGitProviderInternal } from '../../cliGitProvider.js';
 import type { Git } from '../../exec/git.js';
 import { RefsGitSubProvider } from '../refs.js';

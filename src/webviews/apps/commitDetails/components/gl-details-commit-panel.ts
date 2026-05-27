@@ -2,7 +2,6 @@ import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
-import { getAltKeySymbol } from '@env/platform.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -116,7 +115,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	@property({ type: Boolean, attribute: 'compare-enabled' })
 	compareEnabled = false;
 
-	/** Host opts in to showing the "Jump to Nearest Working Changes" action (graph host only). */
+	/** Host opts in to showing the "Jump to Working Changes" action (graph host only). */
 	@property({ type: Boolean, attribute: 'show-jump-to-nearest-wip' })
 	showJumpToNearestWip = false;
 
@@ -350,21 +349,6 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		const { isStash } = this;
 
-		// When in review mode, replace the author row with a verb-led title so the header
-		// reads as "what's happening now" rather than the static commit metadata. The author
-		// info doesn't disappear from the panel — `renderEmbeddedMetadataBar` still surfaces
-		// the sha + author below.
-		// `commit.message` may contain `messageHeadlineSplitterToken` (`\x00\n\x00`) between the
-		// headline and the body — the bare `\x00` bytes render as missing-glyph squares, so
-		// normalize the token to a plain newline before doing anything else (mirrors the existing
-		// `replaceAll` calls a few methods below where the message is copied or shown elsewhere).
-		const message = (commit.message ?? '').replaceAll(messageHeadlineSplitterToken, '\n');
-		// `white-space: nowrap` collapses interior newlines into a single space, which mashes the
-		// body of multi-line commit messages onto the summary line and produces awkward double
-		// spaces around the join. Show only the summary (everything before the first newline) and
-		// leave the full message on the native title tooltip for hover reveal. `trimEnd` drops a
-		// stray `\r` when the message uses CRLF endings.
-		const messageFirstLine = (message.split('\n', 1)[0] ?? '').trimEnd();
 		const headerContent =
 			this.activeMode === 'review'
 				? html`<div class="mode-title">
@@ -372,7 +356,6 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							<code-icon class="mode-title__icon" icon="checklist"></code-icon>
 							Reviewing Commit
 						</span>
-						<span class="mode-title__subtitle" title=${message}>${messageFirstLine}</span>
 					</div>`
 				: authorTemplate;
 
@@ -408,7 +391,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					html`<gl-action-chip
 						slot="actions"
 						icon="arrow-up"
-						label="Jump to Nearest Working Changes"
+						label="Jump to Working Changes"
 						overlay="tooltip"
 						@click=${this.onJumpToNearestWipClick}
 					></gl-action-chip>`,
@@ -487,39 +470,27 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const context = this.getCommitOrStashContext();
 		if (context == null) return nothing;
 
-		return html`<gl-tooltip
-			class="metadata-bar__more-tooltip"
-			content="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-		>
-			<button
-				class="metadata-bar__action metadata-bar__action--more"
-				type="button"
-				aria-label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
-				data-vscode-context=${context}
-				@click=${this.onMoreActionsClick}
-			>
-				<code-icon icon="kebab-vertical"></code-icon>
-			</button>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--more"
+			icon="kebab-vertical"
+			label="Show ${isStash ? 'Stash' : 'Commit'} Actions"
+			data-vscode-context=${context}
+			@click=${this.onMoreActionsClick}
+		></gl-action-chip>`;
 	}
 
 	private renderStashApplyButton() {
 		if (this.commit?.stashNumber == null) return nothing;
 
 		const isPop = this.isPopMode;
-		return html`<gl-tooltip>
-			<button
-				class="metadata-bar__action metadata-bar__action--apply"
-				type="button"
-				aria-label="${isPop ? 'Pop Stash' : 'Apply Stash'}"
-				@click=${this.onStashApplyClick}
-			>
-				<code-icon icon="${isPop ? 'git-stash-pop' : 'git-stash-apply'}"></code-icon>
-			</button>
-			<span slot="content"
-				>${isPop ? html`Pop Stash` : html`Apply Stash<br />[${getAltKeySymbol()}] Pop Stash`}</span
-			>
-		</gl-tooltip>`;
+		return html`<gl-action-chip
+			class="metadata-bar__action metadata-bar__action--apply"
+			icon=${isPop ? 'git-stash-pop' : 'git-stash-apply'}
+			label=${isPop ? 'Pop Stash' : 'Apply Stash'}
+			alt-icon=${isPop ? nothing : 'git-stash-pop'}
+			alt-label=${isPop ? nothing : 'Pop Stash'}
+			@click=${this.onStashApplyClick}
+		></gl-action-chip>`;
 	}
 
 	private onJumpToNearestWipClick = (): void => {

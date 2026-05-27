@@ -1,5 +1,6 @@
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
@@ -22,6 +23,7 @@ import '../../timeline/components/chart.js';
 import '../../timeline/components/header.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import './gl-graph-visualizations-switcher.js';
 
 export interface GlGraphTimelineCommitSelectDetail {
 	sha: string;
@@ -48,8 +50,36 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			overflow: hidden;
 		}
 
-		gl-timeline-header {
+		.header-row {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
 			flex: none;
+			padding: 0.4rem 1rem;
+			min-height: 3.2rem;
+			min-width: 0;
+			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+		}
+
+		.header-row gl-graph-visualizations-switcher {
+			flex: none;
+		}
+
+		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
+		 * label anchors both header rows identically. Sits between the icon switcher and the
+		 * shared timeline header so the standalone Visual History webview (which doesn't use this
+		 * file) keeps its existing chrome. */
+		.header-row__title {
+			flex: none;
+			font-size: 1.1rem;
+			font-weight: 600;
+			text-transform: uppercase;
+			white-space: nowrap;
+		}
+
+		.header-row gl-timeline-header {
+			flex: 1 1 auto;
+			min-width: 0;
 		}
 
 		.empty {
@@ -70,6 +100,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 	@property({ type: String, reflect: true })
 	placement: 'editor' | 'view' = 'editor';
+
+	/** External file/folder scope pushed in by a graph context-menu action. When set (new object
+	 *  identity), `willUpdate` adopts it as the local scope; `updated` then signals it was applied
+	 *  so the host can clear it (one-shot). */
+	@property({ attribute: false })
+	scope?: { type: 'file' | 'folder'; relativePath: string };
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private graphState!: typeof graphStateContext.__context__;
@@ -163,7 +199,15 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	private static readonly maxAllTimePageAttempts = 200;
 	private _allTimePageAttempts = 0;
 
-	override willUpdate(): void {
+	override willUpdate(changedProperties: PropertyValues): void {
+		// Adopt an externally-pushed scope (graph context-menu action) as the local scope. Done
+		// first so the repo-change reset below doesn't wipe it on a fresh mount (where
+		// `_lastRepoPath` is still undefined).
+		const injectedScope = changedProperties.has('scope') && this.scope != null;
+		if (injectedScope) {
+			this._localScope = { type: this.scope!.type, relativePath: this.scope!.relativePath };
+		}
+
 		// Reset the local file/folder scope if the active repo changed underneath us — paths
 		// don't carry across repos. Also wipe windowed-mode caches so the new repo's WIP doesn't
 		// inherit the prior repo's anchor timestamp.
@@ -171,7 +215,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (repoPath !== this._lastRepoPath) {
 			this._lastRepoPath = repoPath;
 			this._resetWindowedCaches();
-			if (this._localScope != null) {
+			if (this._localScope != null && !injectedScope) {
 				this._localScope = undefined;
 				// Don't bail — rebuild below for the new (still-windowed) state in this same cycle.
 			}
@@ -220,6 +264,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			// Reset the counter when the user navigates away from `'all'` so a future `'all'`
 			// switch gets a fresh budget.
 			this._allTimePageAttempts = 0;
+		}
+	}
+
+	override updated(changedProperties: PropertyValues): void {
+		// Signal that an externally-pushed scope has been adopted so the host can clear it — keeps
+		// the push one-shot (a later manual graph↔timeline toggle won't re-apply a stale scope).
+		if (changedProperties.has('scope') && this.scope != null) {
+			this.dispatchEvent(new CustomEvent('gl-graph-timeline-scope-applied', { bubbles: true, composed: true }));
 		}
 	}
 
@@ -795,47 +847,51 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		</div>`;
 
 		return html`
-			<gl-timeline-header
-				placement=${this.placement}
-				host="graph"
-				.repository=${repoWithRef}
-				.repositoryCount=${this.graphState.repositories?.length ?? 0}
-				.headRef=${this.graphState.branch}
-				.scopeType=${localScopeType}
-				.relativePath=${localRelativePath}
-				.period=${this.period}
-				.visibleSpanMs=${this._visibleSpanMs}
-				.sliceBy=${this.effectiveSliceBy}
-				.showAllBranches=${this.showAllBranchesEffective}
-				.showAllBranchesSupported=${false}
-				.sliceBySupported=${this.sliceBySupportedEffective}
-				@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
-				@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
-				@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
-				@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
-				@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
-			>
-				${this.placement === 'view'
-					? html`<gl-button
-							slot="toolbox"
-							appearance="toolbar"
-							href="command:gitlens.views.graph.openTimelineInTab"
-							tooltip="Open in Editor"
-							aria-label="Open in Editor"
-						>
-							<code-icon icon="link-external"></code-icon>
-						</gl-button>`
-					: nothing}
-				<gl-button
-					slot="toolbox"
-					appearance="toolbar"
-					tooltip="Close Visualizations"
-					aria-label="Close Visualizations"
-					@click=${this.onCloseClick}
+			<div class="header-row">
+				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
+				${this._localScope == null ? html`<span class="header-row__title">Visual History</span>` : nothing}
+				<gl-timeline-header
+					placement=${this.placement}
+					host="graph"
+					.repository=${repoWithRef}
+					.repositoryCount=${this.graphState.repositories?.length ?? 0}
+					.headRef=${this.graphState.branch}
+					.scopeType=${localScopeType}
+					.relativePath=${localRelativePath}
+					.period=${this.period}
+					.visibleSpanMs=${this._visibleSpanMs}
+					.sliceBy=${this.effectiveSliceBy}
+					.showAllBranches=${this.showAllBranchesEffective}
+					.showAllBranchesSupported=${false}
+					.sliceBySupported=${this.sliceBySupportedEffective}
+					@gl-timeline-header-period-change=${this.onHeaderPeriodChange}
+					@gl-timeline-header-slice-by-change=${this.onHeaderSliceByChange}
+					@gl-timeline-header-choose-path=${this.onHeaderChoosePath}
+					@gl-timeline-header-clear-scope=${this.onHeaderClearScope}
+					@gl-timeline-header-change-scope=${this.onHeaderChangeScope}
 				>
-					<code-icon icon="close"></code-icon>
-				</gl-button>
-			</gl-timeline-header>
+					${this.placement === 'view'
+						? html`<gl-button
+								slot="toolbox"
+								appearance="toolbar"
+								href="command:gitlens.views.graph.openTimelineInTab"
+								tooltip="Open in Editor"
+								aria-label="Open in Editor"
+							>
+								<code-icon icon="link-external"></code-icon>
+							</gl-button>`
+						: nothing}
+					<gl-button
+						slot="toolbox"
+						appearance="toolbar"
+						tooltip="Close Visualizations"
+						aria-label="Close Visualizations"
+						@click=${this.onCloseClick}
+					>
+						<code-icon icon="close"></code-icon>
+					</gl-button>
+				</gl-timeline-header>
+			</div>
 			<gl-timeline-chart
 				placement="${this.placement}"
 				currentUserNameStyle="nameAndYou"

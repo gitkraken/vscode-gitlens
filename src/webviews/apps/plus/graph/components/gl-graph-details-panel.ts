@@ -9,14 +9,22 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
+import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
 import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
-import { isWipSha } from '../../../../plus/graph/protocol.js';
+import {
+	getSecondaryWipPath,
+	isSecondaryWipSha,
+	isWipSha,
+	UpdateWipDraftCommand,
+} from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
+import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -31,6 +39,7 @@ import type { DetailsContext, DetailsState, RunningOperation, RunningOperationEx
 import { createDetailsState } from './detailsState.js';
 import type { DetailsSelection } from './detailsWorkflowController.js';
 import { DetailsWorkflowController } from './detailsWorkflowController.js';
+import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
 import type {
@@ -59,6 +68,21 @@ interface ResolvedContent {
 	content: ReturnType<typeof html> | typeof nothing;
 	ariaLabel: string;
 	context: DetailsContext;
+}
+
+/** Default size (as a % of the details panel) for the agents pane when entering `expanded` mode
+ *  without a prior user drag. Leaves a usable majority for the WIP / mode content below. */
+const agentStatusDefaultPct = 40;
+
+/** Absolute ceiling (as a % of the details panel) the agents pane is allowed to occupy: caps the
+ *  drag snap envelope in expanded mode AND the CSS `fit-content` ceiling in collapsed/partial.
+ *  Kept in sync with the `fit-content(80%)` literal in `agent-status-split--auto-size` CSS. */
+const agentStatusMaxPct = 80;
+
+/** Wraps a possibly-undefined sha string into the `{ ref, stash? }` shape expected by file
+ *  actions. Used for multi-commit (range) refs whose source returns a bare string. */
+function asRefObj(ref: string | undefined): { ref: string } | undefined {
+	return ref != null ? { ref: ref } : undefined;
 }
 
 /** Renders a mode-status counts snippet with leading icons — "🟢 1 commit · 📄 2 files".
@@ -101,6 +125,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private _graphState?: typeof graphStateContext.__context__;
+
+	@consume({ context: ipcContext })
+	private _ipc?: typeof ipcContext.__context__;
 
 	/** Provider lives on `gl-graph-app`. The workflow controller writes the running-modes
 	 *  registry through this; other panes (graph row component) read it for adornments. */
@@ -204,49 +231,155 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _workflow!: DetailsWorkflowController;
 
 	private _servicesResolved = false;
+	private _pendingCompare?: {
+		params: Parameters<GlGraphDetailsPanel['openCompareMode']>[0];
+		onReady?: () => void;
+	};
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
+	/** User's dragged splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
+	 *  Set only by pointer drag (see {@link _onAgentStatusSplitChange} / {@link _onAgentStatusSplitDragEnd});
+	 *  ResizeObserver / keyboard-driven `gl-split-panel-change` events deliberately don't write
+	 *  here so a container resize never silently latches the user-size mode. Cleared by the sash
+	 *  dbl-click reset; preserved across collapse cycles so re-expanding (chevron, WIP indicator,
+	 *  sidebar/kanban select) restores the user's last chosen size. `undefined` means "use the
+	 *  default expanded position" — see {@link agentStatusDefaultPct}. */
 	@state()
-	private _agentStatusSplitAdjusted = false;
 	private _agentStatusSplitPosition?: number;
 
-	/** Single source of truth for the agents-pane expand tri-state. The
-	 *  `<gl-details-agent-status>` component renders from this property (passed down on every
-	 *  template instantiation), so a remount can't reset it. User chevron clicks dispatch a
-	 *  request event that this panel honors by writing the new value back here — mirroring
-	 *  how `activeMode` is driven by the workflow signal store for compose/review. */
+	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
+	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
+	 *  third surface state — `partial`, only needs-input cards — is derived (not stored here):
+	 *  set transiently by {@link _agentStatusAutoPartial} when an incoming session event signals
+	 *  a new (or changed) needs-input while the user is collapsed. */
 	@state()
-	private _agentStatusExpand: import('./gl-details-agent-status.js').ExpandState = 'closed';
+	private _agentUserMode: 'collapsed' | 'expanded' = 'collapsed';
 
-	/** Clamps drag to the [10%, 80%] envelope. The visual "shrink to content when too small"
-	 *  behavior is handled by CSS `fit-content(--_start-size)` — the snap function only enforces
-	 *  the absolute floor/ceiling on the user's intended size. */
-	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) => Math.max(10, Math.min(pos, 80));
+	/** Transient pseudo-expand flag — true when an agent event triggered an auto-surface and
+	 *  the user hasn't dismissed it yet. Only meaningful while `_agentUserMode === 'collapsed'`
+	 *  (a manual expand subsumes it). Cleared when the last needs-input resolves OR when the
+	 *  user clicks the chevron to collapse. */
+	@state()
+	private _agentStatusAutoPartial = false;
 
-	private readonly _onAgentStatusExpandRequest = (
-		e: CustomEvent<{ next: import('./gl-details-agent-status.js').ExpandState }>,
-	) => {
-		this._agentStatusExpand = e.detail.next;
+	/** Per-session snapshot of category + pending-permission identity from the last update.
+	 *  Drives the auto-partial trigger in {@link applyAgentAutoSurface}: a session that newly
+	 *  enters `needs-input`, or whose pending permission key changes while it stays in
+	 *  needs-input, flips `_agentStatusAutoPartial` true. Cleared on every selection change in
+	 *  {@link willUpdate} so re-entering a WIP row re-treats current sessions as freshly seen —
+	 *  any pending needs-input session re-surfaces partial mode automatically. */
+	private _prevAgentSnapshot: Map<string, { category: AgentSessionCategory; permKey: string }> = new Map();
+
+	/** Worktree-matched agent sessions captured once per update cycle in {@link willUpdate}.
+	 *  Both `applyAgentAutoSurface` (the auto-partial trigger) AND `renderWip` (the source for
+	 *  `<gl-details-agent-status>.sessions`) read from this snapshot so the projected mode and
+	 *  the visible cards always agree. Without a cycle-stable snapshot, a mid-update mutation
+	 *  of `_graphState.agentSessions` could leave partial-mode flipped on with no needs-input
+	 *  cards to render — a chevron rotated to 45deg above an empty section. */
+	private _cycleAgentSessions: AgentSessionState[] | undefined;
+
+	/** Clamps drag to the [10%, {@link agentStatusMaxPct}%] envelope. The visual "shrink to
+	 *  content when too small" behavior is handled by CSS `fit-content(<max>%)` — the snap
+	 *  function only enforces the absolute floor/ceiling on the user's intended size. */
+	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) =>
+		Math.max(10, Math.min(pos, agentStatusMaxPct));
+
+	private readonly _onAgentStatusExpandRequest = () => {
+		// Chevron click: collapsed → expanded; partial or expanded → collapsed. Branch on the
+		// DERIVED state (not `_agentUserMode`) so a click from `partial` — where user mode is
+		// still 'collapsed' under the hood — collapses instead of expanding. Always clears the
+		// auto-partial flag so a manual collapse genuinely silences the section until the next
+		// qualifying agent event. Drag-adjusted size (`_agentStatusSplitPosition`) is
+		// intentionally preserved across collapse cycles so re-expanding restores the user's
+		// last chosen size; double-click on the sash resets it.
+		const wasCollapsed = this.agentStatusExpand === 'collapsed';
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = wasCollapsed ? 'expanded' : 'collapsed';
+		// User collapsed the section via chevron — the prior highlight intent is gone. Without
+		// clearing, the next manual expand would re-paint card--selected on the stale id and
+		// falsely suggest the card was just re-selected. Only fires on the collapse direction;
+		// expanding from collapsed preserves any sidebar-selected session for highlight.
+		if (!wasCollapsed) {
+			this._selectedAgentSessionId = undefined;
+		}
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — closed/partial use the forced auto-cap
-		// position, and storing those values would clobber the saved expanded-mode position.
-		if (this._agentStatusExpand !== 'expanded') return;
+		// Only persist user drag while in `expanded` — collapsed/partial render via fit-content,
+		// not the position attribute, so writes there would silently overwrite the expanded-mode
+		// position with a value that never even drove a render.
+		if (this.agentStatusExpand !== 'expanded') return;
+
+		// Gate on `dragging` — this event also fires from split-panel's internal ResizeObserver
+		// (container resize) and keyboard nudges; recording those would clobber the user's
+		// intended size with whatever the layout engine just computed. The `dragging` attribute
+		// is the host's source of truth for "pointer is down on the divider". `drag-end` is the
+		// fallback for the final value when the change event misses it.
+		const splitPanel = e.currentTarget;
+		if (!(splitPanel instanceof HTMLElement) || !splitPanel.hasAttribute('dragging')) return;
 
 		this._agentStatusSplitPosition = e.detail.position;
 	};
 
-	private readonly _onAgentStatusSplitDragEnd = () => {
-		if (this._agentStatusExpand !== 'expanded') return;
+	private readonly _onAgentStatusSplitDragEnd = (e: CustomEvent<{ position: number }>) => {
+		if (this.agentStatusExpand !== 'expanded') return;
 
-		this._agentStatusSplitAdjusted = true;
+		this._agentStatusSplitPosition = e.detail.position;
 	};
 
+	/** Derived render mode for `<gl-details-agent-status>`. Expanded wins over auto-partial
+	 *  (a manual expand already shows everything); auto-partial only surfaces while collapsed. */
+	private get agentStatusExpand(): ExpandState {
+		if (this._agentUserMode === 'expanded') return 'expanded';
+		return this._agentStatusAutoPartial ? 'partial' : 'collapsed';
+	}
+
+	/** Diff incoming worktree-matched sessions against the prior snapshot and flip
+	 *  `_agentStatusAutoPartial` according to the rules:
+	 *   - Any session that wasn't `needs-input` before and is now → surface (true).
+	 *   - Any session that stayed `needs-input` but with a different pending payload → surface.
+	 *   - No needs-input remaining → clear (auto-collapse out of partial).
+	 *  Called from {@link willUpdate} only when the panel is rendering a WIP row with resolved
+	 *  wip data — so the snapshot reflects the current worktree's session set. Off-WIP cycles
+	 *  skip this entirely; the snapshot is wiped on every selection change in {@link willUpdate}
+	 *  so re-entering a WIP row replays the diff against an empty `_prevAgentSnapshot` and any
+	 *  pending needs-input session re-triggers partial mode. */
+	private applyAgentAutoSurface(sessions: AgentSessionState[] | undefined): void {
+		const next = new Map<string, { category: AgentSessionCategory; permKey: string }>();
+		let anyNeedsInput = false;
+		let triggered = false;
+
+		for (const s of sessions ?? []) {
+			const category = agentPhaseToCategory[s.phase];
+			// JSON-stringify the full pending permission so every meaningful field participates
+			// in the diff: suggestions, toolInputDescription, questionCount, etc. A pipe-joined
+			// subset misses these and also collides when free-form text contains the delimiter.
+			const permKey = s.pendingPermission != null ? JSON.stringify(s.pendingPermission) : '';
+			next.set(s.id, { category: category, permKey: permKey });
+
+			if (category !== 'needs-input') continue;
+
+			anyNeedsInput = true;
+
+			const prev = this._prevAgentSnapshot.get(s.id);
+			if (prev?.category !== 'needs-input' || prev.permKey !== permKey) {
+				triggered = true;
+			}
+		}
+
+		this._prevAgentSnapshot = next;
+
+		if (triggered) {
+			this._agentStatusAutoPartial = true;
+		} else if (!anyNeedsInput && this._agentStatusAutoPartial) {
+			// Last needs-input cleared → drop the auto-surface so the section snaps back to bar-only.
+			this._agentStatusAutoPartial = false;
+		}
+	}
+
 	private readonly _onAgentStatusSplitDblClick = () => {
-		this._agentStatusSplitAdjusted = false;
 		this._agentStatusSplitPosition = undefined;
 	};
 
@@ -284,7 +417,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 * Threaded through to each detail-panel mode's `gl-file-tree-pane`.
 	 */
 	@property({ type: Boolean, attribute: 'show-search-box' })
-	showSearchBox = false;
+	showSearchBox = true;
 
 	/**
 	 * Persisted preference: how the file-tree search box presents non-matches —
@@ -326,7 +459,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private get effectiveRepoPath(): string | undefined {
-		return this._state.activeModeRepoPath.get() ?? this._state.wip.get()?.repo?.path ?? this.repoPath;
+		// Precedence: mode anchor > attribute (set by parent on selection) > last-known wip repo.
+		// The attribute is set synchronously on row click and is correct per-row (primary worktree
+		// for primary-WIP, secondary worktree for secondary-WIP). `_state.wip.get()?.repo?.path`
+		// is updated lazily and can briefly hold the prior selection's wip — preferring it over the
+		// attribute caused file/diff/stage operations on secondary-WIP rows to target the primary
+		// repo during that window. Falling back to it only when the attribute hasn't bound yet
+		// preserves the cold-bootstrap behavior.
+		return this._state.activeModeRepoPath.get() ?? this.repoPath ?? this._state.wip.get()?.repo?.path;
 	}
 
 	/** Returns snapshotted shas when in a mode, live shas otherwise. */
@@ -388,14 +528,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
 	 *  overrides. */
-	openCompareMode(params: {
-		repoPath: string;
-		leftRef: string;
-		leftRefType?: 'branch' | 'tag' | 'commit';
-		rightRef: string;
-		rightRefType?: 'branch' | 'tag' | 'commit';
-		includeWorkingTree?: boolean;
-	}): void {
+	openCompareMode(
+		params: {
+			repoPath: string;
+			leftRef?: string;
+			leftRefType?: 'branch' | 'tag' | 'commit';
+			rightRef: string;
+			rightRefType?: 'branch' | 'tag' | 'commit';
+			includeWorkingTree?: boolean;
+		},
+		onReady?: () => void,
+	): boolean {
+		if (this._workflow == null) {
+			this._pendingCompare = { params: params, onReady: onReady };
+			return false;
+		}
+
+		if (onReady != null) {
+			onReady();
+		}
 		const selection: DetailsSelection = {
 			...this.currentSelection(),
 			repoPath: params.repoPath,
@@ -407,16 +558,272 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			rightRefType: params.rightRefType,
 			includeWorkingTree: params.includeWorkingTree,
 		});
+		return true;
 	}
 
 	/** Entry point for the WIP-row agent indicator. Expands the agents section.
 	 *
-	 *  This is just a state write — `_agentStatusExpand` is the single source of truth and
-	 *  flows down into `<gl-details-agent-status>` as its `expand` property on every render.
-	 *  Element remounts can't reset it (no internal state to lose); user chevron clicks flow
-	 *  back through the request event. Mirrors the workflow-store pattern used by compose/review. */
+	 *  Sets the user mode to `expanded` explicitly and clears any transient auto-partial so the
+	 *  render derives a stable `expanded` state. Element remounts can't reset it (no internal
+	 *  state to lose); user chevron clicks flow back through the request event. Mirrors the
+	 *  workflow-store pattern used by compose/review. */
 	expandAgentsForWip(): void {
-		this._agentStatusExpand = 'expanded';
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = 'expanded';
+	}
+
+	/** Entry point for external callers (e.g., sidebar agent leaf click) that want to surface a
+	 *  specific session in the agents section. Force-expands so the session is renderable
+	 *  regardless of the user's current collapse preference, stores the id for the next render so
+	 *  the card picks up its `card--selected` modifier, and scrolls the card into the visible
+	 *  portion of the agents pane after Lit lands the new attribute. */
+	highlightAgentSession(sessionId: string): void {
+		// Bail when the agents section can't render. `showAgentStatus` gates on `activeMode == null`
+		// AND `worktreeAgentSessions != null` (see `renderWip`). Writing state we know won't take
+		// visible effect would leave a stale auto-expand + highlighted card waiting to pop up the
+		// next time the user exits review/compose — clearly not what they asked for.
+		if (this._state.activeMode.get() != null) return;
+		if (this._state.wip.get() == null) return;
+
+		// Preserve any user-dragged splitter size — sidebar/kanban-driven expand mirrors the
+		// chevron-driven expand. `scrollAgentCardIntoView` keeps the highlighted card visible
+		// at whatever size the user prefers; the sash dbl-click is their explicit reset path.
+		this._agentStatusAutoPartial = false;
+		this._agentUserMode = 'expanded';
+		this._selectedAgentSessionId = sessionId;
+		void this.scrollAgentCardIntoView(sessionId);
+	}
+
+	/** Selected-session id for `<gl-details-agent-status>`. Driven by `highlightAgentSession`.
+	 *  Cleared on: chevron-driven collapse ({@link _onAgentStatusExpandRequest}), selection move
+	 *  ({@link updated} on sha/shas/repoPath change), and panel disconnect — so the next view of
+	 *  this list doesn't re-paint a stale ring on a card the user has clearly moved on from. */
+	@state()
+	private _selectedAgentSessionId?: string;
+
+	private async scrollAgentCardIntoView(sessionId: string): Promise<void> {
+		// One updateComplete on this panel so the new selectedSessionId/expand props at least
+		// make it past Lit's render cycle to the inner element. We deliberately do NOT await the
+		// inner gl-details-agent-status's updateComplete — when the host is pushing rapid agent-
+		// session deltas (status / lastPrompt / phase changes), that promise can keep deferring
+		// to the next update and never resolve, hanging this entire function.
+		await this.updateComplete;
+
+		// Fast path: if the agents section + card + scroller are already in the DOM and laid out,
+		// scroll immediately. Skips the 250ms slow-path budget for the common case of clicking an
+		// already-visible session card. Falls through to the wait+retry loop otherwise.
+		if (this.tryScrollAgentCardOnce(sessionId)) return;
+
+		// Slow path. Initial wait covers gl-split-panel transitions and the WIP details host fetch.
+		// Outer split (graph ↔ details) AND inner split (agent-status ↔ wip) animate via CSS
+		// transitions over ~150-200ms. Sidebar-tree agent clicks ALSO trigger a scope-to-branch
+		// first, which kicks off a WIP refetch — until that lands, `worktreeAgentSessions` is
+		// undefined and the agents section doesn't render at all.
+		await new Promise<void>(resolve => setTimeout(resolve, 250));
+
+		// Retry until the agents section, the target card, AND the scroller all exist + have laid
+		// out OR we hit the budget. The scroller is in the loop too — a card-only retry can win
+		// the race but leave the scroller transiently null/zero-height, producing a silent no-op.
+		const maxAttempts = 8;
+		const stepMs = 100;
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
+			// Bail out if a newer highlight has displaced this one — `_selectedAgentSessionId` is
+			// the source of truth and a fresh click may have overwritten it during the wait.
+			if (this._selectedAgentSessionId !== sessionId) return;
+
+			if (this.tryScrollAgentCardOnce(sessionId)) return;
+
+			await new Promise<void>(resolve => setTimeout(resolve, stepMs));
+		}
+	}
+
+	/** One attempt at locating the agent card + scroller and scrolling the card into view.
+	 *  Returns `true` when the scroll math ran (card + scroller present and the scroller has
+	 *  laid out); `false` when caller should retry. Pure: no waits, no state writes. */
+	private tryScrollAgentCardOnce(sessionId: string): boolean {
+		const agentStatus = this.renderRoot.querySelector<GlDetailsAgentStatus>('gl-details-agent-status');
+		const card = agentStatus?.getSessionCard(sessionId);
+		if (card == null) return false;
+
+		const scroller = this.renderRoot.querySelector<HTMLElement>('.agent-status-split__top.scrollable');
+		if (scroller == null) return false;
+
+		const scrollerRect = scroller.getBoundingClientRect();
+		// Scroller hasn't laid out yet (mid-transition or briefly 0-height) — reading scrollTop
+		// math against this would produce a nonsense scroll.
+		if (scrollerRect.height === 0) return false;
+
+		const cardRect = card.getBoundingClientRect();
+		const padding = 12;
+
+		// Tall card OR card above viewport — align top edge with `padding` from the scroller's
+		// top. For tall cards this prioritizes the header (session name + phase) staying in view
+		// at the expected trade-off of clipping the bottom.
+		const cardTooTall = cardRect.height + padding * 2 > scrollerRect.height;
+		if (cardTooTall || cardRect.top < scrollerRect.top + padding) {
+			scroller.scrollTop -= scrollerRect.top + padding - cardRect.top;
+		} else if (cardRect.bottom > scrollerRect.bottom - padding) {
+			scroller.scrollTop += cardRect.bottom - (scrollerRect.bottom - padding);
+		}
+		return true;
+	}
+
+	/** Maps a graph-row sha to the worktree fsPath it represents. For the primary WIP
+	 *  (sha === `uncommitted`) the worktree path is the active repo path; for secondary
+	 *  worktree WIPs the path is embedded in the synthetic sha by `createSecondaryWipSha`. */
+	private computeWorktreePathFromSha(sha: string | undefined): string | undefined {
+		if (sha == null) return undefined;
+		if (sha === uncommitted) return this.effectiveRepoPath;
+		if (isSecondaryWipSha(sha)) return getSecondaryWipPath(sha);
+		return undefined;
+	}
+
+	/** Restore the commit-form signals for `worktreePath` from the persisted draft (if any), or
+	 *  reset to a fresh state. Also re-seeds the flush fingerprint so the immediate following
+	 *  `updated()` pass doesn't echo the same data back to the host as a redundant IPC. */
+	private loadWipDraft(worktreePath: string): void {
+		// Flush any pending payload BEFORE swapping — the pending belongs to the OUTGOING WIP
+		// and would be silently dropped by the cancel below, losing typing within the debounce
+		// window when the user navigates rows quickly.
+		this.flushPendingWipDraftNow();
+
+		const draft = this._graphState?.wipDrafts?.[worktreePath];
+
+		this._state.commitError.set(undefined);
+		this._state.generating.set(false);
+
+		if (draft != null) {
+			this._state.commitMessage.set(draft.message);
+			this._state.commitMessageDirty.set(draft.messageDirty);
+			this._state.amend.set(draft.amend != null);
+			this._state.amendBaseSha.set(draft.amend?.baseSha);
+		} else {
+			this._state.commitMessage.set('');
+			this._state.commitMessageDirty.set(false);
+			this._state.amend.set(false);
+			this._state.amendBaseSha.set(undefined);
+		}
+
+		this._lastFlushedWipDraftKey = this.computeWipDraftKey(
+			worktreePath,
+			this._state.commitMessage.get(),
+			this._state.commitMessageDirty.get(),
+			this._state.amend.get(),
+			this._state.amendBaseSha.get(),
+		);
+		this._lastLoadedWipTarget = worktreePath;
+		this._lastLoadedDraftRef = draft;
+	}
+
+	private computeWipDraftKey(
+		worktreePath: string,
+		message: string,
+		messageDirty: boolean,
+		amend: boolean,
+		amendBaseSha: string | undefined,
+	): string {
+		// `\x1f` (unit separator) keeps the fingerprint cheap and unambiguous without JSON overhead.
+		return `${worktreePath}\x1f${message}\x1f${messageDirty ? '1' : '0'}\x1f${
+			amend && amendBaseSha != null ? amendBaseSha : ''
+		}`;
+	}
+
+	/** Send the pending payload (if any) now. Clears the timer and the pending slot. Idempotent. */
+	private flushPendingWipDraftNow(): void {
+		const pending = this._pendingWipDraft;
+		this._pendingWipDraft = undefined;
+		if (this._flushWipDraftTimer != null) {
+			clearTimeout(this._flushWipDraftTimer);
+			this._flushWipDraftTimer = undefined;
+		}
+		if (pending == null) return;
+
+		this._lastFlushedWipDraftKey = pending.key;
+
+		// Optimistically mirror the flush into local `wipDrafts` state so the next loadWipDraft
+		// (e.g., when the user swaps off this WIP row and back within the same session) sees the
+		// just-written draft without waiting for a host state push. Routes through `setWipDraft`
+		// so the provider's internal `_state.wipDrafts` snapshot stays in sync alongside the
+		// signal accessor; the host's storage write below is the source of truth for
+		// cross-session restore.
+		this._graphState?.setWipDraft(pending.worktreePath, pending.draft);
+
+		this._ipc?.sendCommand(UpdateWipDraftCommand, {
+			worktreePath: pending.worktreePath,
+			draft: pending.draft,
+		});
+	}
+
+	/** Snapshot the commit-form signals and schedule a debounced flush to the host. Re-runs on
+	 *  every `updated()` (SignalWatcher re-runs `updated()` when the signals it reads change),
+	 *  so a single guard fingerprint suffices to avoid redundant IPC. */
+	private maybeScheduleWipDraftFlush(): void {
+		if (!this.isWip) {
+			// Leaving WIP entirely (e.g., user clicked a commit row). The pending payload belongs
+			// to the just-left WIP — flush rather than cancel so typing within the debounce
+			// window isn't lost.
+			this.flushPendingWipDraftNow();
+			return;
+		}
+
+		const worktreePath = this.computeWorktreePathFromSha(this.sha);
+		if (worktreePath == null) return;
+
+		const message = this._state.commitMessage.get();
+		const messageDirty = this._state.commitMessageDirty.get();
+		const amend = this._state.amend.get();
+		const amendBaseSha = this._state.amendBaseSha.get();
+
+		const key = this.computeWipDraftKey(worktreePath, message, messageDirty, amend, amendBaseSha);
+		if (key === this._lastFlushedWipDraftKey) return;
+		// Skip when the pending payload already reflects this exact content — otherwise every
+		// signal-driven re-render (graph data refresh, concurrent webview echo, etc.) within
+		// the 250ms window would reset the debounce timer and indefinitely postpone the flush
+		// of typing the user already finished.
+		if (this._pendingWipDraft?.key === key) return;
+
+		const isEmpty = message === '' && !amend;
+
+		// Bootstrap guard: on the first render where `loadWipDraft` hasn't yet seeded our key
+		// (typically because the panel anchored on WIP before the WIP-target-change branch ran,
+		// or because the wip data hadn't loaded), the form's empty state would otherwise emit
+		// `draft: null` and clobber a persisted draft in storage we haven't read yet. Seed the
+		// key so subsequent diffs are honest, but don't send the IPC.
+		if (this._lastFlushedWipDraftKey === undefined && isEmpty) {
+			this._lastFlushedWipDraftKey = key;
+			return;
+		}
+
+		const draft: StoredGraphWipDraft | null = isEmpty
+			? null
+			: {
+					message: message,
+					messageDirty: messageDirty,
+					amend: amend && amendBaseSha != null ? { baseSha: amendBaseSha } : undefined,
+				};
+
+		this._pendingWipDraft = { worktreePath: worktreePath, draft: draft, key: key };
+		if (this._flushWipDraftTimer != null) {
+			clearTimeout(this._flushWipDraftTimer);
+		}
+		this._flushWipDraftTimer = setTimeout(() => this.flushPendingWipDraftNow(), 250);
+	}
+
+	/** Seed the WIP commit input with a caller-supplied message. Used after Undo Commit to
+	 *  restore the undone commit's message into the box where the user will redo it. Marks
+	 *  the message as user-authored (`commitMessageDirty`) so the wipDraft flush picks it up
+	 *  and persists, and the amend HEAD-move auto-clear path won't drop it.
+	 *  Skipped while a workflow mode (compose/review) is active — the mode owns commit-form
+	 *  state, and the seed is already in `wipDrafts` storage; the deferred-load fallback in
+	 *  `updated()` will rehydrate `commitMessage` from it on mode exit.
+	 *  Also skipped if the panel isn't currently anchored to `repoPath` — defensive against
+	 *  the panel having moved on to a different repo's WIP between the IPC dispatch and consumption. */
+	setCommitMessage(repoPath: string, message: string): void {
+		if (this._state.activeMode.get() != null) return;
+		if (this.effectiveRepoPath !== repoPath) return;
+
+		this._state.commitMessage.set(message);
+		this._state.commitMessageDirty.set(true);
 	}
 
 	/** Entry point for the WIP-row Compose/Review buttons. Re-clicking while already engaged
@@ -478,6 +885,30 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  crash, but leaks DOM references for the timer's lifetime and stacks under rapid toggling). */
 	private _suppressContentOverflowTimer?: ReturnType<typeof setTimeout>;
 	private _suppressModePanelOverflowTimer?: ReturnType<typeof setTimeout>;
+	/** Debounced WIP-draft flush. Cleared on row swap (the new selection schedules its own). */
+	private _flushWipDraftTimer?: ReturnType<typeof setTimeout>;
+	/** Payload that will be sent when {@link _flushWipDraftTimer} fires — kept on the instance
+	 *  (not captured in the timer closure) so {@link disconnectedCallback} can flush it
+	 *  synchronously instead of dropping it on a fast close-after-commit. */
+	private _pendingWipDraft?: {
+		worktreePath: string;
+		draft: StoredGraphWipDraft | null;
+		key: string;
+	};
+	/** Fingerprint of the last (worktreePath, message, dirty, amendBase) tuple we flushed.
+	 *  Skipping when unchanged avoids redundant IPC on every re-render. */
+	private _lastFlushedWipDraftKey?: string;
+	/** The `worktreePath` we last loaded a draft for. Decoupled from the `changedProperties`
+	 *  gate so a deferred load (e.g., the WIP target was set on the first render but
+	 *  `effectiveRepoPath` only became valid after wip data arrived in a later signal-driven
+	 *  re-render) still fires. */
+	private _lastLoadedWipTarget?: string;
+	/** Reference to the draft object that {@link loadWipDraft} last consumed from `wipDrafts`
+	 *  state. Used to detect content changes for the *current* target (e.g., a concurrent
+	 *  webview's flush or a host-initiated undo write) so we can reload — while preserving
+	 *  the user's in-flight typing by comparing local `commitMessage` against the last loaded
+	 *  draft's message before reloading. */
+	private _lastLoadedDraftRef?: StoredGraphWipDraft;
 
 	private suppressContentOverflow(): void {
 		const el = this.querySelector<HTMLElement>('.details-content');
@@ -563,6 +994,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._suppressContentOverflowTimer = undefined;
 		clearTimeout(this._suppressModePanelOverflowTimer);
 		this._suppressModePanelOverflowTimer = undefined;
+		// Flush rather than cancel — closing the webview within the debounce window after a
+		// commit (which sets message='' + amend=false) would otherwise drop the `draft: null`
+		// IPC, leaving the just-committed message stale in the memento.
+		this.flushPendingWipDraftNow();
 		// Repo-change subscription teardown is handled by DetailsWorkflowController via its
 		// `hostDisconnected` hook — no manual cleanup needed here.
 		this._state.resetAll();
@@ -577,6 +1012,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		const selectionChanged =
 			changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath');
+
+		// On any selection change, drop the per-session snapshot that `applyAgentAutoSurface`
+		// diffs against. Entering a WIP row (from another WIP row, a commit, or anywhere else)
+		// then re-treats every current session as "newly seen", so a still-pending needs-input
+		// session re-surfaces partial mode automatically — matching the user expectation that
+		// leaving and returning to a WIP row re-opens the auto-surface peek. Has no effect on
+		// non-WIP selections: `applyAgentAutoSurface` only runs when worktree-matched sessions
+		// are non-empty (gated in willUpdate below), so a wiped snapshot is harmless there and
+		// gets repopulated the next time we land on a WIP row with sessions.
+		if (selectionChanged && this._prevAgentSnapshot.size > 0) {
+			this._prevAgentSnapshot = new Map();
+		}
 
 		// Locked-panel case: a commit/multi-commit running session keeps the details panel
 		// anchored to its entry-time selection even when the graph's selection moves elsewhere.
@@ -687,6 +1134,29 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}
 		}
 
+		// Diff worktree-matched agent sessions and flip the auto-partial flag accordingly.
+		// Must run BEFORE `resolveContent()` below: `resolveContent` calls `renderWip` which
+		// reads both `agentStatusExpand` (derived from `_agentStatusAutoPartial`, flipped here)
+		// AND `_cycleAgentSessions` (the rendered-cards source, cached here). Running them in
+		// the same step guarantees the projected mode and the visible cards agree on a single
+		// snapshot — without this, an interleaving mutation of `_graphState.agentSessions`
+		// between the trigger and the render could leave partial mode flipped ON while the
+		// rendered card filter sees an older snapshot with no needs-input session (the
+		// symptom: chevron at 45deg over an empty section, only resolved by the next unrelated
+		// update).
+		// `_cycleAgentSessions` is REFRESHED every cycle (set to whatever the match returns,
+		// including `undefined` or `[]`). `_prevAgentSnapshot` is preserved across "no useful
+		// data" cycles WITHIN a selection: we skip the call when the match returns undefined or
+		// an empty array so a transient empty-match window doesn't wipe the snapshot and
+		// re-trigger a stale acknowledge moments later. Across SELECTIONS the snapshot is wiped
+		// at the top of willUpdate so re-entering a WIP row re-evaluates current sessions fresh.
+		const wip = this.isWip ? this._state.wip.get() : undefined;
+		const sessions = wip != null ? this.getWorktreeAgentSessions(wip) : undefined;
+		this._cycleAgentSessions = sessions;
+		if (sessions != null && sessions.length > 0) {
+			this.applyAgentAutoSurface(sessions);
+		}
+
 		// Resolve content for this render cycle here (not in render) so render stays free of
 		// `this` assignments. willUpdate runs synchronously immediately before render, so the
 		// cached value is always fresh by the time render reads it.
@@ -728,12 +1198,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const repoChanged =
 					changedProperties.has('repoPath') && changedProperties.get('repoPath') !== this.repoPath;
 
-				if (repoChanged) {
-					// Repo identity changed (worktree switch, repo swap, etc.). Commit-form
-					// state is per-repo — it was authored against the prior repo's HEAD and
-					// would be wrong for the new repo. Wipe everything so the new repo's WIP
-					// (whether reached now or later) starts fresh. The form isn't visible
-					// during this transition, so clearing is invisible to the user.
+				const nowOnWip = this.isWip;
+				const currentWorktreePath = nowOnWip ? this.computeWorktreePathFromSha(this.sha) : undefined;
+				const prevWorktreePath = prevWasWip ? this.computeWorktreePathFromSha(prevSha) : undefined;
+				// True when the active WIP target (worktree) is different from the prior selection's
+				// WIP target — covers repo switches, primary↔secondary WIP swaps within the same
+				// repo, and entering WIP from a non-WIP commit selection.
+				const wipTargetChanged =
+					nowOnWip && (repoChanged || !prevWasWip || prevWorktreePath !== currentWorktreePath);
+
+				if (wipTargetChanged && currentWorktreePath != null) {
+					// Entering (or swapping into) a WIP row. Restore the draft if one is persisted
+					// for this worktree; otherwise start fresh. Per-attempt transient state
+					// (`commitError`, `generating`) always resets — it doesn't belong to the draft.
+					this.loadWipDraft(currentWorktreePath);
+				} else if (repoChanged) {
+					// Repo identity changed AND we're not landing on a WIP row (commit selection in
+					// a different repo, repo dropdown switch with no WIP target, etc.). Wipe form
+					// state — it was authored against the prior repo's HEAD and would be wrong
+					// for the new repo. The form isn't visible during this transition, so the
+					// clearing is invisible to the user.
 					this._state.amend.set(false);
 					this._state.amendBaseSha.set(undefined);
 					this._state.commitMessage.set('');
@@ -754,6 +1238,49 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// is observable during render (avoids a blank frame between prop change and the
 			// signal-driven re-render). Repo-change subscription re-wires via the controller's
 			// hostUpdate hook.
+		}
+
+		// Deferred-load fallback: the wipTargetChanged branch above only fires when sha/shas/
+		// repoPath are in `changedProperties` AND `effectiveRepoPath`/`worktreePath` are valid
+		// at that exact render. On bootstrap, the WIP target is set before `effectiveRepoPath`
+		// resolves (wip data arrives in a later signal-driven re-render), so loadWipDraft is
+		// skipped and the persisted draft never lands. Re-check every render: if we're on a
+		// WIP target we haven't loaded for yet AND conditions are now valid, load.
+		// Mirrors the gate on the wipTargetChanged branch above: in compose/review mode the
+		// workflow owns commit-form state, so swapping it out from under the mode would break
+		// the user's in-flight session. The seed still lands in `wipDrafts` via the host write;
+		// on mode exit the panel reverts and the next render rehydrates `commitMessage` from it.
+		if (this.isWip && this._state.activeMode.get() == null) {
+			const worktreePath = this.computeWorktreePathFromSha(this.sha);
+			if (worktreePath != null) {
+				const currentDraft = this._graphState?.wipDrafts?.[worktreePath];
+				if (worktreePath !== this._lastLoadedWipTarget) {
+					// New WIP target — load fresh (covers initial bootstrap + WIP-target swaps where
+					// the wipTargetChanged branch above couldn't fire because `effectiveRepoPath`
+					// wasn't valid yet).
+					this.loadWipDraft(worktreePath);
+				} else if (currentDraft !== this._lastLoadedDraftRef) {
+					// Same target but the stored draft changed (concurrent webview's flush, host
+					// undo write, etc.). Reload IFF the user hasn't typed since the last load —
+					// otherwise their in-flight edit wins locally and we just mark the new draft
+					// as seen so we don't re-evaluate every render.
+					const lastLoadedMessage = this._lastLoadedDraftRef?.message ?? '';
+					if (this._state.commitMessage.get() === lastLoadedMessage) {
+						this.loadWipDraft(worktreePath);
+					} else {
+						// User diverged from the loaded draft — preserve their typing and let
+						// the trailing `maybeScheduleWipDraftFlush` at the end of `updated()`
+						// persist it, overwriting the incoming concurrent draft. Update the
+						// loaded-ref so we don't re-enter this branch, but DO NOT reseed
+						// `_lastFlushedWipDraftKey` to the local state — that would mark the
+						// in-memory text as already-persisted and the user could close the
+						// panel believing it was saved, while storage still holds the other
+						// instance's draft. Leaving the key at the prior loaded draft's value
+						// lets the next flush schedule trigger correctly.
+						this._lastLoadedDraftRef = currentDraft;
+					}
+				}
+			}
 		}
 
 		// Auto-clear amend if its basis HEAD has moved (external commit, pull, fetch, etc.).
@@ -809,6 +1336,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		} else {
 			this.removeAttribute('data-mode');
 		}
+
+		// Snapshot the commit-form signals and persist any change to the host's per-worktree
+		// memento. Reads the same signals the auto-clear logic above just mutated, so this
+		// captures HEAD-move clears, manual amend toggles, AI generations, and user typing
+		// through a single debounced exit point.
+		this.maybeScheduleWipDraftFlush();
 	}
 
 	/** Computes the right-side identity-row snippet shown while in compose/review. Pre-formats
@@ -953,6 +1486,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fires `hostConnected` immediately (since we're already connected), which sets up
 		// the repo-change subscription without an extra call here.
 		this._workflow = new DetailsWorkflowController(this, this._actions);
+
+		if (this._pendingCompare != null) {
+			const { params, onReady } = this._pendingCompare;
+			this._pendingCompare = undefined;
+			this.openCompareMode(params, onReady);
+		}
 
 		void this._actions.fetchCapabilities();
 		// Fetched eagerly (not gated on isWip) because resolveServices runs once on
@@ -1179,27 +1718,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			(this._state.preferences.get()?.aiEnabled ?? false) &&
 			(this._state.orgSettings.get()?.ai ?? false) &&
 			(wip.repo?.provider?.supportedFeatures?.createPullRequestWithDetails ?? false);
-		const worktreeAgentSessions = this.getWorktreeAgentSessions(wip);
+		// Read the worktree-matched sessions from the cycle snapshot captured in `willUpdate` so
+		// the auto-partial trigger and the rendered card list agree on the same data within a
+		// single update. See `_cycleAgentSessions` for why this matters.
+		const worktreeAgentSessions = this._cycleAgentSessions;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
-		//  - `closed` / `partial`: auto-size with fit-content(25%) cap (~3 cards); splitter inert
-		//  - `expanded` (no drag): auto-size with fit-content(80%) cap (show what fits)
-		//  - `expanded` (dragged):  honor user's saved size verbatim — no fit-content, so empty
-		//                            space below the last card is OK if the user dragged larger
-		// `agentStatusUseUserSize === true` removes the `--auto-size` class so the grid uses
-		// `--_start-size` directly (no shrink-to-content). Otherwise the class applies and
-		// fit-content(--_start-size) shrinks below the auto-cap when content is small.
-		const agentStatusIsExpanded = this._agentStatusExpand === 'expanded';
-		const agentStatusUseUserSize = agentStatusIsExpanded && this._agentStatusSplitAdjusted;
-		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : 25;
-		const agentStatusPosition = agentStatusUseUserSize
-			? (this._agentStatusSplitPosition ?? agentStatusAutoCap)
-			: agentStatusAutoCap;
+		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
+		//                              `--auto-size` rule). Splitter inert. The `position`
+		//                              attribute we pass here is irrelevant in these modes —
+		//                              CSS uses a fixed `fit-content` cap regardless.
+		//  - `expanded`:              splitter position is authoritative — opens at
+		//                              {@link AGENT_STATUS_DEFAULT_PCT}% until the user drags,
+		//                              then the persisted user position. Snap clamps drag to
+		//                              [10, {@link AGENT_STATUS_MAX_PCT}]. One exception: when
+		//                              the worktree match returns an empty array (sessions
+		//                              present in the source but none for this worktree), the
+		//                              `--no-cards` class forces `max-content` so the heading
+		//                              collapses instead of floating in empty space — same as
+		//                              the collapsed/partial no-cards behavior.
+		const agentStatusExpand = this.agentStatusExpand;
+		const agentStatusIsExpanded = agentStatusExpand === 'expanded';
+		const agentStatusPosition = this._agentStatusSplitPosition ?? agentStatusDefaultPct;
+		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
+		// section is non-draggable there and the intent is "snug to content". Expanded never uses
+		// it: the split-panel's default grid template (`min(--_start-size, …)`) reflects the
+		// splitter position directly.
+		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `_agentStatusExpand`) — no event-driven mirror needed.
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
 		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
-			expandVisibleCategories[this._agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+			expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
 		);
 
 		const restContent =
@@ -1253,6 +1803,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.generating=${this._state.generating.get()}
 									.branchName=${branchName}
 									.canCommit=${this._actions.canCommit()}
+									.disabledReason=${this._actions.canCommitReason()}
 									.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 									.commitError=${this._state.commitError.get()}
 									@message-change=${this.handleCommitMessageChange}
@@ -1267,17 +1818,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.wip=${wip}
 									.aiEnabled=${false}
 									.aiCreatePrEnabled=${aiCreatePrEnabled}
-									.hasPullRequest=${this._state.wipPullRequestLoading.get() ||
-									this._state.wipPullRequest.get() != null}
+									.pullRequest=${this._state.wipPullRequest.get()}
+									.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
 									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 									.launchpadSummary=${this._state.launchpadSummary.get()}
 									.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
 									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
+									show-launchpad
 									@switch-branch=${this.handleSwitchBranch}
 									@create-branch=${this.handleCreateBranch}
 									@create-pr=${this.handleCreatePullRequest}
 									@create-pr-ai=${this.handleCreatePullRequestWithAI}
 									@start-work=${this.handleStartWork}
+									@start-review=${this.handleStartReview}
 									@apply-stash=${this.handleApplyStash}
 									@new-worktree=${this.handleNewWorktree}
 									@publish-branch=${this.handlePublishBranch}
@@ -1327,11 +1880,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			></gl-details-wip-header>
 			${showAgentStatus
 				? html`<gl-split-panel
-						class="agent-status-split ${agentStatusUseUserSize
-							? ''
-							: 'agent-status-split--auto-size'} ${agentStatusHasVisibleCards
-							? ''
-							: 'agent-status-split--no-cards'}"
+						class="agent-status-split ${useAutoSize
+							? 'agent-status-split--auto-size'
+							: ''} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
 						orientation="vertical"
 						primary="start"
 						position="${agentStatusPosition}"
@@ -1344,7 +1895,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
-								.expand=${this._agentStatusExpand}
+								.expand=${agentStatusExpand}
+								.selectedSessionId=${this._selectedAgentSessionId}
 								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}
 							></gl-details-agent-status>
 						</div>
@@ -1361,7 +1913,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			// open the picker first so the click never produces a silent no-op. The user
 			// re-clicks Compose after selecting — keeps the dispatch path single-shot.
 			if (this._state.aiModel.get() == null) {
-				this._actions.switchAIModel();
+				this._actions.switchAIModel('compose');
 				return;
 			}
 
@@ -1467,14 +2019,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private renderCompareMode() {
 		const branch = this._state.wip.get()?.branch;
 		const repoPath = this.effectiveRepoPath;
-		// The left ref has a worktree when the host resolved a path during the last summary fetch —
-		// covers the current branch AND any other branch checked out in a workspace peer or
-		// off-workspace worktree.
-		const leftRefWorktreePath = this._state.branchCompareLeftRefWorktreePath.get();
-		const hasWorktree = leftRefWorktreePath != null;
+		// The right ref (Compare side) has a worktree when the host resolved a path during the last
+		// summary fetch — covers the current branch AND any other branch checked out in a workspace
+		// peer or off-workspace worktree.
+		const rightRefWorktreePath = this._state.branchCompareRightRefWorktreePath.get();
+		const hasWorktree = rightRefWorktreePath != null;
+		const mergeBase = this._state.branchCompareMergeBase.get();
 		const activeTab = this._state.branchCompareActiveTab.get();
 		const allFiles = this._state.branchCompareAllFiles.get() ?? [];
 		const leftRef = this._state.branchCompareLeftRef.get();
+		const rightRef = this._state.branchCompareRightRef.get();
 
 		const autolinksByScope = this._state.branchCompareAutolinksByScope.get();
 		const enrichedByScope = this._state.branchCompareEnrichedAutolinksByScope.get();
@@ -1492,12 +2046,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.generateChangelogBusy=${this._state.compareGenerateChangelogBusy.get()}
 			.leftRef=${leftRef}
 			.leftRefType=${this._state.branchCompareLeftRefType.get()}
-			.rightRef=${this._state.branchCompareRightRef.get()}
+			.rightRef=${rightRef}
 			.rightRefType=${this._state.branchCompareRightRefType.get()}
 			.includeWorkingTree=${this._state.branchCompareIncludeWorkingTree.get()}
 			.stale=${this._state.branchCompareStale.get()}
 			.hasWorktree=${hasWorktree}
-			.leftRefWorktreePath=${leftRefWorktreePath}
+			.rightRefWorktreePath=${rightRefWorktreePath}
+			.mergeBase=${mergeBase}
 			.aheadCount=${this._state.branchCompareAheadCount.get()}
 			.behindCount=${this._state.branchCompareBehindCount.get()}
 			.allFilesCount=${this._state.branchCompareAllFilesCount.get()}
@@ -1507,6 +2062,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.behindFiles=${this._state.branchCompareBehindFiles.get()}
 			.aheadLoaded=${this._state.branchCompareAheadLoaded.get()}
 			.behindLoaded=${this._state.branchCompareBehindLoaded.get()}
+			.aheadHasMore=${this._state.branchCompareAheadHasMore.get()}
+			.behindHasMore=${this._state.branchCompareBehindHasMore.get()}
+			.aheadLoadingMore=${this._state.branchCompareAheadLoadingMore.get()}
+			.behindLoadingMore=${this._state.branchCompareBehindLoadingMore.get()}
 			.allFiles=${allFiles}
 			.loading=${this._actions.resources.branchCompareSummary.loading.get() ||
 			this._actions.resources.branchCompareSide.loading.get()}
@@ -1526,15 +2085,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
 			.hasAccount=${this._state.hasAccount.get()}
 			@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFile(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFile(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFileComparePrevious(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFileComparePrevious(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-compare-between=${(e: CustomEvent<FileCompareBetweenDetail>) =>
 				this._actions.openFileCompareBetween(e.detail, e.detail.lhsRef, e.detail.rhsRef)}
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.openFileCompareWorking(e.detail, this.compareFileRef(leftRef))}
+				this._actions.openFileCompareWorking(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>
-				this._actions.executeFileAction(e.detail, this.compareFileRef(leftRef))}
+				this._actions.executeFileAction(e.detail, this.compareFileRef(activeTab, leftRef, rightRef))}
 			@change-files-layout=${this.handleChangeFilesLayout}
 			@change-ref=${(e: CustomEvent<{ side: 'left' | 'right' }>) =>
 				void this._actions.changeCompareRef(e.detail.side, repoPath)}
@@ -1542,6 +2101,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@open-in-search-and-compare=${() => this._actions.openCompareInSearchAndCompare(repoPath)}
 			@toggle-working-tree=${() => this._actions.toggleCompareWorkingTree(repoPath)}
 			@refresh-compare=${() => this._actions.refreshBranchCompare(repoPath)}
+			@load-more-compare-commits=${(e: CustomEvent<{ side: 'ahead' | 'behind' }>) =>
+				void this._actions.loadMoreCompareCommits(e.detail.side, repoPath)}
 			@switch-tab=${(e: CustomEvent<{ tab: 'all' | 'ahead' | 'behind' }>) =>
 				this._actions.switchCompareTab(e.detail.tab, repoPath)}
 			@scope-to-commit=${(e: CustomEvent<{ sha: string | undefined }>) =>
@@ -1559,10 +2120,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** When the user has scoped the compare file list to a single commit, file actions should
 	 *  resolve against THAT commit (so "previous" means commit~1, not the comparison's other side).
-	 *  Otherwise fall through to the comparison's left ref (branch-vs-branch semantics). */
-	private compareFileRef(leftRef: string | undefined): string | undefined {
-		const selected = this._state.branchCompareSelectedCommitSha.get();
-		return selected ?? leftRef;
+	 *  Otherwise fall through to the tab's "owning" ref:
+	 *    - Ahead / All Files → rightRef (Compare side; the file's latest state lives there)
+	 *    - Behind → leftRef (Base side; the file's "owner" is Base for Behind rows)
+	 *  Matches the per-tab diff direction set in `gl-details-compare-mode-panel.getFileContext` so
+	 *  "Open File" lands on the same ref the right-click commands assume. The returned ref isn't
+	 *  tagged as a stash — compare-mode refs are branches/tags/commits, and the safety net in
+	 *  `getCommitAndFileByPath` handles the rare stash-in-compare case. */
+	private compareFileRef(
+		activeTab: 'all' | 'ahead' | 'behind',
+		leftRef: string | undefined,
+		rightRef: string | undefined,
+	): { ref: string } | undefined {
+		const fallback = activeTab === 'behind' ? leftRef : rightRef;
+		const ref = this._state.branchCompareSelectedCommitSha.get() ?? fallback;
+		return ref != null ? { ref: ref } : undefined;
 	}
 
 	/**
@@ -1710,7 +2282,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// default, replacing the editor the sub-panel just opened.
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFile(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.openFile(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@file-compare-between=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
@@ -1724,17 +2296,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFileCompareWorking(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.openFileCompareWorking(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.openFileComparePrevious(e.detail, this._actions.fromSha(shas, swapped));
+				this._actions.openFileComparePrevious(e.detail, asRefObj(this._actions.fromSha(shas, swapped)));
 			}}
 			@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) => {
 				if (this._state.activeMode.get() != null) return;
 
-				this._actions.executeFileAction(e.detail, this._actions.toSha(shas, swapped));
+				this._actions.executeFileAction(e.detail, asRefObj(this._actions.toSha(shas, swapped)));
 			}}
 			@swap-selection=${() => this._actions.swap(shas)}
 			@gl-explain=${(e: CustomEvent<{ prompt?: string }>) =>
@@ -1824,7 +2396,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('review');
 					return;
 				}
 
@@ -2050,6 +2622,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
 		this._actions.startWork(e.detail?.showOpenInAgent);
 
+	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
+		this._actions.startPRReview(e.detail?.showOpenInAgent);
+
 	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
 
 	private handleApplyStash = () => this._actions.applyStash(this.effectiveRepoPath);
@@ -2077,13 +2652,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		void this.fetchLaunchpadSummary(this._remoteServices);
 	};
 
-	private handleCompareWithMergeTarget = (
-		e: CustomEvent<{ rightRef: string; rightRefType: 'branch' | 'commit' }>,
-	) => {
+	private handleCompareWithMergeTarget = (e: CustomEvent<{ leftRef: string; leftRefType: 'branch' | 'commit' }>) => {
 		e.preventDefault();
+		// The merge target is the Base of the comparison — forward it as `leftRef` so the
+		// selection-derived `rightRef` (the user's current branch / WIP / commit) survives.
+		// Previously this dispatched as `rightRef`, which clobbered the WIP-seeded right side
+		// and let `initCompareDefaults` fill `leftRef` from the same merge target — producing a
+		// degenerate `mergeTarget ↔ mergeTarget` self-comparison.
 		this._workflow.openCompare(this.currentSelection(), {
-			rightRef: e.detail.rightRef,
-			rightRefType: e.detail.rightRefType,
+			leftRef: e.detail.leftRef,
+			leftRefType: e.detail.leftRefType,
 		});
 	};
 
@@ -2121,20 +2699,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 
+	/** Single-commit selection's ref + stash hint — `commitLite` carries `stashNumber` from the graph row. */
+	private get currentRef(): { ref: string; stash?: boolean } | undefined {
+		if (this.sha == null) return undefined;
+		return { ref: this.sha, stash: this.commitLite?.stashNumber != null };
+	}
+
 	private handleFileOpen = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFile(e.detail, this.sha);
+		this._actions.openFile(e.detail, this.currentRef);
 	};
 
 	private handleFileOpenOnRemote = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileOnRemote(e.detail, this.sha);
+		this._actions.openFileOnRemote(e.detail, this.currentRef);
 	};
 
 	private handleFileCompareWorking = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileCompareWorking(e.detail, this.sha);
+		this._actions.openFileCompareWorking(e.detail, this.currentRef);
 	};
 
 	private handleFileComparePrevious = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.openFileComparePrevious(e.detail, this.sha);
+		this._actions.openFileComparePrevious(e.detail, this.currentRef);
 	};
 
 	private handleFileCompareWipChanges = (e: CustomEvent<FileChangeListItemDetail>) => {
@@ -2142,7 +2726,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleFileMoreActions = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.executeFileAction(e.detail, this.sha);
+		this._actions.executeFileAction(e.detail, this.currentRef);
 	};
 
 	private handleFileOpenConflictCurrent = (e: CustomEvent<FileChangeListItemDetail>) => {

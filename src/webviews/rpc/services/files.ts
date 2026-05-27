@@ -55,8 +55,12 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens the file
 	 * via the working-file command.
 	 */
-	async openFile(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+	async openFile(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			void openFile(file, makeWipRef(file.repoPath), { preserveFocus: true, preview: true, ...showOptions });
 			return;
 		}
@@ -73,7 +77,7 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens
 	 * the file on the remote via the openFileOnRemote command.
 	 */
-	async openFileOnRemote(file: GitFileChangeShape, ref?: string): Promise<void> {
+	async openFileOnRemote(file: GitFileChangeShape, ref?: { ref: string; stash?: boolean }): Promise<void> {
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
 
@@ -86,8 +90,12 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then opens a
 	 * diff view comparing the committed version with working tree.
 	 */
-	async openFileCompareWorking(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+	async openFileCompareWorking(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			void openChangesWithWorking(file, makeWipRef(file.repoPath), {
 				preserveFocus: true,
 				preview: true,
@@ -111,9 +119,9 @@ export class FilesService {
 	async openFileComparePrevious(
 		file: GitFileChangeShape,
 		showOptions?: FileShowOptions,
-		ref?: string,
+		ref?: { ref: string; stash?: boolean },
 	): Promise<void> {
-		if (file.repoPath != null && ref === uncommitted) {
+		if (file.repoPath != null && ref?.ref === uncommitted) {
 			// "Previous" for the working tree means HEAD vs working tree — `openChanges` with
 			// rhs='' and lhs='HEAD' delegates to `openChangesWithWorking` with the HEAD ref.
 			void openChanges(
@@ -220,7 +228,11 @@ export class FilesService {
 	 * Resolves the commit from `file.repoPath` + `ref`, then shows
 	 * the details quick pick with all available file actions.
 	 */
-	async executeFileAction(file: GitFileChangeShape, showOptions?: FileShowOptions, ref?: string): Promise<void> {
+	async executeFileAction(
+		file: GitFileChangeShape,
+		showOptions?: FileShowOptions,
+		ref?: { ref: string; stash?: boolean },
+	): Promise<void> {
 		void showOptions; // Reserved for future use (e.g. viewColumn context)
 		const [commit, resolved] = await this.#getFileCommit(file, ref);
 		if (commit == null) return;
@@ -321,7 +333,7 @@ export class FilesService {
 
 	async #getFileCommit(
 		file: GitFileChangeShape,
-		ref?: string,
+		ref?: { ref: string; stash?: boolean },
 	): Promise<[commit: GitCommit, file: GitFileChange] | [commit?: undefined, file?: undefined]> {
 		if (file.repoPath == null) return [];
 		return getCommitAndFileByPath(file.repoPath, file.path, ref, file.staged);

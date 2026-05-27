@@ -389,6 +389,44 @@ export class CommitDetailsActions {
 		);
 	}
 
+	updateShowSearchBox(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+				'update showSearchBox',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, showSearchBox: value },
+			this.services.storage.updateWorkspace('views:commitDetails:showSearchBox', value),
+			'update showSearchBox',
+		);
+	}
+
+	updateSearchBoxFilter(value: boolean): void {
+		const currentPrefs = this.state.preferences.get();
+		if (currentPrefs == null) {
+			fireRpc(
+				this.state.error,
+				this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+				'update searchBoxFilter',
+			);
+			return;
+		}
+
+		optimisticFireAndForget(
+			this.state.preferences,
+			{ ...currentPrefs, searchBoxFilter: value },
+			this.services.storage.updateWorkspace('views:commitDetails:searchBoxFilter', value),
+			'update searchBoxFilter',
+		);
+	}
+
 	updateFilesLayout(files: {
 		compact?: boolean;
 		icon?: 'type' | 'status';
@@ -532,10 +570,18 @@ export class CommitDetailsActions {
 	// File Actions
 	// ============================================================
 
-	/** Get the current commit SHA for file actions (undefined in WIP mode → uses uncommitted). */
-	private getCurrentRef(): string | undefined {
+	/**
+	 * Get the current commit's ref + whether it's a stash for file actions. WIP mode returns
+	 * undefined so callers fall through the `ref == null` branches (uncommitted path). The
+	 * `stash` flag lets `FilesService` route stash refs through the stash sub-provider (which
+	 * has untracked files in its fileset) instead of `commits.getCommit` (which doesn't).
+	 */
+	private getCurrentRef(): { ref: string; stash?: boolean } | undefined {
 		if (this.state.mode.get() === 'wip') return undefined;
-		return this.state.currentCommit.get()?.sha;
+
+		const commit = this.state.currentCommit.get();
+		if (commit?.sha == null) return undefined;
+		return { ref: commit.sha, stash: commit.stashNumber != null };
 	}
 
 	openFile(file: GitFileChangeShape, showOptions?: FileShowOptions): void {
@@ -797,9 +843,6 @@ export class CommitDetailsActions {
 			void this.services.config
 				.get('views.commitDetails.autolinks.enabled')
 				.then(a => (this.state.capabilities.autolinksEnabled = a), noop);
-			void this.services.config
-				.get('ai.experimental.composer.enabled')
-				.then(c => (this.state.capabilities.experimentalComposerEnabled = c), noop);
 			// Note: hasAccount and orgSettings use RemoteSignalBridge (connected in commitDetails.ts)
 			void this.services.integrations
 				.getIntegrationStates()
@@ -996,38 +1039,39 @@ export class CommitDetailsActions {
 	 */
 	async fetchPreferences(): Promise<void> {
 		try {
-			const [pullRequestExpandedResult, configResult, coreConfigResult, aiEnabledResult] =
-				await Promise.allSettled([
-					this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
-					this.services.config.getMany(
-						'views.commitDetails.avatars',
-						'defaultCurrentUserNameStyle',
-						'defaultDateFormat',
-						'defaultDateStyle',
-						'views.commitDetails.files',
-						'signing.showSignatureBadges',
-						'views.commitDetails.autolinks.enabled',
-						'ai.experimental.composer.enabled',
-					),
-					this.services.config.getManyCore(
-						'workbench.tree.renderIndentGuides',
-						'workbench.tree.indent',
-						'git.enableSmartCommit',
-					),
-					this.services.ai.isEnabled(),
-				]);
+			const [
+				pullRequestExpandedResult,
+				showSearchBoxResult,
+				searchBoxFilterResult,
+				configResult,
+				coreConfigResult,
+				aiEnabledResult,
+			] = await Promise.allSettled([
+				this.services.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
+				this.services.storage.getWorkspace('views:commitDetails:showSearchBox'),
+				this.services.storage.getWorkspace('views:commitDetails:searchBoxFilter'),
+				this.services.config.getMany(
+					'views.commitDetails.avatars',
+					'defaultCurrentUserNameStyle',
+					'defaultDateFormat',
+					'defaultDateStyle',
+					'views.commitDetails.files',
+					'signing.showSignatureBadges',
+					'views.commitDetails.autolinks.enabled',
+				),
+				this.services.config.getManyCore(
+					'workbench.tree.renderIndentGuides',
+					'workbench.tree.indent',
+					'git.enableSmartCommit',
+				),
+				this.services.ai.isEnabled(),
+			]);
 
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
-			const [
-				avatars,
-				currentUserNameStyle,
-				dateFormat,
-				dateStyle,
-				files,
-				showSignatureBadges,
-				autolinksEnabled,
-				experimentalComposerEnabled,
-			] = getSettledValue(configResult) ?? [];
+			const showSearchBox = getSettledValue(showSearchBoxResult);
+			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
+			const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, autolinksEnabled] =
+				getSettledValue(configResult) ?? [];
 			const [indentGuides, indent, enableSmartCommit] = getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
 
@@ -1049,12 +1093,11 @@ export class CommitDetailsActions {
 				aiEnabled: aiEnabled ?? false,
 				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,
+				showSearchBox: showSearchBox ?? true,
+				searchBoxFilter: searchBoxFilter ?? true,
 			});
 			if (autolinksEnabled != null) {
 				this.state.capabilities.autolinksEnabled = autolinksEnabled;
-			}
-			if (experimentalComposerEnabled != null) {
-				this.state.capabilities.experimentalComposerEnabled = experimentalComposerEnabled;
 			}
 		} catch (ex) {
 			Logger.error(ex, 'Failed to fetch preferences');

@@ -37,7 +37,6 @@ export interface State extends WebviewState<'gitlens.views.home'> {
 		ai: boolean;
 	};
 	aiEnabled: boolean;
-	experimentalComposerEnabled: boolean;
 	mcpBannerCollapsed: boolean;
 	mcpCanAutoRegister: boolean;
 	hasAnyIntegrationConnected: boolean;

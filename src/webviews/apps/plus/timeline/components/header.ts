@@ -20,8 +20,10 @@ import '../../../shared/components/repo-button-group.js';
 
 /** Static fallback labels for the timeframe pill when the chart hasn't reported a live visible
  *  span yet (initial paint, dataset hasn't resolved). Once the chart emits, the pill switches to
- *  `formatVisibleSpan(visibleSpanMs)` so it reflects the actual viewport — including zoom/pan. */
-const periodLabels: Record<TimelinePeriod, string> = {
+ *  `formatVisibleSpan(visibleSpanMs)` so it reflects the actual viewport — including zoom/pan.
+ *  Exported so the embedded Graph treemap can reuse the same labels for its own period picker —
+ *  both viz modes share `graphState.timelinePeriod`, so their pickers stay in lockstep. */
+export const periodLabels: Record<TimelinePeriod, string> = {
 	'7|D': '1 week',
 	'1|M': '1 month',
 	'3|M': '3 months',
@@ -99,11 +101,20 @@ export class GlTimelineHeader extends LitElement {
 				margin: 0.5rem 1rem;
 				gap: 1rem;
 				min-width: 0;
+				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 
 			:host([placement='editor']) .header {
 				margin-top: 1rem;
 				margin-right: 1.5rem;
+			}
+
+			/* When embedded inside the Graph webview's Visual History, the surrounding header
+			 * row already supplies horizontal/vertical padding and the visualization-switcher
+			 * sits to our left. Dropping our own margin keeps the two-visualization header
+			 * heights aligned so toggling between Timeline and Treemap doesn't jump the chart. */
+			:host([host='graph']) .header {
+				margin: 0;
 			}
 
 			.details {

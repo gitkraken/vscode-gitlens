@@ -3,14 +3,26 @@ import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GraphIncludeOnlyRefs, GraphScope, GraphWipMetadataBySha } from '../../../../plus/graph/protocol.js';
 
 /**
- * Filters secondary worktree WIP metadata for the active scope: drops any entry whose worktree
- * branch isn't one of the scoped local refs (branchRef / additionalBranchRefs).
+ * Filters secondary worktree WIP metadata for the active scope: keeps only entries whose
+ * worktree branch is one of the scoped local refs (`branchRef` / `additionalBranchRefs`).
  *
- * `scope.upstreamRef` is deliberately not part of the match set — see the inline comment.
+ * `scope.upstreamRef` is deliberately not part of the match set — it's a `remotes/*` id, while
+ * non-detached worktrees always have a `heads/*` `branchRef` (git only attaches worktrees to
+ * local branches), so the two can never collide.
  *
- * Entries with `branchRef` undefined (detached worktrees) pass through — they have no branch
- * identity to compare against, so the graph component's SHA-based scope filter handles them.
- * That preserves prior behavior for detached worktrees that happen to be at scope anchor SHAs.
+ * Detached worktrees (`branchRef == null`) are DROPPED under an active scope — they have no
+ * branch identity to attribute to the scoped branch, and surfacing them as a second WIP row
+ * adjacent to the scoped worktree's WIP confuses the picture. The graph component's SHA-based
+ * scope filter would otherwise re-introduce them whenever a detached worktree's HEAD happens
+ * to be in the scoped window, producing a stray "Working Changes (…)" row that isn't on the
+ * scoped branch.
+ *
+ * Trade-off: a worktree intentionally checked out to a SHA on the scoped branch's history
+ * (release-inspection workflows) is now invisible under scope. To re-allow it we'd need to
+ * either (a) plumb the scope's loaded-ancestry set down to this filter and gate on parentSha
+ * membership, or (b) gate on the scope's anchor SHAs (`mergeBase.sha`, `mergeTargetTipSha`,
+ * `focalBranchTipSha`) which is cheaper but stricter. Deferred — the stray-row UX issue this
+ * solves is more common than the explicit-checkout workflow it regresses.
  *
  * When no scope is active, this is identity (returns the same reference).
  */
@@ -20,11 +32,6 @@ export function filterSecondariesForScope(
 ): GraphWipMetadataBySha | undefined {
 	if (wipMetadataBySha == null || scope == null) return wipMetadataBySha;
 
-	// Build the scope ref set once. `scope.upstreamRef` is intentionally excluded — it's a
-	// `remotes/*` id, while non-detached worktrees always have a `heads/*` branchRef (git only
-	// attaches worktrees to local branches), so the two can never collide. Detached worktrees
-	// pass via the `meta.branchRef == null` fall-through below and defer to the graph
-	// component's SHA filter.
 	const scopeRefs = new Set<string>();
 	scopeRefs.add(scope.branchRef);
 	if (scope.additionalBranchRefs != null) {
@@ -36,7 +43,7 @@ export function filterSecondariesForScope(
 	const result: GraphWipMetadataBySha = {};
 	let dropped = false;
 	for (const [sha, meta] of Object.entries(wipMetadataBySha)) {
-		if (meta.branchRef != null && !scopeRefs.has(meta.branchRef)) {
+		if (meta.branchRef == null || !scopeRefs.has(meta.branchRef)) {
 			dropped = true;
 			continue;
 		}
@@ -90,6 +97,28 @@ export function shouldShowPrimaryWipRow(
 	if (currentBranchId == null) return true; // detached HEAD fallback — keep primary visible
 	if (!hasKeys(includeOnlyRefs)) return true; // empty `{}` = "no filter"
 	return includeOnlyRefs[currentBranchId] != null;
+}
+
+/**
+ * Composes `filterSecondariesForScope` with `filterSecondariesForIncludeOnlyRefs`, with one
+ * important wrinkle: when a `scope` is active, the visibility filter is **skipped**. The active
+ * scope is explicit user intent — `filterSecondariesForScope` already pinned the set to the
+ * user's chosen ref(s), so applying the implicit `branchesVisibility` filter on top would drop
+ * the scoped worktree's WIP under non-`'all'` modes (e.g. scoping to `main` from a
+ * `gitlens-debug` worktree under `'current'`/`'agents'` where `main` isn't in `includeOnlyRefs`).
+ * Mirrors the GK component's row scope walk, which also bypasses `includeOnlyRefs` once scoped.
+ *
+ * When no scope is active, both filters apply as usual.
+ */
+export function filterSecondariesForScopeAndVisibility(
+	wipMetadataBySha: GraphWipMetadataBySha | undefined,
+	scope: GraphScope | undefined,
+	branchesVisibility: GraphBranchesVisibility | undefined,
+	includeOnlyRefs: GraphIncludeOnlyRefs | undefined,
+): GraphWipMetadataBySha | undefined {
+	const scoped = filterSecondariesForScope(wipMetadataBySha, scope);
+	if (scope != null) return scoped;
+	return filterSecondariesForIncludeOnlyRefs(scoped, branchesVisibility, includeOnlyRefs);
 }
 
 /**

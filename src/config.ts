@@ -220,11 +220,6 @@ interface AIConfig {
 		/** Glob patterns for files to exclude from AI prompts (like files.exclude). May be undefined on extension upgrade due to VS Code bug. */
 		readonly files: Record<string, boolean> | undefined;
 	};
-	readonly experimental: {
-		readonly composer: {
-			readonly enabled: boolean;
-		};
-	};
 	readonly azure: {
 		readonly url: string | null;
 	};
@@ -434,7 +429,10 @@ export interface GraphConfig {
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';
 	readonly experimental: {
-		readonly renderer: {
+		readonly kanban: {
+			readonly enabled: boolean;
+		};
+		readonly visualizations: {
 			readonly enabled: boolean;
 		};
 	};

@@ -730,7 +730,7 @@ export class GlFileTreePane extends LitElement {
 			.model=${treeModel}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._contextMatchVisibility !== 'off'}
-			?search-box-filter=${treeSearchBoxFilter}
+			.searchBoxFilter=${treeSearchBoxFilter}
 			?filterable=${this.effectiveShowSearchBox}
 			filter-placeholder="Filter files..."
 			search-placeholder="Search files..."

@@ -1,4 +1,5 @@
-import { Disposable, Uri, ViewColumn } from 'vscode';
+import { Disposable, ViewColumn } from 'vscode';
+import { isUri } from '@gitlens/utils/uri.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -76,13 +77,13 @@ export function registerTimelineWebviewCommands<T>(
 		}),
 
 		registerCommand('gitlens.visualizeHistory.file', (...args: unknown[]) => {
-			return show(args[0] instanceof Uri ? { type: 'file', uri: args[0] } : undefined);
+			return show(isUri(args[0]) ? { type: 'file', uri: args[0] } : undefined);
 		}),
 		registerCommand('gitlens.visualizeHistory.file:editor', (...args: unknown[]) => {
-			return show(args[0] instanceof Uri ? { type: 'file', uri: args[0] } : undefined);
+			return show(isUri(args[0]) ? { type: 'file', uri: args[0] } : undefined);
 		}),
 		registerCommand('gitlens.visualizeHistory.file:explorer', (...args: unknown[]) => {
-			return show(args[0] instanceof Uri ? { type: 'file', uri: args[0] } : undefined);
+			return show(isUri(args[0]) ? { type: 'file', uri: args[0] } : undefined);
 		}),
 		registerCommand('gitlens.visualizeHistory.file:scm', (...args: unknown[]) => {
 			return show(isScmResourceState(args[0]) ? { type: 'file', uri: args[0].resourceUri } : undefined);
@@ -98,7 +99,7 @@ export function registerTimelineWebviewCommands<T>(
 		}),
 
 		registerCommand('gitlens.visualizeHistory.folder:explorer', (...args: unknown[]) => {
-			return show(args[0] instanceof Uri ? { type: 'folder', uri: args[0] } : undefined);
+			return show(isUri(args[0]) ? { type: 'folder', uri: args[0] } : undefined);
 		}),
 		registerCommand('gitlens.visualizeHistory.folder:scm', (...args: unknown[]) => {
 			const uri = getScmResourceFolderUri(args);

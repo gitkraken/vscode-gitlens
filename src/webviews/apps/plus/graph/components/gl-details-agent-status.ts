@@ -1,15 +1,19 @@
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
-import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
+import type { AgentSessionCategory, StickyDetailResolver } from '../../../shared/agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
+	fpField,
 	getAgentPhaseLabel,
+	permissionFingerprint,
 } from '../../../shared/agentUtils.js';
-import { renderRunningTool, shouldRenderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
+import { renderRunningTool } from '../../../shared/components/agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../../../shared/components/agents/agent-status-styles.css.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import '../../../shared/components/agents/gl-agent-prompt-detail.js';
@@ -19,28 +23,31 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
-export type ExpandState = 'closed' | 'partial' | 'expanded';
+/** User-facing modes are `collapsed` (bar only) and `expanded` (all cards) — toggled by the
+ *  chevron. `partial` is a panel-driven derived state: when the user is collapsed and a session
+ *  transitions into `needs-input` (or its pending payload changes), the panel sets this so only
+ *  needs-input cards surface. A chevron click from `partial` or `expanded` lands on `collapsed`;
+ *  from `collapsed` it lands on `expanded`. */
+export type ExpandState = 'collapsed' | 'partial' | 'expanded';
 
 /** Cap on cluster dots in the section heading. Beyond this, an `+N` overflow chip takes the slot
  *  so the heading width stays bounded. */
 const maxClusterDots = 5;
 
-/** Tri-state cycle for the heading collapse toggle: closed (needs-input only) → partial
- *  (needs-input + working) → expanded (all) → closed. */
-const expandNext: Record<ExpandState, ExpandState> = {
-	closed: 'partial',
-	partial: 'expanded',
-	expanded: 'closed',
-};
+/** Periodic re-render driver matching the kanban's tick. Without this, the component's
+ *  `shouldUpdate` short-circuit would freeze elapsed labels (`Working · 5m`) and prevent the
+ *  sticky-tool cache from observing its own TTL expiry whenever the host falls silent. 30s is
+ *  fine-grained enough for minute-resolution elapsed labels while staying coarse vs. push churn. */
+const liveTickIntervalMs = 30 * 1000;
 
-/** Note: chevron rotation is driven by CSS via a `data-expand` attribute on the chevron
- *  (see `.section__heading-chevron[data-expand='…']` rules in this file's styles). Closed
- *  is 0deg, partial 45deg, expanded 90deg — single chevron-right glyph that transitions
- *  between states. Keep the values here in lock-step with the CSS rules. */
+/** Note: the chevron uses two glyphs — `chevron-right` for collapsed/partial (rotated 0deg /
+ *  45deg via the `data-expand` attribute) and `chevron-down` for expanded (no rotation). The
+ *  glyph swap happens in the template; the rotation rules live in this file's styles. Keep
+ *  the template's `icon=…` branch in lock-step with the CSS rules. */
 
 export const expandVisibleCategories: Record<ExpandState, ReadonlySet<AgentSessionCategory>> = {
-	closed: new Set<AgentSessionCategory>(['needs-input']),
-	partial: new Set<AgentSessionCategory>(['needs-input', 'working']),
+	collapsed: new Set<AgentSessionCategory>(),
+	partial: new Set<AgentSessionCategory>(['needs-input']),
 	expanded: new Set<AgentSessionCategory>(['needs-input', 'working', 'idle']),
 };
 
@@ -51,18 +58,20 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		/** Fired when the user clicks the chevron — the consumer (panel) owns the expand state
-		 *  and decides whether to accept the request. The component renders from the `expand`
-		 *  property only, never from internal state. */
-		'gl-agent-status-expand-request': CustomEvent<{ next: ExpandState }>;
+		 *  and decides the next mode. The component renders from the `expand` property only,
+		 *  never from internal state. No payload — the panel knows its current user choice. */
+		'gl-agent-status-expand-request': CustomEvent<void>;
 	}
 }
 
 /**
  * Branch-scoped agent status display for the graph details panel. Renders a heading
  * (chevron + label + dot cluster + counts, with a hover popover for per-session detail) above
- * a cards list. The heading button cycles a tri-state filter: closed (needs-input only),
- * partial (needs-input + working), expanded (all). Needs-input and working cards adopt a
- * gradient + icon-circle treatment so each surfaces as actionable at a glance.
+ * a cards list. The heading button toggles between collapsed (bar only) and expanded (all
+ * cards). The panel can also project `partial` automatically — only needs-input cards visible —
+ * when an agent surfaces a new request while the user has the section collapsed. Needs-input
+ * and working cards adopt a gradient + icon-circle treatment so each surfaces as actionable at
+ * a glance.
  */
 @customElement('gl-details-agent-status')
 export class GlDetailsAgentStatus extends LitElement {
@@ -128,7 +137,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				padding-bottom: 0.8rem;
 			}
 
-			/* Heading doubles as the tri-state collapse toggle AND the at-a-glance phase summary —
+			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
 			   chevron + label on the left, dot cluster + counts on the right. The dots and counts
 			   remain visible in every state so the summary still informs at a glance even when
 			   most cards are filtered out.
@@ -178,23 +187,23 @@ export class GlDetailsAgentStatus extends LitElement {
 				line-height: 1;
 				/* Inherit so .section__heading:hover brightens chevron + text together. */
 				color: inherit;
-				/* Single chevron-right glyph in every state — only the rotation differs.
-				   Per-state transform rules below (driven by the data-expand attribute) animate
-				   the cycle via the shared transition. Default closed at 0deg in case the
-				   attribute is briefly missing. */
+				/* Chevron-right for collapsed/partial (rotated via data-expand below); chevron-down
+				   for expanded (no rotation — set in the template). The shared transition animates
+				   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
+				   is briefly missing. */
 				transform: rotate(0deg);
 				transition: transform 0.2s ease;
 			}
 
-			.section__heading-chevron[data-expand='closed'] {
+			.section__heading-chevron[data-expand='collapsed'] {
 				transform: rotate(0deg);
 			}
 			.section__heading-chevron[data-expand='partial'] {
 				transform: rotate(45deg);
 			}
-			.section__heading-chevron[data-expand='expanded'] {
-				transform: rotate(90deg);
-			}
+			/* No [data-expand='expanded'] rule — expanded uses the chevron-down glyph (set in
+			   the template), so the default 0deg from .section__heading-chevron keeps it
+			   upright without an explicit override. */
 
 			@media (prefers-reduced-motion: reduce) {
 				.section__heading-chevron {
@@ -404,6 +413,19 @@ export class GlDetailsAgentStatus extends LitElement {
 				opacity: 0.85;
 			}
 
+			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
+			   inset outline reads as "you picked this one" without overwhelming the card's
+			   own gradient/accent treatment — the prior halo+border combo was too loud against
+			   needs-input/working cards that already carry a colored gradient. outline-offset
+			   -1px tucks the ring just inside the card border so the card's footprint stays
+			   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
+			   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
+			.card--selected {
+				outline: 1px solid var(--vscode-focusBorder);
+				outline-offset: -1px;
+				opacity: 1;
+			}
+
 			.card__rail {
 				grid-row: 1;
 				grid-column: 1;
@@ -521,13 +543,164 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *  `gl-agent-status-expand-request` event; the panel decides whether to honor it by
 	 *  writing back to this property. */
 	@property({ type: String })
-	expand: ExpandState = 'closed';
+	expand: ExpandState = 'collapsed';
+
+	/* Note: when the section is `collapsed` we render no cards at all — the heading bar stands
+	 *  alone. The panel flips us to `partial` automatically when a new needs-input event fires
+	 *  while the user is collapsed (or has just collapsed away from a needs-input set), so the
+	 *  user is re-notified without losing the "I've acknowledged this" gesture. */
+
+	/** When set, the card matching this id receives a `card--selected` modifier (highlighted
+	 *  border, brighter accent). Set by external callers (e.g., sidebar agent leaf click) to
+	 *  surface a specific session in this section. Cleared by the consumer when no longer relevant. */
+	@property({ type: String, attribute: 'selected-session-id' })
+	selectedSessionId?: string;
+
+	/** Sticky "current tool call" resolver shared with the kanban — see
+	 *  {@link createStickyDetailResolver}. Hides the brief inter-tool-call flicker where
+	 *  `session.statusDetail` empties before the next tool latches, so the running-tool composite
+	 *  stays visible across the gap. Permission detail (`<gl-agent-prompt-detail>`) is not
+	 *  stickified — it reflects a steady state rather than a stream of events. */
+	private readonly _stickyResolver: StickyDetailResolver = createStickyDetailResolver();
+
+	/** Cached render fingerprint — see {@link computeFingerprint}. Compared in `shouldUpdate` to
+	 *  skip renders for no-op parent passes (same sessions content, same expand, same selection).
+	 *  The parent (`gl-graph-details-panel`) is a SignalWatcher and rebuilds `worktreeAgentSessions`
+	 *  via `.filter()` on every signal push, so we'd otherwise receive a fresh array reference and
+	 *  re-render even when no rendered field changed. */
+	private _lastFingerprint?: string;
+
+	/** Live-tick counter mixed into {@link computeFingerprint} so the periodic tick deterministically
+	 *  invalidates the fingerprint once per interval — without it, `shouldUpdate` would short-circuit
+	 *  the tick when session content is unchanged, and elapsed labels / sticky-cache TTL expiry
+	 *  would freeze whenever the host falls silent. */
+	private _tickGeneration = 0;
+
+	private _liveTickHandle?: ReturnType<typeof setInterval>;
+
+	/** Returns the rendered card element for `sessionId`, or `null` if no matching card is in
+	 *  this component's shadow tree (session not rendered yet, filtered out by expand state,
+	 *  etc.). Exposed so the consumer can drive its own scroll math against an outer scroller
+	 *  without piercing this component's shadow root. */
+	getSessionCard(sessionId: string): HTMLElement | null {
+		return this.renderRoot.querySelector<HTMLElement>(`[data-session-id="${CSS.escape(sessionId)}"]`) ?? null;
+	}
+
+	/** When true, render only the dot-cluster + counts popover anchor — drop the chevron, "Agents"
+	 *  label, and the cards body. Used by surfaces (e.g. the treemap's Activity toolbar) that
+	 *  want the live-status glance but don't need the inline expanded view; per-session detail is
+	 *  still available via hover on the cluster. */
+	@property({ type: Boolean, reflect: true })
+	compact = false;
+
+	/** Build a stable string capturing every input the component renders against. Identical
+	 *  fingerprint between two parent passes → skip the render entirely via {@link shouldUpdate}.
+	 *
+	 *  Fields included reflect what `renderCard`, `renderHoverRow`, `tally`, and the heading
+	 *  cluster consume:
+	 *  - `expand` and `selectedSessionId` — both shape the rendered tree.
+	 *  - Per session: `id`, `phase`, `status`, `statusDetail` (running-tool surface), `displayName`,
+	 *    `lastPrompt` (card prompt + fallback line), `phaseSince` (ms, drives elapsed labels).
+	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
+	 *    variant's renderable fields contribute, not just kind/toolName.
+	 *
+	 *  Adding a new rendered field requires extending this fingerprint (or
+	 *  {@link permissionFingerprint}) or the component will silently fail to update when only
+	 *  that field changes. */
+	private computeFingerprint(): string {
+		// Mix `_tickGeneration` so the periodic tick deterministically advances the fingerprint
+		// even when session content is unchanged. Every user-typed string field goes through
+		// `fpField` so embedded `|` (shell pipes in statusDetail, free-form descriptions) and
+		// `\n` (multi-line prompts) can't collide via delimiter accidents.
+		const parts: string[] = [`t${this._tickGeneration}`, `e${this.expand}`, `s${fpField(this.selectedSessionId)}`];
+		const sessions = this.sessions ?? [];
+		for (const s of sessions) {
+			parts.push(
+				`${s.id}|${s.phase}|${fpField(s.status)}|${fpField(s.statusDetail)}|${fpField(s.displayName)}|${fpField(s.lastPrompt)}|${s.phaseSince.getTime()}|${permissionFingerprint(s.pendingPermission)}`,
+			);
+		}
+		return parts.join('\n');
+	}
+
+	override shouldUpdate(_changedProps: PropertyValues): boolean {
+		const fingerprint = this.computeFingerprint();
+		if (this._lastFingerprint === fingerprint) {
+			return false;
+		}
+
+		return true;
+	}
+
+	override update(changedProps: PropertyValues): void {
+		// Capture the fingerprint AFTER `super.update()` (which runs `render()`). If render throws
+		// — bad session shape, template binding error — the next parent push should retry rather
+		// than be silently de-duped against the failed fingerprint. Also prune the sticky cache
+		// here so removed sessions don't accumulate entries across session lifecycles.
+		super.update(changedProps);
+		const sessions = this.sessions ?? [];
+		this._lastFingerprint = this.computeFingerprint();
+		if (this._stickyResolver.size > 0) {
+			this._stickyResolver.prune(sessions.map(s => s.id));
+		}
+	}
+
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		this._liveTickHandle = setInterval(() => {
+			// See {@link _tickGeneration} doc — must increment BEFORE requesting update so the
+			// fingerprint reads the new value and shouldUpdate doesn't short-circuit the tick.
+			this._tickGeneration++;
+			this.requestUpdate();
+		}, liveTickIntervalMs);
+	}
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		if (this._liveTickHandle != null) {
+			clearInterval(this._liveTickHandle);
+			this._liveTickHandle = undefined;
+		}
+	}
 
 	override render(): unknown {
 		const sessions = this.sessions;
 		if (sessions == null || sessions.length === 0) return nothing;
 
+		if (this.compact) {
+			return this.renderClusterOnly(sessions);
+		}
 		return this.renderSection(sessions, this.tally(sessions));
+	}
+
+	/** Compact render: just the cluster + counts popover, no surrounding heading button or cards.
+	 *  Hover still surfaces the per-session detail via the same shared popover body. */
+	private renderClusterOnly(sessions: AgentSessionState[]): unknown {
+		const counts = this.tally(sessions);
+		const visibleDots = sessions.slice(0, maxClusterDots);
+		const overflow = sessions.length - visibleDots.length;
+		return html`
+			<gl-popover placement="bottom" hoist>
+				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
+					<span class="section__cluster-dots">
+						${visibleDots.map(
+							s =>
+								html`<span
+									class=${`section__cluster-dot section__cluster-dot--${agentPhaseToCategory[s.phase]}`}
+								></span>`,
+						)}
+						${overflow > 0
+							? html`<span
+									class="section__cluster-dot section__cluster-dot--idle section__cluster-dot--overflow"
+								>
+									+${overflow}
+								</span>`
+							: nothing}
+					</span>
+					<span class="section__cluster-summary">${this.renderCountsSummary(counts)}</span>
+				</span>
+				<div slot="content" class="section__hover">${sessions.map(s => this.renderHoverRow(s))}</div>
+			</gl-popover>
+		`;
 	}
 
 	/* ---------- Section (heading + cards list) ---------- */
@@ -556,10 +729,15 @@ export class GlDetailsAgentStatus extends LitElement {
 				type="button"
 				class="section__heading"
 				aria-controls="section__list"
+				aria-expanded=${state === 'expanded' ? 'true' : 'false'}
 				aria-label=${this.expandAriaLabel(state)}
 				@click=${this.onChevronClick}
 			>
-				<code-icon class="section__heading-chevron" icon="chevron-right" data-expand=${state}></code-icon>
+				<code-icon
+					class="section__heading-chevron"
+					icon=${state === 'expanded' ? 'chevron-down' : 'chevron-right'}
+					data-expand=${state}
+				></code-icon>
 				<span class="section__heading-label">Agents</span>
 				<gl-popover placement="bottom" hoist ?disabled=${state === 'expanded'}>
 					<span slot="anchor" class="section__cluster">
@@ -587,13 +765,12 @@ export class GlDetailsAgentStatus extends LitElement {
 	}
 
 	/** Chevron click — emits a `gl-agent-status-expand-request` with the next state in the
-	 *  tri-state cycle. The consumer (panel) owns `expand` and decides whether to honor the
-	 *  request by writing the new value back; the component is a pure projection of the
+	 *  collapsed ↔ expanded toggle. The consumer (panel) owns `expand` and decides the next
+	 *  mode (partial folds back to collapsed). The component is a pure projection of the
 	 *  property. */
 	private onChevronClick = (): void => {
 		this.dispatchEvent(
 			new CustomEvent('gl-agent-status-expand-request', {
-				detail: { next: expandNext[this.expand] },
 				bubbles: true,
 				composed: true,
 			}),
@@ -602,12 +779,12 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	private expandAriaLabel(state: ExpandState): string {
 		switch (state) {
-			case 'closed':
-				return 'Show working sessions';
-			case 'partial':
+			case 'collapsed':
 				return 'Show all sessions';
+			case 'partial':
+				return 'Showing sessions needing input — collapse';
 			case 'expanded':
-				return 'Collapse to needs-input only';
+				return 'Showing all sessions — collapse';
 		}
 	}
 
@@ -637,13 +814,18 @@ export class GlDetailsAgentStatus extends LitElement {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
-		const isRunningTool = shouldRenderRunningTool(session, category);
-		const detail = isRunningTool
-			? undefined
-			: describeAgentSession(session, category, elapsed, {
-					awaitingPrefix: 'short',
-					idleFallback: 'lastPrompt',
-				});
+		// Route the running-tool surface through the sticky resolver so brief gaps between tool
+		// calls (when `session.status` leaves `tool_use` and `statusDetail` empties) don't flicker
+		// the row's `[tools] X(...)` block back to the generic detail line. `stickyTool` returns
+		// the cached descriptor for up to ~3s after the live one drops away.
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
+		const detail =
+			stickyTool != null
+				? undefined
+				: describeAgentSession(session, category, elapsed, {
+						awaitingPrefix: 'short',
+						idleFallback: 'lastPrompt',
+					});
 
 		return html`
 			<div class="section__hover-row">
@@ -654,18 +836,14 @@ export class GlDetailsAgentStatus extends LitElement {
 				<span class=${`section__hover-phase section__hover-phase--${category}`}>
 					${phaseLabel}${elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : ''}
 				</span>
-				${this.renderHoverRowDetail(session, isRunningTool, detail)}
+				${this.renderHoverRowDetail(stickyTool, detail)}
 			</div>
 		`;
 	}
 
-	private renderHoverRowDetail(
-		session: AgentSessionState,
-		isRunningTool: boolean,
-		detail: string | undefined,
-	): unknown {
-		if (isRunningTool) {
-			return html`<span class="section__hover-tool">${renderRunningTool(session.statusDetail)}</span>`;
+	private renderHoverRowDetail(stickyTool: string | undefined, detail: string | undefined): unknown {
+		if (stickyTool != null) {
+			return html`<span class="section__hover-tool">${renderRunningTool(stickyTool)}</span>`;
 		}
 		if (detail) {
 			return html`<gl-tooltip content=${detail} placement="bottom">
@@ -689,9 +867,14 @@ export class GlDetailsAgentStatus extends LitElement {
 		// (owned by another GitLens window) reach the host's `resolvePermission`, which surfaces
 		// a notification rather than silently no-opping when the route is unavailable.
 		const canResolve = category === 'needs-input' && permission != null;
+		const isSelected = this.selectedSessionId != null && this.selectedSessionId === session.id;
 
 		return html`
-			<div class=${`card card--${category}`}>
+			<div
+				class=${`card card--${category}${isSelected ? ' card--selected' : ''}`}
+				data-session-id=${session.id}
+				aria-current=${isSelected ? 'true' : nothing}
+			>
 				<div class="card__rail">${this.renderCardRail(category)}</div>
 				<div class="card__body">
 					<div class="card__title-row">
@@ -725,8 +908,12 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	/** Detail block for the card body — three mutually exclusive shapes:
 	 *  - needs-input + permission → shared `<gl-agent-prompt-detail>` composite
-	 *  - working + tool_use → `[tools icon] <statusDetail>` running-tool composite
+	 *  - working + tool_use (live OR sticky-cached) → `[tools icon] <statusDetail>` composite
 	 *  - everything else → single-line `describeAgentSession` string in `card__detail`
+	 *
+	 *  The middle branch goes through `_stickyResolver` so the composite stays visible across the
+	 *  brief inter-tool-call gap where `session.statusDetail` empties — without it the running-
+	 *  tool row would flicker out for hundreds of ms before the next tool call latches.
 	 */
 	private renderCardDetail(
 		session: AgentSessionState,
@@ -735,10 +922,16 @@ export class GlDetailsAgentStatus extends LitElement {
 	): unknown {
 		const permission = session.pendingPermission;
 		if (category === 'needs-input' && permission != null) {
+			// Evict any prior working-phase sticky entry — see {@link createStickyDetailResolver}
+			// for why bypassing `resolveLiveTool` would otherwise leak the pre-permission tool
+			// detail across the permission round-trip.
+			this._stickyResolver.evict(session.id);
 			return html`<gl-agent-prompt-detail .permission=${permission}></gl-agent-prompt-detail>`;
 		}
-		if (shouldRenderRunningTool(session, category)) {
-			return renderRunningTool(session.statusDetail);
+
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
+		if (stickyTool != null) {
+			return renderRunningTool(stickyTool);
 		}
 
 		const detailLine = describeAgentSession(session, category, elapsed, {

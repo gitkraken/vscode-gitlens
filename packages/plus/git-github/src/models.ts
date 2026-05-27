@@ -1,3 +1,4 @@
+import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
@@ -10,7 +11,6 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
-import type { Endpoints } from '@octokit/types';
 
 export interface GitHubBlame {
 	ranges: GitHubBlameRange[];

@@ -10,8 +10,24 @@ export class SearchHistory {
 		private readonly repoPath: string | undefined,
 	) {}
 
+	// Serializes read-modify-write operations on workspace storage. Without this, two concurrent
+	// `store()` (or `delete()`) calls both read the same pre-state, both compute their own next-state,
+	// and the second `storeWorkspace` clobbers the first.
+	//
+	// The chain (`_writes`) and the per-call returned promise are deliberately different shapes: the
+	// chain swallows rejections with `.catch` so a single failed write doesn't poison every future
+	// write; the returned promise preserves the rejection so the caller (IPC handler) can surface
+	// the error.
+	private _writes: Promise<unknown> = Promise.resolve();
+
 	/** Deletes a search query from history in workspace storage */
-	async delete(query: string): Promise<void> {
+	delete(query: string): Promise<void> {
+		const work = this._writes.then(() => this.doDelete(query));
+		this._writes = work.catch(() => undefined);
+		return work;
+	}
+
+	private async doDelete(query: string): Promise<void> {
 		if (!query?.trim() || !this.repoPath) return;
 
 		const key = `graph:searchHistory:${this.repoPath}` as const;
@@ -48,7 +64,13 @@ export class SearchHistory {
 	}
 
 	/** Stores a search query to history in workspace storage */
-	async store(searchQuery: SearchQuery): Promise<void> {
+	store(searchQuery: SearchQuery): Promise<void> {
+		const work = this._writes.then(() => this.doStore(searchQuery));
+		this._writes = work.catch(() => undefined);
+		return work;
+	}
+
+	private async doStore(searchQuery: SearchQuery): Promise<void> {
 		// Don't store empty queries or if no repo
 		if (!searchQuery.query?.trim() || !this.repoPath) return;
 

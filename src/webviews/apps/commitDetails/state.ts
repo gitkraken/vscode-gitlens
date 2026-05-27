@@ -105,11 +105,7 @@ export function createCommitDetailsState(storage?: HostStorage) {
 	/** Whether the user has a GitKraken account — connected to remote signal once RPC connects. Single `.get()`. */
 	const hasAccount = createRemoteSignalBridge(false);
 
-	const capabilities = signalObject({
-		hasIntegrationsConnected: false,
-		autolinksEnabled: false,
-		experimentalComposerEnabled: false,
-	});
+	const capabilities = signalObject({ hasIntegrationsConnected: false, autolinksEnabled: false });
 
 	// ── Repository context ──
 

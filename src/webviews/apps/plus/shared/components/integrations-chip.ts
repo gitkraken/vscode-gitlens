@@ -122,6 +122,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.integration-row--mcp,
+			.integration-row--default-agent,
 			.integration-row--hooks {
 				padding-top: 0;
 			}
@@ -266,7 +267,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 					.filter(statusFilter)
 					.map(i =>
 						this.renderIntegrationStatus(i),
-					)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderHooksStatus()}</span
+					)}${this.renderAIStatus()}${this.renderMcpStatus()}${this.renderDefaultAgentStatus()}${this.renderHooksStatus()}</span
 			>
 			<div slot="content" class="content">
 				<div class="header">
@@ -315,7 +316,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 									>
 								</button-container>`
 						: this.integrations.map(i => this.renderIntegrationRow(i))
-				}${this.renderAIRow()}${this.renderMcpRow()}${this.renderHooksRow()}</div>
+				}${this.renderAIRow()}${this.renderMcpRow()}${this.renderDefaultAgentRow()}${this.renderHooksRow()}</div>
 			</div>
 		</gl-popover>`;
 	}
@@ -574,10 +575,45 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		</div>`;
 	}
 
+	private renderDefaultAgentStatus() {
+		if (!this.aiEnabled) return nothing;
+
+		const agent = this.ai.defaultAgent;
+		return html`<span class="integration status--${agent != null ? 'connected' : 'disconnected'}" slot="anchor">
+			<code-icon icon="robot"></code-icon>
+		</span>`;
+	}
+
+	private renderDefaultAgentRow() {
+		if (!this.aiEnabled) return nothing;
+
+		const agent = this.ai.defaultAgent;
+		return html`<div
+			class="integration-row integration-row--default-agent status--${agent != null
+				? 'connected'
+				: 'disconnected'}"
+		>
+			<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
+			<span class="integration__content">
+				<span class="integration__title">Default Coding Agent</span>
+				<span class="integration__details">${agent != null ? agent.label : 'No default agent selected'}</span>
+			</span>
+			<span class="integration__actions">
+				<gl-button
+					appearance="toolbar"
+					href="${createCommandLink('gitlens.agents.switchDefaultAgent')}"
+					tooltip="Switch Default Agent"
+					aria-label="Switch Default Agent"
+					><code-icon icon="arrow-swap"></code-icon
+				></gl-button>
+			</span>
+		</div>`;
+	}
+
 	private renderHooksStatus() {
 		if (!this.aiEnabled || !this.ai.hooks.canInstallClaudeHook) return nothing;
 		return html`<span class="integration status--disconnected" slot="anchor">
-			<code-icon icon="robot"></code-icon>
+			<code-icon icon="search-sparkle"></code-icon>
 		</span>`;
 	}
 
@@ -591,7 +627,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 		if (claude.installed) {
 			return html`<div class="integration-row integration-row--hooks status--connected">
-				<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
+				<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
 				<span class="integration__content">
 					<span class="integration__title">GitKraken Claude Code Hooks</span>
 					<span class="integration__details">Installed — Claude surfaces agent status</span>
@@ -609,7 +645,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		}
 
 		return html`<div class="integration-row integration-row--hooks status--disconnected">
-			<span class="integration__icon"><code-icon icon="robot"></code-icon></span>
+			<span class="integration__icon"><code-icon icon="search-sparkle"></code-icon></span>
 			<span class="integration__content">
 				<span class="integration__title">GitKraken Claude Code Hooks</span>
 				<span class="integration__details">Configure Claude to surface agent status</span>

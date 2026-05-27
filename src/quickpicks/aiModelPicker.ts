@@ -61,10 +61,10 @@ export async function showAIProviderPicker(
 
 	try {
 		const pickedProvider =
-			(current?.provider ?? providers.get('vscode')?.configured)
-				? 'vscode'
-				: providers.get('gitkraken')?.configured
-					? 'gitkraken'
+			(current?.provider ?? providers.get('gitkraken')?.configured)
+				? 'gitkraken'
+				: providers.get('vscode')?.configured
+					? 'vscode'
 					: undefined;
 
 		let addedRequiredKeySeparator = false;
@@ -138,6 +138,7 @@ export async function showAIModelPicker(
 	current?: AIModelDescriptor,
 	source?: Source,
 	titles?: { title?: string; placeholder?: string },
+	scope?: AIModelScope,
 ): Promise<ModelQuickPickItem | Directive | undefined> {
 	if (!(await ensureAccess(container, { showPicker: true }, source))) return undefined;
 
@@ -154,15 +155,22 @@ export async function showAIModelPicker(
 			directive: Directive.Noop,
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
 	} else {
+		const scopedDefaultModelId =
+			provider === 'gitkraken' && (scope === 'compose' || scope === 'review')
+				? 'gemini:gemini-3-flash-preview'
+				: undefined;
+		const useScopedDefault = scopedDefaultModelId != null && current?.provider !== provider;
+
 		for (const m of models) {
 			if (m.hidden) continue;
 
-			const picked = m.provider.id === current?.provider && m.id === current?.model;
+			const matchesCurrent = m.provider.id === current?.provider && m.id === current?.model;
+			const picked = matchesCurrent || (useScopedDefault && m.id === scopedDefaultModelId);
 
 			items.push({
 				label: m.name,
 				description: m.default ? '  recommended' : undefined,
-				iconPath: picked ? new ThemeIcon('check') : new ThemeIcon('blank'),
+				iconPath: matchesCurrent ? new ThemeIcon('check') : new ThemeIcon('blank'),
 				model: m,
 				picked: picked,
 			} satisfies ModelQuickPickItem);

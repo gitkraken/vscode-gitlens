@@ -48,7 +48,7 @@ export async function getSupportedAgents(): Promise<AgentDescriptor[]> {
 
 	// 2) Claude extension — gated on install + command registration.
 	if (await isClaudeExtensionAvailable()) {
-		result.push({ id: 'claude-extension', kind: 'claude-extension', label: 'Claude' });
+		result.push({ id: 'claude-extension', kind: 'claude-extension', label: 'Claude Code Extension' });
 	}
 
 	// 3) CLIs — filtered to detected + executable-on-disk, sorted by displayName.

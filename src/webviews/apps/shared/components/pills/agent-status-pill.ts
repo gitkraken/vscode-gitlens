@@ -3,15 +3,16 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
-import type { AgentSessionCategory } from '../../agentUtils.js';
+import type { AgentSessionCategory, StickyDetailResolver } from '../../agentUtils.js';
 import {
 	agentPhaseToCategory,
+	createStickyDetailResolver,
 	describeAgentSession,
 	formatAgentElapsed,
 	getAgentCategoryLabel,
 	getAgentPhaseLabel,
 } from '../../agentUtils.js';
-import { renderRunningTool, shouldRenderRunningTool } from '../agents/agent-status-render.js';
+import { renderRunningTool } from '../agents/agent-status-render.js';
 import { agentPhaseElapsedStyles, agentToolStyles } from '../agents/agent-status-styles.css.js';
 import { elementBase, linkBase } from '../styles/lit/base.css.js';
 import '../actions/action-item.js';
@@ -471,6 +472,14 @@ export class GlAgentStatusPill extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	full = false;
 
+	/** Per-pill sticky "current tool call" resolver — see {@link createStickyDetailResolver}. The
+	 *  pill renders the running-tool composite in two places (summary-mode rows and the single-
+	 *  session hover-content "Current Tool" section); without stickiness both surfaces flicker
+	 *  between tool calls when `session.status` momentarily leaves `'tool_use'`. Single-session
+	 *  mode auto-evicts on phase change via the resolver itself; summary mode prunes orphan
+	 *  entries in `updated()` so the cache stays bounded by the current sessions list. */
+	private readonly _stickyResolver: StickyDetailResolver = createStickyDetailResolver();
+
 	private onActionMouseDown(e: MouseEvent): void {
 		// Stop mousedown from reaching the popover, which would hide it
 		// before the click event fires on the <a> tag
@@ -484,6 +493,23 @@ export class GlAgentStatusPill extends LitElement {
 		// keeps the styles in sync on the first paint without a one-frame `updated()` lag.
 		// Summary mode never goes full — it has no per-session inline actions to surface.
 		this.toggleAttribute('full-active', this.full && this.summary == null && this.session != null);
+	}
+
+	override updated(_changed: PropertyValues<this>): void {
+		// Keep `_stickyResolver` bounded by the sessions the pill currently renders. Without this,
+		// a parent that re-binds the pill from one session to another (or swaps the summary list)
+		// would leave the prior session's cache entry behind for the resolver's lifetime. Single-
+		// session mode prunes to `[this.session.id]`; summary mode prunes to its array; otherwise
+		// no sessions are bound and the cache is emptied.
+		if (this._stickyResolver.size === 0) return;
+
+		if (this.summary != null) {
+			this._stickyResolver.prune(this.summary.sessions.map(s => s.id));
+		} else if (this.session != null) {
+			this._stickyResolver.prune([this.session.id]);
+		} else {
+			this._stickyResolver.prune([]);
+		}
 	}
 
 	override render(): unknown {
@@ -539,13 +565,17 @@ export class GlAgentStatusPill extends LitElement {
 	private renderSummaryRow(session: AgentSessionState, category: AgentSessionCategory): unknown {
 		const elapsed = formatAgentElapsed(session.phaseSince);
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
-		const isRunningTool = shouldRenderRunningTool(session, category);
-		const detail = isRunningTool
-			? undefined
-			: describeAgentSession(session, category, elapsed, {
-					awaitingPrefix: 'short',
-					idleFallback: 'lastPrompt',
-				});
+		// Route the running-tool surface through the sticky resolver so brief gaps between tool
+		// calls (when `session.status` leaves `tool_use` and `statusDetail` empties) don't flicker
+		// the row's `[tools] X(...)` block back to the generic detail line.
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
+		const detail =
+			stickyTool != null
+				? undefined
+				: describeAgentSession(session, category, elapsed, {
+						awaitingPrefix: 'short',
+						idleFallback: 'lastPrompt',
+					});
 
 		return html`
 			<div class="hover-summary-row">
@@ -556,18 +586,14 @@ export class GlAgentStatusPill extends LitElement {
 				<span class=${`hover-summary-row__phase hover-summary-row__phase--${category}`}>
 					${phaseLabel}${elapsed != null ? html` · <span class="agent-phase-elapsed">${elapsed}</span>` : ''}
 				</span>
-				${this.renderSummaryRowDetail(session, isRunningTool, detail)}
+				${this.renderSummaryRowDetail(stickyTool, detail)}
 			</div>
 		`;
 	}
 
-	private renderSummaryRowDetail(
-		session: AgentSessionState,
-		isRunningTool: boolean,
-		detail: string | undefined,
-	): unknown {
-		if (isRunningTool) {
-			return html`<span class="hover-summary-row__tool">${renderRunningTool(session.statusDetail)}</span>`;
+	private renderSummaryRowDetail(stickyTool: string | undefined, detail: string | undefined): unknown {
+		if (stickyTool != null) {
+			return html`<span class="hover-summary-row__tool">${renderRunningTool(stickyTool)}</span>`;
 		}
 		if (detail) {
 			return html`<gl-tooltip content=${detail} placement="bottom">
@@ -582,6 +608,16 @@ export class GlAgentStatusPill extends LitElement {
 		category: AgentSessionCategory,
 		omitActions: boolean,
 	): unknown {
+		// Evict any sticky-tool entry for this session when the category is non-working —
+		// `renderNeedsInputHover` and `renderIdleHover` bypass `resolveLiveTool` (only the working
+		// hover path calls it), so without explicit eviction the entry survives a permission
+		// round-trip and the next working+empty-statusDetail push would re-paint the pre-needs-
+		// input tool name from the still-fresh cache. Matches the eviction-on-needs-input pattern
+		// in gl-graph-kanban + gl-details-agent-status.
+		if (category !== 'working') {
+			this._stickyResolver.evict(session.id);
+		}
+
 		switch (category) {
 			case 'working':
 				return this.renderWorkingHover(session, omitActions);
@@ -643,6 +679,12 @@ export class GlAgentStatusPill extends LitElement {
 	private renderWorkingHover(session: AgentSessionState, omitActions: boolean): unknown {
 		const elapsed = formatElapsed(session.phaseSince);
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		// Route through the sticky resolver so the "Current Tool" section doesn't blink between
+		// tool calls — matches the kanban + details-panel running-tool surfaces. `resolveLiveTool`
+		// returns the live `statusDetail` when present and the cached one for ~3s after it drops
+		// away; on phase change (working → idle/needs-input) the cache auto-evicts so the section
+		// vanishes immediately.
+		const stickyTool = this._stickyResolver.resolveLiveTool(session);
 
 		return html`
 			<div class="hover-header">
@@ -658,11 +700,11 @@ export class GlAgentStatusPill extends LitElement {
 						</div>
 					`
 				: nothing}
-			${session.status === 'tool_use' && session.statusDetail
+			${stickyTool != null
 				? html`
 						<div class="hover-section">
 							<span class="hover-section__label">Current Tool</span>
-							<span class="hover-section__value">${session.statusDetail}</span>
+							<span class="hover-section__value">${stickyTool}</span>
 						</div>
 					`
 				: nothing}

@@ -99,9 +99,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ type: Object })
 	generate?: GenerateState;
 
-	@property({ type: Boolean })
-	experimentalComposerEnabled = false;
-
 	@property({ type: String, attribute: 'worktree-path' })
 	worktreePath?: string;
 
@@ -515,7 +512,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				${this.renderActions()} ${this.renderPausedOpStatus()}
 				<gl-details-wip-empty-pane
 					.wip=${this.wip}
-					.hasPullRequest=${this.pullRequest != null}
+					.pullRequest=${this.pullRequest}
 					@publish-branch=${() => this.onDataActionClick('publish-branch')}
 					@pull=${() => this.onDataActionClick('pull')}
 					@push=${() => this.onDataActionClick('push')}

@@ -546,7 +546,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const reachState = mapReachabilityStatus(reachStatus);
 		const searchCtx = s.searchContext.get();
 		const draft = s.draftState.get();
-		const experimentalComposer = s.capabilities.experimentalComposerEnabled;
 
 		return html`
 			<div class="commit-detail-panel scrollable">
@@ -564,6 +563,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								.loading=${resources?.commit.loading.get() ?? false}
 								.files=${commit?.files}
 								.preferences=${prefs}
+								.showSearchBox=${prefs?.showSearchBox ?? true}
+								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
 								.orgSettings=${org}
 								.isUncommitted=${s.isUncommitted.get()}
 								.filesCollapsable=${false}
@@ -605,15 +606,20 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
 								@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
+								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateShowSearchBox(e.detail)}
+								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateSearchBoxFilter(e.detail)}
 							></gl-details-commit-panel>`,
 						() =>
 							html`<gl-details-wip-panel
-								.experimentalComposerEnabled=${experimentalComposer}
 								.wip=${wip}
 								.pullRequest=${s.pullRequest.get()}
 								.codeSuggestions=${s.codeSuggestions.get()}
 								.files=${wip?.changes?.files}
 								.preferences=${prefs}
+								.showSearchBox=${prefs?.showSearchBox ?? true}
+								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
 								.orgSettings=${org}
 								.generate=${generate}
 								.isUncommitted=${true}
@@ -661,6 +667,10 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
+								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateShowSearchBox(e.detail)}
+								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
+									actions?.updateSearchBoxFilter(e.detail)}
 							></gl-details-wip-panel>`,
 					)}
 				</main>

@@ -28,6 +28,7 @@ export class GlHomeHeader extends LitElement {
 				align-items: center;
 				justify-content: space-between;
 				gap: 0.6rem;
+				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 
 			.container:focus,

@@ -8,6 +8,7 @@ import {
 	extractPlanSummary,
 	extractQuestionDetails,
 	getToolFilePath,
+	getToolReadPath,
 	isProcessAlive,
 	rehydrateSubagents,
 } from '../stateMachine.js';
@@ -185,6 +186,37 @@ suite('stateMachine', () => {
 			assert.strictEqual(getToolFilePath('Edit', undefined), undefined);
 			assert.strictEqual(getToolFilePath('Edit', {}), undefined);
 			assert.strictEqual(getToolFilePath('NotebookEdit', {}), undefined);
+		});
+	});
+
+	suite('getToolReadPath', () => {
+		test('returns file_path for Read', () => {
+			assert.strictEqual(getToolReadPath('Read', { file_path: '/tmp/foo.ts' }), '/tmp/foo.ts');
+		});
+
+		test('returns notebook_path for NotebookRead', () => {
+			assert.strictEqual(getToolReadPath('NotebookRead', { notebook_path: '/tmp/n.ipynb' }), '/tmp/n.ipynb');
+		});
+
+		test('returns undefined for write-class tools (tracked by getToolFilePath)', () => {
+			assert.strictEqual(getToolReadPath('Edit', { file_path: '/tmp/foo.ts' }), undefined);
+			assert.strictEqual(getToolReadPath('MultiEdit', { file_path: '/tmp/foo.ts' }), undefined);
+			assert.strictEqual(getToolReadPath('Write', { file_path: '/tmp/foo.ts' }), undefined);
+			assert.strictEqual(getToolReadPath('NotebookEdit', { notebook_path: '/tmp/n.ipynb' }), undefined);
+		});
+
+		test('returns undefined for non-file tools', () => {
+			assert.strictEqual(getToolReadPath('Bash', { command: 'ls' }), undefined);
+			assert.strictEqual(getToolReadPath('Grep', { pattern: 'foo' }), undefined);
+			assert.strictEqual(getToolReadPath('Glob', { pattern: '*.ts' }), undefined);
+			assert.strictEqual(getToolReadPath('WebFetch', { url: 'https://example.com' }), undefined);
+			assert.strictEqual(getToolReadPath('UnknownTool', { file_path: '/tmp/foo.ts' }), undefined);
+		});
+
+		test('returns undefined when toolInput is missing or path absent', () => {
+			assert.strictEqual(getToolReadPath('Read', undefined), undefined);
+			assert.strictEqual(getToolReadPath('Read', {}), undefined);
+			assert.strictEqual(getToolReadPath('NotebookRead', {}), undefined);
 		});
 	});
 

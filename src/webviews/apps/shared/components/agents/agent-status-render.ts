@@ -1,14 +1,6 @@
 import { html, nothing } from 'lit';
-import type { AgentSessionState } from '../../../../home/protocol.js';
-import type { AgentSessionCategory } from '../../agentUtils.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
-
-/** Whether a session should render via the `[tools icon] <statusDetail>` working-tool composite
- *  instead of the generic detail string. True only when the session is actively running a tool. */
-export function shouldRenderRunningTool(session: AgentSessionState, category: AgentSessionCategory): boolean {
-	return category === 'working' && session.status === 'tool_use' && session.statusDetail != null;
-}
 
 /** Renders the working-state `[tools icon] Bash(grep …)` composite: leading tools codicon +
  *  monospace call text, wrapped in a tooltip that surfaces the full untruncated value on hover.

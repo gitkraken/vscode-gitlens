@@ -22,6 +22,7 @@ import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
 import '../actions/action-item.js';
 import '../branch-icon.js';
+import '../commit/wip-stats.js';
 import '../overlays/popover.js';
 import '../pills/tracking.js';
 import '../file-icon/file-icon.js';
@@ -606,6 +607,22 @@ export class GlTreeView extends GlElement {
 					outlined
 					?missingUpstream=${decoration.missingUpstream ?? false}
 				></gl-tracking-pill>`;
+			}
+
+			if (decoration.type === 'wip') {
+				// `no-tooltip` so the indicator doesn't double-tooltip with the row tooltip — the
+				// row's own tooltip carries the breakdown pill (see sidebar-panel toWorktreeLeaf).
+				return html`<gl-wip-stats
+					slot=${slot}
+					part=${slot}
+					badge
+					show-clean
+					no-tooltip
+					.dirty=${decoration.hasChanges}
+					added=${decoration.added ?? nothing}
+					modified=${decoration.changed ?? nothing}
+					removed=${decoration.deleted ?? nothing}
+				></gl-wip-stats>`;
 			}
 
 			if (decoration.type === 'conflict') {

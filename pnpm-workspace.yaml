@@ -35,7 +35,7 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    - 'eslint@10.4.0'
+    - 'marked@18.0.4'
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch

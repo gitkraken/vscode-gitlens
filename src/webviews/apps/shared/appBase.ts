@@ -117,10 +117,9 @@ export abstract class GlWebviewApp extends GlElement {
 
 		this._ipc = new HostIpc(this.name);
 
-		const themeEvent = computeThemeColors();
+		this.disposables.push(watchThemeColors());
 		if (this.onThemeUpdated != null) {
-			this.onThemeUpdated(themeEvent);
-			this.disposables.push(watchThemeColors());
+			this.onThemeUpdated(computeThemeColors());
 			this.disposables.push(onDidChangeTheme(this.onThemeUpdated, this));
 		}
 

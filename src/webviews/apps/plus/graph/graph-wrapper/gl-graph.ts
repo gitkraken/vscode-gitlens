@@ -1,5 +1,6 @@
 import type GraphContainer from '@gitkraken/gitkraken-components';
 import type {
+	ColumnNumberBySha,
 	GraphRef,
 	GraphRow,
 	GraphSelectionState,
@@ -217,6 +218,7 @@ export class GlGraph extends LitElement {
 				onScopeAnchorsUnreachable: this.handleScopeAnchorsUnreachable,
 				onWipShasMissingStats: this.handleWipShasMissingStats,
 				onVisibleWipShasChanged: this.handleVisibleWipShasChanged,
+				onColumnsCalculated: this.handleColumnsCalculated,
 				onChangeRefsVisibility: this.handleChangeRefsVisibility,
 				onChangeSelection: this.handleChangeSelection,
 				onChangeVisibleDays: this.handleChangeVisibleDays,
@@ -361,6 +363,10 @@ export class GlGraph extends LitElement {
 	private handleVisibleWipShasChanged = (shas: Record<string, true>): void => {
 		this.dispatchEvent(new CustomEvent('visiblewipshaschanged', { detail: shas }));
 	};
+
+	private handleColumnsCalculated = (columnsBySha: ColumnNumberBySha): void => {
+		this.dispatchEvent(new CustomEvent('columnscalculated', { detail: columnsBySha }));
+	};
 }
 
 // Define the element in the custom elements registry
@@ -404,5 +410,6 @@ declare global {
 		scopeanchorsunreachable: CustomEvent<Set<string>>;
 		wipshasmissingstats: CustomEvent<Record<string, true>>;
 		visiblewipshaschanged: CustomEvent<Record<string, true>>;
+		columnscalculated: CustomEvent<ColumnNumberBySha>;
 	}
 }

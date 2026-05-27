@@ -102,13 +102,22 @@ export interface TreeItemDecorationAgent extends TreeItemDecorationBase {
 	tooltip?: string;
 }
 
+export interface TreeItemDecorationWip extends TreeItemDecorationBase {
+	type: 'wip';
+	hasChanges: boolean;
+	added?: number;
+	changed?: number;
+	deleted?: number;
+}
+
 export type TreeItemDecoration =
 	| TreeItemDecorationText
 	| TreeItemDecorationIcon
 	| TreeItemDecorationStatus
 	| TreeItemDecorationTracking
 	| TreeItemDecorationConflict
-	| TreeItemDecorationAgent;
+	| TreeItemDecorationAgent
+	| TreeItemDecorationWip;
 
 interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	label: string;

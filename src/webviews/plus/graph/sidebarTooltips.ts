@@ -69,6 +69,16 @@ export function stashTooltip(s: GraphSidebarStash, dateFormat?: string | null): 
 }
 
 export function worktreeTooltip(w: GraphSidebarWorktree): string {
+	let tooltip = worktreeTooltipWithoutChangesLine(w);
+	if (w.hasChanges != null) {
+		tooltip += w.hasChanges ? '\n\nHas Uncommitted Changes' : '\n\nNo Uncommitted Changes';
+	}
+	return tooltip;
+}
+
+/** The markdown portion of the worktree tooltip without the trailing changes-line. Used by the
+ *  webview to compose a rich tooltip where the changes-line is replaced by a `commit-stats` pill. */
+export function worktreeTooltipWithoutChangesLine(w: GraphSidebarWorktree): string {
 	const indicators: string[] = [];
 	if (w.isDefault) {
 		indicators.push('default');
@@ -96,9 +106,6 @@ export function worktreeTooltip(w: GraphSidebarWorktree): string {
 		tooltip = `${w.isDefault ? '$(pass) ' : ''}Bare Worktree${indicatorStr}${folder}`;
 	}
 
-	if (w.hasChanges != null) {
-		tooltip += w.hasChanges ? '\n\nHas Uncommitted Changes' : '\n\nNo Uncommitted Changes';
-	}
 	return tooltip;
 }
 

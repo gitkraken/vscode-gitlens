@@ -54,7 +54,7 @@ export class WelcomeWebviewProvider implements WebviewProvider<State, State, Wel
 		this._mode = mode;
 
 		if (mode === 'graph') {
-			void this.container.onboarding.dismiss('graph-walkthrough:banner');
+			void this.container.usage.track('action:gitlens.graph.walkthrough.started:happened');
 		}
 
 		if (!loading) {

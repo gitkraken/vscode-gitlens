@@ -42,7 +42,7 @@ export class GlHooksBanner extends LitElement {
 	override render(): unknown {
 		if (this.collapsed) return nothing;
 
-		const bodyHtml = `Configure Claude to send status updates to GitLens so you can see and manage your agents here. <a href="${urls.helpCenterAiHooks}">Learn more</a>`;
+		const bodyHtml = `Configure Claude to send status updates to GitLens so you can see and manage your parallel agent work. <a href="${urls.helpCenterAiHooks}">Learn more</a>`;
 
 		return html`
 			<gl-banner

@@ -351,20 +351,28 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Already-open (sheet OR pinned) + no explicit overrides = no-op (re-clicking the same
 		// entry point shouldn't reset the user's in-flight comparison).
 		const alreadyOpen = state.compareSheetOpen.get() || state.compareAsPanel.get();
-		if (alreadyOpen && compareOverrides?.leftRef == null) {
+		if (alreadyOpen && compareOverrides?.leftRef == null && compareOverrides?.rightRef == null) {
 			return;
 		}
 
 		const isWip = this.actions.isWip(sha);
 		const isMultiCommit = this.actions.isMultiCommit(shas);
 
-		// Activation guard: need a seed for the left ref (WIP / commit / multi-commit pivot /
-		// explicit override).
-		if (!isWip && !state.commit.get() && !state.commitTo.get() && !compareOverrides?.leftRef) {
+		// Activation guard: need a seed for either side (WIP / commit / multi-commit pivot /
+		// explicit override). The selection-derived seeds now populate the rightRef (Compare side);
+		// the leftRef (Base) is filled later by either explicit overrides or `initCompareDefaults`
+		// using the merge target.
+		if (
+			!isWip &&
+			!state.commit.get() &&
+			!state.commitTo.get() &&
+			!compareOverrides?.leftRef &&
+			!compareOverrides?.rightRef
+		) {
 			return;
 		}
 
-		// Determine left ref based on context. Order matters: check the active selection
+		// Determine right ref (Compare side) from context. Order matters: check the active selection
 		// shape (isWip / isMultiCommit) BEFORE falling back to lingering single-commit state,
 		// otherwise multi-commit pivot picks up a stale `commit` from a prior selection.
 		const wip = state.wip.get();
@@ -375,23 +383,24 @@ export class DetailsWorkflowController implements ReactiveController {
 		let leftRefType: 'branch' | 'tag' | 'commit' | undefined;
 		let rightRef: string | undefined;
 		let rightRefType: 'branch' | 'tag' | 'commit' | undefined;
-		// Branch whose merge target seeds the right ref. WIP uses the current branch; a
+		// Branch whose merge target seeds the left ref (Base). WIP uses the current branch; a
 		// single commit uses the branch it's reachable from (stashes use stashOnRef).
 		let mergeTargetBranchName: string | undefined;
 		if (isWip) {
-			leftRef = wip?.branch?.name;
-			leftRefType = 'branch';
+			rightRef = wip?.branch?.name;
+			rightRefType = 'branch';
 			mergeTargetBranchName = wip?.branch?.name;
 		} else if (isMultiCommit && commitTo && commitFrom) {
-			// Pivot from a multi-commit compare panel: the two sides of the existing
-			// comparison become the left and right sides of the new ref-to-ref comparison.
-			leftRef = commitTo.shortSha;
+			// Pivot from a multi-commit compare panel: the two sides of the existing comparison
+			// become the left (Base = older = `commitFrom`) and right (Compare = newer = `commitTo`)
+			// of the new ref-to-ref comparison.
+			leftRef = commitFrom.shortSha;
 			leftRefType = 'commit';
-			rightRef = commitFrom.shortSha;
+			rightRef = commitTo.shortSha;
 			rightRefType = 'commit';
 		} else if (commit) {
-			leftRef = commit.shortSha;
-			leftRefType = 'commit';
+			rightRef = commit.shortSha;
+			rightRefType = 'commit';
 			if (commit.stashOnRef) {
 				mergeTargetBranchName = commit.stashOnRef;
 			} else {
@@ -405,25 +414,37 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Explicit overrides win — used when sidebar/external entry points already know both sides.
 		if (compareOverrides?.leftRef != null) {
 			leftRef = compareOverrides.leftRef;
-			leftRefType = compareOverrides.leftRefType ?? 'commit';
+			leftRefType = compareOverrides.leftRefType ?? 'branch';
 		}
 		if (compareOverrides?.rightRef != null) {
 			rightRef = compareOverrides.rightRef;
-			rightRefType = compareOverrides.rightRefType ?? 'branch';
+			rightRefType = compareOverrides.rightRefType ?? 'commit';
 		}
 
 		state.branchCompareLeftRef.set(leftRef);
 		state.branchCompareLeftRefType.set(leftRefType);
+		state.branchCompareRightRef.set(rightRef);
+		state.branchCompareRightRefType.set(rightRefType);
 		state.branchCompareIncludeWorkingTree.set(compareOverrides?.includeWorkingTree ?? false);
-		state.branchCompareLeftRefWorktreePath.set(undefined);
+		state.branchCompareRightRefWorktreePath.set(undefined);
+		state.branchCompareMergeBase.set(undefined);
 		state.branchCompareAheadCount.set(0);
 		state.branchCompareBehindCount.set(0);
+		state.branchCompareAllFilesCount.set(0);
 		state.branchCompareAheadCommits.set([]);
 		state.branchCompareBehindCommits.set([]);
+		state.branchCompareAheadFiles.set([]);
+		state.branchCompareBehindFiles.set([]);
 		state.branchCompareAheadLoaded.set(false);
 		state.branchCompareBehindLoaded.set(false);
+		state.branchCompareAheadHasMore.set(false);
+		state.branchCompareBehindHasMore.set(false);
+		state.branchCompareAheadLimit.set(100);
+		state.branchCompareBehindLimit.set(100);
+		state.branchCompareAheadLoadingMore.set(false);
+		state.branchCompareBehindLoadingMore.set(false);
 		state.branchCompareAllFiles.set([]);
-		state.branchCompareActiveTab.set('all');
+		state.branchCompareActiveTab.set('ahead');
 		state.branchCompareSelectedCommitShaByTab.set(new Map());
 		state.branchCompareActiveView.set('files');
 		state.branchCompareEnrichmentRequested.set(false);
@@ -434,14 +455,26 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareContributorsLoading.set(new Map());
 		state.branchCompareCommitFilesLoading.set(new Map());
 
-		if (rightRef != null) {
-			state.branchCompareRightRef.set(rightRef);
-			state.branchCompareRightRefType.set(rightRefType);
+		if (leftRef == null && rightRef != null) {
+			// Compare side seeded but no base yet — let `initCompareDefaults` fill the left side
+			// (Base) using the merge target. It also kicks the initial refresh.
+			void this.actions.initCompareDefaults(repoPath, mergeTargetBranchName);
+		} else if (leftRef != null && rightRef == null) {
+			// Base seeded but no Compare side — typically from an external entry point that
+			// overrides only `leftRef`. The current branch (from `branchName`) is the most
+			// useful default for Compare. Guard against seeding it when the current branch is
+			// IDENTICAL to leftRef — otherwise we'd produce a degenerate self-comparison (same
+			// class of bug the merge-target chip fix addressed). When they collide, leave
+			// rightRef unset so the user can pick one manually rather than silently rendering
+			// "Up to date".
+			const branchName = state.wip.get()?.branch?.name;
+			if (branchName != null && branchName !== leftRef) {
+				state.branchCompareRightRef.set(branchName);
+				state.branchCompareRightRefType.set('branch');
+			}
 			void this.actions.refreshCompare(repoPath);
 		} else {
-			state.branchCompareRightRef.set(undefined);
-			state.branchCompareRightRefType.set(undefined);
-			void this.actions.initCompareDefaults(repoPath, mergeTargetBranchName);
+			void this.actions.refreshCompare(repoPath);
 		}
 
 		// Always open as a sheet — the panel form is opt-in via `openCompareAsPanel`. Any prior
@@ -481,16 +514,26 @@ export class DetailsWorkflowController implements ReactiveController {
 		state.branchCompareRightRef.set(undefined);
 		state.branchCompareRightRefType.set(undefined);
 		state.branchCompareIncludeWorkingTree.set(false);
-		state.branchCompareLeftRefWorktreePath.set(undefined);
+		state.branchCompareRightRefWorktreePath.set(undefined);
+		state.branchCompareMergeBase.set(undefined);
 		state.branchCompareStale.set(false);
 		state.branchCompareAheadCount.set(0);
 		state.branchCompareBehindCount.set(0);
+		state.branchCompareAllFilesCount.set(0);
 		state.branchCompareAheadCommits.set([]);
 		state.branchCompareBehindCommits.set([]);
+		state.branchCompareAheadFiles.set([]);
+		state.branchCompareBehindFiles.set([]);
 		state.branchCompareAheadLoaded.set(false);
 		state.branchCompareBehindLoaded.set(false);
+		state.branchCompareAheadHasMore.set(false);
+		state.branchCompareBehindHasMore.set(false);
+		state.branchCompareAheadLimit.set(100);
+		state.branchCompareBehindLimit.set(100);
+		state.branchCompareAheadLoadingMore.set(false);
+		state.branchCompareBehindLoadingMore.set(false);
 		state.branchCompareAllFiles.set([]);
-		state.branchCompareActiveTab.set('all');
+		state.branchCompareActiveTab.set('ahead');
 		state.branchCompareSelectedCommitShaByTab.set(new Map());
 		state.branchCompareActiveView.set('files');
 		state.branchCompareEnrichmentRequested.set(false);

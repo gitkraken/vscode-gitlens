@@ -1,3 +1,7 @@
+import { graphql, GraphqlResponseError } from '@octokit/graphql';
+import { request } from '@octokit/request';
+import { RequestError } from '@octokit/request-error';
+import type { Endpoints, RequestParameters } from '@octokit/types';
 import {
 	AuthenticationError,
 	AuthenticationErrorReason,
@@ -37,10 +41,6 @@ import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { parseUri } from '@gitlens/utils/uri.js';
 import type { Version } from '@gitlens/utils/version.js';
 import { fromString, satisfies } from '@gitlens/utils/version.js';
-import { graphql, GraphqlResponseError } from '@octokit/graphql';
-import { request } from '@octokit/request';
-import { RequestError } from '@octokit/request-error';
-import type { Endpoints, RequestParameters } from '@octokit/types';
 import type {
 	GitHubBlame,
 	GitHubBlameRange,

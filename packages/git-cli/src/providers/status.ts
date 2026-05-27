@@ -50,7 +50,11 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		);
 
 		if (status?.detached) {
-			const pausedOpStatus = await this.provider.pausedOps?.getPausedOperationStatus?.(repoPath, cancellation);
+			const pausedOpStatus = await this.provider.pausedOps?.getPausedOperationStatus?.(
+				repoPath,
+				undefined,
+				cancellation,
+			);
 			if (pausedOpStatus?.type === 'rebase') {
 				return new GitStatus(
 					repoPath,

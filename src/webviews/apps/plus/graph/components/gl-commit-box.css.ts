@@ -196,9 +196,19 @@ export const commitBoxStyles = css`
 		pointer-events: auto;
 	}
 
+	.commit-btn-wrapper {
+		display: block;
+	}
+
 	.commit-btn {
 		flex: 1;
 		min-width: 0;
+	}
+
+	.commit-btn[variant='warning'] {
+		--button-background: var(--vscode-inputValidation-warningBorder, #b89500);
+		--button-foreground: #000;
+		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
 	}
 
 	.error {

@@ -7,6 +7,7 @@ import { when } from 'lit/directives/when.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -209,6 +210,13 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				recentThreshold: this._state.overviewRecentThreshold,
 			});
 		} else {
+			// Force a re-fetch on remount/visibility-restore — the bulk push path is gone, so any
+			// drift accumulated while the overview panel was hidden (e.g. file edits in opened
+			// worktrees whose graph WIP rows are off-screen) is caught here. Reset the fingerprint
+			// dedup so `maybeRefetchOverviewData` actually fires. The host's `GetOverviewWipRequest`
+			// handler is cache-backed (`_wipStatusCache`), so entries kept warm by per-event pushes
+			// resolve without any extra `git status` — only genuinely stale entries cost a fetch.
+			this._lastOverviewFingerprint = undefined;
 			this.maybeRefetchOverviewData(this._state.overview);
 		}
 	}
@@ -435,6 +443,10 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		const allIds = allBranches.map(b => b.id);
 		const wipIds = overview.active.map(b => b.id);
+		// Recent worktree-backed branches get a cheap clean/dirty probe so their cards can show the
+		// same pill as Current Work. Recent branches without a worktree have no working tree of their
+		// own and are skipped — the empty default `{ hasChanges: false }` would lie there.
+		const recentWipIds = overview.recent.filter(b => b.worktree != null).map(b => b.id);
 		const keep = new Set(allIds);
 
 		// Enrichment is fetched lazily — by this panel on mount, or by the scope popover on open.
@@ -443,27 +455,52 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const sharedEnrichment = this._state.overviewEnrichment;
 		const sharedCoversAll = sharedEnrichment != null && allIds.every(id => id in sharedEnrichment);
 
-		const [wipResult, enrichmentResult] = await Promise.all([
-			wipIds.length > 0 ? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: wipIds }) : undefined,
+		// allSettled so a single transient IPC failure doesn't tank the other two — wip-only,
+		// cheap-only, or enrichment-only outages still update the rest of the overview.
+		const [wipSettled, recentWipSettled, enrichmentSettled] = await Promise.allSettled([
+			wipIds.length > 0
+				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: wipIds })
+				: Promise.resolve(undefined),
+			recentWipIds.length > 0
+				? this._ipc.sendRequest(GetOverviewWipRequest, { branchIds: recentWipIds, cheap: true })
+				: Promise.resolve(undefined),
 			sharedCoversAll
 				? Promise.resolve(sharedEnrichment)
 				: this._ipc.sendRequest(GetOverviewEnrichmentRequest, { branchIds: allIds }),
 		]);
 		if (this._lastOverviewFingerprint !== fingerprint) return;
 
+		const wipResult = getSettledValue(wipSettled);
+		const recentWipResult = getSettledValue(recentWipSettled);
+		const enrichmentResult = getSettledValue(enrichmentSettled);
+
 		// Prune entries for branches no longer in the overview so stale data doesn't linger.
 		const nextWipData = wipResult ? filterToKeys(wipResult, keep) : {};
+		if (recentWipResult) {
+			// `??=` so a cheap entry never silently downgrades a full entry. active/recent are
+			// disjoint by contract today (getBranchOverviewType), but the merge guard here keeps
+			// the active card's inline breakdown safe if that contract ever flexes.
+			const cheap = filterToKeys(recentWipResult, keep);
+			for (const id of Object.keys(cheap)) {
+				nextWipData[id] ??= cheap[id];
+			}
+		}
+		// Only the FULL probe gets the default-clean fallback. The cheap probe explicitly writes
+		// `{ hasChanges: false }` on success, so an absent id there means the call rejected and we
+		// don't know the state — leaving the entry undefined makes the card render no pill rather
+		// than misleadingly green-checking a worktree we couldn't probe.
 		if (wipResult) {
-			// For any branch we checked (wipIds), if it's not in the result, it is explicitly clean
-			for (const branchId of wipIds) {
-				nextWipData[branchId] ??= { hasChanges: false };
+			for (const id of wipIds) {
+				nextWipData[id] ??= { hasChanges: false };
 			}
 		}
 		this._wipData = nextWipData;
-		this._enrichmentData = filterToKeys(enrichmentResult, keep);
-		// Expose enrichment via shared state so other consumers (e.g. the scope popover path
-		// in graph-app) can resolve merge-target refs for the selected branch.
-		this._state.overviewEnrichment = this._enrichmentData;
+		if (enrichmentResult != null) {
+			this._enrichmentData = filterToKeys(enrichmentResult, keep);
+			// Expose enrichment via shared state so other consumers (e.g. the scope popover path
+			// in graph-app) can resolve merge-target refs for the selected branch.
+			this._state.overviewEnrichment = this._enrichmentData;
+		}
 	}
 
 	override render() {
@@ -556,6 +593,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 		const sessionsByRepoAndWorktree = indexAgentSessionsByRepoAndWorktree(this._state.agentSessions);
 		const containsByRepo = this._selectionContainsByRepo;
+		const scopedBranchId = this._state.scope?.branchRef;
 
 		return html`
 			<div class="cards">
@@ -584,6 +622,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 								.enrichment=${this._enrichmentData[b.id]}
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
+								.scoped=${scopedBranchId != null && b.id === scopedBranchId}
 							></gl-graph-overview-card>
 						`;
 					},

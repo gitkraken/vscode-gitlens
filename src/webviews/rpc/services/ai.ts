@@ -9,6 +9,7 @@
 import { Disposable } from 'vscode';
 import { getClaudeAgent } from '@env/providers.js';
 import type { Container } from '../../../container.js';
+import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
 import { mcpRegistrationAllowed } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -64,7 +65,7 @@ export class AIService {
 			buffered =>
 				Disposable.from(
 					configuration.onDidChange(e => {
-						if (configuration.changed(e, ['ai.enabled', 'gitkraken.mcp.autoEnabled'])) {
+						if (configuration.changed(e, ['ai.enabled', 'gitkraken.mcp.autoEnabled', 'ai.defaultAgent'])) {
 							void this.#getAIState().then(buffered);
 						}
 					}),
@@ -110,6 +111,10 @@ export class AIService {
 		const detected = claude?.detected === true;
 		const supported = claude?.hooksSupported === true;
 		const installed = claude?.hooksInstalled === true;
+
+		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;
+		const defaultAgentDescriptor = defaultAgentId != null ? await resolveDefaultAgent(defaultAgentId) : undefined;
+
 		return {
 			enabled: this.#container.ai.enabled,
 			orgEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
@@ -122,6 +127,10 @@ export class AIService {
 				claude: { detected: detected, supported: supported, installed: installed },
 				canInstallClaudeHook: agentsEnabled && detected && supported && !installed,
 			},
+			defaultAgent:
+				defaultAgentDescriptor != null
+					? { id: defaultAgentDescriptor.id, label: defaultAgentDescriptor.label }
+					: undefined,
 		};
 	}
 

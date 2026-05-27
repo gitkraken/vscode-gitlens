@@ -1,0 +1,512 @@
+import * as assert from 'assert';
+import type { ColumnNumberBySha, GraphRow } from '@gitkraken/gitkraken-components';
+import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GraphWipMetadataBySha } from '../../../../../plus/graph/protocol.js';
+import { createSecondaryWipSha } from '../../../../../plus/graph/protocol.js';
+import type { WipCandidate } from '../nearestWip.js';
+import {
+	filterWipsInLaneOf,
+	findNearestWipByRowIndex,
+	findNearestWipSha,
+	findWipByBranchRange,
+} from '../nearestWip.js';
+
+function commit(sha: string, parents: string[] = []): GraphRow {
+	return { sha: sha, parents: parents, type: 'commit-node' } as unknown as GraphRow;
+}
+
+suite('findNearestWipSha', () => {
+	test('single WIP — picked regardless of fromSha relationship', () => {
+		const rows: GraphRow[] = [commit('A', ['B']), commit('B', ['C']), commit('C')];
+		const wips: WipCandidate[] = [{ sha: uncommitted, anchor: 'A' }];
+
+		assert.strictEqual(findNearestWipSha('A', wips, rows), uncommitted);
+		assert.strictEqual(findNearestWipSha('B', wips, rows), uncommitted);
+		assert.strictEqual(findNearestWipSha('C', wips, rows), uncommitted);
+	});
+
+	test('two WIPs — picks the one whose anchor has fromSha as ancestor', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [
+			commit('A1', ['A2']),
+			commit('A2', ['A3']),
+			commit('A3'),
+			commit('B1', ['B2']),
+			commit('B2', ['B3']),
+			commit('B3'),
+		];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'A1' },
+			{ sha: secondarySha, anchor: 'B1' },
+		];
+
+		assert.strictEqual(findNearestWipSha('A3', wips, rows), uncommitted);
+		assert.strictEqual(findNearestWipSha('B2', wips, rows), secondarySha);
+		assert.strictEqual(findNearestWipSha('B3', wips, rows), secondarySha);
+	});
+
+	test('two WIPs equidistant — first encountered wins (deterministic)', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('X')];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'X' },
+			{ sha: secondarySha, anchor: 'X' },
+		];
+
+		assert.strictEqual(findNearestWipSha('X', wips, rows), uncommitted);
+	});
+
+	test('fromSha not an ancestor of any WIP anchor — falls back to primary WIP', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [
+			commit('A1', ['A2']),
+			commit('A2'),
+			commit('B1', ['B2']),
+			commit('B2'),
+			commit('orphan'),
+		];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'A1' },
+			{ sha: secondarySha, anchor: 'B1' },
+		];
+
+		assert.strictEqual(findNearestWipSha('orphan', wips, rows), uncommitted);
+	});
+
+	test('fallback when no primary — returns the first WIP', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('B1'), commit('orphan')];
+		const wips: WipCandidate[] = [{ sha: secondarySha, anchor: 'B1' }];
+
+		assert.strictEqual(findNearestWipSha('orphan', wips, rows), secondarySha);
+	});
+
+	test('no WIPs — returns undefined', () => {
+		const rows: GraphRow[] = [commit('A', ['B']), commit('B')];
+		assert.strictEqual(findNearestWipSha('A', [], rows), undefined);
+	});
+
+	test('no rows — returns first WIP via fallback', () => {
+		const wips: WipCandidate[] = [{ sha: uncommitted, anchor: 'A' }];
+		assert.strictEqual(findNearestWipSha('A', wips, undefined), uncommitted);
+	});
+
+	test('fromSha equals an anchor — distance 0 wins over deeper ancestors', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('A1', ['A2']), commit('A2'), commit('B1', ['B2']), commit('B2')];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'A1' },
+			{ sha: secondarySha, anchor: 'B1' },
+		];
+
+		assert.strictEqual(findNearestWipSha('B1', wips, rows), secondarySha);
+	});
+});
+
+suite('filterWipsInLaneOf', () => {
+	const secondarySha = createSecondaryWipSha('/repo/wt');
+	const wips: WipCandidate[] = [
+		{ sha: uncommitted, anchor: 'A1' },
+		{ sha: secondarySha, anchor: 'B1' },
+	];
+
+	test('keeps WIPs whose anchor shares the clicked commit column', () => {
+		const columns: ColumnNumberBySha = { A1: 0, A2: 0, B1: 1 };
+		const result = filterWipsInLaneOf('A2', wips, columns);
+		assert.strictEqual(result.length, 1);
+		assert.strictEqual(result[0].sha, uncommitted);
+	});
+
+	test('drops off-column WIPs', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1, X: 0 };
+		const result = filterWipsInLaneOf('X', wips, columns);
+		assert.deepStrictEqual(
+			result.map(w => w.sha),
+			[uncommitted],
+		);
+	});
+
+	test('returns input identity when columnsBySha is undefined', () => {
+		assert.strictEqual(filterWipsInLaneOf('A1', wips, undefined), wips);
+	});
+
+	test('returns input identity when fromSha column is unknown', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1 };
+		assert.strictEqual(filterWipsInLaneOf('unknown', wips, columns), wips);
+	});
+
+	test('returns empty array when no WIPs share the clicked commit column', () => {
+		const columns: ColumnNumberBySha = { A1: 0, B1: 1, X: 2 };
+		const result = filterWipsInLaneOf('X', wips, columns);
+		assert.deepStrictEqual(result, []);
+	});
+
+	test('WIP whose anchor column is unknown is KEPT (not silently filtered)', () => {
+		// A2's column is known (0); B1's anchor column is missing from the map. Keeping unknown
+		// avoids dropping freshly-loaded anchors during the gap between row load and column recalc.
+		const columns: ColumnNumberBySha = { A1: 0, A2: 0 /* B1 missing */ };
+		const result = filterWipsInLaneOf('A2', wips, columns);
+		assert.deepStrictEqual(
+			result.map(w => w.sha),
+			[uncommitted, secondarySha],
+		);
+	});
+});
+
+suite('findNearestWipByRowIndex', () => {
+	test('picks the WIP whose anchor row is closest to the clicked commit row', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('TOP'), commit('A'), commit('B'), commit('C'), commit('D')];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'TOP' },
+			{ sha: secondarySha, anchor: 'B' },
+		];
+
+		assert.strictEqual(findNearestWipByRowIndex('C', wips, rows), secondarySha);
+		assert.strictEqual(findNearestWipByRowIndex('TOP', wips, rows), uncommitted);
+	});
+
+	test('ties go to the first encountered candidate', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('A'), commit('B'), commit('C')];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'A' },
+			{ sha: secondarySha, anchor: 'C' },
+		];
+
+		assert.strictEqual(findNearestWipByRowIndex('B', wips, rows), uncommitted);
+	});
+
+	test('skips WIPs whose anchor row isnʼt loaded', () => {
+		const secondarySha = createSecondaryWipSha('/repo/wt');
+		const rows: GraphRow[] = [commit('A'), commit('B'), commit('C')];
+		const wips: WipCandidate[] = [
+			{ sha: uncommitted, anchor: 'missing' },
+			{ sha: secondarySha, anchor: 'C' },
+		];
+
+		assert.strictEqual(findNearestWipByRowIndex('A', wips, rows), secondarySha);
+	});
+
+	test('returns undefined when fromSha isnʼt in rows', () => {
+		const rows: GraphRow[] = [commit('A'), commit('B')];
+		const wips: WipCandidate[] = [{ sha: uncommitted, anchor: 'A' }];
+
+		assert.strictEqual(findNearestWipByRowIndex('missing', wips, rows), undefined);
+	});
+
+	test('returns undefined for empty inputs', () => {
+		const rows: GraphRow[] = [commit('A')];
+		assert.strictEqual(findNearestWipByRowIndex('A', [], rows), undefined);
+		assert.strictEqual(findNearestWipByRowIndex('A', [{ sha: uncommitted, anchor: 'A' }], undefined), undefined);
+		assert.strictEqual(findNearestWipByRowIndex('A', [{ sha: uncommitted, anchor: 'A' }], []), undefined);
+	});
+});
+
+suite('findWipByBranchRange', () => {
+	const repo = '/repo';
+	const mainRef = `${repo}|heads/main`;
+	const featureRef = `${repo}|heads/feature`;
+	const otherRef = `${repo}|heads/other`;
+	const originMainRef = `${repo}|remotes/origin/main`;
+	const originFeatureRef = `${repo}|remotes/origin/feature`;
+	const featureWipSha = createSecondaryWipSha('/repo/wt/feature');
+	const mainWipSha = createSecondaryWipSha('/repo/wt/main');
+	const otherWipSha = createSecondaryWipSha('/repo/wt/other');
+
+	function rowWith(sha: string, opts: { heads?: string[]; remotes?: string[] }): GraphRow {
+		return {
+			sha: sha,
+			parents: [],
+			type: 'commit-node',
+			heads: opts.heads?.map(id => ({ name: 'x', id: id })),
+			remotes: opts.remotes?.map(id => ({ name: 'x', id: id })),
+		} as unknown as GraphRow;
+	}
+	const mainMeta = {
+		repoPath: '/repo/wt/main',
+		parentSha: '',
+		label: 'main',
+		branchRef: mainRef,
+		upstreamRef: originMainRef,
+	};
+	const featureMeta = {
+		repoPath: '/repo/wt/feature',
+		parentSha: '',
+		label: 'feature',
+		branchRef: featureRef,
+		upstreamRef: originFeatureRef,
+	};
+	const otherMeta = { repoPath: '/repo/wt/other', parentSha: '', label: 'other', branchRef: otherRef };
+
+	test('selected in branch local-progress (local above, upstream below) → matches', () => {
+		// Mirrors `8a74d0f` shape: main local above, no feature ref interference, origin/main far below.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			commit('SELECTED'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('selected AT upstream tip → excluded from that branchʼs range (not strictly inside)', () => {
+		// Mirrors `e173d88` shape: selected is origin/feature, also inside main's local-progress.
+		// feature must be excluded (selected AT upstream, not strictly inside [1, 2)).
+		// main must win (selected strictly inside [0, 3) of main).
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			rowWith('SELECTED', { remotes: [originFeatureRef] }),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('selected past upstream of branch X (local-progress of X) → X wins over outer main', () => {
+		// Mirrors `6013486` shape: selected sits between origin/feature and origin/main.
+		// feature: range [1,2), selected at row 3 → outside (past upstream). Excluded.
+		// main: range [0, 4), selected at 3 → strictly inside. Wins.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			rowWith('ORIGIN_FEATURE', { remotes: [originFeatureRef] }),
+			commit('SELECTED'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('exact local-tip match wins over bounded outer range', () => {
+		// Mirrors the user's "branch-point" complaint: clicking feature's local tip should
+		// match feature, even when main's bounded range [0, 4) also contains it.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('SELECTED', { heads: [featureRef] }),
+			commit('OLDER'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), featureWipSha);
+	});
+
+	test('exact local-tip match wins over open-ended outer range', () => {
+		// Symmetric case: feature is the exact tip; another local-only branch above also contains
+		// it via open-ended range. Feature still wins via the exact-tip rule.
+		const rows: GraphRow[] = [
+			rowWith('OUTER_TIP', { heads: [mainRef] }),
+			rowWith('SELECTED', { heads: [featureRef] }),
+			commit('OLDER'),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), featureWipSha);
+	});
+
+	test('exact local-tip match wins even when local tip == upstream tip (synced, ahead=0)', () => {
+		// Synced branch: feature's local tip and upstream tip both at SELECTED.
+		// Without "exact-tip before upstream-≤ skip", feature would be excluded entirely.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('SELECTED', { heads: [featureRef], remotes: [originFeatureRef] }),
+			commit('OLDER'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), featureWipSha);
+	});
+
+	test('two ranges both contain selected → tighter (smaller) range wins', () => {
+		// main range [0, 5) size 5; feature range [1, 3) size 2. Selected at row 2 is in both.
+		// feature wins.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			commit('SELECTED'),
+			rowWith('ORIGIN_FEATURE', { remotes: [originFeatureRef] }),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), featureWipSha);
+	});
+
+	test('local tip BELOW selected → excluded (selected newer than branch tip)', () => {
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			commit('SELECTED'),
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [featureWipSha]: featureMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('branch with no upstream loaded → open-ended range, loses to any bounded range', () => {
+		// `other` is a local-only branch (no upstream), range [1, ∞). main has [0, 4).
+		// Selected at row 2 is inside both; main wins because its range is bounded (smaller).
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('OTHER_TIP', { heads: [otherRef] }),
+			commit('SELECTED'),
+			rowWith('UNTAGGED', {}),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta, [otherWipSha]: otherMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('renamed tracking branch (local name ≠ upstream name) — upstream still found via explicit upstreamRef', () => {
+		// Local `feature` tracks `origin/renamed` (different name). The old strip-and-reprefix
+		// would have failed to find the upstream and treated `feature` as open-ended; with the
+		// explicit `upstreamRef` in metadata, the upstream row IS found at row 3 → feature's
+		// range becomes [1, 3) which excludes selected at row 4 (past upstream).
+		const renamedUpstreamRef = `${repo}|remotes/origin/renamed`;
+		const renamedFeatureMeta = {
+			repoPath: '/repo/wt/feature',
+			parentSha: '',
+			label: 'feature',
+			branchRef: featureRef,
+			upstreamRef: renamedUpstreamRef,
+		};
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', { heads: [mainRef] }),
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			rowWith('UNTAGGED', {}),
+			rowWith('ORIGIN_RENAMED', { remotes: [renamedUpstreamRef] }),
+			commit('SELECTED'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const metadata: GraphWipMetadataBySha = {
+			[mainWipSha]: mainMeta,
+			[featureWipSha]: renamedFeatureMeta,
+		};
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), mainWipSha);
+	});
+
+	test('only local-only branches → the one with local tip above selected wins', () => {
+		const rows: GraphRow[] = [rowWith('OTHER_TIP', { heads: [otherRef] }), commit('SELECTED')];
+		const metadata: GraphWipMetadataBySha = { [otherWipSha]: otherMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), otherWipSha);
+	});
+
+	test('tie at ∞ (multiple local-only branches) → branch with local tip closest to selected wins', () => {
+		// Two local-only branches, both above the click, both open-ended (size ∞).
+		// Without the localRow tie-break, alphabetical iteration would pick the first-encountered
+		// secondary (here `feature` is inserted before `other` per the order below). With the
+		// tie-break, the one whose tip is closer to the click (`other` at row 3 vs `feature` at
+		// row 0, selected at row 5 → `other` distance 2 vs `feature` distance 5) wins.
+		const localOnlyFeatureMeta = { ...featureMeta, upstreamRef: undefined };
+		const rows: GraphRow[] = [
+			rowWith('FEATURE_TIP', { heads: [featureRef] }),
+			commit('M1'),
+			commit('M2'),
+			rowWith('OTHER_TIP', { heads: [otherRef] }),
+			commit('M3'),
+			commit('SELECTED'),
+		];
+		const metadata: GraphWipMetadataBySha = {
+			[featureWipSha]: localOnlyFeatureMeta,
+			[otherWipSha]: otherMeta,
+		};
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), otherWipSha);
+	});
+
+	test('primary branchRef wires the primary (uncommitted) WIP', () => {
+		const rows: GraphRow[] = [rowWith('MAIN_TIP', { heads: [mainRef] }), commit('SELECTED')];
+
+		assert.strictEqual(
+			findWipByBranchRange('SELECTED', rows, undefined, {
+				branchRef: mainRef,
+				upstreamRef: undefined,
+				branchSha: undefined,
+			}),
+			uncommitted,
+		);
+	});
+
+	test('primary branchSha fallback locates local tip when row.heads doesnʼt carry the ref', () => {
+		// row.heads doesn't tag MAIN_TIP with the main branchRef, but the primary supplies
+		// `branchSha: 'MAIN_TIP'` so the sha lookup seeds the local row.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', {}),
+			commit('SELECTED'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		assert.strictEqual(
+			findWipByBranchRange('SELECTED', rows, undefined, {
+				branchRef: mainRef,
+				upstreamRef: originMainRef,
+				branchSha: 'MAIN_TIP',
+			}),
+			uncommitted,
+		);
+	});
+
+	test('secondary parentSha fallback locates local tip when row.heads doesnʼt carry the ref', () => {
+		// row.heads doesn't tag MAIN_TIP with mainRef, but mainMeta.parentSha == 'MAIN_TIP'
+		// allows the sha lookup to seed mainRef's local row.
+		const rows: GraphRow[] = [
+			rowWith('MAIN_TIP', {}),
+			commit('SELECTED'),
+			rowWith('ORIGIN_MAIN', { remotes: [originMainRef] }),
+		];
+		const meta: GraphWipMetadataBySha = {
+			[mainWipSha]: { ...mainMeta, parentSha: 'MAIN_TIP' },
+		};
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, meta, undefined), mainWipSha);
+	});
+
+	test('duplicate branchRef across metadata entries → first-write-wins (primary protected)', () => {
+		// A pathological metadata where a secondary's branchRef matches the primary's branchRef:
+		// the primary entry (inserted first) must survive, returning `uncommitted` not the
+		// secondary's wipSha.
+		const rows: GraphRow[] = [rowWith('MAIN_TIP', { heads: [mainRef] }), commit('SELECTED')];
+		const meta: GraphWipMetadataBySha = {
+			[mainWipSha]: { ...mainMeta, branchRef: mainRef, upstreamRef: undefined },
+		};
+
+		assert.strictEqual(
+			findWipByBranchRange('SELECTED', rows, meta, {
+				branchRef: mainRef,
+				upstreamRef: undefined,
+				branchSha: undefined,
+			}),
+			uncommitted,
+		);
+	});
+
+	test('returns undefined when no branch range contains the selected commit', () => {
+		// All local heads are below the selected commit.
+		const rows: GraphRow[] = [commit('SELECTED'), rowWith('MAIN_TIP', { heads: [mainRef] })];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta };
+
+		assert.strictEqual(findWipByBranchRange('SELECTED', rows, metadata, undefined), undefined);
+	});
+
+	test('returns undefined when fromSha is not in rows', () => {
+		const rows: GraphRow[] = [rowWith('A', { heads: [mainRef] })];
+		const metadata: GraphWipMetadataBySha = { [mainWipSha]: mainMeta };
+
+		assert.strictEqual(findWipByBranchRange('missing', rows, metadata, undefined), undefined);
+	});
+
+	test('returns undefined for empty/missing inputs', () => {
+		assert.strictEqual(findWipByBranchRange('A', undefined, undefined, undefined), undefined);
+		assert.strictEqual(findWipByBranchRange('A', [], undefined, undefined), undefined);
+		assert.strictEqual(findWipByBranchRange('A', [commit('A')], undefined, undefined), undefined);
+	});
+});

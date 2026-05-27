@@ -8,6 +8,28 @@ import './commit-stats.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 
+/** Builds the "X files added, Y files changed, Z files deleted" parts for the working-tree
+ *  tooltip. Returns an empty array when no field is non-zero so the caller can fall back to the
+ *  generic dirty message. Shared by the graph overview card, the Home branch card, and the
+ *  `gl-wip-stats` badge tooltip so all three surfaces agree on phrasing. */
+export function getWipTooltipParts(workingTreeState: {
+	added: number | undefined;
+	changed: number | undefined;
+	deleted: number | undefined;
+}): string[] {
+	const parts: string[] = [];
+	if (workingTreeState.added) {
+		parts.push(`${pluralize('file', workingTreeState.added)} added`);
+	}
+	if (workingTreeState.changed) {
+		parts.push(`${pluralize('file', workingTreeState.changed)} changed`);
+	}
+	if (workingTreeState.deleted) {
+		parts.push(`${pluralize('file', workingTreeState.deleted)} deleted`);
+	}
+	return parts;
+}
+
 @customElement('gl-wip-stats')
 export class GlWipStats extends LitElement {
 	static override styles = [
@@ -88,29 +110,38 @@ export class GlWipStats extends LitElement {
 		const isDirty = this.dirty ?? added + modified + removed > 0;
 
 		if (isDirty) {
-			if (this.badge) {
-				const pill = html`<span
-					class="indicator-pill pill pill--outlined"
-					aria-label="Working tree has changes"
-				>
-					<code-icon icon="pencil"></code-icon>
-				</span>`;
+			const visible = this.badge
+				? html`<span class="indicator-pill pill pill--outlined" aria-label="Working tree has changes">
+						<code-icon icon="pencil"></code-icon>
+					</span>`
+				: html`<commit-stats
+						added=${added || nothing}
+						modified=${modified || nothing}
+						removed=${removed || nothing}
+						symbol="icons"
+						appearance="pill"
+						no-tooltip
+					></commit-stats>`;
 
-				if (this.noTooltip) return pill;
+			if (this.noTooltip) return visible;
 
-				return html`<gl-tooltip placement="bottom"
-					>${pill}<span slot="content">Working tree has changes</span></gl-tooltip
-				>`;
-			}
+			// Tooltip: show the commit-stats pill when we have a breakdown, falling back to a
+			// generic message when only the dirty bit is known (cheap probes — upgrades on hover).
+			const hasBreakdown = added + modified + removed > 0;
+			const tooltipContent = hasBreakdown
+				? html`<commit-stats
+						added=${added || nothing}
+						modified=${modified || nothing}
+						removed=${removed || nothing}
+						symbol="icons"
+						appearance="pill"
+						no-tooltip
+					></commit-stats>`
+				: 'Working tree has changes';
 
-			return html`<commit-stats
-				added=${added || nothing}
-				modified=${modified || nothing}
-				removed=${removed || nothing}
-				symbol="icons"
-				appearance="pill"
-				?no-tooltip=${this.noTooltip}
-			></commit-stats>`;
+			return html`<gl-tooltip placement="bottom"
+				>${visible}<span slot="content">${tooltipContent}</span></gl-tooltip
+			>`;
 		}
 
 		if (!this.showClean) return nothing;

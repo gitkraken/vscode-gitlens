@@ -12,7 +12,12 @@ import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
 import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
-import type { GraphDisplayMode, GraphSidebarPanel } from './webviews/plus/graph/protocol.js';
+import type {
+	GraphDisplayMode,
+	GraphSidebarPanel,
+	GraphTreemapMode,
+	VisualizationMode,
+} from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
 import type { OverviewRecentThreshold } from './webviews/shared/overviewBranches.js';
 
@@ -196,10 +201,15 @@ interface WorkspaceStorageCore {
 	'graph:columns': Record<string, StoredGraphColumn>;
 	'graph:filtersByRepo': Record<string, StoredGraphFilters>;
 	'graph:state': StoredGraphState;
+	/** Per-worktree commit draft for the Graph's WIP details panel. Key is the worktree's
+	 *  fsPath — invariant whether the user opens the main repo or the worktree directly. */
+	'graph:wipDrafts': Record<string, StoredGraphWipDraft>;
 	/** Unified onboarding/dismissible UI state (workspace-scoped items) */
 	'onboarding:state': OnboardingStorage;
 	'starred:repositories': StoredStarred;
 	'views:commitDetails:pullRequestExpanded': boolean;
+	'views:commitDetails:showSearchBox': boolean;
+	'views:commitDetails:searchBoxFilter': boolean;
 	'views:repositories:autoRefresh': boolean;
 	'views:searchAndCompare:pinned': StoredSearchAndCompareItems;
 	'views:scm:grouped:selected': GroupableTreeViewTypes;
@@ -383,6 +393,7 @@ export interface StoredGraphColumn {
 
 export interface StoredGraphState {
 	displayMode?: GraphDisplayMode;
+	visualizationMode?: VisualizationMode;
 	panels?: {
 		details?: {
 			visible?: boolean;
@@ -405,14 +416,30 @@ export interface StoredGraphState {
 			position?: number;
 		};
 	};
+	overview?: {
+		recentThreshold?: OverviewRecentThreshold;
+	};
 	timeline?: {
 		period?: TimelinePeriod;
 		sliceBy?: TimelineSliceBy;
 		showAllBranches?: boolean;
 	};
-	overview?: {
-		recentThreshold?: OverviewRecentThreshold;
+	treemap?: {
+		mode?: GraphTreemapMode;
 	};
+}
+
+export interface StoredGraphWipDraft {
+	/** The commit message currently in the WIP commit input. */
+	message: string;
+	/** `true` when the message is user-authored (typed, AI-generated, or restored from an undone
+	 *  commit) and must not be dropped by the HEAD-move auto-clear path. Mirrors the in-memory
+	 *  `commitMessageDirty` signal on the details panel. */
+	messageDirty: boolean;
+	/** Present iff amend mode was active when the draft was saved. `baseSha` records the worktree
+	 *  HEAD the amend was bound to so the existing HEAD-move auto-clear (in
+	 *  `gl-graph-details-panel.ts`) can detect a stale amend on restore. */
+	amend?: { baseSha: string };
 }
 
 export type StoredGraphExcludeTypes = 'remotes' | 'stashes' | 'tags';

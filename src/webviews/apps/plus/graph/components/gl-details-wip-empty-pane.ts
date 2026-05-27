@@ -20,10 +20,15 @@ import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/skeleton-loader.js';
 
-type NextStepAction = { actionLabel: string; tooltip?: string; icon?: string } & (
-	| { event: string; href?: never }
-	| { href: string; event?: never }
-);
+type NextStepAction = {
+	actionLabel: string;
+	tooltip?: string;
+	icon?: string;
+	/** When true, renderNextStep ignores `event`/`href` and renders a disabled button with a
+	 *  spinning icon in place of the normal action button. Used for in-flight states that
+	 *  should anchor layout (the row stays put) while a real action isn't yet available. */
+	loading?: boolean;
+} & ({ event: string; href?: never } | { href: string; event?: never });
 
 type NextStep = {
 	icon: string;
@@ -49,35 +54,111 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	private _webview!: WebviewContext;
 
 	@property({ type: Object }) wip?: Wip;
-	@property({ type: Boolean }) hasPullRequest = false;
+	/** The branch's associated pull request (if any). When set, the PR slot in `computeNextSteps`
+	 *  renders a "View Pull Request" row linking to `pr.url`. When unset and `pullRequestLoading`
+	 *  is true, renders an inline loading row. When unset and not loading, renders the
+	 *  "Create a Pull Request" action. */
+	@property({ type: Object }) pullRequest?: { id: string; title: string; url: string };
+	/** True while the host's PR enrichment fetch is in flight for this branch. Used to render a
+	 *  stable "Checking for pull request…" row that anchors the layout until enrichment lands. */
+	@property({ type: Boolean }) pullRequestLoading = false;
 	@property({ type: Boolean }) hasIntegrationsConnected = false;
 	@property({ type: Object }) launchpadSummary?: LaunchpadSummaryResult | { error: Error };
 	@property({ type: Boolean }) launchpadSummaryLoading = false;
+	/** When true, render the Launchpad section between Next steps and Start New. Off by default
+	 *  so consumers that don't wire Launchpad props (e.g., the commit-details `gl-details-wip-panel`)
+	 *  don't accidentally surface a Launchpad block they never opted into. */
+	@property({ type: Boolean, attribute: 'show-launchpad' }) showLaunchpad = false;
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) aiCreatePrEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
 
 	private _hadNextSteps = false;
 	private _cachedNextSteps: NextStep[] = [];
+	private _cachedUniqueWorkSteps: NextStep[] = [];
 
 	protected override willUpdate(): void {
 		const branch = this.wip?.branch;
 		this._cachedNextSteps = branch != null ? this.computeNextSteps(branch) : [];
+		this._cachedUniqueWorkSteps =
+			branch != null ? this.computeUniqueWorkSteps(this.shouldRecomposeFirst(branch)) : [];
 	}
 
 	override render(): unknown {
+		// Stable bottom anchor — `Start New` always renders. Sections above it (`Next steps`,
+		// `AI workflows`, `Launchpad`) appear conditionally on data and order is fixed; their
+		// arrival pushes the start-new section down but never displaces it. Review/Recompose
+		// surface inside `Next steps` (via `uniqueWorkSteps`) when there's unique-work; the
+		// previous renderIdle's bottom-of-cluster Review/Recompose buttons are replaced by that
+		// path.
 		const branch = this.wip?.branch;
-		if (!branch) return this.renderIdle();
+		const allSteps = [...this._cachedNextSteps, ...this._cachedUniqueWorkSteps];
+		const hasSteps = allSteps.length > 0;
+		const ahead = branch?.tracking?.ahead ?? 0;
+		const hasDiverged =
+			branch != null && (ahead > 0 || branch.upstream?.missing === true || branch.upstream == null);
 
-		const nextSteps = this._cachedNextSteps;
-		// Pending steps win — Review/Recompose ride along below the pending list with the
-		// active-state ordering rule. With no pending steps, the panel falls back to the idle
-		// UI (renderIdle handles the Review/Recompose buttons itself).
-		if (nextSteps.length === 0) return this.renderIdle();
+		// Launchpad renders from initial mount (when `showLaunchpad`) — the summary content is
+		// branch-agnostic (PRs across the user's connected integrations) and the inner
+		// `renderLaunchpadSummary` handles its own loading/empty/unconnected states with a
+		// stable footprint. Gating on `branch != null` here would cause the section to pop into
+		// existence the moment WIP arrived, shifting `Start New` down — the very layout flip
+		// this scaffold was reshaped to avoid.
+		return html`<div class="hub">
+			${hasSteps
+				? html`<section class="section">
+						<h3 class="section__heading">Next steps</h3>
+						${allSteps.map(step => this.renderNextStep(step))}
+					</section>`
+				: nothing}
+			${branch != null && this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
+			${this.showLaunchpad ? this.renderLaunchpadSection() : nothing} ${this.renderStartNewSection()}
+		</div>`;
+	}
 
-		const recomposeFirst = this.shouldRecomposeFirst(branch);
-		const uniqueWorkSteps = this.computeUniqueWorkSteps(recomposeFirst);
-		return this.renderActive(branch, [...nextSteps, ...uniqueWorkSteps]);
+	private renderLaunchpadSection() {
+		return html`<section class="section">
+			<header class="section__header">
+				<h3 class="section__heading">Launchpad</h3>
+				<gl-button
+					class="section__heading-action"
+					appearance="toolbar"
+					aria-busy=${this.launchpadSummaryLoading}
+					?disabled=${this.launchpadSummaryLoading}
+					tooltip="Refresh Launchpad"
+					@click=${() => this.emit('refresh-launchpad')}
+				>
+					<code-icon icon="refresh"></code-icon>
+				</gl-button>
+			</header>
+			${this.renderLaunchpadSummary()}
+		</section>`;
+	}
+
+	private renderStartNewSection() {
+		return html`<section class="section">
+			<h3 class="section__heading">Start New</h3>
+			<div class="start-new">
+				<gl-button appearance="secondary" @click=${() => this.emit('start-work', { showOpenInAgent: 'ask' })}>
+					Start Work on an Issue…
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('start-review', { showOpenInAgent: 'ask' })}>
+					Start Review on a PR…
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('apply-stash')}>
+					Apply / Pop Stash…
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('new-worktree')}>
+					Create Worktree…
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('create-branch')}>
+					Create Branch…
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('switch-branch')}>
+					Switch Branch…
+				</gl-button>
+			</div>
+		</section>`;
 	}
 
 	private shouldRecomposeFirst(branch: GitBranchShape): boolean {
@@ -87,69 +168,44 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		return upstreamMissing || ahead !== 0 || behind !== 0;
 	}
 
-	/** Gating shared by `computeUniqueWorkSteps` (active state) and `renderIdle` (idle state).
-	 *  Both surfaces want Review/Recompose under the same conditions — merge target detected,
-	 *  unique commits against it, and no in-flight paused git op. */
+	/** Gates the Review/Recompose next-step rows added by `computeUniqueWorkSteps`. Fully permissive
+	 *  except for paused git ops (rebase/merge/cherry-pick mid-flow shouldn't compete with
+	 *  Review/Recompose actions). Without a precise "ahead of fork point" signal piped from the
+	 *  host, conservative gating (merge-target detected + ahead > 0) hid the rows on common cases
+	 *  like local-only branches with unpushed commits — leaving the actions to figure out scope at
+	 *  invocation time is the lesser evil. */
 	private hasUniqueWorkActions(): boolean {
 		if (this.wip?.changes?.pausedOpStatus != null) return false;
-
-		const mergeTarget = this.mergeTargetStatus?.mergeTarget;
-		if (mergeTarget == null) return false;
-
-		return (mergeTarget.status?.ahead ?? 0) > 0;
+		return this.wip?.branch != null;
 	}
 
 	protected override updated(): void {
-		const hasNextSteps = this._cachedNextSteps.length > 0;
+		// Mirror what `render()` actually puts in the Next-steps section: cached next steps PLUS
+		// uniqueWorkSteps. Pre-rename this guard only checked `_cachedNextSteps`, so a render
+		// that showed Review/Recompose alone (uniqueWorkSteps populated, no cached steps) never
+		// fired the event — breaking telemetry (`TrackGraphDetailsWipShownCommand`) and the
+		// deferred-walkthrough trigger.
+		const hasNextSteps = this._cachedNextSteps.length + this._cachedUniqueWorkSteps.length > 0;
 		if (hasNextSteps && !this._hadNextSteps) {
 			this.emit('next-steps-shown');
 		}
 		this._hadNextSteps = hasNextSteps;
 	}
 
-	private renderActive(branch: GitBranchShape, nextSteps: NextStep[]) {
-		const ahead = branch.tracking?.ahead ?? 0;
-		const hasDiverged = ahead > 0 || branch.upstream?.missing === true || branch.upstream == null;
-
-		return html`<div class="hub">
-			<section class="section">
-				<h3 class="section__heading">Next steps</h3>
-				${nextSteps.map(step => this.renderNextStep(step))}
-			</section>
-			${this.aiEnabled && hasDiverged ? this.renderAiWorkflows(ahead) : nothing}
-			<section class="section">
-				<header class="section__header">
-					<h3 class="section__heading">Launchpad</h3>
-					<gl-button
-						class="section__heading-action"
-						appearance="toolbar"
-						aria-busy=${this.launchpadSummaryLoading}
-						?disabled=${this.launchpadSummaryLoading}
-						tooltip="Refresh Launchpad"
-						@click=${() => this.emit('refresh-launchpad')}
-					>
-						<code-icon icon="refresh"></code-icon>
-					</gl-button>
-				</header>
-				${this.renderLaunchpadSummary()}
-				<div class="start-fresh">
-					<gl-button
-						appearance="secondary"
-						@click=${() => this.emit('start-work', { showOpenInAgent: 'ask' })}
-					>
-						Start Work on an Issue…
-					</gl-button>
-				</div>
-			</section>
-		</div>`;
-	}
-
 	private renderNextStep(step: NextStep) {
 		const primaryInner = html`${step.actionPrefixIcon
 			? html`<code-icon icon=${step.actionPrefixIcon} slot="prefix"></code-icon>`
 			: nothing}${step.actionLabel}`;
-		const primary =
-			step.href != null
+		const primary = step.loading
+			? html`<gl-button
+					class="next-step__action"
+					appearance="secondary"
+					disabled
+					aria-label=${step.actionLabel}
+					tooltip=${ifDefined(step.tooltip)}
+					><code-icon icon="loading" modifier="spin"></code-icon
+				></gl-button>`
+			: step.href != null
 				? html`<gl-button class="next-step__action" appearance="secondary" href=${step.href}
 						>${primaryInner}</gl-button
 					>`
@@ -211,39 +267,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		</section>`;
 	}
 
-	private renderIdle() {
-		const showUniqueWorkButtons = this.hasUniqueWorkActions();
-
-		return html`<div class="hub hub--idle">
-			<p class="caption">Nothing pending on this branch.</p>
-			<div class="start-fresh">
-				<gl-button appearance="secondary" @click=${() => this.emit('start-work')}>
-					<code-icon icon="issues"></code-icon>Start Work…
-				</gl-button>
-				<gl-button appearance="secondary" @click=${() => this.emit('create-branch')}>
-					<code-icon icon="custom-start-work"></code-icon>Create Branch…
-				</gl-button>
-				<gl-button appearance="secondary" @click=${() => this.emit('switch-branch')}>
-					<code-icon icon="gl-switch"></code-icon>Switch Branch…
-				</gl-button>
-				<gl-button appearance="secondary" @click=${() => this.emit('apply-stash')}>
-					<code-icon icon="gl-stash-pop"></code-icon>Apply Stash…
-				</gl-button>
-				<gl-button appearance="secondary" @click=${() => this.emit('new-worktree')}>
-					<code-icon icon="gl-worktrees-view"></code-icon>New Worktree…
-				</gl-button>
-				${showUniqueWorkButtons
-					? html`<gl-button appearance="secondary" @click=${() => this.emit('review-branch-changes')}>
-								<code-icon icon="checklist"></code-icon>Review Branch
-							</gl-button>
-							<gl-button appearance="secondary" @click=${() => this.emit('recompose-branch-changes')}>
-								<code-icon icon="wand"></code-icon>Recompose Branch
-							</gl-button>`
-					: nothing}
-			</div>
-		</div>`;
-	}
-
 	private renderLaunchpadSummary(): TemplateResult {
 		if (!this.hasIntegrationsConnected) {
 			return html`<ul class="launchpad-items">
@@ -264,8 +287,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 		const summary = this.launchpadSummary;
 		if (summary == null) {
+			// Single skeleton line matches the most common landed content — "You are all caught
+			// up!" or a single group summary. Two lines was nearly always over-tall, causing a
+			// downward shift when content landed.
 			return html`<div class="launchpad-items launchpad-items--loading">
-				<skeleton-loader lines="1"></skeleton-loader>
 				<skeleton-loader lines="1"></skeleton-loader>
 			</div>`;
 		}
@@ -463,9 +488,28 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				});
 			}
 
-			// Show "Create PR" for any published branch without an existing PR,
-			// regardless of ahead/behind state — matches Home view behavior.
-			if (!this.hasPullRequest) {
+			// Tri-state PR row for any published branch — stays in place across enrichment so the
+			// section doesn't shrink/grow when the PR fetch settles. Loading shows a spinner row;
+			// resolving with a PR swaps to a "View Pull Request" row; resolving with no PR swaps
+			// to the "Create a Pull Request" action row. Always pushes a row, never collapses —
+			// the row's role transforms in place.
+			if (this.pullRequest != null) {
+				const pr = this.pullRequest;
+				steps.push({
+					icon: 'git-pull-request',
+					label: `Pull Request #${pr.id}: ${pr.title}`,
+					actionLabel: 'View',
+					href: pr.url,
+				});
+			} else if (this.pullRequestLoading) {
+				steps.push({
+					icon: 'git-pull-request',
+					label: 'Checking for pull request…',
+					actionLabel: 'Checking',
+					loading: true,
+					event: '',
+				});
+			} else {
 				const useAI = this.aiCreatePrEnabled;
 				steps.push({
 					icon: 'git-pull-request-create',
@@ -485,9 +529,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			steps.push(mergeTargetStep);
 		}
 
-		// Note: Review/Recompose are intentionally NOT appended here. They're appended by
-		// `render()` only when there are other pending steps to ride along below. When the
-		// pending list is empty, the panel routes to renderIdle which adds them as buttons.
+		// Note: Review/Recompose are intentionally NOT appended here. `render()` concatenates
+		// `computeUniqueWorkSteps()` onto this list — so when the pending list is empty but
+		// unique-work exists, the Next-steps section still surfaces Review/Recompose rows
+		// without polluting the regular next-steps flow.
 
 		return steps;
 	}
