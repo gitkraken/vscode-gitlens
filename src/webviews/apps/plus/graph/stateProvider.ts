@@ -1,8 +1,6 @@
 import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
-import type { Counter } from '@gitlens/utils/counter.js';
-import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -1179,10 +1177,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// through the accessor and don't update `_state`, so reading `_state` here sees a
 				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
 				// every secondary row (the visible pill flash).
+				// `workingTreeStats` is just the primary wip's embedded `stats` (git-authoritative,
+				// same object as `msg.params.wip.stats`). Files and counts travel together, so they
+				// can't drift — no generation guard needed.
 				const updates: Partial<State> = { workingTreeStats: msg.params.stats };
-				// Invalidate any in-flight panel-driven `getWip` RPC: if a response is mid-await
-				// when this push lands, its older stats would otherwise clobber this fresher one.
-				this._workingTreeStatsGen.next();
 				if (msg.params.wipMetadataBySha != null) {
 					updates.wipMetadataBySha = mergeWipMetadata(
 						this.wipMetadataBySha,
@@ -1222,8 +1220,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// the per-file classifier doesn't match `git diff --shortstat` semantics).
 					if (stats != null && repoPath === this.selectedRepository) {
 						updates.workingTreeStats = stats;
-						// Same in-flight-RPC invalidation rationale as the `DidChangeWorkingTree` branch.
-						this._workingTreeStatsGen.next();
 					}
 
 					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
@@ -1455,37 +1451,20 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._pendingLocalEditPaths.add(repoPath);
 	}
 
-	/** Bumped on every write to `workingTreeStats` (both IPC-driven host pushes and the
-	 *  panel-driven `setWorkingTreeStats` reseed). Callers about to issue a `getWip` RPC snapshot
-	 *  this before the await and pass it back into `setWorkingTreeStats`; if a host FS-watcher
-	 *  push lands during the await, the counter advances and the older RPC response is dropped
-	 *  rather than clobbering the fresher stats. Read via `workingTreeStatsGen`. */
-	private readonly _workingTreeStatsGen: Counter = getScopedCounter();
-
-	get workingTreeStatsGen(): number {
-		return this._workingTreeStatsGen.current;
-	}
-
 	/**
-	 * Reseed `workingTreeStats` from a panel-driven `getWip` cold-load. The header WIP badge and
-	 * the primary "Working Changes" row badge both read this slot; they otherwise refresh only
-	 * via the host's FS-watcher push channel, which can land late or be missed on init — leaving
-	 * the badges stuck on stale stats while the details panel (driven by `wip`) shows the truth.
+	 * Reseed `workingTreeStats` (the header / primary-row badge source) from a panel-driven
+	 * `getWip` response. `stats` is the primary wip's embedded {@link WipStats} — git-authoritative
+	 * and the SAME object as `wip.stats`, so the file list and counts can never disagree. No
+	 * generation guard: with stats embedded in the wip there's no separate value to race, and a
+	 * stale-but-consistent write self-corrects on the next host push.
 	 *
 	 * Repo-path guard mirrors `DidRequestWipRefetchNotification`'s primary-only update: the badges
 	 * always reflect the active/selected repo, so a secondary worktree's `getWip` must NOT
 	 * overwrite the primary's stats.
-	 *
-	 * `expectedGen` (optional) is the value of `workingTreeStatsGen` captured BEFORE the caller's
-	 * `getWip` await. When provided and stale (counter advanced during the await), drops the
-	 * write — a host FS-watcher push landed in the meantime and its stats are fresher than this
-	 * response. Without this guard, an older RPC snapshot can clobber a newer push.
 	 */
-	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats, expectedGen?: number): void {
+	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats): void {
 		if (repoPath !== this.selectedRepository) return;
-		if (expectedGen != null && expectedGen !== this._workingTreeStatsGen.current) return;
 
-		this._workingTreeStatsGen.next();
 		this.updateState({ workingTreeStats: stats });
 	}
 
@@ -1556,6 +1535,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private fireProviderUpdate = debounce(() => this.provider.setValue(this, true), 100);
 
 	protected updateState(partial: Partial<State>, silent?: boolean) {
+		// Capture the selected repo so we can re-pin its WIP cache entry below if it changes.
+		const prevSelectedRepo = this.selectedRepository;
 		let hasChanges = false;
 		for (const key in partial) {
 			hasChanges = true;
@@ -1582,6 +1563,19 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// @ts-expect-error key is a key of State
 					this[key as keyof Omit<State, 'timestamp' | 'webviewId' | 'webviewInstanceId'>] = value;
 					break;
+			}
+		}
+
+		// Pin the active repo's WIP cache entry so it survives eviction pressure from browsing
+		// many secondary worktrees — re-opening the primary WIP panel then paints from cache
+		// instead of cold-loading a fresh `git status`. Unpin the previous primary on switch so
+		// the `_pinned` set stays bounded (size 1) and stale primaries can eventually evict.
+		if (this.selectedRepository !== prevSelectedRepo) {
+			if (prevSelectedRepo != null) {
+				this._wips.unpin(prevSelectedRepo);
+			}
+			if (this.selectedRepository != null) {
+				this._wips.pin(this.selectedRepository);
 			}
 		}
 

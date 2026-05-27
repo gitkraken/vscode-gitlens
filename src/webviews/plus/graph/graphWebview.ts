@@ -267,6 +267,7 @@ import type {
 	DetailsItemTypedContext,
 	GitBranchShape,
 	Wip,
+	WipStats,
 } from './detailsProtocol.js';
 import { messageHeadlineSplitterToken } from './detailsProtocol.js';
 import {
@@ -6970,6 +6971,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const diff = status.diffStatus;
 
+		// Build the stats once and embed the SAME object reference in both `wip.stats` and the
+		// sibling `stats` field. The webview derives `workingTreeStats` from `wip.stats`, so the
+		// file list and its counts can never drift — they're one object. The sibling is kept for
+		// callers that destructure `{ wip, stats }` (refresh / cold-load paths).
+		const stats: WipStats = {
+			added: diff.added,
+			deleted: diff.deleted,
+			modified: diff.changed,
+			hasConflicts: status.hasConflicts,
+			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
+			pausedOpStatus: pausedOpStatus,
+			context: serializeWebviewItemContext<GraphItemContext>({
+				webviewItem: 'gitlens:wip',
+				webviewItemValue: {
+					type: 'commit',
+					ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
+					worktreePath: repo.path,
+				},
+			}),
+		};
+
 		return {
 			wip: {
 				changes: {
@@ -6996,23 +7018,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								}
 							: undefined,
 				},
+				stats: stats,
 			},
-			stats: {
-				added: diff.added,
-				deleted: diff.deleted,
-				modified: diff.changed,
-				hasConflicts: status.hasConflicts,
-				conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
-				pausedOpStatus: pausedOpStatus,
-				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:wip',
-					webviewItemValue: {
-						type: 'commit',
-						ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
-						worktreePath: repo.path,
-					},
-				}),
-			},
+			stats: stats,
 		};
 	}
 

@@ -130,4 +130,58 @@ suite('LruMap Test Suite', () => {
 			assert.deepStrictEqual(merged, { a: 1, b: 2 });
 		});
 	});
+
+	suite('pinning', () => {
+		test('pinned key survives eviction pressure', () => {
+			const m = new LruMap<string, number>(2);
+			m.set('pinned', 1);
+			m.pin('pinned');
+			// Churn well past the limit; the pinned key must never be evicted.
+			m.set('a', 2).set('b', 3).set('c', 4).set('d', 5);
+			assert.strictEqual(m.has('pinned'), true);
+			assert.strictEqual(m.get('pinned'), 1);
+			// Non-pinned keys still evict down toward the limit (limit + 1 pinned).
+			assert.strictEqual(m.has('d'), true);
+			assert.strictEqual(m.has('a'), false);
+		});
+
+		test('pin before set takes effect once the key is set', () => {
+			const m = new LruMap<string, number>(1);
+			m.pin('later');
+			m.set('later', 1).set('x', 2).set('y', 3);
+			assert.strictEqual(m.has('later'), true);
+		});
+
+		test('unpin re-exposes the key to eviction', () => {
+			const m = new LruMap<string, number>(1);
+			m.set('p', 1);
+			m.pin('p');
+			m.set('q', 2);
+			assert.strictEqual(m.has('p'), true); // still pinned
+
+			m.unpin('p');
+			m.set('r', 3); // now eviction can drop the oldest non-pinned ('p')
+			assert.strictEqual(m.has('p'), false);
+			assert.strictEqual(m.has('r'), true);
+		});
+
+		test('delete still removes a pinned key', () => {
+			const m = new LruMap<string, number>(2);
+			m.set('p', 1);
+			m.pin('p');
+			assert.strictEqual(m.delete('p'), true);
+			assert.strictEqual(m.has('p'), false);
+		});
+
+		test('clear drops pins so a re-set key is no longer protected', () => {
+			const m = new LruMap<string, number>(1);
+			m.set('p', 1);
+			m.pin('p');
+			m.clear();
+			// Re-set the previously-pinned key + churn past the limit; without the pin it evicts.
+			m.set('p', 2).set('q', 3);
+			assert.strictEqual(m.has('p'), false);
+			assert.strictEqual(m.has('q'), true);
+		});
+	});
 });
