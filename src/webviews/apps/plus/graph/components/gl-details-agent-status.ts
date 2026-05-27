@@ -236,6 +236,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				text-transform: none;
 				letter-spacing: 0;
 				color: var(--vscode-foreground);
+				white-space: nowrap;
 			}
 
 			.section__cluster-dots {

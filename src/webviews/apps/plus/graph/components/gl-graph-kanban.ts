@@ -22,6 +22,7 @@ import { graphStateContext } from '../context.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/hooks-banner.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 declare global {
@@ -123,7 +124,11 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				align-items: center;
 				gap: 0.8rem;
-				padding: 0.8rem 1.2rem;
+				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
+				 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
+				 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
+				padding: 0.4rem 0.6rem 0.4rem 1.2rem;
+				min-height: 3.2rem;
 				border-bottom: 1px solid var(--vscode-panel-border, transparent);
 				flex: none;
 			}
@@ -151,13 +156,22 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 			}
 
-			/* Experimental stamp uses the shared gl-badge with appearance=experimental. The wrapping
-			   gl-tooltip uses display: contents, so margin/alignment must target the gl-badge itself
-			   (which is the real flex child of .header). Auto-margin floats it right within the
-			   header flex, just before the close button which keeps its own intrinsic width. */
+			/* Experimental stamp uses the shared gl-badge with appearance=experimental. Sits inside
+			   .header__title, between the title h2 and the session count, signalling that the whole
+			   view (not just one control) is experimental. */
 			.header__experimental gl-badge {
-				margin-left: auto;
 				--gl-badge-font-size: 0.95rem;
+			}
+
+			.header__close {
+				margin-left: auto;
+			}
+
+			.hooks-banner {
+				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
+				 * margin-bottom here would double up to 2.4rem of visual gap. */
+				display: block;
+				margin: 1.2rem 1.2rem 0;
 			}
 
 			.body {
@@ -612,19 +626,20 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				<div class="header">
 					<div class="header__title">
 						<h2>Agent Kanban</h2>
+						<gl-tooltip
+							class="header__experimental"
+							placement="bottom"
+							content="This is an experimental feature"
+							distance="6"
+						>
+							<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
+						</gl-tooltip>
 						<span class="header__count" aria-live="polite"
 							>${sessions.length} session${sessions.length === 1 ? '' : 's'}</span
 						>
 					</div>
-					<gl-tooltip
-						class="header__experimental"
-						placement="bottom"
-						content="This is an experimental feature"
-						distance="6"
-					>
-						<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
-					</gl-tooltip>
 					<gl-button
+						class="header__close"
 						appearance="toolbar"
 						tooltip="Show Commit Graph"
 						aria-label="Show Commit Graph"
@@ -633,6 +648,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						<code-icon icon="close"></code-icon>
 					</gl-button>
 				</div>
+				${(this.graphState.canInstallClaudeHook ?? false) && !(this.graphState.hooksBannerCollapsed ?? true)
+					? html`<gl-hooks-banner
+							class="hooks-banner"
+							source="graph-kanban"
+							layout="responsive"
+						></gl-hooks-banner>`
+					: nothing}
 				${sessions.length === 0 ? this.renderEmpty() : this.renderColumns(sessionsByColumn)}
 			</section>
 		`;

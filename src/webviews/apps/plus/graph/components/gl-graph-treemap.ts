@@ -31,6 +31,7 @@ import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/hooks-banner.js';
 import '../../../shared/components/menu/menu-popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -137,7 +138,9 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		.toolbar {
 			display: flex;
 			align-items: center;
-			padding: 0.4rem 1rem;
+			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
+			 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
+			padding: 0.4rem 0.6rem;
 			gap: 0.8rem;
 			min-height: 3.2rem;
 			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
@@ -151,12 +154,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			flex: none;
 		}
 
+		/* Shrink priority when the toolbar is too narrow to fit everything: counts collapse first
+		 * (description + agent-status, flex-shrink: 1000), then breadcrumbs (100), then the title
+		 * (10). The switcher, EXP badge, and .toolbar__right never shrink, so the close button
+		 * stays pinned to the right edge regardless of width. min-width: 0 lets each shrinkable
+		 * item collapse below its intrinsic width; text-overflow / overflow:hidden ellipsizes
+		 * gracefully on the way down. */
 		.toolbar__title {
-			/* Only rendered when no breadcrumbs are present — the breadcrumb chain telegraphs scope
-			 * better than a fading title ever could, so we hide the title entirely in that state
-			 * rather than letting it ellipsise to "FI…". Without a flex-grow competitor in the
-			 * no-crumbs layout, the title sits at its natural width. */
-			flex: none;
+			/* Always rendered (FILES / COMMITS / AGENT ACTIVITY) so the user keeps the view label
+			 * even after zooming into the tree. Shrinks last via the priority chain above. */
+			flex: 0 10 auto;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-size: 1.1rem;
 			font-weight: 600;
 			text-transform: uppercase;
@@ -165,25 +175,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		/* Breadcrumbs flex-grow to fill leftover toolbar space so the component's own ResizeObserver
 		 * sees width changes when the toolbar widens/narrows — that's what drives its outer-in
-		 * collapse algorithm to run and re-run. The counts ride INSIDE the breadcrumb as a slotted
-		 * child (see .toolbar__description below), positioned via flex order so they appear right
-		 * after the last crumb regardless of how many items collapsed. */
+		 * collapse algorithm to run and re-run. Shrinks faster than the title but slower than the
+		 * counts so the path stays readable as the toolbar tightens. */
 		.toolbar__crumbs {
-			flex: 1;
+			flex: 1 100 0;
 			min-width: 0;
 			overflow: hidden;
 		}
 
 		.toolbar__description {
-			/* Two render slots:
-			 *   - Standalone (no breadcrumbs): plain toolbar child sitting in DOM order right
-			 *     after the title — no flex order forcing needed (and applying one here would push
-			 *     the count past .toolbar__right's margin-left:auto, landing it past the X button).
-			 *   - Slotted into gl-breadcrumbs: see .toolbar__crumbs .toolbar__description below,
-			 *     which lifts it past every crumb via flex order.
-			 * flex:none keeps the count at natural width; the breadcrumb host or toolbar's
-			 * overflow:hidden clips at extreme narrow widths as a final safety net. */
-			flex: none;
+			/* Counts (e.g. "2,173 files" / "N commits · M files") sit after the breadcrumbs when
+			 * present, else right after the EXP badge. Shrinks fastest in the priority chain. */
+			flex: 0 1000 auto;
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: 1.1rem;
@@ -191,31 +195,49 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			white-space: nowrap;
 		}
 
-		/* When slotted into gl-breadcrumbs (gap:0, children ordered idx*2), force the count past
-		 * every crumb via a large flex order, and add the gap the breadcrumb host doesn't provide
-		 * so the count doesn't butt up against the last crumb. */
-		.toolbar__crumbs .toolbar__description {
-			order: 9999;
-			margin-left: 0.8rem;
+		/* Activity-mode counts (status pills + "N working · M idle"). Shares the shrink-first
+		 * priority with .toolbar__description so both collapse together as the toolbar narrows. */
+		.toolbar > gl-details-agent-status {
+			flex: 0 1000 auto;
+			min-width: 0;
+			overflow: hidden;
 		}
 
+		/* Matches the Visual History header's period pill — transparent background, tight padding —
+		 * so the same control reads consistently across both surfaces. Full-strength foreground (no
+		 * dimming) to match the rest of the toolbar text. */
 		.period-button {
+			display: inline-flex;
+			align-items: center;
+			gap: 0.2rem;
 			appearance: none;
-			background: var(--vscode-editorWidget-background, transparent);
+			background: transparent;
 			border: 1px solid transparent;
 			border-radius: 0.3rem;
-			padding: 0.3rem 0.6rem 0.3rem 0.8rem;
-			cursor: pointer;
+			padding: 0.1rem 0.4rem;
 			font: inherit;
 			font-size: 1.2rem;
 			color: var(--vscode-foreground);
-			display: inline-flex;
-			align-items: center;
-			gap: 0.3rem;
+			cursor: pointer;
+			white-space: nowrap;
+			transition:
+				background 120ms ease,
+				border-color 120ms ease;
 		}
 
-		.period-button:hover {
-			background: var(--vscode-toolbar-hoverBackground);
+		.period-button:hover,
+		.period-button:focus-visible {
+			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
+			outline: none;
+		}
+
+		.period-button:focus-visible {
+			border-color: var(--vscode-focusBorder, transparent);
+		}
+
+		.period-button code-icon {
+			font-size: 1rem;
+			opacity: 0.75;
 		}
 
 		.toolbar__right {
@@ -232,8 +254,17 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			margin-left: auto;
 		}
 
-		.toolbar__right gl-details-agent-status {
-			min-width: 0;
+		.toolbar__experimental {
+			flex: none;
+		}
+
+		.toolbar__experimental gl-badge {
+			--gl-badge-font-size: 0.95rem;
+		}
+
+		.hooks-banner {
+			display: block;
+			margin: 1.2rem;
 		}
 
 		gl-treemap-chart {
@@ -872,9 +903,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		return html`
 			<div class="toolbar">
 				<gl-graph-visualizations-switcher></gl-graph-visualizations-switcher>
-				${hasCrumbs
-					? this.renderBreadcrumbs()
-					: html`<span class="toolbar__title">${treemapTitles[mode]}</span>${this.renderDescription()}`}
+				<span class="toolbar__title">${treemapTitles[mode]}</span>
+				<gl-tooltip
+					class="toolbar__experimental"
+					placement="bottom"
+					content="This is an experimental feature"
+					distance="6"
+				>
+					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
+				</gl-tooltip>
+				${hasCrumbs ? this.renderBreadcrumbs() : nothing} ${this.renderDescription()}
+				${showAgentCluster
+					? html`<gl-details-agent-status compact .sessions=${sessions}></gl-details-agent-status>`
+					: nothing}
 				<div class="toolbar__right">
 					${showPeriodPicker
 						? html`<gl-menu-popover
@@ -893,12 +934,6 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 								</button>
 							</gl-menu-popover>`
 						: nothing}
-					${showAgentCluster
-						? html`<gl-details-agent-status compact .sessions=${sessions}></gl-details-agent-status>`
-						: nothing}
-					<gl-tooltip placement="bottom" content="This is an experimental feature" distance="6">
-						<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
-					</gl-tooltip>
 					<gl-button
 						appearance="toolbar"
 						tooltip="Close Visualizations"
@@ -909,6 +944,15 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					</gl-button>
 				</div>
 			</div>
+			${mode === 'activity' &&
+			(this.graphState.canInstallClaudeHook ?? false) &&
+			!(this.graphState.hooksBannerCollapsed ?? true)
+				? html`<gl-hooks-banner
+						class="hooks-banner"
+						source="graph-treemap"
+						layout="responsive"
+					></gl-hooks-banner>`
+				: nothing}
 			<div class="chart-container">
 				<gl-treemap-chart
 					.data=${this.effectiveData}
@@ -1103,7 +1147,6 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					${isRoot ? html`<span slot="tooltip">${label}</span>` : label}
 				</gl-breadcrumb-item>`;
 			})}
-			${this.renderDescription()}
 		</gl-breadcrumbs>`;
 	}
 }
