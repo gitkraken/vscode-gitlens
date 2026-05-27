@@ -124,7 +124,7 @@ export interface ResolvedServices {
 
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string]>;
+	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string, boolean?]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -2560,13 +2560,15 @@ export class DetailsActions {
 	 * working-tree updates, prefer `applyPushedWip` which consumes the pre-fetched WIP that
 	 * `DidChangeWorkingTreeNotification` already carries.
 	 */
-	async refetchWipQuiet(repoPath: string): Promise<void> {
+	async refetchWipQuiet(repoPath: string, force?: boolean): Promise<void> {
 		// Bypass the fetch dedup so we always re-query.
 		this._lastFetchedKey = undefined;
 		// Snapshot the stats generation BEFORE the await — a host FS-watcher push landing
 		// during the in-flight RPC has fresher stats than ours, so we shouldn't overwrite.
 		const expectedStatsGen = this.graphState?.workingTreeStatsGen;
-		await this.resources.wip.fetch(repoPath);
+		// `force` bypasses the host's `_wipStatusCache` so an explicit user refresh runs a
+		// genuinely fresh `git status` instead of re-applying a possibly-stale cached value.
+		await this.resources.wip.fetch(repoPath, force);
 		if (this.resources.wip.status.get() !== 'success') return;
 
 		const result = this.resources.wip.value.get();

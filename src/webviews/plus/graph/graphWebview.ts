@@ -1146,6 +1146,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				getWip: async (
 					repoPath: string,
 					signal?: AbortSignal,
+					force?: boolean,
 				): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> => {
 					signal?.throwIfAborted();
 
@@ -1160,7 +1161,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// `workingTreeStats` slot from the same `git status` the panel uses — if a prior
 					// initial-state fetch landed with bad data and no FS event has fired since, the
 					// header/row badges stay stuck on stale stats until the next incidental tick.
-					return this.getWipForRepoAndStats(repo, signal);
+					// `force` (user-initiated refresh) bypasses `_wipStatusCache` so the button runs
+					// a genuinely fresh `git status` rather than re-serving a possibly-stale entry.
+					return this.getWipForRepoAndStats(repo, signal, force ? { bypassCache: true } : undefined);
 				},
 				explainCommit: async (
 					repoPath: string,
@@ -6853,6 +6856,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async getWipForRepoAndStats(
 		repo: GlRepository,
 		signal?: AbortSignal,
+		options?: { bypassCache?: boolean },
 	): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> {
 		signal?.throwIfAborted();
 
@@ -6861,12 +6865,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// shares the same status data within the cache's TTL — FS-watcher invalidations keep it
 		// honest, and the lazy overview-panel-visibility refresh + worktrees-panel fetch get
 		// served from cache when warm (often right after we just populated it here).
+		//
+		// `bypassCache` (user-initiated refresh) runs a separate `git status` OUTSIDE the cache.
+		// We don't invalidate or write back — invalidate would fire the shared `AbortAggregate`
+		// and could cancel a concurrent watcher fetch; a write-back is unsafe because the prior
+		// in-flight entry's settle handler can delete our freshly-set value. Other consumers
+		// self-correct within the cache TTL via the next FS-watcher tick.
+		const statusFetch = options?.bypassCache
+			? svc.status.getStatus(undefined, signal)
+			: this._wipStatusCache.getOrCreate(
+					repo.path,
+					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
+					{ cancellation: signal },
+				);
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
-			this._wipStatusCache.getOrCreate(
-				repo.path,
-				(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
-				{ cancellation: signal },
-			),
+			statusFetch,
 			// `force` so a missed `'pausedOp'` FS-watcher tick (common on secondary worktrees
 			// whose `GlRepository` is closed) can't leave the WIP row stuck on a stale indicator.
 			svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
