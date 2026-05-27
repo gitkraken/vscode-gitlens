@@ -70,6 +70,15 @@ interface ResolvedContent {
 	context: DetailsContext;
 }
 
+/** Default size (as a % of the details panel) for the agents pane when entering `expanded` mode
+ *  without a prior user drag. Leaves a usable majority for the WIP / mode content below. */
+const agentStatusDefaultPct = 40;
+
+/** Absolute ceiling (as a % of the details panel) the agents pane is allowed to occupy: caps the
+ *  drag snap envelope in expanded mode AND the CSS `fit-content` ceiling in collapsed/partial.
+ *  Kept in sync with the `fit-content(80%)` literal in `agent-status-split--auto-size` CSS. */
+const agentStatusMaxPct = 80;
+
 /** Wraps a possibly-undefined sha string into the `{ ref, stash? }` shape expected by file
  *  actions. Used for multi-commit (range) refs whose source returns a bare string. */
 function asRefObj(ref: string | undefined): { ref: string } | undefined {
@@ -230,8 +239,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
+	/** User's dragged splitter position (1-99 %) for the agents/WIP split in `expanded` mode.
+	 *  Set only by pointer drag (see {@link _onAgentStatusSplitChange} / {@link _onAgentStatusSplitDragEnd});
+	 *  ResizeObserver / keyboard-driven `gl-split-panel-change` events deliberately don't write
+	 *  here so a container resize never silently latches the user-size mode. Cleared by the sash
+	 *  dbl-click reset; preserved across collapse cycles so re-expanding (chevron, WIP indicator,
+	 *  sidebar/kanban select) restores the user's last chosen size. `undefined` means "use the
+	 *  default expanded position" — see {@link agentStatusDefaultPct}. */
 	@state()
-	private _agentStatusSplitAdjusted = false;
 	private _agentStatusSplitPosition?: number;
 
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
@@ -265,19 +280,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  cards to render — a chevron rotated to 45deg above an empty section. */
 	private _cycleAgentSessions: AgentSessionState[] | undefined;
 
-	/** Clamps drag to the [10%, 80%] envelope. The visual "shrink to content when too small"
-	 *  behavior is handled by CSS `fit-content(--_start-size)` — the snap function only enforces
-	 *  the absolute floor/ceiling on the user's intended size. */
-	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) => Math.max(10, Math.min(pos, 80));
+	/** Clamps drag to the [10%, {@link agentStatusMaxPct}%] envelope. The visual "shrink to
+	 *  content when too small" behavior is handled by CSS `fit-content(<max>%)` — the snap
+	 *  function only enforces the absolute floor/ceiling on the user's intended size. */
+	private readonly _agentStatusSplitSnap = ({ pos }: { pos: number }) =>
+		Math.max(10, Math.min(pos, agentStatusMaxPct));
 
 	private readonly _onAgentStatusExpandRequest = () => {
 		// Chevron click: collapsed → expanded; partial or expanded → collapsed. Branch on the
 		// DERIVED state (not `_agentUserMode`) so a click from `partial` — where user mode is
 		// still 'collapsed' under the hood — collapses instead of expanding. Always clears the
 		// auto-partial flag so a manual collapse genuinely silences the section until the next
-		// qualifying agent event. Drag-adjusted size (`_agentStatusSplitAdjusted` /
-		// `_agentStatusSplitPosition`) is intentionally preserved across collapse cycles so
-		// re-expanding restores the user's last chosen size; double-click on the sash resets it.
+		// qualifying agent event. Drag-adjusted size (`_agentStatusSplitPosition`) is
+		// intentionally preserved across collapse cycles so re-expanding restores the user's
+		// last chosen size; double-click on the sash resets it.
 		const wasCollapsed = this.agentStatusExpand === 'collapsed';
 		this._agentStatusAutoPartial = false;
 		this._agentUserMode = wasCollapsed ? 'expanded' : 'collapsed';
@@ -291,26 +307,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private readonly _onAgentStatusSplitChange = (e: CustomEvent<{ position: number }>) => {
-		// Only persist user drag while in `expanded` — collapsed/partial use the forced auto-cap
-		// position, and storing those values would clobber the saved expanded-mode position.
+		// Only persist user drag while in `expanded` — collapsed/partial render via fit-content,
+		// not the position attribute, so writes there would silently overwrite the expanded-mode
+		// position with a value that never even drove a render.
+		if (this.agentStatusExpand !== 'expanded') return;
+
+		// Gate on `dragging` — this event also fires from split-panel's internal ResizeObserver
+		// (container resize) and keyboard nudges; recording those would clobber the user's
+		// intended size with whatever the layout engine just computed. The `dragging` attribute
+		// is the host's source of truth for "pointer is down on the divider". `drag-end` is the
+		// fallback for the final value when the change event misses it.
+		const splitPanel = e.currentTarget;
+		if (!(splitPanel instanceof HTMLElement) || !splitPanel.hasAttribute('dragging')) return;
+
+		this._agentStatusSplitPosition = e.detail.position;
+	};
+
+	private readonly _onAgentStatusSplitDragEnd = (e: CustomEvent<{ position: number }>) => {
 		if (this.agentStatusExpand !== 'expanded') return;
 
 		this._agentStatusSplitPosition = e.detail.position;
-		// Commit `adjusted = true` only when split-panel is actively dragging — this event also
-		// fires from split-panel's internal ResizeObserver (container resize) and keyboard
-		// nudges, neither of which should latch the user-size mode and silently disable the
-		// measured natural-height lock. The `dragging` attribute is the host's source of truth
-		// for "pointer is down on the divider"; drag-end will still set adjusted as a fallback.
-		const splitPanel = e.currentTarget;
-		if (splitPanel instanceof HTMLElement && splitPanel.hasAttribute('dragging')) {
-			this._agentStatusSplitAdjusted = true;
-		}
-	};
-
-	private readonly _onAgentStatusSplitDragEnd = () => {
-		if (this.agentStatusExpand !== 'expanded') return;
-
-		this._agentStatusSplitAdjusted = true;
 	};
 
 	/** Derived render mode for `<gl-details-agent-status>`. Expanded wins over auto-partial
@@ -364,7 +380,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private readonly _onAgentStatusSplitDblClick = () => {
-		this._agentStatusSplitAdjusted = false;
 		this._agentStatusSplitPosition = undefined;
 	};
 
@@ -570,16 +585,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this._state.activeMode.get() != null) return;
 		if (this._state.wip.get() == null) return;
 
-		// Highlight intent shouldn't be smothered by a tiny saved splitter size — when the user
-		// had previously dragged the agents pane very small and then collapsed it, force-expanding
-		// with the saved size still in effect can render the card inside a viewport shorter than
-		// itself. Drop adjusted only when transitioning into expanded; if the user is already
-		// expanded with a deliberate drag, leave their size alone (mirrors the dbl-click reset).
-		if (this.agentStatusExpand !== 'expanded') {
-			this._agentStatusSplitAdjusted = false;
-			this._agentStatusSplitPosition = undefined;
-		}
-
+		// Preserve any user-dragged splitter size — sidebar/kanban-driven expand mirrors the
+		// chevron-driven expand. `scrollAgentCardIntoView` keeps the highlighted card visible
+		// at whatever size the user prefers; the sash dbl-click is their explicit reset path.
 		this._agentStatusAutoPartial = false;
 		this._agentUserMode = 'expanded';
 		this._selectedAgentSessionId = sessionId;
@@ -1717,31 +1725,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
-		//  - `collapsed` / `partial`: pane locked to measured natural height for current card
-		//                              count (capped via fit-content fallback on first paint);
-		//                              splitter inert
-		//  - `expanded`:              splitter position is authoritative — 80% auto-cap until
-		//                              the user drags, then the persisted user position. No
-		//                              fit-content, no measured lock; the pane sits at
-		//                              `--_start-size` so in-card content reflows never move
-		//                              the divider. One exception: when the worktree match
-		//                              returns an empty array (sessions present in the source
-		//                              but none for this worktree), the `--no-cards` class
-		//                              still forces `max-content` so the heading collapses
-		//                              instead of floating in empty space — same as the
-		//                              collapsed/partial no-cards behavior.
+		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
+		//                              `--auto-size` rule). Splitter inert. The `position`
+		//                              attribute we pass here is irrelevant in these modes —
+		//                              CSS uses a fixed `fit-content` cap regardless.
+		//  - `expanded`:              splitter position is authoritative — opens at
+		//                              {@link AGENT_STATUS_DEFAULT_PCT}% until the user drags,
+		//                              then the persisted user position. Snap clamps drag to
+		//                              [10, {@link AGENT_STATUS_MAX_PCT}]. One exception: when
+		//                              the worktree match returns an empty array (sessions
+		//                              present in the source but none for this worktree), the
+		//                              `--no-cards` class forces `max-content` so the heading
+		//                              collapses instead of floating in empty space — same as
+		//                              the collapsed/partial no-cards behavior.
 		const agentStatusExpand = this.agentStatusExpand;
 		const agentStatusIsExpanded = agentStatusExpand === 'expanded';
-		const agentStatusUseUserSize = agentStatusIsExpanded && this._agentStatusSplitAdjusted;
-		// Auto-cap differentiates by mode: 80% for expanded (splitter-authoritative), 50% for
-		// partial (peek with one or two needs-input cards — generous so the cards aren't clipped),
-		// 25% for collapsed (heading bar only). The cap drives `--_start-size`, which `--auto-size`
-		// then wraps as `fit-content(<cap>)` so the pane shrinks to natural content height below
-		// the cap but never exceeds it.
-		const agentStatusAutoCap = agentStatusIsExpanded ? 80 : agentStatusExpand === 'partial' ? 50 : 25;
-		const agentStatusPosition = agentStatusUseUserSize
-			? (this._agentStatusSplitPosition ?? agentStatusAutoCap)
-			: agentStatusAutoCap;
+		const agentStatusPosition = this._agentStatusSplitPosition ?? agentStatusDefaultPct;
 		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
 		// section is non-draggable there and the intent is "snug to content". Expanded never uses
 		// it: the split-panel's default grid template (`min(--_start-size, …)`) reflects the
