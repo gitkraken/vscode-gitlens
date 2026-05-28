@@ -29,6 +29,7 @@ import {
 } from '../../../../messages.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { TokenWithInfo } from '../../authentication/models.js';
+import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
 	GitLabCommit,
 	GitLabIssue,
@@ -114,18 +115,16 @@ export class GitLabApi implements Disposable {
 				scope,
 			);
 
-			let user: GitLabUser | undefined;
+			let users = await this.findUser(provider, token, commit.author_name, options, cancellation);
+			let user = selectGitLabUserForCommit(users, commit.author_name, commit.author_email);
 
-			const users = await this.findUser(provider, token, commit.author_name, options);
-			for (const u of users) {
-				if (u.name === commit.author_name || (u.publicEmail && u.publicEmail === commit.author_email)) {
-					user = u;
-					if (u.state === 'active') break;
-				} else if (
-					equalsIgnoreCase(u.name, commit.author_name) ||
-					(u.publicEmail && equalsIgnoreCase(u.publicEmail, commit.author_email))
-				) {
-					user = u;
+			// If the name search was ambiguous (multiple users share the name), try an email-scoped search to
+			// disambiguate before giving up — otherwise we'd show a stranger's avatar (see #2205)
+			if (user == null && commit.author_email) {
+				const exactNameMatches = users.filter(u => equalsIgnoreCase(u.name, commit.author_name)).length;
+				if (exactNameMatches > 1) {
+					users = await this.findUser(provider, token, commit.author_email, options, cancellation);
+					user = selectGitLabUserForCommit(users, commit.author_name, commit.author_email);
 				}
 			}
 

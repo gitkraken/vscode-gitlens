@@ -1,5 +1,10 @@
 import * as assert from 'assert';
-import { getGitLabPullRequestIdentityFromMaybeUrl, isMaybeGitLabPullRequestUrl } from '../gitlab.utils.js';
+import {
+	getGitLabPullRequestIdentityFromMaybeUrl,
+	isMaybeGitLabPullRequestUrl,
+	selectGitLabUserForCommit,
+} from '../gitlab.utils.js';
+import type { GitLabUser } from '../models.js';
 
 suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUrl()', () => {
 	function t(message: string, query: string, prNumber: string | undefined, ownerAndRepo?: string) {
@@ -108,5 +113,65 @@ suite('Test GitLab PR URL parsing to identity: getPullRequestIdentityFromMaybeUr
 			'sergeibbb/1--/merge_requests/16?diff=unified#hello',
 			undefined,
 		);
+	});
+});
+
+suite('Test GitLab commit author resolution: selectGitLabUserForCommit()', () => {
+	function user(id: number, name: string, publicEmail?: string, state: string = 'active'): GitLabUser {
+		return {
+			id: id,
+			name: name,
+			username: name.toLowerCase().replace(/\s+/g, ''),
+			publicEmail: publicEmail,
+			state: state,
+			avatarUrl: `https://gitlab.com/avatars/${id}.png`,
+			webUrl: `https://gitlab.com/u${id}`,
+		};
+	}
+
+	test('returns undefined for no results', () => {
+		assert.strictEqual(selectGitLabUserForCommit([], 'Craig Wilson', 'craig@example.com'), undefined);
+	});
+
+	test('returns the single exact name match when there is no email to match', () => {
+		const u = user(1, 'Craig Wilson');
+		assert.strictEqual(selectGitLabUserForCommit([u], 'Craig Wilson', undefined), u);
+	});
+
+	test('returns the single exact name match when email does not match any public email', () => {
+		const u = user(1, 'Craig Wilson');
+		assert.strictEqual(selectGitLabUserForCommit([u], 'Craig Wilson', 'craig@example.com'), u);
+	});
+
+	test('prefers the public email match over a name match', () => {
+		const wrong = user(1, 'Craig Wilson');
+		const right = user(2, 'Craig Wilson', 'craig@example.com');
+		assert.strictEqual(selectGitLabUserForCommit([wrong, right], 'Craig Wilson', 'craig@example.com'), right);
+	});
+
+	test('email match wins even when a different user is the exact name match', () => {
+		const nameMatch = user(1, 'Craig Wilson');
+		const emailMatch = user(2, 'Craig W', 'craig@example.com');
+		assert.strictEqual(
+			selectGitLabUserForCommit([nameMatch, emailMatch], 'Craig Wilson', 'craig@example.com'),
+			emailMatch,
+		);
+	});
+
+	test('returns undefined when multiple users share the name and none match the email (#2205)', () => {
+		const a = user(1, 'Craig Wilson', 'someoneelse@example.com');
+		const b = user(2, 'Craig Wilson');
+		assert.strictEqual(selectGitLabUserForCommit([a, b], 'Craig Wilson', 'craig@example.com'), undefined);
+	});
+
+	test('matches name case-insensitively', () => {
+		const u = user(1, 'CRAIG WILSON');
+		assert.strictEqual(selectGitLabUserForCommit([u], 'craig wilson', undefined), u);
+	});
+
+	test('matches public email case-insensitively', () => {
+		const a = user(1, 'Craig Wilson');
+		const b = user(2, 'Craig Wilson', 'Craig@Example.com');
+		assert.strictEqual(selectGitLabUserForCommit([a, b], 'Craig Wilson', 'craig@example.com'), b);
 	});
 });
