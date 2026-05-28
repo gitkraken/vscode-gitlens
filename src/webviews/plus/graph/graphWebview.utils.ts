@@ -4,6 +4,7 @@ import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import { isGitReference } from '@gitlens/git/utils/reference.utils.js';
 import type { Unbrand } from '@gitlens/utils/brand.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { GraphActivityDecay } from '../../../config.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
@@ -231,5 +232,27 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 
 		default:
 			return undefined;
+	}
+}
+
+/** Resolves a {@link GraphActivityDecay} setting value (e.g. `'5m'`) to its corresponding
+ *  millisecond duration. Drives the Treemap Activity-mode decay window. Falls back to 5 minutes
+ *  for unknown values (forward-compat against future enum additions). */
+export function activityDecayToMs(decay: GraphActivityDecay): number {
+	switch (decay) {
+		case '30s':
+			return 30 * 1000;
+		case '1m':
+			return 60 * 1000;
+		case '2m':
+			return 2 * 60 * 1000;
+		case '5m':
+			return 5 * 60 * 1000;
+		case '10m':
+			return 10 * 60 * 1000;
+		case '30m':
+			return 30 * 60 * 1000;
+		default:
+			return 5 * 60 * 1000;
 	}
 }

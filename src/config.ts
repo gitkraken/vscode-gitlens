@@ -109,6 +109,7 @@ export type DateStyle = 'absolute' | 'relative';
 export type FileAnnotationType = 'blame' | 'changes' | 'heatmap';
 export type GitCommandSorting = 'name' | 'usage';
 export type GraphBranchesVisibility = 'all' | 'smart' | 'current' | 'favorited' | 'agents';
+export type GraphActivityDecay = '30s' | '1m' | '2m' | '5m' | '10m' | '30m';
 export type GraphMultiSelectionMode = boolean | 'topological';
 export type GraphScrollMarkersAdditionalTypes =
 	| 'localBranches'
@@ -437,6 +438,7 @@ export interface GraphConfig {
 		};
 		readonly visualizations: {
 			readonly enabled: boolean;
+			readonly activityDecay: GraphActivityDecay;
 		};
 	};
 	readonly highlightRowsOnRefHover: boolean;

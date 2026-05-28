@@ -4,7 +4,7 @@ import { createDisposable } from '@gitlens/utils/disposable.js';
 import { ClaudeCodeProvider } from '../providers/claudeCodeProvider.js';
 import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
-import type { AgentProviderCallbacks, IpcRegistrar } from '../types.js';
+import type { AgentProviderCallbacks, AgentSession, IpcRegistrar } from '../types.js';
 
 type SyncDiscrepancy = { provider: string; discovered: number; missing: number; polled: number; tracked: number };
 
@@ -22,6 +22,7 @@ interface MockCallbacks {
 function createMockCallbacks(options?: {
 	resolveGitInfo?: AgentProviderCallbacks['resolveGitInfo'];
 	openSessionInClaudeExtension?: AgentProviderCallbacks['openSessionInClaudeExtension'];
+	getActivityDecayMs?: AgentProviderCallbacks['getActivityDecayMs'];
 	port?: number;
 	agentDiscoveryDir?: string;
 	cliResponse?: string;
@@ -58,6 +59,7 @@ function createMockCallbacks(options?: {
 		onSyncDiscrepancy: info => {
 			syncDiscrepancies.push(info);
 		},
+		getActivityDecayMs: options?.getActivityDecayMs,
 	};
 
 	return {
@@ -101,7 +103,303 @@ function wait(ms: number): Promise<void> {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function preToolUse(sessionId: string, tool: string, filePath: string): Record<string, unknown> {
+	return { event: 'PreToolUse', sessionId: sessionId, toolName: tool, toolInput: { file_path: filePath } };
+}
+
+function postToolUse(sessionId: string, tool: string, filePath: string): Record<string, unknown> {
+	return { event: 'PostToolUse', sessionId: sessionId, toolName: tool, toolInput: { file_path: filePath } };
+}
+
+function stop(sessionId: string): Record<string, unknown> {
+	return { event: 'Stop', sessionId: sessionId };
+}
+
+function sessionEnd(sessionId: string): Record<string, unknown> {
+	return { event: 'SessionEnd', sessionId: sessionId };
+}
+
+function subagentStart(parentId: string, agentId: string): Record<string, unknown> {
+	return { event: 'SubagentStart', sessionId: parentId, agentId: agentId, agentType: 'Task' };
+}
+
+function subagentStop(parentId: string, agentId: string): Record<string, unknown> {
+	return { event: 'SubagentStop', sessionId: parentId, agentId: agentId };
+}
+
+/** Returns a session's `fileActivity` (or `[]` when the session/array is absent). */
+function fileActivityOf(provider: ClaudeCodeProvider, sessionId: string): NonNullable<AgentSession['fileActivity']> {
+	return provider.sessions.find(s => s.id === sessionId)?.fileActivity ?? [];
+}
+
 suite('ClaudeCodeProvider', () => {
+	suite('initialCwd from the CLI', () => {
+		test('uses the CLI-provided initialCwd and keeps it stable across cwd drift', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				// SessionStart where the launch dir differs from the live cwd (e.g. the window
+				// cold-joined after the agent had already drifted into a subdir).
+				await handler(
+					{ event: 'SessionStart', sessionId: 's', cwd: '/repo/sub', initialCwd: '/repo', pid: process.pid },
+					new URLSearchParams(),
+				);
+				let session = provider.sessions.find(x => x.id === 's');
+				assert.strictEqual(
+					session?.initialCwd,
+					'/repo',
+					'initialCwd should come from the CLI field, not the live cwd',
+				);
+				assert.strictEqual(session?.cwd, '/repo/sub');
+
+				// A later event with yet another cwd must not move the (authoritative, stable) initialCwd.
+				await handler(
+					{ event: 'PreToolUse', sessionId: 's', cwd: '/repo/other', initialCwd: '/repo', toolName: 'Read' },
+					new URLSearchParams(),
+				);
+				session = provider.sessions.find(x => x.id === 's');
+				assert.strictEqual(session?.initialCwd, '/repo', 'initialCwd stays stable as the agent drifts');
+				assert.strictEqual(session?.cwd, '/repo/other', 'cwd tracks the live value');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('falls back to the first-seen cwd when the CLI omits initialCwd (older CLI)', async () => {
+			const { callbacks, handlers } = createMockCallbacks();
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				provider.start(['/repo']);
+				const handler = handlers.get('agents/session')!;
+				// No initialCwd field at all — graceful degradation to the prior behavior.
+				await handler(
+					{ event: 'SessionStart', sessionId: 's', cwd: '/repo', pid: process.pid },
+					new URLSearchParams(),
+				);
+				const session = provider.sessions.find(x => x.id === 's');
+				assert.strictEqual(
+					session?.initialCwd,
+					'/repo',
+					'initialCwd backfills from the first-seen cwd when absent',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
+	suite('fileActivity & decay tail', () => {
+		const REPO = '/repo';
+		const FILE = '/repo/src/foo.ts';
+
+		/** Drives a started provider with the `agents/session` IPC handler bound. */
+		async function startSession(
+			provider: ClaudeCodeProvider,
+			handlers: MockCallbacks['handlers'],
+			sessionId: string,
+		): Promise<(body: Record<string, unknown>) => Promise<void>> {
+			provider.start([REPO]);
+			const handler = handlers.get('agents/session');
+			assert.ok(handler != null, 'agents/session handler should be registered');
+			const send = async (body: Record<string, unknown>): Promise<void> => {
+				await handler(body, new URLSearchParams());
+			};
+			await send(sessionStart(sessionId, REPO));
+			return send;
+		}
+
+		test('PreToolUse on an edit tool marks the file editing with a fresh editedAt', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+
+				const entry = fileActivityOf(provider, 'sess').find(e => e.path === FILE);
+				assert.ok(entry != null, 'edited file should appear in fileActivity');
+				assert.strictEqual(entry.editing, true, 'in-flight edit should set editing=true');
+				assert.strictEqual(entry.reading, undefined, 'a pure edit should not set reading');
+				assert.ok(
+					typeof entry.editedAt === 'number' && entry.editedAt >= 0,
+					'editedAt should be a non-negative delta',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('PostToolUse flips editing off but retains the file as a cooling tail', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+
+				const entry = fileActivityOf(provider, 'sess').find(e => e.path === FILE);
+				assert.ok(entry != null, 'cooling file should still be present after PostToolUse');
+				assert.strictEqual(entry.editing, undefined, 'editing flag should drop the moment the tool finishes');
+				assert.ok(typeof entry.editedAt === 'number', 'editedAt should remain so the file can fade');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a read+edit on the same file carries both kinds', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Read', FILE));
+				await send(preToolUse('sess', 'Edit', FILE));
+
+				const entry = fileActivityOf(provider, 'sess').find(e => e.path === FILE);
+				assert.ok(entry != null, 'read+edit file should be present');
+				assert.strictEqual(entry.reading, true, 'reading should be set while the read tool is in flight');
+				assert.strictEqual(entry.editing, true, 'editing should be set while the edit tool is in flight');
+				assert.ok(
+					typeof entry.readAt === 'number' && typeof entry.editedAt === 'number',
+					'both timestamps present',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('Stop preserves the cooling decay tail rather than wiping it', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+				await send(stop('sess'));
+
+				const entry = fileActivityOf(provider, 'sess').find(e => e.path === FILE);
+				assert.ok(entry != null, 'the decay tail must survive the turn-end Stop');
+				assert.strictEqual(entry.editing, undefined, 'Stop should leave the file cooling, not live');
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('Stop force-finishes an in-flight file: drops the live flag, keeps the fading tail', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				// PreToolUse with no matching PostToolUse before Stop (turn ended mid-tool).
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(stop('sess'));
+
+				const entry = fileActivityOf(provider, 'sess').find(e => e.path === FILE);
+				assert.ok(entry != null, 'an in-flight file should remain as a fading tail after Stop');
+				assert.strictEqual(
+					entry.editing,
+					undefined,
+					'Stop must clear the stuck live flag (no permanent pulse)',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('a cooling file is evicted once the decay window elapses', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+				await wait(200);
+
+				assert.strictEqual(
+					fileActivityOf(provider, 'sess').find(e => e.path === FILE),
+					undefined,
+					'file should be dropped after the decay window',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('the tail survives Stop and still evicts after the window', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 50 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+				await send(stop('sess'));
+				// Immediately after Stop the tail is still present...
+				assert.ok(
+					fileActivityOf(provider, 'sess').some(e => e.path === FILE),
+					'tail present right after Stop',
+				);
+				// ...and the per-file cooldown (unaffected by Stop) still evicts it.
+				await wait(200);
+				assert.strictEqual(
+					fileActivityOf(provider, 'sess').find(e => e.path === FILE),
+					undefined,
+					'tail should fade out after the window even though Stop fired',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('SessionEnd removes the session entirely (hard wipe)', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'sess');
+				await send(preToolUse('sess', 'Edit', FILE));
+				await send(postToolUse('sess', 'Edit', FILE));
+				await send(sessionEnd('sess'));
+
+				assert.strictEqual(
+					provider.sessions.find(s => s.id === 'sess'),
+					undefined,
+					'SessionEnd should remove the whole session',
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+
+		test('SubagentStop removes the sub-agent without disturbing the parent decay tail', async () => {
+			const { callbacks, handlers } = createMockCallbacks({ getActivityDecayMs: () => 10000 });
+			const provider = new ClaudeCodeProvider(callbacks);
+			try {
+				const send = await startSession(provider, handlers, 'parent');
+				await send(preToolUse('parent', 'Edit', FILE));
+				await send(postToolUse('parent', 'Edit', FILE));
+				await send(subagentStart('parent', 'sub'));
+				assert.ok(
+					provider.sessions.find(s => s.id === 'parent')?.subagents?.some(a => a.id === 'sub'),
+					'sub-agent should be attached to the parent',
+				);
+
+				await send(subagentStop('parent', 'sub'));
+
+				const parent = provider.sessions.find(s => s.id === 'parent');
+				assert.ok(parent != null, 'parent session should remain after SubagentStop');
+				assert.ok(
+					(parent.subagents ?? []).every(a => a.id !== 'sub'),
+					'the stopped sub-agent should be removed from the parent',
+				);
+				assert.ok(
+					parent.fileActivity?.some(e => e.path === FILE),
+					"the parent's decay tail must be untouched by SubagentStop",
+				);
+			} finally {
+				provider.dispose();
+			}
+		});
+	});
+
 	suite('workspace path normalization', () => {
 		test('start() forwards normalized paths to publishAgents', async () => {
 			const { callbacks, publishedPaths } = createMockCallbacks();

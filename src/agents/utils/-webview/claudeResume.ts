@@ -19,9 +19,13 @@ export function canResumeSession(session: AgentSession): boolean {
  *  extension / focus terminal" dispatch can't reach the session (extension uninstalled, open
  *  commands throw, CLI terminal closed, peer window unreachable).
  *
- *  cwd resolution order: session.cwd → worktreePath → workspacePath → first workspace folder.
- *  All paths come straight off the session shape (`AgentSession` in `provider.ts`); the first
- *  non-null wins.
+ *  cwd resolution order: session.initialCwd → cwd → worktreePath → workspacePath → first workspace
+ *  folder. `initialCwd` (the agent's launch directory) is preferred because Claude keys its
+ *  transcript store on the launch cwd (`~/.claude/projects/<encoded-cwd>/<id>.jsonl`); `claude
+ *  --resume <id>` only finds the session when invoked from that directory. The live `cwd` drifts
+ *  whenever the agent `cd`s (its Bash shell is persistent), so resuming from it would land in the
+ *  wrong project and fail to locate the transcript. All paths come straight off the session shape
+ *  (`AgentSession` in `provider.ts`); the first non-null wins.
  *
  *  Prefers gkcli's detected `claude-cli` executable (same source the agent picker uses — see
  *  `agentRegistry.ts`) so users with a non-PATH install (Homebrew under `/opt/homebrew/bin`,
@@ -29,7 +33,11 @@ export function canResumeSession(session: AgentSession): boolean {
  *  no detected entry or its reported path no longer exists on disk. */
 export async function resumeClaudeSessionInTerminal(session: AgentSession): Promise<void> {
 	const cwd =
-		session.cwd ?? session.worktreePath ?? session.workspacePath ?? workspace.workspaceFolders?.[0]?.uri.fsPath;
+		session.initialCwd ??
+		session.cwd ??
+		session.worktreePath ??
+		session.workspacePath ??
+		workspace.workspaceFolders?.[0]?.uri.fsPath;
 
 	const executable = await resolveClaudeExecutable();
 

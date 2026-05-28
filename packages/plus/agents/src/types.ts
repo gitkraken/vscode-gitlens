@@ -135,22 +135,46 @@ export interface AgentSession {
 	 *  identity. For "what repo is this session in", use {@link commonPath}. */
 	readonly workspacePath?: string;
 	readonly cwd?: string;
+	/** The session's `cwd` at first observation. Set once and never overwritten — captures the
+	 *  agent's launch directory so consumers can detect drift (e.g. an agent that `cd`'d into a
+	 *  sibling worktree). Pairs with {@link initialWorktreePath} / {@link initialCommonPath}; for
+	 *  the live cwd, see {@link cwd}. */
+	readonly initialCwd?: string;
+	/** The session's `worktreePath` at first successful git-info resolution. Set once and never
+	 *  overwritten — compare against {@link worktreePath} to detect cross-worktree drift. Undefined
+	 *  if the session has never resolved into a git repo. */
+	readonly initialWorktreePath?: string;
+	/** The session's `commonPath` at first successful git-info resolution. Set once and never
+	 *  overwritten — compare against {@link commonPath} to detect cross-repo drift. Undefined if
+	 *  the session has never resolved into a git repo. */
+	readonly initialCommonPath?: string;
 	readonly planFile?: string;
 	readonly isInWorkspace: boolean;
 	readonly lastPrompt?: string;
 	readonly firstPrompt?: string;
-	/** Absolute paths of files targeted by in-flight file-editing tool calls (Edit/Write/MultiEdit/
-	 *  NotebookEdit). Populated on PreToolUse, drained on PostToolUse/PermissionDenied, cleared on
-	 *  Stop/SessionEnd. Empty/undefined when no file-editing tool is active.
+	/** Per-file activity record covering both read-class (Read/NotebookRead) and edit-class
+	 *  (Edit/Write/MultiEdit/NotebookEdit) tool calls. Populated on PreToolUse; each path is retained
+	 *  and fades for the configured decay window measured from its own last PostToolUse — the tail
+	 *  survives the turn-end Stop (which only drops the live `editing`/`reading` flags) and is fully
+	 *  cleared only on SessionEnd or once the decay window elapses.
 	 *
-	 *  Mutable array form so `Shape<AgentSession>` projects it as `string[]` (the `Shape<>` type
-	 *  mangles `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
-	currentFiles?: string[];
-	/** Absolute paths of files the agent recently *read* (Read/NotebookRead). Populated on
-	 *  PreToolUse, drained on PostToolUse/PermissionDenied with the same cooldown as
-	 *  `currentFiles`. Distinct from `currentFiles` which tracks write-class tools so consumers can
-	 *  visualize "looking at" vs "working on" differently. Treat as immutable. */
-	currentReads?: string[];
+	 *  A sub-agent's file activity appears on its PARENT's `fileActivity`, not the sub-agent's own:
+	 *  the GK CLI keys a sub-agent's tool events under the parent session id (with `agentId` set), so
+	 *  they accumulate in the parent's bookkeeping directly. Consumers never need to recurse into
+	 *  `subagents[]`; sub-agent `AgentSession` objects carry `fileActivity: undefined`.
+	 *
+	 *  Field semantics:
+	 *  - `path`: absolute path on the agent's filesystem.
+	 *  - `readAt` / `editedAt`: milliseconds since the last PreToolUse for that kind, computed by
+	 *    the host at serialization time (relative — avoids clock-skew). Omitted when never touched
+	 *    by that kind within the window.
+	 *  - `reading` / `editing`: `true` when at least one tool of that kind is in flight on this
+	 *    path right now (refcount > 0 in the host bookkeeping). Omitted when false to keep the
+	 *    wire minimal.
+	 *
+	 *  Mutable array form so `Shape<AgentSession>` projects it cleanly (the `Shape<>` type mangles
+	 *  `readonly T[]` into a mapped object that loses its iterator). Treat as immutable. */
+	fileActivity?: { path: string; readAt?: number; editedAt?: number; reading?: true; editing?: true }[];
 	/** `true` when the session was discovered via peer IPC sync (i.e. another GitLens window hosts
 	 *  the agent's hook flow and Claude Code extension panel). Locally-owned sessions leave this
 	 *  unset. The dispatcher uses this to route opens through the peer's IPC route + an OS-level
@@ -235,6 +259,13 @@ export interface IpcRegistrar {
 export interface AgentProviderCallbacks {
 	/** Host-supplied IPC service. Required for agents to receive hook events from the GK CLI. */
 	ipc: IpcRegistrar;
+
+	/** Returns the current "activity decay" window in milliseconds — the cooldown between a tool
+	 *  call finishing and the file being dropped from `AgentSession.fileActivity`. Optional — when
+	 *  omitted the provider falls back to its built-in default (5 min). Read by the provider at
+	 *  schedule time so changes to the host setting take effect on the next tool call without
+	 *  needing a re-wiring step. */
+	getActivityDecayMs?(): number;
 
 	/** Report that an agent session started. No-op if the host has no telemetry. */
 	onSessionStarted?(provider: string): void;

@@ -42,7 +42,13 @@ import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
-import type { Config, DateStyle, GraphBranchesVisibility, GraphMultiSelectionMode } from '../../../config.js';
+import type {
+	Config,
+	DateStyle,
+	GraphActivityDecay,
+	GraphBranchesVisibility,
+	GraphMultiSelectionMode,
+} from '../../../config.js';
 import type { StoredGraphWipDraft } from '../../../constants.storage.js';
 import type { FeaturePreview } from '../../../features.js';
 import type { RepositoryShape } from '../../../git/models/repositoryShape.js';
@@ -224,6 +230,11 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	windowFocused?: boolean;
 	webroot?: string;
 	repositories?: GraphRepository[];
+	/** Absolute fsPaths of every worktree in the current repo's family (the main checkout plus
+	 *  every secondary worktree), sourced from the loaded graph. A reusable registry for any
+	 *  webview consumer that needs to map an absolute path to its worktree root — e.g. the Agent
+	 *  Activity treemap resolves agent file activity to repo-relative keys against these. */
+	worktreePaths?: string[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;
@@ -429,6 +440,12 @@ export interface GraphComponentConfig {
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalKanbanEnabled?: boolean;
 	experimentalVisualizationsEnabled?: boolean;
+	/** Raw setting value for the Activity-mode treemap decay window — drives the picker selection. */
+	activityDecay?: GraphActivityDecay;
+	/** Resolved decay window (ms) for the Activity-mode treemap heatmap. Drives how long a file's
+	 *  read/edit heat fades after the last tool call. Resolved host-side from `activityDecay` so
+	 *  the renderer doesn't need its own string→ms helper. */
+	activityDecayMs?: number;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	minimap?: boolean;

@@ -1358,6 +1358,32 @@
 						"tags": [
 							"experimental"
 						]
+					},
+					"gitlens.graph.experimental.visualizations.activityDecay": {
+						"type": "string",
+						"enum": [
+							"30s",
+							"1m",
+							"2m",
+							"5m",
+							"10m",
+							"30m"
+						],
+						"enumDescriptions": [
+							"30 seconds",
+							"1 minute",
+							"2 minutes",
+							"5 minutes",
+							"10 minutes",
+							"30 minutes"
+						],
+						"default": "5m",
+						"markdownDescription": "Specifies how long agent file activity stays visible on the Treemap Agent Activity mode after the last read or edit. A file is bright while the agent is actively touching it, then fades smoothly to fully invisible over this window.",
+						"scope": "window",
+						"order": 1111,
+						"tags": [
+							"experimental"
+						]
 					}
 				}
 			},

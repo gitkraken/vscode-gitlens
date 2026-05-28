@@ -23,8 +23,9 @@ import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkS
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
-// import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
+import { activityDecayToMs } from '../../webviews/plus/graph/graphWebview.utils.js';
+// import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { GlCliGitProvider } from './git/cliGitProvider.js';
 import { VslsGitProvider } from './git/vslsGitProvider.js';
 import { GkCliIntegrationProvider } from './gk/cli/integration.js';
@@ -130,6 +131,8 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 	return [
 		new ClaudeCodeProvider({
 			ipc: container.ipc,
+			getActivityDecayMs: () =>
+				activityDecayToMs(configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m'),
 			onSessionStarted: provider =>
 				container.telemetry.sendEvent('agents/session/started', { 'agent.provider': provider }),
 			onSessionEnded: provider =>

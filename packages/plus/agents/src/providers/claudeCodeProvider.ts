@@ -37,6 +37,10 @@ interface AgentSessionEvent {
 	event: ClaudeCodeHookEvent;
 	sessionId: string;
 	cwd: string;
+	/** The agent's launch directory, captured first-hand by the CLI and preserved across events.
+	 *  Optional — older CLIs don't send it, in which case consumers fall back to deriving it from
+	 *  the first-seen `cwd`. */
+	initialCwd?: string;
 	pid?: number;
 	source?: string;
 	model?: string;
@@ -84,11 +88,17 @@ interface SessionBookkeeping {
 	pendingFileClears: Map<string, NodeJS.Timeout>;
 	/** Refcount of in-flight read-only file tool calls (Read/NotebookRead) per absolute path.
 	 *  Mirrors {@link currentFileCounts} so consumers can distinguish "looking at" from "working
-	 *  on" without overloading `currentFiles`. */
+	 *  on". */
 	currentReadCounts: Map<string, number>;
 	/** Per-path cooldown timers for reads — same semantics as {@link pendingFileClears}, keeps a
 	 *  recently-read file visible briefly after the read completes. */
 	pendingReadClears: Map<string, NodeJS.Timeout>;
+	/** Epoch-ms timestamps of the last `PreToolUse` for each kind, per absolute path. Stamped on
+	 *  every Pre; the per-path `edit`/`read` slot survives through the cooldown window and is
+	 *  dropped only when the corresponding count map drops the path. Serialized into
+	 *  `AgentSession.fileActivity` as `editedAt = now - timestamp.edit` (relative ms), so the
+	 *  webview can compute heat decay without dealing with host clock skew. */
+	lastTouchedAt: Map<string, { edit?: number; read?: number }>;
 	/** Set to true when `resolveGitInfo` for the session's current cwd returned `undefined`
 	 *  (cwd is not a git repo). Prevents the `ensureSession` retry from firing forever on
 	 *  every subsequent hook event. Cleared when the session's cwd changes (re-resolution
@@ -101,11 +111,11 @@ interface SessionBookkeeping {
 }
 
 const staleCheckIntervalMs = 15 * 60 * 1000; // 15 minutes
-/** Cooldown between PostToolUse and dropping the file from `currentFiles`. Held long enough that
- *  surfaces consuming the list (WIP file decoration, treemap activity overlay) keep showing a file
- *  the agent just touched well past the moment the tool call completed — a single edit reads as a
- *  sustained presence rather than a flash. */
-const postToolUseClearDelayMs = 120000;
+/** Default cooldown between PostToolUse and dropping the file from `fileActivity`. Held long
+ *  enough that the treemap activity overlay can render a decay tail well past the moment the tool
+ *  call completed. The host may override per-call via `AgentProviderCallbacks.getActivityDecayMs`
+ *  (driven by the user's `gitlens.graph.experimental.visualizations.activityDecay` setting). */
+const defaultActivityDecayMs = 5 * 60 * 1000; // 5 minutes
 
 /** Grace period before `Stop` commits to `idle`. Long enough to absorb a same-turn continuation
  *  (hook-driven re-prompt, IPC event reordering, auto-resume); short enough that legitimate idle
@@ -122,6 +132,8 @@ interface SessionFileData {
 	sessionId: string;
 	event: string;
 	cwd: string;
+	/** CLI-provided launch directory; absent on older CLIs (fall back to `cwd`). */
+	initialCwd?: string;
 	pid: number;
 	toolName?: string | null;
 	agentId?: string | null;
@@ -148,6 +160,8 @@ interface SessionContext {
 	workspacePath?: string;
 	isInWorkspace?: boolean;
 	cwd?: string;
+	/** CLI-provided launch directory (authoritative when present). */
+	initialCwd?: string;
 	planFile?: string;
 	sessionName?: string;
 }
@@ -170,19 +184,33 @@ function normalizeWorkspacePath(value: string | null | undefined): string | unde
 	return value ? normalizePath(value) : undefined;
 }
 
-/** Order-insensitive comparison — entries come from a `Map.values()` iterator, but tracked
- *  tool-use ids are uncorrelated with file order, so two snapshots with the same files in a
- *  different order shouldn't fire a no-op change event. Treats `undefined` and `[]` as equal. */
-function currentFilesEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+type FileActivityEntry = NonNullable<AgentSession['fileActivity']>[number];
+
+/** Structural comparison of two `fileActivity` arrays — same set of paths, same kinds present,
+ *  same `reading`/`editing` flags. Ignores numeric timestamp values because those drift between
+ *  every call (Date.now() advances) even when nothing has actually changed. Used to gate event
+ *  firing: timestamps still get refreshed via the `_sessions[]` write, but a fire only happens
+ *  when the structural shape changed. Treats `undefined` and `[]` as equal. */
+function fileActivityStructurallyEqual(
+	a: readonly FileActivityEntry[] | undefined,
+	b: readonly FileActivityEntry[] | undefined,
+): boolean {
 	const aLen = a?.length ?? 0;
 	const bLen = b?.length ?? 0;
 	if (aLen !== bLen) return false;
 	if (aLen === 0) return true;
-	if (aLen === 1) return a![0] === b![0];
 
-	const set = new Set(a);
-	for (const v of b!) {
-		if (!set.has(v)) return false;
+	const byPath = new Map<string, FileActivityEntry>();
+	for (const entry of a!) {
+		byPath.set(entry.path, entry);
+	}
+	for (const entry of b!) {
+		const other = byPath.get(entry.path);
+		if (other == null) return false;
+		if ((entry.readAt != null) !== (other.readAt != null)) return false;
+		if ((entry.editedAt != null) !== (other.editedAt != null)) return false;
+		if ((entry.reading ?? false) !== (other.reading ?? false)) return false;
+		if ((entry.editing ?? false) !== (other.editing ?? false)) return false;
 	}
 	return true;
 }
@@ -420,6 +448,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			workspacePath: workspacePath,
 			isInWorkspace: workspacePath != null,
 			cwd: event.cwd,
+			initialCwd: event.initialCwd,
 			planFile: event.planFile,
 			sessionName: event.sessionName,
 		};
@@ -524,7 +553,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				const statusDetail =
 					toolInput != null && toolName ? describeToolInput(toolName, toolInput) : toolName || undefined;
 				// Capture pre-update status so we can tell whether the upcoming updateSessionStatus
-				// will fire on its own — needed to avoid dropping currentFiles changes when the
+				// will fire on its own — needed to avoid dropping fileActivity changes when the
 				// session is already in tool_use (back-to-back tool calls).
 				const sessionIndex = this._sessions.findIndex(s => s.id === event.sessionId);
 				const prevStatus = sessionIndex >= 0 ? this._sessions[sessionIndex].status : undefined;
@@ -547,11 +576,28 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				bk.activeToolCount = Math.max(0, bk.activeToolCount - 1);
 				// Cooldown the file-edit decoration instead of dropping it immediately, so a quick
 				// follow-up Edit/Write to the same path doesn't blink. The deferred clear fires its
-				// own change event when it expires.
-				this.scheduleClearToolUseFile(event.sessionId, event);
-				this.scheduleClearToolUseRead(event.sessionId, event);
+				// own change event when it expires. The immediate re-sync inside each flips
+				// `editing`/`reading` off the moment refcount hits zero, though — capture whether that
+				// changed the published list so we fire it ourselves when the status update below short-
+				// circuits (a parallel tool is still in flight, so activeToolCount stays > 0).
+				const filesChanged = this.scheduleClearToolUseFile(event.sessionId, event);
+				const readsChanged = this.scheduleClearToolUseRead(event.sessionId, event);
 				if (bk.activeToolCount === 0) {
+					// updateSessionStatus short-circuits without firing when status+detail are unchanged
+					// (already 'thinking' with no detail) — which would drop the editing/reading flag-flip
+					// above and leave a stale live pulse. Capture whether it will fire on its own and, if
+					// not, fire explicitly — mirrors the PreToolUse / PermissionDenied guards.
+					const idx = this._sessions.findIndex(s => s.id === event.sessionId);
+					const statusWillFire =
+						idx < 0 ||
+						this._sessions[idx].status !== 'thinking' ||
+						this._sessions[idx].statusDetail != null;
 					this.updateSessionStatus(event.sessionId, 'thinking', eventContext);
+					if ((filesChanged || readsChanged) && !statusWillFire) {
+						this._onDidChangeSessions.fire();
+					}
+				} else if (filesChanged || readsChanged) {
+					this._onDidChangeSessions.fire();
 				}
 				break;
 			}
@@ -563,7 +609,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 					pending.reject(new Error('Session stopped'));
 					this._pendingPermissions.delete(event.sessionId);
 				}
-				this.resetBookkeeping(event.sessionId);
+				// Turn ended: stop the "live" pulse but keep the per-operation decay tail fading over
+				// the configured window (anchored at each tool's completion, not at the turn end). A full
+				// reset here would wipe the tail the instant the agent finishes a response.
+				this.settleBookkeeping(event.sessionId);
 				// Apply Stop's metadata synchronously so we don't carry stale context through the
 				// debounce window — any in-window mutations (e.g. CwdChanged) survive when the
 				// timer fires. ensureSession doesn't fire on metadata-only updates of existing
@@ -799,11 +848,39 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pendingFileClears: new Map(),
 				currentReadCounts: new Map(),
 				pendingReadClears: new Map(),
+				lastTouchedAt: new Map(),
 				gitInfoUnresolvable: false,
 			};
 			this._sessionBookkeeping.set(sessionId, bk);
 		}
 		return bk;
+	}
+
+	/** Returns the active decay window in milliseconds — the cooldown between PostToolUse and
+	 *  dropping the path from the bookkeeping. Reads through the host callback every time so a
+	 *  setting change takes effect on the next Pre/Post pair without re-wiring (existing timers
+	 *  keep their original timeout — acceptable since they're short-lived relative to the setting). */
+	private get activityDecayMs(): number {
+		return this.callbacks.getActivityDecayMs?.() ?? defaultActivityDecayMs;
+	}
+
+	/** Locates the *parent* session id that owns the given session id — returns the id itself when
+	 *  it matches a top-level session, otherwise the `id` of the parent that holds it under
+	 *  `subagents[]`. Returns `undefined` when neither match (session no longer exists). Used to
+	 *  route per-session bookkeeping changes to the right top-level `syncSessionFileActivity` call.
+	 *  Tool events are parent-keyed (the CLI sends a sub-agent's tool events under the parent id),
+	 *  so the `subagents[]` branch is a defensive fallback for any other-keyed caller. */
+	private findOwningParentId(sessionId: string): string | undefined {
+		for (const s of this._sessions) {
+			if (s.id === sessionId) return s.id;
+
+			if (s.subagents != null) {
+				for (const sub of s.subagents) {
+					if (sub.id === sessionId) return s.id;
+				}
+			}
+		}
+		return undefined;
 	}
 
 	private resetBookkeeping(sessionId: string): void {
@@ -814,9 +891,44 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		bk.currentFileCounts.clear();
 		this.cancelPendingReadClears(bk);
 		bk.currentReadCounts.clear();
+		bk.lastTouchedAt.clear();
 		bk.gitInfoUnresolvable = false;
-		this.syncSessionCurrentFiles(sessionId, bk);
-		this.syncSessionCurrentReads(sessionId, bk);
+		const parentId = this.findOwningParentId(sessionId);
+		if (parentId != null) {
+			this.syncSessionFileActivity(parentId);
+		}
+	}
+
+	/** Turn-end settle (Stop): the agent finished its turn, so nothing is "live" anymore — but
+	 *  the per-operation decay tail must survive. Heat fades over {@link activityDecayMs} measured
+	 *  from when each *tool* finished (the PostToolUse cooldown), NOT from when the turn ends, so a
+	 *  Stop must not cancel those cooldowns or clear `lastTouchedAt`. We only reset turn-scoped
+	 *  state and force-finish any path whose PostToolUse never arrived before Stop: drop its
+	 *  refcount to 0 (flipping `editing`/`reading` off so the pulse stops) and schedule the same
+	 *  decay eviction a normal completion would. Contrast {@link resetBookkeeping}, which hard-
+	 *  wipes everything for SessionStart/SessionEnd (the agent is gone, not merely between turns). */
+	private settleBookkeeping(sessionId: string): void {
+		const bk = this.getBookkeeping(sessionId);
+		bk.activeToolCount = 0;
+		bk.pendingPermission = undefined;
+		// Allow git re-resolution next turn (matches the prior reset-on-Stop intent).
+		bk.gitInfoUnresolvable = false;
+		for (const [path, count] of bk.currentFileCounts) {
+			if (count > 0) {
+				bk.currentFileCounts.set(path, 0);
+				this.scheduleFileDecayEviction(bk, sessionId, path);
+			}
+		}
+		for (const [path, count] of bk.currentReadCounts) {
+			if (count > 0) {
+				bk.currentReadCounts.set(path, 0);
+				this.scheduleReadDecayEviction(bk, sessionId, path);
+			}
+		}
+		const parentId = this.findOwningParentId(sessionId);
+		if (parentId != null && this.syncSessionFileActivity(parentId)) {
+			this._onDidChangeSessions.fire();
+		}
 	}
 
 	private cancelPendingFileClears(bk: SessionBookkeeping): void {
@@ -848,11 +960,37 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return getToolFilePath(toolName, toolInput);
 	}
 
-	/** Records that a file-mutating tool call is in flight against `filePath` so the WIP details
-	 *  panel can decorate the row. Refcounts per path — keyed by path (not `tool_use_id`, which
-	 *  the GK CLI doesn't reliably surface) so parallel calls bump the count and Post/Pre order
-	 *  doesn't matter. Returns whether the session's published list actually changed so callers
-	 *  can fire when the surrounding {@link updateSessionStatus} short-circuits. */
+	/** Stamps the per-path/per-kind `lastTouchedAt[kind]` to the current epoch ms. Stamped on every
+	 *  PreToolUse for the matching kind so `serializeFileActivity` can emit `readAt`/`editedAt` as
+	 *  a relative `now - timestamp` delta. */
+	private stampLastTouched(bk: SessionBookkeeping, filePath: string, kind: 'read' | 'edit'): void {
+		const existing = bk.lastTouchedAt.get(filePath);
+		const next: { edit?: number; read?: number } = existing != null ? { ...existing } : {};
+		next[kind] = Date.now();
+		bk.lastTouchedAt.set(filePath, next);
+	}
+
+	/** Drops the `lastTouchedAt[kind]` slot for `filePath`, and the whole entry when neither kind
+	 *  remains. Mirrors the cooldown-timer eviction in `scheduleClear*` — once the path is gone
+	 *  from the count map for that kind, its timestamp is no longer load-bearing. */
+	private clearLastTouched(bk: SessionBookkeeping, filePath: string, kind: 'read' | 'edit'): void {
+		const existing = bk.lastTouchedAt.get(filePath);
+		if (existing == null) return;
+		if (existing[kind] == null) return;
+
+		const next: { edit?: number; read?: number } = { ...existing, [kind]: undefined };
+		if (next.edit == null && next.read == null) {
+			bk.lastTouchedAt.delete(filePath);
+		} else {
+			bk.lastTouchedAt.set(filePath, next);
+		}
+	}
+
+	/** Records that a file-mutating tool call is in flight against `filePath` so consumers can
+	 *  highlight the path. Refcounts per path — keyed by path (not `tool_use_id`, which the GK CLI
+	 *  doesn't reliably surface) so parallel calls bump the count and Post/Pre order doesn't matter.
+	 *  Returns whether the parent's published `fileActivity` actually changed so callers can fire
+	 *  when the surrounding {@link updateSessionStatus} short-circuits. */
 	private trackToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
 		const filePath = this.getEventFilePath(event);
 		if (filePath == null) return false;
@@ -866,32 +1004,48 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			bk.pendingFileClears.delete(filePath);
 		}
 		bk.currentFileCounts.set(filePath, (bk.currentFileCounts.get(filePath) ?? 0) + 1);
-		return this.syncSessionCurrentFiles(sessionId, bk);
+		this.stampLastTouched(bk, filePath, 'edit');
+		return this.syncSessionFileActivityForChild(sessionId);
 	}
 
 	/** Decrements the in-flight refcount for a finished tool call's file. While the count stays
-	 *  above zero (overlapping parallel calls) the path remains decorated. When the count drops
-	 *  to zero, leaves the entry in place at count `0` and schedules a {@link postToolUseClearDelayMs}
-	 *  cooldown before actually dropping it — so back-to-back Edit/Write to the same file doesn't
-	 *  flicker the decoration. A Pre arriving during cooldown cancels the timer and bumps the
-	 *  count back above zero. */
-	private scheduleClearToolUseFile(sessionId: string, event: AgentSessionEvent): void {
+	 *  above zero (overlapping parallel calls) the path remains marked. When the count drops to
+	 *  zero, leaves the entry in place at count `0` and schedules a {@link activityDecayMs}
+	 *  cooldown before actually dropping it — so a recently-edited file lingers as a decay tail
+	 *  on the treemap. A Pre arriving during cooldown cancels the timer and bumps the count back
+	 *  above zero. Returns whether the parent's published `fileActivity` changed (i.e. `editing`
+	 *  flipped off) so the PostToolUse caller can fire when its `updateSessionStatus` short-
+	 *  circuits (a parallel tool still in flight keeps activeToolCount > 0). */
+	private scheduleClearToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
 		const filePath = this.getEventFilePath(event);
-		if (filePath == null) return;
+		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
 		const count = bk.currentFileCounts.get(filePath);
 		// A duplicate / out-of-order Post during cooldown (count is already 0) would drive the
 		// refcount negative and schedule a second timer — ignore those so the cooldown stays
 		// authoritative until either its timer fires or a fresh Pre bumps the count back up.
-		if (count == null || count <= 0) return;
+		if (count == null || count <= 0) return false;
 
 		const next = count - 1;
 		bk.currentFileCounts.set(filePath, next);
-		if (next > 0) return;
+		// Re-sync so `editing` drops from `true` to `undefined` the moment refcount hits zero —
+		// the cooldown only governs when the path itself leaves the snapshot, not when the
+		// "live" boolean flips off.
+		const changed = this.syncSessionFileActivityForChild(sessionId);
+		if (next > 0) return changed;
 
-		// Refcount just hit zero — keep the path in `currentFileCounts` (still decorated) for the
-		// cooldown window, then drop it.
+		// Refcount just hit zero — keep the path in `currentFileCounts` for the cooldown window,
+		// then drop it.
+		this.scheduleFileDecayEviction(bk, sessionId, filePath);
+		return changed;
+	}
+
+	/** Schedules (replacing any prior timer) the {@link activityDecayMs} cooldown that finally
+	 *  drops `filePath` from the edit bookkeeping once it has fully decayed. Shared by the
+	 *  PostToolUse cooldown path and the Stop settle ({@link settleBookkeeping}); the path stays
+	 *  in `currentFileCounts` at count 0 meanwhile so its `editedAt` keeps aging on the client. */
+	private scheduleFileDecayEviction(bk: SessionBookkeeping, sessionId: string, filePath: string): void {
 		const existing = bk.pendingFileClears.get(filePath);
 		if (existing != null) {
 			clearTimeout(existing);
@@ -909,15 +1063,16 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if ((cur.currentFileCounts.get(filePath) ?? 0) > 0) return;
 
 			cur.currentFileCounts.delete(filePath);
-			if (this.syncSessionCurrentFiles(sessionId, cur)) {
+			this.clearLastTouched(cur, filePath, 'edit');
+			if (this.syncSessionFileActivityForChild(sessionId)) {
 				this._onDidChangeSessions.fire();
 			}
-		}, postToolUseClearDelayMs);
+		}, this.activityDecayMs);
 		bk.pendingFileClears.set(filePath, timer);
 	}
 
 	/** Drops a tracked tool call's file immediately (no cooldown). Used for PermissionDenied,
-	 *  where the tool never ran — keeping a "currently editing" badge would be misleading.
+	 *  where the tool never ran — keeping the "live" badge would be misleading.
 	 *  Returns whether the published list changed. */
 	private untrackToolUseFile(sessionId: string, event: AgentSessionEvent): boolean {
 		const filePath = this.getEventFilePath(event);
@@ -928,7 +1083,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (count == null) return false;
 		if (count > 1) {
 			bk.currentFileCounts.set(filePath, count - 1);
-			return false;
+			return this.syncSessionFileActivityForChild(sessionId);
 		}
 
 		const pending = bk.pendingFileClears.get(filePath);
@@ -937,22 +1092,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			bk.pendingFileClears.delete(filePath);
 		}
 		bk.currentFileCounts.delete(filePath);
-		return this.syncSessionCurrentFiles(sessionId, bk);
-	}
-
-	/** Writes the bookkeeping's tracked file paths onto the session in place. Returns whether the
-	 *  session's `currentFiles` actually changed. Keys (not values) — entries with count `0` are
-	 *  cooldown-residents, still part of the published list. */
-	private syncSessionCurrentFiles(sessionId: string, bk: SessionBookkeeping): boolean {
-		const index = this._sessions.findIndex(s => s.id === sessionId);
-		if (index < 0) return false;
-
-		const prev = this._sessions[index];
-		const next = bk.currentFileCounts.size > 0 ? [...bk.currentFileCounts.keys()] : undefined;
-		if (currentFilesEqual(prev.currentFiles, next)) return false;
-
-		this._sessions[index] = { ...prev, currentFiles: next };
-		return true;
+		this.clearLastTouched(bk, filePath, 'edit');
+		return this.syncSessionFileActivityForChild(sessionId);
 	}
 
 	/** Mirror of {@link getEventFilePath} for read-only file tools. */
@@ -978,24 +1119,34 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			bk.pendingReadClears.delete(filePath);
 		}
 		bk.currentReadCounts.set(filePath, (bk.currentReadCounts.get(filePath) ?? 0) + 1);
-		return this.syncSessionCurrentReads(sessionId, bk);
+		this.stampLastTouched(bk, filePath, 'read');
+		return this.syncSessionFileActivityForChild(sessionId);
 	}
 
-	/** Cooldown mirror of {@link scheduleClearToolUseFile} for read-only file tools. */
-	private scheduleClearToolUseRead(sessionId: string, event: AgentSessionEvent): void {
+	/** Cooldown mirror of {@link scheduleClearToolUseFile} for read-only file tools. Returns
+	 *  whether the parent's published `fileActivity` changed (i.e. `reading` flipped off). */
+	private scheduleClearToolUseRead(sessionId: string, event: AgentSessionEvent): boolean {
 		const filePath = this.getEventReadPath(event);
-		if (filePath == null) return;
+		if (filePath == null) return false;
 
 		const bk = this.getBookkeeping(sessionId);
 		const count = bk.currentReadCounts.get(filePath);
 		// Same guard as scheduleClearToolUseFile — duplicate / out-of-order Posts during cooldown
 		// would otherwise drive the refcount negative and stack up redundant clear timers.
-		if (count == null || count <= 0) return;
+		if (count == null || count <= 0) return false;
 
 		const next = count - 1;
 		bk.currentReadCounts.set(filePath, next);
-		if (next > 0) return;
+		// Re-sync so `reading` drops to `undefined` the moment refcount hits zero.
+		const changed = this.syncSessionFileActivityForChild(sessionId);
+		if (next > 0) return changed;
 
+		this.scheduleReadDecayEviction(bk, sessionId, filePath);
+		return changed;
+	}
+
+	/** Read-class mirror of {@link scheduleFileDecayEviction}. */
+	private scheduleReadDecayEviction(bk: SessionBookkeeping, sessionId: string, filePath: string): void {
 		const existing = bk.pendingReadClears.get(filePath);
 		if (existing != null) {
 			clearTimeout(existing);
@@ -1011,10 +1162,11 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			if ((cur.currentReadCounts.get(filePath) ?? 0) > 0) return;
 
 			cur.currentReadCounts.delete(filePath);
-			if (this.syncSessionCurrentReads(sessionId, cur)) {
+			this.clearLastTouched(cur, filePath, 'read');
+			if (this.syncSessionFileActivityForChild(sessionId)) {
 				this._onDidChangeSessions.fire();
 			}
-		}, postToolUseClearDelayMs);
+		}, this.activityDecayMs);
 		bk.pendingReadClears.set(filePath, timer);
 	}
 
@@ -1028,7 +1180,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (count == null) return false;
 		if (count > 1) {
 			bk.currentReadCounts.set(filePath, count - 1);
-			return false;
+			return this.syncSessionFileActivityForChild(sessionId);
 		}
 
 		const pending = bk.pendingReadClears.get(filePath);
@@ -1037,21 +1189,96 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			bk.pendingReadClears.delete(filePath);
 		}
 		bk.currentReadCounts.delete(filePath);
-		return this.syncSessionCurrentReads(sessionId, bk);
+		this.clearLastTouched(bk, filePath, 'read');
+		return this.syncSessionFileActivityForChild(sessionId);
 	}
 
-	/** Sync mirror of {@link syncSessionCurrentFiles} for read paths. Uses {@link currentFilesEqual}
-	 *  (which is just a generic order-insensitive `string[] | undefined` comparator). */
-	private syncSessionCurrentReads(sessionId: string, bk: SessionBookkeeping): boolean {
-		const index = this._sessions.findIndex(s => s.id === sessionId);
+	/** Convenience wrapper that resolves the parent for a possibly-sub-agent session id, then calls
+	 *  {@link syncSessionFileActivity}. Tool-call handlers call this without knowing whether the
+	 *  session is a top-level or sub-agent session. Returns `false` when the session isn't found
+	 *  (already pruned / unknown peer id). */
+	private syncSessionFileActivityForChild(sessionId: string): boolean {
+		const parentId = this.findOwningParentId(sessionId);
+		if (parentId == null) return false;
+		return this.syncSessionFileActivity(parentId);
+	}
+
+	/** Rebuilds the parent session's `fileActivity` array from its bookkeeping and writes it onto
+	 *  the session in place. Returns whether the *structural* shape changed (paths/kinds/flags) —
+	 *  timestamps are always refreshed regardless, but a fire is gated on structural change so
+	 *  non-meaningful drift doesn't churn the wire.
+	 *
+	 *  No separate sub-agent rollup is needed: the GK CLI keys a sub-agent's tool events under its
+	 *  PARENT session id (with `agentId` set), so they accumulate in the parent's own bookkeeping
+	 *  directly and are already reflected here. Sub-agent serialized objects carry no `fileActivity`. */
+	private syncSessionFileActivity(parentSessionId: string): boolean {
+		const index = this._sessions.findIndex(s => s.id === parentSessionId);
 		if (index < 0) return false;
 
-		const prev = this._sessions[index];
-		const next = bk.currentReadCounts.size > 0 ? [...bk.currentReadCounts.keys()] : undefined;
-		if (currentFilesEqual(prev.currentReads, next)) return false;
+		const parent = this._sessions[index];
+		const parentBk = this._sessionBookkeeping.get(parentSessionId);
 
-		this._sessions[index] = { ...prev, currentReads: next };
-		return true;
+		type Contrib = { editCount: number; readCount: number; editAt?: number; readAt?: number };
+		const merged = new Map<string, Contrib>();
+
+		const contributeFrom = (bk: SessionBookkeeping | undefined): void => {
+			if (bk == null) return;
+
+			for (const [path, count] of bk.currentFileCounts) {
+				let entry = merged.get(path);
+				if (entry == null) {
+					entry = { editCount: 0, readCount: 0 };
+					merged.set(path, entry);
+				}
+				entry.editCount += count;
+				const ts = bk.lastTouchedAt.get(path)?.edit;
+				if (ts != null && (entry.editAt == null || ts > entry.editAt)) {
+					entry.editAt = ts;
+				}
+			}
+			for (const [path, count] of bk.currentReadCounts) {
+				let entry = merged.get(path);
+				if (entry == null) {
+					entry = { editCount: 0, readCount: 0 };
+					merged.set(path, entry);
+				}
+				entry.readCount += count;
+				const ts = bk.lastTouchedAt.get(path)?.read;
+				if (ts != null && (entry.readAt == null || ts > entry.readAt)) {
+					entry.readAt = ts;
+				}
+			}
+		};
+
+		contributeFrom(parentBk);
+
+		const now = Date.now();
+		let next: FileActivityEntry[] | undefined;
+		if (merged.size > 0) {
+			next = [];
+			for (const [path, contrib] of merged) {
+				const entry: FileActivityEntry = { path: path };
+				if (contrib.editAt != null) {
+					entry.editedAt = Math.max(0, now - contrib.editAt);
+				}
+				if (contrib.readAt != null) {
+					entry.readAt = Math.max(0, now - contrib.readAt);
+				}
+				if (contrib.editCount > 0) {
+					entry.editing = true;
+				}
+				if (contrib.readCount > 0) {
+					entry.reading = true;
+				}
+				next.push(entry);
+			}
+		}
+
+		const changed = !fileActivityStructurallyEqual(parent.fileActivity, next);
+		// Always replace so timestamps reflect the latest serialization, even when the structural
+		// shape is unchanged (so a downstream fire from anywhere else carries fresh `sinceMs`).
+		this._sessions[index] = { ...parent, fileActivity: next };
+		return changed;
 	}
 
 	/** Defer the `Stop → idle` commit. If the agent produces a non-idle event within
@@ -1265,7 +1492,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	}
 
 	private ensureSession(sessionId: string, context?: SessionContext): { index: number; changed: boolean } {
-		const { pid, workspacePath, isInWorkspace, cwd, planFile, sessionName } = context ?? {};
+		const { pid, workspacePath, isInWorkspace, cwd, initialCwd, planFile, sessionName } = context ?? {};
 
 		let index = this._sessions.findIndex(s => s.id === sessionId);
 		if (index < 0) {
@@ -1284,6 +1511,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				isSubagent: false,
 				workspacePath: workspacePath,
 				cwd: cwd,
+				initialCwd: initialCwd ?? cwd,
 				planFile: planFile,
 				isInWorkspace: isInWorkspace ?? false,
 			});
@@ -1306,6 +1534,12 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		const updatedPlanFile = planFile ?? existing.planFile;
 		const updatedName = sessionName || existing.name;
 		const updatedCwd = cwd ?? existing.cwd;
+		// Prefer the CLI's authoritative `initialCwd` (the true launch dir it captured first-hand,
+		// even for sessions that started before this window opened); otherwise keep whatever we
+		// already captured, and only as a last resort backfill from the current cwd (older CLIs that
+		// don't send `initialCwd`, or a cold-create before any cwd was known). Comparing live `cwd`
+		// against `initialCwd` is how consumers detect launch-vs-current drift, so it stays stable.
+		const updatedInitialCwd = initialCwd ?? existing.initialCwd ?? cwd;
 
 		let changed = false;
 		if (
@@ -1314,7 +1548,8 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			updatedIsInWorkspace !== existing.isInWorkspace ||
 			updatedPlanFile !== existing.planFile ||
 			updatedName !== existing.name ||
-			updatedCwd !== existing.cwd
+			updatedCwd !== existing.cwd ||
+			updatedInitialCwd !== existing.initialCwd
 		) {
 			this._sessions[index] = {
 				...existing,
@@ -1322,6 +1557,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				pid: updatedPid,
 				workspacePath: updatedWorkspacePath,
 				cwd: updatedCwd,
+				initialCwd: updatedInitialCwd,
 				planFile: updatedPlanFile,
 				isInWorkspace: updatedIsInWorkspace,
 			};
@@ -1396,16 +1632,29 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				return;
 			}
 
+			// Capture the worktree/commonPath at the first successful resolve so consumers can
+			// detect drift (e.g. an agent that `cd`'d into a sibling worktree after launch). Gated
+			// on `initialCommonPath` — captured together with `initialWorktreePath` so a first
+			// resolve where `info.worktreePath` happens to be undefined doesn't leave the latter
+			// open to a later overwrite. Once set, never overwritten.
+			const firstResolve = session.initialCommonPath == null;
+			const updatedInitialWorktreePath = firstResolve ? info.worktreePath : session.initialWorktreePath;
+			const updatedInitialCommonPath = firstResolve ? info.repoRoot : session.initialCommonPath;
+
 			if (
 				cwd !== session.cwd ||
 				info.worktreePath !== session.worktreePath ||
-				info.repoRoot !== session.commonPath
+				info.repoRoot !== session.commonPath ||
+				updatedInitialWorktreePath !== session.initialWorktreePath ||
+				updatedInitialCommonPath !== session.initialCommonPath
 			) {
 				this._sessions[index] = {
 					...session,
 					cwd: cwd,
 					worktreePath: info.worktreePath,
 					commonPath: info.repoRoot,
+					initialWorktreePath: updatedInitialWorktreePath,
+					initialCommonPath: updatedInitialCommonPath,
 				};
 				this._onDidChangeSessions.fire();
 			}
@@ -1461,6 +1710,14 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				this._pendingPermissions.delete(id);
 			}
 			this.cancelPendingIdleTransition(id);
+			// Cancel any in-flight decay-eviction timers before dropping the bookkeeping (mirrors
+			// SessionEnd). A Stopped-then-killed session reaches here with armed cooldown timers
+			// (settleBookkeeping leaves them running), so without this they'd leak until they fire.
+			const bk = this._sessionBookkeeping.get(id);
+			if (bk != null) {
+				this.cancelPendingFileClears(bk);
+				this.cancelPendingReadClears(bk);
+			}
 			this._sessionBookkeeping.delete(id);
 			this._transcriptReader.forget(id);
 		}
@@ -1547,6 +1804,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				isSubagent: false,
 				workspacePath: workspacePath,
 				cwd: data.cwd,
+				// Prefer the CLI's launch dir; fall back to the snapshot's (possibly drifted) cwd on
+				// older CLIs that don't record it. Without this, a window that cold-starts after the
+				// agent drifted would stamp the drifted cwd as the launch dir.
+				initialCwd: data.initialCwd ?? data.cwd,
 				planFile: data.planFile ?? undefined,
 				isInWorkspace: isInWorkspace,
 				lastPrompt: prepareStoredPrompt(data.prompt ?? undefined),
@@ -1653,6 +1914,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							this.cancelPendingReadClears(bk);
 							bk.currentFileCounts.clear();
 							bk.currentReadCounts.clear();
+							bk.lastTouchedAt.clear();
 						}
 						this._sessions[idx] = {
 							...existing,
@@ -1662,17 +1924,27 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 							statusDetail: peerSession.statusDetail,
 							lastActivity: peerActivity,
 							subagents: rehydrateSubagents(peerSession.subagents),
-							// Carry the peer's in-flight file-edit set + repo identity across so
-							// peer-window WIP decorations + sameFamily anchoring follow the agent.
-							// Owned by the peer (it's the hook recipient); we never originate these
-							// fields for a remote session.
-							currentFiles: peerSession.currentFiles,
-							currentReads: peerSession.currentReads,
+							// Carry the peer's published fileActivity across so peer-window WIP
+							// decorations + treemap heatmap follow the agent. Owned by the peer (it's
+							// the hook recipient); we never originate this field for a remote session.
+							fileActivity: peerSession.fileActivity,
+							// Track the peer's resolved repo identity. The peer owns the hook flow and
+							// re-resolves both on `CwdChanged`, so a worktree move (e.g. the agent
+							// `cd`'d into a sibling worktree of the same repo — `commonPath` unchanged
+							// but `worktreePath` changed) only reaches us if we carry BOTH. Carrying
+							// `commonPath` alone froze the displayed worktree at first-discovery.
+							worktreePath: peerSession.worktreePath ?? existing.worktreePath,
 							commonPath: peerSession.commonPath ?? existing.commonPath,
 							// Pick up the peer's latest cwd so our backfill probe (queued below)
 							// targets the right path. Stale-cwd locally would just re-probe the
 							// non-repo dir and hit the gitInfoUnresolvable retry guard again.
 							cwd: cwdChanged ? peerSession.cwd : existing.cwd,
+							// Launch-state fields are immutable per session: prefer whichever side
+							// already set them (peer that owns the hook flow typically sets first),
+							// and never overwrite a populated local value with the peer's.
+							initialCwd: existing.initialCwd ?? peerSession.initialCwd,
+							initialWorktreePath: existing.initialWorktreePath ?? peerSession.initialWorktreePath,
+							initialCommonPath: existing.initialCommonPath ?? peerSession.initialCommonPath,
 							// Forward peer-discovered transcript titles. Both windows can resolve them
 							// independently against the same on-disk transcript, but only the peer's
 							// hook flow drives its updates — without this, we'd freeze the snapshot
