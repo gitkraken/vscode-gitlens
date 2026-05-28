@@ -317,7 +317,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 				{
 					name: 'workbench.editorAssociations',
 					enabled: () => this.container.rebaseEditor.enabled,
-					update: this.container.rebaseEditor.setEnabled,
+					update: enabled => this.container.rebaseEditor.setEnabled(enabled),
 				},
 			],
 			[
