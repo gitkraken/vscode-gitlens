@@ -3,6 +3,7 @@ import { isUri } from '@gitlens/utils/uri.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { getScmResourceFolderUri, isScm, isScmResourceState } from '../../../system/-webview/scm.js';
 import { isViewFileNode, isViewNode } from '../../../views/nodes/utils/-webview/node.utils.js';
 import type { WebviewPanelsProxy, WebviewsController, WebviewViewProxy } from '../../webviewsController.js';
@@ -31,8 +32,8 @@ export function registerTimelineWebviewPanel(
 			allowMultipleInstances: configuration.get('visualHistory.allowMultiple'),
 		},
 		async (container, host) => {
-			const { TimelineWebviewProvider } = await import(
-				/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'
+			const { TimelineWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'),
 			);
 			return new TimelineWebviewProvider(container, host);
 		},
@@ -54,8 +55,8 @@ export function registerTimelineWebviewView(
 			webviewHostOptions: { retainContextWhenHidden: true },
 		},
 		async (container, host) => {
-			const { TimelineWebviewProvider } = await import(
-				/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'
+			const { TimelineWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-timeline" */ './timelineWebview.js'),
 			);
 			return new TimelineWebviewProvider(container, host);
 		},

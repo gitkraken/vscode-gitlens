@@ -2398,6 +2398,18 @@ or
 }
 ```
 
+### extension/chunkLoad/failed
+
+> Sent when a lazily-loaded webpack chunk fails to load — typically because VS Code
+background-upgraded the extension while the host kept running the old build
+
+```typescript
+{
+  'error.code': string,
+  'error.message': string
+}
+```
+
 ### gitCommand/conflict
 
 > Sent when a conflict occurs while running a conflict-prone git command

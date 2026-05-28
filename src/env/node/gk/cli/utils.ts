@@ -8,6 +8,7 @@ import { joinUriPath } from '@gitlens/utils/uri.js';
 import { urls } from '../../../../constants.js';
 import { Container } from '../../../../container.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
+import { loadChunk } from '../../../../system/-webview/loadChunk.js';
 import { exists, openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getPlatform, isWindows } from '../../platform.js';
 
@@ -27,7 +28,7 @@ export async function extractZipFile(
 	options?: { filter?: (filename: string) => boolean },
 ): Promise<void> {
 	// Dynamically import fflate to avoid bundling it when not needed
-	const { unzip } = await import(/* webpackChunkName: "lib-unzip" */ 'fflate');
+	const { unzip } = await loadChunk(() => import(/* webpackChunkName: "lib-unzip" */ 'fflate'));
 
 	// Read the zip file (returns a Buffer, which extends Uint8Array in Node.js)
 	const zipData = await readFile(zipPath);

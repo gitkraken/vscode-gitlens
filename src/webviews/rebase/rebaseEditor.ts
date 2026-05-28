@@ -23,6 +23,7 @@ import {
 } from '../../git/utils/-webview/rebase.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
+import { isChunkLoadError, loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewCommandRegistrar } from '../webviewCommandRegistrar.js';
 import { WebviewController } from '../webviewController.js';
 import type { CustomEditorDescriptor } from '../webviewDescriptors.js';
@@ -230,8 +231,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				uuid(),
 				panel,
 				async (container, host) => {
-					const { RebaseWebviewProvider } = await import(
-						/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider.js'
+					const { RebaseWebviewProvider } = await loadChunk(
+						() => import(/* webpackChunkName: "webview-rebase" */ './rebaseWebviewProvider.js'),
 					);
 					return new RebaseWebviewProvider(container, host, document, repoPath);
 				},
@@ -251,9 +252,13 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			await controller.show(true, { preserveFocus: false }).catch();
 		} catch (ex) {
 			Logger.error(ex, 'RebaseEditorProvider', `Failed to open rebase editor for ${document.uri.toString()}`);
-			void window.showErrorMessage(
-				'GitLens was unable to open the Interactive Rebase Editor. Falling back to the text editor.',
-			);
+			// `loadChunk` already surfaced a reload prompt for the chunk-load case; suppressing the
+			// generic message here keeps the user from seeing two competing notifications.
+			if (!isChunkLoadError(ex)) {
+				void window.showErrorMessage(
+					'GitLens was unable to open the Interactive Rebase Editor. Falling back to the text editor.',
+				);
+			}
 		}
 	}
 }

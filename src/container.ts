@@ -64,6 +64,7 @@ import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { onDidChangeContext, setContext } from './system/-webview/context.js';
 import { Keyboard } from './system/-webview/keyboard.js';
+import { loadChunk } from './system/-webview/loadChunk.js';
 import type { Storage } from './system/-webview/storage.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
@@ -474,8 +475,11 @@ export class Container {
 			async function load(this: Container) {
 				try {
 					const cloudIntegrations = new (
-						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService.js'
+						await loadChunk(
+							() =>
+								import(
+									/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService.js'
+								),
 						)
 					).CloudIntegrationService(this, this._connection);
 					return cloudIntegrations;
@@ -589,8 +593,11 @@ export class Container {
 			async function load(this: Container) {
 				try {
 					const azure = new (
-						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure.js'
+						await loadChunk(
+							() =>
+								import(
+									/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure.js'
+								),
 						)
 					).AzureDevOpsApi(this);
 					this._disposables.push(azure);
@@ -613,8 +620,11 @@ export class Container {
 			async function load(this: Container) {
 				try {
 					const bitbucket = new (
-						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket.js'
+						await loadChunk(
+							() =>
+								import(
+									/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket.js'
+								),
 						)
 					).BitbucketApi(this);
 					this._disposables.push(bitbucket);
@@ -636,8 +646,11 @@ export class Container {
 		if (this._github == null) {
 			async function load(this: Container) {
 				try {
-					const { createGitHubApi } = await import(
-						/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
+					const { createGitHubApi } = await loadChunk(
+						() =>
+							import(
+								/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
+							),
 					);
 					const github = createGitHubApi();
 					this._disposables.push(github);
@@ -660,8 +673,11 @@ export class Container {
 			async function load(this: Container) {
 				try {
 					const gitlab = new (
-						await import(
-							/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab.js'
+						await loadChunk(
+							() =>
+								import(
+									/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab.js'
+								),
 						)
 					).GitLabApi(this);
 					this._disposables.push(gitlab);

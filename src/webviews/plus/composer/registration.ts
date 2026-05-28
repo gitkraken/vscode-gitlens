@@ -3,6 +3,7 @@ import { Disposable, ViewColumn } from 'vscode';
 import type { Source, Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { registerCommand } from '../../../system/-webview/command.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../../webviewsController.js';
 import type { State } from './protocol.js';
 
@@ -42,8 +43,8 @@ export function registerComposerWebviewPanel(
 			},
 		},
 		async (container, host) => {
-			const { ComposerWebviewProvider } = await import(
-				/* webpackChunkName: "webview-composer" */ './composerWebview.js'
+			const { ComposerWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-composer" */ './composerWebview.js'),
 			);
 			return new ComposerWebviewProvider(container, host);
 		},

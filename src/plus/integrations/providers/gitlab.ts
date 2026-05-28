@@ -13,6 +13,7 @@ import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -176,8 +177,9 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitLabMergeRequestState = (await import(/* webpackChunkName: "integrations" */ './gitlab/models.js'))
-			.toGitLabMergeRequestState;
+		const toGitLabMergeRequestState = (
+			await loadChunk(() => import(/* webpackChunkName: "integrations" */ './gitlab/models.js'))
+		).toGitLabMergeRequestState;
 		return (await this.container.gitlab)?.getPullRequestForBranch(
 			this,
 			toTokenWithInfo(this.id, session),

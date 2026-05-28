@@ -10,6 +10,7 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { executeCommand, executeCoreCommand, registerCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext } from '../../../system/-webview/context.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { getScmResourceFolderUri, getScmResourceUri, isScm } from '../../../system/-webview/scm.js';
 import { ViewNode } from '../../../views/nodes/abstract/viewNode.js';
 import type { BranchNode } from '../../../views/nodes/branchNode.js';
@@ -75,7 +76,9 @@ export function registerGraphWebviewPanel(
 			allowMultipleInstances: configuration.get('graph.allowMultiple'),
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview.js');
+			const { GraphWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-graph" */ './graphWebview.js'),
+			);
 			return new GraphWebviewProvider(container, host);
 		},
 	);
@@ -99,7 +102,9 @@ export function registerGraphWebviewView(
 			},
 		},
 		async (container, host) => {
-			const { GraphWebviewProvider } = await import(/* webpackChunkName: "webview-graph" */ './graphWebview.js');
+			const { GraphWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-graph" */ './graphWebview.js'),
+			);
 			return new GraphWebviewProvider(container, host);
 		},
 	);

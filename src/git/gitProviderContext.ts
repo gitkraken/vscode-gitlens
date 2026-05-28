@@ -9,6 +9,7 @@ import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
+import { loadChunk } from '../system/-webview/loadChunk.js';
 import { buildRemoteProviderConfigs } from './remotes/remoteProviderConfigs.js';
 import { getIntegrationRepositoryInfo, sortRemotes } from './utils/-webview/remote.utils.js';
 
@@ -118,8 +119,8 @@ export function createGitProviderContext(container: Container): GitServiceContex
 
 		searchQuery: {
 			preprocessQuery: async (search, source) => {
-				const { processNaturalLanguageToSearchQuery } = await import(
-					/* webpackChunkName: "ai" */ './search.naturalLanguage.js'
+				const { processNaturalLanguageToSearchQuery } = await loadChunk(
+					() => import(/* webpackChunkName: "ai" */ './search.naturalLanguage.js'),
 				);
 				return processNaturalLanguageToSearchQuery(container, search, source as Source);
 			},

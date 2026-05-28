@@ -11,6 +11,7 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { ensurePaidPlan } from '../../gk/utils/-webview/plus.utils.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -168,8 +169,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	): Promise<PullRequest | undefined> {
 		const { include, ...opts } = options ?? {};
 
-		const toGitHubPullRequestState = (await import(/* webpackChunkName: "integrations" */ './github/models.js'))
-			.toGitHubPullRequestState;
+		const toGitHubPullRequestState = (
+			await loadChunk(() => import(/* webpackChunkName: "integrations" */ './github/models.js'))
+		).toGitHubPullRequestState;
 		return (await this.container.github)?.getPullRequestForBranch(
 			this,
 			toTokenWithInfo(this.id, session),

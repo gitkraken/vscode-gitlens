@@ -209,6 +209,7 @@ import {
 import type { ConfigPath } from '../../../system/-webview/configuration.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
@@ -920,8 +921,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			...base,
 			graphInspect: {
 				getAiExcludedFiles: async (repoPath: string, filePaths: string[]) => {
-					const { AIIgnoreCache } = await import(
-						/* webpackChunkName: "ai" */ '../../../plus/ai/aiIgnoreCache.js'
+					const { AIIgnoreCache } = await loadChunk(
+						() => import(/* webpackChunkName: "ai" */ '../../../plus/ai/aiIgnoreCache.js'),
 					);
 					const aiIgnore = new AIIgnoreCache(this.container, repoPath);
 					const included = await aiIgnore.excludeIgnored(filePaths);
@@ -1322,8 +1323,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// Filter out user-excluded files before review
 						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
 						if (excluded?.size) {
-							const { filterDiffFiles } = await import(
-								/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+							const { filterDiffFiles } = await loadChunk(
+								() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 							);
 							data.diff = await filterDiffFiles(data.diff, paths => paths.filter(p => !excluded.has(p)));
 							signal?.throwIfAborted();
@@ -1371,8 +1372,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						}
 
 						// Two-pass: build file manifest from the (already filtered) diff
-						const { parseGitDiff, countDiffInsertionsAndDeletions } = await import(
-							/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+						const { parseGitDiff, countDiffInsertionsAndDeletions } = await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 						);
 						signal?.throwIfAborted();
 						const parsed = parseGitDiff(data.diff);
@@ -1436,8 +1437,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 						// Filter diff to only include focus area files, excluding user-excluded files
 						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
-						const { filterDiffFiles } = await import(
-							/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'
+						const { filterDiffFiles } = await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
 						);
 						const filteredDiff = await filterDiffFiles(data.diff, () =>
 							excluded?.size ? focusAreaFiles.filter(f => !excluded.has(f)) : focusAreaFiles,
@@ -1678,8 +1679,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									: await svc.commits.getCommit(baseAnchorSha);
 						signal?.throwIfAborted();
 
-						const { createCombinedDiffForCommit } = await import(
-							/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'
+						const { createCombinedDiffForCommit } = await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
 						);
 						const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
 							planResult,

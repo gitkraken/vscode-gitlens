@@ -7,6 +7,7 @@ import { getScopedLogger, maybeStartScopedLogger } from '@gitlens/utils/logger.s
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
 import { setContext } from '../system/-webview/context.js';
+import { loadChunk } from '../system/-webview/loadChunk.js';
 import type { DocumentBlameStateChangeEvent, DocumentDirtyIdleTriggerEvent } from '../trackers/documentTracker.js';
 import type { GitCodeLensProvider } from './codeLensProvider.js';
 
@@ -113,7 +114,9 @@ export class GitCodeLensController implements Disposable {
 
 		this._providerDisposable?.dispose();
 
-		const { GitCodeLensProvider } = await import(/* webpackChunkName: "codelens" */ './codeLensProvider.js');
+		const { GitCodeLensProvider } = await loadChunk(
+			() => import(/* webpackChunkName: "codelens" */ './codeLensProvider.js'),
+		);
 
 		this._provider = new GitCodeLensProvider(this.container);
 		this._providerDisposable = Disposable.from(

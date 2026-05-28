@@ -1,6 +1,7 @@
 import { Disposable, ViewColumn } from 'vscode';
 import type { GlCommands } from '../../constants.commands.js';
 import { registerCommand } from '../../system/-webview/command.js';
+import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
 import type { State } from './protocol.js';
 
@@ -27,8 +28,8 @@ export function registerSettingsWebviewPanel(
 			},
 		},
 		async (container, host) => {
-			const { SettingsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-settings" */ './settingsWebview.js'
+			const { SettingsWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-settings" */ './settingsWebview.js'),
 			);
 			return new SettingsWebviewProvider(container, host);
 		},

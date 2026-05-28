@@ -65,6 +65,7 @@ import { showAIModelPicker, showAIProviderPicker } from '../../quickpicks/aiMode
 import { Directive, isDirective } from '../../quickpicks/items/directive.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
+import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { Storage } from '../../system/-webview/storage.js';
 import type { Serialized } from '../../system/serialize.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
@@ -139,8 +140,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...gitKrakenProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js'))
-						.GitKrakenProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js'),
+						)
+					).GitKrakenProvider,
 			),
 		},
 	],
@@ -148,7 +152,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 		'vscode',
 		{
 			...vscodeProviderDescriptor,
-			type: lazy(async () => (await import(/* webpackChunkName: "ai" */ './vscodeProvider.js')).VSCodeAIProvider),
+			type: lazy(
+				async () =>
+					(await loadChunk(() => import(/* webpackChunkName: "ai" */ './vscodeProvider.js')))
+						.VSCodeAIProvider,
+			),
 		},
 	],
 	[
@@ -157,8 +165,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...anthropicProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/anthropicProvider.js'))
-						.AnthropicProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/anthropicProvider.js'),
+						)
+					).AnthropicProvider,
 			),
 		},
 	],
@@ -168,8 +179,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...geminiProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/geminiProvider.js'))
-						.GeminiProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/geminiProvider.js'),
+						)
+					).GeminiProvider,
 			),
 		},
 	],
@@ -179,8 +193,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openAIProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openaiProvider.js'))
-						.OpenAIProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openaiProvider.js'),
+						)
+					).OpenAIProvider,
 			),
 		},
 	],
@@ -190,7 +207,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...azureProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/azureProvider.js')).AzureProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/azureProvider.js'),
+						)
+					).AzureProvider,
 			),
 		},
 	],
@@ -200,8 +221,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...mistralProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/mistralProvider.js'))
-						.MistralProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/mistralProvider.js'),
+						)
+					).MistralProvider,
 			),
 		},
 	],
@@ -211,8 +235,14 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openAICompatibleProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openAICompatibleProvider.js'))
-						.OpenAICompatibleProvider,
+					(
+						await loadChunk(
+							() =>
+								import(
+									/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openAICompatibleProvider.js'
+								),
+						)
+					).OpenAICompatibleProvider,
 			),
 		},
 	],
@@ -222,8 +252,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...ollamaProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/ollamaProvider.js'))
-						.OllamaProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/ollamaProvider.js'),
+						)
+					).OllamaProvider,
 			),
 		},
 	],
@@ -233,8 +266,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...openRouterProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openRouterProvider.js'))
-						.OpenRouterProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/openRouterProvider.js'),
+						)
+					).OpenRouterProvider,
 			),
 		},
 	],
@@ -244,8 +280,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...huggingFaceProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/huggingFaceProvider.js'))
-						.HuggingFaceProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/huggingFaceProvider.js'),
+						)
+					).HuggingFaceProvider,
 			),
 		},
 	],
@@ -255,8 +294,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...githubProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/githubModelsProvider.js'))
-						.GitHubModelsProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/githubModelsProvider.js'),
+						)
+					).GitHubModelsProvider,
 			),
 		},
 	],
@@ -266,8 +308,11 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...deepSeekProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/deepSeekProvider.js'))
-						.DeepSeekProvider,
+					(
+						await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/deepSeekProvider.js'),
+						)
+					).DeepSeekProvider,
 			),
 		},
 	],
@@ -277,7 +322,8 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 			...xAIProviderDescriptor,
 			type: lazy(
 				async () =>
-					(await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/xaiProvider.js')).XAIProvider,
+					(await loadChunk(() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/xaiProvider.js')))
+						.XAIProvider,
 			),
 		},
 	],
@@ -1938,7 +1984,7 @@ export class AIProviderService implements AIService, Disposable {
 		const optIn = await this.container.subscription.aiAllAccessOptIn({ source: 'notification' });
 		if (optIn && !usingGkProvider && isProviderEnabledByOrg('gitkraken')) {
 			const gkProvider = new (
-				await import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js')
+				await loadChunk(() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/gitkrakenProvider.js'))
 			).GitKrakenProvider(this.createAIProviderContext('gitkraken'));
 			const defaultModel = (await gkProvider.getModels()).find(m => m.default);
 			if (defaultModel != null) {

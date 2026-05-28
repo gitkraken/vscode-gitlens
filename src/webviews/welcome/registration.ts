@@ -1,3 +1,4 @@
+import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
 import type { State } from './protocol.js';
 
@@ -20,8 +21,8 @@ export function registerWelcomeWebviewView(
 			},
 		},
 		async (container, host) => {
-			const { WelcomeWebviewProvider } = await import(
-				/* webpackChunkName: "webview-welcome" */ './welcomeWebview.js'
+			const { WelcomeWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-welcome" */ './welcomeWebview.js'),
 			);
 			return new WelcomeWebviewProvider(container, host);
 		},

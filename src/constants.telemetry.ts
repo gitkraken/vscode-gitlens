@@ -66,6 +66,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when GitLens is activated */
 	activate: ActivateEvent;
 
+	/** Sent when a lazily-loaded webpack chunk fails to load — typically because VS Code
+	 * background-upgraded the extension while the host kept running the old build */
+	'extension/chunkLoad/failed': ExtensionChunkLoadFailedEvent;
+
 	/** Sent when explaining changes from wip, commits, stashes, patches, etc. */
 	'ai/explain': AIExplainEvent;
 
@@ -545,6 +549,11 @@ interface AgentPermissionResolvedEvent {
 interface ActivateEvent extends ConfigEventData {
 	'activation.elapsed': number;
 	'activation.mode': string | undefined;
+}
+
+interface ExtensionChunkLoadFailedEvent {
+	'error.code': string | undefined;
+	'error.message': string;
 }
 
 interface AIEventDataBase {

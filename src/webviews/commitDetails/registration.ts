@@ -1,4 +1,5 @@
 import type { CommitSelectedEvent } from '../../eventBus.js';
+import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
 import type { ShowWipArgs, State } from './protocol.js';
 
@@ -21,8 +22,8 @@ export function registerCommitDetailsWebviewView(
 			},
 		},
 		async (container, host) => {
-			const { CommitDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview.js'
+			const { CommitDetailsWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-commitDetails" */ './commitDetailsWebview.js'),
 			);
 			return new CommitDetailsWebviewProvider(container, host);
 		},

@@ -3,6 +3,7 @@ import type { Sources } from '../../../constants.telemetry.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { setContext } from '../../../system/-webview/context.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { Serialized } from '../../../system/serialize.js';
 import type {
 	WebviewPanelShowCommandArgs,
@@ -48,8 +49,8 @@ export function registerPatchDetailsWebviewView(
 			},
 		},
 		async (container, host) => {
-			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'
+			const { PatchDetailsWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'),
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},
@@ -95,8 +96,8 @@ export function registerPatchDetailsWebviewPanel(
 			allowMultipleInstances: true,
 		},
 		async (container, host) => {
-			const { PatchDetailsWebviewProvider } = await import(
-				/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'
+			const { PatchDetailsWebviewProvider } = await loadChunk(
+				() => import(/* webpackChunkName: "webview-patchDetails" */ './patchDetailsWebview.js'),
 			);
 			return new PatchDetailsWebviewProvider(container, host);
 		},

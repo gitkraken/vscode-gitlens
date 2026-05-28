@@ -22,6 +22,7 @@ import {
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { loadChunk } from '../../system/-webview/loadChunk.js';
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import type { TelemetryService } from '../../telemetry/telemetry.js';
 import { GlCliGitProvider } from './git/cliGitProvider.js';
@@ -66,8 +67,11 @@ export async function getSupportedGitProviders(
 	if (configuration.get('virtualRepositories.enabled')) {
 		providers.push(
 			new (
-				await import(
-					/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider.js'
+				await loadChunk(
+					() =>
+						import(
+							/* webpackChunkName: "integrations" */ '../../plus/integrations/providers/github/githubGitProvider.js'
+						),
 				)
 			).GlGitHubGitProvider(container, cache, register),
 		);
@@ -105,12 +109,16 @@ export async function getMcpProviders(container: Container): Promise<Disposable[
 	if (mcpRegistrationEnabled(container)) {
 		if (supportsMcpExtensionRegistration()) {
 			// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
-			const mcpModule = await import(/* webpackChunkName: "mcp" */ './gk/mcp/vscodeIntegration.js');
+			const mcpModule = await loadChunk(
+				() => import(/* webpackChunkName: "mcp" */ './gk/mcp/vscodeIntegration.js'),
+			);
 			return [new mcpModule.VSCodeGkMcpProvider(container)];
 		}
 
 		if (supportsCursorMcpRegistration()) {
-			const mcpModule = await import(/* webpackChunkName: "mcp-cursor" */ './gk/mcp/cursorIntegration.js');
+			const mcpModule = await loadChunk(
+				() => import(/* webpackChunkName: "mcp-cursor" */ './gk/mcp/cursorIntegration.js'),
+			);
 			return [new mcpModule.CursorGkMcpProvider(container)];
 		}
 	}

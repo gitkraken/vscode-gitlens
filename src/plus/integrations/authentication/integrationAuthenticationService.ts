@@ -7,6 +7,7 @@ import {
 	IssuesCloudHostIntegrationId,
 } from '../../../constants.integrations.js';
 import type { Container } from '../../../container.js';
+import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { supportedIntegrationIds } from '../utils/-webview/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
@@ -65,28 +66,28 @@ export class IntegrationAuthenticationService implements Disposable {
 			switch (providerId) {
 				case GitCloudHostIntegrationId.AzureDevOps:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './azureDevOps.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './azureDevOps.js'))
 					).AzureDevOpsAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './azureDevOps.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './azureDevOps.js'))
 					).AzureDevOpsServerAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitCloudHostIntegrationId.Bitbucket:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './bitbucket.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './bitbucket.js'))
 					).BitbucketAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitSelfManagedHostIntegrationId.BitbucketServer:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './bitbucket.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './bitbucket.js'))
 					).BitbucketServerAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitCloudHostIntegrationId.GitHub:
 					provider = isSupportedCloudIntegrationId(GitCloudHostIntegrationId.GitHub)
 						? new (
-								await import(/* webpackChunkName: "integrations" */ './github.js')
+								await loadChunk(() => import(/* webpackChunkName: "integrations" */ './github.js'))
 							).GitHubAuthenticationProvider(this.container, this, this.configuredIntegrationService)
 						: new BuiltInAuthenticationProvider(
 								this.container,
@@ -98,7 +99,7 @@ export class IntegrationAuthenticationService implements Disposable {
 					break;
 				case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './github.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './github.js'))
 					).GitHubEnterpriseCloudAuthenticationProvider(
 						this.container,
 						this,
@@ -107,16 +108,16 @@ export class IntegrationAuthenticationService implements Disposable {
 					break;
 				case GitSelfManagedHostIntegrationId.GitHubEnterprise:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './github.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './github.js'))
 					).GitHubEnterpriseAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case GitCloudHostIntegrationId.GitLab:
 					provider = isSupportedCloudIntegrationId(GitCloudHostIntegrationId.GitLab)
 						? new (
-								await import(/* webpackChunkName: "integrations" */ './gitlab.js')
+								await loadChunk(() => import(/* webpackChunkName: "integrations" */ './gitlab.js'))
 							).GitLabCloudAuthenticationProvider(this.container, this, this.configuredIntegrationService)
 						: new (
-								await import(/* webpackChunkName: "integrations" */ './gitlab.js')
+								await loadChunk(() => import(/* webpackChunkName: "integrations" */ './gitlab.js'))
 							).GitLabLocalAuthenticationProvider(
 								this.container,
 								this,
@@ -126,7 +127,7 @@ export class IntegrationAuthenticationService implements Disposable {
 					break;
 				case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './gitlab.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './gitlab.js'))
 					).GitLabSelfHostedCloudAuthenticationProvider(
 						this.container,
 						this,
@@ -135,7 +136,7 @@ export class IntegrationAuthenticationService implements Disposable {
 					break;
 				case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './gitlab.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './gitlab.js'))
 					).GitLabLocalAuthenticationProvider(
 						this.container,
 						this,
@@ -145,12 +146,12 @@ export class IntegrationAuthenticationService implements Disposable {
 					break;
 				case IssuesCloudHostIntegrationId.Jira:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './jira.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './jira.js'))
 					).JiraAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				case IssuesCloudHostIntegrationId.Linear:
 					provider = new (
-						await import(/* webpackChunkName: "integrations" */ './linear.js')
+						await loadChunk(() => import(/* webpackChunkName: "integrations" */ './linear.js'))
 					).LinearAuthenticationProvider(this.container, this, this.configuredIntegrationService);
 					break;
 				default:

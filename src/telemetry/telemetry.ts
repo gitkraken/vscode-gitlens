@@ -5,6 +5,7 @@ import { getPlatform } from '@env/platform.js';
 import type { Source, TelemetryEventData, TelemetryEvents, TelemetryGlobalContext } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { configuration } from '../system/-webview/configuration.js';
+import { loadChunk } from '../system/-webview/loadChunk.js';
 import { getExtensionModeLabel } from '../system/-webview/vscode.js';
 
 export interface TelemetryContext {
@@ -95,7 +96,7 @@ export class TelemetryService implements Disposable {
 		}
 
 		this.provider = new (
-			await import(/* webpackChunkName: "telemetry" */ './openTelemetryProvider.js')
+			await loadChunk(() => import(/* webpackChunkName: "telemetry" */ './openTelemetryProvider.js'))
 		).OpenTelemetryProvider(
 			{
 				env: container.env,
