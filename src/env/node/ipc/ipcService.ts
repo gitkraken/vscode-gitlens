@@ -5,6 +5,7 @@ import {
 	agentDiscoveryDir,
 	cleanupDiscoveryFile,
 	cliDiscoveryDir,
+	sweepStaleDiscoveryFiles,
 	writeDiscoveryFile,
 } from '@gitlens/ipc/discovery.js';
 import type { IpcHandler, IpcServer } from '@gitlens/ipc/ipcServer.js';
@@ -48,13 +49,26 @@ export class IpcService implements Disposable {
 	private _agentsQueue: Promise<unknown> = Promise.resolve();
 
 	private readonly _disposable: Disposable;
+	private _sweepTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(private readonly container: Container) {
 		this._disposable = workspace.onDidChangeWorkspaceFolders(() => void this.refreshDiscoveryFiles());
+
+		// One-shot sweep of orphaned discovery files left by peer windows that crashed or were
+		// hard-killed without running dispose(). Deferred well past activation so it never
+		// contends with first-render; cleared on dispose if we shut down first.
+		this._sweepTimer = setTimeout(() => {
+			this._sweepTimer = undefined;
+			void this.runDiscoverySweep();
+		}, 30000);
 	}
 
 	dispose(): void {
 		this._disposable.dispose();
+		if (this._sweepTimer != null) {
+			clearTimeout(this._sweepTimer);
+			this._sweepTimer = undefined;
+		}
 		// Best-effort sync cleanup (UnifiedDisposable.dispose is sync by contract).
 		void cleanupDiscoveryFile(this._cliDiscoveryFilePath);
 		void cleanupDiscoveryFile(this._agentsDiscoveryFilePath);
@@ -244,6 +258,31 @@ export class IpcService implements Disposable {
 			workspacePaths: this._agentsWorkspacePaths,
 			createdAt: new Date().toISOString(),
 		});
+	}
+
+	/**
+	 * One-shot sweep of orphaned discovery files left by peer windows that crashed or were
+	 * hard-killed without running dispose(). Our own live files are excluded up front; the
+	 * reaping/liveness logic lives in {@link sweepStaleDiscoveryFiles}.
+	 */
+	private async runDiscoverySweep(): Promise<void> {
+		try {
+			const ownPaths = [this._cliDiscoveryFilePath, this._agentsDiscoveryFilePath].filter(
+				(p): p is string => p != null,
+			);
+			const { scanned, pruned } = await sweepStaleDiscoveryFiles([cliDiscoveryDir, agentDiscoveryDir], {
+				excludePorts: this.port != null ? [this.port] : undefined,
+				excludePaths: ownPaths,
+			});
+
+			if (scanned > 0) {
+				Logger.debug(
+					`${formatLoggableScopeBlock('IPC')} Discovery sweep: pruned ${pruned} of ${scanned} peer file(s)`,
+				);
+			}
+		} catch (ex) {
+			Logger.warn(`${formatLoggableScopeBlock('IPC')} Discovery sweep failed: ${ex}`);
+		}
 	}
 }
 

@@ -20,12 +20,16 @@
 		"clean": "pnpx rimraf --glob dist out **/.eslintcache* **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
-		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo"
+		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*"
 	},
 	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"mocha": "catalog:",
+		"tsx": "catalog:",
 		"typescript": "catalog:"
 	}
 }
