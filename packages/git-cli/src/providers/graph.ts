@@ -538,7 +538,19 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			}
 		}
 
-		return getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
+		let graph = await getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
+
+		// Spurious-empty guard: the repo has branches (so `git log --all` should yield commits) yet the
+		// log returned no rows. That's an inconsistent result — almost always a transient ref-read race
+		// while a concurrent git operation rewrites refs/packed-refs — not a genuinely empty repo.
+		// Returning it would flash "No commits" in the graph. Retry once (transient glitches clear within
+		// ms). A truly empty repo has no branches and is left untouched.
+		if (graph.rows.length === 0 && branches?.length && !cancellation?.aborted) {
+			scope?.warn(`graph returned 0 rows but repo has ${branches.length} branches; retrying`);
+			graph = await getCommitsForGraphCore.call(this, defaultLimit, selectSha, undefined, cancellation);
+		}
+
+		return graph;
 	}
 
 	@debug({
