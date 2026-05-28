@@ -300,6 +300,7 @@ import type {
 	ScopeSelection,
 } from './graphService.js';
 import {
+	activityDecayToMs,
 	formatRepositories,
 	hasGitReference,
 	isGraphItemRefContext,
@@ -3329,6 +3330,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						break;
 					case 'sidebarPinned':
 						void configuration.updateEffective('graph.sidebar.pinned', params.changes[key]);
+						break;
+					case 'activityDecay':
+						void configuration.updateEffective(
+							'graph.experimental.visualizations.activityDecay',
+							params.changes[key],
+						);
 						break;
 					default:
 						// TODO:@eamodio add more config options as needed
@@ -7104,6 +7111,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
+			activityDecay: configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
+			activityDecayMs: activityDecayToMs(
+				configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',
+			),
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
 			minimap: configuration.get('graph.minimap.enabled'),
@@ -7565,6 +7576,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Probe clean/dirty per worktree on the graph-load build so the WIP bar can surface
 			// worktrees with changes that aren't visible as graph rows. The per-tick push omits it.
 			this.getWipMetadataBySha(cancellation.token, { probeChanges: true }),
+			// Worktree registry for the webview — the Agent Activity treemap maps agent file activity
+			// to repo-relative keys against these. Fetched directly (not via `this._graph`, which isn't
+			// loaded yet on the deferred-rows build).
+			this.repository.git.worktrees?.getWorktrees(toAbortSignal(cancellation.token)),
 		]);
 
 		let data;
@@ -7617,7 +7632,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			data = this._graph ?? data;
 		}
 
-		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipMetadataResult] = await promises;
+		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipMetadataResult, worktreesResult] =
+			await promises;
 		if (cancellation.token.isCancellationRequested) throw new CancellationError();
 
 		const [access, visibility] = getSettledValue(accessResult) ?? [];
@@ -7725,6 +7741,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			webroot: this.host.getWebRoot(),
 			windowFocused: this.isWindowFocused,
 			repositories: await formatRepositories(this.container.git.openRepositories),
+			worktreePaths: getSettledValue(worktreesResult)?.map(w => w.path),
 			selectedRepository: this.repository.id,
 			selectedRepositoryVisibility: visibility,
 			branchesVisibility: refsVisibility.branchesVisibility,

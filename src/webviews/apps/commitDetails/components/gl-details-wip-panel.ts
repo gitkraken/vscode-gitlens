@@ -86,6 +86,13 @@ const checkboxMixedActions: TreeItemAction[] = [openFileAction, openStagedChange
 const stagedActions: TreeItemAction[] = [openFileAction, unstageAction, discardAction];
 const unstagedActions: TreeItemAction[] = [openFileAction, stageAction, discardAction];
 
+/** Grace period after `editing` flips off during which a file stays marked. The host's
+ *  `editing === true` window is the literal in-flight refcount window — milliseconds for
+ *  Edit/Write tool calls — so without grace the mark flashes and is gone before the eye can
+ *  register it. The grace is preempted the moment any *other* file becomes `editing === true`
+ *  (see {@link GlDetailsWipPanel.computeAgentTouchedFiles}); the indicator follows the agent. */
+const agentTouchedGraceMs = 5000;
+
 @customElement('gl-details-wip-panel')
 export class GlDetailsWipPanel extends GlDetailsBase {
 	static override styles = [
@@ -130,27 +137,91 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ attribute: false })
 	agentSessions?: AgentSessionState[];
 
-	/** Repo-relative normalized paths the connected agent(s) are actively editing right now,
-	 *  mapped to the most-active phase. Recomputed in {@link willUpdate} only when
-	 *  {@link agentSessions} or {@link wip} changes so unrelated WIP snapshot pushes (file stats,
-	 *  tracking info) don't churn the downstream tree-pane model. */
+	/** Repo-relative normalized paths the connected agent(s) are actively editing right now (or
+	 *  within {@link agentTouchedGraceMs} of last edit, see {@link computeAgentTouchedFiles}),
+	 *  mapped to the most-active phase. Recomputed in {@link willUpdate} when {@link agentSessions}
+	 *  or {@link wip} changes, AND on a one-shot timer for the earliest grace expiry so the mark
+	 *  drops cleanly without waiting for the next host snapshot. */
 	@state()
 	private _agentTouchedFiles?: ReadonlyMap<string, AgentSessionPhase>;
 
+	/** `performance.now()` at which the current `agentSessions` snapshot was received. Used to
+	 *  age `editedAt` locally — the wire value only advances when the host fires a new snapshot,
+	 *  which stops when the agent goes idle. Without local aging a grace mark would persist until
+	 *  the next event (or until the host's full `activityDecayMs` eviction, minutes later). */
+	private _agentSnapshotReceivedAt = 0;
+
+	/** Per-session structural signatures (id + per-path read/edit flags, NOT timestamps) behind the
+	 *  last `_agentSnapshotReceivedAt` stamp. The aging baseline must only reset when the host actually
+	 *  re-stamps `editedAt` (solely on a file-tool sync, in lockstep with a structural change) — NOT on
+	 *  the far more frequent `agentSessions` fires for status/lastActivity/other sessions, which leave
+	 *  `editedAt` frozen. The `fileActivity` array reference can't be the key: postMessage recreates it
+	 *  on every push, so reference comparison always reports a change and would pin `effectiveAge` near
+	 *  zero, so the grace mark would never expire while the agent runs non-file tools. */
+	private _lastFileActivitySigs = new Set<string>();
+
+	/** Timer that fires when the earliest grace tail expires so we drop the mark on schedule
+	 *  even with no fresh host snapshot. Replaced on each recompute; cleared on disconnect. */
+	private _agentGraceTimer: ReturnType<typeof setTimeout> | undefined;
+
+	override disconnectedCallback(): void {
+		super.disconnectedCallback?.();
+		if (this._agentGraceTimer != null) {
+			clearTimeout(this._agentGraceTimer);
+			this._agentGraceTimer = undefined;
+		}
+	}
+
+	/** Strict realtime with a small grace tail: a file is marked when an agent is *editing* it
+	 *  right now, OR — only while nothing else is currently being edited — for a short
+	 *  {@link agentTouchedGraceMs} window after its last edit so the user actually sees it. The
+	 *  moment any other file becomes `editing === true`, the global "active" gate kicks in and
+	 *  every grace-only mark drops, so the indicator follows the agent rather than accumulating.
+	 *
+	 *  Aging is local: `editedAt` on the wire is host-ms at serialization time and doesn't advance
+	 *  between snapshots, so we add `(performance.now() - _agentSnapshotReceivedAt)` to compute
+	 *  the live age. A one-shot timer (re-armed here) triggers a re-render at the earliest grace
+	 *  expiry so the drop happens on schedule even when the agent goes idle. */
 	private computeAgentTouchedFiles(): ReadonlyMap<string, AgentSessionPhase> | undefined {
 		const sessions = this.agentSessions;
 		const repoPath = this.wip?.repo?.path;
 		if (!sessions?.length || repoPath == null) return undefined;
 
+		// First pass: any actively-editing file across all sessions? When true, the grace branch
+		// is skipped — current activity preempts any tail from a previous edit.
+		let hasAnyActive = false;
+		for (const s of sessions) {
+			if (!isActiveAgentPhase(s.phase)) continue;
+			if (s.fileActivity?.some(e => e.editing === true)) {
+				hasAnyActive = true;
+				break;
+			}
+		}
+
+		const elapsedSinceSnapshot = Math.max(0, performance.now() - this._agentSnapshotReceivedAt);
 		let touched: Map<string, AgentSessionPhase> | undefined;
+		let earliestGraceRemainingMs = Infinity;
+
 		for (const s of sessions) {
 			if (!isActiveAgentPhase(s.phase)) continue;
 
-			const files = s.currentFiles;
-			if (!files?.length) continue;
+			const entries = s.fileActivity;
+			if (!entries?.length) continue;
 
-			for (const abs of files) {
-				const normalized = normalizePath(abs);
+			for (const entry of entries) {
+				const isLive = entry.editing === true;
+				let inGrace = false;
+				let graceRemainingMs = Infinity;
+				if (!isLive && !hasAnyActive && entry.editedAt != null) {
+					const effectiveAge = entry.editedAt + elapsedSinceSnapshot;
+					if (effectiveAge < agentTouchedGraceMs) {
+						inGrace = true;
+						graceRemainingMs = agentTouchedGraceMs - effectiveAge;
+					}
+				}
+				if (!isLive && !inGrace) continue;
+
+				const normalized = normalizePath(entry.path);
 				if (!isDescendant(normalized, repoPath)) continue;
 
 				const rel = relative(repoPath, normalized);
@@ -162,16 +233,71 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				if (existing !== 'working') {
 					touched.set(rel, s.phase);
 				}
+				if (inGrace && graceRemainingMs < earliestGraceRemainingMs) {
+					earliestGraceRemainingMs = graceRemainingMs;
+				}
 			}
 		}
 
+		// Re-arm the one-shot timer for the earliest grace expiry. Adding a small slack (50ms) so
+		// the re-render lands just past the boundary and the file definitively drops on this pass.
+		if (this._agentGraceTimer != null) {
+			clearTimeout(this._agentGraceTimer);
+			this._agentGraceTimer = undefined;
+		}
+		if (Number.isFinite(earliestGraceRemainingMs)) {
+			this._agentGraceTimer = setTimeout(() => {
+				this._agentGraceTimer = undefined;
+				this._agentTouchedFiles = this.computeAgentTouchedFiles();
+			}, earliestGraceRemainingMs + 50);
+		}
+
 		return touched;
+	}
+
+	/** True when the per-session `fileActivity` STRUCTURE (paths + read/edit flags, ignoring the
+	 *  editedAt/readAt timestamps) differs from the last stamp — i.e. the host actually re-synced file
+	 *  activity (the only event that refreshes `editedAt`, in lockstep with a structural change).
+	 *  Order-independent; updates the stored set as a side effect. Keyed on structure rather than the
+	 *  `fileActivity` reference because postMessage recreates that reference on every push. */
+	private fileActivityStructureChanged(): boolean {
+		const current = new Set<string>();
+		for (const s of this.agentSessions ?? []) {
+			const fa = s.fileActivity;
+			if (fa == null) continue;
+
+			let sig = s.id;
+			for (const e of fa) {
+				sig += `\u0001${e.path}:${e.reading ? 'r' : ''}${e.editing ? 'e' : ''}`;
+			}
+			current.add(sig);
+		}
+		let changed = current.size !== this._lastFileActivitySigs.size;
+		if (!changed) {
+			for (const sig of current) {
+				if (!this._lastFileActivitySigs.has(sig)) {
+					changed = true;
+					break;
+				}
+			}
+		}
+		this._lastFileActivitySigs = current;
+		return changed;
 	}
 
 	protected override willUpdate(changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>): void {
 		super.willUpdate?.(changedProperties);
 
 		if (changedProperties.has('agentSessions') || changedProperties.has('wip')) {
+			// Stamp the local receipt time so `editedAt` (host-ms-at-serialization) can be aged
+			// locally between snapshots. Only re-stamp when the `fileActivity` STRUCTURE actually
+			// changed — that is the only time the host re-stamps `editedAt`. Re-stamping on every
+			// `agentSessions` fire (status ticks, lastActivity, other sessions — all of which leave the
+			// structure and thus `editedAt` unchanged) would keep `effectiveAge` pinned near zero and the
+			// grace mark would never expire while the agent runs non-file tools.
+			if (changedProperties.has('agentSessions') && this.fileActivityStructureChanged()) {
+				this._agentSnapshotReceivedAt = performance.now();
+			}
 			this._agentTouchedFiles = this.computeAgentTouchedFiles();
 		}
 	}
