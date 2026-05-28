@@ -232,6 +232,7 @@ async function getAvatarUriFromRemoteProvider(
 
 	try {
 		let account: CommitAuthor | undefined;
+		let hasAvatarSource = false;
 		// if (typeof repoPathOrCommit === 'string') {
 		// 	const remote = await Container.instance.git.getRichRemoteProvider(repoPathOrCommit);
 		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
@@ -239,6 +240,7 @@ async function getAvatarUriFromRemoteProvider(
 		if (typeof repoPathOrCommit !== 'string') {
 			const remote = await getBestRemoteWithIntegration(repoPathOrCommit.repoPath);
 			if (remote != null && remoteSupportsIntegration(remote)) {
+				hasAvatarSource = true;
 				account = await (
 					await getRemoteIntegration(remote)
 				)?.getAccountForCommit(remote.provider.repoDesc, repoPathOrCommit.ref, {
@@ -266,10 +268,12 @@ async function getAvatarUriFromRemoteProvider(
 		}
 
 		if (account?.avatarUrl == null) {
-			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
-			avatar.uri = undefined;
-			avatar.timestamp = Infinity;
-			avatar.retries = 0;
+			if (hasAvatarSource) {
+				// A provider was consulted but returned no avatar — permanently cache "no result"
+				avatar.uri = undefined;
+				avatar.timestamp = Infinity;
+				avatar.retries = 0;
+			}
 
 			return undefined;
 		}
