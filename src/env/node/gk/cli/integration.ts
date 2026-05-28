@@ -122,7 +122,7 @@ export class GkCliIntegrationProvider implements Disposable {
 			clearResolvedCLIExecutableCache();
 		}
 
-		if (e == null || configuration.changed(e, 'gitkraken.mcp.autoEnabled')) {
+		if (e == null || configuration.changed(e, 'ai.enabled')) {
 			if (!this.supportsCliIntegration()) {
 				this.stop();
 			} else {
@@ -138,13 +138,17 @@ export class GkCliIntegrationProvider implements Disposable {
 				Logger.info(
 					`${formatLoggableScopeBlock('CLI')} Forcing CLI reinstall on settings change (insiders = ${isInsidersCLIEnabled()})`,
 				);
-				void this.setupMCPCore('settings', true, true).catch(() => {});
+				if (mcpRegistrationAllowed(this.container)) {
+					void this.setupMCPCore('settings', true, true).catch(() => {});
+				} else if (this.container.ai.enabled) {
+					void this.installCLI(true, 'settings', true).catch(() => {});
+				}
 			}
 		}
 	}
 
 	private supportsCliIntegration(): boolean {
-		return this.container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled');
+		return this.container.ai.enabled;
 	}
 
 	@gate()
@@ -229,15 +233,23 @@ export class GkCliIntegrationProvider implements Disposable {
 			}
 		}
 
-		const didReachMaxAttempts = reachedMaxAttempts(cliInstall);
+		let didReachMaxAttempts = reachedMaxAttempts(cliInstall);
 
 		// Reset the attempts count if GitLens extension version has changed
 		if (forceInstall || (didReachMaxAttempts && versionDidChange)) {
 			void this.container.storage.storeScoped('gk:cli:install', undefined);
+			didReachMaxAttempts = false;
 		}
 
-		const shouldAutoInstall = mcpRegistrationAllowed(this.container) && !didReachMaxAttempts;
-		if (!forceInstall && !shouldAutoInstall) {
+		const shouldAutoInstall = mcpRegistrationAllowed(this.container);
+		if (!forceInstall && didReachMaxAttempts) {
+			return;
+		}
+		if (!shouldAutoInstall) {
+			// CLI still powers hooks and agent dispatch even when MCP can't auto-register.
+			if (this.container.ai.enabled) {
+				void this.installCLI(true, 'gk-cli-integration', forceInstall).catch(() => {});
+			}
 			return;
 		}
 
