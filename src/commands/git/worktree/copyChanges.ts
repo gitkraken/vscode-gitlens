@@ -153,8 +153,10 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 						break;
 				}
 
+				const sourceUri = state.source?.uri.toString();
 				const result = yield* pickWorktreeStep(state, context, {
-					excludeOpened: true,
+					excludeOpened: state.source == null,
+					filter: sourceUri != null ? wt => wt.uri.toString() !== sourceUri : undefined,
 					includeStatus: true,
 					picked: state.target?.uri?.toString(),
 					placeholder: placeholder,
