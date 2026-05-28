@@ -28557,6 +28557,7 @@
 		"workflow": "node --experimental-strip-types ./scripts/issues/workflow.mts",
 		"test:e2e:insiders": "set VSCODE_VERSION=insiders && playwright test -c tests/e2e/playwright.config.ts",
 		"build:e2e-runner": "esbuild tests/e2e/runner/src/index.ts --bundle --outfile=tests/e2e/runner/dist/index.js --platform=node --external:vscode --format=cjs",
+		"dev:launch": "node ./scripts/dev-launch.mjs",
 		"watch": "node ./scripts/build.mjs --watch",
 		"watch:quick": "node ./scripts/build.mjs --watch --quick=true",
 		"watch:turbo": "node ./scripts/build.mjs --watch --quick=turbo",
