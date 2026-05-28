@@ -2930,6 +2930,29 @@ or
 }
 ```
 
+### graph/wip/commit/failed
+
+> Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure)
+
+```typescript
+{
+  // Whether the failed commit was an amend
+  'amend': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output"
+  'hasOutput': boolean,
+  'reason': 'unknown' | 'hookRejected' | 'signingFailed' | 'nothingToCommit' | 'conflicts' | 'identityMissing'
+}
+```
+
 ### graphDetails/closed
 
 > Sent when the integrated graph details panel is collapsed
@@ -4034,7 +4057,7 @@ void
   // Duration of conflict detection in milliseconds
   'duration': number,
   // Result status
-  'status': 'clean' | 'conflicts'
+  'status': 'conflicts' | 'clean'
 }
 ```
 

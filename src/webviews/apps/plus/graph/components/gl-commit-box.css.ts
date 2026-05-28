@@ -147,6 +147,19 @@ export const commitBoxStyles = css`
 		outline: none;
 	}
 
+	.textarea.has-error {
+		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+	}
+
+	.textarea.has-error:focus {
+		border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+	}
+
+	.textarea:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+
 	.textarea::placeholder {
 		color: var(--vscode-input-placeholderForeground);
 	}
@@ -209,10 +222,5 @@ export const commitBoxStyles = css`
 		--button-background: var(--vscode-inputValidation-warningBorder, #b89500);
 		--button-foreground: #000;
 		--button-hover-background: color-mix(in srgb, #fff 10%, var(--vscode-inputValidation-warningBorder, #b89500));
-	}
-
-	.error {
-		font-size: var(--gl-font-base);
-		color: var(--vscode-editorError-foreground);
 	}
 `;

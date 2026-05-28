@@ -263,6 +263,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a search was performed on the Commit Graph */
 	'graph/searched': GraphSearchedEvent;
 
+	/** Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure) */
+	'graph/wip/commit/failed': GraphWipCommitFailedEvent;
+
 	/** Sent when a virtual-FS-backed file (e.g. a Graph Compose proposed commit) is opened */
 	'graph/virtualFile/opened': GraphVirtualFileOpenedEvent;
 	/** Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered) */
@@ -1031,6 +1034,23 @@ interface GraphSearchedEvent extends GraphContextEventData {
 
 export type GraphVirtualFileMode = 'diff' | 'comparePrevious' | 'multiDiff';
 export type GraphVirtualFileFailureReason = 'provider-missing' | 'parent-missing' | 'unknown';
+
+/** Classified reason a WIP-panel commit failed; mirrors `CommitFailureReason` in the repository RPC service */
+export type GraphWipCommitFailureReason =
+	| 'hookRejected'
+	| 'signingFailed'
+	| 'nothingToCommit'
+	| 'conflicts'
+	| 'identityMissing'
+	| 'unknown';
+
+interface GraphWipCommitFailedEvent extends GraphContextEventData {
+	reason: GraphWipCommitFailureReason;
+	/** Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output" */
+	hasOutput: boolean;
+	/** Whether the failed commit was an amend */
+	amend: boolean;
+}
 
 interface GraphVirtualFileOpenedEvent extends GraphContextEventData {
 	/** Which open operation the user triggered */

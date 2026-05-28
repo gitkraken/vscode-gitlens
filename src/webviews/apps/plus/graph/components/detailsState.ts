@@ -424,6 +424,8 @@ function createTransientState() {
 	const amendBaseSha = signal<string | undefined>(undefined);
 	const generating = signal(false);
 	const commitError = signal<string | undefined>(undefined);
+	// True while a commit RPC is in flight; drives the commit box's spinner + input lock.
+	const committing = signal(false);
 
 	return {
 		swapped: swapped,
@@ -474,6 +476,7 @@ function createTransientState() {
 		amendBaseSha: amendBaseSha,
 		generating: generating,
 		commitError: commitError,
+		committing: committing,
 
 		resetAll: resetAll,
 	};

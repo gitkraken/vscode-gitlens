@@ -41,6 +41,8 @@ import { executeCommand, executeCoreCommand } from '../../../system/-webview/com
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { bufferEventHandler } from '../eventVisibilityBuffer.js';
+import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
+import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import type {
 	CommitSignatureShape,
 	RepositoryChangeEventData,
@@ -508,10 +510,33 @@ export class RepositoryService {
 	}
 
 	/**
-	 * Commit staged changes.
+	 * Commit staged changes. Never throws for git failures — returns a discriminated
+	 * {@link CommitResult} so the webview can drive its error UX without depending on
+	 * exception fidelity surviving RPC serialization. On failure, the classified error is
+	 * presented host-side (modal + optional full-output document) as a fire-and-forget effect.
 	 */
-	async commit(repoPath: string, message: string, options?: { all?: boolean; amend?: boolean }): Promise<void> {
-		await this.container.git.getRepositoryService(repoPath).ops?.commit(message, options);
+	async commit(
+		repoPath: string,
+		message: string,
+		options?: { all?: boolean; amend?: boolean },
+	): Promise<CommitResult> {
+		try {
+			await this.container.git.getRepositoryService(repoPath).ops?.commit(message, options);
+			return { status: 'committed' };
+		} catch (ex) {
+			const failure = classifyCommitFailure(ex);
+			// Present asynchronously so the webview spinner stops the instant the commit fails,
+			// rather than spinning while the modal sits open. The captured output is held in the
+			// closure, so no caching/lifecycle is needed.
+			void presentCommitFailure(failure);
+
+			return {
+				status: 'failed',
+				reason: failure.reason,
+				summary: failure.summary,
+				hasOutput: failure.output != null && failure.output.length > 0,
+			};
+		}
 	}
 
 	/**
@@ -705,4 +730,32 @@ function serializeStatusFile(file: GitStatusFile): SerializedGitFileChange {
 		staged: file.staged,
 		submodule: file.submodule,
 	};
+}
+
+/**
+ * Presents a classified commit failure as a modal error dialog. When output is available, the
+ * modal previews the first lines and offers a "View Full Output" action that opens the complete
+ * output in an untitled `log` document (the lightweight pattern used by patches/changelog viewers).
+ */
+async function presentCommitFailure(failure: ClassifiedCommitFailure): Promise<void> {
+	const { summary, output } = failure;
+	const hasOutput = output != null && output.length > 0;
+
+	// Self-contained: this runs as a fire-and-forget effect off the commit RPC, so it must never
+	// escape as an unhandled rejection if a dialog/editor API rejects (e.g. the host refuses dialogs).
+	try {
+		const viewOutput = 'View Full Output';
+		const choice = await window.showErrorMessage(
+			summary,
+			{ modal: true, detail: hasOutput ? buildCommitOutputPreview(output) : undefined },
+			...(hasOutput ? [viewOutput] : []),
+		);
+
+		if (choice === viewOutput && output != null) {
+			const doc = await workspace.openTextDocument({ content: output, language: 'log' });
+			await window.showTextDocument(doc, { preview: false });
+		}
+	} catch (ex) {
+		Logger.error(ex, 'presentCommitFailure');
+	}
 }

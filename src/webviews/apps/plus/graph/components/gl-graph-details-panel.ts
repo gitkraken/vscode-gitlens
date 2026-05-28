@@ -1802,6 +1802,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									.message=${this._state.commitMessage.get()}
 									.amend=${this._state.amend.get()}
 									.generating=${this._state.generating.get()}
+									.committing=${this._state.committing.get()}
 									.branchName=${branchName}
 									.canCommit=${this._actions.canCommit()}
 									.disabledReason=${this._actions.canCommitReason()}

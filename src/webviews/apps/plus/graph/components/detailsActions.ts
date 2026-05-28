@@ -2684,7 +2684,8 @@ export class DetailsActions {
 	}
 
 	async commit(repoPath: string | undefined, sha: string | undefined): Promise<void> {
-		if (!repoPath || !this.canCommit()) return;
+		// Guard against double-submit while a commit RPC is already in flight.
+		if (!repoPath || !this.canCommit() || this.state.committing.get()) return;
 
 		const message = this.state.commitMessage.get();
 		const isAmend = this.state.amend.get();
@@ -2700,19 +2701,33 @@ export class DetailsActions {
 
 		const all = !hasStagedFiles && smartCommit;
 
+		// Clear any prior error and enter the in-flight state (spinner + input lock).
+		this.state.commitError.set(undefined);
+		this.state.committing.set(true);
 		try {
-			await this.services.repository.commit(repoPath, message, { amend: isAmend, all: all });
-			this.state.commitMessage.set('');
-			this.state.commitMessageDirty.set(false);
-			this.state.amend.set(false);
-			this.state.amendBaseSha.set(undefined);
-			this.state.commitError.set(undefined);
-			// Must run before `fetchDetails`, which reads `graphState.getWipState()` synchronously.
-			this.optimisticallyClearCommittedFiles(all);
-			this.refreshWip();
-			void this.fetchDetails(sha, repoPath);
-		} catch (ex) {
-			this.state.commitError.set(ex instanceof Error ? ex.message : 'Commit failed');
+			// `commit` returns a discriminated result and never throws for git failures — the host
+			// classifies the error and presents the modal/full-output document itself.
+			const result = await this.services.repository.commit(repoPath, message, { amend: isAmend, all: all });
+			if (result.status === 'committed') {
+				this.state.commitMessage.set('');
+				this.state.commitMessageDirty.set(false);
+				this.state.amend.set(false);
+				this.state.amendBaseSha.set(undefined);
+				// Must run before `fetchDetails`, which reads `graphState.getWipState()` synchronously.
+				this.optimisticallyClearCommittedFiles(all);
+				this.refreshWip();
+				void this.fetchDetails(sha, repoPath);
+			} else {
+				// Message + amend are intentionally preserved so the user can fix and retry.
+				this.state.commitError.set(result.summary);
+				this.sendTelemetryEvent('graph/wip/commit/failed', {
+					reason: result.reason,
+					hasOutput: result.hasOutput,
+					amend: isAmend,
+				});
+			}
+		} finally {
+			this.state.committing.set(false);
 		}
 	}
 

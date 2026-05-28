@@ -38,6 +38,9 @@ export class GlCommitBox extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	generating = false;
 
+	@property({ type: Boolean, reflect: true })
+	committing = false;
+
 	@property()
 	branchName = '';
 
@@ -70,7 +73,12 @@ export class GlCommitBox extends LitElement {
 
 	private renderAmendToggle() {
 		return html`
-			<gl-checkbox class="amend-checkbox" .checked=${this.amend} @gl-change-value=${this.onAmendChange}>
+			<gl-checkbox
+				class="amend-checkbox"
+				.checked=${this.amend}
+				?disabled=${this.committing}
+				@gl-change-value=${this.onAmendChange}
+			>
 				Amend Previous Commit
 			</gl-checkbox>
 		`;
@@ -90,8 +98,10 @@ export class GlCommitBox extends LitElement {
 						</svg>`
 					: nothing}
 				<textarea
-					class="textarea"
+					class="textarea ${this.commitError ? 'has-error' : ''}"
 					.value=${this.message}
+					?disabled=${this.committing}
+					aria-invalid=${this.commitError ? 'true' : 'false'}
 					placeholder=${`Commit message (${modifier}Enter to commit)`}
 					@input=${this.onMessageInput}
 					@keydown=${this.onMessageKeydown}
@@ -133,22 +143,27 @@ export class GlCommitBox extends LitElement {
 					: '';
 
 		return html`
-			<gl-tooltip content=${disabledTooltip} ?disabled=${this.canCommit || !disabledTooltip} placement="bottom">
+			<gl-tooltip
+				content=${disabledTooltip}
+				?disabled=${this.canCommit || this.committing || !disabledTooltip}
+				placement="bottom"
+			>
 				<span class="commit-btn-wrapper">
 					<gl-button
 						class="commit-btn"
 						full
-						?disabled=${!this.canCommit}
+						?disabled=${!this.canCommit || this.committing}
+						aria-busy=${this.committing ? 'true' : 'false'}
 						variant=${this.amend ? 'warning' : nothing}
-						tooltip=${this.canCommit ? enabledTooltip : ''}
+						tooltip=${this.canCommit && !this.committing ? enabledTooltip : ''}
 						@click=${this.onCommit}
 					>
-						${label}&nbsp;
-						<gl-branch-name .name=${branch}></gl-branch-name>
+						${this.committing
+							? html`<code-icon icon="loading" modifier="spin" slot="prefix"></code-icon>Committing…`
+							: html`${label}&nbsp;<gl-branch-name .name=${branch}></gl-branch-name>`}
 					</gl-button>
 				</span>
 			</gl-tooltip>
-			${this.commitError ? html`<span class="error">${this.commitError}</span>` : nothing}
 		`;
 	}
 
@@ -165,7 +180,7 @@ export class GlCommitBox extends LitElement {
 	private onMessageKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
 			e.preventDefault();
-			if (this.canCommit) {
+			if (this.canCommit && !this.committing) {
 				this.dispatchEvent(new CustomEvent('commit', { bubbles: true, composed: true }));
 			}
 		}
@@ -183,6 +198,8 @@ export class GlCommitBox extends LitElement {
 	}
 
 	private onCommit() {
+		if (this.committing) return;
+
 		this.dispatchEvent(new CustomEvent('commit', { bubbles: true, composed: true }));
 	}
 
