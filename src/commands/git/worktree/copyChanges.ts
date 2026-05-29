@@ -153,10 +153,13 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 						break;
 				}
 
-				const sourceUri = state.source?.uri.toString();
+				// Exclude the source worktree as a target -- copying changes into the worktree they came
+				// from is a no-op. The source is `state.source` when provided (e.g. from the Worktrees view),
+				// otherwise the repo we're operating on (e.g. the WIP row's worktree in the graph) -- which
+				// matches the source the changes are read from below.
+				const sourcePath = (state.source ?? state.repo).path;
 				const result = yield* pickWorktreeStep(state, context, {
-					excludeOpened: state.source == null,
-					filter: sourceUri != null ? wt => wt.uri.toString() !== sourceUri : undefined,
+					filter: wt => wt.path !== sourcePath,
 					includeStatus: true,
 					picked: state.target?.uri?.toString(),
 					placeholder: placeholder,
