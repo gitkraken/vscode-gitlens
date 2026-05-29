@@ -875,14 +875,18 @@ export class Cache implements Disposable {
 				// On factory invalidation, propagate to the derived per-worktree mapper entries
 				// via soft-invalidate — existing waiters on the mapper complete, and the entry
 				// self-evicts on mapper settle so the next callers build fresh derived entries.
-				void p.finally(() => {
-					if (cacheable.invalidated) {
-						this.branches.invalidate(commonPath);
-						for (const worktreePath of this.getWorktreePaths(commonPath)) {
-							this.branches.invalidate(worktreePath);
+				void p
+					.finally(() => {
+						if (cacheable.invalidated) {
+							this.branches.invalidate(commonPath);
+							for (const worktreePath of this.getWorktreePaths(commonPath)) {
+								this.branches.invalidate(worktreePath);
+							}
 						}
-					}
-				});
+					})
+					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
+					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
+					.catch(() => {});
 				return p;
 			},
 			cancellation,
@@ -1308,15 +1312,19 @@ export class Cache implements Disposable {
 				// On factory invalidation (without rejection), propagate to the derived per-worktree
 				// mapper entries so they don't persist past the shared factory's settle. Mapper
 				// entries cached via `cache.set()` have no controller, so `invalidate` hard-deletes.
-				void p.finally(() => {
-					if (cacheable.invalidated) {
-						for (const worktreePath of this.getWorktreePaths(commonPath)) {
-							if (worktreePath === commonPath) continue;
+				void p
+					.finally(() => {
+						if (cacheable.invalidated) {
+							for (const worktreePath of this.getWorktreePaths(commonPath)) {
+								if (worktreePath === commonPath) continue;
 
-							cache.invalidate(worktreePath);
+								cache.invalidate(worktreePath);
+							}
 						}
-					}
-				});
+					})
+					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
+					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
+					.catch(() => {});
 				return p;
 			},
 			cancellation,
@@ -1365,15 +1373,19 @@ export class Cache implements Disposable {
 				// mapper entries for this `cacheKey` so they don't persist past the shared factory's
 				// settle. Mapper entries cached via `cache.set()` have no controller, so `invalidate`
 				// hard-deletes.
-				void p.finally(() => {
-					if (cacheable.invalidated) {
-						for (const worktreePath of this.getWorktreePaths(commonPath)) {
-							if (worktreePath === commonPath) continue;
+				void p
+					.finally(() => {
+						if (cacheable.invalidated) {
+							for (const worktreePath of this.getWorktreePaths(commonPath)) {
+								if (worktreePath === commonPath) continue;
 
-							cache.invalidate(worktreePath, cacheKey);
+								cache.invalidate(worktreePath, cacheKey);
+							}
 						}
-					}
-				});
+					})
+					// Swallow the cleanup chain's rejection so a rejected factory (e.g. cancellation)
+					// doesn't surface as an unhandled rejection; the caller-facing promise handles it.
+					.catch(() => {});
 				return p;
 			},
 			options,

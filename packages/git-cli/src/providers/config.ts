@@ -377,7 +377,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const promise = this.setGkConfigCore(repoPath, key, value, options);
 		this._pendingGkConfigWrites.set(dedupKey, promise);
-		void promise.finally(() => this._pendingGkConfigWrites.delete(dedupKey));
+		// Swallow the cleanup chain's rejection so a failed write doesn't surface as an unhandled
+		// rejection separate from the caller's own handling of the returned promise.
+		void promise.finally(() => this._pendingGkConfigWrites.delete(dedupKey)).catch(() => {});
 		return promise;
 	}
 

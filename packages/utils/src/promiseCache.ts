@@ -172,14 +172,18 @@ export class PromiseCache<K, V> {
 		this.controllers.set(key, cacheable);
 
 		const promise = factory(cacheable, abortAgg.signal);
-		void promise.finally(() => {
-			if (cacheable.invalidated) {
-				this.cache.delete(key);
-			}
-			abortAgg.dispose();
-			this.aborts.delete(key);
-			this.controllers.delete(key);
-		});
+		void promise
+			.finally(() => {
+				if (cacheable.invalidated) {
+					this.cache.delete(key);
+				}
+				abortAgg.dispose();
+				this.aborts.delete(key);
+				this.controllers.delete(key);
+			})
+			// Swallow the cleanup chain's rejection so it doesn't surface as an unhandled rejection
+			// separate from the caller-facing promise's own handling (e.g. on cancellation).
+			.catch(() => {});
 
 		if (options?.onError != null) {
 			// Wrap the promise to handle errors with the onError callback
@@ -393,14 +397,18 @@ export class PromiseMap<K, V> {
 
 		// Automatically remove failed promises from the cache
 		promise.catch(() => this.cache.delete(key));
-		void promise.finally(() => {
-			if (cacheable.invalidated) {
-				this.cache.delete(key);
-			}
-			aborts.dispose();
-			this.aborts.delete(key);
-			this.controllers.delete(key);
-		});
+		void promise
+			.finally(() => {
+				if (cacheable.invalidated) {
+					this.cache.delete(key);
+				}
+				aborts.dispose();
+				this.aborts.delete(key);
+				this.controllers.delete(key);
+			})
+			// Swallow the cleanup chain's rejection so it doesn't surface as an unhandled rejection
+			// separate from the caller-facing promise's own handling (e.g. on cancellation).
+			.catch(() => {});
 
 		this.cache.set(key, promise);
 

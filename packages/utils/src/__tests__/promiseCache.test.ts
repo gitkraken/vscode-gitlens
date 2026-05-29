@@ -20,6 +20,33 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
 	return { promise: promise, resolve: resolve, reject: reject };
 }
 
+type UnhandledRejectionListener = (reason: unknown, promise: Promise<unknown>) => void;
+
+// Records any `unhandledRejection` events emitted while `fn` runs, plus a macrotask tick so Node's
+// detection has a chance to fire. Temporarily takes over the process listeners so the test runner's
+// own handler doesn't intercept, then restores them. Returns the captured rejection reasons.
+async function recordUnhandledRejections(fn: () => Promise<void>): Promise<unknown[]> {
+	const captured: unknown[] = [];
+	const existing = process.rawListeners('unhandledRejection');
+	const recorder = (reason: unknown): void => {
+		captured.push(reason);
+	};
+
+	process.removeAllListeners('unhandledRejection');
+	process.on('unhandledRejection', recorder);
+	try {
+		await fn();
+		// Node surfaces still-unhandled rejections after the microtask checkpoint — wait a macrotask.
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+		return captured;
+	} finally {
+		process.off('unhandledRejection', recorder);
+		for (const listener of existing) {
+			process.on('unhandledRejection', listener as UnhandledRejectionListener);
+		}
+	}
+}
+
 suite('PromiseMap Test Suite', () => {
 	suite('getOrCreate — aggregate signal plumbing', () => {
 		test('factory receives aggregate signal when first caller passes no signal', async () => {
@@ -279,6 +306,20 @@ suite('PromiseMap Test Suite', () => {
 			const result = await map.getOrCreate('k', () => Promise.resolve(1));
 			assert.strictEqual(result, 1);
 		});
+
+		test('rejected factory does not surface an unhandled rejection (cleanup chain is guarded)', async () => {
+			const map = new PromiseMap<string, number>();
+
+			const captured = await recordUnhandledRejections(async () => {
+				// Single caller whose factory rejects (mirrors a cancelled nested lookup such as
+				// getCurrentBranch). The caller-facing promise is handled here; the internal
+				// `.finally(...)` cleanup chain must not leak the rejection as a separate one.
+				const p = map.getOrCreate('k', () => Promise.reject(new CancellationError()));
+				await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			});
+
+			assert.deepStrictEqual(captured, [], 'cleanup chain must not produce an unhandled rejection');
+		});
 	});
 
 	suite('cache-hit caller cleanup', () => {
@@ -402,6 +443,22 @@ suite('PromiseCache Test Suite', () => {
 			assert.strictEqual(await p, 99);
 			await flush();
 			assert.strictEqual(cache.get('k'), undefined);
+		});
+	});
+
+	suite('factory rejection', () => {
+		test('rejected factory does not surface an unhandled rejection (cleanup chain is guarded)', async () => {
+			const cache = new PromiseCache<string, number>();
+
+			const captured = await recordUnhandledRejections(async () => {
+				// Single caller whose factory rejects (mirrors a cancelled nested lookup such as
+				// getCurrentBranch). The caller-facing promise is handled here; the internal
+				// `.finally(...)` cleanup chain must not leak the rejection as a separate one.
+				const p = cache.getOrCreate('k', () => Promise.reject(new CancellationError()));
+				await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			});
+
+			assert.deepStrictEqual(captured, [], 'cleanup chain must not produce an unhandled rejection');
 		});
 	});
 });
