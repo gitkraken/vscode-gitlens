@@ -802,13 +802,9 @@ export interface DidRequestWipRefetchParams {
 	/** Repo path of the WIP that should be re-fetched. */
 	repoPath: string;
 	/** Pre-fetched WIP payload — same shape as `DidChangeWorkingTreeNotification`'s `wip`. The
-	 *  panel applies this directly so the round-trip `getWip` RPC is avoided. */
+	 *  panel applies this directly so the round-trip `getWip` RPC is avoided. The working-tree
+	 *  stats travel embedded as `wip.stats`, so no sibling `stats` field is needed. */
 	wip?: Wip;
-	/** Pre-computed working-tree stats for this repo. Carried alongside `wip` so the webview
-	 *  doesn't have to re-derive them — the host already paid for the `git status` that produced
-	 *  the WIP payload. Used by the webview to refresh `workingTreeStats` (when this repo is the
-	 *  selected one) and the secondary row's `workDirStats`. */
-	stats?: GraphWorkingTreeStats;
 }
 /** Host → panel: push fresh WIP after host-side mutating actions whose effects don't reach the
  *  panel via the active-repo working-tree watcher (e.g. context-menu conflict-resolution
@@ -1217,13 +1213,12 @@ export interface DidRequestSearchParams {
 export const DidRequestSearchNotification = new IpcNotification<DidRequestSearchParams>(scope, 'search/didRequest');
 
 export interface DidChangeWorkingTreeParams {
-	stats: WorkDirStats;
 	wipMetadataBySha?: GraphWipMetadataBySha;
 	/**
-	 * Primary-repo WIP, captured from the same `git status` that produced `stats`. Lets the
-	 * details panel render fresh file lists without an extra `getWip` RPC. Omitted only when
-	 * the underlying status fetch fails — callers should fall back to their existing path
-	 * (resource fetch on selection) in that case.
+	 * Primary-repo WIP, captured from a single `git status`. Lets the details panel render fresh
+	 * file lists without an extra `getWip` RPC. The working-tree stats travel embedded as
+	 * `wip.stats`. Omitted only when the underlying status fetch fails — callers should fall back
+	 * to their existing path (resource fetch on selection) in that case.
 	 */
 	wip?: Wip;
 	/** Path of the repo whose working tree changed. Used by the webview's WIP cache to key the

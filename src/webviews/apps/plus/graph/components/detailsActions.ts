@@ -44,7 +44,6 @@ import type {
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
-import type { GraphWorkingTreeStats } from '../../../../plus/graph/protocol.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
@@ -124,7 +123,7 @@ export interface ResolvedServices {
 
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined, [string, boolean?]>;
+	readonly wip: Resource<{ wip: Wip } | undefined, [string, boolean?]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -757,10 +756,13 @@ export class DetailsActions {
 								if (this.resources.wip.status.get() === 'success') {
 									const result = this.resources.wip.value.get();
 									if (result != null) {
-										const { wip, stats } = result;
+										const { wip } = result;
 										this.state.wip.set(wip);
 										this.graphState?.setWip(repoPath, wip);
-										this.graphState?.setWorkingTreeStats(repoPath, stats);
+										// Stats travel embedded as `wip.stats`.
+										if (wip.stats != null) {
+											this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
+										}
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -787,10 +789,13 @@ export class DetailsActions {
 					if (this.resources.wip.status.get() === 'success') {
 						const result = this.resources.wip.value.get();
 						if (result != null) {
-							const { wip, stats } = result;
+							const { wip } = result;
 							this.state.wip.set(wip);
 							this.graphState?.setWip(repoPath, wip);
-							this.graphState?.setWorkingTreeStats(repoPath, stats);
+							// Stats travel embedded as `wip.stats`.
+							if (wip.stats != null) {
+								this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
+							}
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -2566,9 +2571,11 @@ export class DetailsActions {
 
 		this.applyWipPayload(result.wip, repoPath);
 		// Reseed the header/row badge source from the SAME `git status` the panel just applied.
-		// `result.stats` is `result.wip.stats` (one embedded, git-authoritative object), so the
+		// Stats travel embedded as `result.wip.stats` (one git-authoritative object), so the
 		// panel's file list and the header counts can't disagree.
-		this.graphState?.setWorkingTreeStats(repoPath, result.stats);
+		if (result.wip.stats != null) {
+			this.graphState?.setWorkingTreeStats(repoPath, result.wip.stats);
+		}
 	}
 
 	/**

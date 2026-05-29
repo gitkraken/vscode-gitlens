@@ -664,6 +664,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// some entries were appended. Cleared in `setGraph` on graph identity change.
 	private _lastSentAvatarsSize: number | undefined;
 	private _lastSentRowsStatsSize: number | undefined;
+	// Last overview shipped to the webview. `setGraph` fires `notifyDidChangeOverview` on every graph
+	// reload (repo/visibility/filter change, refresh); most reloads reproduce the prior overview, so
+	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
+	// graph identity change.
+	private _lastSentOverview: GraphOverviewData | undefined;
 	private static readonly stateFreshnessMs = 500;
 
 	private isWindowFocused: boolean = true;
@@ -1149,7 +1154,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					repoPath: string,
 					signal?: AbortSignal,
 					force?: boolean,
-				): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> => {
+				): Promise<{ wip: Wip } | undefined> => {
 					signal?.throwIfAborted();
 
 					// Secondary worktrees may not be pre-registered as Repository instances;
@@ -1159,10 +1164,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						(await this.container.git.getOrOpenRepository(Uri.file(repoPath), { closeOnOpen: true }));
 					if (repo == null) return undefined;
 
-					// Returning both halves lets the cold-load path reseed the webview's
-					// `workingTreeStats` slot from the same `git status` the panel uses — if a prior
-					// initial-state fetch landed with bad data and no FS event has fired since, the
-					// header/row badges stay stuck on stale stats until the next incidental tick.
+					// Returning `wip` (with stats embedded as `wip.stats`) lets the cold-load path
+					// reseed the webview's `workingTreeStats` slot from the same `git status` the
+					// panel uses — if a prior initial-state fetch landed with bad data and no FS event
+					// has fired since, the header/row badges stay stuck on stale stats until the next
+					// incidental tick.
 					// `force` (user-initiated refresh) bypasses `_wipStatusCache` so the button runs
 					// a genuinely fresh `git status` rather than re-serving a possibly-stale entry.
 					return this.getWipForRepoAndStats(repo, signal, force ? { bypassCache: true } : undefined);
@@ -4352,7 +4358,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.host.notify(DidRequestWipRefetchNotification, {
 					repoPath: entry.repo.path,
 					wip: result.wip,
-					stats: result.stats,
 				});
 			} finally {
 				entry.inFlight = undefined;
@@ -5407,9 +5412,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this._graph == null) return;
 
 		const data = this._graph;
-		return this.host.notify(DidChangeAvatarsNotification, {
+		// Share the `_lastSentAvatarsSize` watermark with the rows-notification path: avatar values
+		// never change for existing keys (every write at graphRowProcessor is gated by
+		// `!context.avatars.has(row.email)`), so an unchanged size means the webview already has
+		// every avatar. Skip the `Object.fromEntries` + IPC in that case. Only advance the watermark
+		// on confirmed delivery — a failed `notify` is requeued by type and REPLACED by a later one,
+		// so a speculative advance could skip avatars the webview never received.
+		const avatarsSize = data.avatars.size;
+		if (avatarsSize === this._lastSentAvatarsSize) return;
+
+		const success = await this.host.notify(DidChangeAvatarsNotification, {
 			avatars: Object.fromEntries(data.avatars),
 		});
+		if (success) {
+			this._lastSentAvatarsSize = avatarsSize;
+		}
+		return success;
 	}
 
 	@trace()
@@ -5936,16 +5954,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// entries (opened worktrees whose graph WIP row is off-screen) refresh lazily when the
 		// overview panel becomes visible, served from `_wipStatusCache` when warm.
 		const params: DidChangeWorkingTreeParams = {
-			stats: wipAndStatsResult.stats,
 			wipMetadataBySha: wipMetadataBySha,
 			wip: wipAndStatsResult.wip,
 			repoPath: repo.path,
 		};
 		// Skip identical pushes. Working-tree events fire on any FS write in the repo (file saves,
 		// `.git/index.lock` twiddles, branch-metadata writes), so most ticks reproduce the prior
-		// status verbatim. Comparing the whole params object is safe: `stats`, `wipMetadataBySha`,
-		// and `wip` all derive from the same `git status` — when `wip` is unchanged the others are
-		// too. Same dedup pattern as `_lastSentBranchState`.
+		// status verbatim. Comparing the whole params object is safe: `wipMetadataBySha` and `wip`
+		// (with stats embedded as `wip.stats`) all derive from the same `git status` — when `wip`
+		// is unchanged the others are too. Same dedup pattern as `_lastSentBranchState`.
 		if (this._lastSentWipNotificationParams != null && areEqual(this._lastSentWipNotificationParams, params)) {
 			return false;
 		}
@@ -5972,9 +5989,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return false;
 		}
 
-		return this.host.notify(DidChangeOverviewNotification, {
-			overview: this.getOverviewData(),
-		});
+		// Skip identical pushes — most graph reloads reproduce the prior overview verbatim. Advance
+		// the last-sent snapshot only on confirmed delivery: a failed `notify` is requeued by type
+		// and REPLACED by a later one, so a speculative advance could let the gate suppress the
+		// replacement and leave the webview never receiving the overview.
+		const overview = this.getOverviewData();
+		if (this._lastSentOverview != null && areEqual(overview, this._lastSentOverview)) {
+			return false;
+		}
+
+		const success = await this.host.notify(DidChangeOverviewNotification, { overview: overview });
+		if (success) {
+			this._lastSentOverview = overview;
+		}
+		return success;
 	}
 
 	private getOverviewData(): GraphOverviewData {
@@ -6883,7 +6911,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		repo: GlRepository,
 		signal?: AbortSignal,
 		options?: { bypassCache?: boolean },
-	): Promise<{ wip: Wip; stats: GraphWorkingTreeStats } | undefined> {
+	): Promise<{ wip: Wip } | undefined> {
 		signal?.throwIfAborted();
 
 		const svc = this.container.git.getRepositoryService(repo.path);
@@ -6973,10 +7001,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const diff = status.diffStatus;
 
-		// Build the stats once and embed the SAME object reference in both `wip.stats` and the
-		// sibling `stats` field. The webview derives `workingTreeStats` from `wip.stats`, so the
-		// file list and its counts can never drift — they're one object. The sibling is kept for
-		// callers that destructure `{ wip, stats }` (refresh / cold-load paths).
+		// Build the stats once and embed it as `wip.stats`. The webview derives `workingTreeStats`
+		// from `wip.stats`, so the file list and its counts can never drift — they're one object.
 		const stats: WipStats = {
 			added: diff.added,
 			deleted: diff.deleted,
@@ -7022,7 +7048,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				stats: stats,
 			},
-			stats: stats,
 		};
 	}
 
@@ -7813,6 +7838,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// page-delta, defeating Phase 7's primary perf win.
 			this._lastSentAvatarsSize = undefined;
 			this._lastSentRowsStatsSize = undefined;
+			this._lastSentOverview = undefined;
 			this._lastSentWipDrafts = undefined;
 			this._lastSentWipDraftsInitialized = false;
 			this._lastSentWipNotificationParams = undefined;
@@ -8508,14 +8534,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.container.git.getRepository(value.repoPath) ??
 			(await this.container.git.getOrOpenRepository(Uri.file(value.repoPath), { closeOnOpen: true }));
 		const result = repo != null ? await this.getWipForRepoAndStats(repo) : undefined;
-		// Ship `stats` alongside `wip` so the webview never has to re-derive them — the host
-		// just did the work, the webview's classifier wouldn't match `git diff --shortstat`
-		// semantics for renames/conflicts, and the derived value would drop `pausedOpStatus` /
-		// `context` (real visible regressions during a paused op).
+		// Ship `wip` (with stats embedded as `wip.stats`) so the webview never has to re-derive
+		// them — the host just did the work, the webview's classifier wouldn't match
+		// `git diff --shortstat` semantics for renames/conflicts, and the derived value would drop
+		// `pausedOpStatus` / `context` (real visible regressions during a paused op).
 		void this.host.notify(DidRequestWipRefetchNotification, {
 			repoPath: value.repoPath,
 			wip: result?.wip,
-			stats: result?.stats,
 		});
 	}
 

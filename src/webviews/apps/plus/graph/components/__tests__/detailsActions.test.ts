@@ -395,10 +395,10 @@ suite('DetailsActions', () => {
 			changes: undefined,
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+			stats: { added: 0, deleted: 0, modified: 0 },
 		};
-		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 
@@ -417,10 +417,10 @@ suite('DetailsActions', () => {
 			changes: undefined,
 			repositoryCount: 1,
 			repo: { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false },
+			stats: { added: 0, deleted: 0, modified: 0 },
 		};
-		const stats = { added: 0, deleted: 0, modified: 0 };
 		const resources = createResources({
-			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip, stats: stats })),
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: wip })),
 		});
 		const actions = new DetailsActions(state, createServices(), resources);
 

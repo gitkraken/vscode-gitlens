@@ -1177,10 +1177,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// through the accessor and don't update `_state`, so reading `_state` here sees a
 				// stale anchor-only map and the merge drops freshly-fetched `workDirStats` from
 				// every secondary row (the visible pill flash).
-				// `workingTreeStats` is just the primary wip's embedded `stats` (git-authoritative,
-				// same object as `msg.params.wip.stats`). Files and counts travel together, so they
-				// can't drift — no generation guard needed.
-				const updates: Partial<State> = { workingTreeStats: msg.params.stats };
+				// `workingTreeStats` is just the primary wip's embedded `stats` (git-authoritative).
+				// Files and counts travel together on the same `wip` object, so they can't drift —
+				// no generation guard needed. Assign only when stats are present: `updateState`
+				// enumerates keys, so `workingTreeStats: undefined` would actively CLEAR the badge.
+				// The producer always populates `wip.stats` and skips this notification when the status
+				// fetch fails, but guarding here keeps a stats-less push from blanking the badge and
+				// matches the `DidRequestWipRefetchNotification` handler's discipline below.
+				const updates: Partial<State> = {};
+				if (msg.params.wip?.stats != null) {
+					updates.workingTreeStats = msg.params.wip.stats;
+				}
 				if (msg.params.wipMetadataBySha != null) {
 					updates.wipMetadataBySha = mergeWipMetadata(
 						this.wipMetadataBySha,
@@ -1202,7 +1209,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Merge the overview entry for the primary's current branch from the same fetch,
 				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
 				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
-				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.stats);
+				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
 				break;
 			}
 
@@ -1212,7 +1219,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// working-tree notification — the panel's `applyPushedWip` observer handles it.
 				if (msg.params.wip != null) {
 					const updates: Partial<State> = { wip: msg.params.wip };
-					const { repoPath, stats } = msg.params;
+					const { repoPath } = msg.params;
+					// Stats travel embedded as `wip.stats` (host-computed from the same `git status`).
+					const stats = msg.params.wip.stats;
 					this.cacheWip(repoPath, msg.params.wip);
 
 					// Host shipped its already-computed stats — use them directly rather than

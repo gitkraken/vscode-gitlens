@@ -1,11 +1,62 @@
-export function areEqual(a: any, b: any): boolean {
+/**
+ * Structural deep-equality. Walks both values and short-circuits on the first difference without
+ * serializing to a string (unlike a `JSON.stringify` compare): the `a === b` fast path skips
+ * unchanged shared subtrees, and unequal values bail at the first mismatched field. Handles
+ * primitives, `null`/`undefined`, `Date` (by timestamp), arrays, and plain objects.
+ *
+ * Differs from the prior `JSON.stringify` compare in three ways — each intended or matching the old
+ * behavior:
+ * - Key-order-insensitive (the old compare was order-sensitive). Observable at one caller
+ *   (`configuration.update`, when a config value equals its schema default but with different key
+ *   order), where it harmlessly treats the value as the default rather than persisting a redundant
+ *   override.
+ * - A present-but-`undefined` key is distinct from an absent key (the old compare dropped
+ *   `undefined` keys).
+ * - `Map`/`Set`/`RegExp` and other exotic objects are NOT deep-compared — they reduce to their
+ *   own-enumerable keys (so two are effectively always-equal), same as the old stringify behavior.
+ *   No caller compares those.
+ *
+ * Assumes acyclic input — it recurses without a cycle guard (a self-referential value would
+ * overflow the stack). Every caller compares JSON-origin or same-shape data.
+ */
+export function areEqual(a: unknown, b: unknown): boolean {
 	if (a === b) return true;
 	if (a == null || b == null) return false;
 
-	const aType = typeof a;
-	if (aType === typeof b && (aType === 'string' || aType === 'number' || aType === 'boolean')) return false;
+	const type = typeof a;
+	if (type !== typeof b || type !== 'object') return false;
 
-	return JSON.stringify(a) === JSON.stringify(b);
+	// Both are non-null objects from here.
+	if (a instanceof Date) return b instanceof Date && a.getTime() === b.getTime();
+	if (b instanceof Date) return false;
+
+	const aIsArray = Array.isArray(a);
+	if (aIsArray !== Array.isArray(b)) return false;
+
+	if (aIsArray) {
+		const arrA = a as unknown[];
+		const arrB = b as unknown[];
+		if (arrA.length !== arrB.length) return false;
+
+		for (let i = 0; i < arrA.length; i++) {
+			if (!areEqual(arrA[i], arrB[i])) return false;
+		}
+		return true;
+	}
+
+	const objA = a as Record<string, unknown>;
+	const objB = b as Record<string, unknown>;
+	const keysA = Object.keys(objA);
+	if (keysA.length !== Object.keys(objB).length) return false;
+
+	// Equal key COUNT alone doesn't prove equal key SETS — without the `hasOwn` check,
+	// `{ a: 1, b: undefined }` and `{ a: 1, c: undefined }` would falsely compare equal (each
+	// missing key reads as `undefined`). The count check plus "every A-key is an own-key of B"
+	// together guarantee identical key sets.
+	for (const key of keysA) {
+		if (!Object.hasOwn(objB, key) || !areEqual(objA[key], objB[key])) return false;
+	}
+	return true;
 }
 
 type Primitive = string | number | boolean;
