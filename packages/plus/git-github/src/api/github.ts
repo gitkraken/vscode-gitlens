@@ -2955,12 +2955,15 @@ export class GitHubApi {
 		const promise = run();
 		this._pendingGraphQL.set(dedupeKey, promise);
 		// Clear from the inflight map once the promise settles — successes and failures both
-		// clear, so failed requests don't poison subsequent retries.
-		void promise.finally(() => {
+		// clear, so failed requests don't poison subsequent retries. Use `then(cleanup, cleanup)`
+		// rather than `finally` so a rejected request doesn't spawn an orphaned (unhandled) promise;
+		// the real caller still receives the rejection via the returned `promise`.
+		const cleanup = () => {
 			if (this._pendingGraphQL.get(dedupeKey) === promise) {
 				this._pendingGraphQL.delete(dedupeKey);
 			}
-		});
+		};
+		promise.then(cleanup, cleanup);
 		return promise;
 	}
 
