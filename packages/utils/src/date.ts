@@ -80,6 +80,8 @@ export function createFromDateDelta(
 
 export function fromNow(date: Date | number, short?: boolean): string {
 	const elapsed = (typeof date === 'number' ? date : date.getTime()) - Date.now();
+	// Guard against invalid dates (e.g. `new Date(<unparseable>)`), since a non-finite value would throw in `Intl.RelativeTimeFormat.format`
+	if (!Number.isFinite(elapsed)) return '';
 
 	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
 		const elapsedABS = Math.abs(elapsed);
@@ -133,6 +135,9 @@ export function formatDate(
 	cache: boolean = true,
 ): string {
 	format = format ?? undefined;
+
+	// Guard against invalid dates (e.g. `new Date(<unparseable>)`), since they would throw in `Intl.DateTimeFormat.format`
+	if (Number.isNaN(typeof date === 'number' ? date : date.getTime())) return '';
 
 	const key = `${locale ?? ''}:${format}`;
 
