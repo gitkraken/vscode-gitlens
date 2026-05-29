@@ -160,6 +160,26 @@
 }
 ```
 
+### ai/credits/addOnClicked
+
+> Sent when the user clicks "Get More Credits" on the weekly AI usage-limit notification
+
+```typescript
+{
+  'organization.role': 'owner' | 'admin' | 'billing' | 'user'
+}
+```
+
+### ai/credits/addOnDismissed
+
+> Sent when the user dismisses the weekly AI usage-limit notification
+
+```typescript
+{
+  'organization.role': 'owner' | 'admin' | 'billing' | 'user'
+}
+```
+
 ### ai/enabled
 
 > Sent when AI is enabled
