@@ -1,7 +1,8 @@
 {
 	"chat.useAgentsMdFile": true,
 	"editor.codeActionsOnSave": {
-		"source.fixAll.eslint": "explicit"
+		"source.fixAll.eslint": "explicit",
+		"source.fixAll.oxc": "explicit"
 	},
 	"files.associations": {
 		".eslintrc*.json": "jsonc"
@@ -43,7 +44,6 @@
 	},
 	"js/ts.preferences.importModuleSpecifier": "project-relative",
 	"js/ts.tsdk.path": "node_modules/typescript/lib",
-	"oxc.enable": true,
 	"oxc.enable.oxlint": true,
 	"oxc.enable.oxfmt": false,
 	"search.exclude": {
