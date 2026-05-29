@@ -3064,6 +3064,274 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/compose/applyPlan/completed
+
+> Sent when a compose plan is applied (commits created) successfully
+
+```typescript
+{
+  // Number of commits actually committed (post-exclusion)
+  'commits.count': number,
+  // Number of commits excluded by the user before apply
+  'commits.excluded.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from apply click to settlement in milliseconds
+  'duration': number,
+  // Total commits in the proposed plan
+  'plan.commits.count': number,
+  // Whether the plan was stale (working changes diverged since it was generated) at apply time
+  'stale': boolean
+}
+```
+
+### graphDetails/compose/applyPlan/failed
+
+> Sent when applying a compose plan fails
+
+```typescript
+{
+  // Number of commits actually committed (post-exclusion)
+  'commits.count': number,
+  // Number of commits excluded by the user before apply
+  'commits.excluded.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from apply click to settlement in milliseconds
+  'duration': number,
+  // Total commits in the proposed plan
+  'plan.commits.count': number,
+  // Whether the plan was stale (working changes diverged since it was generated) at apply time
+  'stale': boolean
+}
+```
+
+### graphDetails/compose/changeAiModel
+
+> Sent when the user switches the AI model from the compose-mode chip in the Graph Details panel
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  // Previously-selected model id (undefined when no model was set)
+  'ai.model.previous.id': string,
+  // Previously-selected model name
+  'ai.model.previous.name': string,
+  // Previously-selected model provider id
+  'ai.model.previous.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  // Previously-selected model provider name
+  'ai.model.previous.provider.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/compose/closed
+
+> Sent when the user exits compose mode in the Graph Details panel (toggled off or destroyed)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/compose/generatePlan/cancelled
+
+> Sent when a compose plan generation is cancelled (user-clicked Cancel or host-side abort)
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // True when this generation refined a prior plan; false on the initial compose
+  'refine': boolean,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/compose/generatePlan/completed
+
+> Sent when a compose plan generation completes successfully (initial or refine/recompose)
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // True when this generation refined a prior plan; false on the initial compose
+  'refine': boolean,
+  // Sum of additions across all proposed commits
+  'result.additions.count': number,
+  // Number of proposed commits in the resulting plan
+  'result.commits.count': number,
+  // Sum of deletions across all proposed commits
+  'result.deletions.count': number,
+  // Sum of file changes across all proposed commits
+  'result.files.count': number,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/compose/generatePlan/failed
+
+> Sent when a compose plan generation fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // True when this generation refined a prior plan; false on the initial compose
+  'refine': boolean,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/compose/opened
+
+> Sent when the user enters compose mode in the Graph Details panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/compose/restarted
+
+> Sent when the user restarts a completed compose run (Back from result)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/mode/changed
 
 > Sent when the active mode of the integrated graph details panel changes while open
@@ -3104,6 +3372,524 @@ background-upgraded the extension while the host kept running the old build
 {
   'duration': number,
   'refs.count': number
+}
+```
+
+### graphDetails/resolve/applyResolutions/completed
+
+> Sent when AI conflict resolutions are applied to the working tree successfully
+
+```typescript
+{
+  // Number of resolutions actually applied (post user file-exclusion)
+  'applied.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from apply click to settlement in milliseconds
+  'duration': number,
+  // Number of resolutions excluded by the user before apply
+  'excluded.count': number,
+  // Total resolutions in the pending set
+  'resolutions.count': number
+}
+```
+
+### graphDetails/resolve/applyResolutions/failed
+
+> Sent when applying AI conflict resolutions fails
+
+```typescript
+{
+  // Number of resolutions actually applied (post user file-exclusion)
+  'applied.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from apply click to settlement in milliseconds
+  'duration': number,
+  // Number of resolutions excluded by the user before apply
+  'excluded.count': number,
+  // Total resolutions in the pending set
+  'resolutions.count': number
+}
+```
+
+### graphDetails/resolve/closed
+
+> Sent when the user exits resolve mode in the Graph Details panel (toggled off or destroyed)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/resolve/discarded
+
+> Sent when the user discards pending AI conflict resolutions without applying them
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of pending resolutions that were discarded
+  'resolutions.count': number
+}
+```
+
+### graphDetails/resolve/generateResolutions/cancelled
+
+> Sent when an AI conflict-resolution run is cancelled (user-clicked Cancel or host-side abort)
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Number of conflicted files the run was focused on (0 when resolving all)
+  'files.focused.count': number,
+  // Whether the run was scoped to a focused subset of conflicted files rather than all
+  'focused': boolean,
+  // True when this run refined/retried a prior result; false on the initial resolve
+  'refine': boolean
+}
+```
+
+### graphDetails/resolve/generateResolutions/completed
+
+> Sent when an AI conflict-resolution run completes successfully (initial or refine/retry)
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Number of conflicted files the run was focused on (0 when resolving all)
+  'files.focused.count': number,
+  // Whether the run was scoped to a focused subset of conflicted files rather than all
+  'focused': boolean,
+  // True when this run refined/retried a prior result; false on the initial resolve
+  'refine': boolean,
+  // Number of files the resolver errored on
+  'result.errors.count': number,
+  // Number of files the AI produced a resolution for
+  'result.resolutions.count': number,
+  // Number of files skipped (couldn't be auto-resolved, e.g. binary/marker-less)
+  'result.skipped.count': number,
+  // Resolutions using the AI-merged strategy
+  'result.strategy.ai.count': number,
+  // Resolutions resolved as a deletion
+  'result.strategy.deleted.count': number,
+  // Resolutions left as skipped
+  'result.strategy.skipped.count': number,
+  // Resolutions resolved by taking the current/ours side
+  'result.strategy.takeOurs.count': number,
+  // Resolutions resolved by taking the incoming/theirs side
+  'result.strategy.takeTheirs.count': number
+}
+```
+
+### graphDetails/resolve/generateResolutions/failed
+
+> Sent when an AI conflict-resolution run fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Number of conflicted files the run was focused on (0 when resolving all)
+  'files.focused.count': number,
+  // Whether the run was scoped to a focused subset of conflicted files rather than all
+  'focused': boolean,
+  // True when this run refined/retried a prior result; false on the initial resolve
+  'refine': boolean
+}
+```
+
+### graphDetails/resolve/opened
+
+> Sent when the user enters resolve (AI conflict-resolution) mode in the Graph Details panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/review/changeAiModel
+
+> Sent when the user switches the AI model from the review-mode chip in the Graph Details panel
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  // Previously-selected model id (undefined when no model was set)
+  'ai.model.previous.id': string,
+  // Previously-selected model name
+  'ai.model.previous.name': string,
+  // Previously-selected model provider id
+  'ai.model.previous.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  // Previously-selected model provider name
+  'ai.model.previous.provider.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/review/closed
+
+> Sent when the user exits review mode in the Graph Details panel (toggled off or destroyed)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/review/copied
+
+> Sent when the user copies all or part of a review to clipboard
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the action targeted the whole review, a focus area, or a single finding
+  'granularity': 'review' | 'focusArea' | 'finding'
+}
+```
+
+### graphDetails/review/generateFocusArea/completed
+
+> Sent when a per-focus-area review (two-pass) generation completes successfully
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  // Findings produced for this focus area
+  'findings.count': number,
+  'findings.severity.critical.count': number,
+  'findings.severity.suggestion.count': number,
+  'findings.severity.warning.count': number
+}
+```
+
+### graphDetails/review/generateFocusArea/failed
+
+> Sent when a per-focus-area review (two-pass) generation fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number
+}
+```
+
+### graphDetails/review/generateReview/cancelled
+
+> Sent when a review generation is cancelled (user-clicked Cancel or host-side abort)
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/review/generateReview/completed
+
+> Sent when a review generation completes successfully
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Total findings across all focus areas (single-pass only; two-pass enriches later)
+  'result.findings.count': number,
+  // Number of focus areas produced by the run
+  'result.focusAreas.count': number,
+  // Whether the review used the single-pass or two-pass mode
+  'result.mode': 'single-pass' | 'two-pass',
+  'result.severity.critical.count': number,
+  'result.severity.suggestion.count': number,
+  'result.severity.warning.count': number,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/review/generateReview/failed
+
+> Sent when a review generation fails
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'github' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.length': number,
+  'customInstructions.used': boolean,
+  // Time from dispatch to settlement in milliseconds
+  'duration': number,
+  // Number of commits included in the scope
+  'scope.commits.count': number,
+  // Effective number of files in the scope (post AI-ignore, pre user-exclusion)
+  'scope.files.count': number,
+  // Number of files the user has excluded from the scope
+  'scope.files.excluded.count': number,
+  // Whether staged changes were included (wip scope only)
+  'scope.includeStaged': boolean,
+  // Whether unstaged changes were included (wip scope only)
+  'scope.includeUnstaged': boolean,
+  // Scope type at the time of the event
+  'scope.type': 'wip' | 'commit' | 'compare'
+}
+```
+
+### graphDetails/review/opened
+
+> Sent when the user enters review mode in the Graph Details panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/review/restarted
+
+> Sent when the user restarts a completed review (Back from result)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graphDetails/review/sentToAgent
+
+> Sent when the user sends all or part of a review to an AI agent
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the action targeted the whole review, a focus area, or a single finding
+  'granularity': 'review' | 'focusArea' | 'finding'
 }
 ```
 

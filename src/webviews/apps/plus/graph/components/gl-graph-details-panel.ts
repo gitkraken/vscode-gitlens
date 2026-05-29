@@ -33,7 +33,7 @@ import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
-import { getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
+import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
 import { detailsActionsContext, detailsStateContext, detailsWorkflowContext } from './detailsContext.js';
 import { resolveDetailsActions } from './detailsResolver.js';
 import type { DetailsContext, DetailsState, RunningOperation, RunningOperationExecState } from './detailsState.js';
@@ -474,6 +474,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		);
 	}
 
+	/** Total files in the current scope (post AI-filter, pre user-exclusion). Used by mode
+	 *  telemetry to report scope size without exposing paths. Mirrors the file-list resolution
+	 *  used by `renderComposeMode` / `renderReviewMode`. */
+	private getCurrentScopeFilesCount(): number {
+		const scoped = this._actions.resources.scopeFiles.value.get();
+		if (scoped != null) return scoped.length;
+
+		const ctx = this.effectiveContext;
+		if (ctx === 'wip') return this._state.wip.get()?.changes?.files?.length ?? 0;
+		if (ctx === 'multicommit') return this._state.compareFiles.get()?.length ?? 0;
+		return this._state.commit.get()?.files?.length ?? 0;
+	}
+
 	private get effectiveRepoPath(): string | undefined {
 		// Precedence: mode anchor > attribute (set by parent on selection) > last-known wip repo.
 		// The attribute is set synchronously on row click and is correct per-row (primary worktree
@@ -547,6 +560,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return;
 
 		this.suppressContentOverflow();
+		// Telemetry for the cancelled outcome is emitted from the workflow controller's settled
+		// path so we don't double-emit when the host's abort propagates through onRunSettled.
 		this._workflow.cancelOperation(mode);
 	};
 
@@ -1478,6 +1493,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleModeBack = (e: CustomEvent<{ mode: 'compose' | 'review' }>): void => {
 		e.stopPropagation();
 		const mode = e.detail.mode;
+		this._actions.sendTelemetryEvent(
+			mode === 'compose' ? 'graphDetails/compose/restarted' : 'graphDetails/review/restarted',
+		);
 		if (mode === 'compose') {
 			this._workflow.compose.back();
 		} else if (mode === 'review') {
@@ -1996,6 +2014,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				e.detail?.prompt,
 				excludedFiles,
 				aiExcludedFiles,
+				this.getCurrentScopeFilesCount(),
 				panel?.selectedIds,
 				scopeItems ?? undefined,
 			);
@@ -2065,6 +2084,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.graphReachability,
 					excludedFiles,
 					aiExcludedFiles,
+					this.getCurrentScopeFilesCount(),
 					panel?.selectedIds,
 					scopeItems ?? undefined,
 				);
@@ -2468,6 +2488,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.effectiveRepoPath,
 					e.detail?.prompt,
 					excludedFiles,
+					this.getCurrentScopeFilesCount(),
 					panel?.selectedIds,
 					scopeItems ?? undefined,
 				);
@@ -2492,16 +2513,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.retryFromError(
 					this.effectiveRepoPath,
 					excludedFiles,
+					this.getCurrentScopeFilesCount(),
 					panel?.selectedIds,
 					scopeItems ?? undefined,
 				);
 			}}
 			@review-send-to-chat=${(e: CustomEvent<ReviewSendToChatDetail>) => this.handleReviewSendToChat(e)}
-			@review-copied=${(e: CustomEvent<ReviewCopiedDetail>) =>
+			@review-copied=${(e: CustomEvent<ReviewCopiedDetail>) => {
+				this._actions.sendTelemetryEvent('graphDetails/review/copied', {
+					granularity: e.detail.granularity,
+				});
 				void this._actions.services.graphInspect.trackReviewAction({
 					action: 'copy',
 					granularity: e.detail.granularity,
-				})}
+				});
+			}}
 			@review-cancel=${this.handleCancelMode}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
@@ -2687,6 +2713,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
 
+		const startedAt = performance.now();
+		const aiContext = this._actions.buildAIModelTelemetryContext();
+
 		try {
 			const result = await this._actions.services.graphInspect.reviewFocusArea(
 				repoPath,
@@ -2698,14 +2727,32 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				excludedFiles,
 			);
 
+			const duration = performance.now() - startedAt;
 			if ('error' in result && result.error) {
 				panel?.setFocusAreaError(focusAreaId);
+				this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
+					...aiContext,
+					duration: duration,
+				});
 			} else if ('result' in result && result.result) {
 				this._workflow.review.enrichFocusAreaFindings(focusAreaId, result.result);
 				panel?.updateFocusAreaFindings(focusAreaId, result.result);
+				const counts = countReviewFindingSeverities(result.result.findings);
+				this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/completed', {
+					...aiContext,
+					duration: duration,
+					'findings.count': result.result.findings.length,
+					'findings.severity.critical.count': counts.critical,
+					'findings.severity.warning.count': counts.warning,
+					'findings.severity.suggestion.count': counts.suggestion,
+				});
 			}
 		} catch {
 			panel?.setFocusAreaError(focusAreaId);
+			this._actions.sendTelemetryEvent('graphDetails/review/generateFocusArea/failed', {
+				...aiContext,
+				duration: performance.now() - startedAt,
+			});
 		}
 	}
 
@@ -2715,6 +2762,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const { granularity, scopeLabel, reviewMarkdown } = e.detail;
 		if (!reviewMarkdown) return;
+
+		this._actions.sendTelemetryEvent('graphDetails/review/sentToAgent', { granularity: granularity });
 
 		await this._actions.services.graphInspect.addressReviewFindingsInChat({
 			repoPath: repoPath,
