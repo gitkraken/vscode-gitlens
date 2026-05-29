@@ -841,13 +841,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		retryFromError: (
 			repoPath: string | undefined,
 			excludedFiles: string[] | undefined,
+			effectiveFilesCount: number,
 			selectedIds?: ReadonlySet<string>,
 			scopeItems?: ScopeItem[],
 		): void => {
 			// Re-submit with the engaged run's prompt — the entry carries it from the original
 			// `dispatchOperation`, so retry-after-error doesn't depend on a global signal.
 			const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.review;
-			this.runReview(repoPath, entry?.prompt, excludedFiles, selectedIds, scopeItems);
+			this.runReview(repoPath, entry?.prompt, excludedFiles, effectiveFilesCount, selectedIds, scopeItems);
 		},
 		invalidateErrorRecovery: (): void => {
 			this.actions.state.reviewPreErrorValue.set(undefined);
@@ -883,6 +884,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		repoPath: string | undefined,
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
+		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
 	): void {
@@ -899,8 +901,15 @@ export class DetailsWorkflowController implements ReactiveController {
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
 		this._reviewFetchedForSelection = this.selectionKey();
-		this.dispatchOperation('review', instructions, controller =>
-			this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
+		this.dispatchOperation(
+			'review',
+			instructions,
+			controller => this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
+			{
+				excludedFilesCount: excludedFiles?.length ?? 0,
+				effectiveFilesCount: effectiveFilesCount,
+				refine: currentValue != null && 'result' in currentValue,
+			},
 		);
 	}
 
@@ -981,6 +990,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			graphReachability: GitCommitReachability | undefined,
 			excludedFiles: string[] | undefined,
 			aiExcludedFiles: string[] | undefined,
+			effectiveFilesCount: number,
 			selectedIds?: ReadonlySet<string>,
 			scopeItems?: ScopeItem[],
 		): void => {
@@ -1006,7 +1016,15 @@ export class DetailsWorkflowController implements ReactiveController {
 			} else {
 				// Re-submit with the engaged run's prompt — the entry carries it from the original
 				// `dispatchOperation`, so retry-after-error doesn't depend on a global signal.
-				this.runCompose(repoPath, entry?.prompt, excludedFiles, aiExcludedFiles, selectedIds, scopeItems);
+				this.runCompose(
+					repoPath,
+					entry?.prompt,
+					excludedFiles,
+					aiExcludedFiles,
+					effectiveFilesCount,
+					selectedIds,
+					scopeItems,
+				);
 			}
 		},
 		invalidateErrorRecovery: (): void => {
@@ -1029,7 +1047,16 @@ export class DetailsWorkflowController implements ReactiveController {
 			// current selection, not the compose engagement). The registry entry to remove is
 			// keyed by the engaged anchor, not the current selection.
 			const engagedAnchor = this.currentAnchor();
+			// Capture the plan size for telemetry before composeCommitAll clears the resource.
+			const planValue = this.actions.resources.compose.value.get();
+			const planCommitsCount = planValue != null && 'result' in planValue ? planValue.result.commits.length : 0;
+			const includedCount = includedCommitIds?.length ?? planCommitsCount;
+			const excludedCount = Math.max(0, planCommitsCount - includedCount);
+			// Capture stale BEFORE the await — `composeCommitAll` resets `wipStale` on success.
+			const stale = this.actions.state.wipStale.get();
+			const startedAt = performance.now();
 			await this.actions.composeCommitAll(repoPath, sha, graphReachability, includedCommitIds);
+			const duration = performance.now() - startedAt;
 			// The host may have disconnected (panel close, repo switch torn down everything) while
 			// `composeCommitAll`'s RPC was in flight. Writing to the host-owned registry or the
 			// disposed resource after that is the same UB `onRunSettled` guards against.
@@ -1037,6 +1064,13 @@ export class DetailsWorkflowController implements ReactiveController {
 
 			const resourceValue = this.actions.resources.compose.value.get();
 			if (resourceValue != null && 'error' in resourceValue) {
+				this.actions.sendTelemetryEvent('graphDetails/compose/applyPlan/failed', {
+					'plan.commits.count': planCommitsCount,
+					'commits.count': includedCount,
+					'commits.excluded.count': excludedCount,
+					stale: stale,
+					duration: duration,
+				});
 				// Failure path — sync the registry entry to the error state so the panel mapping
 				// surfaces it (resource error otherwise gets shadowed by the entry's prior result).
 				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.compose;
@@ -1046,6 +1080,13 @@ export class DetailsWorkflowController implements ReactiveController {
 				return;
 			}
 
+			this.actions.sendTelemetryEvent('graphDetails/compose/applyPlan/completed', {
+				'plan.commits.count': planCommitsCount,
+				'commits.count': includedCount,
+				'commits.excluded.count': excludedCount,
+				stale: stale,
+				duration: duration,
+			});
 			// Success path — the action cleared the resource + engagement signals but cannot
 			// reach the cross-pane registry. Remove the stale `'complete'` entry so the WIP-row
 			// adornment and chip overlay drop the pass icon (otherwise the row keeps signaling a
@@ -1061,6 +1102,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
 		aiExcludedFiles: string[] | undefined,
+		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
 	): void {
@@ -1079,8 +1121,23 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.composeLastFailedAction.set('generate');
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
-		this.dispatchOperation('compose', instructions, controller =>
-			this.actions.startCompose(repoPath, scope, instructions, excludedFiles, aiExcludedFiles, controller.signal),
+		this.dispatchOperation(
+			'compose',
+			instructions,
+			controller =>
+				this.actions.startCompose(
+					repoPath,
+					scope,
+					instructions,
+					excludedFiles,
+					aiExcludedFiles,
+					controller.signal,
+				),
+			{
+				excludedFilesCount: excludedFiles?.length ?? 0,
+				effectiveFilesCount: effectiveFilesCount,
+				refine: currentValue != null && 'result' in currentValue,
+			},
 		);
 	}
 
@@ -1125,11 +1182,26 @@ export class DetailsWorkflowController implements ReactiveController {
 		applyResolutions: async (includedFilePaths?: readonly string[]): Promise<void> => {
 			const repoPath = this.actions.state.activeModeRepoPath.get();
 			const engagedAnchor = this.currentAnchor();
+			// Capture the resolution-set size before the await — `applyResolutions` resets the
+			// resource on success.
+			const planValue = this.actions.resources.resolve.value.get();
+			const resolutionsCount =
+				planValue != null && 'result' in planValue ? planValue.result.resolutions.length : 0;
+			const appliedCount = includedFilePaths?.length ?? resolutionsCount;
+			const excludedCount = Math.max(0, resolutionsCount - appliedCount);
+			const startedAt = performance.now();
 			await this.actions.applyResolutions(repoPath, includedFilePaths);
+			const duration = performance.now() - startedAt;
 			if (this._disconnected) return;
 
 			const resourceValue = this.actions.resources.resolve.value.get();
 			if (resourceValue != null && 'error' in resourceValue) {
+				this.actions.sendTelemetryEvent('graphDetails/resolve/applyResolutions/failed', {
+					'resolutions.count': resolutionsCount,
+					'applied.count': appliedCount,
+					'excluded.count': excludedCount,
+					duration: duration,
+				});
 				const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(engagedAnchor))?.resolve;
 				if (entry == null) return;
 
@@ -1137,6 +1209,12 @@ export class DetailsWorkflowController implements ReactiveController {
 				return;
 			}
 
+			this.actions.sendTelemetryEvent('graphDetails/resolve/applyResolutions/completed', {
+				'resolutions.count': resolutionsCount,
+				'applied.count': appliedCount,
+				'excluded.count': excludedCount,
+				duration: duration,
+			});
 			this.removeRunningOperation(anchorKey(engagedAnchor), 'resolve');
 			this.forgetMode(engagedAnchor);
 		},
@@ -1145,6 +1223,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		discard: (): void => {
 			const repoPath = this.actions.state.activeModeRepoPath.get();
 			const anchor = this.currentAnchor();
+			const planValue = this.actions.resources.resolve.value.get();
+			this.actions.sendTelemetryEvent('graphDetails/resolve/discarded', {
+				'resolutions.count':
+					planValue != null && 'result' in planValue ? planValue.result.resolutions.length : 0,
+			});
 			void this.actions.discardResolutions(repoPath);
 			this.removeRunningOperation(anchorKey(anchor), 'resolve');
 			this.actions.resources.resolve.reset();
@@ -1214,8 +1297,17 @@ export class DetailsWorkflowController implements ReactiveController {
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
 		this._resolveFetchedForSelection = this.selectionKey();
-		this.dispatchOperation('resolve', instructions, controller =>
-			this.actions.startResolve(repoPath, focusedFilePaths, instructions, controller.signal),
+		this.dispatchOperation(
+			'resolve',
+			instructions,
+			controller => this.actions.startResolve(repoPath, focusedFilePaths, instructions, controller.signal),
+			{
+				excludedFilesCount: 0,
+				effectiveFilesCount: 0,
+				refine: currentValue != null && 'result' in currentValue,
+				focused: focusedFilePaths != null && focusedFilePaths.length > 0,
+				focusedCount: focusedFilePaths?.length ?? 0,
+			},
 		);
 	}
 
@@ -1234,6 +1326,13 @@ export class DetailsWorkflowController implements ReactiveController {
 		kind: DetailsMode,
 		prompt: string | undefined,
 		start: (controller: AbortController) => Promise<ReviewResult | ComposeResult | ResolveResult>,
+		runContext: {
+			excludedFilesCount: number;
+			effectiveFilesCount: number;
+			refine: boolean;
+			focused?: boolean;
+			focusedCount?: number;
+		},
 	): void {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
@@ -1248,6 +1347,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.resourceFor(kind).reset();
 
 		const promise = start(controller);
+		const startedAt = performance.now();
 
 		// Register `'generating'` immediately — drives the adornment + chip spinner at once. Carry
 		// `prompt` on the entry from the start: subsequent `{...entry, ...}` spreads in
@@ -1260,12 +1360,189 @@ export class DetailsWorkflowController implements ReactiveController {
 			abortController: controller,
 			promise: promise,
 			prompt: prompt,
-		} as RunningOperation);
+		});
 
 		promise.then(
-			result => this.onRunSettled(kind, anchor, controller, result, undefined),
-			(ex: unknown) => this.onRunSettled(kind, anchor, controller, undefined, ex),
+			result => {
+				this.fireRunTelemetry(kind, prompt, runContext, controller, startedAt, result, undefined);
+				this.onRunSettled(kind, anchor, controller, result, undefined);
+			},
+			(ex: unknown) => {
+				this.fireRunTelemetry(kind, prompt, runContext, controller, startedAt, undefined, ex);
+				this.onRunSettled(kind, anchor, controller, undefined, ex);
+			},
 		);
+	}
+
+	/** Emits the per-outcome `graphDetails/<mode>/<action>/{completed,cancelled,failed}` telemetry.
+	 *  Privacy-safe: payload is built from the controller's scope state + AI-model identifiers +
+	 *  result counts — no file paths, no code content, no repo paths. */
+	private fireRunTelemetry(
+		kind: DetailsMode,
+		prompt: string | undefined,
+		runContext: {
+			excludedFilesCount: number;
+			effectiveFilesCount: number;
+			refine: boolean;
+			focused?: boolean;
+			focusedCount?: number;
+		},
+		controller: AbortController,
+		startedAt: number,
+		result: ReviewResult | ComposeResult | ResolveResult | undefined,
+		ex: unknown,
+	): void {
+		const duration = performance.now() - startedAt;
+
+		// Cancellation — user clicked Cancel (aborted controller), OR host-side `{cancelled:true}`
+		// sentinel from the compose/resolve RPC. Aborted-signal takes precedence so AbortError-on-reject
+		// and the success-path race both resolve to a cancelled outcome.
+		const isCancelled =
+			controller.signal.aborted || (result != null && 'cancelled' in result && result.cancelled === true);
+		const isError = ex != null || (result != null && 'error' in result);
+
+		// Resolve has no scope picker, so it builds a focused-files + instructions + AI-model payload
+		// instead of the shared scope context that compose/review use.
+		if (kind === 'resolve') {
+			const resolveBase = {
+				...this.actions.buildAIModelTelemetryContext(),
+				'customInstructions.used': (prompt?.length ?? 0) > 0,
+				'customInstructions.length': prompt?.length ?? 0,
+				refine: runContext.refine,
+				focused: runContext.focused ?? false,
+				'files.focused.count': runContext.focusedCount ?? 0,
+				duration: duration,
+			};
+
+			if (isCancelled) {
+				this.actions.sendTelemetryEvent('graphDetails/resolve/generateResolutions/cancelled', resolveBase);
+				return;
+			}
+			if (isError) {
+				this.actions.sendTelemetryEvent('graphDetails/resolve/generateResolutions/failed', resolveBase);
+				return;
+			}
+
+			if (result != null && 'result' in result && 'resolutions' in result.result) {
+				const r = result.result;
+				let ai = 0;
+				let takeOurs = 0;
+				let takeTheirs = 0;
+				let deleted = 0;
+				let skipped = 0;
+				for (const res of r.resolutions) {
+					switch (res.strategy) {
+						case 'ai':
+							ai++;
+							break;
+						case 'take-ours':
+							takeOurs++;
+							break;
+						case 'take-theirs':
+							takeTheirs++;
+							break;
+						case 'deleted':
+							deleted++;
+							break;
+						case 'skipped':
+							skipped++;
+							break;
+					}
+				}
+				this.actions.sendTelemetryEvent('graphDetails/resolve/generateResolutions/completed', {
+					...resolveBase,
+					'result.resolutions.count': r.resolutions.length,
+					'result.errors.count': r.errors?.length ?? 0,
+					'result.skipped.count': r.skipped?.length ?? 0,
+					'result.strategy.ai.count': ai,
+					'result.strategy.takeOurs.count': takeOurs,
+					'result.strategy.takeTheirs.count': takeTheirs,
+					'result.strategy.deleted.count': deleted,
+					'result.strategy.skipped.count': skipped,
+				});
+			}
+			return;
+		}
+
+		const baseContext = this.actions.buildModeTelemetryContext(
+			prompt,
+			runContext.excludedFilesCount,
+			runContext.effectiveFilesCount,
+		);
+		const composeOnly = kind === 'compose' ? { refine: runContext.refine } : {};
+
+		if (isCancelled) {
+			this.actions.sendTelemetryEvent(
+				kind === 'compose'
+					? 'graphDetails/compose/generatePlan/cancelled'
+					: 'graphDetails/review/generateReview/cancelled',
+				{ ...baseContext, ...composeOnly, duration: duration },
+			);
+			return;
+		}
+
+		// Error (thrown or `{ error }` payload).
+		if (ex != null || (result != null && 'error' in result)) {
+			this.actions.sendTelemetryEvent(
+				kind === 'compose'
+					? 'graphDetails/compose/generatePlan/failed'
+					: 'graphDetails/review/generateReview/failed',
+				{ ...baseContext, ...composeOnly, duration: duration },
+			);
+			return;
+		}
+
+		// Success.
+		if (kind === 'compose' && result != null && 'result' in result && 'commits' in result.result) {
+			const commits = result.result.commits;
+			let filesCount = 0;
+			let additions = 0;
+			let deletions = 0;
+			for (const c of commits) {
+				filesCount += c.files.length;
+				additions += c.additions;
+				deletions += c.deletions;
+			}
+			this.actions.sendTelemetryEvent('graphDetails/compose/generatePlan/completed', {
+				...baseContext,
+				refine: runContext.refine,
+				duration: duration,
+				'result.commits.count': commits.length,
+				'result.files.count': filesCount,
+				'result.additions.count': additions,
+				'result.deletions.count': deletions,
+			});
+		} else if (kind === 'review' && result != null && 'result' in result && 'focusAreas' in result.result) {
+			const r = result.result;
+			let findingCount = 0;
+			let critical = 0;
+			let warning = 0;
+			let suggestion = 0;
+			for (const area of r.focusAreas) {
+				if (area.findings == null) continue;
+
+				findingCount += area.findings.length;
+				for (const f of area.findings) {
+					if (f.severity === 'critical') {
+						critical++;
+					} else if (f.severity === 'warning') {
+						warning++;
+					} else if (f.severity === 'suggestion') {
+						suggestion++;
+					}
+				}
+			}
+			this.actions.sendTelemetryEvent('graphDetails/review/generateReview/completed', {
+				...baseContext,
+				duration: duration,
+				'result.mode': r.mode,
+				'result.focusAreas.count': r.focusAreas.length,
+				'result.findings.count': findingCount,
+				'result.severity.critical.count': critical,
+				'result.severity.warning.count': warning,
+				'result.severity.suggestion.count': suggestion,
+			});
+		}
 	}
 
 	/** Mutates the engaged anchor's `(kind)` entry's `execState`. No-op if the entry doesn't

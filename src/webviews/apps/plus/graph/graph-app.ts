@@ -1813,6 +1813,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleDetailsModeChanged = (e: CustomEvent<{ previous: GraphDetailsMode; current: GraphDetailsMode }>) => {
+		// compose/review opened/closed track real activeMode transitions and fire regardless of
+		// panel visibility (programmatic exits like compose/applyPlan clear activeMode without a
+		// user-driven open/close).
+		this.trackModeOpenedClosed('compose', e.detail.previous, e.detail.current);
+		this.trackModeOpenedClosed('review', e.detail.previous, e.detail.current);
+		this.trackModeOpenedClosed('resolve', e.detail.previous, e.detail.current);
+
 		// `shown`/`closed` already capture mode at open/close — only emit transitions while the
 		// panel stays visible (e.g. swap-to-close, mode chip toggles), so the event isolates
 		// in-panel transitions from open/close noise.
@@ -1838,6 +1845,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			data: { 'mode.old': e.detail.previous, 'mode.new': e.detail.current },
 		});
 	};
+
+	private trackModeOpenedClosed(
+		mode: 'compose' | 'review' | 'resolve',
+		previous: GraphDetailsMode,
+		current: GraphDetailsMode,
+	): void {
+		if (current === mode && previous !== mode) {
+			this._telemetry.sendEvent({ name: `graphDetails/${mode}/opened`, data: {} });
+		} else if (previous === mode && current !== mode) {
+			this._telemetry.sendEvent({ name: `graphDetails/${mode}/closed`, data: {} });
+		}
+	}
 
 	private handleDetailsSplitChange(e: CustomEvent<{ position: number }>) {
 		// Skip the closed-edge position (snap lands at exact 100). `handleDetailsClosedChange`

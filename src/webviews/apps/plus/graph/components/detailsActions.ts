@@ -15,6 +15,7 @@
  *   for a commit/WIP that has since been replaced by a newer fetch
  */
 import type { Remote } from '@eamodio/supertalk';
+import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -71,6 +72,27 @@ import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
+/** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
+export function countReviewFindingSeverities(findings: readonly AIReviewFinding[] | undefined): {
+	critical: number;
+	warning: number;
+	suggestion: number;
+} {
+	const counts = { critical: 0, warning: 0, suggestion: 0 };
+	if (findings == null) return counts;
+
+	for (const f of findings) {
+		if (f.severity === 'critical') {
+			counts.critical++;
+		} else if (f.severity === 'warning') {
+			counts.warning++;
+		} else if (f.severity === 'suggestion') {
+			counts.suggestion++;
+		}
+	}
+	return counts;
+}
+
 export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelection | undefined): boolean {
 	if (a === b) return true;
 	if (a == null || b == null) return false;
@@ -219,6 +241,46 @@ export class DetailsActions {
 		data?: Record<string, string | number | boolean | undefined>,
 	): void {
 		fireAndForget(this.services.telemetry.sendEvent(name, data));
+	}
+
+	/** Builds the shared scope/AI/instructions payload for graph-details mode telemetry events.
+	 *  Privacy-safe: emits only counts, booleans, and AI model identifiers — never paths or content. */
+	buildModeTelemetryContext(
+		instructions: string | undefined,
+		excludedFilesCount: number,
+		effectiveFilesCount: number,
+	): Record<string, string | number | boolean | undefined> {
+		const scope = this.state.scope.get();
+		const aiModel = this.state.aiModel.get();
+		const promptLength = instructions?.length ?? 0;
+
+		const data: Record<string, string | number | boolean | undefined> = {
+			'scope.type': scope?.type,
+			'scope.includeStaged': scope?.type === 'wip' ? scope.includeStaged : undefined,
+			'scope.includeUnstaged': scope?.type === 'wip' ? scope.includeUnstaged : undefined,
+			'scope.commits.count':
+				scope?.type === 'wip' || scope?.type === 'compare' ? (scope.includeShas?.length ?? 0) : 0,
+			'scope.files.count': effectiveFilesCount,
+			'scope.files.excluded.count': excludedFilesCount,
+			'customInstructions.used': promptLength > 0,
+			'customInstructions.length': promptLength,
+			'ai.model.id': aiModel?.id,
+			'ai.model.name': aiModel?.name,
+			'ai.model.provider.id': aiModel?.provider.id,
+			'ai.model.provider.name': aiModel?.provider.name,
+		};
+		return data;
+	}
+
+	/** Builds just the AI-model fields — for events that don't carry full scope context (focus area). */
+	buildAIModelTelemetryContext(): Record<string, string | undefined> {
+		const aiModel = this.state.aiModel.get();
+		return {
+			'ai.model.id': aiModel?.id,
+			'ai.model.name': aiModel?.name,
+			'ai.model.provider.id': aiModel?.provider.id,
+			'ai.model.provider.name': aiModel?.provider.name,
+		};
 	}
 
 	private clearCompareCore(): void {
@@ -590,10 +652,32 @@ export class DetailsActions {
 		// model selection and avoids re-implementing the picker in the webview.
 		// `scope` (set by the caller from the active mode) lets the compose / review chips
 		// persist to their own Memento key without mutating the global default.
-		void this.services.commands.execute('gitlens.ai.switchProvider', {
-			source: 'graph-details' as const,
-			scope: scope,
-		});
+		const previous = this.state.aiModel.get();
+		void (async () => {
+			await this.services.commands.execute('gitlens.ai.switchProvider', {
+				source: 'graph-details' as const,
+				scope: scope,
+			});
+
+			// Only the scoped (compose/review) chips emit a change event. The command resolves
+			// after the picker persists the selection, so read the scoped model directly rather
+			// than racing the async `onModelChanged` → `refreshScopedAiModel` that updates state.
+			if (scope == null) return;
+
+			const current = await this.services.ai.getModel(scope);
+			if (current?.id === previous?.id && current?.provider.id === previous?.provider.id) return;
+
+			this.sendTelemetryEvent(`graphDetails/${scope}/changeAiModel`, {
+				'ai.model.id': current?.id,
+				'ai.model.name': current?.name,
+				'ai.model.provider.id': current?.provider.id,
+				'ai.model.provider.name': current?.provider.name,
+				'ai.model.previous.id': previous?.id,
+				'ai.model.previous.name': previous?.name,
+				'ai.model.previous.provider.id': previous?.provider.id,
+				'ai.model.previous.provider.name': previous?.provider.name,
+			});
+		})();
 	}
 
 	/**
