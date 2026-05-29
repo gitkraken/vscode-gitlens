@@ -64,6 +64,10 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			background: var(--vscode-editorWidget-background, transparent);
 		}
 
+		.visualization-tablist {
+			display: contents;
+		}
+
 		.visualization-button {
 			appearance: none;
 			background: none;
@@ -185,7 +189,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		const active = this.activeKey;
 		const commitsUnavailable = this.commitsUnavailable;
 
-		return html`<div role="tablist" aria-label="Visualization" style="display: contents;">
+		return html`<div role="tablist" aria-label="Visualization" class="visualization-tablist">
 			${visualizationOrder.map(key => {
 				const disabled = key === 'treemap-commits' && commitsUnavailable;
 				const disabledMessage = disabled ? 'Commit history is unavailable for virtual repositories' : undefined;

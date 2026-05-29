@@ -1,3 +1,4 @@
+import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
@@ -5,6 +6,7 @@ import type { RendererObject, RendererThis, Tokens } from 'marked';
 import { Marked } from 'marked';
 import type { ThemeIcon } from 'vscode';
 import { ruleStyles } from '../../../plus/shared/components/vscode.css.js';
+import { applyCspSafeStyles, rewriteInlineStylesToData } from './css-inline-styles.js';
 
 let inlineMarked: Marked | undefined;
 let blockMarked: Marked | undefined;
@@ -125,6 +127,22 @@ export class GlMarkdown extends LitElement {
 		return html`${this.markdown ? this.renderMarkdown(this.markdown) : ''}`;
 	}
 
+	// The `style-src` CSP blocks inline `style="…"` attributes, so `renderMarkdown` rewrites them to
+	// inert `data-gl-style` placeholders; re-apply them via CSSOM here once the rendered content is
+	// committed. `unsafeHTML` recreates its nodes whenever the string changes (e.g. an `until()` hover
+	// resolving), so this must run on every update — never gate it behind a one-time flag.
+	override updated(changed: PropertyValues): void {
+		super.updated(changed);
+
+		for (const el of this.renderRoot.querySelectorAll<HTMLElement>('[data-gl-style]')) {
+			const declarations = el.dataset.glStyle;
+			if (declarations) {
+				applyCspSafeStyles(el, declarations);
+			}
+			el.removeAttribute('data-gl-style');
+		}
+	}
+
 	private renderMarkdown(markdown: string) {
 		let rendered;
 		if (this.inline) {
@@ -132,13 +150,13 @@ export class GlMarkdown extends LitElement {
 			// Not using parseInline here, since our custom inline renderer handles lists and other block elements manually for prettier formatting
 			rendered = inlineMarked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
 			rendered = renderThemeIconsWithinText(rendered);
-			return html`<span>${unsafeHTML(rendered)}</span>`;
+			return html`<span>${unsafeHTML(rewriteInlineStylesToData(rendered))}</span>`;
 		}
 
 		blockMarked ??= new Marked({ breaks: true, gfm: true, renderer: getMarkdownRenderer() });
 		rendered = blockMarked.parse(markdownEscapeEscapedIcons(markdown), { async: false });
 		rendered = renderThemeIconsWithinText(rendered);
-		return unsafeHTML(rendered);
+		return unsafeHTML(rewriteInlineStylesToData(rendered));
 	}
 }
 
