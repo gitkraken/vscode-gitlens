@@ -10,6 +10,7 @@ import e18e from '@e18e/eslint-plugin';
 import importX from 'eslint-plugin-import-x';
 import { configs as litConfigs } from 'eslint-plugin-lit';
 import { configs as wcConfigs } from 'eslint-plugin-wc';
+import oxlint from 'eslint-plugin-oxlint';
 import noSrcImports from './scripts/eslint-rules/no-src-imports.mjs';
 import noSelfPackageImports from './scripts/eslint-rules/no-self-package-imports.mjs';
 import noEnvWithoutJs from './scripts/eslint-rules/no-env-without-js.mjs';
@@ -549,4 +550,11 @@ export default defineConfig(
 			],
 		},
 	},
+
+	// Oxlint integration - appended at the end to disable rules oxlint already enforces (avoids
+	// true duplication in `lint:ci`, where oxlint runs first). Rules oxlint does NOT enforce —
+	// including ones it can't implement or diverges on — stay enabled here so eslint remains the
+	// complete gate. (Any oxlint-recommended rule we leave off in .oxlintrc.json is re-enabled
+	// there so this disable stays a true duplicate, not a coverage hole.)
+	oxlint.configs['flat/recommended'],
 );

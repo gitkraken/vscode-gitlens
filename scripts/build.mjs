@@ -87,6 +87,13 @@ if (trace) {
 	cmd += ` --env trace`;
 }
 
+// In watch mode, let webpack lint + type-check incrementally (per changed file) via the inline
+// OxLintWebpackPlugin. For one-shot builds we instead run oxlint exactly once in parallel with the
+// bundle (below) — far faster than the plugin running a whole-project pass once per webpack config.
+if (watch && !quick) {
+	cmd += ` --env lint`;
+}
+
 if (build?.includes('unit-tests')) {
 	const buildPkgsCmd = `pnpm run build:packages`;
 	console.log(`Running: ${buildPkgsCmd}`);
@@ -106,7 +113,9 @@ if (build?.includes('unit-tests')) {
 	}
 }
 
-console.log(`Running: ${cmd}`);
+// A "full" build targets no specific config (the default `pnpm run build`) — these are the ones
+// we split across processes below.
+const isFullBuild = !build?.length && !target?.length && !webviews?.length;
 
 if (!quick && !watch) {
 	const prettyCmd = process.env.CI ? `pnpm run pretty:check` : `pnpm run pretty`;
@@ -131,12 +140,64 @@ if (!quick && !watch) {
 	}
 }
 
-const child = spawn(cmd, [], {
-	shell: true,
-	stdio: 'inherit',
-	env: env,
-});
+/** @param {string} command @returns {Promise<number>} exit code (always resolves; never rejects) */
+function run(command) {
+	console.log(`Running: ${command}`);
+	const child = spawn(command, [], { shell: true, stdio: 'inherit', env: env });
+	return new Promise(resolve => {
+		child.on('exit', code => resolve(code || 0));
+		// Spawn failures emit 'error' without 'exit' — resolve as failure so the batch never hangs.
+		child.on('error', () => resolve(1));
+	});
+}
 
-child.on('exit', code => {
-	process.exit(code || 0);
-});
+// For one-shot full builds, split the 6-config webpack MultiCompiler (which shares a single Node
+// event loop, leaving most cores idle) into parallel webpack processes — one per bucket — so the
+// CPU-bound work (module-graph build, codegen, source maps) spreads across cores. Buckets keep
+// configs that share in-process state together (webviews:common + webviews). Watch and targeted
+// builds keep the single-process path.
+let bundleCmds;
+if (isFullBuild && !watch) {
+	let baseCmd = `webpack --mode ${mode}`;
+	if (quick) {
+		baseCmd += ` --env quick=${quick}`;
+	}
+	if (trace) {
+		baseCmd += ` --env trace`;
+	}
+
+	bundleCmds = [
+		`${baseCmd} --config-name extension:node`,
+		`${baseCmd} --config-name extension:webworker`,
+		// `common` is pure codegen (empty entry; Docs/Licenses/Fantasticon/contributions all run as
+		// blocking spawnSync) — isolate it so that blocking work gets its own core instead of stalling
+		// a bundling process's event loop.
+		`${baseCmd} --config-name common`,
+		// Keep webviews:common + webviews in one process (CompileComposerTemplatesPlugin shares state).
+		`${baseCmd} --config-name webviews:common --config-name webviews --config-name unit-tests`,
+	];
+} else {
+	bundleCmds = [cmd];
+}
+
+// Run the bundle process(es) and, for one-shot builds, a single whole-project oxlint (lint +
+// type-check) pass concurrently. tsgo-backed type checking and Rust-native linting both run inside
+// oxlint, so it replaces the old ForkTsChecker + ESLint plugins. Watch builds lint inline (see
+// `--env lint` above), so they skip this standalone pass.
+const tasks = bundleCmds.map(c => run(c));
+if (!quick && !watch) {
+	tasks.push(run(`oxlint --type-aware --type-check`));
+}
+
+// allSettled (not all) so a failure in one process never abandons the others mid-flight — every
+// bundle process runs to completion, then we fail the build with the first non-zero exit code.
+const results = await Promise.allSettled(tasks);
+const codes = results.map(result => (result.status === 'fulfilled' ? result.value : 1));
+const failed = codes.find(code => code !== 0) ?? 0;
+
+// With multiple bundle processes, each prints its own per-process status; emit one aggregate line.
+if (bundleCmds.length > 1) {
+	console.log(failed ? '[build] Compiled with problems' : '[build] Compiled successfully');
+}
+
+process.exit(failed);

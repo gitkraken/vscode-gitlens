@@ -43,6 +43,9 @@
 	},
 	"js/ts.preferences.importModuleSpecifier": "project-relative",
 	"js/ts.tsdk.path": "node_modules/typescript/lib",
+	"oxc.enable": true,
+	"oxc.enable.oxlint": true,
+	"oxc.enable.oxfmt": false,
 	"search.exclude": {
 		"**/dist": true
 	}

@@ -9,10 +9,11 @@ import CopyPlugin from 'copy-webpack-plugin';
 import CspHtmlPlugin from 'csp-html-webpack-plugin';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import esbuild from 'esbuild';
-import { ESLintLitePlugin } from '@eamodio/eslint-lite-webpack-plugin';
 import { generateFonts } from 'fantasticon';
+import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
 import ForkTsCheckerPlugin from 'fork-ts-checker-webpack-plugin';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
@@ -33,13 +34,6 @@ const { DefinePlugin, optimize, WebpackError } = webpack;
 const require = createRequire(import.meta.url);
 
 const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
-const eslintWorker = { max: cores, filesPerWorker: 100 };
-/** @type import('@eamodio/eslint-lite-webpack-plugin').ESLintLitePluginOptions['eslintOptions'] */
-const eslintOptions = {
-	cache: true,
-	cacheStrategy: 'metadata',
-	// concurrency: 'auto',
-};
 
 const debug = Boolean(process.env.DEBUG);
 const useAsyncTypeChecking = false;
@@ -173,11 +167,11 @@ function getCacheConfig(name, target, mode) {
  * @returns { WebpackConfig }
  */
 function getCommonConfig(mode, env) {
-	// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail
+	// Ensure that the dist folder exists otherwise the FantasticonPlugin will fail. Use recursive
+	// (idempotent) since this config function is evaluated by every parallel webpack process — a
+	// plain mkdirSync races (EEXIST) when they run concurrently (see scripts/build.mjs split).
 	const dist = path.join(__dirname, 'dist');
-	if (!fs.existsSync(dist)) {
-		fs.mkdirSync(dist);
-	}
+	fs.mkdirSync(dist, { recursive: true });
 
 	/**
 	 * @type WebpackConfig['plugins'] | any
@@ -238,42 +232,10 @@ function getExtensionConfig(target, mode, env) {
 		}),
 	];
 
-	if (env.quick !== 'turbo') {
-		plugins.push(
-			new ForkTsCheckerPlugin({
-				async: useAsyncTypeChecking,
-				formatter: 'basic',
-				typescript: {
-					configFile: tsConfigPath,
-					memoryLimit: 4096,
-					...(env.trace
-						? {
-								configOverwrite: {
-									compilerOptions: {
-										generateTrace: path.join(__dirname, 'dist', 'trace', `extension-${target}`),
-									},
-								},
-							}
-						: {}),
-				},
-			}),
-		);
-	}
-
-	// Only lint in node build - webworker uses same ESLint config, just different tsconfig
-	if (!env.quick && target !== 'webworker') {
-		plugins.push(
-			new ESLintLitePlugin({
-				files: [
-					path.join(__dirname, 'src', '**', '*.ts'),
-					path.join(__dirname, 'packages', '**', 'src', '**', '*.ts'),
-				],
-				exclude: ['**/@types/**', '**/webviews/apps/**', '**/__tests__/**'],
-				worker: eslintWorker,
-				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache/') },
-			}),
-		);
-	}
+	// Linting and type checking (incl. tsgo-backed TS diagnostics) are both handled by oxlint:
+	// once per build, in parallel with bundling, from build.mjs — so ForkTsCheckerPlugin and the
+	// ESLint plugins are gone. In watch mode (`env.lint`) we keep the inline plugin so changed
+	// files are re-checked incrementally; one-shot builds skip it (build.mjs runs oxlint directly).
 
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
@@ -283,6 +245,9 @@ function getExtensionConfig(target, mode, env) {
 			new ExtractContributionsPlugin(),
 			new GenerateCommandTypesPlugin(),
 		);
+	}
+	if (env.lint && target !== 'webworker') {
+		plugins.push(new OxLintWebpackPlugin());
 	}
 
 	if (env.analyzeDeps) {
@@ -303,9 +268,7 @@ function getExtensionConfig(target, mode, env) {
 
 	if (env.analyzeBundle) {
 		const out = path.join(__dirname, 'out');
-		if (!fs.existsSync(out)) {
-			fs.mkdirSync(out);
-		}
+		fs.mkdirSync(out, { recursive: true });
 
 		plugins.push(
 			new BundleAnalyzerPlugin({
@@ -323,7 +286,7 @@ function getExtensionConfig(target, mode, env) {
 		entry: { extension: './src/extension.ts' },
 		mode: mode,
 		target: target,
-		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
+		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
 		output: {
 			chunkFilename: '[name].js',
 			filename: 'gitlens.js',
@@ -368,9 +331,39 @@ function getExtensionConfig(target, mode, env) {
 				target === 'webworker'
 					? false
 					: {
-							// Disable all non-async code splitting
-							chunks: () => false,
-							cacheGroups: { default: false, vendors: false },
+							// Only dedupe ASYNC chunks (the lazy webview-host controllers, `ai`, etc.).
+							// The eager `extension` entry (gitlens.js) is left fully self-contained — it is
+							// excluded from splitting, so this never changes the eager bundle, only collapses
+							// modules that were being copied into multiple lazy chunks into shared siblings.
+							chunks: 'async',
+							cacheGroups: {
+								// Disable webpack's built-in groups (the default group is `defaultVendors`,
+								// not `vendors`) so ONLY the explicit named groups below ever split — otherwise
+								// `defaultVendors` (minChunks 1) extracts every async dep into numeric vendor chunks.
+								default: false,
+								defaultVendors: false,
+								// zod + compose-tools (+ first-party compose code) are the AI/compose feature
+								// family, copied into both the composer and graph controllers. Emit one shared
+								// chunk instead of duplicating ~330K across them.
+								compose: {
+									test: /([\\/]node_modules[\\/](zod|@gitkraken[\\/](compose-tools|shared-tools))[\\/]|[\\/]src[\\/]webviews[\\/].*[\\/]compose[\\/])/,
+									name: 'compose',
+									minChunks: 2,
+									priority: 20,
+									reuseExistingChunk: true,
+									enforce: true,
+								},
+								// The webview RPC service layer + shared webview infra are copied into every
+								// webview controller (commitDetails, timeline, graph, home, …); emit them once.
+								webviewShared: {
+									test: /[\\/]src[\\/]webviews[\\/](rpc|shared)[\\/]/,
+									name: 'webview-shared',
+									minChunks: 2,
+									priority: 10,
+									reuseExistingChunk: true,
+									enforce: true,
+								},
+							},
 						},
 		},
 		externals: { vscode: 'commonjs vscode' },
@@ -453,17 +446,8 @@ function getUnitTestConfig(_target, mode, env) {
 	/** @type {import('webpack').WebpackPluginInstance[]} */
 	const plugins = [new EsbuildTestsPlugin()];
 
-	if (!env.quick) {
-		plugins.push(
-			new ESLintLitePlugin({
-				files: [
-					path.join(__dirname, 'src', '**', '__tests__', '**', '*.ts'),
-					path.join(__dirname, 'packages', '**', 'src', '**', '__tests__', '**', '*.ts'),
-				],
-				worker: eslintWorker,
-				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache', 'tests/') },
-			}),
-		);
+	if (env.lint) {
+		plugins.push(new OxLintWebpackPlugin());
 	}
 
 	return {
@@ -537,15 +521,8 @@ function getWebviewsCommonConfig(mode, env) {
 		}),
 	];
 
-	if (!env.quick) {
-		plugins.push(
-			new ESLintLitePlugin({
-				files: '**/*.ts?(x)',
-				exclude: ['**/__tests__/**'],
-				worker: eslintWorker,
-				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/') },
-			}),
-		);
+	if (env.lint) {
+		plugins.push(new OxLintWebpackPlugin());
 	}
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
@@ -624,37 +601,11 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		filePrefix = `webviews-${Object.keys(webviews)[0]}`;
 	}
 
-	if (env.quick !== 'turbo') {
-		plugins.push(
-			new ForkTsCheckerPlugin({
-				async: useAsyncTypeChecking,
-				formatter: 'basic',
-				typescript: {
-					configFile: tsConfigPath,
-					memoryLimit: 4096,
-					...(env.trace
-						? {
-								configOverwrite: {
-									compilerOptions: {
-										generateTrace: path.join(__dirname, 'dist', 'trace', filePrefix),
-									},
-								},
-							}
-						: {}),
-				},
-			}),
-		);
-	}
+	// Type checking is now handled by the Go-native tsgo compiler via OxLintWebpackPlugin,
+	// so ForkTsCheckerPlugin is removed to prevent redundant, slow Node-based type checking.
 
-	if (!env.quick) {
-		plugins.push(
-			new ESLintLitePlugin({
-				files: '**/*.ts?(x)',
-				exclude: ['**/__tests__/**'],
-				worker: eslintWorker,
-				eslintOptions: { ...eslintOptions, cacheLocation: path.join(__dirname, '.eslintcache', 'webviews/') },
-			}),
-		);
+	if (env.lint) {
+		plugins.push(new OxLintWebpackPlugin());
 	}
 
 	const imageGeneratorConfig = getImageMinimizerConfig(mode, env);
@@ -666,9 +617,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 
 	if (env.analyzeBundle) {
 		const out = path.join(__dirname, 'out');
-		if (!fs.existsSync(out)) {
-			fs.mkdirSync(out);
-		}
+		fs.mkdirSync(out, { recursive: true });
 
 		plugins.push(
 			new BundleAnalyzerPlugin({
@@ -687,7 +636,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		entry: Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
 		mode: mode,
 		target: 'web',
-		devtool: mode === 'production' && !env.analyzeBundle ? false : 'source-map',
+		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
 		output: {
 			chunkFilename: '[name].js',
 			filename: '[name].js',
@@ -967,8 +916,54 @@ class FileGeneratorPlugin {
 		this.pluginName = config.pluginName;
 		this.pathsToWatch = config.pathsToWatch;
 		this.command = config.command;
+		this.outputs = config.outputs ?? [];
 		this.strings = config.strings ?? { starting: 'Generating', completed: 'Generated' };
 		this.lastModified = 0;
+		// When `outputs` are declared, persist an input content-hash across builds/processes so the
+		// generator's `spawnSync` is skipped when inputs are unchanged and outputs still exist —
+		// otherwise every one-shot build (and each split process) regenerates. Keyed by command args
+		// (pluginName alone collides, e.g. the contributions pair). Cyclic generators omit `outputs`
+		// (they mutually write each other's inputs, so content-hash convergence must be verified first).
+		this.cacheFile = this.outputs.length
+			? path.join(
+					__dirname,
+					'.codegen-cache',
+					`${this.pluginName}-${createHash('sha1').update(this.command.args.join(' ')).digest('hex').slice(0, 8)}.json`,
+				)
+			: undefined;
+	}
+
+	/** @private Content hash of all watched inputs (stable across mtime-only churn, e.g. git checkout). */
+	inputsHash() {
+		const hash = createHash('sha1');
+		for (const p of this.pathsToWatch) {
+			try {
+				hash.update(fs.readFileSync(p));
+			} catch {
+				hash.update('\0');
+			}
+		}
+		return hash.digest('hex');
+	}
+
+	/** @private Skip when the persisted input-hash matches AND every declared output still exists. */
+	persistedSkip() {
+		if (!this.cacheFile) return false;
+		if (this.outputs.some(o => !fs.existsSync(o))) return false;
+		try {
+			return JSON.parse(fs.readFileSync(this.cacheFile, 'utf8')).hash === this.inputsHash();
+		} catch {
+			return false;
+		}
+	}
+
+	/** @private Persist the current input-hash after a successful generation. */
+	recordRun() {
+		if (!this.cacheFile) return;
+		try {
+			fs.mkdirSync(path.dirname(this.cacheFile), { recursive: true });
+			fs.writeFileSync(this.cacheFile, JSON.stringify({ hash: this.inputsHash() }));
+		} catch {}
 	}
 
 	/**
@@ -1005,6 +1000,12 @@ class FileGeneratorPlugin {
 		compiler.hooks.make.tapAsync(this.pluginName, async (compilation, callback) => {
 			const logger = compiler.getInfrastructureLogger(this.pluginName);
 			try {
+				// Skip across builds/processes when inputs are unchanged and outputs exist (persisted).
+				if (this.persistedSkip()) {
+					callback();
+					return;
+				}
+
 				const changed = this.pathsChanged(this.pathsToWatch);
 				// Only regenerate if the file has changed since last time
 				if (!changed) {
@@ -1032,6 +1033,7 @@ class FileGeneratorPlugin {
 
 					if (result.status === 0) {
 						this.lastModified = Date.now();
+						this.recordRun();
 						logger.log(
 							`${this.strings.completed} ${this.command.name} in \x1b[32m${Date.now() - start}ms\x1b[0m`,
 						);
@@ -1056,6 +1058,7 @@ class GenerateCommandTypesPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'commandTypes',
 			pathsToWatch: [path.join(__dirname, 'contributions.json')],
+			outputs: [path.join(__dirname, 'src', 'constants.commands.generated.ts')],
 			command: {
 				name: "'src/constants.commands.generated.ts' command types",
 				command: pkgMgr,
@@ -1070,6 +1073,7 @@ class GenerateContributionsPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'contributions',
 			pathsToWatch: [path.join(__dirname, 'contributions.json')],
+			outputs: [path.join(__dirname, 'package.json')],
 			command: {
 				name: "'package.json' contributions",
 				command: pkgMgr,
@@ -1084,6 +1088,7 @@ class ExtractContributionsPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'contributions',
 			pathsToWatch: [path.join(__dirname, 'package.json')],
+			outputs: [path.join(__dirname, 'contributions.json')],
 			command: {
 				name: "contributions from 'package.json'",
 				command: pkgMgr,
@@ -1102,6 +1107,7 @@ class DocsPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'docs',
 			pathsToWatch: [path.join(__dirname, 'src', 'constants.telemetry.ts')],
+			outputs: [path.join(__dirname, 'docs', 'telemetry-events.md')],
 			command: {
 				name: 'docs',
 				command: pkgMgr,
@@ -1116,6 +1122,7 @@ class LicensesPlugin extends FileGeneratorPlugin {
 		super({
 			pluginName: 'licenses',
 			pathsToWatch: [path.join(__dirname, 'package.json')],
+			outputs: [path.join(__dirname, 'ThirdPartyNotices.txt')],
 			command: {
 				name: 'licenses',
 				command: pkgMgr,
@@ -1456,15 +1463,57 @@ class CustomElementsManifestPlugin {
 
 	#firstRun = true;
 	#sourcePrefix = `${path.sep}src${path.sep}webviews${path.sep}apps${path.sep}`;
+	#sourcesDir = path.join(__dirname, 'src', 'webviews', 'apps');
+	#output = path.join(__dirname, 'custom-elements.json');
+	#cacheFile = path.join(__dirname, '.codegen-cache', 'custom-elements.json');
+
+	/** @returns {number} newest mtime across webview-app sources (the manifest's inputs). */
+	#sourcesMaxMtime() {
+		let max = 0;
+		try {
+			for (const entry of fs.readdirSync(this.#sourcesDir, { recursive: true, withFileTypes: true })) {
+				if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) continue;
+				try {
+					const m = fs.statSync(path.join(entry.parentPath, entry.name)).mtimeMs;
+					if (m > max) max = m;
+				} catch {}
+			}
+		} catch {}
+		return max;
+	}
+
+	/** Skip the first-compile regen when no source changed since the last build and the manifest exists. */
+	#persistedSkip() {
+		if (!fs.existsSync(this.#output)) return false;
+		try {
+			return JSON.parse(fs.readFileSync(this.#cacheFile, 'utf8')).mtime >= this.#sourcesMaxMtime();
+		} catch {
+			return false;
+		}
+	}
+
+	#recordRun() {
+		try {
+			fs.mkdirSync(path.dirname(this.#cacheFile), { recursive: true });
+			fs.writeFileSync(this.#cacheFile, JSON.stringify({ mtime: this.#sourcesMaxMtime() }));
+		} catch {}
+	}
 
 	/**
 	 * @param {import('webpack').Compiler} compiler
 	 */
 	apply(compiler) {
 		compiler.hooks.afterEmit.tapAsync(CustomElementsManifestPlugin.name, (_compilation, callback) => {
-			// On the first compile, regenerate unconditionally to refresh any stale committed manifest.
-			// On subsequent compiles (watch mode), only regenerate when a webview source file changed.
-			if (!this.#firstRun) {
+			// First compile of a process: instead of always regenerating, skip when no webview source
+			// changed since the last build (persisted mtime) and the manifest still exists. Subsequent
+			// compiles (watch) regenerate only when a webview source file actually changed.
+			if (this.#firstRun) {
+				this.#firstRun = false;
+				if (this.#persistedSkip()) {
+					callback();
+					return;
+				}
+			} else {
 				const changed = [...(compiler.modifiedFiles ?? []), ...(compiler.removedFiles ?? [])];
 				const relevant = changed.some(f => f.includes(this.#sourcePrefix) && /\.tsx?$/.test(f));
 				if (!relevant) {
@@ -1472,7 +1521,6 @@ class CustomElementsManifestPlugin {
 					return;
 				}
 			}
-			this.#firstRun = false;
 
 			const logger = compiler.getInfrastructureLogger(CustomElementsManifestPlugin.name);
 			try {
@@ -1487,6 +1535,7 @@ class CustomElementsManifestPlugin {
 
 				if (result.status === 0) {
 					logger.log(`Generated 'custom-elements.json' in \x1b[32m${Date.now() - start}ms\x1b[0m`);
+					this.#recordRun();
 				} else {
 					logger.warn(
 						`Failed to generate 'custom-elements.json' (exit ${result.status})${

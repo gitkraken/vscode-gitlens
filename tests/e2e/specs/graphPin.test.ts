@@ -127,7 +127,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		expect(stateInfo!.pinnedRef).toBeUndefined();
 
 		const branchId = `${stateInfo!.repoPath}|heads/branch-a`;
-		await vscode.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',
@@ -172,7 +172,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const stateInfo = await getGraphState(graphWebview!);
 		expect(stateInfo).not.toBeNull();
 
-		await vscode.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',
@@ -193,7 +193,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const pinnedBefore = await getPinnedRef(graphWebview!);
 		expect(pinnedBefore).not.toBeNull();
 
-		await vscode.executeCommand('gitlens.graph.unpinBranchFromLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.unpinBranchFromLeft', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch+pinned',
@@ -231,7 +231,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const stateInfo = await getGraphState(graphWebview!);
 		expect(stateInfo).not.toBeNull();
 
-		await vscode.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',

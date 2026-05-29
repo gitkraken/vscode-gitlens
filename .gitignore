@@ -26,3 +26,6 @@ tsconfig*.tsbuildinfo
 *.code-workspace
 localdev*.instructions.md
 *.log
+
+# Build codegen skip-cache (input fingerprints for Docs/contributions/CEM generators)
+.codegen-cache/
