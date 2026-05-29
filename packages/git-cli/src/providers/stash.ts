@@ -390,7 +390,7 @@ export class StashGitSubProvider implements GitStashSubProvider {
 			params.push('--include-untracked');
 		}
 
-		if (options?.keepIndex && !options?.includeUntracked) {
+		if (options?.keepIndex) {
 			params.push('--keep-index');
 		}
 
