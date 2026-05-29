@@ -18,7 +18,6 @@ import {
 	workspace,
 } from 'vscode';
 import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
-import { getClaudeAgent } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -1669,7 +1668,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				addressReviewFindingsInChat: async args => {
 					try {
-						if ((await getSupportedAgents()).length === 0) {
+						if ((await getSupportedAgents(this.container)).length === 0) {
 							void window.showWarningMessage(
 								'No supported AI agent is available in this editor. The review has been copied to your clipboard so you can paste it elsewhere.',
 							);
@@ -6984,7 +6983,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async notifyDidChangeCanInstallClaudeHook() {
 		if (!this.host.visible) return;
 
-		const claude = getContext('gitlens:agents:enabled', false) ? await getClaudeAgent() : undefined;
+		const claude = getContext('gitlens:agents:enabled', false)
+			? await this.container.agents.getClaude()
+			: undefined;
 		const canInstall = claude?.detected === true && claude.hooksSupported && !claude.hooksInstalled;
 		if (canInstall === this._lastCanInstallClaudeHook) return;
 

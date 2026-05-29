@@ -13,6 +13,7 @@ import {
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { AgentService } from './agents/agentService.js';
 import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';
 import { LineAnnotationController } from './annotations/lineAnnotationController.js';
@@ -193,6 +194,12 @@ export class Container {
 			this.TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 		},
 	};
+
+	private _agentService: AgentService | undefined;
+
+	get agents(): AgentService {
+		return (this._agentService ??= new AgentService(this));
+	}
 
 	private _agentStatusService: AgentStatusService | undefined;
 

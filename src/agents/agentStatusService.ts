@@ -136,28 +136,27 @@ export class AgentStatusService implements Disposable {
 
 	/** Resolves the host's Claude hooks-installed state and pushes it to all providers so they can
 	 *  gate their reconciliation poll (the CLI `list-sessions` call). Resolves to `false` when the
-	 *  agent can't be detected (e.g. the browser stub's `getClaudeAgent()` returns `undefined`); fails
-	 *  *open* (`installed = true`) only if env resolution throws unexpectedly, so a transient failure
+	 *  agent can't be detected (e.g. the browser stub's `getClaude()` returns `undefined`); fails
+	 *  *open* (`installed = true`) only if detection throws unexpectedly, so a transient failure
 	 *  never wrongly suppresses polling. The browser has no providers to receive the push regardless.
 	 *  Pass `invalidate` after an install/uninstall so the stale agent cache is dropped before re-reading.
 	 *
 	 *  Note: an external `gk ai hook install` (run outside GitLens) isn't observed here until
 	 *  something else re-reads — acceptable per the staleness window documented in
-	 *  `src/env/node/gk/cli/agents.ts`, and the poll gate opens anyway the moment any session
+	 *  `src/agents/agentService.ts`, and the poll gate opens anyway the moment any session
 	 *  appears (a non-empty session list always polls). */
 	private async pushHooksInstalledToProviders(options?: { invalidate?: boolean }): Promise<void> {
 		let installed = true;
 		try {
-			const env = await import('@env/providers.js');
 			if (options?.invalidate) {
-				env.invalidateAgentsCache();
+				this.container.agents.invalidateCache();
 			}
-			const claude = await env.getClaudeAgent();
+			const claude = await this.container.agents.getClaude();
 			installed = claude?.hooksInstalled ?? false;
 		} catch {
-			// Unexpected env-resolution/detection failure — leave fail-open (assume installed) so a
-			// transient error doesn't wrongly suppress polling. (The browser stub doesn't throw; it
-			// returns undefined above, yielding installed=false, and has no providers anyway.)
+			// Unexpected detection failure — leave fail-open (assume installed) so a transient error
+			// doesn't wrongly suppress polling. (The browser stub returns an empty list above, yielding
+			// installed=false, and has no providers anyway.)
 		}
 		for (const provider of this._providers) {
 			provider.setClaudeHooksInstalled?.(installed);
@@ -393,7 +392,7 @@ export class AgentStatusService implements Disposable {
 				const { pickAndSetDefaultAgent } = await import(
 					/* webpackChunkName: "agents" */ '../plus/agents/agentPicker.js'
 				);
-				await pickAndSetDefaultAgent();
+				await pickAndSetDefaultAgent(this.container);
 			}),
 			registerCommand('gitlens.agents.openPlanFile', async (planFilePath?: string) => {
 				if (!planFilePath) return;
@@ -580,7 +579,7 @@ export class AgentStatusService implements Disposable {
 		const action = 'Resume in Terminal';
 		const choice = await window.showWarningMessage(`${warning} Resume it in a terminal?`, action);
 		if (choice === action) {
-			await resumeClaudeSessionInTerminal(session);
+			await resumeClaudeSessionInTerminal(session, this.container);
 		}
 	}
 

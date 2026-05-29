@@ -1,6 +1,7 @@
 import { ThemeIcon, window, workspace } from 'vscode';
-import { getClaudeAgent, isCliExecutableAvailable } from '@env/gk/cli/agents.js';
+import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import type { Container } from '../../../container.js';
 import type { AgentSession } from '../../provider.js';
 
 /** Phases for which `claude --resume <id>` is safe to invoke. Idle is the strict baseline — the
@@ -31,7 +32,7 @@ export function canResumeSession(session: AgentSession): boolean {
  *  `agentRegistry.ts`) so users with a non-PATH install (Homebrew under `/opt/homebrew/bin`,
  *  Volta shim, custom prefix) get the right binary. Falls back to bare `claude` when gkcli has
  *  no detected entry or its reported path no longer exists on disk. */
-export async function resumeClaudeSessionInTerminal(session: AgentSession): Promise<void> {
+export async function resumeClaudeSessionInTerminal(session: AgentSession, container: Container): Promise<void> {
 	const cwd =
 		session.initialCwd ??
 		session.cwd ??
@@ -39,7 +40,7 @@ export async function resumeClaudeSessionInTerminal(session: AgentSession): Prom
 		session.workspacePath ??
 		workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-	const executable = await resolveClaudeExecutable();
+	const executable = await resolveClaudeExecutable(container);
 
 	const terminal = window.createTerminal({
 		name: `Claude (${session.name ?? session.id})`,
@@ -54,9 +55,9 @@ export async function resumeClaudeSessionInTerminal(session: AgentSession): Prom
 	);
 }
 
-async function resolveClaudeExecutable(): Promise<string> {
+async function resolveClaudeExecutable(container: Container): Promise<string> {
 	try {
-		const agent = await getClaudeAgent();
+		const agent = await container.agents.getClaude();
 		if (agent?.detected && isCliExecutableAvailable(agent.executable)) {
 			return agent.executable!;
 		}
