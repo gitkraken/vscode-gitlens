@@ -74,6 +74,46 @@ interface CancellationToken {
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
+// Transient gateway/network failures (e.g. an upstream `502 Bad Gateway`) are worth a few quick
+// retries before surfacing to the caller. octokit provides no built-in retry for the standalone
+// `request`/`graphql` functions we use (its retry/throttle plugins only attach to the `Octokit`
+// class), so we retry here — but only for idempotent reads (REST GET/HEAD, GraphQL queries),
+// never for mutations.
+const maxRequestRetries = 2;
+const requestRetryBaseDelay = 300; // ms
+const requestRetryMaxDelay = 2000; // ms
+
+function isRetryableTransientError(ex: unknown): ex is RequestError {
+	// An aborted request is rethrown as the original `AbortError` (not a `RequestError`), so it is
+	// excluded here. octokit maps a fetch/network failure to a `RequestError` with status 500 and
+	// no response — those, along with real gateway statuses, are transient and safe to retry.
+	if (!(ex instanceof RequestError)) return false;
+
+	switch (ex.status) {
+		case 502: // Bad Gateway
+		case 503: // Service Unavailable
+		case 504: // Gateway Timeout
+			return true;
+		case 500: // Internal Server Error — only the network-failure variant (no response)
+			return ex.response == null;
+		default:
+			return false;
+	}
+}
+
+function getRequestRetryDelay(attempt: number): number {
+	// Exponential backoff with equal jitter, capped — spreads retries so a brief upstream blip
+	// isn't hammered by every in-flight request landing on the same schedule.
+	const backoff = Math.min(requestRetryMaxDelay, requestRetryBaseDelay * 2 ** (attempt - 1));
+	return Math.round(backoff / 2 + Math.random() * (backoff / 2));
+}
+
+// Matches a GraphQL document whose operation is definitely a read query — the `query` keyword as
+// the first significant token, after any leading whitespace or `#` comment lines. We retry only
+// when this matches; a mutation (even one prefixed by a comment), a subscription, or anything we
+// can't classify is left non-retryable so a transient failure can never re-run a mutation.
+const graphqlReadQueryRegex = /^(?:\s|#[^\n]*\n?)*query\b/;
+
 const gqlIssueOrPullRequestFragment = `
 closed
 closedAt
@@ -2866,6 +2906,55 @@ export class GitHubApi {
 		return version ?? undefined;
 	}
 
+	// Runs `execute`, retrying transient gateway/network failures with backoff. `retryable` gates
+	// retries to idempotent reads; `signal` lets an in-flight cancellation abort the backoff wait.
+	private async requestWithRetries<T>(
+		execute: () => Promise<T>,
+		retryable: boolean,
+		signal: AbortSignal | undefined,
+		scope: ScopedLogger | undefined,
+	): Promise<T> {
+		let attempt = 0;
+		while (true) {
+			try {
+				return await execute();
+			} catch (ex) {
+				if (!retryable || attempt >= maxRequestRetries || signal?.aborted || !isRetryableTransientError(ex)) {
+					throw ex;
+				}
+
+				attempt++;
+				const delay = getRequestRetryDelay(attempt);
+				scope?.warn(
+					`Transient request failure (status ${ex.status}); retrying ${attempt}/${maxRequestRetries} in ${delay}ms`,
+				);
+				await this.delayWithAbort(delay, signal);
+				// Bail rather than retry if we were cancelled while waiting
+				if (signal?.aborted) throw new CancellationError();
+			}
+		}
+	}
+
+	private delayWithAbort(ms: number, signal: AbortSignal | undefined): Promise<void> {
+		return new Promise<void>(resolve => {
+			if (signal?.aborted) {
+				resolve();
+				return;
+			}
+
+			let timer: ReturnType<typeof setTimeout>;
+			const onAbort = () => {
+				clearTimeout(timer);
+				resolve();
+			};
+			timer = setTimeout(() => {
+				signal?.removeEventListener('abort', onAbort);
+				resolve();
+			}, ms);
+			signal?.addEventListener('abort', onAbort, { once: true });
+		});
+	}
+
 	// Inflight dedupe: identical concurrent GraphQL requests share a single promise
 	// to cut redundant traffic during graph/details enrichment bursts.
 	private readonly _pendingGraphQL = new Map<string, Promise<unknown>>();
@@ -2912,8 +3001,17 @@ export class GitHubApi {
 					};
 				}
 
-				return await this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-					this.getDefaults(accessToken, graphql)(query, variables),
+				// Retry transient gateway/network failures, but only confirmed read queries — never
+				// mutations (re-running one isn't idempotent)
+				const retryable = graphqlReadQueryRegex.test(query);
+				return await this.requestWithRetries(
+					() =>
+						this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+							this.getDefaults(accessToken, graphql)(query, variables),
+						),
+					retryable,
+					aborter?.signal,
+					scope,
 				);
 			} catch (ex) {
 				if (ex instanceof GraphqlResponseError) {
@@ -2977,16 +3075,27 @@ export class GitHubApi {
 	): Promise<Endpoints[R]['response']> {
 		const { accessToken } = token;
 		try {
+			let signal: AbortSignal | undefined;
 			if (cancellation != null) {
 				if (cancellation.isCancellationRequested) throw new CancellationError();
 
 				const aborter = new AbortController();
 				cancellation.onCancellationRequested(() => aborter.abort());
-				options = { ...options, request: { ...options?.request, signal: aborter.signal } };
+				signal = aborter.signal;
+				options = { ...options, request: { ...options?.request, signal: signal } };
 			}
 
-			return (await this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
-				this.getDefaults(accessToken, request)(route as string, options),
+			// Retry transient gateway/network failures on idempotent reads only
+			const method = route.split(' ', 1)[0].toUpperCase();
+			const retryable = method === 'GET' || method === 'HEAD';
+			return (await this.requestWithRetries(
+				() =>
+					this.config.wrapForForcedInsecureSSL(provider?.getIgnoreSSLErrors() ?? false, () =>
+						this.getDefaults(accessToken, request)(route as string, options),
+					),
+				retryable,
+				signal,
+				scope,
 			)) as Endpoints[R]['response'];
 		} catch (ex) {
 			if (ex instanceof RequestError || ex.name === 'AbortError') {
