@@ -1128,6 +1128,16 @@ export function isGitLabDotCom(domain: string): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 
+const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
+export function isAzureCloudDomain(domain: string | undefined): boolean {
+	return domain != null && azureCloudDomainRegex.test(domain);
+}
+
+const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
+export function isBitbucketCloudDomain(domain: string | undefined): boolean {
+	return domain != null && bitbucketCloudDomainRegex.test(domain);
+}
+
 export function supportsCodeSuggest(provider: ProviderReference): boolean {
 	return isGitHubDotCom(provider.domain);
 }

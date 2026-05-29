@@ -345,8 +345,3 @@ export class BitbucketIntegration extends GitHostIntegration<
 		this._workspaces = undefined;
 	}
 }
-
-const bitbucketCloudDomainRegex = /^bitbucket\.org$/i;
-export function isBitbucketCloudDomain(domain: string | undefined): boolean {
-	return domain != null && bitbucketCloudDomainRegex.test(domain);
-}

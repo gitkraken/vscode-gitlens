@@ -661,11 +661,6 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	}
 }
 
-const azureCloudDomainRegex = /^dev\.azure\.com$|\bvisualstudio\.com$/i;
-export function isAzureCloudDomain(domain: string | undefined): boolean {
-	return domain != null && azureCloudDomainRegex.test(domain);
-}
-
 export function convertTokentoPAT(accessToken: string): string {
 	return base64(`PAT:${accessToken}`);
 }

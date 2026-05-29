@@ -7,9 +7,7 @@ import {
 } from '../../../../constants.integrations.js';
 import type { GitHostIntegration } from '../../models/gitHostIntegration.js';
 import type { Integration, IntegrationConnectedKey } from '../../models/integration.js';
-import { isAzureCloudDomain } from '../../providers/azureDevOps.js';
-import { isBitbucketCloudDomain } from '../../providers/bitbucket.js';
-import { isGitHubDotCom, isGitLabDotCom } from '../../providers/models.js';
+import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../../providers/models.js';
 
 const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
 	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,

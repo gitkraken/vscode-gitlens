@@ -332,7 +332,9 @@ export class AgentStatusService implements Disposable {
 		return [
 			registerCommand('gitlens.agents.installClaudeHook', async () => {
 				try {
-					const { installClaudeHook } = await import('@env/agents/installClaudeHook.js');
+					const { installClaudeHook } = await import(
+						/* webpackChunkName: "agents" */ '@env/agents/installClaudeHook.js'
+					);
 					await installClaudeHook();
 					await this.invalidateHooksState();
 					this.container.telemetry.sendEvent('agents/hookInstalled', { 'agent.provider': 'claudeCode' });
@@ -345,7 +347,9 @@ export class AgentStatusService implements Disposable {
 			}),
 			registerCommand('gitlens.agents.uninstallClaudeHook', async () => {
 				try {
-					const { uninstallClaudeHook } = await import('@env/agents/uninstallClaudeHook.js');
+					const { uninstallClaudeHook } = await import(
+						/* webpackChunkName: "agents" */ '@env/agents/uninstallClaudeHook.js'
+					);
 					await uninstallClaudeHook();
 					await this.invalidateHooksState();
 					this.container.telemetry.sendEvent('agents/hookUninstalled', { 'agent.provider': 'claudeCode' });
@@ -358,7 +362,9 @@ export class AgentStatusService implements Disposable {
 			}),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
 			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
-				const { pickAndSetDefaultAgent } = await import('../plus/agents/agentPicker.js');
+				const { pickAndSetDefaultAgent } = await import(
+					/* webpackChunkName: "agents" */ '../plus/agents/agentPicker.js'
+				);
 				await pickAndSetDefaultAgent();
 			}),
 			registerCommand('gitlens.agents.openPlanFile', async (planFilePath?: string) => {
@@ -473,7 +479,9 @@ export class AgentStatusService implements Disposable {
 		// its array between the user's pick and this dispatch.
 		const provider = this._providers.find(p => p.sessions.some(s => s.id === session.id));
 
-		const { classifyClaudeSessionHost } = await import('@env/agents/claudeSessionFile.js');
+		const { classifyClaudeSessionHost } = await import(
+			/* webpackChunkName: "agents" */ '@env/agents/claudeSessionFile.js'
+		);
 		const host = session.pid != null ? await classifyClaudeSessionHost(session.pid) : undefined;
 
 		// For extension-hosted sessions, determine whether this VS Code window owns the live
@@ -620,12 +628,14 @@ export class AgentStatusService implements Disposable {
 	 *  is a *different* extension host (another window's), so this resolves to `false` — that's the
 	 *  dispatcher's signal to route through the peer-notify path instead of opening locally. */
 	private async isExtensionSessionLocallyHosted(pid: number): Promise<boolean> {
-		const { isDescendantOfThisExtensionHost } = await import('@env/focusWindow.js');
+		const { isDescendantOfThisExtensionHost } = await import(
+			/* webpackChunkName: "agents" */ '@env/focusWindow.js'
+		);
 		return isDescendantOfThisExtensionHost(pid);
 	}
 
 	private async tryFocusProcessWindow(pid: number): Promise<boolean> {
-		const { focusProcessWindow } = await import('@env/focusWindow.js');
+		const { focusProcessWindow } = await import(/* webpackChunkName: "agents" */ '@env/focusWindow.js');
 		return focusProcessWindow(pid);
 	}
 
