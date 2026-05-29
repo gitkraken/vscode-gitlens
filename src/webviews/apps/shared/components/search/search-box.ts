@@ -183,6 +183,7 @@ export class GlSearchBox extends GlElement {
 	@property({ type: String }) resultsLabel = 'result';
 	@property({ type: Boolean }) resultsLoaded = false;
 	@property({ type: Boolean }) searching = false;
+	@property({ type: Boolean }) showAutocompleteOnFocus = true;
 	@property({ type: Number }) step = 0;
 	@property({ type: Number }) total = 0;
 	@property({ type: Boolean }) valid = false;
@@ -416,6 +417,7 @@ export class GlSearchBox extends GlElement {
 				?matchWholeWord="${this.matchWholeWord}"
 				?naturalLanguage="${this.naturalLanguage}"
 				?searching="${this.searching}"
+				?showAutocompleteOnFocus="${this.showAutocompleteOnFocus}"
 				?hasMoreResults="${this.resultsHasMore}"
 				.value="${this._value ?? ''}"
 				@gl-search-navigate="${(e: CustomEvent<SearchNavigationEventDetail>) => {

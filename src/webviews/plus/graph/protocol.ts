@@ -426,6 +426,7 @@ export interface GraphComponentConfig {
 	onlyFollowFirstParent?: boolean;
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
+	searchAutocompleteOnFocus?: boolean;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	showWorktreeWipStats?: boolean;

@@ -2874,6 +2874,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.scrollMarkers.additionalTypes': string,
   'context.config.scrollMarkers.enabled': boolean,
   'context.config.scrollRowPadding': number,
+  'context.config.searchAutocompleteOnFocus': boolean,
   'context.config.searchItemLimit': number,
   'context.config.showGhostRefsOnRowHover': boolean,
   'context.config.showRemoteNames': boolean,

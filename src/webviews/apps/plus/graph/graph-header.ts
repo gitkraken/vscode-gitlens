@@ -1344,6 +1344,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						?resultHidden=${this._searchResultHidden}
 						?resultsLoaded=${searchResults != null}
 						?searching=${searching}
+						?showAutocompleteOnFocus=${this.graphState.config?.searchAutocompleteOnFocus ?? true}
 						step=${this.searchPosition}
 						total=${searchResults?.count ?? 0}
 						?valid=${this.searchValid}

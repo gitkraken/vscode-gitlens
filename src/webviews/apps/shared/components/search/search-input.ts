@@ -324,6 +324,7 @@ export class GlSearchInput extends GlElement {
 	@property({ type: Boolean }) naturalLanguage = false;
 	@property({ type: Boolean }) searching = false;
 	@property({ type: Boolean }) hasMoreResults = false;
+	@property({ type: Boolean }) showAutocompleteOnFocus = true;
 	@property({ type: String })
 	get value() {
 		return this._value;
@@ -349,6 +350,7 @@ export class GlSearchInput extends GlElement {
 	@query('gl-autocomplete') private autocomplete?: GlAutocomplete;
 
 	private canDeleteHistoryItem = false;
+	private suppressNextFocusAutocomplete = false;
 
 	// Track last search to avoid re-searching on Enter when query hasn't changed
 	private _lastSearch: SearchQuery | undefined = undefined;
@@ -446,6 +448,12 @@ export class GlSearchInput extends GlElement {
 	}
 
 	private handleInputFocus(_e: FocusEvent) {
+		if (this.suppressNextFocusAutocomplete) {
+			this.suppressNextFocusAutocomplete = false;
+			return;
+		}
+		if (!this.showAutocompleteOnFocus) return;
+
 		this.updateAutocomplete();
 	}
 
@@ -471,10 +479,13 @@ export class GlSearchInput extends GlElement {
 	private handleClear(_e: Event) {
 		this._value = '';
 		this.cancelSearch();
+		this.suppressNextFocusAutocomplete = true;
 		this.focus();
 	}
 
 	private handleInputClick(_e: MouseEvent) {
+		if (!this.showAutocompleteOnFocus) return;
+
 		this.updateAutocomplete();
 	}
 

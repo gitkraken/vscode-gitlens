@@ -459,6 +459,7 @@ export interface GraphConfig {
 		readonly additionalTypes: GraphScrollMarkersAdditionalTypes[];
 	};
 	readonly scrollRowPadding: number;
+	readonly searchAutocompleteOnFocus: boolean;
 	readonly searchItemLimit: number;
 	readonly showGhostRefsOnRowHover: boolean;
 	readonly showRemoteNames: boolean;
