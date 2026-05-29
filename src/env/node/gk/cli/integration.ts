@@ -20,7 +20,7 @@ import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode
 import { gate } from '../../../../system/decorators/gate.js';
 import { getCliPublishInfo } from '../../ipc/ipcService.js';
 import { getIsOffline, getPlatform, isWeb } from '../../platform.js';
-import type { GkAgent } from './agents.js';
+import type { GkAgent } from '../../../../agents/agentService.js';
 import { CliCommandHandlers } from './commands.js';
 import { showMcpAgentPicker } from './mcpAgentPicker.js';
 import {

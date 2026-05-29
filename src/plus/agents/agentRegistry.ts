@@ -1,5 +1,5 @@
-import type { GkAgent } from '@env/gk/cli/agents.js';
-import { cliAgentIds, getAllAgents, isCliExecutableAvailable } from '@env/gk/cli/agents.js';
+import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
+import type { Container } from '../../container.js';
 import {
 	claudeExtensionId,
 	claudeExtensionOpenCommand,
@@ -32,7 +32,7 @@ const ideChatLabels: Record<string, string> = {
  *
  * Returns descriptors as plain data only — safe to serialize through the deep-link bridge.
  */
-export async function getSupportedAgents(): Promise<AgentDescriptor[]> {
+export async function getSupportedAgents(container: Container): Promise<AgentDescriptor[]> {
 	const result: AgentDescriptor[] = [];
 
 	// 1) IDE chat — at most one entry, host-determined.
@@ -52,36 +52,21 @@ export async function getSupportedAgents(): Promise<AgentDescriptor[]> {
 	}
 
 	// 3) CLIs — filtered to detected + executable-on-disk, sorted by displayName.
-	const cliDescriptors = await getDetectedCliDescriptors();
+	const cliDescriptors = await getDetectedCliDescriptors(container);
 	cliDescriptors.sort((a, b) => a.label.localeCompare(b.label));
 	result.push(...cliDescriptors);
 
 	return result;
 }
 
-async function getDetectedCliDescriptors(): Promise<AgentDescriptor[]> {
-	let agents: GkAgent[];
-	try {
-		agents = await getAllAgents();
-	} catch {
-		return [];
-	}
-
-	const out: AgentDescriptor[] = [];
-	for (const agent of agents) {
-		if (!cliAgentIds.has(agent.name)) continue;
-		if (!agent.detected) continue;
-		if (typeof agent.executable !== 'string' || agent.executable.length === 0) continue;
-		if (!isCliExecutableAvailable(agent.executable)) continue;
-
-		out.push({
-			id: `cli:${agent.name}`,
-			kind: 'cli',
-			agent: agent,
-			label: agent.displayName || agent.name,
-		});
-	}
-	return out;
+async function getDetectedCliDescriptors(container: Container): Promise<AgentDescriptor[]> {
+	const agents = await container.agents.getDetectedCliAgents();
+	return agents.map(agent => ({
+		id: `cli:${agent.name}` as const,
+		kind: 'cli' as const,
+		agent: agent,
+		label: agent.displayName || agent.name,
+	}));
 }
 
 /** Re-validates a descriptor at dispatch time. Picker-time validation does not guarantee
@@ -100,8 +85,8 @@ export async function isAgentAvailable(descriptor: AgentDescriptor): Promise<boo
 }
 
 /** Resolves a persisted `defaultAgent` id back to a live descriptor, or `undefined` if unavailable. */
-export async function resolveDefaultAgent(id: string): Promise<AgentDescriptor | undefined> {
-	const available = await getSupportedAgents();
+export async function resolveDefaultAgent(container: Container, id: string): Promise<AgentDescriptor | undefined> {
+	const available = await getSupportedAgents(container);
 	return available.find(d => d.id === id);
 }
 

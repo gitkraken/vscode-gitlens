@@ -86,10 +86,11 @@ export async function executeChatAction(
 /** Resolves a stored `defaultAgent` setting value to a live descriptor at dispatch time.
  *  Centralizes the lookup so callers don't have to import `agentRegistry` directly. */
 export async function resolveDefaultAgentDescriptor(
+	container: Container,
 	id: string | null | undefined,
 ): Promise<AgentDescriptor | undefined> {
 	if (id == null) return undefined;
-	return resolveDefaultAgent(id);
+	return resolveDefaultAgent(container, id);
 }
 
 export async function storeChatActionDeepLink(

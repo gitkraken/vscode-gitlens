@@ -103,9 +103,6 @@ export function getGkCliIntegrationProvider(container: Container): GkCliIntegrat
 	return new GkCliIntegrationProvider(container);
 }
 
-export { getClaudeAgent, invalidateAgentsCache } from './gk/cli/agents.js';
-export type { GkAgent } from './gk/cli/agents.js';
-
 export async function getMcpProviders(container: Container): Promise<Disposable[] | undefined> {
 	if (mcpRegistrationEnabled(container)) {
 		if (supportsMcpExtensionRegistration()) {

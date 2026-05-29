@@ -7,7 +7,6 @@
  */
 
 import { Disposable } from 'vscode';
-import { getClaudeAgent } from '@env/providers.js';
 import type { Container } from '../../../container.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
@@ -107,13 +106,14 @@ export class AIService {
 
 	async #getAIState(): Promise<AIState> {
 		const agentsEnabled = getContext('gitlens:agents:enabled', false);
-		const claude = agentsEnabled ? await getClaudeAgent() : undefined;
+		const claude = agentsEnabled ? await this.#container.agents.getClaude() : undefined;
 		const detected = claude?.detected === true;
 		const supported = claude?.hooksSupported === true;
 		const installed = claude?.hooksInstalled === true;
 
 		const defaultAgentId = configuration.get('ai.defaultAgent') ?? undefined;
-		const defaultAgentDescriptor = defaultAgentId != null ? await resolveDefaultAgent(defaultAgentId) : undefined;
+		const defaultAgentDescriptor =
+			defaultAgentId != null ? await resolveDefaultAgent(this.#container, defaultAgentId) : undefined;
 
 		return {
 			enabled: this.#container.ai.enabled,
