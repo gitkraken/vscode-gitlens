@@ -670,7 +670,8 @@ export async function openFile(
 		// An untracked file in a stash typically has no working-tree copy to open. Mirror the
 		// warning surfaced by `gitlens.openWorkingFile:command` for the same case so the click
 		// isn't a silent no-op; users wanting the stashed content can pick "Open File at Revision".
-		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?') {
+		// Skip this guard for WIP refs — untracked files in the working tree are real files.
+		if (typeof fileOrUri !== 'string' && fileOrUri.status === '?' && !isUncommitted(ref.ref)) {
 			void window.showWarningMessage('Unable to open working file. File could not be found in the working tree');
 			return;
 		}

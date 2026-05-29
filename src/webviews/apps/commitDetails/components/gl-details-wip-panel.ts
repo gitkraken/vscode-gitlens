@@ -65,6 +65,7 @@ const discardUnstagedAction: TreeItemAction = {
 	label: 'Discard Unstaged Changes',
 	action: 'file-discard',
 };
+const openFileAction: TreeItemAction = { icon: 'go-to-file', label: 'Open File', action: 'file-open' };
 // `file-compare-wip-staged` is bridged by gl-wip-tree-pane into `file-compare-wip` with
 // `staged: true` overridden so the diff resolves to staged ↔ HEAD even though the deduped
 // row carries `staged: false` (preferred-unstaged precedence from the tree pane dedup).
@@ -74,12 +75,16 @@ const openStagedChangesAction: TreeItemAction = {
 	action: 'file-compare-wip-staged',
 };
 
-const conflictedCheckboxActions: TreeItemAction[] = [openCurrentChangesAction, openIncomingChangesAction];
+const conflictedCheckboxActions: TreeItemAction[] = [
+	openFileAction,
+	openCurrentChangesAction,
+	openIncomingChangesAction,
+];
 const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
-const checkboxDiscardOnly: TreeItemAction[] = [discardAction];
-const checkboxMixedActions: TreeItemAction[] = [openStagedChangesAction, discardUnstagedAction];
-const stagedActions: TreeItemAction[] = [unstageAction, discardAction];
-const unstagedActions: TreeItemAction[] = [stageAction, discardAction];
+const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, discardAction];
+const checkboxMixedActions: TreeItemAction[] = [openFileAction, openStagedChangesAction, discardUnstagedAction];
+const stagedActions: TreeItemAction[] = [openFileAction, unstageAction, discardAction];
+const unstagedActions: TreeItemAction[] = [openFileAction, stageAction, discardAction];
 
 @customElement('gl-details-wip-panel')
 export class GlDetailsWipPanel extends GlDetailsBase {
@@ -687,7 +692,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			return this.checkboxMode ? conflictedCheckboxActions : conflictedActions;
 		}
 
-		// Non-conflicted files: row click opens, so no Open File button.
 		if (this.checkboxMode) {
 			// Mixed (deduped) gets an extra "Open Staged Changes" view button alongside Discard.
 			return options?.mixed ? checkboxMixedActions : checkboxDiscardOnly;
