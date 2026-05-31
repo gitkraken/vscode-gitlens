@@ -61,12 +61,12 @@ export interface GlGitProvider extends UnifiedDisposable {
 		options?: { cancellation?: AbortSignal; depth?: number; silent?: boolean },
 	): Promise<GlRepository[]>;
 	updateContext?(): void;
-	openRepository(
+	addRepository(
 		folder: WorkspaceFolder | undefined,
 		uri: Uri,
 		gitDir: GitDir | undefined,
 		root: boolean,
-		closed?: boolean,
+		opened: boolean,
 	): GlRepository[];
 	supports(feature: Features): Promise<boolean>;
 	visibility(repoPath: string): Promise<[visibility: RepositoryVisibility, cacheKey: string | undefined]>;

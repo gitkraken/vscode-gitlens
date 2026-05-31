@@ -132,7 +132,7 @@ export async function getStashSaveArgsForScmStates(
 		}
 	}
 
-	const repo = await container.git.getOrOpenRepository(uris[0]);
+	const repo = await container.git.getOrAddRepository(uris[0], { opened: false });
 	args.repoPath = repo?.path;
 
 	if (!(await repo?.git?.supports('git:stash:push:pathspecs'))) {
@@ -201,7 +201,7 @@ export async function getStashSaveArgsForScmGroups(
 	let repo;
 	const uri = context.scmResourceGroups[0]?.resourceStates[0]?.resourceUri;
 	if (uri != null) {
-		repo = await container.git.getOrOpenRepository(uri);
+		repo = await container.git.getOrAddRepository(uri, { opened: false });
 		args.repoPath = repo?.path;
 	}
 	if (repo == null) return args;

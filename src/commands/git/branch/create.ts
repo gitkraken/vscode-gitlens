@@ -236,8 +236,11 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 						try {
 							const worktree = await worktreeResult.promise;
 							if (worktree) {
-								// Get the branch from the worktree repository
-								const worktreeRepo = await this.container.git.getOrOpenRepository(worktree.uri);
+								// Get the branch from the worktree repository — resolve the model only; don't
+								// surface the worktree as a visible repo
+								const worktreeRepo = await this.container.git.getOrAddRepository(worktree.uri, {
+									opened: false,
+								});
 								const branch = worktreeRepo
 									? await worktreeRepo.git.branches.getBranch(state.name)
 									: undefined;

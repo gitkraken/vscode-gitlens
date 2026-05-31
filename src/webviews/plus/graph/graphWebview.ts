@@ -1161,7 +1161,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// open them on demand — closed, so they don't surface in the VS Code UI.
 					const repo =
 						this.container.git.getRepository(repoPath) ??
-						(await this.container.git.getOrOpenRepository(Uri.file(repoPath), { closeOnOpen: true }));
+						(await this.container.git.getOrAddRepository(Uri.file(repoPath), { opened: false }));
 					if (repo == null) return undefined;
 
 					// Returning `wip` (with stats embedded as `wip.stats`) lets the cold-load path
@@ -2182,7 +2182,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			...this.host.getTelemetryContext(),
 			'context.repository.id': this.repository?.idHash,
 			'context.repository.scheme': this.repository?.uri.scheme,
-			'context.repository.closed': this.repository?.closed,
+			'context.repository.closed': this.repository != null ? !this.repository.opened : undefined,
 			'context.repository.folder.scheme': this.repository?.folder?.uri.scheme,
 			'context.repository.provider.id': this.repository?.provider.id,
 		};
@@ -4265,18 +4265,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const path = getSecondaryWipPath(sha);
 			const repo =
 				this.container.git.getRepository(path) ??
-				(await this.container.git.getOrOpenRepository(Uri.file(path), { closeOnOpen: true }));
+				(await this.container.git.getOrAddRepository(Uri.file(path), { opened: false }));
 			if (this._disposed) break;
 			if (repo == null) continue;
 			// Double-check: another concurrent call may have claimed this sha while we awaited.
 			if (this._wipWatches.has(sha) || !wanted.has(sha)) continue;
 
 			// Use the service-level watch facility so events fire regardless of whether the
-			// `GlRepository` is open or closed — secondary worktrees are typically opened with
-			// `closeOnOpen: true`, which leaves `repo.watchWorkingTree` / `repo.onDidChange` dead
-			// (closed repos skip `setupWatching`). Going through `repo.git.watch()` routes around
-			// that gating without flipping the repo to "open" (which would inflate
-			// `openRepositoryCount` and surface the worktree in multi-repo UI).
+			// `GlRepository` is open or closed — secondary worktrees are typically added with
+			// `opened: false` (hidden), which leaves `repo.onDidChange` dead (a not-open repo holds
+			// no repo-change watch lease). Going through `repo.git.watch()` routes around that gating
+			// without flipping the repo to "open" (which would inflate `openRepositoryCount` and
+			// surface the worktree in multi-repo UI).
 			const watcher = await repo.git.watch({ workingTreeDelayMs: 500 });
 			if (watcher == null) continue;
 			// Re-check after the await — provider may have been disposed, or another sync may have
@@ -4350,10 +4350,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			try {
 				const result = await this.getWipForRepoAndStats(entry.repo);
 				if (result == null) return;
-				// Re-check teardown state — the await above may have spanned a dispose or watcher
-				// removal. Don't gate on `host.ready` though: `host.notify` queues when not ready
-				// and replays on reconnect, so the secondary refetch isn't dropped during a reload.
-				if (this._disposed || !this._wipWatches.has(sha)) return;
+				// Only bail if the whole provider is gone. Deliberately DON'T gate on
+				// `!this._wipWatches.has(sha)`: the grace-period timer can dispose this row's watcher
+				// while this fetch is in flight, but the worktree is still tracked in
+				// `wipMetadataBySha`, so delivering the fresh stats keeps the row correct when it
+				// scrolls back into view (otherwise the update is silently dropped and the row stays
+				// stale). The stateProvider ignores notifications for rows it no longer tracks (its
+				// `prevSecondary != null` gate). Don't gate on `host.ready` either — `host.notify`
+				// queues when not ready and replays on reconnect.
+				if (this._disposed) return;
 
 				void this.host.notify(DidRequestWipRefetchNotification, {
 					repoPath: entry.repo.path,
@@ -5049,7 +5054,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this.host.sendTelemetryEvent('graph/repository/changed', {
 			'repository.id': this.repository?.idHash,
 			'repository.scheme': this.repository?.uri.scheme,
-			'repository.closed': this.repository?.closed,
+			'repository.closed': !this.repository?.opened,
 			'repository.folder.scheme': this.repository?.folder?.uri.scheme,
 			'repository.provider.id': this.repository?.provider.id,
 		});
@@ -8532,7 +8537,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// round-trip from the panel.
 		const repo =
 			this.container.git.getRepository(value.repoPath) ??
-			(await this.container.git.getOrOpenRepository(Uri.file(value.repoPath), { closeOnOpen: true }));
+			(await this.container.git.getOrAddRepository(Uri.file(value.repoPath), { opened: false }));
 		const result = repo != null ? await this.getWipForRepoAndStats(repo) : undefined;
 		// Ship `wip` (with stats embedded as `wip.stats`) so the webview never has to re-derive
 		// them — the host just did the work, the webview's classifier wouldn't match

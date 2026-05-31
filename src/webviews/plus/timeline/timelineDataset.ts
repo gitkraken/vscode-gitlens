@@ -45,7 +45,7 @@ export async function buildTimelineDataset(
 	}
 	signal?.throwIfAborted();
 
-	const repo = git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }));
+	const repo = git.getRepository(scope.uri) ?? (await git.getOrAddRepository(scope.uri, { opened: false }));
 	if (repo == null) {
 		const access = await container.subscription.getSubscription();
 		return {

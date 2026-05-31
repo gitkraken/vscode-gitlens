@@ -270,7 +270,12 @@ export class DeepLinkService implements Disposable {
 						}
 					}
 				} else {
-					const openRepo = await this.container.git.getOrOpenRepository(repoOpenUri, { detectNested: false });
+					// Following a deep link is an explicit user action to work with this repo, so surface
+					// it (a newly-discovered one) rather than leaving visibility to autoRepositoryDetection.
+					const openRepo = await this.container.git.getOrAddRepository(repoOpenUri, {
+						detectNested: false,
+						opened: true,
+					});
 					if (openRepo != null) {
 						this._context.repo = openRepo;
 						return;
@@ -923,8 +928,8 @@ export class DeepLinkService implements Disposable {
 					}
 
 					// Add the chosen repo as closed
-					const chosenRepo = await this.container.git.getOrOpenRepository(this._context.repoOpenUri, {
-						closeOnOpen: true,
+					const chosenRepo = await this.container.git.getOrAddRepository(this._context.repoOpenUri, {
+						opened: false,
 						detectNested: false,
 					});
 					if (chosenRepo != null) {

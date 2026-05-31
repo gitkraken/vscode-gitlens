@@ -1504,7 +1504,7 @@ export class SubscriptionService implements Disposable {
 		if (!plusEnabled && allowed === 'mixed') {
 			disallowedRepos = [];
 			for (const repo of this.container.git.repositories) {
-				if (repo.closed) continue;
+				if (!repo.opened) continue;
 
 				const access = await this.container.git.access(undefined, repo.uri);
 				if (cancellation.isCancellationRequested) return;

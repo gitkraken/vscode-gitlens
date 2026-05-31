@@ -266,8 +266,9 @@ async function getBranchFromWorktree(
 	worktree: GitWorktree,
 	branchName: string,
 ): Promise<GitBranch> {
-	// Get the branch from the worktree repository
-	const worktreeRepo = await container.git.getOrOpenRepository(worktree.uri);
+	// Get the branch from the worktree repository — resolve the model only; don't surface the
+	// worktree as a visible repo
+	const worktreeRepo = await container.git.getOrAddRepository(worktree.uri, { opened: false });
 	if (!worktreeRepo) {
 		throw new Error('Failed to open worktree repository');
 	}

@@ -20,7 +20,7 @@ export async function getOrOpenIssueRepository(
 	if (repo == null && !options?.skipVirtual) {
 		const virtualUri = getVirtualUriForIssue(issue);
 		if (virtualUri != null) {
-			repo = await container.git.getOrOpenRepository(virtualUri, { closeOnOpen: true, detectNested: false });
+			repo = await container.git.getOrAddRepository(virtualUri, { opened: false, detectNested: false });
 		}
 	}
 

@@ -522,6 +522,36 @@ describe('RepositoryWatchService', () => {
 			handle2.dispose();
 			service.dispose();
 		});
+
+		it('a session created while globally suspended starts suspended', () => {
+			const { factory } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory });
+
+			// Suspend globally before any session for this path exists (e.g. window blurred)
+			service.suspendAll();
+
+			const handle = service.watch('/late', standardGitDir('/late/.git'));
+			assertHandle(handle);
+			assert.ok(handle.session.suspended, 'late-joining session should inherit the global suspended state');
+
+			handle.dispose();
+			service.dispose();
+		});
+
+		it('resumeAll clears the global suspend so later-created sessions start unsuspended', () => {
+			const { factory } = createMockFactory();
+			const service = new RepositoryWatchService({ watchingProvider: factory });
+
+			service.suspendAll();
+			service.resumeAll();
+
+			const handle = service.watch('/after-resume', standardGitDir('/after-resume/.git'));
+			assertHandle(handle);
+			assert.ok(!handle.session.suspended, 'session created after resumeAll should not be suspended');
+
+			handle.dispose();
+			service.dispose();
+		});
 	});
 
 	describe('dispose', () => {

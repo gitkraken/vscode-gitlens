@@ -342,8 +342,7 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				await git.isDiscoveringRepositories;
 			}
 
-			const repo =
-				git.getRepository(scope.uri) ?? (await git.getOrOpenRepository(scope.uri, { closeOnOpen: true }));
+			const repo = git.getRepository(scope.uri) ?? (await git.getOrAddRepository(scope.uri, { opened: false }));
 			if (repo != null) {
 				if (areUrisEqual(scope.uri, repo.uri)) {
 					scope.type = 'repo';

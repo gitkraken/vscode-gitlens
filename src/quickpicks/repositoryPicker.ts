@@ -41,7 +41,9 @@ export async function getRepositoryOrShowPicker(
 ): Promise<GlRepository | undefined> {
 	return getRepositoryOrShowPickerCore(
 		container,
-		pathOrUri == null ? container.git.highlander : await container.git.getOrOpenRepository(pathOrUri),
+		pathOrUri == null
+			? container.git.highlander
+			: await container.git.getOrAddRepository(pathOrUri, { opened: false }),
 		title,
 		placeholder,
 		options,

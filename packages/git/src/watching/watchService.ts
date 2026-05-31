@@ -43,7 +43,7 @@ interface SessionRecord {
 	 * implementations stored just the first caller's hooks (`WatchHooks | undefined`) and
 	 * silently dropped subsequent callers' hooks — that broke the case where a low-level
 	 * subscriber (e.g. the Graph's secondary-worktree WIP watcher) opened the session
-	 * first without hooks, and a later `Repository.setupWatching` for the same path lost
+	 * first without hooks, and a later `Repository.watch()` for the same path lost
 	 * its `markFetched` / `onIgnoresChanged` wiring. Each `watch()` call adds its hooks
 	 * to this set and removes them on dispose; fire sites iterate the set.
 	 */
@@ -78,6 +78,8 @@ export class RepositoryWatchService implements UnifiedDisposable {
 	private readonly watchGroups = new Map<string, WatchGroup>();
 	private readonly wtWatchers = new Map<string, { watcher: FileWatcher; filter?: GitIgnoreFilter }>();
 	private _disposed = false;
+	/** Global suspend state (driven by window focus); inherited by sessions created via {@link watch}. */
+	private _suspended = false;
 
 	constructor(options: WatchServiceOptions) {
 		this.provider = options.watchingProvider;
@@ -135,6 +137,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 				repoPath: repoPath,
 				defaultRepoDelayMs: this.defaultRepoDelayMs,
 				defaultWorkingTreeDelayMs: this.defaultWorkingTreeDelayMs,
+				suspended: this._suspended,
 				lifecycle: {
 					onFirstRepoSubscriber: (): void => {
 						const rec = this.sessionMap.get(repoPath);
@@ -207,15 +210,17 @@ export class RepositoryWatchService implements UnifiedDisposable {
 		return this.sessionMap.get(repoPath)?.session;
 	}
 
-	/** Suspend all sessions */
+	/** Suspend all sessions and mark the service suspended so late-joining sessions start suspended */
 	suspendAll(): void {
+		this._suspended = true;
 		for (const record of this.sessionMap.values()) {
 			record.session.suspend();
 		}
 	}
 
-	/** Resume all sessions, with optional per-session delay */
+	/** Resume all sessions (clearing the global suspend state), with optional per-session delay */
 	resumeAll(getDelay?: (session: RepositoryWatchSession) => number): void {
+		this._suspended = false;
 		for (const record of this.sessionMap.values()) {
 			const delayMs = getDelay?.(record.session);
 			record.session.resume(delayMs);
@@ -252,7 +257,7 @@ export class RepositoryWatchService implements UnifiedDisposable {
 			},
 			onFetchHeadChanged: function (repoPath: string): void {
 				// Iterate at fire time so callers that joined after the group was wired up
-				// still receive events (e.g. a `Repository.setupWatching` whose hooks landed
+				// still receive events (e.g. a `Repository.watch()` whose hooks landed
 				// after a hookless `GitRepositoryService.watch` registered first).
 				for (const h of watchHooks) {
 					h.onFetchHeadChanged?.(repoPath);

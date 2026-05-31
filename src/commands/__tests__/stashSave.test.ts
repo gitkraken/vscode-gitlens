@@ -67,7 +67,7 @@ function createMockRepo(opts: {
 function createMockContainer(repo: GlRepository | undefined): Container {
 	return {
 		git: {
-			getOrOpenRepository: sinon.stub().resolves(repo),
+			getOrAddRepository: sinon.stub().resolves(repo),
 		},
 	} as unknown as Container;
 }

@@ -92,10 +92,10 @@ export class GitRepositoryService {
 	 * (`onDidChange`: index, head, refs, paused-op, etc.) and working-tree edits
 	 * (`onDidChangeWorkingTree`). Routes through the shared watch service so it works
 	 * regardless of whether a corresponding {@link GlRepository} is open or closed —
-	 * closed `GlRepository` instances skip `setupWatching` and their own `watchWorkingTree`
-	 * / `onDidChange` are dead, so callers that need events for not-currently-open repos
-	 * (e.g. the Graph's secondary-worktree WIP rows) must come through this method instead
-	 * of `repo.watchWorkingTree` / `repo.onDidChange`.
+	 * a not-open `GlRepository` holds no repo-change watch lease, so its `onDidChange` is
+	 * dead, so callers that need events for not-currently-open repos (e.g. the Graph's
+	 * secondary-worktree WIP rows) must come through this method instead of
+	 * `repo.watchWorkingTree` / `repo.onDidChange`.
 	 *
 	 * Returns `undefined` when the git directory can't be resolved (transient or non-repo
 	 * paths). The returned object disposes both event subscriptions and the underlying
@@ -245,7 +245,7 @@ export class GitRepositoryService {
 	}
 
 	@trace({ exit: true })
-	getLastFetchedTimestamp(): Promise<number | undefined> {
+	getLastFetched(): Promise<number | undefined> {
 		return this._provider.getLastFetchedTimestamp(this.path);
 	}
 
@@ -360,7 +360,7 @@ export class GitRepositoryService {
 		if (commonUri == null) return repo;
 
 		// If the repository isn't already opened, then open it as a "closed" repo (won't show up in the UI)
-		return this._svc.getOrOpenRepository(commonUri, { detectNested: false, force: true, closeOnOpen: true });
+		return this._svc.getOrAddRepository(commonUri, { detectNested: false, force: true, opened: false });
 	}
 
 	@gate()

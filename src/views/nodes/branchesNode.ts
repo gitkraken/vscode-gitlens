@@ -127,7 +127,7 @@ export class BranchesNode extends CacheableChildrenViewNode<'branches', ViewsWit
 			item.contextValue += '+remotes';
 		}
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
-		if (this.repo.closed) {
+		if (!this.repo.opened) {
 			item.contextValue += '+closed';
 		}
 		item.iconPath = new ThemeIcon('git-branch');

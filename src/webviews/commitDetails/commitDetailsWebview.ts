@@ -70,6 +70,7 @@ import type {
 	Wip,
 	WipChange,
 	WipFileChange,
+	WipStats,
 } from './protocol.js';
 import { messageHeadlineSplitterToken } from './protocol.js';
 import type { CommitDetailsWebviewShowingArgs } from './registration.js';
@@ -92,6 +93,8 @@ interface WipContext {
 	repositoryCount: number;
 	branch?: GitBranch;
 	repo: Repository;
+	/** Git-authoritative working-tree counts (from `status.diffStatus`). See {@link WipStats}. */
+	stats?: WipStats;
 }
 
 /**
@@ -611,7 +614,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 
 	private _wipConflictMarkerCache = new Map<string, { mtime: number; count: number }>();
 
-	private async getWipChange(repository: GlRepository): Promise<WipChange | undefined> {
+	private async getWipChange(repository: GlRepository): Promise<{ changes: WipChange; stats: WipStats } | undefined> {
 		const svc = this.container.git.getRepositoryService(repository.path);
 		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
 			svc.status.getStatus(),
@@ -663,16 +666,32 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			}
 		}
 
-		return {
-			repository: {
-				name: repository.name,
-				path: repository.path,
-				uri: repository.uri.toString(),
-			},
-			branchName: status.branch,
-			files: files,
+		const diff = status.diffStatus;
+		// Git-authoritative counts from `diffStatus` (each path counted once). The `files` list above
+		// intentionally double-counts mixed staged+unstaged entries for display, so the header's
+		// fallback of counting `files` inflates them — embed `stats` so the header/panel use the
+		// correct counts, matching the Graph's `getWipForRepoAndStats`.
+		const stats: WipStats = {
+			added: diff.added,
+			deleted: diff.deleted,
+			modified: diff.changed,
 			hasConflicts: status.hasConflicts,
 			pausedOpStatus: pausedOpStatus,
+		};
+
+		return {
+			changes: {
+				repository: {
+					name: repository.name,
+					path: repository.path,
+					uri: repository.uri.toString(),
+				},
+				branchName: status.branch,
+				files: files,
+				hasConflicts: status.hasConflicts,
+				pausedOpStatus: pausedOpStatus,
+			},
+			stats: stats,
 		};
 	}
 
@@ -978,8 +997,10 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 							: this.container.git.getBestRepositoryOrFirst();
 					if (repo == null) return undefined;
 
-					const changes = await this.getWipChange(repo);
-					if (changes == null) return undefined;
+					const wip = await this.getWipChange(repo);
+					if (wip == null) return undefined;
+
+					const { changes, stats } = wip;
 
 					signal?.throwIfAborted();
 
@@ -992,6 +1013,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						repo: repo,
 						repositoryCount: this.container.git.openRepositoryCount,
 						branch: branch,
+						stats: stats,
 					});
 				},
 
@@ -1076,5 +1098,6 @@ function serializeWipContext(wip?: WipContext): Wip | undefined {
 			path: wip.repo.path,
 			isWorktree: wip.repo.isWorktree,
 		},
+		stats: wip.stats,
 	};
 }

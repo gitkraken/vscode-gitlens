@@ -188,7 +188,7 @@ export class VslsHostService implements Disposable {
 				folderUri: vslsUri.toString(),
 				// uri: vslsUri.toString(),
 				root: repository.root,
-				closed: repository.closed,
+				closed: !repository.opened,
 			});
 		}
 

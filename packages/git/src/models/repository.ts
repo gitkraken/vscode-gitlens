@@ -7,7 +7,6 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { basename, normalizePath } from '@gitlens/utils/path.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri } from '@gitlens/utils/uri.js';
@@ -84,8 +83,6 @@ export interface RepositoryInit {
 	readonly gitDir: GitDir | undefined;
 	readonly index: number;
 	readonly root: boolean;
-	readonly closed?: boolean;
-	readonly suspended?: boolean;
 	readonly watchService: RepositoryWatchService;
 }
 
@@ -118,19 +115,21 @@ export class Repository {
 	readonly root: boolean;
 
 	protected readonly _gitDir: GitDir | undefined;
-	protected _pendingResumeTimer: ReturnType<typeof setTimeout> | undefined;
 	protected _repoSubscription: RepositorySubscription | undefined;
-	protected _suspended: boolean;
 	protected _watchHandle: WatchHandle | undefined;
 	protected readonly _watchService: RepositoryWatchService;
 
 	private _pendingWorkingTreeChange?: RepositoryWorkingTreeChangeEvent;
 	private _pendingWorkingTreeFlush = false;
 	private _repoChangeListener: UnifiedDisposable | undefined;
+	/** Outstanding leases on the shared {@link _watchHandle} across `watch()` + `watchWorkingTree()`. */
+	private _watchHandleRefs = 0;
+	/** Outstanding `watch()` (repo-change) leases; drives the single shared bridge subscription. */
+	private _watchRefs = 0;
+	private _disposed = false;
 
 	constructor(init: RepositoryInit) {
 		({
-			closed: this._closed = init.closed ?? false,
 			id: this.id,
 			index: this.index,
 			gitDir: this._gitDir,
@@ -138,7 +137,6 @@ export class Repository {
 			path: this.path,
 			provider: this.provider,
 			root: this.root,
-			suspended: this._suspended = init.suspended ?? false,
 			uri: this.uri,
 			watchService: this._watchService,
 		} = init);
@@ -156,45 +154,25 @@ export class Repository {
 				this._name = `${prefix}${this._name}`;
 			}
 		}
-
-		this.setupWatching();
 	}
 
 	dispose(): void {
-		clearTimeout(this._pendingResumeTimer);
+		this._disposed = true;
 		this._repoChangeListener?.dispose();
 		this._repoChangeListener = undefined;
 		this._repoSubscription?.dispose();
 		this._repoSubscription = undefined;
 		this._watchHandle?.dispose();
 		this._watchHandle = undefined;
+		this._watchHandleRefs = 0;
+		this._watchRefs = 0;
 		this._onDidChange.dispose();
 		this._onDidChangeWorkingTree.dispose();
 	}
 
-	protected _closed: boolean;
-	get closed(): boolean {
-		return this._closed;
-	}
-	set closed(value: boolean) {
-		const changed = this._closed !== value;
-		this._closed = value;
-		if (changed) {
-			if (this._closed) {
-				// When closing, fire immediately even if suspended
-				this.fireChange('closed', true);
-
-				this._repoChangeListener?.dispose();
-				this._repoChangeListener = undefined;
-				this._repoSubscription?.dispose();
-				this._repoSubscription = undefined;
-			} else {
-				this.setupWatching();
-				this.fireChange('opened');
-			}
-
-			this.onClosedChanged(value);
-		}
+	/** Indicates whether this repository currently has an active `watch()` (repo-change) lease. */
+	get watching(): boolean {
+		return this._watchRefs > 0;
 	}
 
 	get etag(): number {
@@ -249,41 +227,6 @@ export class Repository {
 		return this.provider.virtual;
 	}
 
-	@trace({ onlyExit: true })
-	suspend(): void {
-		this._suspended = true;
-		this._watchHandle?.session.suspend();
-
-		if (this._pendingResumeTimer != null) {
-			clearTimeout(this._pendingResumeTimer);
-			this._pendingResumeTimer = undefined;
-		}
-	}
-
-	@trace({ onlyExit: true })
-	resume(delayMs?: number): void {
-		if (delayMs) {
-			if (this._pendingResumeTimer != null) {
-				clearTimeout(this._pendingResumeTimer);
-			}
-			this._pendingResumeTimer = setTimeout(() => {
-				this._pendingResumeTimer = undefined;
-				this.resume();
-			}, delayMs);
-			return;
-		}
-
-		const scope = getScopedLogger();
-
-		if (!this._suspended) {
-			scope?.addExitInfo('ignored; not suspended');
-			return;
-		}
-
-		this._suspended = false;
-		this._watchHandle?.session.resume();
-	}
-
 	waitForRepoChange(timeoutMs: number): Promise<boolean> {
 		let timeoutId: ReturnType<typeof setTimeout> | undefined;
 		let listener: UnifiedDisposable | undefined;
@@ -313,17 +256,57 @@ export class Repository {
 		]);
 	}
 
+	/**
+	 * Starts watching this repository's `.git` directory for repo-change events (delivered via
+	 * {@link onDidChange}) and returns a lease. Ref-counted: the underlying watch handle is acquired
+	 * on the first lease (across `watch()` and {@link watchWorkingTree}) and released when the last
+	 * is disposed. The model is inert until watched. No-ops (returns a disposable that does nothing)
+	 * for repositories without a git directory (e.g. virtual repos).
+	 */
+	@trace({ onlyExit: true })
+	watch(): UnifiedDisposable {
+		const acquired = this.acquireWatchHandle();
+		if (acquired == null) return createDisposable(() => {});
+
+		if (this._watchRefs++ === 0) {
+			const sub = acquired.handle.session.subscribe();
+			this._repoSubscription = sub;
+			this._repoChangeListener = sub.onDidChange(e => this.onSessionRepoChange(e));
+		}
+
+		return createDisposable(
+			() => {
+				// Repo already torn down — its handle/subscriptions are gone; skip to avoid a negative refcount
+				if (this._disposed) return;
+
+				if (--this._watchRefs === 0) {
+					this._repoChangeListener?.dispose();
+					this._repoChangeListener = undefined;
+					this._repoSubscription?.dispose();
+					this._repoSubscription = undefined;
+				}
+				acquired.lease.dispose();
+			},
+			{ once: true },
+		);
+	}
+
 	@trace({ onlyExit: true })
 	watchWorkingTree(delay: number = 2500): UnifiedDisposable {
-		const sub = this._watchHandle?.session.subscribeToWorkingTree({ delayMs: delay });
-		if (sub == null) return createDisposable(() => {});
+		const acquired = this.acquireWatchHandle();
+		if (acquired == null) return createDisposable(() => {});
 
+		const sub = acquired.handle.session.subscribeToWorkingTree({ delayMs: delay });
 		const listener = sub.onDidChangeWorkingTree(e => this.onWorkingTreeChanged(e.paths));
 
-		return createDisposable(() => {
-			listener.dispose();
-			sub.dispose();
-		});
+		return createDisposable(
+			() => {
+				listener.dispose();
+				sub.dispose();
+				acquired.lease.dispose();
+			},
+			{ once: true },
+		);
 	}
 
 	/**
@@ -352,9 +335,6 @@ export class Repository {
 
 		this._watchHandle?.session.fireChange(...changes);
 	}
-
-	/** Called when the closed state changes. Override to add behavior (e.g., branch access tracking). */
-	protected onClosedChanged(_closed: boolean): void {}
 
 	/** Called when the watch service notifies of FETCH_HEAD changes. */
 	protected onFetchHeadChanged(): void {
@@ -414,39 +394,50 @@ export class Repository {
 			(this._pendingWorkingTreeChange.uris as Set<Uri>).add(fileUri(p));
 		}
 
-		if (this._suspended) return;
 		if (this._pendingWorkingTreeFlush) return;
 
 		this._pendingWorkingTreeFlush = true;
 		queueMicrotask(() => {
 			this._pendingWorkingTreeFlush = false;
 			const e = this._pendingWorkingTreeChange;
-			if (e == null || this._suspended) return;
+			if (e == null) return;
 
 			this._pendingWorkingTreeChange = undefined;
 			this._onDidChangeWorkingTree.fire(e);
 		});
 	}
 
-	@trace({ onlyExit: true })
-	private setupWatching(): void {
-		if (this._gitDir == null || this._closed) return;
-		if (this._repoSubscription != null) return;
-
-		const scope = getScopedLogger();
+	/**
+	 * Lazily acquires (and ref-counts) the shared {@link _watchHandle} for this repository, returning
+	 * the handle plus a one-shot lease whose disposal decrements the ref count (releasing the handle
+	 * when the last lease is gone). Returns `undefined` for repositories without a git directory.
+	 */
+	private acquireWatchHandle(): { handle: WatchHandle; lease: UnifiedDisposable } | undefined {
+		if (this._gitDir == null || this._disposed) return undefined;
 
 		this._watchHandle ??= this._watchService.watch(this.path, this._gitDir, {
 			onFetchHeadChanged: () => this.onFetchHeadChanged(),
 			onGitIgnoreChanged: () => this.onGitIgnoreChanged(),
 			onIgnoresChanged: () => this.onIgnoresChanged(),
 		} satisfies WatchHooks);
-		if (this._watchHandle == null) return;
+		const handle = this._watchHandle;
+		if (handle == null) return undefined;
 
-		const sub = this._watchHandle.session.subscribe();
-		this._repoSubscription = sub;
-		this._repoChangeListener = sub.onDidChange(e => this.onSessionRepoChange(e));
+		this._watchHandleRefs++;
+		const lease = createDisposable(
+			() => {
+				// Repo already torn down — the handle is gone; skip to avoid a negative refcount
+				if (this._disposed) return;
 
-		scope?.trace(`subscribed to repo changes for '${this.uri.toString()}'`);
+				if (--this._watchHandleRefs === 0) {
+					this._watchHandle?.dispose();
+					this._watchHandle = undefined;
+				}
+			},
+			{ once: true },
+		);
+
+		return { handle: handle, lease: lease };
 	}
 
 	static is(repository: unknown): repository is Repository {

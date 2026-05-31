@@ -65,7 +65,7 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 
 				let repo;
 				for (const resource of context.scmResourceStates as ScmResource[]) {
-					repo ??= await this.container.git.getOrOpenRepository(resource.resourceUri);
+					repo ??= await this.container.git.getOrAddRepository(resource.resourceUri, { opened: false });
 
 					includeUntracked = includeUntracked || resource.type === ScmStatus.UNTRACKED;
 					uris.add(resource.resourceUri.toString());
@@ -94,7 +94,9 @@ abstract class CreatePatchCommandBase extends GlCommandBase {
 				const group = context.scmResourceGroups[0];
 				if (!group?.resourceStates?.length) return;
 
-				const repo = await this.container.git.getOrOpenRepository(group.resourceStates[0].resourceUri);
+				const repo = await this.container.git.getOrAddRepository(group.resourceStates[0].resourceUri, {
+					opened: false,
+				});
 
 				const to = group.id === 'index' ? uncommittedStaged : uncommitted;
 				args = {

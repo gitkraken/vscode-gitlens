@@ -165,7 +165,7 @@ export class ExternalDiffCommand extends GlCommandBase {
 					args.files.push({ uri: status.uri, staged: false });
 				}
 			} else {
-				repo = await this.container.git.getOrOpenRepository(args.files[0].uri);
+				repo = await this.container.git.getOrAddRepository(args.files[0].uri, { opened: false });
 				if (repo == null) return;
 			}
 

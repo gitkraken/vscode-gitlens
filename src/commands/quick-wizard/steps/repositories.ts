@@ -55,7 +55,7 @@ export async function* pickRepositoryStep<
 				? context.container.git.getRepository(options.picked)
 				: options.picked
 			: undefined) ??
-		(await context.container.git.getOrOpenRepositoryForEditor());
+		(await context.container.git.getOrAddRepositoryForEditor());
 
 	let repos = context.repos;
 	const grouped = groupRepositories(repos);
@@ -130,7 +130,7 @@ export async function* pickRepositoriesStep<
 			actives = state.repos;
 		}
 	} else {
-		const active = await context.container.git.getOrOpenRepositoryForEditor();
+		const active = await context.container.git.getOrAddRepositoryForEditor();
 		actives = active != null ? [active] : [];
 	}
 

@@ -37,6 +37,8 @@ export interface WatchSessionOptions {
 	/** Default debounce for working tree changes. Default: 2500ms */
 	readonly defaultWorkingTreeDelayMs?: number;
 	readonly lifecycle?: WatchSessionLifecycle;
+	/** Initial suspended state — new sessions inherit the service-global suspend state. Default: false */
+	readonly suspended?: boolean;
 	/**
 	 * Called whenever a debounced repo change event is dispatched to subscribers.
 	 * Does NOT count as a subscriber — used by WatchService for
@@ -66,16 +68,16 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	private effectiveRepoMs: number;
 	private readonly defaultRepoMs: number;
 
-	private readonly wtEmitter = new Emitter<WorkingTreeChangeEvent>();
-	private readonly wtDelays = new Map<number, number>();
-	private wtNextId = 0;
-	private pendingWTPaths = new Set<string>();
-	private wtTimer: ReturnType<typeof setTimeout> | undefined;
-	private effectiveWTMs: number;
-	private readonly defaultWTMs: number;
+	private readonly workingTreeEmitter = new Emitter<WorkingTreeChangeEvent>();
+	private readonly workingTreeDelays = new Map<number, number>();
+	private workingTreeNextId = 0;
+	private pendingWorkingTreePaths = new Set<string>();
+	private workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
+	private effectiveWorkingTreeMs: number;
+	private readonly defaultWorkingTreeMs: number;
 
 	private _etagWorkingTree = 0;
-	private _suspended = false;
+	private _suspended: boolean;
 	private _disposed = false;
 
 	private readonly lifecycle?: WatchSessionLifecycle;
@@ -84,11 +86,12 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	constructor(options: WatchSessionOptions) {
 		this.repoPath = options.repoPath;
 		this.defaultRepoMs = options.defaultRepoDelayMs ?? defaultRepoDelay;
-		this.defaultWTMs = options.defaultWorkingTreeDelayMs ?? defaultWorkingTreeDelay;
+		this.defaultWorkingTreeMs = options.defaultWorkingTreeDelayMs ?? defaultWorkingTreeDelay;
 		this.effectiveRepoMs = this.defaultRepoMs;
-		this.effectiveWTMs = this.defaultWTMs;
+		this.effectiveWorkingTreeMs = this.defaultWorkingTreeMs;
 		this.lifecycle = options.lifecycle;
 		this.onDidFireRepoChangeCallback = options.onDidFireRepoChange;
+		this._suspended = options.suspended ?? false;
 	}
 
 	[Symbol.dispose](): void {
@@ -101,15 +104,15 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this._disposed = true;
 
 		this.cancelRepoTimer();
-		this.cancelWTTimer();
+		this.cancelWorkingTreeTimer();
 
 		this.pendingRepoEvent = undefined;
-		this.pendingWTPaths.clear();
+		this.pendingWorkingTreePaths.clear();
 		this.repoDelays.clear();
-		this.wtDelays.clear();
+		this.workingTreeDelays.clear();
 
 		this.repoEmitter.dispose();
-		this.wtEmitter.dispose();
+		this.workingTreeEmitter.dispose();
 	}
 
 	get suspended(): boolean {
@@ -117,7 +120,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	get hasPendingChanges(): boolean {
-		return this.pendingRepoEvent != null || this.pendingWTPaths.size > 0;
+		return this.pendingRepoEvent != null || this.pendingWorkingTreePaths.size > 0;
 	}
 
 	get repoSubscriberCount(): number {
@@ -125,7 +128,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 	}
 
 	get workingTreeSubscriberCount(): number {
-		return this.wtDelays.size;
+		return this.workingTreeDelays.size;
 	}
 
 	/**
@@ -197,26 +200,26 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 			return Object.assign(
 				createDisposable(() => {}),
 				{
-					onDidChangeWorkingTree: this.wtEmitter.event,
+					onDidChangeWorkingTree: this.workingTreeEmitter.event,
 				},
 			);
 		}
 
-		const id = this.wtNextId++;
-		const delay = opts?.delayMs ?? this.defaultWTMs;
-		const wasEmpty = this.wtDelays.size === 0;
-		const prevDelay = this.effectiveWTMs;
+		const id = this.workingTreeNextId++;
+		const delay = opts?.delayMs ?? this.defaultWorkingTreeMs;
+		const wasEmpty = this.workingTreeDelays.size === 0;
+		const prevDelay = this.effectiveWorkingTreeMs;
 
-		this.wtDelays.set(id, delay);
-		this.recalcWTDelay();
+		this.workingTreeDelays.set(id, delay);
+		this.recalcWorkingTreeDelay();
 
 		if (wasEmpty) {
 			this.lifecycle?.onFirstWorkingTreeSubscriber?.();
 		}
 
 		// If the effective delay got shorter while a timer is running, reschedule sooner
-		if (this.effectiveWTMs < prevDelay && this.wtTimer != null) {
-			this.scheduleWTFlush();
+		if (this.effectiveWorkingTreeMs < prevDelay && this.workingTreeTimer != null) {
+			this.scheduleWorkingTreeFlush();
 		}
 
 		let subDisposed = false;
@@ -226,16 +229,16 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 
 				subDisposed = true;
 
-				this.wtDelays.delete(id);
-				this.recalcWTDelay();
+				this.workingTreeDelays.delete(id);
+				this.recalcWorkingTreeDelay();
 
-				if (this.wtDelays.size === 0) {
-					this.cancelWTTimer();
-					this.pendingWTPaths.clear();
+				if (this.workingTreeDelays.size === 0) {
+					this.cancelWorkingTreeTimer();
+					this.pendingWorkingTreePaths.clear();
 					this.lifecycle?.onLastWorkingTreeSubscriber?.();
 				}
 			}),
-			{ onDidChangeWorkingTree: this.wtEmitter.event },
+			{ onDidChangeWorkingTree: this.workingTreeEmitter.event },
 		);
 	}
 
@@ -243,7 +246,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this._suspended = true;
 		// Cancel active timers — events continue to coalesce but don't fire
 		this.cancelRepoTimer();
-		this.cancelWTTimer();
+		this.cancelWorkingTreeTimer();
 	}
 
 	resume(delayMs?: number): void {
@@ -255,8 +258,8 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (this.pendingRepoEvent != null) {
 			this.scheduleRepoFlush(delayMs);
 		}
-		if (this.pendingWTPaths.size > 0) {
-			this.scheduleWTFlush(delayMs);
+		if (this.pendingWorkingTreePaths.size > 0) {
+			this.scheduleWorkingTreeFlush(delayMs);
 		}
 	}
 
@@ -286,7 +289,7 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		if (this._disposed) return;
 
 		this._etagWorkingTree++;
-		this.coalesceWT(paths);
+		this.coalesceWorkingTrees(paths);
 	}
 
 	private static minDelay(delays: Map<number, number>, fallback: number): number {
@@ -305,8 +308,11 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.effectiveRepoMs = RepositoryWatchSession.minDelay(this.repoDelays, this.defaultRepoMs);
 	}
 
-	private recalcWTDelay(): void {
-		this.effectiveWTMs = RepositoryWatchSession.minDelay(this.wtDelays, this.defaultWTMs);
+	private recalcWorkingTreeDelay(): void {
+		this.effectiveWorkingTreeMs = RepositoryWatchSession.minDelay(
+			this.workingTreeDelays,
+			this.defaultWorkingTreeMs,
+		);
 	}
 
 	private flushRepo(): void {
@@ -339,29 +345,29 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		this.scheduleRepoFlush();
 	}
 
-	private flushWT(): void {
-		this.wtTimer = undefined;
-		if (this.pendingWTPaths.size === 0) return;
+	private flushWorkingTree(): void {
+		this.workingTreeTimer = undefined;
+		if (this.pendingWorkingTreePaths.size === 0) return;
 
-		const paths = this.pendingWTPaths;
-		this.pendingWTPaths = new Set();
-		this.wtEmitter.fire({ repoPath: this.repoPath, paths: paths });
+		const paths = this.pendingWorkingTreePaths;
+		this.pendingWorkingTreePaths = new Set();
+		this.workingTreeEmitter.fire({ repoPath: this.repoPath, paths: paths });
 	}
 
-	private scheduleWTFlush(delayOverride?: number): void {
-		if (this._suspended || this.pendingWTPaths.size === 0) return;
+	private scheduleWorkingTreeFlush(delayOverride?: number): void {
+		if (this._suspended || this.pendingWorkingTreePaths.size === 0) return;
 
-		if (this.wtTimer != null) {
-			clearTimeout(this.wtTimer);
+		if (this.workingTreeTimer != null) {
+			clearTimeout(this.workingTreeTimer);
 		}
-		this.wtTimer = setTimeout(() => this.flushWT(), delayOverride ?? this.effectiveWTMs);
+		this.workingTreeTimer = setTimeout(() => this.flushWorkingTree(), delayOverride ?? this.effectiveWorkingTreeMs);
 	}
 
-	private coalesceWT(paths: Iterable<string>): void {
+	private coalesceWorkingTrees(paths: Iterable<string>): void {
 		for (const p of paths) {
-			this.pendingWTPaths.add(p);
+			this.pendingWorkingTreePaths.add(p);
 		}
-		this.scheduleWTFlush();
+		this.scheduleWorkingTreeFlush();
 	}
 
 	private cancelRepoTimer(): void {
@@ -371,10 +377,10 @@ export class RepositoryWatchSession implements UnifiedDisposable {
 		}
 	}
 
-	private cancelWTTimer(): void {
-		if (this.wtTimer != null) {
-			clearTimeout(this.wtTimer);
-			this.wtTimer = undefined;
+	private cancelWorkingTreeTimer(): void {
+		if (this.workingTreeTimer != null) {
+			clearTimeout(this.workingTreeTimer);
+			this.workingTreeTimer = undefined;
 		}
 	}
 }

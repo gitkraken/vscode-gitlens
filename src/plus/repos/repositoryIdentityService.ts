@@ -93,8 +93,8 @@ export class RepositoryIdentityService implements Disposable {
 			}
 
 			if (foundRepo == null && options?.openIfNeeded) {
-				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(matches[0]), {
-					closeOnOpen: !options?.keepOpen,
+				foundRepo = await this.container.git.getOrAddRepository(Uri.file(matches[0]), {
+					opened: options?.keepOpen ?? false,
 				});
 			}
 		} else {
@@ -148,8 +148,8 @@ export class RepositoryIdentityService implements Disposable {
 
 			if (repoLocatedUri == null) return undefined;
 
-			const locatedRepo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
-				closeOnOpen: !options?.keepOpen,
+			const locatedRepo = await this.container.git.getOrAddRepository(repoLocatedUri, {
+				opened: options?.keepOpen ?? false,
 				detectNested: false,
 			});
 

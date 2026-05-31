@@ -7,6 +7,7 @@ import { RepositoryChangeEvent } from '@gitlens/git/models/repositoryChangeEvent
 import type { GitProviderDescriptor } from '@gitlens/git/providers/types.js';
 import { getRepositoryOrWorktreePath } from '@gitlens/git/utils/repository.utils.js';
 import { debug, loggable, logName } from '@gitlens/utils/decorators/log.js';
+import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { getLoggableName } from '@gitlens/utils/logger.js';
 import { maybeStartScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { updateRecordValue } from '@gitlens/utils/object.js';
@@ -26,6 +27,8 @@ export class GlRepository extends Repository implements Disposable {
 	declare readonly id: RepoComparisonKey;
 
 	private readonly _disposable: Disposable;
+	private _opened: boolean;
+	private _watchSubscription: UnifiedDisposable | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -34,8 +37,7 @@ export class GlRepository extends Repository implements Disposable {
 		uri: Uri,
 		gitDir: GitDir | undefined,
 		root: boolean,
-		closed: boolean = false,
-		suspended: boolean = false,
+		opened: boolean,
 	) {
 		// Compute name
 		let name: string;
@@ -51,7 +53,6 @@ export class GlRepository extends Repository implements Disposable {
 		}
 
 		super({
-			closed: closed,
 			id: asRepoComparisonKey(uri),
 			index: folder?.index ?? container.git.repositoryCount,
 			gitDir: gitDir,
@@ -59,10 +60,15 @@ export class GlRepository extends Repository implements Disposable {
 			path: getRepositoryOrWorktreePath(uri),
 			provider: provider,
 			root: root,
-			suspended: suspended,
 			uri: uri,
 			watchService: container.git.watchService,
 		});
+
+		this._opened = opened;
+		// Caller owns the watch lifecycle: hold a watch lease while open (see the `opened` setter)
+		if (opened) {
+			this._watchSubscription = this.watch();
+		}
 
 		// Extension-only disposables
 		this._disposable = Disposable.from(
@@ -86,13 +92,15 @@ export class GlRepository extends Repository implements Disposable {
 			void this.getLastFetched();
 		}
 
-		// Track initial access when repository is opened (not closed)
-		if (!closed) {
+		// Track initial access when repository is opened
+		if (opened) {
 			queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
 		}
 	}
 
 	override dispose(): void {
+		this._watchSubscription?.dispose();
+		this._watchSubscription = undefined;
 		super.dispose();
 		this._disposable.dispose();
 	}
@@ -106,13 +114,42 @@ export class GlRepository extends Repository implements Disposable {
 		return this._orderByLastFetched;
 	}
 
-	private _closedByUser = false;
-	/** Specifies whether the repository was explicitly closed by the user via VS Code's built-in SCM */
-	get closedByUser(): boolean {
-		return this._closedByUser;
+	/** Whether the repository is open (visible) in the current VS Code window. The model is watched while open. */
+	get opened(): boolean {
+		return this._opened;
 	}
-	set closedByUser(value: boolean) {
-		this._closedByUser = value;
+	set opened(value: boolean) {
+		if (this._opened === value) return;
+
+		this._opened = value;
+
+		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.opened`);
+		scope?.trace(`setting opened=${value}`);
+
+		if (value) {
+			// Opening — acquire a watch lease (no-op if already held), notify, clear close intent, track access
+			this._watchSubscription ??= this.watch();
+			// Force-fire (bypasses the watch session debounce) so the open is delivered immediately and is
+			// observable even for gitDir-less/virtual repos that have no session — symmetric with the close path.
+			this.fireChange('opened', true);
+			// Repo is open — clear any prior user-close intent so the flag never lingers (only meaningful while closed).
+			this._closedByScm = false;
+			queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
+		} else {
+			// Closing — notify immediately (force-fire bypasses the watch session) then release the watch lease
+			this.fireChange('closed', true);
+			this._watchSubscription?.dispose();
+			this._watchSubscription = undefined;
+		}
+	}
+
+	private _closedByScm = false;
+	/** Whether the user closed this repository in VS Code's built-in SCM (mirrored from its `onDidCloseRepository`). */
+	get closedByScm(): boolean {
+		return this._closedByScm;
+	}
+	set closedByScm(value: boolean) {
+		this._closedByScm = value;
 	}
 
 	get starred(): boolean {
@@ -121,7 +158,7 @@ export class GlRepository extends Repository implements Disposable {
 	}
 
 	async getLastFetched(): Promise<number> {
-		const lastFetched = await this.git.getLastFetchedTimestamp();
+		const lastFetched = await this.git.getLastFetched();
 		// `Math.max` so an in-memory bump from `markFetched()` isn't clobbered by a stale FETCH_HEAD
 		// mtime (git skips the rewrite when all refs are up-to-date); FS still wins when newer.
 		if (lastFetched != null) {
@@ -129,20 +166,6 @@ export class GlRepository extends Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
-	}
-
-	protected override onClosedChanged(closed: boolean): void {
-		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.closed`);
-		scope?.trace(`setting closed=${closed}`);
-
-		if (!closed) {
-			// Repo is open — clear any prior user-close intent so the flag never lingers
-			// on an open repo (only meaningful while closed=true).
-			this._closedByUser = false;
-			// Track access when repository is reopened
-			queueMicrotask(() => void this.git.branches.onCurrentBranchAccessed?.());
-		}
-		super.onClosedChanged(closed);
 	}
 
 	protected override onFetchHeadChanged(): void {

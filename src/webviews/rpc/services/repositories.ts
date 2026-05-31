@@ -183,7 +183,7 @@ export class RepositoriesService {
 		name: string;
 		path: string;
 		uri: { toString(): string };
-		closed: boolean;
+		opened: boolean;
 		starred: boolean;
 	}): SerializedRepository {
 		return {
@@ -191,7 +191,7 @@ export class RepositoriesService {
 			name: repo.name,
 			path: repo.path,
 			uri: repo.uri.toString(),
-			closed: repo.closed,
+			closed: !repo.opened,
 			starred: repo.starred,
 		};
 	}

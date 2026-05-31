@@ -29,7 +29,7 @@ export class ComposeCommand extends GlCommandBase {
 				const group = context.scmResourceGroups[0];
 				const uri = group?.resourceStates[0]?.resourceUri;
 				if (uri != null) {
-					const repo = await this.container.git.getOrOpenRepository(uri);
+					const repo = await this.container.git.getOrAddRepository(uri, { opened: false });
 					args.repoPath = repo?.path;
 
 					if (group.id === 'workingTree') {

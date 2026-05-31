@@ -394,7 +394,7 @@ export class ViewCommands implements Disposable {
 	private closeRepository(node: RepositoryNode | RepositoryFolderNode): void {
 		if (!node.isAny('repository', 'repo-folder')) return;
 
-		node.repo.closed = true;
+		node.repo.opened = false;
 	}
 
 	@command('gitlens.views.title.createBranch', { args: () => [] })

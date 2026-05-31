@@ -307,7 +307,9 @@ export class GitUri extends (Uri as any as UriEx) {
 		if (uri.scheme === Schemes.Git) {
 			const data = getQueryDataFromScmGitUri(uri);
 			if (data?.path) {
-				const repository = await Container.instance.git.getOrOpenRepository(Uri.file(data.path));
+				const repository = await Container.instance.git.getOrAddRepository(Uri.file(data.path), {
+					opened: false,
+				});
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${Uri.file(data.path).toString(true)}`);
@@ -355,7 +357,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			} catch {}
 
 			if (data?.fileName) {
-				const repository = await Container.instance.git.getOrOpenRepository(uri);
+				const repository = await Container.instance.git.getOrAddRepository(uri, { opened: false });
 				if (repository == null) {
 					debugger;
 					throw new Error(`Unable to find repository for uri=${Uri.file(data.fileName).toString(true)}`);
@@ -370,7 +372,7 @@ export class GitUri extends (Uri as any as UriEx) {
 			}
 		}
 
-		const repository = await Container.instance.git.getOrOpenRepository(uri);
+		const repository = await Container.instance.git.getOrAddRepository(uri, { opened: false });
 		return new GitUri(uri, repository?.path);
 	}
 }

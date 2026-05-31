@@ -100,7 +100,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			);
 
 			// Ensure that the active repo is known to the built-in git
-			context.activeRepo = await this.container.git.getOrOpenRepositoryForEditor();
+			context.activeRepo = await this.container.git.getOrAddRepositoryForEditor();
 			if (
 				context.activeRepo != null &&
 				!scmRepositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)

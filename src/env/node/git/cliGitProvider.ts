@@ -273,18 +273,9 @@ export class GlCliGitProvider implements GlGitProvider {
 		uri: Uri,
 		gitDir: GitDir | undefined,
 		root: boolean,
-		closed?: boolean,
+		opened: boolean,
 	): GlRepository {
-		const repo = new GlRepository(
-			this.container,
-			this.descriptor,
-			folder,
-			uri,
-			gitDir,
-			root,
-			closed ?? false,
-			!window.state.focused,
-		);
+		const repo = new GlRepository(this.container, this.descriptor, folder, uri, gitDir, root, opened);
 
 		repo.onDidChange(e => {
 			this.cache.onRepositoryChanged(repo.path, [...e.changes]);
@@ -378,11 +369,11 @@ export class GlCliGitProvider implements GlGitProvider {
 					if (this.container.deactivating) return;
 
 					scope?.info(`SCM.onDidCloseRepository(${e.rootUri.toString(true)})`);
-					// Track user-close intent immediately (before the 1s debounce), so any
+					// Track the SCM-close intent immediately (before the 1s debounce), so any
 					// re-open paths during the debounce window can short-circuit.
 					const repo = this.container.git.getRepository(e.rootUri);
 					if (repo != null) {
-						repo.closedByUser = true;
+						repo.closedByScm = true;
 					}
 
 					closing.add(e.rootUri);
@@ -392,10 +383,10 @@ export class GlCliGitProvider implements GlGitProvider {
 					if (this.container.deactivating) return;
 
 					scope?.info(`SCM.onDidOpenRepository(${e.rootUri.toString(true)})`);
-					// Clear any prior user-close intent immediately so subsequent paths see it as open.
+					// Clear any prior SCM-close intent immediately so subsequent paths see it as open.
 					const repo = this.container.git.getRepository(e.rootUri);
 					if (repo != null) {
-						repo.closedByUser = false;
+						repo.closedByScm = false;
 					}
 
 					opening.add(e.rootUri);
@@ -466,8 +457,6 @@ export class GlCliGitProvider implements GlGitProvider {
 	): Promise<GlRepository[]> {
 		if (uri.scheme !== Schemes.File) return [];
 
-		const scope = getScopedLogger();
-
 		try {
 			const autoRepositoryDetection = configuration.getCore('git.autoRepositoryDetection') ?? true;
 
@@ -486,14 +475,8 @@ export class GlCliGitProvider implements GlGitProvider {
 				options?.silent,
 			);
 
-			if (!options?.silent && (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders')) {
-				scope?.info(
-					`auto-opening ${repositories.length} discovered repo(s) in SCM (autoRepositoryDetection=${String(autoRepositoryDetection)})`,
-				);
-				for (const repository of repositories) {
-					void this.getOrOpenScmRepository(repository.uri);
-				}
-			}
+			// Opening discovered repos in VS Code's built-in SCM is intentionally left to vscode.git (see the
+			// note in `addRepository`) so we don't override the user's SCM closed-repos set.
 
 			if (!options?.silent && repositories.length > 0) {
 				this.cache.trackedPaths.clear();
@@ -517,29 +500,32 @@ export class GlCliGitProvider implements GlGitProvider {
 	}
 
 	@trace({ exit: true })
-	openRepository(
+	addRepository(
 		folder: WorkspaceFolder | undefined,
 		uri: Uri,
 		gitDir: GitDir | undefined,
 		root: boolean,
-		closed?: boolean,
+		opened: boolean,
 	): GlRepository[] {
 		// Ensure the library-level provider is registered before any GlRepository is created,
 		// so the library's GitService can route this repo's path to the local provider.
 		this.ensureProvider();
 
-		if (!closed) {
-			void this.getOrOpenScmRepository(uri);
-		}
+		// `opened` is GitLens visibility only — we deliberately do NOT open the repo in VS Code's built-in SCM.
+		// vscode.git's `openRepository` API force-opens AND clears the repo from its persisted closed-repos set
+		// (which GitLens can't read), so syncing here would resurrect repos the user closed in SCM. vscode.git's
+		// own `git.autoRepositoryDetection` opens repos in SCM honoring that set; GitLens follows via `onDidOpenRepository`.
 
 		// Register the repo path mapping for worktree-aware caching
 		if (gitDir != null) {
 			this.cache.registerRepoPath(uri, gitDir);
 		}
 
-		const opened = [this.createRepository(folder ?? workspace.getWorkspaceFolder(uri), uri, gitDir, root, closed)];
+		const repositories = [
+			this.createRepository(folder ?? workspace.getWorkspaceFolder(uri), uri, gitDir, root, opened),
+		];
 
-		// Add a closed (hidden) repository for the canonical version if not already opened
+		// Add a hidden (not-opened) repository for the canonical version if not already opened
 		const canonicalUri = this.toCanonicalMap.get(getBestPath(uri));
 		if (canonicalUri != null && this.container.git.getRepository(canonicalUri) == null) {
 			// Also register the canonical path for worktree-aware caching
@@ -547,18 +533,18 @@ export class GlCliGitProvider implements GlGitProvider {
 				this.cache.registerRepoPath(canonicalUri, gitDir);
 			}
 
-			opened.push(
+			repositories.push(
 				this.createRepository(
 					folder ?? workspace.getWorkspaceFolder(canonicalUri),
 					canonicalUri,
 					gitDir,
 					root,
-					true,
+					false,
 				),
 			);
 		}
 
-		return opened;
+		return repositories;
 	}
 
 	private _supportedFeatures = new Map<Features, boolean>();
@@ -709,15 +695,15 @@ export class GlCliGitProvider implements GlGitProvider {
 
 			const repo = this.container.git.getRepository(uri);
 			if (repo != null) {
-				if (repo.closed && silent === false) {
-					if (repo.closedByUser) {
+				if (!repo.opened && silent === false) {
+					if (repo.closedByScm) {
 						scope?.info(
 							`found ${
 								root ? 'root ' : ''
-							}repository in '${uri.fsPath}'; skipping - already known and closed (by user) (not auto-reopening)`,
+							}repository in '${uri.fsPath}'; skipping - already known and closed (in SCM) (not auto-reopening)`,
 						);
 					} else {
-						repo.closed = false;
+						repo.opened = true;
 						scope?.info(
 							`found ${
 								root ? 'root ' : ''
@@ -738,7 +724,7 @@ export class GlCliGitProvider implements GlGitProvider {
 				return;
 			}
 
-			repositories.push(...this.openRepository(folder, uri, gitDir, root, silent));
+			repositories.push(...this.addRepository(folder, uri, gitDir, root, !silent));
 		};
 
 		const uri = await this.findRepositoryUri(rootUri, true);
@@ -1425,8 +1411,9 @@ export class GlCliGitProvider implements GlGitProvider {
 						// If we didn't find it, check it as close to the file as possible (will find nested repos)
 						tracked = await existsInRev(newRepoPath, newRelativePath);
 						if (tracked) {
-							repository = await this.container.git.getOrOpenRepository(Uri.file(path), {
+							repository = await this.container.git.getOrAddRepository(Uri.file(path), {
 								detectNested: true,
+								opened: false,
 							});
 							if (repository != null) {
 								return splitPath(path, repository.path);
@@ -1455,8 +1442,9 @@ export class GlCliGitProvider implements GlGitProvider {
 						const index = relativePath.indexOf('/');
 						if (index < 0 || index === relativePath.length - 1) return undefined;
 
-						const nested = await this.container.git.getOrOpenRepository(Uri.file(path), {
+						const nested = await this.container.git.getOrAddRepository(Uri.file(path), {
 							detectNested: true,
+							opened: false,
 						});
 						if (nested != null && nested !== repository) {
 							[relativePath, repoPath] = splitPath(path, repository.path);
@@ -1542,14 +1530,14 @@ export class GlCliGitProvider implements GlGitProvider {
 		try {
 			const uri = repoPath instanceof Uri ? repoPath : Uri.file(repoPath);
 
-			// Defense-in-depth: if GitLens knows this repo as user-closed, don't ask vscode.git
-			// to re-open it on our behalf \u2014 that's the loop we're guarding against.
+			// Defense-in-depth: if GitLens knows this repo as closed in SCM, don't ask vscode.git to re-open
+			// it on our behalf \u2014 `openRepository` force-opens and erases vscode.git's persisted closed-repos set.
 			const known = this.container.git.getRepository(uri);
-			if (known?.closedByUser) {
+			if (known?.closedByScm) {
 				scope?.info(
 					`skipping opening the SCM repository for '${uri.toString(true)}'${
 						source != null ? ` (source=${source.source})` : ''
-					}: tracked currently as closed (by user)`,
+					}: tracked currently as closed (in SCM)`,
 				);
 				return undefined;
 			}

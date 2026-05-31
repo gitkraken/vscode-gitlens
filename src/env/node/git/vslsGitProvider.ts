@@ -108,7 +108,7 @@ export class VslsGitProvider extends GlCliGitProvider {
 					continue;
 				}
 
-				result.push(...this.openRepository(undefined, repoUri, gitDir, r.root, r.closed));
+				result.push(...this.addRepository(undefined, repoUri, gitDir, r.root, !r.closed));
 			}
 			return result;
 		} catch (ex) {

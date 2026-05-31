@@ -430,7 +430,7 @@ export class BranchNode
 		});
 
 		// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
-		if (this.repo.closed) {
+		if (!this.repo.opened) {
 			parts.contextValue += '+closed';
 		}
 

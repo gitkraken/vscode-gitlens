@@ -230,7 +230,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 
 		if (this.repo.virtual) {
 			contextValue += '+virtual';
-		} else if (this.repo.closed) {
+		} else if (!this.repo.opened) {
 			// TODO@axosoft-ramint Temporary workaround, remove when our git commands work on closed repos.
 			contextValue += '+closed';
 		}
@@ -287,7 +287,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		}
 
 		if (workspace != null) {
-			tooltip += `\n\nRepository is ${this.repo.closed ? 'not ' : ''}open in the current window`;
+			tooltip += `\n\nRepository is ${!this.repo.opened ? 'not ' : ''}open in the current window`;
 		}
 
 		const item = new TreeItem(
@@ -303,7 +303,7 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		}`;
 		item.iconPath = getRepositoryStatusIconPath(this.view.container, this.repo, status);
 
-		if (workspace != null && !this.repo.closed) {
+		if (workspace != null && this.repo.opened) {
 			item.resourceUri = createViewDecorationUri('repository', { state: 'open', workspace: true });
 		}
 
@@ -383,6 +383,9 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			);
 		}
 
+		// Watch whenever this node shows working-tree files — a displayed repo (including a not-opened
+		// linked-workspace repo) should stay live rather than show a stale snapshot; `opened` is the wrong axis.
+		// [FUTURE] Watch only when the node is expanded, so a large workspace doesn't watch every visible repo.
 		if (this.view.config.includeWorkingTree) {
 			disposables.push(
 				weakEvent(this.repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [

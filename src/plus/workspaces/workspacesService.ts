@@ -471,8 +471,8 @@ export class WorkspacesService implements Disposable {
 
 			if (repoLocatedUri == null) return;
 
-			repo = await this.container.git.getOrOpenRepository(repoLocatedUri, {
-				closeOnOpen: true,
+			repo = await this.container.git.getOrAddRepository(repoLocatedUri, {
+				opened: false,
 				detectNested: false,
 			});
 			if (repo == null) return;
@@ -924,7 +924,7 @@ export class WorkspacesService implements Disposable {
 			const repo =
 				repoOrPath instanceof GlRepository
 					? repoOrPath
-					: await this.container.git.getOrOpenRepository(Uri.file(repoOrPath), { closeOnOpen: true });
+					: await this.container.git.getOrAddRepository(Uri.file(repoOrPath), { opened: false });
 			if (repo == null) continue;
 
 			const remote = (await repo.git.remotes.getRemote('origin')) || (await repo.git.remotes.getRemotes())?.[0];
@@ -1104,8 +1104,8 @@ export class WorkspacesService implements Disposable {
 			}
 
 			if (repoLocalPath != null && foundRepo == null && options?.resolveFromPath === true) {
-				foundRepo = await this.container.git.getOrOpenRepository(Uri.file(repoLocalPath), {
-					closeOnOpen: true,
+				foundRepo = await this.container.git.getOrAddRepository(Uri.file(repoLocalPath), {
+					opened: false,
 					force: true,
 				});
 				// TODO: Add this logic back in once we think through virtual repository support a bit more.
@@ -1123,7 +1123,7 @@ export class WorkspacesService implements Disposable {
 						});
 					}
 					if (uri) {
-						foundRepo = await this.container.git.getOrOpenRepository(uri, { closeOnOpen: true });
+						foundRepo = await this.container.git.getOrAddRepository(uri, { opened: false });
 					}
 				}*/
 			}
