@@ -5,7 +5,7 @@ import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js'
 import { getHighlanderProviders } from '@gitlens/git/utils/remote.utils.js';
 import { findLastIndex } from '@gitlens/utils/array.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
-import { disposableInterval } from '@gitlens/utils/disposable.js';
+import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { weakEvent } from '@gitlens/utils/event.js';
 import { join, map, slice } from '@gitlens/utils/iterable.js';
 import { pad } from '@gitlens/utils/string.js';
@@ -24,7 +24,7 @@ import type {
 	LocalWorkspaceRepositoryDescriptor,
 } from '../../plus/workspaces/models/localWorkspace.js';
 import { gate } from '../../system/decorators/gate.js';
-import type { ViewsWithRepositories } from '../viewBase.js';
+import type { TreeViewNodeCollapsibleStateChangeEvent, ViewsWithRepositories } from '../viewBase.js';
 import { createViewDecorationUri } from '../viewDecorationProvider.js';
 import { SubscribeableViewNode } from './abstract/subscribeableViewNode.js';
 import type { AmbientContext, ViewNode } from './abstract/viewNode.js';
@@ -45,6 +45,9 @@ import { WorktreesNode } from './worktreesNode.js';
 
 export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWithRepositories> {
 	private _status: Promise<GitStatus | undefined>;
+	private _expanded = false;
+	private _workingTreeSubscription: Disposable | undefined;
+	private readonly _collapsibleStateDisposable: Disposable;
 
 	constructor(
 		uri: GitUri,
@@ -59,6 +62,18 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 		this._uniqueId = getViewNodeId(this.type, this.context);
 
 		this._status = this.repo.git.status.getStatus();
+
+		// Watch the working tree only while this node is expanded (its `StatusFilesNode` is shown), releasing on
+		// collapse/hide so collapsed repo nodes (e.g. the many in the Workspaces view) don't each hold an FS watcher.
+		this._collapsibleStateDisposable = this.view.onDidChangeNodeCollapsibleState(
+			this.onNodeCollapsibleStateChanged,
+			this,
+		);
+	}
+
+	override dispose(): void {
+		this._collapsibleStateDisposable?.dispose();
+		super.dispose();
 	}
 
 	override get id(): string {
@@ -82,6 +97,10 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		// getChildren is only called when the node is expanded — start watching the working tree now.
+		this._expanded = true;
+		this.acquireWorkingTreeWatch();
+
 		if (this.children === undefined) {
 			const children = [];
 
@@ -383,18 +402,46 @@ export class RepositoryNode extends SubscribeableViewNode<'repository', ViewsWit
 			);
 		}
 
-		// Watch whenever this node shows working-tree files — a displayed repo (including a not-opened
-		// linked-workspace repo) should stay live rather than show a stale snapshot; `opened` is the wrong axis.
-		// [FUTURE] Watch only when the node is expanded, so a large workspace doesn't watch every visible repo.
-		if (this.view.config.includeWorkingTree) {
-			disposables.push(
-				weakEvent(this.repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [
-					this.repo.watchWorkingTree(),
-				]),
-			);
+		// Release the working-tree watch when this subscription is torn down (view hidden / node disposed).
+		disposables.push(createDisposable(() => this.releaseWorkingTreeWatch()));
+
+		// Re-acquire if the node is already expanded (e.g. the view was re-shown while expanded).
+		if (this._expanded) {
+			this.acquireWorkingTreeWatch();
 		}
 
 		return Disposable.from(...disposables);
+	}
+
+	private onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>): void {
+		if (e.element !== this) return;
+
+		if (e.state === TreeItemCollapsibleState.Collapsed) {
+			this._expanded = false;
+			this.releaseWorkingTreeWatch();
+		} else {
+			this._expanded = true;
+			this.acquireWorkingTreeWatch();
+			// Rebuild children and catch any working-tree changes missed while the watch was released.
+			void this.triggerChange(true);
+		}
+	}
+
+	// The working-tree watch only feeds the (expanded-only) `StatusFilesNode`, so it's held only while expanded.
+	private acquireWorkingTreeWatch(): void {
+		if (!this.view.config.includeWorkingTree) {
+			this.releaseWorkingTreeWatch();
+			return;
+		}
+
+		this._workingTreeSubscription ??= weakEvent(this.repo.onDidChangeWorkingTree, this.onWorkingTreeChanged, this, [
+			this.repo.watchWorkingTree(),
+		]);
+	}
+
+	private releaseWorkingTreeWatch(): void {
+		this._workingTreeSubscription?.dispose();
+		this._workingTreeSubscription = undefined;
 	}
 
 	protected override etag(): number {
