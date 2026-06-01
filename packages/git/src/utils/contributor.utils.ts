@@ -79,3 +79,27 @@ export function calculateDistribution<T extends string>(
 export function matchContributor(c: GitContributor, user: GitUser): boolean {
 	return c.name === user.name && c.email === user.email && c.username === user.username;
 }
+
+/** Appends `Co-authored-by:` trailers for the given coauthors to a commit message, replacing
+ *  any existing trailer block. Each coauthor is the `Name <email>` form (GitContributor.coauthor). */
+export function appendCoauthorsToMessage(message: string, coauthors: Iterable<string>): string {
+	const index = message.indexOf('Co-authored-by: ');
+	if (index !== -1) {
+		message = message.substring(0, index - 1).trimEnd();
+	}
+
+	for (const coauthor of coauthors) {
+		let newlines;
+		if (message.includes('Co-authored-by: ')) {
+			newlines = '\n';
+		} else if (message.length !== 0 && message.endsWith('\n')) {
+			newlines = '\n\n';
+		} else {
+			newlines = '\n\n\n';
+		}
+
+		message += `${newlines}Co-authored-by: ${coauthor}`;
+	}
+
+	return message;
+}

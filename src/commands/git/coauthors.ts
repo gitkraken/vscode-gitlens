@@ -1,4 +1,5 @@
 import type { GitContributor } from '@gitlens/git/models/contributor.js';
+import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { Container } from '../../container.js';
@@ -53,27 +54,10 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 		const scmRepo = await state.repo.git.getOrOpenScmRepository({ source: 'quick-wizard', detail: 'coauthors' });
 		if (scmRepo == null) return;
 
-		let message = scmRepo.inputBox.value;
-
-		const index = message.indexOf('Co-authored-by: ');
-		if (index !== -1) {
-			message = message.substring(0, index - 1).trimEnd();
-		}
-
-		for (const c of ensureArray(state.contributors)) {
-			let newlines;
-			if (message.includes('Co-authored-by: ')) {
-				newlines = '\n';
-			} else if (message.length !== 0 && message.endsWith('\n')) {
-				newlines = '\n\n';
-			} else {
-				newlines = '\n\n\n';
-			}
-
-			message += `${newlines}Co-authored-by: ${c.coauthor}`;
-		}
-
-		scmRepo.inputBox.value = message;
+		scmRepo.inputBox.value = appendCoauthorsToMessage(
+			scmRepo.inputBox.value,
+			ensureArray(state.contributors).map(c => c.coauthor),
+		);
 		void (await executeCoreCommand('workbench.view.scm'));
 	}
 

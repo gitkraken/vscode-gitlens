@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { GitContributorsStats } from '../../models/contributor.js';
 import type { ContributorScoreOptions } from '../contributor.utils.js';
 import {
+	appendCoauthorsToMessage,
 	calculateContributionScore,
 	calculateDistribution,
 	defaultContributorScoreOptions,
@@ -240,6 +241,46 @@ suite('Contributor Utils Test Suite', () => {
 				`All keys should start with prefix: ${keys.join(', ')}`,
 			);
 			assert.strictEqual(keys.length, 6);
+		});
+	});
+
+	suite('appendCoauthorsToMessage', () => {
+		test('appends to an empty message with three leading newlines', () => {
+			const result = appendCoauthorsToMessage('', ['Alice <alice@example.com>']);
+			assert.strictEqual(result, '\n\n\nCo-authored-by: Alice <alice@example.com>');
+		});
+
+		test('appends to a plain message with a blank line separator', () => {
+			const result = appendCoauthorsToMessage('Fix bug', ['Alice <alice@example.com>']);
+			assert.strictEqual(result, 'Fix bug\n\n\nCo-authored-by: Alice <alice@example.com>');
+		});
+
+		test('normalizes a single trailing newline to a blank line separator', () => {
+			const result = appendCoauthorsToMessage('Fix bug\n', ['Alice <alice@example.com>']);
+			assert.strictEqual(result, 'Fix bug\n\n\nCo-authored-by: Alice <alice@example.com>');
+		});
+
+		test('appends multiple coauthors on consecutive lines', () => {
+			const result = appendCoauthorsToMessage('Fix bug', ['Alice <alice@example.com>', 'Bob <bob@example.com>']);
+			assert.strictEqual(
+				result,
+				'Fix bug\n\n\nCo-authored-by: Alice <alice@example.com>\nCo-authored-by: Bob <bob@example.com>',
+			);
+		});
+
+		test('replaces an existing co-author trailer block', () => {
+			const existing = 'Fix bug\n\n\nCo-authored-by: Old <old@example.com>';
+			const result = appendCoauthorsToMessage(existing, ['Alice <alice@example.com>']);
+			assert.strictEqual(result, 'Fix bug\n\n\nCo-authored-by: Alice <alice@example.com>');
+		});
+
+		test('returns the message unchanged when no coauthors are provided', () => {
+			assert.strictEqual(appendCoauthorsToMessage('Fix bug', []), 'Fix bug');
+		});
+
+		test('handles a coauthor with no email', () => {
+			const result = appendCoauthorsToMessage('Fix bug', ['Alice']);
+			assert.strictEqual(result, 'Fix bug\n\n\nCo-authored-by: Alice');
 		});
 	});
 });

@@ -42,6 +42,7 @@ import {
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import {
@@ -131,7 +132,6 @@ import {
 	openOnlyChangedFiles,
 	undoCommit,
 } from '../../../git/actions/commit.js';
-import * as ContributorActions from '../../../git/actions/contributor.js';
 import {
 	abortPausedOperation,
 	continuePausedOperation,
@@ -10122,15 +10122,30 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.graph.addAuthor')
 	@debug()
 	private addAuthor(item?: GraphItemContext) {
-		if (isGraphItemTypedContext(item, 'contributor')) {
-			const { repoPath, name, email, current } = item.webviewItemValue;
-			return ContributorActions.addAuthors(
-				repoPath,
-				new GitContributor(repoPath, name, email, current ?? false, 0),
-			);
-		}
+		if (!isGraphItemTypedContext(item, 'contributor')) return;
 
-		return Promise.resolve();
+		const { repoPath, name, email, current } = item.webviewItemValue;
+		if (current) return; // can't co-author yourself (the menu `when` clause also excludes +current)
+
+		const coauthor = new GitContributor(repoPath, name, email, current ?? false, 0).coauthor;
+
+		// Seed the co-author into the graph's WIP commit box rather than the SCM input box. Mirror
+		// undoCommit: select the WIP row, persist the draft, and notify the webview to show WIP with
+		// the message — but APPEND to the existing draft instead of replacing it. See undoCommit for
+		// the createWipSha second-arg invariant (distinguishes primary vs secondary WIP).
+		const wipSha = createWipSha(repoPath, this.repository?.path);
+		const existing = this.container.storage.getWorkspace('graph:wipDrafts')?.[repoPath];
+		const message = appendCoauthorsToMessage(existing?.message ?? '', [coauthor]);
+
+		this.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
+		this._honorSelectedId = true;
+		this.setSelectedRows(wipSha);
+		void this.notifyDidChangeSelection();
+		void this.host.notify(DidRequestGraphActionNotification, {
+			action: 'show-wip',
+			target: { sha: wipSha, worktreePath: repoPath },
+			commitMessage: message,
+		});
 	}
 
 	@debug()
