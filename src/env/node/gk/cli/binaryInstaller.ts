@@ -417,6 +417,18 @@ export class BinaryInstaller implements Disposable {
 			const currentVersion = await getCLIVersions();
 			this._cliCoreVersion = currentVersion?.core;
 
+			// Update the install scope's version so consumers (e.g. GkMcpService's mcp-config cache)
+			// notice the core swap. Without this the cached MCP server config keeps the pre-update
+			// version field forever, and VS Code keeps running the old MCP stdio process until reload.
+			if (currentVersion?.core != null && currentVersion.core !== previousVersion?.core) {
+				const cliInstall = this.container.storage.getScoped('gk:cli:install');
+				if (cliInstall != null) {
+					void this.container.storage
+						.storeScoped('gk:cli:install', { ...cliInstall, version: currentVersion.core })
+						.catch();
+				}
+			}
+
 			scope?.debug(`CLI core update (previous: ${previousVersion?.core}, current: ${currentVersion?.core})`);
 			if (this.container.telemetry.enabled) {
 				this.container.telemetry.sendEvent(

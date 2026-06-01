@@ -88,6 +88,9 @@ export class GkMcpService implements Disposable {
 
 		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
 
+		// Construction order contract: `container.gkCli` MUST be constructed before `container.gkMcp`
+		// (enforced today by the eager-construct order in container.ts). MCP subscribes to CLI events
+		// here; a lazy/reorder of those getters would silently break startup install reactions.
 		// GkMcpService is only constructed in Node — container.gkCli is always defined here.
 		// The non-null assertion satisfies the typed union (`GkCliService | undefined`) for browser builds.
 		const cliService = container.gkCli!;
@@ -312,6 +315,10 @@ export class GkMcpService implements Disposable {
 		if (this._activeProvider == null) return;
 
 		if (immediate) {
+			// Drop any pending debounced refresh so the host adapter doesn't get hit twice
+			// (e.g. when `onStorageChanged` schedules a debounced refresh and `setupCore`
+			// then fires an immediate one on the same install completion).
+			this._fireRefreshDebounced?.cancel();
 			void this._activeProvider.refresh();
 			return;
 		}
@@ -410,8 +417,11 @@ export class GkMcpService implements Disposable {
 					});
 				}
 
-				// Invalidate any stale config and refresh the host adapter so the new registration takes effect
-				this._mcpConfigPromise = undefined;
+				// Push the new registration to the host adapter so it takes effect.
+				// We do NOT invalidate `_mcpConfigPromise` here — `onStorageChanged` already
+				// invalidates it on a real install transition. `fireRefresh(true)` below also
+				// cancels any debounced refresh that storage event scheduled, avoiding a duplicate
+				// host pull (and the redundant `gk mcp config` shell-out it would cost).
 				this.fireRefresh(true);
 
 				this._onDidCompleteSetup.fire({ source: commandSource, cliVersion: cliVersion });
