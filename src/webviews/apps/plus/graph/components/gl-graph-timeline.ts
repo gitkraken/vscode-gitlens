@@ -4,7 +4,6 @@ import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
-import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { RepositoryShape } from '../../../../../git/models/repositoryShape.js';
 import { GetMoreRowsCommand } from '../../../../plus/graph/protocol.js';
 import type {
@@ -653,11 +652,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			const stats = rowsStats?.[row.sha];
 			const avatarUrl = avatars != null && row.email ? avatars[row.email] : undefined;
 			// Branch attribution comes from the graph's reachability data — no per-commit
-			// `git branch --contains` calls needed. `refType === 'branch'` filters out tag
-			// refs (the timeline groups by branch only). The components-library `GraphRow`
-			// type doesn't expose `reachability` even though it's serialized through (same
-			// cast as graph-wrapper.ts:482-486 uses for selection-event reachability).
-			const reachability = (row as { reachability?: GitCommitReachability }).reachability;
+			// `git branch --contains` calls needed. Decoded on demand from the shared table and cached
+			// by set index, so distinct sets decode once across all rows. `refType === 'branch'`
+			// filters out tag refs (the timeline groups by branch only).
+			const reachability = this.graphState.getRowReachability(row);
 			const branches = reachability?.refs
 				.filter(
 					(r): r is { refType: 'branch'; name: string; remote: boolean; current?: boolean } =>

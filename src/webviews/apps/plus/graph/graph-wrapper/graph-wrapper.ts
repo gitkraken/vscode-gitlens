@@ -832,13 +832,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			}
 		}
 
-		// Look up reachability from our original row data (the GK components
-		// processed row doesn't preserve custom properties from GitGraphRow)
+		// Decode the focused row's reachability on demand from the graph's shared table (rows carry
+		// only a `reachabilityIndex`; the GK-processed row doesn't preserve custom GitGraphRow props).
+		const focusedSourceRow = focusedRow != null ? sourceRowBySha?.get(focusedRow.sha) : undefined;
 		const reachability =
-			focusedRow != null
-				? (sourceRowBySha?.get(focusedRow.sha) as { reachability?: GitCommitReachability } | undefined)
-						?.reachability
-				: undefined;
+			focusedSourceRow != null ? this.graphState.getRowReachability(focusedSourceRow) : undefined;
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-change-selection', {

@@ -25,7 +25,7 @@ import type {
 } from '@gitkraken/gitkraken-components';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
-import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRowType, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -243,6 +243,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  Used by the webview to decide whether entering Timeline mode needs to eagerly show its loading
 	 *  overlay (stale `rowsStats` from a prior stats-bearing build can otherwise mask a missing refetch). */
 	rowsStatsIncluded?: boolean;
+	/** Per-graph reachability encoding (shared ref dictionary + distinct membership bitmaps); rows
+	 *  carry an index into `sets` via `contexts.reachabilityIndex`. Replaces the per-row `reachability`
+	 *  object that dominated the graph payload. */
+	reachabilityTable?: GraphReachabilityTable;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
 	columns?: GraphColumnsSettings;
@@ -1161,6 +1165,8 @@ export interface DidChangeRowsParams {
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading: boolean;
 	rowsStatsIncluded?: boolean;
+	/** Per-graph reachability encoding for the rows in this payload (see {@link State.reachabilityTable}). */
+	reachabilityTable?: GraphReachabilityTable;
 	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
 }

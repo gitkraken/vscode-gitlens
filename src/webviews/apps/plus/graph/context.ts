@@ -1,4 +1,5 @@
 import { createContext } from '@lit/context';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type {
@@ -127,6 +128,15 @@ export interface AppState extends State {
 	 * swap-away-and-back within the same session) sees it without waiting for a host state push.
 	 */
 	setWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void;
+
+	/**
+	 * Decode a single loaded row's reachability (the branches/tags it's reachable from) on demand from
+	 * the accumulated, host-owned reachability table. Rows carry only a compact `reachabilityIndex`;
+	 * decoded sets are cached by index and shared across pages and consumers. Returns undefined for
+	 * rows with no reachability. Used by the selection→details flow and the timeline's branch
+	 * attribution.
+	 */
+	getRowReachability(row: NonNullable<State['rows']>[number]): GitCommitReachability | undefined;
 }
 
 export const graphStateContext = createContext<AppState>('graph-state-context');

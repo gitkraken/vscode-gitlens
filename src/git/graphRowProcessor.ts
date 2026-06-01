@@ -1,5 +1,6 @@
 import type { Uri } from 'vscode';
 import type { GitGraphRow, GitGraphRowContexts, GraphContext, GraphRowProcessor } from '@gitlens/git/models/graph.js';
+import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getCachedAvatarUri } from '../avatars.js';
@@ -8,7 +9,6 @@ import { emojify } from '../emojis.js';
 import { serializeWebviewItemContext } from '../system/webview.js';
 import type {
 	GraphBranchContextValue,
-	GraphItemContext,
 	GraphItemRefContext,
 	GraphItemRefGroupContext,
 	GraphTagContextValue,
@@ -167,34 +167,16 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 				});
 			}
 		} else {
-			const isCurrentUser = row.isCurrentUser ?? false;
-			const isHeadCommit = row.heads?.some(h => h.isCurrentHead) ?? false;
+			// Commit `contexts.row` + `contexts.avatar` are NOT serialized here: they duplicated
+			// sha/message/repoPath/author/email already present on the row, a meaningful chunk of the
+			// per-row payload. Instead ship the two host-only bits as compact flags; the webview
+			// reconstructs the full webview-item contexts from row fields + repoPath + these flags
+			// (see `hydrateRowContexts` in stateProvider). `+HEAD` and contributor `+current` are
+			// derived webview-side from `row.heads`/`row.isCurrentUser` and need no flag.
 			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
-			const isUniqueToBranch = localBranches?.length === 1;
-
-			contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
-				webviewItem: `gitlens:commit${isHeadCommit ? '+HEAD' : ''}${
-					context.reachableFromHEAD.has(row.sha) ? '+current' : ''
-				}${isUniqueToBranch ? '+unique' : ''}`,
-				webviewItemValue: {
-					type: 'commit',
-					ref: createReference(row.sha, context.repoPath, {
-						refType: 'revision',
-						message: row.message,
-					}),
-				},
-			});
-
-			contexts.avatar = serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
-				webviewItemValue: {
-					type: 'contributor',
-					repoPath: context.repoPath,
-					name: row.author,
-					email: row.email,
-					current: isCurrentUser,
-				},
-			});
+			contexts.flags =
+				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
+				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0);
 
 			// Populate avatar cache
 			if (!context.avatars.has(row.email)) {

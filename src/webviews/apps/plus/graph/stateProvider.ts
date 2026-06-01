@@ -1,6 +1,12 @@
 import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
+import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
+import type { GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
+import { createReference } from '@gitlens/git/utils/reference.utils.js';
+import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -9,6 +15,7 @@ import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
+	GraphItemRefContext,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
@@ -68,6 +75,7 @@ import type { LoggerContext } from '../../shared/contexts/logger.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 
@@ -436,6 +444,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			this.searchMode = this._state.searchMode;
 		}
 
+		// Bootstrap rows arrive lean (host-elided commit contexts) — rebuild before first render.
+		// Reachability is decoded on demand from `_state.reachabilityTable` via `getRowReachability`.
+		this.hydrateRowContexts(this._state.rows, this.getRowReconstructionRepoPath());
+
 		this.updateState(this._state, true);
 		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting or
 		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
@@ -741,6 +753,144 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		return anchor;
 	}
 
+	/**
+	 * Reconstructs the per-row commit/stash `contexts.row` + `contexts.avatar` blobs that the host
+	 * no longer serializes (they duplicated sha/message/repoPath/author/email already on the row).
+	 * The host instead ships two compact bits in `contexts.flags` (`+current`/`+unique`); everything
+	 * else is rebuilt here from row fields so the GK component's render-time `data-vscode-context`
+	 * wiring and the selection/right-click consumers see exactly the shape they did before. Idempotent
+	 * and only touches rows that still carry `flags` (i.e. the lean payload) — pre-built/stash-with-`row`
+	 * rows pass through untouched.
+	 */
+	/**
+	 * Resolves the repository's filesystem PATH (what the host's `createReference(..., repoPath, ...)`
+	 * used) from the selected-repo comparison-key id, so reconstructed row refs resolve correctly when
+	 * a right-click command does `getRepositoryService(ref.repoPath)`. The id and path coincide for
+	 * `file://` repos but diverge on virtual/remote/vsls schemes — mirrors `graph-app.fallbackRepoPath`.
+	 */
+	private getRowReconstructionRepoPath(
+		repoId: string | undefined = this._state.selectedRepository,
+		repos: State['repositories'] = this._state.repositories,
+	): string | undefined {
+		if (repoId != null) {
+			const found = repos?.find(r => r.id === repoId)?.path;
+			if (found != null) return found;
+		}
+		return repos?.[0]?.path;
+	}
+
+	private hydrateRowContexts(rows: State['rows'], repoPath: string | undefined): void {
+		if (rows == null || repoPath == null) return;
+
+		for (const row of rows) {
+			// `flags`/`isCurrentUser` are GitLens additions to the library `GraphRow`/`RowContexts`
+			// types (same as the `reachability` cast elsewhere) — read them via a narrow cast.
+			const contexts = row.contexts as (typeof row.contexts & { flags?: GitGraphRowContextFlags }) | undefined;
+			// Only the lean commit payload carries `flags` without a pre-built `row` context. Stash
+			// rows (and any already-hydrated row) keep their host-built `contexts.row` untouched.
+			if (contexts?.flags == null || contexts.row != null) continue;
+
+			const isHeadCommit = row.heads?.some(h => h.isCurrentHead) ?? false;
+			const isCurrentUser = (row as { isCurrentUser?: boolean }).isCurrentUser ?? false;
+			const webviewItem = `gitlens:commit${isHeadCommit ? '+HEAD' : ''}${
+				contexts.flags & GitGraphRowContextFlags.ReachableFromHead ? '+current' : ''
+			}${contexts.flags & GitGraphRowContextFlags.UniqueToBranch ? '+unique' : ''}`;
+
+			// Rebuild via `createReference` (the exact builder the host used pre-strip) so the shape
+			// can't drift from the canonical `GitRevisionReference`. `message` is intentionally OMITTED:
+			// the wire `row.message` is emojified (the host emojifies after building the context), and
+			// the `Copy Message` command refetches the raw message when `ref.message` is absent — so
+			// omitting it preserves the original raw-message behavior instead of copying emojified text.
+			contexts.row = serializeWebviewItemContext<GraphItemRefContext>({
+				webviewItem: webviewItem,
+				webviewItemValue: {
+					type: 'commit',
+					ref: createReference(row.sha, repoPath, { refType: 'revision' }),
+				},
+			});
+
+			contexts.avatar = JSON.stringify({
+				webviewItem: `gitlens:contributor${isCurrentUser ? '+current' : ''}`,
+				webviewItemValue: {
+					type: 'contributor',
+					repoPath: repoPath,
+					name: row.author,
+					email: row.email,
+					current: isCurrentUser,
+				},
+			});
+		}
+	}
+
+	/** On-demand decode cache for `getRowReachability`, keyed by the host table's stable set index.
+	 *  Shared across pages and consumers; reset by `resetReachabilityCache` on a new table generation. */
+	private readonly _reachabilityCache = new Map<number, GitCommitReachability>();
+
+	/**
+	 * Decodes a single row's `reachability` on demand from the host-owned, accumulated
+	 * `reachabilityTable` (rows carry only a `contexts.reachabilityIndex`, never per-row ref arrays).
+	 * The table is append-only across pagination within a graph session — an index, once assigned,
+	 * always means the same set — so decoded sets are cached by index and shared across every page and
+	 * consumer (selection details, timeline branch attribution). Decoding only happens for rows a
+	 * consumer actually inspects. Returns undefined when the row has no reachability.
+	 *
+	 * The returned object is shared (one per distinct set, cached) — consumers MUST treat `refs` as
+	 * read-only (filter/map, never sort/splice in place), or they corrupt the set for every other row
+	 * and consumer that shares it.
+	 */
+	getRowReachability(row: NonNullable<State['rows']>[number]): GitCommitReachability | undefined {
+		const table = this._state.reachabilityTable;
+		if (table == null) return undefined;
+
+		const index = (row.contexts as { reachabilityIndex?: number } | undefined)?.reachabilityIndex;
+		if (index == null) return undefined;
+
+		let reachability = this._reachabilityCache.get(index);
+		if (reachability == null) {
+			const refs = decodeReachabilitySet(table, index);
+			// The dictionary is interned in first-seen order (to dedup bitmaps), so restore the host's
+			// canonical order — current-first / local-before-remote / tags newest-first — that the lazy
+			// `getCommitReachability` "load all" path uses and the details panel's `branches[0]`
+			// branch-name fallback depends on.
+			refs.sort(compareReachableRefs);
+			reachability = { partial: true, refs: refs };
+			this._reachabilityCache.set(index, reachability);
+		}
+		return reachability;
+	}
+
+	/** Clears the on-demand decode cache. Called when a new table generation arrives (different `id`);
+	 *  same-generation pagination extends the SAME table, so it must NOT clear there. */
+	private resetReachabilityCache(): void {
+		this._reachabilityCache.clear();
+	}
+
+	/**
+	 * Adopts a reachability-table push from the host. The host ships the FULL table on a new generation
+	 * (a fresh graph walk → new `id`) and only the appended dictionary/sets tail (a delta) on
+	 * same-generation pagination. So a different `id` (or no table yet) → replace + reset the decode
+	 * cache (set indices restart for a new generation); the same `id` → concatenate the delta and KEEP
+	 * the cache (existing indices stay valid — new entries only append). `undefined` means nothing was
+	 * shipped (deduped/no reachability) → keep what we have. Owns `_state.reachabilityTable` directly,
+	 * so callers must NOT also route the table through `updateState`.
+	 */
+	private applyReachabilityTable(incoming: GraphReachabilityTable | undefined): void {
+		if (incoming == null) return;
+
+		const current = this._state.reachabilityTable;
+		if (current == null || current.id !== incoming.id) {
+			this._state.reachabilityTable = incoming;
+			this.resetReachabilityCache();
+			return;
+		}
+
+		this._state.reachabilityTable = {
+			id: current.id,
+			dictionary: [...current.dictionary, ...incoming.dictionary],
+			sets: [...current.sets, ...incoming.sets],
+		};
+	}
+
 	/** True when `sha` is present in the graph's loaded rows. Used to decide whether a resolved
 	 *  scope anchor is usable — see `publishResolvedScope`. */
 	private isShaLoaded(sha: string): boolean {
@@ -825,6 +975,21 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
 					delete next.lastFetched;
 				}
+				// Full-state pushes (the primary update path: commit/fetch/branch-switch) carry lean
+				// rows too — rebuild the elided commit contexts before they reach the renderer. When
+				// rows were deduped away (`skipRows`), `next.rows` is undefined → no-op.
+				this.hydrateRowContexts(
+					next.rows ?? undefined,
+					this.getRowReconstructionRepoPath(
+						next.selectedRepository ?? this._state.selectedRepository,
+						next.repositories ?? this._state.repositories,
+					),
+				);
+				// Adopt the reachability table by generation id (replace+reset on a new `id`, append on the
+				// same one). `applyReachabilityTable` owns `_state.reachabilityTable`, so delete the key
+				// from `next` to keep `updateState` from clobbering it.
+				this.applyReachabilityTable(next.reachabilityTable);
+				delete next.reachabilityTable;
 				this.updateState(next);
 				break;
 			}
@@ -953,6 +1118,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeRowsNotification.is(msg): {
+				// Rebuild the lean commit contexts the host elided. Reachability is decoded on demand
+				// from the accumulated `reachabilityTable` (adopted into `updates` below), so no per-row
+				// rebuild is needed here.
+				this.hydrateRowContexts(msg.params.rows, this.getRowReconstructionRepoPath());
+
 				let rows;
 				if (msg.params.rows.length && msg.params.paging?.startingCursor != null && this._state.rows != null) {
 					const previousRows = this._state.rows;
@@ -1021,6 +1191,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					updates.refsMetadata = msg.params.refsMetadata;
 				}
 				updates.rows = rows;
+				// Adopt the reachability table by generation id: append the delta on same-generation
+				// pagination (cache preserved), replace + reset the decode cache on a new generation.
+				this.applyReachabilityTable(msg.params.reachabilityTable);
 				updates.paging = msg.params.paging;
 				if (msg.params.rowsStats != null) {
 					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };

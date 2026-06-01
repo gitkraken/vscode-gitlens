@@ -702,6 +702,10 @@ export class DetailsActions {
 			this.state.pullRequest.set(undefined);
 			this.state.signature.set(undefined);
 		}
+		// `graphReachability` is the selected row's reachability, decoded on demand from the graph's
+		// compact reachability table (see `GraphStateProvider.getRowReachability`) — present for commit
+		// rows without any extra fetch. Falls back to a `loaded` empty set (not `idle`) so a commit with
+		// no reachable refs shows "Unreachable" exactly as before the bitmap encoding.
 		this.state.reachability.set(graphReachability ?? { partial: true, refs: [] });
 		this.state.reachabilityState.set('loaded');
 		this.state.explain.set(undefined);

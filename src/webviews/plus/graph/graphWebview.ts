@@ -18,7 +18,7 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { GitGraph, GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraph, GitGraphRow, GitGraphRowType, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -49,6 +49,7 @@ import {
 	getRepositoryIdentityForPullRequest,
 	serializePullRequest,
 } from '@gitlens/git/utils/pullRequest.utils.js';
+import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { createRevisionRange, isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import {
@@ -664,6 +665,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// some entries were appended. Cleared in `setGraph` on graph identity change.
 	private _lastSentAvatarsSize: number | undefined;
 	private _lastSentRowsStatsSize: number | undefined;
+	// Generation id + dictionary/sets lengths shipped on the previous reachability push. The table is
+	// append-only within a generation, so on a same-`id` push we ship only the appended tail (a delta);
+	// a new `id` ships the full table. Reset by `setGraph(undefined)`; advanced only on confirmed send.
+	private _lastSentReachability: { id: number; dictLen: number; setsLen: number } | undefined;
 	// Last overview shipped to the webview. `setGraph` fires `notifyDidChangeOverview` on every graph
 	// reload (repo/visibility/filter change, refresh); most reloads reproduce the prior overview, so
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
@@ -5679,6 +5684,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
+	/**
+	 * Picks the reachability payload to ship and the watermark to record on confirmed send. The table is
+	 * append-only within a generation (`id`), so on a same-`id` push we ship only the entries appended
+	 * since the last send (the webview concatenates); a new `id` (a fresh graph walk) ships the full
+	 * table (the webview replaces + resets its decode cache). Returns `payload: undefined` when nothing
+	 * is new (so the webview keeps what it has). The caller assigns `_lastSentReachability = watermark`
+	 * only after `host.notify` confirms delivery — mirroring the avatars/rowsStats counters.
+	 */
+	private buildReachabilityPayload(table: GraphReachabilityTable | undefined): {
+		payload: GraphReachabilityTable | undefined;
+		watermark: { id: number; dictLen: number; setsLen: number } | undefined;
+	} {
+		if (table == null) return { payload: undefined, watermark: this._lastSentReachability };
+
+		const watermark = { id: table.id, dictLen: table.dictionary.length, setsLen: table.sets.length };
+		const last = this._lastSentReachability;
+		if (last != null && last.id === table.id) {
+			const dictionary = table.dictionary.slice(last.dictLen);
+			const sets = table.sets.slice(last.setsLen);
+			// Nothing appended since the last send → ship nothing, keep the watermark where it is.
+			if (dictionary.length === 0 && sets.length === 0) {
+				return { payload: undefined, watermark: last };
+			}
+			return { payload: { id: table.id, dictionary: dictionary, sets: sets }, watermark: watermark };
+		}
+
+		// New generation (or first send) → full table.
+		return { payload: { id: table.id, dictionary: table.dictionary, sets: table.sets }, watermark: watermark };
+	}
+
 	@trace()
 	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
@@ -5721,10 +5756,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? takeEntriesAfter(graph.rowsStats, this._lastSentRowsStatsSize ?? 0)
 				: undefined;
 
+		const reachability = this.buildReachabilityPayload(graph.reachability);
 		const success = await this.host.notify(
 			DidChangeRowsNotification,
 			{
 				rows: graph.rows,
+				reachabilityTable: reachability.payload,
 				avatars: avatarsChanged ? Object.fromEntries(graph.avatars) : undefined,
 				downstreams: Object.fromEntries(graph.downstreams),
 				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
@@ -5756,6 +5793,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (success) {
 			this._lastSentAvatarsSize = avatarsSize;
 			this._lastSentRowsStatsSize = rowsStatsSize;
+			this._lastSentReachability = reachability.watermark;
 		}
 		return success;
 	}
@@ -6171,6 +6209,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				const skipRows = fingerprint != null && fingerprint === this._lastSentGraphFingerprint;
 				if (skipRows) {
 					state.rows = undefined;
+					// Drop the reachability table alongside rows: it's keyed by the rows' indices, so the
+					// webview keeps its already-accumulated table (and decode cache) when rows are unchanged.
+					state.reachabilityTable = undefined;
 					state.avatars = undefined;
 					state.downstreams = undefined;
 					state.rowsStats = undefined;
@@ -6179,9 +6220,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					state.paging = undefined;
 				}
 
+				// Same delta encoding as the rows path: a full-state push is virtually always a fresh
+				// generation (new `id`) → ships the full table; the webview replaces + resets its cache.
+				const reachability = this.buildReachabilityPayload(state.reachabilityTable);
+				state.reachabilityTable = reachability.payload;
+
 				const result = await this.host.notify(DidChangeNotification, { state: state });
+
 				this._lastStateSentAt = performance.now();
 				this._lastSentBranchState = state.branchState;
+				if (result) {
+					this._lastSentReachability = reachability.watermark;
+				}
 				if (fingerprint != null) {
 					this._lastSentGraphFingerprint = fingerprint;
 				}
@@ -7348,6 +7398,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			rowsStatsLoading: data?.rowsStatsDeferred?.isLoaded != null ? !data.rowsStatsDeferred.isLoaded() : false,
 			rowsStatsIncluded: data?.includes?.stats === true,
 			rows: data?.rows,
+			reachabilityTable: data?.reachability,
 			downstreams: data != null ? Object.fromEntries(data.downstreams) : undefined,
 			paging:
 				data != null
@@ -7843,6 +7894,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// page-delta, defeating Phase 7's primary perf win.
 			this._lastSentAvatarsSize = undefined;
 			this._lastSentRowsStatsSize = undefined;
+			this._lastSentReachability = undefined;
 			this._lastSentOverview = undefined;
 			this._lastSentWipDrafts = undefined;
 			this._lastSentWipDraftsInitialized = false;
@@ -9413,8 +9465,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		for (const sha of commitShas) {
 			const row = graph.rows.find(r => r.sha === sha);
-			if (row?.reachability) {
-				for (const ref of row.reachability.refs) {
+			const refs = row != null ? this.getRowReachableRefs(row) : undefined;
+			if (refs != null) {
+				for (const ref of refs) {
 					if (ref.refType === 'branch' && !ref.remote) {
 						branchCounts.set(ref.name, (branchCounts.get(ref.name) ?? 0) + 1);
 					}
@@ -9448,6 +9501,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	/**
+	 * Decodes a row's reachable refs from the graph's shared {@link GitGraph.reachability} table — rows
+	 * carry only a `contexts.reachabilityIndex`, not per-row ref arrays. Refs come back in dictionary
+	 * order; the recompose callers only filter by ref type/remote, so order is irrelevant here.
+	 */
+	private getRowReachableRefs(row: GitGraphRow) {
+		const table = this._graph?.reachability;
+		const index = row.contexts?.reachabilityIndex;
+		if (table == null || index == null) return undefined;
+
+		return decodeReachabilitySet(table, index);
+	}
+
 	@debug()
 	private async recomposeFromCommit(item?: GraphItemContext): Promise<void> {
 		const ref = this.getGraphItemRef(item, 'revision');
@@ -9457,7 +9523,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (graph == null) return;
 
 		const row = graph.rows.find(r => r.sha === ref.ref);
-		const localBranches = row?.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
+		const localBranches = (row != null ? this.getRowReachableRefs(row) : undefined)?.filter(
+			r => r.refType === 'branch' && !r.remote,
+		);
 		if (localBranches?.length !== 1) {
 			void window.showErrorMessage('Unable to recompose: commit must belong to exactly one local branch');
 			return;

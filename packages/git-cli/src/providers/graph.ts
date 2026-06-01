@@ -32,9 +32,9 @@ import {
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
+import { createReachabilityTableBuilder } from '@gitlens/git/utils/reachability.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getSearchQueryComparisonKey, parseSearchQueryGitCommand } from '@gitlens/git/utils/search.utils.js';
-import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { getTagId } from '@gitlens/git/utils/tag.utils.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { getWorktreeId, groupWorktreesByBranch } from '@gitlens/git/utils/worktree.utils.js';
@@ -145,6 +145,31 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 		// Map<sha, Map<refKey, ref>> — inner map deduplicates refs during propagation
 		const reachableRefs = new Map<string, Map<string, ReachableRef>>();
+
+		// Stable, append-only reachability table built as we walk — the PRIMARY representation shipped to
+		// consumers. Lives in the outer scope so it accumulates across `more()` pagination; indices
+		// already assigned never change, since git reachability only propagates to older (later-walked)
+		// commits. Per-row ref arrays are NOT retained — each row keeps only its set index
+		// (`contexts.reachabilityIndex`), and the working `reachableRefs` entry is dropped once emitted.
+		// The encoder lives next to its decoder in `reachability.utils` so the wire format can't drift.
+		const reachabilityBuilder = createReachabilityTableBuilder();
+
+		function finalizeRowReachability(
+			row: GitGraphRow,
+			sha: string,
+			refs: Map<string, ReachableRef> | undefined,
+		): void {
+			const setIndex = reachabilityBuilder.intern(refs?.values());
+			if (setIndex != null) {
+				(row.contexts ??= {}).reachabilityIndex = setIndex;
+			}
+			// Drop the transient per-row arrays so emitted rows don't retain reachability, and release the
+			// working entry — once a commit is emitted its children are all walked and its parents already
+			// seeded, so nothing reads `reachableRefs.get(sha)` again (orderings keep parents after children).
+			row.reachability = undefined;
+			reachableRefs.delete(sha);
+		}
+
 		const rowStats: GitGraphRowsStats = new Map<string, GitGraphRowStats>();
 		let pendingRowsStatsCount = 0;
 		let iterations = 0;
@@ -406,12 +431,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							heads: refHeads,
 							remotes: refRemoteHeads,
 							tags: refTags,
-							reachability: refs?.size
-								? { partial: true, refs: [...refs.values()].sort(compareReachableRefs) }
-								: undefined,
+							// Transient: the row processor's `+unique` decision reads this; stripped just below.
+							// Unsorted (the consumer re-sorts after decoding) — order doesn't affect interning.
+							reachability: refs?.size ? { partial: true, refs: [...refs.values()] } : undefined,
 							isCurrentUser: true,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
+						finalizeRowReachability(row, shaOrRemapped, refs);
 						rows.push(row);
 
 						if (stash.stats != null) {
@@ -437,12 +463,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							heads: refHeads,
 							remotes: refRemoteHeads,
 							tags: refTags,
-							reachability: refs?.size
-								? { partial: true, refs: [...refs.values()].sort(compareReachableRefs) }
-								: undefined,
+							// Transient: the row processor's `+unique` decision reads this; stripped just below.
+							// Unsorted (the consumer re-sorts after decoding) — order doesn't affect interning.
+							reachability: refs?.size ? { partial: true, refs: [...refs.values()] } : undefined,
 							isCurrentUser: isCurrentUser || undefined,
 						};
 						rowProcessor?.processRow(row, graphCtx!);
+						finalizeRowReachability(row, shaOrRemapped, refs);
 						rows.push(row);
 
 						if (commit.stats != null) {
@@ -514,6 +541,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					reachableFromHEAD: reachableFromHEAD,
+					reachability: reachabilityBuilder.build(),
 					rows: rows,
 					id: sha ?? rev,
 					rowsStats: rowStats,
