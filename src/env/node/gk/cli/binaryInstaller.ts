@@ -87,7 +87,6 @@ export class BinaryInstaller implements Disposable {
 
 		if (!force) {
 			if (cliInstallStatus === 'completed') {
-				cliVersion = cliInstall?.version;
 				if (await resolveCLIExecutable(cliPath)) {
 					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed', changed: false };
 				}
@@ -144,21 +143,9 @@ export class BinaryInstaller implements Disposable {
 				})
 				.catch();
 
-			// Map platform names for the API and get architecture
+			// Map platform/arch names for the API (unrecognized architectures fall back to x86)
+			const architecture = arch === 'x64' || arch === 'arm64' ? arch : 'x86';
 			let platformName: string;
-			let architecture: string;
-
-			switch (arch) {
-				case 'x64':
-					architecture = 'x64';
-					break;
-				case 'arm64':
-					architecture = 'arm64';
-					break;
-				default:
-					architecture = 'x86'; // Default to x86 for other architectures
-					break;
-			}
 
 			switch (platform) {
 				case 'windows':

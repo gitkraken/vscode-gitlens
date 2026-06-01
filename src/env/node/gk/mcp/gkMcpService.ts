@@ -234,9 +234,10 @@ export class GkMcpService implements Disposable {
 			return undefined;
 		}
 
-		const appName = toMcpInstallProvider(await getHostAppName());
+		const hostAppName = await getHostAppName();
+		const appName = toMcpInstallProvider(hostAppName);
 		if (appName == null) {
-			scope?.warn(`Unsupported host app — hostAppName=${await getHostAppName()}`);
+			scope?.warn(`Unsupported host app — hostAppName=${hostAppName}`);
 			return undefined;
 		}
 
@@ -245,8 +246,7 @@ export class GkMcpService implements Disposable {
 			if (configuration.get('gitkraken.mcp.experimental.enabled')) {
 				args.push('--experimental');
 			}
-			let output = await this.gkCli.run(args);
-			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
+			const output = (await this.gkCli.run(args)).replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
 			const config = this.parseMcpConfigOutput(output, cliInstall.version, scope);
 
