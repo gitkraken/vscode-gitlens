@@ -1,0 +1,46 @@
+name: 'Merge Guard: Issue #87'
+
+on:
+    push:
+        branches:
+            - task/87-users-purchase
+
+permissions:
+    contents: write
+
+jobs:
+    guard:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check deadline
+              run: |
+                  DEADLINE="2026-06-09"
+                  TODAY=$(date -u +%Y-%m-%d)
+                  if [[ "$TODAY" < "$DEADLINE" ]]; then
+                    echo "::error::Do not merge before June 9, 2026. Credit add-ons are not yet available."
+                    echo "## ⛔ Merge blocked" >> "$GITHUB_STEP_SUMMARY"
+                    echo "Do not merge before **June 9, 2026**. Credit add-ons are not yet available." >> "$GITHUB_STEP_SUMMARY"
+                    exit 1
+                  fi
+
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 2
+                  token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Self-cleanup
+              run: |
+                  CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+                  if [[ "$CHANGED_FILES" == ".github/workflows/merge-guard-87.yml" ]]; then
+                    git reset --hard HEAD~1
+                    git push --force
+                    echo "::notice::Merge guard removed. The PR is now unblocked."
+                    echo "## ✅ Merge guard removed" >> "$GITHUB_STEP_SUMMARY"
+                    echo "Deadline passed. The guard commit has been removed from the branch. The PR is now unblocked." >> "$GITHUB_STEP_SUMMARY"
+                  else
+                    echo "::error::Deadline passed but the merge guard commit is no longer the tip. Remove .github/workflows/merge-guard-87.yml manually before merging."
+                    echo "## ⚠️ Manual cleanup required" >> "$GITHUB_STEP_SUMMARY"
+                    echo "Deadline passed but the merge guard commit is no longer at the tip of the branch." >> "$GITHUB_STEP_SUMMARY"
+                    echo "Remove \`.github/workflows/merge-guard-87.yml\` manually before merging." >> "$GITHUB_STEP_SUMMARY"
+                    exit 1
+                  fi
