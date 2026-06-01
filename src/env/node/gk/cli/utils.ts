@@ -108,19 +108,6 @@ export function resolveCLIExecutable(cliPath?: string | null): Promise<Uri | und
 	});
 }
 
-export function toMcpInstallProvider<T extends string | undefined>(appHostName: T): T {
-	switch (appHostName) {
-		case 'code':
-			return 'vscode' as T;
-		case 'code-insiders':
-			return 'vscode-insiders' as T;
-		case 'code-exploration':
-			return 'vscode-exploration' as T;
-		default:
-			return appHostName;
-	}
-}
-
 /**
  * Resolves the effective "insiders CLI" enabled state. When the setting is unset (`null`), it is
  * auto-enabled in pre-release and debugging builds; an explicit `true`/`false` always wins.

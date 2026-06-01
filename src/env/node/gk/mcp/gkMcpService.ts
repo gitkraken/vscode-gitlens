@@ -31,14 +31,13 @@ import {
 } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
 import type { GkAgent } from '../../../../agents/agentService.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
-import { toMcpInstallProvider } from '../cli/utils.js';
 import type { CliInstallChangeEvent } from '../cli/gkCliService.js';
 import { McpSetupError, McpSetupErrorReason } from './errors.js';
 import { CursorMcpHostProvider } from './hostProviders/cursorMcpHostProvider.js';
 import type { McpHostRegistrationProvider } from './hostProviders/types.js';
 import { VSCodeMcpHostProvider } from './hostProviders/vscodeMcpHostProvider.js';
 import { showMcpAgentPicker } from './mcpAgentPicker.js';
-import { showManualMcpSetupPrompt } from './utils.js';
+import { showManualMcpSetupPrompt, toMcpInstallProvider } from './utils.js';
 
 const ipcWaitTime = 30000; // 30 seconds
 
@@ -60,9 +59,32 @@ interface McpServerConfig {
 	version?: string;
 }
 
+type McpInstallResult =
+	| { kind: 'succeeded' }
+	| { kind: 'unsupported' }
+	| { kind: 'userAction'; url: string }
+	| { kind: 'unexpected'; output: string };
+
+/** Classifies the output of `gk mcp install ...`. Shared by host setup (`setupCore`) and per-agent
+ *  install (`installMCPForAgents`) so the two paths interpret the CLI's output identically — notably
+ *  that empty output means success (the CLI suppresses the success banner when `--source=gitlens`). */
+function classifyMcpInstallOutput(output: string): McpInstallResult {
+	const cleaned = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
+	if (!cleaned || CLIProxyMCPInstallOutputs.installedSuccessfully.test(cleaned)) {
+		return { kind: 'succeeded' };
+	}
+	if (CLIProxyMCPInstallOutputs.notASupportedClient.test(cleaned)) {
+		return { kind: 'unsupported' };
+	}
+	if (URL.canParse(cleaned)) {
+		return { kind: 'userAction', url: cleaned };
+	}
+	return { kind: 'unexpected', output: cleaned };
+}
+
 export class GkMcpService implements Disposable {
 	private readonly _disposable: VsDisposable;
-	private readonly _activeProvider: McpHostRegistrationProvider | undefined;
+	private _activeProvider: McpHostRegistrationProvider | undefined;
 
 	private _mcpConfigPromise: Promise<McpServerConfig | undefined> | undefined;
 	private _discoveryFilePath: string | undefined;
@@ -77,17 +99,6 @@ export class GkMcpService implements Disposable {
 	}
 
 	constructor(private readonly container: Container) {
-		// Pick the active host adapter at construction (single-instance, mutually exclusive)
-		if (supportsMcpExtensionRegistration()) {
-			this._activeProvider = new VSCodeMcpHostProvider(container, this);
-		} else if (supportsCursorMcpRegistration()) {
-			this._activeProvider = new CursorMcpHostProvider(container, this);
-		} else {
-			this._activeProvider = undefined;
-		}
-
-		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
-
 		// Construction order contract: `container.gkCli` MUST be constructed before `container.gkMcp`
 		// (enforced today by the eager-construct order in container.ts). MCP subscribes to CLI events
 		// here; a lazy/reorder of those getters would silently break startup install reactions.
@@ -95,23 +106,23 @@ export class GkMcpService implements Disposable {
 		// The non-null assertion satisfies the typed union (`GkCliService | undefined`) for browser builds.
 		const cliService = container.gkCli!;
 
-		const disposables: VsDisposable[] = [
+		this._disposable = VsDisposable.from(
 			this._onDidCompleteSetup,
 			cliService.onDidChangeInstall(e => this.onCliInstallChanged(e)),
 			cliService.onDidStartIpc(e => this.onIpcServerStarted(e)),
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
+			// Register the host adapter (and start the 30s IPC-wait timer) only once the container is
+			// ready AND the user/admin has opted in — never at eager construction. This gates
+			// registration on `isRegistrationAllowed` (so a `gitkraken.mcp.autoEnabled=false` opt-out is
+			// honored) and keeps the IPC timer aligned with the old ready()-time start.
+			container.onReady(() => this.ensureRegistration()),
 			...this.registerCommands(),
-		];
-		if (this._activeProvider != null) {
-			disposables.push(this._activeProvider);
-		}
-
-		this._disposable = VsDisposable.from(...disposables);
+		);
 	}
 
 	dispose(): void {
-		this.clearIpcTimeout();
+		this.disposeActiveProvider();
 		this._disposable.dispose();
 	}
 
@@ -134,10 +145,6 @@ export class GkMcpService implements Disposable {
 		if (isWeb || getIsOffline()) return false;
 
 		return this.container.ai.enabled && configuration.get('gitkraken.mcp.autoEnabled');
-	}
-
-	get activeProvider(): McpHostRegistrationProvider | undefined {
-		return this._activeProvider;
 	}
 
 	// === Internal API for host adapters ===
@@ -178,6 +185,46 @@ export class GkMcpService implements Disposable {
 
 	// === Private lifecycle / orchestration ===
 
+	/**
+	 * Creates or tears down the host registration adapter to match `isRegistrationAllowed`.
+	 *
+	 * Called at ready() and whenever `ai.enabled` / `gitkraken.mcp.autoEnabled` change. Toggling the
+	 * opt-in off disposes the active provider (VS Code: unregisters the definition provider; Cursor:
+	 * unregisters the server), and toggling it back on re-registers — so the setting takes effect
+	 * without a window reload.
+	 */
+	private ensureRegistration(): void {
+		if (this.isRegistrationAllowed) {
+			if (this._activeProvider != null) return;
+
+			// `isRegistrationAllowed` guarantees one of these host capabilities is present.
+			this._activeProvider = supportsMcpExtensionRegistration()
+				? new VSCodeMcpHostProvider(this.container, this)
+				: new CursorMcpHostProvider(this.container, this);
+			this.startIpcTimeout();
+		} else {
+			this.disposeActiveProvider();
+		}
+	}
+
+	private startIpcTimeout(): void {
+		// Only wait if IPC hasn't already started (e.g. on a re-registration after the IPC server is up).
+		if (!this._waitingForIPC || this._ipcTimeoutId != null) return;
+
+		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
+	}
+
+	private disposeActiveProvider(): void {
+		// Clear the timer handle without resetting `_waitingForIPC` — a later re-registration should
+		// resume waiting if IPC still hasn't started.
+		if (this._ipcTimeoutId != null) {
+			clearTimeout(this._ipcTimeoutId);
+			this._ipcTimeoutId = undefined;
+		}
+		this._activeProvider?.dispose();
+		this._activeProvider = undefined;
+	}
+
 	private async getMcpConfigCore(): Promise<McpServerConfig | undefined> {
 		const scope = getScopedLogger();
 
@@ -201,9 +248,9 @@ export class GkMcpService implements Disposable {
 			let output = await this.gkCli.run(args);
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
-			const config = this.parseMcpConfigOutput(output, cliInstall.version);
+			const config = this.parseMcpConfigOutput(output, cliInstall.version, scope);
 
-			this.onRegistrationCompleted(cliInstall.version);
+			this.onRegistrationCompleted();
 
 			return config;
 		} catch (ex) {
@@ -222,12 +269,19 @@ export class GkMcpService implements Disposable {
 		return undefined;
 	}
 
-	private parseMcpConfigOutput(output: string, cliVersion: string | undefined): McpServerConfig {
+	private parseMcpConfigOutput(
+		output: string,
+		cliVersion: string | undefined,
+		scope: ReturnType<typeof getScopedLogger>,
+	): McpServerConfig {
 		let parsed: McpServerConfig;
 		try {
 			parsed = JSON.parse(output) as McpServerConfig;
 		} catch (parseEx) {
 			const outputToLog = output.slice(0, 500);
+			// Log the raw (truncated) non-JSON output with the parse error before rethrowing, so field
+			// diagnosis of CLI-output regressions isn't reduced to a wrapped message.
+			scope?.error(parseEx, `MCP config command returned non-JSON output (CLI ${cliVersion}): ${outputToLog}`);
 			throw new Error(`Invalid MCP config output from CLI ${cliVersion}: ${outputToLog}`, { cause: parseEx });
 		}
 
@@ -244,7 +298,7 @@ export class GkMcpService implements Disposable {
 		};
 	}
 
-	private onRegistrationCompleted(_cliVersion?: string | undefined): void {
+	private onRegistrationCompleted(): void {
 		if (!this.container.telemetry.enabled) return;
 
 		this.container.telemetry.setGlobalAttribute('gk.mcp.registrationCompleted', true);
@@ -267,6 +321,9 @@ export class GkMcpService implements Disposable {
 		this._mcpConfigPromise = undefined;
 
 		if (this.isRegistrationAllowed) {
+			// Self-heal: if registration was skipped at ready() (e.g. transiently offline) but is now
+			// allowed, create the provider before pushing setup.
+			this.ensureRegistration();
 			void this.setupCore(e.source ?? 'gk-cli-integration', false, true).catch(() => undefined);
 		}
 	}
@@ -294,7 +351,9 @@ export class GkMcpService implements Disposable {
 			this._mcpConfigPromise = undefined;
 			this.fireRefresh(true);
 		}
-		if (configuration.changed(e, 'gitkraken.mcp.autoEnabled')) {
+		if (configuration.changed(e, 'gitkraken.mcp.autoEnabled') || configuration.changed(e, 'ai.enabled')) {
+			// Register or unregister the host adapter to match the new opt-in state.
+			this.ensureRegistration();
 			if (this.isRegistrationAllowed) {
 				void this.setupCore('settings', false, true).catch(() => undefined);
 			}
@@ -445,66 +504,60 @@ export class GkMcpService implements Disposable {
 			}
 
 			scope?.trace(`Running MCP install command for ${mcpInstallAppName}`);
-			let output = await this.gkCli.run(
+			const output = await this.gkCli.run(
 				['mcp', 'install', mcpInstallAppName, '--source=gitlens', `--scheme=${env.uriScheme}`],
 				{ cwd: cliPath },
 			);
 
-			output = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
-			if (CLIProxyMCPInstallOutputs.installedSuccessfully.test(output)) {
-				scope?.addExitInfo(`(version: ${cliVersion})`);
-				// Send success telemetry
-				if (this.container.telemetry.enabled) {
-					this.container.telemetry.sendEvent('mcp/setup/completed', {
-						requiresUserCompletion: false,
-						source: commandSource,
-						'cli.version': cliVersion,
-					});
-				}
-				return {
-					cliVersion: cliVersion,
-				};
-			} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(output)) {
-				scope?.setFailed(`GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
-				throw new McpSetupError(
-					McpSetupErrorReason.UnsupportedClient,
-					'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You should be able to configure it by adding the GitKraken MCP to your configuration manually.',
-					'unsupported app',
-					commandSource,
-					cliVersion,
-					`Not a supported MCP client: ${hostAppName}`,
-				);
+			const classification = classifyMcpInstallOutput(output);
+			switch (classification.kind) {
+				case 'succeeded':
+					scope?.addExitInfo(`(version: ${cliVersion})`);
+					// Send success telemetry
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('mcp/setup/completed', {
+							requiresUserCompletion: false,
+							source: commandSource,
+							'cli.version': cliVersion,
+						});
+					}
+					return { cliVersion: cliVersion };
+				case 'unsupported':
+					scope?.setFailed(`GitKraken MCP setup failed; unsupported host: ${hostAppName}`);
+					throw new McpSetupError(
+						McpSetupErrorReason.UnsupportedClient,
+						'Automatic setup of the GitKraken MCP is not currently supported in this IDE. You should be able to configure it by adding the GitKraken MCP to your configuration manually.',
+						'unsupported app',
+						commandSource,
+						cliVersion,
+						`Not a supported MCP client: ${hostAppName}`,
+					);
+				case 'userAction':
+					scope?.addExitInfo(`requires user action (version: ${cliVersion})`);
+					if (this.container.telemetry.enabled) {
+						this.container.telemetry.sendEvent('mcp/setup/completed', {
+							requiresUserCompletion: true,
+							source: commandSource,
+							'cli.version': cliVersion,
+						});
+					}
+					return {
+						cliVersion: cliVersion,
+						requiresUserCompletion: true,
+						url: classification.url,
+					};
+				case 'unexpected':
+					scope?.setFailed(`GitKraken MCP setup failed; unexpected output from mcp install`);
+					scope?.error(undefined, `Unexpected output from mcp install command: ${classification.output}`);
+					throw new McpSetupError(
+						McpSetupErrorReason.UnexpectedOutput,
+						'Unable to setup the GitKraken MCP. If this issue persists, please try adding the GitKraken MCP to your configuration manually.',
+						'unexpected output from mcp install command',
+						commandSource,
+						cliVersion,
+						`Unexpected output from mcp install command: ${classification.output}`,
+					);
 			}
-
-			// Check if the output is a valid url. If so, run it
-			try {
-				new URL(output);
-			} catch {
-				scope?.setFailed(`GitKraken MCP setup failed; unexpected output from mcp install`);
-				scope?.error(undefined, `Unexpected output from mcp install command: ${output}`);
-				throw new McpSetupError(
-					McpSetupErrorReason.UnexpectedOutput,
-					'Unable to setup the GitKraken MCP. If this issue persists, please try adding the GitKraken MCP to your configuration manually.',
-					'unexpected output from mcp install command',
-					commandSource,
-					cliVersion,
-					`Unexpected output from mcp install command: ${output}`,
-				);
-			}
-
-			scope?.addExitInfo(`requires user action (version: ${cliVersion})`);
-			if (this.container.telemetry.enabled) {
-				this.container.telemetry.sendEvent('mcp/setup/completed', {
-					requiresUserCompletion: true,
-					source: commandSource,
-					'cli.version': cliVersion,
-				});
-			}
-			return {
-				cliVersion: cliVersion,
-				requiresUserCompletion: true,
-				url: output,
-			};
 		} catch (ex) {
 			scope?.error(ex, `Error during MCP installation: ${ex}`);
 			throw this.normalizeAndTrackSetupError(ex, commandSource);
@@ -781,34 +834,31 @@ export class GkMcpService implements Disposable {
 						{ cwd: cliPath },
 					);
 
-					const cleanOutput = output.replace(CLIProxyMCPInstallOutputs.checkingForUpdates, '').trim();
-					// Empty output means success — the CLI suppresses the success message when --source=gitlens
-					if (!cleanOutput || CLIProxyMCPInstallOutputs.installedSuccessfully.test(cleanOutput)) {
-						Logger.debug(scope, `MCP install succeeded for agent '${agent.name}'`);
-						return { agent: agent, status: 'succeeded' as const };
-					} else if (CLIProxyMCPInstallOutputs.notASupportedClient.test(cleanOutput)) {
-						Logger.warn(scope, `MCP install failed for agent '${agent.name}': not a supported client`);
-						return { agent: agent, status: 'failed' as const, error: 'Not a supported MCP client' };
+					const classification = classifyMcpInstallOutput(output);
+					switch (classification.kind) {
+						case 'succeeded':
+							Logger.debug(scope, `MCP install succeeded for agent '${agent.name}'`);
+							return { agent: agent, status: 'succeeded' as const };
+						case 'unsupported':
+							Logger.warn(scope, `MCP install failed for agent '${agent.name}': not a supported client`);
+							return { agent: agent, status: 'failed' as const, error: 'Not a supported MCP client' };
+						case 'userAction':
+							Logger.debug(
+								scope,
+								`MCP install for agent '${agent.name}' requires user action: ${classification.url}`,
+							);
+							return { agent: agent, status: 'userAction' as const, url: classification.url };
+						case 'unexpected':
+							Logger.warn(
+								scope,
+								`MCP install failed for agent '${agent.name}': unexpected output: ${classification.output}`,
+							);
+							return {
+								agent: agent,
+								status: 'failed' as const,
+								error: `Unexpected output: ${classification.output}`,
+							};
 					}
-
-					// Check if output is a URL requiring user action
-					if (URL.canParse(cleanOutput)) {
-						Logger.debug(
-							scope,
-							`MCP install for agent '${agent.name}' requires user action: ${cleanOutput}`,
-						);
-						return { agent: agent, status: 'userAction' as const, url: cleanOutput };
-					}
-
-					Logger.warn(
-						scope,
-						`MCP install failed for agent '${agent.name}': unexpected output: ${cleanOutput}`,
-					);
-					return {
-						agent: agent,
-						status: 'failed' as const,
-						error: `Unexpected output: ${cleanOutput}`,
-					};
 				} catch (ex) {
 					Logger.error(ex, scope, `MCP install failed for agent '${agent.name}'`);
 					return {
