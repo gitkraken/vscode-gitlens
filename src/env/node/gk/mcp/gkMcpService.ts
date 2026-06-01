@@ -122,6 +122,7 @@ export class GkMcpService implements Disposable {
 	}
 
 	dispose(): void {
+		this._fireRefreshDebounced?.cancel();
 		this.disposeActiveProvider();
 		this._disposable.dispose();
 	}
