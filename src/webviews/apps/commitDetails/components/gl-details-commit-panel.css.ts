@@ -241,6 +241,9 @@ export const detailsCommitPanelStyles = css`
 		color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 		text-transform: lowercase;
 	}
+	:host([variant='embedded']) .metadata-bar__branch--tag {
+		color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 70%, var(--color-foreground) 30%);
+	}
 
 	:host([variant='embedded']) .metadata-bar__branch-unreachable {
 		display: inline-flex;

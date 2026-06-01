@@ -2156,19 +2156,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private get commitBranchRef(): { name: string; remote: boolean } | undefined {
-		const reachability = this._state.reachability.get();
-		if (reachability?.refs?.length) {
-			const branches = reachability.refs.filter(
-				(r): r is Extract<typeof r, { refType: 'branch' }> => r.refType === 'branch',
-			);
-			const current = branches.find(r => r.current);
-			if (current) return { name: current.name, remote: current.remote };
-			if (branches.length > 0) return { name: branches[0].name, remote: branches[0].remote };
-		}
-		return undefined;
-	}
-
 	private renderCommit() {
 		const commit = this._state.commit.get();
 		if (!commit) return nothing;
@@ -2203,7 +2190,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.explain=${this._state.explain.get()}
 			.reachability=${this._state.reachability.get()}
 			.reachabilityState=${this._state.reachabilityState.get()}
-			.branchName=${commit.stashOnRef ?? this.commitBranchRef?.name}
+			.branchName=${commit.stashOnRef}
 			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 			.activeMode=${activeMode}
 			.modeStatus=${this.engagedModeStatus}

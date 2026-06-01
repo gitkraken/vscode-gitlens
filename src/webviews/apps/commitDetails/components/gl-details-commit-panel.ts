@@ -582,10 +582,20 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		});
 	}
 
+	private get primaryReachableRef(): GitCommitReachability['refs'][number] | undefined {
+		const refs = this.reachability?.refs;
+		if (!refs?.length) return undefined;
+
+		// refs are pre-sorted (current → local → remote branches, then tags by version desc);
+		// prefer the best branch, else fall back to the first (highest-version) tag.
+		return refs.find(r => r.refType === 'branch') ?? refs[0];
+	}
+
 	private renderBranchIndicator() {
 		const state = this.reachabilityState;
 		const refs = this.reachability?.refs;
-		const extraCount = refs?.length ? refs.length - (this.branchName ? 1 : 0) : 0;
+		const primaryRef = this.primaryReachableRef;
+		const extraCount = refs?.length ? refs.length - (primaryRef ? 1 : 0) : 0;
 
 		// Loading
 		if (state === 'loading') {
@@ -617,8 +627,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			</gl-tooltip>`;
 		}
 
-		// Loaded with refs — show branch name + count
-		if (this.branchName) {
+		// Loaded with refs — show the primary ref name + count
+		if (primaryRef) {
 			return html`<gl-tooltip
 				content="${this._reachabilityExpanded
 					? 'Hide All Branches & Tags Containing this Commit'
@@ -629,7 +639,11 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					aria-expanded="${this._reachabilityExpanded}"
 					@click=${this.onToggleReachability}
 				>
-					<gl-branch-name class="metadata-bar__branch" .name=${this.branchName}></gl-branch-name>
+					<gl-branch-name
+						class="metadata-bar__branch${primaryRef.refType === 'tag' ? ' metadata-bar__branch--tag' : ''}"
+						.name=${primaryRef.name}
+						.icon=${primaryRef.refType === 'tag' ? 'tag' : undefined}
+					></gl-branch-name>
 					${extraCount > 0 ? html`<span class="metadata-bar__ref-count">+${extraCount}</span>` : nothing}
 				</button>
 			</gl-tooltip>`;

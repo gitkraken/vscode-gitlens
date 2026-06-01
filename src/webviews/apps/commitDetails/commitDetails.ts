@@ -581,7 +581,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								.searchContext=${searchCtx}
 								.reachability=${reach}
 								.reachabilityState=${reachState}
-								.branchName=${commit?.stashOnRef ?? this.getCommitBranchName(reach)}
+								.branchName=${commit?.stashOnRef}
 								.aiEnabled=${org?.ai !== false}
 								@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
 									actions?.executeCommand('gitlens.stashesApply', e.detail)}
@@ -681,18 +681,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// ============================================================
 	// Event handlers
 	// ============================================================
-
-	private getCommitBranchName(reachability: GitCommitReachability | undefined): string | undefined {
-		if (!reachability?.refs?.length) return undefined;
-
-		const branches = reachability.refs.filter(
-			(r): r is Extract<typeof r, { refType: 'branch' }> => r.refType === 'branch',
-		);
-		const current = branches.find(r => r.current);
-		if (current) return current.name;
-		if (branches.length > 0) return branches[0].name;
-		return undefined;
-	}
 
 	private onBranchAction(name: string): void {
 		this._actions?.handleBranchAction(name);
