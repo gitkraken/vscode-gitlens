@@ -149,17 +149,24 @@ export function appendReposToTitle<
 	State extends { repo: GlRepository } | { repos: GlRepository[] },
 	Context extends { repos: GlRepository[] },
 >(title: string, state: State, context: Context, additionalContext?: string): string {
-	if (context.repos.length === 1) {
+	const repo = (state as { repo?: GlRepository }).repo;
+	const repos = (state as { repos?: GlRepository[] }).repos;
+	const acting = repo ?? (repos != null && repos.length === 1 ? repos[0] : undefined);
+
+	// Skip the repo name only when the lone surfaced repo IS the one being acted on (or nothing
+	// specific was requested). A *different* repo — e.g. an un-surfaced secondary worktree, which
+	// isn't in `context.repos` — is named so the title says which repo/worktree the action targets.
+	if (context.repos.length === 1 && (acting == null || acting.id === context.repos[0].id)) {
 		return additionalContext ? `${title}${additionalContext}` : title;
 	}
 
 	let repoContext;
-	if ((state as { repo: GlRepository }).repo != null) {
-		repoContext = `${additionalContext ?? ''} · ${(state as { repo: GlRepository }).repo.name}`;
-	} else if ((state as { repos: GlRepository[] }).repos.length === 1) {
-		repoContext = `${additionalContext ?? ''} · ${(state as { repos: GlRepository[] }).repos[0].name}`;
+	if (repo != null) {
+		repoContext = `${additionalContext ?? ''} · ${repo.name}`;
+	} else if (repos != null && repos.length === 1) {
+		repoContext = `${additionalContext ?? ''} · ${repos[0].name}`;
 	} else {
-		repoContext = ` · ${(state as { repos: GlRepository[] }).repos.length} repositories`;
+		repoContext = ` · ${repos?.length ?? 0} repositories`;
 	}
 
 	return `${title}${repoContext}`;
