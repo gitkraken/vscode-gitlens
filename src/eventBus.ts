@@ -85,14 +85,6 @@ type EventsMapping = {
 	 *  Should only be listened to by @type {import('./git/models/repository.js').GlRepository}
 	 */
 	'git:repo:change': GitRepoChangeEventArgs;
-	/**
-	 * Event fired when the CLI integration IPC server is started
-	 */
-	'gk:cli:ipc:started': { discoveryFilePath: string | undefined };
-	/**
-	 * Event fired when MCP setup via CLI has completed successfully with extension-based registration
-	 */
-	'gk:cli:mcp:setup:completed': undefined;
 };
 
 interface EventBusEvent<T extends keyof EventsMapping = keyof EventsMapping> {

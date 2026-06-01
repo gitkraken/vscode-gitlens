@@ -1,4 +1,3 @@
-import type { Disposable } from 'vscode';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitProvider } from '@gitlens/git/providers/provider.js';
 import type { GitResult, GitRunOptions } from '@gitlens/git/run.types.js';
@@ -48,16 +47,21 @@ export function getSupportedWorkspacesStorageProvider(
 	return undefined;
 }
 
-export function getGkCliIntegrationProvider(_container: Container): undefined {
+// Type stubs so cross-env consumers (e.g. `container.ts`) can reference the Node-only services
+// in TypeScript type positions without pulling Node modules into the browser bundle.
+export type GkCliService = never;
+export type GkMcpService = never;
+
+export function getGkCliService(_container: Container): undefined {
+	return undefined;
+}
+
+export function getGkMcpService(_container: Container): undefined {
 	return undefined;
 }
 
 export function getAgentSessionProviders(_container: Container): AgentSessionProvider[] {
 	return [];
-}
-
-export function getMcpProviders(_container: Container): Promise<Disposable[] | undefined> {
-	return Promise.resolve(undefined);
 }
 
 let _telemetryService: TelemetryService | undefined;

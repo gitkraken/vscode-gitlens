@@ -10,7 +10,6 @@ import { urls } from './constants.js';
 import type { Source } from './constants.telemetry.js';
 import type { Container } from './container.js';
 import { formatIdentityDisplayName, getCommitFormattedDate } from './git/utils/-webview/commit.utils.js';
-import { mcpRegistrationAllowed } from './plus/gk/utils/-webview/mcp.utils.js';
 import { executeCommand, executeCoreCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { openUrl } from './system/-webview/vscode/uris.js';
@@ -342,7 +341,7 @@ export async function showWhatsNewMessage(majorVersion: string): Promise<void> {
 }
 
 export async function showMcpMessage(container: Container, _current: string): Promise<void> {
-	const isAutoInstallable = mcpRegistrationAllowed(container);
+	const isAutoInstallable = container.gkMcp?.isRegistrationAllowed ?? false;
 	const confirm = { title: 'OK', isCloseAffordance: true };
 	const learnMore = { title: 'Learn More' };
 	const connectMore = { title: 'Connect More Agents' };

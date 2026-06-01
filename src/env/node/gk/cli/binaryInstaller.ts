@@ -2,14 +2,15 @@ import { dirname } from 'path';
 import { arch } from 'process';
 import type { Disposable } from 'vscode';
 import { Uri, workspace } from 'vscode';
-import { debug, trace } from '@gitlens/utils/decorators/log.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { formatLoggableScopeBlock, getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { fromString, satisfies } from '@gitlens/utils/version.js';
 import type { StoredGkCLIInstallInfo } from '../../../../constants.storage.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { setContext } from '../../../../system/-webview/context.js';
 import { gate } from '../../../../system/decorators/gate.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getIsOffline, getPlatform, isWeb } from '../../platform.js';
 import { CLIInstallError, CLIInstallErrorReason } from './errors.js';
 import {
@@ -28,21 +29,47 @@ const maxAutoInstallAttempts = 5;
 
 export class BinaryInstaller implements Disposable {
 	private _cliCoreVersion: string | undefined;
+	private _cliPath: string | undefined;
 
-	constructor(private readonly container: Container) {}
+	constructor(
+		private readonly container: Container,
+		private readonly authenticate: () => Promise<void>,
+	) {}
 
 	dispose(): void {
 		// No-op today; installed state is in storage scope, not in-memory.
 	}
 
-	/** Install the CLI. Gated to deduplicate concurrent installs. */
+	/** Most-recently-observed CLI core version (set by install/update/version-check paths). */
+	get version(): string | undefined {
+		return this._cliCoreVersion;
+	}
+
+	/** Directory containing the gk binary. Set after successful install. */
+	get path(): string | undefined {
+		return this._cliPath;
+	}
+
+	/** Install the CLI. Gated to deduplicate concurrent installs.
+	 *
+	 * The returned `changed` flag is `true` only when the install actually transitioned state
+	 * (a fresh install ran). It is `false` for short-circuit / no-op paths (binary already
+	 * installed, local dev binary, unsupported/offline early-exits). Callers that fire reactive
+	 * events on install completion should gate on `changed` to avoid feedback loops where the
+	 * listener calls back into `install` and re-fires for a no-op.
+	 */
 	@gate()
 	@debug({ exit: true })
 	async install(
 		autoInstall?: boolean,
 		source?: Sources,
 		force = false,
-	): Promise<{ cliVersion?: string; cliPath?: string; status: 'completed' | 'unsupported' | 'attempted' }> {
+	): Promise<{
+		cliVersion?: string;
+		cliPath?: string;
+		status: 'completed' | 'unsupported' | 'attempted';
+		changed: boolean;
+	}> {
 		const scope = getScopedLogger();
 		clearResolvedCLIExecutableCache();
 
@@ -52,11 +79,16 @@ export class BinaryInstaller implements Disposable {
 			if (resolved != null) {
 				scope?.info(`Using local CLI binary: ${resolved.fsPath}`);
 				const versions = await getCLIVersions();
-				return { cliVersion: versions?.core, cliPath: dirname(resolved.fsPath), status: 'completed' };
+				return {
+					cliVersion: versions?.core,
+					cliPath: dirname(resolved.fsPath),
+					status: 'completed',
+					changed: false,
+				};
 			}
 
 			scope?.warn(`Local CLI binary not found at: ${devLocalPath}`);
-			return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
+			return { cliVersion: undefined, cliPath: undefined, status: 'attempted', changed: false };
 		}
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
@@ -70,7 +102,9 @@ export class BinaryInstaller implements Disposable {
 			if (cliInstallStatus === 'completed') {
 				cliVersion = cliInstall?.version;
 				if (await resolveCLIExecutable(cliPath)) {
-					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed' };
+					this._cliCoreVersion = cliVersion;
+					this._cliPath = cliPath;
+					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed', changed: false };
 				}
 
 				scope?.warn(`CLI binary not found at expected path: ${getCLIExecutable(cliPath).fsPath}`);
@@ -78,14 +112,19 @@ export class BinaryInstaller implements Disposable {
 				cliInstallStatus = 'attempted';
 				cliVersion = undefined;
 			} else if (cliInstallStatus === 'unsupported') {
-				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported' };
+				return { cliVersion: undefined, cliPath: undefined, status: 'unsupported', changed: false };
 			} else if (autoInstall && reachedMaxAttempts({ status: cliInstallStatus, attempts: cliInstallAttempts })) {
 				scope?.warn(`Skipping auto-install, reached max attempts (${cliInstallAttempts})`);
-				return { cliVersion: undefined, cliPath: undefined, status: 'attempted' };
+				return { cliVersion: undefined, cliPath: undefined, status: 'attempted', changed: false };
 			}
 		}
 
 		const insidersEnabled = isInsidersCLIEnabled();
+
+		// Tracks whether the install actually ran (state transitioned). Stays `false` for any
+		// early/short-circuit return; set to `true` only after a successful install in the
+		// `coreInstallOutput` block below.
+		let changed = false;
 
 		try {
 			if (isWeb) {
@@ -293,6 +332,9 @@ export class BinaryInstaller implements Disposable {
 
 					scope?.info(`CLI installed (version: ${cliVersion}, path: ${cliPath})`);
 					cliInstallStatus = 'completed';
+					changed = true;
+					this._cliCoreVersion = cliVersion;
+					this._cliPath = cliPath;
 					void this.container.storage
 						.storeScoped('gk:cli:install', {
 							status: cliInstallStatus,
@@ -312,7 +354,7 @@ export class BinaryInstaller implements Disposable {
 						});
 					}
 
-					await this.authCLI();
+					await this.authenticate();
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.CoreInstall,
@@ -352,7 +394,7 @@ export class BinaryInstaller implements Disposable {
 			}
 		}
 
-		return { cliVersion: cliVersion, cliPath: cliPath, status: cliInstallStatus };
+		return { cliVersion: cliVersion, cliPath: cliPath, status: cliInstallStatus, changed: changed };
 	}
 
 	/** Update the CLI core to the latest version. */
@@ -467,23 +509,95 @@ export class BinaryInstaller implements Disposable {
 		};
 	}
 
-	/** Authenticate the CLI with the current session token. Called after a successful install and on subscription change. */
-	@trace()
-	async authCLI(): Promise<void> {
-		const scope = getScopedLogger();
+	/**
+	 * Ensures the CLI is installed and up-to-date. Called on extension activation (after a 3s defer).
+	 *
+	 * - If the dev local CLI path is set, skips install/update entirely.
+	 * - If the CLI is installed but the binary is missing, forces a reinstall.
+	 * - If the CLI is installed and outdated, forces a reinstall.
+	 * - If the CLI is installed and up-to-date but the extension version has changed, runs an update check.
+	 *
+	 * Returns the install result if a fresh install ran, the up-to-date version if a version check passed,
+	 * or `undefined` if there was nothing to do.
+	 */
+	@debug()
+	async ensureUpdateOrInstall(): Promise<
+		| {
+				cliVersion?: string;
+				cliPath?: string;
+				status: 'completed' | 'unsupported' | 'attempted';
+				changed: boolean;
+		  }
+		| undefined
+	> {
+		if (getDevCLILocalPath() != null) {
+			Logger.info(`${formatLoggableScopeBlock('CLI')} Using local CLI binary — skipping auto-install/update`);
+			void setContext('gitlens:gk:cli:installed', true);
+			return undefined;
+		}
+
+		let forceInstall = false;
+		const versionDidChange = this.container.version !== this.container.previousVersion;
 
 		const cliInstall = this.container.storage.getScoped('gk:cli:install');
-		if (cliInstall?.status !== 'completed') return;
+		if (cliInstall?.status === 'completed') {
+			// Verify the binary exists before spawning `gk version`.
+			if (!(await resolveCLIExecutable())) {
+				Logger.warn(`${formatLoggableScopeBlock('CLI')} CLI binary missing at startup — forcing reinstall`);
+				forceInstall = true;
+			} else {
+				const { needsUpdate, core, proxy } = await this.checkUpdateRequired();
+				let currentCoreVersion = core;
+				if (needsUpdate !== undefined) {
+					Logger.info(
+						`${formatLoggableScopeBlock('CLI')} CLI ${needsUpdate} version ${(needsUpdate === 'core' ? currentCoreVersion : proxy) ?? 'unknown'} is outdated, forcing reinstall`,
+					);
+					forceInstall = true;
+				} else {
+					// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
+					if (versionDidChange) {
+						const updateResult = await this.updateCore();
+						if (updateResult?.current != null) {
+							currentCoreVersion = updateResult.current;
+						}
+					}
 
-		const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
-		if (currentSessionToken == null) return;
-
-		try {
-			await runCLICommand(['auth', 'login', '-t', currentSessionToken]);
-		} catch (ex) {
-			debugger;
-			scope?.error(ex, 'Failed to authenticate CLI');
+					if (currentCoreVersion != null) {
+						Logger.info(`${formatLoggableScopeBlock('CLI')} CLI core version is ${currentCoreVersion}`);
+						this._cliCoreVersion = currentCoreVersion;
+						this._cliPath = this.container.context.globalStorageUri.fsPath;
+						void setContext('gitlens:gk:cli:installed', true);
+						return {
+							cliVersion: currentCoreVersion,
+							cliPath: this._cliPath,
+							status: 'completed',
+							// No install ran (binary present, version current). Caller must not fire change events.
+							changed: false,
+						};
+					}
+				}
+			}
 		}
+
+		let didReachMaxAttempts = reachedMaxAttempts(cliInstall);
+
+		// Reset the attempts count if GitLens extension version has changed
+		if (forceInstall || (didReachMaxAttempts && versionDidChange)) {
+			void this.container.storage.storeScoped('gk:cli:install', undefined);
+			didReachMaxAttempts = false;
+		}
+
+		if (!forceInstall && didReachMaxAttempts) {
+			return undefined;
+		}
+
+		// CLI auto-installs whenever AI is enabled, independent of MCP support
+		// (see commit bd67ef89 / issue #5280). MCP service reacts to onDidChangeInstall.
+		if (this.container.ai.enabled) {
+			return this.install(true, 'gk-cli-integration', forceInstall).catch(() => undefined);
+		}
+
+		return undefined;
 	}
 }
 

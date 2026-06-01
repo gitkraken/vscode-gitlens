@@ -1,10 +1,11 @@
 import type { ConfigurationChangeEvent, Disposable, Event, ExtensionContext } from 'vscode';
 import { EventEmitter, ExtensionMode } from 'vscode';
 import { IpcService } from '@env/ipc/ipcService.js';
+import type { GkCliService, GkMcpService } from '@env/providers.js';
 import {
 	getAgentSessionProviders,
-	getGkCliIntegrationProvider,
-	getMcpProviders,
+	getGkCliService,
+	getGkMcpService,
 	getSharedGKStorageLocationProvider,
 	getSupportedRepositoryLocationProvider,
 	getSupportedWorkspacesStorageProvider,
@@ -201,6 +202,38 @@ export class Container {
 		return (this._agentService ??= new AgentService(this));
 	}
 
+	private _gkCliService: GkCliService | undefined;
+	private _gkCliServiceResolved = false;
+
+	/** The GitKraken CLI service — owns binary install/update/version, IPC publish, authentication.
+	 *  Returns `undefined` on browser builds (CLI is Node-only). */
+	get gkCli(): GkCliService | undefined {
+		if (!this._gkCliServiceResolved) {
+			this._gkCliServiceResolved = true;
+			this._gkCliService = getGkCliService(this);
+			if (this._gkCliService != null) {
+				this._disposables.push(this._gkCliService);
+			}
+		}
+		return this._gkCliService;
+	}
+
+	private _gkMcpService: GkMcpService | undefined;
+	private _gkMcpServiceResolved = false;
+
+	/** The GitKraken MCP service — owns MCP host registration + user-facing setup flows.
+	 *  Returns `undefined` on browser builds (MCP is Node-only). */
+	get gkMcp(): GkMcpService | undefined {
+		if (!this._gkMcpServiceResolved) {
+			this._gkMcpServiceResolved = true;
+			this._gkMcpService = getGkMcpService(this);
+			if (this._gkMcpService != null) {
+				this._disposables.push(this._gkMcpService);
+			}
+		}
+		return this._gkMcpService;
+	}
+
 	private _agentStatusService: AgentStatusService | undefined;
 
 	get agentStatus(): AgentStatusService | undefined {
@@ -317,10 +350,10 @@ export class Container {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
-		const cliIntegration = getGkCliIntegrationProvider(this);
-		if (cliIntegration != null) {
-			this._disposables.push(cliIntegration);
-		}
+		// Eager construction to trigger constructor side effects (command registrations, lifecycle wiring).
+		// Must construct gkCli BEFORE gkMcp so the MCP service can wire its onDidChangeInstall listener.
+		void this.gkCli;
+		void this.gkMcp;
 
 		this._disposables.push(
 			configuration.onDidChange(e => {
@@ -384,21 +417,13 @@ export class Container {
 
 		this._ready = true;
 		this._readyAt = Date.now();
-		await Promise.allSettled([this.registerGitProviders(), this.registerMcpProviders()]);
+		await this.registerGitProviders();
 		queueMicrotask(() => this._onReady.fire());
 	}
 
 	@debug()
 	private async registerGitProviders(): Promise<void> {
 		await this._git.registerProviders();
-	}
-
-	@debug()
-	private async registerMcpProviders(): Promise<void> {
-		const mcpProviders = await getMcpProviders(this);
-		if (mcpProviders != null) {
-			this._disposables.push(...mcpProviders);
-		}
 	}
 
 	private updateAgentStatusService(): void {

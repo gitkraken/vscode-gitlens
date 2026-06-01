@@ -1,0 +1,267 @@
+import type { ConfigurationChangeEvent, Disposable, Event } from 'vscode';
+import { EventEmitter, Disposable as VsDisposable } from 'vscode';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import { formatLoggableScopeBlock, getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import type { Sources } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import type { SubscriptionChangeEvent } from '../../../../plus/gk/subscriptionService.js';
+import { registerCommand } from '../../../../system/-webview/command.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import { gate } from '../../../../system/decorators/gate.js';
+import { getCliPublishInfo } from '../../ipc/ipcService.js';
+import { BinaryInstaller } from './binaryInstaller.js';
+import { CliCommandHandlers } from './commands.js';
+import { clearResolvedCLIExecutableCache, getDevCLILocalPath, isInsidersCLIEnabled, runCLICommand } from './utils.js';
+
+export interface CliCommandRequest {
+	cwd?: string;
+	args?: string[];
+}
+export type CliCommandResponse = { stdout?: string; stderr?: string } | void;
+
+export interface CliInstallChangeEvent {
+	status: 'completed' | 'attempted' | 'unsupported';
+	version?: string;
+	path?: string;
+	source?: Sources;
+}
+
+export class GkCliService implements Disposable {
+	private readonly _disposable: VsDisposable;
+	private _runningDisposable: VsDisposable | undefined;
+	private readonly _installer: BinaryInstaller;
+
+	private readonly _onDidChangeInstall = new EventEmitter<CliInstallChangeEvent>();
+	get onDidChangeInstall(): Event<CliInstallChangeEvent> {
+		return this._onDidChangeInstall.event;
+	}
+
+	private readonly _onDidStartIpc = new EventEmitter<{ discoveryFilePath: string | undefined }>();
+	get onDidStartIpc(): Event<{ discoveryFilePath: string | undefined }> {
+		return this._onDidStartIpc.event;
+	}
+
+	constructor(private readonly container: Container) {
+		this._installer = new BinaryInstaller(container, () => this.authenticate());
+
+		// Defer the `gk version` probe out of the first-render window so the 1.5–2 s
+		// subprocess doesn't contend with Graph/Home webview bootstrap on slower filesystems
+		// (e.g. WSL). Still fully async; just lands a couple of seconds later.
+		let deferredUpdate: ReturnType<typeof setTimeout> | undefined;
+		this._disposable = VsDisposable.from(
+			this._installer,
+			this._onDidChangeInstall,
+			this._onDidStartIpc,
+			configuration.onDidChange(e => this.onConfigurationChanged(e)),
+			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
+			...this.registerCommands(),
+			this.container.onReady(() => {
+				this.onConfigurationChanged();
+				deferredUpdate = setTimeout(() => {
+					deferredUpdate = undefined;
+					void this._installer.ensureUpdateOrInstall().then(result => {
+						// Only fire the change event when install actually transitioned state.
+						// `ensureUpdateOrInstall` short-circuits with `changed: false` when the CLI
+						// is already installed and up-to-date — firing in that case would loop with
+						// MCP setup listeners that re-invoke `install` for a no-op.
+						if (result?.status != null && result.changed) {
+							this._onDidChangeInstall.fire({
+								status: result.status,
+								version: result.cliVersion,
+								path: result.cliPath,
+								source: 'gk-cli-integration',
+							});
+						}
+					});
+				}, 3000);
+			}),
+			new VsDisposable(() => {
+				if (deferredUpdate != null) {
+					clearTimeout(deferredUpdate);
+					deferredUpdate = undefined;
+				}
+			}),
+		);
+	}
+
+	dispose(): void {
+		this.stopIpc();
+		this._disposable.dispose();
+	}
+
+	// === Public API ===
+
+	/** Low-level CLI invocation. Does NOT gate on install state. */
+	run(args: string[], options?: { cwd?: string }): Promise<string> {
+		return runCLICommand(args, options);
+	}
+
+	/** Lifecycle-gated wrapper for callers who need "CLI must be ready." */
+	async ensureInstalled(source?: Sources): Promise<{ path: string; version: string } | undefined> {
+		const result = await this._installer.install(true, source, false);
+		if (result.status === 'completed' && result.cliPath != null && result.cliVersion != null) {
+			// Only fire when install actually ran. `installer.install` short-circuits with
+			// `changed: false` when the binary is already present; firing here would loop with
+			// any listener that calls back into `install` (e.g. reactive MCP setup).
+			if (result.changed) {
+				this._onDidChangeInstall.fire({
+					status: 'completed',
+					version: result.cliVersion,
+					path: result.cliPath,
+					source: source,
+				});
+			}
+			return { path: result.cliPath, version: result.cliVersion };
+		}
+		return undefined;
+	}
+
+	/** Triggers an install with custom options — used by command handlers that want fine-grained control over `force`/`autoInstall`. */
+	async install(
+		autoInstall?: boolean,
+		source?: Sources,
+		force = false,
+	): Promise<{
+		cliVersion?: string;
+		cliPath?: string;
+		status: 'completed' | 'unsupported' | 'attempted';
+		changed: boolean;
+	}> {
+		const result = await this._installer.install(autoInstall, source, force);
+		// Only fire when install actually ran (state transitioned). `installer.install` returns
+		// `changed: false` on no-op paths (already installed, dev binary, etc.) — firing on those
+		// would create a feedback loop with reactive listeners (notably GkMcpService.setupCore,
+		// which calls back into `install` and would re-fire indefinitely).
+		if (result.status === 'completed' && result.changed) {
+			this._onDidChangeInstall.fire({
+				status: 'completed',
+				version: result.cliVersion,
+				path: result.cliPath,
+				source: source,
+			});
+		}
+		return result;
+	}
+
+	/** Authentication — also re-runs on subscription account change. */
+	@trace()
+	async authenticate(): Promise<void> {
+		const scope = getScopedLogger();
+
+		const cliInstall = this.container.storage.getScoped('gk:cli:install');
+		if (cliInstall?.status !== 'completed') return;
+
+		const currentSessionToken = (await this.container.subscription.getAuthenticationSession())?.accessToken;
+		if (currentSessionToken == null) return;
+
+		try {
+			await runCLICommand(['auth', 'login', '-t', currentSessionToken]);
+		} catch (ex) {
+			debugger;
+			scope?.error(ex, 'Failed to authenticate CLI');
+		}
+	}
+
+	// === Read-only state ===
+
+	get installState(): 'completed' | 'attempted' | 'unsupported' | undefined {
+		return this.container.storage.getScoped('gk:cli:install')?.status;
+	}
+
+	get version(): string | undefined {
+		return this._installer.version;
+	}
+
+	get path(): string | undefined {
+		return this._installer.path;
+	}
+
+	get devLocalPath(): string | undefined {
+		return getDevCLILocalPath();
+	}
+
+	get isInsidersEnabled(): boolean {
+		return isInsidersCLIEnabled();
+	}
+
+	// === Private lifecycle ===
+
+	private onConfigurationChanged(e?: ConfigurationChangeEvent): void {
+		if (
+			e != null &&
+			(configuration.changed(e, 'gitkraken.cli.localPath') ||
+				configuration.changed(e, 'gitkraken.cli.insiders.enabled'))
+		) {
+			clearResolvedCLIExecutableCache();
+		}
+
+		if (e == null || configuration.changed(e, 'ai.enabled')) {
+			if (!this.container.ai.enabled) {
+				this.stopIpc();
+			} else {
+				void this.startIpc();
+			}
+		}
+
+		// Reinstall CLI when insiders setting changes (skip when using local CLI)
+		if (e != null && configuration.changed(e, 'gitkraken.cli.insiders.enabled') && getDevCLILocalPath() == null) {
+			const cliInstall = this.container.storage.getScoped('gk:cli:install');
+			if (cliInstall?.status === 'completed') {
+				Logger.info(
+					`${formatLoggableScopeBlock('CLI')} Forcing CLI reinstall on settings change (insiders = ${isInsidersCLIEnabled()})`,
+				);
+				// Force reinstall — MCP service reacts via onDidChangeInstall and re-runs setup when allowed
+				void this.install(true, 'settings', true).catch(() => undefined);
+			}
+		}
+	}
+
+	private async onSubscriptionChanged(e: SubscriptionChangeEvent): Promise<void> {
+		if (e.current?.account?.id != null && e.current.account.id !== e.previous?.account?.id) {
+			await this.authenticate();
+		}
+	}
+
+	@gate()
+	private async startIpc(): Promise<void> {
+		this.stopIpc();
+
+		// Register CLI handlers on the shared IPC server.
+		const handlers = new CliCommandHandlers(this.container);
+
+		// Publish the CLI discovery file (writes the file at the cli dir).
+		try {
+			await this.container.ipc.publishCli(await getCliPublishInfo());
+		} catch (ex) {
+			Logger.warn(`${formatLoggableScopeBlock('IPC')} Failed to publish CLI discovery: ${ex}`);
+			if (this.container.telemetry.enabled) {
+				this.container.telemetry.sendEvent('cli/discoveryFile/failed', {
+					'error.message': ex instanceof Error ? ex.message : 'Unknown error',
+				});
+			}
+		}
+
+		// Fire onDidStartIpc whenever the IPC server is up — even if the discovery
+		// file write failed — so MCP providers don't sit idle for the 30s ipcWaitTime.
+		if (this.container.ipc.address != null) {
+			this._onDidStartIpc.fire({ discoveryFilePath: this.container.ipc.cliDiscoveryFilePath });
+		}
+
+		this._runningDisposable = VsDisposable.from(handlers, {
+			dispose: () => void this.container.ipc.unpublishCli(),
+		});
+	}
+
+	private stopIpc(): void {
+		if (this._runningDisposable != null) {
+			this._runningDisposable.dispose();
+			this._runningDisposable = undefined;
+			Logger.info(`${formatLoggableScopeBlock('IPC')} CLI handlers stopped`);
+		}
+	}
+
+	private registerCommands(): Disposable[] {
+		return [registerCommand('gitlens.ai.mcp.authCLI', () => this.authenticate())];
+	}
+}
