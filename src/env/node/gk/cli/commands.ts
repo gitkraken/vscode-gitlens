@@ -21,7 +21,7 @@ import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
 import type { ComposerWebviewShowingArgs } from '../../../../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../../../../webviews/webviewsController.js';
-import type { CliCommandRequest, CliCommandResponse } from './integration.js';
+import type { CliCommandRequest, CliCommandResponse } from './gkCliService.js';
 
 type CliCommand =
 	| 'cherry-pick'

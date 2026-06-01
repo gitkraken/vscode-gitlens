@@ -1,41 +1,40 @@
 import { cursor } from 'vscode';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { Container } from '../../../../container.js';
-import { GkMcpProviderBase } from './integrationBase.js';
+import type { Container } from '../../../../../container.js';
+import type { GkMcpService } from '../gkMcpService.js';
+import type { McpHostRegistrationProvider } from './types.js';
 
-export class CursorGkMcpProvider extends GkMcpProviderBase {
+export class CursorMcpHostProvider implements McpHostRegistrationProvider {
+	readonly id = 'cursor' as const;
+
 	private _registeredServerName: string | undefined;
 
-	constructor(container: Container) {
-		super(container);
-
+	constructor(
+		private readonly container: Container,
+		private readonly service: GkMcpService,
+	) {
 		// Try immediately in case the CLI is already installed
-		void this.tryRegister();
+		void this.refresh();
 	}
 
-	protected override onDispose(): void {
+	dispose(): void {
 		this.tryUnregister();
 	}
 
-	protected override refresh(): void {
-		void this.tryRegister();
-	}
-
 	@debug()
-	private async tryRegister(): Promise<void> {
+	async refresh(): Promise<void> {
 		const scope = getScopedLogger();
 
-		const discoveryFilePath = this._discoveryFilePath;
+		const discoveryFilePath = this.service.discoveryFilePath;
 
-		// Gives time for the IPC server to start and emit the discovery path
 		if (discoveryFilePath != null) {
-			this.clearIpcTimeout();
-		} else if (this._waitingForIPC) {
+			this.service.clearIpcTimeout();
+		} else if (this.service.isWaitingForIpc) {
 			return;
 		}
 
-		const config = await this.getMcpConfigurationFromCLI();
+		const config = await this.service.getMcpConfig();
 		if (config == null) return;
 
 		void this.container.usage.track('action:gitlens.mcp.bundledMcpDefinitionProvided:happened');

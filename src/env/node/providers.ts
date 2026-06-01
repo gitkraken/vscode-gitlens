@@ -1,5 +1,4 @@
 import { dirname, resolve } from 'path';
-import type { Disposable } from 'vscode';
 import { workspace } from 'vscode';
 import { ClaudeCodeProvider } from '@gitlens/agents/providers/claudeCodeProvider.js';
 import type { Cache } from '@gitlens/git/cache.js';
@@ -14,11 +13,6 @@ import { tryOpenClaudeSession } from '../../agents/utils/-webview/claudeExtensio
 import type { Container } from '../../container.js';
 import type { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
-import {
-	mcpRegistrationEnabled,
-	supportsCursorMcpRegistration,
-	supportsMcpExtensionRegistration,
-} from '../../plus/gk/utils/-webview/mcp.utils.js';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -28,8 +22,12 @@ import { activityDecayToMs } from '../../webviews/plus/graph/graphWebview.utils.
 // import { GitHubGitProvider } from '../../plus/github/githubGitProvider';
 import { GlCliGitProvider } from './git/cliGitProvider.js';
 import { VslsGitProvider } from './git/vslsGitProvider.js';
-import { GkCliIntegrationProvider } from './gk/cli/integration.js';
+import { GkCliService } from './gk/cli/gkCliService.js';
 import { runCLICommand } from './gk/cli/utils.js';
+import { GkMcpService } from './gk/mcp/gkMcpService.js';
+
+export type { GkCliService } from './gk/cli/gkCliService.js';
+export type { GkMcpService } from './gk/mcp/gkMcpService.js';
 import { LocalRepositoryLocationProvider } from './gk/localRepositoryLocationProvider.js';
 import { LocalSharedGkStorageLocationProvider } from './gk/localSharedGkStorageLocationProvider.js';
 import { LocalGkWorkspacesSharedStorageProvider } from './gk/localWorkspacesSharedStorageProvider.js';
@@ -99,29 +97,12 @@ export function getSupportedWorkspacesStorageProvider(
 	return new LocalGkWorkspacesSharedStorageProvider(container, sharedStorage);
 }
 
-export function getGkCliIntegrationProvider(container: Container): GkCliIntegrationProvider {
-	return new GkCliIntegrationProvider(container);
+export function getGkCliService(container: Container): GkCliService {
+	return new GkCliService(container);
 }
 
-export async function getMcpProviders(container: Container): Promise<Disposable[] | undefined> {
-	if (mcpRegistrationEnabled(container)) {
-		if (supportsMcpExtensionRegistration()) {
-			// Older versions of VS Code do not support the classes used in the MCP integration, so we need to dynamically import
-			const mcpModule = await loadChunk(
-				() => import(/* webpackChunkName: "mcp" */ './gk/mcp/vscodeIntegration.js'),
-			);
-			return [new mcpModule.VSCodeGkMcpProvider(container)];
-		}
-
-		if (supportsCursorMcpRegistration()) {
-			const mcpModule = await loadChunk(
-				() => import(/* webpackChunkName: "mcp-cursor" */ './gk/mcp/cursorIntegration.js'),
-			);
-			return [new mcpModule.CursorGkMcpProvider(container)];
-		}
-	}
-
-	return undefined;
+export function getGkMcpService(container: Container): GkMcpService {
+	return new GkMcpService(container);
 }
 
 export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {

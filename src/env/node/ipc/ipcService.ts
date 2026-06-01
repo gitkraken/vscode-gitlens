@@ -135,8 +135,8 @@ export class IpcService implements Disposable {
 
 	/**
 	 * Publish the CLI discovery file (read by `gk` binaries and `@gitkraken/core-gitlens`
-	 * consumers). The `gk:cli:ipc:started` event is fired by the caller so consumers are
-	 * notified even when the discovery-file write fails (server is still up).
+	 * consumers). `GkCliService` fires `onDidStartIpc` afterward so consumers are notified
+	 * even when the discovery-file write fails (server is still up).
 	 */
 	publishCli(info: CliPublishInfo): Promise<void> {
 		return this.enqueueCli(async () => {

@@ -10,7 +10,6 @@ import { Disposable } from 'vscode';
 import type { Container } from '../../../container.js';
 import { resolveDefaultAgent } from '../../../plus/agents/agentRegistry.js';
 import type { AIModelScope } from '../../../plus/ai/aiProviderService.js';
-import { mcpRegistrationAllowed } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext } from '../../../system/-webview/context.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
@@ -119,7 +118,7 @@ export class AIService {
 			enabled: this.#container.ai.enabled,
 			orgEnabled: getContext('gitlens:gk:organization:ai:enabled', true),
 			mcp: {
-				bundled: mcpRegistrationAllowed(this.#container),
+				bundled: this.#container.gkMcp?.isRegistrationAllowed ?? false,
 				settingEnabled: configuration.get('gitkraken.mcp.autoEnabled'),
 				installed: getContext('gitlens:gk:cli:installed', false),
 			},

@@ -3,6 +3,7 @@ import { ThemeIcon, window } from 'vscode';
 import { defer } from '@gitlens/utils/promise.js';
 import { sortCompare } from '@gitlens/utils/string.js';
 import type { GkAgent } from '../../../../agents/agentService.js';
+import type { Container } from '../../../../container.js';
 import type { QuickPickItemOfT } from '../../../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../../../quickpicks/items/directive.js';
 import {
@@ -10,7 +11,6 @@ import {
 	Directive,
 	isDirectiveQuickPickItem,
 } from '../../../../quickpicks/items/directive.js';
-import { Container } from '../../../../container.js';
 
 // Known IDE agent IDs — used to filter IDE entries out of the MCP install picker.
 // Privatized in the rearch (Decision #16); was previously exported from `cli/agents.ts`.
@@ -30,13 +30,10 @@ type McpAgentQuickPickItem = QuickPickItemOfT<GkAgent>;
 type McpAgentPickItem = McpAgentQuickPickItem | DirectiveQuickPickItem;
 
 export async function showMcpAgentPicker(
-	cliPath?: string,
+	container: Container,
 	options?: { showEmptyState?: boolean },
 ): Promise<GkAgent[] | undefined> {
-	// cliPath is intentionally unused; AgentService handles fetching via env-specific fetcher.
-	// Parameter preserved for caller compatibility; will be removed when the picker moves to mcp/ in Task 4.
-	void cliPath;
-	const all = await Container.instance.agents.getAll();
+	const all = await container.agents.getAll();
 	// Detected, MCP-supported, non-IDE agents — the same population the legacy `getDetectedAgents` produced.
 	const detected = all.filter(a => a.detected && a.mcpSupported && !ideAgentIds.has(a.name));
 	const selectable = detected.filter(a => !a.mcpInstalled);
