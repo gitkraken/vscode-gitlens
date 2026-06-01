@@ -460,9 +460,9 @@ export const detailsBaseStyles = [
 		:host([variant='embedded']) .split__handle::after {
 			content: '';
 			position: relative;
-			top: -0.2rem;
-			width: 5rem;
-			height: 0.5rem;
+			top: -0.3rem;
+			width: 7rem;
+			height: 0.3rem;
 			border-radius: 0.25rem;
 			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--color-background));
 			transition: background-color 0.15s ease;
