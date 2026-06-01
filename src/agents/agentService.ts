@@ -1,6 +1,5 @@
 import type { GkAgent } from '@env/gk/agentFetcher.js';
 import { fetchAgents, isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
-import type { Container } from '../container.js';
 
 export type { GkAgent };
 
@@ -13,11 +12,9 @@ const cacheTtlMs = 5 * 60_000;
 export class AgentService {
 	private _cache: { value: GkAgent[]; expiresAt: number } | undefined;
 	private _inflight: Promise<GkAgent[]> | undefined;
-
-	constructor(
-		// Reserved for future use (telemetry, settings reactions).
-		private readonly _container: Container,
-	) {}
+	// Bumped on every `invalidateCache()` so in-flight fetches dispatched before the invalidation
+	// know to skip the cache write when they resolve later.
+	private _generation = 0;
 
 	/** Fetches the live agent list. Internally cached with a 5min TTL; concurrent callers share a single in-flight fetch. */
 	async getAll(): Promise<readonly GkAgent[]> {
@@ -25,13 +22,19 @@ export class AgentService {
 		if (c != null && c.expiresAt > Date.now()) return c.value;
 		if (this._inflight != null) return this._inflight;
 
+		const generation = this._generation;
 		this._inflight = (async () => {
 			try {
 				const value = await fetchAgents();
-				this._cache = { value: value, expiresAt: Date.now() + cacheTtlMs };
+				// Only write the cache if no invalidation has happened since dispatch.
+				if (this._generation === generation) {
+					this._cache = { value: value, expiresAt: Date.now() + cacheTtlMs };
+				}
 				return value;
 			} finally {
-				this._inflight = undefined;
+				if (this._generation === generation) {
+					this._inflight = undefined;
+				}
 			}
 		})();
 
@@ -55,5 +58,6 @@ export class AgentService {
 	invalidateCache(): void {
 		this._cache = undefined;
 		this._inflight = undefined;
+		this._generation++;
 	}
 }

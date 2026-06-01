@@ -199,7 +199,7 @@ export class Container {
 	private _agentService: AgentService | undefined;
 
 	get agents(): AgentService {
-		return (this._agentService ??= new AgentService(this));
+		return (this._agentService ??= new AgentService());
 	}
 
 	private _gkCliService: GkCliService | undefined;
