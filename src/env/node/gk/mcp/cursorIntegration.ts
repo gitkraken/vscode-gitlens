@@ -18,7 +18,7 @@ export class CursorGkMcpProvider extends GkMcpProviderBase {
 		this.tryUnregister();
 	}
 
-	protected override fireChangeCore(): void {
+	protected override refresh(): void {
 		void this.tryRegister();
 	}
 
