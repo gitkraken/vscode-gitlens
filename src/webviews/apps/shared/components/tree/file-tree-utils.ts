@@ -58,9 +58,7 @@ export function renderContextMatchVisibilityAction(
 	if (matchCount === 0 && totalCount === 0) return nothing;
 
 	let icon: string;
-	let outlineIcon: string | undefined;
 	let label: string;
-	let className: string | undefined;
 
 	switch (contextMatchVisibility) {
 		case 'off':
@@ -68,10 +66,8 @@ export function renderContextMatchVisibilityAction(
 			label = `Search matched ${matchCount} of ${totalCount} files\nClick to highlight matching files`;
 			break;
 		case 'mixed':
-			icon = 'filter-filled';
-			outlineIcon = 'filter';
+			icon = 'gl-filter-mixed';
 			label = `Search matched ${matchCount} of ${totalCount} files\nClick to show only matching files`;
-			className = 'context-match-visibility-mixed';
 			break;
 		case 'matched':
 			icon = 'filter-filled';
@@ -79,26 +75,24 @@ export function renderContextMatchVisibilityAction(
 			break;
 	}
 
-	return html`<action-item
+	return html`<gl-action-chip
 		data-action="context-match-visibility"
-		class="${className ?? ''}"
 		label="${label}"
 		icon="${icon}"
-		outline-icon="${outlineIcon ?? nothing}"
 		@click="${onToggle}"
-	></action-item>`;
+	></gl-action-chip>`;
 }
 
 export function renderLayoutAction(layout: ViewFilesLayout, onToggle: (e: Event) => void): TemplateResult<1> {
 	const { value, icon, label } = getLayoutInfo(layout);
 
-	return html`<action-item
+	return html`<gl-action-chip
 		data-action="files-layout"
 		data-files-layout="${value}"
 		label="${label}"
 		icon="${icon}"
 		@click="${onToggle}"
-	></action-item>`;
+	></gl-action-chip>`;
 }
 
 // Approximates VS Code's SCM "status" sort ordering for working changes. Conflicts are floated

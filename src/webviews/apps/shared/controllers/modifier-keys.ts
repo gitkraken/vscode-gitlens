@@ -45,7 +45,13 @@ class ModifierKeysTracker {
 		// the user moves the mouse (no focus required).
 		window.addEventListener('mousemove', this._onPointer, { capture: true });
 		window.addEventListener('mouseover', this._onPointer, { capture: true });
-		window.addEventListener('blur', this._onBlur);
+		// Reset on genuine backgrounding (tab/window hidden) — NOT on plain `blur`. Tapping Alt
+		// activates the OS/VS Code menu bar on Windows/Linux, which fires `blur` on the webview a
+		// frame after the alt `keydown`; resetting there would instantly revert an alt-driven
+		// tooltip swap (the "tooltip won't change on Alt" bug). Stuck modifiers from alt-tab are
+		// self-correcting anyway — every pointer event re-syncs the exact modifier state — so a
+		// visibility-gated reset is sufficient without clobbering the transient menu-bar blur.
+		document.addEventListener('visibilitychange', this._onVisibilityChange);
 	}
 
 	private _stop(): void {
@@ -54,7 +60,7 @@ class ModifierKeysTracker {
 		window.removeEventListener('keyup', this._onKey, { capture: true });
 		window.removeEventListener('mousemove', this._onPointer, { capture: true });
 		window.removeEventListener('mouseover', this._onPointer, { capture: true });
-		window.removeEventListener('blur', this._onBlur);
+		document.removeEventListener('visibilitychange', this._onVisibilityChange);
 		this._reset();
 	}
 
@@ -105,8 +111,12 @@ class ModifierKeysTracker {
 		this._notify();
 	};
 
-	private _onBlur = (): void => {
-		this._reset();
+	private _onVisibilityChange = (): void => {
+		// Only clear when the document is actually hidden (tab switch, window minimized). A reset
+		// here can't fight the menu-bar blur because that doesn't change visibility.
+		if (document.visibilityState === 'hidden') {
+			this._reset();
+		}
 	};
 
 	private _notify(): void {

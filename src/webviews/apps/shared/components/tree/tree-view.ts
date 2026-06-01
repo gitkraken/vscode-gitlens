@@ -20,7 +20,7 @@ import type {
 } from './base.js';
 import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
-import '../actions/action-item.js';
+import '../chips/action-chip.js';
 import '../branch-icon.js';
 import '../commit/wip-stats.js';
 import '../overlays/popover.js';
@@ -556,7 +556,7 @@ export class GlTreeView extends GlElement {
 		if (actions == null || actions.length === 0) return nothing;
 
 		return actions.map(action => {
-			return html`<action-item
+			return html`<gl-action-chip
 				slot="actions"
 				.icon=${action.icon}
 				.label=${action.label}
@@ -566,7 +566,7 @@ export class GlTreeView extends GlElement {
 				@mouseleave=${() => this.onResumeRowTooltip()}
 				@click=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, false)}
 				@dblclick=${(e: MouseEvent) => this.onTreeItemActionClicked(e, model, action, true)}
-			></action-item>`;
+			></gl-action-chip>`;
 		});
 	}
 
@@ -1077,7 +1077,7 @@ export class GlTreeView extends GlElement {
 	private handleFocusIn = (e: FocusEvent) => {
 		const target = e.target as HTMLElement;
 		// Check if focus moved to an action button
-		const actionItem = target.tagName === 'ACTION-ITEM' ? target : target.closest('action-item');
+		const actionItem = target.tagName === 'GL-ACTION-CHIP' ? target : target.closest('gl-action-chip');
 		if (actionItem) {
 			this._actionButtonHasFocus = true;
 		}
@@ -1088,9 +1088,9 @@ export class GlTreeView extends GlElement {
 		const relatedTarget = e.relatedTarget as HTMLElement;
 
 		// Check if focus is leaving action buttons entirely
-		const leavingActionItem = target.tagName === 'ACTION-ITEM' ? target : target.closest('action-item');
+		const leavingActionItem = target.tagName === 'GL-ACTION-CHIP' ? target : target.closest('gl-action-chip');
 		const enteringActionItem =
-			relatedTarget?.tagName === 'ACTION-ITEM' ? relatedTarget : relatedTarget?.closest('action-item');
+			relatedTarget?.tagName === 'GL-ACTION-CHIP' ? relatedTarget : relatedTarget?.closest('gl-action-chip');
 
 		if (leavingActionItem && !enteringActionItem) {
 			this._actionButtonHasFocus = false;
@@ -1144,11 +1144,11 @@ export class GlTreeView extends GlElement {
 		if (e.key !== 'Tab') return;
 
 		// In capture phase, e.target is the element with the listener, not the focused element
-		// We need to use composedPath to find the action-item in the event path
+		// We need to use composedPath to find the action chip in the event path
 		const composedPath = e.composedPath();
 
-		// Find the action-item in the composed path
-		const actionItem = composedPath.find((el: any) => el.tagName === 'ACTION-ITEM') as HTMLElement;
+		// Find the action chip in the composed path
+		const actionItem = composedPath.find((el: any) => el.tagName === 'GL-ACTION-CHIP') as HTMLElement;
 		if (!actionItem) {
 			return;
 		}
@@ -1220,8 +1220,8 @@ export class GlTreeView extends GlElement {
 					) as HTMLElement;
 
 					if (focusedTreeItem) {
-						// Action items are light DOM children of the tree item
-						const firstAction = focusedTreeItem.querySelector('action-item') as HTMLElement;
+						// Action chips are light DOM children of the tree item
+						const firstAction = focusedTreeItem.querySelector('gl-action-chip') as HTMLElement;
 						if (firstAction) {
 							// Prevent default BEFORE focusing to stop Tab from moving focus out
 							e.preventDefault();

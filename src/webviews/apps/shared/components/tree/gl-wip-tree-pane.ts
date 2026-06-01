@@ -12,8 +12,7 @@ import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
 import type { FileChangeListItemDetail, FileItem } from './gl-file-tree-pane.js';
 import './gl-file-tree-pane.js';
-import '../button.js';
-import '../code-icon.js';
+import '../chips/action-chip.js';
 
 type Files = Mutable<FileItem[]>;
 
@@ -29,28 +28,32 @@ export class GlWipTreePane extends LitElement {
 			container-name: gl-wip-tree-pane;
 		}
 
-		/* Pin the button to a stable height in both expanded and collapsed states so the
-		   header doesn't jump vertically when the label hides. Uses px (not rem) to be
-		   immune to root-font-size differences across webview themes. 28px covers the
-		   natural icon+text height (~27.5px) so collapsed and expanded match. */
-		gl-button {
-			min-height: 28px;
+		/* Group Stash/Discard/Copy as one slotted flex child so they read as a cohesive cluster,
+		   flush (no internal gap) like action-nav — each gl-action-chip's own 0.2rem padding
+		   supplies the rhythm, matching the spacing and 2rem sizing of the action-nav chips. The
+		   header-actions gap in gl-file-tree-pane separates the whole group from the right-hand
+		   action-nav cluster (open-multi-diff / layout / search).
+
+		   The group is the single leading-actions child, so zero out the per-child trailing margin
+		   gl-file-tree-pane adds — the header-actions gap alone now owns the group↔action-nav
+		   separation, and the margin would otherwise stack a second, asymmetric gap onto it. */
+		gl-file-tree-pane {
+			--gl-leading-action-trailing-gap: 0;
 		}
 
-		/* Collapse the Stash label to icon-only when the pane runs out of room.
-		   display:none cleanly removes the slotted flex item so the button's internal gap
-		   collapses too — true icon-only, no half-clipped text. The custom properties get
-		   set on gl-file-tree-pane (a descendant of the gl-wip-tree-pane container, since
-		   :host IS the container and so isn't matched by @container rules) and inherit
-		   into its shadow so the surrounding action gaps collapse too. The button's
-		   tooltip="Stash Changes" keeps it accessible when the label is hidden. */
+		.wip-actions {
+			display: flex;
+			align-items: center;
+		}
+
+		/* Collapse the Stash label to icon-only when the pane runs out of room. display:none
+		   cleanly removes the slotted flex item so the button's internal gap collapses too — true
+		   icon-only, no half-clipped text. The button's tooltip="Stash Changes" keeps it accessible
+		   when the label is hidden. The group/action-nav gap is intentionally preserved at narrow
+		   widths so the clusters stay visually distinct. */
 		@container gl-wip-tree-pane (max-width: 340px) {
 			.stash-label {
 				display: none !important;
-			}
-			gl-file-tree-pane {
-				--gl-header-actions-gap: 0;
-				--gl-leading-action-trailing-gap: 0;
 			}
 		}
 
@@ -258,16 +261,12 @@ export class GlWipTreePane extends LitElement {
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
 			${this.renderConflictBulkActions(files)}
 			${files.length > 0
-				? html`<gl-button
-							slot="leading-actions"
-							appearance="toolbar"
-							tooltip="Stash Changes"
-							@click=${this.onStashSave}
-						>
-							<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
+				? html`<div class="wip-actions" slot="leading-actions">
+						<gl-action-chip icon="gl-stash-save" label="Stash Changes" @click=${this.onStashSave}>
 							<span class="stash-label">Stash</span>
-						</gl-button>
-						${this.renderDiscardUnstagedAction(files)}`
+						</gl-action-chip>
+						${this.renderDiscardUnstagedAction(files)}${this.renderCopyPatchButton(splitMode)}
+					</div>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
@@ -290,41 +289,29 @@ export class GlWipTreePane extends LitElement {
 		// unstaged remains, so it never destroys staged content while unstaged changes are present.
 		const stagedOnly = !hasUnstaged && hasStaged;
 		const label = stagedOnly ? 'Discard Staged Changes' : 'Discard Unstaged Changes';
-		return html`<gl-button
-			slot="leading-actions"
-			appearance="toolbar"
-			tooltip=${label}
-			aria-label=${label}
+		return html`<gl-action-chip
+			icon="discard"
+			label=${label}
 			?disabled=${!hasUnstaged && !hasStaged}
 			@click=${stagedOnly ? this.onDiscardStaged : this.onDiscardUnstaged}
-		>
-			<code-icon icon="discard"></code-icon>
-		</gl-button>`;
+		></gl-action-chip>`;
 	}
 
 	private renderConflictBulkActions(files: Files) {
 		if (!this.bulkConflictActions || !files.some(f => isConflictStatus(f.status))) return nothing;
 
-		return html`<gl-button
+		return html`<gl-action-chip
 				slot="leading-actions"
-				appearance="toolbar"
-				density="compact"
-				tooltip="Stage Current for All Conflicts"
-				aria-label="Stage Current for All Conflicts"
+				icon="gl-accept-all-left"
+				label="Stage Current for All Conflicts"
 				@click=${this.onResolveAllCurrent}
-			>
-				<code-icon icon="gl-accept-all-left"></code-icon>
-			</gl-button>
-			<gl-button
+			></gl-action-chip>
+			<gl-action-chip
 				slot="leading-actions"
-				appearance="toolbar"
-				density="compact"
-				tooltip="Stage Incoming for All Conflicts"
-				aria-label="Stage Incoming for All Conflicts"
+				icon="gl-accept-all-right"
+				label="Stage Incoming for All Conflicts"
 				@click=${this.onResolveAllIncoming}
-			>
-				<code-icon icon="gl-accept-all-right"></code-icon>
-			</gl-button>`;
+			></gl-action-chip>`;
 	}
 
 	private onResolveAllCurrent = () => {

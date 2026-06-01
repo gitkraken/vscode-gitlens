@@ -36,7 +36,7 @@ import {
 import { fileTreeStyles } from './gl-file-tree-pane.css.js';
 import '../badges/badge.js';
 import '../webview-pane.js';
-import '../actions/action-item.js';
+import '../chips/action-chip.js';
 import '../actions/action-nav.js';
 import '../code-icon.js';
 import '../checkbox/checkbox.js';
@@ -128,6 +128,17 @@ export class GlFileTreePane extends LitElement {
 
 	@property({ attribute: false })
 	buttons?: ('layout' | 'search' | 'multi-diff')[];
+
+	/** Override the default `"Open All Changes"` label for the multi-diff button. Set by the WIP
+	 *  pane to surface smart `"Open Staged Changes"` wording when both staged + unstaged exist. */
+	@property({ attribute: 'multi-diff-label' })
+	multiDiffLabel?: string;
+
+	/** Companion alt-label for the multi-diff button. When set, the button uses gl-action-chip's
+	 *  built-in `alt-label` machinery so the tooltip composes a `Primary\n[Alt] Alt-action` hint,
+	 *  swaps live when Alt is held, and the aria-label stays clean (single action at a time). */
+	@property({ attribute: 'multi-diff-alt-label' })
+	multiDiffAltLabel?: string;
 
 	// --- Checkbox ---
 
@@ -350,12 +361,13 @@ export class GlFileTreePane extends LitElement {
 					<slot name="leading-actions" class="leading-actions"></slot>
 					<action-nav>
 						${showMultiDiff
-							? html`<action-item
+							? html`<gl-action-chip
 									data-action="multi-diff"
-									label="Open All Changes"
+									label=${this.multiDiffLabel ?? 'Open All Changes'}
+									alt-label=${this.multiDiffAltLabel ?? nothing}
 									icon="diff-multiple"
 									@click=${this.onOpenMultiDiff}
-								></action-item>`
+								></gl-action-chip>`
 							: nothing}
 						${this.searchContext != null
 							? renderContextMatchVisibilityAction(
@@ -367,13 +379,13 @@ export class GlFileTreePane extends LitElement {
 							: nothing}
 						${showLayout ? renderLayoutAction(this.fileLayout, e => this.onToggleFilesLayout(e)) : nothing}
 						${showSearch
-							? html`<action-item
+							? html`<gl-action-chip
 									data-action="search"
 									label="${showSearchBox ? 'Hide Search' : 'Show Search'}"
 									icon="search"
 									class="${showSearchBox ? 'active-toggle' : ''}"
 									@click=${this.onToggleSearch}
-								></action-item>`
+								></gl-action-chip>`
 							: nothing}
 						<slot name="actions"></slot>
 					</action-nav>
@@ -555,7 +567,13 @@ export class GlFileTreePane extends LitElement {
 	private onOpenMultiDiff(e: Event) {
 		e.preventDefault();
 		e.stopPropagation();
-		this.dispatchEvent(new CustomEvent('gl-file-tree-pane-open-multi-diff', { bubbles: true, composed: true }));
+		this.dispatchEvent(
+			new CustomEvent('gl-file-tree-pane-open-multi-diff', {
+				detail: { altKey: (e as MouseEvent).altKey === true },
+				bubbles: true,
+				composed: true,
+			}),
+		);
 	}
 
 	private onCycleContextMatchVisibility(e: Event) {

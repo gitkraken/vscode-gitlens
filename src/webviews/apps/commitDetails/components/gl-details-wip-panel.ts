@@ -438,21 +438,21 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			>
 				<span slot="title">Pull Request #${this.pullRequest?.id}</span>
 				<action-nav slot="actions">
-					<action-item
+					<gl-action-chip
 						label="Open Pull Request Changes"
 						icon="diff-multiple"
 						@click=${() => this.onDataActionClick('open-pr-changes')}
-					></action-item>
-					<action-item
+					></gl-action-chip>
+					<gl-action-chip
 						label="Compare Pull Request"
 						icon="compare-changes"
 						@click=${() => this.onDataActionClick('open-pr-compare')}
-					></action-item>
-					<action-item
+					></gl-action-chip>
+					<gl-action-chip
 						label="Open Pull Request on Remote"
 						icon="globe"
 						@click=${() => this.onDataActionClick('open-pr-remote')}
-					></action-item>
+					></gl-action-chip>
 				</action-nav>
 				<div class="section">
 					<issue-pull-request

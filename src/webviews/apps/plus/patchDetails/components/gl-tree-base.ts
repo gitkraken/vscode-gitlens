@@ -16,7 +16,7 @@ import type {
 import { buildFileTooltip } from '../../../shared/components/tree/file-tree-utils.js';
 import '../../../shared/components/tree/tree-view.js';
 import '../../../shared/components/skeleton-loader.js';
-import '../../../shared/components/actions/action-item.js';
+import '../../../shared/components/chips/action-chip.js';
 
 export class GlTreeBase extends GlElement {
 	protected onTreeItemActionClicked?(_e: CustomEvent<TreeItemActionDetail>): void;
@@ -61,7 +61,7 @@ export class GlTreeBase extends GlElement {
 				break;
 		}
 
-		return html`<action-item data-switch-value="${value}" label="${label}" icon="${icon}"></action-item>`;
+		return html`<gl-action-chip data-switch-value="${value}" label="${label}" icon="${icon}"></gl-action-chip>`;
 	}
 
 	protected renderTreeView(

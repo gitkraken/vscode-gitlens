@@ -174,11 +174,24 @@ export class ActionItem extends LitElement {
 	}
 
 	private handleLinkKeydown = (e: KeyboardEvent) => {
-		// Handle Space and Enter for button-role links without href
+		// Handle Space and Enter for button-role links without href.
 		if (!this.effectiveHref && (e.key === ' ' || e.key === 'Enter')) {
 			e.preventDefault();
-			// Trigger a click event
-			(e.target as HTMLElement).click();
+			// Dispatch a synthetic click that carries the current modifier state so consumers
+			// reading `MouseEvent.altKey` (e.g. the WIP smart Open Multi-Diff button) work for
+			// keyboard activation too — `HTMLElement.click()` would synthesize a click with all
+			// modifiers false.
+			(e.target as HTMLElement).dispatchEvent(
+				new MouseEvent('click', {
+					bubbles: true,
+					cancelable: true,
+					composed: true,
+					altKey: e.altKey,
+					ctrlKey: e.ctrlKey,
+					metaKey: e.metaKey,
+					shiftKey: e.shiftKey,
+				}),
+			);
 		}
 	};
 
