@@ -1,5 +1,6 @@
 // GitFeature's must start with `git:` to be recognized in all usages
 export type GitFeatures =
+	| 'git:checkout:pathspec-from-file'
 	| 'git:for-each-ref:worktreePath'
 	| 'git:ignoreRevsFile'
 	| 'git:merge-tree'
@@ -28,6 +29,7 @@ export type FilteredGitFeatures<T extends GitFeatureOrPrefix> = T extends GitFea
 
 export const gitMinimumVersion = '2.7.2';
 export const gitFeaturesByVersion = new Map<GitFeatures, string>([
+	['git:checkout:pathspec-from-file', '2.26'],
 	['git:for-each-ref:worktreePath', '2.23'],
 	['git:ignoreRevsFile', '2.23'],
 	['git:merge-tree', '2.33'],

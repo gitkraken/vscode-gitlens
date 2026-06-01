@@ -56,6 +56,15 @@ const stageConflictAction: TreeItemAction = { icon: 'add', label: 'Stage', actio
 const stageAction: TreeItemAction = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
 const unstageAction: TreeItemAction = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
 const discardAction: TreeItemAction = { icon: 'discard', label: 'Discard Changes', action: 'file-discard' };
+// Mixed rows (both staged + unstaged) discard only the unstaged portion on the first click — the
+// staged content survives until a second discard. Same `file-discard` action (the host detects
+// mixed and applies the partial semantics); only the label differs so it matches that behavior and
+// the bulk toolbar button.
+const discardUnstagedAction: TreeItemAction = {
+	icon: 'discard',
+	label: 'Discard Unstaged Changes',
+	action: 'file-discard',
+};
 // `file-compare-wip-staged` is bridged by gl-wip-tree-pane into `file-compare-wip` with
 // `staged: true` overridden so the diff resolves to staged ↔ HEAD even though the deduped
 // row carries `staged: false` (preferred-unstaged precedence from the tree pane dedup).
@@ -68,7 +77,7 @@ const openStagedChangesAction: TreeItemAction = {
 const conflictedCheckboxActions: TreeItemAction[] = [openCurrentChangesAction, openIncomingChangesAction];
 const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
 const checkboxDiscardOnly: TreeItemAction[] = [discardAction];
-const checkboxMixedActions: TreeItemAction[] = [openStagedChangesAction, discardAction];
+const checkboxMixedActions: TreeItemAction[] = [openStagedChangesAction, discardUnstagedAction];
 const stagedActions: TreeItemAction[] = [unstageAction, discardAction];
 const unstagedActions: TreeItemAction[] = [stageAction, discardAction];
 

@@ -48,6 +48,7 @@ class ChunkByStringLengthIterator implements IterableIterator<string[]> {
 	constructor(
 		private readonly source: string[],
 		private readonly maxLength: number,
+		private readonly overheadPerItem: number = 0,
 	) {}
 
 	next(): IteratorResult<string[]> {
@@ -61,7 +62,7 @@ class ChunkByStringLengthIterator implements IterableIterator<string[]> {
 
 		while (this.index < this.source.length) {
 			const item = this.source[this.index];
-			const length = chunkLength + item.length;
+			const length = chunkLength + item.length + this.overheadPerItem;
 
 			if (length > this.maxLength && chunk.length > 0) {
 				break;
@@ -80,8 +81,18 @@ class ChunkByStringLengthIterator implements IterableIterator<string[]> {
 	}
 }
 
-export function chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
-	return new ChunkByStringLengthIterator(source, maxLength);
+/**
+ * Chunks strings so each chunk's total serialized length stays within `maxLength`.
+ * `overheadPerItem` adds a fixed per-item cost to the running total — use it when the strings will
+ * be joined with a separator or otherwise expanded per item (e.g. CLI argv: one separator + quoting
+ * per argument), so the assembled result can't exceed the limit even with many short items.
+ */
+export function chunkByStringLength(
+	source: string[],
+	maxLength: number,
+	overheadPerItem: number = 0,
+): Iterable<string[]> {
+	return new ChunkByStringLengthIterator(source, maxLength, overheadPerItem);
 }
 
 /**

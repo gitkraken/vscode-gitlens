@@ -884,7 +884,7 @@ export async function restoreFile(
 	}
 
 	try {
-		await Container.instance.git.getRepositoryService(revision.repoPath).ops?.checkout(rev, { path: path });
+		await Container.instance.git.getRepositoryService(revision.repoPath).ops?.restore(path, { ref: rev });
 	} catch (ex) {
 		void showGitErrorMessage(
 			ex,

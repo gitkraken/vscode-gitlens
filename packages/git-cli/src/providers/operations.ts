@@ -25,6 +25,7 @@ import { getBranchNameAndRemote, getBranchTrackingWithoutRemote } from '@gitlens
 import { isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
+import { chunkByStringLength } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { normalizePath, splitPath } from '@gitlens/utils/path.js';
@@ -51,136 +52,30 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string } | { path?: string },
+		options?: { createBranch?: string },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
-		try {
-			await this.checkoutCore(repoPath, ref, options, runOptions);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
-		} catch (ex) {
-			scope?.error(ex);
-			throw ex;
-		}
-	}
-
-	private async checkoutCore(
-		repoPath: string,
-		ref: string,
-		{ createBranch, path }: { createBranch?: string; path?: string } = {},
-		runOptions?: GitOperationRunOptions,
-	): Promise<void> {
 		const params = ['checkout'];
-		if (createBranch) {
-			params.push('-b', createBranch, ref, '--');
+		if (options?.createBranch) {
+			params.push('-b', options.createBranch, ref, '--');
 		} else {
 			params.push(ref, '--');
-
-			if (path) {
-				[path, repoPath] = splitPath(path, repoPath, true);
-				params.push(path);
-			}
 		}
 
 		try {
 			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
+			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
+			scope?.error(ex);
 			throw getGitCommandError(
 				'checkout',
 				ex,
 				reason =>
 					new CheckoutError(
 						{ reason: reason ?? 'other', ref: ref, gitCommand: { repoPath: repoPath, args: params } },
-						ex,
-					),
-			);
-		}
-	}
-
-	@debug()
-	async checkoutConflictedPath(
-		repoPath: string,
-		path: string,
-		side: 'ours' | 'theirs',
-		runOptions?: GitOperationRunOptions,
-	): Promise<void> {
-		const scope = getScopedLogger();
-
-		[path, repoPath] = splitPath(path, repoPath, true);
-		const params = ['checkout', `--${side}`, '--', path];
-
-		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
-			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
-		} catch (ex) {
-			scope?.error(ex);
-			throw getGitCommandError(
-				'checkout',
-				ex,
-				reason =>
-					new CheckoutError(
-						{ reason: reason ?? 'other', ref: side, gitCommand: { repoPath: repoPath, args: params } },
-						ex,
-					),
-			);
-		}
-	}
-
-	@debug()
-	async checkoutConflictedPaths(
-		repoPath: string,
-		paths: string[],
-		side: 'ours' | 'theirs',
-		runOptions?: GitOperationRunOptions,
-	): Promise<void> {
-		if (!paths.length) return;
-
-		const scope = getScopedLogger();
-		const normalized = paths.map(p => splitPath(p, repoPath, true)[0]);
-
-		// Build batches by accumulating the length of each path + a small per-arg overhead (separator +
-		// possible quoting), so a single long path — or just the overhead itself — can't push a batch
-		// past the CLI length limit. Always keep at least one path per batch, even if a lone path is
-		// longer than the limit (the OS may still accept it on some platforms).
-		const perArgOverhead = 3;
-		const batches: string[][] = [];
-		let current: string[] = [];
-		let currentLen = 0;
-		for (const p of normalized) {
-			const cost = p.length + perArgOverhead;
-			if (current.length > 0 && currentLen + cost > maxGitCliLength) {
-				batches.push(current);
-				current = [];
-				currentLen = 0;
-			}
-			current.push(p);
-			currentLen += cost;
-		}
-		if (current.length) {
-			batches.push(current);
-		}
-
-		try {
-			for (const batch of batches) {
-				await this.git.run({ cwd: repoPath, ...runOptions }, 'checkout', `--${side}`, '--', ...batch);
-			}
-			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
-			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
-		} catch (ex) {
-			scope?.error(ex);
-			throw getGitCommandError(
-				'checkout',
-				ex,
-				reason =>
-					new CheckoutError(
-						{
-							reason: reason ?? 'other',
-							ref: side,
-							gitCommand: { repoPath: repoPath, args: ['checkout', `--${side}`, '--', ...normalized] },
-						},
 						ex,
 					),
 			);
@@ -866,6 +761,71 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				ex,
 				reason =>
 					new ResetError({ reason: reason ?? 'other', gitCommand: { repoPath: repoPath, args: params } }, ex),
+			);
+		}
+	}
+
+	@sequentialize({ getQueueKey: rp => rp })
+	@debug()
+	async restore(
+		repoPath: string,
+		path: string | string[],
+		options?: { ref?: string; side?: 'ours' | 'theirs' },
+		runOptions?: GitOperationRunOptions,
+	): Promise<void> {
+		const paths = Array.isArray(path) ? path : [path];
+		if (!paths.length) return;
+
+		const scope = getScopedLogger();
+		const normalized = paths.map(p => splitPath(p, repoPath, true)[0]);
+
+		// `side` and `ref` are mutually exclusive in git (--ours/--theirs apply during conflict
+		// resolution and take no source ref); side takes precedence if both are somehow supplied.
+		// Use a truthy check on `ref` so an empty string falls through to index-restore rather than
+		// producing a malformed `git checkout '' -- …`. Implemented via `checkout` rather than
+		// `git restore` for compatibility with the minimum supported git (2.7.2); `git restore`
+		// only landed in 2.23.
+		const selector = options?.side != null ? `--${options.side}` : options?.ref || undefined;
+		const prefix = selector != null ? ['checkout', selector, '--'] : ['checkout', '--'];
+
+		try {
+			if (await this.git.supports('git:checkout:pathspec-from-file')) {
+				// Git ≥ 2.26: stream all pathspecs via stdin (NUL-separated) in a single invocation —
+				// no CLI-length limit (so no batching), and robust for paths with spaces/newlines.
+				// Pathspecs come from the file rather than argv, so `--` isn't used.
+				const args = ['checkout'];
+				if (selector != null) {
+					args.push(selector);
+				}
+				args.push('--pathspec-from-file=-', '--pathspec-file-nul');
+				await this.git.run({ cwd: repoPath, ...runOptions, stdin: normalized.join('\0') }, ...args);
+			} else {
+				// Older git: pass pathspecs as args, one git invocation per chunk (collapsing N
+				// path-mode checkouts into ⌈N / chunk⌉ spawns). Reserve the command prefix length and
+				// a per-arg overhead (separator + possible quoting) so the assembled command line
+				// can't exceed the OS limit even with many short paths.
+				const perArgOverhead = 3;
+				const prefixLength = prefix.reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
+				for (const batch of chunkByStringLength(normalized, maxGitCliLength - prefixLength, perArgOverhead)) {
+					await this.git.run({ cwd: repoPath, ...runOptions }, ...prefix, ...batch);
+				}
+			}
+			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
+			this.context.hooks?.repository?.onChanged?.(repoPath, ['index']);
+		} catch (ex) {
+			scope?.error(ex);
+			throw getGitCommandError(
+				'checkout',
+				ex,
+				reason =>
+					new CheckoutError(
+						{
+							reason: reason ?? 'other',
+							ref: options?.side ?? options?.ref,
+							gitCommand: { repoPath: repoPath, args: [...prefix, ...normalized] },
+						},
+						ex,
+					),
 			);
 		}
 	}

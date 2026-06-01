@@ -193,9 +193,7 @@ export class DetailsFileCommands {
 		if (commit.sha == null || isUncommitted(commit.sha)) return;
 
 		try {
-			await this.container.git
-				.getRepositoryService(commit.repoPath)
-				.ops?.checkout(commit.sha, { path: file.path });
+			await this.container.git.getRepositoryService(commit.repoPath).ops?.restore(file.path, { ref: commit.sha });
 		} catch (ex) {
 			if (CheckoutError.is(ex)) {
 				void showGitErrorMessage(ex);

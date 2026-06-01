@@ -94,6 +94,18 @@ export class GitStatusFile implements GitFile {
 		return this.conflictStatus != null;
 	}
 
+	/**
+	 * True when the file has both staged (index) and unstaged (working-tree) changes and is not
+	 * conflicted. Used by the host-side discard flows to apply partial-discard semantics — drop the
+	 * working-tree delta while preserving the staged portion. Centralized here so those host paths
+	 * agree on what "mixed" means. (The webview button predicate can't consume this getter — it
+	 * runs against the wire `GitFileChangeShape` and infers the same state from the duplicate
+	 * staged/unstaged rows the WIP feed emits per mixed path.)
+	 */
+	get mixed(): boolean {
+		return this.indexStatus != null && this.workingTreeStatus != null && this.conflictStatus == null;
+	}
+
 	get staged(): boolean {
 		return this.indexStatus != null;
 	}

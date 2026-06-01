@@ -36,10 +36,10 @@ export async function stageConflictResolution(
 				await svc.staging?.removeFile(normalizedPath, { force: true });
 				return;
 			case 'take-ours':
-				await svc.ops?.checkoutConflictedPath?.(normalizedPath, 'ours');
+				await svc.ops?.restore(normalizedPath, { side: 'ours' });
 				break;
 			case 'take-theirs':
-				await svc.ops?.checkoutConflictedPath?.(normalizedPath, 'theirs');
+				await svc.ops?.restore(normalizedPath, { side: 'theirs' });
 				break;
 			case 'unsupported':
 				throw new Error(`Cannot take ${resolution} side for conflict status ${conflictFile.conflictStatus}`);
@@ -134,7 +134,7 @@ export async function resolveAllConflicts(
 
 	if (toCheckoutOurs.length) {
 		try {
-			await svc.ops?.checkoutConflictedPaths?.(toCheckoutOurs, 'ours');
+			await svc.ops?.restore(toCheckoutOurs, { side: 'ours' });
 		} catch (ex) {
 			failures.push({ paths: toCheckoutOurs, reason: ex });
 			toCheckoutOurs.length = 0;
@@ -142,7 +142,7 @@ export async function resolveAllConflicts(
 	}
 	if (toCheckoutTheirs.length) {
 		try {
-			await svc.ops?.checkoutConflictedPaths?.(toCheckoutTheirs, 'theirs');
+			await svc.ops?.restore(toCheckoutTheirs, { side: 'theirs' });
 		} catch (ex) {
 			failures.push({ paths: toCheckoutTheirs, reason: ex });
 			toCheckoutTheirs.length = 0;

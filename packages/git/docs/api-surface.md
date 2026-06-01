@@ -347,9 +347,12 @@ Each sub-provider interface is defined in its own file under `providers/`:
 | `push(repoPath, options?)`             | `void`               |
 | `rebase(repoPath, upstream, options?)` | `GitOperationResult` |
 | `reset(repoPath, rev, options?)`       | `void`               |
+| `restore(repoPath, path, options?)`    | `void`               |
 | `revert(repoPath, refs, options?)`     | `GitOperationResult` |
 
 `GitOperationResult` (exported from `providers/operations.js`): `{ readonly conflicted: boolean; readonly conflicts?: GitConflictFile[] }`. Merge/rebase/cherry-pick/revert now return this shape — conflicts are returned (not thrown); hard failures (aborted, uncommittedChanges, alreadyInProgress, etc.) still throw.
+
+`restore` accepts a single path or an array (chunked under the CLI length limit). Options select the source: none = working tree from the index (drops unstaged changes, index untouched); `{ ref }` = both index and working tree from `<ref>`; `{ side: 'ours' | 'theirs' }` = conflict-resolution checkout during a paused merge/rebase/cherry-pick. `restore` replaces the former path-mode `checkout` and the `checkoutConflictedPath`/`checkoutConflictedPaths` methods.
 
 > Note: `clone` is on `GitProvider` directly (not on this sub-provider) — see Provider Interface above.
 

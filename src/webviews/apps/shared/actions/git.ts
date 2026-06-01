@@ -64,3 +64,11 @@ export function discardUnstagedFiles(
 ): void {
 	fireRpc(errorSignal, git.discardUnstagedFiles(repoPath), 'discard unstaged files');
 }
+
+export function discardStagedFiles(
+	errorSignal: Signal.State<string | undefined>,
+	git: { discardStagedFiles(repoPath: string): Promise<void> },
+	repoPath: string,
+): void {
+	fireRpc(errorSignal, git.discardStagedFiles(repoPath), 'discard staged files');
+}

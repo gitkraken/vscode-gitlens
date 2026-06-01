@@ -21,31 +21,14 @@ export interface GitOperationResult {
 export type GitOperationRunOptions = Pick<GitRunOptions, 'env' | 'cancellation' | 'timeout'>;
 
 export interface GitOperationsSubProvider {
+	/**
+	 * Switches the repository to a branch or ref. Pure branch/ref switching — does not accept
+	 * a path. For path-level operations use {@link restore}.
+	 */
 	checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string | undefined } | { path?: string | undefined },
-		runOptions?: GitOperationRunOptions,
-	): Promise<void>;
-	/**
-	 * Checks out one side of a conflicted path during a paused merge/rebase/cherry-pick.
-	 * Executes `git checkout --ours|--theirs -- <path>`, leaving the file unstaged.
-	 */
-	checkoutConflictedPath(
-		repoPath: string,
-		path: string,
-		side: 'ours' | 'theirs',
-		runOptions?: GitOperationRunOptions,
-	): Promise<void>;
-	/**
-	 * Checks out one side for multiple conflicted paths during a paused merge/rebase/cherry-pick.
-	 * Batches paths into `git checkout --ours|--theirs -- <paths...>`, chunked to stay under the
-	 * CLI length limit. Leaves files unstaged.
-	 */
-	checkoutConflictedPaths(
-		repoPath: string,
-		paths: string[],
-		side: 'ours' | 'theirs',
+		options?: { createBranch?: string | undefined },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 	cherryPick(
@@ -122,6 +105,27 @@ export interface GitOperationsSubProvider {
 		repoPath: string,
 		rev: string,
 		options?: { mode?: 'hard' | 'keep' | 'merge' | 'mixed' | 'soft' },
+		runOptions?: GitOperationRunOptions,
+	): Promise<void>;
+	/**
+	 * Restores the working-tree copy of one or more paths. Single path or array; arrays are
+	 * chunked under the CLI length limit and dispatched as one git invocation per chunk
+	 * (typically one for normal-sized batches).
+	 *
+	 * Source selection — `options` is mutually exclusive (`side` wins if both are supplied):
+	 *
+	 * - **No options** (`git checkout -- <paths>`): copies the index to the working tree, leaving
+	 *   the index untouched. Use to drop unstaged changes (mixed-file partial discard preserves
+	 *   the staged portion this way).
+	 * - **`{ ref }`** (`git checkout <ref> -- <paths>`): resets BOTH the index and the working
+	 *   tree of the path(s) to `<ref>`. Use to fully revert files to HEAD, a specific commit, etc.
+	 * - **`{ side }`** (`git checkout --ours|--theirs -- <paths>`): conflict-resolution
+	 *   shortcut, valid only during a paused merge/rebase/cherry-pick. Leaves files unstaged.
+	 */
+	restore(
+		repoPath: string,
+		path: string | string[],
+		options?: { ref?: string; side?: 'ours' | 'theirs' },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void>;
 	revert(

@@ -259,17 +259,47 @@ export class GlWipTreePane extends LitElement {
 			${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<gl-button
-						slot="leading-actions"
-						appearance="toolbar"
-						tooltip="Stash Changes"
-						@click=${this.onStashSave}
-					>
-						<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
-						<span class="stash-label">Stash</span>
-					</gl-button>`
+							slot="leading-actions"
+							appearance="toolbar"
+							tooltip="Stash Changes"
+							@click=${this.onStashSave}
+						>
+							<code-icon icon="gl-stash-save" slot="prefix"></code-icon>
+							<span class="stash-label">Stash</span>
+						</gl-button>
+						${this.renderDiscardUnstagedAction(files)}`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
 		</gl-file-tree-pane>`;
+	}
+
+	private renderDiscardUnstagedAction(files: Files) {
+		// The WIP feed (commit details / graph) emits TWO rows per mixed path — one with
+		// staged=true, one with staged=false — so a single `!f.staged && !conflict` scan covers
+		// purely-unstaged, untracked, AND the unstaged half of mixed files. If a future caller
+		// switches to single-row mixed entries, this predicate will need to take the host's
+		// mixed flag into account too.
+		//
+		// The button morphs: with unstaged content it discards that (preserving staged on mixed
+		// files); with ONLY staged content left it switches to discarding the staged changes so it
+		// isn't a dead end. Label/tooltip switch with it so the control always announces what it
+		// will destroy. Conflicts are excluded from both modes.
+		const hasUnstaged = files.some(f => !f.staged && !isConflictStatus(f.status));
+		const hasStaged = files.some(f => f.staged && !isConflictStatus(f.status));
+		// Unstaged takes precedence; the button only switches to staged-discard when nothing
+		// unstaged remains, so it never destroys staged content while unstaged changes are present.
+		const stagedOnly = !hasUnstaged && hasStaged;
+		const label = stagedOnly ? 'Discard Staged Changes' : 'Discard Unstaged Changes';
+		return html`<gl-button
+			slot="leading-actions"
+			appearance="toolbar"
+			tooltip=${label}
+			aria-label=${label}
+			?disabled=${!hasUnstaged && !hasStaged}
+			@click=${stagedOnly ? this.onDiscardStaged : this.onDiscardUnstaged}
+		>
+			<code-icon icon="discard"></code-icon>
+		</gl-button>`;
 	}
 
 	private renderConflictBulkActions(files: Files) {
@@ -309,10 +339,12 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
 	}
 
-	// TODO: Button hidden — bulk discard-unstaged is punted until multiselect lands in trees
-	// See https://github.com/gitkraken/vscode-gitlens/pull/5207#pullrequestreview-4286302741
 	private onDiscardUnstaged() {
 		this.dispatchEvent(new CustomEvent('discard-unstaged', { bubbles: true, composed: true }));
+	}
+
+	private onDiscardStaged() {
+		this.dispatchEvent(new CustomEvent('discard-staged', { bubbles: true, composed: true }));
 	}
 
 	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {

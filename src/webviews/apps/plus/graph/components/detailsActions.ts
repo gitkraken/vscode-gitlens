@@ -2544,6 +2544,15 @@ export class DetailsActions {
 		);
 	}
 
+	discardStagedFiles(repoPath: string | undefined): void {
+		if (!repoPath) return;
+
+		this._pendingStagingOp = this.runStagingOp(
+			this.services.repository.discardStagedFiles(repoPath),
+			'discard staged files',
+		);
+	}
+
 	/**
 	 * Awaits the stage/unstage RPC and logs failures so they don't become unhandled rejections.
 	 * No explicit refetch — the host's `git add` triggers its working-tree watcher, which

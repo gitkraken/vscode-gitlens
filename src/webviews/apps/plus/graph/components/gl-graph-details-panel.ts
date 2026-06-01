@@ -1792,6 +1792,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@file-unstage=${this.handleFileUnstage}
 										@file-discard=${this.handleFileDiscard}
 										@discard-unstaged=${this.handleDiscardUnstaged}
+										@discard-staged=${this.handleDiscardStaged}
 										@stage-all=${this.handleStageAll}
 										@unstage-all=${this.handleUnstageAll}
 										@stash-save=${this.handleStashSave}
@@ -2782,6 +2783,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleDiscardUnstaged = () => {
 		this._actions.discardUnstagedFiles(this.effectiveRepoPath);
+	};
+
+	private handleDiscardStaged = () => {
+		this._actions.discardStagedFiles(this.effectiveRepoPath);
 	};
 
 	private handleStageAll = () => {
