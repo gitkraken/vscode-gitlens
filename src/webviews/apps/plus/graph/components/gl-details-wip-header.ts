@@ -171,6 +171,15 @@ export class GlDetailsWipHeader extends LitElement {
 									})}
 								></gl-action-chip>`
 							: nothing}
+						${wip.branch?.reference?.sha != null
+							? html`<gl-action-chip
+									slot="actions"
+									icon="arrow-down"
+									label="Jump to Branch Tip"
+									overlay="tooltip"
+									@click=${this.onJumpToTipClick}
+								></gl-action-chip>`
+							: nothing}
 						<gl-action-chip
 							slot="actions"
 							icon="refresh"
@@ -466,6 +475,19 @@ export class GlDetailsWipHeader extends LitElement {
 			}),
 		);
 	}
+
+	private onJumpToTipClick = (): void => {
+		const sha = this.wip?.branch?.reference?.sha;
+		if (!sha) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-jump-to-commit', {
+				detail: { sha: sha },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private emit(name: string) {
 		this.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));

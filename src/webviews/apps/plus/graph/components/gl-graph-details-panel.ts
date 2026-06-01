@@ -1874,6 +1874,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@mode-back=${this.handleModeBack}
 				@mode-refresh=${this.handleModeRefresh}
 				@refresh-wip=${this.handleRefreshWip}
+				@gl-jump-to-commit=${this.handleJumpToCommit}
 				@switch-branch=${this.handleSwitchBranch}
 				@create-branch=${this.handleCreateBranch}
 				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
@@ -2228,6 +2229,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleJumpToNearestWip = (e: CustomEvent<{ fromSha: string }>): void => {
 		document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: e.detail }));
+	};
+
+	private handleJumpToCommit = (e: CustomEvent<{ sha: string }>): void => {
+		document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: e.detail }));
 	};
 
 	private renderMultiCommit() {

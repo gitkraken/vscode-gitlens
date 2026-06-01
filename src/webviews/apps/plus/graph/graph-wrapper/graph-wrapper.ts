@@ -195,6 +195,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		document.addEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
 		document.addEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
+		document.addEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
 	}
 
 	override disconnectedCallback(): void {
@@ -202,11 +203,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		document.removeEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
 		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
+		document.removeEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
 		this.disposables.forEach(d => d.dispose());
 		this.disposables = [];
 	}
 
 	private onJumpToPinnedBranch = (e: CustomEvent<{ sha: string }>) => {
+		this.ensureAndSelectCommit(e.detail.sha);
+	};
+
+	private onJumpToCommit = (e: CustomEvent<{ sha: string }>) => {
 		this.ensureAndSelectCommit(e.detail.sha);
 	};
 
