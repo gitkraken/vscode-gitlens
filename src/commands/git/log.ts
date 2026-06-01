@@ -18,7 +18,7 @@ import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
 import { pickCommitStep } from '../quick-wizard/steps/commits.js';
 import { pickBranchOrTagStep } from '../quick-wizard/steps/references.js';
-import { pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
+import { canSkipRepositoryPick, pickRepositoryStep } from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
 import { getSteps } from '../quick-wizard/utils/quickWizard.utils.js';
 import { assertStepState } from '../quick-wizard/utils/steps.utils.js';
@@ -89,8 +89,8 @@ export class LogGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
+				// Skip the picker only when the sole available repo is the one requested
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);

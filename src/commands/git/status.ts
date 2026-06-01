@@ -10,7 +10,11 @@ import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type { PartialStepState, StepGenerator, StepsContext } from '../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
-import { pickRepositoryStep, showRepositoryStatusStep } from '../quick-wizard/steps/repositories.js';
+import {
+	canSkipRepositoryPick,
+	pickRepositoryStep,
+	showRepositoryStatusStep,
+} from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
 import { assertStepState } from '../quick-wizard/utils/steps.utils.js';
 
@@ -68,8 +72,8 @@ export class StatusGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
+				// Skip the picker only when the sole available repo is the one requested
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);

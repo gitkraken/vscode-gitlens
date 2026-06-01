@@ -19,7 +19,7 @@ import type {
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
 import { ensureAccessStep } from '../../quick-wizard/steps/access.js';
-import { pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
+import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { pickWorktreeStep } from '../../quick-wizard/steps/worktrees.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
 import {
@@ -105,8 +105,8 @@ export class WorktreeOpenGitCommand extends QuickCommand<State> {
 			context.title = state.worktree?.name ? `${this.title} \u2022 ${state.worktree.name}` : this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
+				// Skip the picker only when the sole available repo is the one requested
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);

@@ -18,7 +18,7 @@ import type {
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import { RevealInSideBarQuickInputButton, ShowDetailsViewQuickInputButton } from '../../quick-wizard/quickButtons.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
-import { pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
+import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { pickStashStep } from '../../quick-wizard/steps/stashes.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
 import {
@@ -83,8 +83,8 @@ export class StashRenameGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
+				// Skip the picker only when the sole available repo is the one requested
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);

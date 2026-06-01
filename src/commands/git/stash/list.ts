@@ -5,7 +5,7 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import type { PartialStepState, StepGenerator, StepResult, StepsContext } from '../../quick-wizard/models/steps.js';
 import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
-import { pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
+import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { pickStashStep } from '../../quick-wizard/steps/stashes.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
 import { getSteps } from '../../quick-wizard/utils/quickWizard.utils.js';
@@ -66,7 +66,7 @@ export class StashListGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				if (context.repos.length === 1) {
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);

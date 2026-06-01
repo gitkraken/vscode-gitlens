@@ -28,7 +28,7 @@ import { StepResultBreak } from '../quick-wizard/models/steps.js';
 import { QuickCommand } from '../quick-wizard/quickCommand.js';
 import { inputBranchNameStep } from '../quick-wizard/steps/branches.js';
 import { pickBranchOrTagStepMultiRepo } from '../quick-wizard/steps/references.js';
-import { pickRepositoriesStep } from '../quick-wizard/steps/repositories.js';
+import { canSkipRepositoriesPick, pickRepositoriesStep } from '../quick-wizard/steps/repositories.js';
 import { StepsController } from '../quick-wizard/stepsController.js';
 import { getSteps } from '../quick-wizard/utils/quickWizard.utils.js';
 import { appendReposToTitle, assertStepState, canPickStepContinue } from '../quick-wizard/utils/steps.utils.js';
@@ -166,8 +166,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepos) || !state.repos?.length || isStringArray(state.repos)) {
-				// Only show the picker if there are multiple repositories
-				if (context.repos.length === 1) {
+				// Skip the picker only when the sole available repo is the one requested
+				if (canSkipRepositoriesPick(context.repos, state.repos)) {
 					state.repos = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepos);

@@ -13,7 +13,7 @@ import { StepResultBreak } from '../../quick-wizard/models/steps.js';
 import type { QuickPickStep } from '../../quick-wizard/models/steps.quickpick.js';
 import { QuickCommand } from '../../quick-wizard/quickCommand.js';
 import { pickRemoteStep } from '../../quick-wizard/steps/remotes.js';
-import { pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
+import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
 import {
 	appendReposToTitle,
@@ -76,7 +76,7 @@ export class RemotePruneGitCommand extends QuickCommand<State> {
 			context.title = this.title;
 
 			if (steps.isAtStep(Steps.PickRepo) || state.repo == null || typeof state.repo === 'string') {
-				if (context.repos.length === 1) {
+				if (canSkipRepositoryPick(context.repos, state.repo)) {
 					[state.repo] = context.repos;
 				} else {
 					using step = steps.enterStep(Steps.PickRepo);
