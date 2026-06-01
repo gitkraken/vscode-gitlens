@@ -10,7 +10,7 @@ import type { ViewFilesLayout } from '../../../config.js';
 import type { InspectWebviewTelemetryContext } from '../../../constants.telemetry.js';
 import type { CommitDetailsServices } from '../../commitDetails/commitDetailsService.js';
 import type { ExecuteCommitActionsParams } from '../../commitDetails/protocol.js';
-import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
+import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
 import { DOM } from '../shared/dom.js';
@@ -668,6 +668,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
 								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 									actions?.openMultipleChanges(e.detail)}
+								@copy-wip-patch=${(e: CustomEvent<CopyWipPatchEventDetail>) =>
+									actions?.copyWipPatchToClipboard(e.detail.repoPath, e.detail.scope, e.detail.uris)}
 								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
 									actions?.updateShowSearchBox(e.detail)}
 								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>

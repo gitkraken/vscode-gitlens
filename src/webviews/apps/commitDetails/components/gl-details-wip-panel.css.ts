@@ -4,6 +4,7 @@ export const detailsWipPanelStyles = css`
 	:host([variant='embedded']) {
 		--gl-tree-view-margin-top: -0.2rem;
 		--gl-tree-view-filterable-margin-top: -0.4rem;
+		--action-item-foreground: var(--vscode-sideBarSectionHeader-foreground);
 	}
 
 	/* Split panel layout */

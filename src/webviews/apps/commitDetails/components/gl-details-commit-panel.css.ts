@@ -72,6 +72,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) {
 		--gl-tree-view-margin-top: -0.2rem;
 		--gl-tree-view-filterable-margin-top: -0.4rem;
+		--action-item-foreground: var(--vscode-sideBarSectionHeader-foreground);
 	}
 
 	/* ── Zone 1: Author header (standalone fallback when panelActions=false) ── */

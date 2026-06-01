@@ -721,6 +721,24 @@ export class CommitDetailsActions {
 	}
 
 	/**
+	 * Copy a WIP patch to the system clipboard.
+	 *
+	 * Scope selects which slice of the working tree to capture:
+	 * - `all`      → HEAD ↔ working tree (matches the existing Copy as Patch command).
+	 * - `staged`   → HEAD ↔ index (staged hunks only; conflicts surface here).
+	 * - `unstaged` → index ↔ working tree (unstaged hunks only).
+	 *
+	 * `uris` (optional, scope-filtered repo-relative paths) constrains the underlying
+	 * `git diff` via pathspec — required for `staged`/`unstaged` to mirror what Open
+	 * Multi-Diff shows for the same scope, especially around merge-conflict files which
+	 * raw `git diff` would otherwise emit regardless of intent. Omit for `all` so git
+	 * sees the entire working tree (including the `intentToAdd`-staged untracked files).
+	 */
+	copyWipPatchToClipboard(repoPath: string, scope: 'all' | 'staged' | 'unstaged', uris?: readonly string[]): void {
+		fireAndForget(this.services.drafts.copyWipPatchToClipboard(repoPath, scope, uris), 'copy WIP patch');
+	}
+
+	/**
 	 * Suggest changes (create a draft).
 	 * Requires WIP state with PR context.
 	 */

@@ -14,6 +14,25 @@ import { fireAndForget } from './rpc.js';
 // Re-export for consumers that import from this module
 export type { FileShowOptions, OpenMultipleChangesArgs } from '../../../rpc/services/types.js';
 
+/** Scope used by the WIP smart Copy/Open Changes buttons.
+ *  - `staged`   → HEAD ↔ index   (conflicts counted as staged-needing-attention)
+ *  - `unstaged` → index ↔ working tree
+ *  - `all`      → HEAD ↔ working tree
+ */
+export type WipScope = 'all' | 'staged' | 'unstaged';
+
+/** Detail of the `copy-wip-patch` custom event dispatched by `gl-wip-tree-pane`'s Copy button.
+ *  `uris` carries the repo-relative paths for the files matching `scope` so the host-side
+ *  `getDiff` call can pathspec-filter to exactly that set — keeping Copy's patch contents in
+ *  sync with what Open Multi-Diff shows for the same scope. Undefined for `scope: 'all'`,
+ *  where the server-side `git diff HEAD` is correct without a filter (and the implicit
+ *  `intentToAdd` untracked-staging needs git's whole-repo view). */
+export interface CopyWipPatchEventDetail {
+	repoPath: string;
+	scope: WipScope;
+	uris?: readonly string[];
+}
+
 // ============================================================
 // File Operations (fire-and-forget — backend opens editors)
 // ============================================================

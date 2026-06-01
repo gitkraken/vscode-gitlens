@@ -6,7 +6,7 @@ import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import type { Preferences } from '../../../../commitDetails/protocol.js';
-import type { OpenMultipleChangesArgs } from '../../actions/file.js';
+import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs, WipScope } from '../../actions/file.js';
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
@@ -229,6 +229,13 @@ export class GlWipTreePane extends LitElement {
 			? ['layout', 'search', 'multi-diff']
 			: undefined;
 
+		const hasStagedAndUnstaged = this.hasStagedAndUnstaged;
+		// Primary action label always set; alt label only when both staged + unstaged changes exist.
+		// Both flow into gl-action-chip's `label`/`alt-label`, which composes the tooltip, swaps live
+		// when Alt is held, and keeps the aria-label single-action.
+		const multiDiffLabel = hasStagedAndUnstaged ? 'Open Staged Changes' : 'Open All Changes';
+		const multiDiffAltLabel = hasStagedAndUnstaged ? 'Open Unstaged Changes' : undefined;
+
 		return html`<gl-file-tree-pane
 			.files=${this._effectiveFiles}
 			.collapsable=${this.collapsable}
@@ -246,6 +253,8 @@ export class GlWipTreePane extends LitElement {
 			.checkableStateDefault=${this.checkableStateDefault}
 			.agentTouchedFiles=${this.agentTouchedFiles}
 			.buttons=${buttons}
+			.multiDiffLabel=${multiDiffLabel}
+			.multiDiffAltLabel=${multiDiffAltLabel}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			empty-text=${this.emptyText}
@@ -256,7 +265,9 @@ export class GlWipTreePane extends LitElement {
 			@gl-check-all=${this.onCheckAll}
 			@file-compare-wip=${this.onFileCompareWip}
 			@file-compare-wip-staged=${this.onFileCompareWipStaged}
-			@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
+			@gl-file-tree-pane-open-multi-diff=${multiDiff
+				? (e: CustomEvent<{ altKey: boolean }>) => this.onOpenMultiDiff(multiDiff, e.detail?.altKey === true)
+				: null}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
 			${this.renderConflictBulkActions(files)}
@@ -265,7 +276,7 @@ export class GlWipTreePane extends LitElement {
 						<gl-action-chip icon="gl-stash-save" label="Stash Changes" @click=${this.onStashSave}>
 							<span class="stash-label">Stash</span>
 						</gl-action-chip>
-						${this.renderDiscardUnstagedAction(files)}${this.renderCopyPatchButton(splitMode)}
+						${this.renderDiscardUnstagedAction(files)}${this.renderCopyPatchButton(hasStagedAndUnstaged)}
 					</div>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
@@ -294,6 +305,25 @@ export class GlWipTreePane extends LitElement {
 			label=${label}
 			?disabled=${!hasUnstaged && !hasStaged}
 			@click=${stagedOnly ? this.onDiscardStaged : this.onDiscardUnstaged}
+		></gl-action-chip>`;
+	}
+
+	private renderCopyPatchButton(hasStagedAndUnstaged: boolean) {
+		// Need a repoPath to dispatch — fall back to the first file's repoPath if `multiDiff` is
+		// undefined (multiDiff is only set when the host wires multi-diff refs, but the Copy
+		// button is independent of that flow and should still work).
+		const repoPath = this.multiDiff?.repoPath ?? this.files?.find(f => f.repoPath)?.repoPath;
+		if (!repoPath) return nothing;
+
+		// When both staged + unstaged changes exist, the chip's alt-label drives a live Alt-swap
+		// (primary = staged, Alt = unstaged), composing the `Primary\n[Alt] …` tooltip and swapping
+		// the announced label when Alt is held — matching the Open Multi-Diff chip. Otherwise it's a
+		// plain "Copy All Changes (Patch)" with no alt action.
+		return html`<gl-action-chip
+			icon="copy"
+			label=${hasStagedAndUnstaged ? 'Copy Staged Changes (Patch)' : 'Copy All Changes (Patch)'}
+			alt-label=${hasStagedAndUnstaged ? 'Copy Unstaged Changes (Patch)' : nothing}
+			@click=${(e: MouseEvent) => this.onCopyPatch(e, repoPath)}
 		></gl-action-chip>`;
 	}
 
@@ -334,24 +364,96 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('discard-staged', { bubbles: true, composed: true }));
 	}
 
-	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
+	private onOpenMultiDiff(
+		refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string },
+		altKey: boolean,
+	): void {
 		const files = this.files;
 		if (!files?.length) return;
+
+		const scope = this.resolveScope(altKey);
+		const filtered = this.filterFilesByScope(files, scope);
+		if (!filtered.length) return;
+
+		const title = this.buildScopedTitle(refs.title ?? 'Working Changes', scope);
 
 		this.dispatchEvent(
 			new CustomEvent('open-multiple-changes', {
 				detail: {
-					files: files,
+					files: filtered,
 					repoPath: refs.repoPath,
 					lhs: refs.lhs,
 					rhs: refs.rhs,
 					wip: refs.wip,
-					title: refs.title,
+					title: title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,
 				composed: true,
 			}),
 		);
+	}
+
+	private onCopyPatch(e: MouseEvent, repoPath: string): void {
+		const scope = this.resolveScope(e.altKey === true);
+		// For staged/unstaged scopes, pass the scope-filtered file paths through so the
+		// host-side `getDiff` uses pathspec to constrain output to exactly those files —
+		// matches the file set the Open Multi-Diff button opens for the same scope, and
+		// keeps merge-conflict files out of the 'unstaged' patch (raw `git diff` would
+		// otherwise emit the conflict's combined-diff regardless of intent).
+		let uris: readonly string[] | undefined;
+		if (scope !== 'all') {
+			const files = this.files;
+			if (files?.length) {
+				uris = this.filterFilesByScope(files, scope).map(f => f.path);
+			}
+		}
+		this.dispatchEvent(
+			new CustomEvent('copy-wip-patch', {
+				detail: { repoPath: repoPath, scope: scope, uris: uris } satisfies CopyWipPatchEventDetail,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	/** True when BOTH staged and unstaged changes are present — the Copy/Open buttons then surface a
+	 *  staged(primary)/unstaged(Alt) choice. Otherwise they fall back to the single `all` action.
+	 *
+	 *  Derived from raw `this.files` (pre-dedup) on every read using two short-circuit `.some()`
+	 *  scans. Reading from raw files (NOT `_effectiveFiles`) matters because checkbox-mode dedup
+	 *  collapses mixed files to a single `staged: false` row, which would undercount staged
+	 *  presence. Conflicts count as `staged`-needing-attention per the smart-button rules. */
+	private get hasStagedAndUnstaged(): boolean {
+		const files = this.files;
+		if (!files?.length) return false;
+
+		const hasStaged = files.some(f => isConflictStatus(f.status) || f.staged === true);
+		if (!hasStaged) return false;
+		return files.some(f => !isConflictStatus(f.status) && f.staged !== true);
+	}
+
+	private resolveScope(altKey: boolean): WipScope {
+		if (!this.hasStagedAndUnstaged) return 'all';
+		return altKey ? 'unstaged' : 'staged';
+	}
+
+	private filterFilesByScope(files: readonly FileItem[], scope: WipScope): readonly FileItem[] {
+		if (scope === 'all') return files;
+		if (scope === 'staged') {
+			return files.filter(f => isConflictStatus(f.status) || f.staged === true);
+		}
+		return files.filter(f => !isConflictStatus(f.status) && f.staged !== true);
+	}
+
+	private buildScopedTitle(baseTitle: string, scope: WipScope): string {
+		switch (scope) {
+			case 'staged':
+				return `${baseTitle} (Staged)`;
+			case 'unstaged':
+				return `${baseTitle} (Unstaged)`;
+			default:
+				return baseTitle;
+		}
 	}
 
 	private renderStats() {

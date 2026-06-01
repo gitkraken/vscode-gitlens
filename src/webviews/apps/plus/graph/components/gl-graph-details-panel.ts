@@ -21,7 +21,7 @@ import {
 	UpdateWipDraftCommand,
 } from '../../../../plus/graph/protocol.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
-import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
+import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
@@ -1800,6 +1800,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@resolve-all-incoming=${this.handleResolveAllIncoming}
 										@change-files-layout=${this.handleChangeFilesLayout}
 										@open-multiple-changes=${this.handleOpenMultipleChanges}
+										@copy-wip-patch=${this.handleCopyWipPatch}
 									></gl-details-wip-panel>
 								</div>
 								<gl-commit-box
@@ -2814,6 +2815,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleOpenMultipleChanges = (e: CustomEvent<OpenMultipleChangesArgs>) => {
 		this._actions.openMultipleChanges(e.detail);
+	};
+
+	private handleCopyWipPatch = (e: CustomEvent<CopyWipPatchEventDetail>) => {
+		this._actions.copyWipPatchToClipboard(e.detail.repoPath, e.detail.scope, e.detail.uris);
 	};
 }
 

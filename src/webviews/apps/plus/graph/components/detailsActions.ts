@@ -108,6 +108,7 @@ type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphSer
 
 export interface ResolvedServices {
 	readonly files: ResolvedSubService<'files'>;
+	readonly drafts: ResolvedSubService<'drafts'>;
 	readonly graphInspect: ResolvedSubService<'graphInspect'>;
 	readonly autolinks: ResolvedSubService<'autolinks'>;
 	readonly branches: ResolvedSubService<'branches'>;
@@ -2493,6 +2494,10 @@ export class DetailsActions {
 
 	openMultipleChanges(args: OpenMultipleChangesArgs): void {
 		fileActions.openMultipleChanges(this.services.files, args);
+	}
+
+	copyWipPatchToClipboard(repoPath: string, scope: 'all' | 'staged' | 'unstaged', uris?: readonly string[]): void {
+		fireAndForget(this.services.drafts.copyWipPatchToClipboard(repoPath, scope, uris), 'copy WIP patch');
 	}
 
 	stageFile(detail: FileChangeListItemDetail): void {

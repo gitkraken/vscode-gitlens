@@ -20,6 +20,7 @@ export async function resolveDetailsActions(
 ): Promise<DetailsActions> {
 	const [
 		files,
+		drafts,
 		graphInspect,
 		autolinks,
 		branches,
@@ -34,6 +35,7 @@ export async function resolveDetailsActions(
 		telemetry,
 	] = await Promise.all([
 		services.files,
+		services.drafts,
 		services.graphInspect,
 		services.autolinks,
 		services.branches,
@@ -50,6 +52,7 @@ export async function resolveDetailsActions(
 
 	const resolved: ResolvedServices = {
 		files: files,
+		drafts: drafts,
 		graphInspect: graphInspect,
 		autolinks: autolinks,
 		branches: branches,
