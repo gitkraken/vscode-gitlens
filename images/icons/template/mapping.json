@@ -76,5 +76,6 @@
   "skip": 61769,
   "abort": 61770,
   "pause": 61771,
-  "kanban-view": 61772
+  "kanban-view": 61772,
+  "filter-mixed": 61773
 }

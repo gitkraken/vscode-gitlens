@@ -12222,6 +12222,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14c"
 				}
+			},
+			"gitlens-filter-mixed": {
+				"description": "filter-mixed icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14d"
+				}
 			}
 		},
 		"menus": {

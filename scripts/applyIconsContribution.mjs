@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { globSync } from 'glob';
 
 const packageJSONPromises = Promise.all([
 	import('../package.json', { with: { type: 'json' } }),
@@ -38,6 +39,22 @@ if (sassMap !== newSassMap) {
 
 if (tsMap !== newTsMap) {
 	pending.push(fs.promises.writeFile('./src/webviews/apps/shared/components/icons/glicons-map.ts', newTsMap));
+}
+
+// Propagate the new cache-busting hash into the per-app webview HTML files, which declare their own
+// `@font-face` for glicons.woff2 and would otherwise keep pointing at a stale cached font missing
+// any newly-added glyph. The canonical hash comes from the freshly-generated dist/glicons.scss.
+const hashMatch = newScss.match(/glicons\.woff2\?([a-f0-9]+)/);
+if (hashMatch != null) {
+	const newHash = hashMatch[1];
+	const htmlFiles = globSync('src/webviews/apps/**/*.html');
+	for (const file of htmlFiles) {
+		const html = await fs.promises.readFile(file, 'utf8');
+		const updated = html.replace(/(glicons\.woff2\?)[a-f0-9]+/g, `$1${newHash}`);
+		if (updated !== html) {
+			pending.push(fs.promises.writeFile(file, updated));
+		}
+	}
 }
 
 pending.push(

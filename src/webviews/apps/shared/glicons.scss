@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?3ff6971f027588b2c0cfaf7fa9a1bec3") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?6d6df3d609ab75f20b22aecdd3ed6c98") format("woff2");
 	}
 </style>
 */
@@ -292,4 +292,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-kanban-view:before {
 	content: '\f14c';
+}
+.glicon-filter-mixed:before {
+	content: '\f14d';
 }

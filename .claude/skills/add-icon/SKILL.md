@@ -43,9 +43,17 @@ pnpm run icons:svgo        # Optimize SVGs
 pnpm run build:icons       # Generate font (runs svgo + fantasticon + apply + export)
 ```
 
-### 4. Update Font References
+### 4. Verify Font Cache-Busting
 
-Copy the new `glicons.woff2?{hash}` URL from `src/webviews/apps/shared/glicons.scss` and search-replace the old URL across the codebase.
+`pnpm run build:icons` (via `scripts/applyIconsContribution.mjs`) now automatically propagates the new `glicons.woff2?{hash}` cache-bust hash into **both** `src/webviews/apps/shared/glicons.scss` **and** every per-app webview `*.html` file (each declares its own `@font-face`). No manual search-replace needed.
+
+Verify they're all unified (every reference must be the same hash):
+
+```bash
+grep -rho "glicons.woff2?[a-f0-9]*" src/ dist/ | sort | uniq -c
+```
+
+If any HTML file lags behind, re-run `pnpm run build:icons` — a stale hash leaves that webview pointing at a cached font without the new glyph.
 
 ### 5. Use the Icon
 
