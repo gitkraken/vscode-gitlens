@@ -10,7 +10,7 @@ import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
-import type { FileShowOptions } from '../../../../commitDetails/protocol.js';
+import type { FileShowOptions, WorkingFileSorting } from '../../../../commitDetails/protocol.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { elementBase } from '../styles/lit/base.css.js';
 import type {
@@ -110,6 +110,13 @@ export class GlFileTreePane extends LitElement {
 
 	@property({ attribute: false })
 	filesLayout?: Pick<ViewsFilesConfig, 'layout' | 'threshold' | 'compact'>;
+
+	/**
+	 * Working-files sort order (VS Code's `scm.defaultViewSortKey`). Honored only in list layout,
+	 * matching VS Code. Left undefined by non-WIP consumers, which keep the default name sort.
+	 */
+	@property({ attribute: false })
+	orderBy?: WorkingFileSorting;
 
 	@property()
 	showIndentGuides?: 'none' | 'onHover' | 'always';
@@ -228,6 +235,7 @@ export class GlFileTreePane extends LitElement {
 		if (
 			changedProperties.has('files') ||
 			changedProperties.has('filesLayout') ||
+			changedProperties.has('orderBy') ||
 			changedProperties.has('showFileIcons') ||
 			changedProperties.has('grouping') ||
 			changedProperties.has('checkable') ||
@@ -274,6 +282,7 @@ export class GlFileTreePane extends LitElement {
 				searchContext: this.searchContext,
 				fileToModel: (file, opts, flat) => this.fileToTreeModel(file, opts, flat),
 				folderToContextData: this.folderContext,
+				orderBy: this.orderBy,
 			});
 		}
 	}

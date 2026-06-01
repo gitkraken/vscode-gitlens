@@ -50,6 +50,9 @@ export interface CompareDiff {
 	commitCount?: number;
 }
 
+/** Sort order for the working (WIP) file list, mirroring VS Code's `scm.defaultViewSortKey`. */
+export type WorkingFileSorting = 'name' | 'path' | 'status';
+
 export interface Preferences {
 	pullRequestExpanded: boolean;
 	avatars: boolean;
@@ -59,6 +62,8 @@ export interface Preferences {
 	files: Config['views']['commitDetails']['files'];
 	indent: number | undefined;
 	indentGuides: 'none' | 'onHover' | 'always';
+	/** Working (WIP) file list sort, honoring VS Code's `scm.defaultViewSortKey` (list layout only). */
+	workingFilesOrderBy: WorkingFileSorting;
 	aiEnabled: boolean;
 	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;

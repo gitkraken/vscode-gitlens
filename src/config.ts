@@ -1124,6 +1124,9 @@ export type CoreConfig = {
 		readonly proxySupport: 'fallback' | 'off' | 'on' | 'override';
 		readonly proxyStrictSSL: boolean;
 	};
+	readonly scm: {
+		readonly defaultViewSortKey: 'name' | 'path' | 'status';
+	};
 	readonly search: {
 		readonly exclude: Record<string, boolean>;
 	};

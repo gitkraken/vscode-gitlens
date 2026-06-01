@@ -18,6 +18,7 @@ export type {
 	State,
 	Wip,
 	WipStats,
+	WorkingFileSorting,
 } from '../../commitDetails/protocol.js';
 
 export { buildFolderContext, messageHeadlineSplitterToken } from '../../commitDetails/protocol.js';

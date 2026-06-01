@@ -2,10 +2,12 @@ import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
+import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
-import { joinPaths } from '@gitlens/utils/path.js';
+import { basename, joinPaths } from '@gitlens/utils/path.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
+import type { WorkingFileSorting } from '../../../../commitDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemDecorationKind, TreeModel } from './base.js';
 
 /**
@@ -97,6 +99,43 @@ export function renderLayoutAction(layout: ViewFilesLayout, onToggle: (e: Event)
 		icon="${icon}"
 		@click="${onToggle}"
 	></action-item>`;
+}
+
+// Approximates VS Code's SCM "status" sort ordering for working changes. Conflicts are floated
+// first separately (see `compareWorkingFiles`), so they're omitted here.
+const workingFileStatusOrder: Record<string, number> = {
+	M: 1, // modified
+	T: 2, // type changed
+	A: 3, // added
+	D: 4, // deleted
+	R: 5, // renamed
+	C: 6, // copied
+	'?': 7, // untracked
+};
+
+/**
+ * Orders working (WIP) files per VS Code's `scm.defaultViewSortKey` (`name`/`path`/`status`).
+ * Unresolved conflicts always lead regardless of the key — preserving the conflicts-first behavior
+ * `sortTreeChildren` provides via `priority` for the ungrouped (checkbox) list.
+ */
+export function compareWorkingFiles(orderBy: WorkingFileSorting, a: GitFileChangeShape, b: GitFileChangeShape): number {
+	const conflictA = isConflictStatus(a.status) ? 0 : 1;
+	const conflictB = isConflictStatus(b.status) ? 0 : 1;
+	if (conflictA !== conflictB) return conflictA - conflictB;
+
+	switch (orderBy) {
+		case 'path':
+			return a.path.localeCompare(b.path) || basename(a.path).localeCompare(basename(b.path));
+		case 'status': {
+			const statusA = workingFileStatusOrder[a.status] ?? 99;
+			const statusB = workingFileStatusOrder[b.status] ?? 99;
+			if (statusA !== statusB) return statusA - statusB;
+			return basename(a.path).localeCompare(basename(b.path)) || a.path.localeCompare(b.path);
+		}
+		case 'name':
+		default:
+			return basename(a.path).localeCompare(basename(b.path)) || a.path.localeCompare(b.path);
+	}
 }
 
 export function sortTreeChildren(children: TreeModel[]): TreeModel[] {
@@ -211,6 +250,7 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	fileToModel: (file: T, options: Partial<TreeItemBase>, flat: boolean) => TreeModel,
 	options: Partial<TreeItemBase> = { level: 1 },
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined,
+	orderBy?: WorkingFileSorting,
 ): TreeModel[] {
 	if (options.level === undefined) {
 		options.level = 1;
@@ -241,13 +281,21 @@ export function buildFileTree<T extends GitFileChangeShape>(
 			}
 		}
 	} else {
-		for (const file of filteredFiles) {
+		// In list layout, honor an explicit working-files order (VS Code's `scm.defaultViewSortKey`).
+		const orderedFiles =
+			orderBy != null ? [...filteredFiles].sort((a, b) => compareWorkingFiles(orderBy, a, b)) : filteredFiles;
+		for (const file of orderedFiles) {
 			const child = fileToModel(file, { ...options, branch: false }, true);
 			children.push(child);
 		}
 	}
 
-	sortTreeChildren(children);
+	// Tree layout (sort key is a no-op there, matching VS Code) and the default flat list keep the
+	// folders-first, alphabetical-by-label sort. A list with an explicit `orderBy` is already
+	// ordered by `compareWorkingFiles` above — re-sorting by label would clobber it.
+	if (isTree || orderBy == null) {
+		sortTreeChildren(children);
+	}
 
 	return children;
 }
@@ -264,10 +312,13 @@ export interface GroupedTreeOptions<T extends GitFileChangeShape> {
 	searchContext?: { matchedFiles?: readonly { readonly path: string }[] } | null;
 	fileToModel: (file: T, options: Partial<TreeItemBase>, flat: boolean) => TreeModel;
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
+	/** Working-files sort order (VS Code's `scm.defaultViewSortKey`); applied to list layout only. */
+	orderBy?: WorkingFileSorting;
 }
 
 export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTreeOptions<T>): TreeModel[] {
-	const { files, isTree, compact, contextMatchVisibility, searchContext, fileToModel, folderToContextData } = opts;
+	const { files, isTree, compact, contextMatchVisibility, searchContext, fileToModel, folderToContextData, orderBy } =
+		opts;
 
 	if (!opts.grouping) {
 		return buildFileTree(
@@ -282,6 +333,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 				...(opts.checkable ? { checkable: true } : {}),
 			},
 			folderToContextData,
+			orderBy,
 		);
 	}
 
@@ -320,6 +372,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 				fileToModel,
 				{ level: 2 },
 				folderToContextData,
+				orderBy,
 			),
 			actions: groupDef.actions,
 		});
@@ -335,6 +388,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 			fileToModel,
 			undefined,
 			folderToContextData,
+			orderBy,
 		);
 	}
 

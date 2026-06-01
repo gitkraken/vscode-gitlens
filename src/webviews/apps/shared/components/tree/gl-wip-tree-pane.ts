@@ -236,6 +236,7 @@ export class GlWipTreePane extends LitElement {
 			.folderContext=${this.folderContext}
 			.filesLayout=${this.preferences?.files}
 			.showIndentGuides=${this.preferences?.indentGuides}
+			.orderBy=${this.preferences?.workingFilesOrderBy}
 			.grouping=${this._grouping}
 			?checkable=${this.checkable}
 			.checkableStates=${this._effectiveStates}

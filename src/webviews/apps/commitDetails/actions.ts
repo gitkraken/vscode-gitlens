@@ -1063,6 +1063,7 @@ export class CommitDetailsActions {
 					'workbench.tree.renderIndentGuides',
 					'workbench.tree.indent',
 					'git.enableSmartCommit',
+					'scm.defaultViewSortKey',
 				),
 				this.services.ai.isEnabled(),
 			]);
@@ -1072,7 +1073,8 @@ export class CommitDetailsActions {
 			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
 			const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, autolinksEnabled] =
 				getSettledValue(configResult) ?? [];
-			const [indentGuides, indent, enableSmartCommit] = getSettledValue(coreConfigResult) ?? [];
+			const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] =
+				getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
 
 			this.state.preferences.set({
@@ -1090,6 +1092,7 @@ export class CommitDetailsActions {
 					},
 				indentGuides: indentGuides ?? 'onHover',
 				indent: indent,
+				workingFilesOrderBy: workingFilesOrderBy ?? 'path',
 				aiEnabled: aiEnabled ?? false,
 				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,
