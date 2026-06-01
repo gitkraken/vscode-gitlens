@@ -28,9 +28,6 @@ import {
 const maxAutoInstallAttempts = 5;
 
 export class BinaryInstaller implements Disposable {
-	private _cliCoreVersion: string | undefined;
-	private _cliPath: string | undefined;
-
 	constructor(
 		private readonly container: Container,
 		private readonly authenticate: () => Promise<void>,
@@ -38,16 +35,6 @@ export class BinaryInstaller implements Disposable {
 
 	dispose(): void {
 		// No-op today; installed state is in storage scope, not in-memory.
-	}
-
-	/** Most-recently-observed CLI core version (set by install/update/version-check paths). */
-	get version(): string | undefined {
-		return this._cliCoreVersion;
-	}
-
-	/** Directory containing the gk binary. Set after successful install. */
-	get path(): string | undefined {
-		return this._cliPath;
 	}
 
 	/** Install the CLI. Gated to deduplicate concurrent installs.
@@ -102,8 +89,6 @@ export class BinaryInstaller implements Disposable {
 			if (cliInstallStatus === 'completed') {
 				cliVersion = cliInstall?.version;
 				if (await resolveCLIExecutable(cliPath)) {
-					this._cliCoreVersion = cliVersion;
-					this._cliPath = cliPath;
 					return { cliVersion: cliVersion, cliPath: cliPath, status: 'completed', changed: false };
 				}
 
@@ -333,8 +318,6 @@ export class BinaryInstaller implements Disposable {
 					scope?.info(`CLI installed (version: ${cliVersion}, path: ${cliPath})`);
 					cliInstallStatus = 'completed';
 					changed = true;
-					this._cliCoreVersion = cliVersion;
-					this._cliPath = cliPath;
 					void this.container.storage
 						.storeScoped('gk:cli:install', {
 							status: cliInstallStatus,
@@ -415,7 +398,6 @@ export class BinaryInstaller implements Disposable {
 			previousVersion = await getCLIVersions();
 			await runCLICommand(['update']);
 			const currentVersion = await getCLIVersions();
-			this._cliCoreVersion = currentVersion?.core;
 
 			// Update the install scope's version so consumers (e.g. GkMcpService's mcp-config cache)
 			// notice the core swap. Without this the cached MCP server config keeps the pre-update
@@ -474,7 +456,6 @@ export class BinaryInstaller implements Disposable {
 		try {
 			const currentVersions = await getCLIVersions();
 			if (currentVersions == null) {
-				this._cliCoreVersion = undefined;
 				return {
 					needsUpdate: 'proxy',
 					core: undefined,
@@ -483,7 +464,6 @@ export class BinaryInstaller implements Disposable {
 			}
 
 			const { core: currentCoreVersion, proxy: currentProxyVersion } = currentVersions;
-			this._cliCoreVersion = currentCoreVersion;
 
 			const { core: minimumCoreVersion, proxy: minimumProxyVersion } =
 				await this.container.productConfig.getCliMinimumVersions();
@@ -511,7 +491,6 @@ export class BinaryInstaller implements Disposable {
 			};
 		} catch (ex) {
 			scope?.error(ex, 'Failed to get CLI version');
-			this._cliCoreVersion = undefined;
 		}
 
 		return {
@@ -576,12 +555,10 @@ export class BinaryInstaller implements Disposable {
 
 					if (currentCoreVersion != null) {
 						Logger.info(`${formatLoggableScopeBlock('CLI')} CLI core version is ${currentCoreVersion}`);
-						this._cliCoreVersion = currentCoreVersion;
-						this._cliPath = this.container.context.globalStorageUri.fsPath;
 						void setContext('gitlens:gk:cli:installed', true);
 						return {
 							cliVersion: currentCoreVersion,
-							cliPath: this._cliPath,
+							cliPath: this.container.context.globalStorageUri.fsPath,
 							status: 'completed',
 							// No install ran (binary present, version current). Caller must not fire change events.
 							changed: false,
