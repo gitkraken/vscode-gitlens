@@ -63,7 +63,7 @@ import { getEffectiveDisplayMode } from './displayMode.js';
 import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import type { GraphCrossPaneState } from './graphCrossPaneState.js';
-import { createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
+import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
 import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
@@ -346,6 +346,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
+		// Abort in-flight AI runs — this element owns the registry, so teardown cancels them here.
+		abortRunningOperations(this._crossPaneState);
 		// Flush any pending debounced persist write so close-within-200ms-of-a-toggle doesn't
 		// lose the last visualization choice. The debouncer is leading-trailing by default;
 		// `flush()` runs the queued trailing call immediately, no-ops if nothing's queued.

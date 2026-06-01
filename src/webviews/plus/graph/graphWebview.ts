@@ -200,7 +200,7 @@ import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.j
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../../quickpicks/repositoryPicker.js';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
-import { fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
+import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import {
 	executeActionCommand,
 	executeCommand,
@@ -562,6 +562,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private _cancellations = new Map<CancellableOperations, CancellationTokenSource>();
+	/** In-flight AI-run cancellation sources, so `dispose()` can cancel them when the webview is torn
+	 *  down (their driving webview signal can't fire once its realm is gone). */
+	private _aiCancellations = new Set<CancellationTokenSource>();
 	private _discovering: Promise<number | undefined> | undefined;
 	private readonly _disposable: Disposable;
 	private _etag?: number;
@@ -815,15 +818,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			clearTimeout(this._stateFreshnessRetryTimer);
 			this._stateFreshnessRetryTimer = undefined;
 		}
-		// Cancel and dispose every in-flight cancellation token. Previously these survived dispose:
-		// the in-flight awaitee would resolve and call `host.notify` on a torn-down host (wasted
-		// work + logged errors), and each source's internal listeners leaked for the extension's
-		// lifetime.
-		for (const source of this._cancellations.values()) {
-			source.cancel();
-			source.dispose();
-		}
+		// Cancel + dispose every in-flight cancellation source, else the awaitee resolves and calls
+		// `host.notify` on a torn-down host and its listeners leak for the extension's lifetime.
+		cancelAndDispose(this._cancellations.values());
 		this._cancellations.clear();
+		// AI runs (generate/review/compose) are driven by the webview's AbortController, which can't
+		// fire once the webview is gone — cancel host-side so the AI call doesn't run for a discarded result.
+		cancelAndDispose(this._aiCancellations);
+		this._aiCancellations.clear();
 		// Cancel any in-flight load-more so its `graph.more()` resolution can't call setGraph on a
 		// disposed instance.
 		if (this._pendingRowsQuery != null) {
@@ -1321,7 +1323,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal) => {
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+						signal,
+						this._aiCancellations,
+					);
 					try {
 						signal?.throwIfAborted();
 
@@ -1556,7 +1561,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// staging-aware repo.
 					// Omit `progress` so no VS Code notification is shown — the WIP panel drives
 					// its own inline generating UI and exposes cancel via the sparkle button.
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+						signal,
+						this._aiCancellations,
+					);
+					// Cancellable by both the webview signal and host `dispose()` (via the registry).
+					const cancellationSignal = toAbortSignal(cancellation);
 					try {
 						const repo = this.container.git.getRepository(repoPath);
 						if (repo == null) return undefined;
@@ -1574,10 +1584,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								amend.all ? uncommitted : uncommittedStaged,
 								from,
 								undefined,
-								signal,
+								cancellationSignal,
 							);
 							if (!diff?.contents) {
-								diff = await repo.git.diff.getDiff?.(amend.sha, undefined, undefined, signal);
+								diff = await repo.git.diff.getDiff?.(
+									amend.sha,
+									undefined,
+									undefined,
+									cancellationSignal,
+								);
 							}
 							if (diff?.contents) {
 								changesOrRepo = diff.contents;
@@ -1601,7 +1616,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 				},
 				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {
-					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(signal);
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+						signal,
+						this._aiCancellations,
+					);
 					// Hoisted so the catch block can `discardCachedPlan` if any step after the
 					// library-side plan registration throws — otherwise an exception after the
 					// `generatePlan...` cache write leaks the cached plan in the compose-tools

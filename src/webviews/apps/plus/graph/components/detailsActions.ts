@@ -181,7 +181,6 @@ export class DetailsActions {
 	private _branchCommitsController?: AbortController;
 	private _branchCommitsLoadMoreController?: AbortController;
 	private _enrichmentController?: AbortController;
-	private _generateMessageController?: AbortController;
 	private _branchCompareEnrichmentControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	private _branchCompareContributorsControllers = new Map<BranchComparisonContributorsScope, AbortController>();
 	/** Per-(tab,sha) abort controllers for lazy commit-file fetches in branch-compare. New selection
@@ -254,7 +253,6 @@ export class DetailsActions {
 		this._branchCommitsController?.abort();
 		this._branchCommitsLoadMoreController?.abort();
 		this._enrichmentController?.abort();
-		this._generateMessageController?.abort();
 		for (const c of this._branchCompareEnrichmentControllers.values()) {
 			c.abort();
 		}
@@ -450,8 +448,8 @@ export class DetailsActions {
 		s.commitMessageDirty.set(false);
 		s.amend.set(false);
 		s.amendBaseSha.set(undefined);
-		s.generating.set(false);
 		s.commitError.set(undefined);
+		// `generating` is not reset here — it's panel-derived from the registry, which repo-switch clears.
 	}
 
 	/**
@@ -2745,60 +2743,6 @@ export class DetailsActions {
 			}
 		} finally {
 			this.state.committing.set(false);
-		}
-	}
-
-	async generateMessage(repoPath: string | undefined): Promise<void> {
-		if (!repoPath) return;
-
-		// Second invocation while generating = cancel. The sparkle button stays enabled
-		// during generation so the spinner doubles as a cancel affordance.
-		if (this._generateMessageController != null) {
-			this._generateMessageController.abort();
-			return;
-		}
-
-		const controller = new AbortController();
-		this._generateMessageController = controller;
-		this.state.generating.set(true);
-		try {
-			const currentMessage = this.state.commitMessage.get().trim() || undefined;
-
-			// When amending, the message must describe what the amend will actually produce, not
-			// just the working changes. Mirror `commit()`'s staged-vs-all decision so the host can
-			// diff against the amend's parent and fold in the existing commit's content.
-			let amend: { sha: string; all: boolean } | undefined;
-			if (this.state.amend.get()) {
-				const amendingSha = this.state.amendBaseSha.get();
-				if (amendingSha != null) {
-					const wip = this.state.wip.get();
-					const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
-					const smartCommit = this.state.preferences.get()?.enableSmartCommit ?? false;
-					amend = { sha: amendingSha, all: !hasStagedFiles && smartCommit };
-				}
-			}
-
-			const result = await this.services.graphInspect.generateCommitMessage(
-				repoPath,
-				currentMessage,
-				amend,
-				controller.signal,
-			);
-			// Guard against a late response after the user cancelled or kicked off
-			// a new generation — only land the result if this controller is still current.
-			if (this._generateMessageController !== controller) return;
-
-			if (result) {
-				this.state.commitMessage.set(result.body ? `${result.summary}\n\n${result.body}` : result.summary);
-				// AI output is the user's intentional generation against the current diff —
-				// treat as user-authored so HEAD-move auto-clear preserves it.
-				this.state.commitMessageDirty.set(true);
-			}
-		} finally {
-			if (this._generateMessageController === controller) {
-				this._generateMessageController = undefined;
-				this.state.generating.set(false);
-			}
 		}
 	}
 

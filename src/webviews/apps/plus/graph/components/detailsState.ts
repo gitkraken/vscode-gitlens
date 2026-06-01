@@ -79,7 +79,7 @@ interface RunningOperationBase {
 	 *  RPC). Present while `execState === 'generating'`; absent after the run settles. */
 	abortController?: AbortController;
 	/** In-flight RPC promise — lets a re-engage re-attach rendering without re-running the AI. */
-	promise?: Promise<ReviewResult | ComposeResult>;
+	promise?: Promise<ReviewResult | ComposeResult | GenerateMessageResult>;
 	/** The user-submitted prompt that initiated this run. Set at `dispatchOperation` time and
 	 *  preserved through every entry transition (success, error, backed, retry-update) via the
 	 *  spread pattern. Drives the AI-input seed on Restart / Go Back: the panel reads it off the
@@ -88,17 +88,26 @@ interface RunningOperationBase {
 	prompt?: string;
 }
 
-/** A started compose/review operation. Keyed in the registry inside a {@link RunningOperationBucket}
- *  so both a `review` and a `compose` may coexist on the same anchor. Webview-local; in-memory only.
- *  The entry OWNS the in-flight run — switching anchors leaves it intact; the run keeps going. */
+/** Generate-commit-message result — just the composed message; the panel routes it to the WIP input/draft
+ *  rather than rendering it (no in-webview result). */
+export interface GenerateMessageResult {
+	message: string;
+}
+
+/** A started AI operation, keyed in a {@link RunningOperationBucket} so review/compose/generateMessage can
+ *  coexist on one anchor. Webview-local; the entry owns the in-flight run and survives anchor switches.
+ *  `generateMessage` is tracking-only: lives only as `'generating'`, removed on settle, carries no `result`/
+ *  `prompt`/`'backed'`/`'orphaned'`. `kind` matches the bucket slot so `bucket[op.kind]` indexing holds. */
 export type RunningOperation =
 	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
-	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult });
+	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult })
+	| (RunningOperationBase & { kind: 'generateMessage' });
 
 /** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
 export interface RunningOperationBucket {
 	review?: Extract<RunningOperation, { kind: 'review' }>;
 	compose?: Extract<RunningOperation, { kind: 'compose' }>;
+	generateMessage?: Extract<RunningOperation, { kind: 'generateMessage' }>;
 }
 
 /**

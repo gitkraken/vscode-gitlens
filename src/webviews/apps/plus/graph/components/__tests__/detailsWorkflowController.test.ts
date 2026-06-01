@@ -9,7 +9,7 @@ import type {
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
 import type { GraphCrossPaneState } from '../../graphCrossPaneState.js';
-import { createGraphCrossPaneState } from '../../graphCrossPaneState.js';
+import { abortRunningOperations, createGraphCrossPaneState } from '../../graphCrossPaneState.js';
 import { anchorKey } from '../anchorKey.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions } from '../detailsActions.js';
@@ -119,6 +119,9 @@ class FakeHost implements DetailsWorkflowHost {
 	private _selection: DetailsSelection;
 	private _controllers: ReactiveController[] = [];
 
+	/** Captures `applyGeneratedCommitMessage` calls so generate-message tests can assert routing. */
+	readonly generatedMessages: Array<{ repoPath: string; message: string }> = [];
+
 	updateComplete: Promise<boolean> = Promise.resolve(true);
 
 	constructor(initial: { repoPath?: string; graphRepoPath?: string; selection?: DetailsSelection }) {
@@ -147,6 +150,9 @@ class FakeHost implements DetailsWorkflowHost {
 	}
 	currentSelection(): DetailsSelection {
 		return this._selection;
+	}
+	applyGeneratedCommitMessage(repoPath: string, message: string): void {
+		this.generatedMessages.push({ repoPath: repoPath, message: message });
 	}
 
 	addController(c: ReactiveController): void {
@@ -449,9 +455,8 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		assert.ok(generatingEntry.abortController, 'abortController held on the entry');
 		assert.ok(generatingEntry.promise, 'in-flight promise held on the entry');
 
-		// Yield twice so the RPC's microtask + onRunSettled flush.
-		await Promise.resolve();
-		await Promise.resolve();
+		// Flush so the RPC's microtask + onRunSettled settle.
+		await flush();
 
 		const completed = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
 		assert.ok(completed);
@@ -1309,5 +1314,196 @@ suite('DetailsWorkflowController.compare lifecycle', () => {
 
 		assert.strictEqual(state.compareAsPanel.get(), false);
 		assert.strictEqual(state.compareSheetOpen.get(), false);
+	});
+});
+
+interface GenerateCall {
+	repoPath: string;
+	currentMessage: string | undefined;
+	amend: { sha: string; all: boolean } | undefined;
+	signal: AbortSignal;
+	resolve: (result: { summary: string; body?: string } | undefined) => void;
+	reject: (ex: unknown) => void;
+}
+
+/** Services stub whose `generateCommitMessage` parks each call so the test can resolve/reject it on
+ *  demand and inspect its args + signal. */
+function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
+	const noopUnsubscribe = () => {};
+	return {
+		repository: {
+			onRepositoryChanged: () => noopUnsubscribe,
+			onRepositoryWorkingChanged: () => noopUnsubscribe,
+		},
+		graphInspect: {
+			reviewChanges: async () => ({ error: { message: 'not implemented' } }),
+			composeChanges: async () => ({ error: { message: 'not implemented' } }),
+			generateCommitMessage: (
+				repoPath: string,
+				currentMessage: string | undefined,
+				amend: { sha: string; all: boolean } | undefined,
+				signal: AbortSignal,
+			) =>
+				new Promise<{ summary: string; body?: string } | undefined>((resolve, reject) => {
+					calls.push({
+						repoPath: repoPath,
+						currentMessage: currentMessage,
+						amend: amend,
+						signal: signal,
+						resolve: resolve,
+						reject: reject,
+					});
+				}),
+		},
+	} as unknown as ResolvedServices;
+}
+
+function setupGenerate(calls: GenerateCall[]): {
+	host: FakeHost;
+	state: DetailsState;
+	controller: DetailsWorkflowController;
+} {
+	const host = new FakeHost({ repoPath: '/A', graphRepoPath: '/A' });
+	const state = createDetailsState();
+	const actions = new DetailsActions(state, createGenerateServices(calls), createResources());
+	const controller = new DetailsWorkflowController(host, actions);
+	host.connectAll();
+	host.tickHostUpdate();
+	return { host: host, state: state, controller: controller };
+}
+
+const genEntry = (host: FakeHost, repoPath: string) =>
+	host.crossPaneState.runningOperations.get().get(wipKey(repoPath))?.generateMessage;
+
+/** Drain the two `.then` hops of the generate-message dispatch (RPC→map→onRunSettled). */
+const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
+suite('DetailsWorkflowController.generateMessage', () => {
+	test('dispatch registers a generating entry; connected settle routes the message and clears it', async () => {
+		const calls: GenerateCall[] = [];
+		const { host, controller } = setupGenerate(calls);
+
+		controller.runGenerateMessage('/A');
+		assert.strictEqual(genEntry(host, '/A')?.execState, 'generating', 'entry registered as generating');
+		assert.strictEqual(host.generatedMessages.length, 0, 'nothing applied while generating');
+		assert.strictEqual(calls.length, 1);
+
+		calls[0].resolve({ summary: 'Summary', body: 'Body' });
+		await flush();
+
+		assert.deepStrictEqual(host.generatedMessages, [{ repoPath: '/A', message: 'Summary\n\nBody' }]);
+		assert.strictEqual(genEntry(host, '/A'), undefined, 'entry removed after applying');
+	});
+
+	test('second invocation while generating cancels that worktree only and drops its late result', async () => {
+		const calls: GenerateCall[] = [];
+		const { host, controller } = setupGenerate(calls);
+
+		controller.runGenerateMessage('/A');
+		controller.runGenerateMessage('/B');
+		assert.strictEqual(genEntry(host, '/A')?.execState, 'generating');
+		assert.strictEqual(genEntry(host, '/B')?.execState, 'generating');
+		assert.strictEqual(calls[0].signal.aborted, false, 'A not aborted by B');
+		assert.strictEqual(calls[1].signal.aborted, false, 'B not aborted by A');
+
+		// Second click on A = cancel A.
+		controller.runGenerateMessage('/A');
+		assert.strictEqual(calls[0].signal.aborted, true, 'A aborted');
+		assert.strictEqual(genEntry(host, '/A'), undefined, 'A entry removed on cancel');
+		assert.strictEqual(genEntry(host, '/B')?.execState, 'generating', 'B untouched');
+		assert.strictEqual(calls.length, 2, 'cancel starts no new run');
+
+		// A late resolve of the cancelled run must not route.
+		calls[0].resolve({ summary: 'late A' });
+		await flush();
+		assert.strictEqual(
+			host.generatedMessages.some(m => m.repoPath === '/A'),
+			false,
+			'cancelled A result dropped',
+		);
+
+		// B still completes into its own slot.
+		calls[1].resolve({ summary: 'B' });
+		await flush();
+		assert.deepStrictEqual(host.generatedMessages, [{ repoPath: '/B', message: 'B' }]);
+		assert.strictEqual(genEntry(host, '/B'), undefined);
+	});
+
+	test('a null host result lands nothing but still clears the entry', async () => {
+		const calls: GenerateCall[] = [];
+		const { host, controller } = setupGenerate(calls);
+
+		controller.runGenerateMessage('/A');
+		calls[0].resolve(undefined);
+		await flush();
+
+		assert.strictEqual(host.generatedMessages.length, 0, 'no message applied');
+		assert.strictEqual(genEntry(host, '/A'), undefined, 'entry cleared');
+	});
+
+	test('graph teardown (abortRunningOperations) aborts an in-flight generate-message run; a late settle lands nothing', async () => {
+		const calls: GenerateCall[] = [];
+		const { host, controller } = setupGenerate(calls);
+
+		controller.runGenerateMessage('/A');
+		const sig = genEntry(host, '/A')?.abortController?.signal;
+		assert.strictEqual(sig?.aborted, false, 'in flight');
+
+		// gl-graph-app's teardown cancels every in-flight AI run (the registry owner, not the panel).
+		abortRunningOperations(host.crossPaneState);
+		assert.strictEqual(sig?.aborted, true, 'run aborted on teardown');
+
+		// A late resolve from the aborted run must not route a message (onRunSettled's abort guard).
+		calls[0].resolve({ summary: 'too late' });
+		await flush();
+		assert.strictEqual(host.generatedMessages.length, 0, 'aborted run lands nothing');
+	});
+
+	test('graph teardown (abortRunningOperations) aborts review/compose runs too — not just generate-message', () => {
+		const state = createGraphCrossPaneState();
+		const reviewAbort = new AbortController();
+		const composeAbort = new AbortController();
+		const genAbort = new AbortController();
+		state.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						review: {
+							kind: 'review' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'generating' as const,
+							abortController: reviewAbort,
+							promise: Promise.resolve(makeReviewResult('R')),
+						},
+						generateMessage: {
+							kind: 'generateMessage' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'generating' as const,
+							abortController: genAbort,
+							promise: Promise.resolve({ message: 'G' }),
+						},
+					},
+				],
+				[
+					wipKey('/B'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/B', sha: uncommitted },
+							execState: 'generating' as const,
+							abortController: composeAbort,
+							promise: Promise.resolve(makeComposeResult('C')),
+						},
+					},
+				],
+			]),
+		);
+
+		abortRunningOperations(state);
+
+		assert.strictEqual(reviewAbort.signal.aborted, true, 'review aborted');
+		assert.strictEqual(composeAbort.signal.aborted, true, 'compose aborted');
+		assert.strictEqual(genAbort.signal.aborted, true, 'generate-message aborted');
 	});
 });

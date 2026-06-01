@@ -27,4 +27,18 @@ export function createGraphCrossPaneState(): GraphCrossPaneState {
 	};
 }
 
+/** Abort every in-flight AI run and clear the registry. Shared by `gl-graph-app` teardown and the
+ *  controller's repo-switch reset; clearing avoids stranding a `'generating'` entry behind an aborted run. */
+export function abortRunningOperations(state: GraphCrossPaneState): void {
+	const current = state.runningOperations.get();
+	for (const bucket of current.values()) {
+		bucket.review?.abortController?.abort();
+		bucket.compose?.abortController?.abort();
+		bucket.generateMessage?.abortController?.abort();
+	}
+	if (current.size > 0) {
+		state.runningOperations.set(new Map());
+	}
+}
+
 export const graphCrossPaneContext = createContext<GraphCrossPaneState>('graph-cross-pane-context');

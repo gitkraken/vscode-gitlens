@@ -1,5 +1,6 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import type { AIReviewDetailResult } from '@gitlens/ai/models/results.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -7,10 +8,12 @@ import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { ComposeResult, ReviewResult, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import { subscribeAll } from '../../../shared/events/subscriptions.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
+import { abortRunningOperations } from '../graphCrossPaneState.js';
 import type { AnchorKey, AnchorSelection } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
 import type {
+	GenerateMessageResult,
 	RunningOperation,
 	RunningOperationAnchor,
 	RunningOperationBucket,
@@ -74,6 +77,11 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  The controller writes the running-modes registry through this so other panes (graph
 	 *  row component, etc.) can decorate rows accordingly. */
 	readonly crossPaneState: GraphCrossPaneState;
+	/** Lands a settled generate-message result: the host routes `message` to the live WIP commit
+	 *  input when that worktree is still the selected WIP (no mode active), otherwise into the
+	 *  worktree's persisted draft slot. Called by the controller from `onRunSettled` (and on
+	 *  re-engage after a disconnected settle) — never while the panel is disconnected. */
+	applyGeneratedCommitMessage(repoPath: string, message: string): void;
 }
 
 /**
@@ -154,8 +162,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Registry survives panel disconnect (owned by gl-graph-app); only repo-selector
 		// switch clears it. Resource cancellation is handled by the panel's own dispose.
 		// Flag for `onRunSettled` and async subscription callbacks so they stop writing to
-		// the disposed `actions` / its resources after we're gone (the runs themselves keep
-		// going via the host-owned registry, so the settled callbacks WILL still fire).
+		// the disposed `actions` / its resources after we're gone (runs keep going via the
+		// host-owned registry, so the settled callbacks WILL still fire). Cancelling in-flight AI
+		// runs on teardown is owned by `gl-graph-app` (the registry owner), not the panel.
 		this._disconnected = true;
 		this.tearDownSubscription();
 	}
@@ -1262,12 +1271,27 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  sentinel), then projects into the engaged-anchor resource if still engaged. Always
 	 *  publishes the entry update — adornments + chip overlays refresh even when not engaged. */
 	private onRunSettled(
-		kind: 'review' | 'compose',
+		kind: 'review' | 'compose' | 'generateMessage',
 		anchor: RunningOperationAnchor,
 		controller: AbortController,
-		result: ReviewResult | ComposeResult | undefined,
+		result: ReviewResult | ComposeResult | GenerateMessageResult | undefined,
 		ex: unknown,
 	): void {
+		// Stale guard first — these are host-owned registry reads, safe even after disconnect, so
+		// they precede the disconnect bail below. A newer same-(anchor,kind) run replaced this entry
+		// (re-run), or the run was explicitly cancelled / repo-switched: this settlement is orphaned.
+		const key = anchorKey(anchor);
+		const current = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
+		if (current?.abortController !== controller) return;
+		if (controller.signal.aborted) return;
+
+		// generate-message routes to the WIP input/draft, not a resource, so it skips the review/compose
+		// `_disconnected` resource-write bail below (teardown aborts these runs; the guard above drops late settles).
+		if (kind === 'generateMessage') {
+			this.settleGenerateMessage(anchor, result as GenerateMessageResult | undefined, ex);
+			return;
+		}
+
 		// Disconnect guard: the panel intentionally lets in-flight runs survive disconnect
 		// (registry is host-owned), so the promise can still resolve after `actions` has been
 		// disposed. Writing to a disposed Resource is UB; bail. The registry entry stays as
@@ -1275,13 +1299,6 @@ export class DetailsWorkflowController implements ReactiveController {
 		// will resync it from the entry. Repo-switch already calls `cancelAllRunningOperations`
 		// to abort everything, so we don't strand entries indefinitely.
 		if (this._disconnected) return;
-
-		const key = anchorKey(anchor);
-		const current = this.host.crossPaneState.runningOperations.get().get(key)?.[kind];
-		// Stale guard: a newer same-(anchor,kind) run replaced this entry (re-run), or the run
-		// was explicitly cancelled / repo-switched. Either way, this settlement is orphaned.
-		if (current?.abortController !== controller) return;
-		if (controller.signal.aborted) return;
 
 		// Compose `{cancelled:true}` sentinel — host-side library cancel without an abort. Same
 		// shape as the user-clicked Cancel: preserve the entry+prompt in `'backed'` with no
@@ -1293,7 +1310,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		let execState: RunningOperationExecState;
-		let value: ReviewResult | ComposeResult | undefined = result;
+		// `kind` is narrowed to 'review' | 'compose' here (generate-message returned above), so the
+		// settled value is a review/compose result.
+		let value: ReviewResult | ComposeResult | undefined = result as ReviewResult | ComposeResult | undefined;
 		if (ex != null) {
 			execState = 'error';
 			const message = ex instanceof Error ? ex.message : typeof ex === 'string' ? ex : 'Run failed';
@@ -1327,6 +1346,77 @@ export class DetailsWorkflowController implements ReactiveController {
 		);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
+	}
+
+	/** Settle a generate-message run: apply a non-empty message via the host (live input or draft, host
+	 *  decides) and remove the entry. Ephemeral — nothing is stored; errors land nothing. */
+	private settleGenerateMessage(
+		anchor: RunningOperationAnchor,
+		result: GenerateMessageResult | undefined,
+		ex: unknown,
+	): void {
+		const message = ex == null ? (result?.message ?? '') : '';
+		if (message) {
+			this.host.applyGeneratedCommitMessage(anchor.repoPath, message);
+		}
+		this.removeRunningOperation(anchorKey(anchor), 'generateMessage');
+	}
+
+	/** Generate-commit-message entry point (panel sparkle). Tracks the run under its WIP anchor in the
+	 *  shared registry (survives selection changes, concurrent per worktree). A second invocation while
+	 *  generating cancels that worktree's run — the sparkle doubles as a cancel affordance. */
+	runGenerateMessage(repoPath: string | undefined): void {
+		if (!repoPath) return;
+
+		const anchor: RunningOperationAnchor = { kind: 'wip', repoPath: repoPath, sha: uncommitted };
+		const key = anchorKey(anchor);
+
+		const existing = this.host.crossPaneState.runningOperations.get().get(key)?.generateMessage;
+		if (existing?.execState === 'generating') {
+			existing.abortController?.abort();
+			this.removeRunningOperation(key, 'generateMessage');
+			return;
+		}
+
+		const controller = new AbortController();
+		const promise = this.startGenerateMessage(repoPath, controller.signal);
+		this.registerRunningOperation({
+			kind: 'generateMessage',
+			anchor: anchor,
+			execState: 'generating',
+			abortController: controller,
+			promise: promise,
+		});
+		promise.then(
+			result => this.onRunSettled('generateMessage', anchor, controller, result, undefined),
+			(ex: unknown) => this.onRunSettled('generateMessage', anchor, controller, undefined, ex),
+		);
+	}
+
+	/** Builds the generate-message RPC promise from the current WIP form state, mirroring `commit`'s
+	 *  staged-vs-all amend decision. A `null` host result maps to an empty message. */
+	private startGenerateMessage(repoPath: string, signal: AbortSignal): Promise<GenerateMessageResult> {
+		const state = this.actions.state;
+		const currentMessage = state.commitMessage.get().trim() || undefined;
+
+		let amend: { sha: string; all: boolean } | undefined;
+		if (state.amend.get()) {
+			const amendingSha = state.amendBaseSha.get();
+			if (amendingSha != null) {
+				const wip = state.wip.get();
+				const hasStagedFiles = wip?.changes?.files?.some(f => f.staged) ?? false;
+				const smartCommit = state.preferences.get()?.enableSmartCommit ?? false;
+				amend = { sha: amendingSha, all: !hasStagedFiles && smartCommit };
+			}
+		}
+
+		return this.actions.services.graphInspect
+			.generateCommitMessage(repoPath, currentMessage, amend, signal)
+			.then(result =>
+				result
+					? { message: result.body ? `${result.summary}\n\n${result.body}` : result.summary }
+					: { message: '' },
+			);
 	}
 
 	/** True when the given anchor matches the currently-engaged-mode's locked anchor. Engaged
@@ -1390,7 +1480,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (
 			existing?.kind === op.kind &&
 			existing.execState === op.execState &&
-			existing.result === (op as { result?: unknown }).result &&
+			// `result` is absent on the generate-message arm, present on review/compose — compare via
+			// cast so the dedup is uniform across kinds (undefined === undefined for generate-message).
+			(existing as { result?: unknown }).result === (op as { result?: unknown }).result &&
 			existing.abortController === op.abortController &&
 			existing.promise === op.promise
 		) {
@@ -1404,16 +1496,21 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	/** Removes a single-kind entry from the bucket at `(key)`. If the bucket becomes empty, the
 	 *  whole bucket is removed (so the row-keyed adornment translation can short-circuit). */
-	private removeRunningOperation(key: AnchorKey, kind: 'review' | 'compose'): void {
+	private removeRunningOperation(key: AnchorKey, kind: 'review' | 'compose' | 'generateMessage'): void {
 		const signal = this.host.crossPaneState.runningOperations;
 		const current = signal.get();
 		const bucket = current.get(key);
 		if (bucket?.[kind] == null) return;
 
-		const nextBucket: RunningOperationBucket =
-			kind === 'review' ? { compose: bucket.compose } : { review: bucket.review };
+		// Drop only this kind; preserve the other kinds that may share the anchor. Static keys (no
+		// dynamic delete) so each slot's discriminated type is preserved.
+		const nextBucket: RunningOperationBucket = {
+			review: kind === 'review' ? undefined : bucket.review,
+			compose: kind === 'compose' ? undefined : bucket.compose,
+			generateMessage: kind === 'generateMessage' ? undefined : bucket.generateMessage,
+		};
 		const next = new Map(current);
-		if (nextBucket.review == null && nextBucket.compose == null) {
+		if (nextBucket.review == null && nextBucket.compose == null && nextBucket.generateMessage == null) {
 			next.delete(key);
 		} else {
 			next.set(key, nextBucket);
@@ -1426,19 +1523,13 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  running operations silently). NOT called on `hostDisconnected` — runs intentionally
 	 *  survive panel disconnect; the registry is owned by `gl-graph-app`. */
 	private cancelAllRunningOperations(): void {
-		const signal = this.host.crossPaneState.runningOperations;
-		const current = signal.get();
-		for (const bucket of current.values()) {
-			bucket.review?.abortController?.abort();
-			bucket.compose?.abortController?.abort();
-		}
+		// Shared abort-and-clear core (also used by gl-graph-app teardown); this method layers on the
+		// controller-only resets below.
+		abortRunningOperations(this.host.crossPaneState);
 		this._reviewBackSnapshot = undefined;
 		this._composeBackSnapshot = undefined;
 		this.actions.resources.review.reset();
 		this.actions.resources.compose.reset();
-		if (current.size > 0) {
-			signal.set(new Map());
-		}
 		// Prior repo's anchors are gone — drop their remembered modes too.
 		const modes = this.host.crossPaneState.lastModeByAnchor;
 		if (modes.get().size > 0) {
@@ -1494,9 +1585,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.enterBackedNoResult(kind);
 	}
 
-	/** Marks running operations for the given repo paths as `'orphaned'` and aborts any
-	 *  still-`'generating'` ones (the host AI work is pointless if the anchor is gone). The
-	 *  saved result (if any) remains accessible so the user can still view it. */
+	/** Marks review/compose running operations for the given repo paths as `'orphaned'` and aborts
+	 *  any still-`'generating'` ones (the host AI work is pointless if the anchor is gone); the saved
+	 *  result (if any) remains accessible so the user can still view it. Generate-message entries are
+	 *  instead aborted and dropped — they have no `'orphaned'` UI or in-registry result to preserve. */
 	orphanRunningOperationsForRepoPaths(removedRepoPaths: ReadonlySet<string>): void {
 		const signal = this.host.crossPaneState.runningOperations;
 		const current = signal.get();
@@ -1528,8 +1620,19 @@ export class DetailsWorkflowController implements ReactiveController {
 				};
 				touched = true;
 			}
+			const generateMessage = bucket.generateMessage;
+			if (generateMessage != null && removedRepoPaths.has(generateMessage.anchor.repoPath)) {
+				generateMessage.abortController?.abort();
+				nextBucket ??= { ...bucket };
+				delete nextBucket.generateMessage;
+				touched = true;
+			}
 			if (nextBucket != null) {
-				next.set(key, nextBucket);
+				if (nextBucket.review == null && nextBucket.compose == null && nextBucket.generateMessage == null) {
+					next.delete(key);
+				} else {
+					next.set(key, nextBucket);
+				}
 			}
 		}
 		if (touched) {

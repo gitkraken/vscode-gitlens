@@ -690,7 +690,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const draft = this._graphState?.wipDrafts?.[worktreePath];
 
 		this._state.commitError.set(undefined);
-		this._state.generating.set(false);
+		// Keep the spinner lit if a generation for this worktree is still running.
+		this.refreshGeneratingForCurrentSelection();
 
 		if (draft != null) {
 			this._state.commitMessage.set(draft.message);
@@ -739,19 +740,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (pending == null) return;
 
 		this._lastFlushedWipDraftKey = pending.key;
+		this.persistWipDraft(pending.worktreePath, pending.draft);
+	}
 
-		// Optimistically mirror the flush into local `wipDrafts` state so the next loadWipDraft
-		// (e.g., when the user swaps off this WIP row and back within the same session) sees the
-		// just-written draft without waiting for a host state push. Routes through `setWipDraft`
-		// so the provider's internal `_state.wipDrafts` snapshot stays in sync alongside the
-		// signal accessor; the host's storage write below is the source of truth for
-		// cross-session restore.
-		this._graphState?.setWipDraft(pending.worktreePath, pending.draft);
-
-		this._ipc?.sendCommand(UpdateWipDraftCommand, {
-			worktreePath: pending.worktreePath,
-			draft: pending.draft,
-		});
+	/** Write one worktree's draft slot: optimistically mirror into local `wipDrafts` state so the
+	 *  next `loadWipDraft` (e.g., swapping off this WIP row and back within the same session) sees
+	 *  it without waiting for a host push — routing through `setWipDraft` keeps the provider's
+	 *  internal `_state.wipDrafts` snapshot in sync with the signal accessor — then persist to the
+	 *  host, the source of truth for cross-session restore. Pass `draft: null` to clear the slot. */
+	private persistWipDraft(worktreePath: string, draft: StoredGraphWipDraft | null): void {
+		this._graphState?.setWipDraft(worktreePath, draft);
+		this._ipc?.sendCommand(UpdateWipDraftCommand, { worktreePath: worktreePath, draft: draft });
 	}
 
 	/** Snapshot the commit-form signals and schedule a debounced flush to the host. Re-runs on
@@ -1157,6 +1156,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this.applyAgentAutoSurface(sessions);
 		}
 
+		// Derive the generate-message spinner; the registry read inside keeps it in sync on start/settle
+		// and selection change (see the method).
+		this.refreshGeneratingForCurrentSelection();
+
 		// Resolve content for this render cycle here (not in render) so render stays free of
 		// `this` assignments. willUpdate runs synchronously immediately before render, so the
 		// cached value is always fresh by the time render reads it.
@@ -1223,14 +1226,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this._state.commitMessage.set('');
 					this._state.commitMessageDirty.set(false);
 					this._state.commitError.set(undefined);
-					this._state.generating.set(false);
+					this.refreshGeneratingForCurrentSelection();
 				} else if (prevWasWip && !this.isWip) {
 					// Leaving WIP within the same repo (clicking a commit to inspect): clear
 					// only per-attempt status. amend stays put — the HEAD-move check below
 					// validates it on return. commitMessage stays put — preserve the user's
 					// typing across brief round-trips.
 					this._state.commitError.set(undefined);
-					this._state.generating.set(false);
+					this.refreshGeneratingForCurrentSelection();
 				}
 			}
 
@@ -2694,7 +2697,36 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCommit = () => void this._actions.commit(this.effectiveRepoPath, this.sha);
 
-	private handleGenerateMessage = () => void this._actions.generateMessage(this.effectiveRepoPath);
+	private handleGenerateMessage = () => this._workflow.runGenerateMessage(this.effectiveRepoPath);
+
+	/** {@link DetailsWorkflowHost.applyGeneratedCommitMessage} — land a settled generation. If the
+	 *  originating WIP is still selected with no mode owning the form, write the live input; otherwise
+	 *  (navigated away, or a mode owns it) write the worktree's draft slot so `loadWipDraft` / mode-exit
+	 *  restores it without clobbering the current selection. Mirrors `setCommitMessage`'s guards. */
+	applyGeneratedCommitMessage(repoPath: string, message: string): void {
+		if (this.isWip && this._state.activeMode.get() == null && this.effectiveRepoPath === repoPath) {
+			// AI output is the user's intentional generation — mark dirty so HEAD-move auto-clear keeps it.
+			this._state.commitMessage.set(message);
+			this._state.commitMessageDirty.set(true);
+			return;
+		}
+
+		const existing = this._graphState?.wipDrafts?.[repoPath];
+		this.persistWipDraft(repoPath, { message: message, messageDirty: true, amend: existing?.amend });
+	}
+
+	/** Derive the `generating` spinner from the registry for the current WIP. Reading `runningOperations`
+	 *  registers a SignalWatcher dependency, so (driven from `willUpdate`) it re-derives on start/settle
+	 *  and on selection change. */
+	private refreshGeneratingForCurrentSelection(): void {
+		const worktree = this.isWip ? this.effectiveRepoPath : undefined;
+		const entry =
+			worktree != null
+				? this._crossPaneState?.runningOperations.get().get(anchorKey({ repoPath: worktree, sha: uncommitted }))
+						?.generateMessage
+				: undefined;
+		this._state.generating.set(entry?.execState === 'generating');
+	}
 
 	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 

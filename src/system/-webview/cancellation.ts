@@ -46,8 +46,14 @@ export function toAbortSignal(token: CancellationToken | AbortSignal | undefined
  * that have an AbortSignal but need to pass to APIs that accept CancellationToken.
  *
  * Always call `dispose()` once the operation completes to release the underlying source.
+ *
+ * Pass `registry` to track the created source (added on creation, removed on `dispose()`) so a teardown
+ * path can cancel anything still in flight — which `dispose()` alone does not do.
  */
-export function fromAbortSignal(signal: AbortSignal | CancellationToken | undefined): {
+export function fromAbortSignal(
+	signal: AbortSignal | CancellationToken | undefined,
+	registry?: Set<CancellationTokenSource>,
+): {
 	token: CancellationToken | undefined;
 	dispose: () => void;
 } {
@@ -61,13 +67,23 @@ export function fromAbortSignal(signal: AbortSignal | CancellationToken | undefi
 	} else {
 		signal.addEventListener('abort', onAbort, { once: true });
 	}
+	registry?.add(source);
 	return {
 		token: source.token,
 		dispose: () => {
 			signal.removeEventListener('abort', onAbort);
+			registry?.delete(source);
 			source.dispose();
 		},
 	};
+}
+
+/** Cancel + dispose every source (both are idempotent). */
+export function cancelAndDispose(sources: Iterable<CancellationTokenSource>): void {
+	for (const source of sources) {
+		source.cancel();
+		source.dispose();
+	}
 }
 
 export function isCancellationToken(arg: unknown): arg is CancellationToken {
