@@ -6,8 +6,6 @@ import type { GkMcpService } from '../gkMcpService.js';
 import type { McpHostRegistrationProvider } from './types.js';
 
 export class CursorMcpHostProvider implements McpHostRegistrationProvider {
-	readonly id = 'cursor' as const;
-
 	private _registeredServerName: string | undefined;
 
 	constructor(

@@ -12,7 +12,6 @@ import { configuration } from '../../system/-webview/configuration.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkCommandType, DeepLinkServiceState, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
 import type { AgentDescriptor } from '../agents/agentDescriptor.js';
-import { resolveDefaultAgent } from '../agents/agentRegistry.js';
 
 export interface StartWorkChatAction {
 	type: 'startWork';
@@ -81,16 +80,6 @@ export async function executeChatAction(
 		execute: true,
 		source: source,
 	} as SendToChatCommandArgs);
-}
-
-/** Resolves a stored `defaultAgent` setting value to a live descriptor at dispatch time.
- *  Centralizes the lookup so callers don't have to import `agentRegistry` directly. */
-export async function resolveDefaultAgentDescriptor(
-	container: Container,
-	id: string | null | undefined,
-): Promise<AgentDescriptor | undefined> {
-	if (id == null) return undefined;
-	return resolveDefaultAgent(container, id);
 }
 
 export async function storeChatActionDeepLink(

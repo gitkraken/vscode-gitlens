@@ -6,8 +6,6 @@ import type { GkMcpService } from '../gkMcpService.js';
 import type { McpHostRegistrationProvider } from './types.js';
 
 export class VSCodeMcpHostProvider implements McpHostRegistrationProvider, McpServerDefinitionProvider {
-	readonly id = 'vscode' as const;
-
 	private readonly _lmRegistration: Disposable;
 	private readonly _onDidChangeMcpServerDefinitions = new EventEmitter<void>();
 	private _hasProvidedDefinition = false;

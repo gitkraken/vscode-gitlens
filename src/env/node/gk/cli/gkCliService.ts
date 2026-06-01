@@ -97,26 +97,6 @@ export class GkCliService implements Disposable {
 		return runCLICommand(args, options);
 	}
 
-	/** Lifecycle-gated wrapper for callers who need "CLI must be ready." */
-	async ensureInstalled(source?: Sources): Promise<{ path: string; version: string } | undefined> {
-		const result = await this._installer.install(true, source, false);
-		if (result.status === 'completed' && result.cliPath != null && result.cliVersion != null) {
-			// Only fire when install actually ran. `installer.install` short-circuits with
-			// `changed: false` when the binary is already present; firing here would loop with
-			// any listener that calls back into `install` (e.g. reactive MCP setup).
-			if (result.changed) {
-				this._onDidChangeInstall.fire({
-					status: 'completed',
-					version: result.cliVersion,
-					path: result.cliPath,
-					source: source,
-				});
-			}
-			return { path: result.cliPath, version: result.cliVersion };
-		}
-		return undefined;
-	}
-
 	/** Triggers an install with custom options — used by command handlers that want fine-grained control over `force`/`autoInstall`. */
 	async install(
 		autoInstall?: boolean,
@@ -161,28 +141,6 @@ export class GkCliService implements Disposable {
 			debugger;
 			scope?.error(ex, 'Failed to authenticate CLI');
 		}
-	}
-
-	// === Read-only state ===
-
-	get installState(): 'completed' | 'attempted' | 'unsupported' | undefined {
-		return this.container.storage.getScoped('gk:cli:install')?.status;
-	}
-
-	get version(): string | undefined {
-		return this._installer.version;
-	}
-
-	get path(): string | undefined {
-		return this._installer.path;
-	}
-
-	get devLocalPath(): string | undefined {
-		return getDevCLILocalPath();
-	}
-
-	get isInsidersEnabled(): boolean {
-		return isInsidersCLIEnabled();
 	}
 
 	// === Private lifecycle ===
