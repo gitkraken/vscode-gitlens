@@ -278,6 +278,7 @@ export interface GraphInspectService {
 		amend: { sha: string; all: boolean } | undefined,
 		signal?: AbortSignal,
 	): Promise<{ summary: string; body?: string } | undefined>;
+	pickCoauthors(repoPath: string, currentMessage: string | undefined): Promise<string[] | undefined>;
 	composeChanges(
 		repoPath: string,
 		scope: ScopeSelection,

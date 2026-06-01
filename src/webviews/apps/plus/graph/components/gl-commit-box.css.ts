@@ -180,8 +180,9 @@ export const commitBoxStyles = css`
 		top: 0.4rem;
 		right: 0.4rem;
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 0.4rem;
+		gap: 0.2rem;
 		transition: right 0.2s ease;
 		pointer-events: none;
 	}
@@ -205,7 +206,8 @@ export const commitBoxStyles = css`
 		right: 1.6rem;
 	}
 
-	.sparkle {
+	.sparkle,
+	.add-coauthors {
 		pointer-events: auto;
 	}
 

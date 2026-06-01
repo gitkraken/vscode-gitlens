@@ -1816,6 +1816,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 									@amend-change=${this.handleAmendChange}
 									@commit=${this.handleCommit}
 									@generate-message=${this.handleGenerateMessage}
+									@add-coauthors=${this.handleAddCoauthors}
 									@compose=${this.handleCompose}
 								></gl-commit-box>
 							`
@@ -2728,6 +2729,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				: undefined;
 		this._state.generating.set(entry?.execState === 'generating');
 	}
+
+	private handleAddCoauthors = () => void this._actions.addCoauthors(this.effectiveRepoPath);
 
 	private handleCompose = () => this._workflow.toggleMode('compose', this.currentSelection());
 

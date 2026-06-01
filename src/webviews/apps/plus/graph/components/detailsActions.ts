@@ -21,6 +21,7 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -2753,6 +2754,23 @@ export class DetailsActions {
 		} finally {
 			this.state.committing.set(false);
 		}
+	}
+
+	async addCoauthors(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return;
+
+		// Host shows the same contributor picker as the SCM `Add Co-authors…` action, pre-picking
+		// anyone already in the message, and returns the selected `Name <email>` strings.
+		const coauthors = await this.services.graphInspect.pickCoauthors(
+			repoPath,
+			this.state.commitMessage.get() || undefined,
+		);
+		if (coauthors == null) return; // cancelled — leave the message untouched
+
+		// Append against the live message so text typed before opening the picker is preserved.
+		this.state.commitMessage.set(appendCoauthorsToMessage(this.state.commitMessage.get(), coauthors));
+		// User-authored edit — survives the HEAD-move auto-clear; the debounced WIP-draft flush persists it.
+		this.state.commitMessageDirty.set(true);
 	}
 
 	async loadLastCommitMessage(repoPath: string | undefined): Promise<void> {

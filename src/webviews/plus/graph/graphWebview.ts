@@ -1615,6 +1615,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						disposeCancellation();
 					}
 				},
+				pickCoauthors: async (repoPath, currentMessage) => {
+					try {
+						const repo = this.container.git.getRepository(repoPath);
+						if (repo == null) return undefined;
+
+						// Same multi-select contributor picker the SCM `Add Co-authors…` action uses;
+						// pre-pick anyone already present in the message so re-opening it keeps them
+						// selected (deselecting removes them when the trailer block is rewritten).
+						const contributors = await showContributorsPicker(
+							this.container,
+							repo,
+							'Add Co-authors',
+							'Choose contributors to add as co-authors',
+							{
+								appendReposToTitle: true,
+								clearButton: true,
+								multiselect: true,
+								picked: c => currentMessage?.includes(c.coauthor) ?? false,
+							},
+						);
+						// Return the `Name <email>` strings — `GitContributor`'s `coauthor` getter
+						// wouldn't survive RPC serialization, so compute it host-side.
+						return contributors?.map(c => c.coauthor);
+					} catch (ex) {
+						// Match generateCommitMessage: surface the failure in logs rather than letting
+						// it become an unhandled rejection in the webview's fire-and-forget caller.
+						Logger.error(ex, 'graph.pickCoauthors');
+						return undefined;
+					}
+				},
 				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {
 					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
 						signal,

@@ -124,6 +124,17 @@ export class GlCommitBox extends LitElement {
 							</gl-button>
 						`,
 					)}
+					<gl-button
+						class="add-coauthors"
+						appearance="toolbar"
+						density="compact"
+						tooltip="Add Co-authors..."
+						aria-label="Add Co-authors..."
+						?disabled=${this.committing}
+						@click=${this.onAddCoauthors}
+					>
+						<code-icon icon="person-add"></code-icon>
+					</gl-button>
 				</div>
 				${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 			</div>
@@ -205,6 +216,12 @@ export class GlCommitBox extends LitElement {
 
 	private onGenerateMessage() {
 		this.dispatchEvent(new CustomEvent('generate-message', { bubbles: true, composed: true }));
+	}
+
+	private onAddCoauthors() {
+		if (this.committing) return;
+
+		this.dispatchEvent(new CustomEvent('add-coauthors', { bubbles: true, composed: true }));
 	}
 
 	private onCompose() {
