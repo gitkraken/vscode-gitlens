@@ -27,7 +27,7 @@ export class VSCodeGkMcpProvider extends GkMcpProviderBase implements McpServerD
 		return !this._hasProvidedDefinition;
 	}
 
-	protected override fireChangeCore(): void {
+	protected override refresh(): void {
 		this._onDidChangeMcpServerDefinitions.fire();
 	}
 

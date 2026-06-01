@@ -95,15 +95,15 @@ export abstract class GkMcpProviderBase implements Disposable {
 		return true;
 	}
 
-	protected abstract fireChangeCore(): void;
+	protected abstract refresh(): void;
 
 	protected fireChange(immediate: boolean = false): void {
 		if (immediate) {
-			this.fireChangeCore();
+			this.refresh();
 			return;
 		}
 
-		this._fireChangeDebounced ??= debounce(() => this.fireChangeCore(), 500);
+		this._fireChangeDebounced ??= debounce(() => this.refresh(), 500);
 		this._fireChangeDebounced();
 	}
 
@@ -149,34 +149,11 @@ export abstract class GkMcpProviderBase implements Disposable {
 			let output = await runCLICommand(args);
 			output = output.replace(CLIProxyMCPConfigOutputs.checkingForUpdates, '').trim();
 
-			let config: McpConfiguration;
-			try {
-				config = JSON.parse(output) as McpConfiguration;
-			} catch (parseEx) {
-				// The CLI returned non-JSON output. Log the raw output so the real error is visible.
-				const outputToLog = output.slice(0, 500);
-				scope?.error(
-					parseEx,
-					`MCP config command returned non-JSON output (CLI ${cliInstall.version}): ${outputToLog}`,
-				);
-				throw new Error(`Invalid MCP config output from CLI ${cliInstall.version}: ${outputToLog}`, {
-					cause: parseEx,
-				});
-			}
-
-			if (!config.type || !config.command || !Array.isArray(config.args)) {
-				throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
-			}
+			const config = this.parseMcpConfigOutput(output, cliInstall.version);
 
 			this.onRegistrationCompleted(cliInstall.version);
 
-			return {
-				name: config.name ?? 'GitKraken',
-				type: config.type,
-				command: config.command,
-				args: config.args,
-				version: cliInstall.version,
-			};
+			return config;
 		} catch (ex) {
 			debugger;
 			scope?.error(ex, `Error getting MCP configuration`);
@@ -191,6 +168,28 @@ export abstract class GkMcpProviderBase implements Disposable {
 		}
 
 		return undefined;
+	}
+
+	private parseMcpConfigOutput(output: string, cliVersion: string): McpConfiguration {
+		let parsed: McpConfiguration;
+		try {
+			parsed = JSON.parse(output) as McpConfiguration;
+		} catch (parseEx) {
+			const outputToLog = output.slice(0, 500);
+			throw new Error(`Invalid MCP config output from CLI ${cliVersion}: ${outputToLog}`, { cause: parseEx });
+		}
+
+		if (!parsed.type || !parsed.command || !Array.isArray(parsed.args)) {
+			throw new Error(`Invalid MCP configuration: missing required properties (${output})`);
+		}
+
+		return {
+			name: parsed.name ?? 'GitKraken',
+			type: parsed.type,
+			command: parsed.command,
+			args: parsed.args,
+			version: cliVersion,
+		};
 	}
 
 	protected onRegistrationCompleted(_cliVersion?: string | undefined): void {
