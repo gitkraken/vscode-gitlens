@@ -83,11 +83,13 @@ Add the following to your User Settings to run prettier:
 "editor.formatOnSave": true,
 ```
 
-### Linting
+### Linting & Type-checking
 
-This project uses [ESLint](https://eslint.org/) for code linting. You can run ESLint across the code by calling `pnpm run lint` from a terminal. Warnings from ESLint show up in the `Errors and Warnings` quick box and you can navigate to them from inside VS Code.
+This project uses [oxlint](https://oxc.rs) for fast, Rust-native linting and type-aware type-checking. You can run both across the codebase by calling `pnpm run check` from a terminal (or `pnpm run check:fix` to apply auto-fixes). Linting and type-checking also run automatically as part of `pnpm run build` and `pnpm run watch`.
 
-To lint the code as you make changes you can install the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) extension.
+A small set of rules that oxlint doesn't yet cover (such as import resolution and bidirectional-Unicode/"trojan source" safety) are enforced with [ESLint](https://eslint.org/). These run in CI; to run the full oxlint + ESLint suite locally for complete rule parity, use `pnpm run lint:ci`.
+
+To lint as you make changes, install the [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) VS Code extension (already enabled via the workspace settings). Warnings show up in the `Problems` panel where you can navigate to them from inside VS Code.
 
 ### Bundling
 
@@ -263,7 +265,7 @@ Unit and E2E tests are built as part of the main build, but can also be built di
 ```bash
 # Build everything (extension, webviews, and tests)
 pnpm run build
-pnpm run build:turbo  # Turbo build (no typechecking or linting)
+pnpm run build:quick  # Quick build (no type-checking, linting, or codegen)
 
 # Build unit tests only
 pnpm run build:tests

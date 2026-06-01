@@ -19,7 +19,9 @@ export class OxLintWebpackPlugin {
 		this.key = compiler.name || `${this.key}_${(counter += 1)}`;
 		this.context = compiler.options.context;
 
-		compiler.hooks.run.tap(this.key, c => this.run(c));
+		// Watch-only: one-shot builds lint via the single standalone `oxlint` pass in build.mjs, so the
+		// inline plugin only re-checks changed files incrementally during watch. Tapping `run` here too
+		// would double-lint every non-quick one-shot build.
 		compiler.hooks.watchRun.tap(this.key, c => this.run(c));
 	}
 

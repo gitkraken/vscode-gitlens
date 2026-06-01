@@ -18,7 +18,6 @@ This workspace contains **GitLens** - a powerful VS Code extension that supercha
 
 - **Branch issues**: Errors that exist on the current branch but NOT on the base branch. These are the branch's responsibility regardless of which task or session introduced them.
 - **Repository issues**: Errors that also exist on the base branch. These are truly pre-existing and can be noted but not prioritized.
-- **When in doubt**: Run `git stash && pnpm run build && git stash pop` or `git diff main --name-only` to verify. Do NOT assume an issue is pre-existing — verify it.
 
 ### Workflow
 
@@ -59,21 +58,8 @@ pnpm install              # Install dependencies
 ```bash
 pnpm run rebuild          # Complete rebuild from scratch
 pnpm run build            # Full development build (everything including e2e and unit tests)
-pnpm run build:quick      # Fast build (no linting)
-pnpm run build:extension  # Build only the extension (no webviews)
-pnpm run build:webviews   # Build only webviews
 pnpm run bundle           # Production bundle
 pnpm run bundle:e2e       # E2E tests production bundle (with DEBUG for account simulation)
-```
-
-### Watch Mode
-
-```bash
-pnpm run watch            # Watch mode for development (everything including e2e and unit tests)
-pnpm run watch:quick      # Fast watch mode (no linting)
-pnpm run watch:extension  # Watch extension only
-pnpm run watch:tests      # Watch unit tests only
-pnpm run watch:webviews   # Watch webviews only
 ```
 
 ### Testing
@@ -88,8 +74,8 @@ pnpm run test:e2e         # Run Playwright E2E tests
 ### Quality
 
 ```bash
-pnpm run lint             # Run ESLint with TypeScript rules
-pnpm run lint:fix         # Auto-fix linting issues
+pnpm run check            # Run type-checking and lint rules (also run automatically as part of `pnpm run build`)
+pnpm run check:fix        # Auto-fix type-checking and lint issues
 pnpm run pretty           # Format code with Prettier
 pnpm run pretty:check     # Check formatting
 ```
@@ -193,11 +179,11 @@ custom-elements.json          # Custom Elements Manifest - generated web compone
 
 ## Coding Standards & Style Rules
 
-- **Strict TypeScript** with `strictTypeChecked` ESLint config — no `any` usage (exceptions only for external APIs)
+- **Strict TypeScript** — no `any` usage (exceptions only for external APIs)
 - **Explicit return types** for public methods; **prefer `type` over `interface`** for unions
 - **Use path aliases**: `@env/` for environment-specific code
 - **Import order**: node built-ins → external → internal → relative
-- **No default exports** (ESLint enforced); use `import type` for type-only imports
+- **No default exports** use `import type` for type-only imports
 - **Always use `.js` extension** in imports (ESM requirement)
 - **Naming**: Classes PascalCase (no `I` prefix), methods/variables camelCase, constants camelCase (not SCREAMING_SNAKE_CASE), files camelCase.ts
 - **Folders**: Models under `models/`, utilities under `utils/` (both host + webview), host-specific in `utils/-webview/`, webview apps under `webviews/apps/`

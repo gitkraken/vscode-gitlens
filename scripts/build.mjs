@@ -10,14 +10,14 @@ const { values } = parseArgs({
 		build: { type: 'string', default: undefined, multiple: true }, // (extension | webviews)[]
 		debug: { type: 'boolean', default: false },
 		target: { type: 'string', default: undefined, multiple: true }, // (node | webworker)[]
-		quick: { type: 'string', default: undefined }, // true | turbo
+		quick: { type: 'boolean', default: false }, // skip type-checking, linting, docs, and asset generation
 		trace: { type: 'boolean', default: false },
 		webview: { type: 'string', default: undefined, multiple: true },
 		watch: { type: 'boolean', default: false },
 	},
 });
 
-/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; debug: boolean; target: ('node' | 'webworker')[] | undefined; quick: 'true' | 'turbo' | undefined; trace: boolean; webview: string[] | undefined; watch: boolean }} */
+/** @type {{ mode: 'production' | 'development' | 'none' | undefined; build: ('extension' | 'webviews' | 'unit-tests')[] | undefined; debug: boolean; target: ('node' | 'webworker')[] | undefined; quick: boolean; trace: boolean; webview: string[] | undefined; watch: boolean }} */
 const { mode, build, debug, target, quick, trace, webview: webviews, watch } = values;
 
 const env = {
@@ -80,18 +80,11 @@ if (build?.length || webviews?.length) {
 }
 
 if (quick) {
-	cmd += ` --env quick=${quick}`;
+	cmd += ` --env quick`;
 }
 
 if (trace) {
 	cmd += ` --env trace`;
-}
-
-// In watch mode, let webpack lint + type-check incrementally (per changed file) via the inline
-// OxLintWebpackPlugin. For one-shot builds we instead run oxlint exactly once in parallel with the
-// bundle (below) — far faster than the plugin running a whole-project pass once per webpack config.
-if (watch && !quick) {
-	cmd += ` --env lint`;
 }
 
 if (build?.includes('unit-tests')) {
@@ -160,7 +153,7 @@ let bundleCmds;
 if (isFullBuild && !watch) {
 	let baseCmd = `webpack --mode ${mode}`;
 	if (quick) {
-		baseCmd += ` --env quick=${quick}`;
+		baseCmd += ` --env quick`;
 	}
 	if (trace) {
 		baseCmd += ` --env trace`;
@@ -182,8 +175,8 @@ if (isFullBuild && !watch) {
 
 // Run the bundle process(es) and, for one-shot builds, a single whole-project oxlint (lint +
 // type-check) pass concurrently. tsgo-backed type checking and Rust-native linting both run inside
-// oxlint, so it replaces the old ForkTsChecker + ESLint plugins. Watch builds lint inline (see
-// `--env lint` above), so they skip this standalone pass.
+// oxlint, so it replaces the old ForkTsChecker + ESLint plugins. Watch builds lint incrementally via
+// the inline OxLintWebpackPlugin (added whenever not in quick mode), so they skip this standalone pass.
 const tasks = bundleCmds.map(c => run(c));
 if (!quick && !watch) {
 	tasks.push(run(`oxlint --type-aware --type-check`));

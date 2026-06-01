@@ -11,14 +11,12 @@ import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import esbuild from 'esbuild';
 import { generateFonts } from 'fantasticon';
 import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
-import ForkTsCheckerPlugin from 'fork-ts-checker-webpack-plugin';
 import fs from 'fs';
 import { createHash } from 'crypto';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import { createRequire } from 'module';
-import { availableParallelism } from 'os';
 import path from 'path';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
@@ -33,10 +31,7 @@ const { DefinePlugin, optimize, WebpackError } = webpack;
 
 const require = createRequire(import.meta.url);
 
-const cores = Math.max(Math.floor(availableParallelism() / 6) - 1, 1);
-
 const debug = Boolean(process.env.DEBUG);
-const useAsyncTypeChecking = false;
 const useNpm = Boolean(process.env.GL_USE_NPM);
 if (useNpm) {
 	console.log('Using npm to run scripts');
@@ -78,7 +73,7 @@ function getUtilsEnvAliases(target) {
 		'#env/platform.js': path.resolve(base, 'platform.ts'),
 	};
 }
-/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: 'turbo' | boolean; trace?: boolean; webviews?: string }} GlEnv */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean; trace?: boolean; webviews?: string }} GlEnv */
 /** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
 
 /**
@@ -99,11 +94,7 @@ export default function (env, argv) {
 	};
 
 	if (env.quick) {
-		if (env.quick === 'turbo') {
-			console.log('Turbo mode enabled — skipping type checking, linting, and docs generation');
-		} else {
-			console.log('Quick mode enabled — skipping linting and docs generation');
-		}
+		console.log('Quick mode enabled — skipping type checking, linting, docs, and asset generation');
 	}
 
 	if (env.trace) {
@@ -234,8 +225,9 @@ function getExtensionConfig(target, mode, env) {
 
 	// Linting and type checking (incl. tsgo-backed TS diagnostics) are both handled by oxlint:
 	// once per build, in parallel with bundling, from build.mjs — so ForkTsCheckerPlugin and the
-	// ESLint plugins are gone. In watch mode (`env.lint`) we keep the inline plugin so changed
-	// files are re-checked incrementally; one-shot builds skip it (build.mjs runs oxlint directly).
+	// ESLint plugins are gone. The inline OxLintWebpackPlugin (added below whenever not in quick
+	// mode) is watch-only, so it re-checks changed files incrementally during watch; one-shot builds
+	// rely on the single standalone oxlint pass in build.mjs.
 
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
@@ -246,7 +238,7 @@ function getExtensionConfig(target, mode, env) {
 			new GenerateCommandTypesPlugin(),
 		);
 	}
-	if (env.lint && target !== 'webworker') {
+	if (!env.quick && target !== 'webworker') {
 		plugins.push(new OxLintWebpackPlugin());
 	}
 
@@ -446,7 +438,7 @@ function getUnitTestConfig(_target, mode, env) {
 	/** @type {import('webpack').WebpackPluginInstance[]} */
 	const plugins = [new EsbuildTestsPlugin()];
 
-	if (env.lint) {
+	if (!env.quick) {
 		plugins.push(new OxLintWebpackPlugin());
 	}
 
@@ -521,7 +513,7 @@ function getWebviewsCommonConfig(mode, env) {
 		}),
 	];
 
-	if (env.lint) {
+	if (!env.quick) {
 		plugins.push(new OxLintWebpackPlugin());
 	}
 
@@ -604,7 +596,7 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	// Type checking is now handled by the Go-native tsgo compiler via OxLintWebpackPlugin,
 	// so ForkTsCheckerPlugin is removed to prevent redundant, slow Node-based type checking.
 
-	if (env.lint) {
+	if (!env.quick) {
 		plugins.push(new OxLintWebpackPlugin());
 	}
 

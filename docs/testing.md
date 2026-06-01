@@ -77,7 +77,7 @@ pnpm run test:e2e -- --reporter=list
 pnpm run test:e2e -- --trace on --grep "test name"
 
 # Check for TypeScript errors first
-pnpm run lint
+pnpm run check
 ```
 
 ## AI Assistant Testing Guidelines

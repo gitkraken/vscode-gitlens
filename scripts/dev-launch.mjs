@@ -30,7 +30,6 @@
  *                         fresh dist/, e.g. from a running `pnpm watch`).
  *                         --build → build:quick (extension + webviews)
  *                         --build=extension → build:extension only (faster)
- *                         --build=turbo → build:turbo
  *       --build-cmd=<cmd> Custom build command to run in the worktree
  *       --force           Launch even if dist/ looks unbuilt
  *       --profile=<name>  VS Code profile (default: "Debugging (GitLens)")
@@ -60,7 +59,6 @@ const repoRoot = path.resolve(__dirname, '..');
 const buildScripts = {
 	quick: 'build:quick',
 	extension: 'build:extension',
-	turbo: 'build:turbo',
 	full: 'build',
 };
 
@@ -140,7 +138,7 @@ function printHelp() {
 			'  pnpm run dev:launch <worktree> [folder-to-open] [options]',
 			'',
 			'  -l, --list            Pick a worktree (plain list when non-TTY)',
-			'  -b, --build[=target]  Build first (quick|extension|turbo|full); default: skip',
+			'  -b, --build[=target]  Build first (quick|extension|full); default: skip',
 			'      --profile=<name>  VS Code profile (default: "Debugging (GitLens)")',
 			'      --sandbox         Fresh throwaway profile (--profile-temp)',
 			'      --reuse           Reuse active window',
