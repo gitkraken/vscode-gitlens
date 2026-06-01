@@ -37,6 +37,20 @@ export const badgeBase = css`
 		border-radius: 0.4rem;
 	}
 
+	/* Recessed sub-segment meant to nest INSIDE a filled badge (e.g. "+N Mixed" inside
+	 * "x of y Staged"). Translucent foreground tint reads as a chip carved into the accent fill,
+	 * while text keeps the badge foreground so it stays legible across themes. */
+	:host([appearance='muted']) .badge {
+		background-color: color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent);
+		color: var(--vscode-badge-foreground);
+		border: none;
+		font-weight: 500;
+		line-height: 1;
+		justify-content: center;
+		padding: 0.1rem 0.4rem;
+		border-radius: 0.3rem;
+	}
+
 	/* "Experimental" stamp used by features still gated behind a config flag (e.g. Agent Kanban,
 	 * Visualizations treemap). Uses the editor-warning tone with color-mix so the badge reads as
 	 * a heads-up without overwhelming the surrounding chrome. */

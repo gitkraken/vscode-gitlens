@@ -108,6 +108,14 @@ export const fileTreeStyles = css`
 		white-space: nowrap;
 	}
 
+	/* The "+N Mixed" sub-badge nested inside the primary staged badge: keep it intact (don't
+	   shrink) so the staged text ellipses first under width pressure, and inset it from that text. */
+	gl-badge.checkbox-header__badge-mixed {
+		flex: 0 0 auto;
+		margin-left: 0.4rem;
+		overflow: visible;
+	}
+
 	.checkbox-header {
 		display: inline-flex;
 		align-items: center;

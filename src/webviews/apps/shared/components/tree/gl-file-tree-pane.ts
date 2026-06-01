@@ -436,21 +436,23 @@ export class GlFileTreePane extends LitElement {
 		// In selection-badge mode, surface "x of y" while only a subset is checked so users see
 		// the running selection size without opening the tree. Once everything is checked, fall
 		// back to the simple total (or "y <label>" if a label is set so the count keeps its
-		// semantic identity). Mixed (partially staged) files count as checked for this display
-		// so the count tracks what an "include all" action would actually act on.
+		// semantic identity). Mixed (partially staged) files are NOT counted as checked here —
+		// they aren't fully staged — and instead get their own "+N Mixed" sub-badge.
 		let effectiveBadge = badge;
 		let badgeAppearance: 'filled' | 'warning' = 'filled';
+		let showMixedBadge = false;
 		if (conflictCount > 0) {
 			effectiveBadge = pluralize('conflict', conflictCount);
 			badgeAppearance = 'warning';
 		} else if (this.selectionBadge && this.checkable && totalFiles > 0) {
-			const selected = checkedCount + mixedCount;
+			const selected = checkedCount;
 			const label = this.selectionBadgeLabel;
 			if (selected < totalFiles) {
 				effectiveBadge = label ? `${selected} of ${totalFiles} ${label}` : `${selected} of ${totalFiles}`;
 			} else if (label) {
 				effectiveBadge = `${totalFiles} ${label}`;
 			}
+			showMixedBadge = mixedCount > 0;
 		}
 
 		// `live()` because gl-checkbox mutates `checked` on click — without it, a re-render with the
@@ -487,12 +489,17 @@ export class GlFileTreePane extends LitElement {
 			}
 		}
 
+		// Mixed chip nests INSIDE the primary badge as a recessed sub-segment.
+		const mixedBadge = showMixedBadge
+			? html`<gl-badge appearance="muted" class="checkbox-header__badge-mixed">+${mixedCount} Mixed</gl-badge>`
+			: nothing;
+
 		const label =
 			effectiveBadge == null
 				? html`<span class="checkbox-header__title">${this.header}</span>`
 				: html`<span class="checkbox-header__title">${this.header}</span>
 						<gl-badge appearance=${badgeAppearance}
-							><span class="checkbox-header__badge-text">${effectiveBadge}</span></gl-badge
+							><span class="checkbox-header__badge-text">${effectiveBadge}</span>${mixedBadge}</gl-badge
 						>`;
 
 		return html`<span class="checkbox-header" @click=${(e: Event) => e.stopPropagation()}>
