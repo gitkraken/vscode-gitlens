@@ -36,10 +36,7 @@ const proxyMetadataFetchTimeout = 60_000; // 60s
 const proxyDownloadStallTimeout = 60_000; // 60s
 
 export class CliBinaryInstaller implements Disposable {
-	constructor(
-		private readonly container: Container,
-		private readonly authenticate: () => Promise<void>,
-	) {}
+	constructor(private readonly container: Container) {}
 
 	dispose(): void {
 		// No-op today; installed state is in storage scope, not in-memory.
@@ -317,8 +314,6 @@ export class CliBinaryInstaller implements Disposable {
 							insiders: insidersEnabled,
 						});
 					}
-
-					await this.authenticate();
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.CoreInstall,
