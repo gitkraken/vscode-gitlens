@@ -27,6 +27,7 @@ import type { FileGroup } from './file-tree-utils.js';
 import {
 	buildFileTooltip,
 	buildGroupedTree,
+	getLayoutInfo,
 	getStatusDecoration,
 	isTreeLayout,
 	nextContextMatchVisibility,
@@ -586,9 +587,9 @@ export class GlFileTreePane extends LitElement {
 		e.preventDefault();
 		e.stopPropagation();
 
-		const layout = (e.currentTarget as HTMLElement)?.dataset?.filesLayout as ViewFilesLayout | undefined;
-		if (layout == null) return;
-
+		// Compute the next layout from our own state; reading it back off the chip's data-attribute
+		// broke after the action-chip conversion.
+		const layout = getLayoutInfo(this.fileLayout).value as ViewFilesLayout;
 		this.dispatchEvent(
 			new CustomEvent('change-files-layout', {
 				detail: { layout: layout },
