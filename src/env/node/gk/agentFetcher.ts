@@ -18,9 +18,10 @@ export function isCliExecutableAvailable(executable: string | undefined): boolea
 	return typeof executable === 'string' && executable.length > 0 && existsSync(executable);
 }
 
-export async function fetchAgents(cliPath?: string): Promise<GkAgent[]> {
+export async function fetchAgents(): Promise<GkAgent[]> {
 	try {
-		const output = await runCLICommand(['agents', 'list', '--json'], cliPath ? { cwd: cliPath } : undefined);
+		// cwd doesn't matter for `agents list` (verified) — runCLICommand's default is fine
+		const output = await runCLICommand(['agents', 'list', '--json']);
 		return parseAgents(output);
 	} catch (ex) {
 		Logger.error(ex, 'Failed to get agent list from CLI');
