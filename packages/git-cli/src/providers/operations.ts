@@ -469,12 +469,17 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			const branch = await this.provider.branches.getBranch(repoPath);
 			if (branch == null) return;
 
-			branchName =
-				options?.reference != null
-					? `${options.reference.ref}:${
-							options?.publish != null ? 'refs/heads/' : ''
-						}${branch.nameWithoutRemote}`
-					: branch.name;
+			if (options?.reference != null) {
+				branchName = `${options.reference.ref}:${
+					options?.publish != null ? 'refs/heads/' : ''
+				}${branch.nameWithoutRemote}`;
+			} else {
+				const tracking = options?.publish == null ? branch.trackingWithoutRemote : undefined;
+				branchName =
+					tracking != null && tracking !== branch.nameWithoutRemote
+						? `${branch.name}:${tracking}`
+						: branch.name;
+			}
 			remoteName = branch.remoteName ?? options?.publish?.remote;
 			upstreamName = options?.reference == null && options?.publish != null ? branch.name : undefined;
 

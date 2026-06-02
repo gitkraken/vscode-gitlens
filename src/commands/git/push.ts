@@ -1,5 +1,4 @@
 import type { GitBranchReference, GitReference } from '@gitlens/git/models/reference.js';
-import { getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { getReferenceLabel, isBranchReference } from '@gitlens/git/utils/reference.utils.js';
 import { isStringArray } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
@@ -377,12 +376,10 @@ export class PushGitCommand extends QuickCommand<State> {
 							[],
 							createDirectiveQuickPickItem(Directive.Cancel, true, {
 								label: 'OK',
-								detail: `No commits ahead of ${getRemoteNameFromBranchName(status.upstream?.name)}`,
+								detail: `No commits ahead of ${status.upstream?.name}`,
 							}),
 							{
-								placeholder: `Nothing to push; No commits ahead of ${getRemoteNameFromBranchName(
-									status.upstream?.name,
-								)}`,
+								placeholder: `Nothing to push; No commits ahead of ${status.upstream?.name}`,
 							},
 						);
 					}
@@ -402,11 +399,11 @@ export class PushGitCommand extends QuickCommand<State> {
 										label: false,
 									})}`
 								: ''
-						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
+						}${status?.upstream ? ` to ${status.upstream.name}` : ''}`;
 					} else {
 						pushDetails = `${
 							status?.upstream?.state.ahead ? ` ${pluralize('commit', status.upstream.state.ahead)}` : ''
-						}${status?.upstream ? ` to ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''}`;
+						}${status?.upstream ? ` to ${status.upstream.name}` : ''}`;
 					}
 
 					step = this.createConfirmStep(
@@ -442,9 +439,7 @@ export class PushGitCommand extends QuickCommand<State> {
 								} ${pushDetails}${
 									status?.upstream?.state.behind
 										? `, overwriting ${pluralize('commit', status.upstream.state.behind)}${
-												status?.upstream
-													? ` on ${getRemoteNameFromBranchName(status.upstream?.name)}`
-													: ''
+												status?.upstream ? ` on ${status.upstream.name}` : ''
 											}`
 										: ''
 								}`,
@@ -454,7 +449,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							? createDirectiveQuickPickItem(Directive.Cancel, true, {
 									label: `Cancel ${this.title}`,
 									detail: `Cannot push; ${getReferenceLabel(branch)} is behind${
-										status?.upstream ? ` ${getRemoteNameFromBranchName(status.upstream?.name)}` : ''
+										status?.upstream ? ` ${status.upstream.name}` : ''
 									} by ${pluralize('commit', status.upstream.state.behind)}`,
 								})
 							: undefined,

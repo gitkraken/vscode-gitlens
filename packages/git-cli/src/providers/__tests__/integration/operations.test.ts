@@ -1,11 +1,12 @@
 import * as assert from 'assert';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { SigningErrorReason } from '@gitlens/git/errors.js';
 import { CommitError, MergeError, SigningError } from '@gitlens/git/errors.js';
 import type { SigningFormat } from '@gitlens/git/models/signature.js';
-import { addCommit, createBranch, createTestRepo } from './helpers.js';
+import { addCommit, createBranch, createTestRepo, getHeadSha } from './helpers.js';
 
 suite('OperationsGitSubProvider.merge', () => {
 	test('returns { conflicted: false } on clean fast-forward merge', async () => {
@@ -249,6 +250,73 @@ suite('OperationsGitSubProvider signing', () => {
 				'Expected CommitError with reason nothingToCommit',
 			);
 			assert.strictEqual(calls.length, 0, 'onSigningFailed must not fire for non-signing failures');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('OperationsGitSubProvider.push', () => {
+	function createRepoWithRemote() {
+		const r = createTestRepo();
+		const bareDir = mkdtempSync(join(tmpdir(), 'gitlens-test-bare-'));
+		execFileSync('git', ['clone', '--bare', r.path, bareDir], { stdio: 'pipe' });
+		execFileSync('git', ['remote', 'add', 'origin', bareDir], { cwd: r.path, stdio: 'pipe' });
+		execFileSync('git', ['fetch', 'origin'], { cwd: r.path, stdio: 'pipe' });
+		execFileSync('git', ['branch', '--set-upstream-to', 'origin/main', 'main'], { cwd: r.path, stdio: 'pipe' });
+		const origCleanup = r.cleanup;
+		return {
+			...r,
+			cleanup: () => {
+				origCleanup();
+				rmSync(bareDir, { recursive: true, force: true });
+			},
+		};
+	}
+
+	function getRemoteRef(repoPath: string, ref: string): string {
+		const output = execFileSync('git', ['ls-remote', 'origin', ref], {
+			cwd: repoPath,
+			encoding: 'utf-8',
+		}).trim();
+		return output.split('\t')[0] ?? '';
+	}
+
+	test('pushes to matching upstream branch', async () => {
+		const r = createRepoWithRemote();
+		try {
+			addCommit(r.path, 'file.txt', 'content\n', 'Add file');
+			const localSha = getHeadSha(r.path);
+
+			await r.provider.ops?.push(r.path);
+
+			const remoteSha = getRemoteRef(r.path, 'refs/heads/main');
+			assert.strictEqual(remoteSha, localSha, 'Remote main should match local HEAD after push');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('pushes to differently-named upstream branch using refspec', async () => {
+		const r = createRepoWithRemote();
+		try {
+			execFileSync('git', ['checkout', '-b', 'feature/foo'], { cwd: r.path, stdio: 'pipe' });
+			execFileSync('git', ['branch', '--set-upstream-to', 'origin/main', 'feature/foo'], {
+				cwd: r.path,
+				stdio: 'pipe',
+			});
+			addCommit(r.path, 'feature.txt', 'feature\n', 'Add feature');
+			const localSha = getHeadSha(r.path);
+
+			await r.provider.ops?.push(r.path);
+
+			// Should have pushed to origin/main, not created origin/feature/foo
+			const remoteSha = getRemoteRef(r.path, 'refs/heads/main');
+			assert.strictEqual(remoteSha, localSha, 'Remote main should have the feature commit');
+
+			// Verify no remote branch was created for feature/foo
+			const featureRef = getRemoteRef(r.path, 'refs/heads/feature/foo');
+			assert.strictEqual(featureRef, '', 'Remote should not have feature/foo branch');
 		} finally {
 			r.cleanup();
 		}
