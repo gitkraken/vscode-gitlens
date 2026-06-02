@@ -3,14 +3,14 @@ import { arch } from 'process';
 import type { Disposable } from 'vscode';
 import { Uri, workspace } from 'vscode';
 import { debug } from '@gitlens/utils/decorators/log.js';
+import { sequentialize } from '@gitlens/utils/decorators/sequentialize.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { formatLoggableScopeBlock, getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { fromString, satisfies } from '@gitlens/utils/version.js';
 import type { StoredGkCLIInstallInfo } from '../../../../constants.storage.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
 import { setContext } from '../../../../system/-webview/context.js';
-import { gate } from '../../../../system/decorators/gate.js';
-import { Logger } from '@gitlens/utils/logger.js';
 import { getIsOffline, getPlatform, isWeb } from '../../platform.js';
 import { CLIInstallError, CLIInstallErrorReason } from './errors.js';
 import {
@@ -27,7 +27,15 @@ import {
 
 const maxAutoInstallAttempts = 5;
 
-export class BinaryInstaller implements Disposable {
+/** Total-duration cap for fetching the tiny proxy metadata JSON. Safe as a hard cap because the payload is
+ * small — 60s only catches a connection that accepts then never responds. */
+const proxyMetadataFetchTimeout = 60_000; // 60s
+/** Max time with no download progress before the binary download is treated as stalled. A no-progress
+ * timeout (rather than a total-duration cap) won't abort a slow-but-steady multi-MB download but still
+ * fails fast when a connection accepts then goes silent. */
+const proxyDownloadStallTimeout = 60_000; // 60s
+
+export class CliBinaryInstaller implements Disposable {
 	constructor(
 		private readonly container: Container,
 		private readonly authenticate: () => Promise<void>,
@@ -37,15 +45,20 @@ export class BinaryInstaller implements Disposable {
 		// No-op today; installed state is in storage scope, not in-memory.
 	}
 
-	/** Install the CLI. Gated to deduplicate concurrent installs.
+	/** Install the CLI. Serialized so installs never overlap — two `gk install` subprocesses writing the
+	 * same globalStorage directory at once risks corruption and the Windows running-binary lock
+	 * (`ProxyExtractLocked`).
 	 *
-	 * The returned `changed` flag is `true` only when the install actually transitioned state
-	 * (a fresh install ran). It is `false` for short-circuit / no-op paths (binary already
-	 * installed, local dev binary, unsupported/offline early-exits). Callers that fire reactive
-	 * events on install completion should gate on `changed` to avoid feedback loops where the
-	 * listener calls back into `install` and re-fires for a no-op.
+	 * Uses `@sequentialize()`, not `@gate()`: `@gate()` would hand the in-flight promise to all callers
+	 * regardless of args, so a force reinstall (e.g. insiders toggle, `gitlens.ai.mcp.reinstall`) arriving
+	 * during a background auto-install would dedupe onto it and silently skip the force. Sequentializing
+	 * queues the force behind the in-flight install and runs it on its own instead.
+	 *
+	 * `changed` is `true` only when a fresh install actually ran; `false` for every short-circuit/no-op
+	 * path (already installed, local dev binary, unsupported/offline). Callers that fire reactive events
+	 * on completion should gate on it to avoid feedback loops back into `install`.
 	 */
-	@gate()
+	@sequentialize()
 	@debug({ exit: true })
 	async install(
 		autoInstall?: boolean,
@@ -105,9 +118,6 @@ export class BinaryInstaller implements Disposable {
 
 		const insidersEnabled = isInsidersCLIEnabled();
 
-		// Tracks whether the install actually ran (state transitioned). Stays `false` for any
-		// early/short-circuit return; set to `true` only after a successful install in the
-		// `coreInstallOutput` block below.
 		let changed = false;
 
 		try {
@@ -143,7 +153,7 @@ export class BinaryInstaller implements Disposable {
 				})
 				.catch();
 
-			// Map platform/arch names for the API (unrecognized architectures fall back to x86)
+			// Unrecognized architectures fall back to x86 (unrecognized platforms throw below)
 			const architecture = arch === 'x64' || arch === 'arm64' ? arch : 'x86';
 			let platformName: string;
 
@@ -174,7 +184,6 @@ export class BinaryInstaller implements Disposable {
 			const { globalStorageUri } = this.container.context;
 
 			try {
-				// Download the MCP proxy installer
 				// TODO: Switch to getGkApiUrl once we support other environments
 				const proxyUrl = Uri.joinPath(
 					Uri.parse('https://api.gitkraken.dev'),
@@ -197,7 +206,7 @@ export class BinaryInstaller implements Disposable {
 				scope?.trace(
 					`Fetching CLI proxy: platform=${platformName}, arch=${architecture}, edition=${insidersEnabled ? 'insiders' : 'production'}`,
 				);
-				let response = await fetch(proxyUrl);
+				const response = await fetchProxyMetadata(proxyUrl, proxyMetadataFetchTimeout);
 				if (!response.ok) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyUrlFetch,
@@ -229,16 +238,7 @@ export class BinaryInstaller implements Disposable {
 				}
 
 				scope?.trace(`Downloading CLI proxy (version: ${cliVersion})`);
-				response = await fetch(downloadUrl);
-				if (!response.ok) {
-					throw new CLIInstallError(
-						CLIInstallErrorReason.ProxyFetch,
-						undefined,
-						`${response.status} ${response.statusText}`,
-					);
-				}
-
-				const cliProxyZipFileDownloadData = await response.arrayBuffer();
+				const cliProxyZipFileDownloadData = await downloadProxyArchive(downloadUrl, proxyDownloadStallTimeout);
 				if (cliProxyZipFileDownloadData.byteLength === 0) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyDownload,
@@ -247,11 +247,9 @@ export class BinaryInstaller implements Disposable {
 					);
 				}
 
-				// installer file name is the last part of the download URL
 				const cliProxyZipFileName = downloadUrl.substring(downloadUrl.lastIndexOf('/') + 1);
 				cliProxyZipFilePath = Uri.joinPath(globalStorageUri, cliProxyZipFileName);
 
-				// Ensure the global storage directory exists
 				try {
 					await workspace.fs.createDirectory(globalStorageUri);
 				} catch (ex) {
@@ -262,9 +260,8 @@ export class BinaryInstaller implements Disposable {
 					);
 				}
 
-				// Write the installer to the extension storage
 				try {
-					await workspace.fs.writeFile(cliProxyZipFilePath, new Uint8Array(cliProxyZipFileDownloadData));
+					await workspace.fs.writeFile(cliProxyZipFilePath, cliProxyZipFileDownloadData);
 				} catch (ex) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyDownload,
@@ -274,16 +271,13 @@ export class BinaryInstaller implements Disposable {
 				}
 
 				try {
-					// Extract only the gk binary from the zip file using the fflate library (cross-platform)
 					const expectedBinary = platform === 'windows' ? 'gk.exe' : 'gk';
 					await extractZipFile(cliProxyZipFilePath.fsPath, globalStorageUri.fsPath, {
 						filter: filename => filename === expectedBinary || filename.endsWith(`/${expectedBinary}`),
 					});
 
-					// Check using stat to make sure the newly extracted file exists.
+					// Verify the extracted binary exists (stat throws if it doesn't)
 					cliExtractedProxyFilePath = Uri.joinPath(globalStorageUri, expectedBinary);
-
-					// This will throw if the file doesn't exist
 					await workspace.fs.stat(cliExtractedProxyFilePath);
 				} catch (ex) {
 					const reason = isLockedBinaryError(ex)
@@ -333,7 +327,6 @@ export class BinaryInstaller implements Disposable {
 					);
 				}
 			} finally {
-				// Clean up the installer zip file
 				if (cliProxyZipFilePath != null) {
 					try {
 						await workspace.fs.delete(cliProxyZipFilePath);
@@ -386,9 +379,9 @@ export class BinaryInstaller implements Disposable {
 			await runCLICommand(['update']);
 			const currentVersion = await getCLIVersions();
 
-			// Update the install scope's version so consumers (e.g. GkMcpService's mcp-config cache)
-			// notice the core swap. Without this the cached MCP server config keeps the pre-update
-			// version field forever, and VS Code keeps running the old MCP stdio process until reload.
+			// Update the install scope's version so consumers (e.g. GkMcpService's mcp-config cache) notice
+			// the core swap. Without this the cached config keeps the old version and VS Code keeps running
+			// the stale MCP stdio process until reload.
 			if (currentVersion?.core != null && currentVersion.core !== previousVersion?.core) {
 				const cliInstall = this.container.storage.getScoped('gk:cli:install');
 				if (cliInstall != null) {
@@ -532,7 +525,8 @@ export class BinaryInstaller implements Disposable {
 					);
 					forceInstall = true;
 				} else {
-					// Only update if GitLens extension version has changed since last check, to avoid unnecessary update checks
+					// Already at/above minimums: only run `gk update` when the extension version changed
+					// since last run, to pick up a newer core without spawning a subprocess every activation.
 					if (versionDidChange) {
 						const updateResult = await this.updateCore();
 						if (updateResult?.current != null) {
@@ -557,7 +551,8 @@ export class BinaryInstaller implements Disposable {
 
 		let didReachMaxAttempts = reachedMaxAttempts(cliInstall);
 
-		// Reset the attempts count if GitLens extension version has changed
+		// A new extension version clears the stored attempt count, so an install that previously hit max
+		// attempts is retried after an upgrade.
 		if (forceInstall || (didReachMaxAttempts && versionDidChange)) {
 			void this.container.storage.storeScoped('gk:cli:install', undefined);
 			didReachMaxAttempts = false;
@@ -579,4 +574,97 @@ export class BinaryInstaller implements Disposable {
 
 function reachedMaxAttempts(cliInstall?: StoredGkCLIInstallInfo): boolean {
 	return cliInstall?.status === 'attempted' && (cliInstall.attempts ?? 0) >= maxAutoInstallAttempts;
+}
+
+/** `true` for the `AbortError`/`TimeoutError` thrown when a fetch is aborted by our timeout signal. */
+function isAbortOrTimeoutError(ex: unknown): boolean {
+	return ex instanceof Error && (ex.name === 'TimeoutError' || ex.name === 'AbortError');
+}
+
+/** Fetches the proxy metadata JSON with a total-duration timeout, surfacing a stall as a `CLIInstallError`
+ * (so it gets standard install-failure telemetry) instead of hanging until the OS socket timeout. */
+async function fetchProxyMetadata(url: string, timeoutMs: number): Promise<Response> {
+	try {
+		return await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+	} catch (ex) {
+		if (isAbortOrTimeoutError(ex)) {
+			throw new CLIInstallError(
+				CLIInstallErrorReason.ProxyUrlFetch,
+				ex instanceof Error ? ex : undefined,
+				`timed out after ${timeoutMs}ms`,
+			);
+		}
+		throw ex;
+	}
+}
+
+/** Downloads the proxy archive, aborting if no bytes arrive for `stallTimeoutMs` (rationale on
+ * `proxyDownloadStallTimeout`). Surfaces both HTTP failures and timeouts as `CLIInstallError`s. */
+async function downloadProxyArchive(url: string, stallTimeoutMs: number): Promise<Uint8Array> {
+	const controller = new AbortController();
+	let timedOut = false;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const armStallTimer = () => {
+		if (timer != null) {
+			clearTimeout(timer);
+		}
+		timer = setTimeout(() => {
+			timedOut = true;
+			controller.abort();
+		}, stallTimeoutMs);
+	};
+
+	try {
+		armStallTimer();
+		const response = await fetch(url, { signal: controller.signal });
+		if (!response.ok) {
+			throw new CLIInstallError(
+				CLIInstallErrorReason.ProxyFetch,
+				undefined,
+				`${response.status} ${response.statusText}`,
+			);
+		}
+
+		// Stream the body so the stall timer can be reset on each chunk; fall back to a single buffered
+		// read (still covered by the stall timer) if the body isn't an inspectable stream.
+		const reader = response.body?.getReader();
+		if (reader == null) {
+			return new Uint8Array(await response.arrayBuffer());
+		}
+
+		const chunks: Uint8Array[] = [];
+		let size = 0;
+		for (;;) {
+			armStallTimer();
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			const chunk = value as Uint8Array | undefined;
+			if (chunk != null) {
+				chunks.push(chunk);
+				size += chunk.byteLength;
+			}
+		}
+
+		const data = new Uint8Array(size);
+		let offset = 0;
+		for (const chunk of chunks) {
+			data.set(chunk, offset);
+			offset += chunk.byteLength;
+		}
+		return data;
+	} catch (ex) {
+		if (timedOut || isAbortOrTimeoutError(ex)) {
+			throw new CLIInstallError(
+				CLIInstallErrorReason.ProxyFetch,
+				ex instanceof Error ? ex : undefined,
+				`download stalled (no progress for ${stallTimeoutMs}ms)`,
+			);
+		}
+		throw ex;
+	} finally {
+		if (timer != null) {
+			clearTimeout(timer);
+		}
+	}
 }

@@ -10,7 +10,7 @@ import { registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { getCliPublishInfo } from '../../ipc/ipcService.js';
-import { BinaryInstaller } from './binaryInstaller.js';
+import { CliBinaryInstaller } from './binaryInstaller.js';
 import { CliCommandHandlers } from './commands.js';
 import { clearResolvedCLIExecutableCache, getDevCLILocalPath, isInsidersCLIEnabled, runCLICommand } from './utils.js';
 
@@ -30,7 +30,7 @@ export interface CliInstallChangeEvent {
 export class GkCliService implements Disposable {
 	private readonly _disposable: VsDisposable;
 	private _runningDisposable: VsDisposable | undefined;
-	private readonly _installer: BinaryInstaller;
+	private readonly _installer: CliBinaryInstaller;
 
 	private readonly _onDidChangeInstall = new EventEmitter<CliInstallChangeEvent>();
 	get onDidChangeInstall(): Event<CliInstallChangeEvent> {
@@ -43,7 +43,7 @@ export class GkCliService implements Disposable {
 	}
 
 	constructor(private readonly container: Container) {
-		this._installer = new BinaryInstaller(container, () => this.authenticate());
+		this._installer = new CliBinaryInstaller(container, () => this.authenticate());
 
 		// Defer the `gk version` probe out of the first-render window so the 1.5–2 s
 		// subprocess doesn't contend with Graph/Home webview bootstrap on slower filesystems
