@@ -1,6 +1,5 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import { isMac } from '@env/platform.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
@@ -106,10 +105,8 @@ export class GlCommitBox extends LitElement {
 					@input=${this.onMessageInput}
 					@keydown=${this.onMessageKeydown}
 				></textarea>
-				<div class="controls">
-					${when(
-						this.aiEnabled,
-						() => html`
+				${this.aiEnabled
+					? html`<div class="controls">
 							<gl-button
 								class="sparkle"
 								appearance="toolbar"
@@ -122,8 +119,10 @@ export class GlCommitBox extends LitElement {
 									? html`<code-icon icon="loading" modifier="spin"></code-icon>`
 									: html`<code-icon icon="sparkle"></code-icon>`}
 							</gl-button>
-						`,
-					)}
+						</div>`
+					: nothing}
+				<div class="controls controls-bottom">
+					${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 					<gl-button
 						class="add-coauthors"
 						appearance="toolbar"
@@ -136,7 +135,6 @@ export class GlCommitBox extends LitElement {
 						<code-icon icon="person-add"></code-icon>
 					</gl-button>
 				</div>
-				${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 			</div>
 		`;
 	}
