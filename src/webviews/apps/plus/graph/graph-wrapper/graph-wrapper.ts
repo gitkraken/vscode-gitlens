@@ -889,7 +889,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-row-unhover', { detail: detail }));
 	}
 
-	private _lastSentSelectionKey: string | undefined;
+	private _lastSelectionKey: string | undefined;
 	private onSelectionChanged({ detail: { rows, focusedRow } }: CustomEventType<'graph-changeselection'>) {
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
 		const selection: GraphSelection[] = filterMap(rows, r =>
@@ -907,6 +907,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const activeKey = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
 		this.graphState.activeRow = activeKey;
 		this.graphState.activeDay = focusedRow?.date;
+
+		// Dedup the ENTIRE frontend selection pipeline by selection identity. The GK component fires
+		// `graph-changeselection` several times per selection (selection + focus-row reconciliation
+		// passes), and again on focus-row changes during scroll. Without this guard every redundant
+		// fire would rebuild commit shells, re-dispatch to the details panel, re-send the host IPC,
+		// and churn re-renders. `activeRow`/`activeDay` are updated above (before the guard) so the
+		// minimap/overview keep tracking the focused row on every event.
+		const selectionKey = selection
+			.map(s => `${s.id}|${s.type}|${s.repoPath ?? ''}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`)
+			.join(',');
+		if (selectionKey === this._lastSelectionKey) return;
+
+		this._lastSelectionKey = selectionKey;
 
 		// Build per-sha commit shells from the underlying row data so the details panel can
 		// paint the commit metadata synchronously (no IPC roundtrip) on cold-cache selections.
@@ -941,16 +954,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				detail: { selection: selection, reachability: reachability, commits: commits },
 			}),
 		);
-
-		// Dedup host RPC: the GK component fires `graph-changeselection` on focus-row changes too, which
-		// can trip during scroll without any real selection change. Skip the IPC when the selection set
-		// (including active/hidden flags) matches what we last sent.
-		const selectionKey = selection
-			.map(s => `${s.id}|${s.type}|${s.repoPath ?? ''}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`)
-			.join(',');
-		if (selectionKey === this._lastSentSelectionKey) return;
-
-		this._lastSentSelectionKey = selectionKey;
 
 		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
 	}
