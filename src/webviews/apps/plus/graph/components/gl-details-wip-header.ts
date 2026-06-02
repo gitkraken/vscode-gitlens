@@ -110,6 +110,7 @@ export class GlDetailsWipHeader extends LitElement {
 			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${this.computeWipModes()}
+			.compareEnabled=${true}
 			?in-results-view=${this.inResultsView}
 		>
 			<div class="graph-details-header__title-group">
@@ -133,20 +134,6 @@ export class GlDetailsWipHeader extends LitElement {
 			</div>
 			${!isModeActive
 				? html`<gl-action-chip
-							slot="actions"
-							icon="compare-changes"
-							label="Compare"
-							overlay="tooltip"
-							@click=${() =>
-								this.dispatchEvent(
-									new CustomEvent('toggle-mode', {
-										detail: { mode: 'compare' },
-										bubbles: true,
-										composed: true,
-									}),
-								)}
-						></gl-action-chip>
-						<gl-action-chip
 							slot="actions"
 							icon="terminal"
 							label="Open in Integrated Terminal"

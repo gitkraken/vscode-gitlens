@@ -36,12 +36,37 @@ export const detailsHeaderStyles = css`
 		flex-shrink: 0;
 	}
 
+	/* Secondary actions (terminal / jump / refresh / open-on-remote …) form their own flex
+	   cluster, set off from the primary group (compose / review / compare) by a slightly
+	   larger gap. Making the slot itself the flex container keeps the secondary chips tightly
+	   spaced among themselves while the leading margin (+ the 0.2rem parent gap) widens only
+	   the inter-group seam. Collapsed out of flow entirely until the slot actually receives
+	   content (has-actions, set via slotchange) so it never reserves trailing space on the
+	   right — e.g. the comparison panel, which slots no secondary actions. */
+	.details-header__actions-secondary {
+		display: none;
+	}
+
+	.details-header__actions-secondary.has-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.2rem;
+		margin-inline-start: 0.4rem;
+	}
+
 	/* Mode-toggle label collapse, staggered.
 	   The chip's slotted label is a normal child of <gl-action-chip> in this template,
 	   so we target it via descendant selectors. Hiding the slotted span with display:none
 	   cleanly removes the flex item and its surrounding gap inside the chip — yielding
 	   a true icon-only state instead of clipped/ellipsed text. The active chip is exempt
-	   so the selected mode keeps its label visible. Review yields first, then Compose. */
+	   so the selected mode keeps its label visible. Compare yields first, then Review,
+	   then Compose. */
+	@container gl-action-chip-host (max-width: 380px) {
+		.mode-toggle--compare .mode-toggle__text {
+			display: none;
+		}
+	}
+
 	@container gl-action-chip-host (max-width: 320px) {
 		.mode-toggle--review:not(.mode-toggle--active) .mode-toggle__text {
 			display: none;

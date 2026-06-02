@@ -345,15 +345,16 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private redispatch = redispatch.bind(this);
 
 	private renderCompareHeader() {
-		// Review is the only mode here. Compare is invoked separately as a sheet — render a
-		// dedicated action chip in the actions slot when no mode is active so the user can pivot
-		// the existing comparison through the compare-refs picker.
+		// Review is the only mode here. Compare is invoked separately as a sheet — the header
+		// renders a grouped Compare entry-point chip (via `compareEnabled`) when no mode is
+		// active so the user can pivot the existing comparison through the compare-refs picker.
 		const modes = this.aiEnabled ? (['review'] as const) : ([] as const);
 		return html`<gl-details-header
 			.activeMode=${this.activeMode}
 			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${modes}
+			.compareEnabled=${true}
 			?in-results-view=${this.inResultsView}
 		>
 			<span class="compare-header__title">
@@ -364,22 +365,6 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 						</span>`
 					: html`Comparing References`}
 			</span>
-			${this.activeMode == null
-				? html`<gl-action-chip
-						slot="actions"
-						icon="compare-changes"
-						label="Compare"
-						overlay="tooltip"
-						@click=${() =>
-							this.dispatchEvent(
-								new CustomEvent('toggle-mode', {
-									detail: { mode: 'compare' },
-									bubbles: true,
-									composed: true,
-								}),
-							)}
-					></gl-action-chip>`
-				: nothing}
 		</gl-details-header>`;
 	}
 

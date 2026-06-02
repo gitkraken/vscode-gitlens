@@ -364,27 +364,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			.modeStatus=${this.modeStatus}
 			.loading=${this.loading}
 			.modes=${this.computeCommitModes()}
+			.compareEnabled=${this.compareEnabled}
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
-			${when(
-				this.compareEnabled && this.activeMode == null,
-				() =>
-					html`<gl-action-chip
-						slot="actions"
-						icon="compare-changes"
-						label="Compare"
-						overlay="tooltip"
-						@click=${() =>
-							this.dispatchEvent(
-								new CustomEvent('toggle-mode', {
-									detail: { mode: 'compare' },
-									bubbles: true,
-									composed: true,
-								}),
-							)}
-					></gl-action-chip>`,
-			)}
 			${when(
 				this.showJumpToNearestWip && !isStash && !this.isUncommitted && this.activeMode == null,
 				() =>
