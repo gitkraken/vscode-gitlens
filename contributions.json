@@ -6904,7 +6904,7 @@
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"
 		},
 		"gitlens.stashApply:graph": {
-			"label": "Apply Stash...",
+			"label": "Apply / Pop Stash...",
 			"icon": "$(gitlens-stash-pop)",
 			"enablement": "!operationInProgress",
 			"menus": {
@@ -6918,7 +6918,7 @@
 			}
 		},
 		"gitlens.stashApply:views": {
-			"label": "Apply Stash...",
+			"label": "Apply / Pop Stash...",
 			"icon": "$(gitlens-stash-pop)",
 			"enablement": "!operationInProgress",
 			"menus": {
@@ -6984,13 +6984,13 @@
 			}
 		},
 		"gitlens.stashesApply": {
-			"label": "Apply a Stash...",
+			"label": "Apply / Pop a Stash...",
 			"icon": "$(gitlens-stash-pop)",
 			"enablement": "!operationInProgress",
 			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
 		"gitlens.stashesApply:views": {
-			"label": "Apply a Stash...",
+			"label": "Apply / Pop a Stash...",
 			"icon": "$(gitlens-stash-pop)",
 			"enablement": "!operationInProgress",
 			"menus": {

@@ -120,7 +120,7 @@ const panelConfig: Record<GraphSidebarPanel, PanelConfig> = {
 		title: 'Stashes',
 		actions: [
 			{ icon: 'gl-stash-save', tooltip: 'Stash All Changes...', command: 'gitlens.stashSave:views' },
-			{ icon: 'gl-stash-pop', tooltip: 'Apply Stash...', command: 'gitlens.stashesApply:views' },
+			{ icon: 'gl-stash-pop', tooltip: 'Apply / Pop Stash...', command: 'gitlens.stashesApply:views' },
 		],
 	},
 	tags: {
@@ -663,7 +663,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 						checkable: false,
 						context: [s.sha] as SidebarItemContext,
 						actions: [
-							{ icon: 'gl-stash-pop', label: 'Apply Stash...', action: 'gitlens.stashApply:graph' },
+							{ icon: 'gl-stash-pop', label: 'Apply / Pop Stash...', action: 'gitlens.stashApply:graph' },
 							{ icon: 'trash', label: 'Delete Stash...', action: 'gitlens.stashDelete:graph' },
 						],
 						contextData: s.context != null ? serializeWebviewItemContext(s.context) : undefined,

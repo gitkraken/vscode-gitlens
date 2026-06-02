@@ -8997,13 +8997,13 @@
 			},
 			{
 				"command": "gitlens.stashApply:graph",
-				"title": "Apply Stash...",
+				"title": "Apply / Pop Stash...",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.stashApply:views",
-				"title": "Apply Stash...",
+				"title": "Apply / Pop Stash...",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
 			},
@@ -9027,14 +9027,14 @@
 			},
 			{
 				"command": "gitlens.stashesApply",
-				"title": "Apply a Stash...",
+				"title": "Apply / Pop a Stash...",
 				"category": "GitLens",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
 			},
 			{
 				"command": "gitlens.stashesApply:views",
-				"title": "Apply a Stash...",
+				"title": "Apply / Pop a Stash...",
 				"icon": "$(gitlens-stash-pop)",
 				"enablement": "!operationInProgress"
 			},

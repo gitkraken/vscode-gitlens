@@ -975,8 +975,8 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 							<gl-button
 								appearance="toolbar"
 								onClick={() => initProps.onRowAction?.({ action: 'stash-apply', row: row })}
-								tooltip="Apply Stash..."
-								aria-label="Apply Stash..."
+								tooltip="Apply / Pop Stash..."
+								aria-label="Apply / Pop Stash..."
 							>
 								<code-icon icon="git-stash-apply"></code-icon>
 							</gl-button>
