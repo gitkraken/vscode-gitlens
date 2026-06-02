@@ -7105,7 +7105,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			};
 			files.push(change);
 			if (file.staged && file.wip) {
-				files.push({ ...change, staged: false });
+				// Mixed file: the unstaged twin must carry the WORKING-tree status, not the index
+				// status `file.status` resolves to. Otherwise, after committing only the staged side,
+				// the optimistic clear keeps this twin still showing the staged letter (e.g. `A`) until
+				// the host's status push corrects it to the real working letter (e.g. `M`) — a visible
+				// flicker. `file.wip` guarantees `workingTreeStatus` is set here.
+				files.push({ ...change, staged: false, status: file.workingTreeStatus ?? file.status });
 			}
 		}
 
