@@ -202,6 +202,7 @@ export class GlDetailsWipHeader extends LitElement {
 								<span slot="content">Switch Branch...</span>
 							</gl-tooltip>`
 						: nothing}
+					${!isModeActive ? this.renderWipActionsButton() : nothing}
 					${isModeActive
 						? html`<gl-wip-stats
 								.added=${addedCount}
@@ -246,6 +247,42 @@ export class GlDetailsWipHeader extends LitElement {
 			${!isModeActive ? this.renderIssuesRow() : nothing}${this.renderPausedOpStatus()}
 		</gl-details-header>`;
 	}
+
+	private renderWipActionsButton() {
+		// `wip.stats.context` is the serialized `GraphItemContext` for the WIP row's right-click menu,
+		// so reusing it here opens the identical context menu with zero drift. The host panel's
+		// `ContextMenuProxyController` copies `data-vscode-context` into light DOM on `contextmenu`.
+		const context = this.wip?.stats?.context;
+		if (context == null) return nothing;
+
+		return html`<gl-action-chip
+			icon="kebab-vertical"
+			label="Show More Actions"
+			overlay="tooltip"
+			data-vscode-context=${context}
+			@click=${this.onMoreActionsClick}
+		></gl-action-chip>`;
+	}
+
+	private onMoreActionsClick = (e: MouseEvent): void => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const target = e.currentTarget as HTMLElement | null;
+		if (target == null) return;
+
+		const rect = target.getBoundingClientRect();
+		target.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				composed: true,
+				cancelable: true,
+				clientX: rect.left,
+				clientY: rect.bottom,
+				button: 2,
+			}),
+		);
+	};
 
 	private computeWipModes(): ('review' | 'compose')[] {
 		if (!this.aiEnabled) return [];
