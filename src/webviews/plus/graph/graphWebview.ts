@@ -329,6 +329,7 @@ import type {
 	GraphPinnedRef,
 	GraphRefMetadata,
 	GraphRefMetadataType,
+	GraphRefsMetadata,
 	GraphRefType,
 	GraphRemoteContextValue,
 	GraphRepository,
@@ -672,6 +673,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	// append-only within a generation, so on a same-`id` push we ship only the appended tail (a delta);
 	// a new `id` ships the full table. Reset by `setGraph(undefined)`; advanced only on confirmed send.
 	private _lastSentReachability: { id: number; dictLen: number; setsLen: number } | undefined;
+	// Snapshot of the `_refsMetadata` value references shipped on the previous send. Entries are replaced
+	// with fresh objects on every change (copy-on-write in `onGetMissingRefMetadata`) and never deleted,
+	// so a reference compare yields an exact delta (the webview spread-merges). Reset by
+	// `resetRefsMetadata`; advanced only on confirmed send.
+	private _lastSentRefsMetadata: Map<string, GraphRefMetadata> | undefined;
 	// Last overview shipped to the webview. `setGraph` fires `notifyDidChangeOverview` on every graph
 	// reload (repo/visibility/filter change, refresh); most reloads reproduce the prior overview, so
 	// a deep-equal gate skips the redundant serialize + webview re-render. Cleared in `setGraph` on
@@ -3318,6 +3324,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.subscribeToTreemapInvalidations();
 		}
 
+		// `graph.showUpstreamStatus` feeds `resetRefsMetadata`'s feature-on/off decision (upstream is
+		// local-git data, so it keeps metadata populatable even with no integration). The catch-all `graph`
+		// block below only re-sends the component config — re-evaluate the gate here too, but only when the
+		// feature is currently off/unpopulated (`null`/`undefined`) so connected repos with populated
+		// metadata don't needlessly re-fetch and flicker on the toggle.
+		if (configuration.changed(e, 'graph.showUpstreamStatus') && this._refsMetadata == null) {
+			this.resetRefsMetadata();
+			// Immediate (see `onDidChangeContext` reset): wipe before the webview re-requests so the
+			// merge-reducer starts from a clean slate.
+			this.updateRefsMetadata(true);
+		}
+
 		if (configuration.changed(e, 'graph.commitOrdering')) {
 			this.updateState();
 
@@ -4081,19 +4099,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		// Check if we have connected integrations that can provide the requested metadata
-		const hasHostingIntegration = getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(
-			this._graph.repoPath,
-		);
-
-		if (!hasHostingIntegration) {
-			// If no hosting integration, check if we at least have issue integrations connected
-			const hasIssueIntegration =
-				this._issueIntegrationConnectionState !== 'not-checked'
-					? this._issueIntegrationConnectionState === 'connected'
-					: await this.checkIssueIntegrations();
-			if (!hasIssueIntegration) return;
-		}
+		// PR/issue enrichment needs a connected integration; upstream (ahead/behind) is local-git data and
+		// doesn't. Resolve integration availability up front so we can still satisfy upstream requests when
+		// nothing is connected (the per-type loop nulls PR/issue in that case) instead of bailing entirely.
+		const hasHostingIntegration =
+			getContext('gitlens:repos:withHostingIntegrationsConnected')?.includes(this._graph.repoPath) ?? false;
+		const hasIntegration =
+			hasHostingIntegration ||
+			(this._issueIntegrationConnectionState !== 'not-checked'
+				? this._issueIntegrationConnectionState === 'connected'
+				: await this.checkIssueIntegrations());
 
 		const repoPath = this._graph.repoPath;
 
@@ -4122,6 +4137,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 			for (const type of missingTypes) {
 				if (!supportedRefMetadataTypes.includes(type)) {
+					metadata[type] = null;
+					this._refsMetadata.set(id, metadata);
+
+					continue;
+				}
+
+				// PR/issue enrichment requires a connected integration; without one, resolve them as
+				// "none" so the webview stops re-requesting them, while still resolving upstream below.
+				if (!hasIntegration && type !== 'upstream') {
 					metadata[type] = null;
 					this._refsMetadata.set(id, metadata);
 
@@ -5300,10 +5324,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private clearRefsMetadataIssues(): boolean {
 		if (this._refsMetadata == null) return false;
 
-		for (const [, value] of this._refsMetadata) {
-			if (value == null) continue;
+		for (const [id, value] of this._refsMetadata) {
+			// Skip entries with nothing cached to clear (already pending re-fetch) — avoids allocating and
+			// needlessly bumping their reference into the next delta.
+			if (value?.issue === undefined) continue;
 
-			value.issue = undefined;
+			// Replace the value reference (copy-on-write) rather than mutating in place: `buildRefsMetadataDelta`
+			// detects changes by value-reference identity, so an in-place `value.issue = undefined` would be
+			// invisible to the delta and the stale issue would never ship.
+			this._refsMetadata.set(id, { ...value, issue: undefined });
 		}
 		return true;
 	}
@@ -5629,9 +5658,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private async notifyDidChangeRefsMetadata() {
-		return this.host.notify(DidChangeRefsMetadataNotification, {
-			metadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
-		});
+		const { payload, watermark } = this.buildRefsMetadataDelta();
+		// Skip the IPC only when the map is populated but unchanged. `null`/`undefined` are authoritative
+		// resets (integration connect/disconnect) that must ship so the webview replaces wholesale and
+		// re-requests missing metadata; a delta object ships the changed entries to spread-merge.
+		if (payload === undefined && this._refsMetadata != null) return;
+
+		const success = await this.host.notify(DidChangeRefsMetadataNotification, { metadata: payload });
+		if (success) {
+			this._lastSentRefsMetadata = watermark;
+		}
+		return success;
 	}
 
 	@trace()
@@ -5797,6 +5834,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { payload: { id: table.id, dictionary: table.dictionary, sets: table.sets }, watermark: watermark };
 	}
 
+	/**
+	 * Picks the refsMetadata delta to ship and the watermark to record on confirmed send. Unlike the
+	 * append-only avatars/rowsStats Maps (gated by size), refsMetadata mutates entries in place by id —
+	 * but every update replaces the value with a fresh object (the copy-on-write spread in
+	 * `onGetMissingRefMetadata`), so a reference compare against the last-sent snapshot is an exact delta.
+	 * Entries are never deleted (only set to null), so no tombstones are needed and the webview spread-
+	 * merges. `payload` is:
+	 *   - `null` — `_refsMetadata` is null (feature off): an authoritative reset; the webview replaces.
+	 *   - `undefined` — `_refsMetadata` is cleared (reset) OR a populated map with nothing changed. The
+	 *     dedicated channel ships it (webview resets); the rows piggyback omits it (webview keeps state).
+	 *   - a `Record` — the changed/new entries to merge.
+	 * The caller assigns `_lastSentRefsMetadata = watermark` only after `host.notify` confirms delivery.
+	 */
+	private buildRefsMetadataDelta(): {
+		payload: GraphRefsMetadata | null | undefined;
+		watermark: Map<string, GraphRefMetadata> | undefined;
+	} {
+		const metadata = this._refsMetadata;
+		if (metadata == null) return { payload: metadata, watermark: undefined };
+
+		const lastSent = this._lastSentRefsMetadata;
+		let delta: GraphRefsMetadata | undefined;
+		for (const [id, value] of metadata) {
+			// A different value reference means the entry was added or rebuilt since the last send.
+			if (lastSent?.get(id) !== value) {
+				(delta ??= {})[id] = value;
+			}
+		}
+		// Nothing changed since the last send → ship nothing, keep the watermark where it is.
+		if (delta == null) return { payload: undefined, watermark: lastSent };
+
+		return { payload: delta, watermark: new Map(metadata) };
+	}
+
 	@trace()
 	private async notifyDidChangeRows(sendSelectedRows: boolean = false, completionId?: string) {
 		if (this._graph == null) return;
@@ -5840,6 +5911,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				: undefined;
 
 		const reachability = this.buildReachabilityPayload(graph.reachability);
+		// Ship refsMetadata as a value-reference delta (the webview spread-merges) instead of the full Map
+		// on every rows tick. `null` still resets the webview (no integrations); an unchanged Map omits it.
+		const refsMetadata = this.buildRefsMetadataDelta();
 		const success = await this.host.notify(
 			DidChangeRowsNotification,
 			{
@@ -5847,7 +5921,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				reachabilityTable: reachability.payload,
 				avatars: avatarsChanged ? Object.fromEntries(graph.avatars) : undefined,
 				downstreams: Object.fromEntries(graph.downstreams),
-				refsMetadata: this._refsMetadata != null ? Object.fromEntries(this._refsMetadata) : this._refsMetadata,
+				refsMetadata: refsMetadata.payload,
 				rowsStats: rowsStatsDelta,
 				rowsStatsLoading:
 					graph.rowsStatsDeferred?.isLoaded != null ? !graph.rowsStatsDeferred.isLoaded() : false,
@@ -5877,6 +5951,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastSentAvatarsSize = avatarsSize;
 			this._lastSentRowsStatsSize = rowsStatsSize;
 			this._lastSentReachability = reachability.watermark;
+			// null/undefined reset → undefined watermark; a delta advances it; an unchanged Map keeps it.
+			this._lastSentRefsMetadata = refsMetadata.watermark;
 		}
 		return success;
 	}
@@ -6359,7 +6435,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				if (key !== 'gitlens:repos:withHostingIntegrationsConnected') return;
 
 				this.resetRefsMetadata();
-				this.updateRefsMetadata();
+				// Immediate so the reset wipes the webview before any repopulation delta merges onto stale
+				// pre-change entries (the reducer spread-merges; a debounced reset can coalesce with a
+				// concurrent repopulation and ship a delta instead of the wipe).
+				this.updateRefsMetadata(true);
 			}),
 		);
 	}
@@ -6385,7 +6464,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		this.resetRefsMetadata();
-		this.updateRefsMetadata();
+		// Immediate (see `onDidChangeContext` reset): the wipe must land before any repopulation delta so
+		// the webview's merge-reducer doesn't keep stale pre-change entries.
+		this.updateRefsMetadata(true);
 	}
 
 	private async checkIssueIntegrations(): Promise<boolean> {
@@ -7901,11 +7982,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRefsMetadata(): null | undefined {
+		// `null` marks the whole refsMetadata feature off (the webview won't request metadata). Upstream
+		// (ahead/behind) is local-git data that needs no integration, so keep metadata populatable whenever
+		// upstream status is enabled — even with nothing connected. Only fall back to `null` when there's
+		// genuinely nothing to provide (upstream disabled AND no integration connected).
 		this._refsMetadata =
+			configuration.get('graph.showUpstreamStatus') ||
 			getContext('gitlens:repos:withHostingIntegrationsConnected') ||
 			this._issueIntegrationConnectionState !== 'not-connected'
 				? undefined
 				: null;
+		// Clear the delta watermark so the next populated send ships every entry afresh (the webview is
+		// reset in lockstep — via the dedicated reset notification or the full-state push).
+		this._lastSentRefsMetadata = undefined;
 		return this._refsMetadata;
 	}
 

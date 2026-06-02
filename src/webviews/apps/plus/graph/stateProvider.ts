@@ -1029,8 +1029,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 
 			case DidChangeRefsMetadataNotification.is(msg):
+				// The host ships only changed/new entries (a value-reference delta) — spread-merge them.
+				// `null`/`undefined` are authoritative resets (integration connect/disconnect): replace
+				// wholesale so the component re-detects missing metadata and re-requests it.
 				this.updateState({
-					refsMetadata: msg.params.metadata,
+					refsMetadata:
+						msg.params.metadata != null
+							? { ...this._state.refsMetadata, ...msg.params.metadata }
+							: msg.params.metadata,
 				});
 				break;
 
@@ -1102,8 +1108,12 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					updates.avatars = msg.params.avatars;
 				}
 				updates.downstreams = msg.params.downstreams;
-				if (msg.params.refsMetadata !== undefined) {
-					updates.refsMetadata = msg.params.refsMetadata;
+				// `refsMetadata` rides along as a value-reference delta: spread-merge an object, replace on
+				// an explicit `null` reset (no integrations), and keep our state on `undefined` (no change).
+				if (msg.params.refsMetadata === null) {
+					updates.refsMetadata = null;
+				} else if (msg.params.refsMetadata !== undefined) {
+					updates.refsMetadata = { ...this._state.refsMetadata, ...msg.params.refsMetadata };
 				}
 				updates.rows = rows;
 				// Adopt the reachability table by generation id: append the delta on same-generation
