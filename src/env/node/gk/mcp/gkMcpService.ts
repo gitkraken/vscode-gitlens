@@ -1,13 +1,6 @@
-import type { ConfigurationChangeEvent, Disposable, Event } from 'vscode';
-import {
-	version as codeVersion,
-	commands,
-	env,
-	EventEmitter,
-	ProgressLocation,
-	Disposable as VsDisposable,
-	window,
-} from 'vscode';
+import type { ConfigurationChangeEvent, Disposable } from 'vscode';
+import { version as codeVersion, commands, env, ProgressLocation, Disposable as VsDisposable, window } from 'vscode';
+import { getIsOffline, isWeb } from '@env/platform.js';
 import { RunError } from '@gitlens/git-cli/exec/exec.errors.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -15,21 +8,20 @@ import { debug } from '@gitlens/utils/decorators/log.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { compare } from '@gitlens/utils/version.js';
-import { getIsOffline, isWeb } from '@env/platform.js';
+import type { GkAgent } from '../../../../agents/agentService.js';
 import { urls } from '../../../../constants.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
-import { configuration } from '../../../../system/-webview/configuration.js';
-import { executeCoreCommand, registerCommand } from '../../../../system/-webview/command.js';
-import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
-import { openUrl } from '../../../../system/-webview/vscode/uris.js';
-import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
-import { gate } from '../../../../system/decorators/gate.js';
 import {
 	supportsCursorMcpRegistration,
 	supportsMcpExtensionRegistration,
 } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
-import type { GkAgent } from '../../../../agents/agentService.js';
+import { executeCoreCommand, registerCommand } from '../../../../system/-webview/command.js';
+import { configuration } from '../../../../system/-webview/configuration.js';
+import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
+import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
+import { gate } from '../../../../system/decorators/gate.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
 import type { CliInstallChangeEvent } from '../cli/gkCliService.js';
 import { McpSetupError, McpSetupErrorReason } from './errors.js';
@@ -93,11 +85,6 @@ export class GkMcpService implements Disposable {
 
 	private _fireRefreshDebounced: Deferrable<() => void> | undefined;
 
-	private readonly _onDidCompleteSetup = new EventEmitter<{ source: Sources; cliVersion?: string }>();
-	get onDidCompleteSetup(): Event<{ source: Sources; cliVersion?: string }> {
-		return this._onDidCompleteSetup.event;
-	}
-
 	constructor(private readonly container: Container) {
 		// Construction order contract: `container.gkCli` MUST be constructed before `container.gkMcp`
 		// (enforced today by the eager-construct order in container.ts). MCP subscribes to CLI events
@@ -107,7 +94,6 @@ export class GkMcpService implements Disposable {
 		const cliService = container.gkCli!;
 
 		this._disposable = VsDisposable.from(
-			this._onDidCompleteSetup,
 			cliService.onDidChangeInstall(e => this.onCliInstallChanged(e)),
 			cliService.onDidStartIpc(e => this.onIpcServerStarted(e)),
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
@@ -395,8 +381,15 @@ export class GkMcpService implements Disposable {
 	 * - the `gitlens.ai.mcp.install` / `reinstall` command handlers (interactive)
 	 * - the `onCliInstallChanged` reactive listener (silent: true)
 	 * - the `gitkraken.mcp.autoEnabled` configuration change handler (silent: true)
+	 *
+	 * Gated with a constant key (the default gate keys on argument values): a fresh install inside
+	 * an interactive setup fires `onDidChangeInstall`, whose reactive `setupCore` call has different
+	 * args — without the constant key it would run a second, concurrent setup (doubling `mcp/setup/*`
+	 * telemetry and host refreshes) instead of deduping onto the in-flight one. Trade-off: a forced
+	 * reinstall arriving during an in-flight setup dedupes onto it too (acceptable — when the binary
+	 * is actually broken the in-flight setup is already running a real install).
 	 */
-	@gate()
+	@gate(() => 'setup')
 	@debug({ exit: true })
 	private async setupCore(
 		source?: Sources,
@@ -483,8 +476,6 @@ export class GkMcpService implements Disposable {
 				// cancels any debounced refresh that storage event scheduled, avoiding a duplicate
 				// host pull (and the redundant `gk mcp config` shell-out it would cost).
 				this.fireRefresh(true);
-
-				this._onDidCompleteSetup.fire({ source: commandSource, cliVersion: cliVersion });
 
 				return {
 					cliVersion: cliVersion,
