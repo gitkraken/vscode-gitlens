@@ -236,6 +236,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		onReady?: () => void;
 	};
 
+	/** A mode request that arrived before the workflow controller finished its async init (e.g. an
+	 *  Inspect-delegated Review/Compose on a cold graph open). Applied once `_workflow` exists.
+	 *  Mirrors {@link _pendingCompare}. */
+	private _pendingMode?: { mode: 'compose' | 'review'; repoPath: string; sha: string };
+
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
 
@@ -828,7 +833,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** Entry point for the WIP-row Compose/Review buttons. Re-clicking while already engaged
 	 *  on the same anchor is a no-op (re-focus); otherwise toggleMode handles enter/replace. */
 	enterModeForWip(mode: 'compose' | 'review', repoPath: string, sha: string): void {
-		if (this._workflow == null) return;
+		if (this._workflow == null) {
+			// Element mounted but async init (resolveDetailsActions → controller) hasn't finished —
+			// defer and apply once `_workflow` exists. Mirrors the `_pendingCompare` path.
+			this._pendingMode = { mode: mode, repoPath: repoPath, sha: sha };
+			return;
+		}
 
 		this.suppressContentOverflow();
 		const selection: DetailsSelection = {
@@ -1495,6 +1505,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			const { params, onReady } = this._pendingCompare;
 			this._pendingCompare = undefined;
 			this.openCompareMode(params, onReady);
+		}
+
+		if (this._pendingMode != null) {
+			const { mode, repoPath, sha } = this._pendingMode;
+			this._pendingMode = undefined;
+			this.enterModeForWip(mode, repoPath, sha);
 		}
 
 		void this._actions.fetchCapabilities();

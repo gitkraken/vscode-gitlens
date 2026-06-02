@@ -583,6 +583,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								.reachabilityState=${reachState}
 								.branchName=${commit?.stashOnRef}
 								.aiEnabled=${org?.ai !== false}
+								@toggle-mode=${(e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>) =>
+									actions?.openCommitInGraphMode(e.detail.mode, commit)}
 								@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
 									actions?.executeCommand('gitlens.stashesApply', e.detail)}
 								@explain-commit=${(e: CustomEvent<{ prompt?: string }>) =>

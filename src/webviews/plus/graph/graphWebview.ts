@@ -52,7 +52,7 @@ import {
 } from '@gitlens/git/utils/pullRequest.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { createRevisionRange, isSha, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
+import { createRevisionRange, isSha, isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
 import {
 	getSearchQueryComparisonKey,
 	parseSearchQuery,
@@ -465,7 +465,7 @@ function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
 	return typeof arg?.sidebarPanel === 'string';
 }
 
-function hasAction(arg: any): arg is { action: GraphShowAction } {
+function hasAction(arg: any): arg is { action: GraphShowAction; target?: GraphActionTarget } {
 	return typeof arg?.action === 'string';
 }
 
@@ -2292,7 +2292,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.repository = this.container.git.getRepository(arg.ref.repoPath);
 
 			let id = arg.ref.ref;
-			if (!isSha(id)) {
+			let isWipRow = false;
+			if (isUncommitted(id)) {
+				// The uncommitted revision isn't a real commit — it maps to a synthetic WIP row. Select
+				// the row for the matching worktree: the shown repo's own working tree is the primary
+				// 'work-dir-changes' row; any other worktree path uses its per-path secondary WIP sha
+				// (the graph surfaces one WIP row per worktree). See createSecondaryWipSha.
+				id =
+					arg.ref.repoPath === this.repository?.path
+						? 'work-dir-changes'
+						: createSecondaryWipSha(arg.ref.repoPath);
+				isWipRow = true;
+			} else if (!isSha(id)) {
 				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
 			}
 
@@ -2301,7 +2312,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.setSelectedRows(id);
 
 			if (this._graph != null) {
-				if (this._graph?.ids.has(id)) {
+				// Synthetic WIP rows can't be paged in via `onGetMoreRows`; selecting + notifying is enough.
+				if (isWipRow || this._graph?.ids.has(id)) {
 					void this.notifyDidChangeSelection();
 					return [true, this.getShownTelemetryContext()];
 				}
@@ -2347,13 +2359,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.host.notify(DidRequestActiveSidebarPanelNotification, { panel: arg.sidebarPanel });
 			}
 		} else if (hasAction(arg)) {
+			const { target } = arg;
+			// Switch to the target's repository so a cold show lands on the right repo (and the
+			// primary-vs-secondary WIP comparison below resolves correctly). Mirrors the ref path.
+			if (target != null) {
+				this.repository = this.container.git.getRepository(target.worktreePath) ?? this.repository;
+			}
 			if (arg.action !== 'scope-to-branch') {
-				this.setSelectedRows('work-dir-changes');
+				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
+				// row (primary 'work-dir-changes' or a secondary worktree's synthetic sha), a real
+				// target selects its commit sha, and no target falls back to the primary WIP row.
+				let rowId = 'work-dir-changes';
+				if (target != null) {
+					rowId = isUncommitted(target.sha)
+						? target.worktreePath === this.repository?.path
+							? 'work-dir-changes'
+							: createSecondaryWipSha(target.worktreePath)
+						: target.sha;
+					this._honorSelectedId = true;
+				}
+				this.setSelectedRows(rowId);
 			}
 			if (loading) {
-				this._pendingAction = { action: arg.action };
+				this._pendingAction = { action: arg.action, target: arg.target };
 			} else {
-				void this.host.notify(DidRequestGraphActionNotification, { action: arg.action });
+				void this.host.notify(DidRequestGraphActionNotification, {
+					action: arg.action,
+					target: arg.target,
+				});
 			}
 		} else {
 			if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {

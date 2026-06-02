@@ -307,9 +307,17 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		`;
 	}
 
-	private getMultiDiffRefs(): { repoPath: string; lhs: string; rhs: string; title?: string } | undefined {
+	private getMultiDiffRefs():
+		| { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }
+		| undefined {
 		const commit = this.commit;
 		if (!commit) return undefined;
+
+		// The uncommitted pseudo-commit isn't a real revision — open the working changes with per-file
+		// HEAD↔index↔working semantics (the `wip` flag overrides lhs/rhs host-side). Mirrors the WIP panel.
+		if (this.isUncommitted) {
+			return { repoPath: commit.repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
+		}
 
 		return {
 			repoPath: commit.repoPath,
@@ -380,7 +388,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					></gl-action-chip>`,
 			)}
 			${when(
-				!isStash && this.hasRemotes && this.activeMode == null,
+				!isStash && !this.isUncommitted && this.hasRemotes && this.activeMode == null,
 				() =>
 					html`<gl-action-chip
 						slot="actions"
@@ -402,7 +410,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 	private computeCommitModes(): ('review' | 'compose')[] {
 		if (!this.aiEnabled) return [];
-		return ['review'];
+		// Working changes support both Compose and Review; a real commit supports Review only.
+		return this.isUncommitted ? ['compose', 'review'] : ['review'];
 	}
 
 	private renderEmbeddedMetadataBar() {
@@ -1153,6 +1162,24 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const commit = this.commit;
 		const isStash = commit.stashNumber != null;
 		const submodule = file.submodule != null ? '+submodule' : '';
+
+		// The uncommitted pseudo-commit isn't a real commit — give its files working-tree context so the
+		// menu shows working-tree actions (stage/discard/open changes) instead of commit-only actions
+		// (open at revision / on remote / restore previous). Mirrors the WIP panel's file context.
+		if (this.isUncommitted) {
+			const context: DetailsItemTypedContext = {
+				webviewItem: `gitlens:file${file.staged ? '+staged' : '+unstaged'}${submodule}`,
+				webviewItemValue: {
+					type: 'file',
+					path: file.path,
+					repoPath: commit.repoPath,
+					sha: commit.sha,
+					staged: file.staged,
+					status: file.status,
+				},
+			};
+			return serializeWebviewItemContext(context);
+		}
 
 		let webviewItem: DetailsItemContext['webviewItem'];
 		if (isStash) {

@@ -25,6 +25,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.ts';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
@@ -587,7 +588,7 @@ export class CommitDetailsActions {
 		if (this.state.mode.get() === 'wip') return undefined;
 
 		const commit = this.state.currentCommit.get();
-		if (commit?.sha == null) return undefined;
+		if (commit?.sha == null || isUncommitted(commit.sha)) return undefined;
 		return { ref: commit.sha, stash: commit.stashNumber != null };
 	}
 
@@ -644,11 +645,24 @@ export class CommitDetailsActions {
 	}
 
 	openOnRemote(repoPath: string | undefined, sha: string): void {
-		if (!repoPath) return;
+		if (!repoPath || isUncommitted(sha)) return;
 
 		void this.services.commands.execute('gitlens.openOnRemote', {
 			repoPath: repoPath,
 			resource: { type: 'commit' satisfies `${RemoteResourceType.Commit}`, sha: sha },
+		});
+	}
+
+	/** Delegate inspect's Review/Compose mode toggles to the graph: open it, select the target row
+	 *  (the WIP row for the uncommitted commit, else the commit), and enter the mode there — these
+	 *  modes aren't orchestrated standalone in Inspect. */
+	openCommitInGraphMode(mode: 'review' | 'compose' | 'compare', commit: CommitDetails | undefined): void {
+		if (commit?.repoPath == null || commit.sha == null) return;
+		if (mode !== 'review' && mode !== 'compose') return;
+
+		void this.services.commands.execute('gitlens.showGraph', {
+			action: mode === 'review' ? 'enter-review' : 'enter-compose',
+			target: { sha: commit.sha, worktreePath: commit.repoPath },
 		});
 	}
 

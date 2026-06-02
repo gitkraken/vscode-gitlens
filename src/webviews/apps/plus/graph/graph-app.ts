@@ -657,11 +657,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 
 		showDetails();
-		await this.updateComplete;
+
 		if (action === 'enter-review' || action === 'enter-compose') {
-			this.detailsPanelEl?.enterModeForWip(action === 'enter-review' ? 'review' : 'compose', repoPath, sha);
+			// On a cold graph open the details panel mounts only after the initial graph data/layout
+			// settles. Poll for the element directly (independent of this app's `updateComplete`,
+			// which can stay pending through the busy cold load) so the mode request doesn't silently
+			// no-op via the `?.` below. `enterModeForWip` builds its own selection from repoPath/sha,
+			// so it doesn't need the panel to have reconciled to the row first.
+			const panel = await this.waitForDetailsPanel();
+			panel?.enterModeForWip(action === 'enter-review' ? 'review' : 'compose', repoPath, sha);
+			return;
 		}
 
+		await this.updateComplete;
 		// Seed the WIP details commit input AFTER the panel has reconciled to the target row —
 		// the panel clears `commitMessage` when its repo identity changes, so writing before
 		// reconciliation can be wiped out. Used after Undo Commit so the user can immediately
@@ -669,6 +677,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (commitMessage != null && action === 'show-wip') {
 			this.detailsPanelEl?.setCommitMessage(repoPath, commitMessage);
 		}
+	}
+
+	/** Resolve the details panel element, waiting across update cycles for it to mount. The panel
+	 *  renders a few frames after `setDetailsVisible(true)` on a cold graph (initial data/layout),
+	 *  so callers that act on it immediately after `showDetails()` would otherwise hit a null query.
+	 *  Returns undefined if it never mounts within the cap (caller no-ops, same as before). */
+	private async waitForDetailsPanel(timeoutMs = 8000): Promise<GlGraphDetailsPanel | undefined> {
+		const start = performance.now();
+		while (this.detailsPanelEl == null && performance.now() - start < timeoutMs) {
+			await new Promise<void>(resolve => setTimeout(resolve, 30));
+		}
+		return this.detailsPanelEl;
 	}
 
 	private async scopeToBranch(): Promise<void> {

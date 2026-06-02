@@ -25,14 +25,14 @@ import type {
 	WebviewsController,
 	WebviewViewProxy,
 } from '../../webviewsController.js';
-import type { GraphShowAction, GraphSidebarPanel, State } from './protocol.js';
+import type { GraphActionTarget, GraphShowAction, GraphSidebarPanel, State } from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
 	| { ref: GitReference; source?: Source }
 	| { repository: GlRepository; search?: SearchQuery; source?: Source }
 	| { sidebarPanel: GraphSidebarPanel; source?: Source }
-	| { action: GraphShowAction; source?: Source }
+	| { action: GraphShowAction; target?: GraphActionTarget; source?: Source }
 	| undefined,
 ];
 
