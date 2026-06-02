@@ -3448,13 +3448,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// `onRepositoryWorkingTreeChanged`.
 		if (e.repository.id !== this.repository?.id) return;
 
-		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), secondary-worktree
-		// add/remove (`worktrees` → wipMetadataBySha; also falls through to the structural gate
-		// below as a backstop full-state push), and tracking changes (`head|heads|remotes` →
-		// wip.branch.upstream, which drives the "Publish" ↔ "Create PR" next-step row in the
-		// details panel). Unioned so the in-flight coalescer can't double-fire on a single
-		// multi-flag event (e.g. Pull's `head, heads, remotes, index`).
-		if (e.changed('head', 'heads', 'index', 'remotes', 'worktrees')) {
+		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
+		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
+		// (`worktrees` → wipMetadataBySha; also falls through to the structural gate below as a
+		// backstop full-state push), and tracking changes (`head|heads|remotes` → wip.branch.upstream,
+		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel). Unioned so the
+		// in-flight coalescer can't double-fire on a single multi-flag event (e.g. Pull's
+		// `head, heads, remotes, index`).
+		if (e.changed('head', 'heads', 'index', 'ignores', 'remotes', 'worktrees')) {
 			void this.notifyDidChangeWorkingTree();
 		}
 
@@ -4348,13 +4349,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						this.queueWipRefetch(sha, repo);
 					}),
 					// `onDidChangeWorkingTree` covers FS edits to tracked/untracked files. Index,
-					// paused-op, and branch-tracking changes (staging from the CLI, rebase progress,
-					// fetch/publish) only surface via the structural `onDidChange` event — mirror
-					// the WIP triggers the primary fires from `onRepositoryChanged` (see `index` at
-					// line 2917 and `head`/`heads`/`remotes` at line 2999) so the secondary panel
-					// stays reactive to those same changes.
+					// `.gitignore` edits, paused-op, and branch-tracking changes (staging from the
+					// CLI, ignoring/un-ignoring files, rebase progress, fetch/publish) only surface
+					// via the structural `onDidChange` event — mirror the WIP triggers the primary
+					// fires from `onRepositoryChanged` (see `index`/`ignores` and
+					// `head`/`heads`/`remotes`) so the secondary panel stays reactive to those same
+					// changes.
 					watcher.onDidChange(e => {
-						if (!e.changed('index', 'pausedOp', 'head', 'heads', 'remotes')) return;
+						if (!e.changed('index', 'ignores', 'pausedOp', 'head', 'heads', 'remotes')) return;
 
 						this._wipStatusCache.invalidate(path);
 						this.queueWipRefetch(sha, repo);
