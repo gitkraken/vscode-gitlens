@@ -43,7 +43,7 @@ export class GkCliService implements Disposable {
 	}
 
 	constructor(private readonly container: Container) {
-		this._installer = new CliBinaryInstaller(container, () => this.authenticate());
+		this._installer = new CliBinaryInstaller(container);
 
 		// Defer the `gk version` probe out of the first-render window so the 1.5–2 s
 		// subprocess doesn't contend with Graph/Home webview bootstrap on slower filesystems
@@ -60,20 +60,9 @@ export class GkCliService implements Disposable {
 				this.onConfigurationChanged();
 				deferredUpdate = setTimeout(() => {
 					deferredUpdate = undefined;
-					void this._installer.ensureUpdateOrInstall().then(result => {
-						// Only fire the change event when install actually transitioned state.
-						// `ensureUpdateOrInstall` short-circuits with `changed: false` when the CLI
-						// is already installed and up-to-date — firing in that case would loop with
-						// MCP setup listeners that re-invoke `install` for a no-op.
-						if (result?.status != null && result.changed) {
-							this._onDidChangeInstall.fire({
-								status: result.status,
-								version: result.cliVersion,
-								path: result.cliPath,
-								source: 'gk-cli-integration',
-							});
-						}
-					});
+					void this._installer
+						.ensureUpdateOrInstall()
+						.then(result => this.onInstallCompleted(result, 'gk-cli-integration'));
 				}, 3000);
 			}),
 			new VsDisposable(() => {
@@ -109,19 +98,38 @@ export class GkCliService implements Disposable {
 		changed: boolean;
 	}> {
 		const result = await this._installer.install(autoInstall, source, force);
-		// Only fire when install actually ran (state transitioned). `installer.install` returns
-		// `changed: false` on no-op paths (already installed, dev binary, etc.) — firing on those
-		// would create a feedback loop with reactive listeners (notably GkMcpService.setupCore,
-		// which calls back into `install` and would re-fire indefinitely).
-		if (result.status === 'completed' && result.changed) {
-			this._onDidChangeInstall.fire({
-				status: 'completed',
-				version: result.cliVersion,
-				path: result.cliPath,
-				source: source,
-			});
-		}
+		await this.onInstallCompleted(result, source);
 		return result;
+	}
+
+	/**
+	 * Post-install sequence, run only when a fresh install actually landed (`changed: true`): authenticate
+	 * the new binary, then announce the change. Auth runs *before* the event fires so reactive consumers
+	 * (notably GkMcpService) act on an already-authenticated CLI.
+	 *
+	 * No-op for short-circuit paths (`changed: false` — already installed, dev binary, up-to-date). Firing
+	 * on those would feedback-loop with listeners like GkMcpService.setupCore, which re-invokes `install`.
+	 */
+	private async onInstallCompleted(
+		result:
+			| {
+					cliVersion?: string;
+					cliPath?: string;
+					status: 'completed' | 'unsupported' | 'attempted';
+					changed: boolean;
+			  }
+			| undefined,
+		source?: Sources,
+	): Promise<void> {
+		if (result?.status !== 'completed' || !result.changed) return;
+
+		await this.authenticate();
+		this._onDidChangeInstall.fire({
+			status: 'completed',
+			version: result.cliVersion,
+			path: result.cliPath,
+			source: source,
+		});
 	}
 
 	/** Authentication — also re-runs on subscription account change. */
