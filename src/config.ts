@@ -207,6 +207,9 @@ export interface AdvancedConfig {
 		readonly closeOnFocusOut: boolean;
 	};
 	readonly resolveSymlinks: boolean;
+	readonly repositorySearch: {
+		readonly enabled: boolean;
+	};
 	readonly repositorySearchDepth: number | null;
 	readonly similarityThreshold: number | null;
 	readonly skipOnboarding: boolean;

@@ -505,10 +505,12 @@ export class GitProviderService implements UnifiedDisposable {
 			this._etag = Date.now();
 			void this.discoverRepositories(e.added);
 
-			for (const folder of e.added) {
-				const key = folder.uri.toString();
-				if (!this._initWatchHandles.has(key)) {
-					this._initWatchHandles.set(key, this._repositoryInitWatcher.watch(folder.uri.fsPath));
+			if (configuration.get('advanced.repositorySearch.enabled')) {
+				for (const folder of e.added) {
+					const key = folder.uri.toString();
+					if (!this._initWatchHandles.has(key)) {
+						this._initWatchHandles.set(key, this._repositoryInitWatcher.watch(folder.uri.fsPath));
+					}
 				}
 			}
 		}
@@ -782,11 +784,13 @@ export class GitProviderService implements UnifiedDisposable {
 
 		let { workspaceFolders } = workspace;
 		if (workspaceFolders?.length) {
-			// Set up init watchers for initial workspace folders
-			for (const folder of workspaceFolders) {
-				const key = folder.uri.toString();
-				if (!this._initWatchHandles.has(key)) {
-					this._initWatchHandles.set(key, this._repositoryInitWatcher.watch(folder.uri.fsPath));
+			// Set up init watchers for initial workspace folders (only if repository search is enabled)
+			if (configuration.get('advanced.repositorySearch.enabled')) {
+				for (const folder of workspaceFolders) {
+					const key = folder.uri.toString();
+					if (!this._initWatchHandles.has(key)) {
+						this._initWatchHandles.set(key, this._repositoryInitWatcher.watch(folder.uri.fsPath));
+					}
 				}
 			}
 

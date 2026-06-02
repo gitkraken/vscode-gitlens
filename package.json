@@ -5533,6 +5533,13 @@
 						"scope": "resource",
 						"order": 10
 					},
+					"gitlens.advanced.repositorySearch.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether GitLens should automatically scan workspace folders to discover Git repositories. When disabled, GitLens relies solely on VS Code's built-in SCM to report repository opens and closes.",
+						"scope": "window",
+						"order": 11
+					},
 					"gitlens.advanced.abbreviatedShaLength": {
 						"type": "number",
 						"default": 7,
