@@ -1,5 +1,6 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
+import { refZone } from '@gitkraken/gitkraken-components';
 import type {
 	ColumnNumberBySha,
 	CssVariables,
@@ -58,6 +59,13 @@ import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import { getSelectedRepoPath } from '../utils/repository.utils.js';
+import {
+	needsDynamicRowContext,
+	serializeRowAvatarContext,
+	serializeRowCommitContext,
+	serializeWipContext,
+} from '../utils/rowContext.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
@@ -204,6 +212,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		document.removeEventListener('gl-jump-to-pinned-branch', this.onJumpToPinnedBranch as EventListener);
 		document.removeEventListener('gl-jump-to-nearest-wip', this.onJumpToNearestWip as EventListener);
 		document.removeEventListener('gl-jump-to-commit', this.onJumpToCommit as EventListener);
+		if (this._clearRowContextTimer != null) {
+			clearTimeout(this._clearRowContextTimer);
+			this._clearRowContextTimer = undefined;
+		}
 		this.disposables.forEach(d => d.dispose());
 		this.disposables = [];
 	}
@@ -345,7 +357,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				heads: [],
 				remotes: [],
 				tags: [],
-				...(workingTreeStats?.context ? { contexts: { row: workingTreeStats.context } } : {}),
+				// `contexts.row` is built on demand at right-click (see `buildRowContextMenuContext`).
+				// `workingTreeStats.context` is still produced host-side for GK's own auto-injected primary.
 			};
 
 			// Group secondary WIP rows by the index of their parent commit in `realRows`, so each
@@ -373,7 +386,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 					heads: [],
 					remotes: [],
 					tags: [],
-					...(meta.context ? { contexts: { row: meta.context } } : {}),
+					// `contexts.row` is built on demand at right-click (see `buildRowContextMenuContext`).
 				};
 				const existing = secondariesByParentIdx.get(idx);
 				if (existing != null) {
@@ -440,11 +453,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const runningOperations = this._crossPaneState?.runningOperations.get();
 		if (runningOperations == null) return undefined;
 
-		const repositories = this.graphState.repositories;
-		const selectedRepoId = this.graphState.selectedRepository;
-		const primaryRepoPath =
-			(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
-			repositories?.[0]?.path;
+		const primaryRepoPath = this.getRepoPath();
 
 		const cached = this._runningOperationByRowShaCache;
 		if (cached?.registry === runningOperations && cached.primaryRepoPath === primaryRepoPath) {
@@ -476,6 +485,30 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return byRowSha;
 	}
 
+	// The selected repo's path only changes on repo switch, but `render()` reads it every render
+	// (selection/hover/paging/theme). Cache it on the `(repositories, selectedRepository)` identity so
+	// the `repos.find` scan doesn't re-run on unrelated re-renders.
+	private _repoPathCache?: {
+		repositories: typeof graphStateContext.__context__.repositories;
+		selectedRepository: typeof graphStateContext.__context__.selectedRepository;
+		path: string | undefined;
+	};
+	private getRepoPath(): string | undefined {
+		const { repositories, selectedRepository } = this.graphState;
+		const cached = this._repoPathCache;
+		if (
+			cached != null &&
+			cached.repositories === repositories &&
+			cached.selectedRepository === selectedRepository
+		) {
+			return cached.path;
+		}
+
+		const path = getSelectedRepoPath(this.graphState);
+		this._repoPathCache = { repositories: repositories, selectedRepository: selectedRepository, path: path };
+		return path;
+	}
+
 	// Memoization for `getAgentStatusByRowSha`: agent state and WIP metadata both update
 	// independently of other render triggers (selection, hover, theme), so caching on the three
 	// inputs that actually drive the row→agent mapping keeps the prop identity stable for the
@@ -495,11 +528,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const agentSessions = this.graphState.agentSessions;
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
 
-		const repositories = this.graphState.repositories;
-		const selectedRepoId = this.graphState.selectedRepository;
-		const primaryRepoPath =
-			(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
-			repositories?.[0]?.path;
+		const primaryRepoPath = this.getRepoPath();
 
 		const cached = this._agentStatusByRowShaCache;
 		if (
@@ -613,6 +642,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.wipShasSettleDelayMs=${GlGraphWrapper.wipShasSettleDelayMs}
 			.wipVisibility=${wipVisibility}
 			.scope=${graphState.scope}
+			.repoPath=${this.getRepoPath()}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
 			@changecolumns=${this.onColumnsChanged}
@@ -764,12 +794,78 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		);
 	}
 
-	private onRowContextMenu({ detail: { graphRow, graphZoneType } }: CustomEventType<'graph-rowcontextmenu'>) {
+	private onRowContextMenu({
+		detail: { graphRow, graphZoneType, isAvatar },
+	}: CustomEventType<'graph-rowcontextmenu'>) {
+		// On-demand context injection: lean commit rows ship only `contexts.flags`, not the serialized
+		// `contexts.row`/`contexts.avatar` blobs. Build the one webview-item context for the right-clicked
+		// row + region here and write it onto this host element's `data-vscode-context`. VS Code's webview
+		// integration walks UP the (light) DOM at contextmenu time, so a single ancestor write is what it
+		// reads — no per-row attributes needed. Cleared shortly after, like `ContextMenuProxyController`.
+		this.injectRowContextMenuContext(graphRow, graphZoneType, isAvatar);
+
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-row-context-menu', {
 				detail: { graphZoneType: graphZoneType, graphRow: graphRow },
 			}),
 		);
+	}
+
+	/** Builds the serialized `data-vscode-context` for a right-clicked row on demand, or `undefined`
+	 *  when the row carries its own host-built context (stash) or none is needed. */
+	private buildRowContextMenuContext(graphRow: GraphRow, isAvatar: boolean): string | undefined {
+		const repoPath = this.getRepoPath();
+		if (repoPath == null) return undefined;
+
+		// Working-changes (WIP) rows: the `gitlens:wip` context is static (worktree path + the synthetic
+		// `uncommitted` ref), so build it for any WIP row we render rather than depending on host-shipped
+		// stats. Primary WIP uses the selected repo path; a secondary worktree's path comes from its
+		// `wipMetadataBySha` entry (keyed by the same secondary sha).
+		if (graphRow.type === ('work-dir-changes' satisfies GitGraphRowType)) {
+			if (isSecondaryWipSha(graphRow.sha)) {
+				const worktreePath = this.graphState.wipMetadataBySha?.[graphRow.sha]?.repoPath;
+				return worktreePath != null ? serializeWipContext(worktreePath, true) : undefined;
+			}
+			return serializeWipContext(repoPath, false);
+		}
+
+		// Lean commit rows: build the commit (or avatar/contributor) context from `contexts.flags` + row
+		// fields. Stash rows (and any row already carrying a host-built `contexts.row`) opt out here and
+		// keep the context GK renders for them.
+		if (!needsDynamicRowContext(graphRow)) return undefined;
+
+		// `graphRow` is GK's PROCESSED row, which drops GitLens-only fields like `isCurrentUser` (the
+		// `+current` contributor flag that prevents offering to co-author yourself). Resolve the source
+		// row by sha to recover them — same workaround the reachability/selection paths use.
+		const sourceRow = this.graphState.rows?.find(r => r.sha === graphRow.sha) ?? graphRow;
+
+		// The avatar, the bare commit node, and the lane lines all share the `graph` zone, so the region
+		// is distinguished by `isAvatar` (resolved from the event target in the React layer): the avatar
+		// opens the contributor menu; the node/lanes and every other zone open the commit menu.
+		return isAvatar
+			? serializeRowAvatarContext(sourceRow, repoPath)
+			: serializeRowCommitContext(sourceRow, repoPath);
+	}
+
+	private _clearRowContextTimer: ReturnType<typeof setTimeout> | undefined;
+
+	private injectRowContextMenuContext(graphRow: GraphRow, graphZoneType: GraphZoneType, isAvatar: boolean): void {
+		// Ref zones keep their host-serialized branch/tag/remote contexts (GK renders those per element).
+		if (graphZoneType === refZone) return;
+
+		const context = this.buildRowContextMenuContext(graphRow, isAvatar);
+		if (context == null) return;
+
+		this.dataset.vscodeContext = context;
+		// Clear after VS Code has read it (it reads synchronously on contextmenu); mirrors the 100ms
+		// cleanup in `ContextMenuProxyController` / the tree-view so the attribute can't leak across menus.
+		if (this._clearRowContextTimer != null) {
+			clearTimeout(this._clearRowContextTimer);
+		}
+		this._clearRowContextTimer = setTimeout(() => {
+			delete this.dataset.vscodeContext;
+			this._clearRowContextTimer = undefined;
+		}, 100);
 	}
 
 	private onRowDoubleClick({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
@@ -816,11 +912,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// paint the commit metadata synchronously (no IPC roundtrip) on cold-cache selections.
 		// Skip WIP / work-dir-changes rows — they don't map to a commit shell.
 		const sourceRows = this.graphState.rows;
-		const repositories = this.graphState.repositories;
-		const selectedRepoId = this.graphState.selectedRepository;
-		const fallbackRepoPath =
-			(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
-			repositories?.[0]?.path;
+		const fallbackRepoPath = this.getRepoPath();
 		const sourceRowBySha = sourceRows != null ? new Map(sourceRows.map(r => [r.sha, r])) : undefined;
 		let commits: Record<string, CommitDetails> | undefined;
 		if (sourceRowBySha != null) {

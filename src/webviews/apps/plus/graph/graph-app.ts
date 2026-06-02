@@ -71,6 +71,7 @@ import type { GlGraphSidebarPanel, GraphSidebarPanelSelectEventDetail } from './
 import type { GraphSidebarDisplayModeChangeEventDetail, GraphSidebarToggleEventDetail } from './sidebar/sidebar.js';
 import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
+import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import './gate.js';
 import './graph-header.js';
@@ -213,13 +214,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private get fallbackRepoPath(): string | undefined {
-		const repoId = this.graphState.selectedRepository;
-		const repos = this.graphState.repositories;
-		if (repoId != null) {
-			const found = repos?.find(r => r.id === repoId)?.path;
-			if (found != null) return found;
-		}
-		return repos?.[0]?.path;
+		return getSelectedRepoPath(this.graphState);
 	}
 
 	/** Graph's currently-selected repo "family" — `commonPath` when available, otherwise the

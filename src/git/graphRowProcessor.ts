@@ -170,9 +170,10 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 			// Commit `contexts.row` + `contexts.avatar` are NOT serialized here: they duplicated
 			// sha/message/repoPath/author/email already present on the row, a meaningful chunk of the
 			// per-row payload. Instead ship the two host-only bits as compact flags; the webview
-			// reconstructs the full webview-item contexts from row fields + repoPath + these flags
-			// (see `hydrateRowContexts` in stateProvider). `+HEAD` and contributor `+current` are
-			// derived webview-side from `row.heads`/`row.isCurrentUser` and need no flag.
+			// reconstructs the full webview-item contexts on demand at right-click/selection time from
+			// row fields + repoPath + these flags (see `rowContext.utils` + `graph-wrapper`'s
+			// `injectRowContextMenuContext`). `+HEAD` and contributor `+current` are derived webview-side
+			// from `row.heads`/`row.isCurrentUser` and need no flag.
 			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
 			contexts.flags =
 				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |

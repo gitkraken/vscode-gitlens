@@ -373,8 +373,6 @@ export interface GraphWipNodeMetadata {
 	 * the same indicator the action bar does. Not consumed by the GK component.
 	 */
 	pausedOpStatus?: GitPausedOperationStatus;
-	/** Host-built serialized `GraphItemContext` for the row's `contexts.row` slot (right-click menu). */
-	context?: string;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;

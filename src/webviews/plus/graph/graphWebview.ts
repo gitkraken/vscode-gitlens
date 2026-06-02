@@ -7024,14 +7024,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				parentSha: wt.sha,
 				label: wt.name,
 				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
-				context: serializeWebviewItemContext<GraphItemContext>({
-					webviewItem: 'gitlens:wip+worktree',
-					webviewItemValue: {
-						type: 'commit',
-						ref: this.getRevisionReference(wt.path, uncommitted, 'work-dir-changes')!,
-						worktreePath: wt.path,
-					},
-				}),
 			};
 		}
 

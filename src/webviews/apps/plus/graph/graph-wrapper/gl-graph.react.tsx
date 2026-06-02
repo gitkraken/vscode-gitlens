@@ -58,6 +58,7 @@ import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOper
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
+import { buildRowCommitContext, isUniqueToBranchRow, needsDynamicRowContext } from '../utils/rowContext.utils.js';
 import { getCommitDateFromRow } from '../utils/row.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -101,6 +102,9 @@ export type GraphWrapperProps = Pick<
 		 *  is a plain prop comparison. `undefined` when no WIP row has a surfacing agent. */
 		agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
 		theming?: GraphWrapperTheming;
+		/** Selected repository's filesystem path, used to rebuild lean commit rows' `contexts.row` on
+		 *  demand for the multi-select right-click context. */
+		repoPath?: string;
 		wipShasSettleDelayMs?: number;
 		/**
 		 * Controls whether the GK component auto-injects the primary "Working Changes" row.
@@ -128,7 +132,7 @@ export interface GraphWrapperEvents {
 	onMouseLeave?: () => void;
 	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
 	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }) => void;
-	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow }) => void;
+	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow; isAvatar: boolean }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
 		clientX: number;
@@ -285,13 +289,10 @@ function checkUniqueBranchSelection(selectedRows: GraphRow[]): boolean {
 	const branchNames = new Set<string>();
 
 	for (const row of selectedRows) {
-		const rowContext = row.contexts?.row;
-		if (rowContext == null) return false;
-
-		const contextString = typeof rowContext === 'string' ? rowContext : JSON.stringify(rowContext);
-		if (!contextString.includes('+unique')) {
-			return false;
-		}
+		// `+unique` (reachable from exactly one local branch) comes from the row's `contexts.flags` bit.
+		// Read it directly via `isUniqueToBranchRow` — lean commit rows no longer carry a serialized
+		// `contexts.row` string to substring-match against.
+		if (!isUniqueToBranchRow(row)) return false;
 
 		if (row.heads && row.heads.length > 0) {
 			for (const head of row.heads) {
@@ -316,18 +317,29 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	 * Gets the parsed context for a row, using a WeakMap cache to avoid repeated JSON.parse calls.
 	 * The cache is keyed by the row object reference, so if rows are recreated, they will be re-parsed.
 	 */
-	const getParsedSelectionContext = useCallback((row: GraphRow): GraphItemContext | undefined => {
-		if (row.contexts?.row == null) return undefined;
+	const repoPath = props.repoPath;
+	const getParsedSelectionContext = useCallback(
+		(row: GraphRow): GraphItemContext | undefined => {
+			const cache = parsedSelectionContextCache.current;
+			const cached = cache.get(row);
+			if (cached !== undefined) return cached;
 
-		const cache = parsedSelectionContextCache.current;
-		let parsed = cache.get(row);
-		if (parsed === undefined) {
-			const rawContext = row.contexts.row;
-			parsed = (typeof rawContext === 'string' ? JSON.parse(rawContext) : rawContext) as GraphItemContext;
+			let parsed: GraphItemContext | undefined;
+			if (row.contexts?.row != null) {
+				const rawContext = row.contexts.row;
+				parsed = (typeof rawContext === 'string' ? JSON.parse(rawContext) : rawContext) as GraphItemContext;
+			} else if (repoPath != null && needsDynamicRowContext(row)) {
+				// Lean commit rows ship only `contexts.flags` (no serialized `contexts.row`); reconstruct
+				// the context on demand so multi-select right-click can still boil down a common context.
+				parsed = buildRowCommitContext(row, repoPath) as GraphItemContext;
+			}
+			if (parsed === undefined) return undefined;
+
 			cache.set(row, parsed);
-		}
-		return parsed;
-	}, []);
+			return parsed;
+		},
+		[repoPath],
+	);
 
 	// Register the state updater function with the subscriber if provided
 	useEffect(
@@ -674,8 +686,14 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	);
 
 	const handleRowContextMenu = useCallback(
-		(_event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
+		(event: React.MouseEvent<any>, graphZoneType: GraphZoneType, graphRow: GraphRow) => {
 			if (graphZoneType === refZone) return;
+
+			// The avatar, the bare commit node, and the lane lines all live in the same `graph` zone, so
+			// `graphZoneType` can't tell them apart. Detect an avatar right-click from the event target
+			// (GK applies the `avatar` class to the contributor-avatar element) so the host builds the
+			// contributor context for the avatar and the commit context for the node/lanes.
+			const isAvatar = (event.target as HTMLElement | null)?.closest?.('.avatar') != null;
 
 			// If the row is in the current selection, use the typed selection context, otherwise clear it
 			const newSelectionContext = selectionContexts?.selectedShas.has(graphRow.sha)
@@ -692,7 +710,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 				},
 			});
 
-			initProps.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow });
+			initProps.onRowContextMenu?.({ graphZoneType: graphZoneType, graphRow: graphRow, isAvatar: isAvatar });
 		},
 		[selectionContexts, context, initProps.onRowContextMenu],
 	);
@@ -1167,7 +1185,7 @@ declare global {
 			graphZoneType: GraphZoneType;
 			graphRow: GraphRow;
 		}>;
-		'graph-rowcontextmenu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
+		'graph-rowcontextmenu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow; isAvatar: boolean }>;
 		'graph-graphmouseleave': CustomEvent<void>;
 	}
 }
