@@ -417,7 +417,12 @@ export class Container {
 
 		this._ready = true;
 		this._readyAt = Date.now();
-		await this.registerGitProviders();
+		try {
+			await this.registerGitProviders();
+		} catch (ex) {
+			// Don't let a provider registration failure abort activation — better degraded than dead
+			Logger.error(ex, 'Failed to register Git providers');
+		}
 		queueMicrotask(() => this._onReady.fire());
 	}
 
