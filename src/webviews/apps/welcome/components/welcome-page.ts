@@ -162,6 +162,41 @@ const walkthroughSteps: WalkthroughStep[] = [
 	},
 
 	{
+		id: 'visualize-code-history',
+		walkthroughKey: 'visualizeCodeHistory',
+		title: 'Commit Graph: Your Command Center',
+		body: html`
+			<p>
+				The <strong>Commit Graph</strong> brings your development and agentic workflows together. Parallelize
+				your work — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git
+				lifecycle without context-switching.
+			</p>
+			<ul>
+				<li>
+					<strong>Complete Your Entire Workflow:</strong> Review changes, stage files, compose commits, and
+					resolve conflicts — with guided next steps like pull, push, or draft a PR.
+				</li>
+				<li>
+					<strong>Orchestrate Agents:</strong> Launch, monitor, and interact with agents directly from the
+					graph to approve permissions and review execution plans inline.
+				</li>
+				<li>
+					<strong>AI Compose & Review:</strong> Restructure changes into clean, review-ready commits and catch
+					issues early with severity-tagged reviews you can delegate to an agent.
+				</li>
+				<li>
+					<strong>Unmatched Git Context:</strong> Navigate complex repositories with a searchable, color-coded
+					commit timeline. Instantly understand branch relationships, authorship patterns, and commit
+					sequences.
+				</li>
+			</ul>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.showGraph">Discover your Commit Graph</gl-button>
+			</div>
+		`,
+	},
+
+	{
 		id: 'home-view',
 		walkthroughKey: 'homeView',
 		title: 'Streamline Workflow with the Home View',
@@ -172,25 +207,6 @@ const walkthroughSteps: WalkthroughStep[] = [
 			</p>
 			<div class="card-part--centered">
 				<gl-button href="command:gitlens.welcome.showHomeView">Open Home View</gl-button>
-			</div>
-		`,
-	},
-
-	{
-		id: 'visualize-code-history',
-		walkthroughKey: 'visualizeCodeHistory',
-		title: "Commit Graph: See Your Code's Story",
-		body: html`
-			<p>
-				Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand
-				branch relationships, authorship patterns, and commit sequences.
-			</p>
-			<p>
-				Select multiple commits to batch operations like cherry-picking or generate AI changelogs with a single
-				command.
-			</p>
-			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.showGraph">Discover your Commit Graph</gl-button>
 			</div>
 		`,
 	},

@@ -28464,8 +28464,8 @@
 					},
 					{
 						"id": "visualize-code-history",
-						"title": "See Your Code's Story: Commit Graph",
-						"description": "Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\nSelect multiple commits to batch operations like cherry-picking or generate AI changelogs with a single command.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
+						"title": "Commit Graph: Your Command Center",
+						"description": "The **Commit Graph** brings your development and agentic workflows together. Parallelize your work — manage multiple active worktrees, orchestrate concurrent agents, and execute your entire Git lifecycle without context-switching.\n\n- **Complete Your Entire Workflow:** Review changes, stage files, compose commits, and resolve conflicts — with guided next steps like pull, push, or draft a PR.\n- **Orchestrate Agents:** Launch, monitor, and interact with agents directly from the graph to approve permissions and review execution plans inline.\n- **AI Compose & Review:** Restructure changes into clean, review-ready commits and catch issues early with severity-tagged reviews you can delegate to an agent.\n- **Unmatched Git Context:** Navigate complex repositories with a searchable, color-coded commit timeline. Instantly understand branch relationships, authorship patterns, and commit sequences.\n\n[Discover your Commit Graph](command:gitlens.walkthrough.showGraph)",
 						"media": {
 							"markdown": "walkthroughs/welcome/visualize-code-history.md"
 						},
