@@ -7804,6 +7804,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.pushToCommit",
+				"title": "Push to Commit...",
+				"icon": "$(repo-push)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.pushWithForce",
 				"title": "Push (force)",
 				"icon": "$(repo-force-push)",
@@ -13264,6 +13270,10 @@
 				},
 				{
 					"command": "gitlens.graph.push",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.pushToCommit",
 					"when": "false"
 				},
 				{
@@ -26453,6 +26463,11 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.graph.pushToCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unpublished\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"group": "1_gitlens_actions@3"
+				},
+				{
 					"command": "gitlens.graph.revert",
 					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
@@ -28611,7 +28626,7 @@
 		"@eamodio/supertalk-core": "0.0.6",
 		"@eamodio/supertalk-signals": "0.0.6",
 		"@gitkraken/compose-tools": "0.3.1",
-		"@gitkraken/gitkraken-components": "13.0.0-vnext.35",
+		"@gitkraken/gitkraken-components": "13.0.0-vnext.36",
 		"@gitkraken/provider-apis": "0.40.0",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
@@ -28677,7 +28692,7 @@
 		"@vscode/test-cli": "0.0.12",
 		"@vscode/test-electron": "2.5.2",
 		"@vscode/test-web": "0.0.80",
-		"@vscode/vsce": "3.9.1",
+		"@vscode/vsce": "3.9.2",
 		"@wc-toolkit/cem-sorter": "1.0.1",
 		"cheerio": "1.0.0-rc.12",
 		"circular-dependency-plugin": "5.2.2",

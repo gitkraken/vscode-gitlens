@@ -165,6 +165,9 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		// processed every newer commit (its only possible children) has been seen. Undo is withheld for
 		// shas recorded here. Stash rows are excluded (a stash sitting on a tip must not block undoing it).
 		const tipShasWithChildren = new Set<string>();
+		// SHAs reachable from HEAD's tracking upstream tip. Combined with `reachableFromHEAD`,
+		// this lets us mark commits as unpushed (reachable from HEAD but not from HEAD's upstream).
+		const reachableFromHeadUpstream = new Set<string>();
 
 		// Map<sha, Map<refKey, ref>> — inner map deduplicates refs during propagation
 		const reachableRefs = new Map<string, Map<string, ReachableRef>>();
@@ -273,6 +276,10 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								stashes: gitStash?.stashes,
 								reachableFromHEAD: reachableFromHEAD,
 								tipShasWithChildren: tipShasWithChildren,
+								// `undefined` when HEAD has no upstream, so the processor flags nothing as
+								// unpublished; otherwise the live set (mutated during the walk, read by ref).
+								reachableFromHeadUpstream:
+									headRefUpstreamName != null ? reachableFromHeadUpstream : undefined,
 								avatars: avatars,
 							}
 						: undefined;
@@ -351,12 +358,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 									if (branchName === 'HEAD') continue;
 
 									remoteBranchId = getBranchId(repoPath, true, tip);
+									const isHeadUpstream = tip === headRefUpstreamName;
+									if (isHeadUpstream) {
+										reachableFromHeadUpstream.add(shaOrRemapped);
+									}
 									refRemoteHead = {
 										id: remoteBranchId,
 										name: branchName,
 										owner: remote.name,
 										url: remote.url,
-										current: tip === headRefUpstreamName,
+										current: isHeadUpstream,
 										hostingServiceType: remote.provider?.gkProviderId,
 									};
 									refRemoteHeads.push(refRemoteHead);
@@ -413,6 +424,11 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					if (reachableFromHEAD.has(shaOrRemapped)) {
 						for (parent of parents) {
 							reachableFromHEAD.add(parent);
+						}
+					}
+					if (reachableFromHeadUpstream.has(shaOrRemapped)) {
+						for (parent of parents) {
+							reachableFromHeadUpstream.add(parent);
 						}
 					}
 

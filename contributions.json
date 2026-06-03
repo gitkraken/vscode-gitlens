@@ -3505,6 +3505,20 @@
 				]
 			}
 		},
+		"gitlens.graph.pushToCommit": {
+			"label": "Push to Commit...",
+			"icon": "$(repo-push)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unpublished\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.graph.pushWithForce": {
 			"label": "Push (force)",
 			"icon": "$(repo-force-push)",

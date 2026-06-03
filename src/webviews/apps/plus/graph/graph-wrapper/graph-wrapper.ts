@@ -61,6 +61,7 @@ import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
+	isUnpublishedRow,
 	needsDynamicRowContext,
 	serializeRowAvatarContext,
 	serializeRowCommitContext,
@@ -587,6 +588,41 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return byRowSha;
 	}
 
+	// The gitkraken-components library doesn't preserve our row-context additions on the row objects
+	// it hands to `provideAdornments`, so we project the unpushed SHAs out at the wrapper boundary
+	// and pass them as a sidecar — same pattern as `runningOperationByRowSha` / `agentStatusByRowSha`.
+	// Reads the `Unpublished` flag bit (single source of truth with the right-click context builder,
+	// via `isUnpublishedRow`). Memoized on rows identity to keep React prop identity stable.
+	//
+	// Cache safety: `state.rows` is only ever replaced wholesale by the StateProvider — pagination
+	// allocates a `new Array(...)` of merged rows ([stateProvider.ts](../../../plus/graph/stateProvider.ts)
+	// `DidChangeRowsNotification` handler), and full updates assign the IPC payload directly. No
+	// callsite mutates a row's flags in place, so identity equality on `rows` is a sufficient cache
+	// key. If that invariant ever changes, switch to a content fingerprint.
+	private _unpublishedShasCache?: {
+		rows: readonly GraphRow[] | undefined;
+		shas: ReadonlySet<string> | undefined;
+	};
+
+	private getUnpublishedShas(): ReadonlySet<string> | undefined {
+		const rows = this.graphState.rows;
+		const cached = this._unpublishedShasCache;
+		if (cached != null && cached.rows === rows) return cached.shas;
+
+		let shas: ReadonlySet<string> | undefined;
+		if (rows != null && rows.length > 0) {
+			const next = new Set<string>();
+			for (const r of rows) {
+				if (isUnpublishedRow(r)) {
+					next.add(r.sha);
+				}
+			}
+			shas = next.size > 0 ? next : undefined;
+		}
+		this._unpublishedShasCache = { rows: rows, shas: shas };
+		return shas;
+	}
+
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
@@ -645,6 +681,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.repoPath=${this.getRepoPath()}
 			.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
 			.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
+			.unpublishedShas=${this.getUnpublishedShas()}
 			@changecolumns=${this.onColumnsChanged}
 			@changerefsvisibility=${this.onRefsVisibilityChanged}
 			@changeselection=${this.onSelectionChanged}

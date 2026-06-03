@@ -70,6 +70,16 @@ suite('buildRowCommitContext', () => {
 		assert.ok(/\+unique\b/.test(webviewItem), `expected +unique in "${webviewItem}"`);
 	});
 
+	test('Unpublished flag maps to +unpublished', () => {
+		const { webviewItem } = build(row({ contexts: { flags: GitGraphRowContextFlags.Unpublished } }));
+		assert.ok(/\+unpublished\b/.test(webviewItem), `expected +unpublished in "${webviewItem}"`);
+	});
+
+	test('no Unpublished flag → no +unpublished', () => {
+		const { webviewItem } = build(row({ contexts: { flags: GitGraphRowContextFlags.ReachableFromHead } }));
+		assert.ok(!/\+unpublished\b/.test(webviewItem), `unexpected +unpublished in "${webviewItem}"`);
+	});
+
 	test('HasChildren suppresses +HEAD (leaf-only — a commit other work is built on is not undoable)', () => {
 		const { webviewItem, value } = build(
 			row({ heads: [{ isCurrentHead: true }], contexts: { flags: GitGraphRowContextFlags.HasChildren } }),

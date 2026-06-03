@@ -185,6 +185,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.pinBranchToEdge'
 	| 'gitlens.graph.pull'
 	| 'gitlens.graph.push'
+	| 'gitlens.graph.pushToCommit'
 	| 'gitlens.graph.rebaseOntoBranch'
 	| 'gitlens.graph.rebaseOntoCommit'
 	| 'gitlens.graph.rebaseOntoUpstream'

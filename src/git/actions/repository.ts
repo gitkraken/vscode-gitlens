@@ -1,3 +1,4 @@
+import { window } from 'vscode';
 import type {
 	GitBranchReference,
 	GitReference,
@@ -47,6 +48,19 @@ export function push(
 		command: 'push',
 		state: { repos: repos, flags: force ? ['--force'] : [], reference: ref },
 	});
+}
+
+// Resolves a sha to a commit reference then pushes up to it. Centralizes the "push-to-commit"
+// flow so the Graph IPC (which only carries a sha string from row events) and any other
+// sha-only entry point dispatch through the same place as the tree-view `pushToCommit`.
+export async function pushToCommit(repoPath: string, sha: string): Promise<void> {
+	const commit = await Container.instance.git.getRepositoryService(repoPath).commits.getCommit(sha);
+	if (commit == null) {
+		void window.showWarningMessage(`Unable to push to commit — ${sha.slice(0, 7)} could not be found.`);
+		return;
+	}
+
+	return push(repoPath, false, commit);
 }
 
 export function rebase(repo?: string | GlRepository, ref?: GitReference, interactive: boolean = true): Promise<void> {

@@ -48,12 +48,19 @@ export function rowHasChildren(row: RowContextSource): boolean {
 	return ((row.contexts?.flags ?? 0) & ContextFlags.HasChildren) !== 0;
 }
 
+/** True when the commit is ahead of HEAD's upstream — the `+unpublished` context segment. Reads the
+ *  flag bit directly (single source of truth with {@link buildRowCommitContext}); drives the graph's
+ *  at-rest unpushed indicator (the colorized Push to Commit button) and context-menu action. */
+export function isUnpublishedRow(row: RowContextSource): boolean {
+	return ((row.contexts?.flags ?? 0) & ContextFlags.Unpublished) !== 0;
+}
+
 /**
  * Builds the `gitlens:commit…` webview-item context for a commit row from its fields + `contexts.flags`.
  * Mirrors exactly what the host serialized pre-strip: `+HEAD`/`+worktreeHEAD` from `row.heads`,
- * `+current`/`+unique` from the flag bits. `message` is intentionally OMITTED — the wire `row.message`
- * is emojified, and `Copy Message` refetches the raw message when `ref.message` is absent, so omitting
- * it preserves the original raw-message behavior instead of copying emojified text.
+ * `+current`/`+unique`/`+unpublished` from the flag bits. `message` is intentionally OMITTED — the wire
+ * `row.message` is emojified, and `Copy Message` refetches the raw message when `ref.message` is absent,
+ * so omitting it preserves the original raw-message behavior instead of copying emojified text.
  *
  * `+worktreeHEAD` marks a row that is the HEAD of a non-active worktree (so Undo Commit can target it).
  * Both `+HEAD` and `+worktreeHEAD` are withheld for commits with children (the `HasChildren` flag) —
@@ -67,7 +74,9 @@ export function buildRowCommitContext(row: RowContextSource, repoPath: string): 
 	const { currentHead, worktreeHead } = pickRowUndoTarget(row.heads ?? undefined, rowHasChildren(row));
 	const webviewItem = `gitlens:commit${currentHead != null ? '+HEAD' : ''}${
 		worktreeHead != null ? '+worktreeHEAD' : ''
-	}${flags & ContextFlags.ReachableFromHead ? '+current' : ''}${flags & ContextFlags.UniqueToBranch ? '+unique' : ''}`;
+	}${flags & ContextFlags.ReachableFromHead ? '+current' : ''}${
+		flags & ContextFlags.UniqueToBranch ? '+unique' : ''
+	}${flags & ContextFlags.Unpublished ? '+unpublished' : ''}`;
 
 	return {
 		webviewItem: webviewItem,

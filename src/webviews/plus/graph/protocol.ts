@@ -512,6 +512,7 @@ interface RowActionRowRef {
  *  compiler catches accidental cross-action leakage (e.g. shipping `worktreePath` on a stash action). */
 export type RowActionParams =
 	| { action: 'open-changes' | 'open-changes-with-working'; row: RowActionRowRef }
+	| { action: 'push-to-commit'; row: RowActionRowRef }
 	| { action: 'stash-apply' | 'stash-drop' | 'stash-pop' | 'stash-save'; row: RowActionRowRef }
 	| {
 			action: 'undo-commit';

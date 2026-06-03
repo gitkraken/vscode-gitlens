@@ -55,7 +55,8 @@ export interface GitGraphRowTag {
  * Bit 0: reachable-from-HEAD (`+current`); Bit 1: unique-to-one-local-branch (`+unique`);
  * Bit 2: has-children — set ONLY on undo-eligible tip rows (active HEAD + worktree HEADs) that have a
  * child, to gate Undo Commit to leaf tips (undoing a commit other work is stacked on is unsafe). It is
- * NOT a general has-children signal: non-tip rows never carry it (the host only computes it for tips).
+ * NOT a general has-children signal: non-tip rows never carry it (the host only computes it for tips);
+ * Bit 3: unpushed/ahead-of-upstream (`+unpublished`).
  * (`+HEAD` derives from `row.heads[].isCurrentHead`; contributor `+current` from `row.isCurrentUser`.)
  */
 export const enum GitGraphRowContextFlags {
@@ -63,6 +64,7 @@ export const enum GitGraphRowContextFlags {
 	ReachableFromHead = 1 << 0,
 	UniqueToBranch = 1 << 1,
 	HasChildren = 1 << 2,
+	Unpublished = 1 << 3,
 }
 
 /**
@@ -253,5 +255,9 @@ export interface GraphContext {
 	 *  a general has-children signal. Sets the {@link GitGraphRowContextFlags.HasChildren} flag, which
 	 *  gates Undo Commit to leaf tips. */
 	readonly tipShasWithChildren: ReadonlySet<string>;
+	/** SHAs reachable from HEAD's tracking-upstream tip, or `undefined` when HEAD has no upstream.
+	 * A commit reachable from HEAD but NOT from this set is unpushed (`+unpublished`); `undefined`
+	 * means there's no upstream to be ahead of, so nothing is flagged. */
+	readonly reachableFromHeadUpstream: ReadonlySet<string> | undefined;
 	readonly avatars: Map<string, string>;
 }

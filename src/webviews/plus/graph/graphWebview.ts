@@ -4623,6 +4623,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				}
 				break;
 			}
+			case 'push-to-commit':
+				await this.pushUpToCommit(rowRepoPath, params.row.id);
+				break;
 		}
 	}
 
@@ -8411,6 +8414,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private push(item?: GraphItemContext, force?: boolean) {
 		const ref = item != null ? this.getGraphItemRef(item) : undefined;
 		void RepoActions.push(this.repository, force, ref);
+	}
+
+	@command('gitlens.graph.pushToCommit')
+	@debug()
+	private async pushToCommit(item?: GraphItemContext) {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return;
+
+		await this.pushUpToCommit(ref.repoPath, ref.ref);
+	}
+
+	// `@gate` keyed by repoPath+sha so a user double-clicking the row button (or invoking via
+	// menu while another push is still resolving) doesn't fire two concurrent
+	// `git push <sha>:<upstream>` operations. The IPC surface bypasses the menu's
+	// `!operationInProgress` `enablement` gate, so the dedup lives here. The second call
+	// awaits the same in-flight promise — both resolve/reject together, so the row button
+	// surfaces the same outcome to both invocations.
+	@gate((repoPath: string, sha: string) => `${repoPath}:${sha}`)
+	private async pushUpToCommit(repoPath: string, sha: string) {
+		await RepoActions.pushToCommit(repoPath, sha);
 	}
 
 	@command('gitlens.createBranch:')

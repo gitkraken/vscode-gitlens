@@ -118,6 +118,9 @@ export class GlGraph extends LitElement {
 	agentStatusByRowSha?: GraphWrapperProps['agentStatusByRowSha'];
 
 	@property({ type: Object })
+	unpublishedShas?: GraphWrapperProps['unpublishedShas'];
+
+	@property({ type: Object })
 	wipMetadataBySha?: GraphWrapperProps['wipMetadataBySha'];
 
 	@property({ type: Number, attribute: 'wip-shas-settle-delay-ms' })
@@ -217,6 +220,7 @@ export class GlGraph extends LitElement {
 				scope: this.scope,
 				runningOperationByRowSha: this.runningOperationByRowSha,
 				agentStatusByRowSha: this.agentStatusByRowSha,
+				unpublishedShas: this.unpublishedShas,
 
 				onChangeColumns: this.handleChangeColumns,
 				onScopeAnchorsUnreachable: this.handleScopeAnchorsUnreachable,

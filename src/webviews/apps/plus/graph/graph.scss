@@ -2022,6 +2022,14 @@ web-graph {
 		height: 100%;
 	}
 
+	// The unpushed indicator IS the Push to Commit action on commits ahead of HEAD's upstream:
+	// a toolbar button colorized with the "ahead" decoration color so it reads as a badge at rest
+	// while staying live and clickable (hover gets the usual toolbar background). The row's
+	// `dynamic: 'interaction'` adornment keeps it present at rest, so no CSS reveal hack is needed.
+	.unpushed-push-button {
+		color: var(--branch-status-ahead-foreground);
+	}
+
 	// Agent indicator — leftmost button on a WIP row when the worktree has at least one
 	// surfacing agent. Color drives both the main `robot` glyph and the suffix modifier so
 	// the dot of color reads as a status badge rather than two unrelated icons. Tokens come

@@ -1,4 +1,5 @@
 import type {
+	AdornmentState,
 	ColumnNumberBySha,
 	CommitType,
 	CssVariables,
@@ -107,6 +108,12 @@ export type GraphWrapperProps = Pick<
 		 *  resolved from `agentSessions × wipMetadataBySha` in the Lit wrapper so the React render
 		 *  is a plain prop comparison. `undefined` when no WIP row has a surfacing agent. */
 		agentStatusByRowSha?: ReadonlyMap<string, WipRowAgentStatus>;
+		/** Set of commit SHAs reachable from HEAD but not from HEAD's upstream — drives the
+		 *  always-visible Push to Commit badge + hover-revealed push button on those rows. The
+		 *  Lit wrapper projects this from `state.rows[].isUnpushed` (the gitkraken-components
+		 *  library doesn't preserve custom fields on the row objects it hands to
+		 *  `provideAdornments`). `undefined` when no commits are ahead of upstream. */
+		unpublishedShas?: ReadonlySet<string>;
 		theming?: GraphWrapperTheming;
 		/** Selected repository's filesystem path, used to rebuild lean commit rows' `contexts.row` on
 		 *  demand for the multi-select right-click context. */
@@ -870,7 +877,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	// row) AND `resolveAdornment` (the overlay icons).
 	useEffect(() => {
 		invalidateTarget.dispatchEvent(new RowAdornmentInvalidateEvent('all'));
-	}, [props.runningOperationByRowSha, props.agentStatusByRowSha, invalidateTarget]);
+	}, [props.runningOperationByRowSha, props.agentStatusByRowSha, props.unpublishedShas, invalidateTarget]);
 
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
@@ -893,13 +900,25 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						adornments[row.sha] = {
 							visibility:
 								!isSecondaryWip || hasOperation || hasAgent ? true : ['hover', 'focus', 'selected'],
+							// Compose/Review buttons are full-strength only while their operation is active;
+							// otherwise they reveal on interaction — so resolve must re-run on hover/focus/
+							// selected changes.
+							dynamic: 'interaction',
 						};
 						break;
 					}
 					case 'stash-node':
+						adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+						break;
 					case 'commit-node':
 					case 'merge-node':
-						adornments[row.sha] = { visibility: ['hover', 'focus', 'selected'] };
+						// Unpushed rows keep the overlay always-rendered for the at-rest unpushed indicator;
+						// that indicator becomes the Push to Commit action — and Undo/diff appear — on
+						// interaction, so resolve must re-run on hover/focus/selected changes. Pushed rows use
+						// the plain hover-only slot (resolve only runs while interacting, so no `dynamic`).
+						adornments[row.sha] = props.unpublishedShas?.has(row.sha)
+							? { visibility: true, dynamic: 'interaction' }
+							: { visibility: ['hover', 'focus', 'selected'] };
 						break;
 				}
 			}
@@ -910,7 +929,12 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		resolveAdornment: (
 			row: ReadonlyGraphRow,
 			_context: undefined,
+			state?: AdornmentState,
 		): ReactNode | null | Promise<ReactNode | null> => {
+			// Live interaction state (hover/focus/selected) for adornments marked `dynamic: 'interaction'`,
+			// without depending on the library's internal CSS state classes. Drives the at-rest → revealed
+			// transition for idle WIP compose/review buttons and for unpushed commits' Undo/diff actions.
+			const interacting = state?.isHovered === true || state?.isFocused === true || state?.isSelected === true;
 			switch (row.type) {
 				case 'work-dir-changes': {
 					const bucket = props.runningOperationByRowSha?.get(row.sha);
@@ -926,6 +950,14 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						composeHasResult,
 					);
 					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState, reviewHasResult);
+
+					// Compose/Review are "active" while their operation is pending or done (a bucket entry
+					// exists). Active buttons stay full-strength at rest so their status icon is readable;
+					// idle buttons reveal on interaction (hover/focus/selection, via `interacting`) and hide
+					// otherwise to keep the WIP row quiet. Note: the primary WIP row is auto-selected on load,
+					// so its idle buttons show until the user navigates to another row.
+					const composeActive = bucket?.compose != null;
+					const reviewActive = bucket?.review != null;
 
 					const agentStatus = props.agentStatusByRowSha?.get(row.sha);
 					const agentSuffix = agentStatus != null ? agentSuffixIconFor(agentStatus.category) : undefined;
@@ -952,34 +984,38 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 									)}
 								</gl-button>
 							)}
-							<gl-button
-								onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
-								tooltip={composeTooltip}
-								aria-label={composeTooltip}
-							>
-								<code-icon icon="wand"></code-icon>
-								{composeStatusIcon != null && (
-									<code-icon
-										slot="suffix"
-										icon={composeStatusIcon}
-										modifier={composeStatusIcon === 'loading' ? 'spin' : ''}
-									></code-icon>
-								)}
-							</gl-button>
-							<gl-button
-								onClick={() => initProps.onWipRowOpen?.({ target: 'review', row: row })}
-								tooltip={reviewTooltip}
-								aria-label={reviewTooltip}
-							>
-								<code-icon icon="checklist"></code-icon>
-								{reviewStatusIcon != null && (
-									<code-icon
-										slot="suffix"
-										icon={reviewStatusIcon}
-										modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
-									></code-icon>
-								)}
-							</gl-button>
+							{(composeActive || interacting) && (
+								<gl-button
+									onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
+									tooltip={composeTooltip}
+									aria-label={composeTooltip}
+								>
+									<code-icon icon="wand"></code-icon>
+									{composeStatusIcon != null && (
+										<code-icon
+											slot="suffix"
+											icon={composeStatusIcon}
+											modifier={composeStatusIcon === 'loading' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
+							{(reviewActive || interacting) && (
+								<gl-button
+									onClick={() => initProps.onWipRowOpen?.({ target: 'review', row: row })}
+									tooltip={reviewTooltip}
+									aria-label={reviewTooltip}
+								>
+									<code-icon icon="checklist"></code-icon>
+									{reviewStatusIcon != null && (
+										<code-icon
+											slot="suffix"
+											icon={reviewStatusIcon}
+											modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
 							<div>
 								<gl-button
 									appearance="toolbar"
@@ -1031,9 +1067,16 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 					const undoBranchName = worktreeHead?.name;
 					const undoLabel = undoBranchName != null ? `Undo Commit on ${undoBranchName}` : 'Undo Commit';
 
+					const isUnpushed = props.unpublishedShas?.has(row.sha) === true;
+					// Pushed rows render in a hover-only overlay (resolve runs only while interacting), so
+					// their actions always show when present. Unpushed rows render an always-present overlay
+					// (for the at-rest unpushed indicator), so their actions appear only while interacting —
+					// at rest only the indicator shows.
+					const showActions = isUnpushed ? interacting : true;
+
 					return (
 						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
-							{showUndo && (
+							{showUndo && showActions && (
 								<gl-button
 									appearance="toolbar"
 									onClick={() =>
@@ -1049,19 +1092,37 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 									<code-icon icon="discard"></code-icon>
 								</gl-button>
 							)}
-							<gl-button
-								appearance="toolbar"
-								onClick={e =>
-									initProps.onRowAction?.({
-										action: e.altKey ? 'open-changes-with-working' : 'open-changes',
-										row: row,
-									})
-								}
-								tooltip={`Open All Changes\n[${getAltKeySymbol()}] Open All Changes with Working Tree)`}
-								aria-label="Open All Changes"
-							>
-								<code-icon icon="diff-multiple"></code-icon>
-							</gl-button>
+							{showActions && (
+								<gl-button
+									appearance="toolbar"
+									onClick={e =>
+										initProps.onRowAction?.({
+											action: e.altKey ? 'open-changes-with-working' : 'open-changes',
+											row: row,
+										})
+									}
+									tooltip={`Open All Changes\n[${getAltKeySymbol()}] Open All Changes with Working Tree)`}
+									aria-label="Open All Changes"
+								>
+									<code-icon icon="diff-multiple"></code-icon>
+								</gl-button>
+							)}
+							{/* The unpushed indicator IS the Push to Commit action: one cloud-upload button,
+							    colorized so it reads as an "ahead" badge at rest, that pushes on click.
+							    Always present (not gated by `interacting`) and rendered last so it stays
+							    pinned to the overlay's fixed right edge — hover-only actions grow leftward
+							    and never shift it. */}
+							{isUnpushed ? (
+								<gl-button
+									appearance="toolbar"
+									className="unpushed-push-button"
+									onClick={() => initProps.onRowAction?.({ action: 'push-to-commit', row: row })}
+									tooltip="Push to Commit..."
+									aria-label="Push to Commit..."
+								>
+									<code-icon icon="cloud-upload"></code-icon>
+								</gl-button>
+							) : null}
 						</div>
 					);
 				}

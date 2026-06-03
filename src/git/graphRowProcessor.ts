@@ -175,10 +175,17 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 			// `injectRowContextMenuContext`). `+HEAD`/`+worktreeHEAD` and contributor `+current` are
 			// derived webview-side from `row.heads`/`row.isCurrentUser` and need no flag.
 			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
+			// Unpublished = reachable from HEAD but not from HEAD's upstream tip. `reachableFromHeadUpstream`
+			// is undefined when HEAD has no upstream, so nothing is ever flagged in that case.
+			const isUnpublished =
+				context.reachableFromHeadUpstream != null &&
+				context.reachableFromHEAD.has(row.sha) &&
+				!context.reachableFromHeadUpstream.has(row.sha);
 			contexts.flags =
 				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
 				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
-				(context.tipShasWithChildren.has(row.sha) ? GitGraphRowContextFlags.HasChildren : 0);
+				(context.tipShasWithChildren.has(row.sha) ? GitGraphRowContextFlags.HasChildren : 0) |
+				(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0);
 
 			// Populate avatar cache
 			if (!context.avatars.has(row.email)) {
