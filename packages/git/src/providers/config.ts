@@ -88,11 +88,7 @@ export interface GitConfigSubProvider {
 		| []
 	>;
 
-	getGkConfig?(
-		repoPath: string,
-		key: GkConfigKeys | DeprecatedGkConfigKeys,
-		options?: { type?: GitConfigType },
-	): Promise<string | undefined>;
+	getGkConfig?(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined>;
 	getGkConfigRegex?(repoPath: string, pattern: string): Promise<Map<string, string>>;
 	setGkConfig?(
 		repoPath: string,

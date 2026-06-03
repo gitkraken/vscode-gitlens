@@ -14,6 +14,7 @@ import type { FileSystemProvider, GitServiceContext, GitServiceHooks } from '@gi
 import { Logger } from '@gitlens/utils/logger.js';
 import { toFsPath } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
+import type { GitOptions } from '../../../exec/git.js';
 import { findGitPath } from '../../../exec/locator.js';
 
 export interface TestRepo {
@@ -98,7 +99,7 @@ function createNodeFs(): FileSystemProvider {
  *
  * Call `cleanup()` in your `teardown()` / `suiteTeardown()`.
  */
-export function createTestRepo(options?: { hooks?: GitServiceHooks }): TestRepo {
+export function createTestRepo(options?: { hooks?: GitServiceHooks; gitOptions?: GitOptions }): TestRepo {
 	ensureLogger();
 
 	const dir = mkdtempSync(join(tmpdir(), 'gitlens-test-'));
@@ -126,7 +127,7 @@ export function createTestRepo(options?: { hooks?: GitServiceHooks }): TestRepo 
 	const provider = new CliGitProvider({
 		context: context,
 		locator: getGitLocation,
-		gitOptions: { gitTimeout: 30000 },
+		gitOptions: { gitTimeout: 30000, ...options?.gitOptions },
 	});
 
 	return {

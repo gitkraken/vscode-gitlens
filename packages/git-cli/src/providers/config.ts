@@ -27,17 +27,24 @@ import type { Git } from '../exec/git.js';
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyArray: readonly never[] = Object.freeze([]);
 
+/** Catch-all pattern matching every key in `.git/gk/config` for the one-shot bulk read. */
+const gkConfigAllPattern = '.';
+
 /**
- * Namespaces whose individual reads should be served from one --get-regex fetch instead
- * of one `git config --get` per key. The regex cache backing getGkConfigRegex dedupes
- * concurrent callers so a burst of per-branch reads produces a single subprocess.
+ * Canonicalizes a git config key for lookup against `--get-regexp` output, which git emits with the
+ * section and variable-name lowercased and only the subsection case-preserved. Without this a
+ * subsection-less key like `gk.defaultRemote` would miss the lowercased `gk.defaultremote` in the map.
  */
-const gkConfigCacheableSets: readonly { match: RegExp; pattern: string }[] = [
-	{ match: /^branch\..+\.gk-associated-issues$/, pattern: '^branch\\..+\\.gk-associated-issues$' },
-	{ match: /^branch\..+\.gk-merge-base$/, pattern: '^branch\\..+\\.gk-merge-base$' },
-	{ match: /^branch\..+\.gk-merge-target$/, pattern: '^branch\\..+\\.gk-merge-target$' },
-	{ match: /^branch\..+\.gk-merge-target-user$/, pattern: '^branch\\..+\\.gk-merge-target-user$' },
-];
+function canonicalizeGitConfigKey(key: string): string {
+	const first = key.indexOf('.');
+	if (first === -1) return key.toLowerCase();
+
+	const last = key.lastIndexOf('.');
+	// `section.name` (no subsection) → fully lowercased; `section.subsection.name` → lowercase
+	// section + name, preserve the case-sensitive subsection in the middle.
+	if (first === last) return key.toLowerCase();
+	return `${key.slice(0, first).toLowerCase()}${key.slice(first, last)}${key.slice(last).toLowerCase()}`;
+}
 
 /**
  * Parses git config --get-regex output into a Map.
@@ -309,45 +316,49 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	}
 
 	@debug()
-	async getGkConfig(
-		repoPath: string,
-		key: GkConfigKeys | DeprecatedGkConfigKeys,
-		options?: { type?: GitConfigType },
-	): Promise<string | undefined> {
-		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
-
-		// Per-branch keys are commonly read in fan-out loops (e.g. Home overview enrichment).
-		// Satisfy the read from a single --get-regex over the namespace instead of spawning
-		// one `git config --get` per branch.
-		const set = gkConfigCacheableSets.find(s => s.match.test(key));
-		if (set != null) {
-			return this.cache.getGkConfig(repoPath, key, async () => {
-				const entries = await this.getGkConfigRegex(repoPath, set.pattern);
-				return entries.get(key);
-			});
-		}
-
-		return this.cache.getGkConfig(repoPath, key, () => this.getGkConfigCore(repoPath, key, options));
-	}
-
-	private async getGkConfigCore(
-		repoPath: string,
-		key: string,
-		options?: { type?: GitConfigType },
-	): Promise<string | undefined> {
-		const gkConfigPath = await this.getGkConfigPath(repoPath);
-		if (!gkConfigPath) return undefined;
-		return this.getConfigCore(repoPath, key, {
-			...options,
-			runGitLocally: true,
-			file: gkConfigPath,
-		});
+	async getGkConfig(repoPath: string, key: GkConfigKeys | DeprecatedGkConfigKeys): Promise<string | undefined> {
+		// Served in-memory from a single bulk read of the whole `.git/gk/config` (no gk read needs `--type`).
+		// Canonicalize the key the way git does for `--get-regexp` output so subsection-less keys
+		// (e.g. `gk.defaultRemote`) match, and coerce an empty value to undefined to match the old
+		// `git config --get` (`.trim() || undefined`) contract.
+		return (await this.getGkConfigMap(repoPath)).get(canonicalizeGitConfigKey(key)) || undefined;
 	}
 
 	@debug()
 	async getGkConfigRegex(repoPath: string, pattern: string): Promise<Map<string, string>> {
+		const all = await this.getGkConfigMap(repoPath);
+
+		// Filter the bulk map in-memory. The old path passed `pattern` to `git config --get-regex`
+		// (errors ignored → empty result on a bad pattern); preserve that no-throw contract here
+		// rather than letting an invalid-JS pattern reject the read.
+		let re: RegExp;
+		try {
+			re = new RegExp(pattern);
+		} catch {
+			return new Map();
+		}
+
+		const result = new Map<string, string>();
+		for (const [k, v] of all) {
+			if (re.test(k)) {
+				result.set(k, v);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Reads the entire `.git/gk/config` in one `git config --get-regexp` and caches the parsed map
+	 * per commonPath. Per-key (getGkConfig) and per-namespace (getGkConfigRegex) lookups are served
+	 * from this single cached read — so a branch-overview render that fans out across several gk
+	 * namespaces costs one `git config` call instead of one per namespace.
+	 */
+	private async getGkConfigMap(repoPath: string): Promise<Map<string, string>> {
+		// Migrate BEFORE populating the cache, not inside the factory: a first-time migration calls
+		// clearCaches('gkConfig'), which would otherwise evict the in-flight gkConfigMap entry the
+		// cache wrapper synchronously stored and force a redundant bulk re-read.
 		await this.migrateGkConfigFromGitConfig(this.cache.getCommonPath(repoPath));
-		return this.cache.getGkConfigRegex(repoPath, pattern, () => this.getGkConfigRegexCore(repoPath, pattern));
+		return this.cache.getGkConfigMap(repoPath, () => this.getGkConfigRegexCore(repoPath, gkConfigAllPattern));
 	}
 
 	private async getGkConfigRegexCore(repoPath: string, pattern: string): Promise<Map<string, string>> {
@@ -400,7 +411,9 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		await this.setConfigCore(repoPath, key, value, { file: gkConfigPath });
 
-		// Invalidate the cached value for this key and clear all regex patterns for this scope
+		// Invalidate the bulk map (so the next read re-fetches) and the derived caches for this key's
+		// ref. The `.git/gk/config` file-watcher also fires `'gkConfig'` shortly after, which clears
+		// the same caches coarsely — both paths are idempotent.
 		this.cache.deleteGkConfig(repoPath, key, options);
 	}
 
