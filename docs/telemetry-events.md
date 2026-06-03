@@ -3063,7 +3063,7 @@ background-upgraded the extension while the host kept running the old build
   // Whether the active selection is the WIP / uncommitted row
   'selection.uncommitted': boolean,
   // What caused the panel to be shown
-  'trigger': 'toggle' | 'auto-restore'
+  'trigger': 'toggle' | 'request-compare' | 'request-mode' | 'request-agents' | 'request-graph-wip-bar' | 'auto-restore'
 }
 ```
 
