@@ -140,6 +140,14 @@ export function getAgentSessionProviders(container: Container): AgentSessionProv
 					'permission.tool': info.tool,
 					'permission.decision': info.decision,
 				}),
+			onSyncDiscrepancy: info =>
+				container.telemetry.sendEvent('agents/session/syncDiscrepancy', {
+					'agent.provider': info.provider,
+					'sync.discovered': info.discovered,
+					'sync.missing': info.missing,
+					'sync.polled': info.polled,
+					'sync.tracked': info.tracked,
+				}),
 			onBranchAgentActivity: cwd => {
 				const repo = container.git.getRepository(cwd);
 				if (repo != null) {
