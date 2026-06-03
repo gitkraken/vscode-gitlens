@@ -578,6 +578,12 @@ server.tool(
 			.describe(
 				'Disable site isolation and web security (OOPIF workaround). Only use if webview frame access fails. Disables CORS/CSP — webviews may behave differently than production.',
 			),
+		log_level: z
+			.enum(['trace', 'debug', 'info', 'warn', 'error', 'off'])
+			.optional()
+			.describe(
+				"Log level for the loaded extension's output channels (default: 'debug'). Channels default to 'info', which filters out `@debug`/`@trace` logging; raising this makes that runtime logging capturable via `read_logs`. Scoped to the extension so VS Code core logs stay quiet.",
+			),
 	},
 	async args => {
 		if (state === 'ready') {
@@ -643,6 +649,13 @@ server.tool(
 			if (args.disable_site_isolation) {
 				launchArgs.push('--disable-site-isolation-trials', '--disable-web-security');
 			}
+
+			// Default the loaded extension's output-channel log level to `debug` so its `@debug`/`@trace`
+			// logging is written and capturable via `read_logs` (channels default to `info`, which filters
+			// it out). Scoped to the extension (`<id>=<level>`) so VS Code core logs stay quiet; falls back
+			// to a global level if no extension id is known. Pass `log_level: 'info'` to opt out.
+			const logLevel = args.log_level ?? 'debug';
+			launchArgs.push('--log', sessionConfig.extensionId ? `${sessionConfig.extensionId}=${logLevel}` : logLevel);
 
 			if (withEvaluator) {
 				const runnerPath = path.join(extensionPath, 'tests', 'e2e', 'runner', 'dist');

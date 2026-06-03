@@ -34,6 +34,12 @@ The server is auto-discovered via `.mcp.json` when Claude Code starts in this re
 | `resize_window`       | Resize VS Code window content area — only for explicit responsive-breakpoint testing |
 | `rebuild_and_reload`  | Build extension + restart extension host                                             |
 
+### Reading host logs (gotchas)
+
+- **`read_logs` uses `pattern`, NOT `filter`.** A wrong/unknown arg is silently ignored and it falls back to `pattern: "GitLens"` — so you only ever see the activation banner and wrongly conclude "no logs". Always: `read_logs({ pattern: "<tag>", last_n })`.
+- `read_logs` DOES capture extension-**host** `console.log/warn/error` and GitLens `Logger.warn`/`info`/`error` (info+). It reads the GitLens **LogOutputChannel**, also on disk at `.vscode-test/user-data/logs/<TS>/window1/exthost/eamodio.gitlens/GitLens.log`. `read_console` is webview-only (does not see host logs).
+- **`@debug`/`@trace` decorator logs are filtered out.** The channel defaults to `info`; GitLens' rich tracing is `debug`/`trace`. Console-mirroring (`Logger.isDebugging`) is gated on `ExtensionMode.Development`, but the inspector runs in **Test** mode → off. `gitlens.enableDebugLogging` (which runs `workbench.action.output.activeOutputLogLevel.debug`) does NOT take headless. So for ad-hoc host tracing, **instrument with `Logger.warn('[tag] …')`** (info+, always written) and read via `read_logs({ pattern: "[tag]" })`. `gitlens.outputLevel` is deprecated — don't rely on it.
+
 ### Typical Workflow
 
 1. Call `launch` (once per session — takes ~10s)
