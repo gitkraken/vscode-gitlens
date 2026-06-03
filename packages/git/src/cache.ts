@@ -548,7 +548,10 @@ export class Cache implements Disposable {
 				keysToClear.add('configPatterns');
 				keysToClear.add('currentBranchReference');
 				keysToClear.add('currentUser');
-				keysToClear.add('gitDir');
+				// `gitDir` is immutable repo topology (toplevel/git-dir/common-dir/superproject) — a
+				// `.git/config` content change never relocates it, and it's owned by the repo lifecycle
+				// (registerRepoPath/unregisterRepoPath). Clearing it here forced a redundant `git rev-parse`
+				// re-spawn (gitDir is read by getGkConfigPath→getGitDir on every gk op), so leave it warm.
 			}
 
 			if (types.includes('contributors')) {
