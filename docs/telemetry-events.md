@@ -160,6 +160,28 @@
 }
 ```
 
+### agents/session/syncDiscrepancy
+
+> Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
+what the live IPC hook path had already tracked. In a single window this should be rare and
+usually means a hook event was dropped; a nonzero `sync.discovered` is expected in multi-window
+setups, where the machine-wide poll can surface a session owned by another window that never
+routed its hook events here — so don't treat every event as a dropped IPC signal
+
+```typescript
+{
+  'agent.provider': string,
+  // Sessions the poll reported alive that the live IPC path had not tracked.
+  'sync.discovered': number,
+  // Tracked sessions the poll no longer reports alive (teardown the live path missed).
+  'sync.missing': number,
+  // Total alive sessions reported by the poll.
+  'sync.polled': number,
+  // Total sessions tracked (from the live path) before the poll reconciled.
+  'sync.tracked': number
+}
+```
+
 ### ai/enabled
 
 > Sent when AI is enabled

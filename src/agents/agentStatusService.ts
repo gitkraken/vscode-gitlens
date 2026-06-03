@@ -109,6 +109,9 @@ export class AgentStatusService implements Disposable {
 		);
 
 		this.startProviders();
+		// Resolve hooks-installed state once (async, off the providers' poll interval) and push it
+		// down so providers can gate their reconciliation poll from the start.
+		void this.pushHooksInstalledToProviders();
 	}
 
 	dispose(): void {
@@ -125,15 +128,40 @@ export class AgentStatusService implements Disposable {
 	}
 
 	private async invalidateHooksState(): Promise<void> {
+		// Drop the stale agent cache, re-read, and push the fresh state to providers (the re-read
+		// also warms the cache so the next webview read returns the new state without a delay).
+		await this.pushHooksInstalledToProviders({ invalidate: true });
+		this._onDidChangeHooksInstallState.fire();
+	}
+
+	/** Resolves the host's Claude hooks-installed state and pushes it to all providers so they can
+	 *  gate their reconciliation poll (the CLI `list-sessions` call). Resolves to `false` when the
+	 *  agent can't be detected (e.g. the browser stub's `getClaudeAgent()` returns `undefined`); fails
+	 *  *open* (`installed = true`) only if env resolution throws unexpectedly, so a transient failure
+	 *  never wrongly suppresses polling. The browser has no providers to receive the push regardless.
+	 *  Pass `invalidate` after an install/uninstall so the stale agent cache is dropped before re-reading.
+	 *
+	 *  Note: an external `gk ai hook install` (run outside GitLens) isn't observed here until
+	 *  something else re-reads — acceptable per the staleness window documented in
+	 *  `src/env/node/gk/cli/agents.ts`, and the poll gate opens anyway the moment any session
+	 *  appears (a non-empty session list always polls). */
+	private async pushHooksInstalledToProviders(options?: { invalidate?: boolean }): Promise<void> {
+		let installed = true;
 		try {
 			const env = await import('@env/providers.js');
-			env.invalidateAgentsCache();
-			// Warm the cache so the next read returns the new state without a delay.
-			await env.getClaudeAgent();
+			if (options?.invalidate) {
+				env.invalidateAgentsCache();
+			}
+			const claude = await env.getClaudeAgent();
+			installed = claude?.hooksInstalled ?? false;
 		} catch {
-			// Browser build: silently skip — webviews will refresh on the next state pull.
+			// Unexpected env-resolution/detection failure — leave fail-open (assume installed) so a
+			// transient error doesn't wrongly suppress polling. (The browser stub doesn't throw; it
+			// returns undefined above, yielding installed=false, and has no providers anyway.)
 		}
-		this._onDidChangeHooksInstallState.fire();
+		for (const provider of this._providers) {
+			provider.setClaudeHooksInstalled?.(installed);
+		}
 	}
 
 	get sessions(): readonly AgentSession[] {

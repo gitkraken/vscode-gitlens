@@ -186,6 +186,11 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	stop(): void;
 	updateWorkspacePaths?(workspacePaths: string[]): void;
 
+	/** Pushed by the host from its cached agent detection. Lets the provider gate its reconciliation
+	 *  poll (the CLI `list-sessions` call) so an idle window with no sessions and no installed hooks
+	 *  doesn't spawn the CLI every interval. */
+	setClaudeHooksInstalled?(installed: boolean): void;
+
 	/** Resolves a pending permission. Returns `true` when the resolve was routed (the local IPC
 	 *  owns the session's pending entry); `false` when no local entry exists (typically a peer-
 	 *  discovered session owned by another GitLens window). Callers use this to give the user
@@ -239,6 +244,18 @@ export interface AgentProviderCallbacks {
 
 	/** Report that a permission request was resolved. No-op if the host has no telemetry. */
 	onPermissionResolved?(info: { provider: string; tool: string; decision: PermissionDecision }): void;
+
+	/** Report that a reconciliation poll found the polled session set drift from what the live IPC
+	 *  path had already tracked — `discovered` sessions the poll saw but we weren't tracking,
+	 *  `missing` sessions we track that the poll no longer reports alive. Ideally always zero. No-op
+	 *  if the host has no telemetry. */
+	onSyncDiscrepancy?(info: {
+		provider: string;
+		discovered: number;
+		missing: number;
+		polled: number;
+		tracked: number;
+	}): void;
 
 	/** Notify the host that a branch has agent activity. */
 	onBranchAgentActivity?(cwd: string): void;

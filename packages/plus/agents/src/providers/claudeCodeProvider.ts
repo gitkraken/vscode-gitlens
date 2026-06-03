@@ -100,7 +100,7 @@ interface SessionBookkeeping {
 	priorPhase?: { phase: AgentSessionPhase; phaseSince: Date };
 }
 
-const staleCheckIntervalMs = 60 * 1000; // 1 minute
+const staleCheckIntervalMs = 15 * 60 * 1000; // 15 minutes
 /** Cooldown between PostToolUse and dropping the file from `currentFiles`. Held long enough that
  *  surfaces consuming the list (WIP file decoration, treemap activity overlay) keep showing a file
  *  the agent just touched well past the moment the tool call completed — a single edit reads as a
@@ -207,6 +207,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	private readonly _pendingIdleTimers = new Map<string, NodeJS.Timeout>();
 	private _workspacePaths: string[] = [];
 	private _staleCheckTimer: UnifiedDisposable | undefined;
+	/** Whether Claude hooks are installed, pushed by the host via {@link setClaudeHooksInstalled}.
+	 *  Fail-open (`true`) until the first push lands so a fresh window with real hooks isn't
+	 *  suppressed on its first ticks. Gates the reconciliation poll in {@link syncSessions}. */
+	private _claudeHooksInstalled = true;
 	protected _transcriptReader: ClaudeCodeTranscriptReader = new ClaudeCodeTranscriptReader();
 
 	constructor(private readonly callbacks: AgentProviderCallbacks) {}
@@ -268,6 +272,20 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				.catch((ex: unknown) =>
 					Logger.error(ex, 'ClaudeCodeProvider.updateWorkspacePaths: publishAgents failed'),
 				);
+		}
+	}
+
+	setClaudeHooksInstalled(installed: boolean): void {
+		const wasOff = !this._claudeHooksInstalled;
+		this._claudeHooksInstalled = installed;
+		// On a fresh off→on transition, reconcile immediately rather than waiting up to a full
+		// interval — picks up any session that was already running before hooks were installed.
+		// This is a deliberate discovery pass (like the cold-start bootstrap), not a routine tick:
+		// hooks were just off, so the live path couldn't have seen these sessions and anything we
+		// find here is expected, not drift. Run it ungated so it neither skips nor reports drift
+		// telemetry (an ungated `syncSessions()` always polls and never emits `onSyncDiscrepancy`).
+		if (installed && wasOff) {
+			void this.syncSessions();
 		}
 	}
 
@@ -386,7 +404,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			void this.querySiblingWindowSessions();
 
 			this._staleCheckTimer?.dispose();
-			this._staleCheckTimer = disposableInterval(() => void this.syncSessions(), staleCheckIntervalMs);
+			this._staleCheckTimer = disposableInterval(
+				() => void this.syncSessions({ gate: true }),
+				staleCheckIntervalMs,
+			);
 		} catch (ex) {
 			Logger.error(ex, 'ClaudeCodeProvider.ensureIpcServer');
 		}
@@ -1449,7 +1470,15 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		return true;
 	}
 
-	private async syncSessions(): Promise<void> {
+	protected async syncSessions(options?: { gate?: boolean }): Promise<void> {
+		// Recurring (gated) calls skip the CLI spawn when there's nothing to reconcile: no tracked
+		// sessions AND no installed hooks. Sessions only ever appear via the IPC push path or a peer,
+		// so an empty list with hooks off means no agents are reachable here. We still poll whenever
+		// sessions exist — that's the only local backstop for pruning agents that die without firing
+		// `SessionEnd`, and it keeps us correct even if hook detection is stale/wrong. The bootstrap
+		// call in `ensureIpcServer` passes no options, so cold-start discovery always runs.
+		if (options?.gate && this._sessions.length === 0 && !this._claudeHooksInstalled) return;
+
 		let sessions: SessionFileData[];
 		try {
 			const output = await this.callbacks.runCLICommand(['ai', 'hook', 'list-sessions', '--json']);
@@ -1461,14 +1490,29 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 			return;
 		}
 
+		// Snapshot what the live IPC path had already tracked, so we can detect drift between it and
+		// what the poll returns. Ideally they match exactly — any difference means the live push path
+		// missed an add (poll discovers it) or a teardown (poll no longer reports a session we track).
+		const trackedBefore = new Set(this._sessions.map(s => s.id));
+		const polledAlive = new Set<string>();
+		// Mutable copy of `trackedBefore` that also accumulates ids added during this poll, so the
+		// membership check below is O(1) and duplicate ids within a single poll response are only
+		// added once. `trackedBefore` itself stays the pre-poll snapshot used by the `missing` calc.
+		const known = new Set(trackedBefore);
+
 		let changed = false;
+		let discovered = 0;
 
 		for (const data of sessions) {
 			if (!data.sessionId || !data.pid || !isProcessAlive(data.pid)) {
 				continue;
 			}
 
-			if (this._sessions.some(s => s.id === data.sessionId)) continue;
+			polledAlive.add(data.sessionId);
+
+			if (known.has(data.sessionId)) continue;
+
+			known.add(data.sessionId);
 
 			const workspacePath = this.resolveWorkspacePath(data.cwd);
 			const isInWorkspace = workspacePath != null;
@@ -1510,6 +1554,7 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 				subagents: subagents,
 			});
 			changed = true;
+			discovered++;
 
 			if (data.cwd) {
 				void this.resolveGitInfo(data.sessionId, data.cwd);
@@ -1523,6 +1568,29 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 
 		if (changed) {
 			this._onDidChangeSessions.fire();
+		}
+
+		// Report any drift between the live-synced set and the poll. Only on the recurring (gated)
+		// poll — the ungated bootstrap call runs before the live path has had a chance to receive
+		// any events, so its discoveries are expected cold-start state, not drift. `missing` counts
+		// sessions we still track that the poll no longer reports alive (a teardown the live path
+		// missed, e.g. an agent killed without firing `SessionEnd`).
+		if (options?.gate) {
+			let missing = 0;
+			for (const id of trackedBefore) {
+				if (!polledAlive.has(id)) {
+					missing++;
+				}
+			}
+			if (discovered > 0 || missing > 0) {
+				this.callbacks.onSyncDiscrepancy?.({
+					provider: this.id,
+					discovered: discovered,
+					missing: missing,
+					polled: polledAlive.size,
+					tracked: trackedBefore.size,
+				});
+			}
 		}
 	}
 

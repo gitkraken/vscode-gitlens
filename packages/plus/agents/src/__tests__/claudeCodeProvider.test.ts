@@ -6,10 +6,17 @@ import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
 import type { AgentProviderCallbacks, IpcRegistrar } from '../types.js';
 
+type SyncDiscrepancy = { provider: string; discovered: number; missing: number; polled: number; tracked: number };
+
 interface MockCallbacks {
 	callbacks: AgentProviderCallbacks;
 	handlers: Map<string, IpcHandler<unknown, unknown>>;
 	publishedPaths: string[][];
+	/** Every `runCLICommand` invocation's args, in order. Use {@link listSessionsCalls} to count
+	 *  the `list-sessions` reconciliation calls specifically. */
+	cliCalls: string[][];
+	/** Every `onSyncDiscrepancy` report, in order. */
+	syncDiscrepancies: SyncDiscrepancy[];
 }
 
 function createMockCallbacks(options?: {
@@ -17,9 +24,12 @@ function createMockCallbacks(options?: {
 	openSessionInClaudeExtension?: AgentProviderCallbacks['openSessionInClaudeExtension'];
 	port?: number;
 	agentDiscoveryDir?: string;
+	cliResponse?: string;
 }): MockCallbacks {
 	const handlers = new Map<string, IpcHandler<unknown, unknown>>();
 	const publishedPaths: string[][] = [];
+	const cliCalls: string[][] = [];
+	const syncDiscrepancies: SyncDiscrepancy[] = [];
 
 	const ipc: IpcRegistrar = {
 		port: options?.port ?? 1234,
@@ -39,16 +49,45 @@ function createMockCallbacks(options?: {
 
 	const callbacks: AgentProviderCallbacks = {
 		ipc: ipc,
-		runCLICommand: () => Promise.resolve('[]'),
+		runCLICommand: (args: string[]) => {
+			cliCalls.push([...args]);
+			return Promise.resolve(options?.cliResponse ?? '[]');
+		},
 		resolveGitInfo: options?.resolveGitInfo,
 		openSessionInClaudeExtension: options?.openSessionInClaudeExtension,
+		onSyncDiscrepancy: info => {
+			syncDiscrepancies.push(info);
+		},
 	};
 
-	return { callbacks: callbacks, handlers: handlers, publishedPaths: publishedPaths };
+	return {
+		callbacks: callbacks,
+		handlers: handlers,
+		publishedPaths: publishedPaths,
+		cliCalls: cliCalls,
+		syncDiscrepancies: syncDiscrepancies,
+	};
+}
+
+/** Counts the `list-sessions` reconciliation calls within recorded CLI invocations. */
+function listSessionsCalls(cliCalls: string[][]): number {
+	return cliCalls.filter(args => args.includes('list-sessions')).length;
 }
 
 function sessionStart(sessionId: string, cwd: string): Record<string, unknown> {
 	return { event: 'SessionStart', sessionId: sessionId, cwd: cwd, pid: process.pid };
+}
+
+/** A `list-sessions` poll entry (SessionFileData shape) for an alive session, used to exercise
+ *  the reconciliation poll / discrepancy detection. `pid: process.pid` so it passes `isProcessAlive`. */
+function sessionFileData(sessionId: string, cwd: string): Record<string, unknown> {
+	return {
+		sessionId: sessionId,
+		event: 'UserPromptSubmit',
+		cwd: cwd,
+		pid: process.pid,
+		updatedAt: '2024-01-01T00:00:00.000Z',
+	};
 }
 
 /** Yield to the microtask queue so `void this.ensureIpcServer()` can finish its awaits
@@ -921,3 +960,242 @@ class TestProvider extends ClaudeCodeProvider {
 		this._transcriptReader = reader;
 	}
 }
+
+/** Provider variant that lets tests drive a gated reconciliation tick deterministically, instead
+ *  of waiting for the real 15-minute `staleCheckTimer` interval. */
+class GateTestProvider extends ClaudeCodeProvider {
+	runGatedSync(): Promise<void> {
+		return this.syncSessions({ gate: true });
+	}
+}
+
+suite('ClaudeCodeProvider reconciliation poll gating (list-sessions)', () => {
+	const workspace = '/home/user/projectA';
+
+	test('skips the CLI on a gated tick when there are no sessions and hooks are not installed', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(false);
+			cliCalls.length = 0; // ignore the ungated bootstrap call
+
+			await provider.runGatedSync();
+			await provider.runGatedSync();
+
+			assert.strictEqual(listSessionsCalls(cliCalls), 0);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('still polls when hooks are installed even with no sessions', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(true);
+			cliCalls.length = 0;
+
+			await provider.runGatedSync();
+
+			assert.ok(listSessionsCalls(cliCalls) >= 1, 'a window with installed hooks must keep polling');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('still polls when sessions exist even if hooks are reported as not installed', async () => {
+		const { callbacks, handlers, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(false);
+
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('sess-1', workspace), new URLSearchParams());
+			assert.strictEqual(provider.sessions.length, 1);
+			cliCalls.length = 0;
+
+			await provider.runGatedSync();
+
+			assert.ok(
+				listSessionsCalls(cliCalls) >= 1,
+				'a non-empty session list must keep polling (prune backstop + robustness to stale hook detection)',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('resumes polling on the next gated tick once a session is pushed', async () => {
+		const { callbacks, handlers, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(false);
+			cliCalls.length = 0;
+
+			// Empty + hooks-off → skipped.
+			await provider.runGatedSync();
+			assert.strictEqual(listSessionsCalls(cliCalls), 0);
+
+			// A push makes the list non-empty → the next tick polls again, with no timer rebuild.
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('sess-1', workspace), new URLSearchParams());
+			cliCalls.length = 0;
+			await provider.runGatedSync();
+
+			assert.ok(listSessionsCalls(cliCalls) >= 1, 'polling must resume once a session exists');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('defaults to fail-open (polls) before the host pushes any hooks state', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			cliCalls.length = 0; // never call setClaudeHooksInstalled — exercise the default
+
+			await provider.runGatedSync();
+
+			assert.ok(
+				listSessionsCalls(cliCalls) >= 1,
+				'before the first host push the provider must assume hooks may be installed',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('an off→on hooks transition reconciles immediately without waiting for the interval', async () => {
+		const { callbacks, cliCalls } = createMockCallbacks();
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			provider.setClaudeHooksInstalled(false);
+			cliCalls.length = 0;
+
+			provider.setClaudeHooksInstalled(true); // eager resync fires an ungated syncSessions() (polls, reports no drift)
+			await flushMicrotasks();
+
+			assert.ok(listSessionsCalls(cliCalls) >= 1, 'installing hooks must trigger an immediate reconciliation');
+		} finally {
+			provider.dispose();
+		}
+	});
+});
+
+suite('ClaudeCodeProvider live/poll sync discrepancy telemetry', () => {
+	const workspace = '/home/user/projectA';
+
+	test('reports discovered drift when a gated poll finds a session the live path never tracked', async () => {
+		const { callbacks, syncDiscrepancies } = createMockCallbacks({
+			cliResponse: JSON.stringify([sessionFileData('poll-only', workspace)]),
+		});
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync();
+
+			assert.strictEqual(provider.sessions.length, 1);
+			assert.strictEqual(syncDiscrepancies.length, 1);
+			assert.deepStrictEqual(syncDiscrepancies[0], {
+				provider: 'claudeCode',
+				discovered: 1,
+				missing: 0,
+				polled: 1,
+				tracked: 0,
+			});
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('does not report drift once the discovered session is tracked', async () => {
+		const { callbacks, syncDiscrepancies } = createMockCallbacks({
+			cliResponse: JSON.stringify([sessionFileData('poll-only', workspace)]),
+		});
+		const provider = new GateTestProvider(callbacks);
+		try {
+			await provider.runGatedSync(); // discovers + reports
+			syncDiscrepancies.length = 0;
+
+			await provider.runGatedSync(); // already tracked → no drift
+
+			assert.strictEqual(syncDiscrepancies.length, 0);
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('reports missing drift when a live-tracked session is absent from the poll', async () => {
+		const { callbacks, handlers, syncDiscrepancies } = createMockCallbacks(); // poll returns '[]'
+		const provider = new GateTestProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+			const handler = handlers.get('agents/session')!;
+			await handler(sessionStart('live-1', workspace), new URLSearchParams());
+			assert.strictEqual(provider.sessions.length, 1);
+			syncDiscrepancies.length = 0;
+
+			await provider.runGatedSync();
+
+			assert.strictEqual(syncDiscrepancies.length, 1);
+			assert.deepStrictEqual(syncDiscrepancies[0], {
+				provider: 'claudeCode',
+				discovered: 0,
+				missing: 1,
+				polled: 0,
+				tracked: 1,
+			});
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('does not report drift on the ungated bootstrap discovery', async () => {
+		const { callbacks, syncDiscrepancies } = createMockCallbacks({
+			cliResponse: JSON.stringify([sessionFileData('boot', workspace)]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.start([workspace]);
+			await flushMicrotasks();
+
+			assert.strictEqual(provider.sessions.length, 1);
+			assert.strictEqual(syncDiscrepancies.length, 0, 'cold-start discovery is expected, not drift');
+		} finally {
+			provider.dispose();
+		}
+	});
+
+	test('the off→on eager resync discovers pre-existing sessions without reporting drift', async () => {
+		const { callbacks, syncDiscrepancies } = createMockCallbacks({
+			cliResponse: JSON.stringify([sessionFileData('preexisting', workspace)]),
+		});
+		const provider = new ClaudeCodeProvider(callbacks);
+		try {
+			provider.setClaudeHooksInstalled(false); // true(default)→false: no resync
+			provider.setClaudeHooksInstalled(true); // false→true: eager resync polls (ungated)
+			await flushMicrotasks();
+
+			assert.strictEqual(provider.sessions.length, 1, 'eager resync should pick up the already-running session');
+			assert.strictEqual(
+				syncDiscrepancies.length,
+				0,
+				'installing hooks mid-session is expected discovery, not drift',
+			);
+		} finally {
+			provider.dispose();
+		}
+	});
+});
