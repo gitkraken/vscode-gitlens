@@ -177,6 +177,10 @@ const commitEnrichmentCacheLimit = 32;
 export class DetailsActions {
 	private _lastFetchedKey?: string;
 	private _pendingStagingOp?: Promise<void>;
+	/** Repo path with a commit RPC in flight. While set, host-pushed WIP for this repo is ignored:
+	 *  the commit's own pre-commit hooks (e.g. lint-staged stashing unstaged changes) churn the
+	 *  working tree and produce transient statuses that must not overwrite the panel. */
+	private _committingRepoPath?: string;
 	private _disposed = false;
 	private _eventUnsubscribe?: () => void;
 
@@ -2611,6 +2615,13 @@ export class DetailsActions {
 		const repoPath = wip.repo?.path;
 		if (repoPath == null) return;
 
+		// While a commit for this repo is in flight, the working tree is churned by the commit's own
+		// pre-commit hooks (e.g. lint-staged stashing unstaged changes), so the host emits transient
+		// "all staged" statuses. Applying one would let the subsequent optimistic clear's
+		// `filter(f => !f.staged)` empty the panel. Ignore it — the optimistic clear and the
+		// post-commit reconciliation (once the commit completes) provide the correct state.
+		if (repoPath === this._committingRepoPath) return;
+
 		this.applyWipPayload(wip, repoPath);
 	}
 
@@ -2734,6 +2745,8 @@ export class DetailsActions {
 		// Clear any prior error and enter the in-flight state (spinner + input lock).
 		this.state.commitError.set(undefined);
 		this.state.committing.set(true);
+		// Suppress host WIP pushes for this repo until the commit settles (see `applyPushedWip`).
+		this._committingRepoPath = repoPath;
 		try {
 			// `commit` returns a discriminated result and never throws for git failures — the host
 			// classifies the error and presents the modal/full-output document itself.
@@ -2758,6 +2771,7 @@ export class DetailsActions {
 			}
 		} finally {
 			this.state.committing.set(false);
+			this._committingRepoPath = undefined;
 		}
 	}
 
