@@ -20,7 +20,7 @@ import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '@gitlens/utils/color.js';
 import { debounce } from '@gitlens/utils/debounce.js';
-import { areEqual } from '@gitlens/utils/object.js';
+import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	GraphAvatars,
@@ -907,6 +907,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const activeKey = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
 		this.graphState.activeRow = activeKey;
 		this.graphState.activeDay = focusedRow?.date;
+
+		// A host-driven selection the GK component hasn't resolved yet — most commonly the synthetic
+		// WIP row (`work-dir-changes`/`worktree-wip::…`) which is injected by `getDecoratedRows` only
+		// after Lit+React catch up to a rows update — surfaces here as an EMPTY component selection.
+		// Echoing that back (`UpdateSelectionCommand({selection: []})`) makes the host's
+		// `onSelectionChanged` call `setSelectedRows(undefined)` and CLEAR the just-applied selection,
+		// which reads as "the selection jumped/disappeared" (flaky when rows updates race the
+		// injection). Treat an empty component selection while the host still wants one as a transient
+		// resolution gap: don't echo and don't record it as the last key, so the correct selection
+		// still propagates once the row resolves on a later frame.
+		if (!selection.length && this.graphState.selectedRows != null && hasKeys(this.graphState.selectedRows)) {
+			return;
+		}
 
 		// Dedup the ENTIRE frontend selection pipeline by selection identity. The GK component fires
 		// `graph-changeselection` several times per selection (selection + focus-row reconciliation

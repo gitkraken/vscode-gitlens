@@ -626,6 +626,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._selectedCommit = { sha: sha, repoPath: repoPath };
 		this._selectedCommits = undefined;
 
+		// Reliably select the target row in the graph itself, not just the details panel. The host's
+		// selection notification is prop-driven and can drop the synthetic WIP row to a render race
+		// (the row is injected by `getDecoratedRows` only after Lit+React catch up), which surfaces as
+		// review/compose updating the details but leaving the row unselected. `ensureAndSelectCommit`
+		// normalizes `uncommitted`→the WIP row and retries across frames until it's injected. Skip for
+		// compare (it drives its own range selection).
+		if (action !== 'open-compare') {
+			this.graph?.ensureAndSelectCommit(sha);
+		}
+
 		const showDetails = () => {
 			this.setDetailsVisible(true, 'request-mode');
 			this.ensureDetailsPosition();

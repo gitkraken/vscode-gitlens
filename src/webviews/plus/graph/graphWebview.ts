@@ -2371,11 +2371,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (target != null) {
 				this.repository = this.container.git.getRepository(target.worktreePath) ?? this.repository;
 			}
+			let rowId: string | undefined;
 			if (arg.action !== 'scope-to-branch') {
 				// Select the row the action targets: an uncommitted target maps to its worktree's WIP
 				// row (primary 'work-dir-changes' or a secondary worktree's synthetic sha), a real
 				// target selects its commit sha, and no target falls back to the primary WIP row.
-				let rowId = 'work-dir-changes';
+				rowId = 'work-dir-changes';
 				if (target != null) {
 					rowId = isUncommitted(target.sha)
 						? target.worktreePath === this.repository?.path
@@ -2389,6 +2390,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (loading) {
 				this._pendingAction = { action: arg.action, target: arg.target };
 			} else {
+				// Select the targeted row in the graph too (mirrors the ref path). The action
+				// notification only enters the mode / reveals the details panel; without this the
+				// graph row is never actually selected on a warm show. WIP rows + already-loaded
+				// commits select via the lightweight selection notification; an unloaded commit pages
+				// in (which carries the selection along).
+				if (rowId != null && this._graph != null) {
+					if (rowId === 'work-dir-changes' || isSecondaryWipSha(rowId) || this._graph.ids.has(rowId)) {
+						void this.notifyDidChangeSelection();
+					} else {
+						void this.onGetMoreRows({ id: rowId }, true);
+					}
+				}
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: arg.action,
 					target: arg.target,
@@ -5448,6 +5461,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(UpdateSelectionCommand)
 	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>) {
+		// An empty selection echo must never clear a selection we already hold. The webview reports
+		// an empty selection when the GK component can't resolve a host-driven selection in the
+		// current frame (most commonly the synthetic WIP row before `getDecoratedRows` injects it,
+		// or a commit row before it's indexed) — adopting it here would wipe `_selectedId`/
+		// `_selectedRows` and flip the graph to "nothing selected", which reads as the selection
+		// jumping away right after it lands. The graph has no gesture that intentionally deselects to
+		// empty, and a selection that genuinely disappears is reconciled to `data.id` in `getState`,
+		// so treat an empty echo as a no-op whenever we already have a selection.
+		if (!params.selection.length && this._selectedId != null) return;
+
 		const item = params.selection.find(r => r.active) ?? params.selection[0];
 		this.setSelectedRows(item?.id, params.selection, { selected: true, hidden: item?.hidden });
 
