@@ -775,8 +775,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(UpdateRefsVisibilityCommand, detail);
 	}
 
-	private onRowAction({ detail: { action, row } }: CustomEvent<{ action: RowAction; row: GraphRow }>) {
-		this._ipc.sendCommand(RowActionCommand, { action: action, row: { id: row.sha, type: row.type } });
+	private onRowAction({
+		detail: { action, row, worktreePath },
+	}: CustomEvent<{ action: RowAction; row: GraphRow; worktreePath?: string }>) {
+		const rowRef = { id: row.sha, type: row.type };
+		// Narrow per-action so the discriminated `RowActionParams` only carries the fields its
+		// case allows — keeps stash/open-changes payloads from accidentally inheriting worktreePath.
+		const params =
+			action === 'undo-commit'
+				? { action: action, row: rowRef, worktreePath: worktreePath }
+				: { action: action, row: rowRef };
+		this._ipc.sendCommand(RowActionCommand, params);
 	}
 
 	private onWipRowOpen({

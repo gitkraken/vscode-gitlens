@@ -172,12 +172,13 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 			// per-row payload. Instead ship the two host-only bits as compact flags; the webview
 			// reconstructs the full webview-item contexts on demand at right-click/selection time from
 			// row fields + repoPath + these flags (see `rowContext.utils` + `graph-wrapper`'s
-			// `injectRowContextMenuContext`). `+HEAD` and contributor `+current` are derived webview-side
-			// from `row.heads`/`row.isCurrentUser` and need no flag.
+			// `injectRowContextMenuContext`). `+HEAD`/`+worktreeHEAD` and contributor `+current` are
+			// derived webview-side from `row.heads`/`row.isCurrentUser` and need no flag.
 			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
 			contexts.flags =
 				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
-				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0);
+				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
+				(context.tipShasWithChildren.has(row.sha) ? GitGraphRowContextFlags.HasChildren : 0);
 
 			// Populate avatar cache
 			if (!context.avatars.has(row.email)) {

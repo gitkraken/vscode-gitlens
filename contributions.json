@@ -4030,6 +4030,20 @@
 				]
 			}
 		},
+		"gitlens.graph.undoCommitOnWorktree": {
+			"label": "Undo Commit on Worktree",
+			"icon": "$(discard)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.graph.unpinBranchFromEdge": {
 			"label": "Unpin Branch from Edge",
 			"menus": {

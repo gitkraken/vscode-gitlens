@@ -9,6 +9,7 @@ import type {
 	GraphItemRefContext,
 	GraphItemTypedContext,
 } from '../../../../plus/graph/protocol.js';
+import { pickRowUndoTarget } from './row.utils.js';
 
 /**
  * Minimal row shape the context builders read. The lean graph payload ships `contexts.flags` (host-only
@@ -20,7 +21,7 @@ export type RowContextSource = {
 	sha: string;
 	author?: string;
 	email?: string;
-	heads?: ReadonlyArray<{ isCurrentHead?: boolean }> | null;
+	heads?: ReadonlyArray<{ isCurrentHead?: boolean; worktree?: { id: string; path: string } }> | null;
 	isCurrentUser?: boolean;
 	contexts?: { flags?: GitGraphRowContextFlags; row?: string | object } | undefined;
 };
@@ -40,25 +41,40 @@ export function isUniqueToBranchRow(row: RowContextSource): boolean {
 	return ((row.contexts?.flags ?? 0) & ContextFlags.UniqueToBranch) !== 0;
 }
 
+/** True when the commit has children (is NOT a leaf) — the host sets this flag only on undo-eligible
+ *  tip rows. Undo Commit is withheld for these. Shared by {@link buildRowCommitContext} (right-click)
+ *  and the inline adornment so both apply the leaf rule from the same flag bit. */
+export function rowHasChildren(row: RowContextSource): boolean {
+	return ((row.contexts?.flags ?? 0) & ContextFlags.HasChildren) !== 0;
+}
+
 /**
  * Builds the `gitlens:commit…` webview-item context for a commit row from its fields + `contexts.flags`.
- * Mirrors exactly what the host serialized pre-strip: `+HEAD` from `row.heads`, `+current`/`+unique`
- * from the flag bits. `message` is intentionally OMITTED — the wire `row.message` is emojified, and
- * `Copy Message` refetches the raw message when `ref.message` is absent, so omitting it preserves the
- * original raw-message behavior instead of copying emojified text.
+ * Mirrors exactly what the host serialized pre-strip: `+HEAD`/`+worktreeHEAD` from `row.heads`,
+ * `+current`/`+unique` from the flag bits. `message` is intentionally OMITTED — the wire `row.message`
+ * is emojified, and `Copy Message` refetches the raw message when `ref.message` is absent, so omitting
+ * it preserves the original raw-message behavior instead of copying emojified text.
+ *
+ * `+worktreeHEAD` marks a row that is the HEAD of a non-active worktree (so Undo Commit can target it).
+ * Both `+HEAD` and `+worktreeHEAD` are withheld for commits with children (the `HasChildren` flag) —
+ * undo is offered only on leaf tips. `ref.repoPath` stays the primary repo so other right-click
+ * commands don't retarget a worktree; the secondary worktree's path rides along on
+ * `webviewItemValue.worktreePath`, which `_undoCommit` reads. `pickRowUndoTarget` is shared with the
+ * inline adornment so both surfaces undo the same worktree (and apply the same leaf rule).
  */
 export function buildRowCommitContext(row: RowContextSource, repoPath: string): GraphItemRefContext {
 	const flags = row.contexts?.flags ?? 0;
-	const isHeadCommit = row.heads?.some(h => h.isCurrentHead) ?? false;
-	const webviewItem = `gitlens:commit${isHeadCommit ? '+HEAD' : ''}${
-		flags & ContextFlags.ReachableFromHead ? '+current' : ''
-	}${flags & ContextFlags.UniqueToBranch ? '+unique' : ''}`;
+	const { currentHead, worktreeHead } = pickRowUndoTarget(row.heads ?? undefined, rowHasChildren(row));
+	const webviewItem = `gitlens:commit${currentHead != null ? '+HEAD' : ''}${
+		worktreeHead != null ? '+worktreeHEAD' : ''
+	}${flags & ContextFlags.ReachableFromHead ? '+current' : ''}${flags & ContextFlags.UniqueToBranch ? '+unique' : ''}`;
 
 	return {
 		webviewItem: webviewItem,
 		webviewItemValue: {
 			type: 'commit',
 			ref: createReference(row.sha, repoPath, { refType: 'revision' }),
+			worktreePath: worktreeHead?.worktree?.path,
 		},
 	};
 }

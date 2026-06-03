@@ -18,7 +18,13 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitContributor } from '@gitlens/git/models/contributor.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import type { GitGraph, GitGraphRow, GitGraphRowType, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type {
+	GitGraph,
+	GitGraphRow,
+	GitGraphRowHead,
+	GitGraphRowType,
+	GraphReachabilityTable,
+} from '@gitlens/git/models/graph.js';
 import type { GitGraphSearch, GitGraphSearchProgress, GitGraphSearchResults } from '@gitlens/git/models/graphSearch.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -216,6 +222,7 @@ import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/work
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { isDarkTheme, isLightTheme, revealInFileExplorer } from '../../../system/-webview/vscode.js';
 import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command.js';
+import { gate } from '../../../system/decorators/gate.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
@@ -4563,6 +4570,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				: primaryRepoPath;
 
 		switch (params.action) {
+			case 'undo-commit': {
+				// Build the revision ref directly and delegate to the shared core. Skipping the
+				// `GraphItemContext` round-trip avoids both (a) a fragile synthetic context (the
+				// runtime `isWebviewItemContext` guard requires a `webview` field the IPC payload
+				// has no business knowing about) and (b) the redundant unwrap inside `undoCommit`.
+				// The dialog/WIP message is resolved from the actual commit inside `CommitActions.undoCommit`,
+				// so we don't thread a (display-emojified) message through the webview.
+				const ref = createReference(params.row.id, primaryRepoPath, { refType: 'revision' });
+				await this._undoCommit(ref, params.worktreePath);
+				break;
+			}
 			case 'stash-save':
 				await StashActions.push(rowRepoPath);
 				break;
@@ -9085,22 +9103,45 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return RepoActions.switchTo(ref.repoPath);
 	}
 
+	// `undoCommitOnWorktree` shares the same handler as `undoCommit`. Both command ids exist
+	// because VS Code menu titles are static and can't be templated per-row — we want the menu
+	// to read "Undo Commit on Worktree" on `+worktreeHEAD` rows. Per-worktree routing flows via
+	// `webviewItemValue.worktreePath`.
 	@command('gitlens.graph.undoCommit')
+	@command('gitlens.graph.undoCommitOnWorktree')
 	@debug()
-	private async undoCommit(item?: GraphItemContext) {
+	private undoCommit(item?: GraphItemContext): Promise<void> {
 		const ref = this.getGraphItemRef(item, 'revision');
-		if (ref == null) return;
+		if (ref == null) return Promise.resolve();
+
+		// For `+worktreeHEAD` rows, the row context carries `webviewItemValue.worktreePath` —
+		// the secondary worktree we should target. We deliberately keep `ref.repoPath` as the
+		// primary (so other right-click commands like cherryPick/reset/rebase don't silently
+		// retarget the wrong worktree) and overlay the worktree path only here.
+		// TODO(multi-worktree-same-sha): when two non-active worktrees share a sha, only the
+		// first emitted `worktreePath` reaches us; the user has no UI to pick the other.
+		const worktreePath = isGraphItemRefContext(item, 'revision') ? item.webviewItemValue.worktreePath : undefined;
+		return this._undoCommit(ref, worktreePath);
+	}
+
+	@gate()
+	private async _undoCommit(ref: GitRevisionReference, worktreePath: string | undefined): Promise<void> {
+		// Only the repoPath changes when routing to a secondary worktree — preserve every other field
+		// (name, message, sha) by spreading rather than rebuilding. Avoids fragile string-equality on
+		// filesystem paths (Windows casing, trailing-slash variants) and can't silently drop fields.
+		const targetRepoPath = worktreePath ?? ref.repoPath;
+		const targetRef: GitRevisionReference = { ...ref, repoPath: targetRepoPath };
 
 		// `createWipSha` needs the graph's anchor repo path to distinguish the primary
 		// 'work-dir-changes' sha from a secondary `worktree-wip::<path>` sha. NEVER coalesce the
-		// second arg to `ref.repoPath` — `createWipSha(p, p)` collapses to `uncommitted` and we'd
+		// second arg to `targetRepoPath` — `createWipSha(p, p)` collapses to `uncommitted` and we'd
 		// emit a primary-WIP sha for what is actually a secondary worktree. Use the bound
 		// repository's path rather than `this._graph?.repoPath` — the Repository is set when the
 		// webview activates, well before graph data loads, and is always present by the time the
 		// context-menu reaches this command.
-		const wipSha = createWipSha(ref.repoPath, this.repository?.path);
+		const wipSha = createWipSha(targetRepoPath, this.repository?.path);
 
-		await undoCommit(this.container, ref, {
+		await undoCommit(this.container, targetRef, {
 			onBeforeReset: message => {
 				// Batch the selection move, draft seed, and details-panel open before the reset
 				// fires its file-watcher event, so the webview sees one coherent transition rather
@@ -9108,13 +9149,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// WIP selection from the post-refresh `data.id` override at getState().
 				// `writeWipDraftToStorage` is the durable mirror of the webview-side flush so the
 				// message persists across sessions even if the user never edits.
-				this.writeWipDraftToStorage(ref.repoPath, { message: message, messageDirty: true });
+				this.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
 				this._honorSelectedId = true;
 				this.setSelectedRows(wipSha);
 				void this.notifyDidChangeSelection();
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: 'show-wip',
-					target: { sha: wipSha, worktreePath: ref.repoPath },
+					target: { sha: wipSha, worktreePath: targetRepoPath },
 					commitMessage: message,
 				});
 			},
@@ -10843,7 +10884,7 @@ function takeEntriesAfter<V>(map: Map<string, V>, skip: number): Record<string, 
  *   - remote branch added/updated → `remotes` entries shift
  *   - new contributor avatar resolved → `avatars` map grows
  *   - downstream tracking changed → `downstreams` keys/values shift
- *   - worktree added/removed for a branch → `heads[].worktreeId` flips
+ *   - worktree added/removed for a branch → `heads[].worktree` flips
  *   - stats-loading flag flipped → ship the new loading state
  *
  * To stay cheap, the per-row scan only emits a signature for rows that ACTUALLY carry refs —
@@ -10886,12 +10927,12 @@ function buildGraphFingerprint(
 				parts.push('S;');
 			}
 			if (hl) {
-				for (const h of r.heads!) {
-					// Include worktreeId (adding/removing a worktree flips it for an existing
+				for (const h of r.heads! as unknown as readonly GitGraphRowHead[]) {
+					// Include worktree id (adding/removing a worktree flips it for an existing
 					// branch) and isCurrentHead (HEAD moving between already-visible branches),
 					// so either change busts the fingerprint and re-ships rows.
 					parts.push(
-						`H${h.id}${h.isCurrentHead ? '*' : ''}${h.worktreeId != null ? `@${h.worktreeId}` : ''};`,
+						`H${h.id}${h.isCurrentHead ? '*' : ''}${h.worktree != null ? `@${h.worktree.id}` : ''};`,
 					);
 				}
 			}

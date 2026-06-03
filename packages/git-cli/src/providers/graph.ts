@@ -119,9 +119,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const [worktrees, worktreesByBranch] = getSettledValue(worktreesResult) ?? [[], new Map<string, GitWorktree>()];
 
 		let branchIdOfMainWorktree: string | undefined;
+		let mainWorktree: GitWorktree | undefined;
 		if (worktreesByBranch != null) {
-			branchIdOfMainWorktree = find(worktreesByBranch, ([, wt]) => wt.isDefault)?.[0];
-			if (branchIdOfMainWorktree != null) {
+			const defaultEntry = find(worktreesByBranch, ([, wt]) => wt.isDefault);
+			if (defaultEntry != null) {
+				[branchIdOfMainWorktree, mainWorktree] = defaultEntry;
+				// Remove the main/default worktree so the branch-row decoration shows `+checkedout`
+				// (not `+worktree`) for the main checkout. `mainWorktree` is retained below purely so
+				// Undo Commit can still reach the main worktree's HEAD from a secondary worktree's graph.
 				worktreesByBranch.delete(branchIdOfMainWorktree);
 			}
 		}
@@ -142,6 +147,24 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
+		// Undo Commit is offered only on a worktree HEAD that is a LEAF (nothing is built on it) —
+		// undoing a commit other work is stacked on is unsafe. The leaf check is only needed for the
+		// undo-eligible tips (the active HEAD + each worktree's HEAD), so track just those shas rather
+		// than every commit, keeping this O(#worktrees) instead of O(#commits).
+		const undoableTipShas = new Set<string>();
+		if (headBranch?.sha != null) {
+			undoableTipShas.add(headBranch.sha);
+		}
+		for (const wt of worktrees) {
+			if (wt.sha != null) {
+				undoableTipShas.add(wt.sha);
+			}
+		}
+		// The subset of `undoableTipShas` that turn out to have a child (are an ancestor of another
+		// commit) — i.e. NOT leaves. Built newest-first during the walk, so by the time a tip's row is
+		// processed every newer commit (its only possible children) has been seen. Undo is withheld for
+		// shas recorded here. Stash rows are excluded (a stash sitting on a tip must not block undoing it).
+		const tipShasWithChildren = new Set<string>();
 
 		// Map<sha, Map<refKey, ref>> — inner map deduplicates refs during propagation
 		const reachableRefs = new Map<string, Map<string, ReachableRef>>();
@@ -249,6 +272,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								branchIdOfMainWorktree: branchIdOfMainWorktree,
 								stashes: gitStash?.stashes,
 								reachableFromHEAD: reachableFromHEAD,
+								tipShasWithChildren: tipShasWithChildren,
 								avatars: avatars,
 							}
 						: undefined;
@@ -343,7 +367,16 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 
 							branch = branchMap.get(tip);
 							branchId = branch?.id ?? getBranchId(repoPath, false, tip);
-							const worktree = worktreesByBranch?.get(branchId);
+							// `worktreesByBranch` has the main/default worktree removed (above), so recover it
+							// here — Undo Commit needs to reach the main worktree's HEAD even when the active
+							// workspace is a secondary worktree.
+							const worktree =
+								worktreesByBranch?.get(branchId) ??
+								(branchId === branchIdOfMainWorktree ? mainWorktree : undefined);
+							const worktreeRef =
+								worktree != null
+									? { id: getWorktreeId(repoPath, worktree.name), path: worktree.path }
+									: undefined;
 							refHead = {
 								id: branchId,
 								name: tip,
@@ -355,7 +388,12 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 												id: getBranchId(repoPath, true, branch.upstream.name),
 											}
 										: undefined,
-								worktreeId: worktree != null ? getWorktreeId(repoPath, worktree.name) : undefined,
+								worktree: worktreeRef,
+								// Mirror `worktree.id` for `@gitkraken/gitkraken-components` — its bundled renderer
+								// reads `head.worktreeId` to pick the WORKTREE vs HEAD ref-badge. Scope to NON-default
+								// worktrees so the main checkout keeps its HEAD badge even though `worktree` (above)
+								// is populated for it for Undo routing.
+								worktreeId: worktree?.isDefault === false ? worktreeRef?.id : undefined,
 							};
 							refHeads.push(refHead);
 							if (branch?.upstream?.name != null) {
@@ -449,6 +487,17 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					} else {
 						isCurrentUser = isUserMatch(currentUser, commit.author, commit.authorEmail);
+
+						// Mark any undo-eligible tip that THIS (non-stash) commit builds on as non-leaf, so
+						// its Undo Commit is withheld. Uses the full parent set (incl. merge second-parents)
+						// but only records shas that are actually undo tips — newer commits are walked first,
+						// so a tip is recorded before its own row is processed. Stash rows are intentionally
+						// not handled here, so a stash based on a tip doesn't block undoing that tip.
+						for (parent of parents) {
+							if (undoableTipShas.has(parent)) {
+								tipShasWithChildren.add(parent);
+							}
+						}
 
 						const refs = reachableRefs.get(shaOrRemapped);
 						const row: GitGraphRow = {

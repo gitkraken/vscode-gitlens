@@ -223,6 +223,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.switchToPanelLayout'
 	| 'gitlens.graph.switchToTag'
 	| 'gitlens.graph.undoCommit'
+	| 'gitlens.graph.undoCommitOnWorktree'
 	| 'gitlens.graph.unpinBranchFromEdge'
 	| 'gitlens.inviteToLiveShare'
 	| 'gitlens.openBranchesOnRemote'

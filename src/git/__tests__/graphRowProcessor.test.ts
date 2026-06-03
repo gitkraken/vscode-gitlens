@@ -21,6 +21,7 @@ function createMockContext(overrides?: Partial<GraphContext>): GraphContext {
 		branchIdOfMainWorktree: undefined,
 		stashes: undefined,
 		reachableFromHEAD: new Set<string>(),
+		tipShasWithChildren: new Set<string>(),
 		avatars: new Map<string, string>([['test@test.com', 'https://avatar']]),
 		...overrides,
 	};

@@ -293,7 +293,7 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('refdoubleclick', { detail: detail }));
 	};
 
-	private handleRowAction = (detail: { action: RowAction; row: GraphRow }): void => {
+	private handleRowAction = (detail: { action: RowAction; row: GraphRow; worktreePath?: string }): void => {
 		this.dispatchEvent(new CustomEvent('rowaction', { detail: detail }));
 	};
 
@@ -396,7 +396,7 @@ declare global {
 		missingrefsmetadata: CustomEvent<GraphMissingRefsMetadata>;
 		morerows: CustomEvent<string | undefined>;
 		refdoubleclick: CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
-		rowaction: CustomEvent<{ action: RowAction; row: GraphRow }>;
+		rowaction: CustomEvent<{ action: RowAction; row: GraphRow; worktreePath?: string }>;
 		rowcontextmenu: CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow; isAvatar: boolean }>;
 		rowdoubleclick: CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
 		rowhover: CustomEvent<{

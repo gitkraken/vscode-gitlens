@@ -501,18 +501,24 @@ export const OpenPullRequestDetailsCommand = new IpcCommand<OpenPullRequestDetai
 	'pullRequest/openDetails',
 );
 
-export type RowAction =
-	| 'open-changes'
-	| 'open-changes-with-working'
-	| 'stash-apply'
-	| 'stash-drop'
-	| 'stash-pop'
-	| 'stash-save';
+export type RowAction = RowActionParams['action'];
 
-export interface RowActionParams {
-	action: RowAction;
-	row: { id: string; type: GitGraphRowType };
+interface RowActionRowRef {
+	id: string;
+	type: GitGraphRowType;
 }
+
+/** Discriminated union — action-specific fields are only structurally present on their case so the
+ *  compiler catches accidental cross-action leakage (e.g. shipping `worktreePath` on a stash action). */
+export type RowActionParams =
+	| { action: 'open-changes' | 'open-changes-with-working'; row: RowActionRowRef }
+	| { action: 'stash-apply' | 'stash-drop' | 'stash-pop' | 'stash-save'; row: RowActionRowRef }
+	| {
+			action: 'undo-commit';
+			row: RowActionRowRef;
+			/** Worktree path the action targets. Omit for the active worktree. */
+			worktreePath?: string;
+	  };
 export const RowActionCommand = new IpcCommand<RowActionParams>(scope, 'row/action');
 
 export interface TreemapFileActionParams {
@@ -1337,7 +1343,9 @@ export interface GraphBranchContextValue {
 export interface GraphCommitContextValue {
 	type: 'commit';
 	ref: GitRevisionReference;
-	/** Set when this context represents a worktree sidebar row — the worktree's filesystem path. */
+	/** The worktree's filesystem path. Set for a WIP row, and for a commit row that is the HEAD of a
+	 *  non-active worktree (the `+worktreeHEAD` Undo-Commit routing target). `ref.repoPath` stays the
+	 *  primary repo so other commands don't retarget; `_undoCommit` reads this to route to the worktree. */
 	worktreePath?: string;
 }
 

@@ -19,6 +19,14 @@ export interface GitGraphRowHead {
 	isCurrentHead: boolean;
 	context?: string | object;
 	upstream?: { name: string; id: string };
+	/** Set when this branch is checked out in a (non-default) worktree. Grouped so producers can't
+	 *  half-populate id-without-path or vice versa. GitLens consumers should read this field. */
+	worktree?: { id: string; path: string };
+	/** Upstream-component-compatibility mirror of `worktree?.id`. The bundled
+	 *  `@gitkraken/gitkraken-components` library still reads `worktreeId` to switch between
+	 *  WORKTREE and HEAD ref-badge styling — keeping it populated preserves the visual cue.
+	 *  Producers MUST set this whenever they set `worktree`; do not read it from GitLens code,
+	 *  read `worktree.id` instead. */
 	worktreeId?: string;
 }
 
@@ -44,13 +52,17 @@ export interface GitGraphRowTag {
  * Compact, host-computed flags for a commit/stash row, shipped instead of the bulky serialized
  * `contexts.row`/`contexts.avatar` blobs (which duplicated sha/message/repoPath already on the row).
  * The webview reconstructs the full webview-item contexts from these flags + row fields + repoPath.
- * Bit 0: reachable-from-HEAD (`+current`); Bit 1: unique-to-one-local-branch (`+unique`).
+ * Bit 0: reachable-from-HEAD (`+current`); Bit 1: unique-to-one-local-branch (`+unique`);
+ * Bit 2: has-children — set ONLY on undo-eligible tip rows (active HEAD + worktree HEADs) that have a
+ * child, to gate Undo Commit to leaf tips (undoing a commit other work is stacked on is unsafe). It is
+ * NOT a general has-children signal: non-tip rows never carry it (the host only computes it for tips).
  * (`+HEAD` derives from `row.heads[].isCurrentHead`; contributor `+current` from `row.isCurrentUser`.)
  */
 export const enum GitGraphRowContextFlags {
 	None = 0,
 	ReachableFromHead = 1 << 0,
 	UniqueToBranch = 1 << 1,
+	HasChildren = 1 << 2,
 }
 
 /**
@@ -236,5 +248,10 @@ export interface GraphContext {
 	readonly branchIdOfMainWorktree: string | undefined;
 	readonly stashes: ReadonlyMap<string, GitStashCommit> | undefined;
 	readonly reachableFromHEAD: ReadonlySet<string>;
+	/** The subset of undo-eligible tip shas (active HEAD + worktree HEADs) that have at least one
+	 *  child — i.e. are NOT leaves. Scoped to tips (not all commits) for performance; do not treat as
+	 *  a general has-children signal. Sets the {@link GitGraphRowContextFlags.HasChildren} flag, which
+	 *  gates Undo Commit to leaf tips. */
+	readonly tipShasWithChildren: ReadonlySet<string>;
 	readonly avatars: Map<string, string>;
 }

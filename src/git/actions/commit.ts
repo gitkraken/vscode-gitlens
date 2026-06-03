@@ -1023,9 +1023,16 @@ export async function undoCommit(
 	if (hasChanges) {
 		const confirm = { title: 'Undo Commit' };
 		const cancel = { title: 'Cancel', isCloseAffordance: true };
+		// Label from `headCommit` (just confirmed to be HEAD) rather than the passed `commit` ref —
+		// its summary is the exact, un-emojified subject straight from git, so the dialog matches the
+		// commit regardless of how the caller's ref message was formatted (e.g. graph display emoji).
+		const exactRef = createReference(headCommit.ref, headCommit.repoPath, {
+			refType: 'revision',
+			message: headCommit.message ?? headCommit.summary,
+		});
 		const result = await window.showWarningMessage(
 			`You have uncommitted changes in the working tree.\n\nDo you still want to undo ${getReferenceLabel(
-				commit,
+				exactRef,
 				{
 					capitalize: false,
 					icon: false,

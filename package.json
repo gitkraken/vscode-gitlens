@@ -7991,6 +7991,12 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.undoCommitOnWorktree",
+				"title": "Undo Commit on Worktree",
+				"icon": "$(discard)",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.unpinBranchFromEdge",
 				"title": "Unpin Branch from Edge"
 			},
@@ -13414,6 +13420,10 @@
 				},
 				{
 					"command": "gitlens.graph.undoCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.undoCommitOnWorktree",
 					"when": "false"
 				},
 				{
@@ -26435,6 +26445,11 @@
 				{
 					"command": "gitlens.graph.undoCommit",
 					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.undoCommitOnWorktree",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@1"
 				},
 				{

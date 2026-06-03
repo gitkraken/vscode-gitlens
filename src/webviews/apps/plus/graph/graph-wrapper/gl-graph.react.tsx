@@ -29,6 +29,7 @@ import GraphContainer, {
 import type { ReactElement, ReactNode } from 'react';
 import React, { createElement, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAltKeySymbol, getPlatform } from '@env/platform.js';
+import type { GitGraphRowHead } from '@gitlens/git/models/graph.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
@@ -58,8 +59,13 @@ import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOper
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
-import { getCommitDateFromRow } from '../utils/row.utils.js';
-import { buildRowCommitContext, isUniqueToBranchRow, needsDynamicRowContext } from '../utils/rowContext.utils.js';
+import { getCommitDateFromRow, pickRowUndoTarget } from '../utils/row.utils.js';
+import {
+	buildRowCommitContext,
+	isUniqueToBranchRow,
+	needsDynamicRowContext,
+	rowHasChildren,
+} from '../utils/rowContext.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 
@@ -130,7 +136,7 @@ export interface GraphWrapperEvents {
 	onMoreRows?: (id?: string) => void;
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
-	onRowAction?: (detail: { action: RowAction; row: GraphRow }) => void;
+	onRowAction?: (detail: { action: RowAction; row: GraphRow; worktreePath?: string }) => void;
 	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow; isAvatar: boolean }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
@@ -1009,9 +1015,40 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						</div>
 					);
 				case 'commit-node':
-				case 'merge-node':
+				case 'merge-node': {
+					// If the row is the leaf HEAD of a worktree, surface an inline Undo affordance that
+					// routes to that worktree's working copy. `pickRowUndoTarget` is shared with the host's
+					// right-click context builder so the button and the menu apply the same rules: undo is
+					// withheld for commits with children (leaf-only — see `HasChildren`); the active worktree
+					// wins (no worktreePath → host uses primary repoPath); otherwise it shows only when
+					// exactly one worktree owns this tip (multiple is ambiguous → hidden).
+					const { currentHead, worktreeHead } = pickRowUndoTarget(
+						row.heads as ReadonlyArray<GitGraphRowHead> | undefined,
+						rowHasChildren(row),
+					);
+					const showUndo = currentHead != null || worktreeHead != null;
+					const undoWorktreePath = worktreeHead?.worktree?.path;
+					const undoBranchName = worktreeHead?.name;
+					const undoLabel = undoBranchName != null ? `Undo Commit on ${undoBranchName}` : 'Undo Commit';
+
 					return (
 						<div className="graph-row-actions" onMouseOver={() => initProps.onRowActionHover?.()}>
+							{showUndo && (
+								<gl-button
+									appearance="toolbar"
+									onClick={() =>
+										initProps.onRowAction?.({
+											action: 'undo-commit',
+											row: row,
+											worktreePath: undoWorktreePath,
+										})
+									}
+									tooltip={undoLabel}
+									aria-label={undoLabel}
+								>
+									<code-icon icon="discard"></code-icon>
+								</gl-button>
+							)}
 							<gl-button
 								appearance="toolbar"
 								onClick={e =>
@@ -1027,6 +1064,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 							</gl-button>
 						</div>
 					);
+				}
 			}
 			return null;
 		},
