@@ -174,8 +174,11 @@ import {
 	getRemoteProviderUrl,
 	remoteSupportsIntegration,
 } from '../../../git/utils/-webview/remote.utils.js';
-import type { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktree.utils.js';
-import { getOpenedWorktreesByBranch, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import {
+	getOpenedWorktreesByBranch,
+	getWorktreeHasWorkingChanges,
+	getWorktreesByBranch,
+} from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
@@ -6824,7 +6827,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	@trace({ exit: r => `secondaryWorktrees=${Object.keys(r).length}` })
-	private async getWipMetadataBySha(cancellation?: CancellationToken): Promise<GraphWipMetadataBySha> {
+	private async getWipMetadataBySha(
+		cancellation?: CancellationToken,
+		options?: { probeChanges?: boolean },
+	): Promise<GraphWipMetadataBySha> {
 		const result: GraphWipMetadataBySha = {};
 		// Capture the active repo at entry so the post-await reads below see a stable target. If
 		// the user switches repos while `getWorktrees` is in flight, `this.repository` may have
@@ -6835,6 +6841,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const worktrees = await repo.git.worktrees?.getWorktrees(toAbortSignal(cancellation));
 		if (!worktrees?.length) return result;
+
+		// Cheap clean/dirty probe per secondary worktree — ONLY when `probeChanges` is set (the
+		// graph-load build), never on the per-working-tree-tick push, so we don't re-stat every
+		// worktree on each FS event (the bulk fanout the per-tick path deliberately dropped).
+		// `getWorktreeHasWorkingChanges` (`git diff --quiet` + untracked probe) short-circuits and
+		// is far cheaper than the full stats the WIP bar fetches lazily on hover. Lets the bar
+		// surface a worktree that has changes before its `workDirStats` are ever requested; visible
+		// rows derive clean/dirty from their fetched `workDirStats` instead and ignore this.
+		let hasChangesByPath: Map<string, boolean | undefined> | undefined;
+		if (options?.probeChanges) {
+			const map = new Map<string, boolean | undefined>();
+			await Promise.allSettled(
+				worktrees.map(async wt => {
+					if (wt.type === 'bare' || wt.path === repo.path) return;
+
+					map.set(wt.path, await getWorktreeHasWorkingChanges(this.container, wt));
+				}),
+			);
+			hasChangesByPath = map;
+		}
 
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
 		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
@@ -6855,6 +6881,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			result[createSecondaryWipSha(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
+				// HEAD commit date (epoch ms) — `GitWorktree.date` is `branch.date`, no extra git
+				// work. Sent on every build so the WIP bar's recency ordering stays current.
+				parentDate: wt.date?.getTime(),
+				// Only attach when probed; omitted on per-tick pushes and preserved client-side by
+				// `mergeWipMetadata` so the bar doesn't lose a worktree's dirty bit between loads.
+				...(hasChangesByPath?.has(wt.path) ? { hasChanges: hasChangesByPath.get(wt.path) } : {}),
 				label: wt.name,
 				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
 				context: serializeWebviewItemContext<GraphItemContext>({
@@ -7149,7 +7181,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.getWorkingTreeStatsAndPausedOperations(undefined, cancellation.token),
 			this.repository.git.branches.getBranch(undefined, toAbortSignal(cancellation.token)),
 			this.repository.getLastFetched(),
-			this.getWipMetadataBySha(cancellation.token),
+			// Probe clean/dirty per worktree on the graph-load build so the WIP bar can surface
+			// worktrees with changes that aren't visible as graph rows. The per-tick push omits it.
+			this.getWipMetadataBySha(cancellation.token, { probeChanges: true }),
 		]);
 
 		let data;

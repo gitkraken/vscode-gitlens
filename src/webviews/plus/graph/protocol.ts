@@ -355,6 +355,18 @@ export interface GraphWipNodeMetadata {
 	repoPath: string;
 	/** Host-only: the worktree HEAD sha this WIP row should be anchored at (used as `parents`). */
 	parentSha: string;
+	/** Host-only: the worktree HEAD commit date (epoch ms). Used by the WIP bar to order pills by
+	 *  recency (descending). Derived from `GitWorktree.date` — no extra git work. */
+	parentDate?: number;
+	/**
+	 * Host-only: cheap clean/dirty signal (`status.hasWorkingChanges()` probe) so the WIP bar can
+	 * surface a worktree that has working changes before its full `workDirStats` are fetched. Sent
+	 * on the graph-load build and refreshed per-worktree by the WIP watcher; intentionally OMITTED
+	 * on per-working-tree-tick pushes (preserved client-side via `mergeWipMetadata`) so we don't
+	 * re-stat every worktree on each FS event. When `workDirStats` is present the webview derives
+	 * clean/dirty from it directly and ignores this field.
+	 */
+	hasChanges?: boolean;
 	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
 	label: string;
 	/**

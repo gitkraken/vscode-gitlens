@@ -878,7 +878,13 @@ export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'co
 
 interface GraphDetailsShownEvent {
 	/** What caused the panel to be shown */
-	trigger: 'toggle' | 'auto-restore';
+	trigger:
+		| 'toggle'
+		| 'request-compare'
+		| 'request-mode'
+		| 'request-agents'
+		| 'request-graph-wip-bar'
+		| 'auto-restore';
 	/** Which graph host the panel is in: editor area or bottom panel */
 	host: 'editor' | 'panel';
 	/** Active panel mode at time of show */

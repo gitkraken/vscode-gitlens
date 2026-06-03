@@ -1634,6 +1634,9 @@ export function mergeWipMetadata(
 				workDirStats: prevEntry.workDirStats,
 				workDirStatsStale: prevEntry.workDirStatsStale,
 				pausedOpStatus: prevEntry.pausedOpStatus,
+				// `hasChanges` is only sent on the graph-load probe build; per-tick pushes omit it.
+				// Preserve the last-known dirty bit so the WIP bar doesn't drop a worktree between loads.
+				hasChanges: entry.hasChanges ?? prevEntry.hasChanges,
 			};
 		} else {
 			// Newly-seen sha for this push. If we've previously seen stats for this sha during
@@ -1651,8 +1654,12 @@ export function mergeWipMetadata(
 		if (
 			entry.repoPath !== prevEntry?.repoPath ||
 			entry.parentSha !== prevEntry?.parentSha ||
+			entry.parentDate !== prevEntry?.parentDate ||
 			entry.label !== prevEntry?.label ||
-			entry.branchRef !== prevEntry?.branchRef
+			entry.branchRef !== prevEntry?.branchRef ||
+			// Only the probe build carries `hasChanges`; a per-tick push leaves it undefined and
+			// must not register as a change (the merge above preserves the prior value).
+			(entry.hasChanges != null && entry.hasChanges !== prevEntry?.hasChanges)
 		) {
 			changed = true;
 		}
