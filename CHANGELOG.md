@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds the ability to jump from the working changes (WIP) to its commit in the _Commit Graph_ &mdash; a down-arrow in the working changes header selects the branch tip commit the changes are based on, complementing the existing action to jump from a commit to its working changes ([#5303](https://github.com/gitkraken/vscode-gitlens/issues/5303))
 - Adds an _Undo Commit_ row adornment to the _Commit Graph_ &mdash; surfaces an inline undo button on a HEAD commit row when hovered, focused, or selected, alongside the existing context-menu action
 - Adds support for undoing the HEAD commit of any worktree from the _Commit Graph_ &mdash; the adornment and context-menu action now target the correct working tree for secondary worktrees, not just the active one (a distinct _Undo Commit on Worktree_ label makes the target clear) ([#5311](https://github.com/gitkraken/vscode-gitlens/issues/5311))
+- Adds responsive compaction to the _Commit Graph_'s side bar icon rail in short layouts &mdash; hides the count badges and tightens spacing, then folds the overflowing icons into a "…" menu (with their labels and counts) as the rail runs out of room, restoring them as it grows ([#5313](https://github.com/gitkraken/vscode-gitlens/issues/5313))
 
 ### Changed
 

@@ -2,7 +2,7 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
@@ -12,6 +12,7 @@ import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 interface Icon {
@@ -210,6 +211,73 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			--button-hover-background: var(--vscode-button-hoverBackground);
 			--button-border: var(--vscode-button-background);
 		}
+
+		/* Responsive compaction (driven by recompute): hide counts and tighten spacing together. Scoped
+		   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
+		:host([compact]) .item .count {
+			display: none;
+		}
+
+		:host([compact]) .sidebar {
+			gap: 0.8rem;
+		}
+
+		:host([compact]) .item.group-end {
+			margin-bottom: 0.6rem;
+		}
+
+		:host([compact]) .item.overview {
+			padding: 0.3rem 0;
+		}
+
+		/* … overflow popover (last compaction step): trailing icons fold into a menu. */
+		.overflow-popover {
+			--gl-popover-anchor-width: 100%;
+		}
+
+		.overflow-menu {
+			display: flex;
+			flex-direction: column;
+			min-width: 14rem;
+			font-size: var(--vscode-font-size);
+			font-weight: normal;
+		}
+
+		.overflow-menu-item {
+			display: flex;
+			flex-direction: row;
+			align-items: center;
+			gap: 0.8rem;
+			padding: 0.4rem 0.8rem;
+			background: none;
+			border: none;
+			border-radius: 0.3rem;
+			color: var(--vscode-foreground);
+			font: inherit;
+			text-align: start;
+			cursor: pointer;
+			white-space: nowrap;
+		}
+
+		.overflow-menu-item:hover,
+		.overflow-menu-item:focus-visible {
+			background: var(--vscode-list-hoverBackground);
+			outline: none;
+		}
+
+		.overflow-menu-item[disabled] {
+			opacity: 0.5;
+			cursor: default;
+		}
+
+		.overflow-menu-item-label {
+			flex: 1 1 auto;
+		}
+
+		.overflow-menu-item .count {
+			margin: 0;
+			color: var(--color-view-foreground--50);
+		}
 	`;
 
 	get include(): undefined | IconTypes[] {
@@ -219,6 +287,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			: (['overview', 'agents', 'branches', 'remotes', 'tags', 'stashes', 'worktrees'] as const);
 
 		return [...base];
+	}
+
+	/** The icons actually rendered, in rail order, after applying `include`. */
+	private get visibleIcons(): Icon[] {
+		const include = this.include;
+		return include == null ? icons : icons.filter(i => include.includes(i.type));
 	}
 
 	@property({ type: String, attribute: 'active-panel' })
@@ -235,9 +309,30 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 	private _suppressTransition = true;
 
+	@query('.sidebar') private sidebarEl?: HTMLElement;
+
+	/** When set, icons from this index onward are folded into the … overflow popover. */
+	@state() private overflowFromIndex: number | undefined;
+
+	private readonly resizeObserver = new ResizeObserver(() => this.scheduleRecompute());
+	private rafId: number | undefined;
+	private recomputing = false;
+	private pendingRecompute = false;
+	private lastIconCount = -1;
+	// Geometry of the compact layout, captured while all icons are shown and the rail overflows (so the
+	// flex spacer is collapsed and the positions are intrinsic). The fold count is then a pure function
+	// of the available height — the same height always yields the same fold, so a resize tracks smoothly
+	// instead of probing-and-reverting (the source of the jitter / disappearing … button).
+	private iconBottoms: number[] = [];
+	private compactContentHeight = 0;
+	private compactBottomBlock = 0;
+	private toggleReserve = 0;
+
 	override render(): unknown {
 		const displayMode: GraphDisplayMode = this._state.displayMode ?? 'graph';
 		const isGraphMode = displayMode === 'graph';
+		const visible = this.visibleIcons;
+		const overflowAt = this.overflowFromIndex;
 		return html`<section class="sidebar">
 			${isGraphMode && this.sidebarVisible && this.activePanel != null
 				? html`<div
@@ -248,10 +343,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 					></div>`
 				: nothing}
 			${repeat(
-				icons,
+				overflowAt == null ? visible : visible.slice(0, overflowAt),
 				i => i.type,
 				i => this.renderIcon(i, isGraphMode),
 			)}
+			${overflowAt == null ? nothing : this.renderOverflow(visible.slice(overflowAt), isGraphMode)}
 			<div class="spacer"></div>
 			${repeat(
 				displayModeToggles.filter(
@@ -318,16 +414,43 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		});
 	}
 
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		// Observe the host (not the inner .sidebar) so the observer survives DOM moves: connectedCallback
+		// re-runs on every reconnect, whereas firstUpdated runs only once. The host's height tracks the
+		// rail's available height, which is all we need to trigger a re-measure.
+		this.resizeObserver.observe(this);
+	}
+
+	override disconnectedCallback(): void {
+		this.resizeObserver.disconnect();
+		if (this.rafId != null) {
+			cancelAnimationFrame(this.rafId);
+			this.rafId = undefined;
+		}
+		super.disconnectedCallback?.();
+	}
+
 	override firstUpdated(changedProperties: PropertyValues): void {
 		super.firstUpdated(changedProperties);
 		this._updateIndicator();
 		requestAnimationFrame(() => {
 			this._suppressTransition = false;
 		});
+		this.scheduleRecompute();
+		// Codicon/glicon glyph metrics can shift when the icon fonts finish loading after first
+		// paint, growing the rail's content height without a resize notification — re-measure then.
+		void document.fonts?.ready.then(() => this.scheduleRecompute());
 	}
 
 	override updated(changedProperties: PropertyValues): void {
 		super.updated(changedProperties);
+
+		// Re-measure when inputs that can affect height change. Skip when our own overflow output
+		// is the sole change (would loop); signal-driven count updates arrive with an empty set.
+		if (!(changedProperties.size === 1 && changedProperties.has('overflowFromIndex'))) {
+			this.scheduleRecompute();
+		}
 
 		if (changedProperties.has('activePanel') || changedProperties.has('sidebarVisible')) {
 			const prevActive = changedProperties.has('activePanel')
@@ -370,9 +493,131 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		indicator.style.setProperty('--indicator-height', `${targetRect.height}px`);
 	}
 
-	private renderIcon(icon: Icon, enabled: boolean) {
-		if (this.include != null && !this.include.includes(icon.type)) return;
+	private scheduleRecompute(): void {
+		if (this.rafId != null) return;
 
+		this.rafId = requestAnimationFrame(() => {
+			this.rafId = undefined;
+			void this.recompute();
+		});
+	}
+
+	private async recompute(): Promise<void> {
+		if (!this.isConnected) return;
+
+		const el = this.sidebarEl;
+		if (el == null) return;
+		if (this.recomputing) {
+			this.pendingRecompute = true;
+			return;
+		}
+
+		this.recomputing = true;
+		try {
+			const count = this.visibleIcons.length;
+			// Icon set changed (virtual vs. normal repo): cached heights are stale, and any current
+			// fold was computed for the old set — reset to re-derive cleanly (rare; repo switch only).
+			if (count !== this.lastIconCount) {
+				this.lastIconCount = count;
+				this.iconBottoms = [];
+				this.compactContentHeight = 0;
+				if (this.overflowFromIndex !== undefined) {
+					this.overflowFromIndex = undefined;
+					await this.updateComplete;
+				}
+			}
+			await this.adjust(el, count);
+		} finally {
+			this.recomputing = false;
+			if (this.pendingRecompute) {
+				this.pendingRecompute = false;
+				this.scheduleRecompute();
+			}
+		}
+
+		// Self-heal: if we read the available height mid-layout and wrongly concluded everything fits
+		// (still showing all icons while overflowing), re-run next frame. Folded states are computed
+		// deterministically from cached geometry, so this can't loop once the layout settles.
+		if (this.overflowFromIndex == null && el.scrollHeight > el.clientHeight + 1) {
+			this.scheduleRecompute();
+		}
+	}
+
+	// Brings the rail to fit its available height. The fold count is computed deterministically from
+	// cached geometry rather than discovered by probing, so a given height always resolves to the same
+	// state — a resize tracks smoothly with no jitter. The compact level (counts hidden + tight gaps)
+	// is a host attribute → CSS only, no Lit render → toggled synchronously to measure each level
+	// without ever flashing. Only the fold count drives a render, and only when it actually changes.
+	private async adjust(el: HTMLElement, count: number): Promise<void> {
+		const avail = el.clientHeight;
+
+		// If currently folded, recompute the fold deterministically from cached geometry. If it no
+		// longer needs to fold, unfold to all icons and fall through to re-pick the compact/full level.
+		if (this.overflowFromIndex != null) {
+			if (!this.hasAttribute('compact')) {
+				this.setAttribute('compact', '');
+			}
+
+			const folded = this.computeFold(avail, count);
+			if (folded != null) {
+				if (this.overflowFromIndex !== folded) {
+					this.overflowFromIndex = folded;
+					await this.updateComplete;
+				}
+				return;
+			}
+
+			this.overflowFromIndex = undefined;
+			await this.updateComplete;
+		}
+
+		// Every icon is shown — pick the level with CSS-only toggles (no render, so no flash): full if
+		// it fits, else compact; if compact still overflows, capture its geometry and fold.
+		this.removeAttribute('compact');
+		void el.offsetHeight;
+		if (el.scrollHeight <= avail + 1) return; // full layout fits
+
+		this.setAttribute('compact', '');
+		void el.offsetHeight;
+		if (el.scrollHeight <= avail + 1) return; // compact fits every icon
+
+		const items = [...this.renderRoot.querySelectorAll<HTMLElement>('button.item:not(.overflow-toggle)')];
+		if (items.length >= count) {
+			// Positions are intrinsic (spacer collapsed while overflowing): icon bottoms, the block below
+			// the icons (… button gap + bottom toggles + padding), and the … button's own slot (≈ the
+			// trailing icon pitch, same icon size + tight gap).
+			this.iconBottoms = items.map(b => b.offsetTop + b.offsetHeight);
+			this.compactContentHeight = el.scrollHeight;
+			this.compactBottomBlock = el.scrollHeight - this.iconBottoms[count - 1];
+			this.toggleReserve =
+				count >= 2 ? this.iconBottoms[count - 1] - this.iconBottoms[count - 2] : items[count - 1].offsetHeight;
+		}
+
+		const target = this.computeFold(avail, count);
+		if (target != null && this.overflowFromIndex !== target) {
+			this.overflowFromIndex = target;
+			await this.updateComplete;
+		}
+	}
+
+	// Deterministic fold count for the given available height, from the cached compact geometry.
+	// `undefined` = every icon fits (no overflow). Pure function of `avail` → no oscillation.
+	private computeFold(avail: number, count: number): number | undefined {
+		if (this.iconBottoms.length < count) return this.overflowFromIndex; // no geometry yet — hold
+		if (avail >= this.compactContentHeight) return undefined; // every icon fits at compact
+
+		// Largest K where K icons + the … button + the block below them all fit.
+		let k = 0;
+		for (let i = 0; i < count; i++) {
+			if (this.iconBottoms[i] + this.toggleReserve + this.compactBottomBlock > avail) break;
+
+			k = i + 1;
+		}
+		// Fold ≥2 (the … button replaces what it folds) and keep ≥1 icon on the rail.
+		return Math.min(Math.max(k, 1), count - 2);
+	}
+
+	private renderIcon(icon: Icon, enabled: boolean) {
 		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
 
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
@@ -407,6 +652,59 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			return html`<span class="count error"><code-icon icon="warning" size="9"></code-icon></span>`;
 		}
 		return renderCount(this._actions?.state.counts.get()?.[icon.type]);
+	}
+
+	private renderOverflow(overflowIcons: Icon[], enabled: boolean) {
+		if (overflowIcons.length === 0) return nothing;
+
+		// Surface the active state on the … toggle when the active panel is folded away, so the
+		// rail indicator (which targets `.item.active`) lands on the toggle instead of going stale.
+		const containsActive = enabled && this.sidebarVisible && overflowIcons.some(i => i.type === this.activePanel);
+		return html`<gl-popover
+			class="overflow-popover"
+			appearance="menu"
+			trigger="click focus"
+			placement="right-start"
+			distance="4"
+			.arrow=${false}
+		>
+			<button
+				slot="anchor"
+				class=${classMap({ item: true, 'overflow-toggle': true, active: containsActive })}
+				aria-label="More"
+			>
+				<code-icon icon="ellipsis"></code-icon>
+			</button>
+			<div slot="content" class="overflow-menu">
+				${repeat(
+					overflowIcons,
+					i => i.type,
+					i => this.renderOverflowItem(i, enabled),
+				)}
+			</div>
+		</gl-popover>`;
+	}
+
+	private renderOverflowItem(icon: Icon, enabled: boolean) {
+		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
+		return html`<button
+			class=${classMap({ 'overflow-menu-item': true, active: isActive })}
+			?disabled=${!enabled}
+			aria-pressed=${isActive}
+			@click=${(e: Event) => this.handleOverflowItemClick(icon, e)}
+		>
+			<code-icon icon="${icon.icon}"></code-icon>
+			<span class="overflow-menu-item-label">${icon.tooltip}</span>
+			${this.renderIconCount(icon)}
+		</button>`;
+	}
+
+	private handleOverflowItemClick(icon: Icon, e: Event) {
+		// Stop the click from bubbling to the gl-popover host: its own click handler treats an
+		// in-body click on a just-closed popover as a request to re-open it, which would fight hide().
+		e.stopPropagation();
+		this.handleIconClick(icon);
+		void this.renderRoot.querySelector('gl-popover')?.hide();
 	}
 
 	private handleIconClick(icon: Icon) {
