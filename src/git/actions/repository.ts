@@ -70,7 +70,7 @@ export function reset(
 
 	return executeGitCommand({
 		command: 'reset',
-		confirm: options == null || options.hard,
+		confirm: options?.hard,
 		state: { repo: repo, reference: ref, flags: flags },
 	});
 }

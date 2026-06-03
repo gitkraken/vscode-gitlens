@@ -44,6 +44,7 @@ export class OpenTelemetryProvider implements TelemetryProvider {
 			resource: resourceFromAttributes({
 				[ATTR_SERVICE_NAME]: 'gitlens',
 				[ATTR_SERVICE_VERSION]: context.extensionVersion,
+				// oxlint-disable-next-line typescript/no-deprecated -- intentional dual-write with the current attr below for backend compatibility
 				[ATTR_DEPLOYMENT_ENVIRONMENT]: context.env,
 				[ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: context.env,
 				[ATTR_DEVICE_ID]: context.machineId,

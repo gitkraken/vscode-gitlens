@@ -1,4 +1,4 @@
-/* eslint-disable no-empty-pattern */
+/* oxlint-disable no-empty-pattern */
 import type { ChildProcess } from 'node:child_process';
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';

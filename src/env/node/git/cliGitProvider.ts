@@ -1183,7 +1183,7 @@ export class GlCliGitProvider implements GlGitProvider {
 
 					return;
 				} catch (e) {
-					// eslint-disable-next-line no-ex-assign
+					// oxlint-disable-next-line no-ex-assign
 					ex = e;
 				}
 			}

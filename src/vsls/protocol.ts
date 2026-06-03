@@ -1,6 +1,6 @@
 import type { GitRunOptions } from '@gitlens/git/run.types.js';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// oxlint-disable-next-line @typescript-eslint/no-unused-vars
 export class RequestType<Request, Response> {
 	constructor(public readonly name: string) {}
 }

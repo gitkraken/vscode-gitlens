@@ -3,7 +3,7 @@ import type { Platform } from '../node/platform.js';
 export const isWeb = true;
 
 export function getIsOffline(): boolean {
-	return typeof navigator !== 'undefined' && navigator.onLine === false;
+	return navigator?.onLine === false;
 }
 
 const _platform = (navigator as any)?.userAgentData?.platform;

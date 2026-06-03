@@ -494,7 +494,7 @@ export function convertStashesToStdin(stashOrStashes: GitStash | ReadonlyMap<str
 }
 
 const stashSummaryRegex =
-	// eslint-disable-next-line no-control-regex
+	// oxlint-disable-next-line no-control-regex
 	/(?:(?:(?<wip>WIP) on|On) (?<onref>[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]):\s*)?(?<summary>.*)$/s;
 
 function createStash(

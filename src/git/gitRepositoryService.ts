@@ -33,12 +33,12 @@ import type { GlRepository } from './models/repository.js';
 // Merge the RepositoryService sub-provider interface onto GitRepositoryService
 // so that sub-provider properties (branches, commits, etc.) are recognized by TypeScript.
 // The actual property descriptors are copied from RepositoryService at construction time.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+// oxlint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export interface GitRepositoryService extends RepositoryService {}
 
 const skipOverlappingProperties = new Set(['path', 'provider', 'getAbsoluteUri', 'exec', 'run']);
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+// oxlint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 export class GitRepositoryService {
 	constructor(
 		private readonly _svc: GitProviderService,

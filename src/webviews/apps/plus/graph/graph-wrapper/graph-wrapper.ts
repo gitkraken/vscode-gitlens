@@ -1,6 +1,5 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import { refZone } from '@gitkraken/gitkraken-components';
 import type {
 	ColumnNumberBySha,
 	CssVariables,
@@ -9,6 +8,7 @@ import type {
 	ReadonlyGraphRow,
 	SelectCommitsOptions,
 } from '@gitkraken/gitkraken-components';
+import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';

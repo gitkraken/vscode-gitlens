@@ -276,7 +276,7 @@ export function debounce<F extends (...args: any[]) => ReturnType<F>>(
 		if (aggregator != null && lastArgs != null) {
 			lastArgs = aggregator(lastArgs, args);
 		} else {
-			// eslint-disable-next-line @typescript-eslint/no-this-alias
+			// oxlint-disable-next-line @typescript-eslint/no-this-alias
 			lastThis = this;
 			lastArgs = args;
 		}

@@ -1,8 +1,5 @@
 // @ts-check
 
-/**
- * @type {import('eslint').Rule.RuleModule}
- */
 export default {
 	meta: {
 		type: 'problem',
@@ -19,8 +16,10 @@ export default {
 		fixable: 'code',
 		schema: [],
 	},
-	create(context) {
-		const sourceCode = context.sourceCode ?? context.getSourceCode();
+	/** @param {import('@oxlint/plugins').Context} context */
+	createOnce(context) {
+		// Resolved per-file in the Program visitor — `context.sourceCode` is unavailable in `createOnce` itself.
+		let sourceCode;
 
 		function isControlFlowExit(stmt) {
 			if (!stmt) return true;
@@ -71,6 +70,9 @@ export default {
 		}
 
 		return {
+			Program() {
+				sourceCode = context.sourceCode ?? context.getSourceCode();
+			},
 			IfStatement(node) {
 				checkIfBranch(node.consequent);
 				if (node.alternate && node.alternate.type !== 'IfStatement') {

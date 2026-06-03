@@ -805,7 +805,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		if (incoming == null) return;
 
 		const current = this._state.reachabilityTable;
-		if (current == null || current.id !== incoming.id) {
+		if (current?.id !== incoming.id) {
 			this._state.reachabilityTable = incoming;
 			this.resetReachabilityCache();
 			return;

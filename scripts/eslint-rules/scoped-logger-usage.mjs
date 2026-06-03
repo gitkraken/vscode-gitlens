@@ -6,8 +6,6 @@
  * Rules:
  * 1. getScopedLogger() should be called in a method with @log() or @debug() decorator
  * 2. getScopedLogger() should be called before any await statement (browser limitation)
- *
- * @type {import('eslint').Rule.RuleModule}
  */
 export default {
 	meta: {
@@ -24,7 +22,8 @@ export default {
 		},
 		schema: [],
 	},
-	create(context) {
+	/** @param {import('@oxlint/plugins').Context} context */
+	createOnce(context) {
 		/**
 		 * Check if a method has @info(), @debug(), or @trace() decorator
 		 * @param {import('estree').Node | null | undefined} node
@@ -119,31 +118,25 @@ export default {
 					return;
 				}
 
-				// Find the containing method
-				const sourceCode = context.sourceCode ?? context.getSourceCode();
-				// @ts-ignore
-				const ancestors = context.getAncestors?.() ?? sourceCode.getAncestors?.(node) ?? [];
-
+				// Walk parent pointers to find the containing method/function. Both oxlint and ESLint
+				// populate `node.parent` during traversal; `getAncestors()` is unreliable under oxlint.
 				let methodDef = null;
 				let functionBody = null;
 
-				for (let i = ancestors.length - 1; i >= 0; i--) {
-					const ancestor = ancestors[i];
-					if (ancestor.type === 'MethodDefinition') {
-						methodDef = ancestor;
-						// @ts-ignore
-						functionBody = ancestor.value?.body;
+				for (let cur = node.parent; cur != null; cur = cur.parent) {
+					if (cur.type === 'MethodDefinition') {
+						methodDef = cur;
+						functionBody = cur.value?.body;
 						break;
 					}
-					// Also handle standalone functions (not methods)
+					// Also handle standalone functions (not methods); we won't report missing decorator
+					// for these since decorators only apply to methods.
 					if (
-						ancestor.type === 'FunctionDeclaration' ||
-						ancestor.type === 'FunctionExpression' ||
-						ancestor.type === 'ArrowFunctionExpression'
+						cur.type === 'FunctionDeclaration' ||
+						cur.type === 'FunctionExpression' ||
+						cur.type === 'ArrowFunctionExpression'
 					) {
-						functionBody = ancestor.body;
-						// For non-method functions, we won't report missing decorator
-						// since decorators only apply to methods
+						functionBody = cur.body;
 						break;
 					}
 				}

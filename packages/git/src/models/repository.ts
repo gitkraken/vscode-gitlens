@@ -321,7 +321,7 @@ export class Repository {
 	protected fireChange(change: RepositoryChange, force: boolean): void;
 	@trace()
 	protected fireChange(...args: RepositoryChange[] | [RepositoryChange, boolean]): void {
-		const lastArg = args[args.length - 1];
+		const lastArg = args.at(-1);
 		const force = typeof lastArg === 'boolean' ? lastArg : false;
 		const changes = (force ? args.slice(0, -1) : args) as RepositoryChange[];
 

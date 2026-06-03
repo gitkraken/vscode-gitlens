@@ -43,6 +43,55 @@ import {
 	isClosedAzureWorkItemStateCategory,
 } from './models.js';
 
+class WorkItemStates {
+	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
+	private readonly _types = new Map<string, AzureWorkItemState[]>();
+
+	// TODO@sergeibbb: we might need some logic for invalidating
+	public getStateCategory(
+		project: string,
+		workItemType: string,
+		stateName: string,
+	): AzureWorkItemStateCategory | undefined {
+		return this._categories.get(this.getStateKey(project, workItemType, stateName));
+	}
+
+	public clear(): void {
+		this._categories.clear();
+		this._types.clear();
+	}
+
+	public saveTypeStates(project: string, workItemType: string, states: AzureWorkItemState[]): void {
+		this.clearTypeStates(project, workItemType);
+		this._types.set(this.getTypeKey(project, workItemType), states);
+		for (const state of states) {
+			this._categories.set(this.getStateKey(project, workItemType, state.name), state.category);
+		}
+	}
+
+	public hasTypeStates(project: string, workItemType: string): boolean {
+		return this._types.has(this.getTypeKey(project, workItemType));
+	}
+
+	private clearTypeStates(project: string, workItemType: string): void {
+		const states = this._types.get(this.getTypeKey(project, workItemType));
+		if (states == null) return;
+
+		for (const state of states) {
+			this._categories.delete(this.getStateKey(project, workItemType, state.name));
+		}
+	}
+
+	private getStateKey(project: string, workItemType: string, stateName: string): string {
+		// By stringifying the pair as JSON we make sure that all possible special characters are escaped
+		return JSON.stringify([project, workItemType, stateName]);
+	}
+
+	private getTypeKey(project: string, workItemType: string): string {
+		return JSON.stringify([project, workItemType]);
+	}
+}
+
 export class AzureDevOpsApi implements Disposable {
 	private readonly _disposable: Disposable;
 	private _workItemStates: WorkItemStates = new WorkItemStates();
@@ -648,54 +697,5 @@ export class AzureDevOpsApi implements Disposable {
 				`AzureDevOps request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
-	}
-}
-
-class WorkItemStates {
-	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
-	private readonly _types = new Map<string, AzureWorkItemState[]>();
-
-	// TODO@sergeibbb: we might need some logic for invalidating
-	public getStateCategory(
-		project: string,
-		workItemType: string,
-		stateName: string,
-	): AzureWorkItemStateCategory | undefined {
-		return this._categories.get(this.getStateKey(project, workItemType, stateName));
-	}
-
-	public clear(): void {
-		this._categories.clear();
-		this._types.clear();
-	}
-
-	public saveTypeStates(project: string, workItemType: string, states: AzureWorkItemState[]): void {
-		this.clearTypeStates(project, workItemType);
-		this._types.set(this.getTypeKey(project, workItemType), states);
-		for (const state of states) {
-			this._categories.set(this.getStateKey(project, workItemType, state.name), state.category);
-		}
-	}
-
-	public hasTypeStates(project: string, workItemType: string): boolean {
-		return this._types.has(this.getTypeKey(project, workItemType));
-	}
-
-	private clearTypeStates(project: string, workItemType: string): void {
-		const states = this._types.get(this.getTypeKey(project, workItemType));
-		if (states == null) return;
-
-		for (const state of states) {
-			this._categories.delete(this.getStateKey(project, workItemType, state.name));
-		}
-	}
-
-	private getStateKey(project: string, workItemType: string, stateName: string): string {
-		// By stringifying the pair as JSON we make sure that all possible special characters are escaped
-		return JSON.stringify([project, workItemType, stateName]);
-	}
-
-	private getTypeKey(project: string, workItemType: string): string {
-		return JSON.stringify([project, workItemType]);
 	}
 }

@@ -151,7 +151,7 @@ export function appendReposToTitle<
 >(title: string, state: State, context: Context, additionalContext?: string): string {
 	const repo = (state as { repo?: GlRepository }).repo;
 	const repos = (state as { repos?: GlRepository[] }).repos;
-	const acting = repo ?? (repos != null && repos.length === 1 ? repos[0] : undefined);
+	const acting = repo ?? (repos?.length === 1 ? repos[0] : undefined);
 
 	// Skip the repo name only when the lone surfaced repo IS the one being acted on (or nothing
 	// specific was requested). A *different* repo — e.g. an un-surfaced secondary worktree, which
@@ -163,7 +163,7 @@ export function appendReposToTitle<
 	let repoContext;
 	if (repo != null) {
 		repoContext = `${additionalContext ?? ''} · ${repo.name}`;
-	} else if (repos != null && repos.length === 1) {
+	} else if (repos?.length === 1) {
 		repoContext = `${additionalContext ?? ''} · ${repos[0].name}`;
 	} else {
 		repoContext = ` · ${repos?.length ?? 0} repositories`;

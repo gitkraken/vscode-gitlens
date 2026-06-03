@@ -58,8 +58,8 @@ import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOper
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
-import { buildRowCommitContext, isUniqueToBranchRow, needsDynamicRowContext } from '../utils/rowContext.utils.js';
 import { getCommitDateFromRow } from '../utils/row.utils.js';
+import { buildRowCommitContext, isUniqueToBranchRow, needsDynamicRowContext } from '../utils/rowContext.utils.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 
@@ -331,7 +331,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			} else if (repoPath != null && needsDynamicRowContext(row)) {
 				// Lean commit rows ship only `contexts.flags` (no serialized `contexts.row`); reconstruct
 				// the context on demand so multi-select right-click can still boil down a common context.
-				parsed = buildRowCommitContext(row, repoPath) as GraphItemContext;
+				parsed = buildRowCommitContext(row, repoPath);
 			}
 			if (parsed === undefined) return undefined;
 

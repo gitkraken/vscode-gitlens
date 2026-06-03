@@ -492,7 +492,7 @@ export class GitDocumentTracker implements Disposable {
 
 			if (changed?.removedRepoPaths?.has(repoPath)) {
 				void this.remove(doc.document, doc);
-			} else if (changed == null || changed?.addedOrChangedRepoPaths?.has(repoPath)) {
+			} else if (changed?.addedOrChangedRepoPaths?.has(repoPath)) {
 				doc.refresh('repositoryChanged');
 			}
 		}

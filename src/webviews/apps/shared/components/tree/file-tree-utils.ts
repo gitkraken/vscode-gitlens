@@ -277,7 +277,7 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	} else {
 		// In list layout, honor an explicit working-files order (VS Code's `scm.defaultViewSortKey`).
 		const orderedFiles =
-			orderBy != null ? [...filteredFiles].sort((a, b) => compareWorkingFiles(orderBy, a, b)) : filteredFiles;
+			orderBy != null ? filteredFiles.toSorted((a, b) => compareWorkingFiles(orderBy, a, b)) : filteredFiles;
 		for (const file of orderedFiles) {
 			const child = fileToModel(file, { ...options, branch: false }, true);
 			children.push(child);

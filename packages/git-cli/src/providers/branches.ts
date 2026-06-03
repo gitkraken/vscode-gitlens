@@ -232,6 +232,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				// Pre-populate current branch cache for worktrees based on worktreePath info
 				// This eliminates the need for rev-parse calls during branch reconstruction
 				for (const branch of branches) {
+					// oxlint-disable-next-line typescript/prefer-optional-chain
 					if (branch.worktree && branch.worktree.path) {
 						const { name } = parseRefName(branch.refName);
 						const reference = createReference(name, branch.worktree.path, {

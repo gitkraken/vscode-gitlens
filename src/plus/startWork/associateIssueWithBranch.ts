@@ -41,7 +41,7 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 		this.branch = args?.branch;
 	}
 
-	// eslint-disable-next-line require-yield
+	// oxlint-disable-next-line require-yield
 	protected override async *continuation(
 		state: StartWorkStepState,
 		_context: StartWorkContext,

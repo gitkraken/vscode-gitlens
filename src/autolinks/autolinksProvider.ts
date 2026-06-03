@@ -48,7 +48,7 @@ import {
 } from './utils/-webview/autolinks.utils.js';
 
 const emptyAutolinkMap = Object.freeze(new Map<string, Autolink>());
-const tokenRegex = /(\x00\d+\x00)/g; // eslint-disable-line no-control-regex
+const tokenRegex = /(\x00\d+\x00)/g; // oxlint-disable-line no-control-regex
 const quoteRegex = /"/g;
 
 export class AutolinksProvider implements Disposable {

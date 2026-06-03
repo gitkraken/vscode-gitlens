@@ -2,9 +2,6 @@
 
 import * as path from 'node:path';
 
-/**
- * @type {import('eslint').Rule.RuleModule}
- */
 export default {
 	meta: {
 		type: 'problem',
@@ -18,7 +15,8 @@ export default {
 		fixable: 'code',
 		schema: [],
 	},
-	create(context) {
+	/** @param {import('@oxlint/plugins').Context} context */
+	createOnce(context) {
 		return {
 			ImportDeclaration(node) {
 				const source = node.source.value;
@@ -28,7 +26,7 @@ export default {
 						message: 'rewriteRelative',
 						fix(fixer) {
 							const importPathAbsolute = path.resolve('.', source);
-							const relativePath = path.relative(path.dirname(context.getFilename()), importPathAbsolute);
+							const relativePath = path.relative(path.dirname(context.filename), importPathAbsolute);
 							const normalizedPath = path.normalize(relativePath).replace(/\\/g, '/');
 							return fixer.replaceText(node.source, `'${normalizedPath}'`);
 						},

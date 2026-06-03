@@ -5820,11 +5820,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const watermark = { id: table.id, dictLen: table.dictionary.length, setsLen: table.sets.length };
 		const last = this._lastSentReachability;
-		if (last != null && last.id === table.id) {
+		if (last?.id === table.id) {
 			const dictionary = table.dictionary.slice(last.dictLen);
 			const sets = table.sets.slice(last.setsLen);
 			// Nothing appended since the last send → ship nothing, keep the watermark where it is.
-			if (dictionary.length === 0 && sets.length === 0) {
+			if (!dictionary.length && !sets.length) {
 				return { payload: undefined, watermark: last };
 			}
 			return { payload: { id: table.id, dictionary: dictionary, sets: sets }, watermark: watermark };
@@ -8611,7 +8611,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (scmRepo == null) return;
 
 			// Update the input box to trigger the focus event
-			// eslint-disable-next-line no-self-assign
+			// oxlint-disable-next-line no-self-assign
 			scmRepo.inputBox.value = scmRepo.inputBox.value;
 		}
 	}

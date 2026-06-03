@@ -26,7 +26,7 @@ export function getClaudeAgent(): Promise<GkAgent | undefined> {
 	return Promise.resolve(undefined);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// oxlint-disable-next-line @typescript-eslint/no-unused-vars
 export function isCliExecutableAvailable(executable: string | undefined): boolean {
 	return false;
 }

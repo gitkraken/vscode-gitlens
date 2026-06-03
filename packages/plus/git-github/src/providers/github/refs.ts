@@ -17,7 +17,7 @@ import { toTokenInfo } from '../../api/tokenUtils.js';
 import type { GitHubGitProviderInternal } from '../githubProvider.js';
 
 // Since negative lookbehind isn't supported in all browsers, this leaves out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
-// eslint-disable-next-line no-control-regex
+// oxlint-disable-next-line no-control-regex
 const validBranchOrTagRegex = /^[^/](?!.*\/\.)(?!.*\.\.)(?!.*\/\/)(?!.*@\{)[^\x00-\x1F\x7F ~^:?*[\\]+[^./]$/;
 
 export class RefsGitSubProvider implements GitRefsSubProvider {

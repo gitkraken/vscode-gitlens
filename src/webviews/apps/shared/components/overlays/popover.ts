@@ -8,7 +8,7 @@ import '@awesome.me/webawesome/dist/components/popup/popup.js';
 
 declare const CloseWatcher: CloseWatcher;
 interface CloseWatcher extends EventTarget {
-	// eslint-disable-next-line @typescript-eslint/no-misused-new
+	// oxlint-disable-next-line @typescript-eslint/no-misused-new
 	new (options?: CloseWatcherOptions): CloseWatcher;
 	requestClose(): void;
 	close(): void;

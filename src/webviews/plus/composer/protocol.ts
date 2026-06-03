@@ -337,13 +337,13 @@ export const GenerateCommitMessageCommand = new IpcCommand<GenerateCommitMessage
 	'generateCommitMessage',
 );
 export const FinishAndCommitCommand = new IpcCommand<FinishAndCommitParams>(ipcScope, 'finishAndCommit');
-export const CloseComposerCommand = new IpcCommand<void>(ipcScope, 'close');
+export const CloseComposerCommand = new IpcCommand(ipcScope, 'close');
 export const ReloadComposerCommand = new IpcCommand<ReloadComposerParams>(ipcScope, 'reload');
-export const CancelGenerateCommitsCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommits');
-export const CancelGenerateCommitMessageCommand = new IpcCommand<void>(ipcScope, 'cancelGenerateCommitMessage');
-export const CancelFinishAndCommitCommand = new IpcCommand<void>(ipcScope, 'cancelFinishAndCommit');
-export const ClearAIOperationErrorCommand = new IpcCommand<void>(ipcScope, 'clearAIOperationError');
-export const OnSelectAIModelCommand = new IpcCommand<void>(ipcScope, 'selectAIModel');
+export const CancelGenerateCommitsCommand = new IpcCommand(ipcScope, 'cancelGenerateCommits');
+export const CancelGenerateCommitMessageCommand = new IpcCommand(ipcScope, 'cancelGenerateCommitMessage');
+export const CancelFinishAndCommitCommand = new IpcCommand(ipcScope, 'cancelFinishAndCommit');
+export const ClearAIOperationErrorCommand = new IpcCommand(ipcScope, 'clearAIOperationError');
+export const OnSelectAIModelCommand = new IpcCommand(ipcScope, 'selectAIModel');
 export interface AIFeedbackParams {
 	sessionId: string | null;
 }
@@ -351,8 +351,8 @@ export interface AIFeedbackParams {
 export const AIFeedbackHelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackHelpful');
 export const AIFeedbackUnhelpfulCommand = new IpcCommand<AIFeedbackParams>(ipcScope, 'aiFeedbackUnhelpful');
 
-export const OpenOnboardingCommand = new IpcCommand<void>(ipcScope, 'openOnboarding');
-export const DismissOnboardingCommand = new IpcCommand<void>(ipcScope, 'dismissOnboarding');
+export const OpenOnboardingCommand = new IpcCommand(ipcScope, 'openOnboarding');
+export const DismissOnboardingCommand = new IpcCommand(ipcScope, 'dismissOnboarding');
 export const AdvanceOnboardingCommand = new IpcCommand<{ stepNumber: number }>(ipcScope, 'advanceOnboarding');
 
 export const ChooseRepositoryCommand = new IpcCommand(scope, 'chooseRepository');
@@ -362,12 +362,12 @@ export interface OnAddHunksToCommitParams {
 	source: string;
 }
 export const OnAddHunksToCommitCommand = new IpcCommand<OnAddHunksToCommitParams>(ipcScope, 'onAddHunksToCommit');
-export const OnUndoCommand = new IpcCommand<void>(ipcScope, 'onUndo');
-export const OnRedoCommand = new IpcCommand<void>(ipcScope, 'onRedo');
-export const OnResetCommand = new IpcCommand<void>(ipcScope, 'onReset');
+export const OnUndoCommand = new IpcCommand(ipcScope, 'onUndo');
+export const OnRedoCommand = new IpcCommand(ipcScope, 'onRedo');
+export const OnResetCommand = new IpcCommand(ipcScope, 'onReset');
 
 // Notifications sent from host to webview
-export const DidStartGeneratingNotification = new IpcNotification<void>(ipcScope, 'didStartGenerating');
+export const DidStartGeneratingNotification = new IpcNotification(ipcScope, 'didStartGenerating');
 export interface DidProgressGeneratingCommitsParams {
 	/** Machine-identifier for the phase (e.g. 'analyzing', 'grouping', 'ordering'). */
 	phase: string;
@@ -390,18 +390,18 @@ export const DidGenerateCommitMessageNotification = new IpcNotification<DidGener
 	ipcScope,
 	'didGenerateCommitMessage',
 );
-export const DidStartCommittingNotification = new IpcNotification<void>(ipcScope, 'didStartCommitting');
-export const DidFinishCommittingNotification = new IpcNotification<void>(ipcScope, 'didFinishCommitting');
+export const DidStartCommittingNotification = new IpcNotification(ipcScope, 'didStartCommitting');
+export const DidFinishCommittingNotification = new IpcNotification(ipcScope, 'didFinishCommitting');
 export const DidSafetyErrorNotification = new IpcNotification<DidSafetyErrorParams>(ipcScope, 'didSafetyError');
 export const DidReloadComposerNotification = new IpcNotification<DidReloadComposerParams>(
 	ipcScope,
 	'didReloadComposer',
 );
 export const DidLoadingErrorNotification = new IpcNotification<DidLoadingErrorParams>(ipcScope, 'didLoadingError');
-export const DidWorkingDirectoryChangeNotification = new IpcNotification<void>(ipcScope, 'didWorkingDirectoryChange');
-export const DidIndexChangeNotification = new IpcNotification<void>(ipcScope, 'didIndexChange');
-export const DidCancelGenerateCommitsNotification = new IpcNotification<void>(ipcScope, 'didCancelGenerateCommits');
-export const DidCancelGenerateCommitMessageNotification = new IpcNotification<void>(
+export const DidWorkingDirectoryChangeNotification = new IpcNotification(ipcScope, 'didWorkingDirectoryChange');
+export const DidIndexChangeNotification = new IpcNotification(ipcScope, 'didIndexChange');
+export const DidCancelGenerateCommitsNotification = new IpcNotification(ipcScope, 'didCancelGenerateCommits');
+export const DidCancelGenerateCommitMessageNotification = new IpcNotification(
 	ipcScope,
 	'didCancelGenerateCommitMessage',
 );
@@ -413,7 +413,7 @@ export const DidErrorAIOperationNotification = new IpcNotification<DidErrorAIOpe
 	ipcScope,
 	'didErrorAIOperation',
 );
-export const DidClearAIOperationErrorNotification = new IpcNotification<void>(ipcScope, 'didClearAIOperationError');
+export const DidClearAIOperationErrorNotification = new IpcNotification(ipcScope, 'didClearAIOperationError');
 export const DidChangeAiEnabledNotification = new IpcNotification<DidChangeAiEnabledParams>(
 	ipcScope,
 	'didChangeAiEnabled',

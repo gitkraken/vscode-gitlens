@@ -25,9 +25,6 @@ const importExtension = {
 	'.cts': '.cjs',
 };
 
-/**
- * @type {import('eslint').Rule.RuleModule}
- */
 export default {
 	meta: {
 		type: 'problem',
@@ -41,18 +38,29 @@ export default {
 		fixable: 'code',
 		schema: [],
 	},
-	create(context) {
-		const filename = context.filename;
-		if (!filename || filename === '<input>' || filename === '<text>') return {};
-
-		const owningPackage = findOwningPackage(filename);
-		if (owningPackage == null) return {};
-
-		const prefix = `${owningPackage.name}/`;
-		const srcRoot = path.join(owningPackage.root, 'src');
+	/** @param {import('@oxlint/plugins').Context} context */
+	createOnce(context) {
+		// Resolved per-file in the Program visitor (createOnce runs once for all files).
+		/** @type {{ name: string; root: string } | undefined} */
+		let owningPackage;
+		let prefix = '';
+		let srcRoot = '';
 
 		return {
+			Program() {
+				owningPackage = undefined;
+				const filename = context.filename;
+				if (!filename || filename === '<input>' || filename === '<text>') return;
+
+				owningPackage = findOwningPackage(filename);
+				if (owningPackage == null) return;
+
+				prefix = `${owningPackage.name}/`;
+				srcRoot = path.join(owningPackage.root, 'src');
+			},
 			ImportDeclaration(node) {
+				if (owningPackage == null) return;
+
 				const source = node.source.value;
 				if (typeof source !== 'string' || !source.startsWith(prefix)) return;
 
@@ -67,7 +75,7 @@ export default {
 						target == null
 							? null
 							: fixer => {
-									let rel = path.relative(path.dirname(filename), target).replace(/\\/g, '/');
+									let rel = path.relative(path.dirname(context.filename), target).replace(/\\/g, '/');
 									const ext = path.extname(rel);
 									if (ext in importExtension) {
 										rel = `${rel.slice(0, -ext.length)}${importExtension[ext]}`;

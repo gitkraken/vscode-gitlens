@@ -769,7 +769,7 @@ export function pluralize(
 }
 
 // Removes \ / : * ? " < > | and C0 and C1 control codes
-// eslint-disable-next-line no-control-regex
+// oxlint-disable-next-line no-control-regex
 const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 
 export function sanitizeForFileSystem(s: string, replacement: string = '_'): string {

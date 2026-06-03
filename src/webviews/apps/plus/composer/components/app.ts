@@ -800,7 +800,7 @@ export class ComposerApp extends LitElement {
 
 		document.addEventListener('dragleave', e => {
 			// Only clear if we're leaving the document or going to a non-droppable area
-			if (!e.relatedTarget || !(e.relatedTarget as HTMLElement).closest('.composer-container')) {
+			if (!(e.relatedTarget as HTMLElement).closest?.('.composer-container')) {
 				this.currentDropTarget = null;
 			}
 		});

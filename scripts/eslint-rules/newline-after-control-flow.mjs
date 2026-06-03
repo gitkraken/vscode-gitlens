@@ -9,8 +9,6 @@
  *
  * The blank line is NOT required when the next sibling is also a control flow
  * statement, so chains of guards stay tight.
- *
- * @type {import('eslint').Rule.RuleModule}
  */
 export default {
 	meta: {
@@ -25,8 +23,10 @@ export default {
 		fixable: 'whitespace',
 		schema: [],
 	},
-	create(context) {
-		const sourceCode = context.sourceCode;
+	/** @param {import('@oxlint/plugins').Context} context */
+	createOnce(context) {
+		// Resolved per-file in the Program visitor — `context.sourceCode` is unavailable in `createOnce` itself.
+		let sourceCode;
 
 		/**
 		 * @param {import('estree').Node | null | undefined} node
@@ -102,6 +102,7 @@ export default {
 
 		return {
 			Program(node) {
+				sourceCode = context.sourceCode;
 				checkBody(node.body);
 			},
 			BlockStatement(node) {

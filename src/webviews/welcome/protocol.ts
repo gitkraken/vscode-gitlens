@@ -33,7 +33,7 @@ export interface State extends WebviewState<'gitlens.views.welcome'> {
 	mcpShowCleanupNotice: boolean;
 }
 
-export const DismissWelcomeCommand = new IpcCommand<void>(scope, 'dismiss');
+export const DismissWelcomeCommand = new IpcCommand(scope, 'dismiss');
 
 export interface DidChangeSubscriptionParams {
 	plusState: SubscriptionState;
@@ -64,4 +64,4 @@ export const DidSwitchWalkthroughMode = new IpcNotification<DidSwitchWalkthrough
 	'walkthroughMode/didSwitch',
 );
 
-export const DidFocusWalkthrough = new IpcNotification<void>(scope, 'walkthrough/didFocus');
+export const DidFocusWalkthrough = new IpcNotification(scope, 'walkthrough/didFocus');

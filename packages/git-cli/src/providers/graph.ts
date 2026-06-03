@@ -487,7 +487,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 				if (deferStats) {
 					pendingRowsStatsCount++;
 
-					// eslint-disable-next-line no-async-promise-executor
+					// oxlint-disable-next-line no-async-promise-executor
 					const promise = new Promise<void>(async resolve => {
 						try {
 							const args = [...statsParser.arguments];

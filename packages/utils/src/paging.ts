@@ -33,7 +33,7 @@ export class PageableResult<T> {
 		}
 
 		let results = this.cached;
-		while (results == null || results.paging?.more) {
+		while (results?.paging?.more) {
 			results = await this.fetch(results?.paging);
 
 			if (this.cached == null) {

@@ -18,6 +18,9 @@ import { createDetailsState } from '../detailsState.js';
 import type { DetailsSelection, DetailsWorkflowHost } from '../detailsWorkflowController.js';
 import { DetailsWorkflowController } from '../detailsWorkflowController.js';
 
+/** Drain the two `.then` hops of the generate-message dispatch (RPC→map→onRunSettled). */
+const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
 /** Convenience: anchor key for a WIP at the given repoPath. */
 const wipKey = (repoPath: string) => anchorKey({ sha: uncommitted, shas: undefined, repoPath: repoPath });
 
@@ -1374,9 +1377,6 @@ function setupGenerate(calls: GenerateCall[]): {
 
 const genEntry = (host: FakeHost, repoPath: string) =>
 	host.crossPaneState.runningOperations.get().get(wipKey(repoPath))?.generateMessage;
-
-/** Drain the two `.then` hops of the generate-message dispatch (RPC→map→onRunSettled). */
-const flush = () => new Promise<void>(resolve => setTimeout(resolve, 0));
 
 suite('DetailsWorkflowController.generateMessage', () => {
 	test('dispatch registers a generating entry; connected settle routes the message and clears it', async () => {

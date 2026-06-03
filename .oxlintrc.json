@@ -1,6 +1,6 @@
 {
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
-	"plugins": ["typescript"],
+	"plugins": ["import", "typescript"],
 	"jsPlugins": [
 		{ "name": "lit", "specifier": "eslint-plugin-lit" },
 		{ "name": "wc", "specifier": "eslint-plugin-wc" },
@@ -72,7 +72,7 @@
 		"no-constant-binary-expression": "error",
 		"no-constant-condition": "error",
 		"no-control-regex": "error",
-		"no-debugger": "error",
+		"no-debugger": "off",
 		"no-delete-var": "error",
 		"no-dupe-class-members": "error",
 		"no-dupe-else-if": "error",
@@ -111,10 +111,22 @@
 		"no-unsafe-optional-chaining": "error",
 		"no-unused-labels": "error",
 		"no-unused-private-class-members": "error",
-		"no-unused-vars": "error",
+		"no-unused-vars": [
+			"warn",
+			{
+				"args": "all",
+				"argsIgnorePattern": "^_",
+				"caughtErrors": "all",
+				"caughtErrorsIgnorePattern": "^_",
+				"destructuredArrayIgnorePattern": "^_",
+				"varsIgnorePattern": "^_",
+				"ignoreRestSiblings": true
+			}
+		],
 		"no-useless-backreference": "error",
 		"no-useless-catch": "error",
 		"no-useless-escape": "error",
+		"no-useless-iterator-to-array": "error",
 		"no-with": "error",
 		"preserve-caught-error": "error",
 		"require-yield": "error",
@@ -135,22 +147,72 @@
 				"memberSyntaxSortOrder": ["none", "all", "multiple", "single"]
 			}
 		],
+
+		"@gitlens/no-src-imports": "error",
+		"@gitlens/no-self-package-imports": "error",
+		"@gitlens/require-js-extension": "error",
+		"@gitlens/scoped-logger-usage": "error",
+		"@gitlens/require-block-body": "error",
+		"@gitlens/newline-after-control-flow": "warn",
+
+		// "e18e/ban-dependencies": "error", // too slow
+		"e18e/prefer-array-at": "error",
+		"e18e/prefer-array-fill": "error",
+		"e18e/prefer-array-from-map": "error",
+		"e18e/prefer-array-some": "error",
+		// "e18e/prefer-array-to-reversed": "off", // doesn't know the difference between arrays and iterators
+		// "e18e/prefer-array-to-sorted": "off", // doesn't know the difference between arrays and iterators
+		// "e18e/prefer-array-to-spliced": "off", // doesn't know the difference between arrays and iterators
+		"e18e/prefer-date-now": "error",
+		"e18e/prefer-includes": "error",
+		"e18e/prefer-nullish-coalescing": "error",
+		"e18e/prefer-object-has-own": "error",
+		"e18e/prefer-regex-test": "error",
+		"e18e/prefer-spread-syntax": "error",
+		// "e18e/prefer-static-regex": "off",
+		"e18e/prefer-string-fromcharcode": "error",
+		"e18e/prefer-timer-args": "error",
+		"e18e/prefer-url-canparse": "error",
+
+		// Import rules
+		"import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+		"import/default": "off",
+		"import/extensions": ["error", "ignorePackages", { "js": "always", "ts": "never", "checkTypeImports": true }],
+		"import/named": "off",
+		"import/namespace": "off",
+		"import/newline-after-import": "warn",
+		"import/no-absolute-path": "error",
+		"import/no-cycle": "off",
+		// "import/no-deprecated": "off",
+		"import/no-default-export": "error",
+		"import/no-duplicates": ["error", { "prefer-inline": false }],
+		"import/no-dynamic-require": "error",
+		"import/no-named-as-default": "off",
+		"import/no-named-as-default-member": "off",
+		"import/no-self-import": "error",
+		// "import/no-unused-modules": "off",
+		// "import/no-unresolved": "off",
+		// "import/no-useless-path-segments": "error",
+		// "import/order": [
+		// 	"warn",
+		// 	{
+		// 		"alphabetize": { "order": "asc", "orderImportKind": "asc", "caseInsensitive": true },
+		// 		"groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
+		// 		"newlines-between": "never"
+		// 	}
+		// ],
+
 		"typescript/await-thenable": "error",
-		"typescript/ban-ts-comment": [
-			"error",
-			{
-				"minimumDescriptionLength": 10
-			}
-		],
+		"typescript/ban-ts-comment": ["error", { "minimumDescriptionLength": 10 }],
 		"typescript/no-array-delete": "error",
 		"typescript/no-base-to-string": "error",
 		"typescript/no-confusing-void-expression": "error",
-		"typescript/no-deprecated": "off",
+		"typescript/no-deprecated": "error",
 		"typescript/no-duplicate-enum-values": "error",
 		"typescript/no-duplicate-type-constituents": "error",
 		"typescript/no-dynamic-delete": "error",
 		"typescript/no-empty-object-type": "error",
-		"typescript/no-explicit-any": "error",
+		"typescript/no-explicit-any": "off",
 		"typescript/no-extra-non-null-assertion": "error",
 		"typescript/no-extraneous-class": "error",
 		"typescript/no-floating-promises": "error",
@@ -171,7 +233,7 @@
 		"typescript/no-this-alias": "error",
 		"typescript/no-unnecessary-boolean-literal-compare": "off",
 		"typescript/no-unnecessary-template-expression": "error",
-		"typescript/no-unnecessary-type-arguments": "off",
+		"typescript/no-unnecessary-type-arguments": "error",
 		"typescript/no-unnecessary-type-assertion": "error",
 		"typescript/no-unnecessary-type-constraint": "error",
 		"typescript/no-unnecessary-type-conversion": "error",
@@ -183,7 +245,7 @@
 		"typescript/no-unsafe-enum-comparison": "off",
 		"typescript/no-unsafe-function-type": "error",
 		"typescript/no-unsafe-member-access": "off",
-		"typescript/no-unsafe-return": "off",
+		"typescript/no-unsafe-return": "error",
 		"typescript/no-unsafe-unary-minus": "error",
 		"typescript/no-useless-default-assignment": "error",
 		"typescript/no-useless-empty-export": "error",
@@ -209,32 +271,14 @@
 		],
 		"typescript/restrict-template-expressions": [
 			"error",
-			{
-				"allowAny": false,
-				"allowBoolean": false,
-				"allowNever": false,
-				"allowNullish": false,
-				"allowNumber": false,
-				"allowRegExp": false
-			}
+			{ "allowAny": true, "allowBoolean": true, "allowNullish": true, "allowNumber": true }
 		],
 		"typescript/return-await": ["error", "error-handling-correctness-only"],
 		"typescript/triple-slash-reference": "error",
-		"typescript/unbound-method": "error",
+		"typescript/unbound-method": "off",
 		"typescript/unified-signatures": "error",
 		"typescript/use-unknown-in-catch-callback-variable": "error",
-		"lit/lifecycle-super": "error",
-		"lit/no-legacy-imports": "error",
-		"lit/no-native-attributes": "error",
-		"lit/no-template-bind": "error",
-		"lit/no-this-assign-in-render": "error",
-		"@gitlens/no-src-imports": "error",
-		"@gitlens/no-self-package-imports": "error",
-		"@gitlens/no-env-without-js": "error",
-		"@gitlens/scoped-logger-usage": "error",
-		"@gitlens/require-block-body": "error",
-		"@gitlens/newline-after-control-flow": "warn",
-		"e18e/prefer-static-regex": "off"
+		"typescript/prefer-optional-chain": "error"
 	},
 	"overrides": [
 		{
@@ -257,7 +301,7 @@
 				"no-unsafe-negation": "off",
 				"no-var": "error",
 				"no-with": "off",
-				"prefer-const": "error",
+				"prefer-const": ["error", { "destructuring": "all", "ignoreReadBeforeAssign": true }],
 				"prefer-rest-params": "error",
 				"prefer-spread": "error"
 			}
@@ -278,28 +322,11 @@
 			],
 			"rules": {
 				"curly": ["error", "multi-line", "consistent"],
-				"eqeqeq": [
-					"error",
-					"always",
-					{
-						"null": "ignore"
-					}
-				],
-				"no-constant-condition": [
-					"warn",
-					{
-						"checkLoops": false
-					}
-				],
+				"eqeqeq": ["error", "always", { "null": "ignore" }],
+				"no-constant-condition": ["warn", { "checkLoops": false }],
 				"no-caller": "error",
-				"no-debugger": "off",
 				"no-else-return": "warn",
-				"no-empty": [
-					"warn",
-					{
-						"allowEmptyCatch": true
-					}
-				],
+				"no-empty": ["warn", { "allowEmptyCatch": true }],
 				"no-eval": "error",
 				"no-ex-assign": "warn",
 				"no-extend-native": "error",
@@ -379,12 +406,7 @@
 				"no-throw-literal": "error",
 				"no-unmodified-loop-condition": "warn",
 				"no-unneeded-ternary": "error",
-				"no-unused-expressions": [
-					"warn",
-					{
-						"allowShortCircuit": true
-					}
-				],
+				"no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 				"no-use-before-define": "off",
 				"no-useless-call": "error",
 				"no-useless-computed-key": "off",
@@ -395,156 +417,41 @@
 				"no-with": "error",
 				"object-shorthand": ["error", "never"],
 				"prefer-arrow-callback": "error",
-				"prefer-const": [
-					"error",
-					{
-						"destructuring": "all",
-						"ignoreReadBeforeAssign": true
-					}
-				],
+				"prefer-const": ["error", { "destructuring": "all", "ignoreReadBeforeAssign": true }],
 				"prefer-numeric-literals": "error",
 				"prefer-object-spread": "error",
 				"prefer-rest-params": "error",
 				"prefer-spread": "error",
 				"prefer-template": "error",
 				"yoda": "error",
-				"no-unused-vars": [
-					"warn",
-					{
-						"args": "all",
-						"argsIgnorePattern": "^_",
-						"caughtErrors": "all",
-						"caughtErrorsIgnorePattern": "^_",
-						"destructuredArrayIgnorePattern": "^_",
-						"varsIgnorePattern": "^_",
-						"ignoreRestSiblings": true
-					}
-				],
-				"import/consistent-type-specifier-style": ["error", "prefer-top-level"],
-				"import/default": "off",
-				"import/extensions": [
-					"error",
-					"ignorePackages",
-					{
-						"checkTypeImports": true,
-						"fix": true
-					}
-				],
-				"import/namespace": "off",
-				"import/newline-after-import": "warn",
-				"import/no-absolute-path": "error",
-				"import/no-cycle": "off",
-				"import/no-default-export": "error",
-				"import/no-duplicates": [
-					"error",
-					{
-						"prefer-inline": false
-					}
-				],
-				"import/no-dynamic-require": "error",
-				"import/no-named-as-default": "off",
-				"import/no-named-as-default-member": "off",
-				"import/no-self-import": "error",
 				"typescript/consistent-type-assertions": [
 					"error",
-					{
-						"assertionStyle": "as",
-						"objectLiteralTypeAssertions": "allow-as-parameter"
-					}
+					{ "assertionStyle": "as", "objectLiteralTypeAssertions": "allow-as-parameter" }
 				],
-				"typescript/consistent-type-imports": [
-					"error",
-					{
-						"disallowTypeAnnotations": false
-					}
-				],
-				"typescript/explicit-module-boundary-types": [
-					"error",
-					{
-						"allowArgumentsExplicitlyTypedAsAny": true
-					}
-				],
+				"typescript/consistent-type-imports": ["error", { "disallowTypeAnnotations": false }],
+				"typescript/explicit-module-boundary-types": ["error", { "allowArgumentsExplicitlyTypedAsAny": true }],
 				"typescript/no-confusing-void-expression": [
 					"error",
-					{
-						"ignoreArrowShorthand": true,
-						"ignoreVoidOperator": true
-					}
+					{ "ignoreArrowShorthand": true, "ignoreVoidOperator": true }
 				],
 				"typescript/no-duplicate-type-constituents": "off",
-				"typescript/no-empty-object-type": [
-					"error",
-					{
-						"allowInterfaces": "with-single-extends"
-					}
-				],
-				"typescript/no-explicit-any": "off",
-				"typescript/no-inferrable-types": [
-					"warn",
-					{
-						"ignoreParameters": true,
-						"ignoreProperties": true
-					}
-				],
+				"typescript/no-empty-object-type": ["error", { "allowInterfaces": "with-single-extends" }],
+				"typescript/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
 				"typescript/no-invalid-void-type": "off",
-				"typescript/no-misused-promises": [
-					"error",
-					{
-						"checksVoidReturn": false
-					}
-				],
+				"typescript/no-misused-promises": ["error", { "checksVoidReturn": false }],
 				"typescript/no-misused-spread": "off",
-				"typescript/no-non-null-assertion": "off",
-				"typescript/no-redundant-type-constituents": "off",
-				"typescript/no-unnecessary-boolean-literal-compare": "off",
-				"typescript/no-unnecessary-type-parameters": "off",
-				"typescript/no-unsafe-argument": "off",
-				"typescript/no-unsafe-assignment": "off",
-				"typescript/no-unsafe-call": "off",
-				"typescript/no-unsafe-enum-comparison": "off",
-				"typescript/no-unsafe-member-access": "off",
+				"typescript/no-use-before-define": ["error", { "classes": false, "functions": false }],
 				"typescript/prefer-for-of": "warn",
 				"typescript/prefer-includes": "warn",
-				"typescript/prefer-literal-enum-member": [
-					"warn",
-					{
-						"allowBitwiseExpressions": true
-					}
-				],
-				"typescript/prefer-promise-reject-errors": [
-					"error",
-					{
-						"allowEmptyReject": true
-					}
-				],
+				"typescript/prefer-literal-enum-member": ["warn", { "allowBitwiseExpressions": true }],
+				"typescript/prefer-promise-reject-errors": ["error", { "allowEmptyReject": true }],
 				"typescript/prefer-reduce-type-parameter": "warn",
-				"typescript/return-await": ["error", "error-handling-correctness-only"],
-				"typescript/restrict-template-expressions": [
-					"error",
-					{
-						"allowAny": true,
-						"allowBoolean": true,
-						"allowNumber": true,
-						"allowNullish": true
-					}
-				],
-				"typescript/unbound-method": "off",
-				"typescript/unified-signatures": [
-					"error",
-					{
-						"ignoreDifferentlyNamedParameters": true
-					}
-				]
-			},
-			"jsPlugins": [],
-			"plugins": ["import"]
+				"typescript/unified-signatures": ["error", { "ignoreDifferentlyNamedParameters": true }]
+			}
 		},
 		{
 			"files": ["src/**/*"],
-			"env": {
-				"node": true,
-				"worker": true
-			}
+			"env": { "node": true, "worker": true }
 		},
 		{
 			"files": ["src/env/node/**/*"],
@@ -647,10 +554,15 @@
 				"no-useless-computed-key": "off",
 				"lit/attribute-value-entities": "error",
 				"lit/binding-positions": "error",
+				"lit/lifecycle-super": "error",
 				"lit/no-duplicate-template-bindings": "error",
 				"lit/no-invalid-html": "error",
+				"lit/no-legacy-imports": "error",
 				"lit/no-legacy-template-syntax": "error",
+				"lit/no-native-attributes": "error",
 				"lit/no-property-change-update": "error",
+				"lit/no-template-bind": "error",
+				"lit/no-this-assign-in-render": "error",
 				"wc/attach-shadow-constructor": "error",
 				"wc/guard-super-call": "error",
 				"wc/no-child-traversal-in-attributechangedcallback": "error",
@@ -665,20 +577,14 @@
 				"wc/no-typos": "error",
 				"wc/require-listener-teardown": "error"
 			},
-			"jsPlugins": [],
-			"env": {
-				"browser": true
-			}
+			"env": { "browser": true }
 		},
 		{
 			"files": ["tests/**/*", "src/constants.subscription.ts", "src/plus/gk/__debug__accountDebug.ts"],
 			"rules": {
 				"no-restricted-imports": "off"
 			},
-			"jsPlugins": [],
-			"env": {
-				"node": true
-			}
+			"env": { "node": true }
 		},
 		{
 			"files": ["src/**/__tests__/**/*", "packages/**/src/**/__tests__/**/*"],
@@ -690,15 +596,11 @@
 				"typescript/require-await": "off",
 				"no-useless-computed-key": "off"
 			},
-			"env": {
-				"node": true
-			}
+			"env": { "node": true }
 		},
 		{
 			"files": ["src/webviews/apps/**/__tests__/**/*"],
-			"env": {
-				"browser": true
-			}
+			"env": { "browser": true }
 		},
 		{
 			"files": [
