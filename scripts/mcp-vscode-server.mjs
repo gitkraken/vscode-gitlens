@@ -584,6 +584,12 @@ server.tool(
 			.describe(
 				"Log level for the loaded extension's output channels (default: 'debug'). Channels default to 'info', which filters out `@debug`/`@trace` logging; raising this makes that runtime logging capturable via `read_logs`. Scoped to the extension so VS Code core logs stay quiet.",
 			),
+		commands: z
+			.array(z.string())
+			.optional()
+			.describe(
+				'VS Code command IDs to run once, in order, after activation (e.g. ["gitlens.showGraph"]). Saves a separate execute_command round-trip + manual wait on every launch.',
+			),
 	},
 	async args => {
 		if (state === 'ready') {
@@ -737,6 +743,31 @@ server.tool(
 			if (evaluateFn) parts.push('Evaluator bridge: connected');
 			else
 				parts.push('Evaluator bridge: not available (use with_evaluator: true and ensure E2E runner is built)');
+
+			// Run any post-activation commands (e.g. open a view) so callers don't need a separate
+			// execute_command round-trip + manual wait on every launch. Best-effort: a failing command
+			// doesn't fail the launch.
+			// Always close the Chat / secondary side bar first — it auto-opens, is never the inspected
+			// extension, and eats the right third of the window. (The activity bar is left alone — it's a
+			// thin strip; the primary side bar + panel are task-dependent, so callers hide those via `commands`.)
+			const launchCommands = ['workbench.action.closeAuxiliaryBar', ...(args.commands ?? [])];
+			if (launchCommands.length) {
+				if (evaluateFn) {
+					const ran = [];
+					for (const cmd of launchCommands) {
+						try {
+							await evaluateFn((vscode, c) => vscode.commands.executeCommand(c), cmd);
+							ran.push(cmd);
+							await page.waitForTimeout(500);
+						} catch (e) {
+							parts.push(`Command "${cmd}" failed: ${e.message}`);
+						}
+					}
+					if (ran.length) parts.push(`Ran commands: ${ran.join(', ')}`);
+				} else {
+					parts.push('Commands skipped: evaluator bridge not available');
+				}
+			}
 
 			return textResult(parts.join('\n'));
 		} catch (e) {

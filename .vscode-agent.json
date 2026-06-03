@@ -3,7 +3,7 @@
 	"buildCommand": "pnpm run build:extension",
 	"activationWait": 8000,
 	"settings": {
-		"gitlens.outputLevel": "debug",
-		"gitlens.telemetry.enabled": false
+		"gitlens.telemetry.enabled": false,
+		"gitlens.advanced.skipOnboarding": true
 	}
 }
