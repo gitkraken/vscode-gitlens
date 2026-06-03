@@ -51,6 +51,7 @@ import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
+import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
 import type {
 	GlGraphTimelineCommitSelectDetail,
 	GlGraphTimelineConfigChangeDetail,
@@ -86,6 +87,7 @@ import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
+import './components/gl-graph-keyboard-shortcuts.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
 
@@ -274,6 +276,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-details-panel')
 	private readonly detailsPanelEl: GlGraphDetailsPanel | undefined;
+
+	@query('gl-graph-keyboard-shortcuts')
+	private readonly keyboardShortcutsEl: GlGraphKeyboardShortcuts | undefined;
 
 	/** One-shot file/folder scope pushed into the embedded timeline (Visual History) by a graph
 	 *  context-menu action. Cleared once `gl-graph-timeline` reports it applied. */
@@ -1023,12 +1028,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					this.graphState.config?.sidebar,
 					() =>
 						html`<gl-graph-sidebar
-							active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
-							.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
-							@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
-							@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
-							@gl-graph-sidebar-visualizations-callout-dismiss=${this.handleVisualizationsCalloutDismiss}
-						></gl-graph-sidebar>`,
+								active-panel=${this.graphState.sidebar?.activePanel ?? nothing}
+								.sidebarVisible=${this.graphState.sidebar?.visible ?? false}
+								@gl-graph-sidebar-toggle=${this.handleSidebarToggle}
+								@gl-graph-sidebar-display-mode-change=${this.handleDisplayModeChange}
+								@gl-graph-sidebar-visualizations-callout-dismiss=${this
+									.handleVisualizationsCalloutDismiss}
+								@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
+							></gl-graph-sidebar>
+							<gl-graph-keyboard-shortcuts></gl-graph-keyboard-shortcuts>`,
 				)}
 				${this.graphState.config?.sidebar
 					? this.renderSidebarSplit(!isGraphMode)
@@ -1046,6 +1054,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private renderKanbanMain() {
 		return html`<gl-graph-kanban @gl-graph-kanban-close=${this.handleAlternateModeClose}></gl-graph-kanban>`;
 	}
+
+	private handleShowShortcuts = (): void => {
+		this.keyboardShortcutsEl?.show();
+	};
 
 	private handleAlternateModeClose = (): void => {
 		const gs = this.graphState;

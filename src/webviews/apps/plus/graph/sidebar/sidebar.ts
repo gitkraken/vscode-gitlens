@@ -200,6 +200,25 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			margin-top: -1rem;
 		}
 
+		/* Keyboard-shortcuts action — shares the rail affordance with the display-mode toggles but
+		   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
+		   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
+		   the measured bottom block and folds nav icons into the … menu instead. */
+		.rail-action {
+			margin: 0 auto;
+			--button-foreground: var(--color-view-foreground--65);
+		}
+
+		.rail-action:hover {
+			--button-foreground: var(--color-view-foreground);
+		}
+
+		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
+		   toggles use between themselves) so the bottom of the rail reads as one group. */
+		.display-mode-toggle + .rail-action {
+			margin-top: -1rem;
+		}
+
 		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button
 		   colors so it reads as a "click me" affordance. Once the user clicks it, the host
 		   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
@@ -356,8 +375,25 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				t => t.mode,
 				t => this.renderDisplayModeToggle(t, displayMode, false),
 			)}
-			${this.renderDisplayModeToggle(visualizationsToggle, displayMode, true)}
+			${this.renderDisplayModeToggle(visualizationsToggle, displayMode, true)} ${this.renderShortcutsButton()}
 		</section>`;
+	}
+
+	private renderShortcutsButton(): unknown {
+		return html`<gl-button
+			class="rail-action"
+			appearance="toolbar"
+			aria-label="Keyboard Shortcuts"
+			tooltip="Keyboard Shortcuts"
+			tooltipPlacement="right"
+			@click=${this.handleShowShortcuts}
+		>
+			<code-icon icon="keyboard"></code-icon>
+		</gl-button>`;
+	}
+
+	private handleShowShortcuts(): void {
+		this.dispatchEvent(new CustomEvent('gl-graph-sidebar-show-shortcuts', { bubbles: true, composed: true }));
 	}
 
 	private renderDisplayModeToggle(toggle: DisplayModeToggle, current: GraphDisplayMode, isVisualizations: boolean) {

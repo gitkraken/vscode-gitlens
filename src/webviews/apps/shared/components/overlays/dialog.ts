@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { focusableBaseStyles } from '../styles/lit/a11y.css.js';
 
 // #0000004d - light
@@ -55,10 +56,19 @@ export class GlDialog extends LitElement {
 
 	override render() {
 		return html`
-			<dialog part="base">
+			<dialog part="base" closedby=${ifDefined(this.closedby)} @close=${this.onDialogClose}>
 				<slot></slot>
 			</dialog>
 		`;
+	}
+
+	// Native Esc/backdrop dismissal closes the inner <dialog> without touching our `open`; sync it
+	// back so consumers' bound state stays in step and re-opening works, and surface a bubbling event.
+	private onDialogClose() {
+		if (!this.open) return;
+
+		this.open = false;
+		this.dispatchEvent(new CustomEvent('gl-dialog-close', { bubbles: true, composed: true }));
 	}
 
 	private toggleVisibility() {

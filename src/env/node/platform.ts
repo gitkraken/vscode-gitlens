@@ -40,6 +40,16 @@ export function getAltKeySymbol(): string {
 	return 'Alt';
 }
 
+export function getCmdKeySymbol(): string {
+	if (isMac) return '⌘';
+	return 'Ctrl';
+}
+
+export function getShiftKeySymbol(): string {
+	if (isMac) return '⇧';
+	return 'Shift';
+}
+
 /**
  * Returns an identifier for the current remote instance, if running in a remote environment.
  * Used to differentiate between multiple instances of the same remote type (e.g., multiple WSL distros).
