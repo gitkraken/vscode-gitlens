@@ -202,6 +202,40 @@ function getWebviewFrameLocators(currentPage) {
 	return locators;
 }
 
+/**
+ * Detect a webview's GitLens root app element (e.g. `gl-commit-details-app`, `gl-graph-app`).
+ *
+ * Webview outer frames are only identified by an opaque `index.html?id=<uuid>` URL with no view
+ * name, and `page.frames()` order is unstable — so neither `webview_index` nor `webview_url` can
+ * reliably target a specific view. The rendered root element is the stable, content-based identity.
+ * Returns the lowercased tag (e.g. "gl-commit-details-app") or undefined.
+ */
+async function detectWebviewRoot(frameLocator) {
+	try {
+		const tag = await frameLocator
+			.locator('body')
+			.evaluate(
+				body => {
+					const isRoot = t => /^GL-[A-Z0-9-]*-(?:APP|PAGE)$/.test(t);
+					const queue = [...body.children];
+					let guard = 0;
+					while (queue.length > 0 && guard++ < 5000) {
+						const el = queue.shift();
+						if (isRoot(el.tagName)) return el.tagName.toLowerCase();
+						for (const child of el.children) queue.push(child);
+					}
+					return null;
+				},
+				undefined,
+				{ timeout: 1000 },
+			)
+			.catch(() => null);
+		return tag ?? undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 async function queryAllFrames(currentPage, selector, action = 'text') {
 	const results = [];
 	// Main page
@@ -498,7 +532,7 @@ function errorResult(message) {
 // Find webview frameLocator by index/url/title (returns the live #active-frame locator)
 // Precedence: index → url → title → first-with-content
 // =============================================================================
-async function findWebviewFrameLocator({ title, url: urlMatch, index, extensionId } = {}) {
+async function findWebviewFrameLocator({ title, url: urlMatch, index, root, extensionId } = {}) {
 	requireReady();
 	const webviews = getWebviewFrameLocators(page);
 
@@ -508,15 +542,37 @@ async function findWebviewFrameLocator({ title, url: urlMatch, index, extensionI
 			)
 		: webviews;
 
+	// Match by GitLens root app element (e.g. "commitDetails" → gl-commit-details-app). Content-based,
+	// so it's stable regardless of frame order/dimensions/uuid. Non-alphanumerics are stripped from
+	// both sides, so "commitDetails", "commit-details", and "gl-commit-details-app" all match.
+	const matchRoot = async needleRaw => {
+		const needle = needleRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+		if (!needle) return null;
+		for (const entry of filtered) {
+			const r = (await detectWebviewRoot(entry.frameLocator))?.replace(/[^a-z0-9]/g, '') ?? '';
+			if (r && r.includes(needle)) return { frameLocator: entry.frameLocator, outerFrame: entry.outerFrame };
+		}
+		return null;
+	};
+
 	if (index != null) {
 		const entry = filtered[index];
 		return entry ? { frameLocator: entry.frameLocator, outerFrame: entry.outerFrame } : null;
+	}
+
+	if (root) {
+		const match = await matchRoot(root);
+		if (match) return match;
 	}
 
 	if (urlMatch) {
 		const needle = urlMatch.toLowerCase();
 		const entry = filtered.find(w => w.url.toLowerCase().includes(needle));
 		if (entry) return { frameLocator: entry.frameLocator, outerFrame: entry.outerFrame };
+		// Fall back to root-app match so `webview_url: "commitDetails"` targets gl-commit-details-app
+		// (outer-frame URLs carry only an opaque uuid, never the view name).
+		const match = await matchRoot(urlMatch);
+		if (match) return match;
 	}
 
 	if (title) {
@@ -528,7 +584,7 @@ async function findWebviewFrameLocator({ title, url: urlMatch, index, extensionI
 		}
 	}
 
-	if (!title && !urlMatch && index == null) {
+	if (!title && !urlMatch && index == null && !root) {
 		for (const entry of filtered) {
 			const bodyText = await entry.frameLocator
 				.locator('body')
@@ -1276,7 +1332,7 @@ server.tool(
 // --- list_webviews -----------------------------------------------------------
 server.tool(
 	'list_webviews',
-	'List all open webviews with their index, id, title, URL, dimensions, and content status. Use `index` or `id` (or a substring of `url`) with webview-targeting tools to disambiguate when titles are empty.',
+	'List all open webviews with their index, id, title, URL, dimensions, content status, and `root` (the GitLens app element, e.g. gl-commit-details-app). To target a specific view, pass a substring of its `root` as `webview_url` (e.g. "commitDetails") — frame index/uuid are unstable, but the root app element is the stable identity.',
 	{},
 	async () => {
 		requireReady();
@@ -1321,6 +1377,9 @@ server.tool(
 				} catch {
 					entry.hasContent = false;
 				}
+				// GitLens root app element (e.g. gl-commit-details-app) — the stable way to identify a
+				// view. Target it with `webview_url` (substring of the root tag) on any webview tool.
+				entry.root = await detectWebviewRoot(frameLocator);
 				results.push(entry);
 			}
 			return textResult(JSON.stringify(results, null, 2));
