@@ -279,15 +279,40 @@ async function pickWithReadline(worktrees, header) {
 	}
 }
 
-/** Picks the VS Code CLI: explicit override, else first found on PATH. */
+/**
+ * Best-effort detection of the VS Code variant running THIS session ('insiders' | 'stable' | undefined).
+ * Over Remote-WSL the running variant injects its remote-cli dir onto PATH; on the desktop the Windows
+ * app dir / remote-wsl ext path carry the variant name.
+ */
+function detectSessionVariant() {
+	const pathEnv = process.env.PATH ?? '';
+	if (pathEnv.includes('.vscode-server-insiders/')) return 'insiders';
+	const hints = [process.env.VSCODE_CWD, process.env.VSCODE_WSL_EXT_LOCATION, process.env.VSCODE_GIT_ASKPASS_MAIN]
+		.filter(Boolean)
+		.join('\n');
+	if (/insiders/i.test(hints)) return 'insiders';
+	if (pathEnv.includes('.vscode-server/') || /Microsoft VS Code(?! Insiders)/.test(hints)) return 'stable';
+	return undefined;
+}
+
+/**
+ * Picks the VS Code CLI: explicit override, else the launcher for the variant OPPOSITE the one running
+ * this session. Launching the opposite (not-running) variant is what makes `--extensionDevelopmentPath`
+ * stick: the running variant — or its WSL remote-cli, which can only forward to the live instance —
+ * reuses that instance and silently drops the dev-host flag ("Ignoring option 'extensionDevelopmentPath'"),
+ * whereas a cold-started variant honors it. Falls back to the original code-insiders→code order when the
+ * session variant can't be determined.
+ */
 function resolveCodeBin(explicit) {
 	if (explicit != null) return explicit;
+	const variant = detectSessionVariant();
+	const order = variant === 'insiders' ? ['code', 'code-insiders'] : ['code-insiders', 'code'];
 	const dirs = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-	for (const candidate of ['code-insiders', 'code']) {
+	for (const candidate of order) {
 		if (dirs.some(dir => existsSync(path.join(dir, candidate)))) return candidate;
 	}
-	// Fall back to `code`; spawning will surface a clear ENOENT if truly missing.
-	return 'code';
+	// Fall back to the last preference; spawning will surface a clear ENOENT if truly missing.
+	return order[order.length - 1];
 }
 
 /** The worktree containing cwd (falls back to the main repo). */
