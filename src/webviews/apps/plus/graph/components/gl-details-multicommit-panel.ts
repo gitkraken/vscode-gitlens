@@ -212,6 +212,10 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 	override render() {
 		const isInitialLoad = this.loading && !this.commitFrom && !this.commitTo;
+		// Once the commit poles paint from lite/cached shells, `isInitialLoad` is false even though
+		// the comparison diff is still in flight — show a spinner in the file tree rather than the
+		// "No Files" empty text. Mirrors gl-details-compare-mode-panel's files-section loading.
+		const filesLoadingEmpty = this._comparisonChanging && !this.files?.length;
 		// Use a single template so the header element persists across mode toggles,
 		// allowing the CSS transition on .mode-header to animate. `cache` keeps both
 		// body sub-trees alive across sub-panel toggles so the explain input and file
@@ -249,6 +253,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													.searchContext=${this.searchContext}
 													.showSearchBox=${this.showSearchBox}
 													.searchBoxFilter=${this.searchBoxFilter}
+													empty-text=${filesLoadingEmpty ? '' : 'No Files'}
 													.buttons=${this.getMultiDiffRefs()
 														? ['layout', 'search', 'multi-diff']
 														: undefined}
@@ -258,7 +263,18 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													@file-more-actions=${this.redispatch}
 													@change-files-layout=${this.redispatch}
 													@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
-												></gl-file-tree-pane>
+												>
+													${filesLoadingEmpty
+														? html`<div
+																slot="before-tree"
+																class="compare-files--loading"
+																aria-busy="true"
+															>
+																<code-icon icon="loading" modifier="spin"></code-icon>
+																<span>Loading changes…</span>
+															</div>`
+														: nothing}
+												</gl-file-tree-pane>
 											</webview-pane-group>
 										</div>`,
 						)}

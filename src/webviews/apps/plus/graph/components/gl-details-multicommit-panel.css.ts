@@ -357,6 +357,18 @@ export const multiCommitPanelStyles = css`
 		overflow: hidden;
 	}
 
+	/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in place
+	   of the "No Files" empty text while the comparison diff is still being fetched. */
+	.compare-files--loading {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.6rem;
+		text-align: center;
+		color: var(--vscode-descriptionForeground);
+		padding: 2rem 1.2rem;
+	}
+
 	.details-loading {
 		display: flex;
 		align-items: center;
