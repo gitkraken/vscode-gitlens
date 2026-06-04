@@ -76,6 +76,7 @@ import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
+import { shouldShowPrimaryWipRow } from './utils/wip.utils.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
@@ -946,6 +947,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@toggle-details=${this.handleToggleDetails}
 					@show-details=${this.handleShowDetails}
 					@toggle-minimap=${this.handleToggleMinimap}
+					@jump-to-wip=${this.handleJumpToWip}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 				></gl-graph-header>
 				<div class="graph__workspace">
@@ -1526,6 +1528,25 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
+	};
+
+	private handleJumpToWip = (): void => {
+		if (this.effectiveDisplayMode !== 'graph') return;
+
+		const scope = this.graphState.scope;
+		if (scope != null && scope.branchRef !== this.graphState.branch?.id) {
+			const wouldShow = shouldShowPrimaryWipRow(
+				this.graphState.branchesVisibility,
+				this.graphState.includeOnlyRefs,
+				this.graphState.branch?.id,
+				undefined,
+			);
+			if (!wouldShow) return;
+
+			this.graphState.clearScope();
+		}
+
+		this.graph?.ensureAndSelectCommit(uncommitted);
 	};
 
 	private handleToggleDetails(e: CustomEvent<{ altKey?: boolean } | void>) {
