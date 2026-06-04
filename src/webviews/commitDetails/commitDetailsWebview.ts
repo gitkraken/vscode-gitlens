@@ -28,6 +28,7 @@ import {
 } from '../../git/utils/-webview/commit.utils.js';
 import { countConflictMarkers } from '../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils.js';
+import { getReachableWorktrees } from '../../git/utils/-webview/worktree.utils.js';
 import { executeCommand, executeCoreCommand, registerWebviewCommand } from '../../system/-webview/command.js';
 import { getWebviewCommand } from '../../system/decorators/command.js';
 import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
@@ -701,12 +702,15 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	 */
 	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
 		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
-		const [commitResult, avatarUriResult, committerAvatarUriResult] = await Promise.allSettled([
+		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
 			!commit.hasFullDetails()
 				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
 				: commit,
 			getCommitAuthorAvatarUri(commit, { size: 32 }),
 			hasDistinctCommitter ? getCommitCommitterAvatarUri(commit, { size: 32 }) : Promise.resolve(undefined),
+			commit.refType === 'stash' || commit.isUncommitted
+				? Promise.resolve([])
+				: getReachableWorktrees(this.container, commit.repoPath, commit.sha),
 		]);
 
 		commit = getSettledValue(commitResult, commit);
@@ -741,6 +745,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				stats: f.stats,
 			})),
 			stats: commit.stats,
+			reachableFromOtherWorktrees: (getSettledValue(worktreesResult)?.length ?? 0) > 0,
 		};
 	}
 

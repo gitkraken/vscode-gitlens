@@ -182,7 +182,11 @@ import {
 	remoteSupportsIntegration,
 } from '../../../git/utils/-webview/remote.utils.js';
 import type { getWorktreeHasWorkingChanges } from '../../../git/utils/-webview/worktree.utils.js';
-import { getOpenedWorktreesByBranch, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import {
+	getOpenedWorktreesByBranch,
+	getReachableWorktrees,
+	getWorktreesByBranch,
+} from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
@@ -2180,7 +2184,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
 		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
-		const [commitResult, avatarUriResult, committerAvatarUriResult] = await Promise.allSettled([
+		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
 			!commit.hasFullDetails()
 				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
 				: commit,
@@ -2188,6 +2192,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			hasDistinctCommitter
 				? getAvatarUri(commit.committer.email, { ref: commit.sha, repoPath: commit.repoPath }, { size: 32 })
 				: Promise.resolve(undefined),
+			commit.refType === 'stash' || commit.isUncommitted
+				? Promise.resolve([])
+				: getReachableWorktrees(this.container, commit.repoPath, commit.sha),
 		]);
 
 		commit = getSettledValue(commitResult, commit);
@@ -2219,6 +2226,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				stats: f.stats,
 			})),
 			stats: commit.stats,
+			reachableFromOtherWorktrees: (getSettledValue(worktreesResult)?.length ?? 0) > 0,
 		};
 	}
 

@@ -272,6 +272,8 @@ export type ContributedCommands =
 	| 'gitlens.openWorkingFile:editor/title'
 	| 'gitlens.openWorktree:graph'
 	| 'gitlens.openWorktree:views'
+	| 'gitlens.openWorktreeFile:commitDetails'
+	| 'gitlens.openWorktreeFile:graphDetails'
 	| 'gitlens.openWorktreeInNewWindow.multi:views'
 	| 'gitlens.openWorktreeInNewWindow:graph'
 	| 'gitlens.openWorktreeInNewWindow:views'

@@ -1167,10 +1167,12 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		if (!this.commit) return undefined;
 
 		// Build webviewItem with modifiers matching view context values
-		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished][+submodule]
+		// Pattern: gitlens:file+committed[+current][+HEAD][+unpublished][+submodule][+worktree]
 		const commit = this.commit;
 		const isStash = commit.stashNumber != null;
 		const submodule = file.submodule != null ? '+submodule' : '';
+		// Reachable from a sibling worktree → offer "Open Worktree File" (committed files only)
+		const worktree = !isStash && commit.reachableFromOtherWorktrees ? '+worktree' : '';
 
 		// The uncommitted pseudo-commit isn't a real commit — give its files working-tree context so the
 		// menu shows working-tree actions (stage/discard/open changes) instead of commit-only actions
@@ -1194,7 +1196,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		if (isStash) {
 			webviewItem = `gitlens:file+stashed${submodule}`;
 		} else {
-			webviewItem = `gitlens:file+committed${submodule}`;
+			webviewItem = `gitlens:file+committed${submodule}${worktree}`;
 		}
 
 		const context: DetailsItemTypedContext = {

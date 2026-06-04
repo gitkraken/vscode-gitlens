@@ -29,7 +29,9 @@ import {
 	openWipChanges,
 	restoreFile,
 } from '../../git/actions/commit.js';
+import { getReachableWorktrees } from '../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { showWorktreePicker } from '../../quickpicks/worktreePicker.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { getContext, setContext } from '../../system/-webview/context.js';
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors.js';
@@ -144,6 +146,41 @@ export class DetailsFileCommands {
 	@debug()
 	openFile(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
 		void openFile(file, commit, { preserveFocus: true, preview: true, ...showOptions });
+	}
+
+	@command('gitlens.openWorktreeFile:')
+	@debug()
+	async openWorktreeFile(
+		commit: GitCommit,
+		file: GitFileChange,
+		showOptions?: TextDocumentShowOptions,
+	): Promise<void> {
+		const worktrees = await getReachableWorktrees(this.container, commit.repoPath, commit.sha);
+		if (!worktrees.length) return;
+
+		let worktree = worktrees[0];
+		if (worktrees.length > 1) {
+			const picked = await showWorktreePicker(
+				'Open Worktree File',
+				`Choose which worktree to open ${basename(file.path)} from`,
+				worktrees,
+			);
+			if (picked == null) return;
+
+			worktree = picked;
+		}
+
+		// Reuse "Open File", but root the working-file lookup at the worktree path: passing the sha
+		// makes `gitlens.openWorkingFile` resolve the working copy inside the worktree's folder.
+		void openFile(
+			file,
+			createReference(commit.sha, worktree.path, { refType: 'revision', name: commit.shortSha }),
+			{
+				preserveFocus: true,
+				preview: true,
+				...showOptions,
+			},
+		);
 	}
 
 	@command('gitlens.views.openFileRevision:')

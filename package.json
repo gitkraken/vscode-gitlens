@@ -8321,6 +8321,16 @@
 				"icon": "$(window)"
 			},
 			{
+				"command": "gitlens.openWorktreeFile:commitDetails",
+				"title": "Open Worktree File",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "gitlens.openWorktreeFile:graphDetails",
+				"title": "Open Worktree File",
+				"icon": "$(go-to-file)"
+			},
+			{
 				"command": "gitlens.openWorktreeInNewWindow:graph",
 				"title": "Open Worktree in New Window",
 				"icon": "$(empty-window)"
@@ -13678,6 +13688,14 @@
 				},
 				{
 					"command": "gitlens.openWorktree:views",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openWorktreeFile:commitDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openWorktreeFile:graphDetails",
 					"when": "false"
 				},
 				{
@@ -26643,24 +26661,34 @@
 					"group": "2_gitlens_quickopen_file@3"
 				},
 				{
+					"command": "gitlens.openWorktreeFile:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "2_gitlens_quickopen_file@4"
+				},
+				{
+					"command": "gitlens.openWorktreeFile:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "2_gitlens_quickopen_file@4"
+				},
+				{
 					"command": "gitlens.views.openFileRevision:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "2_gitlens_quickopen_file@4"
+					"group": "2_gitlens_quickopen_file@5"
 				},
 				{
 					"command": "gitlens.views.openFileRevision:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "2_gitlens_quickopen_file@4"
+					"group": "2_gitlens_quickopen_file@5"
 				},
 				{
 					"command": "gitlens.openFileOnRemote:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && webview == gitlens.views.commitDetails",
-					"group": "2_gitlens_quickopen_file@5"
+					"group": "2_gitlens_quickopen_file@6"
 				},
 				{
 					"command": "gitlens.openFileOnRemote:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "2_gitlens_quickopen_file@5"
+					"group": "2_gitlens_quickopen_file@6"
 				},
 				{
 					"submenu": "gitlens/commit/file/history",

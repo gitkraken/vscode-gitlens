@@ -4437,7 +4437,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && webview == gitlens.views.commitDetails",
 						"group": "2_gitlens_quickopen_file",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -4450,7 +4450,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "2_gitlens_quickopen_file",
-						"order": 5
+						"order": 6
 					}
 				]
 			}
@@ -4929,6 +4929,32 @@
 						"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+active\\b)/ && !listMultiSelection && workspaceFolderCount != 1",
 						"group": "0_gitlens_worktree",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.openWorktreeFile:commitDetails": {
+			"label": "Open Worktree File",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && webview == gitlens.views.commitDetails",
+						"group": "2_gitlens_quickopen_file",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.openWorktreeFile:graphDetails": {
+			"label": "Open Worktree File",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_gitlens_quickopen_file",
+						"order": 4
 					}
 				]
 			}
@@ -12457,7 +12483,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "2_gitlens_quickopen_file",
-						"order": 4
+						"order": 5
 					}
 				]
 			}
@@ -12470,7 +12496,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "2_gitlens_quickopen_file",
-						"order": 4
+						"order": 5
 					}
 				]
 			}

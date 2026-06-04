@@ -42,6 +42,11 @@ export type CommitFileChange = GitFileChangeShape & { stats?: GitFileChangeStats
 export interface CommitDetails extends CommitSummary {
 	files?: readonly CommitFileChange[];
 	stats?: GitCommitStats;
+	/**
+	 * `true` when the commit is reachable from a worktree other than the one this panel is scoped to,
+	 * so its files have a working copy elsewhere. Drives the file context-menu's "Open Worktree File".
+	 */
+	reachableFromOtherWorktrees?: boolean;
 }
 
 export interface CompareDiff {
