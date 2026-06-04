@@ -7261,6 +7261,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const diff = status.diffStatus;
 
+		// Flag secondary worktrees so the details-header kebab (which renders from `wip.stats.context`)
+		// surfaces the worktree-management actions (Open/Delete/Reveal Worktree) gated on
+		// `gitlens:wip+worktree`. Mirrors `buildWipContext(path, secondary)` for graph rows and the
+		// header's own `isSecondaryWorktree` check (`wip.repo.path !== currentRepoPath`).
+		const isSecondaryWorktree = this.repository != null && repo.path !== this.repository.path;
+
 		// Build the stats once and embed it as `wip.stats`. The webview derives `workingTreeStats`
 		// from `wip.stats`, so the file list and its counts can never drift — they're one object.
 		const stats: WipStats = {
@@ -7271,7 +7277,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: 'gitlens:wip',
+				webviewItem: isSecondaryWorktree ? 'gitlens:wip+worktree' : 'gitlens:wip',
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
