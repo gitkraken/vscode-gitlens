@@ -363,12 +363,11 @@ export interface GraphWipNodeMetadata {
 	 *  recency (descending). Derived from `GitWorktree.date` — no extra git work. */
 	parentDate?: number;
 	/**
-	 * Host-only: cheap clean/dirty signal (`status.hasWorkingChanges()` probe) so the WIP bar can
-	 * surface a worktree that has working changes before its full `workDirStats` are fetched. Sent
-	 * on the graph-load build and refreshed per-worktree by the WIP watcher; intentionally OMITTED
-	 * on per-working-tree-tick pushes (preserved client-side via `mergeWipMetadata`) so we don't
-	 * re-stat every worktree on each FS event. When `workDirStats` is present the webview derives
-	 * clean/dirty from it directly and ignores this field.
+	 * Host-only: cheap clean/dirty probe (`status.hasWorkingChanges()`) so the WIP bar can surface a
+	 * dirty worktree before its `workDirStats` are fetched. Set ONLY on the graph-load build and
+	 * preserved client-side via `mergeWipMetadata`; omitted on per-tick pushes to avoid re-statting
+	 * every worktree on each FS event — so the dirty bit is only as fresh as the last graph load.
+	 * Ignored once `workDirStats` is present (clean/dirty derives from it directly).
 	 */
 	hasChanges?: boolean;
 	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
