@@ -921,7 +921,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Per-secondary-WIP refetch coordination (timer + in-flight Promise), keyed by secondary WIP sha. */
 	private readonly _wipRefetches = new Map<
 		string,
-		{ timer?: ReturnType<typeof setTimeout>; repo: GlRepository; inFlight?: Promise<void>; dirty: boolean }
+		{
+			timer?: ReturnType<typeof setTimeout>;
+			repo: GlRepository;
+			inFlight?: Promise<void>;
+			dirty: boolean;
+			/**
+			 * A watcher tick fired while the graph was hidden, so its refetch was held back rather than
+			 * run (a hidden graph shouldn't run `git status`). Flushed by `recoverDeferredSecondaryWip`
+			 * on the next visibility/focus regain — mirrors the primary's pending-notification replay so
+			 * secondary worktrees don't go stale across a hidden→shown transition.
+			 */
+			deferred?: boolean;
+		}
 	>();
 
 	/**
@@ -2621,6 +2633,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.ensureAutoFetch();
 		if (focused) {
 			this.recoverWorkingTreeStatsIfStuck();
+			this.recoverDeferredSecondaryWip();
 		}
 	}
 
@@ -2640,6 +2653,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		void this.ensureAutoFetch();
 		if (visible) {
 			this.recoverWorkingTreeStatsIfStuck();
+			this.recoverDeferredSecondaryWip();
 		}
 	}
 
@@ -4481,10 +4495,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const entry = this._wipRefetches.get(sha);
 		if (entry == null) return;
 		// Watcher disposed during debounce, or webview gone — drop without a fetch.
-		if (!this._wipWatches.has(sha) || !this.host.ready || !this.host.visible) {
+		if (!this._wipWatches.has(sha) || !this.host.ready) {
 			this._wipRefetches.delete(sha);
 			return;
 		}
+		// Graph hidden — defer rather than drop. Running `git status` for an unseen panel is wasted
+		// work, but silently discarding the tick would leave the secondary's WIP/paused-op stale with
+		// no recovery (unlike the primary, which queues a pending notification and replays on show).
+		// Keep the entry and mark it deferred; `recoverDeferredSecondaryWip` flushes it on the next
+		// visibility/focus regain.
+		if (!this.host.visible) {
+			entry.deferred = true;
+			return;
+		}
+
+		entry.deferred = false;
 
 		const promise = (async () => {
 			try {
@@ -4519,6 +4544,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		})();
 		entry.inFlight = promise;
 		await promise;
+	}
+
+	/**
+	 * Flush secondary-WIP refetches that a watcher tick deferred while the graph was hidden (see
+	 * `runWipRefetch`). Re-queues only entries flagged `deferred`, so a normal hide→show with no
+	 * pending change does zero git work; the `queueWipRefetch`/`runWipRefetch` in-flight+dirty dedup
+	 * collapses any overlap (visibility + focus both firing, or a flush racing a fresh tick) into a
+	 * single status read. Restores the `getWipState().isLive` invariant — the cache becomes current
+	 * again, so the in-graph paused-op badge updates and the details panel's select-time
+	 * revalidation can keep trusting `isLive`.
+	 */
+	private recoverDeferredSecondaryWip(): void {
+		if (this._disposed || !this.host.ready || !this.host.visible) return;
+
+		for (const [sha, entry] of this._wipRefetches) {
+			if (!entry.deferred) continue;
+
+			entry.deferred = false;
+			this.queueWipRefetch(sha, entry.repo);
+		}
 	}
 
 	@ipcCommand(GetMoreRowsCommand)
