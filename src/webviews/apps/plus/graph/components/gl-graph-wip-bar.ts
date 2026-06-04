@@ -50,6 +50,10 @@ export class GlGraphWipBar extends LitElement {
 
 	@property({ attribute: false }) items: readonly WipBarItem[] = [];
 	@property({ attribute: false }) selectedId: string | undefined;
+	/** False = host's `graph.showWorktreeWipStats` opt-out: don't fetch stats on hover (no
+	 *  per-worktree `git status`); show a static "has changes" tooltip, not "Loading…". Breakdown
+	 *  appears on click. Primary pill unaffected (always has stats). */
+	@property({ type: Boolean }) statsOnHover = true;
 
 	@state() private focusedPillIndex = 0;
 
@@ -89,10 +93,13 @@ export class GlGraphWipBar extends LitElement {
 		);
 	}
 
-	/** Hover/focus on a pill whose full stats aren't loaded yet → ask the host to compute them.
-	 *  Fires on the leading edge (before the tooltip's open delay) so the breakdown is usually ready
-	 *  by the time the tooltip shows. graph-app dedups concurrent requests per worktree. */
+	/** Hover/focus on a stats-less pill → ask the host to compute them. Fires on the leading edge
+	 *  (before the tooltip's open delay) so the breakdown is ready when the tooltip shows; graph-app
+	 *  dedups per worktree. Suppressed when `statsOnHover` is off so passive hover never costs a
+	 *  per-worktree `git status` (revealed on click instead). */
 	private readonly onPillHover = (e: Event): void => {
+		if (!this.statsOnHover) return;
+
 		const id = (e.currentTarget as HTMLElement).dataset.id;
 		if (id == null) return;
 
@@ -231,7 +238,9 @@ export class GlGraphWipBar extends LitElement {
 									no-tooltip
 								></commit-stats>
 							`
-						: html`<span class="pill-hover__files">Loading changes…</span>`}
+						: this.statsOnHover
+							? html`<span class="pill-hover__files">Loading changes…</span>`
+							: html`<span class="pill-hover__files">Has working changes</span>`}
 				</div>
 				<div class="pill-hover__row">
 					${item.agent != null
