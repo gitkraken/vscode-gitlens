@@ -540,6 +540,24 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this._scopeClearDeferred = true;
 	}
 
+	cancelPendingScope(): void {
+		this._pendingScope = undefined;
+		this._scopeClearDeferred = false;
+		this.scopeLoading = false;
+	}
+
+	clearScope(): void {
+		if (this.scope == null) return;
+
+		this.cancelPendingScope();
+		this.scope = undefined;
+
+		emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
+			name: 'graph/scope/cleared',
+			data: {},
+		});
+	}
+
 	/**
 	 * Merge a lazily-fetched merge-target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC opts out of eager merge-target fetching (`skipMergeTarget: true`); the
@@ -1006,18 +1024,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidChangeRefsVisibilityNotification.is(msg):
 				if (this._scopeClearDeferred) {
 					this._scopeClearDeferred = false;
-					const wasScoped = this.scope != null;
-					// Coalesce with the visibility update so the minimap and graph re-render once.
-					this.scope = undefined;
-					// Drop any in-flight `setScope` publish — otherwise a cache-miss resolve could
-					// re-publish a scope the user just cleared by switching visibility modes.
-					this._pendingScope = undefined;
-					if (wasScoped) {
-						emitTelemetrySentEvent<'graph/scope/cleared'>(this.host, {
-							name: 'graph/scope/cleared',
-							data: {},
-						});
-					}
+					this.clearScope();
 				}
 				this.updateState({
 					branchesVisibility: msg.params.branchesVisibility,
