@@ -2,12 +2,14 @@ import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { getAgentCategoryLabel } from '../../../shared/agentUtils.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
+import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { wipBarStyles } from './gl-graph-wip-bar.css.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -31,6 +33,10 @@ export interface WipBarItem {
 	lastActivity?: string;
 	agent?: AgentSessionCategory;
 	isPrimary?: boolean;
+	/** Serialized `data-vscode-context` for this WIP's right-click menu — `gitlens:wip` for the primary
+	 *  worktree, `gitlens:wip+worktree` for a secondary. Built host-side (see `serializeWipContext`) so a
+	 *  pill opens the identical menu as the in-graph WIP row and the details header. */
+	context?: string;
 }
 
 export interface WipBarSelectDetail {
@@ -58,6 +64,12 @@ export class GlGraphWipBar extends LitElement {
 	@state() private focusedPillIndex = 0;
 
 	private pendingFocusUpdate = false;
+
+	// Right-click a pill → open the WIP's native context menu. Pills carry `data-vscode-context` in this
+	// component's shadow DOM, but VS Code reads the attribute from light DOM, so the proxy copies it onto
+	// this host (a light-DOM child of the graph app) as the contextmenu event bubbles out. Mirrors the
+	// in-graph WIP row and the details-header kebab, which open the same menu from the same context.
+	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	private readonly onItemClick = (e: MouseEvent): void => {
 		const id = (e.currentTarget as HTMLElement).dataset.id;
@@ -201,6 +213,7 @@ export class GlGraphWipBar extends LitElement {
 					class=${classes}
 					data-id=${item.id}
 					data-index=${index}
+					data-vscode-context=${ifDefined(item.context)}
 					@click=${this.onItemClick}
 					@keydown=${this.onItemKeyDown}
 					@mouseenter=${this.onPillHover}

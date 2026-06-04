@@ -85,6 +85,7 @@ import type { SelectionBranch } from './utils/branchSelection.utils.js';
 import { getOverviewBranchSelectionSha } from './utils/branchSelection.utils.js';
 import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
+import { serializeWipContext } from './utils/rowContext.utils.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
@@ -951,6 +952,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				deleted: primary.deleted,
 				...pickAgent(fallbackRepoPath),
 				isPrimary: true,
+				context: serializeWipContext(fallbackRepoPath, false),
 			});
 		}
 
@@ -985,6 +987,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						: {}),
 					...pickAgent(meta.repoPath),
 					isPrimary: false,
+					context: serializeWipContext(meta.repoPath, true),
 				});
 			}
 		}
