@@ -178,11 +178,15 @@ export class GlGraphOverviewCard extends LitElement {
 		   Overrides the --gl-card-background cascade so the inner-shadow :hover rule
 		   in card.css.ts continues to compose on top via --gl-card-hover-background. */
 		:host([contains-selection]) {
-			--gl-card-background: var(--vscode-list-inactiveSelectionBackground);
+			--gl-card-background: color-mix(
+				in lab,
+				var(--vscode-list-inactiveSelectionBackground) 100%,
+				var(--vscode-foreground) 10%
+			);
 			--gl-card-hover-background: color-mix(
 				in lab,
 				var(--vscode-list-inactiveSelectionBackground) 100%,
-				var(--vscode-foreground) 8%
+				var(--vscode-foreground) 14%
 			);
 		}
 
