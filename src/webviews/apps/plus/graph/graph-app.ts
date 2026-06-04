@@ -884,11 +884,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** In-flight set so repeated hovers over a stats-less pill fire at most one fetch per worktree. */
 	private readonly _wipStatsInFlight = new Set<string>();
 
-	/** Lazily fetches a hovered secondary WIP pill's full stats (the bar fires this on hover/focus).
-	 *  The primary's stats come from `workingTreeStats`, so it's skipped. */
+	/** Lazily fetches a hovered secondary WIP pill's stats (primary's come from `workingTreeStats`).
+	 *  Skips when `graph.showWorktreeWipStats` is off: hover isn't selection, so it mustn't trigger a
+	 *  per-worktree `git status` (clicking still reveals the breakdown). Backstop to the bar's own
+	 *  `statsOnHover` suppression. */
 	private handleWipBarStatsNeeded = (e: CustomEvent<WipBarStatsNeededDetail>): void => {
 		const { id } = e.detail;
 		if (id === uncommitted || this._wipStatsInFlight.has(id)) return;
+		if (this.graphState.config?.showWorktreeWipStats === false) return;
 
 		const meta = this.graphState.wipMetadataBySha?.[id];
 		if (meta == null || (meta.workDirStats != null && !meta.workDirStatsStale)) return;
@@ -1501,6 +1504,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 							<gl-graph-wip-bar
 								.items=${wipItems}
 								.selectedId=${selectedWipId}
+								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
 								@gl-graph-wip-bar-select=${this.handleWipBarSelect}
 								@gl-graph-wip-bar-stats-needed=${this.handleWipBarStatsNeeded}
 							></gl-graph-wip-bar>
