@@ -87,6 +87,20 @@ export interface AppState extends State {
 	deferScopeClear(): void;
 
 	/**
+	 * Cancel any in-flight `setScope` publish and clean up all associated transient state
+	 * (`_pendingScope`, `_scopeClearDeferred`, `scopeLoading`). Lower-level primitive used by
+	 * {@link clearScope} — prefer `clearScope()` unless you need to separate the cancel from
+	 * the scope assignment (e.g. the deferred-clear path).
+	 */
+	cancelPendingScope(): void;
+
+	/**
+	 * Immediately clear the active scope, cancel any in-flight resolve, clean up transient
+	 * state, and emit `graph/scope/cleared` telemetry. No-op when no scope is active.
+	 */
+	clearScope(): void;
+
+	/**
 	 * Seed the per-repo WIP cache with an optimistically-edited `Wip` (e.g. after a local stage/
 	 * unstage). The entry is flagged so subsequent `getWipState` calls report `isLive: false`
 	 * until the host's watcher reconciles. The host-driven push paths (`DidChangeWorkingTree` /
