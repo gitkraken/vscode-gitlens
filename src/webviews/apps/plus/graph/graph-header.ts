@@ -360,10 +360,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
-	private handleJumpToWip() {
-		this.selectCommits?.(['work-dir-changes'], { ensureVisible: true });
-	}
-
 	private async jumpToSha(sha: string) {
 		const id = await this.ensureSearchResultRow(sha);
 		if (id == null) return;
@@ -1113,7 +1109,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							.lastFetched=${lastFetched}
 							.workingTreeStats=${this.graphState.workingTreeStats}
 							.state=${this.graphState}
-							@jump-to-wip=${this.handleJumpToWip}
 						></gl-git-actions-buttons>
 					`,
 				)}
