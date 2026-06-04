@@ -394,8 +394,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 			.stashNumber=${commit.stashNumber}
 			@gl-commit-actions=${(e: CustomEvent<{ action: string; alt: boolean }>) => this.onCommitActions(e)}
 			@gl-pin=${() => actions?.togglePin()}
-			@gl-back=${() => actions?.navigateBack()}
-			@gl-forward=${() => actions?.navigateForward()}
+			@gl-nav-back=${() => actions?.navigateBack()}
+			@gl-nav-forward=${() => actions?.navigateForward()}
 		></gl-inspect-nav>`;
 	}
 

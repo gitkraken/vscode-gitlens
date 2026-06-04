@@ -36,6 +36,7 @@ import type {
 	Preferences,
 	Wip,
 } from '../../commitDetails/protocol.js';
+import type { NavigationState } from '../shared/controllers/navigationStack.js';
 import type { HostStorage } from '../shared/host/storage.js';
 import { createRemoteSignalBridge } from '../shared/state/remoteSignal.js';
 import { createStateGroup } from '../shared/state/signals.js';
@@ -83,10 +84,7 @@ export function createCommitDetailsState(storage?: HostStorage) {
 
 	// ── Ephemeral UI State ──
 
-	const navigationStack = signal<{ count: number; position: number; hint?: string }>({
-		count: 0,
-		position: 0,
-	});
+	const navigationStack = signal<NavigationState>({ count: 0, position: 0, canBack: false, canForward: false });
 	const inReview = signal(false);
 	const draftState = signal<DraftState>({ inReview: false });
 
@@ -122,15 +120,9 @@ export function createCommitDetailsState(storage?: HostStorage) {
 
 	// ── Derived State ──
 
-	const canNavigateBack = computed(() => {
-		const nav = navigationStack.get();
-		return nav.position > 0;
-	});
+	const canNavigateBack = computed(() => navigationStack.get().canBack);
 
-	const canNavigateForward = computed(() => {
-		const nav = navigationStack.get();
-		return nav.position < nav.count - 1;
-	});
+	const canNavigateForward = computed(() => navigationStack.get().canForward);
 
 	const isUncommitted = computed(() => {
 		const commit = currentCommit.get();

@@ -7,8 +7,7 @@ import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import type { Repository } from '@gitlens/git/models/repository.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
-import { isUncommitted, shortenRevision } from '@gitlens/git/utils/revision.utils.js';
-import { MRU } from '@gitlens/utils/mru.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard.js';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
@@ -44,7 +43,6 @@ import type {
 	CommitSelectionEvent,
 	ExplainResult,
 	GenerateResult,
-	NavigateResult,
 } from './commitDetailsService.js';
 import type { ComparisonContext } from './commitDetailsWebview.utils.js';
 import {
@@ -114,9 +112,6 @@ interface WipContext {
 export class CommitDetailsWebviewProvider implements WebviewProvider<State, State, CommitDetailsWebviewShowingArgs> {
 	private readonly _disposable: Disposable;
 	private _focused = false;
-
-	/** Navigation history - backend keeps for back/forward navigation */
-	private _commitStack = new MRU<GitRevisionReference>(10, (a, b) => a.ref === b.ref);
 
 	/** Controls line tracker - set via setPin() RPC */
 	private _pinned = false;
@@ -264,10 +259,9 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			data = arg;
 		}
 
-		// Add to navigation stack and capture showing context
+		// Capture showing context for getInitialContext()
 		if (data?.commit != null) {
 			const ref = getReferenceFromRevision(data.commit);
-			this._commitStack.insert(ref);
 			this._showingCommitRef = { repoPath: ref.repoPath, sha: ref.ref, refType: ref.refType };
 		} else {
 			// No explicit commit - try to resolve from event cache / line tracker
@@ -463,9 +457,8 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	private onCommitSelected(e: CommitSelectedEvent) {
 		if (e.data == null) return;
 
-		// Add to navigation stack and track what's being shown
+		// Track what's being shown so file/stash actions know which commit to use
 		const ref = getReferenceFromRevision(e.data.commit);
-		this._commitStack.insert(ref);
 		this._showingCommitRef = { repoPath: ref.repoPath, sha: ref.ref, refType: ref.refType };
 
 		// Forward event to webview - let webview decide what to do based on its state
@@ -600,18 +593,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		}
 	}
 
-	private onNavigateStack(params: { direction: 'back' | 'forward' }): NavigateResult {
-		const commit = this._commitStack.navigate(params.direction);
-		let selectedCommit: NavigateResult['selectedCommit'];
-		if (commit != null) {
-			// Track what's being shown so file actions know which commit to use
-			this._showingCommitRef = { repoPath: commit.repoPath, sha: commit.ref, refType: commit.refType };
-			selectedCommit = { repoPath: commit.repoPath, sha: commit.ref };
-		}
-
-		return { navigationStack: this.getNavigationStack(), selectedCommit: selectedCommit };
-	}
-
 	private _wipConflictMarkerCache = new Map<string, { mtime: number; count: number }>();
 
 	private async getWipChange(repository: GlRepository): Promise<{ changes: WipChange; stats: WipStats } | undefined> {
@@ -706,21 +687,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	// ============================================================
 	// Event Delivery Helper
 	// ============================================================
-
-	/** Computes navigation stack from _commitStack (on demand, not cached) */
-	private getNavigationStack(): { count: number; position: number; hint?: string } {
-		let sha = this._commitStack.get(this._commitStack.position - 1)?.ref;
-		if (sha != null) {
-			sha = shortenRevision(sha);
-		}
-		return {
-			count: this._commitStack.count,
-			position: this._commitStack.position,
-			hint: sha,
-		};
-	}
-
-	// Removed: updateNavigation - navigation is handled via onNavigateStack which fires commit selection events
 
 	private onChangeReviewModeCommand(params: { inReview: boolean; repoPath?: string }) {
 		// inReview state is owned by webview - just track telemetry
@@ -960,7 +926,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					Promise.resolve({
 						mode: this._showingMode,
 						pinned: this._pinned,
-						navigationStack: this.getNavigationStack(),
 						inReview: this._showingInReview,
 						initialCommit: this._showingCommitRef,
 						initialWipRepoPath: this._showingWipRepoPath,
@@ -1015,12 +980,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						branch: branch,
 						stats: stats,
 					});
-				},
-
-				// ── Navigation ──
-
-				navigate: direction => {
-					return Promise.resolve(this.onNavigateStack({ direction: direction }));
 				},
 
 				setPin: pin => {

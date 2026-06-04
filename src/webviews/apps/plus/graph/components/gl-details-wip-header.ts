@@ -8,6 +8,7 @@ import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
+import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { RunningOperationExecState } from './detailsState.js';
@@ -23,6 +24,7 @@ import '../../../shared/components/commit/wip-stats.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/details-header/gl-details-header.js';
+import '../../../shared/components/nav-buttons.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 @customElement('gl-details-wip-header')
@@ -62,6 +64,8 @@ export class GlDetailsWipHeader extends LitElement {
 	@property({ type: Boolean }) pullRequestLoading = false;
 	@property() dateFormat?: string;
 	@property() dateStyle?: string;
+	/** Back/forward history state from the graph host, rendered to the left of the jump button. */
+	@property({ attribute: false }) navigation?: NavigationState;
 
 	override render() {
 		const wip = this.wip;
@@ -158,6 +162,7 @@ export class GlDetailsWipHeader extends LitElement {
 									})}
 								></gl-action-chip>`
 							: nothing}
+						<gl-nav-buttons slot="actions" .navigation=${this.navigation}></gl-nav-buttons>
 						${wip.branch?.reference?.sha != null
 							? html`<gl-action-chip
 									slot="actions"

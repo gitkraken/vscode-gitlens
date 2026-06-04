@@ -138,11 +138,6 @@ export interface State extends WebviewState<'gitlens.views.commitDetails'> {
 	mode: Mode;
 
 	pinned: boolean;
-	navigationStack: {
-		count: number;
-		position: number;
-		hint?: string;
-	};
 	preferences: Preferences;
 	orgSettings: {
 		ai: boolean;

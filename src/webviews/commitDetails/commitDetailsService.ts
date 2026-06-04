@@ -62,19 +62,12 @@ export interface InitialContext {
 	mode: Mode;
 	/** Whether the view is pinned */
 	pinned: boolean;
-	/** Navigation stack state */
-	navigationStack: { count: number; position: number; hint?: string };
 	/** Whether review mode is active (for WIP) */
 	inReview: boolean;
 	/** Initial commit info if in commit mode */
 	initialCommit?: { repoPath: string; sha: string };
 	/** Initial WIP repo path if in WIP mode */
 	initialWipRepoPath?: string;
-}
-
-export interface NavigateResult {
-	navigationStack: { count: number; position: number; hint?: string };
-	selectedCommit?: { repoPath: string; sha: string };
 }
 
 // ============================================================
@@ -149,14 +142,6 @@ export interface CommitInspectService {
 	 * @param signal - Optional AbortSignal for cooperative cancellation
 	 */
 	getWipChanges(repoPath?: string, signal?: AbortSignal): Promise<Wip | undefined>;
-
-	// ── Navigation ──
-
-	/**
-	 * Navigate the commit stack.
-	 * Returns updated navigation state and the commit the webview should display.
-	 */
-	navigate(direction: 'back' | 'forward'): Promise<NavigateResult>;
 
 	/**
 	 * Pin or unpin the current view.

@@ -2,8 +2,9 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import { getAltKeySymbol } from '@env/platform.js';
-import type { State } from '../../../commitDetails/protocol.js';
+import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { commitActionStyles } from './commit-action.css.js';
+import '../../shared/components/nav-buttons.js';
 
 @customElement('gl-inspect-nav')
 export class GlInspectNav extends LitElement {
@@ -61,40 +62,13 @@ export class GlInspectNav extends LitElement {
 	uncommitted = false;
 
 	@property({ type: Object })
-	navigation?: State['navigationStack'];
+	navigation?: NavigationState;
 
 	@property()
 	shortSha = '';
 
 	@property()
 	stashNumber?: string;
-
-	get navigationState() {
-		if (this.navigation == null) {
-			return {
-				back: false,
-				forward: false,
-			};
-		}
-
-		const actions = {
-			back: true,
-			forward: true,
-		};
-
-		if (this.navigation.count <= 1) {
-			actions.back = false;
-			actions.forward = false;
-		} else if (this.navigation.position === 0) {
-			actions.back = true;
-			actions.forward = false;
-		} else if (this.navigation.position === this.navigation.count - 1) {
-			actions.back = false;
-			actions.forward = true;
-		}
-
-		return actions;
-	}
 
 	private handleAction(e: Event) {
 		const targetEl = e.target as HTMLElement;
@@ -117,16 +91,6 @@ export class GlInspectNav extends LitElement {
 		const pinLabel = this.pinned
 			? html`Unpin this Commit<br />Restores Automatic Following`
 			: html`Pin this Commit<br />Suspends Automatic Following`;
-
-		let forwardLabel = 'Forward';
-		let backLabel = 'Back';
-		if (this.navigation?.hint) {
-			if (!this.pinned) {
-				forwardLabel += ` - ${this.navigation.hint}`;
-			} else {
-				backLabel += ` - ${this.navigation.hint}`;
-			}
-		}
 
 		return html`
 			<div class="group">
@@ -169,24 +133,7 @@ export class GlInspectNav extends LitElement {
 						></code-icon></a
 					><span slot="content">${pinLabel}</span></gl-tooltip
 				>
-				<gl-tooltip content="${backLabel}"
-					><a
-						class="commit-action${this.navigationState.back ? '' : ' is-disabled'}"
-						aria-disabled="${this.navigationState.back ? 'false' : 'true'}"
-						href="#"
-						data-action="back"
-						@click=${this.handleAction}
-						><code-icon icon="arrow-left" data-region="commit-back"></code-icon></a
-				></gl-tooltip>
-				${when(
-					this.navigationState.forward,
-					() => html`
-						<gl-tooltip content="${forwardLabel}"
-							><a class="commit-action" href="#" data-action="forward" @click=${this.handleAction}
-								><code-icon icon="arrow-right" data-region="commit-forward"></code-icon></a
-						></gl-tooltip>
-					`,
-				)}
+				<gl-nav-buttons .navigation=${this.navigation}></gl-nav-buttons>
 				<!-- TODO: add a spacer -->
 				${when(
 					this.uncommitted,

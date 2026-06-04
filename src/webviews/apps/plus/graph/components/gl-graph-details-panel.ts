@@ -27,6 +27,7 @@ import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../sh
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
+import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
@@ -430,6 +431,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 */
 	@property({ type: Boolean, attribute: 'search-box-filter' })
 	searchBoxFilter = true;
+
+	/** Back/forward history state from the graph host, forwarded to the commit panel's header. */
+	@property({ attribute: false })
+	navigation?: NavigationState;
 
 	private get isMultiCommit(): boolean {
 		return this.shas != null && this.shas.length >= 2;
@@ -1872,6 +1877,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			<gl-details-wip-header
 				.wip=${wip}
 				.currentRepoPath=${this.graphRepoPath()}
+				.navigation=${this.navigation}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
 				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
@@ -2193,6 +2199,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			show-jump-to-nearest-wip
 			?show-search-box=${this.showSearchBox}
 			?search-box-filter=${this.searchBoxFilter}
+			.navigation=${this.navigation}
 			.commit=${commit}
 			.loading=${this.isLoading}
 			.files=${commit.files}

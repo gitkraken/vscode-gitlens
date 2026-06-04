@@ -49,6 +49,8 @@ import type { CustomEventType } from '../../shared/components/element.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
+import type { NavigationState } from '../../shared/controllers/navigationStack.js';
+import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
@@ -171,6 +173,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (Math.abs(px - minimapDefaultPx) <= 2) return defaultPct;
 		return pos;
 	};
+
+	/** Shared back/forward history of visited single commits, mirrored into {@link _navState} for
+	 *  the details header. Re-driving selection via {@link navigateTo} is guarded by
+	 *  {@link _navExpectedSha} so the resulting (async) selection echo isn't recorded as new. */
+	private readonly _nav = new NavigationStack<{ sha: string; repoPath: string; commitLite?: CommitDetails }>(
+		10,
+		undefined,
+		s => (this._navState = s),
+	);
+
+	@state()
+	private _navState: NavigationState = { count: 0, position: 0, canBack: false, canForward: false };
+
+	/** Sha of an in-flight back/forward re-drive — sha-based (not boolean) because the
+	 *  `ensureAndSelectCommit` re-drive re-emits the selection asynchronously through React. */
+	private _navExpectedSha?: string;
 
 	/** Graph-mode single selection. Don't read directly for what the details panel shows — go
 	 *  through {@link activeSelection}, which picks the slot matching the active `displayMode`. */
@@ -766,8 +784,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// apply a stale intent. Drop the one-shot scope alongside it for the same reason.
 		const selectedRepository = this.graphState.selectedRepository;
 		if (selectedRepository !== this._wasSelectedRepository) {
-			if (this._wasSelectedRepository !== undefined && this._modeBeforeScope != null) {
+			const isRepoSwitch = this._wasSelectedRepository !== undefined;
+			if (isRepoSwitch && this._modeBeforeScope != null) {
 				this.clearTimelineScope();
+			}
+			// Back/forward history must not jump across repos — drop it on an actual switch.
+			if (isRepoSwitch) {
+				this._nav.reset();
+				this._navExpectedSha = undefined;
 			}
 			this._wasSelectedRepository = selectedRepository;
 		}
@@ -969,7 +993,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.commitLites=${multi?.commitLites}
 					.showSearchBox=${this.graphState.details?.showSearchBox ?? true}
 					.searchBoxFilter=${this.graphState.details?.searchBoxFilter ?? true}
+					.navigation=${this._navState}
 					@select-commit=${this.handleSelectCommit}
+					@gl-nav-back=${this.handleNavBack}
+					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
 					@gl-show-search-box-change=${this.handleDetailsShowSearchBoxChange}
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
@@ -2077,6 +2104,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				// `commits` from the wrapper is already scoped to the current selection (WIP rows
 				// excluded), so it can be forwarded directly as the per-sha lite map.
 				this._selectedCommits = { shas: shas, repoPath: fallbackRepoPath, commitLites: commits };
+				// Multi-select (compare) isn't part of single-commit history; leave the guard intact.
 			} else if (shas.length === 1) {
 				// Multi-select included WIP + 1 commit — treat as single-select on the commit
 				const sha = shas[0];
@@ -2086,9 +2114,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					commitLite: commits?.[sha],
 				};
 				this._selectedCommits = undefined;
+				this.recordNavSelection(sha, fallbackRepoPath, commits?.[sha]);
 			} else {
 				this._selectedCommit = undefined;
 				this._selectedCommits = undefined;
+				this._navExpectedSha = undefined;
 			}
 		} else if (selection.length === 1) {
 			const active = selection[0];
@@ -2103,6 +2133,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				commitLite: commits?.[active.id],
 			};
 			this._selectedCommits = undefined;
+
+			// Record every viewed selection (commits, stashes, AND WIP) so back/forward is a true
+			// history of what the details panel showed — Back from WIP returns to the prior commit.
+			this.recordNavSelection(sha, repoPath, commits?.[active.id]);
 
 			// When `graph.showWorktreeWipStats` is disabled, secondary worktree WIP rows start
 			// stats-less. Force-fetch stats for the selected row so it populates its pill.
@@ -2122,6 +2156,41 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					data: { rows: selection.length, count: count },
 				}),
 			);
+		}
+	}
+
+	/** Records a real (non-WIP) single-commit selection into back/forward history. Suppresses the
+	 *  selection echo(es) of our own {@link navigateTo} re-drive. The guard is STICKY (matched by
+	 *  sha, not cleared on the first match) because the graph component can re-emit the same
+	 *  selection multiple times (RAF retries / focus-row churn) — clearing on the first echo would
+	 *  let a later duplicate re-record the target and clobber the forward history. It stays armed
+	 *  until a genuinely different commit arrives, which records and disarms it. */
+	private recordNavSelection(sha: string, repoPath: string, commitLite?: CommitDetails): void {
+		if (sha === this._navExpectedSha) return;
+
+		this._navExpectedSha = undefined;
+		// Capture the commit shell so back/forward can paint synchronously (no skeleton/IPC wait),
+		// matching a row click — and so it still works when the row has since been paged out.
+		this._nav.record({ sha: sha, repoPath: repoPath, commitLite: commitLite });
+	}
+
+	private handleNavBack = (): void => this.navigateTo(this._nav.back());
+	private handleNavForward = (): void => this.navigateTo(this._nav.forward());
+
+	/** Navigates the details panel to a recorded commit. The panel always updates (we set the
+	 *  selection slot directly); re-selecting the graph row is best-effort and may no-op for
+	 *  filtered/paged-out/synthetic rows — the guard then clears on the next real selection. */
+	private navigateTo(target: { sha: string; repoPath: string; commitLite?: CommitDetails } | undefined): void {
+		if (target == null) return;
+
+		this._navExpectedSha = target.sha;
+		if (this.effectiveDisplayMode !== 'graph') {
+			this._altModeSelectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
+		} else {
+			// Carry the recorded commit shell so the details panel paints from cache — including when
+			// the row has been paged out of the graph — then re-select the row in the graph.
+			this._selectedCommit = { sha: target.sha, repoPath: target.repoPath, commitLite: target.commitLite };
+			this.graph?.ensureAndSelectCommit(target.sha);
 		}
 	}
 

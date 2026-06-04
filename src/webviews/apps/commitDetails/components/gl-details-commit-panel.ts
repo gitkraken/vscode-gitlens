@@ -24,6 +24,7 @@ import type {
 } from '../../../plus/graph/protocol.js';
 import type { RunningOperationExecState } from '../../plus/graph/components/detailsState.js';
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
+import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
@@ -51,6 +52,7 @@ import '../../shared/components/split-panel/split-panel.js';
 import '../../shared/components/progress.js';
 import '../../shared/components/ai-input.js';
 import '../../shared/components/details-header/gl-details-header.js';
+import '../../shared/components/nav-buttons.js';
 
 type State = IpcSerialized<_State>;
 interface ExplainState {
@@ -137,6 +139,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
 	@property({ type: Boolean }) inResultsView = false;
+
+	/** Back/forward history state, forwarded to `gl-details-header`. Set by the graph host; unset
+	 *  for the inspect panel (which renders nav in `gl-inspect-nav`). */
+	@property({ attribute: false }) navigation?: NavigationState;
 
 	@property({ type: Boolean })
 	loading = false;
@@ -376,6 +382,9 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
+			${this.activeMode == null && (this.navigation?.count ?? 0) > 1
+				? html`<gl-nav-buttons slot="actions" .navigation=${this.navigation}></gl-nav-buttons>`
+				: nothing}
 			${when(
 				this.showJumpToNearestWip && !isStash && !this.isUncommitted && this.activeMode == null,
 				() =>

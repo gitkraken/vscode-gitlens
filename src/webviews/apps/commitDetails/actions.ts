@@ -58,6 +58,7 @@ import {
 	optimisticBatchFireAndForget,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
+import { NavigationStack } from '../shared/controllers/navigationStack.js';
 import { getRemoteNameFromBranchName } from '../shared/git-utils.js';
 import type { Resource } from '../shared/state/resource.js';
 import type { CreatePatchEventDetail } from './components/gl-inspect-patch.js';
@@ -153,6 +154,13 @@ export class CommitDetailsActions {
 		commitEnrichmentCacheLimit,
 	);
 
+	/** Shared back/forward history of visited commits — same controller the graph uses. The
+	 *  onChange callback mirrors derived state into the `navigationStack` signal; recording happens
+	 *  in {@link fetchCommit}. Survives hide/show because the webview is `retainContextWhenHidden`. */
+	private readonly _nav = new NavigationStack<{ sha: string; repoPath: string }>(10, undefined, s =>
+		this.state.navigationStack.set(s),
+	);
+
 	constructor(
 		private readonly state: CommitDetailsState,
 		private readonly services: ResolvedServices,
@@ -241,21 +249,17 @@ export class CommitDetailsActions {
 	// Navigation Actions
 	// ============================================================
 
-	/**
-	 * Navigate back in the commit stack.
-	 * Updates the navigation stack signal from the backend response.
-	 */
+	/** Navigate back to the previously-viewed commit (shared frontend history). */
 	async navigateBack(): Promise<void> {
 		if (this._navigating || !this.state.canNavigateBack.get()) return;
 
+		const target = this._nav.back();
+		if (target == null) return;
+
 		this._navigating = true;
 		try {
-			const result = await this.services.inspect.navigate('back');
-			this.state.navigationStack.set(result.navigationStack);
-			if (result.selectedCommit != null) {
-				this.state.searchContext.set(undefined);
-				await this.fetchCommit(result.selectedCommit.repoPath, result.selectedCommit.sha, { force: true });
-			}
+			this.state.searchContext.set(undefined);
+			await this.fetchCommit(target.repoPath, target.sha, { force: true });
 		} catch (ex) {
 			Logger.error(ex, 'navigate back failed');
 		} finally {
@@ -263,21 +267,17 @@ export class CommitDetailsActions {
 		}
 	}
 
-	/**
-	 * Navigate forward in the commit stack.
-	 * Updates the navigation stack signal from the backend response.
-	 */
+	/** Navigate forward to the next commit in the shared frontend history. */
 	async navigateForward(): Promise<void> {
 		if (this._navigating || !this.state.canNavigateForward.get()) return;
 
+		const target = this._nav.forward();
+		if (target == null) return;
+
 		this._navigating = true;
 		try {
-			const result = await this.services.inspect.navigate('forward');
-			this.state.navigationStack.set(result.navigationStack);
-			if (result.selectedCommit != null) {
-				this.state.searchContext.set(undefined);
-				await this.fetchCommit(result.selectedCommit.repoPath, result.selectedCommit.sha, { force: true });
-			}
+			this.state.searchContext.set(undefined);
+			await this.fetchCommit(target.repoPath, target.sha, { force: true });
 		} catch (ex) {
 			Logger.error(ex, 'navigate forward failed');
 		} finally {
@@ -872,7 +872,6 @@ export class CommitDetailsActions {
 
 			this.state.mode.set(mode);
 			this.state.pinned.set(pinned);
-			this.state.navigationStack.set(context.navigationStack);
 			this.state.inReview.set(context.inReview);
 			this.state.draftState.set({ inReview: context.inReview });
 
@@ -915,6 +914,12 @@ export class CommitDetailsActions {
 			// Already showing this commit — cancel any in-flight request
 			this.resources.commit.cancel();
 			return;
+		}
+
+		// Record genuinely-new selections into back/forward history. Skips same-commit refetches and
+		// navigation itself (navigateBack/Forward drive fetchCommit with `_navigating` set).
+		if ((current?.sha !== sha || current?.repoPath !== repoPath) && !this._navigating) {
+			this._nav.record({ sha: sha, repoPath: repoPath });
 		}
 
 		this.state.error.set(undefined);
