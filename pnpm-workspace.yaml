@@ -57,6 +57,12 @@ minimumReleaseAgeExclude:
     - oxlint@1.68.0
     - '@oxlint/plugins@1.68.0'
 
+overrides:
+    '@types/vscode': '1.101.0'
+    esbuild: '0.28.0'
+    handlebars: '4.7.9'
+    'serialize-javascript@<7.0.5': '7.0.5'
+
 packageExtensions:
     '@gitkraken/gitkraken-components':
         dependencies:
