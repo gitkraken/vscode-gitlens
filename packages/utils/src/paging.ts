@@ -26,24 +26,24 @@ export class PageableResult<T> {
 	}
 
 	async *values(): AsyncIterable<NonNullable<T>> {
-		if (this.cached != null) {
-			for (const value of this.cached.values) {
-				yield value;
-			}
+		let page = this.cached;
+		if (page == null) {
+			// No seed or cached results yet, so perform the initial fetch
+			page = await this.fetch(undefined);
+			this.cached = page;
 		}
 
-		let results = this.cached;
-		while (results?.paging?.more) {
-			results = await this.fetch(results?.paging);
+		const cached = page; // memoized accumulator (the first page)
+		for (const value of cached.values) {
+			yield value;
+		}
 
-			if (this.cached == null) {
-				this.cached = results;
-			} else {
-				this.cached.values.push(...results.values);
-				this.cached.paging = results.paging;
-			}
+		while (page.paging?.more) {
+			page = await this.fetch(page.paging);
+			cached.values.push(...page.values);
+			cached.paging = page.paging;
 
-			for (const value of results.values) {
+			for (const value of page.values) {
 				yield value;
 			}
 		}
