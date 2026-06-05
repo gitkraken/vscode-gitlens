@@ -218,7 +218,8 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		},
 	): Promise<GitFile[] | undefined> {
 		try {
-			const similarityThreshold = options?.similarityThreshold;
+			const similarityThreshold =
+				options?.similarityThreshold ?? this.context.config?.commits.similarityThreshold;
 			const configs =
 				options?.renameLimit != null
 					? [...gitConfigsDiff, '-c', `diff.renameLimit=${options.renameLimit}`]
