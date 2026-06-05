@@ -93,8 +93,16 @@ export interface GitOperationsSubProvider {
 		options?: {
 			autoStash?: boolean;
 			branch?: string;
+			/** Command set as `sequence.editor` — edits the interactive rebase todo list. */
 			editor?: string;
 			interactive?: boolean;
+			/**
+			 * Command git uses to edit per-commit messages (the combined message a `squash` produces, or a
+			 * `reword`). Applied as `GIT_EDITOR` — which git's interactive-rebase `reword`/`squash` step honors,
+			 * unlike `core.editor` — with `core.editor` also set as a fallback. When omitted, git falls back to
+			 * the user's configured editor.
+			 */
+			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
 			source?: unknown;

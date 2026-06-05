@@ -12,6 +12,7 @@ import {
 	workspace,
 } from 'vscode';
 import { createGraphComposeIntegration } from '@env/coretools/composer.js';
+import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
 import { getClaudeAgent } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
@@ -168,6 +169,7 @@ import {
 	formatCommitStats,
 	getCommitAssociatedPullRequest,
 	getCommitEnrichedAutolinks,
+	isCommitPushed,
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
@@ -181,6 +183,7 @@ import {
 	getRemoteProviderUrl,
 	remoteSupportsIntegration,
 } from '../../../git/utils/-webview/remote.utils.js';
+import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
 import {
 	getOpenedWorktreesByBranch,
 	getReachableWorktrees,
@@ -224,7 +227,12 @@ import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
 import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
 import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
-import { isDarkTheme, isLightTheme, revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import {
+	getHostEditorCommand,
+	isDarkTheme,
+	isLightTheme,
+	revealInFileExplorer,
+} from '../../../system/-webview/vscode.js';
 import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
@@ -8685,6 +8693,126 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (selection == null) return Promise.resolve();
 
 		return RepoActions.cherryPick(selection[0].repoPath, selection);
+	}
+
+	/**
+	 * Validates a multi-commit selection for a history-rewriting rebase (squash/fixup/drop): every commit
+	 * must be loaded in the graph, none may be a merge commit, and the oldest must have a parent to rebase
+	 * onto. Returns the selection ordered oldest-last plus whether any commit is already published, or
+	 * `undefined` (after surfacing a warning) when the selection can't be rewritten.
+	 */
+	private async prepareCommitsForRewrite(
+		item: GraphItemContext | undefined,
+		action: RebaseTodoAction,
+	): Promise<{ repoPath: string; ordered: GitRevisionReference[]; published: boolean } | undefined> {
+		const verb = action === 'drop' ? 'drop' : 'squash';
+
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null || selection.length < 2) return undefined;
+
+		const graph = this._graph;
+		if (graph == null) return undefined;
+
+		const repoPath = selection[0].repoPath;
+		if (this.container.git.getRepositoryService(repoPath).ops?.rebase == null) {
+			void window.showWarningMessage(`Rewriting commits is not supported in this repository.`);
+			return undefined;
+		}
+
+		// Order by position in the loaded graph (rows are newest-first) so the oldest selected commit is
+		// last — the rebase rewrites the current branch from that commit's parent.
+		const rowIndexBySha = new Map(graph.rows.map((r, i) => [r.sha, i] as const));
+		const ordered = selection
+			.filter(ref => rowIndexBySha.has(ref.ref))
+			.sort((a, b) => rowIndexBySha.get(a.ref)! - rowIndexBySha.get(b.ref)!);
+		if (ordered.length !== selection.length) {
+			void window.showWarningMessage(`Unable to ${verb}: some selected commits are not loaded in the graph.`);
+			return undefined;
+		}
+
+		// squash/fixup fold each commit into the previous todo entry, so the selection must be a contiguous
+		// chain. Validate here (not only via the menu `when`) since the command can be invoked programmatically.
+		if (
+			action !== 'drop' &&
+			ordered.some(
+				(ref, i) => i > 0 && graph.rows[rowIndexBySha.get(ordered[i - 1].ref)!]?.parents[0] !== ref.ref,
+			)
+		) {
+			void window.showWarningMessage(`Unable to ${verb}: select a contiguous range of commits.`);
+			return undefined;
+		}
+
+		if (ordered.some(ref => (graph.rows[rowIndexBySha.get(ref.ref)!]?.parents.length ?? 0) > 1)) {
+			void window.showWarningMessage(`Unable to ${verb}: the selection includes a merge commit.`);
+			return undefined;
+		}
+
+		const oldest = ordered.at(-1)!;
+		if ((graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents.length ?? 0) === 0) {
+			void window.showWarningMessage(`Unable to ${verb}: the oldest selected commit has no parent.`);
+			return undefined;
+		}
+
+		// Warn (don't block) when rewriting already-published commits — the rewrite requires a force push.
+		let published = false;
+		try {
+			published = (await Promise.all(ordered.map(ref => isCommitPushed(repoPath, ref.ref)))).some(p => p);
+		} catch {
+			// Ignore — fall back to confirming without the published warning.
+		}
+
+		return { repoPath: repoPath, ordered: ordered, published: published };
+	}
+
+	/**
+	 * Runs a headless interactive rebase that applies {@link action} to the selected commits, using the
+	 * sequence-editor shim to rewrite the todo and (for squash/reword) VS Code as the commit-message editor.
+	 */
+	private async runRebaseRewrite(
+		repoPath: string,
+		ordered: GitRevisionReference[],
+		action: RebaseTodoAction,
+	): Promise<void> {
+		// Track the rebase as a user-initiated git op (this headless path bypasses the executeGitCommand flow).
+		this.container.telemetry.sendEvent('gitCommand/run', { command: 'rebase' });
+
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const oldest = ordered.at(-1)!;
+		const verb =
+			action === 'drop' ? 'Drop' : action === 'reword' ? 'Reword' : action === 'fixup' ? 'Fixup' : 'Squash';
+
+		try {
+			// Resolve inside the try so the browser/web stub's throw surfaces as a friendly message.
+			const sequenceEditor = getSquashSequenceEditor(this.container);
+			const result = await svc.ops!.rebase(
+				`${oldest.ref}^`,
+				{
+					interactive: true,
+					editor: sequenceEditor.editor,
+					// squash (combined message) and reword (per-commit message) open a commit-message editor.
+					messageEditor:
+						action === 'squash' || action === 'reword' ? await getHostEditorCommand(true) : undefined,
+					updateRefs: true,
+					autoStash: true,
+				},
+				{
+					env: {
+						...sequenceEditor.env,
+						GL_SQUASH_SHAS: ordered.map(ref => ref.ref).join(','),
+						GL_SQUASH_ACTION: action,
+					},
+				},
+			);
+			if (result?.conflicted) {
+				void window.showWarningMessage(
+					`${verb} stopped because of conflicts. Resolve them to continue, or abort the rebase to cancel.`,
+				);
+			}
+		} catch (ex) {
+			void window.showErrorMessage(
+				`Unable to ${verb.toLowerCase()} commits: ${ex instanceof Error ? ex.message : String(ex)}`,
+			);
+		}
 	}
 
 	@command('gitlens.graph.copy')
