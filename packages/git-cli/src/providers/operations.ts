@@ -658,6 +658,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			branch?: string;
 			editor?: string;
 			interactive?: boolean;
+			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
 			source?: unknown;
@@ -667,7 +668,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		const scope = getScopedLogger();
 
 		const args = ['rebase'];
-		let configs: string[] | undefined;
+		const configs: string[] = [];
 
 		if (options?.autoStash !== false) {
 			args.push('--autostash');
@@ -677,8 +678,17 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			args.push('--interactive');
 
 			if (options.editor) {
-				configs = ['-c', `sequence.editor=${options.editor}`];
+				configs.push('-c', `sequence.editor=${options.editor}`);
 			}
+		}
+
+		// Drive per-commit message editing (the combined message a `squash` produces, or a `reword`).
+		// `GIT_EDITOR` (not `core.editor`) is what git's interactive-rebase backend honors for the `reword`
+		// amend step, so set it on the environment; also set `core.editor` config as a fallback.
+		let env = runOptions?.env;
+		if (options?.messageEditor) {
+			configs.push('-c', `core.editor=${options.messageEditor}`);
+			env = { ...env, GIT_EDITOR: options.messageEditor };
 		}
 
 		if (options?.updateRefs) {
@@ -698,7 +708,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		try {
 			await this.git.run(
 				// Avoid a timeout since rebases can take a long time (set to 0 to disable)
-				{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions },
+				{ cwd: repoPath, errors: 'throw', configs: configs, timeout: 0, ...runOptions, env: env },
 				...args,
 			);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');

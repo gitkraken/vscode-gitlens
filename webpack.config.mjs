@@ -232,10 +232,20 @@ function getExtensionConfig(target, mode, env) {
 	if (target === 'webworker') {
 		plugins.push(new optimize.LimitChunkCountPlugin({ maxChunks: 1 }));
 	} else {
+		const utilsDir = path.posix.join(__dirname.replace(/\\/g, '/'), 'src', 'git', 'utils');
+		const distDir = path.posix.join(__dirname.replace(/\\/g, '/'), 'dist');
 		plugins.push(
 			new GenerateContributionsPlugin(),
 			new ExtractContributionsPlugin(),
 			new GenerateCommandTypesPlugin(),
+			// Ship the rebase-todo editor wrapper scripts (git `sequence.editor`) alongside the bundled
+			// `dist/rebaseTodoEditor.js`.
+			new CopyPlugin({
+				patterns: [
+					{ from: path.posix.join(utilsDir, 'rebaseTodoEditor.sh'), to: distDir },
+					{ from: path.posix.join(utilsDir, 'rebaseTodoEditor.cmd'), to: distDir },
+				],
+			}),
 		);
 	}
 	if (!env.quick && target !== 'webworker') {
@@ -275,13 +285,18 @@ function getExtensionConfig(target, mode, env) {
 
 	return {
 		name: `extension:${target}`,
-		entry: { extension: './src/extension.ts' },
+		// `rebaseTodoEditor` is a standalone Node script bundled for desktop only — it's git's
+		// `sequence.editor` for the Commit Graph's headless squash/drop/reword (no git in webworker).
+		entry:
+			target === 'webworker'
+				? { extension: './src/extension.ts' }
+				: { extension: './src/extension.ts', rebaseTodoEditor: './src/git/utils/rebaseTodoEditor.ts' },
 		mode: mode,
 		target: target,
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
 		output: {
 			chunkFilename: '[name].js',
-			filename: 'gitlens.js',
+			filename: pathData => (pathData.chunk?.name === 'extension' ? 'gitlens.js' : '[name].js'),
 			libraryTarget: 'commonjs2',
 			path: target === 'webworker' ? path.join(__dirname, 'dist', 'browser') : path.join(__dirname, 'dist'),
 			// Clean output directory, but preserve other build targets' output directories
