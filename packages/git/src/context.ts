@@ -85,6 +85,17 @@ export interface GitServiceConfig {
 		/** Maximum search items (0 = unlimited). */
 		readonly maxSearchItems?: number;
 	};
+
+	/** Force-push preferences. */
+	readonly push?: {
+		/** Whether to use `--force-with-lease` instead of a plain `--force` when force-pushing. Defaults to `true`. */
+		readonly useForceWithLease?: boolean;
+		/**
+		 * Whether to add `--force-if-includes` when force-pushing. Only applies when `useForceWithLease` is `true`
+		 * and the installed Git supports it. Defaults to `true`.
+		 */
+		readonly useForceIfIncludes?: boolean;
+	};
 }
 
 /** Git command types that can produce conflicts. */

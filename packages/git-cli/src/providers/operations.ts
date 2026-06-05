@@ -499,10 +499,12 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 		let forceOpts: PushForceOptions | undefined;
 		if (options?.force) {
-			forceOpts = {
-				withLease: true,
-				ifIncludes: true,
-			};
+			// Honor the host's force-push preferences (e.g. VS Code's `git.useForcePushWithLease` /
+			// `git.useForcePushIfIncludes`); fall back to the safer `--force-with-lease` behavior.
+			const useForceWithLease = this.context.config?.push?.useForceWithLease ?? true;
+			forceOpts = useForceWithLease
+				? { withLease: true, ifIncludes: this.context.config?.push?.useForceIfIncludes ?? true }
+				: { withLease: false };
 		}
 
 		try {

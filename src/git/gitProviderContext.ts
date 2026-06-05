@@ -50,6 +50,12 @@ export function createGitProviderContext(container: Container): GitServiceContex
 				maxSearchItems: configuration.get('graph.searchItemLimit'),
 			};
 		},
+		get push() {
+			return {
+				useForceWithLease: configuration.getCore('git.useForcePushWithLease') ?? true,
+				useForceIfIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
+			};
+		},
 	};
 
 	return {
