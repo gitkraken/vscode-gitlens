@@ -10801,12 +10801,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@debug()
 	private async revealWorktreeInExplorer(item?: GraphItemContext) {
 		const worktree = await this.getGraphItemWorktree(item);
-		if (worktree == null) return;
+		// worktree.uri preserves remote-dev schemes for branch/secondary-worktree contexts.
+		let uri = worktree?.uri;
+		if (uri == null) {
+			// Primary WIP has no resolved worktree (getGraphItemWorktree returns undefined to protect
+			// explainWip); reveal the row's own repo folder, mirroring openInIntegratedTerminal.
+			const ref = this.getGraphItemRef(item, 'revision');
+			if (ref?.ref !== uncommitted) return;
+
+			uri = Uri.file(ref.repoPath);
+		}
 
 		// Pass a sub-path (.git always exists in any worktree) so the OS file manager opens the
 		// worktree folder itself rather than its parent — the default `revealFileInOS` selects
 		// the folder in the parent on Windows/WSL, which isn't what users expect for a worktree.
-		void revealInFileExplorer(Uri.joinPath(worktree.uri, '.git'));
+		void revealInFileExplorer(Uri.joinPath(uri, '.git'));
 	}
 
 	@command('gitlens.graph.deleteWorktree')
