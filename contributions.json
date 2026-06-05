@@ -3220,6 +3220,19 @@
 				]
 			}
 		},
+		"gitlens.graph.dropCommits.multi": {
+			"label": "Drop Commits...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.graph.hideLocalBranch": {
 			"label": "Hide Local Branch",
 			"menus": {
