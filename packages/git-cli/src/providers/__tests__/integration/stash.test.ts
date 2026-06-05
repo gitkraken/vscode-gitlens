@@ -96,6 +96,88 @@ suite('StashSubProvider.applyStash (by SHA)', () => {
 	});
 });
 
+suite('StashSubProvider.saveStash', () => {
+	test('keeps staged changes when including untracked files (no pathspecs)', async () => {
+		// Regression for #5281: "Stash Unstaged Changes" (with an untracked file involved) must keep
+		// staged changes intact. The SCM group action passes { includeUntracked: true, keepIndex: true }
+		// with no pathspecs, which must run `git stash push --keep-index --include-untracked`. A prior
+		// bug dropped --keep-index whenever --include-untracked was present, stashing everything —
+		// including the staged changes.
+		const r = createTestRepo();
+		try {
+			// One committed file we'll stage a change to, and another we'll modify but leave unstaged
+			addCommit(r.path, 'staged.txt', 'staged base\n', 'add staged.txt');
+			addCommit(r.path, 'unstaged.txt', 'unstaged base\n', 'add unstaged.txt');
+
+			// Staged change
+			writeFileSync(join(r.path, 'staged.txt'), 'staged base\nstaged edit\n');
+			execFileSync('git', ['add', 'staged.txt'], { cwd: r.path, stdio: 'pipe' });
+			// Unstaged change to a tracked file
+			writeFileSync(join(r.path, 'unstaged.txt'), 'unstaged base\nunstaged edit\n');
+			// Untracked file
+			writeFileSync(join(r.path, 'untracked.txt'), 'untracked\n');
+
+			await r.provider.stash?.saveStash(r.path, 'unstaged + untracked', undefined, {
+				includeUntracked: true,
+				keepIndex: true,
+			});
+
+			// The staged change must still be staged (kept in the index)
+			const staged = execFileSync('git', ['diff', '--cached', '--name-only'], {
+				cwd: r.path,
+				encoding: 'utf-8',
+			}).trim();
+			assert.strictEqual(
+				staged,
+				'staged.txt',
+				'Staged change must remain staged after stashing unstaged + untracked',
+			);
+
+			// The unstaged change must have been stashed away (file reverted to its committed content)
+			assert.strictEqual(
+				readFileSync(join(r.path, 'unstaged.txt'), 'utf-8'),
+				'unstaged base\n',
+				'Unstaged change should have been stashed',
+			);
+			// The untracked file must have been stashed away (removed from the working tree)
+			assert.throws(
+				() => readFileSync(join(r.path, 'untracked.txt'), 'utf-8'),
+				'Untracked file should have been stashed',
+			);
+
+			// Exactly one stash entry should have been created
+			const stash = await r.provider.stash?.getStash(r.path);
+			assert.strictEqual(stash?.stashes.size, 1, 'Expected exactly one stash entry');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('avoids the git --keep-index + --include-untracked pathspec bug', async () => {
+		// `git stash push --keep-index --include-untracked -- <untracked>` errors in git
+		// ("error: pathspec ... did not match any file(s) known to git"). When pathspecs are supplied
+		// alongside includeUntracked, --keep-index must be dropped so the stash still succeeds.
+		const r = createTestRepo();
+		try {
+			writeFileSync(join(r.path, 'untracked.txt'), 'untracked\n');
+
+			await assert.doesNotReject(
+				() =>
+					r.provider.stash?.saveStash(r.path, 'untracked only', [join(r.path, 'untracked.txt')], {
+						includeUntracked: true,
+						keepIndex: true,
+					}),
+				'Stashing an untracked file by pathspec should not hit the git --keep-index bug',
+			);
+
+			const stash = await r.provider.stash?.getStash(r.path);
+			assert.strictEqual(stash?.stashes.size, 1, 'Expected the untracked file to be stashed');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
 suite('CommitsSubProvider.getLog with stashes after rebase', () => {
 	test('does not include pre-rebase commits anchored only by the stash', async () => {
 		// Regression: a stash on a branch was anchoring its parent chain into the branch
