@@ -5,7 +5,8 @@ export const wipBarStyles = css`
 		display: block;
 		flex: 0 0 auto;
 		background: var(--color-background);
-		border-block: 1px solid var(--vscode-panel-border, var(--color-foreground--25));
+		padding-block-end: 0.3rem;
+		border-block-end: 1px solid var(--vscode-panel-border, var(--color-foreground--25));
 		font-family: var(--font-family);
 	}
 
