@@ -433,11 +433,10 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		const sshProgram = configMap.get('gpg.ssh.program');
 		const allowedSignersFile = configMap.get('gpg.ssh.allowedsignersfile');
 
-		// Check if git config has commit signing enabled
-		const isEnabled = parseGitBoolean(enabledRaw);
-
-		// Note: To override commit signing, pass it via the host/caller.
-		// The library no longer reads a config for this.
+		// Check if git config has commit signing enabled, falling back to the host-level override
+		// (e.g. VS Code's `git.enableCommitSigning`) when `commit.gpgsign` is unset/false. The host
+		// override can only enable signing, never force it off.
+		const isEnabled = parseGitBoolean(enabledRaw) || this.context.config?.signing?.enabled === true;
 
 		return {
 			enabled: isEnabled,
