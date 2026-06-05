@@ -56,6 +56,11 @@ export function createGitProviderContext(container: Container): GitServiceContex
 				useForceIfIncludes: configuration.getCore('git.useForcePushIfIncludes') ?? true,
 			};
 		},
+		get signing() {
+			return {
+				enabled: configuration.getCore('git.enableCommitSigning'),
+			};
+		},
 	};
 
 	return {

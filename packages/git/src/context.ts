@@ -96,6 +96,16 @@ export interface GitServiceConfig {
 		 */
 		readonly useForceIfIncludes?: boolean;
 	};
+
+	/** Commit-signing preferences. */
+	readonly signing?: {
+		/**
+		 * Host-level override for whether commit signing is enabled (e.g. VS Code's `git.enableCommitSigning`).
+		 * When `true`, signing is treated as enabled even if the repo's `commit.gpgsign` is unset/false. It never
+		 * forces signing off.
+		 */
+		readonly enabled?: boolean;
+	};
 }
 
 /** Git command types that can produce conflicts. */
