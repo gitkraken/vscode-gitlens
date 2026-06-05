@@ -8701,7 +8701,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.publishBranch:graph')
 	@debug()
 	private async publishBranch(item?: GraphItemContext | BranchRef) {
-		const ref = await this.resolveBranchRef(item);
+		let ref = await this.resolveBranchRef(item);
+		if (ref == null) {
+			// Header publish button passes no branch context — fall back to the current branch
+			const branch = await this.repository?.git.branches.getBranch();
+			ref = branch != null ? getReferenceFromBranch(branch) : undefined;
+		}
 		if (ref == null) return;
 
 		await RepoActions.push(ref.repoPath, undefined, ref);

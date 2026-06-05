@@ -39,8 +39,16 @@ export class GitActionsButtons extends LitElement {
 			}
 
 			gl-fetch-button {
-				flex-shrink: 1;
-				min-width: 3.2rem;
+				flex: 0 1 max-content;
+				min-width: 3.1rem;
+			}
+
+			/* Publish yields its label before Fetch loses a pixel, so the two collapse
+			   sequentially (publish → icon, then fetch → icon) instead of both shrinking
+			   halfway together and neither reaching its icon-only floor. */
+			gl-publish-button {
+				flex: 0 1000 max-content;
+				min-width: 3.1rem;
 			}
 
 			.wip-button {
@@ -142,6 +150,7 @@ export class GitActionsButtons extends LitElement {
 				.fetchedText=${this.fetchedText}
 				.branchName=${this.branchName}
 			></gl-push-pull-button>
+			<gl-publish-button .branchState=${this.branchState} .branchName=${this.branchName}></gl-publish-button>
 			<gl-fetch-button
 				.branchState=${this.branchState}
 				.fetchedText=${this.fetchedText}
@@ -198,7 +207,9 @@ export class GlFetchButton extends LitElement {
 			gl-popover.fetch-popover {
 				display: block;
 				min-width: 0;
+				width: 100%;
 				max-width: 100%;
+				--gl-popover-anchor-width: 100%;
 			}
 			/* Use CSS Grid so the text column's min-content is 0,
 			   allowing the text to shrink and ellipsize without expanding
@@ -207,6 +218,8 @@ export class GlFetchButton extends LitElement {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr);
 				align-items: center;
+				overflow: hidden;
+				width: 100%;
 				max-width: 100%;
 			}
 			.action-button__text {
@@ -336,7 +349,12 @@ export class GlFetchButton extends LitElement {
 	override render() {
 		return html`
 			<gl-popover class="fetch-popover" placement="bottom" ?arrow=${false} distance=${4}>
-				<a slot="anchor" href=${this._webview.createCommandLink('gitlens.fetch:')} class="action-button">
+				<a
+					slot="anchor"
+					href=${this._webview.createCommandLink('gitlens.fetch:')}
+					class="action-button"
+					aria-label="Fetch"
+				>
 					<code-icon class="action-button__icon" icon="repo-fetch"></code-icon>
 					<span class="action-button__text"
 						><span class="action-button__label">Fetch</span>${this.fetchedTextShort
@@ -574,10 +592,77 @@ export class PushPullButton extends LitElement {
 	}
 }
 
+@customElement('gl-publish-button')
+export class GlPublishButton extends LitElement {
+	static override styles = [
+		linkBase,
+		actionButton,
+		css`
+			:host {
+				display: inline-flex;
+				min-width: 0;
+				max-width: 100%;
+			}
+			gl-tooltip {
+				display: block;
+				min-width: 0;
+				width: 100%;
+				max-width: 100%;
+			}
+			.action-button {
+				display: grid;
+				grid-template-columns: auto minmax(0, 1fr);
+				align-items: center;
+				overflow: hidden;
+				width: 100%;
+				max-width: 100%;
+			}
+			.publish-button__text {
+				display: block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+		`,
+	];
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
+
+	@property({ type: Object })
+	branchState?: BranchState;
+
+	@property({ type: String })
+	branchName?: string;
+
+	override render() {
+		// Only when the current branch has no upstream (unpublished)
+		if (this.branchState == null || this.branchState.upstream != null) return nothing;
+
+		return html`
+			<gl-tooltip placement="bottom">
+				<a
+					href=${this._webview.createCommandLink('gitlens.publishBranch:')}
+					class="action-button"
+					aria-label="Publish Branch"
+				>
+					<code-icon class="action-button__icon" icon="cloud-upload"></code-icon>
+					<span class="publish-button__text">Publish Branch</span>
+				</a>
+				<span slot="content">
+					Publish (push) ${this.branchName ? html`<strong>${this.branchName}</strong>` : 'this branch'} to a
+					remote
+				</span>
+			</gl-tooltip>
+		`;
+	}
+}
+
 declare global {
 	interface HTMLElementTagNameMap {
 		'gl-git-actions-buttons': GitActionsButtons;
 		'gl-fetch-button': GlFetchButton;
+		'gl-publish-button': GlPublishButton;
 		'gl-push-pull-button': PushPullButton;
 	}
 }
