@@ -8801,6 +8801,32 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await this.runRebaseRewrite(repoPath, ordered, choice === fixup ? 'fixup' : 'squash');
 	}
 
+	@command('gitlens.graph.dropCommits.multi')
+	@debug()
+	private async dropCommits(item?: GraphItemContext): Promise<void> {
+		const prepared = await this.prepareCommitsForRewrite(item, 'drop');
+		if (prepared == null) return;
+
+		const { repoPath, ordered, published } = prepared;
+
+		const drop: MessageItem = { title: 'Drop' };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const choice = await window.showWarningMessage(
+			`Drop ${ordered.length} commits?`,
+			{
+				modal: true,
+				detail: published
+					? 'One or more of these commits have already been pushed. Dropping rewrites history and will require a force push.'
+					: 'This removes the selected commits from the current branch.',
+			},
+			drop,
+			cancel,
+		);
+		if (choice !== drop) return;
+
+		await this.runRebaseRewrite(repoPath, ordered, 'drop');
+	}
+
 	/**
 	 * Validates a multi-commit selection for a history-rewriting rebase (squash/fixup/drop): every commit
 	 * must be loaded in the graph, none may be a merge commit, and the oldest must have a parent to rebase
