@@ -164,6 +164,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.deleteBranch'
 	| 'gitlens.graph.deleteTag'
 	| 'gitlens.graph.deleteWorktree'
+	| 'gitlens.graph.dropCommits.multi'
 	| 'gitlens.graph.hideLocalBranch'
 	| 'gitlens.graph.hideRefGroup'
 	| 'gitlens.graph.hideRemote'

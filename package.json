@@ -7734,6 +7734,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.dropCommits.multi",
+				"title": "Drop Commits...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.hideLocalBranch",
 				"title": "Hide Local Branch"
 			},
@@ -13227,6 +13232,10 @@
 				},
 				{
 					"command": "gitlens.graph.deleteWorktree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.dropCommits.multi",
 					"when": "false"
 				},
 				{
@@ -27336,6 +27345,11 @@
 					"command": "gitlens.graph.squashCommits.multi",
 					"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && listContiguousSelection",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.graph.dropCommits.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote.multi",
