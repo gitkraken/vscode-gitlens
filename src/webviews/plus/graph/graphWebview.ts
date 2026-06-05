@@ -1,5 +1,11 @@
 import type { emptySetMarker, GraphRefOptData, GraphRow, GraphSearchMode } from '@gitkraken/gitkraken-components';
-import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
+import type {
+	CancellationToken,
+	ColorTheme,
+	ConfigurationChangeEvent,
+	MessageItem,
+	TextDocumentShowOptions,
+} from 'vscode';
 import {
 	CancellationTokenSource,
 	commands,
@@ -8765,6 +8771,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (selection == null) return Promise.resolve();
 
 		return RepoActions.cherryPick(selection[0].repoPath, selection);
+	}
+
+	@command('gitlens.graph.squashCommits.multi')
+	@debug()
+	private async squashCommits(item?: GraphItemContext): Promise<void> {
+		const prepared = await this.prepareCommitsForRewrite(item, 'squash');
+		if (prepared == null) return;
+
+		const { repoPath, ordered, published } = prepared;
+
+		const squash: MessageItem = { title: 'Squash' };
+		const fixup: MessageItem = { title: 'Keep First Message' };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+		const choice = await window.showWarningMessage(
+			`Squash ${ordered.length} commits into one?`,
+			{
+				modal: true,
+				detail: published
+					? 'One or more of these commits have already been pushed. Squashing rewrites history and will require a force push.'
+					: 'Choose Squash to review and edit the combined message, or Keep First Message to keep only the oldest commit message.',
+			},
+			squash,
+			fixup,
+			cancel,
+		);
+		if (choice !== squash && choice !== fixup) return;
+
+		await this.runRebaseRewrite(repoPath, ordered, choice === fixup ? 'fixup' : 'squash');
 	}
 
 	/**
