@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the `gitlens.advanced.similarityThreshold` setting being ignored when computing Git status &mdash; rename detection in status, working changes (WIP), and stash file lists used Git's default threshold (50%) instead of the configured value
 - Fixes the `gitlens.advanced.similarityThreshold` setting being ignored when listing changed files for a diff &mdash; rename detection used Git's default threshold (50%) instead of the configured value
 - Fixes force push from the _Push_ command always using `--force-with-lease` (and `--force-if-includes`) and ignoring VS Code's `git.useForcePushWithLease` and `git.useForcePushIfIncludes` settings &mdash; the confirmation could offer a plain `--force` while GitLens still pushed with lease; it now honors the configured preference
 - Fixes _Stash Unstaged Changes_ also stashing staged changes when an untracked file is involved &mdash; including untracked files no longer drops the `--keep-index` flag, so staged changes are correctly kept intact ([#5281](https://github.com/gitkraken/vscode-gitlens/issues/5281))
