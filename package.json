@@ -7738,6 +7738,16 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.graph.modifyCommits",
+				"title": "Modify Commits from Here (Interactive Rebase)...",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.graph.modifyCommits.multi",
+				"title": "Modify Commits (Interactive Rebase)...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.openBranchOnRemote",
 				"title": "Open Branch on Remote",
 				"icon": "$(globe)"
@@ -7881,6 +7891,11 @@
 			{
 				"command": "gitlens.graph.revert",
 				"title": "Revert Commit...",
+				"enablement": "!operationInProgress"
+			},
+			{
+				"command": "gitlens.graph.rewordCommit",
+				"title": "Reword Commit...",
 				"enablement": "!operationInProgress"
 			},
 			{
@@ -13237,6 +13252,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.graph.modifyCommits",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.modifyCommits.multi",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.graph.openBranchOnRemote",
 					"when": "false"
 				},
@@ -13354,6 +13377,10 @@
 				},
 				{
 					"command": "gitlens.graph.revert",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.rewordCommit",
 					"when": "false"
 				},
 				{
@@ -26514,6 +26541,16 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.graph.rewordCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.modifyCommits",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@5"
+				},
+				{
 					"command": "gitlens.graph.resetCommit",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@5"
@@ -27324,6 +27361,11 @@
 					"command": "gitlens.graph.dropCommits.multi",
 					"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.modifyCommits.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@5"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote.multi",

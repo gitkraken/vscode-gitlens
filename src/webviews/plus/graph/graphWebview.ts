@@ -8875,6 +8875,100 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	@command('gitlens.graph.rewordCommit')
+	@debug()
+	private async rewordCommit(item?: GraphItemContext): Promise<void> {
+		const ref = this.getGraphItemRef(item, 'revision');
+		if (ref == null) return;
+
+		const graph = this._graph;
+		if (graph == null) return;
+
+		const repoPath = ref.repoPath;
+		if (this.container.git.getRepositoryService(repoPath).ops?.rebase == null) {
+			void window.showWarningMessage('Rewording commits is not supported in this repository.');
+			return;
+		}
+
+		const row = graph.rows.find(r => r.sha === ref.ref);
+		if ((row?.parents.length ?? 0) === 0) {
+			void window.showWarningMessage('Unable to reword: the root commit has no parent to rebase onto.');
+			return;
+		}
+		if ((row?.parents.length ?? 0) > 1) {
+			void window.showWarningMessage('Unable to reword: cannot reword a merge commit.');
+			return;
+		}
+
+		// Warn (don't block) when rewording an already-published commit — rewording requires a force push.
+		let published = false;
+		try {
+			published = await isCommitPushed(repoPath, ref.ref);
+		} catch {
+			// Ignore — fall back to opening the message editor without the published warning.
+		}
+		if (published) {
+			const confirm: MessageItem = { title: 'Reword' };
+			const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+			const choice = await window.showWarningMessage(
+				'Reword this commit?',
+				{
+					modal: true,
+					detail: 'This commit has already been pushed. Rewording rewrites history and will require a force push.',
+				},
+				confirm,
+				cancel,
+			);
+			if (choice !== confirm) return;
+		}
+
+		await this.runRebaseRewrite(repoPath, [ref], 'reword');
+	}
+
+	@command('gitlens.graph.modifyCommits')
+	@command('gitlens.graph.modifyCommits.multi')
+	@debug()
+	private modifyCommits(item?: GraphItemContext): Promise<void> {
+		const { selection } = this.getGraphItemRefs(item, 'revision');
+		if (selection == null || selection.length === 0) return Promise.resolve();
+
+		const graph = this._graph;
+		if (graph == null) return Promise.resolve();
+
+		// Interactively rebase from the parent of the oldest selected commit so the todo spans
+		// oldest..HEAD — the user drives squash/reword/drop/reorder in the existing rebase editor.
+		const rowIndexBySha = new Map(graph.rows.map((r, i) => [r.sha, i] as const));
+		const ordered = selection
+			.filter(ref => rowIndexBySha.has(ref.ref))
+			.sort((a, b) => rowIndexBySha.get(a.ref)! - rowIndexBySha.get(b.ref)!);
+		if (ordered.length !== selection.length) {
+			void window.showWarningMessage('Unable to modify: some selected commits are not loaded in the graph.');
+			return Promise.resolve();
+		}
+
+		// A standard interactive rebase flattens merges (no `--rebase-merges`), so a merge anywhere in the
+		// selection won't appear in the todo as the user expects — reject it (as squash/drop/reword do).
+		if (ordered.some(ref => (graph.rows[rowIndexBySha.get(ref.ref)!]?.parents.length ?? 0) > 1)) {
+			void window.showWarningMessage('Unable to modify: the selection includes a merge commit.');
+			return Promise.resolve();
+		}
+
+		const oldest = ordered.at(-1);
+		const parentSha = oldest != null ? graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents[0] : undefined;
+		if (oldest == null || parentSha == null) {
+			void window.showWarningMessage(
+				'Unable to modify: the oldest selected commit has no parent to rebase onto.',
+			);
+			return Promise.resolve();
+		}
+
+		return RepoActions.rebase(
+			oldest.repoPath,
+			createReference(parentSha, oldest.repoPath, { refType: 'revision' }),
+			true,
+		);
+	}
+
 	@command('gitlens.graph.copy')
 	@debug()
 	private async copy(item?: GraphItemContext) {

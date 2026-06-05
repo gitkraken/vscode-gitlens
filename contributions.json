@@ -3306,6 +3306,32 @@
 				]
 			}
 		},
+		"gitlens.graph.modifyCommits": {
+			"label": "Modify Commits from Here (Interactive Rebase)...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.graph.modifyCommits.multi": {
+			"label": "Modify Commits (Interactive Rebase)...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 5
+					}
+				]
+			}
+		},
 		"gitlens.graph.openBranchOnRemote": {
 			"label": "Open Branch on Remote",
 			"icon": "$(globe)",
@@ -3720,6 +3746,19 @@
 						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.graph.rewordCommit": {
+			"label": "Reword Commit...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+						"group": "1_gitlens_actions",
+						"order": 4
 					}
 				]
 			}
