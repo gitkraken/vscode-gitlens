@@ -48,9 +48,9 @@ export class GlWipTreePane extends LitElement {
 
 		/* Collapse the Stash label to icon-only when the pane runs out of room. display:none
 		   cleanly removes the slotted flex item so the button's internal gap collapses too — true
-		   icon-only, no half-clipped text. The button's tooltip="Stash Changes" keeps it accessible
-		   when the label is hidden. The group/action-nav gap is intentionally preserved at narrow
-		   widths so the clusters stay visually distinct. */
+		   icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
+		   accessible when the label is hidden. The group/action-nav gap is intentionally preserved at
+		   narrow widths so the clusters stay visually distinct. */
 		@container gl-wip-tree-pane (max-width: 340px) {
 			.stash-label {
 				display: none !important;
@@ -274,7 +274,12 @@ export class GlWipTreePane extends LitElement {
 			${files.length > 0
 				? html`<div class="wip-actions" slot="leading-actions">
 						${this.renderDiscardUnstagedAction(files)}
-						<gl-action-chip icon="gl-stash-save" label="Stash Changes" @click=${this.onStashSave}>
+						<gl-action-chip
+							icon="gl-stash-save"
+							label=${hasStagedAndUnstaged ? 'Stash Staged Changes' : 'Stash All Changes'}
+							alt-label=${hasStagedAndUnstaged ? 'Stash All Changes' : nothing}
+							@click=${this.onStashSave}
+						>
 							<span class="stash-label">Stash</span>
 						</gl-action-chip>
 						${this.renderCopyPatchButton(hasStagedAndUnstaged)}
@@ -353,8 +358,12 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('resolve-all-incoming', { bubbles: true, composed: true }));
 	};
 
-	private onStashSave() {
-		this.dispatchEvent(new CustomEvent('stash-save', { bubbles: true, composed: true }));
+	private onStashSave(e: MouseEvent) {
+		// Mixed staged + unstaged: primary stashes only staged, Alt stashes all. Otherwise stash all.
+		const onlyStaged = this.hasStagedAndUnstaged && e.altKey !== true;
+		this.dispatchEvent(
+			new CustomEvent('stash-save', { detail: { onlyStaged: onlyStaged }, bubbles: true, composed: true }),
+		);
 	}
 
 	private onDiscardUnstaged() {

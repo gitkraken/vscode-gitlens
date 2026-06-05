@@ -2650,7 +2650,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleOpenPullRequestDetails = (e: CustomEvent<{ id: string; providerId: string | undefined }>) =>
 		this._actions.openPullRequestDetails(e.detail.id || undefined, e.detail.providerId);
 
-	private handleStashSave = () => this._actions.stashSave(this.effectiveRepoPath);
+	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean }>) =>
+		this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
 
 	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
 		this._actions.startWork(e.detail?.showOpenInAgent);

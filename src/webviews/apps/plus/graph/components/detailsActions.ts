@@ -2823,10 +2823,10 @@ export class DetailsActions {
 		void this.services.repository.createBranch(repoPath);
 	}
 
-	stashSave(repoPath: string | undefined): void {
+	stashSave(repoPath: string | undefined, onlyStaged?: boolean): void {
 		if (!repoPath) return;
 
-		void this.services.commands.execute('gitlens.stashSave', { repoPath: repoPath });
+		void this.services.commands.execute('gitlens.stashSave', { repoPath: repoPath, onlyStaged: onlyStaged });
 	}
 
 	applyStash(repoPath: string | undefined): void {
