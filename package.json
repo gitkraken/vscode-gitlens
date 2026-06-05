@@ -7983,6 +7983,11 @@
 				"icon": "$(split-horizontal)"
 			},
 			{
+				"command": "gitlens.graph.squashCommits.multi",
+				"title": "Squash Commits...",
+				"enablement": "!operationInProgress"
+			},
+			{
 				"command": "gitlens.graph.stageConflictCurrentChanges:graph",
 				"title": "Stage Current Changes",
 				"icon": "$(reply)"
@@ -13439,6 +13444,10 @@
 				{
 					"command": "gitlens.graph.split",
 					"when": "gitlens:enabled && config.gitlens.graph.allowMultiple"
+				},
+				{
+					"command": "gitlens.graph.squashCommits.multi",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.graph.stageConflictCurrentChanges:graph",
@@ -27322,6 +27331,11 @@
 					"command": "gitlens.graph.cherryPick.multi",
 					"when": "webviewItems =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.squashCommits.multi",
+					"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && listContiguousSelection",
+					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote.multi",
