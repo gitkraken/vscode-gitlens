@@ -2,7 +2,7 @@ import * as assert from 'assert';
 import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GraphCommitContextValue } from '../../../../../plus/graph/protocol.js';
 import type { RowContextSource } from '../rowContext.utils.js';
-import { buildRowCommitContext } from '../rowContext.utils.js';
+import { buildRowCommitContext, reduceCommonWebviewItemsContext } from '../rowContext.utils.js';
 
 const primary = '/mock/repo';
 const wtA = { id: '/mock/repo|worktrees/feature-a', path: '/mock/repo.worktrees/feature-a' };
@@ -97,5 +97,78 @@ suite('buildRowCommitContext', () => {
 		);
 		assert.ok(!/\+worktreeHEAD\b/.test(webviewItem), `unexpected +worktreeHEAD on a non-leaf in "${webviewItem}"`);
 		assert.strictEqual(value.worktreePath, undefined);
+	});
+});
+
+suite('reduceCommonWebviewItemsContext', () => {
+	test('empty selection → undefined', () => {
+		assert.strictEqual(reduceCommonWebviewItemsContext([]), undefined);
+	});
+
+	test('single context → returned verbatim (keeps all additions)', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+HEAD+current']),
+			'gitlens:commit+HEAD+current',
+		);
+	});
+
+	test('all rows identical → that context (dedupes to one)', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+current', 'gitlens:commit+current']),
+			'gitlens:commit+current',
+		);
+	});
+
+	// Regression for the menu disappearing when HEAD is part of a 3+ selection: the HEAD row's extra `+HEAD`
+	// makes its context differ from the others, while the non-HEAD rows collapse to one shared context. The
+	// shared `+current` must survive so the Squash/Drop/Modify `when` clauses (which match `+current`) still fire.
+	test('HEAD + multiple non-HEAD rows still keeps the shared +current', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext([
+				'gitlens:commit+HEAD+current', // HEAD
+				'gitlens:commit+current', // parent
+				'gitlens:commit+current', // parent's parent (collapses with parent)
+			]),
+			'gitlens:commit+current',
+		);
+	});
+
+	test('HEAD + single non-HEAD row keeps the shared +current', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+HEAD+current', 'gitlens:commit+current']),
+			'gitlens:commit+current',
+		);
+	});
+
+	test('retains every shared addition, drops the row-specific one', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext([
+				'gitlens:commit+HEAD+current+unique',
+				'gitlens:commit+current+unique',
+				'gitlens:commit+current+unique',
+			]),
+			'gitlens:commit+current+unique',
+		);
+	});
+
+	test('no addition shared by all → base type only', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+HEAD', 'gitlens:commit+current']),
+			'gitlens:commit',
+		);
+	});
+
+	test('a context with no additions collapses the result to the base type', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+current', 'gitlens:commit']),
+			'gitlens:commit',
+		);
+	});
+
+	test('mixed base types → undefined (caller drops the group)', () => {
+		assert.strictEqual(
+			reduceCommonWebviewItemsContext(['gitlens:commit+current', 'gitlens:branch+current']),
+			undefined,
+		);
 	});
 });
