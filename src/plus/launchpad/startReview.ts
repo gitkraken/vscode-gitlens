@@ -3,6 +3,7 @@ import { Uri, window } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -29,27 +30,25 @@ import { QuickCommand } from '../../commands/quick-wizard/quickCommand.js';
 import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
-import type { IntegrationIds } from '../../constants.integrations.js';
-import { GitCloudHostIntegrationId } from '../../constants.integrations.js';
 import { proBadge } from '../../constants.js';
 import type { Source } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import type { ConnectMoreIntegrationsItem } from '../../quickpicks/integrationPicker.js';
+import {
+	getOpenOnGitProviderQuickInputButtons,
+	isManageIntegrationsItem,
+	manageIntegrationsItem,
+} from '../../quickpicks/integrationPicker.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import { executeCommand } from '../../system/-webview/command.js';
-import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { AgentDescriptor, AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
-import type { ConnectMoreIntegrationsItem } from '../integrations/utils/-webview/integration.quickPicks.js';
-import {
-	getOpenOnGitProviderQuickInputButtons,
-	isManageIntegrationsItem,
-	manageIntegrationsItem,
-} from '../integrations/utils/-webview/integration.quickPicks.js';
+import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import { getLaunchpadItemIdHash, supportedLaunchpadIntegrations } from './launchpadProvider.js';
 import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
@@ -231,10 +230,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 					opened = true;
 
-					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-					const result = isUsingCloudIntegrations
-						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					const result = yield* this.confirmCloudIntegrationsConnectStep(state, context);
 					if (result === StepResultBreak) {
 						if (step.goBack() == null) break;
 						continue;
@@ -427,6 +423,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
+			if (!(await ensureIntegrationConnectAllowed(this.container, integration))) return false;
+
 			connected = await integration.connect('startReview');
 		}
 
@@ -441,57 +439,6 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		}
 
 		return result.items?.[0];
-	}
-
-	private async *confirmLocalIntegrationConnectStep(
-		state: StepState<StartReviewState>,
-		context: StartReviewContext,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
-		context.result = undefined;
-		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] = [];
-
-		for (const integration of supportedLaunchpadIntegrations) {
-			if (context.connectedIntegrations.get(integration)) {
-				continue;
-			}
-
-			switch (integration) {
-				case GitCloudHostIntegrationId.GitHub:
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Connect to GitHub...',
-								detail: 'Will connect to GitHub to provide access to your pull requests',
-							},
-							integration,
-						),
-					);
-					break;
-				default:
-					break;
-			}
-		}
-
-		const step = this.createConfirmStep(
-			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
-			confirmations,
-			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{
-				placeholder: 'Connect an integration to view pull requests for review',
-				buttons: [],
-				ignoreFocusOut: false,
-			},
-		);
-
-		const selection: StepSelection<typeof step> = yield step;
-		if (canPickStepContinue(step, state, selection)) {
-			const resume = step.freeze?.();
-			const chosenIntegrationId = selection[0].item;
-			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.dispose() };
-		}
-
-		return StepResultBreak;
 	}
 
 	private async *confirmCloudIntegrationsConnectStep(
@@ -710,10 +657,7 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		const element = selection[0];
 		if (isConnectMoreIntegrationsItem(element)) {
 			this.sendTitleActionTelemetry('connect', context);
-			const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-			const result = isUsingCloudIntegrations
-				? yield* this.confirmCloudIntegrationsConnectStep(state, context, step)
-				: yield* this.confirmLocalIntegrationConnectStep(state, context);
+			const result = yield* this.confirmCloudIntegrationsConnectStep(state, context, step);
 			if (result === StepResultBreak) return result;
 
 			result.resume();

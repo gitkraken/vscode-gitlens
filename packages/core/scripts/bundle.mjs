@@ -31,6 +31,7 @@ const packages = [
 	{ name: '@gitlens/git-github', srcDir: 'packages/plus/git-github', dest: 'plus/git-github' },
 	{ name: '@gitlens/ai', srcDir: 'packages/plus/ai', dest: 'plus/ai' },
 	{ name: '@gitlens/agents', srcDir: 'packages/plus/agents', dest: 'plus/agents' },
+	{ name: '@gitlens/integrations', srcDir: 'packages/plus/integrations', dest: 'plus/integrations' },
 ];
 
 const nameToDest = Object.fromEntries(packages.map(p => [p.name, p.dest]));
@@ -123,11 +124,11 @@ async function* walk(dir) {
 	}
 }
 
-const specifierRegex = /(['"])@gitlens\/(utils|ipc|git|git-cli|ai|git-github)\/([^'"]+)\1/g;
+const specifierRegex = /(['"])@gitlens\/(utils|ipc|git|git-cli|ai|agents|git-github|integrations)\/([^'"]+)\1/g;
 // Also rewrite backtick-wrapped package mentions (typical in JSDoc) so the published tarball never
 // references the internal `@gitlens/*` names. Backticks are required to avoid false positives on
 // URLs or other incidental occurrences of the substring.
-const docMentionRegex = /`@gitlens\/(utils|ipc|git|git-cli|ai|git-github)`/g;
+const docMentionRegex = /`@gitlens\/(utils|ipc|git|git-cli|ai|agents|git-github|integrations)`/g;
 const publishedName = '@gitkraken/core-gitlens';
 
 async function rewriteSpecifiers() {

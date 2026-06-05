@@ -1,0 +1,74 @@
+{
+	"name": "@gitlens/integrations",
+	"description": "GitLens integrations package",
+	"version": "0.0.1",
+	"license": "SEE LICENSE IN LICENSE",
+	"private": true,
+	"type": "module",
+	"sideEffects": false,
+	"scripts": {
+		"build": "tsc -b",
+		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:all": "pnpm run clean && pnpm run clean:deps",
+		"clean:deps": "pnpx rimraf --glob **/node_modules",
+		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"test": "node scripts/test.mjs"
+	},
+	"exports": {
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
+		},
+		"./models/*.js": {
+			"types": "./dist/models/*.d.ts",
+			"default": "./dist/models/*.js"
+		},
+		"./authentication/*.js": {
+			"types": "./dist/authentication/*.d.ts",
+			"default": "./dist/authentication/*.js"
+		},
+		"./providers/*.js": {
+			"types": "./dist/providers/*.d.ts",
+			"default": "./dist/providers/*.js"
+		},
+		"./providers/azure/*.js": {
+			"types": "./dist/providers/azure/*.d.ts",
+			"default": "./dist/providers/azure/*.js"
+		},
+		"./providers/bitbucket/*.js": {
+			"types": "./dist/providers/bitbucket/*.d.ts",
+			"default": "./dist/providers/bitbucket/*.js"
+		},
+		"./providers/bitbucket-server/*.js": {
+			"types": "./dist/providers/bitbucket-server/*.d.ts",
+			"default": "./dist/providers/bitbucket-server/*.js"
+		},
+		"./providers/github/*.js": {
+			"types": "./dist/providers/github/*.d.ts",
+			"default": "./dist/providers/github/*.js"
+		},
+		"./providers/gitlab/*.js": {
+			"types": "./dist/providers/gitlab/*.d.ts",
+			"default": "./dist/providers/gitlab/*.js"
+		},
+		"./utils/*.js": {
+			"types": "./dist/utils/*.d.ts",
+			"default": "./dist/utils/*.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {
+		"@gitkraken/provider-apis": "0.40.0",
+		"@gitlens/git": "workspace:*",
+		"@gitlens/git-github": "workspace:*",
+		"@gitlens/utils": "workspace:*"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"esbuild": "0.28.0",
+		"mocha": "catalog:",
+		"typescript": "catalog:"
+	}
+}

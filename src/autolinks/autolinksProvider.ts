@@ -3,6 +3,16 @@ import { Disposable } from 'vscode';
 import type { DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
+import type { ConfiguredIntegrationsChangeEvent } from '@gitlens/integrations/authentication/configuredIntegrationService.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
+import type { Integration } from '@gitlens/integrations/models/integration.js';
+import { IntegrationBase } from '@gitlens/integrations/models/integration.js';
+import type { IssuesIntegration } from '@gitlens/integrations/models/issuesIntegration.js';
+import {
+	convertRemoteProviderIdToIntegrationId,
+	getIntegrationIdForRemote,
+} from '@gitlens/integrations/utils/integration.utils.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { encodeUrl } from '@gitlens/utils/encoding.js';
@@ -14,21 +24,11 @@ import { PromiseCache, PromiseMap } from '@gitlens/utils/promiseCache.js';
 import { capitalize, encodeHtmlWeak, getSuperscript } from '@gitlens/utils/string.js';
 import type { OpenIssueActionContext } from '../api/gitlens.d.js';
 import { OpenIssueOnRemoteCommand } from '../commands/openIssueOnRemote.js';
-import type { IntegrationIds } from '../constants.integrations.js';
 import { GlyphChars } from '../constants.js';
 import type { Source } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { getIssueOrPullRequestHtmlIcon, getIssueOrPullRequestMarkdownIcon } from '../git/utils/-webview/icons.js';
 import { getRemoteIntegration, isRemoteMaybeIntegrationConnected } from '../git/utils/-webview/remote.utils.js';
-import type { ConfiguredIntegrationsChangeEvent } from '../plus/integrations/authentication/configuredIntegrationService.js';
-import type { GitHostIntegration } from '../plus/integrations/models/gitHostIntegration.js';
-import type { Integration } from '../plus/integrations/models/integration.js';
-import { IntegrationBase } from '../plus/integrations/models/integration.js';
-import type { IssuesIntegration } from '../plus/integrations/models/issuesIntegration.js';
-import {
-	convertRemoteProviderIdToIntegrationId,
-	getIntegrationIdForRemote,
-} from '../plus/integrations/utils/-webview/integration.utils.js';
 import { configuration } from '../system/-webview/configuration.js';
 import type {
 	Autolink,

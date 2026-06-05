@@ -10,11 +10,12 @@
 			"@gitlens/git/*": ["./packages/git/src/*"],
 			"@gitlens/git-cli/*": ["./packages/git-cli/src/*"],
 			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"],
+			"@gitlens/integrations/*": ["./packages/plus/integrations/src/*"],
 			"@gitlens/ai/*": ["./packages/plus/ai/src/*"],
 			"@gitlens/agents/*": ["./packages/plus/agents/src/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.node.tsbuildinfo"
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "packages/plus/integrations/src/**/*"],
 	"exclude": ["src/webviews/apps/**/*", "src/env/browser/**/*"]
 }

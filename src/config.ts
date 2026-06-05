@@ -8,7 +8,6 @@ export interface Config {
 	readonly autolinks: AutolinkConfig[] | null;
 	readonly blame: BlameConfig;
 	readonly changes: ChangesConfig;
-	readonly cloudIntegrations: CloudIntegrationsConfig;
 	readonly cloudPatches: CloudPatchesConfig;
 	readonly codeLens: CodeLensConfig;
 	readonly currentLine: CurrentLineConfig;
@@ -321,10 +320,6 @@ interface BlameConfig {
 interface ChangesConfig {
 	readonly locations: ChangesLocations[];
 	/*readonly*/ toggleMode: AnnotationsToggleMode;
-}
-
-interface CloudIntegrationsConfig {
-	readonly enabled: boolean;
 }
 
 interface CloudPatchesConfig {

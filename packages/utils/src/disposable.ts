@@ -1,6 +1,19 @@
 import { once } from './function.js';
 
-export type UnifiedDisposable = { dispose: () => void } & Disposable;
+/**
+ * Minimal disposable contract — a single `dispose(): void` method.
+ *
+ * Mirrors the shape of `vscode.Disposable` so vscode-free packages can name
+ * the contract without requiring lib.es2022's `[Symbol.dispose]`. Classes that
+ * already implement `dispose()` (the vscode-style) satisfy it without changes.
+ *
+ * Use {@link UnifiedDisposable} when you also need the `using`-statement
+ * (`Symbol.dispose`) protocol; everything else can stay on this looser type.
+ */
+
+export type Disposable = { dispose: () => void };
+
+export type UnifiedDisposable = { dispose: () => void } & globalThis.Disposable;
 export type UnifiedAsyncDisposable = { dispose: () => Promise<void> } & AsyncDisposable;
 
 export function createDisposable(dispose: () => void, options?: { once?: boolean }): UnifiedDisposable;
@@ -57,7 +70,7 @@ export function disposableInterval(fn: (...args: any[]) => void, ms: number): Un
 }
 
 export function fromDisposables(
-	...disposables: (UnifiedDisposable | Disposable | { dispose: () => void } | undefined)[]
+	...disposables: (UnifiedDisposable | globalThis.Disposable | { dispose: () => void } | undefined)[]
 ): UnifiedDisposable {
 	let disposed = false;
 	const dispose = () => {

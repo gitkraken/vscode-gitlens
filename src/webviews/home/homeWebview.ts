@@ -7,6 +7,14 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { getComparisonRefsForPullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import { sortBranches } from '@gitlens/git/utils/sorting.js';
+import type { ConfiguredIntegrationsChangeEvent } from '@gitlens/integrations/authentication/configuredIntegrationService.js';
+import {
+	isSupportedCloudIntegrationId,
+	supportedCloudIntegrationDescriptors,
+	supportedOrderedCloudIntegrationIds,
+} from '@gitlens/integrations/constants.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
+import { providersMetadata } from '@gitlens/integrations/providers/models.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { filterMap } from '@gitlens/utils/iterable.js';
 import { hasKeys } from '@gitlens/utils/object.js';
@@ -20,11 +28,6 @@ import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
 import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
-import {
-	isSupportedCloudIntegrationId,
-	supportedCloudIntegrationDescriptors,
-	supportedOrderedCloudIntegrationIds,
-} from '../../constants.integrations.js';
 import { urls } from '../../constants.js';
 import type { HomeTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -53,9 +56,6 @@ import { showPatchesView } from '../../plus/drafts/actions.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import type { SubscriptionChangeEvent } from '../../plus/gk/subscriptionService.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
-import type { ConfiguredIntegrationsChangeEvent } from '../../plus/integrations/authentication/configuredIntegrationService.js';
-import type { ConnectionStateChangeEvent } from '../../plus/integrations/integrationService.js';
-import { providersMetadata } from '../../plus/integrations/providers/models.js';
 import type { StartWorkCommandArgs } from '../../plus/startWork/startWork.js';
 import { getRepositoryPickerTitleAndPlaceholder, showRepositoryPicker } from '../../quickpicks/repositoryPicker.js';
 import {
@@ -326,11 +326,11 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	}
 
 	private onIntegrationsChanged(_e: ConfiguredIntegrationsChangeEvent) {
-		void this.onIntegrationsChangedCore();
+		this.onIntegrationsChangedCore();
 	}
 
 	private onIntegrationConnectionStateChanged(_e: ConnectionStateChangeEvent) {
-		void this.onIntegrationsChangedCore();
+		this.onIntegrationsChangedCore();
 	}
 
 	private async onChooseRepository() {
@@ -990,10 +990,10 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private _integrationStates: IntegrationState[] | undefined;
 	private _defaultSupportedCloudIntegrations: IntegrationState[] | undefined;
 
-	private async getIntegrationStates(force = false) {
+	private getIntegrationStates(force = false) {
 		if (force || this._integrationStates == null) {
 			const integrations: IntegrationState[] = [
-				...filterMap(await this.container.integrations.getConfigured(), i => {
+				...filterMap(this.container.integrations.getConfigured(), i => {
 					if (!isSupportedCloudIntegrationId(i.integrationId)) {
 						return undefined;
 					}
@@ -1118,8 +1118,8 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 		this.host.badge = waiting > 0 ? { tooltip: `${waiting} agent(s) need attention`, value: waiting } : undefined;
 	}
 
-	private async onIntegrationsChangedCore() {
-		const integrations = await this.getIntegrationStates(true);
+	private onIntegrationsChangedCore() {
+		const integrations = this.getIntegrationStates(true);
 		if (integrations.some(i => i.connected)) {
 			void this.container.onboarding.dismiss('home:integrationBanner').catch();
 		}
