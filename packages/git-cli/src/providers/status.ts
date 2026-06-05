@@ -43,7 +43,15 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 		const porcelainVersion = (await this.git.supports('git:status:porcelain-v2')) ? 2 : 1;
 
-		const result = await this.statusCore(repoPath, porcelainVersion, { priority: options?.priority }, cancellation);
+		const result = await this.statusCore(
+			repoPath,
+			porcelainVersion,
+			{
+				similarityThreshold: this.context.config?.commits.similarityThreshold,
+				priority: options?.priority,
+			},
+			cancellation,
+		);
 		const repoUri = fileUri(normalizePath(repoPath));
 		const status = parseGitStatus(result.stdout, repoPath, porcelainVersion, p =>
 			joinUriPath(repoUri, normalizePath(p)),
@@ -111,7 +119,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 		const result = await this.statusCore(
 			repoPath,
 			porcelainVersion,
-			{},
+			{ similarityThreshold: this.context.config?.commits.similarityThreshold },
 			cancellation,
 			// If we want renames, don't include the path as Git won't do rename detection
 			...(renames ? [] : [relativePath]),
@@ -135,7 +143,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	private async statusCore(
 		repoPath: string,
 		porcelainVersion: number = 1,
-		options?: { similarityThreshold?: number; priority?: GitCommandPriority },
+		options?: { similarityThreshold?: number | null; priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
 		...pathspecs: string[]
 	): Promise<GitResult> {
