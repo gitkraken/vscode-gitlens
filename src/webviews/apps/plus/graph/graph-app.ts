@@ -31,6 +31,7 @@ import type {
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
+	createSecondaryWipSha,
 	createWipSha,
 	DismissVisualizationsButtonCalloutCommand,
 	GetRowHoverRequest,
@@ -257,6 +258,34 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return { single: this._altModeSelectedCommit, multi: undefined };
 		}
 		return { single: this._selectedCommit, multi: this._selectedCommits };
+	}
+
+	/** The GRAPH-ROW sha(s) of the current inspection anchor, for the wrapper's derived highlight
+	 *  (`highlight = anchorShas ∩ renderableRows`). `undefined` in alt modes (the graph is hidden, so
+	 *  nothing to highlight) — the alt slot drives details independently. Multi-select carries real
+	 *  commit shas (WIP rows are excluded from compare). For the single anchor the row sha is derived
+	 *  from `(sha, repoPath)`: a real sha is itself; `uncommitted` maps to the primary `work-dir-changes`
+	 *  row when its repoPath is the opened repo, else to the secondary worktree's synthetic row sha
+	 *  (`repoPath` IS the worktree path for a secondary WIP, so the reconstruction is exact). */
+	private get activeAnchorShas(): readonly string[] | undefined {
+		if (this.effectiveDisplayMode !== 'graph') return undefined;
+		if (this._selectedCommits != null) return this._selectedCommits.shas;
+
+		const single = this._selectedCommit;
+		if (single == null) return undefined;
+
+		if (single.sha !== uncommitted) return [single.sha];
+
+		// A WIP anchor is the SECONDARY-worktree row only when its repoPath differs from the opened
+		// repo's. Guard on a resolved `fallbackRepoPath`: during a repo-switch/reload tick it can be
+		// transiently undefined, and treating that as "different" would mis-map a PRIMARY WIP anchor to
+		// a `worktree-wip::` sha that matches no row (dropping the highlight). Default to the primary row.
+		const fallbackRepoPath = this.fallbackRepoPath;
+		const rowSha =
+			fallbackRepoPath != null && single.repoPath !== '' && single.repoPath !== fallbackRepoPath
+				? createSecondaryWipSha(single.repoPath)
+				: ('work-dir-changes' satisfies GitGraphRowType);
+		return [rowSha];
 	}
 
 	private get fallbackRepoPath(): string | undefined {
@@ -1514,6 +1543,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						`
 					: nothing}
 				<gl-graph-wrapper
+					.anchorShas=${this.activeAnchorShas}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
@@ -2366,6 +2396,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover.hide();
 
 		const { selection, reachability, commits } = e.detail;
+
+		// Never clear the inspection anchor on an empty selection. The wrapper only dispatches genuine
+		// (non-empty) intent here; an empty report is a scope/visibility filter-out or a transient GK
+		// race, both of which must KEEP the details anchor (graph shows no highlight, details stay put).
+		if (selection.length === 0) return;
+
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
 
 		if (selection.length >= 2) {
@@ -2394,7 +2430,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._selectedCommits = undefined;
 				this._navExpectedSha = undefined;
 			}
-		} else if (selection.length === 1) {
+		} else {
 			const active = selection[0];
 			const sha = active.type === ('work-dir-changes' satisfies GitGraphRowType) ? uncommitted : active.id;
 			// Prefer per-row repoPath (for multi-worktree WIP); fall back to selected repo
@@ -2417,9 +2453,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (isSecondaryWipSha(active.id) && this.graphState.config?.showWorktreeWipStats === false) {
 				void this.fetchSelectedWorktreeWipStats(active.id);
 			}
-		} else {
-			this._selectedCommit = undefined;
-			this._selectedCommits = undefined;
 		}
 
 		const count = this._selectionTrackingCounter.next();

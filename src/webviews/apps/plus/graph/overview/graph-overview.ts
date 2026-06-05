@@ -27,7 +27,7 @@ import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { HostIpc } from '../../../shared/ipc.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
-import { graphServicesContext, graphStateContext } from '../context.js';
+import { graphStateContext } from '../context.js';
 import './graph-overview-card.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/menu/menu-popover.js';
@@ -164,9 +164,6 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	@consume({ context: ipcContext })
 	private _ipc!: HostIpc;
 
-	@consume({ context: graphServicesContext, subscribe: true })
-	private _services?: typeof graphServicesContext.__context__;
-
 	@state()
 	private _wipData: GetOverviewWipResponse = {};
 
@@ -186,9 +183,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	private _lastOverviewFingerprint: string | undefined;
 	private _lastPushedWip: { branchIds: string[]; wip: GetOverviewWipResponse } | undefined;
 	private _lastSelectionFingerprint: string | undefined;
-	private _selectionRecomputeToken = 0;
+	private _lastContainsRows: AppState['rows'];
 	private readonly _recomputeSelectionDebounced: Deferrable<() => void> = debounce(
-		() => void this.recomputeSelectionContains(),
+		() => this.recomputeSelectionContains(),
 		100,
 		{ edges: 'both' },
 	);
@@ -315,6 +312,17 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 	}
 
 	private maybeRecomputeSelectionContains(): void {
+		// Only compute the contains-selection map when the overview PANEL is actually visible — the
+		// sidebar must be open AND `overview` must be its active panel. `sidebar-panel` renders nothing
+		// for `activePanel == null` and only mounts `gl-graph-overview` for `=== 'overview'`, so that's
+		// the exact condition. No point resolving reachability for a hidden or non-overview sidebar.
+		// Showing it re-renders (render subscribes to `sidebar`), which re-runs this against the selection.
+		const sidebar = this._state.sidebar;
+		if (sidebar?.visible !== true || sidebar.activePanel !== 'overview') {
+			this._recomputeSelectionDebounced.cancel();
+			return;
+		}
+
 		// Fingerprint of selection inputs + the repoPath set of currently rendered cards. If any
 		// of these change, the contains-selection map needs to recompute. Combining all three into
 		// one fingerprint avoids three independent change detectors.
@@ -328,13 +336,14 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 					].sort()
 				: [];
 
-		// Include services-readiness so a fingerprint recorded while services were null doesn't
-		// short-circuit the retry once they arrive (the consumer re-renders via subscribe: true).
-		const servicesReady = this._services != null ? '1' : '0';
-		const fingerprint = `${servicesReady}|${activeRow ?? ''}|${selectedShas.join(',')}|${repoPaths.join(',')}`;
-		if (fingerprint === this._lastSelectionFingerprint) return;
+		// Also recompute when `rows` changes (a deep target / reachability delta paging in) even if the
+		// selection fingerprint is unchanged — contains-selection is resolved from the loaded rows.
+		const rows = this._state.rows;
+		const fingerprint = `${activeRow ?? ''}|${selectedShas.join(',')}|${repoPaths.join(',')}`;
+		if (fingerprint === this._lastSelectionFingerprint && rows === this._lastContainsRows) return;
 
 		this._lastSelectionFingerprint = fingerprint;
+		this._lastContainsRows = rows;
 
 		// Empty selection — clear immediately, no need to debounce or fetch.
 		if (selectedShas.length === 0 && (activeRow == null || activeRow === '')) {
@@ -348,10 +357,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this._recomputeSelectionDebounced();
 	}
 
-	private async recomputeSelectionContains(): Promise<void> {
-		const services = this._services;
-		if (services == null) return;
-
+	private recomputeSelectionContains(): void {
 		const overview = this._state.overview;
 		if (overview == null) return;
 
@@ -370,50 +376,37 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		const repoPaths = new Set<string>([
-			...overview.active.map(b => b.repoPath),
-			...overview.recent.map(b => b.repoPath),
-		]);
-		if (repoPaths.size === 0) return;
-
-		// "Latest wins" — discard results if a newer recompute has been kicked off while we were
-		// awaiting RPCs. Cheaper than AbortController plumbing for a small fan-out.
-		const token = ++this._selectionRecomputeToken;
-
-		const repository = await services.repository;
-		if (token !== this._selectionRecomputeToken) return;
-
-		const fetches: Array<Promise<{ repoPath: string; names: string[] }>> = [];
-		for (const repoPath of repoPaths) {
-			for (const sha of selectedShas) {
-				fetches.push(
-					repository.getCommitReachability(repoPath, sha).then(
-						r => ({
-							repoPath: repoPath,
-							names:
-								r?.refs.filter(ref => ref.refType === 'branch' && !ref.remote).map(ref => ref.name) ??
-								[],
-						}),
-						() => ({ repoPath: repoPath, names: [] }),
-					),
-				);
-			}
-		}
-
-		const results = await Promise.all(fetches);
-		if (token !== this._selectionRecomputeToken) return;
-
+		// Resolve "which branches contain the selection" from the ALREADY-LOADED graph rows'
+		// reachability (`getRowReachability`) rather than a per-sha RPC fan-out — the selected rows live
+		// in the opened repo, so their reachable refs are already in hand. (Row reachability is
+		// `partial`: it reflects the graph walk, which covers the branches shown here; a branch outside
+		// the loaded window won't be listed — accepted, since the RPC was the only thing that caught those.)
+		const rows = this._state.rows;
+		const repoPath = this._state.selectedRepository;
 		const next = new Map<string, Set<string>>();
-		for (const { repoPath, names } of results) {
-			if (names.length === 0) continue;
+		if (rows != null && repoPath != null) {
+			let bucket: Set<string> | undefined;
+			let remaining = selectedShas.size;
+			for (const row of rows) {
+				if (!selectedShas.has(row.sha)) continue;
 
-			let bucket = next.get(repoPath);
-			if (bucket == null) {
-				bucket = new Set();
-				next.set(repoPath, bucket);
+				// Stop scanning once every selected row has been located — keeps this off the O(rows)
+				// hot path on large graphs (the typical selection is 1-2 rows near the top).
+				remaining--;
+
+				const reachability = this._state.getRowReachability(row);
+				if (reachability != null) {
+					for (const ref of reachability.refs) {
+						if (ref.refType === 'branch' && !ref.remote) {
+							(bucket ??= new Set<string>()).add(ref.name);
+						}
+					}
+				}
+
+				if (remaining === 0) break;
 			}
-			for (const name of names) {
-				bucket.add(name);
+			if (bucket != null) {
+				next.set(repoPath, bucket);
 			}
 		}
 		this._selectionContainsByRepo = next;
@@ -507,9 +500,17 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		const overview = this._state.overview;
 		// Touch the selection signals during render so SignalWatcher subscribes to them — without
 		// these reads, selection-only state updates don't re-render this component, `updated()`
-		// never re-fires, and `maybeRecomputeSelectionContains` never sees the new selection.
+		// never re-fires, and `maybeRecomputeSelectionContains` never sees the new selection. Also
+		// touch `sidebar` (visible + active panel) so showing/switching to the overview re-renders →
+		// recomputes the (panel-visibility-gated) contains-selection map.
 		void this._state.activeRow;
 		void this._state.selectedRows;
+		void this._state.sidebar?.visible;
+		void this._state.sidebar?.activePanel;
+		// Also touch `rows`: contains-selection is now resolved from loaded rows' reachability, so a deep
+		// target (or its reachability delta) paging in later must re-render → recompute, or the cards stay
+		// stale at the partial/empty reachability captured before the page arrived.
+		void this._state.rows;
 		if (overview == null) {
 			return html`
 				<div class="content scrollable">

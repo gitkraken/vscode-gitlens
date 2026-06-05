@@ -633,7 +633,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private _search: GitGraphSearch | undefined;
 	private _searchIdCounter = getScopedCounter();
 	private _selectedId?: string;
-	private _honorSelectedId = false;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -2340,8 +2339,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				id = (await this.container.git.getRepositoryService(arg.ref.repoPath).revision.resolveRevision(id)).sha;
 			}
 
-			// Make sure we honor the selection to ensure we won't override it with the default selection
-			this._honorSelectedId = true;
 			this.setSelectedRows(id);
 
 			if (this._graph != null) {
@@ -2351,20 +2348,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					return [true, this.getShownTelemetryContext()];
 				}
 
-				void this.onGetMoreRows({ id: id }, true);
+				this.revealRow(id);
 			}
 		} else if (hasSearchQuery(arg)) {
 			const repoChanged = this._repository !== arg.repository;
 			this.repository = arg.repository;
 			if (arg.selectSha) {
-				this._honorSelectedId = true;
 				this.setSelectedRows(arg.selectSha);
 
 				if (this._graph != null) {
 					if (this._graph.ids.has(arg.selectSha)) {
 						void this.notifyDidChangeSelection();
 					} else {
-						void this.onGetMoreRows({ id: arg.selectSha }, true);
+						this.revealRow(arg.selectSha);
 					}
 				}
 			}
@@ -2410,7 +2406,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							? 'work-dir-changes'
 							: createSecondaryWipSha(target.worktreePath)
 						: target.sha;
-					this._honorSelectedId = true;
 				}
 				this.setSelectedRows(rowId);
 			}
@@ -2426,7 +2421,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					if (rowId === 'work-dir-changes' || isSecondaryWipSha(rowId) || this._graph.ids.has(rowId)) {
 						void this.notifyDidChangeSelection();
 					} else {
-						void this.onGetMoreRows({ id: rowId }, true);
+						this.revealRow(rowId);
 					}
 				}
 				void this.host.notify(DidRequestGraphActionNotification, {
@@ -4079,7 +4074,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (this._graph.ids.has(params.id)) {
 				id = params.id;
 			} else {
-				await this.updateGraphWithMoreRows(this._graph, params.id, this._search);
+				// Targeted, UNCAPPED load: `more(0, id)` walks until the SHA is found with no
+				// unreachable-SHA cap. The default-limit path caps each walk at `pageItemLimit*10`
+				// (~2000) and re-walks from the frontier without advancing across retries, so it can
+				// never reach a deeper-but-reachable selection target (nav/search/deep-link/overview).
+				// A real selection target IS reachable; an unreachable one bounds at history end
+				// (`hasMore` goes false). That cap (added in 0ffbf5d for the scope-anchor pagination
+				// path) caught this select-a-row path collaterally — `limit=0` restores the pre-cap
+				// "find the SHA then select it" behavior for the explicit-target case.
+				await this.updateGraphWithMoreRows(this._graph, params.id, this._search, 0);
 				if (this._graph.ids.has(params.id)) {
 					id = params.id;
 				}
@@ -4578,6 +4581,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		await this.updateGraphWithMoreRows(this._graph, params.id, this._search, params.limit);
 		void this.notifyDidChangeRows(sendSelectedRows);
+	}
+
+	/** Pages rows in until a host-initiated reveal/select target `id` is loaded, then ships the selection.
+	 *  Uses `limit: 0` for an UNCAPPED targeted walk: the default page size caps the walk at
+	 *  `pageItemLimit*10` (~2000) and would never reach a commit deeper than that (e.g. "Open in Commit
+	 *  Graph" on an old commit). The IPC scroll/scope-anchor paging keeps the cap — see `onGetMoreRows`. */
+	private revealRow(id: string): void {
+		void this.onGetMoreRows({ id: id, limit: 0 }, true);
+	}
+
+	/** Pages an explicit real-commit selection target in if a (capped) cold-start `getGraph` walk didn't
+	 *  reach it. `getGraph` caps the targeted walk at `defaultItemLimit*10`, so a deeper "Open in Commit
+	 *  Graph" target opened against a CLOSED graph would never load. Keeps the normal cold-start view
+	 *  (we don't shrink `getGraph`'s limit) and only resumes — uncapped (`limit: 0`) — from the frontier
+	 *  to the target when needed. WIP/uncommitted/already-loaded targets and a fully-paged graph no-op. */
+	private async ensureSelectedTargetLoaded(): Promise<boolean> {
+		const id = this._selectedId;
+		if (id == null || isSecondaryWipSha(id) || isUncommitted(id)) return false;
+		if (this._graph == null || this._graph.ids.has(id) || this._graph.paging?.hasMore !== true) return false;
+
+		await this.updateGraphWithMoreRows(this._graph, id, this._search, 0);
+		return this._graph.ids.has(id);
 	}
 
 	@ipcCommand(OpenPullRequestDetailsCommand)
@@ -5535,20 +5560,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(UpdateSelectionCommand)
 	private onSelectionChanged(params: IpcParams<typeof UpdateSelectionCommand>) {
-		// An empty selection echo must never clear a selection we already hold. The webview reports
-		// an empty selection when the GK component can't resolve a host-driven selection in the
-		// current frame (most commonly the synthetic WIP row before `getDecoratedRows` injects it,
-		// or a commit row before it's indexed) — adopting it here would wipe `_selectedId`/
-		// `_selectedRows` and flip the graph to "nothing selected", which reads as the selection
-		// jumping away right after it lands. The graph has no gesture that intentionally deselects to
-		// empty, and a selection that genuinely disappears is reconciled to `data.id` in `getState`,
-		// so treat an empty echo as a no-op whenever we already have a selection.
+		// An empty selection echo must never clear the selection hint we already hold. The webview only
+		// sends a real (non-empty) selection on user intent; an empty report is transient (the GK can't
+		// resolve a synthetic WIP row yet) or a scope/visibility filter-out, both of which the webview
+		// handles by keeping its inspection anchor and deriving an empty highlight. The host's
+		// `_selectedId`/`_selection` are now only a getGraph paging hint + command-target fallback, so
+		// leave them intact on an empty echo.
 		if (!params.selection.length && this._selectedId != null) return;
 
 		const item = params.selection.find(r => r.active) ?? params.selection[0];
 		this.setSelectedRows(item?.id, params.selection, { selected: true, hidden: item?.hidden });
-
-		this._honorSelectedId = true;
 
 		this._fireSelectionChangedDebounced ??= debounce(this.fireSelectionChanged.bind(this), 50);
 		this._fireSelectionChangedDebounced(item?.id, item?.type);
@@ -7486,10 +7507,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		let selectionChanged = false;
 
+		// Cold-start default: seed the WIP selection only on a FRESH webview/repo (`_selectedId == null`).
+		// Once any intent sets the anchor, getState never re-asserts WIP — the webview owns the anchor and
+		// there is no reconciliation to pull a default row back in. The seed rides the `selectedRows` prop
+		// and the GK echoes it into the webview anchor.
 		if (
-			!this._honorSelectedId &&
 			searchRequest == null &&
-			this._selectedId !== uncommitted &&
+			this._selectedId == null &&
 			configuration.get('graph.initialRowSelection') === 'wip'
 		) {
 			selectionChanged = true;
@@ -7500,7 +7524,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnSettings = this.getColumnSettings(columns);
 
 		const dataPromise = this.repository.git.graph.getGraph(
-			this._selectedId,
+			// `_selectedId` is only a paging/centering hint now. A secondary-worktree synthetic sha
+			// (`worktree-wip::<path>`) isn't a real revision — passing it makes the provider run a
+			// `git log -n1 'worktree-wip::…'` that always fails + a defensive 10× over-walk; pass
+			// `undefined` instead. Real shas (and the primary `uncommitted`, which the provider
+			// short-circuits) pass through so off-screen anchors still page in.
+			isSecondaryWipSha(this._selectedId) ? undefined : this._selectedId,
 			{
 				include: {
 					stats:
@@ -7537,11 +7566,21 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					this.setGraph(data);
 
-					// Don't clobber an honored selection if `data.id` ever diverges (slow await, scope/filter shifts, dropped SHAs)
-					if (!this._honorSelectedId && this._selectedId !== data.id) {
+					// Cold-start seed for non-WIP `initialRowSelection` (e.g. 'head'): when nothing has
+					// been selected yet (`_selectedId == null`), select the resolved tip/HEAD (`data.id`).
+					// Gated on `_selectedId == null` so it ONLY seeds a fresh webview/repo — it never
+					// reconciles away (clobbers) a selection the user/anchor already holds.
+					if (this._selectedId == null && data.id != null) {
 						selectionChanged = true;
 						this.setSelectedRows(data.id);
 					}
+
+					// Page in an explicit deep target (e.g. "Open in Commit Graph" on an old commit against a
+					// closed graph) that the capped cold-start walk didn't reach.
+					if (await this.ensureSelectedTargetLoaded()) {
+						selectionChanged = true;
+					}
+					if (cancellation.token.isCancellationRequested || this._graphLoading !== dataPromise) return;
 
 					void this.notifyDidChangeRefsVisibility();
 					void this.notifyDidChangePinnedRef();
@@ -7556,9 +7595,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			data = await dataPromise;
 			this.setGraph(data);
 
-			if (!this._honorSelectedId && this._selectedId !== data.id) {
+			// Cold-start seed for non-WIP `initialRowSelection` (see the deferred path above).
+			if (this._selectedId == null && data.id != null) {
 				this.setSelectedRows(data.id);
 			}
+
+			// Page in an explicit deep target the capped cold-start walk didn't reach (see deferred path).
+			// Re-read the (possibly swapped) graph so the State built below ships the paged-in rows —
+			// `ensureSelectedTargetLoaded` replaces `this._graph` via `setGraph`, leaving `data` stale.
+			await this.ensureSelectedTargetLoaded();
+			data = this._graph ?? data;
 		}
 
 		const [accessResult, workingStatsResult, branchResult, lastFetchedResult, wipMetadataResult] = await promises;
@@ -8133,7 +8179,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private resetRepositoryState() {
-		this._honorSelectedId = false;
 		this._getBranchesAndTagsTips = undefined;
 		this._searchHistory = undefined;
 		this._lastStateSentAt = undefined;
@@ -9258,12 +9303,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			onBeforeReset: message => {
 				// Batch the selection move, draft seed, and details-panel open before the reset
 				// fires its file-watcher event, so the webview sees one coherent transition rather
-				// than three across the refresh boundary. `_honorSelectedId = true` protects the
-				// WIP selection from the post-refresh `data.id` override at getState().
-				// `writeWipDraftToStorage` is the durable mirror of the webview-side flush so the
-				// message persists across sessions even if the user never edits.
+				// than three across the refresh boundary. The WIP selection rides the `selectedRows`
+				// prop and the GK echoes it into the webview anchor. `writeWipDraftToStorage` is the
+				// durable mirror of the webview-side flush so the message persists across sessions
+				// even if the user never edits.
 				this.writeWipDraftToStorage(targetRepoPath, { message: message, messageDirty: true });
-				this._honorSelectedId = true;
 				this.setSelectedRows(wipSha);
 				void this.notifyDidChangeSelection();
 				void this.host.notify(DidRequestGraphActionNotification, {
@@ -10484,7 +10528,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const message = appendCoauthorsToMessage(existing?.message ?? '', [coauthor]);
 
 		this.writeWipDraftToStorage(repoPath, { ...existing, message: message, messageDirty: true });
-		this._honorSelectedId = true;
 		this.setSelectedRows(wipSha);
 		void this.notifyDidChangeSelection();
 		void this.host.notify(DidRequestGraphActionNotification, {

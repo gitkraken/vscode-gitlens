@@ -684,7 +684,9 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 			return { contexts: contexts, selectedShas: selectedShas };
 		},
-		[getParsedSelectionContext, props.rows],
+		// Depends only on `getParsedSelectionContext` — operates on the `rows` PARAMETER, never
+		// `props.rows`; the stale dep recreated this (and downstream handlers) on every rows change.
+		[getParsedSelectionContext],
 	);
 
 	const handleSelectGraphRows = useCallback(

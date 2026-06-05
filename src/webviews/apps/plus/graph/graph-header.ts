@@ -1005,7 +1005,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		return cache(
 			html`<header class="titlebar graph-app__header">
-				<progress-indicator ?active="${this.graphState.isBusy}"></progress-indicator>
+				<progress-indicator min-visible="300" ?active="${this.graphState.isBusy}"></progress-indicator>
 				${this.renderTitlebarHeaderRow(repo)} ${this.renderTitlebarSearchRow(repo)}
 			</header>`,
 		);

@@ -12,12 +12,13 @@ import { refZone } from '@gitkraken/gitkraken-components';
 import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { html, LitElement } from 'lit';
-import { customElement, query, state } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
-import { filterMap } from '@gitlens/utils/array.js';
+import { areEqual as areArraysEqual, filterMap } from '@gitlens/utils/array.js';
 import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '@gitlens/utils/color.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
@@ -25,6 +26,7 @@ import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	GraphAvatars,
 	GraphScope,
+	GraphSelectedRows,
 	GraphSelection,
 	GraphWipMetadataBySha,
 	RowAction,
@@ -67,6 +69,7 @@ import {
 	serializeRowCommitContext,
 	serializeWipContext,
 } from '../utils/rowContext.utils.js';
+import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';
@@ -189,6 +192,50 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	@state()
 	private theming?: GraphWrapperTheming;
+
+	/** The GRAPH-ROW sha(s) of graph-app's inspection anchor (the single source of truth for what the
+	 *  details panel shows). The wrapper DERIVES the GK `isSelectedBySha` highlight from this each
+	 *  render (`anchorShas ∩ renderableRows`), so the highlight is never stored/stale — it goes empty
+	 *  when the anchor row isn't renderable (scope/visibility filter-out), and the details persist. */
+	@property({ attribute: false })
+	anchorShas?: readonly string[];
+
+	// Derived-highlight bookkeeping (see `getSelectedRowsProp`):
+	// - `_lastDerivedHighlight`: the anchor's projected highlight from the last render — the basis the
+	//   `onSelectionChanged` discriminator uses to tell an ECHO of our own prop from genuine user INTENT.
+	// - `_lastSeenHostSelection`/`_pendingHostSelectedRows`: host-initiated selections (cold-start, search,
+	//   deep-link, undo) arrive as a `graphState.selectedRows` whose CONTENT differs from the last one we
+	//   processed; we surface that request to the GK until the echo adopts it into the anchor. Compared by
+	//   CONTENT (not reference) because the host re-ships an identical `selectedRows` (new object) on every
+	//   full-state push — a re-ship must not re-arm the request. A user click never changes the host value.
+	// - `_derivedHighlightCache`: identity-cache so an unrelated re-render returns the SAME highlight object
+	//   (the GK `isSelectedBySha` prop diffs by identity, so a fresh object would churn the row grid).
+	private _lastDerivedHighlight?: GraphSelectedRows;
+	private _lastSeenHostSelection?: GraphSelectedRows;
+	private _pendingHostSelectedRows?: GraphSelectedRows;
+	private _derivedHighlightCache?: {
+		anchorShas: readonly string[] | undefined;
+		decoratedRows: GraphRow[] | undefined;
+		showPrimary: boolean;
+		result: GraphSelectedRows | undefined;
+	};
+	// The set of rendered row shas, cached on the (identity-stable) `decoratedRows` reference so it's
+	// rebuilt only when the rows change (paging/filter) — NOT on every selection. Selecting a row must
+	// stay O(anchorShas), never O(rows), or it janks badly with lots of commits loaded.
+	private _presentShaCache?: { decoratedRows: GraphRow[] | undefined; set: ReadonlySet<string> };
+	// sha→row index for `onSelectionChanged`'s commit-shell build, cached on `graphState.rows` so it's
+	// built once per page, not rebuilt over all rows on every selection (the dominant per-selection cost).
+	private _sourceRowByShaCache?: { rows: GraphRow[]; map: ReadonlyMap<string, GraphRow> };
+	// The defensive copy of the rows passed to <gl-graph>, cached on the (identity-stable) `decoratedRows`
+	// reference. Without this, render() re-`.slice()`s on EVERY render (incl. selection-only ones), handing
+	// the GK GraphContainer a fresh array each time → it re-indexes all rows. Re-slicing only when
+	// `decoratedRows` changes keeps the prop identity stable across selection renders (GK skips the re-index).
+	private _rowsForGraphCache?: { source: GraphRow[] | undefined; sliced: GraphRow[] | undefined };
+
+	// Tracks the last observed `branchesVisibility` + repo so a genuine in-repo TOGGLE into `'current'`
+	// (not the initial paint, not a repo switch) can refocus a hidden anchor.
+	private _wasBranchesVisibility?: GraphBranchesVisibility;
+	private _wasVisibilityRepository?: string;
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -623,6 +670,91 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return shas;
 	}
 
+	/** Derives the GK `isSelectedBySha` prop from the inspection anchor each render (the single source
+	 *  of truth), with a transient pass-through for a fresh host-initiated select-request. The derived
+	 *  highlight is `anchorShas ∩ renderableRows`, so it goes empty when the anchor row is filtered out
+	 *  (graph shows nothing, details persist). A host request (cold-start, search, deep-link) is surfaced
+	 *  until the GK echo adopts it as the anchor, after which `derived` matches and takes over. */
+	/** Defensive copy of the rows handed to <gl-graph> (the GK mutates `rows[0]` — its auto-primary WIP
+	 *  unshift/shift), re-sliced ONLY when `decoratedRows` actually changes. Selection-only renders reuse
+	 *  the same array reference so the GraphContainer doesn't re-index all rows. A WIP-injection toggle
+	 *  changes `decoratedRows`' reference (a different getDecoratedRows cache result), which forces a
+	 *  re-slice — so the index-0 mutation concern stays covered while the GK's no-op stays idempotent. */
+	private getRowsForGraph(decoratedRows: GraphRow[] | undefined): GraphRow[] | undefined {
+		const cache = this._rowsForGraphCache;
+		if (cache != null && cache.source === decoratedRows) return cache.sliced;
+
+		const sliced = decoratedRows?.slice();
+		this._rowsForGraphCache = { source: decoratedRows, sliced: sliced };
+		return sliced;
+	}
+
+	private getSelectedRowsProp(
+		decoratedRows: GraphRow[] | undefined,
+		showPrimary: boolean,
+	): GraphSelectedRows | undefined {
+		// A host-initiated select-request arrives as a `graphState.selectedRows` whose CONTENT differs
+		// from the last one we processed — re-arm pending on that (NOT on reference: the host re-ships an
+		// identical value with a new object on every full-state push, which must not re-arm).
+		const hostRows = this.graphState.selectedRows;
+		if (!areEqual(hostRows, this._lastSeenHostSelection)) {
+			this._lastSeenHostSelection = hostRows;
+			this._pendingHostSelectedRows = hostRows != null && hasKeys(hostRows) ? hostRows : undefined;
+		}
+
+		const anchorShas = this.anchorShas;
+		const pending = this._pendingHostSelectedRows;
+
+		// Fast path / identity cache: in the steady state (no pending request) return the SAME highlight
+		// object when the inputs are unchanged, so unrelated re-renders (hover/scroll/theme) don't churn
+		// the GK prop. Skips the O(rows) `present` Set build entirely when nothing is highlighted.
+		// Compare `anchorShas` by CONTENT, not reference: graph-app's `activeAnchorShas` getter returns a
+		// freshly-allocated array each parent render, so a reference check would miss the cache every time.
+		const cache = this._derivedHighlightCache;
+		if (
+			pending == null &&
+			cache != null &&
+			cache.decoratedRows === decoratedRows &&
+			cache.showPrimary === showPrimary &&
+			areArraysEqual(cache.anchorShas, anchorShas)
+		) {
+			this._lastDerivedHighlight = cache.result;
+			return cache.result;
+		}
+
+		// Build the present-sha set ONCE per `decoratedRows` generation (cached), not per selection. The
+		// primary WIP row ('work-dir-changes') renders even when it's NOT in `decoratedRows` (the GK
+		// auto-injects it in the single-worktree case) — handled via `showPrimary` in the projection so
+		// the cached set stays a pure mirror of the rows.
+		const presentCache = this._presentShaCache;
+		let present: ReadonlySet<string>;
+		if (presentCache != null && presentCache.decoratedRows === decoratedRows) {
+			present = presentCache.set;
+		} else {
+			present = new Set(decoratedRows?.map(r => r.sha));
+			this._presentShaCache = { decoratedRows: decoratedRows, set: present };
+		}
+
+		const derived = projectShasToSelectedRows(anchorShas, present, showPrimary);
+		this._lastDerivedHighlight = derived;
+		this._derivedHighlightCache = {
+			anchorShas: anchorShas,
+			decoratedRows: decoratedRows,
+			showPrimary: showPrimary,
+			result: derived,
+		};
+
+		if (pending == null) return derived;
+		if (areEqual(pending, derived)) {
+			// The anchor adopted the request — drop it; the derived highlight takes over.
+			this._pendingHostSelectedRows = undefined;
+			return derived;
+		}
+		// Surface the request only while its row is renderable; otherwise keep the anchor's highlight (the
+		// host's ensure/paging path loads it, then `derived` resolves on a later frame).
+		return projectShasToSelectedRows(Object.keys(pending), present, showPrimary) ?? derived;
+	}
+
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
@@ -665,12 +797,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			nonce=${ifDefined(graphState.nonce)}
 			.paging=${graphState.paging}
 			.refsMetadata=${graphState.refsMetadata}
-			.rows=${decoratedRows?.slice()}
+			.rows=${this.getRowsForGraph(decoratedRows)}
 			.rowsStats=${graphState.rowsStats}
 			?rowsStatsLoading=${graphState.rowsStatsLoading}
 			.searchMode=${graphState.searchMode}
 			.searchResults=${graphState.searchResults}
-			.selectedRows=${graphState.selectedRows}
+			.selectedRows=${this.getSelectedRowsProp(decoratedRows, showPrimary)}
 			.theming=${this.theming}
 			?windowFocused=${graphState.windowFocused}
 			.workingTreeStats=${workingTreeStats}
@@ -703,6 +835,56 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@visiblewipshaschanged=${this.onVisibleWipShasChanged}
 			@columnscalculated=${this.onColumnsCalculated}
 		></gl-graph>`;
+	}
+
+	override updated(changedProperties: Map<PropertyKey, unknown>): void {
+		super.updated(changedProperties);
+		this.refocusOnEnteringCurrentVisibility();
+	}
+
+	/** When the user switches to `branchesVisibility: 'current'`, a SECONDARY-worktree WIP anchor is
+	 *  always hidden (it lives on another branch), so refocus the inspection anchor onto the current
+	 *  branch's WIP-or-tip. (Scope-to-branch already always-jumps; this is the lighter visibility-toggle
+	 *  case, which only jumps when the anchor is hidden.) Primary-WIP / commit anchors that survive
+	 *  `'current'` stay; an off-branch commit anchor falls to the empty-highlight safety net. */
+	private refocusOnEnteringCurrentVisibility(): void {
+		const visibility = this.graphState.branchesVisibility;
+		const repository = this.graphState.selectedRepository;
+		const prevVisibility = this._wasBranchesVisibility;
+		const prevRepository = this._wasVisibilityRepository;
+		this._wasBranchesVisibility = visibility;
+		this._wasVisibilityRepository = repository;
+
+		// Only act on a genuine in-repo TOGGLE into 'current'. Skip the initial paint (no prior value)
+		// and a repo switch — both can carry a stale cross-repo anchor while the new repo's persisted
+		// 'current' arrives, which would auto-select against the wrong anchor on first paint.
+		if (prevVisibility == null || repository !== prevRepository) return;
+		if (visibility !== 'current' || prevVisibility === 'current') return;
+
+		const anchorShas = this.anchorShas;
+		if (anchorShas?.length !== 1 || !isSecondaryWipSha(anchorShas[0])) return;
+
+		const target = this.getCurrentBranchSelectionSha();
+		if (target == null || anchorShas.includes(target)) return;
+
+		this.ensureAndSelectCommit(target);
+	}
+
+	/** The current branch's graph-row sha to select (its WIP if it renders under the active filters,
+	 *  else its tip), via the shared overview-selection cascade. */
+	private getCurrentBranchSelectionSha(): string | undefined {
+		const branch = this.graphState.branch;
+		if (branch == null) return undefined;
+
+		return getOverviewBranchSelectionSha(
+			{ id: branch.id ?? '', repoPath: branch.repoPath, opened: true, reference: { sha: branch.sha } },
+			{
+				wipMetadataBySha: this.graphState.wipMetadataBySha,
+				rows: this.graphState.rows,
+				branchesVisibility: this.graphState.branchesVisibility,
+				includeOnlyRefs: this.graphState.includeOnlyRefs,
+			},
+		);
 	}
 
 	override focus(): void {
@@ -954,25 +1136,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.graphState.activeRow = activeKey;
 		this.graphState.activeDay = focusedRow?.date;
 
-		// A host-driven selection the GK component hasn't resolved yet — most commonly the synthetic
-		// WIP row (`work-dir-changes`/`worktree-wip::…`) which is injected by `getDecoratedRows` only
-		// after Lit+React catch up to a rows update — surfaces here as an EMPTY component selection.
-		// Echoing that back (`UpdateSelectionCommand({selection: []})`) makes the host's
-		// `onSelectionChanged` call `setSelectedRows(undefined)` and CLEAR the just-applied selection,
-		// which reads as "the selection jumped/disappeared" (flaky when rows updates race the
-		// injection). Treat an empty component selection while the host still wants one as a transient
-		// resolution gap: don't echo and don't record it as the last key, so the correct selection
-		// still propagates once the row resolves on a later frame.
-		if (!selection.length && this.graphState.selectedRows != null && hasKeys(this.graphState.selectedRows)) {
-			return;
-		}
+		// EMPTY report → never moves the inspection anchor. The GK reports empty when the derived
+		// highlight is empty (scope/visibility filtered the anchor row out) or before a synthetic WIP
+		// row is injected — both must KEEP the anchor (graph shows nothing, details persist). The graph
+		// has no gesture that intentionally deselects to empty; the details panel owns its own dismiss.
+		if (!selection.length) return;
 
-		// Dedup the ENTIRE frontend selection pipeline by selection identity. The GK component fires
-		// `graph-changeselection` several times per selection (selection + focus-row reconciliation
-		// passes), and again on focus-row changes during scroll. Without this guard every redundant
-		// fire would rebuild commit shells, re-dispatch to the details panel, re-send the host IPC,
-		// and churn re-renders. `activeRow`/`activeDay` are updated above (before the guard) so the
-		// minimap/overview keep tracking the focused row on every event.
+		// Dedup the GK's repeated fires (selection + focus-row reconciliation passes, scroll) by
+		// identity. Without this every redundant fire would re-send the host IPC and (on intent)
+		// rebuild commit shells + re-dispatch to the details panel. `activeRow`/`activeDay` update
+		// above (before the guard) so the minimap/overview keep tracking the focused row on every event.
 		const selectionKey = selection
 			.map(s => `${s.id}|${s.type}|${s.repoPath ?? ''}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`)
 			.join(',');
@@ -980,12 +1153,36 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._lastSelectionKey = selectionKey;
 
+		// Keep the host's command-target ref + getGraph paging hint warm on every distinct selection
+		// (echo OR intent) so context-menu/keyboard fallbacks act on what's actually highlighted.
+		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
+
+		// ECHO vs INTENT. The GK echoes the `isSelectedBySha` prop we set (the anchor's derived
+		// highlight) — that's confirmation, not user intent, so don't move the anchor. A report that
+		// DIVERGES from our last derived highlight is genuine intent: a user click, OR a fresh host
+		// select-request the GK just surfaced (the transient pass-through in `getSelectedRowsProp`).
+		// Either way, dispatch it so graph-app adopts it as the new anchor; the next render's derived
+		// highlight then matches and the echo settles to a no-op.
+		if (selectionMatchesSelectedRows(selection, this._lastDerivedHighlight)) return;
+
+		// A genuine intent moves the anchor — drop any still-armed host select-request so a stale
+		// request whose row pages in later can't hijack the anchor the user has now chosen.
+		this._pendingHostSelectedRows = undefined;
+
 		// Build per-sha commit shells from the underlying row data so the details panel can
 		// paint the commit metadata synchronously (no IPC roundtrip) on cold-cache selections.
 		// Skip WIP / work-dir-changes rows — they don't map to a commit shell.
 		const sourceRows = this.graphState.rows;
 		const fallbackRepoPath = this.getRepoPath();
-		const sourceRowBySha = sourceRows != null ? new Map(sourceRows.map(r => [r.sha, r])) : undefined;
+		let sourceRowBySha: ReadonlyMap<string, GraphRow> | undefined;
+		if (sourceRows != null) {
+			if (this._sourceRowByShaCache?.rows === sourceRows) {
+				sourceRowBySha = this._sourceRowByShaCache.map;
+			} else {
+				sourceRowBySha = new Map(sourceRows.map(r => [r.sha, r]));
+				this._sourceRowByShaCache = { rows: sourceRows, map: sourceRowBySha };
+			}
+		}
 		let commits: Record<string, CommitDetails> | undefined;
 		if (sourceRowBySha != null) {
 			for (const sel of selection) {
@@ -1013,8 +1210,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				detail: { selection: selection, reachability: reachability, commits: commits },
 			}),
 		);
-
-		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
 	}
 
 	private onVisibleDaysChanged({ detail }: CustomEventType<'graph-changevisibledays'>) {
@@ -1298,6 +1493,38 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				this.themingDefaults.themeOpacityFactor,
 		};
 	}
+}
+
+/** Builds a `{ sha: true }` highlight record from `shas`, keeping only those that render: a sha present
+ *  in the decorated rows (`present`), or the primary WIP row when `showPrimary` (the GK auto-injects it,
+ *  so it's not always in `present`). Returns `undefined` when nothing survives — the empty-highlight case. */
+function projectShasToSelectedRows(
+	shas: readonly string[] | undefined,
+	present: ReadonlySet<string> | undefined,
+	showPrimary: boolean,
+): GraphSelectedRows | undefined {
+	if (shas == null || shas.length === 0) return undefined;
+
+	let result: Record<string, true> | undefined;
+	for (const sha of shas) {
+		const renders =
+			(present?.has(sha) ?? false) || (showPrimary && sha === ('work-dir-changes' satisfies GitGraphRowType));
+		if (!renders) continue;
+
+		(result ??= {})[sha] = true;
+	}
+	return result;
+}
+
+/** Whether the reported GK selection's id-set equals a highlight record's key-set (the echo test). */
+function selectionMatchesSelectedRows(selection: GraphSelection[], record: GraphSelectedRows | undefined): boolean {
+	const keys = record != null ? Object.keys(record) : [];
+	if (selection.length !== keys.length) return false;
+
+	for (const sel of selection) {
+		if (record?.[sel.id] == null) return false;
+	}
+	return true;
 }
 
 function getCssVariableValue(
