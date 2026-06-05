@@ -273,10 +273,11 @@ export class GlWipTreePane extends LitElement {
 			${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<div class="wip-actions" slot="leading-actions">
+						${this.renderDiscardUnstagedAction(files)}
 						<gl-action-chip icon="gl-stash-save" label="Stash Changes" @click=${this.onStashSave}>
 							<span class="stash-label">Stash</span>
 						</gl-action-chip>
-						${this.renderDiscardUnstagedAction(files)}${this.renderCopyPatchButton(hasStagedAndUnstaged)}
+						${this.renderCopyPatchButton(hasStagedAndUnstaged)}
 					</div>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
