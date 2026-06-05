@@ -469,8 +469,12 @@ interface ResolvedScopeAnchor {
 	mergeTargetTipSha?: string;
 }
 
+function hasRepository(arg: any): arg is { repository: GlRepository; search?: SearchQuery; selectSha?: string } {
+	return arg?.repository != null;
+}
+
 function hasSearchQuery(arg: any): arg is { repository: GlRepository; search: SearchQuery; selectSha?: string } {
-	return arg?.repository != null && arg?.search != null;
+	return hasRepository(arg) && arg.search != null;
 }
 
 function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
@@ -2251,6 +2255,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			repository = arg;
 		} else if (hasGitReference(arg)) {
 			repository = this.container.git.getRepository(arg.ref.repoPath);
+		} else if (hasRepository(arg)) {
+			repository = arg.repository;
 		} else if (isSerializedState<State>(arg) && arg.state.selectedRepository != null) {
 			repository = this.container.git.openRepositories.find(r => r.id === arg.state.selectedRepository);
 		}
@@ -2350,36 +2356,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 				this.revealRow(id);
 			}
-		} else if (hasSearchQuery(arg)) {
+		} else if (hasRepository(arg)) {
 			const repoChanged = this._repository !== arg.repository;
 			this.repository = arg.repository;
-			if (arg.selectSha) {
-				this.setSelectedRows(arg.selectSha);
+			// Repository-only args (e.g. the SCM "Show Commit Graph" button or a repo-folder node)
+			// just switch repos; only run the search-specific work when a search is also present.
+			if (hasSearchQuery(arg)) {
+				if (arg.selectSha) {
+					this.setSelectedRows(arg.selectSha);
 
-				if (this._graph != null) {
-					if (this._graph.ids.has(arg.selectSha)) {
-						void this.notifyDidChangeSelection();
-					} else {
-						this.revealRow(arg.selectSha);
+					if (this._graph != null) {
+						if (this._graph.ids.has(arg.selectSha)) {
+							void this.notifyDidChangeSelection();
+						} else {
+							this.revealRow(arg.selectSha);
+						}
 					}
 				}
-			}
-			// Three cases routed through the state-bootstrap path (`_searchRequest` → `getState`):
-			//   1. Cold show (`loading`): webview isn't ready, a standalone notification would
-			//      queue in `_pendingIpcNotifications` and get wiped by the bootstrap
-			//      `clearPendingIpcNotifications()`.
-			//   2. Repo swap (`repoChanged`): the repository setter triggers a full `updateState`
-			//      refetch anyway; pipe the search through it so it lands with the new repo's rows
-			//      instead of racing against the just-cleared `_graph`.
-			//   3. Force-refresh in flight (`!host.ready`): same wipe risk as #1 — the reconnect
-			//      handler clears pending notifications before flushing them.
-			// Otherwise (warm + same-repo + ready) use the lightweight notification — bypasses
-			// the ~750ms `updateState` → `getState` pipeline since the only delta is the search.
-			// Mirrors the `DidRequestOpenCompareMode` / `DidRequestOpenTimelineScope` pattern.
-			if (loading || repoChanged || !this.host.ready) {
-				this._searchRequest = arg.search;
-			} else {
-				this.notifyRequestSearch({ search: arg.search, selectSha: arg.selectSha });
+				// Three cases routed through the state-bootstrap path (`_searchRequest` → `getState`):
+				//   1. Cold show (`loading`): webview isn't ready, a standalone notification would
+				//      queue in `_pendingIpcNotifications` and get wiped by the bootstrap
+				//      `clearPendingIpcNotifications()`.
+				//   2. Repo swap (`repoChanged`): the repository setter triggers a full `updateState`
+				//      refetch anyway; pipe the search through it so it lands with the new repo's rows
+				//      instead of racing against the just-cleared `_graph`.
+				//   3. Force-refresh in flight (`!host.ready`): same wipe risk as #1 — the reconnect
+				//      handler clears pending notifications before flushing them.
+				// Otherwise (warm + same-repo + ready) use the lightweight notification — bypasses
+				// the ~750ms `updateState` → `getState` pipeline since the only delta is the search.
+				// Mirrors the `DidRequestOpenCompareMode` / `DidRequestOpenTimelineScope` pattern.
+				if (loading || repoChanged || !this.host.ready) {
+					this._searchRequest = arg.search;
+				} else {
+					this.notifyRequestSearch({ search: arg.search, selectSha: arg.selectSha });
+				}
 			}
 		} else if (hasSidebarPanel(arg)) {
 			if (loading) {
