@@ -1,10 +1,10 @@
 import type { AIProviders } from '@gitlens/ai/constants.js';
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
+import type { IntegrationIds, SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
-import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
 import type { WalkthroughSteps } from './constants.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type {
@@ -2193,9 +2193,6 @@ export type WebviewTelemetryEvents = {
 	>;
 };
 
-export type LoginContext = 'start_trial';
-export type ConnectIntegrationContext = 'launchpad' | 'mcp';
-export type Context = LoginContext | ConnectIntegrationContext;
 /** Used to provide a "source context" to gk.dev for both tracking and customization purposes */
 export type TrackingContext = 'graph' | 'launchpad' | 'mcp' | 'visual_file_history' | 'worktrees';
 
@@ -2258,14 +2255,6 @@ export type Source = {
 	source: Sources;
 	correlationId?: string;
 	detail?: string | TelemetryEventData;
-};
-
-export const sourceToContext: { [source in Sources]?: Context } = {
-	launchpad: 'launchpad',
-};
-
-export const detailToContext: { [detail in string]?: Context } = {
-	mcp: 'mcp',
 };
 
 export type TrackedUsage = {

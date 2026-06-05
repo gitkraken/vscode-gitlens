@@ -1,5 +1,8 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '@gitlens/integrations/providers/models.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -39,13 +42,12 @@ import { ensureAccessStep } from '../../commands/quick-wizard/steps/access.js';
 import { StepsController } from '../../commands/quick-wizard/stepsController.js';
 import { canPickStepContinue, createPickStep } from '../../commands/quick-wizard/utils/steps.utils.js';
 import type { OpenWalkthroughCommandArgs } from '../../commands/walkthroughs.js';
-import type { IntegrationIds } from '../../constants.integrations.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.integrations.js';
 import { proBadge, urls } from '../../constants.js';
 import type { LaunchpadTelemetryContext, Source, Sources, TelemetryEvents } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { AuthenticationError, getPresentableErrorMessage } from '../../errors.js';
 import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
+import { getOpenOnGitProviderQuickInputButtons } from '../../quickpicks/integrationPicker.js';
 import type { QuickPickItemOfT } from '../../quickpicks/items/common.js';
 import { createQuickPickItemOfT, createQuickPickSeparator } from '../../quickpicks/items/common.js';
 import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js';
@@ -54,9 +56,7 @@ import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
-import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
-import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
+import { ensureIntegrationConnectAllowed } from '../integrations/utils/-webview/integration.utils.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
 import {
 	countLaunchpadItemGroups,
@@ -67,6 +67,7 @@ import {
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad.js';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
 import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
+import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -211,6 +212,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 		let connected = integration.maybeConnected ?? (await integration.isConnected());
 		if (!connected) {
+			if (!(await ensureIntegrationConnectAllowed(this.container, integration))) return false;
+
 			connected = await integration.connect('launchpad');
 		}
 
@@ -289,10 +292,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 
 				using step = steps.enterStep(Steps.ConnectIntegrations);
 
-				const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-				const result = isUsingCloudIntegrations
-					? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-					: yield* this.confirmLocalIntegrationConnectStep(state, context);
+				const result = yield* this.confirmCloudIntegrationsConnectStep(state, context);
 				if (result === StepResultBreak) {
 					if (step.goBack() == null) break;
 					continue;
@@ -358,10 +358,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				if (isConnectMoreIntegrationsItem(pickResult)) {
 					toggleSearchMode(false);
 
-					const isUsingCloudIntegrations = configuration.get('cloudIntegrations.enabled', undefined, false);
-					const connectResult = isUsingCloudIntegrations
-						? yield* this.confirmCloudIntegrationsConnectStep(state, context)
-						: yield* this.confirmLocalIntegrationConnectStep(state, context);
+					const connectResult = yield* this.confirmCloudIntegrationsConnectStep(state, context);
 					if (connectResult === StepResultBreak) continue;
 
 					connectResult.resume();
@@ -1241,78 +1238,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		return canPickStepContinue(step, state, selection) ? selection[0].item : StepResultBreak;
 	}
 
-	private async *confirmLocalIntegrationConnectStep(
-		state: StepState<State>,
-		context: Context,
-	): AsyncStepResultGenerator<{ connected: boolean | IntegrationIds; resume: () => void | undefined }> {
-		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
-		const confirmations: (QuickPickItemOfT<IntegrationIds> | DirectiveQuickPickItem)[] = !hasConnectedIntegration
-			? [
-					createDirectiveQuickPickItem(Directive.Cancel, undefined, {
-						label: 'Launchpad prioritizes your pull requests to keep you focused and your team unblocked',
-						detail: 'Click to learn more about Launchpad',
-						iconPath: new ThemeIcon('rocket'),
-						onDidSelect: () =>
-							void executeCommand<OpenWalkthroughCommandArgs>('gitlens.openWalkthrough', {
-								step: 'accelerate-pr-reviews',
-								source: { source: 'launchpad', detail: 'info' },
-							}),
-					}),
-					createQuickPickSeparator(),
-				]
-			: [];
-
-		for (const integration of supportedLaunchpadIntegrations) {
-			if (context.connectedIntegrations.get(integration)) {
-				continue;
-			}
-
-			switch (integration) {
-				case GitCloudHostIntegrationId.GitHub:
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Connect to GitHub...',
-								detail: 'Will connect to GitHub to provide access your pull requests and issues',
-							},
-							integration,
-						),
-					);
-					break;
-				case GitCloudHostIntegrationId.GitLab:
-					confirmations.push(
-						createQuickPickItemOfT(
-							{
-								label: 'Connect to GitLab...',
-								detail: 'Will connect to GitLab to provide access your pull requests and issues',
-							},
-							integration,
-						),
-					);
-					break;
-				default:
-					break;
-			}
-		}
-
-		const step = this.createConfirmStep(
-			`${this.title} \u00a0\u2022\u00a0 Connect an Integration`,
-			confirmations,
-			createDirectiveQuickPickItem(Directive.Cancel, false, { label: 'Cancel' }),
-			{ placeholder: 'Connect an integration to get started with Launchpad', buttons: [], ignoreFocusOut: false },
-		);
-
-		const selection: StepSelection<typeof step> = yield step;
-		if (canPickStepContinue(step, state, selection)) {
-			const resume = step.freeze?.();
-			const chosenIntegrationId = selection[0].item;
-			const connected = await this.ensureIntegrationConnected(chosenIntegrationId);
-			return { connected: connected ? chosenIntegrationId : false, resume: () => resume?.dispose() };
-		}
-
-		return StepResultBreak;
-	}
-
 	private async *confirmCloudIntegrationsConnectStep(
 		state: StepState<State>,
 		context: Context,
@@ -1661,11 +1586,9 @@ function getOpenActionLabel(actionCategory: string) {
 function getIntegrationTitle(integrationId: string): string {
 	switch (integrationId) {
 		case GitCloudHostIntegrationId.GitLab:
-		case GitSelfManagedHostIntegrationId.GitLabSelfHosted:
 		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
 			return 'GitLab';
 		case GitCloudHostIntegrationId.GitHub:
-		case GitSelfManagedHostIntegrationId.GitHubEnterprise:
 		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 			return 'GitHub';
 		case GitCloudHostIntegrationId.AzureDevOps:

@@ -66,11 +66,6 @@ import {
 import type { GitHubApiConfig } from './config.js';
 import type { GitHubTokenInfo } from './token.js';
 
-interface CancellationToken {
-	isCancellationRequested: boolean;
-	onCancellationRequested(fn: () => void): { dispose(): void };
-}
-
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 const emptyBlameResult: GitHubBlame = Object.freeze({ ranges: [] });
 
@@ -959,7 +954,7 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest | undefined> {
 		const scope = getScopedLogger();
 
@@ -1049,7 +1044,7 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
 		const scope = getScopedLogger();
 
@@ -2965,10 +2960,9 @@ export class GitHubApi {
 		query: string,
 		variables: RequestParameters,
 		scope: ScopedLogger | undefined,
-		cancellation?: CancellationToken | undefined,
+		cancellation?: AbortSignal | undefined,
 	): Promise<T | undefined> {
 		const { accessToken, ...tokenInfo } = token;
-
 		// Only dedupe when no cancellation/request option is in play — sharing a promise that
 		// carries one caller's AbortSignal would let one cancellation cancel for everyone.
 		const dedupable = cancellation == null && variables?.request == null;
@@ -2988,16 +2982,12 @@ export class GitHubApi {
 
 		const run = async (): Promise<T | undefined> => {
 			try {
-				let aborter: AbortController | undefined;
 				if (cancellation != null) {
-					if (cancellation.isCancellationRequested) throw new CancellationError();
-
-					aborter = new AbortController();
-					cancellation.onCancellationRequested(() => aborter!.abort());
+					if (cancellation.aborted) throw new CancellationError();
 
 					variables = {
 						...variables,
-						request: { ...variables?.request, signal: aborter.signal },
+						request: { ...variables?.request, signal: cancellation },
 					};
 				}
 
@@ -3010,7 +3000,7 @@ export class GitHubApi {
 							this.getDefaults(accessToken, graphql)(query, variables),
 						),
 					retryable,
-					aborter?.signal,
+					cancellation,
 					scope,
 				);
 			} catch (ex) {
@@ -3071,17 +3061,15 @@ export class GitHubApi {
 		route: R,
 		options: (Endpoints[R]['parameters'] & RequestParameters) | undefined,
 		scope: ScopedLogger | undefined,
-		cancellation?: CancellationToken | undefined,
+		cancellation?: AbortSignal | undefined,
 	): Promise<Endpoints[R]['response']> {
 		const { accessToken } = token;
 		try {
 			let signal: AbortSignal | undefined;
 			if (cancellation != null) {
-				if (cancellation.isCancellationRequested) throw new CancellationError();
+				if (cancellation.aborted) throw new CancellationError();
 
-				const aborter = new AbortController();
-				cancellation.onCancellationRequested(() => aborter.abort());
-				signal = aborter.signal;
+				signal = cancellation;
 				options = { ...options, request: { ...options?.request, signal: signal } };
 			}
 
@@ -3330,7 +3318,7 @@ export class GitHubApi {
 			avatarSize?: number;
 			silent?: boolean;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
 
@@ -3445,7 +3433,7 @@ export class GitHubApi {
 			avatarSize?: number;
 			includeBody?: boolean;
 		},
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
 		const scope = getScopedLogger();
 
@@ -3548,7 +3536,7 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
 
@@ -3618,7 +3606,7 @@ export class GitHubApi {
 		nodeId: string,
 		expectedSourceSha: string,
 		options?: { mergeMethod?: PullRequestMergeMethod; baseUrl?: string },
-		cancellation?: CancellationToken,
+		cancellation?: AbortSignal,
 	): Promise<boolean> {
 		const scope = getScopedLogger();
 		interface QueryResult {

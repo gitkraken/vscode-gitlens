@@ -1,130 +1,27 @@
-import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
-import type { CloudGitSelfManagedHostIntegrationIds, IntegrationIds } from '../../../../constants.integrations.js';
-import {
-	GitCloudHostIntegrationId,
-	GitSelfManagedHostIntegrationId,
-	IssuesCloudHostIntegrationId,
-} from '../../../../constants.integrations.js';
-import type { GitHostIntegration } from '../../models/gitHostIntegration.js';
-import type { Integration, IntegrationConnectedKey } from '../../models/integration.js';
-import { isAzureCloudDomain, isBitbucketCloudDomain, isGitHubDotCom, isGitLabDotCom } from '../../providers/models.js';
+import { GitSelfManagedHostIntegrationId } from '@gitlens/integrations/constants.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import type { Source } from '../../../../constants.telemetry.js';
+import type { Container } from '../../../../container.js';
+import { ensurePaidPlan } from '../../../gk/utils/-webview/plus.utils.js';
 
-const selfHostedIntegrationIds: GitSelfManagedHostIntegrationId[] = [
-	GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
-	GitSelfManagedHostIntegrationId.GitHubEnterprise,
-	GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
-	GitSelfManagedHostIntegrationId.GitLabSelfHosted,
-	GitSelfManagedHostIntegrationId.BitbucketServer,
-	GitSelfManagedHostIntegrationId.AzureDevOpsServer,
-] as const;
-
-export const supportedIntegrationIds: IntegrationIds[] = [
-	GitCloudHostIntegrationId.GitHub,
-	GitCloudHostIntegrationId.GitLab,
-	GitCloudHostIntegrationId.Bitbucket,
-	GitCloudHostIntegrationId.AzureDevOps,
-	IssuesCloudHostIntegrationId.Jira,
-	IssuesCloudHostIntegrationId.Trello,
-	...selfHostedIntegrationIds,
-] as const;
-
-export function convertRemoteProviderIdToIntegrationId(
-	remoteProviderId: RemoteProviderId,
-): GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId | undefined {
-	switch (remoteProviderId) {
-		case 'azure-devops':
-			return GitCloudHostIntegrationId.AzureDevOps;
-		case 'bitbucket':
-			return GitCloudHostIntegrationId.Bitbucket;
-		case 'github':
-			return GitCloudHostIntegrationId.GitHub;
-		case 'gitlab':
-			return GitCloudHostIntegrationId.GitLab;
-		case 'bitbucket-server':
-			return GitSelfManagedHostIntegrationId.BitbucketServer;
-		default:
-			return undefined;
-	}
-}
-
-export function getIntegrationConnectedKey<T extends IntegrationIds>(
-	id: T,
-	domain?: string,
-): IntegrationConnectedKey<T> {
-	if (isGitSelfManagedHostIntegrationId(id)) {
-		if (!domain) {
-			throw new Error(`Domain is required for self-managed integration ID: ${id}`);
-		}
-		return `connected:${id}:${domain}` as IntegrationConnectedKey<T>;
+/**
+ * Host-side paid gate for connecting an integration. Replaces the Pro paywall that used to live in the
+ * `GitHubEnterpriseIntegration`/`GitLabSelfHostedIntegration` `connect()` overrides — so the package's
+ * `connect()` stays pure mechanism. Gates ONLY those two cloud Enterprise/self-hosted GitHub & GitLab
+ * integrations, exactly as on main — Bitbucket Server and Azure DevOps Server were never paywalled and
+ * still connect for free. Returns `false` if the user declined the upgrade.
+ */
+export function ensureIntegrationConnectAllowed(
+	container: Container,
+	integration: { readonly id: IntegrationIds; readonly name: string },
+): Promise<boolean> {
+	if (
+		integration.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise &&
+		integration.id !== GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+	) {
+		return Promise.resolve(true);
 	}
 
-	return `connected:${id}` as IntegrationConnectedKey<T>;
-}
-
-export function getIntegrationIdForRemote(
-	provider: RemoteProvider | undefined,
-): GitCloudHostIntegrationId | GitSelfManagedHostIntegrationId | undefined {
-	switch (provider?.id) {
-		case 'azure-devops':
-			if (isAzureCloudDomain(provider.domain)) {
-				return GitCloudHostIntegrationId.AzureDevOps;
-			}
-			return provider.custom ? undefined : GitSelfManagedHostIntegrationId.AzureDevOpsServer;
-		case 'bitbucket':
-		case 'bitbucket-server':
-			if (isBitbucketCloudDomain(provider.domain)) {
-				return GitCloudHostIntegrationId.Bitbucket;
-			}
-			return GitSelfManagedHostIntegrationId.BitbucketServer;
-		case 'github':
-			if (provider.domain != null && !isGitHubDotCom(provider.domain)) {
-				return provider.custom
-					? GitSelfManagedHostIntegrationId.GitHubEnterprise
-					: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
-			}
-			return GitCloudHostIntegrationId.GitHub;
-		case 'gitlab':
-			if (provider.domain != null && !isGitLabDotCom(provider.domain)) {
-				return provider.custom
-					? GitSelfManagedHostIntegrationId.GitLabSelfHosted
-					: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted;
-			}
-			return GitCloudHostIntegrationId.GitLab;
-		default:
-			return undefined;
-	}
-}
-
-export function isCloudGitSelfManagedHostIntegrationId(
-	id: IntegrationIds,
-): id is CloudGitSelfManagedHostIntegrationIds {
-	switch (id) {
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-		case GitSelfManagedHostIntegrationId.BitbucketServer:
-		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
-			return true;
-		default:
-			return false;
-	}
-}
-
-export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
-	return integration.type === 'git';
-}
-
-export function isGitCloudHostIntegrationId(id: IntegrationIds): id is GitCloudHostIntegrationId {
-	switch (id) {
-		case GitCloudHostIntegrationId.GitHub:
-		case GitCloudHostIntegrationId.GitLab:
-		case GitCloudHostIntegrationId.Bitbucket:
-		case GitCloudHostIntegrationId.AzureDevOps:
-			return true;
-		default:
-			return false;
-	}
-}
-
-export function isGitSelfManagedHostIntegrationId(id: IntegrationIds): id is GitSelfManagedHostIntegrationId {
-	return selfHostedIntegrationIds.includes(id as GitSelfManagedHostIntegrationId);
+	const source: Source = { source: 'integrations', detail: { action: 'connect', integration: integration.id } };
+	return ensurePaidPlan(container, `Rich integration with ${integration.name} is a Pro feature.`, source);
 }

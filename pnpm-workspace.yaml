@@ -2,6 +2,7 @@ packages:
     - '.'
     - 'packages/*'
     - 'packages/plus/*'
+    - 'tests/fixtures/*'
 
 allowBuilds:
     '@parcel/watcher': false

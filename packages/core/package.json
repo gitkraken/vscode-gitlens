@@ -98,6 +98,14 @@
 			"types": "./dist/ipc/*.d.ts",
 			"default": "./dist/ipc/*.js"
 		},
+		"./plus/agents/*.js": {
+			"types": "./dist/plus/agents/*.d.ts",
+			"default": "./dist/plus/agents/*.js"
+		},
+		"./plus/agents/providers/*.js": {
+			"types": "./dist/plus/agents/providers/*.d.ts",
+			"default": "./dist/plus/agents/providers/*.js"
+		},
 		"./plus/ai/*.js": {
 			"types": "./dist/plus/ai/*.d.ts",
 			"default": "./dist/plus/ai/*.js"
@@ -130,6 +138,46 @@
 			"types": "./dist/plus/git-github/providers/github/*.d.ts",
 			"default": "./dist/plus/git-github/providers/github/*.js"
 		},
+		"./plus/integrations/*.js": {
+			"types": "./dist/plus/integrations/*.d.ts",
+			"default": "./dist/plus/integrations/*.js"
+		},
+		"./plus/integrations/authentication/*.js": {
+			"types": "./dist/plus/integrations/authentication/*.d.ts",
+			"default": "./dist/plus/integrations/authentication/*.js"
+		},
+		"./plus/integrations/models/*.js": {
+			"types": "./dist/plus/integrations/models/*.d.ts",
+			"default": "./dist/plus/integrations/models/*.js"
+		},
+		"./plus/integrations/providers/*.js": {
+			"types": "./dist/plus/integrations/providers/*.d.ts",
+			"default": "./dist/plus/integrations/providers/*.js"
+		},
+		"./plus/integrations/providers/azure/*.js": {
+			"types": "./dist/plus/integrations/providers/azure/*.d.ts",
+			"default": "./dist/plus/integrations/providers/azure/*.js"
+		},
+		"./plus/integrations/providers/bitbucket-server/*.js": {
+			"types": "./dist/plus/integrations/providers/bitbucket-server/*.d.ts",
+			"default": "./dist/plus/integrations/providers/bitbucket-server/*.js"
+		},
+		"./plus/integrations/providers/bitbucket/*.js": {
+			"types": "./dist/plus/integrations/providers/bitbucket/*.d.ts",
+			"default": "./dist/plus/integrations/providers/bitbucket/*.js"
+		},
+		"./plus/integrations/providers/github/*.js": {
+			"types": "./dist/plus/integrations/providers/github/*.d.ts",
+			"default": "./dist/plus/integrations/providers/github/*.js"
+		},
+		"./plus/integrations/providers/gitlab/*.js": {
+			"types": "./dist/plus/integrations/providers/gitlab/*.d.ts",
+			"default": "./dist/plus/integrations/providers/gitlab/*.js"
+		},
+		"./plus/integrations/utils/*.js": {
+			"types": "./dist/plus/integrations/utils/*.d.ts",
+			"default": "./dist/plus/integrations/utils/*.js"
+		},
 		"./utils/*.js": {
 			"types": "./dist/utils/*.d.ts",
 			"default": "./dist/utils/*.js"
@@ -148,6 +196,7 @@
 		}
 	},
 	"dependencies": {
+		"@gitkraken/provider-apis": "0.40.0",
 		"@octokit/graphql": "9.0.3",
 		"@octokit/request": "10.0.10",
 		"@octokit/request-error": "7.1.0",

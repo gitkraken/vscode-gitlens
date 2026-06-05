@@ -10,6 +10,7 @@ import {
 	isBranchReference,
 	isRevisionReference,
 } from '@gitlens/git/utils/reference.utils.js';
+import { getIssueOwner } from '@gitlens/integrations/providers/utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
 import { defer } from '@gitlens/utils/promise.js';
@@ -18,7 +19,6 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { addAssociatedIssueToBranch } from '../../../git/utils/-webview/branch.issue.utils.js';
 import { showGitErrorMessage } from '../../../messages.js';
 import type { StartReviewChatAction, StartWorkChatAction } from '../../../plus/chat/chatActions.js';
-import { getIssueOwner } from '../../../plus/integrations/providers/utils.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { executeCommand } from '../../../system/-webview/command.js';

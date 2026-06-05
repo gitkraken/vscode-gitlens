@@ -2,11 +2,11 @@ import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
+import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
 import type {
 	ConnectCloudIntegrationsCommandArgs,
 	ManageCloudIntegrationsCommandArgs,
 } from '../../../../../commands/cloudIntegrations.js';
-import type { SupportedCloudIntegrationIds } from '../../../../../constants.integrations.js';
 import { SubscriptionState } from '../../../../../constants.subscription.js';
 import type { Source } from '../../../../../constants.telemetry.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';

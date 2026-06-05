@@ -1,11 +1,11 @@
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { getIssueOwner } from '@gitlens/integrations/providers/utils.js';
 import type { AsyncStepResultGenerator } from '../../commands/quick-wizard/models/steps.js';
 import { proBadge } from '../../constants.js';
 import type { Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
 import { addAssociatedIssueToBranch } from '../../git/utils/-webview/branch.issue.utils.js';
 import { showBranchPicker } from '../../quickpicks/branchPicker.js';
-import { getIssueOwner } from '../integrations/providers/utils.js';
 import type { StartWorkContext, StartWorkOverrides, StartWorkStepState } from './startWorkBase.js';
 import { StartWorkBaseCommand } from './startWorkBase.js';
 
@@ -23,7 +23,6 @@ export class AssociateIssueWithBranchCommand extends StartWorkBaseCommand {
 			cloudIntegrationConnectHasConnected:
 				'Connect additional integrations to associate their issues with your branches',
 			cloudIntegrationConnectNoConnected: 'Connect an integration to associate its issues with your branches',
-			localIntegrationConnect: 'Connect an integration to associate its issues with your branches',
 			issueSelection: 'Choose an issue to associate with your branch',
 		},
 	};

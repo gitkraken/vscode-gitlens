@@ -2,14 +2,14 @@ import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { GkProviderId } from '@gitlens/git/models/repositoryIdentities.js';
 import { isGitReference } from '@gitlens/git/utils/reference.utils.js';
-import type { Unbrand } from '@gitlens/utils/brand.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
-import type { GraphActivityDecay } from '../../../config.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../../constants.integrations.js';
+} from '@gitlens/integrations/constants.js';
+import type { Unbrand } from '@gitlens/utils/brand.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { GraphActivityDecay } from '../../../config.js';
 import type { GlRepository } from '../../../git/models/repository.js';
 import { remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { toRepositoryShape, toRepositoryShapeWithProvider } from '../../../git/utils/-webview/repository.utils.js';

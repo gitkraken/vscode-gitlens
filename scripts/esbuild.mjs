@@ -56,6 +56,7 @@ async function buildExtension(target, mode) {
 
 	const alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),
+		'@host': path.resolve(__dirname, 'src'),
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),
 		// This dependency is very large, and isn't needed for our use-case

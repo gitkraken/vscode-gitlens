@@ -5,17 +5,17 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { ParsedRemoteFileUri, RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { CreatePullRequestRemoteResource, RemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import { ensureArray } from '@gitlens/utils/array.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
-import { GitCloudHostIntegrationId } from '../../../constants.integrations.js';
-import { Container } from '../../../container.js';
-import type { GitHostIntegration } from '../../../plus/integrations/models/gitHostIntegration.js';
+import { GitCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
+import type { GitHostIntegration } from '@gitlens/integrations/models/gitHostIntegration.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
 	getIntegrationConnectedKey,
 	getIntegrationIdForRemote,
 	isGitHostIntegration,
-} from '../../../plus/integrations/utils/-webview/integration.utils.js';
+} from '@gitlens/integrations/utils/integration.utils.js';
+import { ensureArray } from '@gitlens/utils/array.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
+import { Container } from '../../../container.js';
 import { openUrl } from '../../../system/-webview/vscode/uris.js';
 import type { GlRepository } from '../../models/repository.js';
 import { describePullRequestWithAI } from './pullRequest.utils.js';
@@ -50,7 +50,7 @@ export function isRemoteMaybeIntegrationConnected(remote: GitRemote): boolean | 
 
 	// Special case for GitHub, since we support the legacy GitHub integration
 	if (integrationId === GitCloudHostIntegrationId.GitHub) {
-		const configured = Container.instance.integrations.getConfiguredLite(integrationId, { cloud: true });
+		const configured = Container.instance.integrations.getConfigured(integrationId, { cloud: true });
 		if (configured.length) {
 			return Container.instance.storage.getWorkspace(getIntegrationConnectedKey(integrationId)) !== false;
 		}
@@ -58,7 +58,7 @@ export function isRemoteMaybeIntegrationConnected(remote: GitRemote): boolean | 
 		return undefined;
 	}
 
-	const configured = Container.instance.integrations.getConfiguredLite(
+	const configured = Container.instance.integrations.getConfigured(
 		integrationId,
 		remote.provider.custom ? { domain: remote.provider.domain } : undefined,
 	);

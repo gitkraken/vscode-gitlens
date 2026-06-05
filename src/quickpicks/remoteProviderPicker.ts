@@ -6,10 +6,12 @@ import type { RemoteResource } from '@gitlens/git/models/remoteResource.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/git/utils/branch.utils.js';
 import { getHighlanderProviders, getNameFromRemoteResource } from '@gitlens/git/utils/remote.utils.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import { providersMetadata } from '@gitlens/integrations/providers/models.js';
+import { convertRemoteProviderIdToIntegrationId } from '@gitlens/integrations/utils/integration.utils.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { OpenOnRemoteCommandArgs } from '../commands/openOnRemote.js';
 import { SetRemoteAsDefaultQuickInputButton } from '../commands/quick-wizard/quickButtons.js';
-import type { IntegrationIds } from '../constants.integrations.js';
 import type { Keys } from '../constants.js';
 import { GlyphChars } from '../constants.js';
 import type { Sources } from '../constants.telemetry.js';
@@ -22,8 +24,6 @@ import {
 	openRemoteProviderUrl,
 	setRemoteAsDefault,
 } from '../git/utils/-webview/remote.utils.js';
-import { providersMetadata } from '../plus/integrations/providers/models.js';
-import { convertRemoteProviderIdToIntegrationId } from '../plus/integrations/utils/-webview/integration.utils.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
 import { CommandQuickPickItem, createQuickPickItemOfT } from './items/common.js';
 import { createDirectiveQuickPickItem, Directive } from './items/directive.js';

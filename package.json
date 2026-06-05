@@ -4105,13 +4105,6 @@
 						"scope": "window",
 						"order": 20
 					},
-					"gitlens.cloudIntegrations.enabled": {
-						"type": "boolean",
-						"default": true,
-						"markdownDescription": "Specifies whether to use cloud-based integrations when authenticating with GitHub",
-						"scope": "window",
-						"order": 30
-					},
 					"gitlens.remotes": {
 						"type": [
 							"array",
@@ -29278,7 +29271,7 @@
 		"build:webviews": "node ./scripts/build.mjs --build=webviews",
 		"build:webviews:quick": "node ./scripts/build.mjs --build=webviews --quick",
 		"build:icons": "pnpm run icons:svgo && pnpm fantasticon && pnpm run icons:apply && pnpm run icons:export",
-		"build:packages": "tsc -b packages/utils packages/ipc packages/git packages/git-cli packages/plus/git-github packages/plus/ai packages/plus/agents",
+		"build:packages": "tsc -b packages/utils packages/ipc packages/git packages/git-cli packages/plus/git-github packages/plus/integrations packages/plus/ai packages/plus/agents",
 		"build:core": "pnpm run build:packages && pnpm --filter @gitkraken/core-gitlens run bundle",
 		"check": "oxlint --type-aware --type-check",
 		"check:fix": "oxlint --type-aware --type-check --fix",
@@ -29360,6 +29353,7 @@
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-cli": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
+		"@gitlens/integrations": "workspace:*",
 		"@gitlens/ipc": "workspace:*",
 		"@gitlens/utils": "workspace:*",
 		"@lit-labs/signals": "0.3.0",
