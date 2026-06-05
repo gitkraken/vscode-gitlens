@@ -3950,6 +3950,19 @@
 				]
 			}
 		},
+		"gitlens.graph.squashCommits.multi": {
+			"label": "Squash Commits...",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?!.*?\\b\\+rebase\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && listContiguousSelection",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
 		"gitlens.graph.stageConflictCurrentChanges:graph": {
 			"label": "Stage Current Changes",
 			"icon": "$(reply)",
