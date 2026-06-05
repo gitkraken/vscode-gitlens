@@ -111,6 +111,56 @@ export function serializeRowCommitContext(row: RowContextSource, repoPath: strin
 	return serializeWebviewItemContext<GraphItemRefContext>(buildRowCommitContext(row, repoPath));
 }
 
+/**
+ * Reduces the per-row `webviewItem` context strings of a multi-row selection to a single least-common-
+ * denominator string for the combined `webviewItems` context key. Context strings are of the form
+ * `gitlens:<type>[+<addition>...]` — `<type>` may contain `:` but never `+`, so the segment before the
+ * first `+` is the base type and the rest are additions. The result keeps the shared base type plus only
+ * the additions present in EVERY distinct context, so a VS Code `when` clause that matches an addition
+ * (e.g. `+current`) matches the selection only when all rows carry it.
+ *
+ * Returns `undefined` when the selection mixes more than one base type — a context-setup error that should
+ * not happen at runtime for a single row type; callers treat it as "no combined context".
+ *
+ * Dedupes internally so the addition test is over DISTINCT contexts. This matters because a HEAD row's
+ * extra `+HEAD` (from {@link buildRowCommitContext}) makes its context differ from its siblings: when
+ * several non-HEAD rows collapse to the same string, the additions they all share (e.g. `+current`) must
+ * still be retained — testing against the total row count instead would drop them and break the menu.
+ */
+export function reduceCommonWebviewItemsContext(contexts: Iterable<string>): string | undefined {
+	const distinct = [...new Set(contexts)];
+	if (distinct.length === 0) return undefined;
+	if (distinct.length === 1) return distinct[0];
+
+	const split = distinct.map(context => {
+		const parts = context.split('+');
+		return { baseType: parts[0], additions: parts.slice(1) };
+	});
+
+	// All rows of one selection group share a row type, so they must share a base type; bail if they don't.
+	const baseType = split[0].baseType;
+	if (!split.every(sc => sc.baseType === baseType)) return undefined;
+
+	// If any context has no additions, the only thing common to all of them is the base type.
+	if (split.some(sc => sc.additions.length === 0)) return baseType;
+
+	// Tally additions across the distinct contexts, then keep those present in every one of them.
+	const frequency = new Map<string, number>();
+	for (const sc of split) {
+		for (const add of sc.additions) {
+			frequency.set(add, (frequency.get(add) ?? 0) + 1);
+		}
+	}
+	const common: string[] = [];
+	for (const [addition, count] of frequency) {
+		if (count === split.length) {
+			common.push(addition);
+		}
+	}
+
+	return common.length > 0 ? `${baseType}+${common.join('+')}` : baseType;
+}
+
 /** Serializes the avatar-zone context to the string the `data-vscode-context` DOM attribute carries. */
 export function serializeRowAvatarContext(row: RowContextSource, repoPath: string): string {
 	return serializeWebviewItemContext(buildRowAvatarContext(row, repoPath));

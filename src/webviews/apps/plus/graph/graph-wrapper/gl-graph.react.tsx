@@ -34,7 +34,7 @@ import type { GitGraphRowHead } from '@gitlens/git/models/graph.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import { formatDate, fromNow } from '@gitlens/utils/date.js';
-import { first, groupByFilterMap } from '@gitlens/utils/iterable.js';
+import { groupByFilterMap } from '@gitlens/utils/iterable.js';
 import { hasKeys } from '@gitlens/utils/object.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { DateStyle } from '../../../../../config.js';
@@ -65,6 +65,7 @@ import {
 	buildRowCommitContext,
 	isUniqueToBranchRow,
 	needsDynamicRowContext,
+	reduceCommonWebviewItemsContext,
 	rowHasChildren,
 } from '../utils/rowContext.utils.js';
 import '../../../shared/components/button.js';
@@ -610,68 +611,14 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 
 			const contexts: SelectionContexts['contexts'] = new Map<CommitType, SelectionContext>();
 
-			for (let [type, items] of grouped) {
-				let webviewItems: string | undefined;
+			for (const [type, items] of grouped) {
+				// Boil the rows' contexts down to a least-common-denominator `webviewItems` (shared base type +
+				// the additions common to every row). `undefined` means the group mixed base types (a context
+				// setup error that should NOT happen at runtime) — drop it so we don't surface a misleading
+				// combined context.
+				const webviewItems = reduceCommonWebviewItemsContext(items.map(item => item.webviewItem));
 
-				// Collect unique context values
-				const contextValues = new Set<string>();
-				for (const item of items) {
-					contextValues.add(item.webviewItem);
-				}
-
-				if (contextValues.size === 1) {
-					webviewItems = first(contextValues);
-				} else if (contextValues.size > 1) {
-					// If there are multiple contexts, see if they can be boiled down into a least common denominator set
-					// Contexts are of the form `gitlens:<type>+<additional-context-1>+<additional-context-2>...`, <type> can also contain multiple `:`, but assume the whole thing is the type
-
-					// Pre-split all contexts once to avoid repeated splitting
-					const splitContexts: Array<{ baseType: string; additions: string[] }> = [];
-					for (const context of contextValues) {
-						const parts = context.split('+');
-						splitContexts.push({ baseType: parts[0], additions: parts.slice(1) });
-					}
-
-					// Check if all contexts have the same base type
-					const firstBaseType = splitContexts[0].baseType;
-					const hasSameBaseType = splitContexts.every(sc => sc.baseType === firstBaseType);
-
-					if (hasSameBaseType) {
-						webviewItems = firstBaseType;
-
-						// If any context has no additional parts, we can only use the base type
-						const hasEmptyAdditions = splitContexts.some(sc => sc.additions.length === 0);
-
-						if (!hasEmptyAdditions) {
-							// Build frequency map for additional contexts in a single pass
-							const additionFrequency = new Map<string, number>();
-							for (const sc of splitContexts) {
-								for (const add of sc.additions) {
-									additionFrequency.set(add, (additionFrequency.get(add) ?? 0) + 1);
-								}
-							}
-
-							// Find common additions that appear in all items (not just unique contexts)
-							const commonAdditions: string[] = [];
-							for (const [addition, count] of additionFrequency) {
-								if (count === items.length) {
-									commonAdditions.push(addition);
-								}
-							}
-
-							if (commonAdditions.length > 0) {
-								webviewItems += `+${commonAdditions.join('+')}`;
-							}
-						}
-					} else {
-						// If we have more than one type, something is wrong with our context key setup -- should NOT happen at runtime
-						debugger;
-						webviewItems = undefined;
-						items = [];
-					}
-				}
-
-				const count = items.length;
+				const count = webviewItems != null ? items.length : 0;
 				contexts.set(type, {
 					listDoubleSelection: count === 2,
 					listMultiSelection: count > 1,
