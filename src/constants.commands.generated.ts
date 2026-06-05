@@ -217,6 +217,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.soloTag'
 	| 'gitlens.graph.soloTag:views'
 	| 'gitlens.graph.split'
+	| 'gitlens.graph.squashCommits.multi'
 	| 'gitlens.graph.stageConflictCurrentChanges:graph'
 	| 'gitlens.graph.stageConflictIncomingChanges:graph'
 	| 'gitlens.graph.switchToCommit'
