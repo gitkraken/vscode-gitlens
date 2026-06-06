@@ -16,12 +16,12 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
-import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual, filterMap } from '@gitlens/utils/array.js';
 import { getCssMixedColorValue, getCssOpacityColorValue, getCssVariable } from '@gitlens/utils/color.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
+import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	GraphAvatars,
@@ -61,6 +61,7 @@ import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
 	isUnpublishedRow,
@@ -69,7 +70,6 @@ import {
 	serializeRowCommitContext,
 	serializeWipContext,
 } from '../utils/rowContext.utils.js';
-import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
 import { filterSecondariesForScopeAndVisibility, shouldShowPrimaryWipRow } from '../utils/wip.utils.js';
 import type { GlGraph } from './gl-graph.js';

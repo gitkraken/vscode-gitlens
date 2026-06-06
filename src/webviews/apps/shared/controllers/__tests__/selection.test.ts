@@ -1,7 +1,7 @@
 import * as assert from 'assert';
 import type { ReactiveControllerHost } from 'lit';
-import { SelectionController } from '../selection.js';
 import type { SelectionMode } from '../selection.js';
+import { SelectionController } from '../selection.js';
 
 function fakeHost(): ReactiveControllerHost {
 	return {
@@ -9,7 +9,7 @@ function fakeHost(): ReactiveControllerHost {
 		removeController: () => undefined,
 		requestUpdate: () => undefined,
 		updateComplete: Promise.resolve(true),
-	} as unknown as ReactiveControllerHost;
+	};
 }
 
 function setup(options?: { mode?: SelectionMode; ordered?: string[]; isSelectable?: (id: string) => boolean }) {
@@ -111,7 +111,7 @@ suite('SelectionController', () => {
 	test('selectAll selects every selectable id', () => {
 		const { controller, ordered } = setup();
 		controller.selectAll();
-		assert.deepStrictEqual(ids(controller).sort(), [...ordered].sort());
+		assert.deepStrictEqual(ids(controller).sort(), ordered.toSorted());
 	});
 
 	test('isSelectable excludes ids from multi ops but not setSingle', () => {

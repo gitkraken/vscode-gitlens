@@ -1,5 +1,5 @@
-import { css, html, LitElement } from 'lit';
 import type { PropertyValues } from 'lit';
+import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('progress-indicator')

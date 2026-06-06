@@ -8,7 +8,7 @@ function fakeHost(): ReactiveControllerHost {
 		removeController: () => undefined,
 		requestUpdate: () => undefined,
 		updateComplete: Promise.resolve(true),
-	} as unknown as ReactiveControllerHost;
+	};
 }
 
 interface Row {

@@ -1,8 +1,8 @@
 import type { Disposable } from 'vscode';
 import { window } from 'vscode';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
-import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick.js';
 import type { WorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick.js';
+import { createWorktreeQuickPickItem } from '../git/utils/-webview/worktree.quickpick.js';
 import { getQuickPickIgnoreFocusOut } from '../system/-webview/vscode.js';
 
 export async function showWorktreePicker(

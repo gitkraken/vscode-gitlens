@@ -798,7 +798,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 
 		// Start a new batch when none is pending or the action flips (check vs uncheck); the fan-out
 		// applies a single action across the whole selection, so a batch is action-homogeneous.
-		if (this._checkedBatch == null || this._checkedBatch.checked !== e.detail.checked) {
+		if (this._checkedBatch?.checked !== e.detail.checked) {
 			this._checkedBatch = { checked: e.detail.checked, repoPath: repoPath, files: [] };
 			queueMicrotask(() => this.flushCheckedBatch());
 		}

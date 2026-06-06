@@ -3,8 +3,8 @@ import type { ReactiveControllerHost } from 'lit';
 import { CollectionIndexController } from '../collection-index.js';
 import { FocusController } from '../focus.js';
 import { KeyboardNavController } from '../keyboard-nav.js';
-import { SelectionController } from '../selection.js';
 import type { SelectionMode } from '../selection.js';
+import { SelectionController } from '../selection.js';
 
 function fakeHost(): ReactiveControllerHost {
 	return {
@@ -12,7 +12,7 @@ function fakeHost(): ReactiveControllerHost {
 		removeController: () => undefined,
 		requestUpdate: () => undefined,
 		updateComplete: Promise.resolve(true),
-	} as unknown as ReactiveControllerHost;
+	};
 }
 
 function key(k: string, mods?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }): KeyboardEvent {

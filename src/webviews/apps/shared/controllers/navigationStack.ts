@@ -65,8 +65,7 @@ export class NavigationStack<T extends { sha: string }> {
 		const next = this.state;
 		const prev = this._lastEmitted;
 		if (
-			prev != null &&
-			prev.count === next.count &&
+			prev?.count === next.count &&
 			prev.position === next.position &&
 			prev.canBack === next.canBack &&
 			prev.canForward === next.canForward

@@ -11,7 +11,7 @@ import { conflictHasHeadVersion, discardOneWith } from '../discard.utils.js';
 
 // Ignore the user's global/system git config (e.g. `merge.ff=only`) so the temp repos behave
 // predictably; identity is supplied per-command (never written).
-const GIT_ENV = {
+const gitEnv = {
 	...process.env,
 	GIT_CONFIG_GLOBAL: '/dev/null',
 	GIT_CONFIG_SYSTEM: '/dev/null',
@@ -22,13 +22,13 @@ function git(repo: string, ...args: string[]): string {
 	return execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], {
 		cwd: repo,
 		encoding: 'utf8',
-		env: GIT_ENV,
+		env: gitEnv,
 	});
 }
 
 /** Parse `git status --porcelain` into the GitStatusFile the provider would build for `path`. */
 function statusFileOf(repo: string, path: string): GitStatusFile {
-	const out = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8', env: GIT_ENV });
+	const out = execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8', env: gitEnv });
 	for (const line of out.split('\n')) {
 		if (line.length < 3) continue;
 
@@ -119,7 +119,7 @@ suite('discard.utils — discardOneWith (temp repo)', function () {
 	const read = (p: string): string => readFileSync(join(repo, p), 'utf8');
 	const exists = (p: string): boolean => existsSync(join(repo, p));
 	const porcelain = (): string =>
-		execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8', env: GIT_ENV }).trim();
+		execFileSync('git', ['status', '--porcelain'], { cwd: repo, encoding: 'utf8', env: gitEnv }).trim();
 	// Whether `git status` still reports `p` with a 2-char unmerged code — proves a conflict discard
 	// actually resolved the index, not just rewrote the file on disk.
 	const conflicted = (p: string): boolean =>

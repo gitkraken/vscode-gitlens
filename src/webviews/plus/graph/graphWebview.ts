@@ -188,13 +188,13 @@ import {
 	getRemoteProviderUrl,
 	remoteSupportsIntegration,
 } from '../../../git/utils/-webview/remote.utils.js';
-import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
 import {
 	getOpenedWorktreesByBranch,
 	getReachableWorktrees,
 	getWorktreeHasWorkingChanges,
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
+import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';

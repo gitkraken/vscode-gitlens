@@ -1,10 +1,10 @@
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
 import { CollectionIndexController } from './collection-index.js';
-import { FocusController } from './focus.js';
 import type { FocusStrategy } from './focus.js';
+import { FocusController } from './focus.js';
 import { KeyboardNavController } from './keyboard-nav.js';
-import { SelectionController } from './selection.js';
 import type { SelectionMode } from './selection.js';
+import { SelectionController } from './selection.js';
 import { VirtualScrollController } from './virtual-scroll.js';
 
 type Virtualizer = HTMLElement & {

@@ -78,7 +78,6 @@ suite('ConfigSubProvider (bulk gk read)', () => {
 		}
 		const configSpawns = countSince(mark, 'config');
 
-		// eslint-disable-next-line no-console
 		console.error(`[measure] cold gk overview read → ${configSpawns} \`git config\` spawn(s) (was 4)`);
 		assert.strictEqual(configSpawns, 1, 'expected one bulk gk read, not one per namespace');
 	});
