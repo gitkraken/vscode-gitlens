@@ -45,7 +45,11 @@ export async function buildTimelineDataset(
 	}
 	signal?.throwIfAborted();
 
-	const repo = git.getRepository(scope.uri) ?? (await git.getOrAddRepository(scope.uri, { opened: false }));
+	// `detectNested: true` resolves a worktree nested in scope.uri's container (getRepository alone folds to the
+	// ancestor). Fall back to getRepository when discovery can't resolve a root (e.g. virtual repos via RemoteHub).
+	const repo =
+		(await git.getOrAddRepository(scope.uri, { opened: false, detectNested: true })) ??
+		git.getRepository(scope.uri);
 	if (repo == null) {
 		const access = await container.subscription.getSubscription();
 		return {

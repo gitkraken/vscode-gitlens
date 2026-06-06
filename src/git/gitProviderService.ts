@@ -2223,6 +2223,15 @@ export class GitProviderService implements UnifiedDisposable {
 			let isDirectory: boolean | undefined;
 
 			const detectNested = options?.detectNested ?? configuration.get('detectNestedRepositories', uri);
+			if (detectNested && !options?.force) {
+				// Prefer the exact registered repo for this path over getRepository()/getClosest's nearest-ancestor
+				// match, which would return the container for a worktree nested inside another repo's working tree.
+				// (`get` keys the same way repos are stored, so it's scheme-safe.) Skipped under `force` (which wants
+				// fresh discovery); on a miss we fall through to the search/discovery below, which resolves the owner.
+				const exactRepo = this._repositories.get(uri);
+				if (exactRepo != null) return ensureOpened(exactRepo);
+			}
+
 			if (!detectNested) {
 				if (repository != null) return ensureOpened(repository);
 			} else if (!options?.force) {

@@ -342,7 +342,11 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 				await git.isDiscoveringRepositories;
 			}
 
-			const repo = git.getRepository(scope.uri) ?? (await git.getOrAddRepository(scope.uri, { opened: false }));
+			// `detectNested: true` resolves a worktree nested in scope.uri's container (getRepository alone folds to
+			// the ancestor). Fall back to getRepository when discovery can't resolve a root (e.g. virtual repos).
+			const repo =
+				(await git.getOrAddRepository(scope.uri, { opened: false, detectNested: true })) ??
+				git.getRepository(scope.uri);
 			if (repo != null) {
 				if (areUrisEqual(scope.uri, repo.uri)) {
 					scope.type = 'repo';
@@ -515,8 +519,9 @@ export class TimelineWebviewProvider implements WebviewProvider<State, State, Ti
 
 	private openInEditor(scopeSerialized: TimelineScopeSerialized): void {
 		const scope = deserializeTimelineScope(scopeSerialized);
-		// Reconstruct URI from relativePath — the webview may have changed
-		// relativePath (via choosePath/changeScope) without updating the URI
+		// Reconstruct URI from relativePath — the webview may have changed relativePath (via choosePath/changeScope)
+		// without updating the URI. getRepository resolves a nested worktree here because the timeline dataset already
+		// registered it (so getClosest finds it, not the container).
 		if (scopeSerialized.relativePath && scope.type !== 'repo') {
 			const repo = this.container.git.getRepository(scope.uri);
 			if (repo != null) {

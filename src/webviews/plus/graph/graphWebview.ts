@@ -1215,11 +1215,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				): Promise<{ wip: Wip } | undefined> => {
 					signal?.throwIfAborted();
 
-					// Secondary worktrees may not be pre-registered as Repository instances;
-					// open them on demand — closed, so they don't surface in the VS Code UI.
-					const repo =
-						this.container.git.getRepository(repoPath) ??
-						(await this.container.git.getOrAddRepository(Uri.file(repoPath), { opened: false }));
+					// Secondary worktrees (incl. ones nested in the main working tree) may not be pre-registered
+					// as Repository instances; resolve the precise worktree, opening on demand — closed, so they
+					// don't surface in the VS Code UI. `detectNested` avoids getRepository()'s nearest-ancestor fold.
+					const repo = await this.container.git.getOrAddRepository(Uri.file(repoPath), {
+						opened: false,
+						detectNested: true,
+					});
 					if (repo == null) return undefined;
 
 					// Returning `wip` (with stats embedded as `wip.stats`) lets the cold-load path
@@ -2421,7 +2423,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Switch to the target's repository so a cold show lands on the right repo (and the
 			// primary-vs-secondary WIP comparison below resolves correctly). Mirrors the ref path.
 			if (target != null) {
-				this.repository = this.container.git.getRepository(target.worktreePath) ?? this.repository;
+				this.repository =
+					(await this.container.git.getOrAddRepository(Uri.file(target.worktreePath), {
+						opened: false,
+						detectNested: true,
+					})) ?? this.repository;
 			}
 			let rowId: string | undefined;
 			if (arg.action !== 'scope-to-branch') {
@@ -4460,9 +4466,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (!isSecondaryWipSha(sha)) continue;
 
 			const path = getSecondaryWipPath(sha);
-			const repo =
-				this.container.git.getRepository(path) ??
-				(await this.container.git.getOrAddRepository(Uri.file(path), { opened: false }));
+			const repo = await this.container.git.getOrAddRepository(Uri.file(path), {
+				opened: false,
+				detectNested: true,
+			});
 			if (this._disposed) break;
 			if (repo == null) continue;
 			// Double-check: another concurrent call may have claimed this sha while we awaited.
@@ -9279,9 +9286,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// host's regular `DidChangeWorkingTreeNotification` won't reach the panel. Fetch the
 		// updated WIP for this specific repo and push it directly — one `git status`, no
 		// round-trip from the panel.
-		const repo =
-			this.container.git.getRepository(value.repoPath) ??
-			(await this.container.git.getOrAddRepository(Uri.file(value.repoPath), { opened: false }));
+		const repo = await this.container.git.getOrAddRepository(Uri.file(value.repoPath), {
+			opened: false,
+			detectNested: true,
+		});
 		const result = repo != null ? await this.getWipForRepoAndStats(repo) : undefined;
 		// Ship `wip` (with stats embedded as `wip.stats`) so the webview never has to re-derive
 		// them — the host just did the work, the webview's classifier wouldn't match
