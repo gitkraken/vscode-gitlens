@@ -17,7 +17,6 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { createGraphComposeIntegration } from '@env/coretools/composer.js';
 import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
 import { getClaudeAgent } from '@env/providers.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
@@ -925,8 +924,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._composeVirtual;
 	}
 
-	private getOrCreateComposeToolsForGraph(): GraphComposeIntegration | undefined {
-		this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
+	private async getOrCreateComposeToolsForGraph(): Promise<GraphComposeIntegration | undefined> {
+		if (this._composeToolsForGraph == null) {
+			// Lazily import the node-only compose-tools library on demand, keeping it (and its eager zod
+			// schema/JIT setup that trips VS Code's `navigator` deprecation warning) off the graph init path.
+			const { createGraphComposeIntegration } = await import('@env/coretools/composer.js');
+			this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
+		}
 		return this._composeToolsForGraph;
 	}
 
@@ -1722,7 +1726,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// user manually flips `gitlens.ai.model` to `simulator:*` in settings.json.
 						const simulated = DEBUG && isComposeSimulatorActive();
 
-						const composeTools = simulated ? undefined : this.getOrCreateComposeToolsForGraph();
+						const composeTools = simulated ? undefined : await this.getOrCreateComposeToolsForGraph();
 						if (!simulated && composeTools == null) {
 							return { error: { message: 'Compose is not available in this environment.' } };
 						}
@@ -1865,7 +1869,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				},
 				onComposeProgress: this._composeProgressEvent.subscribe(buffer, tracker),
 				commitCompose: async (repoPath, plan) => {
-					const composeTools = this.getOrCreateComposeToolsForGraph();
+					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
 					}

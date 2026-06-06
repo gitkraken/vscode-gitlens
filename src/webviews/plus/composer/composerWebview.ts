@@ -1,6 +1,5 @@
 import type { ConfigurationChangeEvent } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
-import { createComposerComposeIntegration } from '@env/coretools/composer.js';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
@@ -140,10 +139,10 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	// Compose-tools integration. Node-only — the webworker build resolves
 	// `@env/coretools/composer.js` to a browser stub that returns undefined, which
-	// causes onGenerateCommits to fall through to the legacy path. Holds the
-	// two-phase cache between onGenerateCommits and onFinishAndCommit when the
-	// library route is active.
-	private readonly _composeTools: ComposerComposeIntegration | undefined;
+	// causes onGenerateCommits to fall through to the legacy path. Lazily created by
+	// `getOrCreateComposeTools` to keep the heavy library off the controller init path;
+	// holds the two-phase cache between onGenerateCommits and onFinishAndCommit.
+	private _composeTools: ComposerComposeIntegration | undefined;
 	/** Cache key returned by integration.generatePlan — consumed by the library-backed onFinishAndCommit. */
 	private _currentComposePlanCacheKey: string | undefined;
 
@@ -151,7 +150,6 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		protected readonly container: Container,
 		protected readonly host: WebviewHost<'gitlens.composer'>,
 	) {
-		this._composeTools = useComposeToolsLibrary ? createComposerComposeIntegration(container) : undefined;
 		this._disposable = Disposable.from(
 			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			onDidChangeContext(this.onContextChanged, this),
@@ -177,6 +175,16 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		this._generateCommitMessageCancellation?.dispose();
 		this._repositorySubscription?.dispose();
 		this._disposable.dispose();
+	}
+
+	private async getOrCreateComposeTools(): Promise<ComposerComposeIntegration | undefined> {
+		if (this._composeTools == null && useComposeToolsLibrary) {
+			// Lazily import the node-only compose-tools library on demand, keeping it (and its eager zod
+			// schema/JIT setup that trips VS Code's `navigator` deprecation warning) off the composer init path.
+			const { createComposerComposeIntegration } = await import('@env/coretools/composer.js');
+			this._composeTools ??= createComposerComposeIntegration(this.container);
+		}
+		return this._composeTools;
 	}
 
 	getTelemetryContext(): ComposerTelemetryContext {
@@ -1241,13 +1249,16 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			//   with the library's own indexing, and we don't yet have a pre-supplied-hunks
 			//   plan-only mode to hand off.
 			const hasCommitsToReplace = Boolean(params.commitsToReplace?.commits?.length);
-			const useLibraryRoute =
-				this._composeTools != null && this._currentRepository != null && !hasCommitsToReplace;
+			const composeTools =
+				hasCommitsToReplace || this._currentRepository == null
+					? undefined
+					: await this.getOrCreateComposeTools();
+			const useLibraryRoute = composeTools != null && this._currentRepository != null && !hasCommitsToReplace;
 			let result: Awaited<ReturnType<typeof this.container.ai.actions.generateCommits>>;
-			if (useLibraryRoute && this._composeTools != null && this._currentRepository != null) {
+			if (useLibraryRoute && composeTools != null && this._currentRepository != null) {
 				// Discard any prior cached plan from an earlier compose click in this session.
 				if (this._currentComposePlanCacheKey != null) {
-					this._composeTools.discardCachedPlan(this._currentComposePlanCacheKey);
+					composeTools.discardCachedPlan(this._currentComposePlanCacheKey);
 					this._currentComposePlanCacheKey = undefined;
 				}
 
@@ -1285,7 +1296,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 				try {
 					const svc = this.container.git.getRepositoryService(this._currentRepository.path);
-					const planResult = await this._composeTools.generatePlan({
+					const planResult = await composeTools.generatePlan({
 						svc: svc,
 						source: librarySource,
 						customInstructions: params.customInstructions,
