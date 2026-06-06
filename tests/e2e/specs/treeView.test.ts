@@ -55,6 +55,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const sim = await vscode.gitlens.startSubscriptionSimulation({
 		state: 6 /* SubscriptionState.Paid */,
 		planId: 'pro',
+		dismissOnboarding: true,
 	});
 
 	// Maximize the panel so the details pane has enough height for tree items

@@ -26,7 +26,6 @@ import type { RunningOperationExecState } from '../../plus/graph/components/deta
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
-import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../shared/controllers/modifier-keys.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
@@ -154,7 +153,6 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	private _reachabilityExpanded = false;
 
 	private readonly _modifiers = new ModifierKeysController(this);
-	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	private get isPopMode(): boolean {
 		return this._modifiers.altKey || this._modifiers.shiftKey;

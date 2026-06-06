@@ -3,6 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
 import type { DraftDetails, Mode, State } from '../../../../plus/patchDetails/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
+import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import type { PatchDetailsApp } from '../patchDetails.js';
 import './gl-draft-details.js';
 import './gl-patch-create.js';
@@ -45,6 +46,10 @@ export interface ShowPatchInGraphDetail {
 
 @customElement('gl-patch-details-app')
 export class GlPatchDetailsApp extends GlElement {
+	// Bridges the file tree's `data-vscode-context` (deep in shadow DOM) to this light-DOM root so
+	// VS Code's native context menu resolves — replaces reliance on the removed gl-tree-view handler.
+	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
+
 	@property({ type: Object })
 	state!: State;
 

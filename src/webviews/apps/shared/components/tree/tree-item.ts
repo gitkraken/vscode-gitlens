@@ -74,7 +74,9 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Number })
 	override tabIndex = -1;
 
-	@property({ type: String, attribute: 'vscode-context' })
+	// Reflected as `data-vscode-context` so the shared ContextMenuProxyController on an ancestor can
+	// find it via `composedPath()` and bridge it to light DOM — no bespoke per-tree handler needed.
+	@property({ type: String, attribute: 'data-vscode-context', reflect: true })
 	vscodeContext?: string;
 
 	// state
@@ -247,7 +249,7 @@ export class GlTreeItem extends GlElement {
 	}
 
 	private selectCore(
-		modifiers?: { dblClick: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean },
+		modifiers?: { dblClick: boolean; altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean },
 		quiet = false,
 	) {
 		this.emit('gl-tree-item-select');
@@ -261,6 +263,7 @@ export class GlTreeItem extends GlElement {
 					altKey: modifiers?.altKey ?? false,
 					ctrlKey: modifiers?.ctrlKey ?? false,
 					metaKey: modifiers?.metaKey ?? false,
+					shiftKey: modifiers?.shiftKey ?? false,
 				});
 			});
 		}
@@ -283,6 +286,9 @@ export class GlTreeItem extends GlElement {
 		this.selectCore({
 			dblClick: false,
 			altKey: e.altKey,
+			ctrlKey: e.ctrlKey,
+			metaKey: e.metaKey,
+			shiftKey: e.shiftKey,
 		});
 	}
 

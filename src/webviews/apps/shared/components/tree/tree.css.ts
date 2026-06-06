@@ -99,9 +99,20 @@ export const treeItemStyles = [
 			background-color: transparent;
 		}
 
+		/* A selected row defaults to the inactive selection colors. When the tree has focus, EVERY
+		   selected row brightens to the active colors (not just the cursor row) — matching VS Code
+		   multi-select. The signal is the --gl-tree-focus-within var (0/1), set by gl-tree-view's
+		   :host(:focus-within) and inherited across the shadow boundary: clicking a row focuses its
+		   inner button, so the container's own focus event never fires and focusin doesn't cross the
+		   nested shadow roots — a CSS-only signal is the reliable one. */
 		:host([aria-selected='true']) {
+			--gl-tree-selection-bg: color-mix(
+				in srgb,
+				var(--vscode-list-activeSelectionBackground) calc(var(--gl-tree-focus-within, 0) * 100%),
+				var(--vscode-list-inactiveSelectionBackground)
+			);
 			color: var(--vscode-list-inactiveSelectionForeground);
-			background-color: var(--vscode-list-inactiveSelectionBackground);
+			background-color: var(--gl-tree-selection-bg);
 		}
 
 		/* Focused state - when the item is the active descendant in the tree */
@@ -111,7 +122,9 @@ export const treeItemStyles = [
 			z-index: 1;
 		}
 
-		:host([aria-selected='true'][focused]) {
+		/* The cursor row (and any row with real DOM focus within it) always uses the active colors. */
+		:host([aria-selected='true'][focused]),
+		:host([aria-selected='true']:focus-within) {
 			color: var(--vscode-list-activeSelectionForeground);
 			background-color: var(--vscode-list-activeSelectionBackground);
 		}

@@ -45,6 +45,16 @@ export interface TreeItemAction {
 	altLabel?: string;
 	altAction?: string;
 	altArguments?: any[];
+
+	/**
+	 * How the action applies when clicked on a row that's part of a multi-selection (VS Code SCM
+	 * inline-action behavior). `'fanOut'` (default) repeats the action per selected file (for ops that
+	 * apply to any row, e.g. Open File); `'batch'` dispatches a single event carrying the whole
+	 * selection (`detail.files`) so ops like stage/unstage/discard act once; `'single'` ignores the
+	 * selection and acts only on the clicked row — for row-specific actions (conflict Open Current/
+	 * Incoming, a staged-changes diff) that would open wrong/empty content if fanned out.
+	 */
+	multiBehavior?: 'fanOut' | 'batch' | 'single';
 }
 
 export interface TreeItemDecorationBase {
@@ -158,6 +168,21 @@ export interface TreeItemSelectionDetail {
 	altKey: boolean;
 	ctrlKey: boolean;
 	metaKey: boolean;
+	/** Optional so existing synthetic-detail constructors (keyboard activation, branch toggle, host
+	 *  re-dispatch) need no change; absence is treated as "shift not held". */
+	shiftKey?: boolean;
+}
+
+/**
+ * Emitted by a multi-selectable `gl-tree-view` whenever the selected set changes. Carries the full
+ * ordered selection (leaf rows) so hosts can act on the batch. Empty `nodes` means selection cleared.
+ */
+export interface TreeSelectionChangedDetail {
+	nodes: TreeModelFlat[];
+	paths: string[];
+	contexts: unknown[];
+	/** The id that most recently changed the selection (anchor / last-clicked), if any. */
+	lastPath: string | undefined;
 }
 
 export interface TreeItemActionDetail extends TreeItemSelectionDetail {

@@ -95,6 +95,12 @@ export class GlWipTreePane extends LitElement {
 	@property({ type: Boolean })
 	checkable = false;
 
+	/** Opt-in native row multi-select; forwarded to the inner `gl-file-tree-pane`. Enables
+	 *  "Open Selected Changes" and selection-aware checkboxes (toggling one selected row's checkbox
+	 *  stages/unstages all selected rows). */
+	@property({ type: Boolean, attribute: 'multi-selectable' })
+	multiSelectable = false;
+
 	@property({ attribute: false })
 	checkableStates?: Map<string, { state?: 'checked' | 'mixed'; disabled?: boolean; disabledReason?: string }>;
 
@@ -249,6 +255,7 @@ export class GlWipTreePane extends LitElement {
 			.orderBy=${this.preferences?.workingFilesOrderBy}
 			.grouping=${this._grouping}
 			?checkable=${this.checkable}
+			?multi-selectable=${this.multiSelectable}
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
 			.agentTouchedFiles=${this.agentTouchedFiles}

@@ -10,6 +10,12 @@ import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout, ViewsFilesConfig } from '../../../../../config.js';
+import type { WebviewItemContext } from '../../../../../system/webview.js';
+import {
+	mergeWebviewItems,
+	mergeWebviewItemsUnion,
+	serializeWebviewItemContext,
+} from '../../../../../system/webview.js';
 import type { FileShowOptions, WorkingFileSorting } from '../../../../commitDetails/protocol.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { elementBase } from '../styles/lit/base.css.js';
@@ -21,6 +27,7 @@ import type {
 	TreeItemDecoration,
 	TreeItemSelectionDetail,
 	TreeModel,
+	TreeSelectionChangedDetail,
 } from './base.js';
 import { getConflictDecorations, getConflictTooltip } from './conflictRendering.js';
 import type { FileGroup } from './file-tree-utils.js';
@@ -55,6 +62,9 @@ export interface FileChangeListItemDetail extends FileItem {
 	/** Set when the originating click held Alt. Surfaced so consumers like gl-wip-tree-pane
 	 * can fork dispatch on modifier state without reverse-engineering `showOptions.viewColumn`. */
 	altKey?: boolean;
+	/** Present when a `batch` inline action fires on a multi-selection — the full selected set so the
+	 * consumer can act once (e.g. one combined discard confirm) instead of per-file. */
+	files?: readonly FileItem[];
 }
 
 @customElement('gl-file-tree-pane')
@@ -140,6 +150,24 @@ export class GlFileTreePane extends LitElement {
 	 *  swaps live when Alt is held, and the aria-label stays clean (single action at a time). */
 	@property({ attribute: 'multi-diff-alt-label' })
 	multiDiffAltLabel?: string;
+
+	// --- Multi-select ---
+
+	/**
+	 * Opt-in native row multi-select (Ctrl/Cmd+click toggle, Shift+click range). Forwarded to
+	 * `gl-tree-view`. When on, the pane emits `file-selection-changed` with the selected file set;
+	 * a plain click still fires the per-row `selectionAction` event so click-to-open is preserved.
+	 * Orthogonal to `checkable`.
+	 */
+	@property({ type: Boolean, attribute: 'multi-selectable' })
+	multiSelectable = false;
+
+	@state() private _selectedFiles: readonly FileItem[] = [];
+
+	/** The currently multi-selected files (empty when `multiSelectable` is off or nothing selected). */
+	get selectedFiles(): readonly FileItem[] {
+		return this._selectedFiles;
+	}
 
 	// --- Checkbox ---
 
@@ -238,6 +266,82 @@ export class GlFileTreePane extends LitElement {
 	// which has its own subscription.
 	private readonly _modifiers = new ModifierKeysController(this);
 
+	override connectedCallback(): void {
+		super.connectedCallback?.();
+		// Bubble-phase listener fires before the ancestor ContextMenuProxyController (inner→outer), so
+		// it can enrich the right-clicked row's data-vscode-context with the active multi-selection
+		// just-in-time — before the proxy copies it to the light-DOM host for VS Code's menu.
+		this.addEventListener('contextmenu', this.onContextMenuEnrichSelection);
+	}
+
+	override disconnectedCallback(): void {
+		this.removeEventListener('contextmenu', this.onContextMenuEnrichSelection);
+		super.disconnectedCallback?.();
+	}
+
+	/**
+	 * When a row that's part of a multi-selection is right-clicked, enrich its data-vscode-context with
+	 * `listMultiSelection` + merged `webviewItems` + `webviewItemsValues` so VS Code's `.multi` file
+	 * commands gate and resolve over the whole selection. The single-row context is restored shortly
+	 * after the menu reads it (mirrors ContextMenuProxyController's 100ms window).
+	 */
+	private onContextMenuEnrichSelection = (e: MouseEvent): void => {
+		if (!this.multiSelectable || this._selectedFiles.length <= 1 || this.fileContext == null) return;
+
+		const treeItem = e
+			.composedPath()
+			.find(
+				(el): el is HTMLElement =>
+					el instanceof HTMLElement &&
+					el.tagName === 'GL-TREE-ITEM' &&
+					el.hasAttribute('data-vscode-context'),
+			);
+		if (treeItem == null) return;
+
+		const raw = treeItem.getAttribute('data-vscode-context');
+		if (raw == null) return;
+
+		let single: WebviewItemContext;
+		try {
+			single = JSON.parse(raw) as WebviewItemContext;
+		} catch {
+			return;
+		}
+
+		// Only enrich when the right-clicked row is itself part of the selection.
+		const path = (single.webviewItemValue as { path?: string } | undefined)?.path;
+		if (path == null || !this._selectedFiles.some(f => f.path === path)) return;
+
+		const values: { webviewItem: string; webviewItemValue: unknown }[] = [];
+		for (const file of this._selectedFiles) {
+			const ctx = this.fileContext(file);
+			if (ctx == null) continue;
+
+			try {
+				const parsed = JSON.parse(ctx) as WebviewItemContext;
+				values.push({ webviewItem: parsed.webviewItem, webviewItemValue: parsed.webviewItemValue });
+			} catch {
+				continue;
+			}
+		}
+		if (values.length <= 1) return;
+
+		// Omit `webviewItem` (the singular row key) so single-file menus auto-hide on a multi-selection
+		// and only the `.multi` menus (gated on `webviewItems` + `listMultiSelection`) show — matching
+		// the graph's multi-selection context. `webviewItemValue` is kept as the right-clicked anchor.
+		const enriched = {
+			webview: single.webview,
+			webviewInstance: single.webviewInstance,
+			webviewItemValue: single.webviewItemValue,
+			listMultiSelection: true,
+			webviewItems: mergeWebviewItems(values.map(v => v.webviewItem)),
+			webviewItemsUnion: mergeWebviewItemsUnion(values.map(v => v.webviewItem)),
+			webviewItemsValues: values,
+		};
+		treeItem.setAttribute('data-vscode-context', serializeWebviewItemContext(enriched));
+		setTimeout(() => treeItem.setAttribute('data-vscode-context', raw), 100);
+	};
+
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		// Rebuild cached tree model when tree-structure-relevant properties change.
 		// Note: fileActions, fileContext, and folderContext are excluded — they're
@@ -280,6 +384,23 @@ export class GlFileTreePane extends LitElement {
 						if (scrollable != null) {
 							this._pendingScrollRestore = scrollable.scrollTop;
 						}
+					}
+				}
+
+				// Reconcile the multi-selection against the new files: drop paths that are gone and
+				// re-point survivors to the new FileItem objects. The tree's own prune only re-emits
+				// when its id-set actually changes, so a model swap whose paths overlap would otherwise
+				// leave `_selectedFiles` holding the previous commit's file shapes (wrong diff refs).
+				if (this._selectedFiles.length) {
+					const byPath = new Map(files.map(f => [f.path, f]));
+					const reconciled = this._selectedFiles
+						.map(f => byPath.get(f.path))
+						.filter((f): f is FileItem => f != null);
+					if (
+						reconciled.length !== this._selectedFiles.length ||
+						reconciled.some((f, i) => f !== this._selectedFiles[i])
+					) {
+						this._selectedFiles = reconciled;
 					}
 				}
 			}
@@ -549,12 +670,8 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private onTreeSearchBoxFilterChanged(e: CustomEvent<boolean>) {
-		// Suppress while context-match visibility is forcing highlight for the visual story —
-		// otherwise the user-controlled inner click would persist a value that gets immediately
-		// overridden on the next render. The visible mode is being dictated by the cycle, not the
-		// user. (Lit dispatched the event because the bound `?search-box-filter` flipped.)
-		if (this._contextMatchVisibility === 'mixed') return;
-
+		// The user owns the search-box filter/highlight mode independently of context-match
+		// visibility now (mixed dims via `dimUnmatched`, not by forcing this off), so always honor it.
 		this._searchBoxFilter = e.detail;
 		this.dispatchEvent(
 			new CustomEvent<boolean>('gl-search-box-filter-change', {
@@ -757,16 +874,18 @@ export class GlFileTreePane extends LitElement {
 		// empty-text.
 		const matchedEmpty = this._contextMatchVisibility === 'matched' && this.searchContext != null;
 		const emptyText = matchedEmpty ? 'No matching files' : this.emptyText;
-		// `mixed` context-match visibility shows all files with matches highlighted, so the
-		// search-box filter has to be `false` (highlight) for the visual story to hold even if the
-		// user preference is otherwise. Outside of `mixed`, use the user preference.
-		const treeSearchBoxFilter = this._contextMatchVisibility === 'mixed' ? false : this.effectiveSearchBoxFilter;
+		// `mixed` context-match visibility shows all files with matches highlighted (dim non-matches).
+		// Route that through `dimUnmatched` rather than forcing `searchBoxFilter` off — otherwise the
+		// funnel would hijack the user's search-box filter mode and flip its placeholder.
+		const dimUnmatched = this.searchContext != null && this._contextMatchVisibility === 'mixed';
 		return html`<gl-tree-view
 			.model=${treeModel}
 			.guides=${this.indentGuides}
 			.filtered=${this.searchContext != null && this._contextMatchVisibility !== 'off'}
-			.searchBoxFilter=${treeSearchBoxFilter}
+			.searchBoxFilter=${this.effectiveSearchBoxFilter}
+			.dimUnmatched=${dimUnmatched}
 			?filterable=${this.effectiveShowSearchBox}
+			?multi-selectable=${this.multiSelectable}
 			filter-placeholder="Filter files..."
 			search-placeholder="Search files..."
 			empty-text=${emptyText}
@@ -774,6 +893,7 @@ export class GlFileTreePane extends LitElement {
 			@gl-tree-generated-item-action-clicked=${this.onTreeItemActionClicked}
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
+			@gl-tree-generated-selection-changed=${this.onSelectionChanged}
 		></gl-tree-view>`;
 	}
 
@@ -784,7 +904,33 @@ export class GlFileTreePane extends LitElement {
 		// If context contains a file object, dispatch as a file event
 		if (context?.[0] && typeof context[0] === 'object' && 'path' in context[0]) {
 			const file = context[0] as FileItem;
-			this.dispatchFileEvent(e.detail.action.action, file, e.detail);
+			const action = e.detail.action;
+
+			// Inline-action fan-out (VS Code SCM): when the clicked row is part of a multi-selection,
+			// apply the action across the selection. `batch` actions (e.g. discard) get one event carrying
+			// the whole set so the consumer can act once; `fanOut` repeats the action per selected file;
+			// `single` opts out entirely (row-specific actions like conflict Open Current/Incoming that
+			// would open wrong/empty content for non-applicable rows) and acts only on the clicked row.
+			if (
+				this.multiSelectable &&
+				this._selectedFiles.length > 1 &&
+				action.multiBehavior !== 'single' &&
+				this._selectedFiles.some(f => f.path === file.path)
+			) {
+				if (action.multiBehavior === 'batch') {
+					this.dispatchFileEvent(action.action, file, e.detail, this._selectedFiles);
+				} else {
+					// Force non-preview (`dblClick: true`) so a multi-open lands every file in its own tab —
+					// a single preview tab would otherwise be replaced by each successive open, leaving only
+					// the last file. Non-open fan-out actions ignore showOptions, so this is harmless to them.
+					for (const selected of this._selectedFiles) {
+						this.dispatchFileEvent(action.action, selected, { dblClick: true, altKey: e.detail.altKey });
+					}
+				}
+				return;
+			}
+
+			this.dispatchFileEvent(action.action, file, e.detail);
 		} else {
 			// For non-file actions (e.g., group header actions), dispatch generically
 			this.dispatchEvent(
@@ -798,6 +944,38 @@ export class GlFileTreePane extends LitElement {
 	}
 
 	private onTreeItemChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
+		// Selection-aware checkboxes (VS Code SCM behavior): when the toggled row is part of a
+		// multi-selection, apply the SAME ACTION (check → on, uncheck → off) to every selected file
+		// by emitting a `file-checked` per selected file — but skip files already in the target state
+		// so the consumer doesn't fire redundant ops (e.g. re-`git add`-ing an already-staged file,
+		// which would silently capture new working-tree changes). A `mixed` (partially staged) file
+		// is NOT in either terminal state, so it always receives the action. A checkbox toggle on a
+		// row NOT in the selection (or with <2 selected) acts on that row alone. Consumers read only
+		// detail.context[0] (the file) + detail.checked, so a per-file detail with context:[file] is
+		// sufficient and keeps the wrappers/panels unchanged.
+		const toggledPath = (e.detail.context?.[0] as FileItem | undefined)?.path;
+		if (this.multiSelectable && this._selectedFiles.length > 1 && toggledPath != null) {
+			const inSelection = this._selectedFiles.some(f => f.path === toggledPath);
+			if (inSelection) {
+				const checked = e.detail.checked;
+				for (const file of this._selectedFiles) {
+					const state = this.checkableStates?.get(file.path)?.state ?? this.checkableStateDefault?.state;
+					// Skip files already fully in the requested terminal state (`checked` → already
+					// 'checked'; unchecked → already off/undefined). `mixed` falls through both ways.
+					if (checked ? state === 'checked' : state == null) continue;
+
+					this.dispatchEvent(
+						new CustomEvent('file-checked', {
+							detail: { node: e.detail.node, context: [file], checked: checked },
+							bubbles: true,
+							composed: true,
+						}),
+					);
+				}
+				return;
+			}
+		}
+
 		this.dispatchEvent(new CustomEvent('file-checked', { detail: e.detail, bubbles: true, composed: true }));
 	}
 
@@ -807,7 +985,34 @@ export class GlFileTreePane extends LitElement {
 		this.dispatchFileEvent(this.selectionAction, e.detail.context[0], e.detail);
 	}
 
-	private dispatchFileEvent(name: string, file: FileItem, e?: { dblClick?: boolean; altKey?: boolean }): void {
+	private onSelectionChanged(e: CustomEvent<TreeSelectionChangedDetail>): void {
+		const selectedPaths = new Set(e.detail.paths);
+		// Dedupe by path: a mixed (staged + unstaged) file can appear as two rows sharing one path, and
+		// the selected set must carry each file once — otherwise multi actions double-act (open a file
+		// twice, copy/stage its path twice, list it twice in webviewItemsValues).
+		const seen = new Set<string>();
+		const files = (this.files ?? []).filter(f => {
+			if (!selectedPaths.has(f.path) || seen.has(f.path)) return false;
+
+			seen.add(f.path);
+			return true;
+		});
+		this._selectedFiles = files;
+		this.dispatchEvent(
+			new CustomEvent('file-selection-changed', {
+				detail: { files: files, paths: e.detail.paths },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private dispatchFileEvent(
+		name: string,
+		file: FileItem,
+		e?: { dblClick?: boolean; altKey?: boolean },
+		files?: readonly FileItem[],
+	): void {
 		this.dispatchEvent(
 			new CustomEvent(name, {
 				detail: {
@@ -817,6 +1022,7 @@ export class GlFileTreePane extends LitElement {
 					originalPath: file.originalPath,
 					staged: file.staged,
 					altKey: e?.altKey,
+					files: files,
 					showOptions: e
 						? {
 								preview: !e.dblClick,

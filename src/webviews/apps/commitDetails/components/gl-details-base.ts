@@ -2,9 +2,11 @@ import type { CSSResultGroup, TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
 import type { OpenMultipleChangesArgs } from '../../shared/actions/file.js';
 import { renderCommitStatsIcons } from '../../shared/components/commit/commit-stats.js';
+import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import '../../shared/components/code-icon.js';
@@ -16,16 +18,28 @@ type Mode = 'commit' | 'stash' | 'wip';
 
 export interface FileChangeListItemDetail extends File {
 	showOptions?: FileShowOptions;
+	/** Present when a `batch` inline action fires on a multi-selection — the full selected set so the
+	 * consumer can act once (e.g. one combined discard confirm) instead of per-file. */
+	files?: readonly GitFileChangeShape[];
 }
 
 export class GlDetailsBase extends LitElement {
 	static override styles: CSSResultGroup = detailsBaseStyles;
+
+	// Bridges the file tree's `data-vscode-context` (set on `gl-tree-item` rows, deep in shadow DOM)
+	// to this light-DOM host so VS Code's native context menu can read it. Shared by all subclasses
+	// (commit + WIP panels) so neither needs a bespoke contextmenu handler.
+	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	@property({ reflect: true })
 	variant: 'standalone' | 'embedded' = 'standalone';
 
 	@property({ type: Array })
 	files?: Files;
+
+	/** Opt-in native multi-select for the changed-files tree. Forwarded to `gl-file-tree-pane`. */
+	@property({ type: Boolean, attribute: 'multi-selectable' })
+	multiSelectable = false;
 
 	@property({ type: Boolean })
 	isUncommitted = false;
