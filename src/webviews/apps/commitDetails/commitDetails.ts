@@ -558,6 +558,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 							html`<gl-details-commit-panel
 								variant="embedded"
 								file-icons
+								?multi-selectable=${true}
 								?panel-actions=${false}
 								.commit=${commit}
 								.loading=${resources?.commit.loading.get() ?? false}
@@ -638,11 +639,21 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 								@file-compare-wip=${(e: CustomEvent<FileChangeListItemDetail>) =>
 									actions?.openFileCompareWipChanges(e.detail, e.detail.showOptions)}
 								@file-stage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.stageFile(e.detail)}
+									e.detail.files?.length
+										? actions?.stageFiles([...e.detail.files])
+										: actions?.stageFile(e.detail)}
 								@file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.unstageFile(e.detail)}
+									e.detail.files?.length
+										? actions?.unstageFiles([...e.detail.files])
+										: actions?.unstageFile(e.detail)}
 								@file-discard=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.discardFile(e.detail)}
+									e.detail.files?.length
+										? actions?.discardFiles([...e.detail.files])
+										: actions?.discardFile(e.detail)}
+								@file-stash=${(e: CustomEvent<FileChangeListItemDetail>) =>
+									e.detail.files?.length
+										? actions?.stashFiles([...e.detail.files])
+										: actions?.stashFile(e.detail)}
 								@discard-unstaged=${() => actions?.discardUnstagedFiles()}
 								@discard-staged=${() => actions?.discardStagedFiles()}
 								@file-open-current=${(e: CustomEvent<FileChangeListItemDetail>) =>

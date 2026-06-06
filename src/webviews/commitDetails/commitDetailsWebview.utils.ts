@@ -3,6 +3,7 @@ import type { GitCommit } from '@gitlens/git/models/commit.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
 import { findCommitFile, getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
 import { isWebviewItemContext } from '../../system/webview.js';
@@ -77,6 +78,16 @@ export function getFolderUriFromContext(container: Container, context: DetailsFo
 
 export type ComparisonContext = { sha: string };
 
+/** A `webviewItemsValues` entry resolved to its commit + file for a multi-file action. */
+export interface ResolvedDetailsFile {
+	commit: GitCommit;
+	file: GitFileChange;
+	comparison?: ComparisonContext;
+	/** The per-item `webviewItem` string (carries `+staged`/`+unstaged`/`+conflict`), so multi handlers
+	 * can act on only the applicable subset (e.g. Stage stages only the `+unstaged` files). */
+	webviewItem?: string;
+}
+
 export async function getFileCommitFromContext(
 	container: Container,
 	context: DetailsFileContextValue,
@@ -120,4 +131,48 @@ export async function getFileCommitFromContext(
 
 	const commit = await svc.commits.getCommitForFile(uri, sha);
 	return commit?.file != null ? [commit, commit.file, comparison] : [];
+}
+
+/**
+ * Resolve a multi-selection right-click to its commit+file set. Reads `webviewItemsValues` (all the
+ * selected files, set on the row by gl-file-tree-pane just-in-time) and falls back to the single
+ * right-clicked row when absent. Shared by the commit-details and graph webview registrations.
+ */
+export async function resolveMultiFileContext(container: Container, item: unknown): Promise<ResolvedDetailsFile[]> {
+	if (item == null || typeof item !== 'object') return [];
+
+	// The multi context carries `webviewItemsValues` (all selected files) but omits the singular
+	// `webviewItem` so single-file menus hide on multi-select; fall back to the single row's value.
+	const ctx = item as {
+		webviewItem?: string;
+		webviewItemsValues?: { webviewItem?: string; webviewItemValue: DetailsFileContextValue }[];
+		webviewItemValue?: DetailsFileContextValue;
+	};
+	const values =
+		ctx.webviewItemsValues ??
+		(ctx.webviewItemValue != null
+			? [{ webviewItem: ctx.webviewItem, webviewItemValue: ctx.webviewItemValue }]
+			: []);
+
+	// Resolve all files concurrently — each lookup is independent git IO; serializing would scale
+	// latency linearly with the selection size on an interactive (right-click) path.
+	const settled = await Promise.allSettled(
+		values.map(({ webviewItemValue }) => getFileCommitFromContext(container, webviewItemValue)),
+	);
+	const resolved: ResolvedDetailsFile[] = [];
+	for (const [index, result] of settled.entries()) {
+		const tuple = getSettledValue(result);
+		if (tuple == null) continue;
+
+		const [commit, file, comparison] = tuple;
+		if (commit != null && file != null) {
+			resolved.push({
+				commit: commit,
+				file: file,
+				comparison: comparison,
+				webviewItem: values[index].webviewItem,
+			});
+		}
+	}
+	return resolved;
 }

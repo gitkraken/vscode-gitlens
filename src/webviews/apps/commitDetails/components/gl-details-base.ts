@@ -117,11 +117,16 @@ export class GlDetailsBase extends LitElement {
 				.folderContext=${this._getFolderContext}
 				.searchContext=${this.searchContext}
 				.buttons=${buttons}
+				?multi-selectable=${this.multiSelectable}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
 				empty-text=${isLoadingEmpty ? '' : (this.emptyText ?? 'No Files')}
 				@file-checked=${this._onFileChecked}
 				@gl-file-tree-pane-open-multi-diff=${multiDiff ? () => this.onOpenMultiDiff(multiDiff) : null}
+				@gl-file-tree-pane-open-selected-changes=${multiDiff
+					? (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) =>
+							this.onOpenSelectedChanges(e, multiDiff)
+					: null}
 			>
 				${options?.stats
 					? html`<span class="commit-stats-subtitle" slot="subtitle"
@@ -141,6 +146,29 @@ export class GlDetailsBase extends LitElement {
 
 	private onOpenMultiDiff(refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string }): void {
 		const files = this.files;
+		if (!files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					wip: refs.wip,
+					title: refs.title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onOpenSelectedChanges(
+		e: CustomEvent<{ files: readonly GitFileChangeShape[] }>,
+		refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string },
+	): void {
+		const files = e.detail?.files;
 		if (!files?.length) return;
 
 		this.dispatchEvent(

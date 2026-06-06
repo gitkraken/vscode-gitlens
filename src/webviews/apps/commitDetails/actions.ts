@@ -552,8 +552,28 @@ export class CommitDetailsActions {
 		gitActions.unstageFile(this.state.error, this.services.repository, file);
 	}
 
+	stageFiles(files: GitFileChangeShape[]): void {
+		gitActions.stageFiles(this.state.error, this.services.repository, files);
+	}
+
+	unstageFiles(files: GitFileChangeShape[]): void {
+		gitActions.unstageFiles(this.state.error, this.services.repository, files);
+	}
+
 	discardFile(file: GitFileChangeShape): void {
 		gitActions.discardFile(this.state.error, this.services.repository, file);
+	}
+
+	discardFiles(files: GitFileChangeShape[]): void {
+		gitActions.discardFiles(this.state.error, this.services.repository, files);
+	}
+
+	stashFile(file: GitFileChangeShape): void {
+		gitActions.stashFile(this.state.error, this.services.repository, file);
+	}
+
+	stashFiles(files: GitFileChangeShape[]): void {
+		gitActions.stashFiles(this.state.error, this.services.repository, files);
 	}
 
 	discardUnstagedFiles(): void {

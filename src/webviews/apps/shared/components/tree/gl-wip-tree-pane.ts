@@ -275,6 +275,9 @@ export class GlWipTreePane extends LitElement {
 			@gl-file-tree-pane-open-multi-diff=${multiDiff
 				? (e: CustomEvent<{ altKey: boolean }>) => this.onOpenMultiDiff(multiDiff, e.detail?.altKey === true)
 				: null}
+			@gl-file-tree-pane-open-selected-changes=${multiDiff
+				? (e: CustomEvent<{ files: readonly { path: string }[] }>) => this.onOpenSelectedChanges(e, multiDiff)
+				: null}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
 			${this.renderConflictBulkActions(files)}
@@ -403,6 +406,30 @@ export class GlWipTreePane extends LitElement {
 					rhs: refs.rhs,
 					wip: refs.wip,
 					title: title,
+				} satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onOpenSelectedChanges(
+		e: CustomEvent<{ files: readonly { path: string }[] }>,
+		refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string },
+	): void {
+		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const files = (this.files ?? []).filter(f => selectedPaths.has(f.path));
+		if (!files.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: {
+					files: files,
+					repoPath: refs.repoPath,
+					lhs: refs.lhs,
+					rhs: refs.rhs,
+					wip: refs.wip,
+					title: refs.title,
 				} satisfies OpenMultipleChangesArgs,
 				bubbles: true,
 				composed: true,

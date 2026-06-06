@@ -2527,6 +2527,20 @@ export class DetailsActions {
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail), 'unstage file');
 	}
 
+	stageFiles(files: GitFileChangeShape[]): void {
+		for (const file of files) {
+			this.optimisticallyUpdateFileStaged(file.path, true);
+		}
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFiles(files), 'stage files');
+	}
+
+	unstageFiles(files: GitFileChangeShape[]): void {
+		for (const file of files) {
+			this.optimisticallyUpdateFileStaged(file.path, false);
+		}
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFiles(files), 'unstage files');
+	}
+
 	stageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
@@ -2543,6 +2557,18 @@ export class DetailsActions {
 
 	discardFile(detail: FileChangeListItemDetail): void {
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail), 'discard file');
+	}
+
+	discardFiles(files: GitFileChangeShape[]): void {
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFiles(files), 'discard files');
+	}
+
+	stashFile(detail: FileChangeListItemDetail): void {
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFile(detail), 'stash file');
+	}
+
+	stashFiles(files: GitFileChangeShape[]): void {
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFiles(files), 'stash files');
 	}
 
 	discardUnstagedFiles(repoPath: string | undefined): void {

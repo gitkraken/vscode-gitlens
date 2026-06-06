@@ -611,6 +611,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 				<gl-file-tree-pane
 					.files=${renderFiles}
 					?checkable=${true}
+					?multi-selectable=${true}
 					?show-file-icons=${true}
 					.collapsable=${false}
 					.filesLayout=${{ layout: this.fileLayout }}

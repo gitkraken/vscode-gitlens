@@ -248,8 +248,13 @@ import {
 	getFileCommitFromContext,
 	isDetailsFileContext,
 	isDetailsFolderContext,
+	resolveMultiFileContext,
 } from '../../commitDetails/commitDetailsWebview.utils.js';
-import { DetailsFileCommands, getDetailsFileCommands } from '../../commitDetails/detailsFileCommands.js';
+import {
+	DetailsFileCommands,
+	getDetailsFileCommands,
+	getDetailsFileMultiCommands,
+} from '../../commitDetails/detailsFileCommands.js';
 import {
 	DetailsFolderCommands,
 	getDetailsFolderCommands,
@@ -2602,6 +2607,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						if (commit == null) return;
 
 						return void handler.call(fileCommands, commit, file, undefined, comparison);
+					},
+				),
+			);
+		}
+
+		// Multi-file commands. The right-clicked row carries `webviewItemsValues` (all selected files);
+		// resolve each to its commit+file and hand the whole set to the multi handler.
+		for (const { command: cmd, handler } of getDetailsFileMultiCommands()) {
+			commands.push(
+				this.host.registerWebviewCommandForId(
+					this.host.id,
+					getWebviewCommand(cmd, 'graphDetails'),
+					async (item?: DetailsItemContext) => {
+						const resolved = await resolveMultiFileContext(this.container, item);
+						if (resolved.length) {
+							await handler.call(fileCommands, resolved);
+						}
 					},
 				),
 			);

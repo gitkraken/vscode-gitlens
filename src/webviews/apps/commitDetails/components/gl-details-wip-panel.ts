@@ -42,37 +42,76 @@ import './gl-inspect-patch.js';
 // Stable references for the inline tree-item actions so each render reuses the same objects
 // instead of allocating fresh ones per file. Lit's array diffing in gl-tree-item is identity-
 // based, so reusing these also avoids spurious re-renders downstream.
+// `single`: conflict-specific diffs (current/incoming side) only make sense for the clicked conflicted
+// row — fanning them out to non-conflicted selected files would open wrong/empty content.
 const openCurrentChangesAction: TreeItemAction = {
 	icon: 'gl-diff-left',
 	label: 'Open Current Changes',
 	action: 'file-open-current',
+	multiBehavior: 'single',
 };
 const openIncomingChangesAction: TreeItemAction = {
 	icon: 'gl-diff-right',
 	label: 'Open Incoming Changes',
 	action: 'file-open-incoming',
+	multiBehavior: 'single',
 };
-const stageConflictAction: TreeItemAction = { icon: 'add', label: 'Stage', action: 'file-stage' };
-const stageAction: TreeItemAction = { icon: 'plus', label: 'Stage Changes', action: 'file-stage' };
-const unstageAction: TreeItemAction = { icon: 'remove', label: 'Unstage Changes', action: 'file-unstage' };
-const discardAction: TreeItemAction = { icon: 'discard', label: 'Discard Changes', action: 'file-discard' };
+const stageConflictAction: TreeItemAction = {
+	icon: 'add',
+	label: 'Stage',
+	action: 'file-stage',
+	multiBehavior: 'batch',
+};
+// `batch`: an inline stage/unstage on a multi-selection fires ONE event carrying the whole set
+// (detail.files) so the host runs a single atomic `git add`/`git reset` — N concurrent single-file
+// ops would collide on the index lock and leave some files behind.
+const stageAction: TreeItemAction = {
+	icon: 'plus',
+	label: 'Stage Changes',
+	action: 'file-stage',
+	multiBehavior: 'batch',
+};
+const unstageAction: TreeItemAction = {
+	icon: 'remove',
+	label: 'Unstage Changes',
+	action: 'file-unstage',
+	multiBehavior: 'batch',
+};
+// `batch`: discarding an inline button on a multi-selection fires ONE `file-discard` carrying the
+// whole set (detail.files) so the host shows a single combined confirm, not one per file.
+const discardAction: TreeItemAction = {
+	icon: 'discard',
+	label: 'Discard Changes...',
+	action: 'file-discard',
+	multiBehavior: 'batch',
+};
 // Mixed rows (both staged + unstaged) discard only the unstaged portion on the first click — the
 // staged content survives until a second discard. Same `file-discard` action (the host detects
 // mixed and applies the partial semantics); only the label differs so it matches that behavior and
 // the bulk toolbar button.
 const discardUnstagedAction: TreeItemAction = {
 	icon: 'discard',
-	label: 'Discard Unstaged Changes',
+	label: 'Discard Unstaged Changes...',
 	action: 'file-discard',
+	multiBehavior: 'batch',
 };
 const openFileAction: TreeItemAction = { icon: 'go-to-file', label: 'Open File', action: 'file-open' };
 // `file-compare-wip-staged` is bridged by gl-wip-tree-pane into `file-compare-wip` with
 // `staged: true` overridden so the diff resolves to staged ↔ HEAD even though the deduped
 // row carries `staged: false` (preferred-unstaged precedence from the tree pane dedup).
+// `single`: a specific "staged side" diff for the clicked mixed row; fanning it out to selected files
+// without staged changes would open an empty/wrong diff.
 const openStagedChangesAction: TreeItemAction = {
 	icon: 'diff-single',
 	label: 'Open Staged Changes',
 	action: 'file-compare-wip-staged',
+	multiBehavior: 'single',
+};
+const stashAction: TreeItemAction = {
+	icon: 'gl-stash-save',
+	label: 'Stash Changes...',
+	action: 'file-stash',
+	multiBehavior: 'batch',
 };
 
 const conflictedCheckboxActions: TreeItemAction[] = [
@@ -81,10 +120,15 @@ const conflictedCheckboxActions: TreeItemAction[] = [
 	openIncomingChangesAction,
 ];
 const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
-const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, discardAction];
-const checkboxMixedActions: TreeItemAction[] = [openFileAction, openStagedChangesAction, discardUnstagedAction];
-const stagedActions: TreeItemAction[] = [openFileAction, unstageAction, discardAction];
-const unstagedActions: TreeItemAction[] = [openFileAction, stageAction, discardAction];
+const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, stashAction, discardAction];
+const checkboxMixedActions: TreeItemAction[] = [
+	openFileAction,
+	openStagedChangesAction,
+	stashAction,
+	discardUnstagedAction,
+];
+const stagedActions: TreeItemAction[] = [openFileAction, unstageAction, stashAction, discardAction];
+const unstagedActions: TreeItemAction[] = [openFileAction, stageAction, stashAction, discardAction];
 
 /** Grace period after `editing` flips off during which a file stays marked. The host's
  *  `editing === true` window is the literal in-flight refcount window — milliseconds for
@@ -709,6 +753,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				.collapsable=${this.filesCollapsable}
 				?show-file-icons=${this.fileIcons}
 				?checkable=${this.checkboxMode}
+				?multi-selectable=${true}
 				?bulk-conflict-actions=${this.bulkConflictActions}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
@@ -738,6 +783,12 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		return { repoPath: repoPath, lhs: 'HEAD', rhs: '', wip: true, title: 'Working Changes' };
 	}
 
+	// Coalesces the selection-aware checkbox fan-out — gl-file-tree-pane dispatches one synchronous
+	// `file-checked` per selected file — into a single stage/unstage, so the host runs ONE atomic
+	// `git add`/`git reset` instead of N concurrent ops that collide on `.git/index.lock` and leave
+	// some files behind. Flushed on a microtask, after the synchronous fan-out has drained.
+	private _checkedBatch?: { checked: boolean; repoPath: string; files: File[] };
+
 	protected override onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
 		if (!e.detail.context) return;
 
@@ -745,15 +796,33 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		const repoPath = file.repoPath ?? this.wip?.repo?.path;
 		if (!repoPath) return;
 
+		// Start a new batch when none is pending or the action flips (check vs uncheck); the fan-out
+		// applies a single action across the whole selection, so a batch is action-homogeneous.
+		if (this._checkedBatch == null || this._checkedBatch.checked !== e.detail.checked) {
+			this._checkedBatch = { checked: e.detail.checked, repoPath: repoPath, files: [] };
+			queueMicrotask(() => this.flushCheckedBatch());
+		}
+		this._checkedBatch.files.push(file);
+	}
+
+	private flushCheckedBatch(): void {
+		const batch = this._checkedBatch;
+		this._checkedBatch = undefined;
+		if (batch == null) return;
+		if (!batch.files.length) return;
+
+		const [first] = batch.files;
 		const detail = {
-			path: file.path,
-			repoPath: repoPath,
-			status: file.status,
-			staged: file.staged,
+			path: first.path,
+			repoPath: batch.repoPath,
+			status: first.status,
+			staged: first.staged,
+			// >1 → carry the whole set so the host stages/unstages them in one atomic op.
+			files: batch.files.length > 1 ? batch.files : undefined,
 		};
 
 		this.dispatchEvent(
-			new CustomEvent(e.detail.checked ? 'file-stage' : 'file-unstage', {
+			new CustomEvent(batch.checked ? 'file-stage' : 'file-unstage', {
 				detail: detail,
 			}),
 		);

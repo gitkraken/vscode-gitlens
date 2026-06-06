@@ -1139,6 +1139,58 @@
 				]
 			}
 		},
+		"gitlens.copyPath:commitDetails": {
+			"label": "Copy Path",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(file|folder)\\b/ && webview == gitlens.views.commitDetails",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.copyPath:graphDetails": {
+			"label": "Copy Path",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:(file|folder)\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.copyPath.multi:commitDetails": {
+			"label": "Copy Paths",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:(file|folder)\\b/ && listMultiSelection && webview == gitlens.views.commitDetails",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.copyPath.multi:graphDetails": {
+			"label": "Copy Paths",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:(file|folder)\\b/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.copyRelativePathToClipboard": {
 			"label": "Copy Relative Path",
 			"icon": "$(copy)",
@@ -1187,6 +1239,32 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:(file|folder)\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.copyRelativePathToClipboard.multi:commitDetails": {
+			"label": "Copy Relative Paths",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:(file|folder)\\b/ && listMultiSelection && webview == gitlens.views.commitDetails",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.copyRelativePathToClipboard.multi:graphDetails": {
+			"label": "Copy Relative Paths",
+			"icon": "$(copy)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:(file|folder)\\b/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "7_gitlens_cutcopypaste",
 						"order": 2
 					}
@@ -2166,6 +2244,58 @@
 		"gitlens.disableDebugLogging": {
 			"label": "Disable Debug (Trace) Logging",
 			"commandPalette": true
+		},
+		"gitlens.discardChanges:commitDetails": {
+			"label": "Discard Changes...",
+			"icon": "$(discard)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.discardChanges:graphDetails": {
+			"label": "Discard Changes...",
+			"icon": "$(discard)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.discardChanges.multi:commitDetails": {
+			"label": "Discard Changes...",
+			"icon": "$(discard)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.discardChanges.multi:graphDetails": {
+			"label": "Discard Changes...",
+			"icon": "$(discard)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 3
+					}
+				]
+			}
 		},
 		"gitlens.disconnectRemoteProvider": {
 			"label": "Disconnect Remote Integration",
@@ -4520,6 +4650,32 @@
 				]
 			}
 		},
+		"gitlens.openFileOnRemote.multi:commitDetails": {
+			"label": "Open Files on Remote",
+			"icon": "$(globe)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\+submodule)/ && listMultiSelection && gitlens:repos:withRemotes && webview == gitlens.views.commitDetails",
+						"group": "2_gitlens_quickopen_file",
+						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.openFileOnRemote.multi:graphDetails": {
+			"label": "Open Files on Remote",
+			"icon": "$(globe)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_gitlens_quickopen_file",
+						"order": 6
+					}
+				]
+			}
+		},
 		"gitlens.openFileOnRemoteFrom": {
 			"label": "Open File on Remote From...",
 			"icon": "$(globe)",
@@ -4903,6 +5059,32 @@
 		"gitlens.openRevisionFromRemote": {
 			"label": "Open File at Revision from Remote",
 			"commandPalette": "gitlens:enabled"
+		},
+		"gitlens.openSelectedChanges.multi:commitDetails": {
+			"label": "Open Selected Changes",
+			"icon": "$(diff-multiple)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b/ && listMultiSelection && webview == gitlens.views.commitDetails",
+						"group": "2_gitlens_quickopen_file",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.openSelectedChanges.multi:graphDetails": {
+			"label": "Open Selected Changes",
+			"icon": "$(diff-multiple)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_gitlens_quickopen_file",
+						"order": 1
+					}
+				]
+			}
 		},
 		"gitlens.openWorkingFile": {
 			"label": "Open File",
@@ -7051,6 +7233,58 @@
 						"when": "viewItem == gitlens:stash && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.stashChanges:commitDetails": {
+			"label": "Stash Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+						"group": "1_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.stashChanges:graphDetails": {
+			"label": "Stash Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.stashChanges.multi:commitDetails": {
+			"label": "Stash Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "1_gitlens_actions",
+						"order": 4
+					}
+				]
+			}
+		},
+		"gitlens.stashChanges.multi:graphDetails": {
+			"label": "Stash Changes...",
+			"icon": "$(gitlens-stash-save)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 4
 					}
 				]
 			}
@@ -10354,32 +10588,6 @@
 				]
 			}
 		},
-		"gitlens.views.copy:commitDetails": {
-			"label": "Copy",
-			"icon": "$(copy)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:(file|folder)\\b(?!.*?\\b\\+(staged|unstaged)\\b)/ && webview == gitlens.views.commitDetails",
-						"group": "7_gitlens_cutcopypaste",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.copy:graphDetails": {
-			"label": "Copy",
-			"icon": "$(copy)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:(file|folder)\\b(?!.*?\\b\\+(staged|unstaged)\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-						"group": "7_gitlens_cutcopypaste",
-						"order": 1
-					}
-				]
-			}
-		},
 		"gitlens.views.copyAsMarkdown": {
 			"label": "Copy as Markdown",
 			"icon": "$(copy)",
@@ -12515,6 +12723,32 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_gitlens_quickopen_file",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.openFile.multi:commitDetails": {
+			"label": "Open Files",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b/ && listMultiSelection && webview == gitlens.views.commitDetails",
+						"group": "2_gitlens_quickopen_file",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.views.openFile.multi:graphDetails": {
+			"label": "Open Files",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItems =~ /gitlens:file\\b/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "2_gitlens_quickopen_file",
 						"order": 3
 					}
@@ -17193,6 +17427,32 @@
 				]
 			}
 		},
+		"gitlens.views.stageFile.multi:commitDetails": {
+			"label": "Stage Changes",
+			"icon": "$(add)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.stageFile.multi:graphDetails": {
+			"label": "Stage Changes",
+			"icon": "$(add)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.views.stashes.attach": {
 			"label": "Group into GitLens View",
 			"icon": "$(close)",
@@ -18075,6 +18335,32 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.views.unstageFile.multi:commitDetails": {
+			"label": "Unstage Changes",
+			"icon": "$(remove)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "1_gitlens_actions",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.views.unstageFile.multi:graphDetails": {
+			"label": "Unstage Changes",
+			"icon": "$(remove)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}

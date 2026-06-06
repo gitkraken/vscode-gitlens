@@ -469,6 +469,10 @@ export class GlFileTreePane extends LitElement {
 		const showLayout = this.buttons?.includes('layout') ?? true;
 		const showSearch = this.buttons?.includes('search') ?? true;
 		const showMultiDiff = (this.buttons?.includes('multi-diff') ?? false) && fileCount > 0;
+		// When multi-select is on and >1 file is selected, the multi-diff button becomes
+		// "Open Selected Changes" (primary) and demotes the full "Open All Changes" to its Alt.
+		const selectedCount = this._selectedFiles.length;
+		const showOpenSelected = showMultiDiff && this.multiSelectable && selectedCount > 1;
 		const showSearchBox = this.effectiveShowSearchBox;
 
 		return html`
@@ -483,13 +487,21 @@ export class GlFileTreePane extends LitElement {
 					<slot name="leading-actions" class="leading-actions"></slot>
 					<action-nav>
 						${showMultiDiff
-							? html`<gl-action-chip
-									data-action="multi-diff"
-									label=${this.multiDiffLabel ?? 'Open All Changes'}
-									alt-label=${this.multiDiffAltLabel ?? nothing}
-									icon="diff-multiple"
-									@click=${this.onOpenMultiDiff}
-								></gl-action-chip>`
+							? showOpenSelected
+								? html`<gl-action-chip
+										data-action="open-selected"
+										label="Open Selected Changes"
+										alt-label=${this.multiDiffLabel ?? 'Open All Changes'}
+										icon="diff-multiple"
+										@click=${this.onOpenSelectedChanges}
+									></gl-action-chip>`
+								: html`<gl-action-chip
+										data-action="multi-diff"
+										label=${this.multiDiffLabel ?? 'Open All Changes'}
+										alt-label=${this.multiDiffAltLabel ?? nothing}
+										icon="diff-multiple"
+										@click=${this.onOpenMultiDiff}
+									></gl-action-chip>`
 							: nothing}
 						${this.searchContext != null
 							? renderContextMatchVisibilityAction(
@@ -688,6 +700,34 @@ export class GlFileTreePane extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('gl-file-tree-pane-open-multi-diff', {
 				detail: { altKey: (e as MouseEvent).altKey === true },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onOpenSelectedChanges(e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Alt/Shift demotes to the full multi-diff ("Open All Changes") — the action this chip
+		// replaced. Mirrors gl-action-chip's alt/shift label swap. altKey:false picks the
+		// multi-diff's primary (open-all), not its own staged/unstaged alt.
+		const mouse = e as MouseEvent;
+		if (mouse.altKey === true || mouse.shiftKey === true) {
+			this.dispatchEvent(
+				new CustomEvent('gl-file-tree-pane-open-multi-diff', {
+					detail: { altKey: false },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			return;
+		}
+
+		this.dispatchEvent(
+			new CustomEvent('gl-file-tree-pane-open-selected-changes', {
+				detail: { files: this._selectedFiles },
 				bubbles: true,
 				composed: true,
 			}),

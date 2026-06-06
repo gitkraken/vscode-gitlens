@@ -51,8 +51,9 @@ import {
 	isDetailsFileContext,
 	isDetailsFolderContext,
 	isDetailsItemContext,
+	resolveMultiFileContext,
 } from './commitDetailsWebview.utils.js';
-import { DetailsFileCommands, getDetailsFileCommands } from './detailsFileCommands.js';
+import { DetailsFileCommands, getDetailsFileCommands, getDetailsFileMultiCommands } from './detailsFileCommands.js';
 import {
 	DetailsFolderCommands,
 	getDetailsFolderCommands,
@@ -374,6 +375,24 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						if (commit == null) return;
 
 						return void handler.call(fileCommands, commit, file, this.getShowOptions(item), comparison);
+					},
+					this,
+				),
+			);
+		}
+
+		// Multi-file commands. When a multi-selection is right-clicked, the row's data-vscode-context
+		// carries `webviewItemsValues` (all selected files); resolve each to its commit+file and hand
+		// the whole set to the multi handler (one clipboard write, one stage op, etc.).
+		for (const { command: cmd, handler } of getDetailsFileMultiCommands()) {
+			subscriptions.push(
+				registerWebviewCommand(
+					getWebviewCommand(cmd, this.host.type),
+					async (item?: DetailsItemContext | ExecuteFileActionParams) => {
+						const resolved = await resolveMultiFileContext(this.container, item);
+						if (resolved.length) {
+							await handler.call(fileCommands, resolved);
+						}
 					},
 					this,
 				),

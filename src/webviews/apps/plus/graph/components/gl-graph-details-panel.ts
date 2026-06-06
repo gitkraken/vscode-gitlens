@@ -1812,6 +1812,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										@file-stage=${this.handleFileStage}
 										@file-unstage=${this.handleFileUnstage}
 										@file-discard=${this.handleFileDiscard}
+										@file-stash=${this.handleFileStash}
 										@discard-unstaged=${this.handleDiscardUnstaged}
 										@discard-staged=${this.handleDiscardStaged}
 										@stage-all=${this.handleStageAll}
@@ -2195,6 +2196,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return html`<gl-details-commit-panel
 			variant="embedded"
 			file-icons
+			?multi-selectable=${true}
 			compare-enabled
 			show-jump-to-nearest-wip
 			?show-search-box=${this.showSearchBox}
@@ -2803,15 +2805,38 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleFileStage = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.stageFile(e.detail);
+		// Batch fan-out (multi-selection) carries the full set; one atomic `git add` avoids index-lock
+		// contention from N concurrent single-file stages.
+		if (e.detail.files?.length) {
+			this._actions.stageFiles([...e.detail.files]);
+		} else {
+			this._actions.stageFile(e.detail);
+		}
 	};
 
 	private handleFileUnstage = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.unstageFile(e.detail);
+		if (e.detail.files?.length) {
+			this._actions.unstageFiles([...e.detail.files]);
+		} else {
+			this._actions.unstageFile(e.detail);
+		}
 	};
 
 	private handleFileDiscard = (e: CustomEvent<FileChangeListItemDetail>) => {
-		this._actions.discardFile(e.detail);
+		// Batch inline discard (multi-selection) carries the full set; one combined confirm + discard.
+		if (e.detail.files?.length) {
+			this._actions.discardFiles([...e.detail.files]);
+		} else {
+			this._actions.discardFile(e.detail);
+		}
+	};
+
+	private handleFileStash = (e: CustomEvent<FileChangeListItemDetail>) => {
+		if (e.detail.files?.length) {
+			this._actions.stashFiles([...e.detail.files]);
+		} else {
+			this._actions.stashFile(e.detail);
+		}
 	};
 
 	private handleDiscardUnstaged = () => {

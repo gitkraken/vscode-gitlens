@@ -782,6 +782,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					.fileContext=${this._getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(folderRepoPath, folder)}
 					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
+					?multi-selectable=${true}
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}
 					.searchBoxFilter=${this.searchBoxFilter}
@@ -793,6 +794,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 					@file-more-actions=${this.redispatch}
 					@change-files-layout=${this.redispatch}
 					@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
+					@gl-file-tree-pane-open-selected-changes=${this.handleOpenSelectedChanges}
 				>
 					<span slot="title-content">${this.renderViewSelector()}</span>
 					${isLoadingEmpty
@@ -1198,6 +1200,23 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const files = this.activeFiles;
 		const refs = this.getMultiDiffRefs(files);
 		if (!refs || !files?.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('open-multiple-changes', {
+				detail: { files: files, ...refs } satisfies OpenMultipleChangesArgs,
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private handleOpenSelectedChanges = (e: CustomEvent<{ files: readonly { path: string }[] }>): void => {
+		// Keep the typed BranchComparisonFile shapes from activeFiles, scoped to the selected paths,
+		// so the refs/title derivation matches "Open All Changes".
+		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const files = this.activeFiles.filter(f => selectedPaths.has(f.path));
+		const refs = this.getMultiDiffRefs(files);
+		if (!refs || !files.length) return;
 
 		this.dispatchEvent(
 			new CustomEvent('open-multiple-changes', {

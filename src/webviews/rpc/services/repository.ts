@@ -8,7 +8,7 @@
  * - Per-repo change events (working tree FS changes, filtered repository changes)
  */
 
-import { Disposable, Uri, window, workspace } from 'vscode';
+import { Disposable, FileSystemError, Uri, window, workspace } from 'vscode';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -30,6 +30,7 @@ import { ProviderNotSupportedError } from '../../../errors.js';
 import type { FeatureAccess, PlusFeatures } from '../../../features.js';
 import * as BranchActions from '../../../git/actions/branch.js';
 import * as RepoActions from '../../../git/actions/repository.js';
+import * as StashActions from '../../../git/actions/stash.js';
 import { GitUri } from '../../../git/gitUri.js';
 import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
 import {
@@ -44,6 +45,7 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibil
 import { bufferEventHandler } from '../eventVisibilityBuffer.js';
 import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
+import { discardOneWith } from './discard.utils.js';
 import type {
 	CommitSignatureShape,
 	RepositoryChangeEventData,
@@ -224,6 +226,40 @@ export class RepositoryService {
 	}
 
 	/**
+	 * Stage a set of files in ONE atomic `git add` (multi-select). Using the batch rather than N
+	 * concurrent {@link stageFile} calls avoids `.git/index.lock` contention that would silently leave
+	 * some files unstaged. All files are assumed to share a repo (the file tree is per-repo).
+	 */
+	async stageFiles(files: GitFileChangeShape[]): Promise<void> {
+		if (!files.length) return;
+
+		await this.container.git.getRepositoryService(files[0].repoPath).staging?.stageFiles(files.map(f => f.path));
+	}
+
+	/**
+	 * Unstage a set of files in ONE atomic `git reset` (multi-select) — see {@link stageFiles} for why
+	 * the batch is used instead of N concurrent {@link unstageFile} calls.
+	 */
+	async unstageFiles(files: GitFileChangeShape[]): Promise<void> {
+		if (!files.length) return;
+
+		await this.container.git.getRepositoryService(files[0].repoPath).staging?.unstageFiles(files.map(f => f.path));
+	}
+
+	// Stash the working-tree changes of a single file (or set). Routes through the shared stash-push
+	// action (its confirm/message wizard), `includeUntracked` so a new file can be stashed too.
+	async stashFile(file: GitFileChangeShape): Promise<void> {
+		await StashActions.push(file.repoPath, [Uri.joinPath(Uri.file(file.repoPath), file.path)], undefined, true);
+	}
+
+	async stashFiles(files: GitFileChangeShape[]): Promise<void> {
+		if (!files.length) return;
+
+		const uris = files.map(f => Uri.joinPath(Uri.file(f.repoPath), f.path));
+		await StashActions.push(files[0].repoPath, uris, undefined, true);
+	}
+
+	/**
 	 * Open the rebase-editor-style conflict changes diff for a paused-operation conflicted file.
 	 * `side='current'` shows the user's working-tree side vs the merge-base; `side='incoming'`
 	 * shows the incoming (theirs) side vs the merge-base.
@@ -400,52 +436,21 @@ export class RepositoryService {
 	 * - **Everything else** (modified, deleted, renamed/copied): trash + unstage, then restore from
 	 *   HEAD (resets index and working tree). R/C target the original path.
 	 */
-	private async discardOne(
-		svc: ReturnType<Container['git']['getRepositoryService']>,
-		file: GitStatusFile,
-	): Promise<void> {
-		const uri = Uri.joinPath(Uri.file(file.repoPath), file.path);
-
-		if (file.mixed) {
-			// Require `ops.restore` BEFORE the trash step so we don't move the file off-disk and
-			// then have nothing to restore from the index on a provider that lacks operations support.
-			if (svc.ops?.restore == null) {
-				throw new ProviderNotSupportedError(svc.provider.name);
-			}
-
-			if (file.workingTreeStatus !== 'D') {
-				await this.moveToTrash(uri);
-			}
-			// Let restore failures propagate — the working-tree file is already in Trash, so a silent
-			// warn would leave the user thinking discard succeeded while the file is missing.
-			await svc.ops.restore(file.path);
-			return;
-		}
-
-		// Untracked and newly-added files don't exist in HEAD — trashing is the whole operation,
-		// no HEAD restore (and no provider-ops requirement).
-		const isUntrackedOrAdded = file.status === '?' || file.status === 'A';
-
-		// Preflight the restore capability BEFORE trashing, mirroring the mixed branch.
-		if (!isUntrackedOrAdded && svc.ops?.restore == null) {
-			throw new ProviderNotSupportedError(svc.provider.name);
-		}
-
-		await this.trashAndUnstage(uri, svc, file);
-
-		if (isUntrackedOrAdded) return;
-
-		// Renames/copies: restore the original path from HEAD (not the new name).
-		if (file.status === 'R' || file.status === 'C') {
-			if (file.originalPath) {
-				await svc.ops!.restore(file.originalPath, { ref: 'HEAD' });
-			} else {
-				Logger.warn(`Renamed file ${file.path} missing originalPath — original not restored`);
-			}
-			return;
-		}
-
-		await svc.ops!.restore(file.path, { ref: 'HEAD' });
+	private discardOne(svc: ReturnType<Container['git']['getRepositoryService']>, file: GitStatusFile): Promise<void> {
+		// Orchestration lives in `discardOneWith` (testable against a real repo without the Container);
+		// here we just bind the git side-effects to the per-repo service.
+		return discardOneWith(
+			{
+				canRestore: svc.ops?.restore != null,
+				providerName: svc.provider.name,
+				moveToTrash: uri => this.moveToTrash(uri),
+				unstage: async path => {
+					await svc.staging?.unstageFile(path);
+				},
+				restore: (path, options) => svc.ops!.restore(path, options),
+			},
+			file,
+		);
 	}
 
 	async discardUnstagedFiles(repoPath: string): Promise<void> {
@@ -537,6 +542,86 @@ export class RepositoryService {
 			void window.showErrorMessage(
 				`Failed to discard unstaged changes: ${ex instanceof Error ? ex.message : String(ex)}`,
 			);
+			throw ex;
+		}
+	}
+
+	/**
+	 * Discards the working-tree changes of a SELECTED subset of files (multi-select inline discard)
+	 * with ONE combined confirmation — mirrors {@link discardUnstagedFiles} but scoped to the requested
+	 * paths. Re-reads authoritative status, classifies untracked/unstaged/mixed/conflicted (pure-staged
+	 * files are skipped — a working-tree discard has nothing to drop for them), confirms once, then
+	 * reverts each via the shared {@link discardOne} core (conflicts revert to our/HEAD side or are
+	 * removed — see {@link discardOneWith}). Destructive: working-tree changes are permanently lost.
+	 */
+	async discardFiles(files: GitFileChangeShape[]): Promise<void> {
+		if (files.length === 0) return;
+
+		const svc = this.container.git.getRepositoryService(files[0].repoPath);
+		const status = await svc.status.getStatus();
+		if (status == null) return;
+
+		// Authoritative re-read scoped to the requested paths. Conflicted files are discarded too
+		// (reverted to our/HEAD side or removed — see discardOne); pure-staged files have no working-tree
+		// delta so they fall out here (the working-tree discard is a no-op for them).
+		const requested = new Set(files.map(f => f.path));
+		const untracked: GitStatusFile[] = [];
+		const trackedPureUnstaged: GitStatusFile[] = [];
+		const mixed: GitStatusFile[] = [];
+		const conflicted: GitStatusFile[] = [];
+		for (const f of status.files) {
+			if (!requested.has(f.path)) continue;
+
+			if (f.conflictStatus != null) {
+				conflicted.push(f);
+			} else if (f.workingTreeStatus == null) {
+				continue;
+			} else if (f.mixed) {
+				mixed.push(f);
+			} else if (f.status === '?') {
+				untracked.push(f);
+			} else {
+				trackedPureUnstaged.push(f);
+			}
+		}
+
+		const toDiscard = [...untracked, ...trackedPureUnstaged, ...mixed, ...conflicted];
+		if (toDiscard.length === 0) return;
+
+		// One standard confirm for the whole selection (it may mix normal + conflicted files); conflicts
+		// count with the tracked total.
+		const confirmed = await this.confirmDiscardUnstaged(
+			trackedPureUnstaged.length + conflicted.length,
+			untracked.length,
+			mixed.length,
+		);
+		if (!confirmed) return;
+
+		try {
+			// Preflight `ops.restore` before trashing anything (matches the per-file and bulk paths), so
+			// a provider without restore fails fast instead of leaving files in the Trash unrecoverable.
+			if (
+				(mixed.length > 0 || trackedPureUnstaged.length > 0 || conflicted.length > 0) &&
+				svc.ops?.restore == null
+			) {
+				throw new ProviderNotSupportedError(svc.provider.name);
+			}
+
+			// Reuse the per-file core so each file is reverted exactly as the single discard would.
+			const failed: string[] = [];
+			for (const f of toDiscard) {
+				try {
+					await this.discardOne(svc, f);
+				} catch (ex) {
+					Logger.warn(`Failed to discard changes in ${f.path}: ${ex}`);
+					failed.push(f.path);
+				}
+			}
+
+			this.warnDiscardRestoreFailures(failed);
+		} catch (ex) {
+			Logger.error(ex, 'Failed to discard changes');
+			void window.showErrorMessage(`Failed to discard changes: ${ex instanceof Error ? ex.message : String(ex)}`);
 			throw ex;
 		}
 	}
@@ -649,19 +734,6 @@ export class RepositoryService {
 		}
 	}
 
-	private async trashAndUnstage(
-		uri: Uri,
-		svc: ReturnType<Container['git']['getRepositoryService']>,
-		file: GitFileChangeShape,
-	): Promise<void> {
-		if (file.status !== 'D') {
-			await this.moveToTrash(uri);
-		}
-		if (file.staged) {
-			await svc.staging?.unstageFile(file.path);
-		}
-	}
-
 	private async confirmDiscardChanges(path: string, isMixed: boolean = false): Promise<boolean> {
 		// Mixed: only the working-tree delta is discarded; the staged portion survives. Make that
 		// expectation explicit so users aren't surprised when staged changes remain — and so they
@@ -736,6 +808,10 @@ export class RepositoryService {
 		try {
 			await workspace.fs.delete(uri, { useTrash: true });
 		} catch (ex) {
+			// Nothing on disk (e.g. a both-deleted conflict, where neither side keeps a working copy) —
+			// discard has nothing to trash, so treat it as done.
+			if (ex instanceof FileSystemError && ex.code === 'FileNotFound') return;
+
 			// Some filesystem providers (SSH-remote, dev containers, virtual FS) don't implement
 			// trash. Fall back to a direct delete — the user already accepted the IRREVERSIBLE
 			// warning in confirmDiscardChanges, so losing the recovery path is in policy.
