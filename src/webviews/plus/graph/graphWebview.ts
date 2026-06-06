@@ -2662,13 +2662,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	onVisibilityChanged(visible: boolean): void {
-		if (
-			visible &&
-			((this.repository != null && this.repository.etag !== this._etagRepository) ||
-				this.container.subscription.etag !== this._etagSubscription)
-		) {
+		const repositoryChanged = this.repository != null && this.repository.etag !== this._etagRepository;
+		if (visible && (repositoryChanged || this.container.subscription.etag !== this._etagSubscription)) {
 			if (this.host.ready) {
 				this.updateState(true);
+				// `updateState(true)` clears the queued working-tree push, so the details panel (reads
+				// `wip`) would stay stale while the main row (rebuilt `workingTreeStats`) updates — the
+				// recurring #5322 staleness. Re-push fresh WIP through the dedicated channel, which has
+				// the freshness (cache-invalidate), dedup, and commit/optimistic-edit guards `getState`
+				// lacks. Gated on `repositoryChanged` (working-tree edits bump the repo etag); the dedup
+				// gate no-ops this when nothing actually changed.
+				if (repositoryChanged) {
+					void this.notifyDidChangeWorkingTree();
+				}
 			}
 		} else if (visible) {
 			this.host.sendPendingIpcNotifications();
