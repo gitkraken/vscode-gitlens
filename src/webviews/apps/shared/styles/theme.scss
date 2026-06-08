@@ -10,6 +10,9 @@
 	--editor-font-size: var(--vscode-editor-font-size);
 	--editor-font-weight: var(--vscode-editor-font-weight);
 
+	// Brand accent gradient (GitKraken purple → blue) — Pro feature gates, promos, etc.
+	--gl-gradient-brand: linear-gradient(to right, #7900c9, #196fff);
+
 	--color-background: var(--vscode-editor-background);
 	// Computed variants in code
 	--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
