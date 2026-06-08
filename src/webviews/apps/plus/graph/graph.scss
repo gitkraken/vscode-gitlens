@@ -1608,7 +1608,6 @@ web-graph {
 
 	&__details-pane {
 		// Provide the CSS variables that details-base.scss normally sets on :root
-		--gitlens-gutter-width: 20px;
 		--gitlens-scrollbar-gutter-width: 10px;
 		--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 

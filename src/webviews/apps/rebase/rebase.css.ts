@@ -61,18 +61,6 @@ export const rebaseStyles = css`
 		outline-color: var(--focus-color);
 	}
 
-	/* Avatar background (used by gl-avatar-list component) */
-	:host-context(.vscode-dark),
-	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) {
-		--avatar-bg: var(--color-background--lighten-30);
-	}
-	:host-context(.vscode-light) {
-		--avatar-bg: var(--color-background--darken-30);
-	}
-	:host-context(.vscode-high-contrast-light) {
-		--avatar-bg: var(--color-foreground--50);
-	}
-
 	/* ==========================================================================
 	   Base Element Styles
 	   ========================================================================== */

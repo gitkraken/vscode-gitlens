@@ -34,7 +34,7 @@ export class GlFeatureGatePlusState extends LitElement {
 	static override styles = [
 		css`
 			:host {
-				--gk-action-radius: 0.3rem;
+				--gl-action-radius: 0.3rem;
 
 				--link-foreground: var(--vscode-textLink-foreground);
 				--link-foreground-active: var(--vscode-textLink-activeForeground);

@@ -39,7 +39,7 @@ export class GlCopyContainer extends LitElement {
 			--copy-foreground: var(--vscode-foreground);
 			--copy-hover-background: var(--vscode-toolbar-hoverBackground);
 			--copy-border: transparent;
-			--copy-border-radius: var(--gk-action-radius, 0.3rem);
+			--copy-border-radius: var(--gl-action-radius, 0.3rem);
 			--copy-padding: 0 0.4rem;
 
 			border: 1px solid var(--copy-border);

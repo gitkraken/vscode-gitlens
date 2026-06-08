@@ -180,3 +180,8 @@ body[data-placement='panel'] {
 	--gl-chip-tint-border: 55%;
 	--gl-chip-tint-hover: 32%;
 }
+
+:root {
+	--gitlens-gutter-width: 20px;
+	--gl-action-radius: 0.3rem;
+}

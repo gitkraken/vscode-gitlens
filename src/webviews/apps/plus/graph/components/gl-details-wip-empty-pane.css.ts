@@ -45,7 +45,7 @@ export const detailsWipEmptyPaneStyles = css`
 		align-items: center;
 		gap: 0.8rem;
 		padding: 0.4rem 0.6rem;
-		border-radius: var(--gk-action-radius, 0.3rem);
+		border-radius: var(--gl-action-radius, 0.3rem);
 	}
 
 	.next-step:hover {
