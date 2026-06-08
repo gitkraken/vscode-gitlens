@@ -7818,6 +7818,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
 
+		// `mixed` means the workspace has both public and private repos — so a gated (private) repo can
+		// offer switching to a public one. Only computed when access is denied (the only time the gate, and
+		// thus the switch affordance, is shown) to avoid an aggregate visibility() scan on the common
+		// allowed path. The result is cached on the provider.
+		const allowed = this.isGraphAccessAllowed(access, featurePreview);
+		const allowRepoSwitch = allowed === false ? (await this.container.git.visibility()) === 'mixed' : false;
+
 		const result: State = {
 			...this.host.baseWebviewState,
 			webroot: this.host.getWebRoot(),
@@ -7841,7 +7848,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			lastFetched: new Date(getSettledValue(lastFetchedResult)!),
 			selectedRows: convertSelectedRows(this._selectedRows),
 			subscription: access?.subscription.current,
-			allowed: this.isGraphAccessAllowed(access, featurePreview), //(access?.allowed ?? false) !== false,
+			allowed: allowed,
+			allowRepoSwitch: allowRepoSwitch,
 			avatars: data != null ? Object.fromEntries(data.avatars) : undefined,
 			refsMetadata: this.resetRefsMetadata() === null ? null : {},
 			loading: deferRows === true,
