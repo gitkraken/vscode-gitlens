@@ -78,6 +78,10 @@ export interface GitCommitReachability {
 export interface GitCommitsSubProvider {
 	getCommit(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<GitCommit | undefined>;
 	getCommitCount(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<number | undefined>;
+	/** Whether `rev` has any commits not reachable from any remote-tracking ref (i.e. unpushed/unpublished).
+	 *  Cheap early-exit probe (`rev-list --not --remotes <rev> -n 1`) — it does NOT count them. Returns
+	 *  `undefined` when it can't be determined. */
+	hasUnpublishedCommits?(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<boolean | undefined>;
 	/** Cheap author/committer date lookup for a single revision. Skips the full commit parse (no files, parents, or message) — use when only the dates are needed. Pass a full SHA so caching stays correct (commits are immutable; refs are not). */
 	getCommitDates?(
 		repoPath: string,

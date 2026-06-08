@@ -130,6 +130,30 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({ exit: true })
+	async hasUnpublishedCommits(
+		repoPath: string,
+		rev: string,
+		cancellation?: AbortSignal,
+	): Promise<boolean | undefined> {
+		// `<rev> --not --remotes` = commits reachable from `rev` but not from any remote-tracking ref.
+		// `--max-count=1` early-exits at the first such commit, so this is a presence probe, not a count.
+		const result = await this.git.run(
+			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+			'rev-list',
+			'--max-count=1',
+			rev,
+			'--not',
+			'--remotes',
+			'--',
+		);
+		if (result.cancelled || cancellation?.aborted) {
+			throw new CancellationError();
+		}
+
+		return result.stdout.trim().length > 0;
+	}
+
+	@debug({ exit: true })
 	async getCommitDates(
 		repoPath: string,
 		rev: string,
