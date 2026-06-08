@@ -97,6 +97,14 @@ export interface GitOperationsSubProvider {
 			editor?: string;
 			interactive?: boolean;
 			/**
+			 * Set when the `editor` is a script that rewrites the todo by command word + SHA (e.g. the
+			 * Commit Graph's headless squash/drop/reword) rather than a human. Forces git to emit a plain,
+			 * natural-order todo by disabling `rebase.autosquash` (which would reorder commits and rewrite
+			 * `pick`→`fixup` for `fixup!`/`squash!` commits) and `rebase.abbreviateCommands` (which would
+			 * emit `p` instead of `pick`). Both honor the user's git config otherwise.
+			 */
+			programmaticEditor?: boolean;
+			/**
 			 * Command git uses to edit per-commit messages (the combined message a `squash` produces, or a
 			 * `reword`). Applied as `GIT_EDITOR` — which git's interactive-rebase `reword`/`squash` step honors,
 			 * unlike `core.editor` — with `core.editor` also set as a fallback. When omitted, git falls back to
