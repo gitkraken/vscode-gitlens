@@ -5,6 +5,7 @@
 		"oxc.oxc-vscode",
 		"amodio.tsl-problem-matcher",
 		"esbenp.prettier-vscode",
+		"stylelint.vscode-stylelint",
 		"jackolope.lit-analyzer-plugin",
 		"ms-vscode.extension-test-runner",
 		"ms-playwright.playwright"

@@ -29082,14 +29082,16 @@
 		"clean": "pnpm -r run clean && pnpx rimraf --glob dist out .vscode-test .vscode-test-web **/.eslintcache* **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpm -r run clean:deps && pnpx rimraf --glob **/node_modules",
-		"clean:lint": "pnpm -r run clean:lint && pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:lint": "pnpm -r run clean:lint && pnpx rimraf --glob **/.eslintcache* **/.stylelintcache **/tsconfig*.tsbuildinfo",
 		"copy:images": "webpack --config webpack.config.images.mjs",
 		"graph:link": "node ./scripts/linkComponents.mjs link",
 		"graph:unlink": "node ./scripts/linkComponents.mjs unlink",
 		"icons:apply": "node ./scripts/applyIconsContribution.mjs",
 		"icons:export": "node ./scripts/export-codicons.mjs",
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
-		"lint:ci": "pnpm run clean:lint && oxlint --type-aware --type-check && eslint --concurrency 4",
+		"lint:ci": "pnpm run clean:lint && oxlint --type-aware --type-check && eslint --concurrency 4 && pnpm run lint:css",
+		"lint:css": "stylelint \"src/webviews/apps/**/*.{scss,ts}\" --cache",
+		"lint:css:fix": "stylelint \"src/webviews/apps/**/*.{scss,ts}\" --cache --fix",
 		"package": "vsce package --no-dependencies",
 		"package-pre": "pnpm run patch-pre && pnpm run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
@@ -29232,6 +29234,9 @@
 		"oxlint": "1.68.0",
 		"oxlint-tsgolint": "0.23.0",
 		"playwright": "1.60.0",
+		"postcss": "^8.5.15",
+		"postcss-lit": "^1.4.1",
+		"postcss-scss": "^4.0.9",
 		"prettier": "3.8.3",
 		"regex-to-strings": "2.1.0",
 		"sass-embedded": "1.100.0",
@@ -29239,6 +29244,11 @@
 		"schema-utils": "4.3.3",
 		"sharp": "0.34.5",
 		"sinon": "catalog:",
+		"stylelint": "^17.12.0",
+		"stylelint-config-recess-order": "^7.7.0",
+		"stylelint-config-standard": "^40.0.0",
+		"stylelint-config-standard-scss": "^17.0.0",
+		"stylelint-no-unsupported-browser-features": "^8.1.1",
 		"svgo": "4.0.1",
 		"terser-webpack-plugin": "5.6.1",
 		"tinybench": "catalog:",
@@ -29255,5 +29265,22 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"
 	},
-	"packageManager": "pnpm@11.5.1"
+	"packageManager": "pnpm@11.5.1",
+	"postcss-lit": {
+		"babelOptions": {
+			"sourceType": "unambiguous",
+			"ranges": true,
+			"plugins": [
+				"typescript",
+				[
+					"decorators",
+					{
+						"decoratorsBeforeExport": true
+					}
+				],
+				"jsx",
+				"decoratorAutoAccessors"
+			]
+		}
+	}
 }

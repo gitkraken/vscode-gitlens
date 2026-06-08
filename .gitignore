@@ -9,6 +9,7 @@
 .DS_Store
 .work/
 .eslintcache*
+.stylelintcache
 .superpowers
 .tasks
 **/.vscode-clean/**

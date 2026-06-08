@@ -1,0 +1,16 @@
+dist
+out
+node_modules
+
+# Limit .ts linting to webview Lit `css` styles — stylelint parses any other .ts file as CSS and errors.
+# Order matters: ignore all .ts, re-include the webview ones, then the generated block below re-ignores generated .ts.
+src/**/*.ts
+!src/webviews/apps/**/*.ts
+
+# Generated files (kept in sync with .prettierignore)
+src/webviews/apps/shared/glicons.scss
+src/webviews/apps/shared/components/icons/codicons-map.ts
+src/webviews/apps/shared/components/icons/glicons-map.ts
+src/webviews/apps/shared/styles/icons/codicons-map.scss
+src/webviews/apps/shared/styles/icons/glicons-map.scss
+src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts
