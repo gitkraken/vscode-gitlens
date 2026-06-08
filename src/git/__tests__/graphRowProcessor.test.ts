@@ -22,6 +22,7 @@ function createMockContext(overrides?: Partial<GraphContext>): GraphContext {
 		branchIdOfMainWorktree: undefined,
 		stashes: undefined,
 		reachableFromHEAD: new Set<string>(),
+		rewriteableFromHEAD: new Set<string>(),
 		tipShasWithChildren: new Set<string>(),
 		reachableFromHeadUpstream: undefined,
 		avatars: new Map<string, string>([['test@test.com', 'https://avatar']]),
@@ -247,6 +248,39 @@ suite('GlGraphRowProcessor', () => {
 			assert.ok(
 				(flags & GitGraphRowContextFlags.Unpublished) === 0,
 				`unexpected Unpublished bit on stash flags ${flags}`,
+			);
+		});
+	});
+
+	// The host ships `+rewriteable` as the `RewriteableFromHead` bit in `contexts.flags`; the webview
+	// turns the bit into the `+rewriteable` webview-item token (`buildRowCommitContext`) that gates the
+	// history-rewriting commands (squash/drop/reword/modify). A commit is rewriteable when it's on the
+	// first-parent chain from HEAD up to (excluding) the first merge — i.e. present in `rewriteableFromHEAD`.
+	suite('RewriteableFromHead flag on commit rows', () => {
+		test('sets the RewriteableFromHead bit when the commit is in rewriteableFromHEAD', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			const row = createRow();
+			processor.processRow(row, createMockContext({ rewriteableFromHEAD: new Set([row.sha]) }));
+
+			const flags = row.contexts?.flags ?? 0;
+			assert.ok(
+				(flags & GitGraphRowContextFlags.RewriteableFromHead) !== 0,
+				`expected RewriteableFromHead bit set in flags ${flags}`,
+			);
+		});
+
+		test('does not set the RewriteableFromHead bit when the commit is not in rewriteableFromHEAD', () => {
+			const processor = new GlGraphRowProcessor(createMockContainer(), uri => uri);
+
+			// Reachable from HEAD (e.g. an ancestor of a merge) but NOT on the first-parent rewriteable chain.
+			const row = createRow();
+			processor.processRow(row, createMockContext({ reachableFromHEAD: new Set([row.sha]) }));
+
+			const flags = row.contexts?.flags ?? 0;
+			assert.ok(
+				(flags & GitGraphRowContextFlags.RewriteableFromHead) === 0,
+				`unexpected RewriteableFromHead bit in flags ${flags}`,
 			);
 		});
 	});
