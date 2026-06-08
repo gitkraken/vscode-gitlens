@@ -299,6 +299,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor allowed: State['allowed'] = false;
 
 	@signalState()
+	accessor allowRepoSwitch: State['allowRepoSwitch'];
+
+	@signalState()
 	accessor avatars: State['avatars'];
 
 	@signalState()

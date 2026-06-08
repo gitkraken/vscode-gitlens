@@ -244,6 +244,9 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	selectedRows?: GraphSelectedRows;
 	subscription?: Subscription;
 	allowed: boolean;
+	/** True when the workspace has both public and private repos, so a gated (private) repo can offer
+	 *  switching to a public one. Independent of `allowed` — the gate only surfaces it when shown. */
+	allowRepoSwitch?: boolean;
 	avatars?: GraphAvatars;
 	loading?: boolean;
 	refsMetadata?: GraphRefsMetadata | null;
