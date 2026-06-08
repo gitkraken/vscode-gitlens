@@ -43,6 +43,9 @@ export function createTimelineState(storage?: HostStorage) {
 	const repository = signal<(RepositoryShape & { ref: GitReference | undefined }) | undefined>(undefined);
 	const repositories = signal<{ count: number; openCount: number }>({ count: 0, openCount: 0 });
 	const access = signal<FeatureAccess | undefined>(undefined);
+	/** True when the workspace has both public and private repos — drives the gate's "Switch Repos"
+	 *  affordance. Set from the dataset result; only surfaced by the gate while it's shown. */
+	const allowRepoSwitch = signal<boolean>(false);
 
 	/** Currently-loaded history span (ms) for the dataset. `null` means "use period-derived
 	 *  span" (initial state and after period change). When the chart fires `gl-load-more`
@@ -101,6 +104,7 @@ export function createTimelineState(storage?: HostStorage) {
 		repository: repository,
 		repositories: repositories,
 		access: access,
+		allowRepoSwitch: allowRepoSwitch,
 		loadedSpanMs: loadedSpanMs,
 		visibleSpanMs: visibleSpanMs,
 		loadingMore: loadingMore,

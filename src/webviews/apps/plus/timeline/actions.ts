@@ -359,6 +359,7 @@ export class TimelineActions {
 					s.scope.set(result.scope);
 					s.repository.set(result.repository);
 					s.access.set(result.access);
+					s.allowRepoSwitch.set(result.allowRepoSwitch ?? false);
 					s.error.set(undefined);
 					// Start/switch WIP watch for the enriched repo so file saves refresh the pseudo-commit row
 					if (result.repository?.path) {

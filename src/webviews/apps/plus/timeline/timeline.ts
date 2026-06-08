@@ -284,15 +284,24 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		this._actions?.changeScope(e.detail.type, e.detail.value ?? null, e.detail.detached);
 	};
 
+	private onSwitchRepos = (): void => {
+		void this._actions?.pickAndNavigateRepo();
+	};
+
 	private renderGate() {
 		const s = this._state;
+		// Mount the gate only while access is denied — mount/unmount drives the modal's open/teardown,
+		// the same way the Commit Graph gate is conditionally rendered.
+		if (s.allowed.get() !== false) return nothing;
+
 		const sub = s.access.get()?.subscription?.current;
 		if (this.placement === 'editor') {
 			return html`<gl-feature-gate
-				?hidden=${s.allowed.get() !== false}
+				?allowRepoSwitch=${s.allowRepoSwitch.get()}
 				featureRestriction="private-repos"
 				.source=${{ source: 'timeline' as const, detail: 'gate' }}
 				.state=${sub?.state}
+				@gl-switch-repos=${this.onSwitchRepos}
 				><p slot="feature">
 					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
 						>Visual History</a
@@ -306,10 +315,12 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 		}
 
 		return html`<gl-feature-gate
+			?allowRepoSwitch=${s.allowRepoSwitch.get()}
 			?hidden=${s.allowed.get() !== false}
 			featureRestriction="private-repos"
 			.source=${{ source: 'timeline' as const, detail: 'gate' }}
 			.state=${sub?.state}
+			@gl-switch-repos=${this.onSwitchRepos}
 			><p slot="feature">
 				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
 					>Visual File History</a

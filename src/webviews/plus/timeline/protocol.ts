@@ -150,6 +150,9 @@ export interface TimelineDatasetResult {
 	repository: (RepositoryShape & { ref: GitReference | undefined }) | undefined;
 	/** Feature access for the scope's repo. */
 	access: FeatureAccess;
+	/** True when the workspace has both public and private repos, so a gated (private) scope can offer
+	 *  switching to a public repo. Independent of `access.allowed` — the gate only surfaces it when shown. */
+	allowRepoSwitch?: boolean;
 }
 
 /** View-specific service for Timeline operations. */
