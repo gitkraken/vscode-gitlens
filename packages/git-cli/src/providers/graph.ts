@@ -147,6 +147,13 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		const avatars = new Map<string, string>();
 		const ids = new Set<string>();
 		const reachableFromHEAD = new Set<string>();
+		// SHAs on the first-parent chain from HEAD up to (excluding) the first merge commit — the only
+		// commits a plain (non-`--rebase-merges`) interactive rebase can safely rewrite. `headSha` seeds
+		// the chain; `rewriteableNextSha` tracks the next sha expected on it. Outer scope so they persist
+		// across `more()` pagination, like `reachableFromHEAD`.
+		const rewriteableFromHEAD = new Set<string>();
+		let headSha: string | undefined;
+		let rewriteableNextSha: string | undefined;
 		// Undo Commit is offered only on a worktree HEAD that is a LEAF (nothing is built on it) —
 		// undoing a commit other work is stacked on is unsafe. The leaf check is only needed for the
 		// undo-eligible tips (the active HEAD + each worktree's HEAD), so track just those shas rather
@@ -275,6 +282,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 								branchIdOfMainWorktree: branchIdOfMainWorktree,
 								stashes: gitStash?.stashes,
 								reachableFromHEAD: reachableFromHEAD,
+								rewriteableFromHEAD: rewriteableFromHEAD,
 								tipShasWithChildren: tipShasWithChildren,
 								// `undefined` when HEAD has no upstream, so the processor flags nothing as
 								// unpublished; otherwise the live set (mutated during the walk, read by ref).
@@ -344,6 +352,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 							if (tip.startsWith('HEAD')) {
 								head = true;
 								reachableFromHEAD.add(shaOrRemapped);
+								headSha ??= shaOrRemapped;
 
 								if (tip !== 'HEAD') {
 									tip = tip.substring(8);
@@ -424,6 +433,22 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					if (reachableFromHEAD.has(shaOrRemapped)) {
 						for (parent of parents) {
 							reachableFromHEAD.add(parent);
+						}
+					}
+
+					// First-parent rewriteable chain from HEAD: include each commit only while HEAD and
+					// every commit down to it has exactly one parent. Stops at (excludes) the first merge
+					// and the root — mirrors GitKraken's getDistinctCommitsFromHeadToFirstMergeCommit.
+					// Off-chain commits (a merge's other-parent ancestry, or anything below the first merge)
+					// are reachable-from-HEAD but NOT safely history-rewriteable by a plain interactive
+					// rebase. Relies on the same "commit emitted before its parents" ordering as above.
+					if (shaOrRemapped === headSha || shaOrRemapped === rewriteableNextSha) {
+						if (parents.length === 1) {
+							rewriteableFromHEAD.add(shaOrRemapped);
+							rewriteableNextSha = parents[0];
+						} else {
+							// A merge (>1 parents) or the root (0 parents) terminates the chain.
+							rewriteableNextSha = undefined;
 						}
 					}
 					if (reachableFromHeadUpstream.has(shaOrRemapped)) {
@@ -606,6 +631,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					worktrees: worktrees,
 					worktreesByBranch: worktreesByBranch,
 					reachableFromHEAD: reachableFromHEAD,
+					rewriteableFromHEAD: rewriteableFromHEAD,
 					reachability: reachabilityBuilder.build(),
 					rows: rows,
 					id: sha ?? rev,

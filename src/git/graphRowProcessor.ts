@@ -183,6 +183,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 				!context.reachableFromHeadUpstream.has(row.sha);
 			contexts.flags =
 				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
+				(context.rewriteableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.RewriteableFromHead : 0) |
 				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
 				(context.tipShasWithChildren.has(row.sha) ? GitGraphRowContextFlags.HasChildren : 0) |
 				(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0);

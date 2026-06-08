@@ -8901,6 +8901,28 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	/**
+	 * Guards a history-rewriting rebase against commits that aren't safely rewriteable — i.e. not on the
+	 * first-parent chain from HEAD up to (excluding) the first merge (notably when HEAD itself is a merge,
+	 * or the selection is an ancestor of one). A plain interactive rebase (no `--rebase-merges`) would
+	 * flatten the merge. Uses the chain computed by the graph provider; when that set is unavailable,
+	 * returns `true` so the caller's per-commit parent checks still apply. Surfaces a warning and returns
+	 * `false` when the selection leaves the chain.
+	 */
+	private validateRewriteableSelection(
+		graph: GitGraph,
+		refs: readonly GitRevisionReference[],
+		verb: string,
+	): boolean {
+		const rewriteable = graph.rewriteableFromHEAD;
+		if (rewriteable == null || refs.every(ref => rewriteable.has(ref.ref))) return true;
+
+		void window.showWarningMessage(
+			`Unable to ${verb}: you can only rewrite commits on the current branch up to the first merge.`,
+		);
+		return false;
+	}
+
+	/**
 	 * Validates a multi-commit selection for a history-rewriting rebase (squash/fixup/drop): every commit
 	 * must be loaded in the graph, none may be a merge commit, and the oldest must have a parent to rebase
 	 * onto. Returns the selection ordered oldest-last plus whether any commit is already published, or
@@ -8951,6 +8973,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void window.showWarningMessage(`Unable to ${verb}: the selection includes a merge commit.`);
 			return undefined;
 		}
+
+		// Reject selections that leave the first-parent chain from HEAD before the first merge (e.g. HEAD
+		// is a merge, or the commits are an ancestor of one) — a plain interactive rebase would flatten it.
+		if (!this.validateRewriteableSelection(graph, ordered, verb)) return undefined;
 
 		const oldest = ordered.at(-1)!;
 		if ((graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents.length ?? 0) === 0) {
@@ -9047,6 +9073,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void window.showWarningMessage('Unable to reword: cannot reword a merge commit.');
 			return;
 		}
+		// Also reject commits off the first-parent chain from HEAD before the first merge (e.g. HEAD is a
+		// merge, or this commit is an ancestor of one) — rewording rebases oldest..HEAD across the merge.
+		if (!this.validateRewriteableSelection(graph, [ref], 'reword')) return;
 
 		// Warn (don't block) when rewording an already-published commit — rewording requires a force push.
 		let published = false;
@@ -9100,6 +9129,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			void window.showWarningMessage('Unable to modify: the selection includes a merge commit.');
 			return Promise.resolve();
 		}
+
+		// Reject selections that leave the first-parent chain from HEAD before the first merge (e.g. HEAD
+		// is a merge, or the commits are an ancestor of one) — the rebase spans oldest..HEAD across the merge.
+		if (!this.validateRewriteableSelection(graph, ordered, 'modify')) return Promise.resolve();
 
 		const oldest = ordered.at(-1);
 		const parentSha = oldest != null ? graph.rows[rowIndexBySha.get(oldest.ref)!]?.parents[0] : undefined;

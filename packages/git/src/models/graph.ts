@@ -57,6 +57,10 @@ export interface GitGraphRowTag {
  * child, to gate Undo Commit to leaf tips (undoing a commit other work is stacked on is unsafe). It is
  * NOT a general has-children signal: non-tip rows never carry it (the host only computes it for tips);
  * Bit 3: unpushed/ahead-of-upstream (`+unpublished`).
+ * Bit 4: history-rewriteable (`+rewriteable`) — on the first-parent chain from HEAD up to (excluding)
+ * the first merge commit, so a plain (non-`--rebase-merges`) interactive rebase can safely rewrite it;
+ * gates squash/drop/reword/modify. Strictly narrower than `+current` (reachable-from-HEAD includes a
+ * merge's other-parent ancestry, which is NOT safely rewriteable).
  * (`+HEAD` derives from `row.heads[].isCurrentHead`; contributor `+current` from `row.isCurrentUser`.)
  */
 export const enum GitGraphRowContextFlags {
@@ -65,6 +69,7 @@ export const enum GitGraphRowContextFlags {
 	UniqueToBranch = 1 << 1,
 	HasChildren = 1 << 2,
 	Unpublished = 1 << 3,
+	RewriteableFromHead = 1 << 4,
 }
 
 /**
@@ -163,6 +168,13 @@ export interface GitGraph {
 	readonly reachableFromHEAD?: ReadonlySet<string>;
 
 	/**
+	 * SHAs on the first-parent chain from HEAD up to (excluding) the first merge commit — i.e. the
+	 * commits a plain interactive rebase can safely rewrite. Empty when HEAD itself is a merge. Used by
+	 * the graph's history-rewriting commands (squash/drop/reword/modify) to validate selections.
+	 */
+	readonly rewriteableFromHEAD?: ReadonlySet<string>;
+
+	/**
 	 * Shared, append-only reachability table for the loaded rows (the primary representation — rows
 	 * carry only a {@link GitGraphRowContexts.reachabilityIndex} into it, not per-row ref arrays).
 	 * Grows monotonically across {@link more} pagination within a graph session: indices already
@@ -250,6 +262,10 @@ export interface GraphContext {
 	readonly branchIdOfMainWorktree: string | undefined;
 	readonly stashes: ReadonlyMap<string, GitStashCommit> | undefined;
 	readonly reachableFromHEAD: ReadonlySet<string>;
+	/** SHAs on the first-parent chain from HEAD up to (excluding) the first merge commit — the commits
+	 *  a plain interactive rebase can safely rewrite. Empty when HEAD is a merge. Sets the
+	 *  {@link GitGraphRowContextFlags.RewriteableFromHead} flag, gating squash/drop/reword/modify. */
+	readonly rewriteableFromHEAD: ReadonlySet<string>;
 	/** The subset of undo-eligible tip shas (active HEAD + worktree HEADs) that have at least one
 	 *  child — i.e. are NOT leaves. Scoped to tips (not all commits) for performance; do not treat as
 	 *  a general has-children signal. Sets the {@link GitGraphRowContextFlags.HasChildren} flag, which

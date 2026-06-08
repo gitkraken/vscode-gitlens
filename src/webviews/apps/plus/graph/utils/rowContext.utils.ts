@@ -58,7 +58,7 @@ export function isUnpublishedRow(row: RowContextSource): boolean {
 /**
  * Builds the `gitlens:commit…` webview-item context for a commit row from its fields + `contexts.flags`.
  * Mirrors exactly what the host serialized pre-strip: `+HEAD`/`+worktreeHEAD` from `row.heads`,
- * `+current`/`+unique`/`+unpublished` from the flag bits. `message` is intentionally OMITTED — the wire
+ * `+current`/`+rewriteable`/`+unique`/`+unpublished` from the flag bits. `message` is intentionally OMITTED — the wire
  * `row.message` is emojified, and `Copy Message` refetches the raw message when `ref.message` is absent,
  * so omitting it preserves the original raw-message behavior instead of copying emojified text.
  *
@@ -75,8 +75,8 @@ export function buildRowCommitContext(row: RowContextSource, repoPath: string): 
 	const webviewItem = `gitlens:commit${currentHead != null ? '+HEAD' : ''}${
 		worktreeHead != null ? '+worktreeHEAD' : ''
 	}${flags & ContextFlags.ReachableFromHead ? '+current' : ''}${
-		flags & ContextFlags.UniqueToBranch ? '+unique' : ''
-	}${flags & ContextFlags.Unpublished ? '+unpublished' : ''}`;
+		flags & ContextFlags.RewriteableFromHead ? '+rewriteable' : ''
+	}${flags & ContextFlags.UniqueToBranch ? '+unique' : ''}${flags & ContextFlags.Unpublished ? '+unpublished' : ''}`;
 
 	return {
 		webviewItem: webviewItem,
