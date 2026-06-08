@@ -156,3 +156,14 @@ export async function getWorktreeHasWorkingChanges(
 	if (worktree.type === 'bare') return undefined;
 	return container.git.getRepositoryService(worktree.uri.fsPath).status?.hasWorkingChanges(options);
 }
+
+/** Whether the worktree's checked-out tip has commits not on any remote (unpushed). Cheap early-exit
+ *  probe — for LOCAL-ONLY branches; tracked branches get their ahead count for free from the upstream
+ *  state. Returns `undefined` for detached/bare worktrees or when the provider can't determine it. */
+export async function getWorktreeHasUnpublishedCommits(
+	container: Container,
+	worktree: GitWorktree,
+): Promise<boolean | undefined> {
+	if (worktree.type !== 'branch' || worktree.sha == null) return undefined;
+	return container.git.getRepositoryService(worktree.uri.fsPath).commits.hasUnpublishedCommits?.(worktree.sha);
+}

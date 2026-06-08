@@ -99,6 +99,13 @@ export const wipBarStyles = css`
 	.pill__agent-icon {
 		font-size: 1.1rem;
 	}
+
+	/* Unpushed indicator — shares the canonical ahead/unpublished color (theme.scss :root token), the
+	   same one the scope pane uses for unpushed commits. */
+	.pill__unpushed-icon {
+		font-size: 1.1rem;
+		color: var(--gl-tracking-ahead, #4ec9b0);
+	}
 	/* Pill icon + hover icon share the canonical agent palette (theme.scss :root tokens, always
 	   present in webviews — referenced bare, matching tree-view / agent-tooltip). */
 	.pill--agent-idle .pill__agent-icon,
@@ -149,5 +156,15 @@ export const wipBarStyles = css`
 		gap: 0.3rem;
 		font-size: 1.05rem;
 		opacity: 0.85;
+	}
+	.pill-hover__unpushed {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-size: 1.1rem;
+		opacity: 0.9;
+	}
+	.pill-hover__unpushed code-icon {
+		color: var(--gl-tracking-ahead, #4ec9b0);
 	}
 `;

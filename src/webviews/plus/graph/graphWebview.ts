@@ -191,6 +191,7 @@ import {
 import {
 	getOpenedWorktreesByBranch,
 	getReachableWorktrees,
+	getWorktreeHasUnpublishedCommits,
 	getWorktreeHasWorkingChanges,
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
@@ -7287,16 +7288,29 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// surface a worktree that has changes before its `workDirStats` are ever requested; visible
 		// rows derive clean/dirty from their fetched `workDirStats` instead and ignore this.
 		let hasChangesByPath: Map<string, boolean | undefined> | undefined;
+		// Per local-only secondary worktree (branch without an upstream): cheap `rev-list --not --remotes`
+		// presence probe so the WIP bar can flag unpushed commits. Tracked branches get their ahead count
+		// for free from `branch.upstream.state` (computed in the loop below), so they're NOT probed here.
+		// Gated on `probeChanges` like the dirty probe, and skipped entirely when the repo has no remotes
+		// (with none, every local branch would falsely read as unpushed). Preserved client-side by
+		// `mergeWipMetadata` between graph loads.
+		let hasUnpushedByPath: Map<string, boolean | undefined> | undefined;
 		if (options?.probeChanges) {
-			const map = new Map<string, boolean | undefined>();
+			const changesMap = new Map<string, boolean | undefined>();
+			const unpushedMap = new Map<string, boolean | undefined>();
+			const hasRemotes = (await repo.git.remotes.getRemotes(undefined, toAbortSignal(cancellation))).length > 0;
 			await Promise.allSettled(
 				worktrees.map(async wt => {
 					if (wt.type === 'bare' || wt.path === repo.path) return;
 
-					map.set(wt.path, await getWorktreeHasWorkingChanges(this.container, wt));
+					changesMap.set(wt.path, await getWorktreeHasWorkingChanges(this.container, wt));
+					if (hasRemotes && wt.branch != null && wt.branch.upstream == null) {
+						unpushedMap.set(wt.path, await getWorktreeHasUnpublishedCommits(this.container, wt));
+					}
 				}),
 			);
-			hasChangesByPath = map;
+			hasChangesByPath = changesMap;
+			hasUnpushedByPath = unpushedMap;
 		}
 
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
@@ -7315,6 +7329,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// Detached worktrees have no `wt.branch`; leaving `branchRef` undefined defers them
 			// to the graph component's SHA filter.
 			const branchName = wt.branch?.name;
+			// Unpushed state. Tracked branches: `ahead` (free, every build) drives both the hover count
+			// and the `↑` (`ahead > 0`). Local-only branches (no upstream): no count — the `↑` comes from
+			// the probe above (probe build only; preserved between loads by `mergeWipMetadata`).
+			const ahead = wt.branch?.upstream?.state.ahead;
+			let hasUnpushed: boolean | undefined;
+			if (wt.branch?.upstream != null) {
+				hasUnpushed = (ahead ?? 0) > 0;
+			} else if (hasUnpushedByPath != null) {
+				hasUnpushed = hasUnpushedByPath.get(wt.path);
+			}
 			result[createSecondaryWipSha(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
@@ -7324,6 +7348,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				// Only attach when probed; omitted on per-tick pushes and preserved client-side by
 				// `mergeWipMetadata` so the bar doesn't lose a worktree's dirty bit between loads.
 				...(hasChangesByPath?.has(wt.path) ? { hasChanges: hasChangesByPath.get(wt.path) } : {}),
+				// Free, every build — attached even at 0 so a push (ahead → 0) clears the stale count.
+				...(ahead != null ? { ahead: ahead } : {}),
+				// Tracked: definite every build. Local-only: probe build only; omitted on per-tick and
+				// preserved client-side by `mergeWipMetadata`.
+				...(hasUnpushed != null ? { hasUnpushed: hasUnpushed } : {}),
 				label: wt.name,
 				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
 			};

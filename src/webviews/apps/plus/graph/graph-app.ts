@@ -970,42 +970,58 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// FILE counts: `added` (new files), `modified` (changed files), `deleted` (removed files).
 		// When no branch is checked out (detached HEAD), fall back to the worktree directory basename
 		// so the user still sees their primary WIP entry in the bar.
+		// Unpushed comes free from `branchState.ahead` (tracked branch); a primary on a local-only
+		// branch is intentionally NOT probed — those commits are already visible in the main graph,
+		// unlike a hidden secondary's.
 		const primary = gs.workingTreeStats;
-		if (primary != null && (primary.added > 0 || primary.modified > 0 || primary.deleted > 0)) {
+		const primaryDirty = primary != null && (primary.added > 0 || primary.modified > 0 || primary.deleted > 0);
+		const primaryAhead = gs.branchState?.ahead ?? 0;
+		if (primaryDirty || primaryAhead > 0) {
 			items.push({
 				id: uncommitted,
 				branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
 				repoPath: fallbackRepoPath,
-				files: primary.added + primary.modified + primary.deleted,
-				added: primary.added,
-				modified: primary.modified,
-				deleted: primary.deleted,
+				hasWorkingChanges: primaryDirty,
+				...(primary != null && primaryDirty
+					? {
+							files: primary.added + primary.modified + primary.deleted,
+							added: primary.added,
+							modified: primary.modified,
+							deleted: primary.deleted,
+						}
+					: {}),
+				...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
 				...pickAgent(fallbackRepoPath),
 				isPrimary: true,
 				context: serializeWipContext(fallbackRepoPath, false),
 			});
 		}
 
-		// Secondary worktrees — one pill per worktree that has working changes, NOT scope/visibility
-		// filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched `workDirStats`
-		// when present, else by the host's cheap `hasChanges` probe — so the pill appears before the
-		// full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent first
-		// (`parentDate`); the primary pushed above stays first.
+		// Secondary worktrees — one pill per worktree that has working changes OR unpushed commits, NOT
+		// scope/visibility filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched
+		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
+		// before the full breakdown is fetched (lazily, on hover). `hasUnpushed` is host-computed (free
+		// ahead for tracked branches; a `rev-list` probe for local-only). Ordered by HEAD commit date,
+		// most-recent first (`parentDate`); the primary pushed above stays first.
 		const wipMetadata = gs.wipMetadataBySha;
 		if (wipMetadata != null) {
 			const secondaries = Object.entries(wipMetadata)
-				.filter(([, meta]) => {
+				.map(([sha, meta]) => {
 					const stats = meta.workDirStats;
-					return stats != null ? stats.added + stats.modified + stats.deleted > 0 : meta.hasChanges === true;
+					const dirty =
+						stats != null ? stats.added + stats.modified + stats.deleted > 0 : meta.hasChanges === true;
+					return { sha: sha, meta: meta, dirty: dirty };
 				})
-				.sort(([, a], [, b]) => (b.parentDate ?? 0) - (a.parentDate ?? 0));
+				.filter(({ meta, dirty }) => dirty || meta.hasUnpushed === true)
+				.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0));
 
-			for (const [sha, meta] of secondaries) {
+			for (const { sha, meta, dirty } of secondaries) {
 				const stats = meta.workDirStats;
 				items.push({
 					id: sha,
 					branch: branchNameFromRef(meta.branchRef) ?? meta.label,
 					repoPath: meta.repoPath,
+					hasWorkingChanges: dirty,
 					// Stats omitted until hover fetches them — the pill renders from the dirty signal.
 					...(stats != null
 						? {
@@ -1014,6 +1030,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								modified: stats.modified,
 								deleted: stats.deleted,
 							}
+						: {}),
+					...(meta.hasUnpushed === true
+						? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
 						: {}),
 					...pickAgent(meta.repoPath),
 					isPrimary: false,

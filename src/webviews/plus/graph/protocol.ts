@@ -381,6 +381,20 @@ export interface GraphWipNodeMetadata {
 	 * Ignored once `workDirStats` is present (clean/dirty derives from it directly).
 	 */
 	hasChanges?: boolean;
+	/**
+	 * Host-only: count of commits ahead of the worktree branch's upstream (unpushed). Free — read from
+	 * `branch.upstream.state.ahead` (the for-each-ref the worktree enumeration already runs), so it's
+	 * sent on every build and not preserved by `mergeWipMetadata`. `undefined` for local-only branches
+	 * (no upstream) — those use `hasUnpushed` instead. Consumed by the WIP bar for the hover count only.
+	 */
+	ahead?: number;
+	/**
+	 * Host-only: whether this worktree has unpushed commits — drives the WIP bar's `↑` indicator.
+	 * For TRACKED branches it's `ahead > 0` (free, every build). For LOCAL-ONLY branches it's a cheap
+	 * `rev-list --not --remotes` probe set ONLY on the graph-load build (and only when the repo has
+	 * remotes) and preserved client-side via `mergeWipMetadata`, like `hasChanges`.
+	 */
+	hasUnpushed?: boolean;
 	/** Host-only: user-visible suffix for the row message (e.g. worktree name). */
 	label: string;
 	/**

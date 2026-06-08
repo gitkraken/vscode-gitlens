@@ -22,6 +22,14 @@ export interface WipBarItem {
 	branch: string;
 	/** Worktree's repo path — passed back in the select event so the host can route without re-resolving. */
 	repoPath: string;
+	/** Whether the worktree has working (uncommitted) changes — drives the `●` dot independent of
+	 *  whether `files` has been fetched yet (a dirty worktree shows the dot before its breakdown lands). */
+	hasWorkingChanges?: boolean;
+	/** Whether the worktree has unpushed commits — drives the `↑` indicator. */
+	hasUnpushed?: boolean;
+	/** Count of commits ahead of the upstream — shown in the hover only, and only for tracked branches.
+	 *  Absent for local-only branches (no upstream): the `↑` shows, but the hover omits a precise count. */
+	ahead?: number;
 	/** Changed-file counts (counts of added/modified/deleted FILES, not line diffstats). `files` is
 	 *  their sum. Optional: a pill is surfaced from the worktree's cheap clean/dirty signal, and the
 	 *  full breakdown is fetched lazily on hover — so these are absent until that request lands. */
@@ -116,7 +124,9 @@ export class GlGraphWipBar extends LitElement {
 		if (id == null) return;
 
 		const item = this.items.find(i => i.id === id);
-		if (item == null || item.files != null) return; // already have stats — nothing to fetch
+		// Nothing to fetch when stats are already present, or when the pill has no working changes at all
+		// (an unpushed-only worktree) — its breakdown would be empty, so don't spend a `git status` on it.
+		if (item == null || item.files != null || item.hasWorkingChanges !== true) return;
 
 		this.dispatchEvent(
 			new CustomEvent<WipBarStatsNeededDetail>('gl-graph-wip-bar-stats-needed', {
@@ -201,12 +211,19 @@ export class GlGraphWipBar extends LitElement {
 	private renderPill(item: WipBarItem, index: number): unknown {
 		const isFocused = index === this.focusedPillIndex;
 		const isSelected = this.selectedId === item.id;
+		const hasAgent = item.agent != null;
+		const isDirty = item.hasWorkingChanges === true;
+		const isUnpushed = item.hasUnpushed === true;
 		const classes = classMap({
 			pill: true,
 			...(item.agent != null && { [`pill--agent-${item.agent}`]: true }),
 			'pill--primary': item.isPrimary === true,
+			'pill--unpushed': isUnpushed,
 			'pill--selected': isSelected,
 		});
+		// All indicators lead the branch name in a fixed order — working-changes dot, unpushed arrow,
+		// agent robot — so a pill's signals always read in the same left-to-right sequence regardless of
+		// which combination is present. Counts live in the hover (per design); the pill arrow is number-less.
 		return html`
 			<gl-tooltip placement="bottom">
 				<span
@@ -222,10 +239,11 @@ export class GlGraphWipBar extends LitElement {
 					aria-selected=${isSelected}
 					tabindex=${isFocused ? '0' : '-1'}
 				>
-					${item.agent != null
+					${isDirty ? html`<span class="pill__dot"></span>` : nothing}${isUnpushed
+						? html`<code-icon class="pill__unpushed-icon" icon="arrow-up" size="11"></code-icon>`
+						: nothing}${hasAgent
 						? html`<code-icon class="pill__agent-icon" icon="robot" size="11"></code-icon>`
-						: html`<span class="pill__dot"></span>`}
-					${item.branch}
+						: nothing}${item.branch}
 				</span>
 				<div slot="content">${this.renderHoverDetail(item)}</div>
 			</gl-tooltip>
@@ -239,22 +257,34 @@ export class GlGraphWipBar extends LitElement {
 					<code-icon icon="gl-worktree"></code-icon>
 					<span>${item.branch}</span>
 				</div>
-				<div class="pill-hover__row">
-					${item.files != null
-						? html`
-								<span class="pill-hover__files">${pluralize('file', item.files)} changed</span>
-								<commit-stats
-									added=${item.added || nothing}
-									modified=${item.modified || nothing}
-									removed=${item.deleted || nothing}
-									symbol="icons"
-									no-tooltip
-								></commit-stats>
-							`
-						: this.statsOnHover
-							? html`<span class="pill-hover__files">Loading changes…</span>`
-							: html`<span class="pill-hover__files">Has working changes</span>`}
-				</div>
+				${item.hasWorkingChanges === true
+					? html`<div class="pill-hover__row">
+							${item.files != null
+								? html`
+										<span class="pill-hover__files">${pluralize('file', item.files)} changed</span>
+										<commit-stats
+											added=${item.added || nothing}
+											modified=${item.modified || nothing}
+											removed=${item.deleted || nothing}
+											symbol="icons"
+											no-tooltip
+										></commit-stats>
+									`
+								: this.statsOnHover
+									? html`<span class="pill-hover__files">Loading changes…</span>`
+									: html`<span class="pill-hover__files">Has working changes</span>`}
+						</div>`
+					: nothing}
+				${item.hasUnpushed === true
+					? html`<div class="pill-hover__row">
+							<span class="pill-hover__unpushed">
+								<code-icon icon="arrow-up"></code-icon>
+								${item.ahead != null && item.ahead > 0
+									? `${pluralize('commit', item.ahead)} to push`
+									: 'Unpushed commits · no upstream'}
+							</span>
+						</div>`
+					: nothing}
 				<div class="pill-hover__row">
 					${item.agent != null
 						? html`

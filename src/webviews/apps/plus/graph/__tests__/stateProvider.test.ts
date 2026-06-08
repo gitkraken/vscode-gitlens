@@ -195,6 +195,56 @@ suite('mergeWipMetadata', () => {
 		assert.strictEqual(result, incoming);
 		assert.deepStrictEqual(result?.['worktree-wip::/a']?.workDirStats, { added: 9, deleted: 9, modified: 9 });
 	});
+
+	test('preserves prev hasUnpushed when incoming omits it (local-only per-tick) while an anchor changes', () => {
+		const prev: GraphWipMetadataBySha = { 'worktree-wip::/a': { ...entry('a', 'sha1'), hasUnpushed: true } };
+		// An anchor field changes (parentSha) so the merge produces a fresh object, but the local-only
+		// `hasUnpushed` (omitted on per-tick pushes) must survive from prev.
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': entry('a', 'sha99') };
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.notStrictEqual(result, prev);
+		assert.strictEqual(result?.['worktree-wip::/a']?.hasUnpushed, true);
+	});
+
+	test('produces a new object when hasUnpushed flips to false (push)', () => {
+		const prev: GraphWipMetadataBySha = { 'worktree-wip::/a': { ...entry('a', 'sha1'), hasUnpushed: true } };
+		const incoming: GraphWipMetadataBySha = { 'worktree-wip::/a': { ...entry('a', 'sha1'), hasUnpushed: false } };
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.notStrictEqual(result, prev);
+		assert.strictEqual(result?.['worktree-wip::/a']?.hasUnpushed, false);
+	});
+
+	test('produces a new object when ahead changes and clears it on push', () => {
+		const prev: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), ahead: 3, hasUnpushed: true },
+		};
+		const incoming: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), ahead: 0, hasUnpushed: false },
+		};
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.notStrictEqual(result, prev);
+		assert.strictEqual(result?.['worktree-wip::/a']?.ahead, 0);
+		assert.strictEqual(result?.['worktree-wip::/a']?.hasUnpushed, false);
+	});
+
+	test('preserves prev reference when ahead and hasUnpushed are unchanged', () => {
+		const prev: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), ahead: 2, hasUnpushed: true },
+		};
+		const incoming: GraphWipMetadataBySha = {
+			'worktree-wip::/a': { ...entry('a', 'sha1'), ahead: 2, hasUnpushed: true },
+		};
+
+		const result = mergeWipMetadata(prev, incoming);
+
+		assert.strictEqual(result, prev);
+	});
 });
 
 function entry(label: string, parentSha: string, branchRef?: string) {
