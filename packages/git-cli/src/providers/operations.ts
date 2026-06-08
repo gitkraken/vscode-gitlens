@@ -660,6 +660,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			branch?: string;
 			editor?: string;
 			interactive?: boolean;
+			programmaticEditor?: boolean;
 			messageEditor?: string;
 			onto?: string;
 			updateRefs?: boolean;
@@ -681,6 +682,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 
 			if (options.editor) {
 				configs.push('-c', `sequence.editor=${options.editor}`);
+			}
+
+			// A script-based sequence editor rewrites the todo by command word + SHA, so git must emit a
+			// plain, natural-order todo regardless of the user's rebase config: `rebase.autosquash` would
+			// reorder commits and rewrite `pick`→`fixup`, and `rebase.abbreviateCommands` would emit `p`.
+			if (options.programmaticEditor) {
+				configs.push('-c', 'rebase.autosquash=false', '-c', 'rebase.abbreviateCommands=false');
 			}
 		}
 

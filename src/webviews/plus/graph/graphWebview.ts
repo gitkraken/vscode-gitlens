@@ -8965,6 +8965,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				{
 					interactive: true,
 					editor: sequenceEditor.editor,
+					// The editor is a script that rewrites the todo by command + SHA, so force git to emit a
+					// plain, natural-order todo (no autosquash reordering, no abbreviated `p` commands).
+					programmaticEditor: true,
 					// squash (combined message) and reword (per-commit message) open a commit-message editor.
 					messageEditor:
 						action === 'squash' || action === 'reword' ? await getHostEditorCommand(true) : undefined,

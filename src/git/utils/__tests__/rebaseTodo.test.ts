@@ -89,4 +89,42 @@ suite('applyRebaseActionToTodo', () => {
 		assert.strictEqual(lines[2], 'reword c1b2c3d Commit C', 'selected C becomes reword');
 		assert.strictEqual(lines[1], 'pick b1b2c3d Commit B', 'unselected B stays pick');
 	});
+
+	// Git abbreviates the `pick` command to `p` when `rebase.abbreviateCommands=true`.
+	const abbreviatedTodo = [
+		'p a1b2c3d Commit A',
+		'p b1b2c3d Commit B',
+		'p c1b2c3d Commit C',
+		'p d1b2c3d Commit D',
+	].join('\n');
+
+	test('squashes an abbreviated (`p`) todo, rewriting to the full action word', () => {
+		const result = applyRebaseActionToTodo(abbreviatedTodo, [B, C], 'squash');
+		const lines = result.split('\n');
+		assert.strictEqual(lines[0], 'p a1b2c3d Commit A', 'unselected A stays untouched');
+		assert.strictEqual(lines[1], 'p b1b2c3d Commit B', 'oldest selected (B) stays the abbreviated pick target');
+		assert.strictEqual(lines[2], 'squash c1b2c3d Commit C', 'later selected (C) becomes full `squash`');
+		assert.strictEqual(lines[3], 'p d1b2c3d Commit D', 'unselected D stays untouched');
+	});
+
+	test('drops selected commits in an abbreviated (`p`) todo', () => {
+		const result = applyRebaseActionToTodo(abbreviatedTodo, [B, C], 'drop');
+		const lines = result.split('\n');
+		assert.strictEqual(lines[1], 'drop b1b2c3d Commit B', 'selected B becomes full `drop`');
+		assert.strictEqual(lines[2], 'drop c1b2c3d Commit C', 'selected C becomes full `drop`');
+		assert.strictEqual(lines[3], 'p d1b2c3d Commit D', 'unselected D stays untouched');
+	});
+
+	test('rewords the selected commit in an abbreviated (`p`) todo', () => {
+		const result = applyRebaseActionToTodo(abbreviatedTodo, [C], 'reword');
+		assert.strictEqual(result.split('\n')[2], 'reword c1b2c3d Commit C', 'selected C becomes full `reword`');
+	});
+
+	test('matches both `pick` and abbreviated `p` lines in a mixed todo', () => {
+		const mixedTodo = ['pick a1b2c3d Commit A', 'p b1b2c3d Commit B', 'p c1b2c3d Commit C'].join('\n');
+		const result = applyRebaseActionToTodo(mixedTodo, [B, C], 'squash');
+		const lines = result.split('\n');
+		assert.strictEqual(lines[1], 'p b1b2c3d Commit B', 'oldest selected (B) stays the abbreviated pick target');
+		assert.strictEqual(lines[2], 'squash c1b2c3d Commit C', 'later selected (C) becomes squash');
+	});
 });
