@@ -18,12 +18,12 @@ export class ActionChip extends LitElement {
 		css`
 			:host {
 				display: inline-flex;
-				justify-content: center;
 				align-items: center;
+				justify-content: center;
+				min-width: 0;
+				max-width: 100%;
 				vertical-align: text-bottom;
 				border-radius: 0.5rem;
-				max-width: 100%;
-				min-width: 0;
 			}
 
 			* {
@@ -50,10 +50,12 @@ export class ActionChip extends LitElement {
 			.chip__icon-active {
 				display: none;
 			}
+
 			.chip:hover:has(.chip__icon-active) .chip__icon,
 			.chip:focus-visible:has(.chip__icon-active) .chip__icon {
 				display: none;
 			}
+
 			.chip:hover .chip__icon-active,
 			.chip:focus-visible .chip__icon-active {
 				display: inline-flex;
@@ -61,27 +63,28 @@ export class ActionChip extends LitElement {
 
 			.chip {
 				display: inline-flex;
-				justify-content: center;
-				align-items: center;
 				gap: 0.2rem;
-				/* vertical-align: middle; */
-				color: inherit;
-				max-width: 100%;
+				align-items: center;
+				justify-content: center;
 				min-width: 2rem;
 				max-width: 100%;
 				height: 2rem;
-				color: inherit;
 				padding: 0.2rem;
+				overflow: hidden;
+				font: inherit;
+
+				/* vertical-align: middle; */
+				color: inherit;
 				text-decoration: none;
 				cursor: pointer;
 				background: none;
 				border: none;
-				font: inherit;
-				overflow: hidden;
 			}
+
 			.chip:hover {
 				text-decoration: none;
 			}
+
 			.chip:focus {
 				outline: none;
 			}
@@ -95,9 +98,10 @@ export class ActionChip extends LitElement {
 				vertical-align: middle;
 				text-transform: var(--chip-text-transform, capitalize);
 			}
+
 			/* Drop the trailing inline padding for suffix-slotted icons — the asymmetric box
-			   shifts the rotation axis off the glyph's visual center, so a spinning loading
-			   codicon wobbles. Flex gap already spaces this from the preceding label. */
+	   shifts the rotation axis off the glyph's visual center, so a spinning loading
+	   codicon wobbles. Flex gap already spaces this from the preceding label. */
 			::slotted([slot='suffix']) {
 				padding-inline-end: 0;
 			}
@@ -106,14 +110,15 @@ export class ActionChip extends LitElement {
 				min-width: 0;
 				max-width: 100%;
 			}
+
 			:host([truncate]) ::slotted(*) {
 				display: inline-block;
-				max-width: 100%;
 				min-width: 0;
+				max-width: 100%;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				white-space: nowrap;
 				vertical-align: middle;
+				white-space: nowrap;
 			}
 		`,
 	];

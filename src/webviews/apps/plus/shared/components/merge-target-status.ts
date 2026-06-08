@@ -33,15 +33,15 @@ const mergeTargetStyles = css`
 
 	:host-context(.vscode-dark),
 	:host-context(.vscode-high-contrast) {
-		--color-status--in-sync: #00bb00;
-		--color-merge--clean: #00bb00;
+		--color-status--in-sync: #0b0;
+		--color-merge--clean: #0b0;
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 
 	:host-context(.vscode-light),
 	:host-context(.vscode-high-contrast-light) {
-		--color-status--in-sync: #00aa00;
-		--color-merge--clean: #00aa00;
+		--color-status--in-sync: #0a0;
+		--color-merge--clean: #0a0;
 		--color-merge--conflict: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
 	}
 
@@ -58,12 +58,12 @@ const mergeTargetStyles = css`
 	}
 
 	.header__title p {
-		margin: 0.5rem 0 0 0;
+		margin: 0.5rem 0 0;
 	}
 
 	.header__subtitle {
+		margin: 0.2rem 0 0;
 		font-size: 1.3rem;
-		margin: 0.2rem 0 0 0;
 	}
 
 	.status--conflict .icon,
@@ -90,8 +90,8 @@ const mergeTargetStyles = css`
 	}
 
 	.status--loading {
-		cursor: default;
 		color: var(--color-foreground--50);
+		cursor: default;
 	}
 
 	.status--merge-conflict {
@@ -111,8 +111,8 @@ const mergeTargetStyles = css`
 	}
 
 	.status-indicator {
-		margin-left: -0.5rem;
 		margin-top: 0.8rem;
+		margin-left: -0.5rem;
 	}
 
 	.body {
@@ -126,11 +126,11 @@ const mergeTargetStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.8rem;
-		margin-top: 0.4rem;
-		margin-bottom: 0.4rem;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
+		margin-top: 0.4rem;
+		margin-bottom: 0.4rem;
 	}
 
 	.button-container gl-button {
@@ -147,31 +147,31 @@ const mergeTargetStyles = css`
 	}
 
 	details {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
 		padding: 0;
-		position: relative;
 		margin: 0 0.2rem 0.4rem;
 		overflow: hidden;
-		border: 1px solid transparent;
 		color: var(--color-foreground--85);
+		border: 1px solid transparent;
 	}
 
 	details[open] {
-		border-radius: 0.3rem;
 		border: 1px solid var(--vscode-sideBar-border);
+		border-radius: 0.3rem;
 	}
 
 	summary {
 		position: sticky;
 		top: 0;
+		z-index: 1;
+		padding: 0.4rem 0.6rem;
 		color: var(--color-foreground);
 		cursor: pointer;
 		list-style: none;
 		transition: transform ease-in-out 0.1s;
-		padding: 0.4rem 0.6rem 0.4rem 0.6rem;
-		z-index: 1;
 	}
 
 	summary:hover {
@@ -179,10 +179,10 @@ const mergeTargetStyles = css`
 	}
 
 	details[open] > summary {
-		color: var(--vscode-textLink-foreground);
-		border-radius: 0.3rem 0.3rem 0 0;
 		margin-left: 0;
+		color: var(--vscode-textLink-foreground);
 		background: var(--vscode-sideBar-background);
+		border-radius: 0.3rem 0.3rem 0 0;
 	}
 
 	details[open] > summary code-icon {
@@ -197,11 +197,9 @@ const mergeTargetStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
-
 		max-height: 8rem;
-		overflow-y: auto;
 		padding: 0.4rem 0.8rem;
-
+		overflow-y: auto;
 		background: var(--vscode-sideBar-background);
 	}
 

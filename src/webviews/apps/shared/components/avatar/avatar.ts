@@ -14,11 +14,11 @@ export class GlAvatar extends LitElement {
 
 			.avatar {
 				display: inline-flex;
+				justify-content: center;
 				width: var(--gl-avatar-size, 1.6rem);
 				aspect-ratio: 1;
 				vertical-align: middle;
 				border-radius: 100%;
-				justify-content: center;
 			}
 
 			.thumb {
@@ -31,9 +31,9 @@ export class GlAvatar extends LitElement {
 				justify-content: center;
 				font-size: clamp(0.8rem, calc(var(--gl-avatar-size, 1.6rem) * 0.5), 1.1rem);
 				line-height: 1;
+				color: var(--gl-avatar-text-color, var(--vscode-descriptionForeground));
 				text-transform: uppercase;
 				cursor: default;
-				color: var(--gl-avatar-text-color, var(--vscode-descriptionForeground));
 			}
 
 			.thumb--media {

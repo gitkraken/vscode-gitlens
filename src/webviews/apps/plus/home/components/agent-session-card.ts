@@ -25,24 +25,24 @@ export class GlAgentSessionCard extends LitElement {
 
 			.header {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				max-width: 100%;
 				margin-block: 0;
 			}
 
 			.header__icon {
-				color: var(--vscode-descriptionForeground);
 				flex: none;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.header__name {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-weight: bold;
+				white-space: nowrap;
 			}
 
 			.details {
@@ -55,8 +55,8 @@ export class GlAgentSessionCard extends LitElement {
 
 			.detail {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 			}
 
 			.sessions {
@@ -67,10 +67,9 @@ export class GlAgentSessionCard extends LitElement {
 
 			.session {
 				display: flex;
-				flex-direction: row;
-				align-items: center;
+				flex-flow: row wrap;
 				gap: 0.4rem;
-				flex-wrap: wrap;
+				align-items: center;
 			}
 
 			.session code-icon {
@@ -78,8 +77,8 @@ export class GlAgentSessionCard extends LitElement {
 			}
 
 			.session__name {
-				color: var(--vscode-descriptionForeground);
 				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.session__subagents {

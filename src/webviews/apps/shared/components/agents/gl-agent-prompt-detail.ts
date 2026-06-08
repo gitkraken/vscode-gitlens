@@ -51,20 +51,20 @@ export class GlAgentPromptDetail extends LitElement {
 			display: flex;
 			flex-direction: column;
 			gap: 0.2rem;
-			padding: 0.4rem 0.5rem;
-			border-radius: 0.3rem;
-			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
 			min-width: 0;
+			padding: 0.4rem 0.5rem;
+			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+			border-radius: 0.3rem;
 		}
 
 		.block {
-			font-size: 0.85em;
-			word-break: break-word;
 			display: -webkit-box;
-			-webkit-line-clamp: 2;
-			-webkit-box-orient: vertical;
-			overflow: hidden;
 			min-width: 0;
+			overflow: hidden;
+			-webkit-line-clamp: 2;
+			font-size: 0.85em;
+			overflow-wrap: anywhere;
+			-webkit-box-orient: vertical;
 		}
 
 		.block--code {
@@ -79,39 +79,39 @@ export class GlAgentPromptDetail extends LitElement {
 
 		.caption-row {
 			display: flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 			min-width: 0;
 		}
 
 		.caption {
 			flex: 1 1 auto;
 			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-size: 0.8em;
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
-			overflow: hidden;
-			text-overflow: ellipsis;
 		}
 
 		.caption-actions {
-			flex: none;
 			display: inline-flex;
-			align-items: center;
+			flex: none;
 			gap: 0.2rem;
+			align-items: center;
 		}
 
 		/* gl-copy-container hosts a bare code-icon — give it the same hover affordance the
-		   sibling gl-action-chip has so the two buttons read as a matched pair. */
+	   sibling gl-action-chip has so the two buttons read as a matched pair. */
 		.caption-copy {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
 			width: 2rem;
 			height: 2rem;
-			border-radius: 0.5rem;
 			color: inherit;
 			cursor: pointer;
+			border-radius: 0.5rem;
 		}
 
 		.caption-copy:hover {

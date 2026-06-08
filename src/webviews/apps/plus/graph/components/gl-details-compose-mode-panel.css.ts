@@ -15,8 +15,8 @@ export const composeModePanelStyles = css`
 	   scroll containers don't flicker a scrollbar as the transform settles. After the
 	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */
 	:host {
-		animation: sub-panel-enter 0.2s ease-out;
 		overflow: hidden;
+		animation: sub-panel-enter 0.2s ease-out;
 	}
 
 	:host([data-anim-done]) {
@@ -25,15 +25,15 @@ export const composeModePanelStyles = css`
 
 	@media (prefers-reduced-motion: reduce) {
 		:host {
-			animation: none;
 			overflow-y: auto;
+			animation: none;
 		}
 	}
 
 	.compose-panel {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 	}
 
@@ -42,18 +42,18 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-plan {
-		flex: 1;
-		min-height: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		min-height: 0;
 	}
 
 	.compose-plan__header {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0.8rem;
 		flex: none;
+		gap: 0.4rem;
+		align-items: center;
+		padding: 0.4rem 0.8rem;
 	}
 
 	.compose-plan__back {
@@ -68,17 +68,17 @@ export const composeModePanelStyles = css`
 
 	.compose-plan__count {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
+		margin-left: auto;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		margin-left: auto;
 	}
 
 	.compose-plan__count-item {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.compose-plan__count-item > code-icon {
@@ -99,26 +99,26 @@ export const composeModePanelStyles = css`
 	   foreground sits on top, top-anchored. */
 	.compose-loading-stage {
 		position: relative;
+		display: flex;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
-		display: flex;
-		flex-direction: column;
 	}
 
 	.compose-loading-stage > gl-categorizing-loading-animation {
 		position: absolute;
 		inset: 0;
-		pointer-events: none;
 		z-index: 0;
+		pointer-events: none;
 	}
 
 	.compose-loading-foreground {
 		position: relative;
 		z-index: 1;
 		display: flex;
-		flex-direction: column;
 		flex: none;
+		flex-direction: column;
 	}
 
 	.compose-plan__list {
@@ -132,6 +132,7 @@ export const composeModePanelStyles = css`
 	.compose-plan__split {
 		flex: 1;
 		min-height: 0;
+
 		/* Size the start track to the commits list (capped at the drag position) instead of a
 		   fixed 50%, so a short list doesn't leave the divider + border-bottom floating in empty
 		   space far below the last commit. Mirrors panelScopeSplitStyles' .scope-split. */
@@ -156,8 +157,8 @@ export const composeModePanelStyles = css`
 	/* Commit All row is always anchored to the top of the right pane, above the file-tree-pane.
 	   Fixed-height row so the file pane fills the rest of the column. */
 	.compose-plan__commit-all {
-		flex: none;
 		display: flex;
+		flex: none;
 		padding: 0.6rem 1.2rem;
 	}
 
@@ -167,8 +168,8 @@ export const composeModePanelStyles = css`
 
 	.compose-commit {
 		display: flex;
-		align-items: flex-start;
 		gap: 0.6rem;
+		align-items: flex-start;
 		padding: 0.5rem 1.2rem;
 		cursor: pointer;
 		border-left: 2px solid transparent;
@@ -199,19 +200,19 @@ export const composeModePanelStyles = css`
 
 	.compose-commit__num {
 		flex-shrink: 0;
+		min-width: 1.4rem;
 		font-size: var(--gl-font-sm);
 		font-weight: 700;
 		color: var(--vscode-charts-green, #4ec9b0);
-		min-width: 1.4rem;
 		text-align: center;
 	}
 
 	.compose-commit__info {
-		flex: 1;
-		min-width: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.15rem;
+		min-width: 0;
 	}
 
 	/* Commit message — single-line summary with a dimmed body continuation (graph-row style).
@@ -219,6 +220,7 @@ export const composeModePanelStyles = css`
 	gl-popover.compose-commit__message {
 		--hide-delay: 100ms;
 		--wa-z-index-tooltip: 10000;
+
 		display: flex;
 		min-width: 0;
 		overflow: hidden;
@@ -247,8 +249,8 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit__message-body {
-		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
 		margin-left: 0.8rem;
+		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
 	}
 
 	.compose-commit__stats {
@@ -278,6 +280,7 @@ export const composeModePanelStyles = css`
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: middle;
 		--check-green: color-mix(in srgb, #000 35%, var(--vscode-testing-iconPassed, #73c991));
+
 		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
 		   and resolves to white on most themes; falling back to literal white preserves the
 		   original intent on themes that don't define the variable. */
@@ -301,43 +304,43 @@ export const composeModePanelStyles = css`
 
 	.compose-base {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 		padding: 0.4rem 1.2rem 0.6rem;
+		margin-top: 0.4rem;
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		border-top: 1px dashed var(--vscode-sideBarSectionHeader-border);
-		margin-top: 0.4rem;
 	}
 
 	.compose-base__marker {
-		font-size: 1.4rem;
+		flex-shrink: 0;
 		min-width: 1.4rem;
+		font-size: 1.4rem;
 		text-align: center;
 		opacity: 0.7;
-		flex-shrink: 0;
 	}
 
 	.compose-base__body {
-		flex: 1;
-		min-width: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.1rem;
+		min-width: 0;
 	}
 
 	.compose-base__headline {
-		color: var(--vscode-foreground);
-		opacity: 0.75;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		color: var(--vscode-foreground);
 		white-space: nowrap;
+		opacity: 0.75;
 	}
 
 	.compose-base__meta {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
 		min-width: 0;
 		font-size: var(--gl-font-micro);
 	}
@@ -363,13 +366,13 @@ export const composeModePanelStyles = css`
 
 	.compose-base__tag {
 		flex-shrink: 0;
+		padding: 0.1rem 0.4rem;
 		font-size: var(--gl-font-micro);
+		color: var(--vscode-descriptionForeground);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		padding: 0.1rem 0.4rem;
-		border-radius: 0.3rem;
 		background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		color: var(--vscode-descriptionForeground);
+		border-radius: 0.3rem;
 	}
 
 	/* When the splitter is in play, the file-tree-pane sits in a flex column inside the

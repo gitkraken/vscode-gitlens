@@ -21,10 +21,11 @@ export class GlStatusNav extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: row;
+				gap: 0.2rem;
+
 				/* flex-wrap: wrap; */
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.2rem;
 			}
 
 			.tooltip--overflowed {
@@ -38,9 +39,9 @@ export class GlStatusNav extends LitElement {
 			.branch {
 				min-width: 0;
 				max-width: fit-content;
-				white-space: nowrap;
-				text-overflow: ellipsis;
 				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			.pr-pill {
@@ -68,8 +69,8 @@ export class GlStatusNav extends LitElement {
 			}
 
 			.group:first-child {
-				min-width: 0;
 				flex: 0 1 auto;
+				min-width: 0;
 			}
 
 			hr {
@@ -78,10 +79,10 @@ export class GlStatusNav extends LitElement {
 			}
 
 			.md-code {
+				padding: 0 4px 2px;
+				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
 				border-radius: 3px;
-				padding: 0px 4px 2px 4px;
-				font-family: var(--vscode-editor-font-family);
 			}
 		`,
 	];

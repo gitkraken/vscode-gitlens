@@ -17,8 +17,8 @@ export class GlTrackingPill extends LitElement {
 
 			.state {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.1rem;
+				align-items: center;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
 			}
@@ -41,16 +41,16 @@ export class GlTrackingPill extends LitElement {
 
 			.state code-icon {
 				font-size: inherit !important;
-				line-height: inherit !important;
 				font-weight: inherit !important;
+				line-height: inherit !important;
 			}
 
 			.working {
 				display: inline-block;
 				width: 1rem;
-				text-align: center;
-				vertical-align: text-bottom;
 				font-weight: normal;
+				vertical-align: text-bottom;
+				text-align: center;
 			}
 		`,
 	];

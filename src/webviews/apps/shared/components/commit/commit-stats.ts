@@ -53,12 +53,16 @@ export class CommitStats extends LitElement {
 			display: inline-flex;
 			flex-direction: row;
 			align-items: center;
-			white-space: nowrap;
 			font-size: 1.1rem;
 			font-weight: 600;
+			white-space: nowrap;
 		}
 
 		:host([appearance='pill']) {
+			min-height: var(--commit-stats-pill-line-height, 1.5rem);
+			padding: var(--commit-stats-pill-padding, 0 0.8rem 0 0.6rem);
+			line-height: var(--commit-stats-pill-line-height, 1.5rem);
+			white-space: nowrap;
 			background-color: color-mix(
 				in srgb,
 				var(--vscode-sideBarSectionHeader-background) 90%,
@@ -66,10 +70,6 @@ export class CommitStats extends LitElement {
 			);
 			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
 			border-radius: 0.4rem;
-			padding: var(--commit-stats-pill-padding, 0 0.8rem 0 0.6rem);
-			white-space: nowrap;
-			line-height: var(--commit-stats-pill-line-height, 1.5rem);
-			min-height: var(--commit-stats-pill-line-height, 1.5rem);
 		}
 
 		:host-context(.vscode-light):host([appearance='pill']),
@@ -98,9 +98,11 @@ export class CommitStats extends LitElement {
 		.added {
 			color: var(--gl-stat-added);
 		}
+
 		.modified {
 			color: var(--gl-stat-modified);
 		}
+
 		.removed {
 			color: var(--gl-stat-removed);
 		}
@@ -112,6 +114,7 @@ export class CommitStats extends LitElement {
 		.icon {
 			--code-icon-size: 1.1rem;
 			--code-icon-v-align: middle;
+
 			margin-inline-end: 0.2rem;
 			font-weight: 600;
 		}

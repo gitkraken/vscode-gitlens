@@ -16,6 +16,7 @@ export class GlTrackingStatus extends LitElement {
 
 		.pill {
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
+
 			font-weight: 600;
 		}
 
@@ -29,8 +30,7 @@ export class GlTrackingStatus extends LitElement {
 		}
 
 		::slotted(p[slot='extra']) {
-			margin-block-start: 1rem;
-			margin-block-end: 0;
+			margin-block: 1rem 0;
 		}
 	`;
 

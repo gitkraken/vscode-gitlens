@@ -34,15 +34,16 @@ declare global {
 export class GlSearchBox extends GlElement {
 	static override styles = css`
 		:host {
-			display: inline-flex;
-			flex-direction: row;
-			align-items: center;
-			gap: 0.8rem;
-			color: var(--color-foreground);
-			flex: 1 100 auto;
-			min-width: 16rem;
 			position: relative;
+			display: inline-flex;
+			flex: 1 100 auto;
+			flex-direction: row;
+			gap: 0.8rem;
+			align-items: center;
+			min-width: 16rem;
+			color: var(--color-foreground);
 		}
+
 		:host(:focus) {
 			outline: 0;
 		}
@@ -50,23 +51,24 @@ export class GlSearchBox extends GlElement {
 		.search-navigation {
 			display: inline-flex;
 			flex-direction: row;
-			align-items: center;
 			gap: 0.3rem;
+			align-items: center;
 			color: var(--color-foreground);
 		}
+
 		.search-navigation:focus {
 			outline: 0;
 		}
 
 		.count {
 			flex: 0 1 auto;
-			margin-right: 0.4rem;
-			font-size: 1.2rem;
 			min-width: 0;
 			max-width: 12ch;
-			white-space: nowrap;
+			margin-right: 0.4rem;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: 1.2rem;
+			white-space: nowrap;
 		}
 
 		.count.error {
@@ -78,26 +80,31 @@ export class GlSearchBox extends GlElement {
 			height: 2.4rem;
 			padding: 0;
 			color: inherit;
+			text-align: center;
+			background: none;
 			border: none;
 			border-radius: 3px;
-			background: none;
-			text-align: center;
 		}
+
 		.button[disabled] {
 			color: var(--vscode-disabledForeground);
 		}
+
 		.button:focus {
-			background-color: var(--vscode-toolbar-activeBackground);
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: -1px;
+			background-color: var(--vscode-toolbar-activeBackground);
 		}
+
 		.button:not([disabled]) {
 			cursor: pointer;
 		}
+
 		.button:hover:not([disabled]) {
 			color: var(--vscode-foreground);
 			background-color: var(--vscode-toolbar-hoverBackground);
 		}
+
 		.button > code-icon[icon='arrow-up'] {
 			transform: translateX(-0.1rem);
 		}
@@ -107,6 +114,7 @@ export class GlSearchBox extends GlElement {
 			100% {
 				transform: translateY(0) translateX(-0.1rem);
 			}
+
 			50% {
 				transform: translateY(-0.3rem) translateX(-0.1rem);
 			}
@@ -117,6 +125,7 @@ export class GlSearchBox extends GlElement {
 			100% {
 				transform: translateY(0);
 			}
+
 			50% {
 				transform: translateY(0.3rem);
 			}
@@ -135,13 +144,13 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.sr-only {
-			clip: rect(0 0 0 0);
-			clip-path: inset(50%);
+			position: absolute;
+			width: 1px;
 			height: 1px;
 			overflow: hidden;
-			position: absolute;
 			white-space: nowrap;
-			width: 1px;
+			clip: rect(0 0 0 0);
+			clip-path: inset(50%);
 		}
 
 		.search-button {

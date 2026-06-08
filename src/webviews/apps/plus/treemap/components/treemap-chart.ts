@@ -221,12 +221,12 @@ export interface TreemapFileClickDetail {
 export class GlTreemapChart extends LitElement {
 	static override styles = css`
 		:host {
+			position: relative;
 			display: flex;
 			flex-direction: column;
 			width: 100%;
 			height: 100%;
 			min-height: 0;
-			position: relative;
 		}
 
 		canvas {
@@ -239,17 +239,17 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		.empty {
-			flex: 1 1 auto;
 			display: flex;
+			flex: 1 1 auto;
 			align-items: center;
 			justify-content: center;
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			padding: 1rem;
+			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-align: center;
 		}
 
 		/* Mirrors gl-timeline-chart's .notice overlay so the loader sits centered over the
-		 * canvas instead of dropping the chart out of the DOM during refresh. */
+	 * canvas instead of dropping the chart out of the DOM during refresh. */
 		.notice {
 			position: absolute;
 			inset: 0;
@@ -260,88 +260,88 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		.notice--blur {
-			backdrop-filter: blur(8px);
-			-webkit-backdrop-filter: blur(8px);
 			background: color-mix(in srgb, var(--vscode-editor-background) 60%, transparent);
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
 		}
 
 		/* Floating hint shown over the dim treemap when Activity mode is on but no agent is
-		 * currently editing a file. Disappears the moment any session's fileActivity lights up. */
+	 * currently editing a file. Disappears the moment any session's fileActivity lights up. */
 		.activity-hint {
 			position: absolute;
-			left: 50%;
 			top: 50%;
-			transform: translate(-50%, -50%);
+			left: 50%;
 			display: flex;
-			align-items: center;
 			gap: 0.6rem;
-			padding: 0.6rem 1rem;
-			border-radius: 0.4rem;
-			background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
-			border: 1px solid var(--vscode-editorWidget-border, transparent);
-			color: var(--vscode-descriptionForeground);
-			font-size: 1.2rem;
+			align-items: center;
 			max-width: 80%;
+			padding: 0.6rem 1rem;
+			font-size: 1.2rem;
+			color: var(--vscode-descriptionForeground);
 			text-align: center;
 			pointer-events: none;
+			background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
+			border: 1px solid var(--vscode-editorWidget-border, transparent);
+			border-radius: 0.4rem;
+			transform: translate(-50%, -50%);
 		}
 
 		.tooltip {
 			position: fixed;
+			z-index: 1000;
+			padding: 0.4rem 0.8rem;
+			font-family: var(--vscode-font-family);
+			font-size: 1.2rem;
+			color: var(--vscode-editorHoverWidget-foreground);
+			white-space: nowrap;
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background);
 			border: 1px solid var(--vscode-editorHoverWidget-border);
-			color: var(--vscode-editorHoverWidget-foreground);
-			padding: 0.4rem 0.8rem;
 			border-radius: 0.3rem;
-			font-size: 1.2rem;
-			font-family: var(--vscode-font-family);
-			white-space: nowrap;
-			z-index: 1000;
-			box-shadow: 0 0.2rem 0.8rem rgba(0, 0, 0, 0.3);
+			box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 30%);
 		}
 
 		/* Compositor-thread pulse overlay for "the agent is here right now" leaves. One element per
-		 * focused leaf, positioned over its canvas rect. The breathing + ping ring animate via CSS
-		 * keyframes on opacity/transform, which the compositor runs off the main thread — so the cue
-		 * keeps gliding smoothly even while the main thread is blocked by unrelated webview work (the
-		 * jank a canvas rAF pulse can't avoid). overflow:hidden clips glows/rings to the chart bounds. */
+	 * focused leaf, positioned over its canvas rect. The breathing + ping ring animate via CSS
+	 * keyframes on opacity/transform, which the compositor runs off the main thread — so the cue
+	 * keeps gliding smoothly even while the main thread is blocked by unrelated webview work (the
+	 * jank a canvas rAF pulse can't avoid). overflow:hidden clips glows/rings to the chart bounds. */
 		.pulse-layer {
 			position: absolute;
 			inset: 0;
+			z-index: 1;
 			overflow: hidden;
 			pointer-events: none;
-			z-index: 1;
 		}
 
 		/* The active leaf: a solid filled rounded box (like the reference) that emits a solid copy of
-		 * itself (the ::after echo) expanding outward and fading — a "broadcast" in the box's own shape,
-		 * at any zoom. Static box; only the echo animates. transform/opacity only → compositor thread,
-		 * smooth even under main-thread load. isolation keeps each pulse's echo + label z-ordering
-		 * self-contained. */
+	 * itself (the ::after echo) expanding outward and fading — a "broadcast" in the box's own shape,
+	 * at any zoom. Static box; only the echo animates. transform/opacity only → compositor thread,
+	 * smooth even under main-thread load. isolation keeps each pulse's echo + label z-ordering
+	 * self-contained. */
 		.activity-pulse {
 			position: absolute;
-			border-radius: 0.5rem;
 			background: rgb(var(--pulse-ring));
-			box-shadow: 0 0 1rem 0.1rem rgba(var(--pulse-ring), 0.5);
+			border-radius: 0.5rem;
+			box-shadow: 0 0 1rem 0.1rem rgb(var(--pulse-ring), 0.5);
 			isolation: isolate;
 		}
 
 		/* Filename label drawn on top of the solid block (dark on the bright kind-color fill). Above
-		 * the echo (z-index) so the broadcast copy never obscures it; clipped to the block. */
+	 * the echo (z-index) so the broadcast copy never obscures it; clipped to the block. */
 		.activity-pulse-label {
 			position: absolute;
-			z-index: 1;
-			left: 0.4rem;
 			top: 0.2rem;
 			right: 0.4rem;
-			color: rgba(20, 22, 28, 0.95);
-			font-size: 1.1rem;
-			font-family: var(--vscode-font-family, sans-serif);
-			line-height: 1.5rem;
-			white-space: nowrap;
+			left: 0.4rem;
+			z-index: 1;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-family: var(--vscode-font-family, sans-serif);
+			font-size: 1.1rem;
+			line-height: 1.5rem;
+			color: rgb(20 22 28 / 95%);
+			white-space: nowrap;
 			pointer-events: none;
 		}
 
@@ -354,47 +354,50 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		/* Broadcast echo in the block's own shape — a rounded rectangle (inheriting the block's
-		 * corners) whose size (--echo-w/--echo-h, set per-leaf in render) tracks the leaf with a floor,
-		 * so it starts ≈ the leaf and expands beyond: a big leaf gets a big rectangular ripple (reads
-		 * as pulsing when zoomed in), a tiny leaf a floored one (still a dramatic ping when zoomed
-		 * out). cubic-bezier front-loads the growth then eases out. */
+	 * corners) whose size (--echo-w/--echo-h, set per-leaf in render) tracks the leaf with a floor,
+	 * so it starts ≈ the leaf and expands beyond: a big leaf gets a big rectangular ripple (reads
+	 * as pulsing when zoomed in), a tiny leaf a floored one (still a dramatic ping when zoomed
+	 * out). cubic-bezier front-loads the growth then eases out. */
 		.activity-pulse::after {
-			content: '';
 			position: absolute;
-			left: 50%;
 			top: 50%;
+			left: 50%;
+			z-index: 0;
 			width: var(--echo-w, 100%);
 			height: var(--echo-h, 100%);
-			margin-left: calc(var(--echo-w, 0px) / -2);
 			margin-top: calc(var(--echo-h, 0px) / -2);
-			border-radius: inherit;
-			z-index: 0;
+			margin-left: calc(var(--echo-w, 0px) / -2);
+			content: '';
+
 			/* Solid, same color as the block → at scale 1 it's seamless with the box, then a solid
-			 * copy flies outward and fades. */
+		 * copy flies outward and fades. */
 			background: rgb(var(--pulse-ring));
-			will-change: transform, opacity;
+			border-radius: inherit;
 			animation: activity-pulse-broadcast var(--pulse-period, 2000ms) cubic-bezier(0.25, 0, 0, 1) infinite;
+			will-change: transform, opacity;
 		}
 
 		@keyframes activity-pulse-broadcast {
 			0% {
-				transform: scale(1);
 				opacity: 0.8;
+				transform: scale(1);
 			}
+
 			100% {
-				transform: scale(2.2);
 				opacity: 0;
+				transform: scale(2.2);
 			}
 		}
 
 		@media (prefers-reduced-motion: reduce) {
 			.activity-pulse {
-				animation: none;
 				opacity: 1;
-			}
-			.activity-pulse::after {
 				animation: none;
+			}
+
+			.activity-pulse::after {
 				opacity: 0;
+				animation: none;
 			}
 		}
 	`;

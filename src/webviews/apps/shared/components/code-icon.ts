@@ -19,44 +19,47 @@ function generateIconStyles(iconMap: Record<string, string>, prefix = '') {
 export class CodeIcon extends LitElement {
 	static override styles = css`
 		:host {
-			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
 			display: inline-block;
-			text-decoration: none;
-			text-rendering: auto;
+			font: normal normal normal var(--code-icon-size, 16px) / 1 codicon;
+			vertical-align: var(--code-icon-v-align, text-bottom);
+			color: inherit;
 			text-align: center;
-			-webkit-font-smoothing: antialiased;
-			-moz-osx-font-smoothing: grayscale;
-			user-select: none;
+			letter-spacing: normal;
+			text-decoration: none;
 			-webkit-user-select: none;
 			-ms-user-select: none;
-			color: inherit;
-			vertical-align: var(--code-icon-v-align, text-bottom);
-			letter-spacing: normal;
+			user-select: none;
+			text-rendering: auto;
+			-webkit-font-smoothing: antialiased;
+			-moz-osx-font-smoothing: grayscale;
 		}
 
 		:host([icon^='gl-']) {
-			font-family: 'glicons';
+			font-family: glicons;
 		}
 
 		${generateIconStyles(codiconsMap)}
+
 		${generateIconStyles(gliconsMap, 'gl-')}
 
-		:host([icon='custom-start-work']) {
+ 	:host([icon='custom-start-work']) {
 			position: relative;
 		}
+
 		:host([icon='custom-start-work'])::before {
 			content: '\\ea68';
 		}
+
 		:host([icon='custom-start-work'])::after {
-			content: '\\ea60';
 			position: absolute;
 			right: -0.2em;
 			bottom: -0.2em;
 			font-size: 0.6em;
 			line-height: normal;
+			content: '\\ea60';
 		}
 
-		:host([icon='gl-pinned-filled']):before {
+		:host([icon='gl-pinned-filled'])::before {
 			/* TODO: see relative positioning needed in every use-case */
 			position: relative;
 			left: 1px;
@@ -72,6 +75,7 @@ export class CodeIcon extends LitElement {
 			/* Use steps to throttle FPS to reduce CPU usage */
 			animation: codicon-spin 1.5s steps(30) infinite;
 		}
+
 		:host([icon='loading'][modifier='spin']) {
 			/* Use steps to throttle FPS to reduce CPU usage */
 			animation: codicon-spin 1.5s steps(30) infinite;

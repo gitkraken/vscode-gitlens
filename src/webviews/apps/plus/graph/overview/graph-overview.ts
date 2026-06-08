@@ -53,17 +53,16 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				width: 100%;
 				height: 100%;
 				overflow: hidden;
-				background-color: var(--color-graph-background);
-				color: var(--vscode-foreground);
 				font-size: 1.2rem;
+				color: var(--vscode-foreground);
+				background-color: var(--color-graph-background);
 			}
 
 			.content {
 				flex: 1;
-				overflow-y: auto;
-				overflow-x: hidden;
-				padding: 0.4rem;
 				min-height: 0;
+				padding: 0.4rem;
+				overflow: hidden auto;
 			}
 
 			.group {
@@ -76,19 +75,19 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.group__label {
-				font-size: 1.1rem;
-				font-weight: normal;
-				text-transform: uppercase;
-				color: var(--vscode-descriptionForeground);
 				padding-inline: 0.4rem;
 				margin-block: 0 0.4rem;
+				font-size: 1.1rem;
+				font-weight: normal;
+				color: var(--vscode-descriptionForeground);
+				text-transform: uppercase;
 			}
 
 			.group__header {
 				display: flex;
+				gap: 0.4rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.4rem;
 			}
 
 			.group__header .group__label {
@@ -101,16 +100,16 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.threshold-filter {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.2rem;
-				background: none;
-				border: none;
+				align-items: center;
 				padding: 0 0.4rem;
 				font-family: inherit;
 				font-size: 1.1rem;
 				color: var(--color-foreground--50);
-				cursor: pointer;
 				white-space: nowrap;
+				cursor: pointer;
+				background: none;
+				border: none;
 			}
 
 			.threshold-filter:hover {
@@ -130,12 +129,12 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.section-label {
-				font-size: 1rem;
-				font-weight: normal;
-				text-transform: uppercase;
-				color: var(--vscode-descriptionForeground);
 				padding-inline: 0.4rem;
 				margin-block: 0 0.2rem;
+				font-size: 1rem;
+				font-weight: normal;
+				color: var(--vscode-descriptionForeground);
+				text-transform: uppercase;
 				opacity: 0.8;
 			}
 
@@ -152,8 +151,8 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.empty {
 				padding: 0.6rem 0.8rem;
 				font-size: 1.1rem;
-				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 			}
 		`,
 	];

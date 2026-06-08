@@ -1,19 +1,19 @@
 @use '../shared/styles/utils';
 
 .button {
+	display: inline-block;
+	padding: 1em 1.75em;
+	margin: 1em 0.5em;
+	font-size: 1.1rem;
+	text-transform: uppercase;
+	letter-spacing: 0.25em;
+	white-space: nowrap;
+	text-decoration: none;
+	cursor: pointer;
+	user-select: none;
 	background: none;
 	border: none;
 	border-radius: 3px;
-	cursor: pointer;
-	display: inline-block;
-	font-size: 1.1rem;
-	letter-spacing: 0.25em;
-	margin: 1em 0.5em;
-	padding: 1em 1.75em;
-	text-decoration: none;
-	text-transform: uppercase;
-	user-select: none;
-	white-space: nowrap;
 
 	&:focus {
 		outline: none;
@@ -26,8 +26,8 @@
 
 	.shortcut {
 		display: block;
+		margin: 5px 0 0;
 		font-size: 0.8rem;
-		margin: 5px 0 0 0;
 		font-weight: 200;
 		opacity: 0.6;
 	}
@@ -54,25 +54,27 @@
 		color 250ms;
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(0, 0, 0, 0.6);
 		color: black;
+		border: 1px solid rgb(0 0 0 / 60%);
 	}
+
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(255, 255, 255, 0.6);
 		color: white;
+		border: 1px solid rgb(255 255 255 / 60%);
 	}
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
 		@include utils.light-theme($selectorPostfix: ' &') {
+			color: white;
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
-			color: white;
 		}
+
 		@include utils.dark-theme($selectorPostfix: ' &') {
+			color: black;
 			background-color: white;
 			border-color: white;
-			color: black;
 		}
 	}
 
@@ -82,10 +84,10 @@
 }
 
 .button--flat-inverse {
+	font-weight: 600;
+	color: black;
 	background-color: white;
 	border: 1px solid white;
-	color: black;
-	font-weight: 600;
 	transition:
 		background-color 250ms,
 		border-color 250ms,
@@ -93,9 +95,9 @@
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
-		background: rgba(0, 0, 0, 0.2);
-		border-color: rgba(255, 255, 255, 0.6);
 		color: white;
+		background: rgb(0 0 0 / 20%);
+		border-color: rgb(255 255 255 / 60%);
 	}
 
 	.preload & {
@@ -104,10 +106,10 @@
 }
 
 .button--flat-primary {
+	font-weight: 600;
+	color: var(--color-button-foreground);
 	background-color: var(--color-button-background);
 	border: 1px solid var(--color-button-background);
-	color: var(--color-button-foreground);
-	font-weight: 600;
 	transition:
 		background-color 250ms,
 		border-color 250ms,
@@ -116,15 +118,15 @@
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
 		@include utils.dark-theme($selectorPostfix: ' &') {
+			color: black;
 			background-color: white;
 			border-color: white;
-			color: black;
 		}
 
 		@include utils.light-theme($selectorPostfix: ' &') {
+			color: white;
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
-			color: white;
 		}
 	}
 
@@ -134,10 +136,10 @@
 }
 
 .button--flat-secondary {
+	font-weight: 600;
+	color: var(--vscode-button-secondaryForeground);
 	background-color: var(--color-button-secondary-background);
 	border: 1px solid var(--color-button-secondary-background);
-	color: var(--vscode-button-secondaryForeground);
-	font-weight: 600;
 	transition:
 		background-color 250ms,
 		border-color 250ms,
@@ -146,15 +148,15 @@
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
 		@include utils.dark-theme($selectorPostfix: ' &') {
+			color: black;
 			background-color: white;
 			border-color: white;
-			color: black;
 		}
 
 		@include utils.light-theme($selectorPostfix: ' &') {
+			color: var(--vscode-button-secondaryForeground);
 			background-color: var(--color-button-secondary-background--darken-30);
 			border-color: var(--color-button-secondary-background--darken-30);
-			color: var(--vscode-button-secondaryForeground);
 		}
 	}
 
@@ -170,25 +172,27 @@
 		color 250ms;
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(0, 0, 0, 0.2);
-		color: rgba(0, 0, 0, 0.6);
+		color: rgb(0 0 0 / 60%);
+		border: 1px solid rgb(0 0 0 / 20%);
 	}
+
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(255, 255, 255, 0.2);
-		color: rgba(255, 255, 255, 0.6);
+		color: rgb(255 255 255 / 60%);
+		border: 1px solid rgb(255 255 255 / 20%);
 	}
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
 		@include utils.light-theme($selectorPostfix: ' &') {
+			color: white;
 			background-color: var(--color-button-secondary-background--darken-30);
 			border-color: var(--color-button-secondary-background--darken-30);
-			color: white;
 		}
+
 		@include utils.dark-theme($selectorPostfix: ' &') {
+			color: black;
 			background-color: white;
 			border-color: white;
-			color: black;
 		}
 	}
 

@@ -11,29 +11,29 @@ export class GlBranchName extends LitElement {
 			align-items: baseline;
 			min-width: 0;
 			max-width: 100%;
-			white-space: nowrap;
+			margin-inline: 0.2rem;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			margin-inline: 0.2rem;
+			white-space: nowrap;
 		}
 
 		:host([appearance='pill']) {
 			padding: 0.1rem 0.6rem;
-			border-radius: 0.3rem;
+			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0));
 			background-color: color-mix(
 				in srgb,
 				var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0)) 15%,
 				transparent
 			);
-			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0));
+			border-radius: 0.3rem;
 		}
 
 		:host([appearance='button']) {
 			padding: 0.2rem 0.4rem;
-			border-radius: var(--gl-action-radius, 0.3rem);
-			cursor: pointer;
-			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 			font-size: var(--gl-font-base);
+			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+			cursor: pointer;
+			border-radius: var(--gl-action-radius, 0.3rem);
 		}
 
 		:host([appearance='button']:hover) {
@@ -51,27 +51,27 @@ export class GlBranchName extends LitElement {
 		}
 
 		.icon {
-			margin-right: 0.3rem;
 			align-self: center;
+			margin-right: 0.3rem;
 		}
 
 		.label {
-			font-weight: 600;
 			/* Block-level box (default span is inline → text-overflow is ignored). flex 1 1 auto
-			   lets the label both grow into available space and shrink when the parent narrows;
-			   min-width: 0 unlocks shrinking past intrinsic content size. */
+		   lets the label both grow into available space and shrink when the parent narrows;
+		   min-width: 0 unlocks shrinking past intrinsic content size. */
 			display: block;
 			flex: 1 1 auto;
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-weight: 600;
 			white-space: nowrap;
 		}
 
 		.chevron {
-			margin-left: 0.2rem;
-			align-self: center;
 			flex-shrink: 0;
+			align-self: center;
+			margin-left: 0.2rem;
 		}
 	`;
 

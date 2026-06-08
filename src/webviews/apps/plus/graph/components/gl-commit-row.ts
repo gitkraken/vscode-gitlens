@@ -29,12 +29,11 @@ export class GlCommitRow extends LitElement {
 
 		.row {
 			display: grid;
-			grid-template-columns: auto minmax(0, 1fr);
 			grid-template-areas:
 				'avatar message'
 				'avatar meta';
-			column-gap: 0.6rem;
-			row-gap: 0.1rem;
+			grid-template-columns: auto minmax(0, 1fr);
+			gap: 0.1rem 0.6rem;
 			min-width: 0;
 			padding: 0.2rem 0;
 			line-height: 1.35;
@@ -46,10 +45,10 @@ export class GlCommitRow extends LitElement {
 		}
 
 		.avatar {
-			grid-area: avatar;
-			--gl-avatar-size: 2.4rem;
-			align-self: center;
 			flex-shrink: 0;
+			grid-area: avatar;
+			align-self: center;
+			--gl-avatar-size: 2.4rem;
 		}
 
 		.avatar::part(avatar):hover {
@@ -61,25 +60,25 @@ export class GlCommitRow extends LitElement {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			white-space: nowrap;
 			font-size: var(--gl-font-base);
 			font-weight: 500;
 			color: var(--vscode-foreground);
+			white-space: nowrap;
 		}
 
 		.meta {
-			grid-area: meta;
 			display: inline-flex;
-			align-items: center;
+			grid-area: meta;
 			gap: 0.6rem;
+			align-items: center;
 			min-width: 0;
 			font-size: var(--gl-font-sm);
 			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 		}
 
 		.sha {
-			font-family: var(--vscode-editor-font-family, monospace);
 			flex-shrink: 0;
+			font-family: var(--vscode-editor-font-family, monospace);
 		}
 
 		.author {
@@ -94,18 +93,18 @@ export class GlCommitRow extends LitElement {
 		}
 
 		/* Trailing group keeps the date and stats glued together at the row's right edge so the
-		   row reads "sha · author … date stats" rather than letting each tail piece independently
-		   absorb the remaining space (which would split them across the row). */
+	   row reads "sha · author … date stats" rather than letting each tail piece independently
+	   absorb the remaining space (which would split them across the row). */
 		.trailing {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.6rem;
 			flex-shrink: 0;
+			gap: 0.6rem;
+			align-items: center;
 		}
 
 		/* When the host opts into right-aligned date layout (date-position="right"), the leading
-		   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
-		   pole-card and ahead/behind list. */
+	   dot is hidden and the trailing group is pushed to the far edge. Used by the multi-commit
+	   pole-card and ahead/behind list. */
 		:host([date-position='right']) .trailing {
 			margin-left: auto;
 		}
@@ -116,9 +115,9 @@ export class GlCommitRow extends LitElement {
 
 		.stats {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.4rem;
 			flex-shrink: 0;
+			gap: 0.4rem;
+			align-items: center;
 			font-family: var(--vscode-editor-font-family, monospace);
 		}
 

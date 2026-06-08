@@ -4,82 +4,82 @@
 @include utils.dark-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	// color-scheme: dark;
 
-	--wa-color-red-50: hsl(0 56% 23.9%);
-	--wa-color-red-100: hsl(0.6 60% 33.9%);
-	--wa-color-red-200: hsl(0.9 67.2% 37.1%);
-	--wa-color-red-300: hsl(1.1 71.3% 43.7%);
-	--wa-color-red-400: hsl(1 76% 52.5%);
-	--wa-color-red-500: hsl(0.7 89.6% 57.2%);
-	--wa-color-red-600: hsl(0 98.6% 67.9%);
-	--wa-color-red-700: hsl(0 100% 72.3%);
-	--wa-color-red-800: hsl(0 100% 85.6%);
-	--wa-color-red-900: hsl(0 100% 90.3%);
-	--wa-color-red-950: hsl(0 100% 95.9%);
+	--wa-color-red-50: hsl(0deg 56% 23.9%);
+	--wa-color-red-100: hsl(0.6deg 60% 33.9%);
+	--wa-color-red-200: hsl(0.9deg 67.2% 37.1%);
+	--wa-color-red-300: hsl(1.1deg 71.3% 43.7%);
+	--wa-color-red-400: hsl(1deg 76% 52.5%);
+	--wa-color-red-500: hsl(0.7deg 89.6% 57.2%);
+	--wa-color-red-600: hsl(0deg 98.6% 67.9%);
+	--wa-color-red-700: hsl(0deg 100% 72.3%);
+	--wa-color-red-800: hsl(0deg 100% 85.6%);
+	--wa-color-red-900: hsl(0deg 100% 90.3%);
+	--wa-color-red-950: hsl(0deg 100% 95.9%);
 
-	--wa-color-amber-50: hsl(21.9 66.3% 21.1%);
-	--wa-color-amber-100: hsl(21.5 73.6% 29.7%);
-	--wa-color-amber-200: hsl(22.3 77.6% 33.3%);
-	--wa-color-amber-300: hsl(25.4 84.2% 39.6%);
-	--wa-color-amber-400: hsl(31.4 87.4% 46.7%);
-	--wa-color-amber-500: hsl(37 96.6% 48.3%);
-	--wa-color-amber-600: hsl(43.3 100% 53.4%);
-	--wa-color-amber-700: hsl(46.5 100% 61.1%);
-	--wa-color-amber-800: hsl(49.3 100% 73%);
-	--wa-color-amber-900: hsl(51.8 100% 85%);
-	--wa-color-amber-950: hsl(60 100% 94.6%);
+	--wa-color-amber-50: hsl(21.9deg 66.3% 21.1%);
+	--wa-color-amber-100: hsl(21.5deg 73.6% 29.7%);
+	--wa-color-amber-200: hsl(22.3deg 77.6% 33.3%);
+	--wa-color-amber-300: hsl(25.4deg 84.2% 39.6%);
+	--wa-color-amber-400: hsl(31.4deg 87.4% 46.7%);
+	--wa-color-amber-500: hsl(37deg 96.6% 48.3%);
+	--wa-color-amber-600: hsl(43.3deg 100% 53.4%);
+	--wa-color-amber-700: hsl(46.5deg 100% 61.1%);
+	--wa-color-amber-800: hsl(49.3deg 100% 73%);
+	--wa-color-amber-900: hsl(51.8deg 100% 85%);
+	--wa-color-amber-950: hsl(60deg 100% 94.6%);
 
-	--wa-color-green-50: hsl(144.3 53.6% 16%);
-	--wa-color-green-100: hsl(143.2 55.4% 23.5%);
-	--wa-color-green-200: hsl(141.5 58.2% 26.3%);
-	--wa-color-green-300: hsl(140.8 64.2% 31.8%);
-	--wa-color-green-400: hsl(140.3 68% 39.2%);
-	--wa-color-green-500: hsl(141.1 64.9% 43%);
-	--wa-color-green-600: hsl(141.6 72.4% 55.2%);
-	--wa-color-green-700: hsl(141.7 82.7% 70.1%);
-	--wa-color-green-800: hsl(141 90.9% 82.1%);
-	--wa-color-green-900: hsl(142 100% 89.1%);
-	--wa-color-green-950: hsl(144 100% 95.5%);
+	--wa-color-green-50: hsl(144.3deg 53.6% 16%);
+	--wa-color-green-100: hsl(143.2deg 55.4% 23.5%);
+	--wa-color-green-200: hsl(141.5deg 58.2% 26.3%);
+	--wa-color-green-300: hsl(140.8deg 64.2% 31.8%);
+	--wa-color-green-400: hsl(140.3deg 68% 39.2%);
+	--wa-color-green-500: hsl(141.1deg 64.9% 43%);
+	--wa-color-green-600: hsl(141.6deg 72.4% 55.2%);
+	--wa-color-green-700: hsl(141.7deg 82.7% 70.1%);
+	--wa-color-green-800: hsl(141deg 90.9% 82.1%);
+	--wa-color-green-900: hsl(142deg 100% 89.1%);
+	--wa-color-green-950: hsl(144deg 100% 95.5%);
 }
 
 // raw light color tokens, only referenced in this file
 @include utils.light-theme($selectorPrefix: ':root:has(', $selectorPostfix: ')') {
 	// color-scheme: light;
 
-	--wa-color-red-50: hsl(0 85.7% 97.3%);
-	--wa-color-red-100: hsl(0 93.3% 94.1%);
-	--wa-color-red-200: hsl(0 96.3% 89.4%);
-	--wa-color-red-300: hsl(0 93.5% 81.8%);
-	--wa-color-red-400: hsl(0 90.6% 70.8%);
-	--wa-color-red-500: hsl(0 84.2% 60.2%);
-	--wa-color-red-600: hsl(0 72.2% 50.6%);
-	--wa-color-red-700: hsl(0 73.7% 41.8%);
-	--wa-color-red-800: hsl(0 70% 35.3%);
-	--wa-color-red-900: hsl(0 62.8% 30.6%);
-	--wa-color-red-950: hsl(0 60% 19.6%);
+	--wa-color-red-50: hsl(0deg 85.7% 97.3%);
+	--wa-color-red-100: hsl(0deg 93.3% 94.1%);
+	--wa-color-red-200: hsl(0deg 96.3% 89.4%);
+	--wa-color-red-300: hsl(0deg 93.5% 81.8%);
+	--wa-color-red-400: hsl(0deg 90.6% 70.8%);
+	--wa-color-red-500: hsl(0deg 84.2% 60.2%);
+	--wa-color-red-600: hsl(0deg 72.2% 50.6%);
+	--wa-color-red-700: hsl(0deg 73.7% 41.8%);
+	--wa-color-red-800: hsl(0deg 70% 35.3%);
+	--wa-color-red-900: hsl(0deg 62.8% 30.6%);
+	--wa-color-red-950: hsl(0deg 60% 19.6%);
 
-	--wa-color-amber-50: hsl(48 100% 96.1%);
-	--wa-color-amber-100: hsl(48 96.5% 88.8%);
-	--wa-color-amber-200: hsl(48 96.6% 76.7%);
-	--wa-color-amber-300: hsl(45.9 96.7% 64.5%);
-	--wa-color-amber-400: hsl(43.3 96.4% 56.3%);
-	--wa-color-amber-500: hsl(37.7 92.1% 50.2%);
-	--wa-color-amber-600: hsl(32.1 94.6% 43.7%);
-	--wa-color-amber-700: hsl(26 90.5% 37.1%);
-	--wa-color-amber-800: hsl(22.7 82.5% 31.4%);
-	--wa-color-amber-900: hsl(21.7 77.8% 26.5%);
-	--wa-color-amber-950: hsl(22.9 74.1% 16.7%);
+	--wa-color-amber-50: hsl(48deg 100% 96.1%);
+	--wa-color-amber-100: hsl(48deg 96.5% 88.8%);
+	--wa-color-amber-200: hsl(48deg 96.6% 76.7%);
+	--wa-color-amber-300: hsl(45.9deg 96.7% 64.5%);
+	--wa-color-amber-400: hsl(43.3deg 96.4% 56.3%);
+	--wa-color-amber-500: hsl(37.7deg 92.1% 50.2%);
+	--wa-color-amber-600: hsl(32.1deg 94.6% 43.7%);
+	--wa-color-amber-700: hsl(26deg 90.5% 37.1%);
+	--wa-color-amber-800: hsl(22.7deg 82.5% 31.4%);
+	--wa-color-amber-900: hsl(21.7deg 77.8% 26.5%);
+	--wa-color-amber-950: hsl(22.9deg 74.1% 16.7%);
 
-	--wa-color-green-50: hsl(138.5 76.5% 96.7%);
-	--wa-color-green-100: hsl(140.6 84.2% 92.5%);
-	--wa-color-green-200: hsl(141 78.9% 85.1%);
-	--wa-color-green-300: hsl(141.7 76.6% 73.1%);
-	--wa-color-green-400: hsl(141.9 69.2% 58%);
-	--wa-color-green-500: hsl(142.1 70.6% 45.3%);
-	--wa-color-green-600: hsl(142.1 76.2% 36.3%);
-	--wa-color-green-700: hsl(142.4 71.8% 29.2%);
-	--wa-color-green-800: hsl(142.8 64.2% 24.1%);
-	--wa-color-green-900: hsl(143.8 61.2% 20.2%);
-	--wa-color-green-950: hsl(144.3 60.7% 12%);
+	--wa-color-green-50: hsl(138.5deg 76.5% 96.7%);
+	--wa-color-green-100: hsl(140.6deg 84.2% 92.5%);
+	--wa-color-green-200: hsl(141deg 78.9% 85.1%);
+	--wa-color-green-300: hsl(141.7deg 76.6% 73.1%);
+	--wa-color-green-400: hsl(141.9deg 69.2% 58%);
+	--wa-color-green-500: hsl(142.1deg 70.6% 45.3%);
+	--wa-color-green-600: hsl(142.1deg 76.2% 36.3%);
+	--wa-color-green-700: hsl(142.4deg 71.8% 29.2%);
+	--wa-color-green-800: hsl(142.8deg 64.2% 24.1%);
+	--wa-color-green-900: hsl(143.8deg 61.2% 20.2%);
+	--wa-color-green-950: hsl(144.3deg 60.7% 12%);
 }
 
 // generic semantic tokens
@@ -171,7 +171,7 @@
 
 	--wa-font-mono: var(--vscode-editor-font-family);
 	--wa-font-sans: var(--vscode-font-family);
-	--wa-font-serif: Georgia, 'Times New Roman', serif;
+	--wa-font-serif: georgia, 'Times New Roman', serif;
 
 	--wa-font-size-2x-small: calc(var(--vscode-font-size) * 0.625);
 	--wa-font-size-x-small: calc(var(--vscode-font-size) * 0.75);
@@ -185,7 +185,6 @@
 
 	--wa-font-weight-light: 300;
 	--wa-font-weight-normal: 400;
-	--wa-font-weight-semibold: 500;
 	--wa-font-weight-bold: 700;
 
 	--wa-letter-spacing-denser: -0.03em;
@@ -203,8 +202,6 @@
 	--wa-focus-ring-color: var(--vscode-focusBorder);
 	--wa-focus-ring-style: solid;
 	--wa-focus-ring-width: 1px;
-	--wa-focus-ring: var(--wa-focus-ring-style) var(--wa-focus-ring-width) var(--wa-focus-ring-color);
-	--wa-focus-ring-offset: 1px;
 
 	--wa-button-font-size-small: var(--wa-font-size-x-small);
 	--wa-button-font-size-medium: var(--wa-font-size-small);
@@ -288,7 +285,7 @@
 	--wa-tooltip-color: var(--color-hover-foreground);
 	--wa-tooltip-font-family: var(--wa-font-sans);
 	--wa-tooltip-font-weight: var(--wa-font-weight-normal);
-	--wa-tooltip-font-size: 12px; //var(--wa-font-size-small);
+	--wa-tooltip-font-size: 12px; // var(--wa-font-size-small);
 	--wa-tooltip-line-height: var(--wa-line-height-dense);
 	--wa-tooltip-padding: var(--wa-spacing-2x-small) var(--wa-spacing-x-small);
 	--wa-tooltip-arrow-size: 6px;
@@ -330,7 +327,7 @@
 	--wa-color-neutral-on-quiet: var(--vscode-foreground);
 	--wa-color-brand-fill-loud: var(--vscode-list-activeSelectionBackground);
 	--wa-color-brand-on-loud: var(--vscode-list-activeSelectionForeground);
-	--wa-shadow-m: 0 2px 8px rgba(0, 0, 0, 0.15);
+	--wa-shadow-m: 0 2px 8px rgb(0 0 0 / 15%);
 	--wa-border-style: solid;
 	--wa-border-width-s: 1px;
 	--wa-border-radius-m: 3px;
@@ -344,8 +341,8 @@
 
 @supports (scrollbar-gutter: stable) {
 	.sl-scroll-lock {
-		scrollbar-gutter: stable !important;
 		overflow: hidden !important;
+		scrollbar-gutter: stable !important;
 	}
 }
 
@@ -358,8 +355,8 @@
 
 .sl-toast-stack {
 	position: fixed;
-	top: 0;
 	inset-inline-end: 0;
+	top: 0;
 	z-index: var(--wa-z-index-toast);
 	width: 28rem;
 	max-width: 100%;

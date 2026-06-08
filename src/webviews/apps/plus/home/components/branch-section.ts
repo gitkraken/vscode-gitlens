@@ -14,18 +14,21 @@ export class GlSection extends LitElement {
 			.section {
 				margin-bottom: 1.2rem;
 			}
+
 			.section__header {
 				position: relative;
 				display: flex;
-				justify-content: space-between;
 				gap: 8px;
+				justify-content: space-between;
 				margin-block: 0 0.8rem;
 			}
+
 			.section__heading {
-				min-width: 0;
 				flex: 1;
+				min-width: 0;
 				font-size: 1.3rem;
 			}
+
 			.section__headline {
 				font-weight: normal;
 				text-transform: uppercase;
@@ -37,8 +40,8 @@ export class GlSection extends LitElement {
 
 			.section__loader {
 				position: absolute;
-				left: 0;
 				bottom: 0;
+				left: 0;
 			}
 		`,
 	];

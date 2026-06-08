@@ -41,16 +41,16 @@ export class GlButton extends LitElement {
 
 				display: inline-block;
 				width: var(--button-width);
-				border: none;
 				font-family: inherit;
 				font-size: inherit;
 				line-height: var(--button-line-height);
+				color: var(--button-foreground);
 				text-align: center;
 				text-decoration: none;
+				cursor: pointer;
 				user-select: none;
 				background: var(--button-background);
-				color: var(--button-foreground);
-				cursor: pointer;
+				border: none;
 				border: 1px solid var(--button-border);
 				border-radius: var(--gl-action-radius, 0.3rem);
 				-webkit-font-smoothing: auto;
@@ -60,20 +60,18 @@ export class GlButton extends LitElement {
 				box-sizing: border-box;
 				display: inline-flex;
 				flex-direction: row;
-				justify-content: center;
-				align-items: center;
 				gap: var(--button-gap);
-				padding: var(--button-padding);
-				line-height: var(--button-line-height);
-				font-family: inherit;
-				font-size: inherit;
-
-				color: inherit;
-				text-decoration: none;
-
+				align-items: center;
+				justify-content: center;
 				width: var(--button-width);
 				max-width: 100%;
 				height: 100%;
+				padding: var(--button-padding);
+				font-family: inherit;
+				font-size: inherit;
+				line-height: var(--button-line-height);
+				color: inherit;
+				text-decoration: none;
 				cursor: pointer;
 			}
 
@@ -100,10 +98,10 @@ export class GlButton extends LitElement {
 
 			/* Text truncation option - enabled via truncate attribute */
 			:host([truncate]) .label {
+				display: block; /* Change from flex to block for ellipsis to work */
 				overflow: hidden;
 				text-overflow: ellipsis;
 				white-space: nowrap;
-				display: block; /* Change from flex to block for ellipsis to work */
 			}
 
 			:host(:hover) {
@@ -145,6 +143,7 @@ export class GlButton extends LitElement {
 				--button-foreground: var(--color-alert-infoForeground);
 				--button-hover-background: var(--color-alert-infoBorder);
 				--button-line-height: 1.64;
+
 				width: max-content;
 			}
 
@@ -167,7 +166,7 @@ export class GlButton extends LitElement {
 			}
 
 			:host([variant='warning']) {
-				--button-foreground: var(--vscode-inputValidation-warningForeground, #ffcc66);
+				--button-foreground: var(--vscode-inputValidation-warningForeground, #fc6);
 				--button-background: var(--vscode-inputValidation-warningBackground, #352a05);
 				--button-hover-background: color-mix(
 					in srgb,
@@ -185,6 +184,7 @@ export class GlButton extends LitElement {
 			}
 
 			/* Transparent appearances (toolbar, input, alert) with variants only change foreground color */
+
 			/* These come after the main variant rules to override background/border back to transparent */
 			:host([appearance='toolbar'][variant='danger']),
 			:host([appearance='input'][variant='danger']),
@@ -211,10 +211,10 @@ export class GlButton extends LitElement {
 			}
 
 			:host([appearance='input']) .control {
+				gap: 0.2rem;
+				height: var(--button-input-height, 1.8rem);
 				padding: var(--button-input-padding);
 				--button-line-height: 1.1;
-				height: var(--button-input-height, 1.8rem);
-				gap: 0.2rem;
 			}
 
 			:host([appearance='input'][href]) > a,
@@ -229,8 +229,8 @@ export class GlButton extends LitElement {
 			}
 
 			/* Give solid-filled buttons a bit more horizontal breathing room. Exposed via a
-			   CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
-			   square icon button. */
+	   CSS var so consumers (e.g. compose-mode commit checkbox) can collapse to a
+	   square icon button. */
 			:host(:not([appearance])) .control,
 			:host([appearance='secondary']) .control {
 				padding-inline: var(--button-padding-inline, 0.8rem);
@@ -249,14 +249,14 @@ export class GlButton extends LitElement {
 				--code-icon-v-align: unset;
 			}
 
-			:host([aria-checked]:hover:not([disabled]):not([aria-checked='true'])) {
+			:host([aria-checked]:hover:not([disabled], [aria-checked='true'])) {
 				background-color: var(--vscode-inputOption-hoverBackground);
 			}
 
 			:host([disabled]) {
-				opacity: 0.4;
-				cursor: not-allowed;
 				pointer-events: none;
+				cursor: not-allowed;
+				opacity: 0.4;
 			}
 
 			:host([disabled][aria-checked='true']) {
@@ -264,17 +264,17 @@ export class GlButton extends LitElement {
 			}
 
 			:host([aria-checked='true']) {
-				background-color: var(--vscode-inputOption-activeBackground);
 				color: var(--vscode-inputOption-activeForeground);
+				background-color: var(--vscode-inputOption-activeBackground);
 				border-color: var(--vscode-inputOption-activeBorder);
 			}
 
 			gl-tooltip {
-				height: 100%;
-				width: 100%;
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
+				width: 100%;
+				height: 100%;
 			}
 		`,
 	];

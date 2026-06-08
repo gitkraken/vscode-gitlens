@@ -6,21 +6,21 @@ export class GitLensLogo extends LitElement {
 	static override styles = [
 		css`
 			:host {
+				position: relative;
 				display: inline-block;
 				vertical-align: middle;
-				position: relative;
 			}
 
 			:host::after {
-				content: ' ';
-				display: block;
-				width: 100%;
-				height: 100%;
-				background-color: red;
-				visibility: hidden;
 				position: absolute;
 				top: 0;
 				left: 0;
+				display: block;
+				visibility: hidden;
+				width: 100%;
+				height: 100%;
+				content: ' ';
+				background-color: red;
 			}
 
 			:host-context(.vscode-high-contrast-light) .letters,

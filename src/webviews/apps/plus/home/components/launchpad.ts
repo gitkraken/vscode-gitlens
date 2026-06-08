@@ -39,26 +39,28 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 				margin-bottom: 2.4rem;
 				color: var(--vscode-foreground);
 			}
+
 			.summary {
 				margin-bottom: 1rem;
 			}
 
 			.menu {
-				list-style: none;
-				padding-inline-start: 0;
-				margin-block-start: 0;
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
+				padding-inline-start: 0;
+				margin-block-start: 0;
+				list-style: none;
 			}
 
 			.launchpad-action {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				color: inherit;
 				text-decoration: none;
 			}
+
 			.launchpad-action:hover {
 				text-decoration: none;
 			}
@@ -97,8 +99,8 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			}
 
 			.section-heading-actions {
-				flex: none;
 				display: flex;
+				flex: none;
 				align-items: center;
 			}
 

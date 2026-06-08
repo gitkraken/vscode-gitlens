@@ -2,8 +2,8 @@ import { css } from 'lit';
 
 export const categorizingLoadingAnimationStyles = css`
 	:host {
-		display: block;
 		position: relative;
+		display: block;
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
@@ -27,30 +27,30 @@ export const categorizingLoadingAnimationStyles = css`
 
 	.bucket {
 		position: absolute;
-		border-bottom: 0.2rem solid currentColor;
+		background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, currentcolor 12%, transparent) 100%);
+		border-bottom: 0.2rem solid currentcolor;
 		border-radius: 0.6rem;
 		opacity: 0.55;
-		background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, currentColor 12%, transparent) 100%);
 	}
 
 	.lens {
 		position: absolute;
-		border-top: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
-		border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+		overflow: hidden;
 		background: linear-gradient(
 			90deg,
 			transparent 0%,
 			color-mix(in srgb, var(--vscode-foreground) 4%, transparent) 50%,
 			transparent 100%
 		);
-		overflow: hidden;
+		border-top: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+		border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
 	}
 
 	.lens__scanline {
 		position: absolute;
-		left: 0;
-		right: 0;
 		top: 0;
+		right: 0;
+		left: 0;
 		height: 1px;
 		background: linear-gradient(
 			90deg,
@@ -68,17 +68,17 @@ export const categorizingLoadingAnimationStyles = css`
 		left: 0;
 		width: 0.8rem;
 		height: 0.8rem;
-		border-radius: 50%;
 		background: color-mix(in srgb, var(--vscode-foreground) 35%, transparent);
-		filter: blur(1px);
+		border-radius: 50%;
 		opacity: 0;
+		filter: blur(1px);
 		will-change: transform, opacity;
 	}
 
 	.particle--categorized {
-		filter: none;
 		width: 0.6rem;
 		height: 0.6rem;
+		filter: none;
 	}
 
 	@keyframes gl-categorizing-scanline {
@@ -86,9 +86,11 @@ export const categorizingLoadingAnimationStyles = css`
 			top: 0;
 			opacity: 0.35;
 		}
+
 		50% {
 			opacity: 1;
 		}
+
 		100% {
 			top: calc(100% - 1px);
 			opacity: 0.35;

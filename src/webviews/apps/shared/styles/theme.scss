@@ -14,6 +14,7 @@
 	--gl-gradient-brand: linear-gradient(to right, #7900c9, #196fff);
 
 	--color-background: var(--vscode-editor-background);
+
 	// Computed variants in code
 	--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-background--darken-05: color-mix(in srgb, #000 5%, var(--color-background));
@@ -29,6 +30,7 @@
 	--color-background--darken-50: color-mix(in srgb, #000 50%, var(--color-background));
 
 	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+
 	// Computed variants in code
 	--color-foreground--85: color-mix(in srgb, transparent 15%, var(--color-foreground));
 	--color-foreground--75: color-mix(in srgb, transparent 25%, var(--color-foreground));
@@ -37,11 +39,13 @@
 	--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
 
 	--color-button-background: var(--vscode-button-background, transparent);
+
 	// Computed variants in code
 	--color-button-background--darken-30: color-mix(in srgb, #000 30%, var(--color-button-background));
 	--color-button-foreground: var(--vscode-button-foreground, var(--color-foreground));
 
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
+
 	// Computed variants in code
 	--color-button-secondary-background--darken-30: color-mix(
 		in srgb,
@@ -50,6 +54,7 @@
 	);
 
 	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
+
 	// Computed variants in code
 	--color-highlight--75: color-mix(in srgb, transparent 25%, var(--color-highlight));
 	--color-highlight--50: color-mix(in srgb, transparent 50%, var(--color-highlight));
@@ -58,6 +63,7 @@
 	--color-focus-border: var(--vscode-focusBorder);
 
 	--color-link-foreground: var(--vscode-textLink-foreground);
+
 	// Computed variants in code
 	--color-link-foreground--darken-20: color-mix(in srgb, #000 20%, var(--color-link-foreground));
 	--color-link-foreground--lighten-20: color-mix(in srgb, #fff 20%, var(--color-link-foreground));
@@ -149,7 +155,7 @@ body[data-placement='panel'] {
 	   statusBarItem-* tokens (some are teal/cyan instead of blue/yellow). The bg uses the
 	   saturated hue (it's already translucent); text uses a lighter/brighter shade so it
 	   contrasts against the tinted bg. Same base hues as light theme for visual consistency. */
-	--gl-chip-filtered-color: #0099ff;
+	--gl-chip-filtered-color: #09f;
 	--gl-chip-filtered-text-color: #79c0ff;
 	--gl-chip-scoped-color: #f2cc60;
 	--gl-chip-scoped-text-color: #f2cc60;
@@ -171,7 +177,7 @@ body[data-placement='panel'] {
 	/* Light themes: pair a vibrant bg tint with a much darker text color for readability on white.
 	   Bump tint percentages so chips/rows pop with the same vibrance as dark themes — mixing 18%
 	   of any color into white just produces a pale wash. */
-	--gl-chip-filtered-color: #0099ff;
+	--gl-chip-filtered-color: #09f;
 	--gl-chip-filtered-text-color: #0550ae;
 	--gl-chip-scoped-color: #e89500;
 	--gl-chip-scoped-text-color: #4d3300;

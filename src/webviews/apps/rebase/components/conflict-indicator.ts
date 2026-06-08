@@ -27,8 +27,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.indicator {
 				position: relative;
 				display: inline-flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				cursor: pointer;
 			}
 
@@ -44,10 +44,10 @@ export class GlRebaseConflictIndicator extends LitElement {
 			/* Button mode (full) */
 			:host(:not([compact])) .indicator {
 				padding: 0.4rem 0.8rem;
-				border-radius: 0.3rem;
+				font-size: 1.2rem;
 				background-color: var(--vscode-button-secondaryBackground);
 				border: 1px solid var(--vscode-button-secondaryBorder, transparent);
-				font-size: 1.2rem;
+				border-radius: 0.3rem;
 			}
 
 			.indicator__icon {
@@ -58,15 +58,15 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.indicator__content {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				font-weight: 500;
+				white-space: nowrap;
 			}
 
 			/* Clean state - green */
 			.indicator--clean {
+				color: var(--vscode-foreground);
 				background-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 18%, transparent) !important;
 				border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed) 50%, transparent) !important;
-				color: var(--vscode-foreground);
 			}
 
 			.indicator--clean .indicator__icon {
@@ -75,13 +75,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Conflict state - warning/orange */
 			.indicator--conflict {
+				color: var(--vscode-foreground);
 				background-color: color-mix(
 					in srgb,
 					var(--vscode-editorWarning-foreground) 18%,
 					transparent
 				) !important;
 				border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent) !important;
-				color: var(--vscode-foreground);
 			}
 
 			.indicator--conflict .indicator__icon {
@@ -99,13 +99,13 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Error state - muted warning */
 			.indicator--error {
+				color: var(--vscode-foreground);
 				background-color: color-mix(
 					in srgb,
 					var(--vscode-editorWarning-foreground) 12%,
 					transparent
 				) !important;
 				border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground) 30%, transparent) !important;
-				color: var(--vscode-foreground);
 				opacity: 0.8;
 			}
 
@@ -116,15 +116,15 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Popover content styles */
 			.popover {
-				padding: 1.2rem;
 				display: flex;
 				flex-direction: column;
 				gap: 0.8rem;
+				padding: 1.2rem;
 			}
 
 			.popover__title {
-				font-weight: 600;
 				margin: 0;
+				font-weight: 600;
 			}
 
 			.popover__message {
@@ -132,16 +132,16 @@ export class GlRebaseConflictIndicator extends LitElement {
 			}
 
 			.popover__message--warning {
-				color: var(--vscode-editorWarning-foreground);
 				font-weight: 500;
+				color: var(--vscode-editorWarning-foreground);
 			}
 
 			.popover__files {
-				margin: 0;
-				padding: 0.4rem 0.8rem;
-				list-style: none;
 				max-height: 20rem;
+				padding: 0.4rem 0.8rem;
+				margin: 0;
 				overflow-y: auto;
+				list-style: none;
 				background: var(--vscode-sideBar-background);
 			}
 
@@ -153,8 +153,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			gl-feature-gate-plus-state {
 				display: block;
-				margin-inline: 0.5rem;
 				margin-block: -0.5rem;
+				margin-inline: 0.5rem;
 			}
 		`,
 	];

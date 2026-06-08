@@ -126,8 +126,8 @@ declare global {
 export class GlGraphMinimap extends GlElement {
 	static override styles = css`
 		:host {
-			display: flex;
 			position: relative;
+			display: flex;
 			width: 100%;
 			height: 100%;
 			background: var(--color-graph-background);
@@ -135,8 +135,8 @@ export class GlGraphMinimap extends GlElement {
 
 		#canvas {
 			display: block;
-			height: 100%;
 			width: calc(100% - 2.5rem);
+			height: 100%;
 			cursor: pointer;
 		}
 
@@ -147,10 +147,10 @@ export class GlGraphMinimap extends GlElement {
 		#spinner {
 			position: absolute;
 			inset: 0;
-			display: flex;
-			justify-content: center;
-			align-items: center;
 			z-index: 1;
+			display: flex;
+			align-items: center;
+			justify-content: center;
 		}
 
 		#spinner[aria-hidden='true'] {
@@ -162,20 +162,20 @@ export class GlGraphMinimap extends GlElement {
 			top: calc(100% + 4px);
 			left: 0;
 			z-index: 10;
-			user-select: none;
-			pointer-events: none;
+			display: flex;
+			visibility: hidden;
+			flex-direction: column;
 			min-width: 300px;
 			max-width: min(420px, calc(100% - 8px));
-			display: flex;
-			flex-direction: column;
 			padding: 0.5rem 1rem;
-			background-color: var(--color-hover-background);
+			font-size: var(--font-size);
 			color: var(--color-hover-foreground);
+			pointer-events: none;
+			user-select: none;
+			background-color: var(--color-hover-background);
 			border: 1px solid var(--color-hover-border);
 			box-shadow: 0 2px 8px var(--vscode-widget-shadow);
-			font-size: var(--font-size);
 			opacity: 1;
-			visibility: hidden;
 		}
 
 		#tooltip[data-visible='true'] {
@@ -185,8 +185,8 @@ export class GlGraphMinimap extends GlElement {
 		#tooltip .header {
 			display: flex;
 			flex-direction: row;
-			justify-content: space-between;
 			gap: 1rem;
+			justify-content: space-between;
 		}
 
 		#tooltip .header--title {
@@ -195,16 +195,16 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .header--description {
-			font-weight: normal;
 			font-style: italic;
+			font-weight: normal;
 			overflow-wrap: anywhere;
 		}
 
 		#tooltip .refs > span {
-			white-space: nowrap;
 			max-width: 240px;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		#tooltip .changes {
@@ -213,30 +213,28 @@ export class GlGraphMinimap extends GlElement {
 
 		#tooltip .results {
 			display: flex;
-			font-size: 12px;
+			flex-flow: row wrap;
 			gap: 0.5rem;
-			flex-direction: row;
-			flex-wrap: wrap;
-			margin: 0.5rem 0;
 			max-width: fit-content;
+			margin: 0.5rem 0;
+			font-size: 12px;
 		}
 
 		#tooltip .results .result {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-highlightForeground);
 			background-color: var(--color-graph-minimap-tip-highlightBackground);
 			border: 1px solid var(--color-graph-minimap-tip-highlightBorder);
-			color: var(--color-graph-minimap-tip-highlightForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs {
 			display: flex;
-			font-size: 12px;
+			flex-flow: row wrap;
 			gap: 0.5rem;
-			flex-direction: row;
-			flex-wrap: wrap;
-			margin: 0.5rem 0;
 			max-width: fit-content;
+			margin: 0.5rem 0;
+			font-size: 12px;
 		}
 
 		#tooltip .refs:empty {
@@ -244,63 +242,63 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .branch {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-branchForeground);
 			background-color: var(--color-graph-minimap-tip-branchBackground);
 			border: 1px solid var(--color-graph-minimap-tip-branchBorder);
-			color: var(--color-graph-minimap-tip-branchForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs .branch.current {
+			color: var(--color-graph-minimap-tip-headForeground);
 			background-color: var(--color-graph-minimap-tip-headBackground);
 			border: 1px solid var(--color-graph-minimap-tip-headBorder);
-			color: var(--color-graph-minimap-tip-headForeground);
 		}
 
 		#tooltip .refs .remote {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-remoteForeground);
 			background-color: var(--color-graph-minimap-tip-remoteBackground);
 			border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
-			color: var(--color-graph-minimap-tip-remoteForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs .remote.current {
+			color: var(--color-graph-minimap-tip-upstreamForeground);
 			background-color: var(--color-graph-minimap-tip-upstreamBackground);
 			border: 1px solid var(--color-graph-minimap-tip-upstreamBorder);
-			color: var(--color-graph-minimap-tip-upstreamForeground);
 		}
 
 		#tooltip .refs .stash {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-stashForeground);
 			background-color: var(--color-graph-minimap-tip-stashBackground);
 			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
-			color: var(--color-graph-minimap-tip-stashForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs .pull-request {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-pullRequestForeground);
 			background-color: var(--color-graph-minimap-pullRequestBackground);
 			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
-			color: var(--color-graph-minimap-pullRequestForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs .tag {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-tagForeground);
 			background-color: var(--color-graph-minimap-tip-tagBackground);
 			border: 1px solid var(--color-graph-minimap-tip-tagBorder);
-			color: var(--color-graph-minimap-tip-tagForeground);
+			border-radius: 3px;
 		}
 
 		#tooltip .refs .worktree {
-			border-radius: 3px;
 			padding: 0 4px;
+			color: var(--color-graph-minimap-tip-worktreeForeground);
 			background-color: var(--color-graph-minimap-tip-worktreeBackground);
 			border: 1px solid var(--color-graph-minimap-tip-worktreeBorder);
-			color: var(--color-graph-minimap-tip-worktreeForeground);
+			border-radius: 3px;
 		}
 	`;
 

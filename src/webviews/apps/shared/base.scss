@@ -3,29 +3,29 @@
 @use './styles/utils';
 
 html {
+	box-sizing: border-box;
 	height: 100%;
 	font-size: 62.5%;
-	box-sizing: border-box;
 }
 
 body {
-	background-color: var(--color-background);
-	color: var(--color-foreground);
 	height: 100%;
 	line-height: 1.4;
+	color: var(--color-foreground);
+	background-color: var(--color-background);
 }
 
-@include scrollbars.scrollableBase();
+@include scrollbars.scrollableBase;
 
 a {
-	border: 0;
-	color: var(--color-link-foreground);
 	font-weight: 400;
-	outline: none;
+	color: var(--color-link-foreground);
 	text-decoration: none;
+	outline: none;
+	border: 0;
 
-	&:not([href]):not([tabindex]):focus,
-	&:not([href]):not([tabindex]):hover {
+	&:not([href], [tabindex]):focus,
+	&:not([href], [tabindex]):hover {
 		color: inherit;
 		text-decoration: none;
 	}
@@ -40,35 +40,35 @@ b {
 }
 
 h1 {
-	border: none;
+	padding: 0;
+	margin: 0;
 	font-size: 4rem;
 	font-weight: 400;
-	margin: 0;
-	padding: 0;
 	white-space: nowrap;
+	border: none;
 }
 
 h2 {
+	margin: 1em 0 0.3em;
 	font-size: 2.2rem;
 	font-weight: 200;
 	line-height: normal;
-	margin: 1em 0 0.3em 0;
 	white-space: nowrap;
 }
 
 h3 {
+	margin: 1em 0 0.3em;
 	font-size: 1.8rem;
 	font-weight: 200;
 	line-height: normal;
-	margin: 1em 0 0.3em 0;
 	white-space: nowrap;
 }
 
 h4 {
+	margin: 1em 0 0.3em;
 	font-size: 1rem;
 	font-weight: 200;
 	line-height: normal;
-	margin: 1em 0 0.3em 0;
 	white-space: nowrap;
 }
 
@@ -76,9 +76,9 @@ button,
 input,
 select,
 textarea {
+	margin: 0;
 	font-family: var(--font-family);
 	font-size: inherit;
-	margin: 0;
 }
 
 button:not(:disabled) {
@@ -86,18 +86,18 @@ button:not(:disabled) {
 }
 
 input[type='checkbox'] {
+	padding: 0 10px;
+	margin: 0;
+	accent-color: var(--color-background--lighten-30);
+	cursor: pointer;
 	background: none;
 	border: none;
-	cursor: pointer;
-	margin: 0;
-	padding: 0 10px;
-	accent-color: var(--color-background--lighten-30);
 
 	&:focus {
-		background: rgba(0, 0, 0, 0.1);
-		border-radius: 5px;
 		outline: 1px solid var(--vscode-focusBorder);
 		outline-offset: -1px;
+		background: rgb(0 0 0 / 10%);
+		border-radius: 5px;
 	}
 
 	&[disabled] {
@@ -114,30 +114,30 @@ input[type='number'],
 input[type='text'],
 input:not([type]),
 textarea {
-	background: none;
-	color: var(--color-foreground);
-	margin: 0 10px;
+	width: 100%;
 	max-width: 300px;
 	padding: 4px;
-	width: 100%;
+	margin: 0 10px;
+	color: var(--color-foreground);
+	background: none;
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(255, 255, 255, 0.3);
+		border: 1px solid rgb(255 255 255 / 30%);
 	}
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(0, 0, 0, 0.3);
+		border: 1px solid rgb(0 0 0 / 30%);
 	}
 
 	&:focus {
 		outline-color: var(--color-focus-border);
 
 		@include utils.light-theme($selectorPostfix: ' &') {
-			background-color: rgba(255, 255, 255, 0.4);
+			background-color: rgb(255 255 255 / 40%);
 		}
 
 		@include utils.dark-theme($selectorPostfix: ' &') {
-			background-color: rgba(0, 0, 0, 0.2);
+			background-color: rgb(0 0 0 / 20%);
 		}
 	}
 
@@ -158,11 +158,11 @@ input[type='number'] {
 
 kbd {
 	display: inline-block;
-	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-	font-size: 11px;
-	line-height: 11px;
 	padding: 3px 5px;
 	margin: 0 2px;
+	font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: 11px;
+	line-height: 11px;
 	vertical-align: baseline;
 }
 
@@ -171,30 +171,31 @@ label {
 }
 
 select {
-	background: none;
-	color: var(--color-foreground);
-	cursor: pointer;
-	padding: 2px 23px 2px 8px;
 	min-width: 5em;
-	appearance: none;
+	padding: 2px 23px 2px 8px;
+	color: var(--color-foreground);
 	-webkit-appearance: none;
+	appearance: none;
+	cursor: pointer;
+	background: none;
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(0, 0, 0, 0.3);
+		border: 1px solid rgb(0 0 0 / 30%);
 	}
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgba(255, 255, 255, 0.3);
+		border: 1px solid rgb(255 255 255 / 30%);
 	}
 
 	&:focus {
 		outline-color: var(--color-focus-border);
+
 		@include utils.light-theme($selectorPostfix: ' &') {
-			background-color: rgba(255, 255, 255, 0.4);
+			background-color: rgb(255 255 255 / 40%);
 		}
 
 		@include utils.dark-theme($selectorPostfix: ' &') {
-			background-color: rgba(0, 0, 0, 0.2);
+			background-color: rgb(0 0 0 / 20%);
 		}
 	}
 
@@ -216,41 +217,41 @@ select {
 			outline-color: var(--color-focus-border);
 
 			@include utils.light-theme($selectorPostfix: ' &') {
-				background-color: rgba(255, 255, 255, 0.4);
+				background-color: rgb(255 255 255 / 40%);
 			}
 
 			@include utils.dark-theme($selectorPostfix: ' &') {
-				background-color: rgba(0, 0, 0, 0.2);
+				background-color: rgb(0 0 0 / 20%);
 			}
 		}
 	}
 }
 
 .select-container {
-	display: inline-block;
 	position: relative;
+	display: inline-block;
 	margin: 0 0.75em;
 
 	&::after {
-		content: '\eab4';
-		font-family: codicon;
-		font-size: 14px;
-		width: 14px;
-		height: 14px;
-		line-height: 14px;
 		position: absolute;
 		top: 0;
-		bottom: 0;
 		right: 6px;
+		bottom: 0;
+		width: 14px;
+		height: 14px;
 		margin: auto;
+		font-family: codicon;
+		font-size: 14px;
+		line-height: 14px;
 		pointer-events: none;
+		content: '\eab4';
 	}
 }
 
 ul {
-	list-style: none;
-	margin: 0;
 	padding: 0;
+	margin: 0;
+	list-style: none;
 }
 
 ::-webkit-scrollbar-corner {
@@ -258,8 +259,8 @@ ul {
 }
 
 code {
-	background: var(--vscode-textCodeBlock-background);
+	padding: 0 4px 2px;
 	color: var(--color-foreground--75);
+	background: var(--vscode-textCodeBlock-background);
 	border-radius: 3px;
-	padding: 0px 4px 2px 4px;
 }

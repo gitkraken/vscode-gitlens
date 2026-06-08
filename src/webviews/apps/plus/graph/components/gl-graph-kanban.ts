@@ -100,8 +100,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				width: 100%;
 				height: 100%;
 				min-height: 0;
-				background-color: var(--vscode-editor-background);
 				color: var(--vscode-foreground);
+				background-color: var(--vscode-editor-background);
 				--gl-kanban-card-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
 				--gl-kanban-card-border: var(--vscode-panel-border, transparent);
 				--gl-kanban-column-gap: 1.2rem;
@@ -109,42 +109,43 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* Section is a flex column so the header stays auto-sized at the top and the body
-			   gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
-			   default block layout produces a content-sized body that never overflows — both the
-			   horizontal column scroll and the per-column vertical scroll silently disappear. */
+	   gets the remaining height (via flex: 1 / min-height: 0). Without this, <section>'s
+	   default block layout produces a content-sized body that never overflows — both the
+	   horizontal column scroll and the per-column vertical scroll silently disappear. */
 			section {
 				display: flex;
-				flex-direction: column;
 				flex: 1 1 auto;
-				min-height: 0;
+				flex-direction: column;
 				width: 100%;
+				min-height: 0;
 			}
 
 			.header {
 				display: flex;
-				align-items: center;
-				gap: 0.8rem;
-				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
-				 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
-				 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
-				padding: 0.4rem 0.6rem 0.4rem 1.2rem;
-				min-height: 3.2rem;
-				border-bottom: 1px solid var(--vscode-panel-border, transparent);
 				flex: none;
+				gap: 0.8rem;
+				align-items: center;
+				min-height: 3.2rem;
+
+				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
+		 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
+		 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
+				padding: 0.4rem 0.6rem 0.4rem 1.2rem;
+				border-bottom: 1px solid var(--vscode-panel-border, transparent);
 			}
 
 			.header__title {
 				display: flex;
-				align-items: baseline;
 				gap: 0.8rem;
+				align-items: baseline;
 				font-size: 1.3rem;
 				font-weight: 600;
 			}
 
 			.header__title h2 {
-				font: inherit;
-				margin: 0;
 				padding: 0;
+				margin: 0;
+				font: inherit;
 				font-size: 1.1rem;
 				font-weight: 600;
 				text-transform: uppercase;
@@ -157,8 +158,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			/* Experimental stamp uses the shared gl-badge with appearance=experimental. Sits inside
-			   .header__title, between the title h2 and the session count, signalling that the whole
-			   view (not just one control) is experimental. */
+	   .header__title, between the title h2 and the session count, signalling that the whole
+	   view (not just one control) is experimental. */
 			.header__experimental gl-badge {
 				--gl-badge-font-size: 0.95rem;
 			}
@@ -169,24 +170,24 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.hooks-banner {
 				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
-				 * margin-bottom here would double up to 2.4rem of visual gap. */
+		 * margin-bottom here would double up to 2.4rem of visual gap. */
 				display: block;
 				margin: 1.2rem 1.2rem 0;
 			}
 
 			.body {
-				flex: 1 1 auto;
 				display: grid;
-				grid-auto-flow: column;
+				flex: 1 1 auto;
 				grid-auto-columns: minmax(24rem, 1fr);
+				grid-auto-flow: column;
 				gap: var(--gl-kanban-column-gap);
-				padding: 1.2rem;
 				min-height: 0;
-				overflow-x: auto;
-				overflow-y: hidden;
+				padding: 1.2rem;
+				overflow: auto hidden;
+
 				/* Hint to the browser to GPU-composite the scrolling layer. Without this, horizontal
-				   scroll of the kanban body forces a full document repaint per frame; with it the
-				   browser can scroll the existing layer's painted bitmap. */
+		   scroll of the kanban body forces a full document repaint per frame; with it the
+		   browser can scroll the existing layer's painted bitmap. */
 				will-change: scroll-position;
 			}
 
@@ -194,70 +195,73 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				flex-direction: column;
 				min-height: 0;
+
+				/* Paint isolation: confine column-internal repaints (card hover/scroll) so the
+		   browser doesn't re-layout the whole kanban body when one column scrolls or a
+		   card hover-state changes. contain:content enables layout, paint, and style
+		   containment but keeps the column's intrinsic size correct (no size). */
+				contain: content;
+				overflow: hidden;
 				background-color: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
 				border: 1px solid var(--gl-kanban-card-border);
 				border-radius: var(--gl-kanban-card-radius);
-				overflow: hidden;
-				/* Paint isolation: confine column-internal repaints (card hover/scroll) so the
-				   browser doesn't re-layout the whole kanban body when one column scrolls or a
-				   card hover-state changes. contain:content enables layout, paint, and style
-				   containment but keeps the column's intrinsic size correct (no size). */
-				contain: content;
 			}
 
 			.column__heading {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				padding: 0.8rem 1rem;
 				font-size: 1.1rem;
 				font-weight: 600;
-				border-bottom: 1px solid var(--gl-kanban-card-border);
+				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				color: var(--color-foreground--65);
+				border-bottom: 1px solid var(--gl-kanban-card-border);
 			}
 
 			.column__heading[data-column='needs-input'] {
 				color: var(--gl-agent-waiting-color);
 			}
+
 			.column__heading[data-column='working'] {
 				color: var(--gl-agent-working-color);
 			}
 
 			.column__heading-label {
-				font: inherit;
-				margin: 0;
 				padding: 0;
+				margin: 0;
+				font: inherit;
 			}
 
 			.column__count {
 				margin-left: auto;
 				font-size: 1rem;
-				color: var(--color-foreground--65);
 				font-weight: 400;
+				color: var(--color-foreground--65);
 				text-transform: none;
 				letter-spacing: 0;
 			}
 
 			.column__list {
-				flex: 1 1 auto;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
 				gap: 0.8rem;
+				min-height: 0;
 				padding: 0.8rem;
 				overflow-y: auto;
-				min-height: 0;
+
 				/* Same GPU-composite hint as the body. Each column scrolls independently when its
-				   card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
+		   card list overflows; promoting the layer keeps per-column vertical scroll smooth. */
 				will-change: scroll-position;
 			}
 
 			.column__empty {
-				color: var(--color-foreground--50);
-				font-style: italic;
 				padding: 0.4rem 0.2rem;
 				font-size: 1.1rem;
+				font-style: italic;
+				color: var(--color-foreground--50);
 			}
 
 			.card {
@@ -265,25 +269,26 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				gap: 0.6rem;
 				padding: 0.9rem 1rem;
+
+				/* Paint isolation: card hover (border-color + color-mix background change) repaints
+		   only this card's box, not its column or siblings. Without it, hover transitions
+		   thrashed visibly on scroll because the browser would re-evaluate paint regions
+		   across the column. */
+				contain: layout style paint;
+				font: inherit;
+				color: inherit;
+				text-align: left;
+				appearance: none;
+				cursor: pointer;
 				background-color: var(--gl-kanban-card-bg);
 				border: 1px solid var(--gl-kanban-card-border);
 				border-radius: var(--gl-kanban-card-radius);
-				box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-				text-align: left;
-				color: inherit;
-				font: inherit;
-				cursor: pointer;
-				appearance: none;
-				/* Paint isolation: card hover (border-color + color-mix background change) repaints
-				   only this card's box, not its column or siblings. Without it, hover transitions
-				   thrashed visibly on scroll because the browser would re-evaluate paint regions
-				   across the column. */
-				contain: layout style paint;
+				box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
 			}
 
 			.card:hover {
-				border-color: var(--vscode-focusBorder, var(--gl-kanban-card-border));
 				background-color: var(--vscode-list-hoverBackground, var(--gl-kanban-card-bg));
+				border-color: var(--vscode-focusBorder, var(--gl-kanban-card-border));
 			}
 
 			.card:focus-visible {
@@ -294,30 +299,33 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.card[data-column='needs-input'] {
 				border-left: 2px solid var(--gl-agent-waiting-color);
 			}
+
 			.card[data-column='working'] {
 				border-left: 2px solid var(--gl-agent-working-color);
 			}
+
 			.card[data-column='idle'] {
 				border-left: 2px solid var(--gl-agent-idle-color);
 			}
+
 			.card[data-column='inactive'] {
 				border-left: 2px solid color-mix(in srgb, var(--gl-agent-idle-color) 50%, transparent);
 			}
 
 			.card__head {
 				display: flex;
+				gap: 0.6rem;
 				align-items: baseline;
 				justify-content: space-between;
-				gap: 0.6rem;
 			}
 
 			.card__title {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 1.2rem;
 				font-weight: 600;
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				min-width: 0;
 			}
 
 			.card__phase {
@@ -330,28 +338,29 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.card[data-column='needs-input'] .card__phase {
 				color: var(--gl-agent-waiting-color);
 			}
+
 			.card[data-column='working'] .card__phase {
 				color: var(--gl-agent-working-color);
 			}
 
 			/* 2nd row: subtitle on the left, Open Session icon button on the right. Always laid out
-			   even when the subtitle is missing so the Open Session stays visually anchored. */
+	   even when the subtitle is missing so the Open Session stays visually anchored. */
 			.card__sub-row {
 				display: flex;
+				gap: 0.6rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.6rem;
 				min-height: 1.8rem;
 			}
 
 			.card__subtitle {
+				flex: 1 1 auto;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 1rem;
 				color: var(--color-foreground--65);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				min-width: 0;
-				flex: 1 1 auto;
 			}
 
 			.card__open {
@@ -359,31 +368,31 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.card__detail {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-line-clamp: 3;
 				font-size: 1.1rem;
 				line-height: 1.4;
 				color: var(--vscode-foreground);
-				display: -webkit-box;
-				-webkit-line-clamp: 3;
 				-webkit-box-orient: vertical;
-				overflow: hidden;
 			}
 
 			.card__actions {
 				display: flex;
-				align-items: center;
 				gap: 0.4rem;
-				margin-top: 0.2rem;
+				align-items: center;
 				justify-content: flex-end;
+				margin-top: 0.2rem;
 			}
 
 			/* Permission actions (Allow / Deny / View Plan) cluster on the left when present;
-			   margin-right: auto pushes Open Session — the trailing child — to the far right. When
-			   no permission is pending, Open Session is alone and flex-end already right-aligns it. */
+	   margin-right: auto pushes Open Session — the trailing child — to the far right. When
+	   no permission is pending, Open Session is alone and flex-end already right-aligns it. */
 			.card__permission-actions {
 				display: flex;
-				align-items: center;
-				gap: 0.4rem;
 				flex-wrap: wrap;
+				gap: 0.4rem;
+				align-items: center;
 				margin-right: auto;
 			}
 
@@ -392,14 +401,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.empty-state {
-				flex: 1 1 auto;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
+				gap: 0.6rem;
 				align-items: center;
 				justify-content: center;
-				gap: 0.6rem;
-				color: var(--color-foreground--65);
 				padding: 2rem;
+				color: var(--color-foreground--65);
 				text-align: center;
 			}
 

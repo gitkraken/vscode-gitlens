@@ -61,6 +61,7 @@ export const branchCardStyles = css`
 
 	gl-avatar-list {
 		--gl-avatar-size: 2.4rem;
+
 		margin-block: -0.4rem;
 	}
 
@@ -73,6 +74,7 @@ export const branchCardStyles = css`
 		flex-direction: column;
 		gap: 0.6rem;
 	}
+
 	.branch-item__container > * {
 		margin-block: 0;
 	}
@@ -82,6 +84,7 @@ export const branchCardStyles = css`
 		flex-direction: column;
 		gap: 0.4rem;
 	}
+
 	.branch-item__section > * {
 		margin-block: 0;
 	}
@@ -93,9 +96,9 @@ export const branchCardStyles = css`
 
 	.branch-item__actions {
 		display: flex;
-		align-items: center;
-		gap: 0.8rem;
 		flex-direction: row;
+		gap: 0.8rem;
+		align-items: center;
 		justify-content: flex-end;
 		font-size: 0.9em;
 	}
@@ -106,16 +109,16 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__icon {
-		color: var(--vscode-descriptionForeground);
 		flex: none;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.branch-item__name {
 		flex-grow: 1;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-weight: bold;
+		white-space: nowrap;
 	}
 
 	.branch-item__name--secondary {
@@ -129,18 +132,17 @@ export const branchCardStyles = css`
 
 	.branch-item__grouping {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 		max-width: 100%;
 		margin-block: 0;
 	}
 
 	.branch-item__agents {
 		display: flex;
-		flex-direction: row;
-		align-items: center;
+		flex-flow: row wrap;
 		gap: 0.4rem;
-		flex-wrap: wrap;
+		align-items: center;
 	}
 
 	.branch-item__agents code-icon {
@@ -149,10 +151,10 @@ export const branchCardStyles = css`
 
 	.branch-item__changes {
 		display: flex;
-		align-items: center;
-		gap: 1rem;
-		justify-content: flex-end;
 		flex-wrap: wrap;
+		gap: 1rem;
+		align-items: center;
+		justify-content: flex-end;
 		white-space: nowrap;
 	}
 
@@ -162,20 +164,20 @@ export const branchCardStyles = css`
 
 	.branch-item__summary {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 	}
 
 	.branch-item__collapsed-actions {
 		position: absolute;
-		z-index: var(--gl-branch-card-actions-zindex, 2);
 		right: 0.4rem;
 		bottom: 0.3rem;
+		z-index: var(--gl-branch-card-actions-zindex, 2);
 		padding: 0.4rem 0.6rem;
 		background-color: var(--gl-card-hover-background);
 	}
 
-	.branch-item:not(:focus-within):not(:hover) .branch-item__collapsed-actions {
+	.branch-item:not(:focus-within, :hover) .branch-item__collapsed-actions {
 		${srOnlyStyles}
 	}
 
@@ -183,6 +185,7 @@ export const branchCardStyles = css`
 		--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%);
 		--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 1.5%);
 	}
+
 	.work-item::part(base) {
 		margin-block-end: 0;
 	}

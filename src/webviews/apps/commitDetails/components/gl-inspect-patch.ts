@@ -50,13 +50,14 @@ export class InspectPatch extends GlElement {
 				color: var(--vscode-textLink-foreground);
 				text-decoration: none;
 			}
+
 			a:hover {
 				text-decoration: underline;
 			}
 
 			gl-patch-create {
-				height: 100%;
 				display: block;
+				height: 100%;
 			}
 
 			.pane-groups {
@@ -64,24 +65,28 @@ export class InspectPatch extends GlElement {
 				flex-direction: column;
 				height: 100%;
 			}
+
 			.pane-groups__group {
-				min-height: 0;
-				flex: 1 1 auto;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
+				min-height: 0;
 				overflow: hidden;
 			}
+
 			.pane-groups__group webview-pane {
 				flex: none;
 			}
+
 			.pane-groups__group webview-pane[expanded] {
-				min-height: 0;
 				flex: 1;
+				min-height: 0;
 			}
 
 			.pane-groups__group-fixed {
 				flex: none;
 			}
+
 			.pane-groups__group-fixed webview-pane::part(content) {
 				overflow: visible;
 			}
@@ -89,18 +94,21 @@ export class InspectPatch extends GlElement {
 			.section {
 				padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
 			}
+
 			.section > :first-child {
 				margin-top: 0;
 			}
+
 			.section > :last-child {
 				margin-bottom: 0;
 			}
 
 			.section--action {
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 				padding-top: 1.5rem;
 				padding-bottom: 1.5rem;
+				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 			}
+
 			.section--action > :first-child {
 				padding-top: 0;
 			}
@@ -112,15 +120,15 @@ export class InspectPatch extends GlElement {
 
 			.message-input__control {
 				flex: 1;
-				border: 1px solid var(--vscode-input-border, transparent);
-				background: var(--vscode-input-background);
+				width: 100%;
 				padding: 0.5rem;
+				font-family: inherit;
 				font-size: 1.3rem;
 				line-height: 1.4;
-				width: 100%;
-				border-radius: 0.2rem;
 				color: var(--vscode-input-foreground);
-				font-family: inherit;
+				background: var(--vscode-input-background);
+				border: 1px solid var(--vscode-input-border, transparent);
+				border-radius: 0.2rem;
 			}
 
 			.message-input__control::placeholder {
@@ -128,8 +136,8 @@ export class InspectPatch extends GlElement {
 			}
 
 			.message-input__control:invalid {
-				border-color: var(--vscode-inputValidation-errorBorder);
 				background-color: var(--vscode-inputValidation-errorBackground);
+				border-color: var(--vscode-inputValidation-errorBorder);
 			}
 
 			.message-input__control:focus {
@@ -138,9 +146,9 @@ export class InspectPatch extends GlElement {
 			}
 
 			.message-input__control:disabled {
-				opacity: 0.4;
-				cursor: not-allowed;
 				pointer-events: none;
+				cursor: not-allowed;
+				opacity: 0.4;
 			}
 
 			.message-input__control--text {
@@ -154,41 +162,43 @@ export class InspectPatch extends GlElement {
 			}
 
 			.message-input__select {
-				flex: 1;
 				position: relative;
 				display: flex;
+				flex: 1;
 				align-items: stretch;
 			}
+
 			.message-input__select-icon {
 				position: absolute;
-				left: 0;
 				top: 0;
+				left: 0;
 				display: flex;
-				width: 2.4rem;
-				height: 100%;
 				align-items: center;
 				justify-content: center;
-				pointer-events: none;
+				width: 2.4rem;
+				height: 100%;
 				color: var(--vscode-foreground);
+				pointer-events: none;
 			}
+
 			.message-input__select-caret {
 				position: absolute;
-				right: 0;
 				top: 0;
+				right: 0;
 				display: flex;
-				width: 2.4rem;
-				height: 100%;
 				align-items: center;
 				justify-content: center;
-				pointer-events: none;
+				width: 2.4rem;
+				height: 100%;
 				color: var(--vscode-foreground);
+				pointer-events: none;
 			}
 
 			.message-input__select .message-input__control {
 				box-sizing: border-box;
-				appearance: none;
-				padding-left: 2.4rem;
 				padding-right: 2.4rem;
+				padding-left: 2.4rem;
+				appearance: none;
 			}
 
 			.message-input__menu {
@@ -204,8 +214,8 @@ export class InspectPatch extends GlElement {
 			.message-input--group {
 				display: flex;
 				flex-direction: row;
-				align-items: stretch;
 				gap: 0.6rem;
+				align-items: stretch;
 			}
 
 			.message-input--with-menu {
@@ -213,9 +223,9 @@ export class InspectPatch extends GlElement {
 			}
 
 			textarea.message-input__control {
-				resize: vertical;
 				min-height: 4rem;
 				max-height: 40rem;
+				resize: vertical;
 			}
 
 			.user-selection-container {
@@ -225,12 +235,14 @@ export class InspectPatch extends GlElement {
 
 			.user-selection {
 				--gl-avatar-size: 2rem;
+
 				display: flex;
 				flex-direction: row;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 				height: 2.4rem;
 			}
+
 			.user-selection__avatar {
 				flex: none;
 			}
@@ -250,9 +262,10 @@ export class InspectPatch extends GlElement {
 				flex: none;
 				color: var(--gl-patch-ghost-color);
 			}
+
 			.user-selection__actions gl-button::part(base) {
-				padding-right: 0;
 				padding-block: 0.4rem;
+				padding-right: 0;
 			}
 
 			.user-selection__actions gl-button code-icon {
@@ -269,9 +282,9 @@ export class InspectPatch extends GlElement {
 				align-items: center;
 				padding: 0.8rem 1.2rem;
 				line-height: 1.2;
+				color: var(--color-alert-foreground);
 				background-color: var(--color-alert-errorBackground);
 				border-left: 0.3rem solid var(--color-alert-errorBorder);
-				color: var(--color-alert-foreground);
 			}
 
 			.alert code-icon {
@@ -280,10 +293,10 @@ export class InspectPatch extends GlElement {
 			}
 
 			.alert__content {
+				margin: 0;
 				font-size: 1.2rem;
 				line-height: 1.2;
 				text-align: left;
-				margin: 0;
 			}
 		`,
 	];

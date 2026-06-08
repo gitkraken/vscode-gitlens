@@ -36,8 +36,8 @@ export const timelineBaseStyles = css`
 	}
 
 	ul {
-		margin-top: 0;
 		padding-left: 1.2em;
+		margin-top: 0;
 	}
 
 	section,
@@ -52,31 +52,31 @@ export const timelineBaseStyles = css`
 	}
 
 	h3 {
-		border: none;
-		color: var(--color-view-header-foreground);
+		margin-bottom: 0;
 		font-size: 1.5rem;
 		font-weight: 600;
-		margin-bottom: 0;
+		color: var(--color-view-header-foreground);
 		white-space: nowrap;
+		border: none;
 	}
 
 	h4 {
+		margin: 0.5rem 0 1rem;
 		font-size: 1.5rem;
 		font-weight: 400;
-		margin: 0.5rem 0 1rem 0;
 	}
 `;
 
 export const timelineStyles = css`
 	:host {
 		display: block;
-		color: var(--color-view-foreground);
+		height: 100vh;
+		padding: 0;
+		margin: 0;
+		overflow: hidden;
 		font-family: var(--font-family);
 		font-size: var(--font-size);
-		margin: 0;
-		padding: 0;
-		height: 100vh;
-		overflow: hidden;
+		color: var(--color-view-foreground);
 	}
 
 	.container {
@@ -91,7 +91,7 @@ export const timelineStyles = css`
 	}
 
 	.timeline__empty {
-		padding: 0.4rem 2rem 1.3rem 2rem;
+		padding: 0.4rem 2rem 1.3rem;
 		font-size: var(--font-size);
 	}
 
@@ -104,8 +104,8 @@ export const timelineStyles = css`
 	}
 
 	gl-feature-gate gl-feature-badge {
-		vertical-align: super;
-		margin-left: 0.4rem;
 		margin-right: 0.4rem;
+		margin-left: 0.4rem;
+		vertical-align: super;
 	}
 `;

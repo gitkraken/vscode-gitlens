@@ -11,6 +11,7 @@ export class ButtonContainer extends LitElement {
 				--button-group-gap: 0.4rem;
 				--button-max-width: 30rem;
 				--button-group-max-width: 30rem;
+
 				display: block;
 				max-width: var(--button-max-width, 30rem);
 				margin-inline: auto;
@@ -26,7 +27,7 @@ export class ButtonContainer extends LitElement {
 				--button-group-gap: 0.1rem;
 			}
 
-			@media (min-width: 640px) {
+			@media (width >= 640px) {
 				:host([layout='shift']) {
 					--button-max-width: 100%;
 				}
@@ -48,6 +49,7 @@ export class ButtonContainer extends LitElement {
 				border-top-left-radius: 0;
 				border-bottom-left-radius: 0;
 			}
+
 			:host([grouping='split']) ::slotted(*:not(:last-child)) {
 				border-top-right-radius: 0;
 				border-bottom-right-radius: 0;

@@ -10,18 +10,18 @@
 }
 
 .commit-detail-panel {
-	height: 100vh;
 	display: flex;
 	flex-direction: column;
 	gap: 0;
+	height: 100vh;
 	overflow: auto;
 }
 
 main {
-	flex: 1 1 auto;
-	overflow: hidden;
 	display: flex;
+	flex: 1 1 auto;
 	flex-direction: column;
+	overflow: hidden;
 }
 
 [hidden] {
@@ -34,36 +34,37 @@ gl-details-wip-panel {
 }
 
 .popover-content {
-	background-color: var(--color-background--level-15);
 	padding: 0.8rem 1.2rem;
+	background-color: var(--color-background--level-15);
 }
 
 .inspect-header {
 	display: flex;
 	flex-direction: row;
+	gap: 0.4rem;
 	align-items: flex-start; // center;
 	justify-content: space-between;
-	gap: 0.4rem;
-	border-top: 2px solid var(--color-background--level-15);
 	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	border-top: 2px solid var(--color-background--level-15);
 
 	&__tabs {
-		flex: none;
 		display: flex;
+		flex: none;
 		flex-direction: row;
+
 		// gap: -0.8rem;
 		align-items: flex-start;
 	}
 
 	&__tab {
 		position: relative;
-		appearance: none;
-		background-color: var(--color-background--level-10);
+		padding: 0.4rem 1.2rem;
 		color: var(--color-foreground--85);
+		appearance: none;
+		cursor: pointer;
+		background-color: var(--color-background--level-10);
 		border: none;
 		border-radius: 0 0 0.5rem 0.5rem;
-		padding: 0.4rem 1.2rem;
-		cursor: pointer;
 
 		&:last-child {
 			margin-inline-start: -0.6rem;
@@ -71,20 +72,22 @@ gl-details-wip-panel {
 
 		&.is-active {
 			z-index: 1;
-			background-color: color-mix(in srgb, var(--gl-color-background-counter) 25%, var(--color-background));
 			padding-block: 0.6rem;
-			box-shadow: 0 -2px 0 0 var(--vscode-button-hoverBackground);
 			color: var(--color-foreground);
+			background-color: color-mix(in srgb, var(--gl-color-background-counter) 25%, var(--color-background));
+			box-shadow: 0 -2px 0 0 var(--vscode-button-hoverBackground);
 		}
 
 		&-tracking {
-			--gl-pill-foreground: currentColor;
+			--gl-pill-foreground: currentcolor;
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
+
 			margin-inline: 0.2rem -0.4rem;
 		}
 
 		&-indicator {
 			--gl-indicator-size: 0.46rem;
+
 			position: absolute;
 			bottom: 0.825rem;
 			left: 2.1rem;
@@ -93,9 +96,11 @@ gl-details-wip-panel {
 			&--ahead {
 				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchAheadForegroundColor);
 			}
+
 			&--behind {
 				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchBehindForegroundColor);
 			}
+
 			&--both {
 				--gl-indicator-color: var(--vscode-gitlens-decorations\.branchDivergedForegroundColor);
 			}
@@ -107,8 +112,8 @@ gl-details-wip-panel {
 
 		&-pulse {
 			position: absolute;
-			bottom: 0.2rem;
 			right: 0.4rem;
+			bottom: 0.2rem;
 			z-index: 2;
 		}
 	}
@@ -116,6 +121,7 @@ gl-details-wip-panel {
 	&__content {
 		flex: 1;
 		min-width: 0;
+
 		// Contain children's intrinsic overflow (e.g. an unwrapped date string inside
 		// gl-inspect-nav) so it can't propagate into the outer .commit-detail-panel's
 		// scrollWidth and trigger a phantom horizontal scrollbar.
@@ -133,9 +139,9 @@ gl-details-wip-panel {
 }
 
 gl-popover[appearance='menu'] menu-list {
+	padding-bottom: 0;
 	background: none;
 	border: none;
-	padding-bottom: 0;
 }
 
 .button-group > gl-popover {
@@ -153,10 +159,10 @@ hr {
 }
 
 .md-code {
+	padding: 0 4px 2px;
+	font-family: var(--vscode-editor-font-family);
 	background: var(--vscode-textCodeBlock-background);
 	border-radius: 3px;
-	padding: 0px 4px 2px 4px;
-	font-family: var(--vscode-editor-font-family);
 }
 
 .inline-popover {
@@ -165,7 +171,7 @@ hr {
 
 .tooltip-hint {
 	white-space: nowrap;
-	border-bottom: 1px dashed currentColor;
+	border-bottom: 1px dashed currentcolor;
 }
 
 // ── Embedded details styles: CSS moved to component Shadow DOM (.css.ts files) ──

@@ -15,18 +15,23 @@ export class GlAutolinkChip extends LitElement {
 		.chip--pr-opened::part(icon) {
 			color: var(--vscode-gitlens-openPullRequestIconColor);
 		}
+
 		.chip--pr-closed::part(icon) {
 			color: var(--vscode-gitlens-closedPullRequestIconColor);
 		}
+
 		.chip--pr-merged::part(icon) {
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
+
 		.chip--pr-draft::part(icon) {
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.chip--issue-opened::part(icon) {
 			color: var(--vscode-gitlens-openAutolinkedIssueIconColor);
 		}
+
 		.chip--issue-closed::part(icon) {
 			color: var(--vscode-gitlens-closedAutolinkedIssueIconColor);
 		}

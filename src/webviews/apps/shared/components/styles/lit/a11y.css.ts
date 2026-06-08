@@ -12,7 +12,7 @@ export const srOnlyStyles = css`
 
 export const srOnly = css`
 	.sr-only,
-	.sr-only-focusable:not(:active):not(:focus-visible):not(:focus-within) {
+	.sr-only-focusable:not(:active, :focus-visible, :focus-within) {
 		${srOnlyStyles}
 	}
 `;

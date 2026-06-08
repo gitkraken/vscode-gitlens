@@ -42,13 +42,13 @@ export class GlPromo extends LitElement {
 
 			.link {
 				display: block;
-				color: inherit;
 				max-width: 100%;
-				text-align: center;
-				text-decoration: none;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				color: inherit;
+				text-align: center;
 				white-space: nowrap;
+				text-decoration: none;
 			}
 
 			.link:focus-visible {

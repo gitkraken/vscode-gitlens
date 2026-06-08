@@ -38,18 +38,18 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 
 			.session {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				margin-block: 0;
 			}
 
 			.session__name {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				color: var(--vscode-foreground);
+				white-space: nowrap;
 			}
 
 			.session__subagents {
@@ -59,11 +59,11 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 
 			.session__context {
 				flex: none;
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+				white-space: nowrap;
 			}
 		`,
 	];

@@ -31,6 +31,7 @@
 
 	&::before {
 		@include utils.codicon('loading');
+
 		font-family: codicon;
 	}
 }
@@ -38,58 +39,61 @@
 .icon--branch {
 	&::before {
 		@include utils.codicon('git-branch');
-		font-family: codicon;
+
 		position: relative;
 		top: 2px;
 		margin: 0 3px;
+		font-family: codicon;
 	}
 }
 
 .icon--commit {
 	&::before {
 		@include utils.codicon('git-commit');
-		font-family: codicon;
+
 		position: relative;
 		top: 2px;
 		margin: 0 1px 0 3px;
+		font-family: codicon;
 	}
 }
 
 .icon--paused {
 	&::before {
 		@include utils.codicon('debug-pause');
-		font-family: codicon;
+
 		position: relative;
 		top: 2px;
 		margin: 0 3px;
+		font-family: codicon;
 	}
 }
 
 .icon--warning {
 	&::before {
 		@include utils.codicon('alert');
-		font-family: codicon;
+
 		position: relative;
 		top: 2px;
 		margin: 0 3px;
+		font-family: codicon;
 	}
 }
 
 .codicon[class*='codicon-'] {
-	font: normal normal normal 16px/1 codicon;
 	display: inline-block;
-	text-decoration: none;
-	text-rendering: auto;
+	font: normal normal normal 16px/1 codicon;
+	line-height: 2rem;
+	vertical-align: middle;
 	text-align: center;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	user-select: none;
+	letter-spacing: normal;
+	text-decoration: none;
 	-webkit-user-select: none;
 	-ms-user-select: none;
-
-	vertical-align: middle;
-	line-height: 2rem;
-	letter-spacing: normal;
+	user-select: none;
+	text-rendering: auto;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 }
 
-@include utils.all-codicons();
+@include utils.all-codicons;

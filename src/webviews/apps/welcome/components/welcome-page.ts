@@ -452,7 +452,7 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 
 @customElement('gl-welcome-page')
 export class GlWelcomePage extends LitElement {
-	static override styles = [scrollableBase, welcomeStyles];
+	static override styles = [scrollableBase, ...welcomeStyles];
 
 	@property({ type: Boolean })
 	closeable = false;

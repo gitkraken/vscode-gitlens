@@ -7,6 +7,7 @@
 	color-scheme: dark;
 	--composer-background-05: var(--color-background--lighten-05);
 }
+
 @include utils.light-theme {
 	color-scheme: light;
 	--composer-background-05: var(--color-background--darken-05);
@@ -14,6 +15,7 @@
 
 :root {
 	--gl-onboarding-width-max: 50rem;
+
 	// --vscode-diffEditor-insertedTextBackground: rgba(156, 204, 44, 0.2);
 	// --vscode-diffEditor-removedTextBackground: rgba(255, 0, 0, 0.2);
 	// --vscode-diffEditor-insertedLineBackground: rgba(155, 185, 85, 0.2);
@@ -28,7 +30,7 @@
 	--d2h-color: var(--color-foreground);
 	--d2h-bg-color: var(--color-background);
 	--d2h-border-color: var(--vscode-multiDiffEditor-border);
-	--d2h-dim-color: rgba(0, 0, 0, 0.3);
+	--d2h-dim-color: rgb(0 0 0 / 30%);
 	--d2h-line-border-color: #eee;
 	--d2h-file-header-bg-color: var(--vscode-multiDiffEditor-headerBackground, var(--vscode-editor-background));
 	--d2h-file-header-border-color: var(--vscode-multiDiffEditor-border);
@@ -49,6 +51,7 @@
 	--d2h-info-border-color: #d5e4f2;
 	--d2h-change-label-color: #d0b44c;
 	--d2h-moved-label-color: #3572b0;
+
 	// --d2h-dark-color: #e6edf3;
 	// --d2h-dark-bg-color: #0d1117;
 	// --d2h-dark-border-color: #30363d;
@@ -81,23 +84,29 @@
 	// --d2h-border-color: #30363d;
 	--d2h-dim-color: #6e7681;
 	--d2h-line-border-color: #21262d;
+
 	// --d2h-file-header-bg-color: #161b22;
 	// --d2h-file-header-border-color: #30363d;
-	--d2h-empty-placeholder-bg-color: hsla(215, 8%, 47%, 0.1);
+	--d2h-empty-placeholder-bg-color: hsl(215deg 8% 47% / 10%);
 	--d2h-empty-placeholder-border-color: #30363d;
-	--d2h-selected-color: rgba(56, 139, 253, 0.1);
+	--d2h-selected-color: rgb(56 139 253 / 10%);
+
 	// --d2h-ins-bg-color: rgba(46, 160, 67, 0.15);
-	--d2h-ins-border-color: var(--vscode-diffEditor-insertedTextBorder, rgba(46, 160, 67, 0.4));
+	--d2h-ins-border-color: var(--vscode-diffEditor-insertedTextBorder, rgb(46 160 67 / 40%));
+
 	// --d2h-ins-highlight-bg-color: rgba(46, 160, 67, 0.4);
 	--d2h-ins-label-color: #3fb950;
+
 	// --d2h-del-bg-color: rgba(248, 81, 73, 0.1);
-	--d2h-del-border-color: var(--vscode-diffEditor-removedTextBorder, rgba(248, 81, 73, 0.4));
+	--d2h-del-border-color: var(--vscode-diffEditor-removedTextBorder, rgb(248 81 73 / 40%));
+
 	// --d2h-del-highlight-bg-color: rgba(248, 81, 73, 0.4);
 	--d2h-del-label-color: #f85149;
+
 	// --d2h-change-del-color: rgba(210, 153, 34, 0.2);
 	// --d2h-change-ins-color: rgba(46, 160, 67, 0.25);
-	--d2h-info-bg-color: rgba(56, 139, 253, 0.1);
-	--d2h-info-border-color: rgba(56, 139, 253, 0.4);
+	--d2h-info-bg-color: rgb(56 139 253 / 10%);
+	--d2h-info-border-color: rgb(56 139 253 / 40%);
 	--d2h-change-label-color: #d29922;
 	--d2h-moved-label-color: #3572b0;
 }
@@ -124,15 +133,14 @@ html {
 }
 
 body {
-	padding: 0;
-	background-color: var(--color-background);
-	color: var(--color-foreground);
-	font-family: var(--font-family);
 	min-height: 100%;
-	line-height: 1.4;
+	padding: 0;
+	font-family: var(--font-family);
 	font-size: var(--vscode-font-size);
+	line-height: 1.4;
+	color: var(--color-foreground);
+	background-color: var(--color-background);
 }
 
-@include scrollbars.scrollbarFix();
-
-@include onboarding.core();
+@include scrollbars.scrollbarFix;
+@include onboarding.core;

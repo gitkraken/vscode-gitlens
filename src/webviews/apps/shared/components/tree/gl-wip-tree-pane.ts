@@ -20,23 +20,23 @@ type Files = Mutable<FileItem[]>;
 export class GlWipTreePane extends LitElement {
 	static override styles = css`
 		/* Establish the named container on this host so the @container query below resolves
-		   in the same shadow scope as the rule (cross-shadow container lookup is spotty). */
+	   in the same shadow scope as the rule (cross-shadow container lookup is spotty). */
 		:host {
-			flex: 1 1 0%;
 			display: flex;
-			container-type: inline-size;
+			flex: 1 1 0%;
 			container-name: gl-wip-tree-pane;
+			container-type: inline-size;
 		}
 
 		/* Group Stash/Discard/Copy as one slotted flex child so they read as a cohesive cluster,
-		   flush (no internal gap) like action-nav — each gl-action-chip's own 0.2rem padding
-		   supplies the rhythm, matching the spacing and 2rem sizing of the action-nav chips. The
-		   header-actions gap in gl-file-tree-pane separates the whole group from the right-hand
-		   action-nav cluster (open-multi-diff / layout / search).
+	   flush (no internal gap) like action-nav — each gl-action-chip's own 0.2rem padding
+	   supplies the rhythm, matching the spacing and 2rem sizing of the action-nav chips. The
+	   header-actions gap in gl-file-tree-pane separates the whole group from the right-hand
+	   action-nav cluster (open-multi-diff / layout / search).
 
-		   The group is the single leading-actions child, so zero out the per-child trailing margin
-		   gl-file-tree-pane adds — the header-actions gap alone now owns the group↔action-nav
-		   separation, and the margin would otherwise stack a second, asymmetric gap onto it. */
+	   The group is the single leading-actions child, so zero out the per-child trailing margin
+	   gl-file-tree-pane adds — the header-actions gap alone now owns the group↔action-nav
+	   separation, and the margin would otherwise stack a second, asymmetric gap onto it. */
 		gl-file-tree-pane {
 			--gl-leading-action-trailing-gap: 0;
 		}
@@ -47,10 +47,10 @@ export class GlWipTreePane extends LitElement {
 		}
 
 		/* Collapse the Stash label to icon-only when the pane runs out of room. display:none
-		   cleanly removes the slotted flex item so the button's internal gap collapses too — true
-		   icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
-		   accessible when the label is hidden. The group/action-nav gap is intentionally preserved at
-		   narrow widths so the clusters stay visually distinct. */
+	   cleanly removes the slotted flex item so the button's internal gap collapses too — true
+	   icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
+	   accessible when the label is hidden. The group/action-nav gap is intentionally preserved at
+	   narrow widths so the clusters stay visually distinct. */
 		@container gl-wip-tree-pane (max-width: 340px) {
 			.stash-label {
 				display: none !important;

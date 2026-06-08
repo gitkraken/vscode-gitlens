@@ -54,8 +54,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
 			}
 
 			:host-context(.vscode-dark),
@@ -74,11 +74,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.chip {
 				padding-right: 0.6rem;
-
 				font-size: 1.1rem;
 				font-weight: 400;
-				text-transform: uppercase;
 				line-height: 2rem;
+				text-transform: uppercase;
 				background-color: var(--gl-account-chip-color);
 			}
 
@@ -88,8 +87,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.chip__media {
-				flex: 0 0 auto;
 				display: flex;
+				flex: 0 0 auto;
 				align-items: center;
 				justify-content: center;
 				padding: 0.2rem;
@@ -98,8 +97,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			img.chip__media {
 				width: 1.6rem;
 				aspect-ratio: 1 / 1;
-				border-radius: 50%;
 				background-color: var(--gl-account-chip-media-color);
+				border-radius: 50%;
 			}
 
 			.chip-group {
@@ -128,11 +127,11 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.row__media {
-				flex: 0 0 auto;
-				width: 3.4rem;
 				display: flex;
+				flex: 0 0 auto;
 				align-items: center;
 				justify-content: center;
+				width: 3.4rem;
 			}
 
 			.row__media code-icon {
@@ -142,35 +141,35 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
-				border-radius: 50%;
 				background-color: var(--gl-account-account-media-color);
+				border-radius: 50%;
 			}
 
 			.details {
-				flex: 1;
 				display: flex;
+				flex: 1;
 				flex-direction: column;
 				justify-content: center;
 			}
 
 			.details__title {
+				margin: 0;
 				font-size: 1.3rem;
 				font-weight: 600;
-				margin: 0;
 			}
 
 			.details__subtitle {
+				margin: 0;
 				font-size: 1.1rem;
 				font-weight: 400;
-				margin: 0;
 				color: var(--color-foreground--65);
 			}
 
 			.details__button {
-				flex: none;
 				display: flex;
-				gap: 0.2rem;
+				flex: none;
 				flex-direction: row;
+				gap: 0.2rem;
 				align-items: center;
 				justify-content: center;
 			}
@@ -181,18 +180,19 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				line-height: 2.4rem;
+				margin-right: 0.6rem;
 				font-size: 1rem;
 				font-weight: 600;
+				line-height: 2.4rem;
 				color: var(--color-foreground--65);
 				background-color: var(--vscode-toolbar-hoverBackground);
 				border-radius: 50%;
-				margin-right: 0.6rem;
 			}
 
 			.account-status > :first-child {
 				margin-block-start: 0;
 			}
+
 			.account-status > :last-child {
 				margin-block-end: 0;
 			}
@@ -203,10 +203,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			button-container .button-suffix {
 				display: inline-flex;
-				align-items: center;
-				white-space: nowrap;
 				gap: 0.2em;
+				align-items: center;
 				margin-left: 0.4rem;
+				white-space: nowrap;
 			}
 
 			.upgrade > * {
@@ -223,9 +223,10 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.upgrade gl-promo::part(text) {
 				margin-block-start: 0;
+
 				/* border-radius: 0.3rem;
-				padding: 0.2rem 0.4rem;
-				background-color: var(--gl-account-chip-color); */
+		padding: 0.2rem 0.4rem;
+		background-color: var(--gl-account-chip-color); */
 			}
 
 			.upgrade gl-promo:not([has-promo]) {
@@ -233,8 +234,8 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.upgrade-button {
-				text-transform: uppercase;
 				font-size: 1rem;
+				text-transform: uppercase;
 			}
 
 			@keyframes shimmer {
@@ -245,17 +246,17 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.chip--skeleton {
 				position: relative;
-				overflow: hidden;
 				width: 8rem;
 				height: 2.4rem;
-				background-color: var(--gl-account-chip-color);
+				overflow: hidden;
 				cursor: default;
+				background-color: var(--gl-account-chip-color);
 			}
 
 			.chip--skeleton::before {
-				content: '';
 				position: absolute;
 				inset: 0;
+				content: '';
 				background-image: linear-gradient(
 					to right,
 					transparent 0%,

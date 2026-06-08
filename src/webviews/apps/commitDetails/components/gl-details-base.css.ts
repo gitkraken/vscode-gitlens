@@ -23,20 +23,21 @@ export const detailsBaseStyles = [
 		a {
 			text-decoration: none;
 		}
+
 		a:hover {
 			text-decoration: underline;
 		}
 
 		.compare-header__title {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.5rem;
-			font-weight: 500;
-			font-size: var(--gl-font-base);
-			color: var(--color-foreground--85);
+			align-items: center;
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-size: var(--gl-font-base);
+			font-weight: 500;
+			color: var(--color-foreground--85);
 			white-space: nowrap;
 		}
 
@@ -49,12 +50,15 @@ export const detailsBaseStyles = [
 		.section {
 			padding: 0 var(--gitlens-scrollbar-gutter-width) 1.5rem var(--gitlens-gutter-width);
 		}
+
 		.section:first-child {
 			padding-top: 0.8rem;
 		}
+
 		.section > :first-child {
 			margin-top: 0;
 		}
+
 		.section > :last-child {
 			margin-bottom: 0;
 		}
@@ -79,37 +83,38 @@ export const detailsBaseStyles = [
 		/* Message block */
 		.message-block {
 			position: relative;
-			font-size: var(--gl-font-base);
-			border: 1px solid var(--vscode-input-border, transparent);
-			background: var(--vscode-input-background);
 			padding: 0.5rem;
+			font-size: var(--gl-font-base);
+			background: var(--vscode-input-background);
+			border: 1px solid var(--vscode-input-border, transparent);
 			border-radius: 0.2rem 0.2rem 0 0;
 		}
 
 		.message-block__text {
-			margin: 0;
-			overflow-y: auto;
-			overflow-x: hidden;
 			max-height: 9rem;
+			margin: 0;
+			overflow: hidden auto;
 		}
+
 		.message-block__text strong {
-			font-weight: 600;
 			font-size: var(--gl-font-lg);
+			font-weight: 600;
 		}
 
 		.message-block__copy {
 			position: absolute;
-			bottom: 0.4rem;
 			right: 0;
+			bottom: 0.4rem;
 			z-index: 1;
+			color: var(--vscode-descriptionForeground);
 			opacity: 0.7;
 			transition: opacity 0.15s ease;
-			color: var(--vscode-descriptionForeground);
 		}
+
 		.message-block__copy:hover,
 		.message-block__copy:focus-within {
-			opacity: 1;
 			color: var(--vscode-foreground);
+			opacity: 1;
 		}
 
 		/* Message block rows (actions bar below message) */
@@ -125,14 +130,16 @@ export const detailsBaseStyles = [
 		}
 
 		.message-block-row--actions {
+			padding: 0.2rem;
 			font-size: var(--gl-font-base);
 			color: var(--color-foreground--65);
 			background: var(--color-background--level-075);
-			padding: 0.2rem;
 		}
+
 		.message-block-row--actions:last-child {
 			border-radius: 0 0 0.2rem 0.2rem;
 		}
+
 		.message-block-row--actions:first-of-type:last-child {
 			border-radius: 0.2rem;
 		}
@@ -144,24 +151,24 @@ export const detailsBaseStyles = [
 		}
 
 		/* Inline autolinks loading state — replaces "No autolinks found" while the commit
-		   identity (sha) is changing. min-height matches gl-action-chip's intrinsic 2rem so
-		   the strip doesn't jump between the spinner and the chip-based states. */
+	   identity (sha) is changing. min-height matches gl-action-chip's intrinsic 2rem so
+	   the strip doesn't jump between the spinner and the chip-based states. */
 		.autolinks-loading {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 			min-height: 2rem;
 			color: var(--vscode-descriptionForeground);
 		}
 
 		/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in
-		   place of the "No Files" empty text while the embedded panel is showing a "lite" commit
-		   shell waiting for the full fetch. */
+	   place of the "No Files" empty text while the embedded panel is showing a "lite" commit
+	   shell waiting for the full fetch. */
 		.files-loading {
 			display: flex;
+			gap: 0.6rem;
 			align-items: center;
 			justify-content: center;
-			gap: 0.6rem;
 			padding: 2rem 1.2rem;
 			color: var(--vscode-descriptionForeground);
 			text-align: center;
@@ -187,62 +194,71 @@ export const detailsBaseStyles = [
 		/* Reachability styles */
 		.reachability-summary {
 			display: flex;
+			flex: 1 1 0;
 			flex-wrap: wrap;
 			gap: 0.6rem;
 			align-items: center;
-			overflow: hidden;
-			flex: 1 1 0;
 			min-width: 0;
+			overflow: hidden;
 		}
+
 		.reachability-summary code-icon,
 		.reachability-summary gl-action-chip::part(icon) {
 			--code-icon-size: 12px;
 		}
+
 		.reachability-summary gl-action-chip::part(base) {
 			overflow: hidden;
 		}
 
 		.reachability-range-chip-wrapper {
 			display: inline-flex;
-			max-width: 100%;
 			min-width: 0;
+			max-width: 100%;
 			overflow: hidden;
 		}
-		@media (max-width: 768px) {
+
+		@media (width <= 768px) {
 			.reachability-range-chip-wrapper {
 				flex: 1 1 100%;
 			}
 		}
 
 		.reachability-range-chip {
-			color: var(--color-foreground--65);
-			border-radius: 0.3rem;
-			padding: 0.1rem 0.25rem;
-			--chip-text-transform: none;
-			--chip-background: transparent;
 			display: inline-flex !important;
+			width: auto;
 			min-width: 0;
 			max-width: 100%;
-			width: auto;
+			padding: 0.1rem 0.25rem;
 			overflow: hidden;
+			color: var(--color-foreground--65);
+			border-radius: 0.3rem;
+			--chip-text-transform: none;
+			--chip-background: transparent;
 		}
+
 		.reachability-range-chip:hover,
 		.reachability-range-chip:focus {
 			opacity: 1;
 		}
+
 		.reachability-range-chip--range {
 			cursor: pointer;
 		}
+
 		.reachability-range-chip--local-branch {
-			color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 			font-weight: 600;
+			color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 		}
+
 		.reachability-range-chip--remote-branch {
 			color: var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0);
 		}
+
 		.reachability-range-chip--tag {
 			color: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 70%, var(--color-foreground) 30%);
 		}
+
 		.reachability-range-chip--current .reachability-range-chip__label {
 			font-weight: 600;
 		}
@@ -254,23 +270,24 @@ export const detailsBaseStyles = [
 			padding-left: 0.25rem;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			white-space: nowrap;
 			font-size: inherit;
+			white-space: nowrap;
 		}
+
 		.reachability-range-chip__label code-icon {
-			vertical-align: middle;
 			margin-right: 0.2rem;
+			vertical-align: middle;
 		}
 
 		.reachability-range-chip__ellipsis {
-			opacity: 0.8;
 			padding: 0 0.4rem;
+			opacity: 0.8;
 		}
 
 		.reachability-range-chip__count {
 			padding-left: 0.4rem;
-			font-weight: 600;
 			font-size: var(--gl-font-micro);
+			font-weight: 600;
 			color: var(--color-foreground--50);
 		}
 
@@ -278,10 +295,12 @@ export const detailsBaseStyles = [
 			min-width: 200px;
 			max-width: 400px;
 		}
+
 		.reachability-popover__header {
 			padding-bottom: 0.6rem;
 			font-weight: 500;
 		}
+
 		.reachability-popover__list {
 			display: flex;
 			flex-direction: column;
@@ -292,20 +311,23 @@ export const detailsBaseStyles = [
 
 		.reachability-list-item {
 			display: flex;
-			align-items: center;
 			gap: 0.5rem;
+			align-items: center;
 			padding: 0.3rem 0.4rem;
 			font-size: var(--gl-font-base);
 			line-height: 1.4;
 		}
+
 		.reachability-list-item--current {
 			font-weight: 600;
 		}
+
 		.reachability-list-item__icon {
 			flex-shrink: 0;
 			opacity: 0.8;
 			--code-icon-size: 14px;
 		}
+
 		.reachability-list-item__label {
 			flex: 1;
 			overflow: hidden;
@@ -314,7 +336,7 @@ export const detailsBaseStyles = [
 		}
 
 		/* Media query hiding */
-		@media (max-width: 300px) {
+		@media (width <= 300px) {
 			.mq-hide-sm {
 				display: none !important;
 			}
@@ -324,17 +346,19 @@ export const detailsBaseStyles = [
 		.button--busy[aria-busy='true'] {
 			opacity: 0.5;
 		}
+
 		.button--busy:not([aria-busy='true']) code-icon {
 			display: none;
 		}
 
 		.button-container {
+			max-width: 30rem;
 			margin: 1rem auto 0;
 			text-align: left;
-			max-width: 30rem;
 			transition: max-width 0.2s ease-out;
 		}
-		@media (min-width: 640px) {
+
+		@media (width >= 640px) {
 			.button-container {
 				max-width: 100%;
 			}
@@ -344,15 +368,18 @@ export const detailsBaseStyles = [
 			display: inline-flex;
 			gap: 0.1rem;
 		}
+
 		.button-group--single {
 			width: 100%;
 			max-width: 30rem;
 		}
+
 		.button-group > *:not(:first-child),
 		.button-group > *:not(:first-child) gl-button {
 			border-top-left-radius: 0;
 			border-bottom-left-radius: 0;
 		}
+
 		.button-group > *:not(:last-child),
 		.button-group > *:not(:last-child) gl-button {
 			border-top-right-radius: 0;
@@ -361,75 +388,80 @@ export const detailsBaseStyles = [
 
 		/* AI content */
 		.ai-content {
-			font-size: var(--gl-font-base);
-			border: 0.1rem solid var(--vscode-input-border, transparent);
-			background: var(--vscode-input-background);
-			margin-top: 1rem;
 			padding: 0.5rem;
+			margin-top: 1rem;
+			font-size: var(--gl-font-base);
+			background: var(--vscode-input-background);
+			border: 0.1rem solid var(--vscode-input-border, transparent);
 			border-radius: 2px;
 		}
+
 		.ai-content.has-error {
+			padding-left: 0.8rem;
 			border-left-color: var(--color-alert-errorBorder);
 			border-left-width: 0.3rem;
-			padding-left: 0.8rem;
 		}
+
 		.ai-content:empty {
 			display: none;
 		}
+
 		.ai-content__summary {
 			display: block;
-			margin: 0;
-			overflow-y: auto;
-			overflow-x: hidden;
 			max-height: 20rem;
+			margin: 0;
+			overflow: hidden auto;
 		}
 
 		/* Popover content */
 		.popover-content {
-			background-color: var(--color-background--level-15);
 			padding: 0.8rem 1.2rem;
+			background-color: var(--color-background--level-15);
 		}
 
 		/* Alert */
 		.alert {
 			box-sizing: border-box;
 			display: flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 			width: 100%;
 			max-width: 100%;
-			margin-block: 0;
-			background-color: var(--color-alert-warningBackground);
-			border-radius: 0.3rem;
 			padding: 0.4rem 0.8rem;
+			margin-block: 0;
 			color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
+			background-color: var(--color-alert-warningBackground);
 			border: 1px solid var(--color-alert-warningBorder);
+			border-radius: 0.3rem;
 		}
+
 		.alert code-icon {
 			flex: none;
 			--code-icon-size: 13px;
 		}
+
 		.alert__content {
 			flex: 1;
 			min-width: 0;
+			margin: 0;
 			font-size: var(--gl-font-base);
 			line-height: 1.4;
-			margin: 0;
 		}
 
 		/* Inline popover / tooltip hint */
 		.inline-popover {
 			display: inline-block;
 		}
+
 		.tooltip-hint {
 			white-space: nowrap;
-			border-bottom: 1px dashed currentColor;
+			border-bottom: 1px dashed currentcolor;
 		}
 
 		/* Child component layout — these live inside the shadow root */
 		webview-pane-group {
-			height: 100%;
 			flex: 1;
+			height: 100%;
 			min-height: 0;
 			overflow: hidden;
 		}
@@ -450,23 +482,25 @@ export const detailsBaseStyles = [
 		:host([variant='embedded']) .split__handle {
 			position: relative;
 			z-index: 1;
-			width: 100%;
-			height: 100%;
 			display: flex;
 			align-items: center;
 			justify-content: center;
+			width: 100%;
+			height: 100%;
 			border-top: 1px solid color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
 		}
+
 		:host([variant='embedded']) .split__handle::after {
-			content: '';
 			position: relative;
 			top: -0.3rem;
 			width: 7rem;
 			height: 0.3rem;
-			border-radius: 0.25rem;
+			content: '';
 			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--color-background));
+			border-radius: 0.25rem;
 			transition: background-color 0.15s ease;
 		}
+
 		:host([variant='embedded']) .split__handle:hover::after,
 		:host([variant='embedded']) .split[dragging] .split__handle::after {
 			background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));

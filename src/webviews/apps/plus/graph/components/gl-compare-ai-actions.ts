@@ -43,42 +43,41 @@ export class GlCompareAIActions extends LitElement {
 			}
 
 			/* The inner gl-ai-input is sized by flex, not by panelActionInputStyles (the latter
-			   targets the outer gl-compare-ai-actions host instead). */
+	   targets the outer gl-compare-ai-actions host instead). */
 			.row > gl-ai-input {
 				flex: 1;
-				min-width: 0;
 				width: auto;
+				min-width: 0;
 				max-width: none;
 				margin: 0;
 			}
 
 			/* Default state mirrors the Explain input when unfocused (plain solid border +
-			   input background). On hover/focus the border swaps to the same conic-gradient
-			   that the Explain input shows when focused. Busy keeps the gradient border and
-			   animates --angle so the gradient sweeps around the perimeter. */
+	   input background). On hover/focus the border swaps to the same conic-gradient
+	   that the Explain input shows when focused. Busy keeps the gradient border and
+	   animates --angle so the gradient sweeps around the perimeter. */
 			.changelog-btn {
 				--gradient-start: #7c3aed;
 				--gradient-mid: #0ea5e9;
 				--gradient-end: #06b6d4;
 
-				flex: none;
 				display: inline-flex;
+				flex: none;
 				align-items: center;
 				justify-content: center;
 				padding: 0 0.8rem;
 				font: inherit;
 				font-size: var(--gl-font-base);
 				color: var(--vscode-input-foreground);
+				cursor: pointer;
 				background: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
 				border-radius: 0.6rem;
-				cursor: pointer;
 			}
 
 			.changelog-btn:hover:not([disabled]),
 			.changelog-btn:focus-visible,
 			.changelog-btn.is-busy {
-				border-color: transparent;
 				color: var(--vscode-button-foreground);
 				background:
 					linear-gradient(var(--vscode-button-background), var(--vscode-button-background)) padding-box,
@@ -90,6 +89,7 @@ export class GlCompareAIActions extends LitElement {
 							var(--gradient-start)
 						)
 						border-box;
+				border-color: transparent;
 			}
 
 			.changelog-btn:focus-visible {
@@ -97,8 +97,8 @@ export class GlCompareAIActions extends LitElement {
 			}
 
 			.changelog-btn[disabled]:not(.is-busy) {
-				opacity: 0.6;
 				cursor: not-allowed;
+				opacity: 0.6;
 			}
 
 			.changelog-btn.is-busy {

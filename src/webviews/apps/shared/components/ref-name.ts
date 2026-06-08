@@ -11,9 +11,8 @@ export class GlRefName extends LitElement {
 			display: grid;
 			grid-template-columns: minmax(0, 1fr);
 			align-items: center;
-
-			max-width: 100%;
 			min-width: 1.4rem;
+			max-width: 100%;
 		}
 
 		:host([icon]) {
@@ -35,15 +34,15 @@ export class GlRefName extends LitElement {
 		}
 
 		.label {
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-weight: var(--font-weight, bold);
+			white-space: nowrap;
 		}
 
 		/* Spacing between icon and label as a margin (not a grid gap) so that
-		   when the label is hidden via display:none — e.g. the icon-only
-		   collapse step in the graph header — the gap collapses with it. */
+	   when the label is hidden via display:none — e.g. the icon-only
+	   collapse step in the graph header — the gap collapses with it. */
 		:host([icon]) .label {
 			margin-left: 0.4rem;
 		}

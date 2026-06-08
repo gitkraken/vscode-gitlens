@@ -5,11 +5,13 @@ export const elementBase = css`
 	:host {
 		box-sizing: border-box;
 	}
+
 	:host *,
 	:host *::before,
 	:host *::after {
 		box-sizing: inherit;
 	}
+
 	[hidden] {
 		display: none !important;
 	}
@@ -26,9 +28,11 @@ export const linkBase = css`
 		color: var(--vscode-textLink-foreground);
 		text-decoration: none;
 	}
+
 	a:focus {
 		${focusOutline}
 	}
+
 	a:hover {
 		text-decoration: underline;
 	}
@@ -39,6 +43,7 @@ export const scrollableBase = css`
 		width: 10px;
 		height: 10px;
 	}
+
 	::-webkit-scrollbar-corner {
 		background-color: transparent;
 	}
@@ -50,9 +55,11 @@ export const scrollableBase = css`
 		border-right-width: calc(100vw + 100vh);
 		border-radius: unset !important;
 	}
+
 	::-webkit-scrollbar-thumb:hover {
 		border-color: var(--vscode-scrollbarSlider-hoverBackground);
 	}
+
 	::-webkit-scrollbar-thumb:active {
 		border-color: var(--vscode-scrollbarSlider-activeBackground);
 	}
@@ -75,10 +82,10 @@ export const scrollableBase = css`
 
 export const inlineCode = css`
 	.inline-code {
+		padding: 0 4px 2px;
+		font-family: var(--vscode-editor-font-family);
 		background: var(--vscode-textCodeBlock-background);
 		border-radius: 3px;
-		padding: 0px 4px 2px 4px;
-		font-family: var(--vscode-editor-font-family);
 	}
 `;
 
@@ -92,6 +99,7 @@ export const subPanelEnterStyles = css`
 			opacity: 0;
 			transform: translateY(4px);
 		}
+
 		to {
 			opacity: 1;
 			transform: translateY(0);
@@ -99,12 +107,12 @@ export const subPanelEnterStyles = css`
 	}
 
 	.sub-panel-enter {
-		animation: sub-panel-enter 0.2s ease-out;
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
+		animation: sub-panel-enter 0.2s ease-out;
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -118,8 +126,8 @@ export const subPanelEnterStyles = css`
 export const panelBase = css`
 	:host {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
 	}

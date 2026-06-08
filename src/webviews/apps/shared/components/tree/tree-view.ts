@@ -49,14 +49,14 @@ export class GlTreeView extends GlElement {
 			:host {
 				display: flex;
 				flex-direction: column;
-				height: 100%;
 				width: 100%;
+				height: 100%;
 				overflow: hidden;
 			}
 
 			/* Signals "the tree has focus" to descendant gl-tree-item rows (inherits across the shadow
-			   boundary). Drives the active-vs-inactive selection background on every selected row —
-			   reliable for click-focus, which doesn't surface as a focusin on this host. */
+	   boundary). Drives the active-vs-inactive selection background on every selected row —
+	   reliable for click-focus, which doesn't surface as a focusin on this host. */
 			:host(:focus-within) {
 				--gl-tree-focus-within: 1;
 			}
@@ -65,8 +65,7 @@ export class GlTreeView extends GlElement {
 				flex: 1;
 				width: 100%;
 				min-height: 0;
-				overflow-y: auto;
-				overflow-x: visible; /* Allow horizontal overflow for tooltips */
+				overflow: visible auto; /* Allow horizontal overflow for tooltips */
 				outline: none;
 			}
 
@@ -78,15 +77,18 @@ export class GlTreeView extends GlElement {
 				display: block;
 				width: 100%;
 				height: 100%;
+
+				/* lit-virtualizer sets an inline min-height based on its initial item-size
+		   estimate, which can exceed the scrollable container in small viewports and
+		   push scrolling onto the outer .scrollable div instead of the virtualizer's
+		   own scroller. Since height: 100% already provides correct sizing from the
+		   flex layout, the min-height is always redundant. */
+				min-height: 0 !important;
+
 				/* Use layout containment instead of strict to avoid rendering issues */
+
 				/* Removed paint containment to allow tooltips to escape */
 				contain: layout;
-				/* lit-virtualizer sets an inline min-height based on its initial item-size
-				   estimate, which can exceed the scrollable container in small viewports and
-				   push scrolling onto the outer .scrollable div instead of the virtualizer's
-				   own scroller. Since height: 100% already provides correct sizing from the
-				   flex layout, the min-height is always redundant. */
-				min-height: 0 !important;
 			}
 
 			gl-tree-item {
@@ -94,7 +96,7 @@ export class GlTreeView extends GlElement {
 			}
 
 			/* Dim non-matched items when highlighting: either the search box is in highlight mode
-			   (search-box-filter absent) or an external source forces dim (dim-unmatched). */
+	   (search-box-filter absent) or an external source forces dim (dim-unmatched). */
 			:host([filtered]:not([search-box-filter])) gl-tree-item:not([matched]),
 			:host([filtered][dim-unmatched]) gl-tree-item:not([matched]) {
 				opacity: 0.6;
@@ -102,10 +104,10 @@ export class GlTreeView extends GlElement {
 
 			.filter {
 				display: flex;
-				align-items: center;
-				gap: 0.4rem;
-				padding: 0.4rem 0.6rem;
 				flex: none;
+				gap: 0.4rem;
+				align-items: center;
+				padding: 0.4rem 0.6rem;
 			}
 
 			.filter-field {
@@ -115,17 +117,17 @@ export class GlTreeView extends GlElement {
 			}
 
 			.filter-input {
+				box-sizing: border-box;
 				width: 100%;
 				height: 2.4rem;
-				box-sizing: border-box;
 				padding: 0 2rem 0 0.6rem;
 				font-family: var(--vscode-font-family);
 				font-size: var(--vscode-font-size);
 				color: var(--vscode-input-foreground);
+				outline: none;
 				background-color: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius);
-				outline: none;
 			}
 
 			.filter-input:focus {
@@ -138,10 +140,10 @@ export class GlTreeView extends GlElement {
 			}
 
 			.filter-input::-webkit-search-cancel-button {
-				-webkit-appearance: none;
-				cursor: pointer;
 				width: 16px;
 				height: 16px;
+				-webkit-appearance: none;
+				cursor: pointer;
 				background-color: var(--vscode-foreground);
 				-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z'/%3E%3C/svg%3E");
 				-webkit-mask-size: contain;
@@ -153,8 +155,8 @@ export class GlTreeView extends GlElement {
 				right: 0;
 				bottom: 1px;
 				display: inline-flex;
-				align-items: center;
 				gap: 0.1rem;
+				align-items: center;
 				padding-right: 0.2rem;
 			}
 
@@ -164,17 +166,17 @@ export class GlTreeView extends GlElement {
 			}
 
 			mark {
-				background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 92, 0, 0.33));
 				color: inherit;
+				background-color: var(--vscode-editor-findMatchHighlightBackground, rgb(234 92 0 / 33%));
 				border-radius: 1px;
 			}
 
 			/* Shared by both the no-data case (emptyText) and the filter-yields-no-matches
-			   case ("No results found"); class name dates from the latter. */
+	   case ("No results found"); class name dates from the latter. */
 			.no-results {
 				padding: 1rem;
-				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}
 
@@ -182,6 +184,7 @@ export class GlTreeView extends GlElement {
 				pointer-events: none;
 				--max-width: min(40rem, 90vw);
 			}
+
 			.hover-popover::part(body) {
 				box-sizing: border-box;
 			}
@@ -189,44 +192,47 @@ export class GlTreeView extends GlElement {
 			.hover-content {
 				font-size: 1.2rem;
 				line-height: 1.5;
+
 				/* anywhere wraps at any character when forced — avoids the default behavior of
-				   breaking paths at hyphens (the worst possible split point). */
+		   breaking paths at hyphens (the worst possible split point). */
 				overflow-wrap: anywhere;
 			}
 
 			.conflict-count {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.3rem;
-				padding: 0 0.6rem;
+				align-items: center;
 				height: 1.8rem;
-				border-radius: 0.9rem;
+				padding: 0 0.6rem;
 				font-size: 1.1rem;
 				font-weight: 500;
 				border: 1px solid;
+				border-radius: 0.9rem;
 			}
 
 			/* Phase-tinted agent icon — pulls from the shared --gl-agent-* palette defined in
-			   theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
-			   of variables. code-icon's :host inherits color from its parent, so styling the
-			   element here flows through to its rendered glyph. */
+	   theme.scss so leaf, tooltip, pill, and details panel all dereference the same set
+	   of variables. code-icon's :host inherits color from its parent, so styling the
+	   element here flows through to its rendered glyph. */
 			code-icon.tree-icon-agent {
 				color: var(--gl-agent-idle-color);
 			}
+
 			code-icon.tree-icon-agent--working {
 				color: var(--gl-agent-working-color);
 			}
+
 			code-icon.tree-icon-agent--waiting {
 				color: var(--gl-agent-waiting-color);
 			}
 
 			/* Pair wrapper for the robot + spinner glyphs so they sit flush as one identity
-			   marker. The decoration slot's gap applies between the wrapper and any sibling
-			   decoration but not between the icons inside. */
+	   marker. The decoration slot's gap applies between the wrapper and any sibling
+	   decoration but not between the icons inside. */
 			.tree-icon-agent-pair {
 				display: inline-flex;
-				align-items: center;
 				gap: 0;
+				align-items: center;
 			}
 		`,
 	];

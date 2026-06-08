@@ -9,12 +9,12 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata {
 		display: flex;
+		flex: none;
+		gap: 0.6rem;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
-		gap: 0.6rem;
-		flex: none;
 		min-height: var(--gl-metadata-bar-min-height);
+		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
@@ -23,9 +23,9 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata__left {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		flex: 1;
+		gap: 0.5rem;
+		align-items: center;
 		min-width: 0;
 		overflow: hidden;
 	}
@@ -36,23 +36,23 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-metadata__dots {
-		color: var(--color-foreground--50);
 		font-family: var(--vscode-editor-font-family, monospace);
+		color: var(--color-foreground--50);
 	}
 
 	.compare-metadata__right {
 		display: flex;
-		align-items: center;
-		gap: 0.4rem;
 		flex-shrink: 0;
+		gap: 0.4rem;
+		align-items: center;
 	}
 
 	/* Mode-status snippet — replaces commit-stats in the metadata bar's right side while in
 	   review on a multi-commit anchor. */
 	.compare-metadata__right .mode-status {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 		font-size: var(--gl-font-small, 1.2rem);
 		color: var(--color-foreground--65);
 		white-space: nowrap;
@@ -60,39 +60,40 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata__right .mode-status__group {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.compare-metadata__right .mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	.compare-metadata__right .mode-status__resume {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 		padding: 0.2rem 0.6rem;
 		font: inherit;
 		color: inherit;
+		cursor: pointer;
 		background: transparent;
 		border: none;
 		border-radius: 0.4rem;
-		cursor: pointer;
 	}
 
 	.compare-metadata__right .mode-status__resume:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.compare-metadata__right .mode-status__resume:focus-visible {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.compare-metadata__right .mode-status__resume-verb {
@@ -102,13 +103,14 @@ export const multiCommitPanelStyles = css`
 	.compare-metadata__right .mode-status__resume-arrow {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	.compare-poles {
 		display: flex;
-		flex-direction: column;
 		flex: none;
+		flex-direction: column;
 	}
 
 	.pole-card__popover {
@@ -121,11 +123,11 @@ export const multiCommitPanelStyles = css`
 	   handles the popover/signature concerns. */
 	.pole-card {
 		display: flex;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
+		min-width: 0;
 		padding: 0.55rem 1.2rem;
 		cursor: pointer;
-		min-width: 0;
 	}
 
 	.pole-card:hover {
@@ -139,8 +141,8 @@ export const multiCommitPanelStyles = css`
 
 	.pole-card--loading {
 		padding: 0.8rem 1.2rem;
-		color: var(--color-foreground--50);
 		font-size: var(--gl-font-sm);
+		color: var(--color-foreground--50);
 	}
 
 	.pole-card > gl-commit-row {
@@ -153,18 +155,18 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-middle {
+		position: relative;
 		display: flex;
 		align-items: center;
-		position: relative;
-		padding: 0 1.2rem;
 		max-height: 1.6rem;
+		padding: 0 1.2rem;
 	}
 
 	.compare-middle__line {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		flex: 1;
+		gap: 0.5rem;
+		align-items: center;
 	}
 
 	.compare-middle__rule {
@@ -176,28 +178,28 @@ export const multiCommitPanelStyles = css`
 	.compare-middle__count {
 		position: absolute;
 		right: 1.2rem;
+		max-width: calc(50% - 2.4rem);
+		padding-left: 0.5rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
 		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: calc(50% - 2.4rem);
-		padding-left: 0.5rem;
 	}
 
 	.compare-middle__swap {
 		display: inline-flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
 		width: 1.6rem;
 		height: 1.6rem;
-		border: 0.1rem solid var(--vscode-sideBarSectionHeader-border);
-		background: var(--color-background--level-10);
+		padding: 0.3rem 0.6rem;
 		color: var(--color-foreground--65);
 		cursor: pointer;
+		background: var(--color-background--level-10);
+		border: 0.1rem solid var(--vscode-sideBarSectionHeader-border);
 		border-radius: 0.4rem;
-		flex-shrink: 0;
-		padding: 0.3rem 0.6rem;
 	}
 
 	.compare-middle__swap code-icon {
@@ -205,20 +207,20 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-middle__swap:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--color-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 		border-color: var(--color-foreground--50);
 	}
 
 	.compare-enrichment {
 		display: flex;
-		align-items: center;
+		flex: none;
 		flex-wrap: wrap;
 		gap: 0.5rem;
-		padding: 0.4rem 1.2rem 0.4rem 1.2rem;
-		font-size: var(--gl-font-sm);
-		flex: none;
+		align-items: center;
 		min-width: 0;
+		padding: 0.4rem 1.2rem;
+		font-size: var(--gl-font-sm);
 	}
 
 	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
@@ -231,9 +233,9 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip::part(icon) {
-		line-height: 1;
 		display: inline-flex;
 		align-items: center;
+		line-height: 1;
 	}
 
 	/* Inline autolinks loading state — replaces "No autolinks found" while the comparison
@@ -241,8 +243,8 @@ export const multiCommitPanelStyles = css`
 	   the strip doesn't jump between the spinner and the chip-based states. */
 	.compare-enrichment__loading {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
 		min-height: 2rem;
 		color: var(--vscode-descriptionForeground);
 	}
@@ -251,46 +253,46 @@ export const multiCommitPanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		margin: 0.6rem 0.2rem 0.2rem 0.2rem;
 		max-width: 400px;
+		margin: 0.6rem 0.2rem 0.2rem;
 	}
 
 	.pole-popover__header {
 		display: flex;
-		align-items: flex-start;
 		gap: 0.5rem;
+		align-items: flex-start;
 	}
 
 	.pole-popover__info {
 		display: flex;
+		flex: 1;
 		gap: 0.625rem;
 		align-items: center;
-		flex: 1;
 		min-width: 0;
 	}
 
 	.pole-popover__avatar {
+		flex-shrink: 0;
 		width: 3.2rem;
 		height: 3.2rem;
 		border-radius: 0.8rem;
-		flex-shrink: 0;
 	}
 
 	.pole-popover__details {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0;
 		min-width: 0;
-		flex: 1;
 		line-height: normal;
 	}
 
 	.pole-popover__name {
-		font-weight: 500;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+		font-weight: 500;
 		color: var(--vscode-foreground);
+		white-space: nowrap;
 	}
 
 	.pole-popover__email {
@@ -304,12 +306,12 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.pole-popover__message {
-		font-size: var(--gl-font-base);
-		color: var(--color-foreground--85);
-		white-space: pre-wrap;
-		word-break: break-word;
 		max-height: 10rem;
 		overflow: auto;
+		font-size: var(--gl-font-base);
+		color: var(--color-foreground--85);
+		overflow-wrap: anywhere;
+		white-space: pre-wrap;
 	}
 
 	/* Pole popover content is portaled by gl-popover (hoist), so scrollableBase's
@@ -319,36 +321,38 @@ export const multiCommitPanelStyles = css`
 	.pole-popover__message.scrollable {
 		border-color: var(--vscode-scrollbarSlider-background);
 	}
+
 	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:hover {
 		border-color: var(--vscode-scrollbarSlider-hoverBackground);
 	}
+
 	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:active {
 		border-color: var(--vscode-scrollbarSlider-activeBackground);
 	}
 
 	.pole-popover__date {
+		flex-shrink: 0;
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
-		flex-shrink: 0;
 		white-space: nowrap;
 	}
 
 	.compare-section {
 		display: flex;
-		flex-direction: column;
 		flex: none;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		flex-direction: column;
 		padding-bottom: 0.4rem;
+		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compare-files {
 		display: flex;
-		flex-direction: column;
 		flex: 1;
+		flex-direction: column;
 		min-height: 12rem;
-		overflow: hidden;
-		padding-left: 0.6rem;
 		padding-right: 0.6rem;
+		padding-left: 0.6rem;
+		overflow: hidden;
 	}
 
 	.compare-files webview-pane-group {
@@ -361,12 +365,12 @@ export const multiCommitPanelStyles = css`
 	   of the "No Files" empty text while the comparison diff is still being fetched. */
 	.compare-files--loading {
 		display: flex;
+		gap: 0.6rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.6rem;
-		text-align: center;
-		color: var(--vscode-descriptionForeground);
 		padding: 2rem 1.2rem;
+		color: var(--vscode-descriptionForeground);
+		text-align: center;
 	}
 
 	.details-loading {
@@ -374,7 +378,7 @@ export const multiCommitPanelStyles = css`
 		align-items: center;
 		justify-content: center;
 		padding: 2rem;
-		color: var(--color-foreground--50);
 		font-size: var(--gl-font-base);
+		color: var(--color-foreground--50);
 	}
 `;

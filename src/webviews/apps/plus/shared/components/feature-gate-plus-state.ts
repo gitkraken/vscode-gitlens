@@ -58,15 +58,15 @@ export class GlFeatureGatePlusState extends LitElement {
 			@container (max-width: 600px) {
 				:host([appearance='default']) gl-button:not(.inline) {
 					display: block;
-					margin-left: auto;
 					margin-right: auto;
+					margin-left: auto;
 				}
 			}
 
 			:host([appearance='alert']) gl-button:not(.inline) {
 				display: block;
-				margin-left: auto;
 				margin-right: auto;
+				margin-left: auto;
 			}
 
 			:host-context([appearance='alert']) p:first-child {
@@ -106,7 +106,7 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentColor;
+				border-bottom: 1px dashed currentcolor;
 			}
 
 			hr {

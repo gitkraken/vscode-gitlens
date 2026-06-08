@@ -42,6 +42,7 @@ export class GlWipStats extends LitElement {
 			.wip-clean-check {
 				--code-icon-size: 1.1rem;
 				--code-icon-v-align: middle;
+
 				color: var(--gl-stat-added);
 			}
 
@@ -57,8 +58,8 @@ export class GlWipStats extends LitElement {
 
 			.indicator-pill.pill code-icon {
 				font-size: inherit !important;
-				line-height: inherit !important;
 				font-weight: inherit !important;
+				line-height: inherit !important;
 			}
 
 			.wip__tooltip {
@@ -68,21 +69,21 @@ export class GlWipStats extends LitElement {
 
 			.paused-op-badge {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				padding: 0.1rem 0.4rem;
-				border-radius: 0.3rem;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				color: #000;
 				font-size: 1.1rem;
 				font-weight: 600;
 				line-height: 2rem;
+				color: #000;
 				white-space: nowrap;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				border-radius: 0.3rem;
 			}
 
 			.paused-op-badge--conflicts {
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 				color: #fff;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 			}
 		`,
 	];

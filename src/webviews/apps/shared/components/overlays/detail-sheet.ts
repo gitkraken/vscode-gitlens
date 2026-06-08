@@ -47,109 +47,111 @@ export class GlDetailSheet extends LitElement {
 		css`
 			:host {
 				/* Scoped to the parent host (e.g. .details-host) — sheet covers the details-panel
-				   area only, leaving the graph as a sibling beside it. The scrim darkens just the
-				   details panel; clicks on the scrim close the sheet. z-index sits above the
-				   sticky details-header (z-index 10) so the sheet renders OVER the underlying
-				   panel header, not behind it. */
+		   area only, leaving the graph as a sibling beside it. The scrim darkens just the
+		   details panel; clicks on the scrim close the sheet. z-index sits above the
+		   sticky details-header (z-index 10) so the sheet renders OVER the underlying
+		   panel header, not behind it. */
 				position: absolute;
 				inset: 0;
+				z-index: 20;
 				display: flex;
 				flex-direction: column;
 				pointer-events: none;
-				z-index: 20;
 			}
 
 			.scrim {
 				position: absolute;
 				inset: 0;
-				background-color: rgba(0, 0, 0, 0.55);
-				backdrop-filter: blur(0.3rem);
 				pointer-events: auto;
+				background-color: rgb(0 0 0 / 55%);
+				backdrop-filter: blur(0.3rem);
 				animation: gl-sheet-scrim-fade 0.18s ease-out;
 			}
 
 			:host([closing]) .scrim {
 				/* Mirror the entry: fade scrim out alongside the sheet's slide-down. The forwards
-				   fill-mode pins the final opacity so there's no flash back to full opacity between
-				   the animation ending and the host removing the sheet from the DOM. Distinct
-				   animation name (vs. the entry's gl-sheet-scrim-fade) so the browser starts a
-				   fresh run instead of treating it as a continuation of the finished entry. */
+		   fill-mode pins the final opacity so there's no flash back to full opacity between
+		   the animation ending and the host removing the sheet from the DOM. Distinct
+		   animation name (vs. the entry's gl-sheet-scrim-fade) so the browser starts a
+		   fresh run instead of treating it as a continuation of the finished entry. */
 				animation: gl-sheet-scrim-fade-out 0.18s ease-in forwards;
 			}
 
 			.sheet {
 				position: relative;
 				display: flex;
-				flex-direction: column;
 				flex: 1 1 auto;
-				min-height: 0;
+				flex-direction: column;
+
 				/* Fills the host area so the sheet occupies the entire details panel — the
-				   underlying content stays under the scrim, not peeking through above. */
+		   underlying content stays under the scrim, not peeking through above. */
 				width: 100%;
 				height: 100%;
+				min-height: 0;
+				pointer-events: auto;
 				background: var(--vscode-sideBar-background, var(--color-background));
 				border-top: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 				box-shadow: 0 -0.4rem 1.2rem -0.2rem var(--vscode-widget-shadow);
-				pointer-events: auto;
 				animation: gl-sheet-slide-up 0.2s ease-out;
 			}
 
 			:host([closing]) .sheet {
 				/* Slide down off the bottom edge. The forwards fill-mode pins translateY(100%)
-				   so the sheet stays parked off-screen until the host removes it. Distinct
-				   animation name (vs. the entry's gl-sheet-slide-up) so the browser starts a
-				   fresh run instead of treating it as a continuation of the finished entry. */
+		   so the sheet stays parked off-screen until the host removes it. Distinct
+		   animation name (vs. the entry's gl-sheet-slide-up) so the browser starts a
+		   fresh run instead of treating it as a continuation of the finished entry. */
 				animation: gl-sheet-slide-down 0.2s ease-in forwards;
 			}
 
 			.sheet__header {
-				flex: 0 0 auto;
+				box-sizing: border-box;
 				display: flex;
+				flex: 0 0 auto;
+				gap: 0.8rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.8rem;
-				padding: 0.8rem 0.8rem 0.8rem 1.6rem;
-				border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 				min-height: 4.2rem;
-				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
+				padding: 0.8rem 0.8rem 0.8rem 1.6rem;
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
+				border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 				border-top-left-radius: 0.4rem;
 				border-top-right-radius: 0.4rem;
-				box-sizing: border-box;
 			}
 
 			.sheet__title {
 				flex: 1 1 auto;
 				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 1.4rem;
 				font-weight: 600;
 				color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
-				overflow: hidden;
-				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
+
 			.sheet__title:empty {
 				display: none;
 			}
 
 			.sheet__actions {
-				flex: 0 0 auto;
 				display: inline-flex;
-				align-items: center;
+				flex: 0 0 auto;
 				gap: 0.2rem;
+				align-items: center;
 			}
 
 			.sheet__body {
-				flex: 1 1 auto;
-				min-height: 0;
 				display: flex;
+				flex: 1 1 auto;
 				flex-direction: column;
+				min-height: 0;
 				overflow: hidden;
 			}
 
 			.sheet__footer {
-				flex: 0 0 auto;
 				display: flex;
+				flex: 0 0 auto;
 				gap: 0.8rem;
 				padding: 0.6rem 1.2rem;
 				border-top: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
@@ -163,6 +165,7 @@ export class GlDetailSheet extends LitElement {
 				from {
 					transform: translateY(100%);
 				}
+
 				to {
 					transform: translateY(0);
 				}
@@ -172,6 +175,7 @@ export class GlDetailSheet extends LitElement {
 				from {
 					transform: translateY(0);
 				}
+
 				to {
 					transform: translateY(100%);
 				}
@@ -181,6 +185,7 @@ export class GlDetailSheet extends LitElement {
 				from {
 					opacity: 0;
 				}
+
 				to {
 					opacity: 1;
 				}
@@ -190,6 +195,7 @@ export class GlDetailSheet extends LitElement {
 				from {
 					opacity: 1;
 				}
+
 				to {
 					opacity: 0;
 				}

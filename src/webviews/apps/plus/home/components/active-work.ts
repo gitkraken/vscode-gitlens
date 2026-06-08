@@ -80,14 +80,15 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			.section-heading-actions {
-				flex: none;
 				display: flex;
+				flex: none;
 				align-items: center;
 			}
 
 			.section-heading-action {
 				--button-padding: 0.2rem;
 				--button-line-height: 1.2rem;
+
 				/* margin-block: -1rem; */
 			}
 
@@ -108,11 +109,11 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			/* Style hr inside any slotted tooltip — the default browser hr renders too
-			   bright and without proper spacing inside the dark tooltip body. */
+	   bright and without proper spacing inside the dark tooltip body. */
 			[slot='tooltip'] hr {
+				margin: 0.4rem 0;
 				border: none;
 				border-top: 1px solid var(--color-foreground--25);
-				margin: 0.4rem 0;
 			}
 		`,
 	];
@@ -296,8 +297,8 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			}
 
 			span.branch-item__missing {
-				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			gl-work-item {

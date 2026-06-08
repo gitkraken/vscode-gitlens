@@ -26,14 +26,14 @@ html {
 }
 
 body {
-	padding: 0;
-	background-color: var(--color-background);
-	color: var(--color-foreground);
-	font-family: var(--font-family);
 	min-height: 100%;
-	line-height: 1.4;
-	font-size: var(--vscode-font-size);
+	padding: 0;
 	overflow: hidden;
+	font-family: var(--font-family);
+	font-size: var(--vscode-font-size);
+	line-height: 1.4;
+	color: var(--color-foreground);
+	background-color: var(--color-background);
 }
 
 :focus,
@@ -43,8 +43,8 @@ body {
 
 @include meta.load-css('../shared/codicons');
 @include meta.load-css('../shared/utils');
-@include scrollbars.scrollbarFix();
-@include scrollbars.scrollableBase();
+@include scrollbars.scrollbarFix;
+@include scrollbars.scrollableBase;
 
 /* Ensure tooltip variables have fallbacks for hoisted tooltips */
 :root {
@@ -60,5 +60,5 @@ body {
 		--color-hover-border,
 		var(--vscode-editorHoverWidget-border, var(--vscode-widget-border))
 	);
-	--gl-tooltip-shadow: var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+	--gl-tooltip-shadow: var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
 }

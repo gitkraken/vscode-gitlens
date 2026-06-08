@@ -20,9 +20,9 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.section__header {
 		display: flex;
+		gap: 0.6rem;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.6rem;
 	}
 
 	.section__heading {
@@ -42,8 +42,8 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.next-step {
 		display: flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 		padding: 0.4rem 0.6rem;
 		border-radius: var(--gl-action-radius, 0.3rem);
 	}
@@ -85,14 +85,15 @@ export const detailsWipEmptyPaneStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
+		width: 100%;
 		min-width: 20rem;
 		max-width: 28rem;
-		width: 100%;
+		padding-inline-start: 0.6rem;
+
 		/* Match the visual heading-to-content gap of the Next-steps section. Next-step rows have
 		   internal padding that effectively widens the gap from the section heading; bare buttons
 		   don't, so add equivalent top padding here to keep section rhythm consistent. */
 		padding-top: 0.8rem;
-		padding-inline-start: 0.6rem;
 	}
 
 	.start-new gl-button {
@@ -105,17 +106,19 @@ export const detailsWipEmptyPaneStyles = css`
 	}
 
 	.launchpad-items {
-		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+
 		/* Match the left inset of Next-step rows so the launchpad items line up with the
 		   Next-steps content column rather than sitting flush with the section heading. */
 		padding-inline-start: 0.6rem;
+
 		/* Matches the start-new top padding so the Launchpad heading-to-content gap reads the
 		   same as the other sections — first launchpad row sits flush with where the first row
 		   of Next-steps and the first button of Start-new sit. */
 		margin-block: 0.8rem 0.6rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
+		list-style: none;
 	}
 
 	.launchpad-items--loading {
@@ -124,8 +127,8 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.launchpad-item {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 		font-size: 1.2rem;
 		color: inherit;
 		text-decoration: none;
@@ -158,8 +161,8 @@ export const detailsWipEmptyPaneStyles = css`
 	}
 
 	.launchpad-item--muted {
-		color: var(--color-foreground--65);
 		font-style: italic;
+		color: var(--color-foreground--65);
 	}
 
 	.launchpad-item--mergeable {

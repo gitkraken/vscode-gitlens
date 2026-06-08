@@ -42,10 +42,10 @@ export class GlCopyContainer extends LitElement {
 			--copy-border-radius: var(--gl-action-radius, 0.3rem);
 			--copy-padding: 0 0.4rem;
 
+			color: var(--copy-foreground);
+			background: var(--copy-background);
 			border: 1px solid var(--copy-border);
 			border-radius: var(--copy-border-radius);
-			background: var(--copy-background);
-			color: var(--copy-foreground);
 		}
 
 		:host([appearance='toolbar']:hover) {
@@ -58,12 +58,12 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		:host([appearance='toolbar']) gl-tooltip {
-			padding: var(--copy-padding);
+			box-sizing: border-box;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			min-height: 2rem;
-			box-sizing: border-box;
+			padding: var(--copy-padding);
 		}
 
 		:host([disabled]) {

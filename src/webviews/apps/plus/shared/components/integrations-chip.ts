@@ -61,16 +61,16 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.chip {
 				gap: 0.6rem;
-				padding: 0.2rem 0.4rem 0.4rem 0.4rem;
 				align-items: baseline;
+				padding: 0.2rem 0.4rem 0.4rem;
 			}
 
 			.chip__label {
+				margin-right: 0.4rem;
 				font-size: 1.1rem;
 				font-weight: 400;
-				text-transform: uppercase;
 				color: var(--color-foreground--75);
-				margin-right: 0.4rem;
+				text-transform: uppercase;
 			}
 
 			.integration {
@@ -83,12 +83,12 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
-				--status-color--connected: #00dd00;
+				--status-color--connected: #0d0;
 			}
 
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
-				--status-color--connected: #00aa00;
+				--status-color--connected: #0a0;
 			}
 
 			.status--disconnected.integration {
@@ -117,8 +117,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.integration-row--ai {
-				border-top: 1px solid var(--color-foreground--25);
 				padding-top: 0.6rem;
+				border-top: 1px solid var(--color-foreground--25);
 			}
 
 			.integration-row--mcp,
@@ -132,8 +132,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.integration__content {
-				flex: 1 1 auto;
 				display: block;
+				flex: 1 1 auto;
 			}
 
 			.integration__title {
@@ -147,8 +147,8 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.integration__details {
 				display: block;
-				color: var(--color-foreground--75);
 				font-size: 1rem;
+				color: var(--color-foreground--75);
 			}
 
 			.status--disconnected .integration__title,
@@ -157,17 +157,17 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.integration__actions {
-				flex: none;
 				display: flex;
-				gap: 0.2rem;
+				flex: none;
 				flex-direction: row;
+				gap: 0.2rem;
 				align-items: center;
 				justify-content: flex-end;
 			}
 
 			button-container {
-				margin-bottom: 0.4rem;
 				width: 100%;
+				margin-bottom: 0.4rem;
 			}
 
 			p {
@@ -186,17 +186,17 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.chip--skeleton {
 				position: relative;
-				overflow: hidden;
 				width: 9rem;
 				height: 2.2rem;
-				background-color: var(--gl-chip-skeleton-bg);
+				overflow: hidden;
 				cursor: default;
+				background-color: var(--gl-chip-skeleton-bg);
 			}
 
 			.chip--skeleton::before {
-				content: '';
 				position: absolute;
 				inset: 0;
+				content: '';
 				background-image: linear-gradient(
 					to right,
 					transparent 0%,

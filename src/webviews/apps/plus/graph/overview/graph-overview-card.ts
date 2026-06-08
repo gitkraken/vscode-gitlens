@@ -175,8 +175,8 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		/* Lights up when one or more selected/focused graph rows live on this branch.
-		   Overrides the --gl-card-background cascade so the inner-shadow :hover rule
-		   in card.css.ts continues to compose on top via --gl-card-hover-background. */
+	   Overrides the --gl-card-background cascade so the inner-shadow :hover rule
+	   in card.css.ts continues to compose on top via --gl-card-hover-background. */
 		:host([contains-selection]) {
 			--gl-card-background: color-mix(
 				in lab,
@@ -196,10 +196,11 @@ export class GlGraphOverviewCard extends LitElement {
 
 		gl-popover {
 			/* Anchor wrapper inside the popover defaults to fit-content; grow it so the
-			   whole card is the hover-target. */
+		   whole card is the hover-target. */
 			--gl-popover-anchor-width: 100%;
+
 			/* Slightly slower show keeps quick scan-passes from triggering the rich hover;
-			   short hide gives users a beat to move into the popover without it dismissing. */
+		   short hide gives users a beat to move into the popover without it dismissing. */
 			--show-delay: 600ms;
 			--hide-delay: 120ms;
 		}
@@ -209,8 +210,8 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		gl-card {
-			cursor: pointer;
 			display: block;
+			cursor: pointer;
 		}
 
 		gl-card::part(base) {
@@ -227,6 +228,7 @@ export class GlGraphOverviewCard extends LitElement {
 				var(--vscode-sideBar-background)
 			);
 		}
+
 		gl-card.is-scoped::part(base) {
 			box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gl-chip-scoped-color) 35%, transparent);
 		}
@@ -234,9 +236,11 @@ export class GlGraphOverviewCard extends LitElement {
 		gl-card.is-launchpad-mergeable::part(base) {
 			border-inline-end: 0.3rem solid var(--vscode-gitlens-launchpadIndicatorMergeableColor);
 		}
+
 		gl-card.is-launchpad-blocked::part(base) {
 			border-inline-end: 0.3rem solid var(--vscode-gitlens-launchpadIndicatorBlockedColor);
 		}
+
 		gl-card.is-launchpad-attention::part(base) {
 			border-inline-end: 0.3rem solid var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 		}
@@ -250,23 +254,23 @@ export class GlGraphOverviewCard extends LitElement {
 		.branch-item__grouping {
 			position: relative;
 			display: inline-flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 			max-width: 100%;
 			margin-block: 0;
 		}
 
 		.branch-item__icon {
-			color: var(--vscode-descriptionForeground);
 			flex: none;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.branch-item__name {
 			flex-grow: 1;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-weight: bold;
+			white-space: nowrap;
 		}
 
 		.branch-item__name--secondary {
@@ -286,8 +290,8 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__meta {
 			display: flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			margin-block: 0;
 			font-size: 0.9em;
 			color: var(--vscode-descriptionForeground);
@@ -295,35 +299,35 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__meta-left {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			min-width: 0;
 		}
 
 		.branch-item__meta-right {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 			margin-inline-start: auto;
 		}
 
 		/* One-line layout: tracking + wip pill folded into the name row's right edge when there
-		   are no issues / PRs / agents to take the second meta line. flex-none + margin-inline-start
-		   keeps the pills hugging the right edge while the name shrinks first under width pressure. */
+	   are no issues / PRs / agents to take the second meta line. flex-none + margin-inline-start
+	   keeps the pills hugging the right edge while the name shrinks first under width pressure. */
 		.branch-item__meta-inline {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.6rem;
-			margin-inline-start: auto;
 			flex: none;
+			gap: 0.6rem;
+			align-items: center;
+			margin-inline-start: auto;
 			font-size: 0.9em;
 			color: var(--vscode-descriptionForeground);
 		}
 
 		.branch-item__count {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.3rem;
+			align-items: center;
 			color: var(--vscode-descriptionForeground);
 		}
 
@@ -334,11 +338,12 @@ export class GlGraphOverviewCard extends LitElement {
 		.branch-item__active-agents {
 			display: flex;
 			flex-direction: column;
-			/* flex-start so a compact-fallback pill (needs-input + !canResolve) shrinks to its
-			   content instead of inheriting stretch. Full-mode pills still span the row via their
-			   own width: 100%. */
-			align-items: flex-start;
 			gap: 0.4rem;
+
+			/* flex-start so a compact-fallback pill (needs-input + !canResolve) shrinks to its
+		   content instead of inheriting stretch. Full-mode pills still span the row via their
+		   own width: 100%. */
+			align-items: flex-start;
 		}
 
 		.branch-item__date {
@@ -347,22 +352,22 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__inline-actions {
 			/* Anchored to row 1 (grouping is position: relative). Absolute so it floats over the
-			   branch name on hover without pushing layout. Spans grouping height and centers
-			   content via flex — using transform here would create a containing block for the
-			   action-item hoisted (fixed-positioned) tooltip and clip it. */
+		   branch name on hover without pushing layout. Spans grouping height and centers
+		   content via flex — using transform here would create a containing block for the
+		   action-item hoisted (fixed-positioned) tooltip and clip it. */
 			position: absolute;
-			z-index: 2;
 			top: 0;
-			bottom: 0;
 			right: 0;
+			bottom: 0;
+			z-index: 2;
 			display: inline-flex;
 			align-items: center;
 			padding: 0 0.4rem;
-			background-color: var(--gl-card-hover-background);
 			font-size: 0.9em;
+			background-color: var(--gl-card-hover-background);
 		}
 
-		.branch-item:not(:focus-within):not(:hover) .branch-item__inline-actions {
+		.branch-item:not(:focus-within, :hover) .branch-item__inline-actions {
 			${srOnlyStyles}
 		}
 
@@ -394,11 +399,10 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		.hover__section--inline {
-			flex-direction: row;
-			flex-wrap: wrap;
+			flex-flow: row wrap;
+			gap: 0.6rem;
 			align-items: center;
 			justify-content: space-between;
-			gap: 0.6rem;
 		}
 
 		.hover__section + .hover__section {
@@ -408,16 +412,16 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.hover__row {
 			display: flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 			max-width: 100%;
 		}
 
 		.hover__name {
 			flex-grow: 1;
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		.hover__name--bold {
@@ -453,23 +457,25 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		.hover__muted {
-			color: var(--vscode-descriptionForeground);
 			margin-inline-start: 0.4rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.hover__launchpad {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 			font-size: 0.9em;
 		}
 
 		.hover__launchpad--mergeable {
 			color: var(--vscode-gitlens-launchpadIndicatorMergeableColor);
 		}
+
 		.hover__launchpad--blocked {
 			color: var(--vscode-gitlens-launchpadIndicatorBlockedColor);
 		}
+
 		.hover__launchpad--attention {
 			color: var(--vscode-gitlens-launchpadIndicatorAttentionColor);
 		}
@@ -481,9 +487,9 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.hover__status-group {
 			display: flex;
-			align-items: center;
-			gap: 0.6rem;
 			flex-wrap: wrap;
+			gap: 0.6rem;
+			align-items: center;
 		}
 
 		.hover__status-group gl-tracking-status {
@@ -492,10 +498,9 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.hover__agents {
 			display: flex;
-			flex-direction: row;
-			align-items: center;
+			flex-flow: row wrap;
 			gap: 0.4rem;
-			flex-wrap: wrap;
+			align-items: center;
 		}
 
 		.hover__actions {

@@ -15,21 +15,18 @@ export class SkeletonLoader extends LitElement {
 		.skeleton {
 			position: relative;
 			display: block;
-			overflow: hidden;
-			border-radius: 0.25em;
 			width: 100%;
 			height: calc(1em * var(--skeleton-line-height, 1.2) * var(--skeleton-lines, 1));
+			overflow: hidden;
 			background-color: var(--color-background--lighten-15);
+			border-radius: 0.25em;
 		}
 
 		.skeleton::before {
-			content: '';
 			position: absolute;
+			inset: 0;
 			display: block;
-			top: 0;
-			right: 0;
-			bottom: 0;
-			left: 0;
+			content: '';
 			background-image: linear-gradient(
 				to right,
 				transparent 0%,

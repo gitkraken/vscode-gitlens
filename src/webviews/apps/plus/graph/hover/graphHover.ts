@@ -36,10 +36,10 @@ export class GlGraphHover extends GlElement {
 
 		gl-popover::part(body) {
 			--max-width: min(92vw, 45rem);
-			max-height: 50vh;
+
 			width: clamp(min(30rem, 92vw), min-content, max-content);
-			overflow-x: hidden;
-			overflow-y: auto;
+			max-height: 50vh;
+			overflow: hidden auto;
 		}
 	`;
 

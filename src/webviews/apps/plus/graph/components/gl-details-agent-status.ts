@@ -83,14 +83,15 @@ export class GlDetailsAgentStatus extends LitElement {
 		css`
 			:host {
 				display: block;
+
 				/* No local agent-phase color overrides — inherits the unified palette from
-				   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
-				   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
-				   status pill, and the WIP file decoration all share one set of phase colors. */
+		   theme.scss (--gl-agent-working-color / --gl-agent-waiting-color /
+		   --gl-agent-idle-color) so this card, the sidebar leaf, the tooltip, the
+		   status pill, and the WIP file decoration all share one set of phase colors. */
 
 				/* Cap tooltips in the agents pane so long content (Bash command strings, agent
-				   prompts) wraps inside a bounded box instead of escaping the narrow webview
-				   panel's right edge. */
+		   prompts) wraps inside a bounded box instead of escaping the narrow webview
+		   panel's right edge. */
 				--gl-tooltip-max-width: 28rem;
 			}
 
@@ -103,6 +104,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				100% {
 					opacity: 1;
 				}
+
 				50% {
 					opacity: 0.45;
 				}
@@ -125,72 +127,76 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.4rem;
+
 				/* Tight bottom padding (vs. 0.6rem top) avoids a dead gap above the next
-				   section's intrinsic padding. Background inherits from the WIP details panel;
-				   the sticky heading paints its own opaque background to obscure scrolling cards. */
+		   section's intrinsic padding. Background inherits from the WIP details panel;
+		   the sticky heading paints its own opaque background to obscure scrolling cards. */
 				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.3rem var(--gl-panel-padding-left, 1.2rem);
 			}
 
 			/* Divider between this section and the WIP section lives on the split-panel sash
-			   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
+	   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
 			.section[data-expand='expanded'] {
 				padding-bottom: 0.8rem;
 			}
 
 			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
-			   chevron + label on the left, dot cluster + counts on the right. The dots and counts
-			   remain visible in every state so the summary still informs at a glance even when
-			   most cards are filtered out.
+	   chevron + label on the left, dot cluster + counts on the right. The dots and counts
+	   remain visible in every state so the summary still informs at a glance even when
+	   most cards are filtered out.
 
-			   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
-			   visible while the cards list scrolls behind it. Negative horizontal margins +
-			   matching padding extend the heading's background over the section's horizontal
-			   padding so cards don't peek through the sides as they scroll past. Negative top
-			   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
+	   Sticky to the top of the scroll container ('.agent-status-split__top') so it stays
+	   visible while the cards list scrolls behind it. Negative horizontal margins +
+	   matching padding extend the heading's background over the section's horizontal
+	   padding so cards don't peek through the sides as they scroll past. Negative top
+	   margin + matching padding-top similarly covers the section's 'padding-top' zone. */
 			.section__heading {
-				appearance: none;
 				position: sticky;
 				top: 0;
 				z-index: 1;
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
+				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 				margin: -0.6rem calc(-1 * var(--gl-panel-padding-right, 1rem)) 0
 					calc(-1 * var(--gl-panel-padding-left, 1.2rem));
-				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
-				/* Match the WIP details panel background (same token the commit-box uses) so the
-				   sticky heading reads as continuous with the surrounding panel instead of as a
-				   tinted metadata-bar strip. */
-				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
-				border: none;
 				font: inherit;
 				font-size: 0.85em;
 				font-weight: 600;
+				line-height: 1.2;
 				color: var(--vscode-descriptionForeground);
+				text-align: left;
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
+				appearance: none;
 				cursor: pointer;
-				text-align: left;
-				line-height: 1.2;
+
+				/* Match the WIP details panel background (same token the commit-box uses) so the
+		   sticky heading reads as continuous with the surrounding panel instead of as a
+		   tinted metadata-bar strip. */
+				background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				border: none;
 			}
 
 			.section__heading-chevron {
-				flex: none;
 				/* Pin the glyph to a fixed inline-flex square so the codicon's intrinsic em-box
-				   offsets center predictably against the text. */
+		   offsets center predictably against the text. */
 				display: inline-flex;
+				flex: none;
 				align-items: center;
 				justify-content: center;
 				width: 1.6rem;
 				height: 1.6rem;
 				font-size: 1.6rem;
 				line-height: 1;
+
 				/* Inherit so .section__heading:hover brightens chevron + text together. */
 				color: inherit;
+
 				/* Chevron-right for collapsed/partial (rotated via data-expand below); chevron-down
-				   for expanded (no rotation — set in the template). The shared transition animates
-				   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
-				   is briefly missing. */
+		   for expanded (no rotation — set in the template). The shared transition animates
+		   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
+		   is briefly missing. */
 				transform: rotate(0deg);
 				transition: transform 0.2s ease;
 			}
@@ -198,12 +204,14 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section__heading-chevron[data-expand='collapsed'] {
 				transform: rotate(0deg);
 			}
+
 			.section__heading-chevron[data-expand='partial'] {
 				transform: rotate(45deg);
 			}
+
 			/* No [data-expand='expanded'] rule — expanded uses the chevron-down glyph (set in
-			   the template), so the default 0deg from .section__heading-chevron keeps it
-			   upright without an explicit override. */
+	   the template), so the default 0deg from .section__heading-chevron keeps it
+	   upright without an explicit override. */
 
 			@media (prefers-reduced-motion: reduce) {
 				.section__heading-chevron {
@@ -229,13 +237,13 @@ export class GlDetailsAgentStatus extends LitElement {
 			/* Cluster — dots + textual summary inside the heading row. */
 			.section__cluster {
 				display: inline-flex;
-				align-items: center;
-				gap: 0.6rem;
 				flex: none;
+				gap: 0.6rem;
+				align-items: center;
 				font-size: 0.95em;
+				color: var(--vscode-foreground);
 				text-transform: none;
 				letter-spacing: 0;
-				color: var(--vscode-foreground);
 				white-space: nowrap;
 			}
 
@@ -245,16 +253,16 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-dot {
-				width: 1rem;
-				height: 1rem;
-				border-radius: 50%;
-				border: 2px solid var(--gl-metadata-bar-bg, var(--vscode-editor-background));
-				margin-left: -0.4rem;
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
+				width: 1rem;
+				height: 1rem;
+				margin-left: -0.4rem;
 				font-size: 0.7em;
 				color: var(--vscode-foreground);
+				border: 2px solid var(--gl-metadata-bar-bg, var(--vscode-editor-background));
+				border-radius: 50%;
 			}
 
 			.section__cluster-dot:first-child {
@@ -267,6 +275,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.section__cluster-dot--needs-input {
 				background-color: var(--gl-agent-waiting-color);
+
 				/* Subtle attention nudge so a waiting dot reads as the priority signal */
 				box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--gl-agent-waiting-color) 28%, transparent);
 			}
@@ -276,14 +285,14 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__cluster-dot--overflow {
+				color: var(--vscode-descriptionForeground);
 				background-color: var(--vscode-editor-background);
 				border-color: color-mix(in srgb, var(--vscode-descriptionForeground) 40%, transparent);
-				color: var(--vscode-descriptionForeground);
 			}
 
 			.section__cluster-summary strong {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.section__list {
@@ -296,20 +305,21 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.6rem;
-				padding: 0.2rem;
 				min-width: 24rem;
+
 				/* Bound the popover so long detail strings (errors, multi-line prompts) truncate
-				   via ellipsis instead of stretching the popover to the viewport edge. */
+		   via ellipsis instead of stretching the popover to the viewport edge. */
 				max-width: min(44rem, 60vw);
+				padding: 0.2rem;
 			}
 
 			.section__hover-row {
 				display: grid;
+
 				/* minmax(0, 1fr) lets the column shrink below its min-content size, which is
-				   what allows text-overflow: ellipsis on the name/detail spans to engage. */
+		   what allows text-overflow: ellipsis on the name/detail spans to engage. */
 				grid-template-columns: auto minmax(0, 1fr) auto;
-				column-gap: 0.6rem;
-				row-gap: 0.1rem;
+				gap: 0.1rem 0.6rem;
 				align-items: center;
 			}
 
@@ -319,27 +329,30 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__hover-dot {
+				flex: none;
 				width: 0.7rem;
 				height: 0.7rem;
 				border-radius: 50%;
-				flex: none;
 			}
+
 			.section__hover-dot--working {
 				background-color: var(--gl-agent-working-color);
 			}
+
 			.section__hover-dot--needs-input {
 				background-color: var(--gl-agent-waiting-color);
 			}
+
 			.section__hover-dot--idle {
 				background-color: var(--gl-agent-idle-color);
 			}
 
 			.section__hover-name {
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.section__hover-phase {
@@ -351,43 +364,42 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__hover-phase--needs-input {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.section__hover-detail {
 				grid-column: 2 / -1;
 				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 
 			/* Hover-row tool detail places the shared .agent-tool composite into the row's
-			   second grid cell — visual styling lives in the shared agentToolStyles. */
+	   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.section__hover-tool {
 				grid-column: 2 / -1;
 			}
 
 			/* ---------- Card ----------
-			   Two-row grid: rail + body on top, action row spans the full body column on bottom.
-			   The actions always sit at the bottom of the card regardless of panel width.
-			   needs-input and working cards adopt the prior banner treatment (gradient bg +
-			   icon-circle in the rail) so each surfaces as actionable on its own. */
+	   Two-row grid: rail + body on top, action row spans the full body column on bottom.
+	   The actions always sit at the bottom of the card regardless of panel width.
+	   needs-input and working cards adopt the prior banner treatment (gradient bg +
+	   icon-circle in the rail) so each surfaces as actionable on its own. */
 			.card {
 				display: grid;
-				grid-template-columns: auto 1fr;
 				grid-template-rows: auto auto;
-				column-gap: 0.6rem;
-				row-gap: 0.4rem;
+				grid-template-columns: auto 1fr;
+				gap: 0.4rem 0.6rem;
 				align-items: start;
 				padding: 0.6rem 0.8rem;
-				border-radius: 0.4rem;
 				background-color: var(--vscode-editor-background);
 				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
+				border-radius: 0.4rem;
 				transition:
 					background 250ms ease,
 					border-left-color 250ms ease;
@@ -395,32 +407,37 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.card--needs-input {
 				--card-accent: var(--gl-agent-waiting-color);
+
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
 					color-mix(in srgb, var(--card-accent) 4%, var(--vscode-editor-background))
 				);
 			}
+
 			.card--working {
 				--card-accent: var(--gl-agent-working-color);
+
 				background: linear-gradient(
 					to right,
 					color-mix(in srgb, var(--card-accent) 14%, var(--vscode-editor-background)),
 					color-mix(in srgb, var(--card-accent) 4%, var(--vscode-editor-background))
 				);
 			}
+
 			.card--idle {
 				--card-accent: var(--gl-agent-idle-color);
+
 				opacity: 0.85;
 			}
 
 			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
-			   inset outline reads as "you picked this one" without overwhelming the card's
-			   own gradient/accent treatment — the prior halo+border combo was too loud against
-			   needs-input/working cards that already carry a colored gradient. outline-offset
-			   -1px tucks the ring just inside the card border so the card's footprint stays
-			   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
-			   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
+	   inset outline reads as "you picked this one" without overwhelming the card's
+	   own gradient/accent treatment — the prior halo+border combo was too loud against
+	   needs-input/working cards that already carry a colored gradient. outline-offset
+	   -1px tucks the ring just inside the card border so the card's footprint stays
+	   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
+	   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
 			.card--selected {
 				outline: 1px solid var(--vscode-focusBorder);
 				outline-offset: -1px;
@@ -428,67 +445,68 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.card__rail {
+				display: flex;
 				grid-row: 1;
 				grid-column: 1;
-				display: flex;
 				align-items: center;
 				justify-content: center;
+
 				/* Fixed rail width so the body column lines up across cards regardless of which
-				   indicator (icon-circle vs small dot) sits inside. */
+		   indicator (icon-circle vs small dot) sits inside. */
 				width: 2.4rem;
 				min-height: 1.6em;
 			}
 
 			/* Idle cards keep a small dot — the icon-circle treatment is reserved for actionable phases. */
 			.card__dot {
+				flex: none;
 				width: 0.8rem;
 				height: 0.8rem;
-				border-radius: 50%;
-				flex: none;
 				aspect-ratio: 1;
 				background-color: var(--card-accent);
+				border-radius: 50%;
 			}
 
 			/* Icon-circle for needs-input/working cards. Carries the banner's prior visual weight. */
 			.card__icon {
-				flex: none;
-				color: var(--card-accent);
-				font-size: 1.6em;
 				display: inline-flex;
+				flex: none;
 				align-items: center;
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				border-radius: 50%;
+				font-size: 1.6em;
+				color: var(--card-accent);
 				background-color: color-mix(in srgb, var(--card-accent) 18%, transparent);
+				border-radius: 50%;
 				transition:
 					color 250ms ease,
 					background-color 250ms ease;
 			}
 
 			.card__body {
-				grid-row: 1;
-				grid-column: 2;
-				min-width: 0;
 				display: flex;
 				flex-direction: column;
+				grid-row: 1;
+				grid-column: 2;
 				gap: 0.2rem;
+				min-width: 0;
 			}
 
 			.card__title-row {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				min-width: 0;
 			}
 
 			.card__name {
 				flex: 1;
 				min-width: 0;
-				font-weight: 600;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.card__phase {
@@ -500,38 +518,38 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.card__phase--needs-input {
-				color: var(--gl-agent-waiting-color);
 				font-weight: 600;
+				color: var(--gl-agent-waiting-color);
 			}
 
 			.card__detail {
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 
 			.card__prompt {
-				font-size: 0.9em;
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
 				display: -webkit-box;
-				-webkit-line-clamp: 2;
-				-webkit-box-orient: vertical;
-				overflow: hidden;
 				margin-top: 0.2rem;
+				overflow: hidden;
+				-webkit-line-clamp: 2;
+				font-size: 0.9em;
+				font-style: italic;
+				color: var(--vscode-descriptionForeground);
+				-webkit-box-orient: vertical;
 			}
 
 			.card__actions {
+				display: flex;
+				flex: none;
+				flex-direction: row;
 				grid-row: 2;
 				grid-column: 2;
-				display: flex;
-				flex-direction: row;
+				gap: 0.3rem;
 				align-items: center;
 				justify-content: flex-end;
-				gap: 0.3rem;
-				flex: none;
 			}
 		`,
 	];

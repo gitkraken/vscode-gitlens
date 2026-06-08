@@ -3,7 +3,6 @@
 @use '../../shared/styles/utils';
 @use '../../shared/styles/icons/utils' as iconUtils;
 @use '../../shared/base';
-
 @include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
 @mixin focusStyles() {
@@ -13,12 +12,14 @@
 
 @include utils.dark-theme {
 	--popover-bg: var(--color-background--lighten-15);
+
 	// --titlebar-bg: var(--color-background--lighten-075);
 	--titlebar-bg: var(--color-background);
 }
 
 @include utils.light-theme {
 	--popover-bg: var(--color-background--darken-15);
+
 	// --titlebar-bg: var(--color-background--darken-075);
 	--titlebar-bg: var(--color-background);
 }
@@ -112,6 +113,7 @@
 
 	--color-graph-minimap-tip-worktreeBackground: var(--color-graph-minimap-marker-worktree);
 	--color-graph-minimap-tip-worktreeBorder: var(--color-graph-minimap-marker-worktree);
+
 	/* Violet bg is luminance-extreme in opposite directions per theme — using editor-background as
 	   the foreground inverts correctly in both. */
 	--color-graph-minimap-tip-worktreeForeground: var(--vscode-editor-background, var(--vscode-foreground));
@@ -164,8 +166,8 @@ body {
 	&:focus-within {
 		.vertical_scrollbar,
 		.horizontal_scrollbar {
-			transition: border-color 0.1s linear;
 			border-color: var(--vscode-scrollbarSlider-background);
+			transition: border-color 0.1s linear;
 		}
 	}
 }
@@ -208,6 +210,7 @@ body {
 
 a {
 	text-decoration: none;
+
 	&:hover {
 		text-decoration: underline;
 	}
@@ -217,7 +220,7 @@ a,
 button:not([disabled]),
 [tabindex]:not([tabindex='-1']) {
 	&:focus {
-		@include focusStyles();
+		@include focusStyles;
 	}
 }
 
@@ -488,20 +491,20 @@ button:not([disabled]),
 .columns-settings {
 	--column-button-height: 19px;
 
-	appearance: none;
-	font-family: inherit;
-	background-color: transparent;
-	border: none;
-	color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
 	height: var(--column-button-height);
-	cursor: pointer;
-	background-color: var(--color-graph-actionbar-background);
+	font-family: inherit;
+	color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 	text-align: left;
+	appearance: none;
+	cursor: pointer;
+	background-color: transparent;
+	background-color: var(--color-graph-actionbar-background);
+	border: none;
 	border-radius: 3px;
 
 	&:hover {
-		background-color: var(--vscode-toolbar-hoverBackground);
 		color: var(--color-foreground);
+		background-color: var(--vscode-toolbar-hoverBackground);
 	}
 
 	&:focus {
@@ -514,8 +517,8 @@ button:not([disabled]),
 	}
 
 	code-icon {
-		font-size: 1.1rem;
 		position: relative;
+		font-size: 1.1rem;
 	}
 }
 
@@ -668,20 +671,19 @@ button:not([disabled]),
 
 // Light DOM
 .graph-icon {
-	font: normal normal normal 14px/1 codicon;
 	display: inline-block;
-	text-decoration: none;
-	text-rendering: auto;
+	font: normal normal normal 14px/1 codicon;
+	line-height: 2rem;
+	vertical-align: middle;
 	text-align: center;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	user-select: none;
+	letter-spacing: normal;
+	text-decoration: none;
 	-webkit-user-select: none;
 	-ms-user-select: none;
-
-	vertical-align: middle;
-	line-height: 2rem;
-	letter-spacing: normal;
+	user-select: none;
+	text-rendering: auto;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
 
 	&.mini-icon {
 		font-size: 1rem;
@@ -694,136 +696,180 @@ button:not([disabled]),
 	&--head {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('vm');
 		}
 	}
+
 	&--remote {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('cloud');
 		}
 	}
+
 	&--remote-github,
 	&--remote-githubEnterprise {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('github-inverted');
 		}
 	}
+
 	&--remote-gitlab,
 	&--remote-gitlabSelfHosted {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-gitlab');
 		}
 	}
+
 	&--remote-bitbucket,
 	&--remote-bitbucketServer {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-bitbucket');
 		}
 	}
+
 	&--remote-azureDevops {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-azdo');
 		}
 	}
+
 	&--tag {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('tag');
 		}
 	}
+
 	&--stash {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('inbox');
 		}
 	}
+
 	&--check {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('check');
 		}
 	}
+
 	&--warning {
 		color: #de9b43;
-		:before {
+
+		::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('warning');
 		}
 	}
+
 	&--added {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('add');
 		}
 	}
+
 	&--modified {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('edit');
 		}
 	}
+
 	&--deleted {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('dash');
 		}
 	}
+
 	&--renamed {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('file');
 		}
 	}
+
 	&--resolved {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('pass-filled');
 		}
 	}
+
 	&--hide {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('eye-closed');
 		}
 	}
+
 	&--show {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('eye');
 		}
 	}
+
 	&--pull-request {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-pull-request');
 		}
 	}
+
 	&--upstream-ahead {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('arrow-up');
 		}
 	}
+
 	&--upstream-behind {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('arrow-down');
 		}
 	}
+
 	&--settings {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('settings-gear');
 		}
 	}
+
 	&--branch {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-branch');
 		}
 	}
@@ -831,6 +877,7 @@ button:not([disabled]),
 	&--graph {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('graph');
 		}
 	}
@@ -838,6 +885,7 @@ button:not([disabled]),
 	&--commit {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('git-commit');
 		}
 	}
@@ -845,6 +893,7 @@ button:not([disabled]),
 	&--author {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('account');
 		}
 	}
@@ -852,6 +901,7 @@ button:not([disabled]),
 	&--datetime {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('clock');
 		}
 	}
@@ -859,6 +909,7 @@ button:not([disabled]),
 	&--message {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('comment');
 		}
 	}
@@ -866,6 +917,7 @@ button:not([disabled]),
 	&--changes {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('request-changes');
 		}
 	}
@@ -873,6 +925,7 @@ button:not([disabled]),
 	&--files {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('file');
 		}
 	}
@@ -880,6 +933,7 @@ button:not([disabled]),
 	&--worktree {
 		&::before {
 			font-family: glicons;
+
 			@include iconUtils.glicon('worktrees-view');
 		}
 	}
@@ -887,6 +941,7 @@ button:not([disabled]),
 	&--pin {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('pinned');
 		}
 	}
@@ -895,6 +950,7 @@ button:not([disabled]),
 	&--issue-githubEnterprise {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -903,6 +959,7 @@ button:not([disabled]),
 	&--issue-gitlabSelfHosted {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -910,14 +967,16 @@ button:not([disabled]),
 	&--issue-jiraCloud,
 	&--issue-jiraServer {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-jira');
 		}
 	}
 
 	&--issue-linear {
 		&::before {
-			font-family: 'glicons';
+			font-family: glicons;
+
 			@include iconUtils.glicon('provider-linear');
 		}
 	}
@@ -925,6 +984,7 @@ button:not([disabled]),
 	&--issue-azureDevops {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -932,6 +992,7 @@ button:not([disabled]),
 	&--issue-bitbucket {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('issues');
 		}
 	}
@@ -939,6 +1000,7 @@ button:not([disabled]),
 	&--filter {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('filter');
 		}
 	}
@@ -946,6 +1008,7 @@ button:not([disabled]),
 	&--undefined-icon {
 		&::before {
 			font-family: codicon;
+
 			@include iconUtils.codicon('blank');
 		}
 	}
@@ -972,6 +1035,7 @@ button:not([disabled]),
 	align-items: center;
 	height: 100%;
 }
+
 .gk-graph .graph-header .header-columns-icons {
 	top: 0;
 	bottom: 0;
@@ -984,10 +1048,12 @@ button:not([disabled]),
 	.columns-filter {
 		order: 0;
 	}
+
 	.columns-settings {
 		order: 1;
 	}
 }
+
 .gk-graph .graph-header .columns-filter-icon {
 	display: flex;
 	align-items: center;
@@ -995,6 +1061,7 @@ button:not([disabled]),
 	height: auto !important;
 	margin-bottom: 0 !important;
 }
+
 .gk-graph .graph-header .columns-btn {
 	align-items: center;
 	margin-top: 0;
@@ -1013,8 +1080,8 @@ button:not([disabled]),
 // `.columns-btn.columns-filter` matches the library's `.columns-btn.small-btn` specificity
 // so our padding wins on every variant (incl. the ref column's non-small-btn filter).
 .gk-graph .graph-header .columns-btn.columns-filter {
-	margin-right: 0.3rem;
 	padding: 0.2rem;
+	margin-right: 0.3rem;
 	cursor: pointer;
 
 	&:not(.filtering) {
@@ -1039,6 +1106,7 @@ button:not([disabled]),
 		}
 	}
 }
+
 .gk-graph .graph-header:hover .columns-filter:not(.filtering),
 .gk-graph .graph-header .columns-filter:not(.filtering):focus-visible,
 .gk-graph .graph-header .columns-filter:not(.filtering):focus-within {
@@ -1048,9 +1116,9 @@ button:not([disabled]),
 // Frost the graph rows behind the floating HEAD pill — the library paints it with a 10%
 // tinted but otherwise transparent fill, which gets lost over dense lane/SHA content.
 // Skip hover/focus since the library already swaps to an opaque background there.
-.gk-graph .graph-component .graph-head-pill:not(:hover):not(:focus-visible) {
-	backdrop-filter: blur(0.6rem) saturate(1.2);
+.gk-graph .graph-component .graph-head-pill:not(:hover, :focus-visible) {
 	-webkit-backdrop-filter: blur(0.6rem) saturate(1.2);
+	backdrop-filter: blur(0.6rem) saturate(1.2);
 }
 
 // header - move to graph.css.ts
@@ -1203,7 +1271,7 @@ web-graph {
 }
 
 // Light DOM
-.gk-graph:not(.ref-zone):not([role='tooltip']) {
+.gk-graph:not(.ref-zone, [role='tooltip']) {
 	// flex: 1 1 auto;
 	position: relative;
 }
@@ -1219,58 +1287,56 @@ web-graph {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
 
-		border-right: none !important;
+		z-index: 1000;
 		width: var(--sash-size) !important;
 		height: 100vh !important;
-		z-index: 1000;
+		border-right: none !important;
 
-		&:after {
-			content: '';
-			border-left: 1px solid var(--titlebar-fg);
+		&::after {
 			position: absolute;
 			top: 0.3rem;
 			left: 0.1rem;
-			height: 1.6rem;
 			width: var(--sash-size);
+			height: 1.6rem;
+			content: '';
+			border-left: 1px solid var(--titlebar-fg);
 			opacity: 0.3;
-
 			transition: border-color 0.1s ease-out;
 		}
 
-		&:before {
-			content: '';
-			pointer-events: none;
+		&::before {
 			position: absolute;
-			width: 100%;
-			height: 100vh;
-			transition: background-color 0.1s ease-out;
-			background: transparent;
-
-			width: var(--sash-hover-size);
 			left: calc(50% - var(--sash-hover-size) / 2);
+			width: 100%;
+			width: var(--sash-hover-size);
+			height: 100vh;
+			pointer-events: none;
+			content: '';
+			background: transparent;
+			transition: background-color 0.1s ease-out;
 		}
 
 		&:hover,
 		&:active {
-			&:before {
-				transition-delay: 0.2s;
+			&::before {
 				background-color: var(--vscode-sash-hoverBorder);
+				transition-delay: 0.2s;
 			}
 
-			&:after {
-				transition-delay: 0.2s;
+			&::after {
 				border-left-color: var(--vscode-sash-hoverBorder);
+				transition-delay: 0.2s;
 			}
 		}
 
-		&:active:after {
-			content: '';
+		&:active::after {
 			position: absolute;
 			top: 0;
 			left: -100vw;
+			z-index: 1000;
 			width: 200vw;
 			height: 100vh;
-			z-index: 1000;
+			content: '';
 		}
 	}
 
@@ -1288,13 +1354,13 @@ web-graph {
 	}
 
 	.button {
+		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 		background-color: var(--color-graph-actionbar-background);
-		color: var(--color-graph-text-disabled, hsla(0deg, 0%, 100%, 0.4));
 		border-radius: 3px;
 
 		&:hover {
-			background-color: var(--vscode-toolbar-hoverBackground);
 			color: var(--color-foreground);
+			background-color: var(--vscode-toolbar-hoverBackground);
 		}
 
 		&:focus {
@@ -1303,13 +1369,13 @@ web-graph {
 
 		&.active,
 		&.active:hover {
-			background-color: var(--vscode-toolbar-activeBackground);
 			color: var(--color-foreground);
+			background-color: var(--vscode-toolbar-activeBackground);
 		}
 	}
 
 	.graph-icon {
-		color: var(--color-graph-text-disabled, hsla(0, 0%, 100%, 0.4));
+		color: var(--color-graph-text-disabled, hsl(0deg 0% 100% / 40%));
 	}
 }
 
@@ -1323,49 +1389,51 @@ web-graph {
 // overflow:hidden at minimum width.
 .gk-graph .ref-zone > .flex:has(> .merge-target-ref-node),
 .gk-graph .ref-zone > .flex:has(> .merge-base-ref-node) {
-	container-type: inline-size;
 	container-name: refcol;
+	container-type: inline-size;
 }
 
 .gk-graph .ref-zone .merge-base-ref-node,
 .gk-graph .ref-zone .merge-target-ref-node {
 	flex-shrink: 0;
-	white-space: nowrap;
-	font-size: 0;
-	margin-left: 0;
-	padding: 0 4px;
 	align-items: center;
+	padding: 0 4px;
+	margin-left: 0;
+	font-size: 0;
+	white-space: nowrap;
 
 	&::before {
+		display: inline-block;
 		font-size: 13px;
 		line-height: 1;
-		display: inline-block;
 	}
 }
 
 .gk-graph .ref-zone .merge-target-ref-node::before {
-	font-family: 'glicons';
+	font-family: glicons;
+
 	@include iconUtils.glicon('merge-target');
 }
 
 .gk-graph .ref-zone .merge-base-ref-node::before {
 	font-family: codicon;
+
 	@include iconUtils.codicon('git-branch');
 }
 
 @container refcol (min-width: 100px) {
 	.gk-graph .ref-zone .merge-base-ref-node,
 	.gk-graph .ref-zone .merge-target-ref-node {
-		font-size: 11px;
-		padding: 0 6px;
 		gap: 4px;
+		padding: 0 6px;
+		font-size: 11px;
 	}
 }
 
 // Light DOM
 .graph-app:not(:hover) {
 	.gk-graph .graph-header {
-		& .resizable-handle.horizontal:before {
+		& .resizable-handle.horizontal::before {
 			display: none;
 		}
 	}
@@ -1385,9 +1453,9 @@ web-graph {
 
 	& .graph-adjust-commit-count {
 		display: flex;
-		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
 		align-items: center;
 		justify-content: center;
+		width: calc(100cqw - var(--graph-column-scrollbar-thickness));
 	}
 
 	& .changes-zone.changes-bar .changes-sub-bar.deleted {
@@ -1395,6 +1463,7 @@ web-graph {
 	}
 
 	& .wip-stats-pill {
+		font-weight: 600;
 		background-color: color-mix(
 			in srgb,
 			var(--vscode-sideBarSectionHeader-background) 90%,
@@ -1403,7 +1472,6 @@ web-graph {
 		border: 1px solid
 			color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%) !important;
 		border-radius: 0.4rem;
-		font-weight: 600;
 
 		& .graph-icon {
 			font-weight: 600;
@@ -1414,21 +1482,24 @@ web-graph {
 	& .wip-stats-pill__item--added {
 		color: var(--gl-stat-added) !important;
 	}
+
 	& .wip-stats-pill__item--modified {
 		color: var(--gl-stat-modified) !important;
 	}
+
 	& .wip-stats-pill__item--deleted {
 		color: var(--gl-stat-removed) !important;
 	}
+
 	& .wip-stats-pill__check {
 		color: var(--gl-stat-added) !important;
 	}
 
 	// Graph footer styles
 	& .graph-footer__message {
-		color: var(--vscode-descriptionForeground);
 		font-size: 1.2rem;
 		font-style: italic;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	& .graph-footer__message + .graph-footer__link {
@@ -1436,14 +1507,14 @@ web-graph {
 	}
 
 	& .graph-footer__link {
-		color: var(--vscode-textLink-foreground);
-		cursor: pointer;
-		font-size: 1.2rem;
-		text-decoration: none;
-		transition: color 0.2s ease;
 		padding: 0.2rem 0.5rem;
+		font-size: 1.2rem;
+		color: var(--vscode-textLink-foreground);
+		text-decoration: none;
+		cursor: pointer;
 		border: 1px solid transparent;
 		border-radius: 0.4rem;
+		transition: color 0.2s ease;
 
 		&:hover {
 			color: var(--vscode-textLink-activeForeground);
@@ -1451,9 +1522,9 @@ web-graph {
 		}
 
 		&:focus-visible {
-			border-color: var(--vscode-focusBorder) !important;
 			outline: 1px solid var(--vscode-focusBorder);
 			outline-offset: 0;
+			border-color: var(--vscode-focusBorder) !important;
 		}
 	}
 }
@@ -1466,8 +1537,8 @@ web-graph {
 // Light DOM
 .gk-graph .tooltip,
 .gk-graph.tooltip {
-	font-size: var(--vscode-font-size) !important;
 	font-family: var(--vscode-font-family) !important;
+	font-size: var(--vscode-font-size) !important;
 	font-weight: normal !important;
 	line-height: 19px !important;
 
@@ -1475,22 +1546,22 @@ web-graph {
 		opacity: 1;
 	}
 
-	&.tooltip-arrow:after {
+	&.tooltip-arrow::after {
 		background-color: var(--color-hover-background) !important;
 		border-right-color: var(--color-hover-border) !important;
 		border-bottom-color: var(--color-hover-border) !important;
 	}
 
 	&-inner {
+		padding: 4px 10px 5px !important;
 		font-size: var(--vscode-font-size) !important;
-		padding: 4px 10px 5px 10px !important;
 		color: var(--color-hover-foreground) !important;
+		text-align: start !important;
+		white-space: break-spaces !important;
 		background-color: var(--color-hover-background) !important;
 		border: 1px solid var(--color-hover-border) !important;
 		border-radius: 0 !important;
 		box-shadow: 0 2px 8px var(--vscode-widget-shadow) !important;
-		text-align: start !important;
-		white-space: break-spaces !important;
 	}
 }
 
@@ -1500,20 +1571,20 @@ web-graph {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
-	overflow: hidden;
 	padding: 0.1rem;
+	overflow: hidden;
 
 	&__header {
-		flex: none;
-		z-index: 101;
 		position: relative;
+		z-index: 101;
+		flex: none;
 	}
 
 	&__workspace {
 		position: relative;
+		z-index: 0;
 		flex: 1;
 		overflow: hidden;
-		z-index: 0;
 		border: 1px solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 	}
@@ -1554,13 +1625,13 @@ web-graph {
 	}
 
 	&__graph-content {
+		position: relative;
+		z-index: 0;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
-		position: relative;
-		z-index: 0;
 
 		// display: flex overrides the UA [hidden] rule; re-assert it.
 		&[hidden] {
@@ -1569,6 +1640,7 @@ web-graph {
 
 		gl-graph-minimap-container {
 			position: relative;
+
 			// Above the gitkraken-components graph internals, which use z-indexes up to 16 —
 			// ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
 			z-index: 100;
@@ -1581,10 +1653,10 @@ web-graph {
 
 		.graph__graph-column {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
-			min-height: 0;
+			flex-direction: column;
 			height: 100%;
+			min-height: 0;
 			overflow: hidden;
 		}
 
@@ -1601,6 +1673,7 @@ web-graph {
 			overflow: hidden;
 		}
 	}
+
 	&__graph-root {
 		width: 100%;
 		height: 100%;
@@ -1611,13 +1684,13 @@ web-graph {
 		--gitlens-scrollbar-gutter-width: 10px;
 		--gitlens-tree-foreground: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 
-		height: 100%;
-		overflow: hidden;
-		background-color: var(--vscode-sideBar-background, var(--color-background));
-		color: var(--vscode-sideBar-foreground, var(--color-foreground));
 		display: flex;
 		flex-direction: column;
+		height: 100%;
+		overflow: hidden;
 		font-size: var(--font-size);
+		color: var(--vscode-sideBar-foreground, var(--color-foreground));
+		background-color: var(--vscode-sideBar-background, var(--color-background));
 
 		.graph__details-split[orientation='horizontal'] & {
 			border-left: 1px solid var(--vscode-sideBar-border);
@@ -1628,12 +1701,12 @@ web-graph {
 		}
 
 		gl-graph-details-panel {
+			position: relative;
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow: hidden;
-			position: relative;
 		}
 
 		// Single accent for both modes — the title verb ("Composing Changes" / "Reviewing
@@ -1654,22 +1727,22 @@ web-graph {
 		// it would scroll along with the content. Hosting the sheet as a sibling of
 		// `.details-content` keeps the sheet header pinned to the top of the panel.
 		.details-host {
-			display: flex;
-			flex-direction: column;
-			flex: 1;
-			min-height: 0;
 			position: relative;
+			display: flex;
+			flex: 1;
+			flex-direction: column;
+			min-height: 0;
 			overflow: hidden;
 		}
 
 		.details-content {
+			position: relative;
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow-y: auto;
 			scrollbar-gutter: auto;
-			position: relative;
 			border-color: transparent;
 			transition: border-color 1s linear;
 		}
@@ -1698,8 +1771,8 @@ web-graph {
 		gl-details-review-mode-panel,
 		gl-details-compose-mode-panel {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			overflow: visible;
 		}
@@ -1718,66 +1791,66 @@ web-graph {
 		.compare-pinned-split__start,
 		.compare-pinned-split__end {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
-			min-height: 0;
+			flex-direction: column;
 			min-width: 0;
+			min-height: 0;
 			overflow: hidden;
 		}
 
 		.compare-pinned-host {
 			display: flex;
-			flex-direction: column;
 			flex: 1;
+			flex-direction: column;
 			min-height: 0;
 			background: var(--vscode-sideBar-background, var(--color-background));
 			border-left: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__header {
-			flex: 0 0 auto;
+			box-sizing: border-box;
 			display: flex;
+			flex: 0 0 auto;
+			gap: 0.8rem;
 			align-items: center;
 			justify-content: space-between;
-			gap: 0.8rem;
-			padding: 0.8rem 0.8rem 0.8rem 1.6rem;
-			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 			min-height: 4.2rem;
+			padding: 0.8rem 0.8rem 0.8rem 1.6rem;
 			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-			box-sizing: border-box;
+			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__title {
 			flex: 1 1 auto;
 			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
 			font-size: 1.4rem;
 			font-weight: 600;
 			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
-			overflow: hidden;
-			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 
 		.compare-pinned-host__actions {
-			flex: 0 0 auto;
 			display: inline-flex;
-			align-items: center;
+			flex: 0 0 auto;
 			gap: 0.2rem;
+			align-items: center;
 		}
 
 		.compare-pinned-host__body {
-			flex: 1 1 auto;
-			min-height: 0;
 			display: flex;
+			flex: 1 1 auto;
 			flex-direction: column;
+			min-height: 0;
 			overflow: hidden;
 		}
 
 		.commit-panel {
 			&__files {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
+				flex-direction: column;
 				min-height: 100px;
 				overflow: visible;
 			}
@@ -1828,9 +1901,9 @@ web-graph {
 					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border)),
 					var(--vscode-sideBarSectionHeader-border, var(--vscode-widget-border))
 				);
-				background-size: 100% 1px;
-				background-position: center;
 				background-repeat: no-repeat;
+				background-position: center;
+				background-size: 100% 1px;
 				transition: background-color 0.1s ease-out;
 			}
 
@@ -1864,8 +1937,8 @@ web-graph {
 
 			&__bottom .commit-panel__files {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
+				flex-direction: column;
 				min-height: 0;
 				overflow: hidden;
 			}
@@ -1891,6 +1964,7 @@ web-graph {
 		opacity: 0;
 		transform: translateX(8px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateX(0);
@@ -1902,6 +1976,7 @@ web-graph {
 		opacity: 0;
 		transform: translateY(8px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -1909,8 +1984,8 @@ web-graph {
 }
 
 .details-opening {
-	animation: details-fade-in 0.2s ease-out;
 	overflow: hidden;
+	animation: details-fade-in 0.2s ease-out;
 
 	&.-vertical {
 		animation-name: details-fade-in-vertical;
@@ -1922,6 +1997,7 @@ web-graph {
 	100% {
 		opacity: 0.15;
 	}
+
 	50% {
 		opacity: 0.25;
 	}
@@ -1935,29 +2011,29 @@ web-graph {
 
 	&__header {
 		display: flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 	}
 
 	&__avatar {
 		width: 32px;
 		height: 32px;
-		border-radius: 50%;
 		background: var(--color-foreground);
+		border-radius: 50%;
 		animation: skeleton-pulse 1.5s ease-in-out infinite;
 	}
 
 	&__lines {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.5rem;
-		flex: 1;
 	}
 
 	&__line {
 		height: 10px;
-		border-radius: 3px;
 		background: var(--color-foreground);
+		border-radius: 3px;
 		animation: skeleton-pulse 1.5s ease-in-out infinite;
 	}
 
@@ -1968,6 +2044,7 @@ web-graph {
 	&__lines > &__line:nth-child(1) {
 		width: 60%;
 	}
+
 	&__lines > &__line:nth-child(2) {
 		width: 40%;
 	}
@@ -1975,17 +2052,19 @@ web-graph {
 	&__body > &__line:nth-child(1) {
 		width: 90%;
 	}
+
 	&__body > &__line:nth-child(2) {
 		width: 70%;
 	}
+
 	&__body > &__line:nth-child(3) {
 		width: 50%;
 	}
 
 	&__bar {
 		height: 28px;
-		border-radius: 4px;
 		background: var(--color-foreground);
+		border-radius: 4px;
 		animation: skeleton-pulse 1.5s ease-in-out infinite;
 	}
 
@@ -2001,21 +2080,21 @@ web-graph {
 	align-items: center;
 	justify-content: center;
 	padding: 2rem 1.2rem;
-	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 	font-size: 1.2rem;
+	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 }
 
 .details-stale {
-	opacity: 0.85;
 	pointer-events: none;
+	opacity: 0.85;
 	transition: opacity 0.5s ease-out 0.5s;
 }
 
 .graph-row-actions {
 	display: flex;
+	gap: 0.3rem;
 	height: 100%;
 	font-size: 1.3rem;
-	gap: 0.3rem;
 
 	gl-button {
 		height: 100%;
@@ -2039,6 +2118,7 @@ web-graph {
 	.agent-indicator {
 		--agent-indicator-color: inherit;
 		--button-gap: 0;
+
 		color: var(--agent-indicator-color);
 
 		&--needs-input {
@@ -2059,9 +2139,9 @@ web-graph {
 	*,
 	*::before,
 	*::after {
+		transition-duration: 0.01ms !important;
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
 	}
 }
 

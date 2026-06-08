@@ -25,9 +25,9 @@ export class GlHomeHeader extends LitElement {
 
 			.container {
 				display: flex;
+				gap: 0.6rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.6rem;
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 			}
 
@@ -37,13 +37,13 @@ export class GlHomeHeader extends LitElement {
 			}
 
 			/* .actions {
-				flex: none;
-				display: flex;
-				gap: 0.2rem;
-				flex-direction: row;
-				align-items: center;
-				justify-content: center;
-			} */
+		flex: none;
+		display: flex;
+		gap: 0.2rem;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+	} */
 
 			gl-promo-banner {
 				margin: 0 0.2rem 0.6rem;
@@ -55,8 +55,8 @@ export class GlHomeHeader extends LitElement {
 
 			.group {
 				display: flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 			}
 		`,
 	];

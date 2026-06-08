@@ -21,10 +21,10 @@ export class CommitMessage extends LitElement {
 		focusableBaseStyles,
 		css`
 			:host {
-				display: block;
 				position: sticky;
 				top: var(--sticky-top, 0);
 				z-index: 2;
+				display: block;
 				background: var(--vscode-editor-background);
 			}
 
@@ -34,29 +34,29 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__text,
 			.commit-message__input {
-				border-radius: var(--gl-input-border-radius);
 				font-family: inherit;
 				font-size: 1.3rem;
 				line-height: 2rem;
 				color: var(--vscode-input-foreground);
+				border-radius: var(--gl-input-border-radius);
 				-webkit-font-smoothing: auto;
 			}
 
 			.commit-message__text {
-				border: 1px solid var(--vscode-panel-border);
-				background: var(--color-background);
 				margin-block: 0;
+				background: var(--color-background);
+				border: 1px solid var(--vscode-panel-border);
 			}
 
 			.commit-message__text[tabindex='0']:hover {
-				border-color: color-mix(in srgb, transparent 50%, var(--vscode-input-border, #858585));
-				background: color-mix(in srgb, transparent 50%, var(--vscode-input-background, #3c3c3c));
 				cursor: text;
+				background: color-mix(in srgb, transparent 50%, var(--vscode-input-background, #3c3c3c));
+				border-color: color-mix(in srgb, transparent 50%, var(--vscode-input-border, #858585));
 			}
 
 			.commit-message__text.placeholder {
-				color: var(--vscode-input-placeholderForeground);
 				font-style: italic;
+				color: var(--vscode-input-placeholderForeground);
 			}
 
 			.commit-message__text .scrollable {
@@ -66,9 +66,9 @@ export class CommitMessage extends LitElement {
 
 			.commit-message__text .scrollable,
 			.commit-message__input {
-				padding: 0.8rem 1rem;
 				min-height: 1lh;
 				max-height: 10lh;
+				padding: 0.8rem 1rem;
 			}
 
 			.commit-message__summary {
@@ -90,11 +90,11 @@ export class CommitMessage extends LitElement {
 			.commit-message__input {
 				box-sizing: content-box;
 				width: calc(100% - 2.2rem);
-				border: 1px solid var(--vscode-input-border, #858585);
-				background: var(--vscode-input-background, #3c3c3c);
 				vertical-align: middle;
-				field-sizing: content;
 				resize: none;
+				background: var(--vscode-input-background, #3c3c3c);
+				border: 1px solid var(--vscode-input-border, #858585);
+				field-sizing: content;
 			}
 
 			.commit-message__input::-webkit-scrollbar {
@@ -127,13 +127,13 @@ export class CommitMessage extends LitElement {
 			}
 
 			.commit-message__input:has(~ .commit-message__ai-button) {
-				padding-right: 3rem;
 				width: calc(100% - 4.2rem);
+				padding-right: 3rem;
 			}
 
 			.commit-message__input.has-explanation {
-				border-bottom-left-radius: 0;
 				border-bottom-right-radius: 0;
+				border-bottom-left-radius: 0;
 			}
 
 			.commit-message__input::placeholder {
@@ -151,35 +151,35 @@ export class CommitMessage extends LitElement {
 			}
 
 			.commit-message__input:disabled {
-				opacity: 0.4;
-				cursor: not-allowed;
 				pointer-events: none;
+				cursor: not-allowed;
+				opacity: 0.4;
 			}
 
 			.commit-message__explanation {
 				padding: 0.8rem 1.6rem;
+				margin-block: 0;
 				font-size: 1.2rem;
 				line-height: 1.4;
+				color: var(--vscode-input-foreground);
+				background: var(--vscode-multiDiffEditor-headerBackground);
 				border: 1px solid var(--vscode-panel-border);
 				border-top: none;
 				border-radius: 0 0 var(--gl-input-border-radius) var(--gl-input-border-radius);
-				background: var(--vscode-multiDiffEditor-headerBackground);
-				color: var(--vscode-input-foreground);
-				margin-block: 0;
 			}
 
 			.commit-message__explanation-block {
 				margin-block: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			.commit-message__explanation:focus-visible,
 			.commit-message__explanation:hover {
 				.commit-message__explanation-block {
-					text-overflow: unset;
 					overflow: visible;
+					text-overflow: unset;
 					white-space: normal;
 				}
 			}
@@ -189,18 +189,19 @@ export class CommitMessage extends LitElement {
 			}
 
 			.message {
-				/* position: absolute;
-				top: 100%;
-				left: 0;
-				width: 100%; */
-				padding: 0.4rem;
-				transform: translateY(-0.1rem);
 				z-index: 1000;
-				background-color: var(--vscode-inputValidation-infoBackground);
-				border: 1px solid var(--vscode-inputValidation-infoBorder);
-				color: var(--gl-search-input-foreground);
+
+				/* position: absolute;
+		top: 100%;
+		left: 0;
+		width: 100%; */
+				padding: 0.4rem;
 				font-size: 1.2rem;
 				line-height: 1.4;
+				color: var(--gl-search-input-foreground);
+				background-color: var(--vscode-inputValidation-infoBackground);
+				border: 1px solid var(--vscode-inputValidation-infoBorder);
+				transform: translateY(-0.1rem);
 			}
 
 			.message:empty {

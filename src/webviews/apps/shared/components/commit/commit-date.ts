@@ -10,10 +10,10 @@ export class GlCommitDate extends LitElement {
 	static override styles = css`
 		:host {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.2rem;
-			vertical-align: middle;
+			align-items: center;
 			font-size: inherit;
+			vertical-align: middle;
 		}
 
 		formatted-date::part(base) {

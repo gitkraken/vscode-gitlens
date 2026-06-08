@@ -19,18 +19,17 @@ export class GlInspectNav extends LitElement {
 
 			:host {
 				display: flex;
-				flex-direction: row;
-				flex-wrap: wrap;
+				flex-flow: row wrap;
+				gap: 0.2rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 0.2rem;
 			}
 
 			:host([pinned]) {
-				background-color: var(--color-alert-warningBackground);
-				box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
 				color: var(--color-alert-warningForeground);
+				background-color: var(--color-alert-warningBackground);
 				border-radius: 0.3rem;
+				box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
 			}
 
 			:host([pinned]) .commit-action:hover,

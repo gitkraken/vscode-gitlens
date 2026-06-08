@@ -32,9 +32,10 @@ export class GlRepoAlerts extends SignalWatcher(LitElement) {
 			}
 
 			gl-button.is-basic {
-				max-width: 300px;
 				width: 100%;
+				max-width: 300px;
 			}
+
 			gl-button.is-basic + gl-button.is-basic {
 				margin-top: 1rem;
 			}

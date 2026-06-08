@@ -9,15 +9,15 @@ export class MenuLabel extends LitElement {
 		css`
 			:host {
 				display: block;
-				text-transform: uppercase;
+				padding-right: 0.6rem;
+				padding-left: 0.6rem;
+				margin: 0;
 				font-size: 0.84em;
 				line-height: 2.2rem;
-				padding-left: 0.6rem;
-				padding-right: 0.6rem;
-				margin: 0px;
 				color: var(--vscode-menu-foreground);
-				opacity: 0.6;
+				text-transform: uppercase;
 				user-select: none;
+				opacity: 0.6;
 				-webkit-font-smoothing: auto;
 			}
 		`,

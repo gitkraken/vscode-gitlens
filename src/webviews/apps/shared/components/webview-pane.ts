@@ -16,6 +16,7 @@ export class WebviewPane extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: column;
+
 				/* background-color: var(--vscode-sideBar-background); */
 				min-height: 23px;
 			}
@@ -25,12 +26,12 @@ export class WebviewPane extends LitElement {
 			}
 
 			.header {
-				flex: none;
-				display: flex;
-				background-color: var(--vscode-sideBarSectionHeader-background);
-				color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 				position: relative;
+				display: flex;
+				flex: none;
+				color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground));
+				background-color: var(--vscode-sideBarSectionHeader-background);
+				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 			}
 
 			:host([collapsable]) .header:focus-within {
@@ -39,23 +40,23 @@ export class WebviewPane extends LitElement {
 			}
 
 			.label {
-				appearance: none;
 				display: flex;
 				flex-direction: row;
 				align-items: center;
 				width: 100%;
+				height: 2.2rem;
 				padding: 0;
-				border: none;
-				text-align: left;
+				text-overflow: ellipsis;
 				font-family: var(--font-family);
 				font-size: 1.1rem;
 				line-height: 2.2rem;
-				height: 2.2rem;
-				background: transparent;
 				color: inherit;
-				outline: none;
-				text-overflow: ellipsis;
+				text-align: left;
+				appearance: none;
 				user-select: none;
+				outline: none;
+				background: transparent;
+				border: none;
 			}
 
 			:host([collapsable]) .label {
@@ -63,13 +64,13 @@ export class WebviewPane extends LitElement {
 			}
 
 			.title {
-				font-weight: bold;
-				text-transform: uppercase;
 				flex: 1;
-				min-width: 0;
 				width: 0;
+				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-weight: bold;
+				text-transform: uppercase;
 				white-space: nowrap;
 			}
 
@@ -86,21 +87,22 @@ export class WebviewPane extends LitElement {
 			}
 
 			.icon {
-				font-weight: normal;
 				margin: 0 0.2rem;
+				font-weight: normal;
 			}
 
 			.content {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
-				overflow: auto;
+				flex-direction: column;
 				min-height: 0;
+
 				/*
-			scrollbar-gutter: stable;
-			box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
-			*/
+	scrollbar-gutter: stable;
+	box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
+	*/
 				padding-top: 0.6rem;
+				overflow: auto;
 			}
 
 			:host([collapsable]:not([expanded])) .content,

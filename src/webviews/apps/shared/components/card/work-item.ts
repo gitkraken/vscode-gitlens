@@ -21,9 +21,9 @@ export class GlWorkUnit extends LitElement {
 			.work-item__header {
 				display: flex;
 				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
+				justify-content: space-between;
 			}
 
 			.work-item__main {
@@ -42,22 +42,21 @@ export class GlWorkUnit extends LitElement {
 				flex-direction: column;
 				gap: 0.8rem;
 				max-height: 100px;
-
-				transition-property: opacity, max-height, display;
 				transition-duration: 0.2s;
+				transition-property: opacity, max-height, display;
 				transition-behavior: allow-discrete;
 			}
 
 			:host(:not([expanded])) .work-item__content {
 				display: none;
-				opacity: 0;
 				max-height: 0;
+				opacity: 0;
 			}
 
 			gl-card::part(base) {
-				margin-block-end: 0;
 				padding-top: var(--gl-card-vertical-padding, 0.8rem);
 				padding-bottom: var(--gl-card-vertical-padding, 0.8rem);
+				margin-block-end: 0;
 			}
 		`,
 	];

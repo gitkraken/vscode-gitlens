@@ -31,9 +31,9 @@ export class GlSignatureDetails extends LitElement {
 
 		.signature-status-text {
 			display: flex;
+			flex: 1;
 			flex-direction: column;
 			gap: 0.25rem;
-			flex: 1;
 			font-weight: 400;
 		}
 
@@ -42,10 +42,10 @@ export class GlSignatureDetails extends LitElement {
 		}
 
 		.signature-status-description {
-			color: var(--vscode-descriptionForeground);
 			margin-left: 0.8rem;
-			text-transform: lowercase;
 			font-variant: small-caps;
+			color: var(--vscode-descriptionForeground);
+			text-transform: lowercase;
 		}
 
 		.signature-status-detail {
@@ -54,10 +54,10 @@ export class GlSignatureDetails extends LitElement {
 
 		.signature-key {
 			display: flex;
-			align-items: center;
 			gap: 0.5rem;
-			color: var(--vscode-descriptionForeground);
+			align-items: center;
 			font-size: 0.9em;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.signature-key-label {
@@ -70,8 +70,8 @@ export class GlSignatureDetails extends LitElement {
 		}
 
 		gl-copy-container {
-			margin-left: auto;
 			flex-shrink: 0;
+			margin-left: auto;
 		}
 
 		gl-copy-container code-icon {

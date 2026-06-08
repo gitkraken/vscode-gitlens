@@ -167,17 +167,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar {
 			display: flex;
-			align-items: center;
-			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
-			 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
-			padding: 0.4rem 0.6rem;
 			gap: 0.8rem;
+			align-items: center;
 			min-height: 3.2rem;
-			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+
+			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
+		 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
+			padding: 0.4rem 0.6rem;
+
 			/* Clip rather than overflow when content exceeds the toolbar width — at very narrow
-			 * widths even the shrunken description + pill may overflow the right edge. Clipping
-			 * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
+		 * widths even the shrunken description + pill may overflow the right edge. Clipping
+		 * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
 			overflow: hidden;
+			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
 		}
 
 		.toolbar gl-graph-visualizations-switcher {
@@ -185,14 +187,14 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Shrink priority when the toolbar is too narrow to fit everything: counts collapse first
-		 * (description + agent-status, flex-shrink: 1000), then breadcrumbs (100), then the title
-		 * (10). The switcher, EXP badge, and .toolbar__right never shrink, so the close button
-		 * stays pinned to the right edge regardless of width. min-width: 0 lets each shrinkable
-		 * item collapse below its intrinsic width; text-overflow / overflow:hidden ellipsizes
-		 * gracefully on the way down. */
+	 * (description + agent-status, flex-shrink: 1000), then breadcrumbs (100), then the title
+	 * (10). The switcher, EXP badge, and .toolbar__right never shrink, so the close button
+	 * stays pinned to the right edge regardless of width. min-width: 0 lets each shrinkable
+	 * item collapse below its intrinsic width; text-overflow / overflow:hidden ellipsizes
+	 * gracefully on the way down. */
 		.toolbar__title {
 			/* Always rendered (FILES / COMMITS / AGENT ACTIVITY) so the user keeps the view label
-			 * even after zooming into the tree. Shrinks last via the priority chain above. */
+		 * even after zooming into the tree. Shrinks last via the priority chain above. */
 			flex: 0 10 auto;
 			min-width: 0;
 			overflow: hidden;
@@ -204,9 +206,9 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Breadcrumbs flex-grow to fill leftover toolbar space so the component's own ResizeObserver
-		 * sees width changes when the toolbar widens/narrows — that's what drives its outer-in
-		 * collapse algorithm to run and re-run. Shrinks faster than the title but slower than the
-		 * counts so the path stays readable as the toolbar tightens. */
+	 * sees width changes when the toolbar widens/narrows — that's what drives its outer-in
+	 * collapse algorithm to run and re-run. Shrinks faster than the title but slower than the
+	 * counts so the path stays readable as the toolbar tightens. */
 		.toolbar__crumbs {
 			flex: 1 100 0;
 			min-width: 0;
@@ -215,7 +217,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar__description {
 			/* Counts (e.g. "2,173 files" / "N commits · M files") sit after the breadcrumbs when
-			 * present, else right after the EXP badge. Shrinks fastest in the priority chain. */
+		 * present, else right after the EXP badge. Shrinks fastest in the priority chain. */
 			flex: 0 1000 auto;
 			min-width: 0;
 			overflow: hidden;
@@ -226,7 +228,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Activity-mode counts (status pills + "N working · M idle"). Shares the shrink-first
-		 * priority with .toolbar__description so both collapse together as the toolbar narrows. */
+	 * priority with .toolbar__description so both collapse together as the toolbar narrows. */
 		.toolbar > gl-details-agent-status {
 			flex: 0 1000 auto;
 			min-width: 0;
@@ -234,22 +236,22 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Matches the Visual History header's period pill — transparent background, tight padding —
-		 * so the same control reads consistently across both surfaces. Full-strength foreground (no
-		 * dimming) to match the rest of the toolbar text. */
+	 * so the same control reads consistently across both surfaces. Full-strength foreground (no
+	 * dimming) to match the rest of the toolbar text. */
 		.period-button {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.2rem;
-			appearance: none;
-			background: transparent;
-			border: 1px solid transparent;
-			border-radius: 0.3rem;
+			align-items: center;
 			padding: 0.1rem 0.4rem;
 			font: inherit;
 			font-size: 1.2rem;
 			color: var(--vscode-foreground);
-			cursor: pointer;
 			white-space: nowrap;
+			appearance: none;
+			cursor: pointer;
+			background: transparent;
+			border: 1px solid transparent;
+			border-radius: 0.3rem;
 			transition:
 				background 120ms ease,
 				border-color 120ms ease;
@@ -257,8 +259,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.period-button:hover,
 		.period-button:focus-visible {
-			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 			outline: none;
+			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 		}
 
 		.period-button:focus-visible {
@@ -272,15 +274,16 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar__right {
 			display: flex;
-			align-items: center;
-			gap: 0.8rem;
 			flex: none;
+			gap: 0.8rem;
+			align-items: center;
 			min-width: 0;
+
 			/* Always pin to the toolbar's right edge regardless of what sits to our left.
-			 * Files / Commits mode rely on the breadcrumbs (flex 1) to push us right; Activity
-			 * mode renders no breadcrumbs AND no description, so without an explicit auto-margin
-			 * the right group would sit flush against the title. Auto-margin collapses to zero
-			 * when another flex-grow element is already absorbing the slack. */
+		 * Files / Commits mode rely on the breadcrumbs (flex 1) to push us right; Activity
+		 * mode renders no breadcrumbs AND no description, so without an explicit auto-margin
+		 * the right group would sit flush against the title. Auto-margin collapses to zero
+		 * when another flex-grow element is already absorbing the slack. */
 			margin-left: auto;
 		}
 
@@ -303,38 +306,38 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		/* Wraps the chart so the error overlay can absolute-position over it without unmounting the
-		 * chart. Keeping the chart mounted preserves its internal zoom path across an error →
-		 * retry-success window so the user lands back at their prior drill-down depth. */
+	 * chart. Keeping the chart mounted preserves its internal zoom path across an error →
+	 * retry-success window so the user lands back at their prior drill-down depth. */
 		.chart-container {
 			position: relative;
+			display: flex;
 			flex: 1 1 auto;
 			min-height: 0;
-			display: flex;
 		}
 
 		.overlay {
 			position: absolute;
 			inset: 0;
-			background: var(--vscode-editor-background, transparent);
 			display: flex;
 			flex-direction: column;
+			gap: 1.2rem;
 			align-items: center;
 			justify-content: center;
-			gap: 1.2rem;
 			padding: 1rem;
-			text-align: center;
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
+			text-align: center;
+			background: var(--vscode-editor-background, transparent);
 		}
 
 		.empty {
-			flex: 1 1 auto;
 			display: flex;
+			flex: 1 1 auto;
 			flex-direction: column;
+			gap: 0.8rem;
 			align-items: center;
 			justify-content: center;
-			gap: 0.8rem;
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			padding: 1rem;
+			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-align: center;
 		}
 	`;

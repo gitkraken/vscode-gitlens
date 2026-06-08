@@ -3,15 +3,15 @@ import { css } from 'lit';
 export const commitActionStyles = css`
 	.commit-action {
 		display: inline-flex;
-		justify-content: center;
+		gap: 0.2rem;
 		align-items: center;
+		justify-content: center;
 		height: 2rem;
-		border-radius: 0.25em;
-		color: inherit;
 		padding: 0.2rem;
 		vertical-align: middle;
+		color: inherit;
 		text-decoration: none;
-		gap: 0.2rem;
+		border-radius: 0.25em;
 	}
 
 	.commit-action > * {
@@ -32,6 +32,7 @@ export const commitActionStyles = css`
 	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .commit-action:hover {
 		background-color: var(--color-background--lighten-15);
 	}
+
 	:host-context(.vscode-light) .commit-action:hover,
 	:host-context(.vscode-high-contrast-light) .commit-action:hover {
 		background-color: var(--color-background--darken-15);
@@ -41,14 +42,15 @@ export const commitActionStyles = css`
 	:host-context(.vscode-high-contrast:not(.vscode-high-contrast-light)) .commit-action.is-active {
 		background-color: var(--color-background--lighten-10);
 	}
+
 	:host-context(.vscode-light) .commit-action.is-active,
 	:host-context(.vscode-high-contrast-light) .commit-action.is-active {
 		background-color: var(--color-background--darken-10);
 	}
 
 	.commit-action.is-disabled {
-		opacity: 0.5;
 		pointer-events: none;
+		opacity: 0.5;
 	}
 
 	.commit-action.is-hidden {
@@ -62,9 +64,11 @@ export const commitActionStyles = css`
 	.pr--opened {
 		color: var(--vscode-gitlens-openPullRequestIconColor);
 	}
+
 	.pr--closed {
 		color: var(--vscode-gitlens-closedPullRequestIconColor);
 	}
+
 	.pr--merged {
 		color: var(--vscode-gitlens-mergedPullRequestIconColor);
 	}

@@ -2,24 +2,25 @@ import { css } from 'lit';
 
 export const titlebarStyles = css`
 	.titlebar {
-		background: var(--titlebar-bg);
-		color: var(--titlebar-fg);
+		flex-wrap: wrap;
 		padding: 0.5rem 0.8rem;
 		font-size: 1.3rem;
-		flex-wrap: wrap;
+		color: var(--titlebar-fg);
+		background: var(--titlebar-bg);
 	}
 
 	:host-context(body[data-placement='panel']) .titlebar {
-		border-top: 1px solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+		border-top: 1px solid transparent;
 	}
+
 	.titlebar,
 	.titlebar__row,
 	.titlebar__group {
 		display: flex;
 		flex-direction: row;
-		align-items: center;
 		gap: 0.5rem;
+		align-items: center;
 	}
 
 	.titlebar > *,
@@ -35,10 +36,10 @@ export const titlebarStyles = css`
 
 	.titlebar__row {
 		flex: 0 0 100%;
+		padding: 0.5rem 0.8rem;
+		margin: -0.5rem -0.8rem;
 		border-top: 1px solid transparent;
 		border-bottom: 1px solid transparent;
-		margin: -0.5rem -0.8rem;
-		padding: 0.5rem 0.8rem;
 	}
 
 	.titlebar__row--filtered {
@@ -64,15 +65,16 @@ export const titlebarStyles = css`
 		   past the right edge and clipped by overflow:hidden — staying in the
 		   DOM so it reappears as the row widens again. */
 		display: flex;
-		align-items: center;
 		gap: 0.5rem;
+		align-items: center;
 		justify-content: flex-start;
 		min-width: 0;
-		overflow: hidden;
+		container-name: graph-titlebar;
+
 		/* Container so descendants (e.g. gl-fetch-button's text) can use container
 		   queries against the row's inline size for stepwise label collapsing. */
 		container-type: inline-size;
-		container-name: graph-titlebar;
+		overflow: hidden;
 	}
 
 	.titlebar__group {
@@ -81,11 +83,12 @@ export const titlebarStyles = css`
 
 	.titlebar__row--wrap .titlebar__group {
 		flex: 0 1 auto;
-		white-space: nowrap;
+
 		/* min-width: 0 lets each group shrink past its intrinsic content
 		   min-width — without this, groups stay at content size and items
 		   overflow horizontally instead of ellipsing. */
 		min-width: 0;
+		white-space: nowrap;
 	}
 
 	/* Search row uses one group; set per-child shrink priorities so the
@@ -94,43 +97,53 @@ export const titlebarStyles = css`
 	.titlebar__row--search .titlebar__group {
 		min-width: 0;
 	}
+
 	.titlebar__row--search .titlebar__group > gl-graph-scope-popover {
 		flex: 0 1 auto;
 		min-width: 0;
 	}
+
 	.titlebar__row--search .titlebar__group > gl-search-box {
 		flex-shrink: 100;
 	}
+
 	.titlebar__row--search .titlebar__group > .button-group,
 	.titlebar__row--search .titlebar__group > span {
 		flex: none;
 	}
+
 	.titlebar__row--wrap .titlebar__group:nth-child(1) {
 		flex-shrink: 10;
 		min-width: min-content;
 	}
+
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > * {
 		flex-shrink: 1;
 	}
+
 	/* Repo yields width before the branch. Keep this much higher than the
 		   sibling shrink factor so the branch doesn't lose even a few pixels
 		   before the repo reaches its compact floor. */
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > gl-repo-button-group {
 		flex-shrink: 1000000;
 	}
+
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > span,
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > .jump-to-ref,
 	.titlebar__row--wrap .titlebar__group:nth-child(1) > gl-popover {
 		flex-shrink: 0;
 	}
+
 	.titlebar__row--wrap .titlebar__group:nth-child(2) {
 		flex: 1 100 auto;
+
 		/* Grow to fill so RIGHT sits at the row's right edge naturally without
 		   space-between. justify-content: center centers CENTER's own content
 		   (the fetch button) within the grown box so there's visual space on
 		   both sides — matching what space-between previously gave us at wide
 		   widths. */
 		justify-content: center;
+
 		/* Floor CENTER at its content's min-content. Without this, the generic
 		   .titlebar__group { min-width: 0 } rule above lets CENTER's box
 		   collapse to 0 under flex-shrink: 100. When that happens, its non-
@@ -143,6 +156,7 @@ export const titlebarStyles = css`
 		   the row's right edge (clipped by the row's overflow: hidden) instead. */
 		min-width: min-content;
 	}
+
 	.titlebar__row--wrap .titlebar__group:nth-child(3) {
 		flex-shrink: 0;
 	}

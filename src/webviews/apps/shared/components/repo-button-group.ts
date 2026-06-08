@@ -44,23 +44,24 @@ export class GlRepoButtonGroup extends GlElement {
 			}
 
 			/* Single-repo (no label rendered): grid sizes exactly to the icons.
-			   max-content cols keep each icon column at full content width —
-			   auto cols can collapse under flex shrink pressure, hiding icons
-			   behind one another. Explicit min-width: max-content prevents the
-			   host itself from shrinking past the icons under flex pressure
-			   (which otherwise lets the trailing chevron separator overlap). */
+	   max-content cols keep each icon column at full content width —
+	   auto cols can collapse under flex shrink pressure, hiding icons
+	   behind one another. Explicit min-width: max-content prevents the
+	   host itself from shrinking past the icons under flex pressure
+	   (which otherwise lets the trailing chevron separator overlap). */
 			:host(:not([multi-repo])) {
 				grid-template-columns: max-content max-content;
 				min-width: max-content;
 			}
-			:host(:not([multi-repo]):not([icon])) {
+
+			:host(:not([multi-repo], [icon])) {
 				grid-template-columns: minmax(0, 1fr);
 				min-width: 0;
 			}
 
 			/* Multi-repo: include a flexible label column that can shrink
-				   so the label ellipses naturally while preserving enough room for
-				   the fallback repo icon + chevron compact state. */
+		   so the label ellipses naturally while preserving enough room for
+		   the fallback repo icon + chevron compact state. */
 			:host([multi-repo]) {
 				--compact-width: 0px;
 
@@ -68,40 +69,45 @@ export class GlRepoButtonGroup extends GlElement {
 				grid-template-columns: max-content max-content minmax(var(--compact-width), 1fr);
 				min-width: min-content;
 			}
+
 			:host([multi-repo]:not([icon])) {
 				grid-template-columns: minmax(var(--compact-width), 1fr);
 			}
 
 			[part='label'] {
-				grid-column: 3;
 				grid-row: 1;
+				grid-column: 3;
 				min-width: 0;
 			}
+
 			:host(:not([icon])) [part='label'] {
 				grid-column: 1;
 			}
+
 			.truncated-button__sizer {
-				grid-column: 3;
-				grid-row: 1;
-				min-width: 0;
-				overflow-wrap: anywhere;
-				padding-inline: 0.4rem;
-				pointer-events: none;
 				visibility: hidden;
+				grid-row: 1;
+				grid-column: 3;
+				min-width: 0;
+				padding-inline: 0.4rem;
+				overflow-wrap: anywhere;
+				pointer-events: none;
 			}
+
 			:host(:not([icon])) .truncated-button__sizer {
 				grid-column: 1;
 			}
+
 			.truncated-button__compact-sizer {
 				--button-gap: 0.2rem;
 
 				position: absolute;
 				inset-inline-start: 0;
 				top: 0;
-				min-width: max-content;
-				width: max-content;
-				pointer-events: none;
 				visibility: hidden;
+				width: max-content;
+				min-width: max-content;
+				pointer-events: none;
 			}
 
 			.truncated-button__label {
@@ -110,18 +116,22 @@ export class GlRepoButtonGroup extends GlElement {
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
+
 			.truncated-button--icon-fallback .truncated-button__label {
 				display: none;
 			}
+
 			.truncated-button--icon-fallback {
 				--button-gap: 0.2rem;
+
 				min-width: max-content;
 			}
 
 			:host([multi-repo]) .truncated-button {
-				min-width: 0;
 				width: 100%;
+				min-width: 0;
 			}
+
 			:host(:not([icon])) .truncated-button {
 				width: 100%;
 			}
@@ -130,6 +140,7 @@ export class GlRepoButtonGroup extends GlElement {
 			.truncated-button__compact-sizer .picker-icon {
 				margin-right: 0;
 			}
+
 			.truncated-button .picker-icon::before,
 			.truncated-button__compact-sizer .picker-icon::before {
 				margin-left: 0;
@@ -138,6 +149,7 @@ export class GlRepoButtonGroup extends GlElement {
 			.indicator-dot {
 				--gl-indicator-color: green;
 				--gl-indicator-size: 0.4rem;
+
 				margin-left: -0.2rem;
 			}
 
@@ -147,8 +159,8 @@ export class GlRepoButtonGroup extends GlElement {
 			}
 
 			/* Tighten the icon buttons themselves — they sit adjacent in the grid
-			   and we don't want extra horizontal padding bloating the group's
-			   trailing edge near the chevron separator. */
+	   and we don't want extra horizontal padding bloating the group's
+	   trailing edge near the chevron separator. */
 			[part='provider-icon'],
 			[part='connect-icon'] {
 				--button-padding: 0.2rem;
@@ -159,20 +171,22 @@ export class GlRepoButtonGroup extends GlElement {
 			}
 
 			/* Stack the provider popover's lines as a column with breathing room
-			   between them (instead of relying on <br> / inline-flow which gives
-			   too-tight visual spacing). */
+	   between them (instead of relying on <br> / inline-flow which gives
+	   too-tight visual spacing). */
 			.provider-popover {
 				display: flex;
 				flex-direction: column;
 				gap: 0.6rem;
 			}
+
 			.provider-popover hr {
 				margin: 0;
 			}
+
 			.provider-popover__line {
 				display: flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 			}
 
 			.connect-icon {
@@ -180,41 +194,47 @@ export class GlRepoButtonGroup extends GlElement {
 			}
 
 			/* :host([expandable]) .truncated-button {
-				transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-			} */
+		transition: max-width 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+	} */
 
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button .picker-icon::before {
 				visibility: hidden;
 			}
+
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button .repo-icon-fallback {
 				visibility: hidden;
 			}
+
 			:host([expandable]:not(:hover, :focus-within)) .truncated-button {
 				min-width: 0 !important;
 				max-width: 0;
 			}
+
 			:host([multi-repo][expandable]:not(:hover, :focus-within)) {
 				grid-template-columns: max-content max-content minmax(0, 0fr);
 			}
-			:host([multi-repo][expandable]:not([icon]):not(:hover, :focus-within)) {
+
+			:host([multi-repo][expandable]:not([icon], :hover, :focus-within)) {
 				grid-template-columns: minmax(0, 0fr);
 			}
 
 			/* When the surrounding gl-breadcrumb-item is hovered or focused, expand the
-			   truncated-button as if the gl-repo-button-group itself were hovered. This
-			   lets users hover anywhere in the breadcrumb-item (e.g., the chevron
-			   separator) to reveal the repo name. !important is required because the
-			   collapse rule above (with :host attribute + :not) has higher specificity
-			   than :host-context. */
+	   truncated-button as if the gl-repo-button-group itself were hovered. This
+	   lets users hover anywhere in the breadcrumb-item (e.g., the chevron
+	   separator) to reveal the repo name. !important is required because the
+	   collapse rule above (with :host attribute + :not) has higher specificity
+	   than :host-context. */
 			:host-context(gl-breadcrumb-item:hover) .truncated-button .picker-icon::before,
 			:host-context(gl-breadcrumb-item:focus-within) .truncated-button .picker-icon::before {
 				visibility: visible !important;
 			}
+
 			:host-context(gl-breadcrumb-item:hover) .truncated-button,
 			:host-context(gl-breadcrumb-item:focus-within) .truncated-button {
 				min-width: 0 !important;
 				max-width: none !important;
 			}
+
 			:host-context(gl-breadcrumb-item:hover),
 			:host-context(gl-breadcrumb-item:focus-within) {
 				grid-template-columns: max-content max-content minmax(var(--compact-width), 1fr);

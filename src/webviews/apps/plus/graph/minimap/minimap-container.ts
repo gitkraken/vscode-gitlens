@@ -42,8 +42,8 @@ export interface GraphMinimapConfigChangeEventDetail {
 export class GlGraphMinimapContainer extends GlElement {
 	static override styles = css`
 		:host {
-			display: block;
 			position: relative;
+			display: block;
 			container-type: size;
 		}
 
@@ -54,8 +54,8 @@ export class GlGraphMinimapContainer extends GlElement {
 			z-index: 2;
 			display: flex;
 			flex-direction: column;
-			align-items: flex-end;
 			gap: 0.125rem;
+			align-items: flex-end;
 		}
 
 		@container (max-height: 4rem) {
@@ -70,14 +70,14 @@ export class GlGraphMinimapContainer extends GlElement {
 		}
 
 		.minimap-settings__trigger {
+			padding: 0.125rem;
+			line-height: 1;
+			color: var(--color-foreground--75);
 			appearance: none;
+			cursor: pointer;
 			background: transparent;
 			border: none;
-			color: var(--color-foreground--75);
-			cursor: pointer;
-			padding: 0.125rem;
 			border-radius: 0.1875rem;
-			line-height: 1;
 		}
 
 		.minimap-settings__trigger:hover {
@@ -87,18 +87,18 @@ export class GlGraphMinimapContainer extends GlElement {
 
 		[slot='content'] gl-radio,
 		[slot='content'] gl-checkbox {
-			--checkbox-foreground: currentColor;
+			--checkbox-foreground: currentcolor;
 		}
 
 		.minimap-datatype__label {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 		}
 
 		.minimap-datatype__info {
-			color: var(--color-foreground--50);
 			font-size: 1.3rem;
+			color: var(--color-foreground--50);
 		}
 
 		.minimap-datatype__info:hover {
@@ -109,10 +109,10 @@ export class GlGraphMinimapContainer extends GlElement {
 			display: inline-block;
 			width: 1rem;
 			height: 1rem;
+			margin-right: 1rem;
+			margin-left: 0.3rem;
 			border-radius: 0.125rem;
 			transform: scale(1.6);
-			margin-left: 0.3rem;
-			margin-right: 1rem;
 		}
 
 		.minimap-marker-swatch[data-marker='localBranches'] {

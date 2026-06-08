@@ -10,22 +10,23 @@ export class HunkItem extends LitElement {
 	static override styles = css`
 		:host {
 			display: block;
+
 			/* margin-bottom: 0.8rem; */
 		}
 
 		.hunk-item {
+			position: relative;
+			cursor: grab;
+			user-select: none;
+			background: var(--vscode-editor-background);
 			border: 1px solid transparent;
 			border-radius: 0.4rem;
-			background: var(--vscode-editor-background);
-			cursor: grab;
 			transition: all 0.2s ease;
-			position: relative;
-			user-select: none;
 		}
 
 		.hunk-item:hover {
 			border-color: var(--vscode-list-hoverForeground);
-			box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+			box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 		}
 
 		.hunk-item:active {
@@ -42,39 +43,40 @@ export class HunkItem extends LitElement {
 		}
 
 		.hunk-item.sortable-drag {
+			box-shadow: 0 4px 8px rgb(0 0 0 / 20%);
 			opacity: 0.5;
 			transform: scale(0.5);
-			box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 		}
 
 		.hunk-item.sortable-selected {
-			border-color: var(--vscode-focusBorder);
 			background: var(--vscode-list-activeSelectionBackground);
+			border-color: var(--vscode-focusBorder);
 		}
 
 		.hunk-item.multi-selected {
+			background: var(--vscode-list-inactiveSelectionBackground);
 			border-color: var(--vscode-focusBorder);
 			border-style: dashed;
-			background: var(--vscode-list-inactiveSelectionBackground);
 		}
 
 		.hunk-item.multi-selected.selected {
-			border-style: solid;
 			background: var(--vscode-list-activeSelectionBackground);
+			border-style: solid;
 		}
 
 		.hunk-header {
 			display: flex;
-			align-items: center;
+
 			/* justify-content: space-between; */
 			gap: 0.8rem;
+			align-items: center;
 			padding: 0.8rem;
 		}
 
 		.file-info {
 			display: flex;
-			align-items: center;
 			gap: 0.6rem;
+			align-items: center;
 		}
 
 		.file-icon {
@@ -88,15 +90,15 @@ export class HunkItem extends LitElement {
 
 		.hunk-stats {
 			display: flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			font-size: 0.9em;
 		}
 
 		.stat {
 			display: flex;
-			align-items: center;
 			gap: 0.2rem;
+			align-items: center;
 		}
 
 		.additions {
@@ -117,15 +119,15 @@ export class HunkItem extends LitElement {
 		}
 
 		.code-block {
-			background: var(--vscode-textCodeBlock-background);
 			/* border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px; */
+		border-radius: 4px; */
 			padding: 0.8rem;
-			white-space: pre-wrap;
 			overflow-x: auto;
 			font-family: var(--vscode-editor-font-family);
 			font-size: 0.9em;
 			line-height: 1.3;
+			white-space: pre-wrap;
+			background: var(--vscode-textCodeBlock-background);
 		}
 
 		.diff-line {
@@ -133,22 +135,22 @@ export class HunkItem extends LitElement {
 		}
 
 		.diff-line.addition {
-			background: var(--vscode-diffEditor-insertedTextBackground);
 			color: var(--vscode-gitDecoration-addedResourceForeground);
+			background: var(--vscode-diffEditor-insertedTextBackground);
 		}
 
 		.diff-line.deletion {
-			background: var(--vscode-diffEditor-removedTextBackground);
 			color: var(--vscode-gitDecoration-deletedResourceForeground);
+			background: var(--vscode-diffEditor-removedTextBackground);
 		}
 
 		.drag-handle {
 			position: absolute;
-			left: 0.4rem;
 			top: 50%;
-			transform: translateY(-50%);
+			left: 0.4rem;
 			color: var(--vscode-descriptionForeground);
 			opacity: 0;
+			transform: translateY(-50%);
 			transition: opacity 0.2s ease;
 		}
 
@@ -165,15 +167,15 @@ export class HunkItem extends LitElement {
 
 		.rename-line {
 			display: flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			font-weight: 500;
 		}
 
 		.rename-text {
 			display: flex;
-			align-items: center;
 			gap: 0.5rem;
+			align-items: center;
 		}
 
 		.original-name {
@@ -182,19 +184,19 @@ export class HunkItem extends LitElement {
 		}
 
 		.arrow {
-			color: var(--vscode-descriptionForeground);
 			font-weight: bold;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.new-name {
-			color: var(--vscode-gitDecoration-addedResourceForeground);
 			font-weight: 500;
+			color: var(--vscode-gitDecoration-addedResourceForeground);
 		}
 
 		.similarity-info {
-			color: var(--vscode-descriptionForeground);
 			font-size: 0.9em;
 			font-style: italic;
+			color: var(--vscode-descriptionForeground);
 		}
 	`;
 

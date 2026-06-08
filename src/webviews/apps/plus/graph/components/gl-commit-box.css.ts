@@ -15,10 +15,10 @@ export const commitBoxStyles = css`
 
 	:host {
 		display: flex;
-		flex-direction: column;
 		flex: none;
-		padding: 0.6rem 1.2rem 0.8rem;
+		flex-direction: column;
 		gap: 0.4rem;
+		padding: 0.6rem 1.2rem 0.8rem;
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		--gl-input-working-border-color: var(--vscode-charts-purple, #7c3aed);
 	}
@@ -34,10 +34,10 @@ export const commitBoxStyles = css`
 	}
 
 	.amend-checkbox {
-		margin-block: 0;
-		font-size: var(--gl-font-base);
 		min-width: 0;
+		margin-block: 0;
 		overflow: hidden;
+		font-size: var(--gl-font-base);
 	}
 
 	.amend-checkbox::part(label) {
@@ -56,12 +56,14 @@ export const commitBoxStyles = css`
 		display: flex;
 		flex-direction: column;
 		--gl-textarea-thumb-color: transparent;
+
 		transition: --gl-textarea-thumb-color 1s linear;
 	}
 
 	:host(:hover) .message,
 	:host(:focus-within) .message {
 		--gl-textarea-thumb-color: var(--vscode-scrollbarSlider-background);
+
 		transition: none;
 	}
 
@@ -71,14 +73,14 @@ export const commitBoxStyles = css`
 	.working-ring {
 		position: absolute;
 		inset: -1px;
+		z-index: 2;
 		display: block;
 		width: calc(100% + 2px);
 		height: calc(100% + 2px);
-		opacity: 0;
-		pointer-events: none;
 		overflow: visible;
+		pointer-events: none;
+		opacity: 0;
 		transition: opacity 0.35s ease;
-		z-index: 2;
 	}
 
 	:host([generating]) .working-ring {
@@ -101,10 +103,10 @@ export const commitBoxStyles = css`
 	}
 
 	.working-ring-highlight {
-		stroke: var(--gl-input-working-border-color);
-		stroke-dasharray: 18 82;
-		stroke-linecap: round;
 		filter: drop-shadow(0 0 2px var(--gl-input-working-border-color));
+		stroke: var(--gl-input-working-border-color);
+		stroke-linecap: round;
+		stroke-dasharray: 18 82;
 	}
 
 	:host([generating]) .working-ring-highlight {
@@ -118,24 +120,24 @@ export const commitBoxStyles = css`
 	}
 
 	.textarea {
-		width: 100%;
 		box-sizing: border-box;
+		width: 100%;
+		max-width: none;
 		min-height: 6rem;
 		max-height: 12rem;
+		padding: 0.6rem 3rem 0.6rem 0.8rem;
+		margin: 0;
+		scrollbar-gutter: stable;
+		font-family: inherit;
+		font-size: var(--gl-font-base);
+		line-height: 1.6;
+		color: var(--vscode-input-foreground);
 		resize: none;
 		background: var(--vscode-input-background);
 		border: 1px solid var(--vscode-input-border, transparent);
 		border-radius: var(--gl-input-border-radius);
-		color: var(--vscode-input-foreground);
-		font-family: inherit;
-		font-size: var(--gl-font-base);
-		line-height: 1.6;
-		padding: 0.6rem 3rem 0.6rem 0.8rem;
-		field-sizing: content;
-		margin: 0;
-		max-width: none;
-		scrollbar-gutter: stable;
 		transition: padding-right 0.2s ease;
+		field-sizing: content;
 	}
 
 	.message:has(.textarea:not(:placeholder-shown)) .textarea {
@@ -143,8 +145,8 @@ export const commitBoxStyles = css`
 	}
 
 	.textarea:focus {
-		border-color: var(--vscode-focusBorder);
 		outline: none;
+		border-color: var(--vscode-focusBorder);
 	}
 
 	.textarea.has-error {
@@ -156,8 +158,8 @@ export const commitBoxStyles = css`
 	}
 
 	.textarea:disabled {
-		opacity: 0.6;
 		cursor: default;
+		opacity: 0.6;
 	}
 
 	.textarea::placeholder {
@@ -181,10 +183,10 @@ export const commitBoxStyles = css`
 		right: 0.4rem;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
 		gap: 0.2rem;
-		transition: right 0.2s ease;
+		align-items: center;
 		pointer-events: none;
+		transition: right 0.2s ease;
 	}
 
 	/* Mirror of the top controls, pinned to the bottom corner. Row layout so the char-count

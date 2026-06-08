@@ -23,20 +23,20 @@ export class GlAiInput extends LitElement {
 
 			position: relative;
 			display: flex;
-			flex-direction: column;
 			flex: none;
+			flex-direction: column;
 		}
 
 		/* The textarea/input + action button row. Owns the pill border + gradient treatment
-		   so the footer can sit as its own "attached" band below without being wrapped by it. */
+	   so the footer can sit as its own "attached" band below without being wrapped by it. */
 		.ai-input__row {
+			z-index: 1;
 			display: flex;
 			align-items: stretch;
 			min-width: 0;
 			background: var(--vscode-input-background);
 			border: 1px solid var(--vscode-input-border, transparent);
 			border-radius: 0.6rem;
-			z-index: 1;
 			transition:
 				border-color 0.3s,
 				box-shadow 0.3s,
@@ -44,23 +44,24 @@ export class GlAiInput extends LitElement {
 		}
 
 		/* Footer area — only visible when the consumer slots content (e.g. the model chip).
-		   The has-footer host attribute is toggled by slotchange so an empty slot doesn't
-		   render an empty bordered band. Rendered as its own bordered pill sitting just below
-		   the input — visually attached but clearly distinct from the input pill. */
+	   The has-footer host attribute is toggled by slotchange so an empty slot doesn't
+	   render an empty bordered band. Rendered as its own bordered pill sitting just below
+	   the input — visually attached but clearly distinct from the input pill. */
 		.ai-input__footer {
 			display: none;
+			gap: 0.4rem;
 			align-items: center;
 			justify-content: flex-start;
-			gap: 0.4rem;
+			min-height: 0;
 			padding: 0.1rem;
-			min-height: 0px;
+			margin-inline: 0.5rem;
+			color: var(--vscode-descriptionForeground);
+			border-right: 1px solid var(--vscode-input-border, transparent);
+
 			/* background: var(--vscode-input-background); */
 			border-bottom: 1px solid var(--vscode-input-border, transparent);
-			border-right: 1px solid var(--vscode-input-border, transparent);
 			border-left: 1px solid var(--vscode-input-border, transparent);
-			border-radius: 0px 0px 0.6rem 0.6rem;
-			color: var(--vscode-descriptionForeground);
-			margin-inline: 0.5rem;
+			border-radius: 0 0 0.6rem 0.6rem;
 		}
 
 		:host([has-footer]) .ai-input__footer {
@@ -71,11 +72,11 @@ export class GlAiInput extends LitElement {
 		:host(:hover) .ai-input__row,
 		:host([focused]) .ai-input__row,
 		:host([active]) .ai-input__row {
-			border-color: transparent;
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end)) border-box;
-			box-shadow: 0 0 8px rgba(124 58 237 / 25%);
+			border-color: transparent;
+			box-shadow: 0 0 8px rgb(124 58 237 / 25%);
 		}
 
 		:host([focused]) .action-btn,
@@ -85,7 +86,6 @@ export class GlAiInput extends LitElement {
 
 		/* Focus-in: same spinning conic gradient as busy, one rotation */
 		:host([focusing]) .ai-input__row {
-			border-color: transparent;
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				conic-gradient(
@@ -96,13 +96,13 @@ export class GlAiInput extends LitElement {
 						var(--gradient-start)
 					)
 					border-box;
+			border-color: transparent;
 			transition: none;
 			animation: ai-spin 2s linear 1;
 		}
 
 		/* Busy: spinning conic gradient border */
 		:host([busy]) .ai-input__row {
-			border-color: transparent;
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				conic-gradient(
@@ -113,6 +113,7 @@ export class GlAiInput extends LitElement {
 						var(--gradient-start)
 					)
 					border-box;
+			border-color: transparent;
 			animation: ai-spin 2s linear infinite;
 		}
 
@@ -128,27 +129,27 @@ export class GlAiInput extends LitElement {
 			width: 0;
 			min-width: 0;
 			max-width: none;
-			margin: 0;
 			padding: 0.4rem 0.7rem;
-			font-size: var(--vscode-font-size);
+			margin: 0;
 			font-family: var(--vscode-font-family);
+			font-size: var(--vscode-font-size);
 			color: var(--vscode-input-foreground);
+			outline: none;
 			background: transparent;
 			border: none;
-			outline: none;
 		}
 
 		textarea {
-			resize: none;
-			field-sizing: content;
 			/* min-height comes from --gl-ai-input-min-height (set on the host via CSSOM in
-			   updated()) so callers can request a 2-row default without affecting the explain
-			   inputs that want a single row. */
+		   updated()) so callers can request a 2-row default without affecting the explain
+		   inputs that want a single row. */
 			min-height: var(--gl-ai-input-min-height, 1.4em);
 			max-height: 6em;
 			line-height: 1.4;
-			scrollbar-width: thin;
+			resize: none;
 			scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+			scrollbar-width: thin;
+			field-sizing: content;
 		}
 
 		textarea::-webkit-scrollbar {
@@ -169,9 +170,9 @@ export class GlAiInput extends LitElement {
 		}
 
 		textarea::placeholder {
-			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			white-space: nowrap;
 		}
 
 		input::placeholder,
@@ -180,47 +181,47 @@ export class GlAiInput extends LitElement {
 		}
 
 		input::-webkit-search-cancel-button {
-			-webkit-appearance: none;
-			cursor: pointer;
 			width: 16px;
 			height: 16px;
+			-webkit-appearance: none;
+			cursor: pointer;
 			background-color: var(--vscode-foreground);
 			-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z'/%3E%3C/svg%3E");
 			-webkit-mask-size: contain;
 		}
 
 		.action-btn {
+			z-index: 1;
 			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-			padding: 0.3rem 1rem 0.3rem 0.8rem;
-			border: none;
-			cursor: pointer;
-			align-self: stretch;
 			flex: none;
+			gap: 0.5rem;
+			align-items: center;
+			align-self: stretch;
+			padding: 0.3rem 1rem 0.3rem 0.8rem;
+			margin-right: 0;
+			font-family: inherit;
 			font-size: var(--vscode-font-size);
 			font-weight: 500;
-			font-family: inherit;
-			white-space: nowrap;
-			background: transparent;
 			color: var(--vscode-foreground);
-			border-radius: 0 0.6rem 0.6rem 0;
+			white-space: nowrap;
+			cursor: pointer;
+			background: transparent;
+			border: none;
 			border-right: 1px solid transparent;
-			margin-right: 0;
+			border-radius: 0 0.6rem 0.6rem 0;
 			transition:
 				background 0.25s,
 				color 0.25s,
 				border-color 0.25s,
 				flex-direction 0.3s;
-			z-index: 1;
 		}
 
 		/* Hovering anywhere in the row lights up the button too, so the pill responds as
-		   one cohesive surface (the row's conic border already reacts to :host(:hover)). */
+	   one cohesive surface (the row's conic border already reacts to :host(:hover)). */
 		.action-btn:hover:not(:disabled),
 		:host(:hover) .action-btn:not(:disabled) {
-			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
+			background: var(--vscode-button-background);
 		}
 
 		.action-btn:hover:not(:disabled) .icon-sparkle,
@@ -229,14 +230,14 @@ export class GlAiInput extends LitElement {
 		}
 
 		.action-btn:disabled {
-			opacity: 0.6;
-			cursor: default;
 			pointer-events: none;
+			cursor: default;
+			opacity: 0.6;
 		}
 
 		.action-btn[aria-busy='true'] {
-			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
+			background: var(--vscode-button-background);
 		}
 
 		/* Send mode: when input is focused or has text */
@@ -244,42 +245,42 @@ export class GlAiInput extends LitElement {
 		input:not(:placeholder-shown) ~ .action-btn,
 		textarea:focus ~ .action-btn,
 		textarea:not(:placeholder-shown) ~ .action-btn {
-			padding-right: 0.8rem;
-			padding-left: 1rem;
 			flex-direction: row-reverse;
 			gap: 0.5rem;
-			background: var(--vscode-button-background);
+			padding-right: 0.8rem;
+			padding-left: 1rem;
 			color: var(--vscode-button-foreground);
+			background: var(--vscode-button-background);
 		}
 
 		/* Active mode: border glow + button always active (for review/compose) */
 		:host([active]) .action-btn {
-			background: var(--vscode-button-background);
 			color: var(--vscode-button-foreground);
+			background: var(--vscode-button-background);
 		}
 
 		input:focus ~ .action-btn .icon-sparkle,
 		input:not(:placeholder-shown) ~ .action-btn .icon-sparkle,
 		textarea:focus ~ .action-btn .icon-sparkle,
 		textarea:not(:placeholder-shown) ~ .action-btn .icon-sparkle {
-			transform: translateX(-100%);
 			opacity: 0;
+			transform: translateX(-100%);
 		}
 
 		input:focus ~ .action-btn .icon-send,
 		input:not(:placeholder-shown) ~ .action-btn .icon-send,
 		textarea:focus ~ .action-btn .icon-send,
 		textarea:not(:placeholder-shown) ~ .action-btn .icon-send {
-			transform: translateX(0);
 			opacity: 1;
+			transform: translateX(0);
 		}
 
 		.icon-slider {
 			position: relative;
+			flex-shrink: 0;
 			width: 16px;
 			height: 16px;
 			overflow: hidden;
-			flex-shrink: 0;
 		}
 
 		.icon-sparkle,
@@ -295,14 +296,14 @@ export class GlAiInput extends LitElement {
 		}
 
 		.icon-sparkle {
-			transform: translateX(0);
-			opacity: 1;
 			color: #c594ff;
+			opacity: 1;
+			transform: translateX(0);
 		}
 
 		.icon-send {
-			transform: translateX(100%);
 			opacity: 0;
+			transform: translateX(100%);
 		}
 
 		.action-label {

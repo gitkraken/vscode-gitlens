@@ -11,11 +11,11 @@ export class ProgressIndicator extends LitElement {
 
 		:host {
 			position: absolute;
-			left: 0;
 			bottom: 0;
+			left: 0;
 			z-index: 5;
-			height: 2px;
 			width: 100%;
+			height: 2px;
 			overflow: hidden;
 		}
 
@@ -25,12 +25,12 @@ export class ProgressIndicator extends LitElement {
 		}
 
 		.progress-bar {
-			background-color: var(--vscode-progressBar-background);
-			display: none;
 			position: absolute;
 			left: 0;
+			display: none;
 			width: 2%;
 			height: 2px;
+			background-color: var(--vscode-progressBar-background);
 		}
 
 		:host([visible]) .progress-bar {
@@ -47,11 +47,11 @@ export class ProgressIndicator extends LitElement {
 		}
 
 		:host([mode='infinite']) .progress-bar {
+			transform: translateZ(0);
 			animation-name: progress;
 			animation-duration: 4s;
-			animation-iteration-count: infinite;
 			animation-timing-function: steps(100);
-			transform: translateZ(0);
+			animation-iteration-count: infinite;
 		}
 
 		@keyframes progress {
@@ -63,7 +63,7 @@ export class ProgressIndicator extends LitElement {
 				transform: translateX(2500%) scaleX(3);
 			}
 
-			to {
+			100% {
 				transform: translateX(4900%) scaleX(1);
 			}
 		}

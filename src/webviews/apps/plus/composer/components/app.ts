@@ -80,26 +80,26 @@ export class ComposerApp extends LitElement {
 		focusableBaseStyles,
 		css`
 			:host {
+				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
+				gap: 1.6rem;
 				height: 100vh;
 				padding: 1.6rem;
-				gap: 1.6rem;
-				box-sizing: border-box;
 			}
 
 			.header {
-				flex: none;
 				display: flex;
-				justify-content: space-between;
-				align-items: center;
+				flex: none;
 				gap: 1.6rem;
+				align-items: center;
+				justify-content: space-between;
 			}
 
 			.header__group {
 				display: flex;
-				align-items: center;
 				gap: 1.6rem;
+				align-items: center;
 			}
 
 			.header h1 {
@@ -109,10 +109,10 @@ export class ComposerApp extends LitElement {
 			}
 
 			.header small {
+				margin-inline-start: 0.4rem;
 				font-size: 1.2rem;
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
-				margin-inline-start: 0.4rem;
 			}
 
 			.header-feedback {
@@ -128,16 +128,16 @@ export class ComposerApp extends LitElement {
 			}
 
 			.header-actions {
-				flex: none;
 				display: flex;
+				flex: none;
 				gap: 0.8rem;
 				justify-content: flex-end;
 			}
 
 			.working-directory-warning {
 				display: flex;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
 				padding: 0.8rem 1.2rem;
 				background-color: var(--vscode-inputValidation-warningBackground);
 				border: 1px solid var(--vscode-inputValidation-warningBorder);
@@ -150,8 +150,8 @@ export class ComposerApp extends LitElement {
 			}
 
 			.working-directory-warning__text {
-				color: var(--vscode-inputValidation-warningForeground);
 				font-size: 1.3rem;
+				color: var(--vscode-inputValidation-warningForeground);
 			}
 
 			.working-directory-warning--error .working-directory-warning__text {
@@ -181,12 +181,12 @@ export class ComposerApp extends LitElement {
 			}
 
 			.modal h2 {
-				margin: 0 0 1.6rem 0;
+				margin: 0 0 1.6rem;
 				color: var(--vscode-foreground);
 			}
 
 			.modal p {
-				margin: 0 0 2.4rem 0;
+				margin: 0 0 2.4rem;
 				color: var(--vscode-descriptionForeground);
 			}
 
@@ -195,10 +195,10 @@ export class ComposerApp extends LitElement {
 				align-items: center;
 				justify-content: space-between;
 				padding: 1.2rem;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border-bottom: 1px solid var(--vscode-panel-border);
 				cursor: pointer;
 				user-select: none;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
+				border-bottom: 1px solid var(--vscode-panel-border);
 			}
 
 			.section-header:hover {
@@ -221,11 +221,11 @@ export class ComposerApp extends LitElement {
 			}
 
 			.section-content {
-				padding: 0.8rem;
-				overflow: hidden;
 				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
+				padding: 0.8rem;
+				overflow: hidden;
 			}
 
 			/* Files changed section should expand to fill space */
@@ -246,28 +246,28 @@ export class ComposerApp extends LitElement {
 			}
 
 			.ai-explanation {
-				color: var(--vscode-foreground);
-				line-height: 1.5;
 				margin: 0;
+				line-height: 1.5;
+				color: var(--vscode-foreground);
 			}
 
 			.ai-explanation.placeholder {
-				color: var(--vscode-descriptionForeground);
 				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.unassigned-changes-item {
+				display: flex;
+				gap: 0.8rem;
+				align-items: center;
 				padding: 1.2rem;
+				margin-bottom: 1.2rem;
+				cursor: pointer;
+				user-select: none;
+				background: var(--vscode-list-inactiveSelectionBackground);
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 4px;
-				background: var(--vscode-list-inactiveSelectionBackground);
-				cursor: pointer;
 				transition: all 0.2s ease;
-				margin-bottom: 1.2rem;
-				display: flex;
-				align-items: center;
-				gap: 0.8rem;
-				user-select: none;
 			}
 
 			.unassigned-changes-item:hover {
@@ -289,8 +289,8 @@ export class ComposerApp extends LitElement {
 			}
 
 			.unassigned-changes-item .count {
-				color: var(--vscode-descriptionForeground);
 				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.unassigned-changes-section {
@@ -321,13 +321,13 @@ export class ComposerApp extends LitElement {
 			}
 
 			.generic-dialog__message {
-				background: var(--color-background);
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
 				padding: 1.2rem;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.2rem;
 				color: var(--vscode-foreground);
+				background: var(--color-background);
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 0.4rem;
 			}
 
 			.generic-dialog__message.is-error {

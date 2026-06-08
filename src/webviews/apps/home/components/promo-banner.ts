@@ -12,14 +12,17 @@ export class GlPromoBanner extends LitElement {
 			:host {
 				display: block;
 			}
+
 			.promo-banner {
-				text-align: center;
 				margin-bottom: 1rem;
+				text-align: center;
 			}
+
 			.promo-banner--eyebrow {
-				color: var(--color-foreground--50);
 				margin-bottom: 0.2rem;
+				color: var(--color-foreground--50);
 			}
+
 			.promo-banner:has(gl-promo:not([has-promo])) {
 				display: none;
 			}

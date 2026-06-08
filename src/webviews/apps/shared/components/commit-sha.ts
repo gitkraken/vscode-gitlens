@@ -9,10 +9,10 @@ const styles = css`
 		display: inline-flex;
 		align-items: baseline;
 		max-width: 100%;
-		white-space: nowrap;
+		margin-inline-end: 0.2rem;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		margin-inline-end: 0.2rem;
+		white-space: nowrap;
 	}
 
 	:host(:focus) {
@@ -25,8 +25,8 @@ const styles = css`
 	}
 
 	.icon {
-		margin-right: 0.3rem;
 		align-self: center;
+		margin-right: 0.3rem;
 	}
 `;
 

@@ -34,16 +34,16 @@ export class GlRefOverflowChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.4rem;
-			padding: 0.1rem 0.4rem;
-			border-radius: 0.3rem;
-			background-color: var(--vscode-badge-background);
-			color: var(--vscode-badge-foreground);
-			font-size: 0.85em;
-			white-space: nowrap;
+			align-items: center;
 			max-width: 100%;
+			padding: 0.1rem 0.4rem;
 			overflow: hidden;
+			font-size: 0.85em;
+			color: var(--vscode-badge-foreground);
+			white-space: nowrap;
+			background-color: var(--vscode-badge-background);
+			border-radius: 0.3rem;
 			opacity: 0.8;
 			transition:
 				opacity 0.3s ease-in-out,
@@ -61,11 +61,11 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.chip__label {
-			flex: 1 1 auto;
-			min-width: 0;
 			display: inline-flex;
-			align-items: center;
+			flex: 1 1 auto;
 			gap: 0.4rem;
+			align-items: center;
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -77,14 +77,14 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.chip__ellipsis {
-			opacity: 0.8;
 			padding: 0 0.4rem;
+			opacity: 0.8;
 		}
 
 		.chip__count {
 			padding-left: 0.4rem;
-			font-weight: 600;
 			font-size: 0.85em;
+			font-weight: 600;
 		}
 
 		.chip code-icon {
@@ -112,8 +112,8 @@ export class GlRefOverflowChip extends LitElement {
 
 		.tooltip-item {
 			display: flex;
-			align-items: center;
 			gap: 0.5rem;
+			align-items: center;
 			padding: 0.3rem 0.4rem;
 			font-size: 0.95em;
 			line-height: 1.4;
@@ -121,8 +121,8 @@ export class GlRefOverflowChip extends LitElement {
 
 		.tooltip-item__icon {
 			flex-shrink: 0;
-			opacity: 0.8;
 			font-size: 1.1em;
+			opacity: 0.8;
 		}
 
 		.tooltip-item__name {

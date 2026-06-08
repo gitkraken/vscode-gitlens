@@ -7,8 +7,8 @@
 
 body {
 	font-family: var(--vscode-font-family);
-	font-weight: var(--vscode-font-weight);
 	font-size: var(--vscode-font-size) !important;
+	font-weight: var(--vscode-font-weight);
 	line-height: 1.4;
 
 	@include utils.light-theme($selectorPrefix: '&') {
@@ -26,16 +26,15 @@ body {
 
 header {
 	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 1.6rem;
+	flex-flow: row wrap;
 	grid-column: 1/-1;
+	gap: 1.6rem;
+	align-items: center;
+	justify-content: space-between;
 
 	& #version {
-		color: var(--color-foreground);
 		font-weight: 600;
+		color: var(--color-foreground);
 	}
 
 	& .brand {
@@ -43,11 +42,11 @@ header {
 
 		small {
 			display: inline-block;
+			margin-left: 1rem;
 			font-size: 1.6rem;
 			font-weight: 200;
 			color: var(--color-foreground--50);
 			transform: translateY(0.3rem);
-			margin-left: 1rem;
 		}
 	}
 
@@ -69,8 +68,8 @@ header {
 }
 
 a.secondary {
-	color: var(--color-foreground--75);
 	font-weight: 400;
+	color: var(--color-foreground--75);
 
 	&:hover {
 		color: var(--color-foreground);
@@ -78,10 +77,10 @@ a.secondary {
 }
 
 .blurb {
+	margin: 1em;
 	font-size: 1.5rem;
 	font-weight: 200;
 	color: var(--color-foreground--65);
-	margin: 1em;
 
 	b {
 		color: var(--color-foreground--85);
@@ -93,22 +92,22 @@ a.secondary {
 }
 
 .command {
-	font-weight: 600;
 	padding: 1px 3px;
+	font-weight: 600;
 }
 
 .command--show-view {
 	padding: 1px;
 	margin-right: 4px;
 
-	&:after {
-		content: '\eb14';
-		font-family: codicon;
-		font-size: 14px;
-		font-weight: 400;
+	&::after {
 		position: relative;
 		top: 3px;
 		left: 3px;
+		font-family: codicon;
+		font-size: 14px;
+		font-weight: 400;
+		content: '\eb14';
 	}
 }
 
@@ -116,13 +115,13 @@ a.secondary {
 	display: grid;
 	grid-template-areas: 'header header' 'hero sidebar' 'content sidebar';
 	grid-template-columns: repeat(1, 1fr min-content);
-	grid-gap: 1em 3em;
-	margin: 1em auto;
-	max-width: 1200px;
+	gap: 1em 3em;
 	min-width: 450px;
+	max-width: 1200px;
+	margin: 1em auto;
 
-	@media all and (max-width: 925px) {
-		grid-gap: 1em 0;
+	@media all and (width <= 925px) {
+		gap: 1em 0;
 	}
 }
 
@@ -138,17 +137,17 @@ a.secondary {
 		background-color: var(--color-background);
 	}
 
-	@media all and (max-width: 925px) {
+	@media all and (width <= 925px) {
 		grid-column: span 1;
 	}
 }
 
 .content__area--full-scroll {
-	background-color: unset !important;
 	margin-bottom: 90vh;
+	background-color: unset !important;
 
 	.section--settings {
-		margin: 0 0 1em 0;
+		margin: 0 0 1em;
 	}
 }
 
@@ -178,20 +177,20 @@ a.secondary {
 }
 
 .header__subtitle {
-	color: var(--color-foreground--65);
+	margin: -0.5em 0 0 4px;
 	font-family: 'Segoe UI Light', var(--font-family);
 	font-size: 2rem;
 	font-weight: 100;
-	margin: -0.5em 0 0 4px;
+	color: var(--color-foreground--65);
 	white-space: nowrap;
 }
 
 .hero__area {
 	grid-area: hero;
-	color: var(--color-foreground--75);
+	margin: 0 1em;
 	font-size: 1.5rem;
 	font-weight: 200;
-	margin: 0 1em;
+	color: var(--color-foreground--75);
 
 	b {
 		color: var(--color-foreground--85);
@@ -199,13 +198,13 @@ a.secondary {
 }
 
 .hero__area--sticky {
-	background: var(--color-background);
-	margin: 0 0 0 0;
-	padding: 0 0 0.5rem 0;
 	position: sticky;
 	top: -1px;
 	z-index: 1;
 	grid-column: span 1;
+	padding: 0 0 0.5rem;
+	margin: 0;
+	background: var(--color-background);
 
 	@include utils.light-theme($selectorPostfix: ' &') {
 		background: var(--color-background--darken-05);
@@ -220,14 +219,14 @@ a.secondary {
 }
 
 .hero__subtitle {
-	color: var(--color-foreground--75);
+	margin: 0.25em 0 0;
 	font-size: 1.4rem;
-	margin: 0.25em 0 0 0;
+	color: var(--color-foreground--75);
 }
 
 .hero__title {
-	font-size: 3rem;
 	margin: 0;
+	font-size: 3rem;
 }
 
 .hero__title-actions {
@@ -235,18 +234,17 @@ a.secondary {
 }
 
 .hero__toolbar {
-	flex: 1 1 auto;
-
 	display: flex;
+	flex: 1 1 auto;
 	justify-content: flex-end;
 	white-space: nowrap;
 
 	select,
 	option {
-		background-color: var(--color-background) !important;
 		margin-right: 0;
+		background-color: var(--color-background) !important;
 
-		@media all and (max-width: 925px) {
+		@media all and (width <= 925px) {
 			margin-right: unset;
 		}
 	}
@@ -257,18 +255,18 @@ a.secondary {
 }
 
 .image__logo {
-	margin: 9px 1em 0 0;
-	max-height: 64px;
 	max-width: 64px;
+	max-height: 64px;
+	margin: 9px 1em 0 0;
 }
 
 .image__preview {
-	border-radius: 8px;
-	box-shadow:
-		0px 0px 1px 0px rgba(0, 0, 0, 0.8),
-		0px 0px 12px 1px rgba(0, 0, 0, 0.5);
 	width: 600px;
 	height: auto;
+	border-radius: 8px;
+	box-shadow:
+		0 0 1px 0 rgb(0 0 0 / 80%),
+		0 0 12px 1px rgb(0 0 0 / 50%);
 }
 
 .image__preview--fit {
@@ -276,9 +274,9 @@ a.secondary {
 }
 
 .image__preview--overlay {
-	left: 0;
 	position: absolute;
 	top: 0;
+	left: 0;
 }
 
 .link__configure,
@@ -287,24 +285,24 @@ a.secondary {
 }
 
 .presets {
-	align-items: baseline;
-	justify-content: center;
 	display: flex;
-	width: 100%;
 	flex-wrap: wrap;
 	gap: 1em;
+	align-items: baseline;
+	justify-content: center;
+	width: 100%;
 }
 
 .preset {
-	text-align: center;
 	margin: 0 1em;
+	text-align: center;
 
 	p {
-		color: var(--color-foreground--75);
 		display: block;
-		font-weight: 200;
+		margin: -0.5em 1em 0.5em;
 		font-size: 1.3rem;
-		margin: -0.5em 1em 0.5em 1em;
+		font-weight: 200;
+		color: var(--color-foreground--75);
 		text-align: center;
 	}
 
@@ -318,14 +316,12 @@ a.secondary {
 section {
 	display: flex;
 	flex-wrap: wrap;
-
-	margin-bottom: 1em;
 	padding: 1em;
+	margin-bottom: 1em;
 
 	h2 {
-		flex: 1 0 auto;
-
 		display: flex;
+		flex: 1 0 auto;
 		margin-top: 0;
 		margin-bottom: 1em;
 	}
@@ -336,14 +332,12 @@ section {
 }
 
 .section--settings {
-	flex: 0 1 auto;
-
 	display: flex;
+	flex: 0 1 auto;
 	flex-wrap: wrap;
-
-	border-radius: 6px;
-	margin: 1em;
 	padding: 1em;
+	margin: 1em;
+	border-radius: 6px;
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: var(--color-background--lighten-075);
@@ -360,25 +354,25 @@ section {
 	}
 
 	.section__header {
-		cursor: pointer;
 		flex: 1 0 100%;
 		margin-right: 0;
+		cursor: pointer;
 
-		&:after {
-			background-color: var(--color-foreground--75);
-			content: '';
+		&::after {
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 32px;
 			height: 40px;
+			content: '';
+			background-color: var(--color-foreground--75);
 			-webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
 			mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
 			-webkit-mask-repeat: no-repeat;
 			mask-repeat: no-repeat;
 			-webkit-mask-size: 32px 40px;
 			mask-size: 32px 40px;
-			position: absolute;
-			right: 0;
-			top: 0;
 			transition: transform 250ms ease-in-out;
-			width: 32px;
 		}
 	}
 
@@ -386,7 +380,7 @@ section {
 		.section__header {
 			margin-bottom: 0;
 
-			&:after {
+			&::after {
 				transform: translateY(-9px) rotate(-180deg);
 			}
 
@@ -407,16 +401,14 @@ section {
 }
 
 .section__content {
-	flex: 1 1 auto;
-
 	display: flex;
+	flex: 1 1 auto;
 	flex-flow: column wrap;
 }
 
 .section__group {
-	flex: 1 0 100%;
-
 	display: flex;
+	flex: 1 0 100%;
 	flex-flow: wrap-reverse;
 
 	& + .section__group {
@@ -434,13 +426,13 @@ section {
 }
 
 .section__header {
+	position: relative;
 	display: flex;
-	align-items: baseline;
 	flex: 0 1 auto;
 	flex-flow: column;
-	margin-bottom: 1em;
+	align-items: baseline;
 	margin-right: 1em;
-	position: relative;
+	margin-bottom: 1em;
 
 	h2 {
 		margin-bottom: 0;
@@ -460,20 +452,19 @@ section {
 }
 
 .section__header-hint {
-	color: var(--color-foreground--75);
-	font-weight: 200;
 	margin: 0.25em 0;
+	font-weight: 200;
+	color: var(--color-foreground--75);
 }
 
 .section__header-info {
 	display: grid;
 	grid-template-columns: auto auto;
-	grid-gap: 1em;
+	gap: 1em;
 	align-items: center;
-
-	color: var(--color-foreground--75);
-	font-weight: 200;
 	margin: 0.25em 0.5em;
+	font-weight: 200;
+	color: var(--color-foreground--75);
 
 	p {
 		margin: 0;
@@ -487,12 +478,12 @@ section {
 
 .section__hint {
 	flex: 0 1 auto;
-	color: var(--color-foreground--75);
-	font-weight: 200;
 	margin: 0;
+	font-weight: 200;
+	color: var(--color-foreground--75);
 
 	* {
-		word-break: break-word;
+		overflow-wrap: anywhere;
 	}
 
 	b {
@@ -501,10 +492,10 @@ section {
 }
 
 .section__preview {
-	flex: 0 1 auto;
 	position: relative;
-	margin-left: auto;
+	flex: 0 1 auto;
 	margin-right: auto;
+	margin-left: auto;
 
 	.section__collapsible & {
 		margin-bottom: 1em;
@@ -512,17 +503,17 @@ section {
 }
 
 .setting {
-	flex: 0 1 auto;
 	position: relative;
+	flex: 0 1 auto;
 	margin-right: 1em;
 
 	& input[type='checkbox'] {
-		flex: 0 0 16px;
-		height: 16px;
-		margin: 0 10px 0 0;
 		position: relative;
 		top: 3px;
+		flex: 0 0 16px;
 		width: 16px;
+		height: 16px;
+		margin: 0 10px 0 0;
 	}
 
 	&[disabled] {
@@ -535,20 +526,20 @@ section {
 
 .setting--expandable {
 	.setting__expander {
-		background-color: var(--color-foreground--75);
-		cursor: pointer;
+		position: relative;
+		width: 32px;
 		height: 16px;
+		margin: 0;
+		cursor: pointer;
+		background-color: var(--color-foreground--75);
 		-webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
 		mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
 		-webkit-mask-repeat: no-repeat;
 		mask-repeat: no-repeat;
 		-webkit-mask-size: 32px 28px;
 		mask-size: 32px 28px;
-		position: relative;
-		margin: 0;
 		transform: translate(-9px, 4px) rotate(-90deg);
 		transition: transform 250ms ease-in-out;
-		width: 32px;
 	}
 
 	& + .settings {
@@ -570,8 +561,8 @@ section {
 	display: inline-flex;
 	flex-wrap: nowrap;
 	align-items: baseline;
-	line-height: normal;
 	margin: 0.5em 0;
+	line-height: normal;
 
 	&--centered {
 		align-items: center;
@@ -603,9 +594,9 @@ section {
 		}
 
 		.codicon {
+			margin: -2px 0 -1px;
 			line-height: 1;
 			vertical-align: text-bottom;
-			margin: -2px 0 -1px;
 			pointer-events: none;
 		}
 	}
@@ -624,8 +615,8 @@ section {
 		max-height: 15px;
 
 		.icon {
-			display: block;
 			top: unset;
+			display: block;
 		}
 	}
 
@@ -645,6 +636,7 @@ section {
 
 .setting__input--with-actions {
 	--input-action-space: 60px;
+
 	position: relative;
 
 	input[type='text'],
@@ -656,9 +648,9 @@ section {
 .setting__input--short {
 	input[type='text'],
 	input:not([type]) {
-		min-width: 100px;
-		width: 100px;
 		flex: none;
+		width: 100px;
+		min-width: 100px;
 	}
 }
 
@@ -671,18 +663,18 @@ section {
 }
 
 .setting__input--big {
+	margin: 0;
 	font-size: 2.2rem;
 	font-weight: 200;
-	margin: 0;
 
 	& input[type='checkbox'] {
-		flex: 0 0 1.5em;
-		height: 1em;
-		margin: 0;
 		position: relative;
 		top: 3px;
 		left: -5px;
+		flex: 0 0 1.5em;
 		width: 1em;
+		height: 1em;
+		margin: 0;
 	}
 
 	& label {
@@ -710,19 +702,18 @@ section {
 	}
 
 	& label:nth-of-type(2) {
-		text-overflow: ellipsis;
 		overflow: hidden;
+		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 }
 
 .setting__group {
-	margin: 0.5em 0;
 	display: flex;
-	align-items: center;
+	flex-flow: row wrap;
 	gap: 0.5em 1.25em;
-	flex-direction: row;
-	flex-wrap: wrap;
+	align-items: center;
+	margin: 0.5em 0;
 
 	> * {
 		margin: 0;
@@ -730,18 +721,18 @@ section {
 }
 
 .setting__hint {
-	color: var(--color-foreground--75);
 	display: block;
-	font-weight: 200;
+	margin: 0 1em 0.5em;
 	font-size: 1.3rem;
-	margin: 0 1em 0.5em 1em;
+	font-weight: 200;
+	color: var(--color-foreground--75);
 }
 
 .settings {
-	flex: 1 0 auto;
-
 	display: flex;
+	flex: 1 0 auto;
 	flex-wrap: wrap;
+
 	// align-items: baseline;
 	// justify-content: space-between;
 
@@ -758,40 +749,40 @@ section {
 
 // TODO: fix specificity
 .setting .toggle-button {
-	display: inline-block;
 	position: relative;
+	display: inline-block;
 
 	&__control {
 		&,
 		&[type] {
-			appearance: none;
 			position: absolute;
 			top: 0;
 			left: 0;
-			margin: 0;
-			opacity: 0;
-			height: 100%;
 			width: 100%;
+			height: 100%;
+			margin: 0;
+			appearance: none;
 			pointer-events: none;
+			opacity: 0;
 		}
 	}
 
 	&__label {
 		display: inline-block;
-		border-radius: 3px;
-		width: 1.64m;
+		width: 1.64em;
 		height: 1em;
 		padding: 0.28em;
 		font-size: 0.8em;
 		line-height: 1em;
-		text-align: center;
-		text-decoration: none;
-		user-select: none;
-		white-space: nowrap;
-		cursor: pointer;
-
-		border: 1px solid transparent;
 		color: var(--color-button-foreground);
+		text-align: center;
+		white-space: nowrap;
+		text-decoration: none;
+		cursor: pointer;
+		user-select: none;
+		border: 1px solid transparent;
+		border-radius: 3px;
+
 		// background-color: var(--color-button-secondary-background);
 
 		&:hover {
@@ -814,16 +805,16 @@ section {
 }
 
 .sidebar {
-	grid-area: sidebar;
-	align-self: flex-start;
-	font-size: 1.3rem;
 	position: sticky;
 	top: 0;
-	margin-right: -2rem;
-	min-width: 160px;
 	z-index: 2;
+	grid-area: sidebar;
+	align-self: flex-start;
+	min-width: 160px;
+	margin-right: -2rem;
+	font-size: 1.3rem;
 
-	@media all and (max-width: 925px) {
+	@media all and (width <= 925px) {
 		display: none;
 	}
 
@@ -839,7 +830,7 @@ section {
 .is-sidebar-hidden {
 	display: none;
 
-	@media all and (max-width: 925px) {
+	@media all and (width <= 925px) {
 		display: initial;
 	}
 }
@@ -853,8 +844,8 @@ section {
 
 	p {
 		font-weight: 400;
-		opacity: 0.5;
 		text-align: center;
+		opacity: 0.5;
 	}
 
 	.button {
@@ -863,8 +854,7 @@ section {
 
 	li {
 		display: flex;
-		flex-wrap: nowrap;
-		flex-direction: row;
+		flex-flow: row nowrap;
 		gap: 0.6rem;
 	}
 }
@@ -873,13 +863,13 @@ section {
 	&.active {
 		font-weight: 700;
 
-		&:before {
-			content: ' ';
-			border-left: 4px solid var(--color-link-foreground--darken-20);
+		&::before {
 			position: absolute;
 			left: -1em;
 			height: 1em;
 			padding-bottom: 4px;
+			content: ' ';
+			border-left: 4px solid var(--color-link-foreground--darken-20);
 
 			@include utils.light-theme($selectorPostfix: ' &') {
 				border-left-color: var(--color-link-foreground--lighten-20);

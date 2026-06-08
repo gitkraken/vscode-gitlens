@@ -63,17 +63,17 @@ export class GlAgentStatusPill extends LitElement {
 				--max-width: 30rem;
 
 				/* Phase colors — pulled from the unified --gl-agent-working-color /
-				   --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
-				   pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
-				   source of truth. Local *-bg / *-border derivations stay because the pill
-				   applies different opacity envelopes than other surfaces. */
+		   --gl-agent-waiting-color / --gl-agent-idle-color palette in theme.scss so the
+		   pill, card, sidebar leaf, tooltip, and WIP file decoration all share one
+		   source of truth. Local *-bg / *-border derivations stay because the pill
+		   applies different opacity envelopes than other surfaces. */
 				--gl-agent-pill-working-color: var(--gl-agent-working-color);
 				--gl-agent-pill-working-bg: color-mix(in srgb, var(--gl-agent-pill-working-color) 10%, transparent);
 				--gl-agent-pill-working-border: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
 
 				/* Needs Input border is brighter than the other categories (75% vs. 50%/35%) so the
-				   static state already communicates "this one's different" before the breathing
-				   animation kicks in. */
+		   static state already communicates "this one's different" before the breathing
+		   animation kicks in. */
 				--gl-agent-pill-attention-color: var(--gl-agent-waiting-color);
 				--gl-agent-pill-attention-bg: color-mix(in srgb, var(--gl-agent-pill-attention-color) 10%, transparent);
 				--gl-agent-pill-attention-bg-peak: color-mix(
@@ -96,18 +96,18 @@ export class GlAgentStatusPill extends LitElement {
 			/* Pill badge */
 			.pill {
 				/* border-box so the 1px border counts inside the 100% width — without it the pill
-				   bleeds 2px past its container in full mode. */
+		   bleeds 2px past its container in full mode. */
 				box-sizing: border-box;
 				display: inline-flex;
 				align-items: center;
 				padding: 0.1rem 0.6rem;
-				border-radius: 0.4rem;
-				border: 1px solid transparent;
 				font-size: 0.85em;
 				font-weight: 500;
 				line-height: normal;
 				white-space: nowrap;
 				cursor: default;
+				border: 1px solid transparent;
+				border-radius: 0.4rem;
 				transition:
 					background-color 250ms ease,
 					border-color 250ms ease,
@@ -116,25 +116,25 @@ export class GlAgentStatusPill extends LitElement {
 
 			.pill__label {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 				min-width: 0;
 			}
 
 			.pill__dot {
+				flex: none;
 				width: 5px;
 				height: 5px;
 				border-radius: 50%;
-				flex: none;
 				transition: background-color 250ms ease;
 			}
 
 			/* Full mode — pill grows to fill its container and surfaces inline actions on the
-			   right of the label. The popover anchor still wraps the whole pill so hover/focus
-			   keeps surfacing the rich detail (without duplicating the action row).
-			   full-active is a host-managed attribute, distinct from the public full prop, so the
-			   needs-input + !canResolve fallback can still render compact even when the consumer
-			   requested full. */
+	   right of the label. The popover anchor still wraps the whole pill so hover/focus
+	   keeps surfacing the rich detail (without duplicating the action row).
+	   full-active is a host-managed attribute, distinct from the public full prop, so the
+	   needs-input + !canResolve fallback can still render compact even when the consumer
+	   requested full. */
 			:host([full-active]) {
 				display: block;
 				width: 100%;
@@ -147,16 +147,17 @@ export class GlAgentStatusPill extends LitElement {
 
 			:host([full-active]) .pill {
 				display: flex;
-				width: 100%;
 				justify-content: space-between;
+				width: 100%;
 				padding: 0.3rem 0.6rem;
 			}
 
 			.pill__actions {
 				flex: none;
+
 				/* Tighten the inline action row so it sits flush with the pill's right padding
-				   instead of stretching the pill height. action-nav is a flex container itself —
-				   we just nudge gap and offset here. */
+		   instead of stretching the pill height. action-nav is a flex container itself —
+		   we just nudge gap and offset here. */
 				gap: 0.1rem;
 				margin-inline-end: -0.3rem;
 			}
@@ -164,12 +165,12 @@ export class GlAgentStatusPill extends LitElement {
 			.pill__actions action-item {
 				width: 1.8rem;
 				height: 1.8rem;
-				border-radius: 0.4rem;
 				color: inherit;
+				border-radius: 0.4rem;
 			}
 
 			/* Background-only animation (no box-shadow) so it doesn't get clipped by ancestors
-			   with overflow: hidden. */
+	   with overflow: hidden. */
 			.pill--working .pill__dot {
 				animation: gl-agent-pill-pulse 1.5s ease 0s infinite;
 			}
@@ -178,9 +179,11 @@ export class GlAgentStatusPill extends LitElement {
 				0% {
 					box-shadow: 0 0 0 0 var(--pill-pulse-color, transparent);
 				}
+
 				70% {
 					box-shadow: 0 0 0 5px transparent;
 				}
+
 				100% {
 					box-shadow: 0 0 0 0 transparent;
 				}
@@ -195,6 +198,7 @@ export class GlAgentStatusPill extends LitElement {
 				100% {
 					background-color: var(--gl-agent-pill-attention-bg);
 				}
+
 				50% {
 					background-color: var(--gl-agent-pill-attention-bg-peak);
 				}
@@ -202,10 +206,11 @@ export class GlAgentStatusPill extends LitElement {
 
 			/* Working */
 			.pill--working {
+				color: var(--gl-agent-pill-working-color);
 				background-color: var(--gl-agent-pill-working-bg);
 				border-color: var(--gl-agent-pill-working-border);
-				color: var(--gl-agent-pill-working-color);
 			}
+
 			.pill--working .pill__dot {
 				background-color: var(--gl-agent-pill-working-color);
 				--pill-pulse-color: color-mix(in srgb, var(--gl-agent-pill-working-color) 50%, transparent);
@@ -213,20 +218,22 @@ export class GlAgentStatusPill extends LitElement {
 
 			/* Needs Input */
 			.pill--needs-input {
+				color: var(--gl-agent-pill-attention-color);
 				background-color: var(--gl-agent-pill-attention-bg);
 				border-color: var(--gl-agent-pill-attention-border);
-				color: var(--gl-agent-pill-attention-color);
 			}
+
 			.pill--needs-input .pill__dot {
 				background-color: var(--gl-agent-pill-attention-color);
 			}
 
 			/* Idle */
 			.pill--idle {
+				color: var(--gl-agent-pill-idle-color);
 				background-color: var(--gl-agent-pill-idle-bg);
 				border-color: var(--gl-agent-pill-idle-border);
-				color: var(--gl-agent-pill-idle-color);
 			}
+
 			.pill--idle .pill__dot {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
@@ -248,29 +255,31 @@ export class GlAgentStatusPill extends LitElement {
 				display: flex;
 				flex-direction: column;
 				gap: 0.6rem;
-				white-space: normal;
 				min-width: 16rem;
+				white-space: normal;
 			}
 
 			.hover-header {
 				display: flex;
-				align-items: center;
 				gap: 0.5rem;
+				align-items: center;
 			}
 
 			.hover-header__dot {
+				flex: none;
 				width: 8px;
 				height: 8px;
 				border-radius: 50%;
-				flex: none;
 			}
 
 			.hover-header__dot--working {
 				background-color: var(--gl-agent-pill-working-color);
 			}
+
 			.hover-header__dot--needs-input {
 				background-color: var(--gl-agent-pill-attention-color);
 			}
+
 			.hover-header__dot--idle {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
@@ -283,8 +292,8 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-header__elapsed {
 				flex: none;
-				color: var(--vscode-descriptionForeground);
 				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hover-section {
@@ -294,23 +303,20 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.hover-section__label {
-				text-transform: uppercase;
 				font-size: 0.8em;
 				color: var(--vscode-descriptionForeground);
+				text-transform: uppercase;
 				opacity: 0.7;
 			}
 
-			.hover-section__value {
-			}
-
 			.hover-prompt {
+				display: -webkit-box;
+				overflow: hidden;
+				-webkit-line-clamp: 3;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
-				word-break: break-word;
-				display: -webkit-box;
-				-webkit-line-clamp: 3;
+				overflow-wrap: anywhere;
 				-webkit-box-orient: vertical;
-				overflow: hidden;
 			}
 
 			.hover-actions {
@@ -328,9 +334,9 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-actions__row > gl-button {
 				/* min-width: max-content keeps Allow / Deny from shrinking below their icon+label
-				   content when the popover is anchored in a narrow sidebar — the popover body
-				   grows horizontally to fit instead. flex: 1 1 0 keeps the row evenly distributed
-				   when there's slack. */
+		   content when the popover is anchored in a narrow sidebar — the popover body
+		   grows horizontally to fit instead. flex: 1 1 0 keeps the row evenly distributed
+		   when there's slack. */
 				flex: 1 1 0;
 				min-width: max-content;
 			}
@@ -349,25 +355,25 @@ export class GlAgentStatusPill extends LitElement {
 
 			.more-menu__item {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				padding: 0.4rem 0.6rem;
-				border-radius: 0.3rem;
+				font-size: 0.95em;
 				color: var(--vscode-foreground);
 				text-decoration: none;
 				cursor: pointer;
-				font-size: 0.95em;
+				border-radius: 0.3rem;
 			}
 
 			.more-menu__item:hover {
-				background-color: var(--vscode-list-hoverBackground);
 				color: var(--vscode-list-hoverForeground, var(--vscode-foreground));
 				text-decoration: none;
+				background-color: var(--vscode-list-hoverBackground);
 			}
 
 			.more-menu__item code-icon {
-				color: var(--vscode-descriptionForeground);
 				flex: none;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.hover-summary {
@@ -382,11 +388,11 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-summary-row {
 				display: grid;
+
 				/* minmax(0, 1fr) lets the name column shrink below its min-content size, enabling
-				   ellipsis on long session names. Right column auto-sizes to the phase label. */
+		   ellipsis on long session names. Right column auto-sizes to the phase label. */
 				grid-template-columns: auto minmax(0, 1fr) auto;
-				column-gap: 0.6rem;
-				row-gap: 0.1rem;
+				gap: 0.1rem 0.6rem;
 				align-items: center;
 			}
 
@@ -397,27 +403,30 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.hover-summary-row__dot {
+				flex: none;
 				width: 0.7rem;
 				height: 0.7rem;
 				border-radius: 50%;
-				flex: none;
 			}
+
 			.hover-summary-row__dot--working {
 				background-color: var(--gl-agent-pill-working-color);
 			}
+
 			.hover-summary-row__dot--needs-input {
 				background-color: var(--gl-agent-pill-attention-color);
 			}
+
 			.hover-summary-row__dot--idle {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
 
 			.hover-summary-row__name {
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
 				font-weight: 600;
+				white-space: nowrap;
 			}
 
 			.hover-summary-row__phase {
@@ -429,22 +438,22 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.hover-summary-row__phase--needs-input {
-				color: var(--gl-agent-pill-attention-color);
 				font-weight: 600;
+				color: var(--gl-agent-pill-attention-color);
 			}
 
 			.hover-summary-row__detail {
 				grid-column: 2 / -1;
 				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				white-space: nowrap;
-				overflow: hidden;
-				text-overflow: ellipsis;
 			}
 
 			/* Summary-row tool detail places the shared .agent-tool composite into the row's
-			   second grid cell — visual styling lives in the shared agentToolStyles. */
+	   second grid cell — visual styling lives in the shared agentToolStyles. */
 			.hover-summary-row__tool {
 				grid-column: 2 / -1;
 			}

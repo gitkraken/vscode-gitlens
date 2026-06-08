@@ -25,22 +25,27 @@ export class GlOnboarding extends SignalWatcher(LitElement) {
 			.walkthrough-progress__label {
 				margin-block: 0;
 			}
+
 			.walkthrough-progress__steps {
-				margin-block: 0;
 				padding-inline-start: 0;
+				margin-block: 0;
 			}
+
 			.walkthrough-progress__step {
-				list-style: none;
 				margin-block-start: 0.3rem;
+				list-style: none;
 			}
+
 			.walkthrough-progress__step-label {
 				margin-inline-start: 0.3rem;
 			}
+
 			code-icon[icon='circle-large'] {
 				color: var(--color-foreground--50);
 			}
+
 			code-icon[icon='pass'] {
-				color: #00dd00;
+				color: #0d0;
 			}
 		`,
 	];

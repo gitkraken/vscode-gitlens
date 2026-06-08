@@ -39,19 +39,18 @@ const sharedRules = {
 };
 
 /**
- * Pre-existing violations across the webviews (as of the stylelint rollout) that were NOT auto-fixed
- * and are deferred for triage rather than fixed in bulk. Kept as warnings so `lint:ci` stays green and
- * the linter still enforces them on *new* code via --fix; promote each back to error as the backlog clears.
- * The full file:line list lives in the rollout notes.
+ * Pre-existing violations that are intentional or low-value enough to keep as warnings rather than
+ * fix or hard-fail on. (The duplicate-custom-property, empty-block, deprecated-keyword, and bad-unit
+ * findings from the rollout have since been fixed and those rules now run at their default error level.)
+ * Promote any of these back to error if/when the remaining instances are addressed.
  */
 const deferredToWarning = {
-	'declaration-property-value-keyword-no-deprecated': [true, { severity: 'warning' }], // word-break: break-word
-	'property-no-deprecated': [true, { severity: 'warning' }], // clip (visually-hidden a11y hack), -webkit-box-pack
-	'block-no-empty': [true, { severity: 'warning' }],
+	// Intentional: `clip: rect(…)` visually-hidden a11y hack + vendored -webkit-box-pack in diff2html CSS
+	'property-no-deprecated': [true, { severity: 'warning' }],
+	// Mostly deliberate organizational splits (:root/body, theme override blocks, component base + state)
 	'no-duplicate-selectors': [true, { severity: 'warning' }],
-	'declaration-block-no-duplicate-custom-properties': [true, { severity: 'warning' }],
+	// One non-combinable grid-template in rebase.css.ts
 	'declaration-block-no-redundant-longhand-properties': [true, { severity: 'warning' }],
-	'unit-no-unknown': [true, { severity: 'warning' }], // settings.scss:772 — likely a real typo, worth a look
 };
 
 export default {

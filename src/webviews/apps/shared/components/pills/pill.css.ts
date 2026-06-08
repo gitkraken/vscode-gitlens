@@ -12,16 +12,16 @@ export const baseStyles = css`
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		min-height: var(--gl-pill-min-height, auto);
 		padding: var(--gl-pill-padding, 0.2rem 0.5rem);
-		border-radius: var(--gl-pill-border-radius, 0.5rem);
 		font-size: var(--gl-pill-font-size, 1rem);
 		font-weight: 500;
 		line-height: var(--gl-pill-line-height, 1);
-		min-height: var(--gl-pill-min-height, auto);
-		text-transform: uppercase;
 		color: var(--gl-pill-foreground, var(--vscode-foreground));
-		background-color: var(--gl-pill-background, var(--vscode-editorWidget-background));
+		text-transform: uppercase;
 		white-space: nowrap;
+		background-color: var(--gl-pill-background, var(--vscode-editorWidget-background));
+		border-radius: var(--gl-pill-border-radius, 0.5rem);
 	}
 
 	.pill--outlined {

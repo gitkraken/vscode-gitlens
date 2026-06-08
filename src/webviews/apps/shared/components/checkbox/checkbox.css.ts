@@ -24,10 +24,10 @@ export const checkboxBaseStyles = css`
 		display: flex;
 		gap: var(--checkbox-spacing);
 		align-items: center;
-		user-select: none;
+		color: var(--checkbox-foreground);
 		white-space: nowrap;
 		cursor: pointer;
-		color: var(--checkbox-foreground);
+		user-select: none;
 	}
 
 	:host([disabled]) label {
@@ -37,8 +37,8 @@ export const checkboxBaseStyles = css`
 
 	.label-text {
 		display: block;
-		line-height: normal;
 		margin-inline-end: var(--checkbox-spacing);
+		line-height: normal;
 	}
 
 	.input {
@@ -46,20 +46,21 @@ export const checkboxBaseStyles = css`
 		z-index: -1;
 		opacity: 0;
 	}
+
 	.control {
-		flex-shrink: 0;
+		position: relative;
+		left: 1px;
+		box-sizing: border-box;
 		display: inline-flex;
+		flex-shrink: 0;
 		align-items: center;
 		justify-content: center;
-		position: relative;
 		width: var(--checkbox-size);
 		height: var(--checkbox-size);
-		box-sizing: border-box;
-		border-radius: var(--checkbox-radius);
 		color: var(--checkbox-foreground);
 		background: var(--checkbox-background);
 		border: var(--checkbox-border-width, 1px) solid var(--vscode-checkbox-border);
-		left: 1px;
+		border-radius: var(--checkbox-radius);
 	}
 
 	.input:hover + .control {
@@ -85,8 +86,8 @@ export const checkboxBaseStyles = css`
 	}
 
 	code-icon {
-		pointer-events: none;
 		visibility: hidden;
+		pointer-events: none;
 	}
 
 	:host([checked]) code-icon,

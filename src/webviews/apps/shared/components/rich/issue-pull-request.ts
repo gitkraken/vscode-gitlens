@@ -22,10 +22,10 @@ export class IssuePullRequest extends GlElement {
 	static override styles = css`
 		:host {
 			display: grid;
+			grid-template-columns: min-content 1fr min-content;
 			gap: 0.25rem 0.6rem;
 			justify-content: start;
 			font-size: 1.3rem;
-			grid-template-columns: min-content 1fr min-content;
 		}
 
 		:host([compact]) {
@@ -38,50 +38,55 @@ export class IssuePullRequest extends GlElement {
 		}
 
 		.icon {
-			grid-column: 1;
 			grid-row: 1 / 3;
-			text-align: center;
+			grid-column: 1;
 			padding-top: 0.1rem;
+			text-align: center;
 		}
 
 		.icon--pr-opened {
 			color: var(--vscode-gitlens-openPullRequestIconColor);
 		}
+
 		.icon--pr-closed {
 			color: var(--vscode-gitlens-closedPullRequestIconColor);
 		}
+
 		.icon--pr-merged {
 			color: var(--vscode-gitlens-mergedPullRequestIconColor);
 		}
+
 		.icon--pr-draft {
 			color: var(--vscode-descriptionForeground);
 		}
+
 		.icon--issue-opened {
 			color: var(--vscode-gitlens-openAutolinkedIssueIconColor);
 		}
+
 		.icon--issue-closed {
 			color: var(--vscode-gitlens-closedAutolinkedIssueIconColor);
 		}
 
 		.title {
-			grid-column: 2;
 			grid-row: 1;
+			grid-column: 2;
 			margin: 0;
 		}
 
 		.date {
-			grid-column: 2;
 			grid-row: 2;
+			grid-column: 2;
 			margin: 0;
 		}
 
 		.details {
-			grid-column: 3;
-			grid-row: 1 / 3;
-			margin: 0;
 			display: flex;
-			align-items: center;
+			grid-row: 1 / 3;
+			grid-column: 3;
 			gap: 0.2rem;
+			align-items: center;
+			margin: 0;
 		}
 
 		.badge {
@@ -89,17 +94,17 @@ export class IssuePullRequest extends GlElement {
 			padding: 0.1rem 0.4rem;
 			font-size: 0.9em;
 			line-height: 1;
-			border-radius: 0.3rem;
 			border: 1px solid var(--color-foreground--50);
+			border-radius: 0.3rem;
 			opacity: 0.8;
 		}
 
 		.review {
-			grid-column: 2;
-			margin: 0;
 			display: flex;
-			align-items: center;
+			grid-column: 2;
 			gap: 0.3rem;
+			align-items: center;
+			margin: 0;
 		}
 
 		.review--approved {

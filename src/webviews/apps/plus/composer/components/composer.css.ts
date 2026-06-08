@@ -16,13 +16,14 @@ export const composerItemStyles = css`
 		display: flex;
 		flex-direction: row;
 		align-items: center;
+		color: var(--composer-item-color);
+		cursor: pointer;
+		background: var(--composer-item-background);
+
 		/* gap: 0.8rem; */
 		border: 1px solid var(--composer-item-border);
 		border-radius: var(--composer-item-radius);
-		color: var(--composer-item-color);
-		background: var(--composer-item-background);
 		transition: background-color 0.2s ease;
-		cursor: pointer;
 	}
 
 	.composer-item:not(.is-selected):is(:focus-visible, :hover) {
@@ -34,6 +35,7 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--vscode-list-activeSelectionBackground, var(--color-background));
 		--composer-item-icon-color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 		--composer-item-color: var(--vscode-list-activeSelectionForeground);
+
 		transition: none;
 	}
 
@@ -58,6 +60,7 @@ export const composerItemStyles = css`
 		);
 		--composer-item-border: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 20%, transparent);
 		--composer-item-radius: 0.4rem;
+
 		border-style: dashed;
 	}
 
@@ -85,23 +88,24 @@ export const composerItemStyles = css`
 		--composer-item-background: var(--color-background);
 		--composer-item-icon-color: var(--color-foreground--65);
 		--composer-item-color: var(--color-foreground--65);
+
 		cursor: default;
 	}
 
 	.composer-item__content {
-		flex: 1;
 		display: flex;
-		min-width: 0;
+		flex: 1;
 		flex-direction: column;
 		gap: 0.4rem;
+		min-width: 0;
 		padding: 0.8rem 1.2rem;
 	}
 
 	.composer-item__header {
+		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: 1.4rem;
 		white-space: nowrap;
-		text-overflow: ellipsis;
-		overflow: hidden;
 	}
 
 	.composer-item__header.is-placeholder,
@@ -111,9 +115,9 @@ export const composerItemStyles = css`
 	}
 
 	.composer-item__header.is-empty-state {
-		white-space: normal;
 		text-overflow: initial;
 		text-wrap: pretty;
+		white-space: normal;
 	}
 
 	.composer-item__body {
@@ -121,28 +125,29 @@ export const composerItemStyles = css`
 	}
 
 	.composer-item.is-base .composer-item__body {
-		white-space: nowrap;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		min-width: 0;
+		white-space: nowrap;
 	}
 `;
 
 export const composerItemCommitStyles = css`
 	.composer-item__commit {
-		flex: none;
 		position: relative;
-		width: 2.2rem;
+		flex: none;
 		align-self: stretch;
+		width: 2.2rem;
 		margin-inline-start: 0.8rem;
 	}
+
 	.composer-item__commit::before {
-		content: '';
 		position: absolute;
 		top: 0;
 		left: 50%;
 		width: 0;
 		height: 100%;
+		content: '';
 		border-left: 2px dashed var(--composer-item-icon-color);
 		transform: translateX(-50%);
 	}
@@ -157,22 +162,23 @@ export const composerItemCommitStyles = css`
 	}
 
 	.composer-item__commit::after {
-		content: '';
 		position: absolute;
 		top: 50%;
 		left: 0;
+		z-index: 1;
 		width: 1.8rem;
 		aspect-ratio: 1;
-		transform: translateY(-50%);
-		border-radius: 50%;
+		content: '';
 		background: var(--composer-item-background);
 		border: 2px dashed var(--composer-item-icon-color);
-		z-index: 1;
+		border-radius: 50%;
+		transform: translateY(-50%);
 	}
 
 	.composer-item.is-base .composer-item__commit::after {
 		border-style: solid;
 	}
+
 	.composer-item.is-base .composer-item__commit::before {
 		border-left-style: solid;
 	}
@@ -180,20 +186,24 @@ export const composerItemCommitStyles = css`
 	.composer-item.is-recompose-locked .composer-item__commit::after {
 		border-style: solid;
 	}
+
 	.composer-item.is-recompose-locked .composer-item__commit::before {
 		border-left-style: solid;
 	}
 
 	.composer-item.is-locked {
-		opacity: 0.6;
 		cursor: default;
+		opacity: 0.6;
 	}
+
 	.composer-item.is-locked .drag-handle {
 		display: none;
 	}
+
 	.composer-item.is-locked .composer-item__commit::after {
 		border-style: solid;
 	}
+
 	.composer-item.is-locked .composer-item__commit::before {
 		border-left-style: solid;
 	}
@@ -207,17 +217,15 @@ export const composerItemCommitStyles = css`
 export const composerItemContentStyles = css`
 	.change-stats {
 		display: flex;
-		align-items: center;
 		gap: 0.8rem;
-	}
-
-	.file-count {
+		align-items: center;
 	}
 
 	.diff-stats {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.5rem;
+		align-items: center;
+
 		/* font-size: 0.8rem; */
 		font-weight: 500;
 	}

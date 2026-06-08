@@ -7,8 +7,8 @@ import { css } from 'lit';
 export const agentToolStyles = css`
 	.agent-tool {
 		display: inline-flex;
-		align-items: baseline;
 		gap: 0.4rem;
+		align-items: baseline;
 		min-width: 0;
 		font-size: 0.9em;
 		color: var(--vscode-descriptionForeground);
@@ -21,10 +21,10 @@ export const agentToolStyles = css`
 
 	.agent-tool__text {
 		min-width: 0;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-family: var(--vscode-editor-font-family, monospace);
+		white-space: nowrap;
 	}
 `;
 
@@ -34,8 +34,8 @@ export const agentToolStyles = css`
  *  surrounding phase label. */
 export const agentPhaseElapsedStyles = css`
 	.agent-phase-elapsed {
+		font-weight: normal;
 		text-transform: none;
 		letter-spacing: 0;
-		font-weight: normal;
 	}
 `;

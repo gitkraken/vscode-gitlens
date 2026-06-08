@@ -57,11 +57,11 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	static override styles = css`
 		:host {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.2rem;
+			align-items: center;
 			padding: 0.2rem;
-			border-radius: 0.4rem;
 			background: var(--vscode-editorWidget-background, transparent);
+			border-radius: 0.4rem;
 		}
 
 		.visualization-tablist {
@@ -69,17 +69,17 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button {
-			appearance: none;
-			background: none;
-			border: 1px solid transparent;
-			border-radius: 0.3rem;
-			padding: 0.4rem 0.6rem;
-			cursor: pointer;
-			font: inherit;
-			color: var(--vscode-descriptionForeground);
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
+			padding: 0.4rem 0.6rem;
+			font: inherit;
+			color: var(--vscode-descriptionForeground);
+			appearance: none;
+			cursor: pointer;
+			background: none;
+			border: 1px solid transparent;
+			border-radius: 0.3rem;
 			--code-icon-size: 1.6rem;
 		}
 
@@ -104,8 +104,8 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button:disabled {
-			opacity: 0.45;
 			cursor: not-allowed;
+			opacity: 0.45;
 		}
 	`;
 

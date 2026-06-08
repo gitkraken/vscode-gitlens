@@ -16,73 +16,84 @@ export const commitPopoverStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		margin: 0.6rem 0.2rem 0.2rem 0.2rem;
 		max-width: 52rem;
+		margin: 0.6rem 0.2rem 0.2rem;
 	}
+
 	.commit-popover-content__header {
 		display: flex;
-		align-items: flex-start;
 		gap: 0.5rem;
+		align-items: flex-start;
 	}
+
 	.commit-popover-content__info {
 		display: flex;
+		flex: 1;
 		gap: 0.625rem;
 		align-items: center;
-		flex: 1;
 		min-width: 0;
 	}
+
 	.commit-popover-content__avatar {
+		flex-shrink: 0;
 		width: 32px;
 		height: 32px;
 		border-radius: 8px;
-		flex-shrink: 0;
 	}
+
 	.commit-popover-content__details {
 		display: flex;
+		flex: 1;
 		flex-direction: column;
 		gap: 0;
 		min-width: 0;
-		flex: 1;
 		line-height: normal;
 	}
+
 	.commit-popover-content__name {
-		font-weight: 500;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		white-space: nowrap;
+		font-weight: 500;
 		color: var(--vscode-foreground);
+		white-space: nowrap;
 	}
+
 	.commit-popover-content__email {
 		font-weight: 400;
 		color: var(--vscode-descriptionForeground);
 	}
+
 	.commit-popover-content__email a {
 		color: var(--color-link-foreground);
 		text-decoration: none;
 	}
+
 	.commit-popover-content__date {
+		flex-shrink: 0;
 		font-size: 1rem;
 		color: var(--color-foreground--50);
-		flex-shrink: 0;
 		white-space: nowrap;
 	}
+
 	.commit-popover-content__message {
-		font-size: 1.1rem;
-		color: var(--color-foreground--85);
-		white-space: pre-wrap;
-		word-break: break-word;
 		max-height: 10rem;
 		overflow: auto;
+		font-size: 1.1rem;
+		color: var(--color-foreground--85);
+		overflow-wrap: anywhere;
+		white-space: pre-wrap;
 	}
+
 	.commit-popover-content:hover .scrollable,
 	.commit-popover-content:focus-within .scrollable {
 		border-color: var(--vscode-scrollbarSlider-background);
 		transition: none;
 	}
+
 	.commit-popover-content__sha {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.2rem;
+		align-items: center;
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: 1.1rem;
 		color: var(--vscode-descriptionForeground);

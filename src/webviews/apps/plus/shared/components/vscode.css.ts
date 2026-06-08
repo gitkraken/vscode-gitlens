@@ -2,11 +2,11 @@ import { css } from 'lit';
 
 export const linkStyles = css`
 	a {
-		border: 0;
-		color: var(--link-foreground);
 		font-weight: 400;
-		outline: none;
+		color: var(--link-foreground);
 		text-decoration: var(--link-decoration-default, none);
+		outline: none;
+		border: 0;
 	}
 
 	a:focus-visible {

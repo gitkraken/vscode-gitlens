@@ -60,8 +60,8 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.commits-header {
-				font-size: 1.4rem;
 				margin-block: 0 0.4rem;
+				font-size: 1.4rem;
 			}
 
 			.commits-list > *:not(.commits-header) + .commits-header {
@@ -69,9 +69,9 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.no-changes-message {
-				color: var(--vscode-descriptionForeground);
-				font-style: italic;
 				margin-block: 1.2rem;
+				font-style: italic;
+				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}
 
@@ -91,11 +91,11 @@ export class CommitsPanel extends LitElement {
 
 			.composition-summary__feedback {
 				display: flex;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
 				justify-content: space-between;
-				font-size: 1.2rem;
 				margin-block: 0.8rem;
+				font-size: 1.2rem;
 			}
 
 			.composition-summary__feedback-label {
@@ -108,11 +108,11 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.composition-summary__feedback-action {
-				cursor: pointer;
 				padding: 0.2rem;
+				color: var(--vscode-foreground);
+				cursor: pointer;
 				border-radius: 3px;
 				transition: background-color 0.2s ease;
-				color: var(--vscode-foreground);
 			}
 
 			.composition-summary__feedback-action:hover,
@@ -126,10 +126,10 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.composition-summary__instructions {
-				font-size: 1.2rem;
-				color: var(--vscode-descriptionForeground);
 				margin-top: 0.8rem;
+				font-size: 1.2rem;
 				line-height: 1.4;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			/* Finish & Commit section styles */
@@ -137,19 +137,19 @@ export class CommitsPanel extends LitElement {
 				position: sticky;
 				bottom: 0;
 				z-index: 600;
-				background-color: var(--color-background);
 				padding-block-start: 0.8rem;
+				background-color: var(--color-background);
 			}
 
 			.finish-commit__header {
-				font-size: 1.4rem;
 				margin-block: 0 0.4rem;
+				font-size: 1.4rem;
 			}
 
 			.finish-commit__description {
+				margin-block: 0 0.8rem;
 				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
-				margin-block: 0 0.8rem;
 			}
 
 			.cancel-button-container {
@@ -157,23 +157,23 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.new-commit-drop-zone {
-				min-height: 60px;
-				border: 2px dashed var(--vscode-panel-border);
-				border-radius: 4px;
+				position: relative;
+				z-index: 5; /* Lower z-index than unassign zone */
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				color: var(--vscode-descriptionForeground);
-				font-size: 0.9em;
+				min-height: 60px;
 				margin-top: 0.5rem;
+				font-size: 0.9em;
+				color: var(--vscode-descriptionForeground);
+				border: 2px dashed var(--vscode-panel-border);
+				border-radius: 4px;
 				transition: all 0.2s ease;
-				position: relative;
-				z-index: 5; /* Lower z-index than unassign zone */
 			}
 
 			.new-commit-drop-zone.drag-over {
-				border-color: var(--vscode-focusBorder);
 				background: var(--vscode-list-dropBackground);
+				border-color: var(--vscode-focusBorder);
 				box-shadow: 0 0 8px var(--vscode-focusBorder);
 			}
 
@@ -182,19 +182,19 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.unassign-drop-zone {
-				min-height: 60px;
-				border: 2px dashed var(--vscode-errorForeground);
-				border-radius: 4px;
+				position: relative;
+				z-index: 10; /* Higher z-index to prioritize over new commit zone */
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				color: var(--vscode-errorForeground);
-				font-size: 0.9em;
+				min-height: 60px;
 				margin-top: 0.5rem;
-				transition: all 0.2s ease;
+				font-size: 0.9em;
+				color: var(--vscode-errorForeground);
 				background-color: var(--vscode-inputValidation-errorBackground);
-				position: relative;
-				z-index: 10; /* Higher z-index to prioritize over new commit zone */
+				border: 2px dashed var(--vscode-errorForeground);
+				border-radius: 4px;
+				transition: all 0.2s ease;
 			}
 
 			.unassign-drop-zone.hidden {
@@ -202,15 +202,15 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.unassign-drop-zone.drag-over {
-				border-color: var(--vscode-errorForeground);
 				background-color: var(--vscode-inputValidation-errorBackground);
+				border-color: var(--vscode-errorForeground);
 			}
 
 			.drop-zone-content {
 				display: flex;
+				gap: 0.5rem;
 				align-items: center;
 				justify-content: center;
-				gap: 0.5rem;
 			}
 
 			gl-commit-item {
@@ -231,8 +231,8 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.commit-item.drag-over {
-				box-shadow: 0 0 8px var(--vscode-focusBorder);
 				border: 2px solid var(--vscode-focusBorder);
+				box-shadow: 0 0 8px var(--vscode-focusBorder);
 			}
 
 			.sortable-ghost-hidden {
@@ -246,32 +246,33 @@ export class CommitsPanel extends LitElement {
 
 			/* Include changes button styling */
 			.add-to-draft-button-container gl-button {
-				background: var(--composer-item-background) !important;
 				color: var(--composer-item-color) !important;
+				background: var(--composer-item-background) !important;
 			}
 
 			/* Auto-Compose container styles */
 			.auto-compose {
-				border: 1px solid var(--vscode-panel-border);
-				border-radius: 6px;
 				padding: 1.2rem;
 				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				border: 1px solid var(--vscode-panel-border);
+				border-radius: 6px;
 			}
 
 			.auto-compose.is-used {
 				margin-block: 1.2rem 0;
 			}
+
 			.auto-compose__header {
+				margin-block: 0 0.4rem;
 				font-size: 1.3rem;
 				color: var(--vscode-foreground);
-				margin-block: 0 0.4rem;
 			}
 
 			.auto-compose__description {
-				font-size: 1.2rem;
-				color: var(--vscode-descriptionForeground);
-				line-height: 1.4;
 				margin-block: 0 0.4rem;
+				font-size: 1.2rem;
+				line-height: 1.4;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.auto-compose__header ~ .auto-compose__model-picker {
@@ -289,32 +290,35 @@ export class CommitsPanel extends LitElement {
 				--max-width: 37rem;
 
 				a:has(.inline-code) {
-					text-decoration: none;
 					white-space: nowrap;
+					text-decoration: none;
 				}
+
 				.inline-code code-icon {
 					vertical-align: middle;
 				}
 			}
+
 			.auto-compose__instructions-input {
 				width: 100%;
 				padding: 0.5rem;
-				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: var(--gl-input-border-radius);
-				background: var(--vscode-input-background);
-				color: var(--vscode-input-foreground);
 				font-family: inherit;
 				font-size: 1.3rem;
 				line-height: 1.8rem;
+				color: var(--vscode-input-foreground);
+				background: var(--vscode-input-background);
+				border: 1px solid var(--vscode-input-border, transparent);
+				border-radius: var(--gl-input-border-radius);
 			}
+
 			textarea.auto-compose__instructions-input {
 				box-sizing: content-box;
 				width: calc(100% - 1rem);
-				resize: vertical;
-				field-sizing: content;
 				min-height: 1lh;
 				max-height: 4lh;
+				resize: vertical;
 				resize: none;
+				field-sizing: content;
 			}
 
 			.auto-compose__instructions-input::placeholder {
@@ -322,15 +326,15 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.auto-compose__footer {
-				text-align: center;
+				margin-block: 0.8rem 0;
 				font-size: 1.1rem;
 				color: var(--color-foreground--75);
-				margin-block: 0.8rem 0;
+				text-align: center;
 			}
 
 			.instructions-list {
-				margin-block: 0.4rem;
 				padding-inline-start: 1.6rem;
+				margin-block: 0.4rem;
 			}
 		`,
 	];

@@ -28,8 +28,8 @@ export class GlMcpBanner extends LitElement {
 			}
 
 			:host([layout='responsive']) gl-banner {
-				margin-bottom: 0;
 				width: 100%;
+				margin-bottom: 0;
 			}
 		`,
 	];

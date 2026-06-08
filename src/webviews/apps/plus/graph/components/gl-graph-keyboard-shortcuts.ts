@@ -108,15 +108,15 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 		.header {
 			display: flex;
+			gap: 1.6rem;
 			align-items: center;
 			justify-content: space-between;
-			gap: 1.6rem;
 		}
 
 		.header h2 {
 			display: flex;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			margin: 0;
 			font-size: 1.5rem;
 			font-weight: 600;
@@ -128,11 +128,12 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			justify-content: center;
 			padding: 0.4rem;
 			color: inherit;
+			cursor: pointer;
 			background: none;
 			border: none;
 			border-radius: 0.3rem;
-			cursor: pointer;
 		}
+
 		.close:hover {
 			background: var(--vscode-toolbar-hoverBackground);
 		}
@@ -143,9 +144,10 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		}
 
 		.group {
-			break-inside: avoid;
 			margin-bottom: 1.2rem;
+			break-inside: avoid;
 		}
+
 		.group:last-child {
 			margin-bottom: 0;
 		}
@@ -154,16 +156,15 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			margin: 0 0 0.4rem;
 			font-size: 1.1rem;
 			font-weight: 600;
+			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-transform: uppercase;
 			letter-spacing: 0.05rem;
-			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 		}
 
 		.rows {
 			display: grid;
 			grid-template-columns: max-content 1fr;
-			column-gap: 1rem;
-			row-gap: 0.4rem;
+			gap: 0.4rem 1rem;
 			align-items: baseline;
 		}
 
@@ -180,8 +181,8 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			font-family: inherit;
 			font-size: 1.1rem;
 			line-height: 1.5;
-			text-align: center;
 			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
+			text-align: center;
 			background-color: var(--vscode-keybindingLabel-background, var(--vscode-toolbar-hoverBackground));
 			border: 1px solid var(--vscode-keybindingLabel-border, transparent);
 			border-bottom-color: var(

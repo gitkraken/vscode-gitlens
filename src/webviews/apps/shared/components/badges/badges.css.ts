@@ -3,37 +3,37 @@ import { css } from 'lit';
 export const badgeBase = css`
 	.badge {
 		display: inline-flex;
-		font-size: var(--gl-badge-font-size, x-small);
-		font-variant: all-small-caps;
-		font-weight: 600;
-		color: var(--gl-badge-color, var(--color-foreground--50));
-		border: currentColor 1px solid;
-		border-radius: 1rem;
 		padding: 0 0.8rem 0.1rem;
+		font-size: var(--gl-badge-font-size, x-small);
+		font-weight: 600;
+		font-variant: all-small-caps;
+		color: var(--gl-badge-color, var(--color-foreground--50));
 		white-space: nowrap;
+		border: currentcolor 1px solid;
+		border-radius: 1rem;
 	}
 
 	:host([appearance='filled']) .badge {
-		background-color: var(--vscode-badge-background);
-		color: var(--vscode-badge-foreground);
-		border: none;
+		justify-content: center;
+		min-width: 1.6rem;
+		padding: 0.2rem 0.4rem;
 		font-weight: 500;
 		line-height: 1;
-		min-width: 1.6rem;
-		justify-content: center;
-		padding: 0.2rem 0.4rem;
+		color: var(--vscode-badge-foreground);
+		background-color: var(--vscode-badge-background);
+		border: none;
 		border-radius: 0.4rem;
 	}
 
 	:host([appearance='warning']) .badge {
-		background-color: var(--vscode-gitDecoration-conflictingResourceForeground);
-		color: var(--vscode-button-foreground, #fff);
-		border: none;
+		justify-content: center;
+		min-width: 1.6rem;
+		padding: 0.2rem 0.4rem;
 		font-weight: 500;
 		line-height: 1;
-		min-width: 1.6rem;
-		justify-content: center;
-		padding: 0.2rem 0.4rem;
+		color: var(--vscode-button-foreground, #fff);
+		background-color: var(--vscode-gitDecoration-conflictingResourceForeground);
+		border: none;
 		border-radius: 0.4rem;
 	}
 
@@ -41,13 +41,13 @@ export const badgeBase = css`
 	 * "x of y Staged"). Translucent foreground tint reads as a chip carved into the accent fill,
 	 * while text keeps the badge foreground so it stays legible across themes. */
 	:host([appearance='muted']) .badge {
-		background-color: color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent);
-		color: var(--vscode-badge-foreground);
-		border: none;
-		font-weight: 500;
-		line-height: 1;
 		justify-content: center;
 		padding: 0.1rem 0.4rem;
+		font-weight: 500;
+		line-height: 1;
+		color: var(--vscode-badge-foreground);
+		background-color: color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent);
+		border: none;
 		border-radius: 0.3rem;
 	}
 
@@ -59,15 +59,15 @@ export const badgeBase = css`
 	}
 
 	:host([appearance='experimental']) .badge {
-		color: var(--vscode-editorWarning-foreground, var(--color-foreground--65));
-		border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
-		background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 12%, transparent);
-		font-variant: normal;
-		font-weight: 600;
-		letter-spacing: 0.06em;
-		padding: 0.1rem 0.6rem;
-		border-radius: 0.3rem;
 		align-items: center;
 		justify-content: center;
+		padding: 0.1rem 0.6rem;
+		font-weight: 600;
+		font-variant: normal;
+		color: var(--vscode-editorWarning-foreground, var(--color-foreground--65));
+		letter-spacing: 0.06em;
+		background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 12%, transparent);
+		border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
+		border-radius: 0.3rem;
 	}
 `;

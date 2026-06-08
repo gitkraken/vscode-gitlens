@@ -24,13 +24,13 @@ export const bannerStyles = css`
 	}
 
 	.banner {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		padding: var(--gl-banner-padding);
-		border-radius: var(--gl-banner-border-radius);
-		position: relative;
-		overflow: hidden;
 		container-type: inline-size;
+		overflow: hidden;
+		border-radius: var(--gl-banner-border-radius);
 	}
 
 	/* Solid display mode - same as card background */
@@ -92,21 +92,21 @@ export const bannerStyles = css`
 
 	/* Gradient purple display mode - matches the auto-composer container styling */
 	.banner--gradient-purple {
+		background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 		border: 1px solid var(--vscode-panel-border);
 		border-radius: 6px;
-		background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
 	}
 
 	.banner--gradient-purple .banner__title {
 		font-size: 1.3rem;
-		color: var(--vscode-foreground);
 		font-weight: normal;
+		color: var(--vscode-foreground);
 	}
 
 	.banner--gradient-purple .banner__body {
 		font-size: 1.2rem;
-		color: var(--vscode-descriptionForeground);
 		line-height: 1.4;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.banner--gradient-purple .banner__body a {
@@ -131,9 +131,9 @@ export const bannerStyles = css`
 	.banner--responsive .banner__content {
 		display: flex;
 		flex-direction: column;
+		gap: var(--gl-banner-gap);
 		align-items: stretch;
 		text-align: left;
-		gap: var(--gl-banner-gap);
 	}
 
 	.banner--responsive .banner__text {
@@ -152,44 +152,44 @@ export const bannerStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.8rem;
-		margin-top: 0.8rem;
 		width: 100%;
+		margin-top: 0.8rem;
 	}
 
 	.banner--responsive .banner__button {
+		flex: 1;
 		grid-column: unset;
+		justify-content: center;
 		justify-self: unset;
 		width: 100% !important;
 		min-width: 100% !important;
 		max-width: 100% !important;
-		justify-content: center;
-		flex: 1;
 	}
 
 	/* >= 500px: Three-group horizontal layout */
 	@container (min-width: 500px) {
 		.banner--responsive .banner__content {
 			flex-direction: row;
-			align-items: center;
 			gap: 1.6rem;
+			align-items: center;
 		}
 
 		/* Group 1: Text content (left-aligned) */
 		.banner--responsive .banner__text {
 			flex: 1;
-			min-width: 0;
 			align-self: center;
+			min-width: 0;
 		}
 
 		/* Group 2: Buttons (content-sized) */
 		.banner--responsive .banner__buttons {
 			display: flex;
+			flex-shrink: 0;
 			flex-direction: column;
 			gap: 0.8rem;
-			margin-top: 0;
-			width: auto;
-			flex-shrink: 0;
 			align-self: center;
+			width: auto;
+			margin-top: 0;
 		}
 
 		.banner--responsive .banner__button {
@@ -202,24 +202,24 @@ export const bannerStyles = css`
 			position: static !important;
 			top: auto !important;
 			right: auto !important;
-			align-self: center;
 			flex-shrink: 0;
+			align-self: center;
 		}
 	}
 
 	.banner__title {
+		margin: 0;
 		font-size: 1.2em;
 		font-weight: bold;
 		color: var(--gl-banner-text-color);
-		margin: 0;
 		text-wrap: pretty;
 	}
 
 	.banner__body {
-		font-size: 1em;
-		color: var(--gl-banner-text-color);
 		margin: 0;
+		font-size: 1em;
 		line-height: 1.4;
+		color: var(--gl-banner-text-color);
 		text-wrap: pretty;
 	}
 
@@ -227,9 +227,9 @@ export const bannerStyles = css`
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
 		gap: 0.8rem;
-		margin-top: 0.8rem;
 		align-items: center;
 		width: 100%;
+		margin-top: 0.8rem;
 	}
 
 	.banner:not(.banner--gradient-purple) .banner__button--primary {
@@ -273,6 +273,7 @@ export const bannerStyles = css`
 		--button-foreground: var(--gl-banner-dim-text-color);
 		--button-hover-background: color-mix(in lab, var(--gl-banner-dim-text-color) 15%, transparent);
 		--button-padding: 0.4rem;
+
 		z-index: 1;
 	}
 
@@ -336,7 +337,7 @@ export const bannerStyles = css`
 	}
 
 	/* Responsive adjustments */
-	@media (max-width: 640px) {
+	@media (width <= 640px) {
 		.banner__buttons {
 			flex-direction: column;
 			width: 100%;
@@ -348,14 +349,14 @@ export const bannerStyles = css`
 	}
 
 	/* More aggressive responsive layout for narrow sidebars */
-	@media (max-width: 400px) {
+	@media (width <= 400px) {
 		.banner__buttons {
 			display: flex;
 			flex-direction: column;
 			gap: 0.6rem;
-			margin-top: 0.8rem;
 			align-items: center;
 			width: 100%;
+			margin-top: 0.8rem;
 		}
 
 		.banner__button--primary,
@@ -381,9 +382,9 @@ export const bannerStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-		margin-top: 0.8rem;
 		align-items: center;
 		width: 100%;
+		margin-top: 0.8rem;
 	}
 
 	:host([data-banner-buttons-layout='column']) .banner__button--primary,

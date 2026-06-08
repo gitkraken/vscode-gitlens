@@ -21,15 +21,15 @@ export class GlDialog extends LitElement {
 			}
 
 			dialog {
-				padding: 2rem;
-				background: var(--vscode-editorWidget-background);
-				border: 0.1rem solid var(--vscode-widget-border);
-				border-radius: 0.3rem;
-				color: var(--vscode-editorWidget-foreground);
-				box-shadow: 0 0 0.8rem 0 var(--vscode-widget-shadow);
 				width: min-content;
 				min-width: 40rem;
 				max-width: 50rem;
+				padding: 2rem;
+				color: var(--vscode-editorWidget-foreground);
+				background: var(--vscode-editorWidget-background);
+				border: 0.1rem solid var(--vscode-widget-border);
+				border-radius: 0.3rem;
+				box-shadow: 0 0 0.8rem 0 var(--vscode-widget-shadow);
 			}
 		`,
 	];

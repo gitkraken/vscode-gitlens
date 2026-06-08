@@ -39,22 +39,22 @@ export class GlMenuPopover extends GlElement {
 		}
 
 		/* Strip menu-list's standalone chrome (its own border + asymmetric bottom padding) — inside
-		   the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
-		   last item clear the body padding. */
+	   the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
+	   last item clear the body padding. */
 		menu-list {
 			padding: 0.2rem 0;
-			border: 0;
 			background: transparent;
+			border: 0;
 		}
 
 		menu-item {
 			display: flex;
-			align-items: center;
 			gap: 0.4rem;
+			align-items: center;
 		}
 
 		/* Fixed-width check column so labels align whether or not an item is selected — the
-		   unselected items render a blank icon that occupies the column invisibly. */
+	   unselected items render a blank icon that occupies the column invisibly. */
 		menu-item code-icon {
 			flex: 0 0 1.4rem;
 		}

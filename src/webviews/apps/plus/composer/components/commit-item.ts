@@ -38,14 +38,14 @@ export class CommitItem extends LitElement {
 
 			.drag-handle {
 				position: absolute;
-				left: 0.4rem;
 				top: 50%;
-				transform: translateY(-50%);
-				color: var(--vscode-descriptionForeground);
-				opacity: 0.3;
-				transition: opacity 0.2s ease;
-				cursor: grab;
+				left: 0.4rem;
 				padding: 0.2rem;
+				color: var(--vscode-descriptionForeground);
+				cursor: grab;
+				opacity: 0.3;
+				transform: translateY(-50%);
+				transition: opacity 0.2s ease;
 			}
 
 			.drag-handle:hover,

@@ -1,25 +1,25 @@
 @use './styles/utils';
 
 .popup {
-	box-shadow: 0px 0px 28px 0 rgba(0, 0, 0, 0.5);
-	cursor: default;
-	padding: 1em;
 	position: absolute;
 	top: 72px;
+	z-index: 1;
 	width: 80vw;
 	min-width: 373px;
 	max-width: 472px;
-	z-index: 1;
+	padding: 1em;
+	cursor: default;
+	box-shadow: 0 0 28px 0 rgb(0 0 0 / 50%);
 
-	&:before {
+	&::before {
+		position: absolute;
+		top: -24px;
+		left: 50%;
+		z-index: 1001;
+		pointer-events: none;
+		content: '';
 		background: transparent;
 		border: 12px solid transparent;
-		content: '';
-		left: 50%;
-		position: absolute;
-		pointer-events: none;
-		top: -24px;
-		z-index: 1001;
 
 		@include utils.light-theme($selectorPostfix: ' &') {
 			border-bottom-color: var(--color-background--darken-05);
@@ -40,38 +40,38 @@
 }
 
 .token-popup__scroller {
-	margin-right: -0.4em;
 	max-height: 35vh;
-	overflow-y: scroll;
 	padding-right: 0.4em;
+	margin-right: -0.4em;
+	overflow-y: scroll;
 }
 
 .token-popup__hint {
-	color: var(--color-foreground--75);
 	display: inline-block;
-	font-weight: 200;
 	margin: 1.25em 0.5em 0 0.25em;
+	font-weight: 200;
+	color: var(--color-foreground--75);
 }
 
 .token-popup__title {
-	color: var(--color-foreground);
+	margin: 0.25em 0 1em;
 	font-weight: 400;
-	margin: 0.25em 0 1em 0;
+	color: var(--color-foreground);
 	text-align: center;
 }
 
 .token-popup__table {
-	border-collapse: collapse;
 	color: var(--color-foreground--75);
 	table-layout: fixed;
+	border-collapse: collapse;
 
 	& tr:nth-child(even) {
 		@include utils.light-theme($selectorPostfix: ' &') {
-			background-color: rgba(0, 0, 0, 0.05);
+			background-color: rgb(0 0 0 / 5%);
 		}
 
 		@include utils.dark-theme($selectorPostfix: ' &') {
-			background-color: rgba(255, 255, 255, 0.04);
+			background-color: rgb(255 255 255 / 4%);
 		}
 	}
 
@@ -94,19 +94,19 @@
 }
 
 .token {
+	display: inline-block;
+	padding: 1px 8px !important;
+	color: white;
+	cursor: pointer;
 	background: var(--color-link-foreground--darken-20);
 	border-bottom: 2px solid var(--color-link-foreground--darken-20);
 	border-radius: 3px;
-	color: white;
-	cursor: pointer;
-	display: inline-block;
-	padding: 1px 8px !important;
 
-	&:before {
+	&::before {
 		content: '${';
 	}
 
-	&:after {
+	&::after {
 		content: '}';
 	}
 

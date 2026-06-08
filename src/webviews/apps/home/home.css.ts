@@ -28,35 +28,37 @@ export const homeBaseStyles = css`
 	}
 
 	ul {
-		margin-top: 0;
 		padding-left: 1.2em;
+		margin-top: 0;
 	}
 `;
 
 export const homeStyles = css`
 	.home {
-		padding: 0;
-		height: 100vh;
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
+		height: 100vh;
+		padding: 0;
 		overflow: hidden;
 	}
 
 	.home__alerts {
+		position: relative;
 		flex: none;
 		padding: 0 2rem;
-		position: relative;
 	}
+
 	.home__alerts:not([has-alerts]) {
 		display: none;
 	}
 
 	.home__main {
 		flex: 1;
-		overflow: auto;
 		padding: 0.8rem 1.2rem;
+		overflow: auto;
 	}
+
 	.home__main > *:last-child {
 		margin-bottom: 0;
 	}
@@ -67,9 +69,9 @@ export const homeStyles = css`
 	}
 
 	.home__header {
+		padding: 0.4rem;
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
-		padding: 0.4rem;
 	}
 
 	.home__aux:has(gl-promo-banner:has(gl-promo:not([has-promo])):only-child) {
@@ -79,8 +81,8 @@ export const homeStyles = css`
 	summary {
 		font-size: 1.3rem;
 		font-weight: normal;
-		text-transform: uppercase;
 		color: var(--vscode-foreground);
+		text-transform: uppercase;
 		cursor: pointer;
 	}
 
@@ -99,17 +101,18 @@ export const homeStyles = css`
 
 export const buttonStyles = css`
 	.button-container {
+		max-width: 30rem;
 		margin: 1rem auto 0;
 		text-align: left;
-		max-width: 30rem;
 		transition: max-width 0.2s ease-out;
 	}
 
-	@media (min-width: 640px) {
+	@media (width >= 640px) {
 		.button-container {
 			max-width: 100%;
 		}
 	}
+
 	.button-container--trio > gl-button:first-child {
 		margin-bottom: 0.4rem;
 	}
@@ -118,17 +121,21 @@ export const buttonStyles = css`
 		display: inline-flex;
 		gap: 0.4rem;
 	}
+
 	.button-group--single {
 		width: 100%;
 		max-width: 30rem;
 	}
+
 	.button-group gl-button {
 		margin-top: 0;
 	}
+
 	.button-group gl-button:not(:first-child) {
 		border-top-left-radius: 0;
 		border-bottom-left-radius: 0;
 	}
+
 	.button-group gl-button:not(:last-child) {
 		border-top-right-radius: 0;
 		border-bottom-right-radius: 0;
@@ -139,26 +146,31 @@ export const alertStyles = css`
 	.alert {
 		position: relative;
 		padding: 0.8rem 1.2rem;
-		line-height: 1.2;
 		margin-bottom: 1.2rem;
+		line-height: 1.2;
+		color: var(--color-alert-foreground);
 		background-color: var(--color-alert-neutralBackground);
 		border-left: 0.3rem solid var(--color-alert-neutralBorder);
-		color: var(--color-alert-foreground);
 	}
+
 	.alert__title {
-		font-size: 1.4rem;
 		margin: 0;
+		font-size: 1.4rem;
 	}
+
 	.alert__description {
-		font-size: 1.2rem;
 		margin: 0.4rem 0 0;
+		font-size: 1.2rem;
 	}
+
 	.alert__description > :first-child {
 		margin-top: 0;
 	}
+
 	.alert__description > :last-child {
 		margin-bottom: 0;
 	}
+
 	.alert__close {
 		position: absolute;
 		top: 0.8rem;
@@ -166,39 +178,51 @@ export const alertStyles = css`
 		color: inherit;
 		opacity: 0.64;
 	}
+
 	.alert__close:hover {
 		color: inherit;
 		opacity: 1;
 	}
+
 	.alert.is-collapsed {
 		cursor: pointer;
 	}
+
 	.alert.is-collapsed:hover {
 		background-color: var(--color-alert-neutralHoverBackground);
 	}
+
 	.alert.is-collapsed .alert__description,
 	.alert.is-collapsed .alert__close gl-tooltip:first-child,
 	.alert:not(.is-collapsed) .alert__close gl-tooltip:last-child {
 		display: none;
 	}
+
 	.alert--info {
 		--color-alert-foreground: var(--color-alert-infoForeground);
+
 		background-color: var(--color-alert-infoBackground);
 		border-left-color: var(--color-alert-infoBorder);
 	}
+
 	.alert--warning {
 		--color-alert-foreground: var(--color-alert-warningForeground);
+
 		background-color: var(--color-alert-warningBackground);
 		border-left-color: var(--color-alert-warningBorder);
 	}
+
 	.alert--danger {
 		--color-alert-foreground: var(--color-alert-errorForeground);
+
 		background-color: var(--color-alert-errorBackground);
 		border-left-color: var(--color-alert-errorBorder);
 	}
+
 	.alert a:not(:hover) {
 		color: color-mix(in srgb, var(--color-alert-foreground) 50%, var(--vscode-textLink-foreground));
 	}
+
 	.alert a:hover {
 		color: color-mix(in srgb, var(--color-alert-foreground) 50%, var(--vscode-textLink-activeForeground));
 	}
@@ -216,12 +240,13 @@ export const walkthroughProgressStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
+		align-items: stretch;
 		padding: 2px 4px 4px;
 		margin-top: 4px;
-		align-items: stretch;
 		cursor: pointer;
 		border-radius: 4px;
 	}
+
 	.walkthrough-progress:focus-within,
 	.walkthrough-progress:hover {
 		background-color: var(--gl-walkthrough-hover-background);
@@ -229,31 +254,36 @@ export const walkthroughProgressStyles = css`
 
 	.walkthrough-progress__title {
 		display: flex;
-		justify-content: space-between;
 		align-items: center;
+		justify-content: space-between;
 		color: var(--color-foreground--85);
 	}
+
 	.walkthrough-progress__button {
 		--button-padding: 1px 2px 0px 2px;
+
 		position: absolute;
 		right: 0.4rem;
 	}
+
 	.walkthrough-progress__bar::-webkit-progress-bar {
-		border-radius: 2px;
 		background: var(--color-alert-neutralBackground);
+		border-radius: 2px;
 	}
+
 	.walkthrough-progress__bar::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
+		border-radius: 2px;
 		transition: 0.1s ease-in;
-		border-radius: 2px;
 	}
+
 	.walkthrough-progress__bar {
-		pointer-events: none;
-		border-radius: 2px;
-		width: 100%;
-		background: unset;
-		height: 4px;
-		flex-shrink: 0;
 		z-index: 2;
+		flex-shrink: 0;
+		width: 100%;
+		height: 4px;
+		pointer-events: none;
+		background: unset;
+		border-radius: 2px;
 	}
 `;

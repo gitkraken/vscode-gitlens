@@ -192,9 +192,10 @@ export class GlPopover extends GlElement {
 			.popover {
 				--arrow-size: var(--wa-tooltip-arrow-size);
 				--arrow-color: var(--wa-tooltip-background-color);
+
 				/* tells wa-popup to overlap the arrow with the inside edge of our 1px body
-				   border, so the arrow base aligns with the body's content area instead of
-				   sitting on top of the border line */
+		   border, so the arrow base aligns with the body's content area instead of
+		   sitting on top of the border line */
 				--popup-border-width: 1px;
 			}
 
@@ -222,29 +223,29 @@ export class GlPopover extends GlElement {
 				display: block;
 				width: fit-content;
 				min-width: 0;
-				border: 1px solid var(--gl-tooltip-border-color);
-				border-radius: var(--wa-tooltip-border-radius);
-				box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
-				background-color: var(--wa-tooltip-background-color);
+				max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
+				padding: var(--wa-tooltip-padding);
+				overflow: hidden;
 				font-family: var(--wa-tooltip-font-family);
 				font-size: var(--wa-tooltip-font-size);
 				font-weight: var(--wa-tooltip-font-weight);
 				line-height: var(--wa-tooltip-line-height);
+				color: var(--wa-tooltip-color);
 				text-align: start;
 				white-space: normal;
-				color: var(--wa-tooltip-color);
-				padding: var(--wa-tooltip-padding);
-				user-select: none;
-				-webkit-user-select: none;
-				max-width: min(var(--auto-size-available-width), var(--max-width, 70vw));
-				overflow: hidden;
 				pointer-events: all;
+				-webkit-user-select: none;
+				user-select: none;
+				background-color: var(--wa-tooltip-background-color);
+				border: 1px solid var(--gl-tooltip-border-color);
+				border-radius: var(--wa-tooltip-border-radius);
+				box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
 			}
 
 			:host([auto-size-vertical]) .popover__body {
-				max-height: var(--auto-size-available-height);
 				display: flex;
 				flex-direction: column;
+				max-height: var(--auto-size-available-height);
 				overflow: hidden;
 			}
 
@@ -254,20 +255,21 @@ export class GlPopover extends GlElement {
 
 			.popover__resizer {
 				position: absolute;
+				z-index: 1;
+				touch-action: none;
 				background-color: transparent;
 				transition: background-color 0.1s ease-out;
-				touch-action: none;
-				z-index: 1;
 			}
 
 			/* Edges — 4px thick bars */
 			.popover__resizer--top {
 				top: 0;
-				left: 0;
 				right: 0;
+				left: 0;
 				height: 4px;
 				cursor: ns-resize;
 			}
+
 			.popover__resizer--right {
 				top: 0;
 				right: 0;
@@ -275,17 +277,19 @@ export class GlPopover extends GlElement {
 				width: 4px;
 				cursor: ew-resize;
 			}
+
 			.popover__resizer--bottom {
-				left: 0;
 				right: 0;
 				bottom: 0;
+				left: 0;
 				height: 4px;
 				cursor: ns-resize;
 			}
+
 			.popover__resizer--left {
 				top: 0;
-				left: 0;
 				bottom: 0;
+				left: 0;
 				width: 4px;
 				cursor: ew-resize;
 			}
@@ -295,28 +299,32 @@ export class GlPopover extends GlElement {
 			.popover__resizer--top-right,
 			.popover__resizer--bottom-left,
 			.popover__resizer--bottom-right {
+				z-index: 2;
 				width: 12px;
 				height: 12px;
-				z-index: 2;
 			}
+
 			.popover__resizer--top-left {
 				top: 0;
 				left: 0;
 				cursor: nwse-resize;
 			}
+
 			.popover__resizer--top-right {
 				top: 0;
 				right: 0;
 				cursor: nesw-resize;
 			}
+
 			.popover__resizer--bottom-left {
 				bottom: 0;
 				left: 0;
 				cursor: nesw-resize;
 			}
+
 			.popover__resizer--bottom-right {
-				bottom: 0;
 				right: 0;
+				bottom: 0;
 				cursor: nwse-resize;
 			}
 
@@ -325,48 +333,42 @@ export class GlPopover extends GlElement {
 			.popover__resizer--right::after,
 			.popover__resizer--bottom::after,
 			.popover__resizer--left::after {
-				content: '';
 				position: absolute;
+				content: '';
 			}
+
 			.popover__resizer--top::after {
-				left: 0;
-				right: 0;
-				top: -4px;
-				bottom: -2px;
+				inset: -4px 0 -2px;
 			}
+
 			.popover__resizer--right::after {
-				top: 0;
-				bottom: 0;
-				left: -2px;
-				right: -4px;
+				inset: 0 -4px 0 -2px;
 			}
+
 			.popover__resizer--bottom::after {
-				left: 0;
-				right: 0;
-				top: -2px;
-				bottom: -4px;
+				inset: -2px 0 -4px;
 			}
+
 			.popover__resizer--left::after {
-				top: 0;
-				bottom: 0;
-				left: -4px;
-				right: -2px;
+				inset: 0 -2px 0 -4px;
 			}
 
 			.popover__resizer:hover,
 			:host([dragging]) .popover__resizer--active {
-				transition-delay: 0.2s;
 				background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
+				transition-delay: 0.2s;
 			}
+
 			:host([dragging]) .popover__resizer--active {
 				transition-delay: 0s;
 			}
 
 			/* Override scrollbar thumb to not inherit border-color from the popover
-			   body's visible border, which conflicts with the scrollableBase trick */
+	   body's visible border, which conflicts with the scrollableBase trick */
 			.popover__body::-webkit-scrollbar-thumb {
 				border-color: transparent;
 			}
+
 			:host(:hover) .popover__body::-webkit-scrollbar-thumb,
 			:host(:focus-within) .popover__body::-webkit-scrollbar-thumb {
 				border-color: var(--vscode-scrollbarSlider-background);
@@ -391,10 +393,10 @@ export class GlPopover extends GlElement {
 			}
 
 			/* .popover::part(hover-bridge) {
-				background: tomato;
-				opacity: 0.5;
-				z-index: 10000000000;
-			} */
+		background: tomato;
+		opacity: 0.5;
+		z-index: 10000000000;
+	} */
 		`,
 	];
 

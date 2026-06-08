@@ -6,6 +6,7 @@ export const compareModePanelStyles = css`
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
+
 		/* Matches the fade+slide-up entrance used by other graph details sub-panels so
 		   compare mode animates in like review / compose instead of popping. */
 		animation: sub-panel-enter 0.2s ease-out;
@@ -18,11 +19,11 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-panel {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 		overflow: hidden;
-		position: relative;
 	}
 
 	.compare-panel > progress-indicator {
@@ -36,30 +37,30 @@ export const compareModePanelStyles = css`
 
 	.compare-bar {
 		display: flex;
+		flex: none;
+		gap: 0.4rem;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.4rem;
 		min-width: 0;
 		padding: 0.5rem 1.2rem;
+		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		background: var(--gl-metadata-bar-bg);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
-		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-		flex: none;
 	}
 
 	.compare-bar__refs {
 		display: flex;
-		align-items: center;
-		gap: 0.1rem;
-		min-width: 0;
 		flex: 0 1 auto;
+		gap: 0.1rem;
+		align-items: center;
+		min-width: 0;
 	}
 
 	.compare-bar__actions {
 		display: flex;
-		align-items: center;
-		gap: 0.1rem;
 		flex: 0 0 auto;
+		gap: 0.1rem;
+		align-items: center;
 	}
 
 	.compare-bar__refs gl-branch-name {
@@ -87,8 +88,8 @@ export const compareModePanelStyles = css`
 	   so the inner gl-branch-name's label can ellipsize. */
 	.compare-bar__refs > gl-tooltip {
 		display: flex;
-		min-width: 2.5rem;
 		flex: 0 1 auto;
+		min-width: 2.5rem;
 		overflow: hidden;
 	}
 
@@ -102,10 +103,10 @@ export const compareModePanelStyles = css`
 	   the Base and Compare sides. They're informational only — fixed size, no flex contribution,
 	   no overflow clipping. */
 	.compare-bar__refs > gl-tooltip:has(> .compare-role-icon) {
-		min-width: 0;
 		flex: 0 0 auto;
-		overflow: visible;
 		align-items: center;
+		min-width: 0;
+		overflow: visible;
 	}
 
 	.compare-role-icon {
@@ -119,26 +120,26 @@ export const compareModePanelStyles = css`
 	   is consistent across surfaces — a row-like button with a chevron-down icon, disabled +
 	   spinning while a fetch is in flight. */
 	.compare-load-more {
-		appearance: none;
-		display: flex;
-		align-items: center;
-		gap: 0.6rem;
-		width: 100%;
-		padding: 0.6rem 1.2rem;
-		border: none;
-		background: transparent;
-		color: var(--vscode-descriptionForeground);
-		font: inherit;
-		text-align: left;
-		cursor: pointer;
 		/* Constrain the button's outer width so width:100% + horizontal padding don't push
 		   it past the wrapper's box and trigger a horizontal scrollbar on a narrow panel. */
 		box-sizing: border-box;
+		display: flex;
+		gap: 0.6rem;
+		align-items: center;
+		width: 100%;
+		padding: 0.6rem 1.2rem;
+		font: inherit;
+		color: var(--vscode-descriptionForeground);
+		text-align: left;
+		appearance: none;
+		cursor: pointer;
+		background: transparent;
+		border: none;
 	}
 
 	.compare-load-more:hover:not(:disabled) {
-		background: var(--vscode-list-hoverBackground);
 		color: var(--vscode-foreground);
+		background: var(--vscode-list-hoverBackground);
 	}
 
 	.compare-load-more:disabled {
@@ -173,37 +174,37 @@ export const compareModePanelStyles = css`
 
 	.compare-tabs {
 		display: flex;
-		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
 		flex: none;
+		border-bottom: 2px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compare-error {
 		display: flex;
-		align-items: center;
+		flex: none;
 		gap: 0.6rem;
+		align-items: center;
 		padding: 0.6rem 1.2rem;
+		font-size: var(--gl-font-base);
 		color: var(--vscode-editorError-foreground);
 		background: var(--vscode-inputValidation-errorBackground);
 		border-bottom: 1px solid var(--vscode-inputValidation-errorBorder);
-		font-size: var(--gl-font-base);
-		flex: none;
 	}
 
 	.compare-stale {
 		display: flex;
-		align-items: center;
+		flex: none;
 		gap: 0.6rem;
+		align-items: center;
 		padding: 0.6rem 1.2rem;
+		font-size: var(--gl-font-base);
 		color: var(--vscode-inputValidation-warningForeground);
 		background: var(--vscode-inputValidation-warningBackground);
 		border-bottom: 1px solid var(--vscode-inputValidation-warningBorder);
-		font-size: var(--gl-font-base);
-		flex: none;
 	}
 
 	.compare-stale span {
-		min-width: 0;
 		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.compare-stale gl-action-chip {
@@ -211,20 +212,20 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-tab {
-		flex: 1;
 		display: flex;
+		flex: 1;
+		gap: 0.5rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
 		padding: 0.55rem 0.8rem;
+		margin-bottom: -2px;
+		font-family: inherit;
 		font-size: var(--gl-font-base);
 		cursor: pointer;
+		user-select: none;
+		background: transparent;
 		border: none;
 		border-bottom: 2px solid transparent;
-		margin-bottom: -2px;
-		background: transparent;
-		font-family: inherit;
-		user-select: none;
 		opacity: 0.55;
 		transition:
 			opacity 0.15s,
@@ -277,12 +278,12 @@ export const compareModePanelStyles = css`
 	   inactive dim comes from the parent tab's opacity:0.55, not a different color. This avoids
 	   the badge flashing to the default vscode-badge palette when switching tabs. */
 	.compare-tab__count {
+		padding: 0.2rem 0.4rem;
 		font-size: var(--gl-font-micro);
 		font-weight: 500;
-		padding: 0.2rem 0.4rem;
-		border-radius: 0.4rem;
-		color: var(--vscode-editor-background, var(--vscode-badge-foreground));
 		line-height: 1;
+		color: var(--vscode-editor-background, var(--vscode-badge-foreground));
+		border-radius: 0.4rem;
 	}
 
 	.compare-tab--all .compare-tab__count {
@@ -300,10 +301,10 @@ export const compareModePanelStyles = css`
 	/* All Files mode — full-width file tree, no commit pane. */
 
 	.compare-all {
-		flex: 1;
-		min-height: 0;
 		display: flex;
+		flex: 1;
 		flex-direction: column;
+		min-height: 0;
 		overflow: hidden;
 	}
 
@@ -313,14 +314,14 @@ export const compareModePanelStyles = css`
 	   with the autolinks row that Ahead/Behind tabs render in this slot. */
 	.compare-all-notice {
 		display: flex;
+		flex: none;
+		gap: 0.5rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.5rem;
+		min-width: 0;
 		padding: 1rem 1.2rem;
 		font-size: 1.2rem;
 		color: var(--color-foreground--65);
-		flex: none;
-		min-width: 0;
 	}
 
 	.compare-all-notice code-icon {
@@ -330,9 +331,9 @@ export const compareModePanelStyles = css`
 
 	.compare-all-notice span {
 		min-width: 0;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.compare-all-notice strong {
@@ -375,11 +376,10 @@ export const compareModePanelStyles = css`
 	   pattern from scrollableBase) so it doesn't flash when the user hovers the file pane. */
 
 	.compare-commits {
+		min-width: 0;
 		height: 100%;
 		min-height: 0;
-		min-width: 0;
-		overflow-y: auto;
-		overflow-x: hidden;
+		overflow: hidden auto;
 	}
 
 	.compare-commits.scrollable {
@@ -393,8 +393,8 @@ export const compareModePanelStyles = css`
 		transition: none;
 	}
 
-	:host(:hover) .compare-commits.scrollable:not(:hover):not(:focus-within),
-	:host(:focus-within) .compare-commits.scrollable:not(:hover):not(:focus-within) {
+	:host(:hover) .compare-commits.scrollable:not(:hover, :focus-within),
+	:host(:focus-within) .compare-commits.scrollable:not(:hover, :focus-within) {
 		border-color: transparent;
 	}
 
@@ -423,6 +423,7 @@ export const compareModePanelStyles = css`
 		--gl-popover-anchor-width: 100%;
 		--gl-tree-item-min-height: 2.4rem;
 		--gl-tree-item-padding-y: 0.2rem;
+
 		padding-right: 0.2rem;
 	}
 
@@ -455,13 +456,13 @@ export const compareModePanelStyles = css`
 
 	.compare-empty {
 		display: flex;
+		flex: none;
+		gap: 0.4rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.4rem;
 		padding: 1rem 1.2rem;
 		font-size: var(--gl-font-base);
 		color: var(--color-foreground--50);
-		flex: none;
 	}
 
 	.compare-empty--no-commits {
@@ -474,14 +475,14 @@ export const compareModePanelStyles = css`
 	   scope chip (mode-chip--scoped). Three indicators of the same scope state line up in color. */
 	.compare-scope-tag {
 		display: inline-flex;
-		align-items: center;
+		flex: none;
 		gap: 0.4rem;
-		margin: 0 0.6rem;
+		align-items: center;
 		padding: 0.1rem 0.3rem 0.1rem 0.4rem;
-		line-height: 1;
-		border-radius: 0.3rem;
+		margin: 0 0.6rem;
 		font-size: 1.2rem;
 		font-weight: normal;
+		line-height: 1;
 		color: var(--vscode-statusBarItem-warningForeground, var(--vscode-foreground));
 		background: color-mix(
 			in srgb,
@@ -494,7 +495,7 @@ export const compareModePanelStyles = css`
 				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 55%,
 				transparent
 			);
-		flex: none;
+		border-radius: 0.3rem;
 	}
 
 	.compare-scope-tag:hover {
@@ -516,21 +517,21 @@ export const compareModePanelStyles = css`
 		justify-content: center;
 		width: 1.4rem;
 		height: 1.4rem;
+		padding: 0;
+		margin-left: 0.1rem;
+		color: inherit;
+		cursor: pointer;
+		background: transparent;
 		border: none;
 		border-radius: 0.2rem;
-		margin-left: 0.1rem;
-		background: transparent;
-		color: inherit;
 		opacity: 0.75;
-		cursor: pointer;
-		padding: 0;
 	}
 
 	.compare-scope-tag__close:hover,
 	.compare-scope-tag__close:focus-visible {
-		background: color-mix(in srgb, currentColor 22%, transparent);
-		opacity: 1;
 		outline: none;
+		background: color-mix(in srgb, currentcolor 22%, transparent);
+		opacity: 1;
 	}
 
 	/* File tree container */
@@ -562,8 +563,8 @@ export const compareModePanelStyles = css`
 	   Contributors header (selector + count badge) aligns identically to the Files Changed header. */
 	.compare-contributors-title {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 	}
 
 	/* Line-stats summary in the file pane header. Color matches the per-file +N -N annotations.
@@ -571,22 +572,22 @@ export const compareModePanelStyles = css`
 	   (1) so the whole stats block clips out before the title text starts truncating. */
 	.compare-stats {
 		display: inline-block;
+		flex: 0 100 auto;
+		min-width: 0;
+		max-width: 100%;
 		margin-inline-start: 0.4rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
 		font-size: var(--gl-font-micro);
 		font-weight: normal;
 		font-variant-numeric: tabular-nums;
-		white-space: nowrap;
-		min-width: 0;
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		flex: 0 100 auto;
 		vertical-align: middle;
+		white-space: nowrap;
 	}
 
 	.compare-stats__additions {
-		color: var(--gl-stat-added);
 		margin-inline-end: 0.6rem;
+		color: var(--gl-stat-added);
 	}
 
 	.compare-stats__deletions {
@@ -625,12 +626,12 @@ export const compareModePanelStyles = css`
 	   overflow affordance. */
 	.compare-enrichment {
 		display: flex;
-		align-items: center;
+		flex: none;
 		gap: 0.5rem;
+		align-items: center;
+		min-width: 0;
 		padding: 0.4rem 1.2rem;
 		font-size: var(--gl-font-sm);
-		flex: none;
-		min-width: 0;
 	}
 
 	.compare-enrichment gl-action-chip[data-action='autolink-settings'] {
@@ -643,54 +644,56 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip::part(icon) {
-		line-height: 1;
 		display: inline-flex;
 		align-items: center;
+		line-height: 1;
 	}
 
 	/* Files / Contributors view selector — slotted into the pane's title slot, so it must
 	   visually sit inline with the title text it replaces (no margin/padding around the
 	   popover; the trigger button supplies its own hit-target padding). The 0-padding
 	   tooltip override removes the body inset so menu rows hug the popover edges. */
+
 	/* The title-content slot wrapper itself needs to be shrinkable so its inner
 	   popover/trigger/label can ellipse against the title slot's actual width. */
 	span[slot='title-content'] {
 		display: inline-flex;
+		flex: 0 10 auto;
 		min-width: 0;
 		max-width: 100%;
-		flex: 0 10 auto;
 		overflow: hidden;
 	}
 
 	.compare-view-selector {
 		display: inline-flex;
-		--wa-tooltip-padding: 0;
+		flex: 0 10 auto;
+
 		/* Allow the popover host (and trigger inside) to shrink within the title slot's
 		   flex layout so the label ellipses instead of overflowing the row. */
 		min-width: 0;
 		max-width: 100%;
-		flex: 0 10 auto;
+		--wa-tooltip-padding: 0;
 	}
 
 	.compare-view-trigger {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
-		background: transparent;
-		border: 1px solid transparent;
-		color: inherit;
+		align-items: center;
+		min-width: 0;
+		max-width: 100%;
+		padding: 0.1rem 0.4rem;
+		margin-inline-start: -0.4rem;
+		overflow: hidden;
 		font-family: inherit;
 		font-size: inherit;
 		font-weight: inherit;
+		color: inherit;
 		text-transform: inherit;
 		letter-spacing: inherit;
-		padding: 0.1rem 0.4rem;
-		margin-inline-start: -0.4rem;
-		border-radius: 3px;
 		cursor: pointer;
-		min-width: 0;
-		max-width: 100%;
-		overflow: hidden;
+		background: transparent;
+		border: 1px solid transparent;
+		border-radius: 3px;
 	}
 
 	.compare-view-trigger:hover {
@@ -698,17 +701,17 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-view-trigger:focus-visible {
-		background: var(--vscode-toolbar-hoverBackground);
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.compare-view-trigger__label {
-		text-transform: inherit;
-		letter-spacing: inherit;
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		text-transform: inherit;
+		letter-spacing: inherit;
 		white-space: nowrap;
 	}
 
@@ -720,12 +723,12 @@ export const compareModePanelStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
-		text-transform: none;
-		letter-spacing: normal;
-		font-weight: normal;
-		font-size: var(--gl-font-base);
 		min-width: 16rem;
 		padding: 0.4rem 0;
+		font-size: var(--gl-font-base);
+		font-weight: normal;
+		text-transform: none;
+		letter-spacing: normal;
 	}
 
 	.compare-view-menu menu-item {
@@ -741,21 +744,21 @@ export const compareModePanelStyles = css`
 	/* Contributors list */
 	.compare-contributors {
 		display: flex;
+		flex: 1 1 auto;
 		flex-direction: column;
 		min-width: 0;
 		min-height: 0;
-		flex: 1 1 auto;
 		overflow-y: auto;
 	}
 
 	.compare-contributors--loading,
 	.compare-contributors--empty,
 	.compare-files--loading {
+		gap: 0.6rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.6rem;
-		color: var(--vscode-descriptionForeground);
 		padding: 2rem 1.2rem;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* File-section loading container — sits in the gl-file-tree-pane "before-tree" slot in place
@@ -769,14 +772,14 @@ export const compareModePanelStyles = css`
 	   the side's Phase 2 fetch hasn't returned yet. Centered fill so the user sees the panel
 	   is working, not empty. */
 	.compare-side-loading {
-		flex: 1;
-		min-height: 0;
 		display: flex;
+		flex: 1;
+		gap: 0.6rem;
 		align-items: center;
 		justify-content: center;
-		gap: 0.6rem;
-		color: var(--vscode-descriptionForeground);
+		min-height: 0;
 		padding: 2rem 1.2rem;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Inline autolinks loading state — slots into the chip-overflow as a single non-chip
@@ -785,11 +788,11 @@ export const compareModePanelStyles = css`
 	   the spinner and the chip-based states. */
 	.compare-enrichment__loading {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
 		min-height: 2rem;
-		color: var(--vscode-descriptionForeground);
 		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
 	}
 
 	/* Badge spinner — match the count text size so a "3"→spinner→"5" transition doesn't shift
@@ -802,15 +805,16 @@ export const compareModePanelStyles = css`
 
 	.compare-tab__count-spinner {
 		--code-icon-size: var(--gl-font-micro);
+
 		line-height: 1;
 	}
 
 	.compare-contributor {
 		display: flex;
-		align-items: center;
 		gap: 0.8rem;
-		padding: 0.5rem 1.2rem;
+		align-items: center;
 		min-width: 0;
+		padding: 0.5rem 1.2rem;
 	}
 
 	.compare-contributor:hover {
@@ -825,32 +829,32 @@ export const compareModePanelStyles = css`
 
 	.compare-contributor__info {
 		display: flex;
-		flex-direction: column;
-		min-width: 0;
 		flex: 1 1 auto;
+		flex-direction: column;
 		gap: 0.1rem;
+		min-width: 0;
 	}
 
 	.compare-contributor__name {
-		font-weight: 600;
-		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-weight: 600;
+		white-space: nowrap;
 	}
 
 	.compare-contributor__you {
-		font-weight: 400;
-		font-size: 0.9em;
-		color: var(--vscode-descriptionForeground);
 		margin-left: 0.3rem;
+		font-size: 0.9em;
+		font-weight: 400;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-contributor__stats {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.6rem;
-		color: var(--vscode-descriptionForeground);
 		font-size: 1.1rem;
+		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-contributor__diffstat {

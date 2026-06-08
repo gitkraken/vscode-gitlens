@@ -24,8 +24,8 @@ export class GlCompactCommitRow extends LitElement {
 
 			.row {
 				display: flex;
-				align-items: center;
 				gap: 0.5rem;
+				align-items: center;
 				padding: 0.25rem 0;
 				cursor: pointer;
 				border-left: 2px solid transparent;
@@ -41,10 +41,10 @@ export class GlCompactCommitRow extends LitElement {
 			}
 
 			.dot {
+				flex-shrink: 0;
 				width: 8px;
 				height: 8px;
 				border-radius: 50%;
-				flex-shrink: 0;
 			}
 
 			.dot--uncommitted {
@@ -64,18 +64,18 @@ export class GlCompactCommitRow extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				white-space: nowrap;
 				font-size: 1.2rem;
 				color: var(--color-foreground--85);
+				white-space: nowrap;
 			}
 
 			.diff-stats {
 				display: inline-flex;
-				align-items: center;
-				gap: 0.4rem;
 				flex-shrink: 0;
-				font-size: 1rem;
+				gap: 0.4rem;
+				align-items: center;
 				font-family: var(--vscode-editor-font-family, monospace);
+				font-size: 1rem;
 			}
 
 			.diff-stats__added {

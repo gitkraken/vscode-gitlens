@@ -10,10 +10,9 @@ export const chipStyles = css`
 		display: flex;
 		gap: 0.6rem;
 		align-items: center;
-
-		border-radius: 0.3rem;
 		padding: 0.2rem 0.4rem;
 		cursor: pointer;
+		border-radius: 0.3rem;
 	}
 
 	.chip:focus-visible {
@@ -29,29 +28,29 @@ export const chipStyles = css`
 
 	.header {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 		width: 100%;
 		padding-bottom: 0.4rem;
 	}
 
 	.header__actions {
-		flex: none;
 		display: flex;
-		gap: 0.2rem;
+		flex: none;
 		flex-direction: row;
+		gap: 0.2rem;
 		align-items: center;
 		justify-content: center;
 	}
 
 	.header__title {
 		flex: 1;
-		font-size: 1.5rem;
-		line-height: 1.7;
-		font-weight: 600;
 		margin: 0;
-		white-space: nowrap;
-		text-overflow: ellipsis;
 		overflow: hidden;
+		text-overflow: ellipsis;
+		font-size: 1.5rem;
+		font-weight: 600;
+		line-height: 1.7;
+		white-space: nowrap;
 	}
 `;

@@ -221,6 +221,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 					opacity: 0;
 					transform: translateX(-8px);
 				}
+
 				to {
 					opacity: 1;
 					transform: translateX(0);
@@ -228,37 +229,38 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			:host {
+				z-index: 1;
 				display: flex;
 				flex-direction: column;
 				height: 100%;
 				overflow: visible;
 				background-color: var(--color-view-background);
-				z-index: 1;
-				border-right: 1px solid transparent;
 				border-color: var(--vscode-sideBar-border, transparent);
+				border-right: 1px solid transparent;
 			}
 
 			/* Play enter animations only when the parent signals the user-visible moment —
-			   the element is always mounted (inside the split-panel's start slot) so an
-			   unconditional animation would fire at 0 width where the user can't see it.
-			     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
-			     [switching] — active panel changed while visible (slide in from 4px Y, matches
-			                   the sub-panel-enter used by review/compose/compare panes)
-			   The animation runs on the inner .panel — NOT the :host — so the host's solid
-			   background-color stays put and blocks the graph behind it during the animation
-			   (in overlay mode the host floats over the graph; an opacity/translate on the host
-			   would expose the graph through fade or at the gap left by the translate). */
+	   the element is always mounted (inside the split-panel's start slot) so an
+	   unconditional animation would fire at 0 width where the user can't see it.
+	     [opening]   — sidebar went from hidden to visible (slide in from -8px X)
+	     [switching] — active panel changed while visible (slide in from 4px Y, matches
+	                   the sub-panel-enter used by review/compose/compare panes)
+	   The animation runs on the inner .panel — NOT the :host — so the host's solid
+	   background-color stays put and blocks the graph behind it during the animation
+	   (in overlay mode the host floats over the graph; an opacity/translate on the host
+	   would expose the graph through fade or at the gap left by the translate). */
 			:host([opening]) .panel {
 				animation: panel-enter 0.2s ease-out;
 			}
+
 			:host([switching]) .panel {
 				animation: sub-panel-enter 0.2s ease-out;
 			}
 
 			@media (prefers-reduced-motion: reduce) {
 				/* Near-zero duration, NOT animation:none, so the animationend event still
-				   fires — the internal handler depends on it to remove the opening / switching
-				   attribute. animation:none dispatches no event, so the attribute would stick. */
+		   fires — the internal handler depends on it to remove the opening / switching
+		   attribute. animation:none dispatches no event, so the attribute would stick. */
 				:host([opening]) .panel,
 				:host([switching]) .panel {
 					animation-duration: 0.01ms;
@@ -275,18 +277,18 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			.header {
 				position: relative;
 				display: flex;
-				align-items: center;
+				flex: none;
 				gap: 0.6rem;
+				align-items: center;
+				min-height: 2.2rem;
 				padding: 0 0 0 0.4rem;
 				font-size: 1.1rem;
 				font-weight: 600;
-				text-transform: uppercase;
 				color: var(--color-view-header-foreground);
+				text-transform: uppercase;
 				background-color: var(--color-view-background);
-				border-bottom: 1px solid transparent;
 				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
-				flex: none;
-				min-height: 2.2rem;
+				border-bottom: 1px solid transparent;
 			}
 
 			.header-title {
@@ -299,8 +301,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.header-actions {
 				display: flex;
-				align-items: center;
 				flex: none;
+				align-items: center;
 				text-transform: none;
 			}
 
@@ -310,8 +312,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.content {
 				flex: 1;
-				overflow: hidden;
 				min-height: 0;
+				overflow: hidden;
 			}
 
 			gl-tree-view {
@@ -328,55 +330,61 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.skeleton {
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
-				padding: 0.2rem 1rem;
+				align-items: center;
 				height: 2.2rem;
+				padding: 0.2rem 1rem;
 			}
 
 			.skeleton-icon {
+				flex: none;
 				width: 16px;
 				height: 16px;
-				border-radius: 3px;
 				background: var(--vscode-foreground);
+				border-radius: 3px;
 				opacity: 0.07;
-				flex: none;
 			}
 
 			.skeleton-text {
 				height: 10px;
-				border-radius: 3px;
 				background: var(--vscode-foreground);
+				border-radius: 3px;
 				opacity: 0.07;
 			}
 
 			.loading .skeleton:nth-child(1) .skeleton-text {
 				width: 65%;
 			}
+
 			.loading .skeleton:nth-child(2) .skeleton-text {
 				width: 45%;
 			}
+
 			.loading .skeleton:nth-child(3) .skeleton-text {
 				width: 80%;
 			}
+
 			.loading .skeleton:nth-child(4) .skeleton-text {
 				width: 55%;
 			}
+
 			.loading .skeleton:nth-child(5) .skeleton-text {
 				width: 70%;
 			}
+
 			.loading .skeleton:nth-child(6) .skeleton-text {
 				width: 40%;
 			}
+
 			.loading .skeleton:nth-child(7) .skeleton-text {
 				width: 60%;
 			}
 
 			.empty {
 				padding: 1rem;
-				text-align: center;
-				color: var(--vscode-descriptionForeground);
 				font-size: 1.2rem;
+				color: var(--vscode-descriptionForeground);
+				text-align: center;
 			}
 
 			.agents-banner {

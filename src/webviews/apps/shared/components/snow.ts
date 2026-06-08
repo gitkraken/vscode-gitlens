@@ -19,15 +19,15 @@ export class GlSnow extends LitElement {
 				position: fixed;
 				top: 0;
 				left: 0;
+				z-index: 2147483646;
 				width: 100vw;
 				height: 100vh;
 				pointer-events: none;
-				z-index: 2147483646;
 			}
 
 			.snow__toggle {
-				cursor: pointer;
 				width: 16px;
+				cursor: pointer;
 				opacity: 0.6;
 				transform: rotate(90deg) scaleX(-1);
 				transition:
@@ -37,13 +37,13 @@ export class GlSnow extends LitElement {
 			}
 
 			:host(:not([snowing])) .snow__toggle {
-				filter: grayscale(100%);
 				opacity: 0.5;
+				filter: grayscale(100%);
 			}
 
 			.snow__toggle:hover {
-				filter: unset !important;
 				opacity: 0.9 !important;
+				filter: unset !important;
 				transform: rotate(0deg) scaleX(-1) scale(1.4);
 			}
 		`,

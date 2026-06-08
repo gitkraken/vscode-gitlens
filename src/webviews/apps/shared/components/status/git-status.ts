@@ -44,10 +44,10 @@ export class GlGitStatus extends LitElement {
 
 			:host([conflict]) {
 				--gl-icon-size: 2.2rem;
-				margin-right: 0.4rem;
 
 				width: 22px;
 				aspect-ratio: auto;
+				margin-right: 0.4rem;
 			}
 
 			svg {

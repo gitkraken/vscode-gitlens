@@ -39,7 +39,7 @@ export class GlFeatureBadge extends LitElement {
 			:host {
 				/* position: relative; */
 				display: inline-block;
-				--gl-feature-badge-color: currentColor;
+				--gl-feature-badge-color: currentcolor;
 				--gl-feature-badge-border-color: var(--color-foreground--50);
 				--max-width: 40rem;
 			}
@@ -50,16 +50,16 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.badge {
-				color: var(--gl-feature-badge-color, currentColor);
-				cursor: help;
+				display: inline-block;
+				padding: 0 0.8rem 0.1rem;
 				font-size: var(--gl-feature-badge-font-size, x-small);
-				font-variant: all-small-caps;
 				font-weight: 600;
+				font-variant: all-small-caps;
+				color: var(--gl-feature-badge-color, currentColor);
+				white-space: nowrap;
+				cursor: help;
 				border: 1px solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
 				border-radius: 1rem;
-				padding: 0 0.8rem 0.1rem 0.8rem;
-				white-space: nowrap;
-				display: inline-block;
 			}
 
 			.badge:focus-visible {
@@ -67,16 +67,16 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.badge-icon {
-				font-weight: 400;
 				margin-left: 0.4rem;
+				font-weight: 400;
 				white-space: nowrap;
 			}
 
 			.badge-popup {
 				display: flex;
 				flex-direction: column;
-				white-space: normal;
 				gap: 0.6rem;
+				white-space: normal;
 			}
 
 			.popup-header {
@@ -91,15 +91,15 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-subtitle {
-				font-size: smaller;
 				margin-top: 0.6rem;
+				font-size: smaller;
 			}
 
 			.popup-content {
 				display: flex;
 				flex-direction: column;
-				border-top: 1px solid var(--color-foreground--25);
 				padding-top: 0.6rem;
+				border-top: 1px solid var(--color-foreground--25);
 			}
 
 			.popup-content p {
@@ -124,7 +124,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentColor;
+				border-bottom: 1px dashed currentcolor;
 			}
 		`,
 	];

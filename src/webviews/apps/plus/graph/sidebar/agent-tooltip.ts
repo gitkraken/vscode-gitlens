@@ -42,43 +42,43 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 			display: block;
 			max-width: 48rem;
 			font-size: var(--vscode-font-size);
-			color: var(--vscode-foreground);
 			line-height: 1.4;
+			color: var(--vscode-foreground);
 		}
 
 		.header {
 			display: flex;
-			align-items: baseline;
 			gap: 1.6rem;
+			align-items: baseline;
 			justify-content: space-between;
 		}
 
 		.header__identity {
 			display: flex;
-			align-items: center;
-			gap: 0.4rem;
-			min-width: 0;
 			flex: 1 1 auto;
+			gap: 0.4rem;
+			align-items: center;
+			min-width: 0;
 		}
 
 		.header__name {
-			font-weight: 600;
 			overflow: hidden;
 			text-overflow: ellipsis;
+			font-weight: 600;
 			white-space: nowrap;
 		}
 
 		.header__phase {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.4rem;
 			flex: 0 0 auto;
-			white-space: nowrap;
+			gap: 0.4rem;
+			align-items: center;
 			color: var(--vscode-descriptionForeground);
+			white-space: nowrap;
 		}
 
 		/* Phase colors pull from the shared --gl-agent-* palette so the tooltip header and the
-		 * leaf row's icon agree on what each state looks like. */
+	 * leaf row's icon agree on what each state looks like. */
 		.header__phase--working {
 			color: var(--gl-agent-working-color);
 		}
@@ -88,30 +88,30 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 
 		.identity-line {
-			margin-top: 0.4rem;
 			display: flex;
-			align-items: center;
 			gap: 0.4rem;
-			color: var(--vscode-descriptionForeground);
+			align-items: center;
 			min-width: 0;
+			margin-top: 0.4rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.identity-line__value {
+			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
-			min-width: 0;
 		}
 
 		.identity-line code {
 			font-family: var(--vscode-editor-font-family);
-			background: transparent;
 			color: var(--vscode-foreground);
+			background: transparent;
 		}
 
 		.upstream {
-			color: var(--vscode-descriptionForeground);
 			font-family: var(--vscode-editor-font-family);
+			color: var(--vscode-descriptionForeground);
 		}
 
 		hr {
@@ -122,20 +122,21 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 
 		/* Header-less section rows — leading icon doubles as the section's label. The icon stays
-		 * pinned to the first line via align-items: flex-start; the content column flexes to fill
-		 * the rest and is allowed to break long tokens (paths, branch names) at any point. */
+	 * pinned to the first line via align-items: flex-start; the content column flexes to fill
+	 * the rest and is allowed to break long tokens (paths, branch names) at any point. */
 		.section {
 			display: flex;
-			align-items: flex-start;
 			gap: 0.6rem;
+			align-items: flex-start;
 			color: var(--vscode-foreground);
 		}
 
 		.section > code-icon {
 			flex: 0 0 auto;
-			color: var(--vscode-descriptionForeground);
+
 			/* Nudge to align the icon's optical center with the first line of body text. */
 			margin-top: 0.2rem;
+			color: var(--vscode-descriptionForeground);
 		}
 
 		.section__content {

@@ -163,8 +163,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			}
 
 			.action-button--graph-walkthrough {
-				background: var(--vscode-button-background);
 				color: var(--vscode-button-foreground);
+				background: var(--vscode-button-background);
 				border: 1px solid var(--vscode-button-background);
 			}
 
@@ -179,24 +179,24 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			.graph-walkthrough-tooltip__title {
 				display: flex;
+				gap: 1ch;
 				align-items: center;
 				justify-content: space-between;
-				gap: 1ch;
 				margin-block-end: 0.4rem;
 			}
 
 			.graph-walkthrough-tooltip__actions {
 				display: flex;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
 				margin-block-start: 0.8rem;
 			}
 
-			/* Search is meaningless in Timeline mode — visually dim it and let \`inert\` block focus
-			   + interactions natively (instead of removing it from the row entirely). */
+			/* Search is meaningless in Timeline mode — visually dim it and let \\\`inert\\\` block focus
+	   + interactions natively (instead of removing it from the row entirely). */
 			.search-box--disabled {
-				opacity: 0.5;
 				cursor: not-allowed;
+				opacity: 0.5;
 			}
 
 			.minimap-toggle-icon {

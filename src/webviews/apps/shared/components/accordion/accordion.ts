@@ -16,28 +16,28 @@ export class GlAccordion extends LitElement {
 			font-family: var(--vscode-font-family);
 			font-size: var(--vscode-font-size);
 			font-weight: var(--vscode-font-weight);
-			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 			color: var(--vscode-foreground);
+			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 		}
 
 		/*
-		details {
-			border: 1px solid var(--vscode-panel-border);
-			border-radius: 4px;
-			overflow: hidden;
-		}
-		*/
+	details {
+		border: 1px solid var(--vscode-panel-border);
+		border-radius: 4px;
+		overflow: hidden;
+	}
+	*/
 
 		.header {
+			display: flex;
+			gap: 0.6rem;
+			align-items: center;
 			padding: 8px 12px;
-			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
 			cursor: pointer;
 			user-select: none;
-			list-style: none;
 			outline: none;
-			display: flex;
-			align-items: center;
-			gap: 0.6rem;
+			list-style: none;
+			background-color: var(--gl-accordion-header-background, var(--vscode-sideBar-background));
 		}
 
 		.header::-webkit-details-marker {
@@ -45,8 +45,8 @@ export class GlAccordion extends LitElement {
 		}
 
 		.label {
-			flex: 1;
 			display: block;
+			flex: 1;
 		}
 
 		.icon {

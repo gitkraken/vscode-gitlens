@@ -80,22 +80,22 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.sidebar {
-			box-sizing: border-box;
 			position: relative;
+			z-index: 1040;
+			box-sizing: border-box;
 			display: flex;
 			flex-direction: column;
-			align-items: center;
 			gap: 1.4rem;
-			background-color: var(--color-view-background);
-			color: var(--color-view-foreground--65);
+			align-items: center;
 			width: 2.6rem;
-			font-size: 9px;
-			font-weight: 600;
 			height: 100%;
 			padding: 0.5rem 0;
-			z-index: 1040;
-			border-right: 1px solid transparent;
+			font-size: 9px;
+			font-weight: 600;
+			color: var(--color-view-foreground--65);
+			background-color: var(--color-view-background);
 			border-color: var(--vscode-sideBar-border, transparent);
+			border-right: 1px solid transparent;
 		}
 
 		gl-tooltip {
@@ -103,26 +103,26 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Doubles the gap after the last group-1 icon (Agents) so the rail reads as two
-		   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
-		   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
-		   display: contents and can't take margin.) */
+	   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
+	   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
+	   display: contents and can't take margin.) */
 		.item.group-end {
 			margin-bottom: 1.4rem;
 		}
 
 		.item {
 			position: relative;
-			width: 100%;
-			color: var(--color-view-foreground--65);
-			text-decoration: none;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
+			width: 100%;
+			padding: 0;
+			font: inherit;
+			color: var(--color-view-foreground--65);
+			text-decoration: none;
 			cursor: pointer;
 			background: none;
 			border: none;
-			padding: 0;
-			font: inherit;
 		}
 
 		.item:hover {
@@ -140,17 +140,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 		.indicator {
 			position: absolute;
-			left: 0;
 			top: 0;
+			left: 0;
 			width: 1px;
-			border-radius: 1px;
+			height: var(--indicator-height, 0);
+			pointer-events: none;
 			background-color: var(--color-view-foreground);
-			height: var(--indicator-height, 0px);
-			transform: translateY(var(--indicator-top, 0px));
+			border-radius: 1px;
+			transform: translateY(var(--indicator-top, 0));
 			transition:
 				transform 0.25s ease-in-out,
 				height 0.15s ease-in-out;
-			pointer-events: none;
 		}
 
 		.indicator.no-transition {
@@ -164,8 +164,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.count {
-			color: var(--color-view-foreground--50);
 			margin-top: 0.4rem;
+			color: var(--color-view-foreground--50);
 		}
 
 		.count.error {
@@ -182,7 +182,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
-		   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
+	   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -193,17 +193,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
-		   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
-		   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
-		   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
+	   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
+	   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
+	   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
 		.display-mode-toggle + .display-mode-toggle {
 			margin-top: -1rem;
 		}
 
 		/* Keyboard-shortcuts action — shares the rail affordance with the display-mode toggles but
-		   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
-		   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
-		   the measured bottom block and folds nav icons into the … menu instead. */
+	   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
+	   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
+	   the measured bottom block and folds nav icons into the … menu instead. */
 		.rail-action {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -214,16 +214,16 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
-		   toggles use between themselves) so the bottom of the rail reads as one group. */
+	   toggles use between themselves) so the bottom of the rail reads as one group. */
 		.display-mode-toggle + .rail-action {
 			margin-top: -1rem;
 		}
 
 		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button
-		   colors so it reads as a "click me" affordance. Once the user clicks it, the host
-		   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
-		   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
-		   inner-tree author rules for inherited properties on the host. */
+	   colors so it reads as a "click me" affordance. Once the user clicks it, the host
+	   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
+	   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
+	   inner-tree author rules for inherited properties on the host. */
 		gl-button.display-mode-toggle.callout {
 			--button-background: var(--vscode-button-background);
 			--button-foreground: var(--vscode-button-foreground);
@@ -232,7 +232,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Responsive compaction (driven by recompute): hide counts and tighten spacing together. Scoped
-		   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
+	   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
 		:host([compact]) .item .count {
 			display: none;
 		}
@@ -265,28 +265,28 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
-			align-items: center;
 			gap: 0.8rem;
+			align-items: center;
 			padding: 0.4rem 0.8rem;
+			font: inherit;
+			color: var(--vscode-foreground);
+			text-align: start;
+			white-space: nowrap;
+			cursor: pointer;
 			background: none;
 			border: none;
 			border-radius: 0.3rem;
-			color: var(--vscode-foreground);
-			font: inherit;
-			text-align: start;
-			cursor: pointer;
-			white-space: nowrap;
 		}
 
 		.overflow-menu-item:hover,
 		.overflow-menu-item:focus-visible {
-			background: var(--vscode-list-hoverBackground);
 			outline: none;
+			background: var(--vscode-list-hoverBackground);
 		}
 
 		.overflow-menu-item[disabled] {
-			opacity: 0.5;
 			cursor: default;
+			opacity: 0.5;
 		}
 
 		.overflow-menu-item-label {

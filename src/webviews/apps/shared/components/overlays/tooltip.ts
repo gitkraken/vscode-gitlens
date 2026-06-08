@@ -26,9 +26,10 @@ export class GlTooltip extends LitElement {
 		.tooltip {
 			--arrow-size: var(--wa-tooltip-arrow-size);
 			--arrow-color: var(--wa-tooltip-background-color);
+
 			/* tells wa-popup to overlap the arrow with the inside edge of our 1px body
-			   border, so the arrow base aligns with the body's content area instead of
-			   sitting on top of the border line */
+		   border, so the arrow base aligns with the body's content area instead of
+		   sitting on top of the border line */
 			--popup-border-width: 1px;
 		}
 
@@ -38,43 +39,43 @@ export class GlTooltip extends LitElement {
 		}
 
 		/* Suppress the corner-flash that happens on first open: wa-popup adds the popup
-		   to the DOM with active=true a microtask BEFORE floating-ui computes its position,
-		   so the popup briefly renders at top:0/left:0 (page corner) for one paint frame.
-		   wa-popup sets data-current-placement once positioned — gate visibility on that
-		   so the user never sees the unpositioned frame. Verified live: the unpositioned
-		   frame lands at (0,0) ~1ms before the positioned frame lands at the anchor. */
+	   to the DOM with active=true a microtask BEFORE floating-ui computes its position,
+	   so the popup briefly renders at top:0/left:0 (page corner) for one paint frame.
+	   wa-popup sets data-current-placement once positioned — gate visibility on that
+	   so the user never sees the unpositioned frame. Verified live: the unpositioned
+	   frame lands at (0,0) ~1ms before the positioned frame lands at the anchor. */
 		.tooltip:not([data-current-placement]) .tooltip__body {
 			visibility: hidden;
 		}
 
 		.tooltip__body {
 			max-width: min(var(--auto-size-available-width, 100vw), var(--max-width));
-			border: 1px solid var(--gl-tooltip-border-color);
-			border-radius: var(--wa-tooltip-border-radius);
-			background-color: var(--wa-tooltip-background-color);
-			box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
-			color: var(--wa-tooltip-color);
+			padding: var(--wa-tooltip-padding);
 			font-family: var(--wa-tooltip-font-family);
 			font-size: var(--wa-tooltip-font-size);
 			font-weight: var(--wa-tooltip-font-weight);
 			line-height: var(--wa-tooltip-line-height);
-			padding: var(--wa-tooltip-padding);
+			color: var(--wa-tooltip-color);
 			text-align: start;
 			text-transform: var(--gl-tooltip-text-transform, none);
 			white-space: normal;
-			user-select: none;
 			-webkit-user-select: none;
+			user-select: none;
+			background-color: var(--wa-tooltip-background-color);
+			border: 1px solid var(--gl-tooltip-border-color);
+			border-radius: var(--wa-tooltip-border-radius);
+			box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
 		}
 
 		/* Style hr inside the tooltip body. The slot[name=content] selector matches
-		   fallback content, which is where handleUnsafeOverlayContent puts the hr it
-		   generates from "\n\n" in a .content string (e.g. gl-copy-container's tooltip).
-		   Slotted content from consumers lives in their light DOM and isn't reachable
-		   from here — those consumers need their own [slot=content] hr rule. */
+	   fallback content, which is where handleUnsafeOverlayContent puts the hr it
+	   generates from "\\n\\n" in a .content string (e.g. gl-copy-container's tooltip).
+	   Slotted content from consumers lives in their light DOM and isn't reachable
+	   from here — those consumers need their own [slot=content] hr rule. */
 		slot[name='content'] hr {
+			margin: 0.4rem 0;
 			border: none;
 			border-top: 1px solid var(--color-foreground--25);
-			margin: 0.4rem 0;
 		}
 	`;
 

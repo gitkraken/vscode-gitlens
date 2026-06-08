@@ -48,9 +48,9 @@ export class GlWalkthroughStep extends LitElement {
 
 			.header {
 				display: flex;
+				gap: 0.6em;
 				align-items: center;
 				justify-content: flex-start;
-				gap: 0.6em;
 				cursor: pointer;
 				user-select: none;
 			}
@@ -270,17 +270,17 @@ export class GlWalkthroughProgress extends LitElement {
 			.progress {
 				display: flex;
 				flex-direction: column;
-				align-items: center;
 				gap: 0.5em;
+				align-items: center;
 				padding: 0 2em;
 			}
 
 			.progress-bar {
 				width: 100%;
 				height: 4px;
+				overflow: hidden;
 				background: var(--card-background);
 				border-radius: 2px;
-				overflow: hidden;
 			}
 
 			.progress-bar__fill {

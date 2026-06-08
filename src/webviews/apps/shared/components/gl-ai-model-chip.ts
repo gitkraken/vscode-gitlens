@@ -23,19 +23,19 @@ export class GlAiModelChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
-			align-items: center;
 			gap: 0.3rem;
+			align-items: center;
 			max-width: 100%;
 			padding: 0.1rem 0.4rem;
+			font-family: inherit;
+			font-size: var(--gl-font-micro);
+			line-height: 1.4;
+			color: var(--vscode-descriptionForeground);
+			text-align: left;
+			cursor: pointer;
+			background: transparent;
 			border: 1px solid transparent;
 			border-radius: 0.3rem;
-			background: transparent;
-			color: var(--vscode-descriptionForeground);
-			font-size: var(--gl-font-micro);
-			font-family: inherit;
-			cursor: pointer;
-			text-align: left;
-			line-height: 1.4;
 			transition:
 				color 0.15s,
 				background 0.15s,
@@ -45,9 +45,9 @@ export class GlAiModelChip extends LitElement {
 		.chip:hover,
 		.chip:focus-visible {
 			color: var(--vscode-foreground);
+			outline: none;
 			background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 			border-color: var(--vscode-toolbar-hoverOutline, transparent);
-			outline: none;
 		}
 
 		.chip__label {
@@ -60,6 +60,7 @@ export class GlAiModelChip extends LitElement {
 		.chip__chevron {
 			flex-shrink: 0;
 			--code-icon-size: 10px;
+
 			opacity: 0.7;
 		}
 	`;

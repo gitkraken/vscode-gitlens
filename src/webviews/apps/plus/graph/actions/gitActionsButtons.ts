@@ -44,17 +44,17 @@ export class GitActionsButtons extends LitElement {
 			}
 
 			/* Publish yields its label before Fetch loses a pixel, so the two collapse
-			   sequentially (publish → icon, then fetch → icon) instead of both shrinking
-			   halfway together and neither reaching its icon-only floor. */
+	   sequentially (publish → icon, then fetch → icon) instead of both shrinking
+	   halfway together and neither reaching its icon-only floor. */
 			gl-publish-button {
 				flex: 0 1000 max-content;
 				min-width: 3.1rem;
 			}
 
 			.wip-button {
+				gap: 0;
 				padding: 0;
 				background-color: transparent;
-				gap: 0;
 				--commit-stats-pill-line-height: 2.2rem;
 			}
 
@@ -204,24 +204,27 @@ export class GlFetchButton extends LitElement {
 				min-width: 0;
 				max-width: 100%;
 			}
+
 			gl-popover.fetch-popover {
 				display: block;
-				min-width: 0;
 				width: 100%;
+				min-width: 0;
 				max-width: 100%;
 				--gl-popover-anchor-width: 100%;
 			}
+
 			/* Use CSS Grid so the text column's min-content is 0,
-			   allowing the text to shrink and ellipsize without expanding
-			   the parent's intrinsic min-content beyond the icon size. */
+	   allowing the text to shrink and ellipsize without expanding
+	   the parent's intrinsic min-content beyond the icon size. */
 			.action-button {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr);
 				align-items: center;
-				overflow: hidden;
 				width: 100%;
 				max-width: 100%;
+				overflow: hidden;
 			}
+
 			.action-button__text {
 				display: block;
 				overflow: hidden;
@@ -233,70 +236,82 @@ export class GlFetchButton extends LitElement {
 				min-width: 24rem;
 				max-width: 36rem;
 			}
+
 			.fetch-popover__menu {
 				display: flex;
 				flex-direction: column;
-				padding: 0.2rem 0;
 				min-width: 0;
+				padding: 0.2rem 0;
 			}
+
 			.fetch-popover__info {
 				padding: 0.4rem 0.8rem;
-				color: var(--vscode-menu-foreground);
 				font-size: 1.2rem;
 				line-height: 1.4;
+				color: var(--vscode-menu-foreground);
 			}
+
 			.fetch-popover__info-secondary {
 				margin-top: 0.2rem;
-				opacity: 0.7;
 				font-size: 1.1rem;
+				opacity: 0.7;
 			}
+
 			.fetch-popover__divider {
 				margin: 0.2rem 0;
 			}
+
 			.fetch-popover__row {
 				display: flex;
-				align-items: center;
 				gap: 0.4rem;
-				padding: 0.3rem 0.4rem 0.3rem 0.8rem;
+				align-items: center;
 				min-height: 2.4rem;
+				padding: 0.3rem 0.4rem 0.3rem 0.8rem;
 				color: var(--vscode-menu-foreground);
 			}
+
 			.fetch-popover__row gl-checkbox {
 				flex: 1;
 				min-width: 0;
 				margin: 0;
 				font-size: 1.2rem;
-				--checkbox-foreground: currentColor;
+				--checkbox-foreground: currentcolor;
 				--checkbox-background: var(--vscode-checkbox-selectBackground);
 				--checkbox-border: var(--vscode-checkbox-selectBorder);
 				--checkbox-hover-background: var(--vscode-checkbox-selectBackground);
 			}
+
 			.fetch-popover__row .fetch-popover__label-text {
 				flex: 1;
 				min-width: 0;
 				font-size: 1.2rem;
 			}
+
 			.fetch-popover__row gl-button {
 				flex: none;
 				--button-padding: 0.2rem;
 				--button-foreground: var(--vscode-menu-foreground, var(--vscode-foreground));
 				--button-hover-background: color-mix(in srgb, var(--vscode-menu-foreground) 18%, transparent);
+
 				opacity: 0.7;
 			}
+
 			.fetch-popover__row gl-button:hover {
 				opacity: 1;
 			}
+
 			.fetch-popover__hint {
 				padding: 0 0.8rem 0.4rem 2.6rem;
-				color: var(--vscode-menu-foreground);
-				opacity: 0.7;
 				font-size: 1.1rem;
 				line-height: 1.4;
+				color: var(--vscode-menu-foreground);
+				opacity: 0.7;
 			}
+
 			.fetch-popover__row--info .fetch-popover__label-text {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 			}
 		`,
 	];
@@ -447,22 +462,24 @@ export class PushPullButton extends LitElement {
 
 			.pill {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.5rem;
+				align-items: center;
 				padding: 0.2rem 0.5rem;
-				border-radius: 0.5rem;
 				font-size: 1rem;
 				font-weight: 500;
 				line-height: 1.2;
-				text-transform: uppercase;
 				color: var(--vscode-foreground);
+				text-transform: uppercase;
 				background-color: var(--vscode-editorWidget-background);
+				border-radius: 0.5rem;
 			}
+
 			.pill > span {
 				display: inline-flex;
-				align-items: center;
 				gap: 0;
+				align-items: center;
 			}
+
 			.pill code-icon {
 				font-size: inherit !important;
 				line-height: inherit !important;
@@ -603,20 +620,23 @@ export class GlPublishButton extends LitElement {
 				min-width: 0;
 				max-width: 100%;
 			}
+
 			gl-tooltip {
 				display: block;
-				min-width: 0;
 				width: 100%;
+				min-width: 0;
 				max-width: 100%;
 			}
+
 			.action-button {
 				display: grid;
 				grid-template-columns: auto minmax(0, 1fr);
 				align-items: center;
-				overflow: hidden;
 				width: 100%;
 				max-width: 100%;
+				overflow: hidden;
 			}
+
 			.publish-button__text {
 				display: block;
 				overflow: hidden;

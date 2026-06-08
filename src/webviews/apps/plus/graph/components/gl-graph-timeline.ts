@@ -41,24 +41,25 @@ export interface GlGraphTimelineConfigChangeDetail {
 export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	static override styles = css`
 		:host {
+			position: relative;
 			display: flex;
 			flex-direction: column;
 			width: 100%;
 			height: 100%;
-			position: relative;
 			overflow: hidden;
 		}
 
 		.header-row {
 			display: flex;
-			align-items: center;
-			gap: 0.6rem;
 			flex: none;
-			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
-			 * tight insets — same chrome as the Treemap visualization toolbar. */
-			padding: 0.4rem 0.6rem;
-			min-height: 3.2rem;
+			gap: 0.6rem;
+			align-items: center;
 			min-width: 0;
+			min-height: 3.2rem;
+
+			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
+		 * tight insets — same chrome as the Treemap visualization toolbar. */
+			padding: 0.4rem 0.6rem;
 			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
 		}
 
@@ -67,9 +68,9 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 
 		/* Matches the treemap toolbar's title — uppercase, dim, fixed-width — so the visualization
-		 * label anchors both header rows identically. Sits between the icon switcher and the
-		 * shared timeline header so the standalone Visual History webview (which doesn't use this
-		 * file) keeps its existing chrome. */
+	 * label anchors both header rows identically. Sits between the icon switcher and the
+	 * shared timeline header so the standalone Visual History webview (which doesn't use this
+	 * file) keeps its existing chrome. */
 		.header-row__title {
 			flex: none;
 			font-size: 1.1rem;
@@ -84,12 +85,12 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		}
 
 		.empty {
-			flex: 1 1 auto;
 			display: flex;
+			flex: 1 1 auto;
 			align-items: center;
 			justify-content: center;
-			color: var(--color-foreground--65);
 			padding: 1rem;
+			color: var(--color-foreground--65);
 			text-align: center;
 		}
 

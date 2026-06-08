@@ -46,28 +46,33 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 			/* Native <select> styling — used by the agents workspace/all filter. */
 			.select {
-				background: none;
-				outline: none;
-				border: none;
-				text-decoration: none !important;
 				font-weight: 500;
 				color: var(--color-foreground--25);
+				text-decoration: none !important;
+				outline: none;
+				background: none;
+				border: none;
 			}
+
 			.select option {
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-dropdown-background);
 			}
+
 			.select option:checked {
 				color: var(--vscode-list-activeSelectionForeground);
 				background-color: var(--vscode-list-activeSelectionBackground);
 			}
+
 			.select:not(:disabled) {
-				cursor: pointer;
 				color: var(--color-foreground--50);
+				cursor: pointer;
 			}
+
 			.select:not(:disabled):focus {
 				outline: 1px solid var(--color-focus-border);
 			}
+
 			.select:not(:disabled):hover {
 				color: var(--vscode-foreground);
 				text-decoration: underline !important;
@@ -76,27 +81,31 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			/* Recent-timeframe filter — the gl-menu-popover anchor button. */
 			.threshold-filter {
 				display: inline-flex;
-				align-items: center;
 				gap: 0.2rem;
-				background: none;
-				border: none;
+				align-items: center;
 				padding: 0;
 				font: inherit;
 				font-weight: 500;
 				color: var(--color-foreground--50);
-				cursor: pointer;
 				white-space: nowrap;
+				cursor: pointer;
+				background: none;
+				border: none;
 			}
+
 			.threshold-filter:hover:not(:disabled) {
 				color: var(--vscode-foreground);
 			}
+
 			.threshold-filter:focus-visible {
 				outline: 1px solid var(--color-focus-border);
 			}
+
 			.threshold-filter:disabled {
 				color: var(--color-foreground--25);
 				cursor: default;
 			}
+
 			.threshold-filter code-icon {
 				font-size: 1rem;
 			}
@@ -107,17 +116,17 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			}
 
 			.tab {
-				appearance: none;
-				background: none;
-				border: none;
 				padding: 0;
 				margin: 0;
-				cursor: pointer;
 				font-family: inherit;
 				font-size: inherit;
 				font-weight: normal;
-				text-transform: uppercase;
 				color: var(--vscode-descriptionForeground);
+				text-transform: uppercase;
+				appearance: none;
+				cursor: pointer;
+				background: none;
+				border: none;
 			}
 
 			.tab:hover {

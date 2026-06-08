@@ -45,23 +45,24 @@ export class GlAutocomplete extends LitElement {
 				position: absolute;
 				top: 100%;
 				left: 0;
+				z-index: 1000;
 				min-width: min(max(100%, 30rem), var(--_max-width, 100%));
 				max-width: var(--_max-width, none);
-				margin-top: 0.2rem;
-				z-index: 1000;
 				max-height: 20rem;
+				margin-top: 0.2rem;
 				overflow-y: auto;
 				color: var(--vscode-quickInput-foreground);
 				background-color: var(--vscode-quickInput-background);
 				border: 1px solid var(--vscode-widget-border);
 				border-radius: 0.4rem;
-				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+				box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
 			}
 
 			/* Override scrollbar thumb to not inherit the visible border-color */
 			.scrollable::-webkit-scrollbar-thumb {
 				border-color: transparent;
 			}
+
 			:host(:hover) .scrollable::-webkit-scrollbar-thumb,
 			:host(:focus-within) .scrollable::-webkit-scrollbar-thumb {
 				border-color: var(--vscode-scrollbarSlider-background);
@@ -70,16 +71,16 @@ export class GlAutocomplete extends LitElement {
 			.autocomplete-item {
 				display: flex;
 				flex-direction: row;
-				align-items: center;
 				gap: 0.8rem;
+				align-items: center;
 				padding: 0.2rem 0.8rem;
 				cursor: pointer;
 			}
 
 			.autocomplete-item:hover,
 			.autocomplete-item.selected {
-				background-color: var(--vscode-list-activeSelectionBackground);
 				color: var(--vscode-list-activeSelectionForeground);
+				background-color: var(--vscode-list-activeSelectionBackground);
 
 				.autocomplete-item__icon {
 					color: var(--vscode-list-activeSelectionIconForeground);
@@ -89,33 +90,33 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item__icon {
 				display: flex;
+				flex-shrink: 0;
 				align-items: center;
 				justify-content: center;
 				width: 1.6rem;
 				height: 1.6rem;
-				flex-shrink: 0;
 				opacity: 0.8;
 			}
 
 			.autocomplete-item__content {
 				display: flex;
+				flex: 1;
 				flex-direction: column;
 				gap: 0.1rem;
-				flex: 1;
 				min-width: 0;
 			}
 
 			.autocomplete-item__header {
 				display: flex;
+				gap: 1rem;
 				align-items: center;
 				justify-content: space-between;
-				gap: 1rem;
 			}
 
 			.autocomplete-item__primary {
-				font-weight: 600;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 0.9em;
+				font-weight: 600;
 			}
 
 			.autocomplete-item.selected .autocomplete-item__primary {
@@ -123,11 +124,11 @@ export class GlAutocomplete extends LitElement {
 			}
 
 			.autocomplete-item__secondary {
-				font-size: 0.85em;
-				opacity: 0.7;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-size: 0.85em;
+				white-space: nowrap;
+				opacity: 0.7;
 			}
 
 			.autocomplete-item.selected .autocomplete-item__secondary {
@@ -145,26 +146,26 @@ export class GlAutocomplete extends LitElement {
 			}
 
 			.autocomplete-item.help {
+				gap: 0.5rem;
+				padding: 0.2rem 0.8rem;
+				color: var(--vscode-list-inactiveSelectionForeground);
 				cursor: default;
 				background-color: var(--vscode-list-inactiveSelectionBackground) !important;
-				color: var(--vscode-list-inactiveSelectionForeground);
-				padding: 0.2rem 0.8rem;
 				opacity: 1;
-				gap: 0.5rem;
 			}
 
 			.autocomplete-item.help .autocomplete-item__content {
 				flex-direction: column;
-				align-items: flex-start;
 				gap: 0.1rem;
+				align-items: flex-start;
 			}
 
 			.autocomplete-description {
 				padding: 0.6rem 0.8rem;
-				background-color: var(--vscode-list-inactiveSelectionBackground);
-				color: var(--vscode-foreground);
 				font-size: 0.85em;
 				line-height: 1.4;
+				color: var(--vscode-foreground);
+				background-color: var(--vscode-list-inactiveSelectionBackground);
 				border-bottom: 1px solid var(--vscode-widget-border);
 			}
 
@@ -175,8 +176,8 @@ export class GlAutocomplete extends LitElement {
 			.autocomplete-description__example {
 				display: block;
 				margin-top: 0.4rem;
-				color: var(--vscode-descriptionForeground);
 				font-size: 0.95em;
+				color: var(--vscode-descriptionForeground);
 			}
 
 			.autocomplete-item.help .autocomplete-item__primary {

@@ -24,7 +24,7 @@ export class GlFileIcon extends LitElement {
 
 		.font-icon {
 			display: inline-block;
-			font-family: 'seti';
+			font-family: seti;
 			font-size: var(--gl-file-icon-size, 16px);
 			line-height: 1;
 			text-align: center;

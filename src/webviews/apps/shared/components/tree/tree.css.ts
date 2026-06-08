@@ -17,24 +17,21 @@ export const treeItemStyles = [
 		:host {
 			--tree-connector-spacing: 0.6rem;
 			--tree-connector-size: var(--gitlens-tree-indent, 1.6rem);
-			box-sizing: border-box;
-			padding-left: var(--gitlens-gutter-width);
-			padding-right: 0.5rem;
-			padding-top: 0.1rem;
-			padding-bottom: 0.1rem;
-			line-height: 2.2rem;
-			height: 2.2rem;
 
+			box-sizing: border-box;
 			display: flex;
 			flex-direction: row;
 			align-items: center;
 			justify-content: space-between;
-			font-size: var(--vscode-font-size);
-			color: var(--gitlens-tree-foreground, var(--vscode-foreground));
+			height: 2.2rem;
+			padding: 0.1rem 0.5rem 0.1rem var(--gitlens-gutter-width);
 
-			cursor: pointer;
 			/* Reduced containment to allow tooltips to escape */
 			contain: layout;
+			font-size: var(--vscode-font-size);
+			line-height: 2.2rem;
+			color: var(--gitlens-tree-foreground, var(--vscode-foreground));
+			cursor: pointer;
 		}
 
 		:host([aria-hidden='true']) {
@@ -42,13 +39,13 @@ export const treeItemStyles = [
 		}
 
 		/* Rich mode: host a multi-line / card component (e.g. gl-commit-row) in the default slot.
-		   Relaxes the single-line tree-row constraints so the consumer's content drives row height. */
+	   Relaxes the single-line tree-row constraints so the consumer's content drives row height. */
 		:host([rich]) {
 			height: auto;
 			min-height: var(--gl-tree-item-min-height, 2.2rem);
-			line-height: normal;
 			padding-top: var(--gl-tree-item-padding-y, 0.4rem);
 			padding-bottom: var(--gl-tree-item-padding-y, 0.4rem);
+			line-height: normal;
 		}
 
 		:host([rich]) .item {
@@ -56,9 +53,9 @@ export const treeItemStyles = [
 		}
 
 		:host([rich]) .text {
+			text-overflow: clip;
 			line-height: normal;
 			white-space: normal;
-			text-overflow: clip;
 		}
 
 		:host([rich]) .main,
@@ -67,28 +64,28 @@ export const treeItemStyles = [
 		}
 
 		:host(:hover) {
-			color: var(--vscode-list-hoverForeground);
-			background-color: var(--vscode-list-hoverBackground);
 			/* Raise above sibling items so action tooltips aren't painted behind the next row */
 			z-index: 1;
+			color: var(--vscode-list-hoverForeground);
+			background-color: var(--vscode-list-hoverBackground);
 		}
 
 		/* Disabled state — propagated from disable-check so AI-excluded files (or any other
-		   row that shouldn't be acted on) read as visually inactive AND inert (clicking the
-		   row will not open the file or trigger any action — same UX as a disabled menu item).
-		   The checkbox visual is already dimmed via .checkbox:has(:disabled) and the underlying
-		   <input> is :disabled, so it cannot be activated regardless. */
+	   row that shouldn't be acted on) read as visually inactive AND inert (clicking the
+	   row will not open the file or trigger any action — same UX as a disabled menu item).
+	   The checkbox visual is already dimmed via .checkbox:has(:disabled) and the underlying
+	   <input> is :disabled, so it cannot be activated regardless. */
 		:host([disable-check]) .item,
 		:host([disable-check]) slot[name='decorations-before'],
 		:host([disable-check]) slot[name='decorations-after'],
 		:host([disable-check]) .actions {
-			opacity: 0.7;
 			color: var(--vscode-disabledForeground, inherit);
+			opacity: 0.7;
 		}
 
 		:host([disable-check]) .item {
-			cursor: default;
 			pointer-events: none;
+			cursor: default;
 		}
 
 		:host([disable-check]) .actions {
@@ -100,26 +97,27 @@ export const treeItemStyles = [
 		}
 
 		/* A selected row defaults to the inactive selection colors. When the tree has focus, EVERY
-		   selected row brightens to the active colors (not just the cursor row) — matching VS Code
-		   multi-select. The signal is the --gl-tree-focus-within var (0/1), set by gl-tree-view's
-		   :host(:focus-within) and inherited across the shadow boundary: clicking a row focuses its
-		   inner button, so the container's own focus event never fires and focusin doesn't cross the
-		   nested shadow roots — a CSS-only signal is the reliable one. */
+	   selected row brightens to the active colors (not just the cursor row) — matching VS Code
+	   multi-select. The signal is the --gl-tree-focus-within var (0/1), set by gl-tree-view's
+	   :host(:focus-within) and inherited across the shadow boundary: clicking a row focuses its
+	   inner button, so the container's own focus event never fires and focusin doesn't cross the
+	   nested shadow roots — a CSS-only signal is the reliable one. */
 		:host([aria-selected='true']) {
 			--gl-tree-selection-bg: color-mix(
 				in srgb,
 				var(--vscode-list-activeSelectionBackground) calc(var(--gl-tree-focus-within, 0) * 100%),
 				var(--vscode-list-inactiveSelectionBackground)
 			);
+
 			color: var(--vscode-list-inactiveSelectionForeground);
 			background-color: var(--gl-tree-selection-bg);
 		}
 
 		/* Focused state - when the item is the active descendant in the tree */
 		:host([focused]) {
+			z-index: 1;
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
-			z-index: 1;
 		}
 
 		/* The cursor row (and any row with real DOM focus within it) always uses the active colors. */
@@ -130,6 +128,7 @@ export const treeItemStyles = [
 		}
 
 		/* Inactive focus state - when the item would be focused but container doesn't have focus */
+
 		/* In VS Code, inactive focus shows the selection background without the outline */
 		:host([focused-inactive]) {
 			color: var(--vscode-list-inactiveSelectionForeground);
@@ -138,9 +137,9 @@ export const treeItemStyles = [
 
 		/* TODO: these should be :has(.input:focus) instead of :focus-within */
 		:host(:focus-within) {
+			z-index: 1;
 			outline: 1px solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
-			z-index: 1;
 		}
 
 		:host([aria-selected='true']:focus-within) {
@@ -149,32 +148,33 @@ export const treeItemStyles = [
 		}
 
 		.item {
-			appearance: none;
 			display: flex;
-			flex-direction: row;
-			justify-content: flex-start;
-			align-items: center;
-			gap: 0.6rem;
 			flex: 1;
+			flex-direction: row;
+			gap: 0.6rem;
+			align-items: center;
+			justify-content: flex-start;
 			min-width: 0;
 			padding: 0;
 			font-family: inherit;
 			font-size: inherit;
-			text-decoration: none;
 			color: inherit;
+			text-decoration: none;
+			appearance: none;
+			cursor: pointer;
+			outline: none;
 			background: none;
 			border: none;
-			outline: none;
-			cursor: pointer;
 		}
+
 		.icon {
 			display: inline-flex;
+			flex: none;
 			align-items: center;
 			justify-content: center;
 			width: var(--gl-icon-size, 1.6rem);
 			height: 2.2rem;
 			pointer-events: none;
-			flex: none;
 		}
 
 		slot[name='icon']::slotted(*) {
@@ -188,13 +188,13 @@ export const treeItemStyles = [
 
 		.node {
 			display: inline-block;
-			width: var(--tree-connector-size);
-			text-align: center;
 			flex: none;
+			width: var(--tree-connector-size);
 			height: 2.2rem;
 			line-height: 2.2rem;
-			pointer-events: none;
 			vertical-align: text-bottom;
+			text-align: center;
+			pointer-events: none;
 		}
 
 		.node:last-of-type {
@@ -206,16 +206,16 @@ export const treeItemStyles = [
 		}
 
 		.node--connector::before {
-			content: '';
 			position: absolute;
-			height: 2.2rem;
-			border-left: 1px solid transparent;
 			top: 50%;
-			transform: translate(-1px, -50%);
 			left: 0.8rem;
 			width: 0.1rem;
-			transition: border-color 0.1s linear;
+			height: 2.2rem;
+			content: '';
+			border-left: 1px solid transparent;
 			opacity: 0.4;
+			transform: translate(-1px, -50%);
+			transition: border-color 0.1s linear;
 		}
 
 		@media (prefers-reduced-motion: reduce) {
@@ -234,19 +234,19 @@ export const treeItemStyles = [
 
 		.branch {
 			display: inline-block;
-			margin-right: 0.6rem;
 			height: 2.2rem;
+			margin-right: 0.6rem;
 			line-height: 2.2rem;
 			vertical-align: text-bottom;
 		}
 
 		.text {
-			line-height: 1.8rem;
-			overflow: hidden;
-			white-space: nowrap;
-			text-align: left;
-			text-overflow: ellipsis;
 			flex: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			line-height: 1.8rem;
+			text-align: left;
+			white-space: nowrap;
 		}
 
 		.main {
@@ -255,17 +255,17 @@ export const treeItemStyles = [
 
 		.description {
 			display: inline;
-			opacity: 0.7;
-			font-size: 0.9em;
 			margin-left: 0.3rem;
+			font-size: 0.9em;
 			pointer-events: none;
+			opacity: 0.7;
 		}
 
 		.actions {
 			flex: none;
-			user-select: none;
-			color: var(--vscode-icon-foreground);
 			margin-left: 0.4rem;
+			color: var(--vscode-icon-foreground);
+			user-select: none;
 		}
 
 		:host(:focus-within) .actions,
@@ -277,12 +277,12 @@ export const treeItemStyles = [
 			color: var(--vscode-list-inactiveSelectionIconForeground, var(--vscode-icon-foreground));
 		}
 
-		:host(:not(:hover):not(:focus-within):not([focused]):not([focused-inactive])) .actions {
+		:host(:not(:hover, :focus-within, [focused], [focused-inactive])) .actions {
 			display: none;
 		}
 
 		/* Tooltip wrapper around the checkbox has display: block + line-height from the host,
-		   which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
+	   which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
 		gl-tooltip:has(> .checkbox) {
 			display: inline-flex;
 			align-items: center;
@@ -294,19 +294,19 @@ export const treeItemStyles = [
 			display: inline-flex;
 			width: 1.6rem;
 			aspect-ratio: 1 / 1;
-			text-align: center;
+			margin-right: 0.6rem;
 			color: var(--vscode-checkbox-foreground);
+			text-align: center;
 			background: var(--vscode-checkbox-background);
 			border: 1px solid var(--vscode-checkbox-border);
 			border-radius: 0.3rem;
-			margin-right: 0.6rem;
 		}
 
 		.checkbox:has(:checked),
 		.checkbox:has(:indeterminate) {
 			color: var(--vscode-checkbox-foreground);
-			border-color: var(--vscode-checkbox-selectBorder);
 			background-color: var(--vscode-checkbox-selectBackground);
+			border-color: var(--vscode-checkbox-selectBorder);
 		}
 
 		.checkbox:has(:disabled) {
@@ -317,10 +317,10 @@ export const treeItemStyles = [
 			position: absolute;
 			top: 0;
 			left: 0;
-			appearance: none;
 			width: 1.4rem;
 			aspect-ratio: 1 / 1;
 			margin: 0;
+			appearance: none;
 			cursor: pointer;
 			border-radius: 0.3rem;
 		}
@@ -334,15 +334,15 @@ export const treeItemStyles = [
 			position: absolute;
 			top: 0;
 			left: 0;
-			width: 1.6rem;
-			aspect-ratio: 1 / 1;
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			opacity: 0;
-			transition: opacity 0.1s linear;
+			width: 1.6rem;
+			aspect-ratio: 1 / 1;
 			color: var(--vscode-checkbox-foreground);
 			pointer-events: none;
+			opacity: 0;
+			transition: opacity 0.1s linear;
 		}
 
 		.checkbox__input:checked + .checkbox__check {
@@ -356,11 +356,11 @@ export const treeItemStyles = [
 		slot[name='decorations-before'],
 		slot[name='decorations-after'] {
 			display: inline-flex;
-			align-items: center;
-			gap: 0.4rem;
 			flex: none;
-			white-space: nowrap;
+			gap: 0.4rem;
+			align-items: center;
 			margin-left: 0.4rem;
+			white-space: nowrap;
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 		}
 
@@ -378,6 +378,7 @@ export const treeItemStyles = [
 		::slotted([slot^='decorations-'].conflict-count--added) {
 			color: var(--vscode-gitDecoration-addedResourceForeground);
 		}
+
 		::slotted([slot^='decorations-'].conflict-count--added) {
 			border-color: color-mix(in srgb, transparent 60%, var(--vscode-gitDecoration-addedResourceForeground));
 		}
@@ -386,6 +387,7 @@ export const treeItemStyles = [
 		::slotted([slot^='decorations-'].conflict-count--deleted) {
 			color: var(--vscode-gitDecoration-deletedResourceForeground);
 		}
+
 		::slotted([slot^='decorations-'].conflict-count--deleted) {
 			border-color: color-mix(in srgb, transparent 60%, var(--vscode-gitDecoration-deletedResourceForeground));
 		}
@@ -394,6 +396,7 @@ export const treeItemStyles = [
 		::slotted([slot^='decorations-'].conflict-count--modified) {
 			color: var(--vscode-gitDecoration-modifiedResourceForeground);
 		}
+
 		::slotted([slot^='decorations-'].conflict-count--modified) {
 			border-color: color-mix(in srgb, transparent 60%, var(--vscode-gitDecoration-modifiedResourceForeground));
 		}
@@ -410,6 +413,7 @@ export const treeItemStyles = [
 		::slotted([slot^='decorations-'].conflict-count--conflict) {
 			color: var(--vscode-gitDecoration-conflictingResourceForeground);
 		}
+
 		::slotted([slot^='decorations-'].conflict-count--conflict) {
 			border-color: color-mix(
 				in srgb,
@@ -423,14 +427,16 @@ export const treeItemStyles = [
 		}
 
 		/* Agent phase decoration text — own palette (NOT SCM tokens, which semantically belong to
-		   file change states). Matches the tree-icon-agent--* colors so a leaf's icon and its
-		   phase text decoration agree. */
+	   file change states). Matches the tree-icon-agent--* colors so a leaf's icon and its
+	   phase text decoration agree. */
 		::slotted([slot^='decorations-'].decoration-text--agent-working) {
 			color: var(--gl-agent-working-color);
 		}
+
 		::slotted([slot^='decorations-'].decoration-text--agent-waiting) {
 			color: var(--gl-agent-waiting-color);
 		}
+
 		::slotted([slot^='decorations-'].decoration-text--agent-idle) {
 			color: var(--gl-agent-idle-color);
 		}
@@ -447,8 +453,8 @@ export const treeItemStyles = [
 			}
 
 			:host([aria-selected='true']) {
-				background-color: Highlight;
 				color: HighlightText;
+				background-color: Highlight;
 			}
 
 			:host([aria-selected='true'][focused]) {

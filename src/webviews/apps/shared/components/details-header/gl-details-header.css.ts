@@ -7,21 +7,21 @@ export const detailsHeaderStyles = css`
 	}
 
 	.details-header {
-		display: flex;
-		flex-direction: column;
-		flex: none;
 		position: sticky;
 		top: 0;
 		z-index: 10;
+		display: flex;
+		flex: none;
+		flex-direction: column;
 	}
 
 	.details-header__row {
 		display: flex;
-		align-items: flex-start;
-		padding: 0.7rem 1.2rem 0.5rem 1.2rem;
 		gap: 0.6rem;
-		container-type: inline-size;
+		align-items: flex-start;
+		padding: 0.7rem 1.2rem 0.5rem;
 		container-name: gl-action-chip-host;
+		container-type: inline-size;
 	}
 
 	.details-header__content {
@@ -34,9 +34,9 @@ export const detailsHeaderStyles = css`
 
 	.details-header__actions {
 		display: flex;
-		align-items: center;
-		gap: 0.2rem;
 		flex-shrink: 0;
+		gap: 0.2rem;
+		align-items: center;
 	}
 
 	/* Secondary actions (terminal / jump / refresh / open-on-remote …) form their own flex
@@ -52,8 +52,8 @@ export const detailsHeaderStyles = css`
 
 	.details-header__actions-secondary.has-actions {
 		display: flex;
-		align-items: center;
 		gap: 0.2rem;
+		align-items: center;
 		margin-inline-start: 0.4rem;
 	}
 

@@ -37,11 +37,11 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.details-panel {
-				flex: 1;
 				display: flex;
+				flex: 1;
 				flex-direction: column;
-				overflow: hidden;
 				gap: 1.6rem;
+				overflow: hidden;
 			}
 
 			.details-panel.split-view {
@@ -51,11 +51,11 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.changes-list {
-				flex: 1;
-				overflow-y: auto;
 				display: flex;
+				flex: 1;
 				flex-direction: column;
 				gap: 3.2rem;
+				overflow-y: auto;
 				--commit-message-sticky-top: 0;
 			}
 
@@ -70,11 +70,11 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.files-headline {
-				font-size: 1.4rem;
-				margin-block: 0 0.8rem;
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
+				margin-block: 0 0.8rem;
+				font-size: 1.4rem;
 			}
 
 			.files-headline__title {
@@ -93,22 +93,22 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.files-list.drag-over {
-				border: 2px solid var(--vscode-focusBorder);
 				background: var(--vscode-list-dropBackground);
+				border: 2px solid var(--vscode-focusBorder);
 			}
 
 			.file-group {
+				overflow: hidden;
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 0.4rem;
-				overflow: hidden;
 			}
 
 			.file-group__header {
 				display: flex;
 				align-items: center;
 				padding: 0.5rem 0.8rem;
-				background: var(--vscode-editorGroupHeader-tabsBackground);
 				cursor: pointer;
+				background: var(--vscode-editorGroupHeader-tabsBackground);
 			}
 
 			.file-group[open] .file-group__header {
@@ -119,9 +119,6 @@ export class DetailsPanel extends LitElement {
 				background: var(--vscode-list-hoverBackground);
 			}
 
-			.file-group__icon {
-			}
-
 			.file-group:not([open]) .file-group__icon--open,
 			.file-group[open] .file-group__icon--closed {
 				display: none;
@@ -129,8 +126,8 @@ export class DetailsPanel extends LitElement {
 
 			.file-name {
 				display: flex;
-				align-items: center;
 				gap: 0.5rem;
+				align-items: center;
 				font-size: 1.4rem;
 				font-weight: 500;
 				color: var(--vscode-foreground);
@@ -138,8 +135,8 @@ export class DetailsPanel extends LitElement {
 
 			.file-stats {
 				display: flex;
-				align-items: center;
 				gap: 0.5rem;
+				align-items: center;
 				font-size: 0.8rem;
 				font-weight: 500;
 			}
@@ -159,19 +156,19 @@ export class DetailsPanel extends LitElement {
 
 			.empty-state,
 			.no-changes-state {
-				padding: 2rem;
 				max-width: 80rem;
+				padding: 2rem;
+				color: var(--color-foreground--85);
 				background: var(--vscode-editor-background);
 				border: 0.1rem solid var(--vscode-panel-border);
 				border-radius: 0.3rem;
-				color: var(--color-foreground--85);
 			}
 
 			.change-details.composition-summary {
+				gap: 0;
+				padding: 1.6rem;
 				border: 0.1rem solid var(--vscode-panel-border);
 				border-radius: 0.3rem;
-				padding: 1.6rem;
-				gap: 0;
 			}
 
 			.empty-state {
@@ -181,24 +178,21 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.empty-state__icon {
-				font-size: 7.2rem;
 				margin-block-end: 0.8rem;
+				font-size: 7.2rem;
 				opacity: 0.75;
 			}
 
-			.no-changes-state {
-			}
-
 			.no-changes-title {
+				margin-block: 0;
 				font-size: 1.6rem;
 				font-weight: 600;
-				margin-block: 0;
 				color: var(--color-foreground);
 			}
 
 			.no-changes-description {
-				line-height: 1.5;
 				margin-block: 1.6rem;
+				line-height: 1.5;
 				text-wrap: pretty;
 			}
 

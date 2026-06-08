@@ -21,31 +21,33 @@ export class GlMergeConflictWarning extends LitElement {
 		css`
 			.status {
 				--action-item-foreground: #000;
+
 				box-sizing: border-box;
 				display: flex;
-				align-items: center;
 				gap: 0.6rem;
+				align-items: center;
 				width: 100%;
 				max-width: 100%;
-				margin-block: 0;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				color: #000;
-				border-radius: 0.3rem;
 				padding: 0.1rem 0.4rem;
+				margin-block: 0;
+				color: #000;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
+				border-radius: 0.3rem;
 			}
 
 			:host([conflicts]) .status {
 				--action-item-foreground: #fff;
-				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
+
 				color: #fff;
+				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor);
 			}
 
 			.label {
 				flex: 1;
 				min-width: 0;
-				white-space: nowrap;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				white-space: nowrap;
 			}
 
 			.icon,
@@ -55,10 +57,10 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			.md-code {
+				padding: 0 4px 2px;
+				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
 				border-radius: 3px;
-				padding: 0px 4px 2px 4px;
-				font-family: var(--vscode-editor-font-family);
 			}
 
 			gl-commit-sha::part(label) {
@@ -83,8 +85,8 @@ export class GlMergeConflictWarning extends LitElement {
 
 			.ref-link {
 				color: inherit;
-				cursor: pointer;
 				text-decoration: none !important;
+				cursor: pointer;
 			}
 		`,
 	];

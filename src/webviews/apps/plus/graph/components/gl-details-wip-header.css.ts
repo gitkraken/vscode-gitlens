@@ -8,23 +8,23 @@ export const detailsWipHeaderStyles = css`
 
 	.graph-details-header__title-group {
 		display: flex;
-		align-items: center;
-		gap: 1.2rem;
-		min-width: 0;
 		flex: 1;
+		gap: 1.2rem;
+		align-items: center;
+		min-width: 0;
 		--commit-stats-pill-line-height: 2rem;
 	}
 
 	.graph-details-header__wip-title {
 		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		min-width: 0;
-		font-weight: 500;
-		font-size: var(--gl-font-base);
 		flex: 0 1 auto;
+		gap: 0.5rem;
+		align-items: center;
+		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: var(--gl-font-base);
+		font-weight: 500;
 		white-space: nowrap;
 	}
 
@@ -77,10 +77,10 @@ export const detailsWipHeaderStyles = css`
 	   from gl-details-base.css.ts. */
 	.graph-details-header__branch-row {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
-		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
+		align-items: center;
 		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
 		border-top: 1px solid var(--gl-metadata-bar-border);
 	}
@@ -94,8 +94,8 @@ export const detailsWipHeaderStyles = css`
 	.branch-identity,
 	.branch-ops {
 		display: flex;
-		align-items: center;
 		gap: 0.6rem;
+		align-items: center;
 		min-height: 2.4rem;
 		--commit-stats-pill-line-height: 2rem;
 		--gl-pill-line-height: 2rem;
@@ -114,9 +114,9 @@ export const detailsWipHeaderStyles = css`
 	   preventing the chip from shrinking at narrow panel widths. */
 	.branch-identity > gl-tooltip {
 		display: flex;
+		flex: 0 1 auto;
 		align-items: center;
 		min-width: 0;
-		flex: 0 1 auto;
 	}
 
 	.branch-ops {
@@ -129,27 +129,28 @@ export const detailsWipHeaderStyles = css`
 	   count, "Generating…", commit/finding counts, or "Error". Pre-formatted by the host so
 	   we just render whatever string lands here. */
 	.mode-status {
-		flex: 0 0 auto;
-		margin-left: auto;
 		display: inline-flex;
-		align-items: center;
+		flex: 0 0 auto;
 		gap: 0.8rem;
-		font-size: var(--gl-font-small, 1.2rem);
-		color: var(--color-foreground--65);
+		align-items: center;
+		margin-left: auto;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		font-size: var(--gl-font-small, 1.2rem);
+		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}
 
 	.mode-status__group {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.3rem;
+		align-items: center;
 	}
 
 	.mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
@@ -157,27 +158,27 @@ export const detailsWipHeaderStyles = css`
 	   snapshot is present (forward-available state). The whole pill is the click target. */
 	.mode-status__resume {
 		display: inline-flex;
-		align-items: center;
 		gap: 0.8rem;
+		align-items: center;
 		padding: 0.2rem 0.6rem;
 		font: inherit;
 		color: inherit;
+		cursor: pointer;
 		background: transparent;
 		border: none;
 		border-radius: 0.4rem;
-		cursor: pointer;
 	}
 
 	.mode-status__resume:hover {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.mode-status__resume:focus-visible {
-		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
+		background: var(--vscode-toolbar-hoverBackground);
 	}
 
 	.mode-status__resume-verb {
@@ -187,21 +188,22 @@ export const detailsWipHeaderStyles = css`
 	.mode-status__resume-arrow {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
+
 		opacity: 0.85;
 	}
 
 	.graph-details-header__branch-link {
 		display: inline-flex;
 		align-items: center;
-		text-decoration: none;
-		color: inherit;
 		min-width: 0;
+		color: inherit;
+		text-decoration: none;
 	}
 
 	.graph-details-header__branch {
+		flex: 0 1 auto;
 		min-width: 0;
 		max-width: 20rem;
-		flex: 0 1 auto;
 	}
 
 	.graph-details-header__merge-target {
@@ -229,10 +231,10 @@ export const detailsWipHeaderStyles = css`
 
 	.graph-details-header__issues {
 		display: flex;
-		align-items: center;
 		gap: 0.4rem;
-		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
+		align-items: center;
 		min-width: 0;
+		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
 		border-bottom: 1px solid var(--gl-metadata-bar-border);
@@ -272,12 +274,12 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		justify-content: center;
 		height: 2rem;
-		background: none;
-		border: none;
 		padding: 0 0.4rem;
 		margin-left: -0.2rem;
 		color: var(--color-foreground--50);
 		cursor: pointer;
+		background: none;
+		border: none;
 		border-radius: 0 0.5rem 0.5rem 0;
 		opacity: 0;
 		transition:

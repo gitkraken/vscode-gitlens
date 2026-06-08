@@ -13,8 +13,8 @@ export class CommitIdentity extends LitElement {
 		.author {
 			display: flex;
 			flex-direction: row;
-			align-items: center;
 			gap: 0 0.6rem;
+			align-items: center;
 		}
 
 		a {
@@ -25,10 +25,10 @@ export class CommitIdentity extends LitElement {
 		.author-hover {
 			display: flex;
 			flex-direction: column;
+			gap: 0.6rem;
 			align-items: center;
 			justify-content: center;
-			gap: 0.6rem;
-			margin: 0.6rem 0.2rem 0.2rem 0.2rem;
+			margin: 0.6rem 0.2rem 0.2rem;
 		}
 
 		.author-hover img {
@@ -48,9 +48,9 @@ export class CommitIdentity extends LitElement {
 
 		.name {
 			flex: 1;
+			text-overflow: ellipsis;
 			font-size: 1.3rem;
 			white-space: nowrap;
-			text-overflow: ellipsis;
 		}
 
 		.date {

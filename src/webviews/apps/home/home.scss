@@ -38,13 +38,13 @@ html {
 }
 
 body {
-	padding: 0;
-	background-color: var(--color-view-background);
-	color: var(--color-view-foreground);
-	font-family: var(--font-family);
 	min-height: 100%;
-	line-height: 1.4;
+	padding: 0;
+	font-family: var(--font-family);
 	font-size: var(--vscode-font-size);
+	line-height: 1.4;
+	color: var(--color-view-foreground);
+	background-color: var(--color-view-background);
 }
 
-@include scrollbars.scrollbarFix();
+@include scrollbars.scrollbarFix;
