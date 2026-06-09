@@ -10,6 +10,7 @@ import { registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { getCliPublishInfo } from '../../ipc/ipcService.js';
+import type { CliInstallResult } from './binaryInstaller.js';
 import { CliBinaryInstaller } from './binaryInstaller.js';
 import { CliCommandHandlers } from './commands.js';
 import { clearResolvedCLIExecutableCache, getDevCLILocalPath, isInsidersCLIEnabled, runCLICommand } from './utils.js';
@@ -87,16 +88,7 @@ export class GkCliService implements Disposable {
 	}
 
 	/** Triggers an install with custom options — used by command handlers that want fine-grained control over `force`/`autoInstall`. */
-	async install(
-		autoInstall?: boolean,
-		source?: Sources,
-		force = false,
-	): Promise<{
-		cliVersion?: string;
-		cliPath?: string;
-		status: 'completed' | 'unsupported' | 'attempted';
-		changed: boolean;
-	}> {
+	async install(autoInstall?: boolean, source?: Sources, force = false): Promise<CliInstallResult> {
 		const result = await this._installer.install(autoInstall, source, force);
 		await this.onInstallCompleted(result, source);
 		return result;
@@ -110,17 +102,7 @@ export class GkCliService implements Disposable {
 	 * No-op for short-circuit paths (`changed: false` — already installed, dev binary, up-to-date). Firing
 	 * on those would feedback-loop with listeners like GkMcpService.setupCore, which re-invokes `install`.
 	 */
-	private async onInstallCompleted(
-		result:
-			| {
-					cliVersion?: string;
-					cliPath?: string;
-					status: 'completed' | 'unsupported' | 'attempted';
-					changed: boolean;
-			  }
-			| undefined,
-		source?: Sources,
-	): Promise<void> {
+	private async onInstallCompleted(result: CliInstallResult | undefined, source?: Sources): Promise<void> {
 		if (result?.status !== 'completed' || !result.changed) return;
 
 		await this.authenticate();
