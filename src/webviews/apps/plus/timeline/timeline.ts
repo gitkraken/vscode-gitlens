@@ -13,6 +13,7 @@ import type {
 import { periodToMs } from '../../../plus/timeline/utils/period.js';
 import { SignalWatcherWebviewApp } from '../../shared/appBase.js';
 import { compactBreadcrumbsConsumerStyles } from '../../shared/components/breadcrumbs.js';
+import { featureGateContentStyles } from '../../shared/components/feature-gate.css.js';
 import { getHost } from '../../shared/host/context.js';
 import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { Resource } from '../../shared/state/resource.js';
@@ -40,6 +41,7 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 	static override styles = [
 		linkStyles,
 		ruleStyles,
+		featureGateContentStyles,
 		timelineBaseStyles,
 		timelineStyles,
 		compactBreadcrumbsConsumerStyles,
@@ -302,16 +304,27 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 				.source=${{ source: 'timeline' as const, detail: 'gate' }}
 				.state=${sub?.state}
 				@gl-switch-repos=${this.onSwitchRepos}
-				><p slot="feature">
-					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-						>Visual History</a
-					>
-					<gl-feature-badge></gl-feature-badge>
-					&mdash; visualize the evolution of a repository, branch, folder, or file and identify when the most
-					impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
-					slicing by branch.
-				</p></gl-feature-gate
-			>`;
+				><section slot="feature" class="feature">
+					<header class="feature__header">
+						<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
+						<hgroup>
+							<h2 class="feature__title">
+								<span>Visual History</span>
+								<gl-feature-badge></gl-feature-badge>
+							</h2>
+							<p class="feature__lede">See how any file, folder, or branch evolved &mdash; at a glance</p>
+						</hgroup>
+					</header>
+					<p>
+						Visualize the evolution of a repository, branch, folder, or file and identify when the most
+						impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
+						slicing by branch.
+						<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
+							>Learn More</a
+						>
+					</p>
+				</section>
+			</gl-feature-gate>`;
 		}
 
 		return html`<gl-feature-gate
@@ -321,14 +334,26 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 			.source=${{ source: 'timeline' as const, detail: 'gate' }}
 			.state=${sub?.state}
 			@gl-switch-repos=${this.onSwitchRepos}
-			><p slot="feature">
-				<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
-					>Visual File History</a
-				>
-				<gl-feature-badge></gl-feature-badge>
-				&mdash; visualize the evolution of a file and quickly identify when the most impactful changes were made
-				and by whom. Quickly see unmerged changes in files or folders, when slicing by branch.
-			</p></gl-feature-gate
+			><section slot="feature" class="feature">
+				<header class="feature__header">
+					<div class="icon-cube feature__feature-icon"><code-icon icon="gl-gitlens"></code-icon></div>
+					<hgroup>
+						<h2 class="feature__title">
+							<span>Visual History</span>
+							<gl-feature-badge></gl-feature-badge>
+						</h2>
+						<p class="feature__lede">See how any file, folder, or branch evolved &mdash; at a glance</p>
+					</hgroup>
+				</header>
+				<p>
+					Visualize the evolution of a repository, branch, folder, or file and identify when the most
+					impactful changes were made and by whom. Quickly see unmerged changes in files or folders, when
+					slicing by branch.
+					<a href="https://help.gitkraken.com/gitlens/gitlens-features/#visual-file-history-pro"
+						>Learn More</a
+					>
+				</p>
+			</section></gl-feature-gate
 		>`;
 	}
 
