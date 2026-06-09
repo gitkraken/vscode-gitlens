@@ -7,6 +7,7 @@ import type { McpHostRegistrationProvider } from './types.js';
 
 export class CursorMcpHostProvider implements McpHostRegistrationProvider {
 	private _registeredServerName: string | undefined;
+	private _disposed = false;
 
 	constructor(
 		private readonly container: Container,
@@ -17,30 +18,24 @@ export class CursorMcpHostProvider implements McpHostRegistrationProvider {
 	}
 
 	dispose(): void {
+		this._disposed = true;
 		this.tryUnregister();
+	}
+
+	shouldFireOnTimeout(): boolean {
+		return true;
 	}
 
 	@debug()
 	async refresh(): Promise<void> {
 		const scope = getScopedLogger();
 
-		const discoveryFilePath = this.service.discoveryFilePath;
-
-		if (discoveryFilePath != null) {
-			this.service.clearIpcTimeout();
-		} else if (this.service.isWaitingForIpc) {
-			return;
-		}
-
-		const config = await this.service.getMcpConfig();
-		if (config == null) return;
+		const config = await this.service.resolveMcpConfig();
+		// Bail if disposed while the config fetch was in flight — otherwise a toggle-off during the fetch
+		// would re-register a server after dispose()'s tryUnregister already ran, orphaning it for the session.
+		if (config == null || this._disposed) return;
 
 		void this.container.usage.track('action:gitlens.mcp.bundledMcpDefinitionProvided:happened');
-
-		const serverEnv: Record<string, string> = {};
-		if (discoveryFilePath != null) {
-			serverEnv['GK_GL_PATH'] = discoveryFilePath;
-		}
 
 		try {
 			// Unregister the previous registration before re-registering (e.g. on CLI update)
@@ -52,7 +47,7 @@ export class CursorMcpHostProvider implements McpHostRegistrationProvider {
 				server: {
 					command: config.command,
 					args: config.args,
-					env: serverEnv,
+					env: {},
 				},
 			});
 		} catch (ex) {

@@ -12,6 +12,7 @@ import type { GkAgent } from '../../../../agents/agentService.js';
 import { urls } from '../../../../constants.js';
 import type { Source, Sources } from '../../../../constants.telemetry.js';
 import type { Container } from '../../../../container.js';
+import type { GkMcpRegistrar } from '../../../../plus/gk/utils/-webview/mcp.utils.js';
 import {
 	supportsCursorMcpRegistration,
 	supportsMcpExtensionRegistration,
@@ -74,12 +75,11 @@ function classifyMcpInstallOutput(output: string): McpInstallResult {
 	return { kind: 'unexpected', output: cleaned };
 }
 
-export class GkMcpService implements Disposable {
+export class GkMcpService implements GkMcpRegistrar {
 	private readonly _disposable: VsDisposable;
 	private _activeProvider: McpHostRegistrationProvider | undefined;
 
 	private _mcpConfigPromise: Promise<McpServerConfig | undefined> | undefined;
-	private _discoveryFilePath: string | undefined;
 	private _ipcTimeoutId: NodeJS.Timeout | undefined;
 	private _waitingForIPC = true;
 
@@ -95,7 +95,7 @@ export class GkMcpService implements Disposable {
 
 		this._disposable = VsDisposable.from(
 			cliService.onDidChangeInstall(e => this.onCliInstallChanged(e)),
-			cliService.onDidStartIpc(e => this.onIpcServerStarted(e)),
+			cliService.onDidStartIpc(() => this.onIpcServerStarted()),
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			// Register the host adapter (and start the 30s IPC-wait timer) only once the container is
@@ -136,25 +136,17 @@ export class GkMcpService implements Disposable {
 
 	// === Internal API for host adapters ===
 
-	get discoveryFilePath(): string | undefined {
-		return this._discoveryFilePath;
-	}
-
-	get isWaitingForIpc(): boolean {
-		return this._waitingForIPC;
-	}
-
-	clearIpcTimeout(): void {
-		this._waitingForIPC = false;
-		if (this._ipcTimeoutId == null) return;
-
-		clearTimeout(this._ipcTimeoutId);
-		this._ipcTimeoutId = undefined;
+	/** Resolves the MCP server config the host adapter should register, or `undefined` to register nothing
+	 *  yet — while still waiting for the IPC server to start (so the spawned MCP subprocess can connect
+	 *  back to GitLens), or when no config is available. */
+	resolveMcpConfig(): Promise<McpServerConfig | undefined> {
+		if (this._waitingForIPC) return Promise.resolve(undefined);
+		return this.getMcpConfig();
 	}
 
 	/** Fetches the MCP config from the CLI. Cached per-result, invalidated by storage / settings changes. */
 	@debug()
-	getMcpConfig(): Promise<McpServerConfig | undefined> {
+	private getMcpConfig(): Promise<McpServerConfig | undefined> {
 		this._mcpConfigPromise ??= this.getMcpConfigCore().then(
 			config => {
 				if (config == null) {
@@ -199,6 +191,14 @@ export class GkMcpService implements Disposable {
 		if (!this._waitingForIPC || this._ipcTimeoutId != null) return;
 
 		this._ipcTimeoutId = setTimeout(() => this.onIpcTimeoutExpired(), ipcWaitTime);
+	}
+
+	private clearIpcTimeout(): void {
+		this._waitingForIPC = false;
+		if (this._ipcTimeoutId == null) return;
+
+		clearTimeout(this._ipcTimeoutId);
+		this._ipcTimeoutId = undefined;
 	}
 
 	private disposeActiveProvider(): void {
@@ -315,8 +315,7 @@ export class GkMcpService implements Disposable {
 		}
 	}
 
-	private onIpcServerStarted(e: { discoveryFilePath: string | undefined }): void {
-		this._discoveryFilePath = e.discoveryFilePath;
+	private onIpcServerStarted(): void {
 		this.clearIpcTimeout();
 		this.fireRefresh(false);
 	}
@@ -349,10 +348,9 @@ export class GkMcpService implements Disposable {
 
 	private onIpcTimeoutExpired(): void {
 		this.clearIpcTimeout();
-		// For VS Code: only fire if we haven't yet provided a definition (avoid spurious pulls)
-		if (this._activeProvider instanceof VSCodeMcpHostProvider) {
-			if (this._activeProvider.hasProvidedDefinition) return;
-		}
+		// Let the active host adapter decide whether a timeout-driven refresh is worthwhile (VS Code
+		// suppresses it once it has pulled a definition; other hosts always refresh).
+		if (this._activeProvider != null && !this._activeProvider.shouldFireOnTimeout()) return;
 
 		this.fireRefresh(true);
 	}
