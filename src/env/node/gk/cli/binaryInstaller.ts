@@ -35,6 +35,15 @@ const proxyMetadataFetchTimeout = 60_000; // 60s
  * fails fast when a connection accepts then goes silent. */
 const proxyDownloadStallTimeout = 60_000; // 60s
 
+/** Outcome of an install attempt. `changed` is `true` only when a fresh install actually ran — `false`
+ * for every no-op path (already installed, local dev binary, unsupported/offline). */
+export interface CliInstallResult {
+	cliVersion?: string;
+	cliPath?: string;
+	status: 'completed' | 'unsupported' | 'attempted';
+	changed: boolean;
+}
+
 export class CliBinaryInstaller implements Disposable {
 	constructor(private readonly container: Container) {}
 
@@ -57,16 +66,7 @@ export class CliBinaryInstaller implements Disposable {
 	 */
 	@sequentialize()
 	@debug({ exit: true })
-	async install(
-		autoInstall?: boolean,
-		source?: Sources,
-		force = false,
-	): Promise<{
-		cliVersion?: string;
-		cliPath?: string;
-		status: 'completed' | 'unsupported' | 'attempted';
-		changed: boolean;
-	}> {
+	async install(autoInstall?: boolean, source?: Sources, force = false): Promise<CliInstallResult> {
 		const scope = getScopedLogger();
 		clearResolvedCLIExecutableCache();
 
@@ -177,7 +177,6 @@ export class CliBinaryInstaller implements Disposable {
 			}
 
 			let cliProxyZipFilePath: Uri | undefined;
-			let cliExtractedProxyFilePath: Uri | undefined;
 			const { globalStorageUri } = this.container.context;
 
 			try {
@@ -274,8 +273,8 @@ export class CliBinaryInstaller implements Disposable {
 					});
 
 					// Verify the extracted binary exists (stat throws if it doesn't)
-					cliExtractedProxyFilePath = Uri.joinPath(globalStorageUri, expectedBinary);
-					await workspace.fs.stat(cliExtractedProxyFilePath);
+					const extractedBinaryPath = Uri.joinPath(globalStorageUri, expectedBinary);
+					await workspace.fs.stat(extractedBinaryPath);
 				} catch (ex) {
 					const reason = isLockedBinaryError(ex)
 						? CLIInstallErrorReason.ProxyExtractLocked
@@ -487,15 +486,7 @@ export class CliBinaryInstaller implements Disposable {
 	 * or `undefined` if there was nothing to do.
 	 */
 	@debug()
-	async ensureUpdateOrInstall(): Promise<
-		| {
-				cliVersion?: string;
-				cliPath?: string;
-				status: 'completed' | 'unsupported' | 'attempted';
-				changed: boolean;
-		  }
-		| undefined
-	> {
+	async ensureUpdateOrInstall(): Promise<CliInstallResult | undefined> {
 		if (getDevCLILocalPath() != null) {
 			Logger.info(`${formatLoggableScopeBlock('CLI')} Using local CLI binary — skipping auto-install/update`);
 			void setContext('gitlens:gk:cli:installed', true);
