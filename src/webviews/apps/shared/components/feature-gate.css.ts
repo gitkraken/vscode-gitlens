@@ -152,6 +152,7 @@ export const featureGateContentStyles = css`
 
 	.feature__header {
 		display: flex;
+		flex-direction: row;
 		align-items: flex-start;
 		gap: 1.2rem;
 	}
