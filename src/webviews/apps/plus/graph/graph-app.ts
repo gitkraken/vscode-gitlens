@@ -1023,6 +1023,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					repoPath: meta.repoPath,
 					hasWorkingChanges: dirty,
 					// Stats omitted until hover fetches them — the pill renders from the dirty signal.
+					// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled
+					// without a breakdown (failed/cancelled), so flag it for the hover's terminal state
+					// instead of leaving the tooltip stuck on "Loading changes…".
 					...(stats != null
 						? {
 								files: stats.added + stats.modified + stats.deleted,
@@ -1030,7 +1033,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 								modified: stats.modified,
 								deleted: stats.deleted,
 							}
-						: {}),
+						: meta.workDirStatsStale === false
+							? { statsUnavailable: true }
+							: {}),
 					...(meta.hasUnpushed === true
 						? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
 						: {}),

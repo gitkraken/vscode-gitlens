@@ -37,6 +37,10 @@ export interface WipBarItem {
 	added?: number;
 	modified?: number;
 	deleted?: number;
+	/** True when an on-demand stats fetch settled without producing a breakdown (the request failed
+	 *  or was cancelled). Lets the hover show a terminal "Couldn't load changes" instead of a
+	 *  perpetual "Loading changes…". Only meaningful while `files` is absent. */
+	statsUnavailable?: boolean;
 	/** Optional — surfaced when available (e.g., from a running agent session); otherwise omitted from the row. */
 	lastActivity?: string;
 	agent?: AgentSessionCategory;
@@ -270,9 +274,11 @@ export class GlGraphWipBar extends LitElement {
 											no-tooltip
 										></commit-stats>
 									`
-								: this.statsOnHover
-									? html`<span class="pill-hover__files">Loading changes…</span>`
-									: html`<span class="pill-hover__files">Has working changes</span>`}
+								: item.statsUnavailable === true
+									? html`<span class="pill-hover__files">Couldn't load changes</span>`
+									: this.statsOnHover
+										? html`<span class="pill-hover__files">Loading changes…</span>`
+										: html`<span class="pill-hover__files">Has working changes</span>`}
 						</div>`
 					: nothing}
 				${item.hasUnpushed === true
