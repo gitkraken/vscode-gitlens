@@ -122,7 +122,8 @@ rl.question(`Enter the new version number (format x.x.x, current is ${currentVer
 			`--tag-version-prefix=${tagPrefix}`,
 			'-m',
 			'Bumps to v%s',
-			'-f',
+			// Allow the bump despite the staged CHANGELOG above (pnpm has no `-f`/`--force`; this is its equivalent).
+			'--no-git-checks',
 		]);
 		if (stdout) process.stdout.write(stdout);
 		if (stderr) process.stderr.write(stderr);
