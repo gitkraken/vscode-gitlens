@@ -47,10 +47,14 @@ export function getSupportedWorkspacesStorageProvider(
 	return undefined;
 }
 
-// Type stubs so cross-env consumers (e.g. `container.ts`) can reference the Node-only services
-// in TypeScript type positions without pulling Node modules into the browser bundle.
+// Type stubs so cross-env consumers (e.g. `container.ts`, shared webview code) can reference the
+// Node-only services in type positions without the browser bundle pulling in Node modules — neither is
+// constructed in browser builds (the getters below return undefined). `GkCliService` is never
+// property-accessed by shared code, so a bare `never` suffices. `GkMcpService` re-exports the
+// `GkMcpRegistrar` interface (which the real Node service `implements`), letting shared code read
+// `container.gkMcp?.isRegistration*` in both builds while TS keeps the stub from drifting from the service.
 export type GkCliService = never;
-export type GkMcpService = never;
+export type { GkMcpRegistrar as GkMcpService } from '../../plus/gk/utils/-webview/mcp.utils.js';
 
 export function getGkCliService(_container: Container): undefined {
 	return undefined;

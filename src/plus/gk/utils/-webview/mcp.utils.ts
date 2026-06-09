@@ -1,7 +1,17 @@
+import type { Disposable } from 'vscode';
 import { cursor, env, lm, version } from 'vscode';
 import { isWeb } from '@env/platform.js';
 import { satisfies } from '@gitlens/utils/version.js';
 import type { Container } from '../../../../container.js';
+
+/** The cross-env-visible surface of the Node-only `GkMcpService`, re-exported as `GkMcpService` by the
+ *  browser env barrel and `implements`-ed by the real service. Lets shared consumers read these off
+ *  `container.gkMcp?.…` in both builds without the browser barrel importing the Node service, while
+ *  keeping the stub from drifting from what the service actually exposes. */
+export interface GkMcpRegistrar extends Disposable {
+	readonly isRegistrationAllowed: boolean;
+	readonly isRegistrationEnabled: boolean;
+}
 
 export function isMcpBannerEnabled(container: Container, showAutoRegistration = false): boolean {
 	// Check if running on web or automatically registrable
