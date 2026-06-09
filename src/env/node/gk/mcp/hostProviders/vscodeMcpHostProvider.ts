@@ -30,39 +30,26 @@ export class VSCodeMcpHostProvider implements McpHostRegistrationProvider, McpSe
 		this._onDidChangeMcpServerDefinitions.fire();
 	}
 
-	/** True if VS Code has pulled definitions from us — used by the service to decide
-	 *  whether to fire after the 30s IPC timeout (matches today's `shouldFireOnTimeout`). */
-	get hasProvidedDefinition(): boolean {
-		return this._hasProvidedDefinition;
+	/** VS Code suppresses a timeout-driven refresh once it has pulled a definition (avoids a spurious
+	 *  pull); see `GkMcpService.onIpcTimeoutExpired`. */
+	shouldFireOnTimeout(): boolean {
+		return !this._hasProvidedDefinition;
 	}
 
 	@debug({ exit: true })
 	async provideMcpServerDefinitions(): Promise<McpServerDefinition[]> {
-		const discoveryFilePath = this.service.discoveryFilePath;
-
-		if (discoveryFilePath != null) {
-			this.service.clearIpcTimeout();
-		} else if (this.service.isWaitingForIpc) {
-			return [];
-		}
-
-		const config = await this.service.getMcpConfig();
+		const config = await this.service.resolveMcpConfig();
 		if (config == null) return [];
 
 		void this.container.usage.track('action:gitlens.mcp.bundledMcpDefinitionProvided:happened');
 
 		this._hasProvidedDefinition = true;
 
-		const serverEnv: McpStdioServerDefinition['env'] = {};
-		if (discoveryFilePath != null) {
-			serverEnv['GK_GL_PATH'] = discoveryFilePath;
-		}
-
 		const serverDefinition = new McpStdioServerDefinition(
 			config.name,
 			config.command,
 			config.args,
-			serverEnv,
+			undefined,
 			config.version,
 		);
 		serverDefinition.cwd = this.container.context.globalStorageUri;
