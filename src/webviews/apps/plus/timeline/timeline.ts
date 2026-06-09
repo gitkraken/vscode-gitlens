@@ -329,7 +329,6 @@ export class GlTimelineApp extends SignalWatcherWebviewApp {
 
 		return html`<gl-feature-gate
 			?allowRepoSwitch=${s.allowRepoSwitch.get()}
-			?hidden=${s.allowed.get() !== false}
 			featureRestriction="private-repos"
 			.source=${{ source: 'timeline' as const, detail: 'gate' }}
 			.state=${sub?.state}
