@@ -46,7 +46,6 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 			featureRestriction="private-repos"
 			featureWithArticleIfNeeded="the Commit Graph"
 			?allowRepoSwitch=${this.graphState.allowRepoSwitch}
-			?hidden=${this.graphState.allowed !== false}
 			.source=${{ source: 'graph', detail: 'gate' } as const}
 			.state=${this.graphState.subscription?.state}
 			.webroot=${this.graphState.webroot}
