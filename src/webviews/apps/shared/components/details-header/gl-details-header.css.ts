@@ -27,6 +27,9 @@ export const detailsHeaderStyles = css`
 	.details-header__content {
 		flex: 1;
 		min-width: 0;
+		/* The content box can shrink below its children's intrinsic width (min-width: 0), so clip
+		   anything that would otherwise spill out and paint under the actions cluster. */
+		overflow: hidden;
 	}
 
 	.details-header__actions {
@@ -54,26 +57,38 @@ export const detailsHeaderStyles = css`
 		margin-inline-start: 0.4rem;
 	}
 
-	/* Mode-toggle label collapse, staggered.
+	/* Mode-toggle label collapse, staggered right-to-left in display order: Compare yields
+	   first, then Resolve, then Review, then Compose.
 	   The chip's slotted label is a normal child of <gl-action-chip> in this template,
 	   so we target it via descendant selectors. Hiding the slotted span with display:none
 	   cleanly removes the flex item and its surrounding gap inside the chip — yielding
 	   a true icon-only state instead of clipped/ellipsed text. The active chip is exempt
-	   so the selected mode keeps its label visible. Compare yields first, then Review,
-	   then Compose. */
-	@container gl-action-chip-host (max-width: 380px) {
-		.mode-toggle--compare .mode-toggle__text {
+	   so the selected mode keeps its label visible. Breakpoints leave room for the title
+	   side's WIP stats pill, which takes priority over labels (see
+	   gl-details-wip-header.css.ts); secondary actions never hide.
+	   The (conflict-only) Resolve chip makes the cluster ~one labeled chip wider, so Compare
+	   yields sooner when it's present (the :has()-scoped rule); the later steps then line up
+	   with the 3-chip cascade, since each band holds the same number of labels either way. */
+	@container gl-action-chip-host (max-width: 560px) {
+		.details-header__actions:has(.mode-toggle--resolve) .mode-toggle--compare .mode-toggle__text {
 			display: none;
 		}
 	}
 
-	@container gl-action-chip-host (max-width: 320px) {
+	@container gl-action-chip-host (max-width: 500px) {
+		.mode-toggle--compare .mode-toggle__text,
+		.mode-toggle--resolve:not(.mode-toggle--active) .mode-toggle__text {
+			display: none;
+		}
+	}
+
+	@container gl-action-chip-host (max-width: 440px) {
 		.mode-toggle--review:not(.mode-toggle--active) .mode-toggle__text {
 			display: none;
 		}
 	}
 
-	@container gl-action-chip-host (max-width: 260px) {
+	@container gl-action-chip-host (max-width: 380px) {
 		.mode-toggle--compose:not(.mode-toggle--active) .mode-toggle__text {
 			display: none;
 		}
