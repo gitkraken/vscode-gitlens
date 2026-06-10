@@ -28,6 +28,23 @@ export const detailsWipHeaderStyles = css`
 		white-space: nowrap;
 	}
 
+	/* The stats pill is the informative part of the title row, so it never shrinks — the
+	   "Working Changes" label (static text) ellipsizes away first as the panel narrows. */
+	.graph-details-header__title-group > gl-wip-stats {
+		flex: none;
+	}
+
+	/* Below this the leftover for the label is a useless sliver — drop it entirely so the pill
+	   keeps every remaining pixel (scoped via :has so mode-active titles, which have no pill
+	   beside them, keep their label). The pill itself never yields; on extreme widths its tail
+	   clips, and partial counts still beat none. The container is the host header's row (a
+	   flat-tree ancestor, so the query crosses the shadow boundary). */
+	@container gl-action-chip-host (max-width: 340px) {
+		.graph-details-header__title-group:has(gl-wip-stats) .graph-details-header__wip-title {
+			display: none;
+		}
+	}
+
 	/* Mode icon prefixed to the title in compose/review — same icon as the active chip
 	   so the visual link reinforces what mode you're in. */
 	.graph-details-header__mode-icon {
