@@ -56,6 +56,7 @@ export type ProAIFeatures =
 	| 'generate-create-pullRequest'
 	| 'generate-commits'
 	| 'generate-commitMessage'
+	| 'conflict-resolution'
 	| 'generate-searchQuery';
 
 export type AdvancedFeatures = never;

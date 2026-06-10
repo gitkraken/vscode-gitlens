@@ -28,6 +28,7 @@ export type AIActionType =
 	| 'generate-changelog'
 	| `generate-create-${'cloudPatch' | 'codeSuggestion' | 'pullRequest'}`
 	| 'generate-commits'
+	| 'conflict-resolution'
 	| 'generate-searchQuery';
 
 export interface AIProviderDescriptor<T extends AIProviders = AIProviders> {
