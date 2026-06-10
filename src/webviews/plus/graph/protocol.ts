@@ -1144,6 +1144,7 @@ export const TrackGraphOverviewShownCommand = new IpcCommand(scope, 'track/overv
 export const TrackGraphScopeChangedCommand = new IpcCommand(scope, 'track/scope/changed');
 export const TrackGraphDetailsReviewModeCommand = new IpcCommand(scope, 'track/details/reviewMode');
 export const TrackGraphDetailsComposeModeCommand = new IpcCommand(scope, 'track/details/composeMode');
+export const TrackGraphDetailsResolveModeCommand = new IpcCommand(scope, 'track/details/resolveMode');
 export const TrackGraphDetailsCompareModeCommand = new IpcCommand(scope, 'track/details/compareMode');
 export const TrackGraphDetailsWipShownCommand = new IpcCommand(scope, 'track/details/wipShown');
 

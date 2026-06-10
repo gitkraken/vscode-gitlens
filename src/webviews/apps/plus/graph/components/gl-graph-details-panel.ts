@@ -170,7 +170,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  contexts, else the current selection. */
 	private get engagedRunningOperation(): RunningOperation | undefined {
 		const mode = this._state.activeMode.get();
-		if (mode !== 'review' && mode !== 'compose') return undefined;
+		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return undefined;
 
 		const ctx = this._state.activeModeContext.get();
 		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
@@ -240,7 +240,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	/** A mode request that arrived before the workflow controller finished its async init (e.g. an
 	 *  Inspect-delegated Review/Compose on a cold graph open). Applied once `_workflow` exists.
 	 *  Mirrors {@link _pendingCompare}. */
-	private _pendingMode?: { mode: 'compose' | 'review'; repoPath: string; sha: string };
+	private _pendingMode?: {
+		mode: 'compose' | 'review' | 'resolve';
+		repoPath: string;
+		sha: string;
+		focusedFilePaths?: readonly string[];
+	};
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
@@ -528,7 +533,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  button, which is only rendered while `status === 'loading'`.) */
 	private handleCancelMode = (): void => {
 		const mode = this._state.activeMode.get();
-		if (mode !== 'review' && mode !== 'compose') return;
+		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return;
 
 		this.suppressContentOverflow();
 		this._workflow.cancelOperation(mode);
@@ -837,12 +842,23 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	/** Entry point for the WIP-row Compose/Review buttons. Re-clicking while already engaged
 	 *  on the same anchor is a no-op (re-focus); otherwise toggleMode handles enter/replace. */
-	enterModeForWip(mode: 'compose' | 'review', repoPath: string, sha: string): void {
+	enterModeForWip(
+		mode: 'compose' | 'review' | 'resolve',
+		repoPath: string,
+		sha: string,
+		focusedFilePaths?: readonly string[],
+	): void {
 		if (this._workflow == null) {
 			// Element mounted but async init (resolveDetailsActions → controller) hasn't finished —
 			// defer and apply once `_workflow` exists. Mirrors the `_pendingCompare` path.
-			this._pendingMode = { mode: mode, repoPath: repoPath, sha: sha };
+			this._pendingMode = { mode: mode, repoPath: repoPath, sha: sha, focusedFilePaths: focusedFilePaths };
 			return;
+		}
+
+		// Resolve scopes a run to specific conflicted files (or all conflicts when undefined). Set
+		// before `toggleMode` so the panel's idle/run picks up the focus. Other modes ignore it.
+		if (mode === 'resolve') {
+			this._state.resolveFocusedFilePaths.set(focusedFilePaths);
 		}
 
 		this.suppressContentOverflow();
@@ -1376,6 +1392,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 */
 	private computeModeStatusText(): string | ReturnType<typeof html> | undefined {
 		const mode = this._state.activeMode.get();
+		if (mode === 'resolve') {
+			const status =
+				this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.execState : undefined;
+			if (status === 'generating') return this._state.resolveProgressMessage.get() ?? 'Resolving…';
+			if (status === 'error') return 'Error';
+			return undefined;
+		}
 		if (mode !== 'compose' && mode !== 'review') return undefined;
 
 		const status = this.engagedModeStatus?.[mode]?.execState;
@@ -1513,9 +1536,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this._pendingMode != null) {
-			const { mode, repoPath, sha } = this._pendingMode;
+			const { mode, repoPath, sha, focusedFilePaths } = this._pendingMode;
 			this._pendingMode = undefined;
-			this.enterModeForWip(mode, repoPath, sha);
+			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths);
 		}
 
 		void this._actions.fetchCapabilities();

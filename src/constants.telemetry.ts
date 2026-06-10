@@ -897,7 +897,7 @@ type DetailsModeChangedEvent = InspectContextEventData & {
 	'mode.new': 'wip' | 'commit';
 };
 
-export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'compare' | 'none';
+export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'resolve' | 'compare' | 'none';
 
 interface GraphDetailsShownEvent {
 	/** What caused the panel to be shown */
@@ -1980,6 +1980,7 @@ export type TrackedGlActions =
 	| 'gitlens.ai.review.sentToChat'
 	| 'gitlens.graph.details.compareMode'
 	| 'gitlens.graph.details.composeMode'
+	| 'gitlens.graph.details.resolveMode'
 	| 'gitlens.graph.details.reviewMode'
 	| 'gitlens.graph.details.wipShown'
 	| 'gitlens.graph.overview.shown'

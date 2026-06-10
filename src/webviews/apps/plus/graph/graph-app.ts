@@ -42,6 +42,7 @@ import {
 	ResetGraphFiltersCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsResolveModeCommand,
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphScopeChangedCommand,
@@ -1821,6 +1822,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				break;
 			case 'compose':
 				this._ipc.sendCommand(TrackGraphDetailsComposeModeCommand, undefined);
+				break;
+			case 'resolve':
+				this._ipc.sendCommand(TrackGraphDetailsResolveModeCommand, undefined);
 				break;
 			case 'compare':
 				this._ipc.sendCommand(TrackGraphDetailsCompareModeCommand, undefined);
