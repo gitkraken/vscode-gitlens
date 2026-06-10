@@ -3850,6 +3850,45 @@
 				]
 			}
 		},
+		"gitlens.graph.resolveAllConflictsWithAI:graph": {
+			"label": "Resolve All Conflicts with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted",
+						"group": "1_gitlens",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.graph.resolveConflictsWithAI.multi:graph": {
+			"label": "Resolve Conflicts with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\+conflict\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_conflict",
+						"order": 0
+					}
+				]
+			}
+		},
+		"gitlens.graph.resolveConflictWithAI:graph": {
+			"label": "Resolve Conflict with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_conflict",
+						"order": 0
+					}
+				]
+			}
+		},
 		"gitlens.graph.revealWorktreeInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {

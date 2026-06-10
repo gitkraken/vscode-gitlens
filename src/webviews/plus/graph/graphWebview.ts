@@ -9788,6 +9788,55 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await this.runStageConflictResolution(item, 'incoming');
 	}
 
+	@command('gitlens.graph.resolveConflictWithAI:')
+	@debug()
+	private async resolveConflictWithAI(item?: DetailsItemTypedContext): Promise<void> {
+		const value = item?.webviewItemValue;
+		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
+
+		// Enter the WIP details resolve mode scoped to this one conflicted file. The webview routes
+		// via `enterModeForWip('resolve', repoPath, uncommitted, filePaths)`.
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: value.repoPath, filePaths: [value.path] },
+		});
+	}
+
+	@command('gitlens.graph.resolveConflictsWithAI.multi:')
+	@debug()
+	private async resolveConflictsWithAIMulti(item?: DetailsItemTypedContext): Promise<void> {
+		// The right-clicked row carries the whole multi-selection in `webviewItemsValues`; keep just
+		// the conflicted file entries (the menu gates on `webviewItemsUnion`, which matches when ANY
+		// selected item is a conflict — others may be plain changes).
+		const items = item?.webviewItemsValues ?? [];
+		const files = items
+			.filter(i => i.webviewItem.includes('+conflict'))
+			.map(i => i.webviewItemValue)
+			.filter(v => v?.type === 'file' && Boolean(v.path) && Boolean(v.repoPath));
+		if (files.length === 0) return;
+
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: files[0].repoPath, filePaths: files.map(f => f.path) },
+		});
+	}
+
+	@command('gitlens.graph.resolveAllConflictsWithAI:')
+	@debug()
+	private async resolveAllConflictsWithAI(item?: GraphItemContext): Promise<void> {
+		// Invoked from the WIP-row context menu (sibling to Compose/Review), so the item is a WIP-row
+		// ref — mirror `composeCommits`. For a secondary WIP row `ref.repoPath` is that worktree's path.
+		const ref = this.getGraphItemRef(item);
+		const repoPath = ref?.repoPath ?? this.repository?.path;
+		if (repoPath == null) return;
+
+		// Enter resolve mode for all conflicts (no `filePath`).
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: repoPath },
+		});
+	}
+
 	private async runStageConflictResolution(
 		item: DetailsItemTypedContext | undefined,
 		resolution: 'current' | 'incoming',
