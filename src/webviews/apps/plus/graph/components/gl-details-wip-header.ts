@@ -356,6 +356,7 @@ export class GlDetailsWipHeader extends LitElement {
 		return html`<div slot="secondary" class="graph-details-header__paused-op">
 			<gl-merge-rebase-status
 				?conflicts=${this.wip?.changes?.hasConflicts ?? false}
+				?ai-resolve=${this.aiEnabled}
 				.pausedOpStatus=${pausedOpStatus}
 			></gl-merge-rebase-status>
 		</div>`;
