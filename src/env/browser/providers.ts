@@ -60,7 +60,7 @@ export function getGkCliService(_container: Container): undefined {
 	return undefined;
 }
 
-export function getGkMcpService(_container: Container): undefined {
+export function getGkMcpService(_container: Container, _gkCli: GkCliService): undefined {
 	return undefined;
 }
 

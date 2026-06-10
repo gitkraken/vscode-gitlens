@@ -202,35 +202,19 @@ export class Container {
 		return (this._agentService ??= new AgentService());
 	}
 
-	private _gkCliService: GkCliService | undefined;
-	private _gkCliServiceResolved = false;
+	private readonly _gkCliService: GkCliService | undefined;
 
 	/** The GitKraken CLI service — owns binary install/update/version, IPC publish, authentication.
 	 *  Returns `undefined` on browser builds (CLI is Node-only). */
 	get gkCli(): GkCliService | undefined {
-		if (!this._gkCliServiceResolved) {
-			this._gkCliServiceResolved = true;
-			this._gkCliService = getGkCliService(this);
-			if (this._gkCliService != null) {
-				this._disposables.push(this._gkCliService);
-			}
-		}
 		return this._gkCliService;
 	}
 
-	private _gkMcpService: GkMcpService | undefined;
-	private _gkMcpServiceResolved = false;
+	private readonly _gkMcpService: GkMcpService | undefined;
 
 	/** The GitKraken MCP service — owns MCP host registration + user-facing setup flows.
 	 *  Returns `undefined` on browser builds (MCP is Node-only). */
 	get gkMcp(): GkMcpService | undefined {
-		if (!this._gkMcpServiceResolved) {
-			this._gkMcpServiceResolved = true;
-			this._gkMcpService = getGkMcpService(this);
-			if (this._gkMcpService != null) {
-				this._disposables.push(this._gkMcpService);
-			}
-		}
 		return this._gkMcpService;
 	}
 
@@ -350,10 +334,16 @@ export class Container {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
 		}
 
-		// Eager construction to trigger constructor side effects (command registrations, lifecycle wiring).
-		// Must construct gkCli BEFORE gkMcp so the MCP service can wire its onDidChangeInstall listener.
-		void this.gkCli;
-		void this.gkMcp;
+		// Both are Node-only (undefined on browser builds); the MCP service takes the CLI service as a
+		// dependency so it can wire its install/IPC listeners at construction.
+		this._gkCliService = getGkCliService(this);
+		if (this._gkCliService != null) {
+			this._disposables.push(this._gkCliService);
+			this._gkMcpService = getGkMcpService(this, this._gkCliService);
+			if (this._gkMcpService != null) {
+				this._disposables.push(this._gkMcpService);
+			}
+		}
 
 		this._disposables.push(
 			configuration.onDidChange(e => {
