@@ -394,6 +394,23 @@
 			"label": "Connect GitKraken MCP to More Agents...",
 			"commandPalette": "!gitlens:untrusted && gitlens:gk:cli:installed"
 		},
+		"gitlens.ai.resolveConflicts": {
+			"label": "Resolve Conflicts with AI (Preview)...",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+		},
+		"gitlens.ai.resolveConflicts:views": {
+			"label": "Resolve Conflict with AI (Preview)",
+			"icon": "$(sparkle)",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+						"group": "1_gitlens_ai",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.ai.switchProvider": {
 			"label": "Switch AI Provider/Model...",
 			"commandPalette": "gitlens:enabled && gitlens:gk:organization:ai:enabled"

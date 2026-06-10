@@ -62,6 +62,7 @@ import './commands/regenerateMarkdownDocument.js';
 import './commands/remoteProviders.js';
 import './commands/repositories.js';
 import './commands/resets.js';
+import './commands/resolveConflictsWithAI.js';
 import './commands/resetViewsLayout.js';
 import './commands/runPromptInAgent.js';
 import './commands/searchCommits.js';
