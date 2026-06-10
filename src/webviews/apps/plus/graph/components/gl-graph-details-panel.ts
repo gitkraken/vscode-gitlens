@@ -516,9 +516,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return repos?.[0]?.path;
 	}
 
+	/** Paused-op banner "Resolve Conflicts with AI" — enters resolve mode for all conflicts on the
+	 *  shown WIP. Uses `enterModeForWip` (not `toggleMode`) so a click while resolve mode is already
+	 *  engaged re-focuses instead of exiting. */
+	private handleAiResolveConflicts = (): void => {
+		const repoPath = this._state.wip.get()?.repo.path ?? this.effectiveRepoPath;
+		if (!repoPath) return;
+
+		this.enterModeForWip('resolve', repoPath, uncommitted);
+	};
+
 	/** Shared `@toggle-mode` handler — every sub-panel's toggle-mode wires to this. Compose/review
 	 *  toggle the panel mode; compare opens the sheet (it's no longer a mode). */
-	private handleToggleMode = (e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>): void => {
+	private handleToggleMode = (e: CustomEvent<{ mode: 'review' | 'compose' | 'resolve' | 'compare' }>): void => {
 		if (e.detail.mode === 'compare') {
 			this._workflow.openCompare(this.currentSelection());
 			return;
@@ -1920,6 +1930,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.modeStatusText=${this.computeModeStatusText()}
 				.inResultsView=${this.inModeResultsView}
 				@toggle-mode=${this.handleToggleMode}
+				@ai-resolve-conflicts=${this.handleAiResolveConflicts}
 				@mode-back=${this.handleModeBack}
 				@mode-refresh=${this.handleModeRefresh}
 				@refresh-wip=${this.handleRefreshWip}
