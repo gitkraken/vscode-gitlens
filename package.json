@@ -6700,6 +6700,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.ai.resolveConflicts",
+				"title": "Resolve Conflicts with AI (Preview)...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.ai.resolveConflicts:views",
+				"title": "Resolve Conflict with AI (Preview)",
+				"icon": "$(sparkle)"
+			},
+			{
 				"command": "gitlens.ai.switchProvider",
 				"title": "Switch AI Provider/Model...",
 				"category": "GitLens"
@@ -12569,6 +12579,14 @@
 				{
 					"command": "gitlens.ai.mcp.selectAgents",
 					"when": "!gitlens:untrusted && gitlens:gk:cli:installed"
+				},
+				{
+					"command": "gitlens.ai.resolveConflicts",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled"
+				},
+				{
+					"command": "gitlens.ai.resolveConflicts:views",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.ai.switchProvider",
@@ -20924,6 +20942,11 @@
 					"command": "gitlens.restorePrevious.file:views",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.ai.resolveConflicts:views",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+conflicted\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_ai@1"
 				},
 				{
 					"command": "gitlens.views.openChanges",
