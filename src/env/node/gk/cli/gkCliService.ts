@@ -28,6 +28,10 @@ export interface CliInstallChangeEvent {
 	source?: Sources;
 }
 
+export interface CliIpcChangeEvent {
+	status: 'started' | 'stopped';
+}
+
 export class GkCliService implements Disposable {
 	private readonly _disposable: VsDisposable;
 	private _runningDisposable: VsDisposable | undefined;
@@ -38,9 +42,9 @@ export class GkCliService implements Disposable {
 		return this._onDidChangeInstall.event;
 	}
 
-	private readonly _onDidStartIpc = new EventEmitter<{ discoveryFilePath: string | undefined }>();
-	get onDidStartIpc(): Event<{ discoveryFilePath: string | undefined }> {
-		return this._onDidStartIpc.event;
+	private readonly _onDidChangeIpc = new EventEmitter<CliIpcChangeEvent>();
+	get onDidChangeIpc(): Event<CliIpcChangeEvent> {
+		return this._onDidChangeIpc.event;
 	}
 
 	constructor(private readonly container: Container) {
@@ -53,7 +57,7 @@ export class GkCliService implements Disposable {
 		this._disposable = VsDisposable.from(
 			this._installer,
 			this._onDidChangeInstall,
-			this._onDidStartIpc,
+			this._onDidChangeIpc,
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			this.container.subscription.onDidChange(this.onSubscriptionChanged, this),
 			...this.registerCommands(),
@@ -190,10 +194,10 @@ export class GkCliService implements Disposable {
 			}
 		}
 
-		// Fire onDidStartIpc whenever the IPC server is up — even if the discovery
+		// Fire onDidChangeIpc whenever the IPC server is up — even if the discovery
 		// file write failed — so MCP providers don't sit idle for the 30s ipcWaitTime.
 		if (this.container.ipc.address != null) {
-			this._onDidStartIpc.fire({ discoveryFilePath: this.container.ipc.cliDiscoveryFilePath });
+			this._onDidChangeIpc.fire({ status: 'started' });
 		}
 
 		this._runningDisposable = VsDisposable.from(handlers, {
@@ -206,6 +210,7 @@ export class GkCliService implements Disposable {
 			this._runningDisposable.dispose();
 			this._runningDisposable = undefined;
 			Logger.info(`${formatLoggableScopeBlock('IPC')} CLI handlers stopped`);
+			this._onDidChangeIpc.fire({ status: 'stopped' });
 		}
 	}
 

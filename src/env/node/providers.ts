@@ -101,8 +101,8 @@ export function getGkCliService(container: Container): GkCliService {
 	return new GkCliService(container);
 }
 
-export function getGkMcpService(container: Container): GkMcpService {
-	return new GkMcpService(container);
+export function getGkMcpService(container: Container, gkCli: GkCliService): GkMcpService {
+	return new GkMcpService(container, gkCli);
 }
 
 export function getAgentSessionProviders(container: Container): AgentSessionProvider[] {

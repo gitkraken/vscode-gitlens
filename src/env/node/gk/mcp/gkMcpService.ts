@@ -24,7 +24,7 @@ import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
-import type { CliInstallChangeEvent } from '../cli/gkCliService.js';
+import type { CliInstallChangeEvent, CliIpcChangeEvent, GkCliService } from '../cli/gkCliService.js';
 import { McpSetupError, McpSetupErrorReason } from './errors.js';
 import { CursorMcpHostProvider } from './hostProviders/cursorMcpHostProvider.js';
 import type { McpHostRegistrationProvider } from './hostProviders/types.js';
@@ -85,17 +85,13 @@ export class GkMcpService implements GkMcpRegistrar {
 
 	private _fireRefreshDebounced: Deferrable<() => void> | undefined;
 
-	constructor(private readonly container: Container) {
-		// Construction order contract: `container.gkCli` MUST be constructed before `container.gkMcp`
-		// (enforced today by the eager-construct order in container.ts). MCP subscribes to CLI events
-		// here; a lazy/reorder of those getters would silently break startup install reactions.
-		// GkMcpService is only constructed in Node — container.gkCli is always defined here.
-		// The non-null assertion satisfies the typed union (`GkCliService | undefined`) for browser builds.
-		const cliService = container.gkCli!;
-
+	constructor(
+		private readonly container: Container,
+		private readonly gkCli: GkCliService,
+	) {
 		this._disposable = VsDisposable.from(
-			cliService.onDidChangeInstall(e => this.onCliInstallChanged(e)),
-			cliService.onDidStartIpc(() => this.onIpcServerStarted()),
+			gkCli.onDidChangeInstall(e => this.onCliInstallChanged(e)),
+			gkCli.onDidChangeIpc(e => this.onIpcChanged(e)),
 			container.storage.onDidChange(e => this.onStorageChanged(e)),
 			configuration.onDidChange(e => this.onConfigurationChanged(e)),
 			// Register the host adapter (and start the 30s IPC-wait timer) only once the container is
@@ -111,12 +107,6 @@ export class GkMcpService implements GkMcpRegistrar {
 		this._fireRefreshDebounced?.cancel();
 		this.disposeActiveProvider();
 		this._disposable.dispose();
-	}
-
-	/** GkMcpService is only constructed in Node — container.gkCli is always defined here.
-	 *  This narrowing helper avoids `!` assertions at every call site. */
-	private get gkCli(): NonNullable<Container['gkCli']> {
-		return this.container.gkCli!;
 	}
 
 	// === Public API ===
@@ -315,9 +305,17 @@ export class GkMcpService implements GkMcpRegistrar {
 		}
 	}
 
-	private onIpcServerStarted(): void {
-		this.clearIpcTimeout();
-		this.fireRefresh(false);
+	private onIpcChanged(e: CliIpcChangeEvent): void {
+		if (e.status === 'started') {
+			this.clearIpcTimeout();
+			this.fireRefresh(false);
+			return;
+		}
+
+		// IPC stopped (e.g. `ai.enabled` toggled off, which tears down the CLI handlers): re-arm the
+		// gate so a later re-registration waits for the IPC server to come back before serving MCP
+		// config again, rather than handing the host a config the spawned subprocess can't connect to.
+		this._waitingForIPC = true;
 	}
 
 	private onStorageChanged(e: StorageChangeEvent): void {
