@@ -39,7 +39,7 @@ export class GlDetailsWipHeader extends LitElement {
 	 *  is for a secondary worktree (`wip.repo.path !== currentRepoPath`) so we can surface the
 	 *  Open Worktree action. */
 	@property() currentRepoPath?: string;
-	@property() activeMode?: 'review' | 'compose' | null;
+	@property() activeMode?: 'review' | 'compose' | 'resolve' | null;
 	/** Pre-computed snippet shown on the right of the identity row while in mode (e.g. "7 files",
 	 *  "Generating…", "3 commits · 7 files", "Error"). Computed by the host panel from scope +
 	 *  resource + registry state. Hidden when `activeMode` is null. */
@@ -52,7 +52,7 @@ export class GlDetailsWipHeader extends LitElement {
 	 *  separates a `'backed'` entry with a viewable result from a `'backed'`-no-result placeholder
 	 *  (cancelled / first-error Go Back) so the chip doesn't falsely advertise a completed run. */
 	@property({ attribute: false }) modeStatus?: Partial<
-		Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>
+		Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
 	>;
 	@property({ type: Boolean }) aiEnabled = false;
 	@property({ type: Boolean }) loading = false;
@@ -125,7 +125,10 @@ export class GlDetailsWipHeader extends LitElement {
 						: this.activeMode === 'review'
 							? html`<code-icon class="graph-details-header__mode-icon" icon="checklist"></code-icon
 									>Reviewing Changes`
-							: html`Working Changes`}
+							: this.activeMode === 'resolve'
+								? html`<code-icon class="graph-details-header__mode-icon" icon="sparkle"></code-icon
+										>Resolving Conflicts`
+								: html`Working Changes`}
 				</span>
 				${!isModeActive
 					? html`<gl-wip-stats
@@ -276,9 +279,11 @@ export class GlDetailsWipHeader extends LitElement {
 		);
 	};
 
-	private computeWipModes(): ('review' | 'compose')[] {
+	private computeWipModes(): ('review' | 'compose' | 'resolve')[] {
 		if (!this.aiEnabled) return [];
-		return ['compose', 'review'];
+		// Surface the Resolve toggle only when the WIP has conflicts (a paused merge/rebase) —
+		// resolve operates on the conflicted-file set, so it's meaningless otherwise.
+		return this.wip?.changes?.hasConflicts ? ['compose', 'review', 'resolve'] : ['compose', 'review'];
 	}
 
 	private renderBranchStateAction() {

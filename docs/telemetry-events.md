@@ -248,7 +248,7 @@ void
   'model.provider.name': string,
   'sentiment': 'helpful' | 'unhelpful',
   // The AI feature that feedback was submitted for
-  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-commits' | 'generate-searchQuery',
+  'type': 'explain-changes' | 'review-changes' | 'generate-commitMessage' | 'generate-stashMessage' | 'generate-changelog' | 'generate-create-cloudPatch' | 'generate-create-codeSuggestion' | 'generate-create-pullRequest' | 'generate-commits' | 'conflict-resolution' | 'generate-searchQuery',
   // Custom feedback provided (if any)
   'unhelpful.custom': string,
   // Unhelpful reasons selected (if any) - comma-separated list of AIFeedbackUnhelpfulReasons values
@@ -3040,7 +3040,7 @@ background-upgraded the extension while the host kept running the old build
   // How long the panel was open in milliseconds
   'duration': number,
   // Active panel mode at time of close
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'none'
+  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none'
 }
 ```
 
@@ -3059,8 +3059,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode.new': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'none',
-  'mode.old': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'none'
+  'mode.new': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none',
+  'mode.old': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none'
 }
 ```
 
@@ -3098,7 +3098,7 @@ background-upgraded the extension while the host kept running the old build
   // Where the details panel is anchored relative to the graph
   'location': 'right' | 'bottom',
   // Active panel mode at time of show
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'none',
+  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none',
   // Split-pane position percentage from the closed edge (0–100)
   'position': number,
   // Number of rows currently selected in the graph (0, 1, or N)

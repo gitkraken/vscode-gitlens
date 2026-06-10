@@ -60,6 +60,7 @@ import '../../../shared/components/split-panel/split-panel.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
 import './gl-details-review-mode-panel.js';
+import './gl-details-resolve-mode-panel.js';
 import './gl-commit-box.js';
 import './gl-details-compare-mode-panel.js';
 import './gl-details-wip-empty-pane.js';
@@ -1805,97 +1806,99 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				? this.renderReviewMode()
 				: activeMode === 'compose'
 					? this.renderComposeMode()
-					: hasChanges || hasPausedOp
-						? html`
-								<div class="commit-panel__files">
-									<gl-details-wip-panel
-										variant="embedded"
-										file-icons
-										checkbox-mode
-										?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
-										?show-search-box=${this.showSearchBox}
-										?search-box-filter=${this.searchBoxFilter}
+					: activeMode === 'resolve'
+						? this.renderResolveMode()
+						: hasChanges || hasPausedOp
+							? html`
+									<div class="commit-panel__files">
+										<gl-details-wip-panel
+											variant="embedded"
+											file-icons
+											checkbox-mode
+											?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
+											?show-search-box=${this.showSearchBox}
+											?search-box-filter=${this.searchBoxFilter}
+											.wip=${wip}
+											.files=${wip.changes?.files}
+											.agentSessions=${worktreeAgentSessions}
+											.preferences=${this._state.preferences.get()}
+											.orgSettings=${this._state.orgSettings.get()}
+											.isUncommitted=${true}
+											.filesCollapsable=${false}
+											empty-text=${hasPausedOp && !hasChanges
+												? 'No conflicting or changed files'
+												: 'No working changes'}
+											@file-open=${this.handleFileOpen}
+											@file-compare-working=${this.handleFileCompareWorking}
+											@file-compare-previous=${this.handleFileComparePrevious}
+											@file-compare-wip=${this.handleFileCompareWipChanges}
+											@file-open-current=${this.handleFileOpenConflictCurrent}
+											@file-open-incoming=${this.handleFileOpenConflictIncoming}
+											@file-more-actions=${this.handleFileMoreActions}
+											@file-stage=${this.handleFileStage}
+											@file-unstage=${this.handleFileUnstage}
+											@file-discard=${this.handleFileDiscard}
+											@file-stash=${this.handleFileStash}
+											@discard-unstaged=${this.handleDiscardUnstaged}
+											@discard-staged=${this.handleDiscardStaged}
+											@stage-all=${this.handleStageAll}
+											@unstage-all=${this.handleUnstageAll}
+											@stash-save=${this.handleStashSave}
+											@resolve-all-current=${this.handleResolveAllCurrent}
+											@resolve-all-incoming=${this.handleResolveAllIncoming}
+											@change-files-layout=${this.handleChangeFilesLayout}
+											@open-multiple-changes=${this.handleOpenMultipleChanges}
+											@copy-wip-patch=${this.handleCopyWipPatch}
+										></gl-details-wip-panel>
+									</div>
+									<gl-commit-box
+										.message=${this._state.commitMessage.get()}
+										.amend=${this._state.amend.get()}
+										.generating=${this._state.generating.get()}
+										.committing=${this._state.committing.get()}
+										.branchName=${branchName}
+										.canCommit=${this._actions.canCommit()}
+										.disabledReason=${this._actions.canCommitReason()}
+										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+										.commitError=${this._state.commitError.get()}
+										@message-change=${this.handleCommitMessageChange}
+										@amend-change=${this.handleAmendChange}
+										@commit=${this.handleCommit}
+										@generate-message=${this.handleGenerateMessage}
+										@add-coauthors=${this.handleAddCoauthors}
+										@compose=${this.handleCompose}
+									></gl-commit-box>
+								`
+							: html`
+									<gl-details-wip-empty-pane
 										.wip=${wip}
-										.files=${wip.changes?.files}
-										.agentSessions=${worktreeAgentSessions}
-										.preferences=${this._state.preferences.get()}
-										.orgSettings=${this._state.orgSettings.get()}
-										.isUncommitted=${true}
-										.filesCollapsable=${false}
-										empty-text=${hasPausedOp && !hasChanges
-											? 'No conflicting or changed files'
-											: 'No working changes'}
-										@file-open=${this.handleFileOpen}
-										@file-compare-working=${this.handleFileCompareWorking}
-										@file-compare-previous=${this.handleFileComparePrevious}
-										@file-compare-wip=${this.handleFileCompareWipChanges}
-										@file-open-current=${this.handleFileOpenConflictCurrent}
-										@file-open-incoming=${this.handleFileOpenConflictIncoming}
-										@file-more-actions=${this.handleFileMoreActions}
-										@file-stage=${this.handleFileStage}
-										@file-unstage=${this.handleFileUnstage}
-										@file-discard=${this.handleFileDiscard}
-										@file-stash=${this.handleFileStash}
-										@discard-unstaged=${this.handleDiscardUnstaged}
-										@discard-staged=${this.handleDiscardStaged}
-										@stage-all=${this.handleStageAll}
-										@unstage-all=${this.handleUnstageAll}
-										@stash-save=${this.handleStashSave}
-										@resolve-all-current=${this.handleResolveAllCurrent}
-										@resolve-all-incoming=${this.handleResolveAllIncoming}
-										@change-files-layout=${this.handleChangeFilesLayout}
-										@open-multiple-changes=${this.handleOpenMultipleChanges}
-										@copy-wip-patch=${this.handleCopyWipPatch}
-									></gl-details-wip-panel>
-								</div>
-								<gl-commit-box
-									.message=${this._state.commitMessage.get()}
-									.amend=${this._state.amend.get()}
-									.generating=${this._state.generating.get()}
-									.committing=${this._state.committing.get()}
-									.branchName=${branchName}
-									.canCommit=${this._actions.canCommit()}
-									.disabledReason=${this._actions.canCommitReason()}
-									.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
-									.commitError=${this._state.commitError.get()}
-									@message-change=${this.handleCommitMessageChange}
-									@amend-change=${this.handleAmendChange}
-									@commit=${this.handleCommit}
-									@generate-message=${this.handleGenerateMessage}
-									@add-coauthors=${this.handleAddCoauthors}
-									@compose=${this.handleCompose}
-								></gl-commit-box>
-							`
-						: html`
-								<gl-details-wip-empty-pane
-									.wip=${wip}
-									.aiEnabled=${false}
-									.aiCreatePrEnabled=${aiCreatePrEnabled}
-									.pullRequest=${this._state.wipPullRequest.get()}
-									.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
-									.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
-									.launchpadSummary=${this._state.launchpadSummary.get()}
-									.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
-									.mergeTargetStatus=${this._state.wipMergeTarget.get()}
-									show-launchpad
-									@switch-branch=${this.handleSwitchBranch}
-									@create-branch=${this.handleCreateBranch}
-									@create-pr=${this.handleCreatePullRequest}
-									@create-pr-ai=${this.handleCreatePullRequestWithAI}
-									@start-work=${this.handleStartWork}
-									@start-review=${this.handleStartReview}
-									@apply-stash=${this.handleApplyStash}
-									@new-worktree=${this.handleNewWorktree}
-									@publish-branch=${this.handlePublishBranch}
-									@pull=${this.handlePull}
-									@push=${this.handlePush}
-									@rebase-onto-merge-target=${this.handleRebaseOntoMergeTarget}
-									@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
-									@review-branch-changes=${this.handleReviewBranchChanges}
-									@recompose-branch-changes=${this.handleRecomposeBranchChanges}
-									@refresh-launchpad=${this.handleRefreshLaunchpad}
-								></gl-details-wip-empty-pane>
-							`;
+										.aiEnabled=${false}
+										.aiCreatePrEnabled=${aiCreatePrEnabled}
+										.pullRequest=${this._state.wipPullRequest.get()}
+										.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
+										.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
+										.launchpadSummary=${this._state.launchpadSummary.get()}
+										.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
+										.mergeTargetStatus=${this._state.wipMergeTarget.get()}
+										show-launchpad
+										@switch-branch=${this.handleSwitchBranch}
+										@create-branch=${this.handleCreateBranch}
+										@create-pr=${this.handleCreatePullRequest}
+										@create-pr-ai=${this.handleCreatePullRequestWithAI}
+										@start-work=${this.handleStartWork}
+										@start-review=${this.handleStartReview}
+										@apply-stash=${this.handleApplyStash}
+										@new-worktree=${this.handleNewWorktree}
+										@publish-branch=${this.handlePublishBranch}
+										@pull=${this.handlePull}
+										@push=${this.handlePush}
+										@rebase-onto-merge-target=${this.handleRebaseOntoMergeTarget}
+										@merge-merge-target-into-current=${this.handleMergeMergeTargetIntoCurrent}
+										@review-branch-changes=${this.handleReviewBranchChanges}
+										@recompose-branch-changes=${this.handleRecomposeBranchChanges}
+										@refresh-launchpad=${this.handleRefreshLaunchpad}
+									></gl-details-wip-empty-pane>
+								`;
 
 		return html`
 			<gl-details-wip-header
@@ -2499,6 +2502,94 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@file-open-on-remote=${this.handleFileOpenOnRemote}
 			@change-files-layout=${this.handleChangeFilesLayout}
 		></gl-details-review-mode-panel>`;
+	}
+
+	private renderResolveMode() {
+		const wip = this._state.wip.get();
+		// Conflicted files carry a marker count in the WIP detail (`CommitFileChange.conflictMarkers`).
+		const conflictedFiles = wip?.changes?.files?.filter(f => f.conflictMarkers != null);
+
+		// Registry entry is the source of truth for execState; the resource is a projection of the
+		// engaged anchor's result (mirrors renderReviewMode/renderComposeMode).
+		const resolveEntry =
+			this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation : undefined;
+		const resolveResource = this._actions.resources.resolve;
+		const resolveValue = resolveEntry?.result ?? resolveResource.value.get();
+		const resolveData = resolveValue && 'result' in resolveValue ? resolveValue.result : undefined;
+		const resolveError =
+			(resolveValue && 'error' in resolveValue ? resolveValue.error.message : undefined) ??
+			resolveResource.error.get();
+		const mappedStatus: 'idle' | 'loading' | 'ready' | 'error' | 'applying' = this._state.resolveApplying.get()
+			? 'applying'
+			: resolveEntry?.execState === 'generating'
+				? 'loading'
+				: resolveData != null
+					? 'ready'
+					: resolveError != null
+						? 'error'
+						: 'idle';
+
+		return html`<gl-details-resolve-mode-panel
+			.status=${mappedStatus}
+			.errorMessage=${resolveError}
+			.resolutions=${resolveData?.resolutions}
+			.errors=${resolveData?.errors}
+			.skipped=${resolveData?.skipped}
+			.conflictedFiles=${conflictedFiles}
+			.focusedPaths=${this._state.resolveFocusedFilePaths.get()}
+			.progressMessage=${this._state.resolveProgressMessage.get()}
+			.aiModel=${this._state.aiModel.get()}
+			.retryingFiles=${this._state.resolveRetryingFiles.get()}
+			.lastPrompt=${resolveEntry?.prompt}
+			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
+				// Same model gate as compose/review — open the picker first when no model is set.
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel();
+					return;
+				}
+
+				// Optional pre-run guidance from the idle input — the host maps it to the resolver's
+				// `userGuidance`, same as the whole-run Refine feedback.
+				this._workflow.runResolve(
+					this.effectiveRepoPath,
+					this._state.resolveFocusedFilePaths.get(),
+					e.detail?.prompt,
+				);
+			}}
+			@resolve-view-diff=${(e: CustomEvent<{ filePath: string }>) =>
+				this.handleResolveViewDiff(e.detail.filePath)}
+			@resolve-apply-all=${() => void this._workflow.resolve.applyResolutions()}
+			@resolve-discard=${() => this._workflow.resolve.discard()}
+			@resolve-cancel=${this.handleCancelMode}
+			@resolve-error-back=${() => this._workflow.resolve.backFromError()}
+			@resolve-error-retry=${() => this._workflow.resolve.retryFromError()}
+			@resolve-refine=${(e: CustomEvent<{ prompt?: string }>) => {
+				// Whole-run refine: re-resolve all conflicts with the feedback as global guidance.
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel();
+					return;
+				}
+
+				this._workflow.runResolve(this.effectiveRepoPath, undefined, e.detail?.prompt);
+			}}
+			@resolve-retry-file=${(e: CustomEvent<{ filePath: string; prompt: string }>) =>
+				void this._workflow.resolve.retryFile(e.detail.filePath, e.detail.prompt)}
+		></gl-details-resolve-mode-panel>`;
+	}
+
+	/** Open a resolved file's AI-resolved-vs-conflicted diff (virtual FS, no disk write). */
+	private handleResolveViewDiff(filePath: string): void {
+		const value =
+			(this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.result : undefined) ??
+			this._actions.resources.resolve.value.get();
+		const resolution =
+			value && 'result' in value ? value.result.resolutions.find(r => r.filePath === filePath) : undefined;
+		if (resolution?.virtualRef == null) return;
+
+		const file = this._state.wip.get()?.changes?.files?.find(f => f.path === filePath);
+		if (file == null) return;
+
+		this._actions.openResolutionDiff(file, resolution.virtualRef);
 	}
 
 	private handleScopeChange(
