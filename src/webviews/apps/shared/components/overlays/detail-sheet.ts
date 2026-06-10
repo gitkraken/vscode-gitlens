@@ -48,12 +48,12 @@ export class GlDetailSheet extends LitElement {
 			:host {
 				/* Scoped to the parent host (e.g. .details-host) — sheet covers the details-panel
 		   area only, leaving the graph as a sibling beside it. The scrim darkens just the
-		   details panel; clicks on the scrim close the sheet. z-index sits above the
-		   sticky details-header (z-index 10) so the sheet renders OVER the underlying
+		   details panel; clicks on the scrim close the sheet. The sheet tier sits above the
+		   sticky tier used by the details-header so the sheet renders OVER the underlying
 		   panel header, not behind it. */
 				position: absolute;
 				inset: 0;
-				z-index: 20;
+				z-index: var(--gl-z-sheet);
 				display: flex;
 				flex-direction: column;
 				pointer-events: none;

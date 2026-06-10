@@ -200,7 +200,7 @@ a.secondary {
 .hero__area--sticky {
 	position: sticky;
 	top: -1px;
-	z-index: 1;
+	z-index: var(--gl-z-raised);
 	grid-column: span 1;
 	padding: 0 0 0.5rem;
 	margin: 0;
@@ -807,7 +807,7 @@ section {
 .sidebar {
 	position: sticky;
 	top: 0;
-	z-index: 2;
+	z-index: var(--gl-z-sticky);
 	grid-area: sidebar;
 	align-self: flex-start;
 	min-width: 160px;

@@ -45,7 +45,7 @@ export class GlAutocomplete extends LitElement {
 				position: absolute;
 				top: 100%;
 				left: 0;
-				z-index: 1000;
+				z-index: var(--gl-z-popover);
 				min-width: min(max(100%, 30rem), var(--_max-width, 100%));
 				max-width: var(--_max-width, none);
 				max-height: 20rem;

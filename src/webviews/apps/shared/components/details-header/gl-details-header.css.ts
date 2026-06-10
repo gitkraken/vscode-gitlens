@@ -9,7 +9,7 @@ export const detailsHeaderStyles = css`
 	.details-header {
 		position: sticky;
 		top: 0;
-		z-index: 10;
+		z-index: var(--gl-z-sticky);
 		display: flex;
 		flex: none;
 		flex-direction: column;

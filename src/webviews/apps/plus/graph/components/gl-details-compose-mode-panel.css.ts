@@ -219,7 +219,6 @@ export const composeModePanelStyles = css`
 	   The gl-popover anchor carries the inline message; hover reveals the full markdown. */
 	gl-popover.compose-commit__message {
 		--hide-delay: 100ms;
-		--wa-z-index-tooltip: 10000;
 
 		display: flex;
 		min-width: 0;

@@ -292,6 +292,11 @@
 	--gl-tooltip-border-color: var(--color-hover-border);
 	--gl-tooltip-shadow: var(--vscode-widget-shadow);
 
+	/* Band contract with the GitLens scale (tokens.scss): --gl-z-* (-2…500) composes layers
+	   WITHIN the document/panels; this --wa-z-index-* band (700…1000) is for FLOATING transient
+	   surfaces (hoisted popovers/tooltips, toasts) and sits deliberately ABOVE the entire
+	   --gl-z-* band. Keep the bands disjoint — never interleave them or raise a --gl-z-* tier
+	   into this band; anything that must beat a floating surface belongs in the top layer. */
 	--wa-z-index-drawer: 700;
 	--wa-z-index-dialog: 800;
 	--wa-z-index-dropdown: 900;

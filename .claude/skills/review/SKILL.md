@@ -67,6 +67,7 @@ Review all changes for: correctness, matching user expectations, high performanc
 - [ ] VS Code theming via CSS custom properties (`--vscode-*`)
 - [ ] Keyboard navigation and ARIA attributes
 - [ ] `disconnectedCallback()` cleanup for listeners
+- [ ] Z-index stays sane — a raw z-index climbing past ~100 is the signal to use a `--gl-z-*` tier token, `isolation: isolate`, or the top layer (`<dialog>.showModal()` / `[popover]`), not a bigger number (shadow-isolated internals keep small raw ordinals)
 
 ### Scope & Simplicity
 

@@ -13,7 +13,7 @@ export class ProgressIndicator extends LitElement {
 			position: absolute;
 			bottom: 0;
 			left: 0;
-			z-index: 5;
+			z-index: var(--gl-z-raised);
 			width: 100%;
 			height: 2px;
 			overflow: hidden;

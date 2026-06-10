@@ -77,12 +77,6 @@ export class GlBreadcrumbs extends LitElement {
 			border-top: 1px solid var(--color-foreground--25);
 		}
 
-		/* Bump tooltip z-index above the popover menu's own stacking context so
-	   menu-row tooltips don't get clipped behind webview content. */
-		.overflow-menu gl-tooltip {
-			--wa-z-index-tooltip: 9999;
-		}
-
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;

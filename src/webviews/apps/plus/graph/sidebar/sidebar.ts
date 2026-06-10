@@ -81,7 +81,10 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 
 		.sidebar {
 			position: relative;
-			z-index: 1040;
+
+			/* Workspace-level pinned chrome — must stay below the feature gate's cover tier so the
+		   rail can't paint over (or take clicks through) the Pro gate's scrim */
+			z-index: var(--gl-z-sticky);
 			box-sizing: border-box;
 			display: flex;
 			flex-direction: column;
@@ -103,9 +106,9 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Doubles the gap after the last group-1 icon (Agents) so the rail reads as two
-	   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
-	   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
-	   display: contents and can't take margin.) */
+   groups: Overview/Agents, then the view icons. 1.4rem here + the parent's 1.4rem
+   flex gap = 2.8rem. (Applied on .item, not gl-tooltip, since gl-tooltip's host is
+   display: contents and can't take margin.) */
 		.item.group-end {
 			margin-bottom: 1.4rem;
 		}
@@ -182,7 +185,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
-	   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
+   bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -193,17 +196,17 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Tighten the spacing between consecutive display-mode toggles so they read as one
-	   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
-	   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
-	   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
+   bottom-rail group (e.g., kanban + visualizations) rather than two unrelated buttons.
+   Parent .sidebar has flex gap 1.4rem; -1rem margin-top brings the effective gap to 0.4rem.
+   The first toggle keeps the parent's 1.4rem separation from the spacer above. */
 		.display-mode-toggle + .display-mode-toggle {
 			margin-top: -1rem;
 		}
 
 		/* Keyboard-shortcuts action — shares the rail affordance with the display-mode toggles but
-	   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
-	   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
-	   the measured bottom block and folds nav icons into the … menu instead. */
+   opens a dialog rather than switching modes, so it carries no checked/active state. It lives in
+   the always-visible bottom group (not a foldable icon), so compaction reserves space for it via
+   the measured bottom block and folds nav icons into the … menu instead. */
 		.rail-action {
 			margin: 0 auto;
 			--button-foreground: var(--color-view-foreground--65);
@@ -214,16 +217,16 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Sit the action tight against the display-mode toggles above it (same -1rem pull the
-	   toggles use between themselves) so the bottom of the rail reads as one group. */
+   toggles use between themselves) so the bottom of the rail reads as one group. */
 		.display-mode-toggle + .rail-action {
 			margin-top: -1rem;
 		}
 
 		/* Pre-interaction discovery callout: paints the toggle with the primary VS Code button
-	   colors so it reads as a "click me" affordance. Once the user clicks it, the host
-	   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
-	   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
-	   inner-tree author rules for inherited properties on the host. */
+   colors so it reads as a "click me" affordance. Once the user clicks it, the host
+   dismisses the onboarding key and the class drops, reverting to the toolbar appearance.
+   Overrides the gl-button shadow-DOM custom properties — outer-tree author rules outrank
+   inner-tree author rules for inherited properties on the host. */
 		gl-button.display-mode-toggle.callout {
 			--button-background: var(--vscode-button-background);
 			--button-foreground: var(--vscode-button-foreground);
@@ -232,7 +235,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		/* Responsive compaction (driven by recompute): hide counts and tighten spacing together. Scoped
-	   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
+   to rail items so the counts shown inside the … overflow menu (.overflow-menu-item) stay visible. */
 		:host([compact]) .item .count {
 			display: none;
 		}

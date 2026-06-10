@@ -391,12 +391,6 @@ export class GlPopover extends GlElement {
 				max-width: 100%;
 				overflow: hidden;
 			}
-
-			/* .popover::part(hover-bridge) {
-		background: tomato;
-		opacity: 0.5;
-		z-index: 10000000000;
-	} */
 		`,
 	];
 

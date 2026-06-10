@@ -331,7 +331,6 @@ export const entryStyles = css`
 	/* Message */
 	gl-popover.entry-message {
 		--hide-delay: 100ms;
-		--wa-z-index-tooltip: 10000;
 
 		display: flex;
 		flex: 1 1 0;

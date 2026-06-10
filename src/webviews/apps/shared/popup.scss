@@ -3,7 +3,7 @@
 .popup {
 	position: absolute;
 	top: 72px;
-	z-index: 1;
+	z-index: var(--gl-z-raised);
 	width: 80vw;
 	min-width: 373px;
 	max-width: 472px;

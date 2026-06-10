@@ -1,5 +1,7 @@
 // Shared design tokens. Applied at :root so custom properties inherit across shadow boundaries.
-// Consumed by both base.scss (graph / settings / welcome) and details-base.scss (commitDetails / rebase / timeline / etc.).
+// Reaches every webview app root — via base.scss (graph / settings), details-base.scss
+// (commitDetails / patchDetails), or a direct @use in the remaining app stylesheets
+// (home / timeline / rebase / welcome / composer).
 
 :root {
 	// Font-size scale (1rem = 10px via html font-size: 62.5%)
@@ -17,4 +19,24 @@
 	// Horizontal padding for detail panels (embedded + standalone). Component hosts may override.
 	--gl-panel-padding-left: 1.2rem;
 	--gl-panel-padding-right: 1.2rem;
+
+	// Z-index / stacking scale — semantic tiers for the few declarations that escape into a
+	// shared stacking context. Shadow-isolated internals need no token: keep small raw
+	// ordinals (1/2/3) and trap them with the shadow root or `isolation: isolate`.
+	// True modals/dialogs are NOT a tier — use the top layer (`<dialog>.showModal()` /
+	// `[popover]`), which stacks above all of these by insertion order.
+	// The WebAwesome `--wa-z-index-*` band (700…1000, see shoelace/vscode-theme.scss) sits
+	// deliberately ABOVE this whole scale — it's the floating-surface band (hoisted
+	// popovers/tooltips, toasts). Keep the bands disjoint; never interleave.
+	// Guard: a raw z-index climbing past ~100 is the signal to reach for a tier token,
+	// `isolation: isolate`, or the top layer — not a bigger number.
+	--gl-z-buried: -2; // deepest tier — beneath even a `behind` layer
+	--gl-z-behind: -1; // decorative layer beneath its in-flow siblings
+	--gl-z-base: 0; // stacking-context anchor, not a raise (prefer `isolation: isolate`)
+	--gl-z-raised: 1; // lowest raise in a shared light-DOM context
+	--gl-z-sticky: 100; // pinned chrome (sticky headers, toolbars, rails, sashes)
+	--gl-z-cover: 200; // full-area blocking/dimming overlay (scrim) over a region
+	--gl-z-sheet: 300; // panel-scoped modal sheet (cross-shadow-root contract with `sticky` chrome)
+	--gl-z-popover: 400; // anchored interactive surface (menus, row-hovers, dropdowns)
+	--gl-z-tooltip: 500; // topmost in-document content — never occluded, even nested in a popover
 }

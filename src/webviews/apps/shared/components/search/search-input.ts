@@ -179,7 +179,10 @@ export class GlSearchInput extends GlElement {
 			position: absolute;
 			top: 100%;
 			left: 0;
-			z-index: 1000;
+
+			/* Same tier as the gl-autocomplete dropdown (its display: contents host puts both in
+			   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
+			z-index: var(--gl-z-popover);
 			width: 100%;
 			padding: 0.4rem;
 			font-size: 1.2rem;

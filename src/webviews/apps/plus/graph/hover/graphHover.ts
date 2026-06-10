@@ -31,7 +31,7 @@ export class GlGraphHover extends GlElement {
 	static override styles = css`
 		:host {
 			position: absolute;
-			z-index: 102;
+			z-index: var(--gl-z-popover);
 		}
 
 		gl-popover::part(body) {

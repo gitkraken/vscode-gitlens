@@ -115,6 +115,7 @@ This is non-negotiable. It surfaces miscalibration before it corrupts output. Th
 - Never use viewport media queries for component-internal layout. Use container queries instead. Pages still use media queries; preference/capability media queries (`prefers-reduced-motion`, `hover`, etc.) are always media queries regardless. (→ `references/responsive.md`)
 - Never reach into shadow DOM from outside. Use `::part`, `::slotted`, or custom properties. (→ `references/selectors.md`)
 - Never use `transform: translateZ(0)` or permanent `will-change` for layer promotion. Use `isolation: isolate` or `contain` instead. (→ `references/performance.md`)
+- Never fix layering by escalating a raw z-index. A raw z-index climbing past ~100 is the signal to use a semantic tier token (`--gl-z-*` in GitLens webviews), `isolation: isolate` on the trapping ancestor, or the top layer (`<dialog>.showModal()` / `[popover]`) — not a bigger number. Shadow-isolated internals keep small raw ordinals (`1`/`2`/`3`). (→ `references/performance.md`)
 - Name custom properties by role, not appearance. `--color-accent`, not `--blue`. In component code, prefer semantic tokens over primitives. (→ `references/theming.md`)
 
 ## When to load which reference

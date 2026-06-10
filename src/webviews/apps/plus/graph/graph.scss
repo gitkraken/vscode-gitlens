@@ -529,7 +529,7 @@ button:not([disabled]),
 }
 
 .gk-graph.bs-tooltip {
-	z-index: 1040;
+	z-index: var(--gl-z-tooltip);
 }
 
 // header
@@ -1287,7 +1287,7 @@ web-graph {
 		--sash-size: 4px;
 		--sash-hover-size: 4px;
 
-		z-index: 1000;
+		z-index: var(--gl-z-sticky);
 		width: var(--sash-size) !important;
 		height: 100vh !important;
 		border-right: none !important;
@@ -1333,7 +1333,7 @@ web-graph {
 			position: absolute;
 			top: 0;
 			left: -100vw;
-			z-index: 1000;
+			z-index: var(--gl-z-sticky);
 			width: 200vw;
 			height: 100vh;
 			content: '';
@@ -1576,17 +1576,17 @@ web-graph {
 
 	&__header {
 		position: relative;
-		z-index: 101;
+		z-index: var(--gl-z-sticky);
 		flex: none;
 	}
 
 	&__workspace {
 		position: relative;
-		z-index: 0;
 		flex: 1;
 		overflow: hidden;
 		border: 1px solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
+		isolation: isolate;
 	}
 
 	&__panes {
@@ -1626,12 +1626,12 @@ web-graph {
 
 	&__graph-content {
 		position: relative;
-		z-index: 0;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		height: 100%;
 		overflow: hidden;
+		isolation: isolate;
 
 		// display: flex overrides the UA [hidden] rule; re-assert it.
 		&[hidden] {
@@ -1643,7 +1643,7 @@ web-graph {
 
 			// Above the gitkraken-components graph internals, which use z-indexes up to 16 —
 			// ensures the minimap's Billboard.js tooltips and settings popover render over the graph.
-			z-index: 100;
+			z-index: var(--gl-z-sticky);
 		}
 
 		.graph__minimap-split {
@@ -1755,7 +1755,7 @@ web-graph {
 		.details-content gl-commit-box {
 			position: sticky;
 			bottom: 0;
-			z-index: 1;
+			z-index: var(--gl-z-raised);
 			background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
 		}
 
