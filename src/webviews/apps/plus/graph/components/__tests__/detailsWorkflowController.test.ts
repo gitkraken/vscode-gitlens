@@ -94,6 +94,7 @@ function createResources(): DetailsResources {
 		),
 		review: createResource(async () => ({ error: { message: 'not implemented' } })),
 		compose: createResource(async () => ({ error: { message: 'not implemented' } })),
+		resolve: createResource(async () => ({ error: { message: 'not implemented' } })),
 		scopeFiles: createResource(async (_signal, _repoPath: string, _scope: ScopeSelection) => []),
 	};
 }

@@ -472,6 +472,7 @@ import {
 	SyncWipWatchesCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsResolveModeCommand,
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphOverviewShownCommand,
@@ -4191,6 +4192,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(TrackGraphDetailsComposeModeCommand)
 	private onTrackGraphDetailsComposeMode() {
 		void this.container.usage.track('action:gitlens.graph.details.composeMode:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsResolveModeCommand)
+	private onTrackGraphDetailsResolveMode() {
+		void this.container.usage.track('action:gitlens.graph.details.resolveMode:happened');
 	}
 
 	@ipcCommand(TrackGraphDetailsCompareModeCommand)

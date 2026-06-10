@@ -36,6 +36,7 @@ import type {
 	BranchComparisonContributorsScope,
 	BranchComparisonFile,
 	ComposeResult,
+	ResolveResult,
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -79,7 +80,7 @@ interface RunningOperationBase {
 	 *  RPC). Present while `execState === 'generating'`; absent after the run settles. */
 	abortController?: AbortController;
 	/** In-flight RPC promise — lets a re-engage re-attach rendering without re-running the AI. */
-	promise?: Promise<ReviewResult | ComposeResult | GenerateMessageResult>;
+	promise?: Promise<ReviewResult | ComposeResult | ResolveResult | GenerateMessageResult>;
 	/** The user-submitted prompt that initiated this run. Set at `dispatchOperation` time and
 	 *  preserved through every entry transition (success, error, backed, retry-update) via the
 	 *  spread pattern. Drives the AI-input seed on Restart / Go Back: the panel reads it off the
@@ -101,12 +102,14 @@ export interface GenerateMessageResult {
 export type RunningOperation =
 	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
 	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult })
+	| (RunningOperationBase & { kind: 'resolve'; result?: ResolveResult })
 	| (RunningOperationBase & { kind: 'generateMessage' });
 
 /** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
 export interface RunningOperationBucket {
 	review?: Extract<RunningOperation, { kind: 'review' }>;
 	compose?: Extract<RunningOperation, { kind: 'compose' }>;
+	resolve?: Extract<RunningOperation, { kind: 'resolve' }>;
 	generateMessage?: Extract<RunningOperation, { kind: 'generateMessage' }>;
 }
 
@@ -328,7 +331,7 @@ function createTransientState() {
 
 	// Workflow state machine — compose/review only. Compare is no longer a `mode`; it has its
 	// own lifecycle via `compareSheetOpen` + workflow `openCompare`/`closeCompare`.
-	const activeMode = signal<'review' | 'compose' | null>(null);
+	const activeMode = signal<'review' | 'compose' | 'resolve' | null>(null);
 	const activeModeContext = signal<DetailsContext | null>(null);
 	const activeModeRepoPath = signal<string | undefined>(undefined);
 	const activeModeSha = signal<string | undefined>(undefined);
@@ -371,6 +374,20 @@ function createTransientState() {
 	// the panel's uncancellable "applying" overlay.
 	const composeProgressMessage = signal<string | undefined>(undefined);
 	const composeApplying = signal(false);
+
+	// Resolve (AI conflict resolution) progress + apply + scope state. `resolveProgressMessage`
+	// mirrors the latest phase label streamed while resolving (cleared to undefined when the run
+	// ends). `resolveApplying` is true between an apply click and the IPC's resolution — drives the
+	// uncancellable "applying" overlay. `resolveFocusedFilePaths` scopes a run to specific conflicted
+	// files (set on per-file/multi-select entry; undefined means resolve all conflicts) — it scopes
+	// the run input, not the anchor (the anchor is always the WIP).
+	const resolveProgressMessage = signal<string | undefined>(undefined);
+	const resolveApplying = signal(false);
+	const resolveFocusedFilePaths = signal<readonly string[] | undefined>(undefined);
+	const resolvePreErrorValue = signal<ResolveResult | undefined>(undefined);
+	// Paths currently being re-resolved with per-file feedback — drives the per-row busy spinner in
+	// the resolve results while a retry is in flight (multiple rows can retry concurrently).
+	const resolveRetryingFiles = signal<ReadonlySet<string>>(new Set());
 
 	// Error-recovery snapshot — `*PreErrorValue` is captured BEFORE an action that could mutate
 	// the resource into an error sentinel (runReview / runCompose / composeCommitAll). The error
@@ -459,6 +476,12 @@ function createTransientState() {
 		reviewBackPreview: reviewBackPreview,
 		composeProgressMessage: composeProgressMessage,
 		composeApplying: composeApplying,
+
+		resolveProgressMessage: resolveProgressMessage,
+		resolveApplying: resolveApplying,
+		resolveFocusedFilePaths: resolveFocusedFilePaths,
+		resolvePreErrorValue: resolvePreErrorValue,
+		resolveRetryingFiles: resolveRetryingFiles,
 
 		composePreErrorValue: composePreErrorValue,
 		reviewPreErrorValue: reviewPreErrorValue,

@@ -9,7 +9,7 @@ import type { RunningOperationBucket } from './components/detailsState.js';
  *  Compose, then back, lands in Compose again instead of the default WIP view). User-explicit
  *  close (X / toggle-off / destroy / Cancel) forgets; anchor navigation preserves. Compare is
  *  excluded — it's already sticky/entry-time anchored, so per-anchor memory doesn't apply. */
-export type RememberedMode = 'review' | 'compose';
+export type RememberedMode = 'review' | 'compose' | 'resolve';
 
 /** Signals that originate in one pane of the Graph webview but need to be observable by
  *  another. Provided by `gl-graph-app` (the common ancestor); written by the details-panel

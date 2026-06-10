@@ -42,6 +42,8 @@ import type {
 	BranchComparisonSummary,
 	ComposeResult,
 	GraphServices,
+	ReresolveFileResult,
+	ResolveResult,
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -143,6 +145,9 @@ export interface DetailsResources {
 		ComposeResult,
 		[string, ScopeSelection, string | undefined, string[] | undefined, string[] | undefined]
 	>;
+	/** AI conflict-resolution result. Keyed on `(repoPath, focusedFilePaths, instructions)` — focused
+	 *  paths scope the run to specific conflicted files; `undefined` resolves all conflicts. */
+	readonly resolve: Resource<ResolveResult, [string, readonly string[] | undefined, string | undefined]>;
 	readonly scopeFiles: Resource<GitFileChangeShape[], [string, ScopeSelection]>;
 }
 
@@ -280,6 +285,7 @@ export class DetailsActions {
 		this.resources.branchCompareSide.dispose();
 		this.resources.review.dispose();
 		this.resources.compose.dispose();
+		this.resources.resolve.dispose();
 		this._eventUnsubscribe?.();
 		this._eventUnsubscribe = undefined;
 	}
@@ -566,6 +572,10 @@ export class DetailsActions {
 				this.services.graphInspect.onComposeProgress(event => {
 					this.state.composeProgressMessage.set(event?.message);
 				}),
+			() =>
+				this.services.graphInspect.onResolveProgress(event => {
+					this.state.resolveProgressMessage.set(event?.message);
+				}),
 		]);
 		if (this._disposed) {
 			unsubscribe();
@@ -628,6 +638,76 @@ export class DetailsActions {
 			aiExcludedFiles,
 			signal,
 		);
+	}
+
+	/** Direct-RPC AI conflict-resolution run. See {@link startReview} for rationale — the run is
+	 *  owned by the caller's `AbortController` so it survives an anchor switch. */
+	startResolve(
+		repoPath: string,
+		focusedFilePaths: readonly string[] | undefined,
+		instructions: string | undefined,
+		signal: AbortSignal,
+	): Promise<ResolveResult> {
+		return this.services.graphInspect.resolveConflicts(repoPath, focusedFilePaths, instructions, signal);
+	}
+
+	/** Re-resolves a single file with user feedback (per-file retry). See {@link startResolve}. */
+	reresolveFile(
+		repoPath: string,
+		filePath: string,
+		feedback: string,
+		signal: AbortSignal,
+	): Promise<ReresolveFileResult> {
+		return this.services.graphInspect.reresolveFile(repoPath, filePath, feedback, signal);
+	}
+
+	/** Apply the cached AI resolutions to the working tree. On success, tears down the engagement
+	 *  signals (mirrors `hideMode`) and refreshes the WIP; the controller's `resolve.applyResolutions`
+	 *  wrapper removes the registry entry. On failure, mutates the resource to an error sentinel so
+	 *  the panel surfaces it. */
+	async applyResolutions(repoPath: string | undefined, includedFilePaths?: readonly string[]): Promise<void> {
+		if (!repoPath) return;
+
+		const resolveValue = this.resources.resolve.value.get();
+		if (!resolveValue || !('result' in resolveValue)) return;
+
+		const sha = this.state.activeModeSha.get();
+		this.state.resolveApplying.set(true);
+		try {
+			const result = await this.services.graphInspect.applyResolutions(repoPath, includedFilePaths);
+			if ('error' in result && result.error) {
+				this.resources.resolve.mutate({ error: { message: result.error.message } });
+			} else {
+				// Engagement teardown — mirrors `hideMode`'s clear so stale `activeMode*`/`scope`
+				// can't bleed into the next action via `currentAnchor()`.
+				this.state.activeMode.set(null);
+				this.state.activeModeContext.set(null);
+				this.state.activeModeRepoPath.set(undefined);
+				this.state.activeModeSha.set(undefined);
+				this.state.activeModeShas.set(undefined);
+				this.state.scope.set(undefined);
+				this.state.aiExcludedFiles.set(undefined);
+				this.invalidateAiExcludedFilesFetch();
+				this.state.wipStale.set(false);
+				this.resources.resolve.reset();
+				this.state.resolveFocusedFilePaths.set(undefined);
+				this.state.resolvePreErrorValue.set(undefined);
+				void this.refreshScopedAiModel();
+				this.refreshWip();
+				void this.fetchDetails(sha, repoPath);
+			}
+		} catch {
+			this.resources.resolve.mutate({ error: { message: 'Failed to apply conflict resolutions.' } });
+		} finally {
+			this.state.resolveApplying.set(false);
+		}
+	}
+
+	/** Drop the host-side cached resolve session without writing anything. Fire-and-forget. */
+	discardResolutions(repoPath: string | undefined): Promise<void> {
+		if (!repoPath) return Promise.resolve();
+
+		return this.services.graphInspect.discardResolutions(repoPath);
 	}
 
 	refreshWip(): void {
@@ -2460,6 +2540,14 @@ export class DetailsActions {
 		);
 	}
 
+	/** Diff a resolved file's AI content against its conflicted snapshot via the virtual FS — no
+	 *  disk write. The `resolve` virtual session pairs `resolved` (rhs) with `conflicted` (lhs). */
+	openResolutionDiff(file: GitFileChangeShape, ref: fileActions.VirtualRefShape): void {
+		void this.runVirtualFileOpen('comparePrevious', 1, () =>
+			this.services.files.openVirtualFileComparePrevious(ref, file),
+		);
+	}
+
 	/** Open all files in the proposed-commit's virtual ref in VS Code's multi-diff editor. */
 	openVirtualMultipleChanges(ref: fileActions.VirtualRefShape, files: readonly FileChangeListItemDetail[]): void {
 		void this.runVirtualFileOpen('multiDiff', files.length, () =>
@@ -2942,7 +3030,8 @@ export class DetailsActions {
  * maintain their own remembered model; compare (and `null`) read the global default.
  */
 function scopeForActiveMode(
-	mode: 'review' | 'compose' | 'compare' | null | undefined,
+	mode: 'review' | 'compose' | 'resolve' | 'compare' | null | undefined,
 ): 'compose' | 'review' | undefined {
+	// Resolve uses the global default AI model (no dedicated scope), so it maps to `undefined`.
 	return mode === 'compose' || mode === 'review' ? mode : undefined;
 }
