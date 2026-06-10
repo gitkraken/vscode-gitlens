@@ -660,6 +660,10 @@ export interface AIGenerateCommitsEventData extends AIEventDataSendBase {
 	type: 'commits';
 }
 
+export interface AIGenerateResolveConflictsEventData extends AIEventDataSendBase {
+	type: 'resolveConflicts';
+}
+
 export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
 	type: 'searchQuery';
 }
@@ -674,6 +678,7 @@ type AIGenerateEvent =
 	| AIGenerateCreateDraftEventData
 	| AIGenerateCreatePullRequestEventData
 	| AIGenerateCommitsEventData
+	| AIGenerateResolveConflictsEventData
 	| AIGenerateSearchQueryEventData
 	| AIGenerateStashMessageEventData;
 
