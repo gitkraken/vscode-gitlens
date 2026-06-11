@@ -3,6 +3,7 @@ import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
+import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
 import type { WalkthroughSteps } from './constants.js';
@@ -87,6 +88,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when a user provides feedback (rating and optional details) for an AI feature */
 	'ai/feedback': AIFeedbackEvent;
+
+	/** Sent when the user clicks "Get More Credits" on the weekly AI usage-limit notification */
+	'ai/credits/addOnClicked': AICreditsNotificationEvent;
+	/** Sent when the user dismisses the weekly AI usage-limit notification */
+	'ai/credits/addOnDismissed': AICreditsNotificationEvent;
 
 	/** Sent when user dismisses the AI All Access banner */
 	'aiAllAccess/bannerDismissed': void;
@@ -660,6 +666,10 @@ export interface AIGenerateCommitsEventData extends AIEventDataSendBase {
 	type: 'commits';
 }
 
+export interface AIGenerateResolveConflictsEventData extends AIEventDataSendBase {
+	type: 'resolveConflicts';
+}
+
 export interface AIGenerateSearchQueryEventData extends AIEventDataSendBase {
 	type: 'searchQuery';
 }
@@ -674,6 +684,7 @@ type AIGenerateEvent =
 	| AIGenerateCreateDraftEventData
 	| AIGenerateCreatePullRequestEventData
 	| AIGenerateCommitsEventData
+	| AIGenerateResolveConflictsEventData
 	| AIGenerateSearchQueryEventData
 	| AIGenerateStashMessageEventData;
 
@@ -698,6 +709,10 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 	'unhelpful.reasons'?: string;
 	/** Custom feedback provided (if any) */
 	'unhelpful.custom'?: string;
+}
+
+interface AICreditsNotificationEvent {
+	'organization.role': OrganizationRole | undefined;
 }
 
 export interface CLIInstallStartedEvent {
@@ -892,7 +907,7 @@ type DetailsModeChangedEvent = InspectContextEventData & {
 	'mode.new': 'wip' | 'commit';
 };
 
-export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'compare' | 'none';
+export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'resolve' | 'compare' | 'none';
 
 interface GraphDetailsShownEvent {
 	/** What caused the panel to be shown */
@@ -1975,6 +1990,7 @@ export type TrackedGlActions =
 	| 'gitlens.ai.review.sentToChat'
 	| 'gitlens.graph.details.compareMode'
 	| 'gitlens.graph.details.composeMode'
+	| 'gitlens.graph.details.resolveMode'
 	| 'gitlens.graph.details.reviewMode'
 	| 'gitlens.graph.details.wipShown'
 	| 'gitlens.graph.overview.shown'

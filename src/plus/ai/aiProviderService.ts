@@ -67,6 +67,7 @@ import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { Storage } from '../../system/-webview/storage.js';
+import { openUrl } from '../../system/-webview/vscode/uris.js';
 import type { Serialized } from '../../system/serialize.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
 import { ensureFeatureAccess } from '../gk/utils/-webview/acount.utils.js';
@@ -1461,14 +1462,56 @@ export class AIProviderService implements AIService, Disposable {
 									return undefined;
 								}
 								case AIErrorReason.UserQuotaExceeded: {
-									const increaseLimit: MessageItem = { title: 'Increase Limit' };
-									const result = await window.showErrorMessage(
-										"Your request could not be completed because you've reached the weekly AI usage limit for your current plan. Upgrade to unlock more AI-powered actions.",
-										increaseLimit,
-									);
+									const sub = await this.container.subscription.getSubscription();
+									const role = sub.activeOrganization?.role;
+									const canPurchase =
+										role == null || role === 'owner' || role === 'admin' || role === 'billing';
 
-									if (result === increaseLimit) {
-										void this.container.subscription.manageSubscription(source);
+									if (canPurchase) {
+										const getMoreCredits: MessageItem = {
+											title: 'Get More Credits',
+										};
+										const dismiss: MessageItem = {
+											title: 'Dismiss',
+											isCloseAffordance: true,
+										};
+										const result = await window.showErrorMessage(
+											"Your request could not be completed because you've reached the weekly usage included in your plan. Purchase additional AI credits to keep using GitKraken AI.",
+											getMoreCredits,
+											dismiss,
+										);
+
+										if (result === getMoreCredits) {
+											this.container.telemetry.sendEvent(
+												'ai/credits/addOnClicked',
+												{ 'organization.role': role },
+												source,
+											);
+											void openUrl(
+												await this.container.urls.getGkDevUrl('subscription/credit-add-on'),
+											);
+										} else {
+											this.container.telemetry.sendEvent(
+												'ai/credits/addOnDismissed',
+												{ 'organization.role': role },
+												source,
+											);
+										}
+									} else {
+										const ok: MessageItem = {
+											title: 'OK',
+											isCloseAffordance: true,
+										};
+										await window.showErrorMessage(
+											"Your request could not be completed because you've reached the weekly usage included in your plan. Contact your organization admin or owner to request more AI credits.",
+											ok,
+										);
+
+										this.container.telemetry.sendEvent(
+											'ai/credits/addOnDismissed',
+											{ 'organization.role': role },
+											source,
+										);
 									}
 
 									if (options?.throwAIErrors) throw error;

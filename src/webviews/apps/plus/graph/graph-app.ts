@@ -42,6 +42,7 @@ import {
 	ResetGraphFiltersCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsResolveModeCommand,
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphScopeChangedCommand,
@@ -689,7 +690,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private async consumePendingAction(pending: {
 		action: GraphShowAction;
-		target?: { sha: string; worktreePath: string };
+		target?: { sha: string; worktreePath: string; filePaths?: string[] };
 		commitMessage?: string;
 	}): Promise<void> {
 		const { action, target, commitMessage } = pending;
@@ -742,14 +743,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		showDetails();
 
-		if (action === 'enter-review' || action === 'enter-compose') {
+		if (action === 'enter-review' || action === 'enter-compose' || action === 'enter-resolve') {
 			// On a cold graph open the details panel mounts only after the initial graph data/layout
 			// settles. Poll for the element directly (independent of this app's `updateComplete`,
 			// which can stay pending through the busy cold load) so the mode request doesn't silently
 			// no-op via the `?.` below. `enterModeForWip` builds its own selection from repoPath/sha,
 			// so it doesn't need the panel to have reconciled to the row first.
 			const panel = await this.waitForDetailsPanel();
-			panel?.enterModeForWip(action === 'enter-review' ? 'review' : 'compose', repoPath, sha);
+			const mode = action === 'enter-review' ? 'review' : action === 'enter-compose' ? 'compose' : 'resolve';
+			// `filePaths` (resolve only) scopes the run to specific conflicted files; undefined = all conflicts.
+			panel?.enterModeForWip(mode, repoPath, sha, target?.filePaths);
 			return;
 		}
 
@@ -806,7 +809,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private async openWipDetails(
 		repoPath: string,
 		sha: string,
-		target: 'compose' | 'review' | 'agents' | undefined,
+		target: 'compose' | 'review' | 'resolve' | 'agents' | undefined,
 		trigger: 'request-mode' | 'request-agents' | 'request-graph-wip-bar',
 	): Promise<void> {
 		this._selectedCommit = { sha: sha, repoPath: repoPath };
@@ -1050,7 +1053,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleWipRowOpen = async (
-		e: CustomEvent<{ target: 'compose' | 'review' | 'agents'; row: GraphRow }>,
+		e: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GraphRow }>,
 	): Promise<void> => {
 		const { target, row } = e.detail;
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
@@ -1821,6 +1824,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				break;
 			case 'compose':
 				this._ipc.sendCommand(TrackGraphDetailsComposeModeCommand, undefined);
+				break;
+			case 'resolve':
+				this._ipc.sendCommand(TrackGraphDetailsResolveModeCommand, undefined);
 				break;
 			case 'compare':
 				this._ipc.sendCommand(TrackGraphDetailsCompareModeCommand, undefined);

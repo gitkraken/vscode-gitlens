@@ -301,7 +301,10 @@ export class GlGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('rowaction', { detail: detail }));
 	};
 
-	private handleWipRowOpen = (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }): void => {
+	private handleWipRowOpen = (detail: {
+		target: 'compose' | 'review' | 'resolve' | 'agents';
+		row: GraphRow;
+	}): void => {
 		this.dispatchEvent(new CustomEvent('wiprowopen', { detail: detail }));
 	};
 

@@ -168,7 +168,13 @@ export type GraphSidebarPanel = 'agents' | 'branches' | 'overview' | 'remotes' |
 /** Top-level rendering mode for the Graph webview. New modes (e.g. kanban) plug in here. */
 export type GraphDisplayMode = 'graph' | 'visualizations' | 'kanban';
 
-export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'open-compare' | 'scope-to-branch';
+export type GraphShowAction =
+	| 'show-wip'
+	| 'enter-review'
+	| 'enter-compose'
+	| 'enter-resolve'
+	| 'open-compare'
+	| 'scope-to-branch';
 
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the
@@ -183,6 +189,9 @@ export type GraphShowAction = 'show-wip' | 'enter-review' | 'enter-compose' | 'o
 export interface GraphActionTarget {
 	sha: string;
 	worktreePath: string;
+	/** For `enter-resolve`: scopes the run to specific conflicted files (per-file or multi-select
+	 *  entry points). Omitted means "resolve all conflicts". Ignored by other actions. */
+	filePaths?: string[];
 }
 /** Sub-visualization shown when `displayMode === 'visualizations'`.
  *  Adding a new visualization is a 4-step extension: extend this union, render its component in
@@ -1144,6 +1153,7 @@ export const TrackGraphOverviewShownCommand = new IpcCommand(scope, 'track/overv
 export const TrackGraphScopeChangedCommand = new IpcCommand(scope, 'track/scope/changed');
 export const TrackGraphDetailsReviewModeCommand = new IpcCommand(scope, 'track/details/reviewMode');
 export const TrackGraphDetailsComposeModeCommand = new IpcCommand(scope, 'track/details/composeMode');
+export const TrackGraphDetailsResolveModeCommand = new IpcCommand(scope, 'track/details/resolveMode');
 export const TrackGraphDetailsCompareModeCommand = new IpcCommand(scope, 'track/details/compareMode');
 export const TrackGraphDetailsWipShownCommand = new IpcCommand(scope, 'track/details/wipShown');
 

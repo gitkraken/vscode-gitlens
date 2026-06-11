@@ -14,7 +14,7 @@ import '../progress.js';
  *  as a grouped entry-point chip alongside the toggles (for visual grouping + responsive
  *  label-collapse parity), but it is NOT a `Mode`: it has no active/close state — clicking
  *  it opens a compare sheet over the panel (dispatches `toggle-mode`/'compare'). */
-type Mode = 'review' | 'compose';
+type Mode = 'review' | 'compose' | 'resolve';
 
 const modeConfig: Record<
 	Mode,
@@ -32,6 +32,13 @@ const modeConfig: Record<
 		label: 'Review Changes',
 		closeLabel: 'Close',
 		text: 'Review',
+		collapsible: true,
+	},
+	resolve: {
+		icon: 'sparkle',
+		label: 'Resolve Conflicts',
+		closeLabel: 'Close',
+		text: 'Resolve',
 		collapsible: true,
 	},
 };
@@ -55,7 +62,7 @@ export class GlDetailsHeader extends LitElement {
 	 *  Go Back) so the chip doesn't falsely advertise a completed run. Set even when `activeMode`
 	 *  is null so a toggled-out-but-still-running operation keeps its chip overlay. */
 	@property({ attribute: false }) modeStatus?: Partial<
-		Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>
+		Record<Mode, { execState: RunningOperationExecState; hasResult: boolean }>
 	>;
 
 	/** True when the mode is in its drilled-in "results" sub-state (e.g. review showing

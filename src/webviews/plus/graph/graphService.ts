@@ -24,6 +24,47 @@ import type {
 
 export type ComposeProgressUpdate = { phase: string; message: string };
 
+export type ResolveProgressUpdate = { phase: string; message: string };
+
+/** How a conflicted file was resolved — mirrors `@gitkraken/conflict-tools`' `ResolutionStrategy`. */
+export type ConflictResolutionStrategy = 'ai' | 'take-ours' | 'take-theirs' | 'deleted' | 'skipped';
+
+/** Serializable per-file resolution summary surfaced to the webview. The full resolved content stays
+ *  host-side (in the cached resolve session) until the user applies; `virtualRef` points at the
+ *  AI-resolved virtual snapshot so "View diff" can show resolved-vs-conflicted without writing. */
+export type ResolvedFileSummary = {
+	filePath: string;
+	strategy: ConflictResolutionStrategy;
+	/** The AI's reasoning for this file (conflict-tools `Resolution.description`). */
+	reasoning: string;
+	confidence: number;
+	note?: string;
+	virtualRef?: VirtualRefShape;
+};
+
+export type ResolveFileError = { filePath: string; message: string };
+
+/** A conflicted file the resolver couldn't auto-resolve (e.g. binary or a marker-less conflict) —
+ *  it still needs manual attention, but distinct from a failure: retrying won't help. */
+export type ResolveSkippedFile = { filePath: string; message: string };
+
+export type ResolveResult =
+	| {
+			result: {
+				resolutions: ResolvedFileSummary[];
+				errors?: ResolveFileError[];
+				skipped?: ResolveSkippedFile[];
+			};
+	  }
+	| { error: { message: string } }
+	| { cancelled: true };
+
+/** Result of re-resolving a single file with user feedback — the replacement summary for that file. */
+export type ReresolveFileResult =
+	| { result: ResolvedFileSummary }
+	| { error: { message: string } }
+	| { cancelled: true };
+
 export type ScopeSelection =
 	| { type: 'commit'; sha: string }
 	| {
@@ -291,6 +332,33 @@ export interface GraphInspectService {
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
 	 *  fires when no compose is in flight (entry/exit clearing). */
 	readonly onComposeProgress: RpcEventSubscription<ComposeProgressUpdate | undefined>;
+	/**
+	 * Resolves the repo's merge/rebase/cherry-pick conflicts with AI via `@gitkraken/conflict-tools`.
+	 * When `focusedFilePaths` is set, only those conflicted files are resolved; otherwise all conflicts.
+	 * The resolved content is cached host-side (keyed by repo) for a later {@link applyResolutions}.
+	 */
+	resolveConflicts(
+		repoPath: string,
+		focusedFilePaths: readonly string[] | undefined,
+		instructions?: string,
+		signal?: AbortSignal,
+	): Promise<ResolveResult>;
+	/** Re-resolves a single cached-session file with user `feedback` (rendered as the resolver's
+	 *  `userGuidance`), replacing that file's resolution in place. The other files are untouched. */
+	reresolveFile(
+		repoPath: string,
+		filePath: string,
+		feedback: string,
+		signal?: AbortSignal,
+	): Promise<ReresolveFileResult>;
+	/** Writes the cached AI resolutions to the working tree and stages them. When `includedFilePaths`
+	 *  is set, only those files are applied; `undefined` applies all (skipped files are never applied). */
+	applyResolutions(repoPath: string, includedFilePaths?: readonly string[]): Promise<CommitResult>;
+	/** Drops the host-side cached resolve session for the repo without writing anything. */
+	discardResolutions(repoPath: string): Promise<void>;
+	/** Streams human-readable progress messages while {@link resolveConflicts} runs. `undefined`
+	 *  fires when no resolve is in flight (entry/exit clearing). */
+	readonly onResolveProgress: RpcEventSubscription<ResolveProgressUpdate | undefined>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(

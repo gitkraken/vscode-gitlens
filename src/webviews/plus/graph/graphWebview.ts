@@ -92,6 +92,7 @@ import {
 } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import { Stopwatch } from '@gitlens/utils/stopwatch.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
@@ -284,6 +285,11 @@ import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
+import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
+import type {
+	ConflictProgressEvent,
+	Resolution as ConflictToolsResolution,
+} from '../../../plus/coretools/conflict/types.js';
 import type { GraphComposeIntegration } from './compose/integration.js';
 import { isComposeSimulatorActive, runSimulatedComposeChanges } from './compose/simulator.js';
 import {
@@ -306,6 +312,11 @@ import {
 	GraphComposeVirtualContentProvider,
 	GraphComposeVirtualNamespace,
 } from './graphComposeVirtualContentProvider.js';
+import {
+	GraphResolveVirtualContentProvider,
+	GraphResolveVirtualNamespace,
+	ResolveVirtualSide,
+} from './graphResolveVirtualContentProvider.js';
 import { getScopeFiles } from './graphScopeService.js';
 import type {
 	BranchCommitEntry,
@@ -316,7 +327,12 @@ import type {
 	BranchComparisonFile,
 	ComposeProgressUpdate,
 	GraphServices,
+	ResolvedFileSummary,
+	ResolveFileError,
+	ResolveProgressUpdate,
+	ResolveSkippedFile,
 	ScopeSelection,
+	VirtualRefShape,
 } from './graphService.js';
 import {
 	activityDecayToMs,
@@ -456,6 +472,7 @@ import {
 	SyncWipWatchesCommand,
 	TrackGraphDetailsCompareModeCommand,
 	TrackGraphDetailsComposeModeCommand,
+	TrackGraphDetailsResolveModeCommand,
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphOverviewShownCommand,
@@ -622,6 +639,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	};
 	private _composeToolsForGraph?: GraphComposeIntegration;
 	private readonly _activeComposeCacheKeys = new Map<string, string>();
+	/** Virtual FS session backing the resolve panel's per-file resolved-vs-conflicted diffs. Lazy-initialized on first resolve. */
+	private _resolveVirtual?: {
+		readonly provider: GraphResolveVirtualContentProvider;
+		readonly registration: Disposable;
+		sessionId?: string;
+	};
+	private _conflictToolsForGraph?: ConflictToolsIntegration;
+	/** Cached full AI resolutions per repo (keyed by repoPath) — holds the resolved `content` for a
+	 *  later `applyResolutions`, plus the virtual session id so it can be ended on discard/apply. */
+	private readonly _activeResolveSessions = new Map<
+		string,
+		{ resolutions: readonly ConflictToolsResolution[]; sessionId: string }
+	>();
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
 	private _hoverCache = new Map<string, Promise<string>>();
@@ -917,6 +947,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._composeVirtual.registration.dispose();
 			this._composeVirtual = undefined;
 		}
+		this._activeResolveSessions.clear();
+		if (this._resolveVirtual != null) {
+			this._resolveVirtual.provider.dispose();
+			this._resolveVirtual.registration.dispose();
+			this._resolveVirtual = undefined;
+		}
 		this._disposable.dispose();
 	}
 
@@ -938,6 +974,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._composeToolsForGraph ??= createGraphComposeIntegration(this.container);
 		}
 		return this._composeToolsForGraph;
+	}
+
+	/** Lazy-init the resolve virtual content provider + register it with the virtual FS service. */
+	private getOrCreateResolveVirtual(): { provider: GraphResolveVirtualContentProvider; sessionId?: string } {
+		if (this._resolveVirtual == null) {
+			const provider = new GraphResolveVirtualContentProvider();
+			const registration = this.container.virtualFs.registerProvider(provider);
+			this._resolveVirtual = { provider: provider, registration: registration };
+		}
+		return this._resolveVirtual;
+	}
+
+	private async getOrCreateConflictToolsForGraph(): Promise<ConflictToolsIntegration | undefined> {
+		if (this._conflictToolsForGraph == null) {
+			// Lazily import the node-only conflict-tools integration on demand (browser resolves to a
+			// stub returning `undefined`, so callers gate the feature off in VS Code Web).
+			const { createConflictToolsIntegration } = await import('@env/coretools/conflict.js');
+			this._conflictToolsForGraph ??= createConflictToolsIntegration(this.container);
+		}
+		return this._conflictToolsForGraph;
+	}
+
+	/** Drops the cached resolve session for a repo and ends its virtual session (no disk writes). */
+	private discardResolveSession(repoPath: string): void {
+		const session = this._activeResolveSessions.get(repoPath);
+		if (session == null) return;
+
+		this._activeResolveSessions.delete(repoPath);
+		this._resolveVirtual?.provider.endSession(session.sessionId);
 	}
 
 	/** Per-secondary-WIP filesystem watchers, keyed by synthetic `worktree-wip::<path>` sha. */
@@ -980,6 +1045,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}>('sidebarWorktreeState', 'save-last');
 	private readonly _composeProgressEvent = createRpcEvent<ComposeProgressUpdate | undefined>(
 		'composeProgress',
+		'save-last',
+	);
+	private readonly _resolveProgressEvent = createRpcEvent<ResolveProgressUpdate | undefined>(
+		'resolveProgress',
 		'save-last',
 	);
 
@@ -1899,6 +1968,362 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						composeTools.discardCachedPlan(cacheKey);
 					}
 				},
+				resolveConflicts: async (repoPath, focusedFilePaths, instructions, signal) => {
+					const integration = await this.getOrCreateConflictToolsForGraph();
+					if (integration == null) {
+						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+					}
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const status = await svc.pausedOps?.getPausedOperationStatus?.();
+					if (status == null) {
+						return { error: { message: 'No active merge, rebase, or cherry-pick conflicts to resolve.' } };
+					}
+
+					const refs = {
+						ours: status.HEAD?.ref ?? 'HEAD',
+						theirs: status.incoming?.ref ?? 'MERGE_HEAD',
+						...(status.mergeBase != null ? { base: status.mergeBase } : {}),
+					};
+					// `instructions` (whole-run "Refine" feedback) rides conflict-tools' first-class
+					// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt.
+					const context = { refs: refs, ...(instructions ? { userGuidance: instructions } : {}) };
+
+					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+					const resolveSignal = toAbortSignal(token);
+
+					const onProgress = (event: ConflictProgressEvent) => {
+						switch (event.type) {
+							case 'conflict:found':
+								this._resolveProgressEvent.fire({
+									phase: event.type,
+									message: `Analyzing ${event.filePath}…`,
+								});
+								break;
+							case 'resolution:applied':
+								this._resolveProgressEvent.fire({
+									phase: event.type,
+									message: `Resolved ${event.filePath}.`,
+								});
+								break;
+							case 'resolution:failed':
+								this._resolveProgressEvent.fire({
+									phase: event.type,
+									message: `Couldn't resolve ${event.filePath} — skipping.`,
+								});
+								break;
+							case 'conflict:skipped':
+								this._resolveProgressEvent.fire({
+									phase: event.type,
+									message: `Skipping ${event.filePath} — no conflict markers.`,
+								});
+								break;
+							case 'resolver:tool-call':
+								this._resolveProgressEvent.fire({
+									phase: event.type,
+									message: `${event.filePath}: inspecting ${event.tool}…`,
+								});
+								break;
+						}
+					};
+
+					try {
+						this._resolveProgressEvent.fire({ phase: 'collecting', message: 'Reading conflicts…' });
+
+						// Entries carry each file's conflict reason (porcelain v2), which makes
+						// delete/modify conflicts extractable instead of appearing marker-less.
+						const entries = await integration.listUnmergedEntries(svc);
+
+						// Scope to the requested files (per-file / multi-select entry points); undefined
+						// means all conflicts. Requested files no longer unmerged just drop out.
+						const focused = focusedFilePaths != null && focusedFilePaths.length > 0;
+						const targets = focused ? entries.filter(e => focusedFilePaths.includes(e.path)) : entries;
+						if (targets.length === 0) {
+							return {
+								error: {
+									message: focused
+										? focusedFilePaths.length === 1
+											? `${focusedFilePaths[0]} is no longer conflicted.`
+											: 'The selected files are no longer conflicted.'
+										: 'No conflicted files to resolve.',
+								},
+							};
+						}
+
+						// Resolve the conflicted files in a bounded-concurrency pool so one file's failure
+						// is isolated (recorded in `errors`) and the rest still resolve — and they run in
+						// parallel rather than one-at-a-time.
+						const result = await integration.resolveAllParallel(
+							{
+								svc: svc,
+								entries: targets,
+								context: context,
+								signal: resolveSignal,
+								onProgress: onProgress,
+							},
+							{
+								source: 'graph',
+								detail: focused
+									? focusedFilePaths.length === 1
+										? 'resolveFile'
+										: 'resolveFiles'
+									: 'resolveAll',
+							},
+						);
+						const resolutions: ConflictToolsResolution[] = result.resolutions;
+						const errors: ResolveFileError[] = result.errors.map(e => ({
+							filePath: e.filePath,
+							message: e.error.message,
+						}));
+						const skipped: ResolveSkippedFile[] = (result.skipped ?? []).map(s => ({
+							filePath: s.filePath,
+							message:
+								'No conflict markers were found — this may be a binary or unsupported conflict; resolve it manually.',
+						}));
+
+						if (resolveSignal?.aborted) return { cancelled: true };
+
+						// Snapshot the conflicted (working-tree) content of every resolved file BEFORE anything
+						// is applied, so "View diff" can show resolved-vs-conflicted. `applyResolutions` runs
+						// later (and may never run if the user discards), so capture now while the markers are
+						// still on disk.
+						const previewable = resolutions.filter(r => r.strategy !== 'skipped');
+						const conflictedContents = await integration.readWorkingFiles(
+							svc,
+							previewable.map(r => r.filePath),
+						);
+
+						const { provider } = this.getOrCreateResolveVirtual();
+						const sessionId = provider.startSession(
+							{
+								repoPath: repoPath,
+								files: previewable
+									.filter(r => conflictedContents.has(r.filePath))
+									.map(r => ({
+										path: r.filePath,
+										conflictedContent: conflictedContents.get(r.filePath)!,
+										resolvedContent: r.content,
+									})),
+							},
+							this._resolveVirtual!.sessionId,
+						);
+						this._resolveVirtual!.sessionId = sessionId;
+
+						// Cache the full resolutions (with `content`) for a later `applyResolutions`.
+						this._activeResolveSessions.set(repoPath, { resolutions: resolutions, sessionId: sessionId });
+
+						logResolutionUsage(resolutions, 'graph.resolveConflicts');
+
+						const summaries: ResolvedFileSummary[] = resolutions.map(r => ({
+							filePath: r.filePath,
+							strategy: r.strategy,
+							reasoning: r.description,
+							confidence: r.confidence,
+							note: r.note,
+							virtualRef:
+								r.strategy !== 'skipped' && conflictedContents.has(r.filePath)
+									? {
+											namespace: GraphResolveVirtualNamespace,
+											sessionId: sessionId,
+											commitId: ResolveVirtualSide.resolved,
+										}
+									: undefined,
+						}));
+
+						return {
+							result: {
+								resolutions: summaries,
+								errors: errors.length > 0 ? errors : undefined,
+								skipped: skipped.length > 0 ? skipped : undefined,
+							},
+						};
+					} catch (ex) {
+						if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					} finally {
+						disposeCancellation();
+						this._resolveProgressEvent.fire(undefined);
+					}
+				},
+				reresolveFile: async (repoPath, filePath, feedback, signal) => {
+					const integration = await this.getOrCreateConflictToolsForGraph();
+					if (integration == null) {
+						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+					}
+
+					const session = this._activeResolveSessions.get(repoPath);
+					if (session == null) {
+						return { error: { message: 'No active resolutions to retry; please re-run.' } };
+					}
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const status = await svc.pausedOps?.getPausedOperationStatus?.();
+					if (status == null) {
+						return { error: { message: 'The merge, rebase, or cherry-pick is no longer in progress.' } };
+					}
+
+					const refs = {
+						ours: status.HEAD?.ref ?? 'HEAD',
+						theirs: status.incoming?.ref ?? 'MERGE_HEAD',
+						...(status.mergeBase != null ? { base: status.mergeBase } : {}),
+					};
+
+					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
+					const resolveSignal = toAbortSignal(token);
+					try {
+						const entries = await integration.listUnmergedEntries(svc);
+						const entry = entries.find(e => e.path === filePath);
+						if (entry == null) {
+							return { error: { message: `${filePath} is no longer conflicted.` } };
+						}
+
+						const conflict = await integration.extract({
+							svc: svc,
+							filePath: filePath,
+							reason: entry.reason,
+							signal: resolveSignal,
+						});
+						if (conflict == null) {
+							return {
+								error: {
+									message: `No conflict markers were found in ${filePath} — it needs manual resolution.`,
+								},
+							};
+						}
+
+						// Feedback rides conflict-tools' first-class `ResolutionContext.userGuidance`.
+						const resolution = await integration.resolveSingle(
+							{
+								svc: svc,
+								conflict: conflict,
+								context: { refs: refs, userGuidance: feedback },
+								signal: resolveSignal,
+							},
+							{ source: 'graph', detail: 'resolveRetryFile' },
+						);
+						if (resolveSignal?.aborted) return { cancelled: true };
+
+						// Replace this file's resolution in the cached session (others untouched).
+						const exists = session.resolutions.some(r => r.filePath === filePath);
+						this._activeResolveSessions.set(repoPath, {
+							...session,
+							resolutions: exists
+								? session.resolutions.map(r => (r.filePath === filePath ? resolution : r))
+								: [...session.resolutions, resolution],
+						});
+
+						// Refresh the file's virtual content in place so its existing `resolved` ref re-reads
+						// the new content (the row's "View diff" stays valid — same sessionId).
+						const conflictedContents = await integration.readWorkingFiles(svc, [filePath]);
+						let virtualRef: VirtualRefShape | undefined;
+						if (resolution.strategy !== 'skipped' && conflictedContents.has(filePath)) {
+							this._resolveVirtual?.provider.updateFile(session.sessionId, {
+								path: filePath,
+								conflictedContent: conflictedContents.get(filePath)!,
+								resolvedContent: resolution.content,
+							});
+							virtualRef = {
+								namespace: GraphResolveVirtualNamespace,
+								sessionId: session.sessionId,
+								commitId: ResolveVirtualSide.resolved,
+							};
+						}
+
+						logResolutionUsage([resolution], 'graph.reresolveFile');
+
+						return {
+							result: {
+								filePath: resolution.filePath,
+								strategy: resolution.strategy,
+								reasoning: resolution.description,
+								confidence: resolution.confidence,
+								note: resolution.note,
+								virtualRef: virtualRef,
+							},
+						};
+					} catch (ex) {
+						if (resolveSignal?.aborted || isCancellationError(ex)) return { cancelled: true };
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					} finally {
+						disposeCancellation();
+					}
+				},
+				applyResolutions: async (repoPath, includedFilePaths) => {
+					const integration = await this.getOrCreateConflictToolsForGraph();
+					if (integration == null) {
+						return { error: { message: 'AI conflict resolution is not available in this environment.' } };
+					}
+
+					const session = this._activeResolveSessions.get(repoPath);
+					if (session == null) {
+						return { error: { message: 'No resolutions to apply; please re-run.' } };
+					}
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					try {
+						// Stale guard: if the paused op ended externally (merge aborted/committed) between
+						// generation and apply, the cached resolutions are stale — refuse rather than write
+						// AI content over a working tree the user has since changed.
+						const pausedOp = await svc.pausedOps?.getPausedOperationStatus?.();
+						if (pausedOp == null) {
+							this.discardResolveSession(repoPath);
+							return {
+								error: {
+									message:
+										'The merge, rebase, or cherry-pick is no longer in progress — resolutions were not applied.',
+								},
+							};
+						}
+
+						const included = includedFilePaths != null ? new Set(includedFilePaths) : undefined;
+						// Never apply 'skipped' files — they were intentionally left conflicted.
+						const selected = session.resolutions.filter(
+							r => r.strategy !== 'skipped' && (included == null || included.has(r.filePath)),
+						);
+						if (selected.length === 0) {
+							return { error: { message: 'No applicable resolutions were selected.' } };
+						}
+
+						// Per-file stale guard: only apply files still unmerged. A file resolved externally
+						// (manually or via another tool) since generation must not be clobbered with stale
+						// AI content. Skipped files are surfaced in the result.
+						const stillConflicted = await integration.listUnmergedPaths(svc);
+						const toApply = selected.filter(r => stillConflicted.has(r.filePath));
+						const skipped = selected.length - toApply.length;
+						if (toApply.length === 0) {
+							this.discardResolveSession(repoPath);
+							return {
+								error: { message: 'These files are no longer conflicted — nothing was applied.' },
+							};
+						}
+
+						await integration.applyBatch({ svc: svc, resolutions: toApply });
+						// `applyBatch` stages ai/merged + take-ours/theirs but not deletions (its port only
+						// unlinks). Stage every applied path once — idempotent for the rest, and it stages
+						// deletions so the merge can be completed.
+						const stagePaths = toApply.map(r => r.filePath);
+						if (stagePaths.length > 0) {
+							await svc.staging?.stageFiles?.(stagePaths);
+						}
+
+						this.discardResolveSession(repoPath);
+						void window.showInformationMessage(
+							skipped > 0
+								? `Resolved ${pluralize('file', toApply.length)} with AI — ${skipped} skipped (no longer conflicted).`
+								: `Resolved ${pluralize('file', toApply.length)} with AI.`,
+						);
+						return skipped > 0
+							? { success: true, warning: `${skipped} file(s) were skipped (no longer conflicted).` }
+							: { success: true };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
+				},
+				discardResolutions: repoPath => {
+					this.discardResolveSession(repoPath);
+					return Promise.resolve();
+				},
+				onResolveProgress: this._resolveProgressEvent.subscribe(buffer, tracker),
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
 					// to land the user on a useful panel; per-side commits + their files are fetched
@@ -3767,6 +4192,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(TrackGraphDetailsComposeModeCommand)
 	private onTrackGraphDetailsComposeMode() {
 		void this.container.usage.track('action:gitlens.graph.details.composeMode:happened');
+	}
+
+	@ipcCommand(TrackGraphDetailsResolveModeCommand)
+	private onTrackGraphDetailsResolveMode() {
+		void this.container.usage.track('action:gitlens.graph.details.resolveMode:happened');
 	}
 
 	@ipcCommand(TrackGraphDetailsCompareModeCommand)
@@ -9358,6 +9788,55 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await this.runStageConflictResolution(item, 'incoming');
 	}
 
+	@command('gitlens.graph.resolveConflictWithAI:')
+	@debug()
+	private async resolveConflictWithAI(item?: DetailsItemTypedContext): Promise<void> {
+		const value = item?.webviewItemValue;
+		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
+
+		// Enter the WIP details resolve mode scoped to this one conflicted file. The webview routes
+		// via `enterModeForWip('resolve', repoPath, uncommitted, filePaths)`.
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: value.repoPath, filePaths: [value.path] },
+		});
+	}
+
+	@command('gitlens.graph.resolveConflictsWithAI.multi:')
+	@debug()
+	private async resolveConflictsWithAIMulti(item?: DetailsItemTypedContext): Promise<void> {
+		// The right-clicked row carries the whole multi-selection in `webviewItemsValues`; keep just
+		// the conflicted file entries (the menu gates on `webviewItemsUnion`, which matches when ANY
+		// selected item is a conflict — others may be plain changes).
+		const items = item?.webviewItemsValues ?? [];
+		const files = items
+			.filter(i => i.webviewItem.includes('+conflict'))
+			.map(i => i.webviewItemValue)
+			.filter(v => v?.type === 'file' && Boolean(v.path) && Boolean(v.repoPath));
+		if (files.length === 0) return;
+
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: files[0].repoPath, filePaths: files.map(f => f.path) },
+		});
+	}
+
+	@command('gitlens.graph.resolveAllConflictsWithAI:')
+	@debug()
+	private async resolveAllConflictsWithAI(item?: GraphItemContext): Promise<void> {
+		// Invoked from the WIP-row context menu (sibling to Compose/Review), so the item is a WIP-row
+		// ref — mirror `composeCommits`. For a secondary WIP row `ref.repoPath` is that worktree's path.
+		const ref = this.getGraphItemRef(item);
+		const repoPath = ref?.repoPath ?? this.repository?.path;
+		if (repoPath == null) return;
+
+		// Enter resolve mode for all conflicts (no `filePath`).
+		await this.host.notify(DidRequestGraphActionNotification, {
+			action: 'enter-resolve',
+			target: { sha: uncommitted, worktreePath: repoPath },
+		});
+	}
+
 	private async runStageConflictResolution(
 		item: DetailsItemTypedContext | undefined,
 		resolution: 'current' | 'incoming',
@@ -11407,6 +11886,29 @@ type GraphItemRefs<T> = {
 	active: T | undefined;
 	selection: T[];
 };
+
+/** Logs each resolution's AI token usage (when the provider reported it) plus a run total to the
+ *  debug logs — usage is diagnostic detail, so it stays out of the resolve results UI. */
+function logResolutionUsage(resolutions: readonly ConflictToolsResolution[], scope: string): void {
+	let input = 0;
+	let output = 0;
+	for (const r of resolutions) {
+		const m = r.metrics;
+		if (m == null) continue;
+
+		input += m.inputTokens;
+		output += m.outputTokens;
+		Logger.debug(
+			`resolved ${r.filePath}: tokens=${m.inputTokens} in / ${m.outputTokens} out${
+				m.stepCount != null ? `, steps=${m.stepCount}` : ''
+			}${m.durationMs != null ? `, duration=${m.durationMs}ms` : ''}`,
+			scope,
+		);
+	}
+	if (resolutions.length > 1 && (input > 0 || output > 0)) {
+		Logger.debug(`run total: tokens=${input} in / ${output} out`, scope);
+	}
+}
 
 function convertBranchToIncludeOnlyRef(branch: GitBranch, remote?: boolean): GraphIncludeOnlyRef {
 	return (remote ?? branch.remote)

@@ -95,6 +95,12 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	conflicts = false;
 
+	/** Opt-in for the "Resolve Conflicts with AI" action (fires `ai-resolve-conflicts`). Only hosts
+	 *  that can route the event into a resolve flow (the graph WIP details) should enable it —
+	 *  otherwise the action would render as a dead button. */
+	@property({ type: Boolean, attribute: 'ai-resolve' })
+	aiResolve = false;
+
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
 
@@ -196,12 +202,26 @@ export class GlMergeConflictWarning extends LitElement {
 		});
 	}
 
+	private onResolveWithAI = (e: Event): void => {
+		e.preventDefault();
+		this.dispatchEvent(new CustomEvent('ai-resolve-conflicts', { bubbles: true, composed: true }));
+	};
+
 	private renderActions() {
 		if (this.pausedOpStatus == null) return nothing;
 
 		const status = this.pausedOpStatus.type;
 
 		return html`<action-nav class="actions">
+			${when(
+				this.conflicts && this.aiResolve,
+				() =>
+					html`<action-item
+						label="Resolve Conflicts with AI"
+						icon="sparkle"
+						@click=${this.onResolveWithAI}
+					></action-item>`,
+			)}
 			${when(
 				status === 'rebase',
 				() =>

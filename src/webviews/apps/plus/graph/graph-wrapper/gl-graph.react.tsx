@@ -145,7 +145,7 @@ export interface GraphWrapperEvents {
 	onRefDoubleClick?: (detail: { ref: GraphRef; metadata?: GraphRefMetadataItem }) => void;
 	onMouseLeave?: () => void;
 	onRowAction?: (detail: { action: RowAction; row: GraphRow; worktreePath?: string }) => void;
-	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'agents'; row: GraphRow }) => void;
+	onWipRowOpen?: (detail: { target: 'compose' | 'review' | 'resolve' | 'agents'; row: GraphRow }) => void;
 	onRowContextMenu?: (detail: { graphZoneType: GraphZoneType; graphRow: GraphRow; isAvatar: boolean }) => void;
 	onRowDoubleClick?: (detail: { row: GraphRow; preserveFocus?: boolean }) => void;
 	onRowHover?: (detail: {
@@ -823,10 +823,17 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 	// graph's `onInvalidate` handler destructures `e.detail`, so a plain `Event` throws there
 	// and the cache never clears. `'all'` re-runs BOTH `provideAdornments` (visibility —
 	// secondary WIPs pin their adornment visible when an operation or agent attaches to the
-	// row) AND `resolveAdornment` (the overlay icons).
+	// row) AND `resolveAdornment` (the overlay icons). `workingTreeStats` is in the deps
+	// because the WIP row's Resolve button is gated on `hasConflicts`.
 	useEffect(() => {
 		invalidateTarget.dispatchEvent(new RowAdornmentInvalidateEvent('all'));
-	}, [props.runningOperationByRowSha, props.agentStatusByRowSha, props.unpublishedShas, invalidateTarget]);
+	}, [
+		props.runningOperationByRowSha,
+		props.agentStatusByRowSha,
+		props.unpublishedShas,
+		props.workingTreeStats,
+		invalidateTarget,
+	]);
 
 	const rowAdornmentProvider: RowAdornmentProvider = {
 		invalidate: invalidateTarget,
@@ -899,6 +906,14 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 						composeHasResult,
 					);
 					const reviewTooltip = rowAdornmentTooltipFor('review', bucket?.review?.execState, reviewHasResult);
+					const resolveHasResult = bucket?.resolve?.result != null;
+					const resolveStatusIcon =
+						bucket?.resolve != null ? statusIconFor(bucket.resolve.execState, resolveHasResult) : null;
+					const resolveTooltip = rowAdornmentTooltipFor(
+						'resolve',
+						bucket?.resolve?.execState,
+						resolveHasResult,
+					);
 
 					// Compose/Review are "active" while their operation is pending or done (a bucket entry
 					// exists). Active buttons stay full-strength at rest so their status icon is readable;
@@ -907,6 +922,11 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 					// so its idle buttons show until the user navigates to another row.
 					const composeActive = bucket?.compose != null;
 					const reviewActive = bucket?.review != null;
+					const resolveActive = bucket?.resolve != null;
+					// Conflicts are tracked on the primary repo's working-tree stats only, so the
+					// Resolve entry point is gated to the primary WIP row (secondary worktrees still
+					// get the details-header chip when their WIP is opened).
+					const hasConflicts = !isSecondaryWipSha(row.sha) && props.workingTreeStats?.hasConflicts === true;
 
 					const agentStatus = props.agentStatusByRowSha?.get(row.sha);
 					const agentSuffix = agentStatus != null ? agentSuffixIconFor(agentStatus.category) : undefined;
@@ -961,6 +981,22 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 											slot="suffix"
 											icon={reviewStatusIcon}
 											modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
+							{(resolveActive || (hasConflicts && interacting)) && (
+								<gl-button
+									onClick={() => initProps.onWipRowOpen?.({ target: 'resolve', row: row })}
+									tooltip={resolveTooltip}
+									aria-label={resolveTooltip}
+								>
+									<code-icon icon="sparkle"></code-icon>
+									{resolveStatusIcon != null && (
+										<code-icon
+											slot="suffix"
+											icon={resolveStatusIcon}
+											modifier={resolveStatusIcon === 'loading' ? 'spin' : ''}
 										></code-icon>
 									)}
 								</gl-button>
