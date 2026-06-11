@@ -66,7 +66,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 
-	await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
 
 	return {
 		graphWebview: graphWebview!,
@@ -81,7 +81,7 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
-	await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
 	return graphWebview!;
 }
 
