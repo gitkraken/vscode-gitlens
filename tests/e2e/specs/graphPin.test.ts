@@ -1,5 +1,5 @@
 /**
- * GitLens Graph — Pin Branch to Left E2E Tests
+ * GitLens Graph — Pin Branch to Edge E2E Tests
  *
  * Tests the pin/unpin workflow in the Commit Graph:
  * - Pin a branch via command
@@ -87,9 +87,21 @@ const test = base.extend({
 
 				await git.commit('Initial commit', 'test.txt', 'content');
 
+				// Each branch needs its own commit so it renders as a distinct ref pill in the
+				// graph. Branches that point at the same commit as the current branch (main) are
+				// not drawn with their own row/context, so a pin on them would have no DOM element
+				// to carry the +pinned context. Create each off the initial commit, then diverge.
 				await git.branch('branch-a');
 				await git.branch('branch-b');
 				await git.branch('branch-c');
+
+				await git.checkout('branch-a');
+				await git.commit('Commit on branch-a', 'branch-a.txt', 'branch-a change');
+				await git.checkout('branch-b');
+				await git.commit('Commit on branch-b', 'branch-b.txt', 'branch-b change');
+				await git.checkout('branch-c');
+				await git.commit('Commit on branch-c', 'branch-c.txt', 'branch-c change');
+				await git.checkout('main');
 
 				return repoDir;
 			},
@@ -100,7 +112,7 @@ const test = base.extend({
 
 test.describe.configure({ mode: 'serial' });
 
-test.describe('Graph — Pin Branch to Left', () => {
+test.describe('Graph — Pin Branch to Edge', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test.afterEach(async ({ vscode }) => {
@@ -127,7 +139,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		expect(stateInfo!.pinnedRef).toBeUndefined();
 
 		const branchId = `${stateInfo!.repoPath}|heads/branch-a`;
-		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',
@@ -152,10 +164,10 @@ test.describe('Graph — Pin Branch to Left', () => {
 		expect(pinnedState!.name).toBe('branch-a');
 		expect(pinnedState!.type).toBe('head');
 
-		// Verify the webviewItem context includes +pinned (rows re-processed after pin)
-		const pinnedItem = await getPinnedWebviewItem(graphWebview!);
-		expect(pinnedItem).not.toBeNull();
-		expect(pinnedItem).toContain('+pinned');
+		// Verify the webviewItem context includes +pinned (rows re-processed after pin).
+		// The row re-send (updateState) arrives separately from — and later than — the
+		// pinnedRef state update above, so poll until the row context picks up +pinned.
+		await expect.poll(() => getPinnedWebviewItem(graphWebview!), { timeout: 15000 }).toContain('+pinned');
 	});
 
 	test('should unpin a branch and clear pinnedRef state', async ({ vscode }) => {
@@ -172,7 +184,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const stateInfo = await getGraphState(graphWebview!);
 		expect(stateInfo).not.toBeNull();
 
-		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',
@@ -193,7 +205,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const pinnedBefore = await getPinnedRef(graphWebview!);
 		expect(pinnedBefore).not.toBeNull();
 
-		await vscode.gitlens.executeCommand('gitlens.graph.unpinBranchFromLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.unpinBranchFromEdge', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch+pinned',
@@ -231,7 +243,7 @@ test.describe('Graph — Pin Branch to Left', () => {
 		const stateInfo = await getGraphState(graphWebview!);
 		expect(stateInfo).not.toBeNull();
 
-		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToLeft', {
+		await vscode.gitlens.executeCommand('gitlens.graph.pinBranchToEdge', {
 			webview: stateInfo!.webviewId,
 			webviewInstance: stateInfo!.webviewInstanceId,
 			webviewItem: 'gitlens:branch',
