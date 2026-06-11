@@ -48,6 +48,12 @@ const test = base.extend({
 // All graph details tests run serially on a single VS Code worker instance
 test.describe.configure({ mode: 'serial' });
 
+// `workbench.action.toggleMaximizedPanel` is a stateful toggle and each describe runs its own
+// beforeAll → openGraphWithPro, so toggling per-call would alternate the maximized state (and
+// leave some describes cramped, breaking row selection). Maximize exactly once for the whole
+// file; the maximized panel persists across the resetUI cycles between tests.
+let panelMaximized = false;
+
 /**
  * Open the graph view with Pro subscription and return the webview FrameLocator.
  * The graph is a Pro feature, so subscription simulation is required.
@@ -59,7 +65,15 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	const sim = await vscode.gitlens.startSubscriptionSimulation({
 		state: 6 /* SubscriptionState.Paid */,
 		planId: 'pro',
+		dismissOnboarding: true,
 	});
+
+	// Maximize the panel so the graph has room to render the commit-message column and its rows
+	// aren't overlapped by the working-changes/scrollbar layers (which intercept row clicks).
+	if (!panelMaximized) {
+		await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+		panelMaximized = true;
+	}
 
 	await vscode.gitlens.showCommitGraphView();
 
@@ -67,7 +81,7 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	expect(graphWebview).not.toBeNull();
 
 	// Wait for graph to fully render (column headers appear)
-	await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
 
 	return {
 		graphWebview: graphWebview!,
@@ -85,7 +99,7 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
-	await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: 30000 });
+	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
 	return graphWebview!;
 }
 
@@ -139,7 +153,12 @@ async function selectWip(graphWebview: FrameLocator): Promise<void> {
 		return;
 	}
 
-	const wipRow = graphWebview.getByText(/Working (Changes|Tree)/).first();
+	// Match the visible WIP row label, not the hidden tooltip-content span that also carries the
+	// "Working Changes" text (a plain .first() picks the hidden tooltip span).
+	const wipRow = graphWebview
+		.getByText(/Working (Changes|Tree)/)
+		.filter({ visible: true })
+		.first();
 	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
 	await wipRow.click();
 	await ensureDetailsPanelOpen(graphWebview);
@@ -158,6 +177,16 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 	const comparePanel = graphWebview.locator('gl-details-multicommit-panel').first();
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
+
+// Restore the panel to its non-maximized baseline once the whole file is done. The VS Code
+// instance is worker-scoped and reused across spec files, so without this the one-time maximize
+// above would leak a maximized panel into other specs running later on the same worker.
+test.afterAll(async ({ vscode }) => {
+	if (panelMaximized) {
+		await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+		panelMaximized = false;
+	}
+});
 
 // ============================================================================
 // Panel Visibility
@@ -230,14 +259,15 @@ test.describe('Graph Details - Panel Visibility', () => {
 		await expect(graphWebview.locator('gl-details-commit-panel').first()).toBeVisible({ timeout: MaxTimeout });
 	});
 
-	test('should close details panel via close button', async () => {
+	test('should close details panel via the details-panel toggle', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 
-		// Click the close action chip in the commit details header
-		const closeButton = graphWebview.locator('gl-details-commit-panel gl-action-chip[icon="close"]').first();
-		await expect(closeButton).toBeVisible({ timeout: MaxTimeout });
-		await closeButton.click();
+		// The per-panel close chip was removed; the details panel is dismissed via the
+		// Hide Details Panel toggle.
+		const hideButton = graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first();
+		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
+		await hideButton.click();
 
 		// Details content should no longer be visible
 		await expect(graphWebview.locator('.details-content')).not.toBeVisible({ timeout: MaxTimeout });
@@ -373,16 +403,16 @@ test.describe('Graph Details - WIP Mode', () => {
 		await expect(branchRow).toBeVisible({ timeout: MaxTimeout });
 	});
 
-	test('should close WIP details via close button', async () => {
+	test('should close WIP details via the details-panel toggle', async () => {
 		await selectWip(graphWebview);
 
 		const wipDetails = graphWebview.locator('gl-details-wip-panel').first();
 		await expect(wipDetails).toBeVisible({ timeout: 15000 });
 
-		// Click close button
-		const closeButton = graphWebview.locator('gl-details-wip-header gl-action-chip[icon="close"]').first();
-		await expect(closeButton).toBeVisible({ timeout: MaxTimeout });
-		await closeButton.click();
+		// The per-panel close chip was removed; dismiss the details panel via the toggle.
+		const hideButton = graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first();
+		await expect(hideButton).toBeVisible({ timeout: MaxTimeout });
+		await hideButton.click();
 
 		// Details content should close
 		await expect(graphWebview.locator('.details-content')).not.toBeVisible({ timeout: MaxTimeout });
@@ -482,7 +512,7 @@ test.describe('Graph Details - Compare Mode', () => {
 		await expect(betweenCount).toContainText('in between');
 	});
 
-	test('should close compare panel via close button', async () => {
+	test('should exit compare mode by selecting a single commit', async () => {
 		await selectCommitByMessage(graphWebview, 'Add greeting module');
 		await waitForDetailsLoaded(graphWebview);
 		const secondCommit = graphWebview.getByText('Add utils module', { exact: true }).first();
@@ -490,12 +520,9 @@ test.describe('Graph Details - Compare Mode', () => {
 
 		await expect(graphWebview.locator('.compare-header__title').first()).toBeVisible({ timeout: 15000 });
 
-		// Click close button in the compare header
-		const closeButton = graphWebview
-			.locator('gl-details-multicommit-panel gl-details-header gl-action-chip[icon="close"]')
-			.first();
-		await expect(closeButton).toBeVisible({ timeout: MaxTimeout });
-		await closeButton.click();
+		// Compare mode has no per-panel close button; selecting a single commit clears the
+		// multi-selection and replaces the compare panel with the single-commit details.
+		await selectCommitByMessage(graphWebview, 'Add math module');
 
 		// Compare panel should close
 		await expect(graphWebview.locator('.compare-header__title')).not.toBeVisible({ timeout: MaxTimeout });
