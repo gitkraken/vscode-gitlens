@@ -519,6 +519,11 @@ export interface GetMissingAvatarsParams {
 }
 export const GetMissingAvatarsCommand = new IpcCommand<GetMissingAvatarsParams>(scope, 'avatars/get');
 
+export interface ProxyAvatarsParams {
+	avatars: Record</*email*/ string, /*url*/ string>;
+}
+export const ProxyAvatarsCommand = new IpcCommand<ProxyAvatarsParams>(scope, 'avatars/proxy');
+
 export interface GetMissingRefsMetadataParams {
 	metadata: GraphMissingRefsMetadata;
 }

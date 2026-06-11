@@ -60,6 +60,7 @@ import {
 	DidStartFeaturePreviewNotification,
 	GetAgentSessionsRequest,
 	GetOverviewEnrichmentRequest,
+	ProxyAvatarsCommand,
 	ResolveGraphScopeRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
@@ -72,6 +73,7 @@ import type { LoggerContext } from '../../shared/contexts/logger.js';
 import type { HostIpc } from '../../shared/ipc.js';
 import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
+import { AvatarCorsProbe } from './avatarCorsProbe.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
 
@@ -417,6 +419,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	graphWalkthroughStarted?: boolean | undefined;
 	visualizationsButtonCalloutDismissed?: boolean | undefined;
 
+	private _avatarCorsProbe: AvatarCorsProbe;
+
 	constructor(
 		host: ReactiveElementHost,
 		bootstrap: string,
@@ -425,6 +429,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		private readonly options: { onStateUpdate?: (partial: Partial<State>) => void } = {},
 	) {
 		super(host, bootstrap, ipc, logger);
+		this._avatarCorsProbe = new AvatarCorsProbe(failed => {
+			this.ipc.sendCommand(ProxyAvatarsCommand, { avatars: failed });
+		});
 	}
 
 	override dispose(): void {
@@ -1697,6 +1704,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			if (this.selectedRepository != null) {
 				this._wips.pin(this.selectedRepository);
 			}
+		}
+
+		if (partial.avatars != null) {
+			this._avatarCorsProbe.probe(partial.avatars);
 		}
 
 		if (silent || !hasChanges) return;

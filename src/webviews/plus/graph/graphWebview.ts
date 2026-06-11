@@ -95,7 +95,7 @@ import { Stopwatch } from '@gitlens/utils/stopwatch.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
-import { getAvatarUri } from '../../../avatars.js';
+import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
@@ -443,6 +443,7 @@ import {
 	isSecondaryWipSha,
 	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
+	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
 	ResolveGraphScopeRequest,
 	RowActionCommand,
@@ -4206,6 +4207,40 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			await Promise.allSettled(promises);
 			this.updateAvatars();
 		}
+	}
+
+	private _avatarProxyQueue = new Map<string, Promise<Uri | undefined>>();
+
+	@ipcCommand(ProxyAvatarsCommand)
+	private async onProxyAvatars(params: IpcParams<typeof ProxyAvatarsCommand>) {
+		if (this._graph == null) return;
+
+		const promises: Promise<void>[] = [];
+
+		for (const [email, url] of Object.entries(params.avatars)) {
+			promises.push(
+				this.proxyAvatarUrl(url).then(uri => {
+					if (uri != null) {
+						this._graph!.avatars.set(email, uri.toString(true));
+					}
+				}),
+			);
+		}
+
+		if (promises.length) {
+			await Promise.allSettled(promises);
+			this._lastSentAvatarsSize = undefined;
+			this.updateAvatars();
+		}
+	}
+
+	private proxyAvatarUrl(url: string): Promise<Uri | undefined> {
+		let pending = this._avatarProxyQueue.get(url);
+		if (pending != null) return pending;
+
+		pending = fetchAvatarImageAsDataUri(url).finally(() => this._avatarProxyQueue.delete(url));
+		this._avatarProxyQueue.set(url, pending);
+		return pending;
 	}
 
 	@ipcCommand(GetMissingRefsMetadataCommand)
