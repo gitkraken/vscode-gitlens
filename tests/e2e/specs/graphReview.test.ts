@@ -132,6 +132,10 @@ test.describe('Review & Compose Sub-Panels', () => {
 		const closeChip = graphWebview.locator('gl-action-chip.mode-close');
 		if (await closeChip.isVisible().catch(() => false)) {
 			await closeChip.click();
+			// Wait for the mode to actually exit before the next test starts, to avoid races.
+			await expect(
+				graphWebview.locator('gl-details-wip-header gl-details-header .mode-header--active'),
+			).not.toBeVisible({ timeout: MaxTimeout });
 		}
 	});
 
@@ -159,7 +163,9 @@ test.describe('Review & Compose Sub-Panels', () => {
 
 		// While a mode is active the mode-toggle chips are removed from the header (the mode
 		// identity is carried by the header title instead), so the review chip is no longer shown.
-		await expect(graphWebview.locator('gl-action-chip[icon="checklist"]')).not.toBeVisible();
+		await expect(
+			graphWebview.locator('gl-details-wip-header gl-details-header gl-action-chip[icon="checklist"]'),
+		).not.toBeVisible();
 
 		// WIP details and commit bottom should be hidden
 		const wipDetails = graphWebview.locator('gl-details-wip-panel');
@@ -206,7 +212,9 @@ test.describe('Review & Compose Sub-Panels', () => {
 		await expect(composePanel).toBeVisible({ timeout: MaxTimeout });
 
 		// While a mode is active the mode-toggle chips are removed, so the compose chip is gone.
-		await expect(graphWebview.locator('gl-action-chip[icon="wand"]')).not.toBeVisible();
+		await expect(
+			graphWebview.locator('gl-details-wip-header gl-details-header gl-action-chip[icon="wand"]'),
+		).not.toBeVisible();
 
 		// Header should have purple tint
 		await expect(

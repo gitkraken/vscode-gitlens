@@ -178,6 +178,16 @@ async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {
 	await expect(commitDetails.or(wipDetails).or(comparePanel)).toBeVisible({ timeout: 30000 });
 }
 
+// Restore the panel to its non-maximized baseline once the whole file is done. The VS Code
+// instance is worker-scoped and reused across spec files, so without this the one-time maximize
+// above would leak a maximized panel into other specs running later on the same worker.
+test.afterAll(async ({ vscode }) => {
+	if (panelMaximized) {
+		await vscode.gitlens.executeCommand<void>('workbench.action.toggleMaximizedPanel');
+		panelMaximized = false;
+	}
+});
+
 // ============================================================================
 // Panel Visibility
 // ============================================================================
