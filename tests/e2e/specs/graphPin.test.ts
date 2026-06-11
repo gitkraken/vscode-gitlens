@@ -90,7 +90,8 @@ const test = base.extend({
 				// Each branch needs its own commit so it renders as a distinct ref pill in the
 				// graph. Branches that point at the same commit as the current branch (main) are
 				// not drawn with their own row/context, so a pin on them would have no DOM element
-				// to carry the +pinned context. Create each off the initial commit, then diverge.
+				// to carry the +pinned context. Create each at the current main tip, then give it
+				// its own commit so it diverges into a distinct row.
 				await git.branch('branch-a');
 				await git.branch('branch-b');
 				await git.branch('branch-c');
