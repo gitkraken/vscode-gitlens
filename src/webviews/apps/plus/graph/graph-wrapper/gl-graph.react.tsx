@@ -139,7 +139,6 @@ export interface GraphWrapperEvents {
 	) => void;
 	onChangeVisibleDays?: (detail: { top: number; bottom: number }) => void;
 	onFilterColumn?: (detail: { zone: GraphZoneType }) => void;
-	onAvatarLoadError?: (emails: Record<string, string>) => void;
 	onMissingAvatars?: (emails: Record<string, string>) => void;
 	onMissingRefsMetadata?: (metadata: GraphMissingRefsMetadata) => void;
 	onMoreRows?: (id?: string) => void;
@@ -429,21 +428,6 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		},
 		[initProps.onMouseLeave, stopColumnResize],
 	);
-
-	const avatarUrlSpecByEmail = useMemo(() => {
-		const avatars = props.avatars;
-		if (avatars == null || initProps.onAvatarLoadError == null) return avatars;
-
-		const onError = initProps.onAvatarLoadError;
-		const result: Record<string, { url: string; onError: (url: string, error: unknown) => void }> = {};
-		for (const [email, url] of Object.entries(avatars)) {
-			result[email] = {
-				url: url,
-				onError: (failedUrl, _error) => onError({ [email]: failedUrl }),
-			};
-		}
-		return result;
-	}, [props.avatars, initProps.onAvatarLoadError]);
 
 	const handleMissingAvatars = useCallback(
 		(emails: GraphAvatars) => {
@@ -1136,7 +1120,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		<GraphContainer
 			ref={graphRef}
 			rowAdornmentProvider={rowAdornmentProvider}
-			avatarUrlByEmail={avatarUrlSpecByEmail}
+			avatarUrlByEmail={props.avatars}
 			columnsSettings={columnsSettings}
 			contexts={context}
 			formatCommitMessage={formatCommitMessage}
@@ -1270,7 +1254,6 @@ declare global {
 		'graph-doubleclickref': CustomEvent<{ ref: GraphRef; metadata?: GraphRefMetadataItem }>;
 		'graph-doubleclickrow': CustomEvent<{ row: GraphRow; preserveFocus?: boolean }>;
 		'graph-filtercolumn': CustomEvent<{ zone: GraphZoneType }>;
-		'graph-avatarloaderror': CustomEvent<GraphAvatars>;
 		'graph-missingavatars': CustomEvent<GraphAvatars>;
 		'graph-missingrefsmetadata': CustomEvent<GraphMissingRefsMetadata>;
 		'graph-morerows': CustomEvent<string | undefined>;

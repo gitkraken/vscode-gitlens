@@ -1,5 +1,4 @@
 import { EventEmitter, Uri } from 'vscode';
-import { fetch } from '@env/fetch.js';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -273,19 +272,6 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.timestamp = Date.now();
 		avatar.retries++;
 
-		return undefined;
-	}
-}
-
-export async function fetchAvatarImageAsDataUri(url: string): Promise<Uri | undefined> {
-	try {
-		const rsp = await fetch(url);
-		if (!rsp.ok) return undefined;
-
-		const contentType = rsp.headers.get('content-type') ?? 'image/png';
-		const data = base64(new Uint8Array(await rsp.arrayBuffer()));
-		return Uri.parse(`data:${contentType};base64,${data}`);
-	} catch {
 		return undefined;
 	}
 }
