@@ -87,11 +87,15 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		apiKey: string,
 		_model: AIModel<typeof provider.id>,
 		_url: string,
+		conversationId?: string,
 	): Record<string, string> {
 		return {
 			Accept: 'application/json',
 			Authorization: `Bearer ${apiKey}`,
 			'GK-Action': action,
+			// Scopes the backend's once-per-conversation feature fee — without it every request in a
+			// multi-call session (e.g. conflict resolution) is charged the full flat fee.
+			...(conversationId ? { 'GK-Conversation-ID': conversationId } : {}),
 		};
 	}
 

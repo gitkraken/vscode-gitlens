@@ -61,6 +61,9 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		apiKey: string,
 		_model: AIModel<T>,
 		_url: string,
+		// Deliberately unused here: only the GitKraken provider forwards the conversation ID (as
+		// `GK-Conversation-ID`); it must never reach third-party APIs.
+		_conversationId?: string,
 	): Record<string, string> | Promise<Record<string, string>> {
 		return {
 			Accept: 'application/json',
@@ -74,12 +77,24 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		model: AIModel<T>,
 		apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
+		options: {
+			signal: AbortSignal;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			conversationId?: string;
+		},
 	): Promise<AIProviderResponse<void> | undefined> {
 		using scope = maybeStartScopedLogger(`${getLoggableName(this)}.sendRequest`);
 
 		try {
-			const result = await this.fetch(action, model, apiKey, getMessages, options.modelOptions, options.signal);
+			const result = await this.fetch(
+				action,
+				model,
+				apiKey,
+				getMessages,
+				options.modelOptions,
+				options.signal,
+				options.conversationId,
+			);
 			return result;
 		} catch (ex) {
 			if (isCancellationError(ex)) {
@@ -104,6 +119,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		messages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
 		modelOptions?: { outputTokens?: number; temperature?: number },
 		signal?: AbortSignal,
+		conversationId?: string,
 	): Promise<AIProviderResponse<void>> {
 		let retries = 0;
 		let maxInputTokens = model.maxTokens.input;
@@ -123,7 +139,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 				),
 			};
 
-			const rsp = await this.fetchCore(action, model, apiKey, request, signal);
+			const rsp = await this.fetchCore(action, model, apiKey, request, signal, conversationId);
 			if (!rsp.ok) {
 				const result = await this.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
 				if (result.retry) {
@@ -207,6 +223,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		apiKey: string,
 		request: object,
 		signal: AbortSignal | undefined,
+		conversationId?: string,
 	): Promise<Response> {
 		const url = this.getUrl(model);
 		if (!url) {
@@ -215,7 +232,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 
 		try {
 			return await this.context.fetch(url, {
-				headers: await this.getHeaders(action, apiKey, model, url),
+				headers: await this.getHeaders(action, apiKey, model, url, conversationId),
 				method: 'POST',
 				body: JSON.stringify(request),
 				signal: signal,
