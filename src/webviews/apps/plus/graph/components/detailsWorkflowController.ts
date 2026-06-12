@@ -646,6 +646,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.review.invalidateErrorRecovery();
 		} else if (exitingMode === 'compose') {
 			this.compose.invalidateErrorRecovery();
+		} else if (exitingMode === 'resolve') {
+			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
+			// entry points) — clear it on exit so a later chip-initiated session defaults back to all
+			// conflicted files instead of silently re-scoping to the previous session's file(s).
+			this.actions.state.resolveFocusedFilePaths.set(undefined);
 		}
 		// On repo-switch, the caller (Trigger 1 in hostUpdate) will follow up with the new
 		// repo's selection arriving. Refetching here uses `host.currentSelection()` which is
