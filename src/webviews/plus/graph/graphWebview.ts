@@ -4064,6 +4064,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private onWorkspaceConfigurationChanged(e: ConfigurationChangeEvent) {
+		// The host signing override feeds `wip.signing` (the commit box's "will be signed"
+		// indicator) via `getSigningConfig`, which reads the setting through a live getter — a
+		// WIP re-push is enough to refresh it. Secondary-worktree panels refresh on their next
+		// watcher tick instead; acceptable for a rare settings change.
+		if (e.affectsConfiguration('git.enableCommitSigning')) {
+			void this.notifyDidChangeWorkingTree();
+		}
+
 		if (!e.affectsConfiguration('git.autofetch') && !e.affectsConfiguration('git.autofetchPeriod')) return;
 
 		void this.notifyDidChangeConfiguration();
@@ -4187,11 +4195,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
 		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
 		// (`worktrees` → wipMetadataBySha; also falls through to the structural gate below as a
-		// backstop full-state push), and tracking changes (`head|heads|remotes` → wip.branch.upstream,
-		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel). Unioned so the
-		// in-flight coalescer can't double-fire on a single multi-flag event (e.g. Pull's
+		// backstop full-state push), tracking changes (`head|heads|remotes` → wip.branch.upstream,
+		// which drives the "Publish" ↔ "Create PR" next-step row in the details panel), and
+		// `.git/config` edits (`config` → wip.signing; the watcher currently always pairs `config`
+		// with `remotes`, but don't rely on that classifier detail). Unioned so the in-flight
+		// coalescer can't double-fire on a single multi-flag event (e.g. Pull's
 		// `head, heads, remotes, index`).
-		if (e.changed('head', 'heads', 'index', 'ignores', 'remotes', 'worktrees')) {
+		if (e.changed('head', 'heads', 'index', 'ignores', 'remotes', 'worktrees', 'config')) {
 			void this.notifyDidChangeWorkingTree();
 		}
 
@@ -5151,7 +5161,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					// `head`/`heads`/`remotes`) so the secondary panel stays reactive to those same
 					// changes.
 					watcher.onDidChange(e => {
-						if (!e.changed('index', 'ignores', 'pausedOp', 'head', 'heads', 'remotes')) return;
+						if (!e.changed('index', 'ignores', 'pausedOp', 'head', 'heads', 'remotes', 'config')) return;
 
 						this._wipStatusCache.invalidate(path);
 						this.queueWipRefetch(sha, repo);
@@ -8053,11 +8063,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					(_cacheable, factorySignal) => svc.status.getStatus(undefined, factorySignal),
 					{ cancellation: signal },
 				);
-		const [statusResult, pausedOpStatusResult] = await Promise.allSettled([
+		const [statusResult, pausedOpStatusResult, signingConfigResult] = await Promise.allSettled([
 			statusFetch,
 			// `force` so a missed `'pausedOp'` FS-watcher tick (common on secondary worktrees
 			// whose `GlRepository` is closed) can't leave the WIP row stuck on a stale indicator.
 			svc.pausedOps?.getPausedOperationStatus?.({ force: true }, signal),
+			// Cached config read — drives the "will be signed" indicator in the commit box.
+			svc.config.getSigningConfig?.(),
 		]);
 		const status = getSettledValue(statusResult);
 		if (status == null) return undefined;
@@ -8065,6 +8077,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		signal?.throwIfAborted();
 
 		const pausedOpStatus = getSettledValue(pausedOpStatusResult);
+		const signingConfig = getSettledValue(signingConfigResult);
 
 		const conflictMarkerCounts = new Map<string, number>();
 		if (status.hasConflicts) {
@@ -8179,6 +8192,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							: undefined,
 				},
 				stats: stats,
+				signing:
+					signingConfig != null
+						? { enabled: signingConfig.enabled, format: signingConfig.format }
+						: undefined,
 			},
 		};
 	}

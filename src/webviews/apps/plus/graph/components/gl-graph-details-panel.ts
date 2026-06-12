@@ -1911,6 +1911,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.disabledReason=${this._actions.canCommitReason()}
 										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
 										.commitError=${this._state.commitError.get()}
+										.signing=${wip.signing}
 										@message-change=${this.handleCommitMessageChange}
 										@amend-change=${this.handleAmendChange}
 										@commit=${this.handleCommit}

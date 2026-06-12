@@ -29,6 +29,22 @@ export const commitBoxStyles = css`
 		justify-content: space-between;
 	}
 
+	.options-group {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.signing-indicator {
+		display: inline-flex;
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.signing-indicator:focus-visible {
+		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline-offset: 0.2rem;
+	}
+
 	.compose-icon {
 		color: var(--gl-agent-working-color);
 	}
