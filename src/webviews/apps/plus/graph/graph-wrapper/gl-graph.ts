@@ -231,6 +231,7 @@ export class GlGraph extends LitElement {
 				onChangeSelection: this.handleChangeSelection,
 				onChangeVisibleDays: this.handleChangeVisibleDays,
 				onFilterColumn: this.handleFilterColumn,
+				onAvatarLoadError: this.handleAvatarLoadError,
 				onMissingAvatars: this.handleMissingAvatars,
 				onMissingRefsMetadata: this.handleMissingRefsMetadata,
 				onMoreRows: this.handleMoreRows,
@@ -275,6 +276,10 @@ export class GlGraph extends LitElement {
 
 	private handleFilterColumn = (detail: { zone: GraphZoneType }): void => {
 		this.dispatchEvent(new CustomEvent('filtercolumn', { detail: detail }));
+	};
+
+	private handleAvatarLoadError = (emails: GraphAvatars): void => {
+		this.dispatchEvent(new CustomEvent('avatarloaderror', { detail: emails }));
 	};
 
 	private handleMissingAvatars = (emails: GraphAvatars): void => {
@@ -399,6 +404,7 @@ declare global {
 			state: GraphSelectionState;
 		}>;
 		changevisibledays: CustomEvent<{ top: number; bottom: number }>;
+		avatarloaderror: CustomEvent<GraphAvatars>;
 		missingavatars: CustomEvent<GraphAvatars>;
 		missingrefsmetadata: CustomEvent<GraphMissingRefsMetadata>;
 		morerows: CustomEvent<string | undefined>;
