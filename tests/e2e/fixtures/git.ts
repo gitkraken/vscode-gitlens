@@ -353,6 +353,13 @@ export class GitFixture {
 		await this.git('worktree', undefined, 'add', worktreePath, branch);
 	}
 
+	/**
+	 * Prune stale worktree administrative entries left behind by a failed `worktree add`.
+	 */
+	async pruneWorktrees(): Promise<void> {
+		await this.git('worktree', undefined, 'prune');
+	}
+
 	private async git(command: string, options?: { configs?: string[] }, ...args: string[]): Promise<string> {
 		const fullArgs = [...(options?.configs ?? []), command, ...args];
 		return new Promise((resolve, reject) => {
