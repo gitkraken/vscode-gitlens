@@ -78,6 +78,7 @@ import { uuid } from '@gitlens/utils/crypto.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
+import { DedupedAsyncCache } from '@gitlens/utils/dedupedAsyncCache.js';
 import { annotateDiffWithNewLineNumbers } from '@gitlens/utils/diff.js';
 import { createDisposable, disposableInterval } from '@gitlens/utils/disposable.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
@@ -97,7 +98,7 @@ import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../agents/models/agentSessionState.js';
 import { isActiveAgentPhase } from '../../../agents/provider.js';
 import type { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../../../api/gitlens.d.js';
-import { getAvatarUri } from '../../../avatars.js';
+import { fetchAvatarImageAsDataUri, getAvatarUri } from '../../../avatars.js';
 import { parseCommandContext } from '../../../commands/commandContext.utils.js';
 import type { CopyDeepLinkCommandArgs } from '../../../commands/copyDeepLink.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../../commands/copyMessageToClipboard.js';
@@ -209,6 +210,11 @@ import {
 	formatChangesContextForPrompt,
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
+import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
+import type {
+	ConflictProgressEvent,
+	Resolution as ConflictToolsResolution,
+} from '../../../plus/coretools/conflict/types.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
@@ -286,11 +292,6 @@ import * as branchRefCommands from '../shared/branchRefCommands.js';
 import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol.js';
 import type { TimelineCommandArgs } from '../timeline/registration.js';
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
-import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
-import type {
-	ConflictProgressEvent,
-	Resolution as ConflictToolsResolution,
-} from '../../../plus/coretools/conflict/types.js';
 import type { GraphComposeIntegration } from './compose/integration.js';
 import { isComposeSimulatorActive, runSimulatedComposeChanges } from './compose/simulator.js';
 import {
@@ -460,6 +461,7 @@ import {
 	isSecondaryWipSha,
 	JumpToHeadRequest,
 	OpenPullRequestDetailsCommand,
+	ProxyAvatarsCommand,
 	ResetGraphFiltersCommand,
 	ResolveGraphScopeRequest,
 	RowActionCommand,
@@ -4679,6 +4681,45 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	private readonly _avatarProxyCache = new DedupedAsyncCache<string, Uri | undefined>();
+	private readonly _avatarProxyFailed = new Set<string>();
+
+	@ipcCommand(ProxyAvatarsCommand)
+	private async onProxyAvatars(params: IpcParams<typeof ProxyAvatarsCommand>) {
+		if (this._graph == null) return;
+
+		const entries = Object.entries(params.avatars);
+		if (entries.length === 0) return;
+
+		let changed = false;
+		await Promise.allSettled(
+			entries.map(([email, url]) => {
+				if (url.startsWith('data:') || this._avatarProxyFailed.has(url)) return Promise.resolve();
+
+				return this._avatarProxyCache
+					.getOrResolve(url, () => fetchAvatarImageAsDataUri(url))
+					.then(uri => {
+						if (uri != null) {
+							if (this._graph?.avatars.get(email) !== url) return;
+
+							this._graph.avatars.set(email, uri.toString(true));
+							changed = true;
+						} else {
+							this._avatarProxyFailed.add(url);
+						}
+					});
+			}),
+		);
+
+		if (changed) {
+			// Proxy replaces values for existing keys (same email, new data URI), so the
+			// map size doesn't change. Reset the watermark to force notifyDidChangeAvatars
+			// to ship the update — see the comment there for the full invariant.
+			this._lastSentAvatarsSize = undefined;
+			this.updateAvatars();
+		}
+	}
+
 	@ipcCommand(GetMissingRefsMetadataCommand)
 	private async onGetMissingRefMetadata(params: IpcParams<typeof GetMissingRefsMetadataCommand>) {
 		if (this._graph == null || this._refsMetadata === null) {
@@ -6194,12 +6235,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (this._graph == null) return;
 
 		const data = this._graph;
-		// Share the `_lastSentAvatarsSize` watermark with the rows-notification path: avatar values
-		// never change for existing keys (every write at graphRowProcessor is gated by
-		// `!context.avatars.has(row.email)`), so an unchanged size means the webview already has
-		// every avatar. Skip the `Object.fromEntries` + IPC in that case. Only advance the watermark
-		// on confirmed delivery — a failed `notify` is requeued by type and REPLACED by a later one,
-		// so a speculative advance could skip avatars the webview never received.
+		// Size-based watermark shared with the rows-notification path. Normally avatar values don't
+		// change for existing keys (graphRowProcessor gates on `!context.avatars.has(row.email)`),
+		// so an unchanged size means the webview already has every avatar. Exception: the avatar
+		// proxy replaces CORS-failing URLs with data URIs for the same key — callers must reset
+		// `_lastSentAvatarsSize` to force the notification through (see `onProxyAvatars`). Only
+		// advance the watermark on confirmed delivery — a failed `notify` is requeued by type and
+		// REPLACED by a later one, so a speculative advance could skip avatars the webview never
+		// received.
 		const avatarsSize = data.avatars.size;
 		if (avatarsSize === this._lastSentAvatarsSize) return;
 
@@ -8836,6 +8879,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastSentWipDraftsInitialized = false;
 			this._lastSentWipNotificationParams = undefined;
 			this._graphLoading = undefined;
+			this._avatarProxyCache.clear();
+			this._avatarProxyFailed.clear();
 			this.resetHoverCache();
 			this.resetRefsMetadata();
 			this.resetSearchState();

@@ -40,6 +40,7 @@ import {
 	GetMoreRowsCommand,
 	GetWipStatsRequest,
 	isSecondaryWipSha,
+	ProxyAvatarsCommand,
 	RowActionCommand,
 	SyncWipWatchesCommand,
 	UpdateColumnsCommand,
@@ -819,6 +820,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@changeselection=${this.onSelectionChanged}
 			@changevisibledays=${this.onVisibleDaysChanged}
 			@filtercolumn=${this.onFilterColumn}
+			@avatarloaderror=${this.onAvatarLoadError}
 			@missingavatars=${this.onMissingAvatars}
 			@missingrefsmetadata=${this.onMissingRefsMetadata}
 			@morerows=${this.onGetMoreRows}
@@ -972,6 +974,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private onMouseLeave() {
 		this.dispatchEvent(new CustomEvent('gl-graph-mouse-leave'));
+	}
+
+	private onAvatarLoadError({ detail: emails }: CustomEventType<'graph-avatarloaderror'>) {
+		this._ipc.sendCommand(ProxyAvatarsCommand, { avatars: emails });
 	}
 
 	private onMissingAvatars({ detail: emails }: CustomEventType<'graph-missingavatars'>) {
