@@ -1,6 +1,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
+import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
@@ -55,18 +56,37 @@ export class GlCommitBox extends LitElement {
 	@property()
 	commitError?: string;
 
+	@property({ type: Object })
+	signing?: WipSigning;
+
 	override render() {
 		return html`
 			<div class="options">
 				${this.renderAmendToggle()}
-				${this.aiEnabled
-					? html`<gl-button appearance="secondary" @click=${this.onCompose}>
-							<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
-							Compose
-						</gl-button>`
-					: nothing}
+				<div class="options-group">
+					${this.renderSigningIndicator()}
+					${this.aiEnabled
+						? html`<gl-button appearance="secondary" @click=${this.onCompose}>
+								<code-icon class="compose-icon" icon="wand" slot="prefix"></code-icon>
+								Compose
+							</gl-button>`
+						: nothing}
+				</div>
 			</div>
 			${this.renderTextarea()} ${this.renderActionBar()}
+		`;
+	}
+
+	private renderSigningIndicator() {
+		if (!this.signing?.enabled) return nothing;
+
+		const label = `Commits will be signed using ${getSigningFormatLabel(this.signing.format)}`;
+		return html`
+			<gl-tooltip content=${label} placement="bottom">
+				<span class="signing-indicator" tabindex="0" role="img" aria-label=${label}>
+					<code-icon icon="key"></code-icon>
+				</span>
+			</gl-tooltip>
 		`;
 	}
 
@@ -224,6 +244,19 @@ export class GlCommitBox extends LitElement {
 
 	private onCompose() {
 		this.dispatchEvent(new CustomEvent('compose', { bubbles: true, composed: true }));
+	}
+}
+
+function getSigningFormatLabel(format: WipSigning['format']): string {
+	switch (format) {
+		case 'ssh':
+			return 'SSH';
+		case 'x509':
+			return 'X.509';
+		case 'openpgp':
+			return 'OpenPGP';
+		default:
+			return 'GPG';
 	}
 }
 
