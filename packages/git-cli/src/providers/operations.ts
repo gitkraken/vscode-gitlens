@@ -183,6 +183,13 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		if (options?.date) {
 			params.push(`--date=${options.date}`);
 		}
+		// Host-level override (e.g. VS Code's `git.enableCommitSigning`) — request signing explicitly
+		// via `-S`. Implicit repo-config signing (`commit.gpgsign=true`) needs no flag, and `-S`
+		// alongside it is harmless, so the override can only enable signing, never force it off.
+		const sign = this.context.config?.signing?.enabled === true;
+		if (sign) {
+			params.push('-S');
+		}
 		// Read commit message from stdin via -F - to avoid shell escaping issues
 		params.push('-F', '-');
 
@@ -193,6 +200,15 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 			);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
+			if (sign) {
+				// `-S` was passed and the commit succeeded, so signing is confirmed — fire the
+				// explicit-sign hook (same contract as the patch provider's `commit-tree -S` path).
+				let format: SigningFormat | undefined;
+				try {
+					format = (await this.provider.config.getSigningConfig?.(repoPath))?.format;
+				} catch {}
+				this.context.hooks?.commits?.onSigned?.(format ?? 'gpg', options?.source);
+			}
 		} catch (ex) {
 			scope?.error(ex);
 			await this.throwIfSigningError(repoPath, params, ex, options?.source);
