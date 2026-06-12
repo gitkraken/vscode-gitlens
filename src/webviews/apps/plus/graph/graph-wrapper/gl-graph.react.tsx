@@ -430,16 +430,51 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 		[initProps.onMouseLeave, stopColumnResize],
 	);
 
+	const avatarErrorBatch = useRef<{
+		pending: Record<string, string>;
+		timer: ReturnType<typeof setTimeout> | undefined;
+	}>({ pending: Object.create(null) as Record<string, string>, timer: undefined });
+
+	useEffect(() => {
+		return () => {
+			if (avatarErrorBatch.current.timer != null) {
+				clearTimeout(avatarErrorBatch.current.timer);
+			}
+		};
+	}, []);
+
 	const avatarUrlSpecByEmail = useMemo(() => {
 		const avatars = props.avatars;
 		if (avatars == null || initProps.onAvatarLoadError == null) return avatars;
 
 		const onError = initProps.onAvatarLoadError;
+		const batch = avatarErrorBatch.current;
+
+		if (batch.timer != null) {
+			clearTimeout(batch.timer);
+			batch.timer = undefined;
+		}
+		batch.pending = Object.create(null) as Record<string, string>;
+
+		function flushErrors() {
+			batch.timer = undefined;
+			if (Object.keys(batch.pending).length === 0) return;
+
+			const failed = batch.pending;
+			batch.pending = Object.create(null) as Record<string, string>;
+			onError(failed);
+		}
+
+		function onAvatarError(email: string, failedUrl: string) {
+			batch.pending[email] = failedUrl;
+			batch.timer ??= setTimeout(flushErrors, 150);
+		}
+
 		const result: Record<string, { url: string; onError: (url: string, error: unknown) => void }> = {};
 		for (const [email, url] of Object.entries(avatars)) {
 			result[email] = {
 				url: url,
-				onError: (failedUrl, _error) => onError({ [email]: failedUrl }),
+				onError: (failedUrl, _error) => onAvatarError(email, failedUrl),
 			};
 		}
 		return result;
