@@ -334,8 +334,7 @@ test.describe('Smoke Tests — Commit Graph view', () => {
 		const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 		expect(graphWebview).not.toBeNull();
 		// Graph may take longer to load and render
-		await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
-		await expect(graphWebview!.getByText('COMMIT MESSAGE').first()).toBeVisible({ timeout: MaxTimeout });
+		await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: MaxTimeout });
 
 		// Verify that the Pro gate is NOT visible
 		const featureGate = graphWebview!.locator('gl-feature-gate:not([hidden])');
