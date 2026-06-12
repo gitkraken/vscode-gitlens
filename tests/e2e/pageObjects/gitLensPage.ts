@@ -201,8 +201,12 @@ export class GitLensPage extends VSCodePage {
 
 	/** Commit Graph tab in the panel */
 	get commitGraphViewSection(): Locator {
-		// The Graph view shows as a tab in the panel with text content "Graph"
-		return this.panel.locator.locator('text=Graph').first();
+		// When the Commit Graph view is open, its panel toolbar is labelled
+		// "GitLens: Commit Graph: <repo> actions" and stays visible in both the gated (Community)
+		// and loaded (Pro) states. Match that toolbar by accessible name — the panel title <h2>
+		// itself is sr-hidden, and a bare "Graph" text match resolved to the hidden generic
+		// "GitLens: Graph" header.
+		return this.panel.locator.getByRole('toolbar', { name: /Commit Graph/ }).first();
 	}
 
 	/** Commit Graph webview in the panel */
