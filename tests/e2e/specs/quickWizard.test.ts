@@ -69,16 +69,25 @@ const test = base.extend({
 				await git.commit('Feature 1 commit B', 'feature1-b.txt', 'feature 1 content B');
 				await git.checkout('main');
 
-				// Create a worktree for testing worktree-linked branch scenarios
-				// Use a unique path inside the repo's temp directory to avoid conflicts
-				// Retry to handle transient lock file conflicts from VS Code's background git operations
-				const worktreeDir = path.join(repoDir, '..', `worktree-${Date.now()}`);
-				for (let attempt = 0; attempt < 3; attempt++) {
+				// Create a worktree for testing worktree-linked branch scenarios.
+				// Retry to handle transient filesystem errors under parallel load: lock-file conflicts
+				// from VS Code's background git operations and Windows file locking (antivirus/indexing),
+				// which surface as either `index.lock` or `fatal: Could not write new index file`.
+				// Use a FRESH path per attempt — a partial `worktree add` leaves the target directory
+				// behind, so retrying the same path would fail with "already exists" — and prune the
+				// stale admin entry before retrying.
+				const maxAttempts = 5;
+				for (let attempt = 0; attempt < maxAttempts; attempt++) {
+					const worktreeDir = path.join(repoDir, '..', `worktree-${Date.now()}-${attempt}`);
 					try {
 						await git.worktree(worktreeDir, 'feature-with-worktree');
 						break;
 					} catch (ex) {
-						if (attempt < 2 && String(ex).includes('index.lock')) {
+						const message = String(ex);
+						const transient =
+							message.includes('index.lock') || message.includes('Could not write new index file');
+						if (attempt < maxAttempts - 1 && transient) {
+							await git.pruneWorktrees().catch(() => {});
 							await new Promise(resolve => setTimeout(resolve, 1000));
 							continue;
 						}
