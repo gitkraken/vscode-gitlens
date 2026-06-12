@@ -24,6 +24,10 @@ export interface ResolveViewDiffDetail {
 	filePath: string;
 }
 
+export interface ResolveOpenFileDetail {
+	filePath: string;
+}
+
 /** Friendly label + icon for each conflict-tools resolution strategy. `skipped` is a warning —
  *  the file was intentionally left conflicted and still needs manual attention. */
 const strategyDisplay: Record<ConflictResolutionStrategy, { label: string; icon: string; warn?: boolean }> = {
@@ -87,6 +91,42 @@ export class GlDetailsResolveModePanel extends LitElement {
 				text-overflow: ellipsis;
 				white-space: nowrap;
 				flex: 1;
+			}
+
+			/* Idle-state file link — opens the conflicted working-tree file. Mirrors the review
+			   panel's .review-area__file-link affordance (hover background + path underline). */
+			.resolve-file__link {
+				display: flex;
+				align-items: center;
+				gap: 0.4rem;
+				flex: 1;
+				min-width: 0;
+				margin: -0.2rem -0.4rem;
+				padding: 0.2rem 0.4rem;
+				font-size: inherit;
+				font-family: inherit;
+				color: var(--vscode-textLink-foreground);
+				background: transparent;
+				border: none;
+				cursor: pointer;
+				text-align: left;
+				border-radius: 0.2rem;
+			}
+
+			.resolve-file__link:hover {
+				background: var(--vscode-list-hoverBackground);
+			}
+
+			/* Underline only the path text on hover — without this scope, the rule applies to the
+			   whole button and the icon picks up a stray underline at its baseline. */
+			.resolve-file__link:hover .resolve-file__path {
+				text-decoration: underline;
+			}
+
+			.resolve-file__link code-icon {
+				color: var(--vscode-foreground);
+				opacity: 0.7;
+				flex: none;
 			}
 
 			.resolve-file__badge {
@@ -226,8 +266,15 @@ export class GlDetailsResolveModePanel extends LitElement {
 							f =>
 								html`<li class="resolve-file">
 									<div class="resolve-file__head">
-										<code-icon icon="git-merge"></code-icon>
-										<span class="resolve-file__path">${f.path}</span>
+										<button
+											class="resolve-file__link"
+											title="Open file"
+											aria-label="Open ${f.path}"
+											@click=${() => this.emit('resolve-open-file', { filePath: f.path })}
+										>
+											<code-icon icon="git-merge"></code-icon>
+											<span class="resolve-file__path">${f.path}</span>
+										</button>
 									</div>
 								</li>`,
 						)}

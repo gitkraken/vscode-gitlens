@@ -2569,6 +2569,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}}
 			@resolve-view-diff=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveViewDiff(e.detail.filePath)}
+			@resolve-open-file=${(e: CustomEvent<{ filePath: string }>) =>
+				this.handleResolveOpenFile(e.detail.filePath)}
 			@resolve-apply-all=${() => void this._workflow.resolve.applyResolutions()}
 			@resolve-discard=${() => this._workflow.resolve.discard()}
 			@resolve-cancel=${this.handleCancelMode}
@@ -2601,6 +2603,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (file == null) return;
 
 		this._actions.openResolutionDiff(file, resolution.virtualRef);
+	}
+
+	/** Open a conflicted file from the resolve panel's idle list — working tree, so the user can
+	 *  inspect the conflict markers before running an AI resolution. The explicit uncommitted ref
+	 *  routes the host through its WIP fast path (`makeWipRef`), which stays reliable for
+	 *  secondary worktrees where `getCommit(uncommitted)` may not be hydrated. */
+	private handleResolveOpenFile(filePath: string): void {
+		const file = this._state.wip.get()?.changes?.files?.find(f => f.path === filePath);
+		if (file == null) return;
+
+		this._actions.openFile(file, { ref: uncommitted });
 	}
 
 	private handleScopeChange(
