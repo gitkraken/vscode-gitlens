@@ -616,13 +616,18 @@ test.describe('Quick Wizard — Stash Commands', () => {
 		}) => {
 			// The push wizard was reversed (commit "Reverses the stash push wizard"): the confirm
 			// step now precedes the message input to avoid back-navigation loops with confirm overrides.
+			// The confirm step shows because launching via the menu (`gitlens.gitCommands`, no args) makes
+			// `startedFrom === 'menu'`, so the skip key is `stash-push:menu` — not the default-skipped
+			// `stash-push:command`. If `stash-push:menu` is ever added to `gitCommands.skipConfirmations`,
+			// the confirm step vanishes and this test would time out on the (now-absent) confirm step.
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'stash', 'push', {
 				title: /Confirm Push Stash/i,
 				placeholder: /Confirm Push Stash/i,
 			});
 
-			// Select the default "Push Stash" confirmation option (first item)
-			await quickPick.selectItem(/Push Stash/i);
+			// Select the plain "Push Stash" confirmation option (negative lookahead excludes the
+			// "Snapshot" / "& …" variants, so this is order-independent rather than relying on `.first()`)
+			await quickPick.selectItem(/Push Stash(?! Snapshot| &)/);
 
 			// Message step (placeholder distinguishes it from the still-matching "Confirm Push Stash" title)
 			await quickPick.waitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
