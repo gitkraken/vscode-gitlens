@@ -25,6 +25,7 @@ import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
+import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import { ProviderNotSupportedError } from '../../../errors.js';
 import type { FeatureAccess, PlusFeatures } from '../../../features.js';
@@ -835,7 +836,9 @@ export class RepositoryService {
 		options?: { all?: boolean; amend?: boolean },
 	): Promise<CommitResult> {
 		try {
-			await this.container.git.getRepositoryService(repoPath).ops?.commit(message, options);
+			await this.container.git
+				.getRepositoryService(repoPath)
+				.ops?.commit(message, { ...options, source: { source: 'graph' } satisfies Source });
 			return { status: 'committed' };
 		} catch (ex) {
 			const failure = classifyCommitFailure(ex);
