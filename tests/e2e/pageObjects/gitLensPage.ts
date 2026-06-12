@@ -199,7 +199,7 @@ export class GitLensPage extends VSCodePage {
 		return this.panel.getTab('GitLens', true);
 	}
 
-	/** Commit Graph tab in the panel */
+	/** Commit Graph view section in the panel (matched via its panel toolbar) */
 	get commitGraphViewSection(): Locator {
 		// When the Commit Graph view is open, its panel toolbar is labelled
 		// "GitLens: Commit Graph: <repo> actions" and stays visible in both the gated (Community)
