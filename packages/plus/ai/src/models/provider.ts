@@ -47,6 +47,12 @@ export interface AIProvider<Provider extends AIProviders = AIProviders> extends 
 		model: AIModel<Provider>,
 		apiKey: string,
 		getMessages: (maxInputTokens: number, retries: number) => Promise<AIChatMessage[]>,
-		options: { signal: AbortSignal; modelOptions?: { outputTokens?: number; temperature?: number } },
+		options: {
+			signal: AbortSignal;
+			modelOptions?: { outputTokens?: number; temperature?: number };
+			/** Opaque session ID the GitKraken provider sends as `GK-Conversation-ID` so the backend
+			 *  charges its per-feature fee once per session; ignored by all other providers. */
+			conversationId?: string;
+		},
 	): Promise<AIProviderResponse<void> | undefined>;
 }

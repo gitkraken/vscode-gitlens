@@ -29,6 +29,9 @@ export interface ResolveSingleArgs {
 	config?: ResolverConfig;
 	signal?: AbortSignal;
 	onProgress?: (event: ConflictProgressEvent) => void;
+	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
+	 *  flat per-feature fee once per resolution session instead of once per request. */
+	conversationId?: string;
 }
 
 export interface ExtractArgs {
@@ -55,6 +58,9 @@ export interface ResolveAllParallelArgs {
 	onProgress?: (event: ConflictProgressEvent) => void;
 	/** Max resolutions in flight at once. Defaults to {@link ResolveConcurrency}. */
 	concurrency?: number;
+	/** Session-scoped conversation ID forwarded with every AI request so the backend charges its
+	 *  flat per-feature fee once per resolution session instead of once per request. */
+	conversationId?: string;
 }
 
 /** Default max in-flight AI resolutions for the parallel batch path — balances throughput against
@@ -82,7 +88,7 @@ export class ConflictToolsIntegration {
 
 	async resolveSingle(args: ResolveSingleArgs, telemetrySource: Source): Promise<Resolution> {
 		const git = createConflictGitPort(args.svc);
-		const model = createAiModelPort(this.container, telemetrySource);
+		const model = createAiModelPort(this.container, telemetrySource, args.conversationId);
 		return resolveConflict(args.conflict, args.context ?? {}, {
 			git: git,
 			model: model,
@@ -109,7 +115,7 @@ export class ConflictToolsIntegration {
 	 */
 	async resolveAllParallel(args: ResolveAllParallelArgs, telemetrySource: Source): Promise<StepResult> {
 		const git = createConflictGitPort(args.svc);
-		const model = createAiModelPort(this.container, telemetrySource);
+		const model = createAiModelPort(this.container, telemetrySource, args.conversationId);
 		const entries = [...args.entries];
 		const resolutions: Resolution[] = [];
 		const errors: { filePath: string; error: Error }[] = [];
@@ -292,7 +298,7 @@ function createConflictGitPort(svc: GitRepositoryService): ConflictGitPort {
 	};
 }
 
-function createAiModelPort(container: Container, source: Source): ConflictModelPort {
+function createAiModelPort(container: Container, source: Source, conversationId?: string): ConflictModelPort {
 	return {
 		generate: async (params: ConflictModelParams): Promise<ConflictModelResult> => {
 			const cancellationSource = new CancellationTokenSource();
@@ -353,6 +359,7 @@ function createAiModelPort(container: Container, source: Source): ConflictModelP
 					source,
 					{
 						cancellation: cancellationSource.token,
+						conversationId: conversationId,
 						modelOptions: {
 							outputTokens: params.maxTokens,
 							temperature: params.temperature,

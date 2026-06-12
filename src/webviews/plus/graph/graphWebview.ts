@@ -74,6 +74,7 @@ import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
+import { uuid } from '@gitlens/utils/crypto.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
@@ -652,6 +653,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		string,
 		{ resolutions: readonly ConflictToolsResolution[]; sessionId: string }
 	>();
+	/** Per-repo AI conversation ID for the active resolve session — sent with every AI request so
+	 *  the backend charges its flat per-feature fee once per session, across re-runs and per-file
+	 *  retries. Kept separate from {@link _activeResolveSessions} because it must exist before the
+	 *  first AI call and survive a cancelled/failed first run (so a re-run reuses it); cleared with
+	 *  the session in {@link discardResolveSession}. */
+	private readonly _resolveConversationIds = new Map<string, string>();
 	private _computeWorktreeChangesPromise?: Promise<void>;
 	private _pendingWorktreeChanges?: Parameters<typeof getWorktreeHasWorkingChanges>[1][];
 	private _hoverCache = new Map<string, Promise<string>>();
@@ -948,6 +955,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._composeVirtual = undefined;
 		}
 		this._activeResolveSessions.clear();
+		// Flush each conversation's aggregated BYOK usage report (one feature fee per session) so a
+		// webview teardown mid-session doesn't drop it.
+		for (const conversationId of this._resolveConversationIds.values()) {
+			void this.container.ai.flushBYOKUsage(conversationId);
+		}
+		this._resolveConversationIds.clear();
 		if (this._resolveVirtual != null) {
 			this._resolveVirtual.provider.dispose();
 			this._resolveVirtual.registration.dispose();
@@ -996,8 +1009,27 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return this._conflictToolsForGraph;
 	}
 
+	/** Gets the repo's resolve-session AI conversation ID, minting one for a new session. */
+	private getOrCreateResolveConversationId(repoPath: string): string {
+		let conversationId = this._resolveConversationIds.get(repoPath);
+		if (conversationId == null) {
+			conversationId = uuid();
+			this._resolveConversationIds.set(repoPath, conversationId);
+		}
+		return conversationId;
+	}
+
 	/** Drops the cached resolve session for a repo and ends its virtual session (no disk writes). */
 	private discardResolveSession(repoPath: string): void {
+		// The conversation outlives the session entry (it exists from before the first AI call), so
+		// end it before the `session == null` return — a run cancelled before any session entry was
+		// created still needs its BYOK usage flushed (one aggregated report = one feature fee).
+		const conversationId = this._resolveConversationIds.get(repoPath);
+		if (conversationId != null) {
+			this._resolveConversationIds.delete(repoPath);
+			void this.container.ai.flushBYOKUsage(conversationId);
+		}
+
 		const session = this._activeResolveSessions.get(repoPath);
 		if (session == null) return;
 
@@ -2050,6 +2082,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							};
 						}
 
+						// One conversation ID per resolve session — re-runs ("Refine") and per-file
+						// retries reuse it until apply/discard, so the backend's flat per-feature fee
+						// is charged once for the whole session instead of once per AI request.
+						const conversationId = this.getOrCreateResolveConversationId(repoPath);
+
 						// Resolve the conflicted files in a bounded-concurrency pool so one file's failure
 						// is isolated (recorded in `errors`) and the rest still resolve — and they run in
 						// parallel rather than one-at-a-time.
@@ -2060,6 +2097,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								context: context,
 								signal: resolveSignal,
 								onProgress: onProgress,
+								conversationId: conversationId,
 							},
 							{
 								source: 'graph',
@@ -2198,6 +2236,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								conflict: conflict,
 								context: { refs: refs, userGuidance: feedback },
 								signal: resolveSignal,
+								// Same conversation as the run being retried (an active session implies
+								// the ID exists; minting here is just a defensive fallback).
+								conversationId: this.getOrCreateResolveConversationId(repoPath),
 							},
 							{ source: 'graph', detail: 'resolveRetryFile' },
 						);
