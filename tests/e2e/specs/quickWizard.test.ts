@@ -608,27 +608,30 @@ test.describe('Quick Wizard — Tag Commands', () => {
 
 test.describe('Quick Wizard — Stash Commands', () => {
 	test.describe('Stash Push Flow', () => {
-		test('Complete flow: command → subcommand → message & reverse', async ({
+		test('Complete flow: command → subcommand → confirm → message & reverse', async ({
 			vscode,
 			vscode: {
 				gitlens: { quickPick },
 			},
 		}) => {
+			// The push wizard was reversed (commit "Reverses the stash push wizard"): the confirm
+			// step now precedes the message input to avoid back-navigation loops with confirm overrides.
 			await selectCommandSubcommandAndWaitForStepWithOptionalRepo(vscode, 'stash', 'push', {
-				title: /Push Stash/i,
-				placeholder: /Stash message/i,
+				title: /Confirm Push Stash/i,
+				placeholder: /Confirm Push Stash/i,
 			});
 
-			// Enter a stash message
-			await quickPick.enterTextAndSubmit('Test stash message');
+			// Select the default "Push Stash" confirmation option (first item)
+			await quickPick.selectItem(/Push Stash/i);
 
-			// Confirm step
-			await quickPick.waitForStep({ title: /Confirm Push Stash/i });
+			// Message step (placeholder distinguishes it from the still-matching "Confirm Push Stash" title)
+			await quickPick.waitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
 
 			// === REVERSE NAVIGATION ===
+			// Do not submit a message — submitting would execute the stash. Navigate back instead.
 
-			// Back from confirm → message
-			await quickPick.goBackAndWaitForStep({ title: /Push Stash/i, placeholder: /Stash message/i });
+			// Back from message → confirm
+			await quickPick.goBackAndWaitForStep({ title: /Confirm Push Stash/i, placeholder: /Confirm Push Stash/i });
 
 			await reverseCommandSubcommandAndRepo(vscode, 'stash');
 
