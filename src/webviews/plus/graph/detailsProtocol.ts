@@ -17,6 +17,7 @@ export type {
 	Preferences,
 	State,
 	Wip,
+	WipSigning,
 	WipStats,
 	WorkingFileSorting,
 } from '../../commitDetails/protocol.js';
