@@ -282,8 +282,9 @@ export class GlDetailsWipHeader extends LitElement {
 	private computeWipModes(): ('review' | 'compose' | 'resolve')[] {
 		if (!this.aiEnabled) return [];
 		// Surface the Resolve toggle only when the WIP has conflicts (a paused merge/rebase) —
-		// resolve operates on the conflicted-file set, so it's meaningless otherwise.
-		return this.wip?.changes?.hasConflicts ? ['compose', 'review', 'resolve'] : ['compose', 'review'];
+		// resolve operates on the conflicted-file set, so it's meaningless otherwise. It leads
+		// the cluster when present: resolving is the primary action for a conflicted WIP.
+		return this.wip?.changes?.hasConflicts ? ['resolve', 'compose', 'review'] : ['compose', 'review'];
 	}
 
 	private renderBranchStateAction() {

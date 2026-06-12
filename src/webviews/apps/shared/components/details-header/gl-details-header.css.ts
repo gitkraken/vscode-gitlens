@@ -58,7 +58,8 @@ export const detailsHeaderStyles = css`
 	}
 
 	/* Mode-toggle label collapse, staggered right-to-left in display order: Compare yields
-	   first, then Resolve, then Review, then Compose.
+	   first, then Review, then Compose, then Resolve — the (conflict-only) Resolve chip leads
+	   the cluster as the primary action, so it keeps its label longest.
 	   The chip's slotted label is a normal child of <gl-action-chip> in this template,
 	   so we target it via descendant selectors. Hiding the slotted span with display:none
 	   cleanly removes the flex item and its surrounding gap inside the chip — yielding
@@ -66,9 +67,9 @@ export const detailsHeaderStyles = css`
 	   so the selected mode keeps its label visible. Breakpoints leave room for the title
 	   side's WIP stats pill, which takes priority over labels (see
 	   gl-details-wip-header.css.ts); secondary actions never hide.
-	   The (conflict-only) Resolve chip makes the cluster ~one labeled chip wider, so Compare
-	   yields sooner when it's present (the :has()-scoped rule); the later steps then line up
-	   with the 3-chip cascade, since each band holds the same number of labels either way. */
+	   The Resolve chip makes the cluster ~one labeled chip wider, so each step fires one
+	   band sooner when it's present (the :has()-scoped rules) — keeping the same number of
+	   visible labels per band as the 3-chip cascade. */
 	@container gl-action-chip-host (max-width: 560px) {
 		.details-header__actions:has(.mode-toggle--resolve) .mode-toggle--compare .mode-toggle__text {
 			display: none;
@@ -77,19 +78,25 @@ export const detailsHeaderStyles = css`
 
 	@container gl-action-chip-host (max-width: 500px) {
 		.mode-toggle--compare .mode-toggle__text,
-		.mode-toggle--resolve:not(.mode-toggle--active) .mode-toggle__text {
+		.details-header__actions:has(.mode-toggle--resolve)
+			.mode-toggle--review:not(.mode-toggle--active)
+			.mode-toggle__text {
 			display: none;
 		}
 	}
 
 	@container gl-action-chip-host (max-width: 440px) {
-		.mode-toggle--review:not(.mode-toggle--active) .mode-toggle__text {
+		.mode-toggle--review:not(.mode-toggle--active) .mode-toggle__text,
+		.details-header__actions:has(.mode-toggle--resolve)
+			.mode-toggle--compose:not(.mode-toggle--active)
+			.mode-toggle__text {
 			display: none;
 		}
 	}
 
 	@container gl-action-chip-host (max-width: 380px) {
-		.mode-toggle--compose:not(.mode-toggle--active) .mode-toggle__text {
+		.mode-toggle--compose:not(.mode-toggle--active) .mode-toggle__text,
+		.mode-toggle--resolve:not(.mode-toggle--active) .mode-toggle__text {
 			display: none;
 		}
 	}
