@@ -28,6 +28,7 @@
  * Note: Navigation helpers (goBackAndVerify, waitForStep, etc.) are now part of
  * the QuickPick component in tests/e2e/pageObjects/components/quickPick.ts
  */
+import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
@@ -74,11 +75,13 @@ const test = base.extend({
 				// from VS Code's background git operations and Windows file locking (antivirus/indexing),
 				// which surface as either `index.lock` or `fatal: Could not write new index file`.
 				// Use a FRESH path per attempt — a partial `worktree add` leaves the target directory
-				// behind, so retrying the same path would fail with "already exists" — and prune the
-				// stale admin entry before retrying.
+				// behind, so retrying the same path would fail with "already exists". The name embeds the
+				// worker-unique repo dir name (`gltest-e2e-…`) so sibling worktrees can't collide across
+				// workers in the shared temp parent. On failure, remove the orphaned directory and prune
+				// the stale admin entry before retrying.
 				const maxAttempts = 5;
 				for (let attempt = 0; attempt < maxAttempts; attempt++) {
-					const worktreeDir = path.join(repoDir, '..', `worktree-${Date.now()}-${attempt}`);
+					const worktreeDir = path.join(repoDir, '..', `worktree-${path.basename(repoDir)}-${attempt}`);
 					try {
 						await git.worktree(worktreeDir, 'feature-with-worktree');
 						break;
@@ -87,6 +90,7 @@ const test = base.extend({
 						const transient =
 							message.includes('index.lock') || message.includes('Could not write new index file');
 						if (attempt < maxAttempts - 1 && transient) {
+							await fs.rm(worktreeDir, { recursive: true, force: true }).catch(() => {});
 							await git.pruneWorktrees().catch(() => {});
 							await new Promise(resolve => setTimeout(resolve, 1000));
 							continue;
