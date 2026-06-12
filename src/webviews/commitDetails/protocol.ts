@@ -6,6 +6,7 @@ import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperati
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Config, DateStyle } from '../../config.js';
@@ -112,6 +113,13 @@ export interface WipStats {
 	context?: string;
 }
 
+/** Repo-level commit-signing status for the WIP commit box — see {@link Wip.signing}. */
+export interface WipSigning {
+	/** Whether commits will be signed (repo `commit.gpgsign` or the host's `git.enableCommitSigning` override). */
+	enabled: boolean;
+	format: SigningFormat;
+}
+
 export interface Wip {
 	changes: WipChange | undefined;
 	repositoryCount: number;
@@ -133,6 +141,12 @@ export interface Wip {
 	 * rely on it in practice (guard with `?.` for the shared-type contract).
 	 */
 	stats?: WipStats;
+	/**
+	 * Commit-signing status for this wip's repo — drives the "will be signed" indicator in the
+	 * Graph's commit box. Optional for the same reason as {@link Wip.stats}: only the Graph's
+	 * `getWipForRepoAndStats` populates it.
+	 */
+	signing?: WipSigning;
 }
 
 export interface DraftState {
