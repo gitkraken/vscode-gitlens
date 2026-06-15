@@ -1,7 +1,7 @@
 import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
 
-export type SimulatorMode = 'default' | 'slow' | 'invalid' | 'error' | 'cancel';
+export type SimulatorMode = 'default' | 'slow' | 'invalid' | 'error' | 'cancel' | 'quota';
 
 export interface SimulatorInject {
 	readonly action?: AIActionType;

@@ -40,6 +40,12 @@ const simulatorModels: readonly AIModel<'simulator'>[] = [
 		maxTokens: { input: 200000, output: 32000 },
 		provider: simulatorProviderDescriptor,
 	},
+	{
+		id: 'quota',
+		name: 'Simulator: Quota',
+		maxTokens: { input: 200000, output: 32000 },
+		provider: simulatorProviderDescriptor,
+	},
 ];
 
 export class SimulatorProvider implements AIProvider<'simulator'> {
@@ -91,6 +97,13 @@ export class SimulatorProvider implements AIProvider<'simulator'> {
 			throw new AIError(
 				AIErrorReason.RateLimitOrFundsExceeded,
 				new Error('(Simulator) Simulated provider failure for verification'),
+			);
+		}
+
+		if (mode === 'quota') {
+			throw new AIError(
+				AIErrorReason.UserQuotaExceeded,
+				new Error('(Simulator) Simulated weekly AI credit limit reached for verification'),
 			);
 		}
 

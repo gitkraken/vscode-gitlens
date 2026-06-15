@@ -201,6 +201,12 @@ class AISimulatorDebug {
 				iconPath: new ThemeIcon('blank'),
 				item: 'cancel',
 			},
+			{
+				label: 'Quota',
+				description: 'Throws a weekly AI credit-limit error (UserQuotaExceeded)',
+				iconPath: new ThemeIcon('blank'),
+				item: 'quota',
+			},
 		];
 
 		if (this.active != null) {
