@@ -279,6 +279,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a search was performed on the Commit Graph */
 	'graph/searched': GraphSearchedEvent;
 
+	/** Sent when a commit from the Graph's WIP panel succeeds (commit or amend) */
+	'graph/wip/commit/succeeded': GraphWipCommitSucceededEvent;
 	/** Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure) */
 	'graph/wip/commit/failed': GraphWipCommitFailedEvent;
 
@@ -302,6 +304,18 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
 	/** Sent when commit reachability fails to load in Graph Details */
 	'graphDetails/reachability/failed': DetailsReachabilityFailedEvent;
+	/** Sent when the user opens or diffs a file from a real (non-virtual) commit/compare in Graph Details */
+	'graphDetails/file/opened': GraphDetailsFileOpenedEvent;
+	/** Sent when the user changes the base/compare ref in Graph Details compare mode */
+	'graphDetails/compare/refChanged': GraphDetailsCompareRefChangedEvent;
+	/** Sent when the user switches the Ahead/Behind/All tab in Graph Details compare mode */
+	'graphDetails/compare/tabChanged': GraphDetailsCompareTabChangedEvent;
+	/** Sent when the user opens the current comparison in the Search & Compare view */
+	'graphDetails/compare/openedInSearchAndCompare': GraphDetailsCompareOpenedInSearchAndCompareEvent;
+	/** Sent when the user runs AI explain on a comparison in Graph Details */
+	'graphDetails/compare/explain': GraphDetailsCompareExplainEvent;
+	/** Sent when the user generates an AI changelog for a comparison in Graph Details */
+	'graphDetails/compare/generateChangelog': GraphDetailsCompareGenerateChangelogEvent;
 
 	/** Sent when the user enters compose mode in the Graph Details panel */
 	'graphDetails/compose/opened': GraphDetailsComposeLifecycleEvent;
@@ -1319,12 +1333,87 @@ export type GraphWipCommitFailureReason =
 	| 'identityMissing'
 	| 'unknown';
 
-interface GraphWipCommitFailedEvent extends GraphContextEventData {
+/** Shared composition of a WIP commit — attached to both the succeeded and failed events so the
+ *  two form a comparable funnel. Privacy-safe: counts and booleans only, never file paths or message text. */
+type GraphWipCommitEventData = {
+	/** Whether the commit was an amend */
+	amend: boolean;
+	/** Whether smart-commit committed everything (`-a`) because nothing was explicitly staged */
+	all: boolean;
+	/** Whether the `git.enableSmartCommit` preference was on at commit time */
+	smartCommit: boolean;
+	/** Whether any files were staged at commit time */
+	hasStagedFiles: boolean;
+	/** Number of staged files */
+	'files.staged.count': number;
+	/** Total number of changed files in the working tree */
+	'files.total.count': number;
+	/** Length of the commit message (characters, not content) */
+	'message.length': number;
+};
+
+interface GraphWipCommitSucceededEvent extends GraphContextEventData, GraphWipCommitEventData {}
+
+interface GraphWipCommitFailedEvent extends GraphContextEventData, GraphWipCommitEventData {
 	reason: GraphWipCommitFailureReason;
 	/** Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output" */
 	hasOutput: boolean;
-	/** Whether the failed commit was an amend */
-	amend: boolean;
+}
+
+export type GraphDetailsFileAction =
+	| 'open'
+	| 'openOnRemote'
+	| 'compareWorking'
+	| 'comparePrevious'
+	| 'compareWip'
+	| 'compareBetween'
+	| 'defaultAction'
+	| 'multiDiff';
+
+interface GraphDetailsFileOpenedEvent extends GraphContextEventData {
+	/** Which file open/diff operation was triggered */
+	action: GraphDetailsFileAction;
+	/** Number of files opened (1 for single-file actions, N for multiDiff) */
+	'files.count': number;
+}
+
+interface GraphDetailsCompareRefChangedEvent extends GraphContextEventData {
+	/** Which side's ref the user changed (left = Base, right = Compare) */
+	side: 'left' | 'right';
+	/** Whether a new ref was picked (false = picker cancelled) */
+	changed: boolean;
+	/** Type of the newly picked ref (e.g. branch/tag/revision); undefined when cancelled */
+	refType: string | undefined;
+}
+
+interface GraphDetailsCompareTabChangedEvent extends GraphContextEventData {
+	'tab.new': 'all' | 'ahead' | 'behind';
+	'tab.old': 'all' | 'ahead' | 'behind';
+	/** Commits ahead at switch time */
+	'ahead.count': number;
+	/** Commits behind at switch time */
+	'behind.count': number;
+}
+
+interface GraphDetailsCompareOpenedInSearchAndCompareEvent extends GraphContextEventData {
+	tab: 'all' | 'ahead' | 'behind';
+	includeWorkingTree: boolean;
+}
+
+interface GraphDetailsCompareExplainEvent extends GraphContextEventData {
+	/** Single-commit/range compare vs branch-compare tabs */
+	variant: 'compare' | 'branchCompare';
+	/** Whether the user supplied custom guidance */
+	hasCustomPrompt: boolean;
+	/** Active tab driving the diff direction (branch-compare only; undefined otherwise) */
+	tab: 'all' | 'ahead' | 'behind' | undefined;
+	includeWorkingTree: boolean;
+}
+
+interface GraphDetailsCompareGenerateChangelogEvent extends GraphContextEventData {
+	variant: 'compare' | 'branchCompare';
+	tab: 'all' | 'ahead' | 'behind' | undefined;
+	includeWorkingTree: boolean;
 }
 
 interface GraphVirtualFileOpenedEvent extends GraphContextEventData {

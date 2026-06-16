@@ -29,6 +29,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
+	GraphDetailsFileAction,
 	GraphVirtualFileFailureReason,
 	GraphVirtualFileMode,
 	TelemetryEvents,
@@ -1527,6 +1528,12 @@ export class DetailsActions {
 		const toSha = this.toSha(shas, swapped);
 		if (!fromSha || !toSha || !repoPath) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/explain', {
+			variant: 'compare',
+			hasCustomPrompt: (prompt?.length ?? 0) > 0,
+			tab: undefined,
+			includeWorkingTree: false,
+		});
 		this.state.compareExplainBusy.set(true);
 		void this.services.graphInspect.explainCompare(repoPath, fromSha, toSha, prompt).finally(() => {
 			this.state.compareExplainBusy.set(false);
@@ -1539,6 +1546,11 @@ export class DetailsActions {
 		const toSha = this.toSha(shas, swapped);
 		if (!fromSha || !toSha || !repoPath) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/generateChangelog', {
+			variant: 'compare',
+			tab: undefined,
+			includeWorkingTree: false,
+		});
 		this.state.compareGenerateChangelogBusy.set(true);
 		void this.services.graphInspect.generateChangelogCompare(repoPath, fromSha, toSha).finally(() => {
 			this.state.compareGenerateChangelogBusy.set(false);
@@ -1564,6 +1576,12 @@ export class DetailsActions {
 		const refs = this.getCompareAIRefs();
 		if (!repoPath || !refs) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/explain', {
+			variant: 'branchCompare',
+			hasCustomPrompt: (prompt?.length ?? 0) > 0,
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		this.state.compareExplainBusy.set(true);
 		void this.services.graphInspect.explainCompare(repoPath, refs.fromRef, refs.toRef, prompt).finally(() => {
 			this.state.compareExplainBusy.set(false);
@@ -1574,6 +1592,11 @@ export class DetailsActions {
 		const refs = this.getCompareAIRefs();
 		if (!repoPath || !refs) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/generateChangelog', {
+			variant: 'branchCompare',
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		this.state.compareGenerateChangelogBusy.set(true);
 		void this.services.graphInspect.generateChangelogCompare(repoPath, refs.fromRef, refs.toRef).finally(() => {
 			this.state.compareGenerateChangelogBusy.set(false);
@@ -1813,6 +1836,11 @@ export class DetailsActions {
 			currentRef,
 		);
 		if (!result) {
+			this.sendTelemetryEvent('graphDetails/compare/refChanged', {
+				side: side,
+				changed: false,
+				refType: undefined,
+			});
 			// Picker cancelled — restore state for the unchanged identity. For the right side
 			// specifically we already cleared `rightRefWorktreePath` synchronously above, which
 			// hid the IWT toggle. Without this refetch the toggle would stay hidden permanently
@@ -1823,6 +1851,11 @@ export class DetailsActions {
 			return;
 		}
 
+		this.sendTelemetryEvent('graphDetails/compare/refChanged', {
+			side: side,
+			changed: true,
+			refType: result.refType,
+		});
 		// Write both the ref name AND its type so the panel's branch button renders the correct
 		// icon (branch / tag / commit) after the pick — previously only the name was updated, so
 		// picking a tag when a branch was set kept the branch icon next to the new tag name.
@@ -1847,6 +1880,10 @@ export class DetailsActions {
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!leftRef || !rightRef) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/openedInSearchAndCompare', {
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		// S&C's `compare(repoPath, ref1, ref2)` contract is `(head/Compare, compareWith/Base)`
 		// (see `searchAndCompareView.compare` + `selectForCompare` flow). Our convention is the
 		// opposite — `leftRef = Base, rightRef = Compare`. Swap on the wire so the S&C node opens
@@ -1901,6 +1938,15 @@ export class DetailsActions {
 	}
 
 	switchCompareTab(tab: 'all' | 'ahead' | 'behind', repoPath: string | undefined): void {
+		const previousTab = this.state.branchCompareActiveTab.get();
+		if (previousTab !== tab) {
+			this.sendTelemetryEvent('graphDetails/compare/tabChanged', {
+				'tab.new': tab,
+				'tab.old': previousTab,
+				'ahead.count': this.state.branchCompareAheadCount.get(),
+				'behind.count': this.state.branchCompareBehindCount.get(),
+			});
+		}
 		this.state.branchCompareActiveTab.set(tab);
 		// Re-validate counts/all-files/mergeBase on every tab switch — if the underlying repo
 		// changed since the last fetch (a new commit landed, a fetch ran, a branch was rebased),
@@ -2586,27 +2632,39 @@ export class DetailsActions {
 		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
+	/** Emits the real-commit/compare file open/diff engagement signal. The virtual-FS opens
+	 *  (compose/resolve proposed commits) are tracked separately via {@link runVirtualFileOpen}. */
+	private trackFileOpened(action: GraphDetailsFileAction, filesCount = 1): void {
+		this.sendTelemetryEvent('graphDetails/file/opened', { action: action, 'files.count': filesCount });
+	}
+
 	openFile(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('open');
 		fileActions.openFile(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileOnRemote(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('openOnRemote');
 		fileActions.openFileOnRemote(this.services.files, detail, ref);
 	}
 
 	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('compareWorking');
 		fileActions.openFileCompareWorking(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('comparePrevious');
 		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileCompareWipChanges(detail: FileChangeListItemDetail): void {
+		this.trackFileOpened('compareWip');
 		fileActions.openFileCompareWipChanges(this.services.files, detail, detail.showOptions);
 	}
 
 	openFileCompareBetween(detail: FileChangeListItemDetail, fromRef?: string, toRef?: string): void {
+		this.trackFileOpened('compareBetween');
 		fileActions.openFileCompareBetween(this.services.files, detail, detail.showOptions, fromRef, toRef);
 	}
 
@@ -2665,10 +2723,12 @@ export class DetailsActions {
 	}
 
 	executeFileAction(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('defaultAction');
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openMultipleChanges(args: OpenMultipleChangesArgs): void {
+		this.trackFileOpened('multiDiff', args.files.length);
 		fileActions.openMultipleChanges(this.services.files, args);
 	}
 
@@ -2940,6 +3000,19 @@ export class DetailsActions {
 
 		const all = !hasStagedFiles && smartCommit;
 
+		// Shared commit composition — emitted on both success and failure so they form a
+		// comparable funnel. Privacy-safe: counts/booleans + message length only.
+		const files = wip?.changes?.files;
+		const composition = {
+			amend: isAmend,
+			all: all,
+			smartCommit: smartCommit,
+			hasStagedFiles: hasStagedFiles,
+			'files.staged.count': files?.filter(f => f.staged).length ?? 0,
+			'files.total.count': files?.length ?? 0,
+			'message.length': message?.length ?? 0,
+		};
+
 		// Clear any prior error and enter the in-flight state (spinner + input lock).
 		this.state.commitError.set(undefined);
 		this.state.committing.set(true);
@@ -2958,13 +3031,14 @@ export class DetailsActions {
 				this.optimisticallyClearCommittedFiles(all);
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath);
+				this.sendTelemetryEvent('graph/wip/commit/succeeded', composition);
 			} else {
 				// Message + amend are intentionally preserved so the user can fix and retry.
 				this.state.commitError.set(result.summary);
 				this.sendTelemetryEvent('graph/wip/commit/failed', {
+					...composition,
 					reason: result.reason,
 					hasOutput: result.hasOutput,
-					amend: isAmend,
 				});
 			}
 		} finally {
