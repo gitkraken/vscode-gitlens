@@ -3034,7 +3034,9 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  // Whether the failed commit was an amend
+  // Whether smart-commit committed everything (`-a`) because nothing was explicitly staged
+  'all': boolean,
+  // Whether the commit was an amend
   'amend': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
@@ -3045,9 +3047,51 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  // Number of staged files
+  'files.staged.count': number,
+  // Total number of changed files in the working tree
+  'files.total.count': number,
   // Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output"
   'hasOutput': boolean,
-  'reason': 'unknown' | 'hookRejected' | 'signingFailed' | 'nothingToCommit' | 'conflicts' | 'identityMissing'
+  // Whether any files were staged at commit time
+  'hasStagedFiles': boolean,
+  // Length of the commit message (characters, not content)
+  'message.length': number,
+  'reason': 'unknown' | 'hookRejected' | 'signingFailed' | 'nothingToCommit' | 'conflicts' | 'identityMissing',
+  // Whether the `git.enableSmartCommit` preference was on at commit time
+  'smartCommit': boolean
+}
+```
+
+### graph/wip/commit/succeeded
+
+> Sent when a commit from the Graph's WIP panel succeeds (commit or amend)
+
+```typescript
+{
+  // Whether smart-commit committed everything (`-a`) because nothing was explicitly staged
+  'all': boolean,
+  // Whether the commit was an amend
+  'amend': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of staged files
+  'files.staged.count': number,
+  // Total number of changed files in the working tree
+  'files.total.count': number,
+  // Whether any files were staged at commit time
+  'hasStagedFiles': boolean,
+  // Length of the commit message (characters, not content)
+  'message.length': number,
+  // Whether the `git.enableSmartCommit` preference was on at commit time
+  'smartCommit': boolean
 }
 ```
 
@@ -3061,6 +3105,120 @@ background-upgraded the extension while the host kept running the old build
   'duration': number,
   // Active panel mode at time of close
   'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none'
+}
+```
+
+### graphDetails/compare/explain
+
+> Sent when the user runs AI explain on a comparison in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  'includeWorkingTree': boolean,
+  // Active tab driving the diff direction (branch-compare only; undefined otherwise)
+  'tab': 'all' | 'ahead' | 'behind',
+  // Single-commit/range compare vs branch-compare tabs
+  'variant': 'compare' | 'branchCompare'
+}
+```
+
+### graphDetails/compare/generateChangelog
+
+> Sent when the user generates an AI changelog for a comparison in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'includeWorkingTree': boolean,
+  'tab': 'all' | 'ahead' | 'behind',
+  'variant': 'compare' | 'branchCompare'
+}
+```
+
+### graphDetails/compare/openedInSearchAndCompare
+
+> Sent when the user opens the current comparison in the Search & Compare view
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'includeWorkingTree': boolean,
+  'tab': 'all' | 'ahead' | 'behind'
+}
+```
+
+### graphDetails/compare/refChanged
+
+> Sent when the user changes the base/compare ref in Graph Details compare mode
+
+```typescript
+{
+  // Whether a new ref was picked (false = picker cancelled)
+  'changed': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Type of the newly picked ref (e.g. branch/tag/revision); undefined when cancelled
+  'refType': string,
+  // Which side's ref the user changed (left = Base, right = Compare)
+  'side': 'right' | 'left'
+}
+```
+
+### graphDetails/compare/tabChanged
+
+> Sent when the user switches the Ahead/Behind/All tab in Graph Details compare mode
+
+```typescript
+{
+  // Commits ahead at switch time
+  'ahead.count': number,
+  // Commits behind at switch time
+  'behind.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'tab.new': 'all' | 'ahead' | 'behind',
+  'tab.old': 'all' | 'ahead' | 'behind'
 }
 ```
 
@@ -3329,6 +3487,28 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
+}
+```
+
+### graphDetails/file/opened
+
+> Sent when the user opens or diffs a file from a real (non-virtual) commit/compare in Graph Details
+
+```typescript
+{
+  // Which file open/diff operation was triggered
+  'action': 'comparePrevious' | 'multiDiff' | 'open' | 'openOnRemote' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of files opened (1 for single-file actions, N for multiDiff)
+  'files.count': number
 }
 ```
 
