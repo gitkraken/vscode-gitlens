@@ -113,6 +113,9 @@ function createServices(overrides?: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 		},
+		telemetry: {
+			sendEvent: () => Promise.resolve(),
+		},
 	} as unknown as ResolvedServices;
 }
 
@@ -1358,6 +1361,9 @@ function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
 						reject: reject,
 					});
 				}),
+		},
+		telemetry: {
+			sendEvent: () => Promise.resolve(),
 		},
 	} as unknown as ResolvedServices;
 }

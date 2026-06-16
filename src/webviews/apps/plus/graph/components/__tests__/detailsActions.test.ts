@@ -49,6 +49,9 @@ function createServices(commitCompose?: (repoPath: string, plan: unknown) => Pro
 		graphInspect: {
 			commitCompose: commitCompose ?? (async () => ({ success: true })),
 		},
+		telemetry: {
+			sendEvent: () => Promise.resolve(),
+		},
 	} as unknown as ResolvedServices;
 }
 
@@ -333,6 +336,9 @@ suite('DetailsActions', () => {
 				// observe the synchronous clear that happens BEFORE chooseRef is awaited.
 				chooseRef: async () => undefined,
 				commitCompose: async () => ({ success: true }),
+			},
+			telemetry: {
+				sendEvent: () => Promise.resolve(),
 			},
 		} as unknown as ResolvedServices;
 		const actions = new DetailsActions(state, services, createResources());
