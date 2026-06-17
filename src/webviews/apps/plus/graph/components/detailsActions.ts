@@ -15,6 +15,7 @@
  *   for a commit/WIP that has since been replaced by a newer fetch
  */
 import type { Remote } from '@eamodio/supertalk';
+import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -28,6 +29,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
+	GraphDetailsFileAction,
 	GraphVirtualFileFailureReason,
 	GraphVirtualFileMode,
 	TelemetryEvents,
@@ -71,6 +73,27 @@ import type { DetailsState } from './detailsState.js';
 import type { ScopeItem } from './gl-commits-scope-pane.js';
 
 /** Structural equality for `ScopeSelection`. Used to avoid redundant signal sets and RPC fetches. */
+/** Severity histogram of an AI review's findings. Used by graph-details review telemetry. */
+export function countReviewFindingSeverities(findings: readonly AIReviewFinding[] | undefined): {
+	critical: number;
+	warning: number;
+	suggestion: number;
+} {
+	const counts = { critical: 0, warning: 0, suggestion: 0 };
+	if (findings == null) return counts;
+
+	for (const f of findings) {
+		if (f.severity === 'critical') {
+			counts.critical++;
+		} else if (f.severity === 'warning') {
+			counts.warning++;
+		} else if (f.severity === 'suggestion') {
+			counts.suggestion++;
+		}
+	}
+	return counts;
+}
+
 export function scopeSelectionEqual(a: ScopeSelection | undefined, b: ScopeSelection | undefined): boolean {
 	if (a === b) return true;
 	if (a == null || b == null) return false;
@@ -219,6 +242,46 @@ export class DetailsActions {
 		data?: Record<string, string | number | boolean | undefined>,
 	): void {
 		fireAndForget(this.services.telemetry.sendEvent(name, data));
+	}
+
+	/** Builds the shared scope/AI/instructions payload for graph-details mode telemetry events.
+	 *  Privacy-safe: emits only counts, booleans, and AI model identifiers — never paths or content. */
+	buildModeTelemetryContext(
+		instructions: string | undefined,
+		excludedFilesCount: number,
+		effectiveFilesCount: number,
+	): Record<string, string | number | boolean | undefined> {
+		const scope = this.state.scope.get();
+		const aiModel = this.state.aiModel.get();
+		const promptLength = instructions?.length ?? 0;
+
+		const data: Record<string, string | number | boolean | undefined> = {
+			'scope.type': scope?.type,
+			'scope.includeStaged': scope?.type === 'wip' ? scope.includeStaged : undefined,
+			'scope.includeUnstaged': scope?.type === 'wip' ? scope.includeUnstaged : undefined,
+			'scope.commits.count':
+				scope?.type === 'wip' || scope?.type === 'compare' ? (scope.includeShas?.length ?? 0) : 0,
+			'scope.files.count': effectiveFilesCount,
+			'scope.files.excluded.count': excludedFilesCount,
+			'customInstructions.used': promptLength > 0,
+			'customInstructions.length': promptLength,
+			'ai.model.id': aiModel?.id,
+			'ai.model.name': aiModel?.name,
+			'ai.model.provider.id': aiModel?.provider.id,
+			'ai.model.provider.name': aiModel?.provider.name,
+		};
+		return data;
+	}
+
+	/** Builds just the AI-model fields — for events that don't carry full scope context (focus area). */
+	buildAIModelTelemetryContext(): Record<string, string | undefined> {
+		const aiModel = this.state.aiModel.get();
+		return {
+			'ai.model.id': aiModel?.id,
+			'ai.model.name': aiModel?.name,
+			'ai.model.provider.id': aiModel?.provider.id,
+			'ai.model.provider.name': aiModel?.provider.name,
+		};
 	}
 
 	private clearCompareCore(): void {
@@ -590,10 +653,32 @@ export class DetailsActions {
 		// model selection and avoids re-implementing the picker in the webview.
 		// `scope` (set by the caller from the active mode) lets the compose / review chips
 		// persist to their own Memento key without mutating the global default.
-		void this.services.commands.execute('gitlens.ai.switchProvider', {
-			source: 'graph-details' as const,
-			scope: scope,
-		});
+		const previous = this.state.aiModel.get();
+		void (async () => {
+			await this.services.commands.execute('gitlens.ai.switchProvider', {
+				source: 'graph-details' as const,
+				scope: scope,
+			});
+
+			// Only the scoped (compose/review) chips emit a change event. The command resolves
+			// after the picker persists the selection, so read the scoped model directly rather
+			// than racing the async `onModelChanged` → `refreshScopedAiModel` that updates state.
+			if (scope == null) return;
+
+			const current = await this.services.ai.getModel(scope);
+			if (current?.id === previous?.id && current?.provider.id === previous?.provider.id) return;
+
+			this.sendTelemetryEvent(`graphDetails/${scope}/changeAiModel`, {
+				'ai.model.id': current?.id,
+				'ai.model.name': current?.name,
+				'ai.model.provider.id': current?.provider.id,
+				'ai.model.provider.name': current?.provider.name,
+				'ai.model.previous.id': previous?.id,
+				'ai.model.previous.name': previous?.name,
+				'ai.model.previous.provider.id': previous?.provider.id,
+				'ai.model.previous.provider.name': previous?.provider.name,
+			});
+		})();
 	}
 
 	/**
@@ -1443,6 +1528,12 @@ export class DetailsActions {
 		const toSha = this.toSha(shas, swapped);
 		if (!fromSha || !toSha || !repoPath) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/explain', {
+			variant: 'compare',
+			hasCustomPrompt: (prompt?.length ?? 0) > 0,
+			tab: undefined,
+			includeWorkingTree: false,
+		});
 		this.state.compareExplainBusy.set(true);
 		void this.services.graphInspect.explainCompare(repoPath, fromSha, toSha, prompt).finally(() => {
 			this.state.compareExplainBusy.set(false);
@@ -1455,6 +1546,11 @@ export class DetailsActions {
 		const toSha = this.toSha(shas, swapped);
 		if (!fromSha || !toSha || !repoPath) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/generateChangelog', {
+			variant: 'compare',
+			tab: undefined,
+			includeWorkingTree: false,
+		});
 		this.state.compareGenerateChangelogBusy.set(true);
 		void this.services.graphInspect.generateChangelogCompare(repoPath, fromSha, toSha).finally(() => {
 			this.state.compareGenerateChangelogBusy.set(false);
@@ -1480,6 +1576,12 @@ export class DetailsActions {
 		const refs = this.getCompareAIRefs();
 		if (!repoPath || !refs) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/explain', {
+			variant: 'branchCompare',
+			hasCustomPrompt: (prompt?.length ?? 0) > 0,
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		this.state.compareExplainBusy.set(true);
 		void this.services.graphInspect.explainCompare(repoPath, refs.fromRef, refs.toRef, prompt).finally(() => {
 			this.state.compareExplainBusy.set(false);
@@ -1490,6 +1592,11 @@ export class DetailsActions {
 		const refs = this.getCompareAIRefs();
 		if (!repoPath || !refs) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/generateChangelog', {
+			variant: 'branchCompare',
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		this.state.compareGenerateChangelogBusy.set(true);
 		void this.services.graphInspect.generateChangelogCompare(repoPath, refs.fromRef, refs.toRef).finally(() => {
 			this.state.compareGenerateChangelogBusy.set(false);
@@ -1729,6 +1836,11 @@ export class DetailsActions {
 			currentRef,
 		);
 		if (!result) {
+			this.sendTelemetryEvent('graphDetails/compare/refChanged', {
+				side: side,
+				changed: false,
+				refType: undefined,
+			});
 			// Picker cancelled — restore state for the unchanged identity. For the right side
 			// specifically we already cleared `rightRefWorktreePath` synchronously above, which
 			// hid the IWT toggle. Without this refetch the toggle would stay hidden permanently
@@ -1739,6 +1851,11 @@ export class DetailsActions {
 			return;
 		}
 
+		this.sendTelemetryEvent('graphDetails/compare/refChanged', {
+			side: side,
+			changed: true,
+			refType: result.refType,
+		});
 		// Write both the ref name AND its type so the panel's branch button renders the correct
 		// icon (branch / tag / commit) after the pick — previously only the name was updated, so
 		// picking a tag when a branch was set kept the branch icon next to the new tag name.
@@ -1763,6 +1880,10 @@ export class DetailsActions {
 		const rightRef = this.state.branchCompareRightRef.get();
 		if (!leftRef || !rightRef) return;
 
+		this.sendTelemetryEvent('graphDetails/compare/openedInSearchAndCompare', {
+			tab: this.state.branchCompareActiveTab.get(),
+			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
+		});
 		// S&C's `compare(repoPath, ref1, ref2)` contract is `(head/Compare, compareWith/Base)`
 		// (see `searchAndCompareView.compare` + `selectForCompare` flow). Our convention is the
 		// opposite — `leftRef = Base, rightRef = Compare`. Swap on the wire so the S&C node opens
@@ -1817,6 +1938,15 @@ export class DetailsActions {
 	}
 
 	switchCompareTab(tab: 'all' | 'ahead' | 'behind', repoPath: string | undefined): void {
+		const previousTab = this.state.branchCompareActiveTab.get();
+		if (previousTab !== tab) {
+			this.sendTelemetryEvent('graphDetails/compare/tabChanged', {
+				'tab.new': tab,
+				'tab.old': previousTab,
+				'ahead.count': this.state.branchCompareAheadCount.get(),
+				'behind.count': this.state.branchCompareBehindCount.get(),
+			});
+		}
 		this.state.branchCompareActiveTab.set(tab);
 		// Re-validate counts/all-files/mergeBase on every tab switch — if the underlying repo
 		// changed since the last fetch (a new commit landed, a fetch ran, a branch was rebased),
@@ -2502,27 +2632,39 @@ export class DetailsActions {
 		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
+	/** Emits the real-commit/compare file open/diff engagement signal. The virtual-FS opens
+	 *  (compose/resolve proposed commits) are tracked separately via {@link runVirtualFileOpen}. */
+	private trackFileOpened(action: GraphDetailsFileAction, filesCount = 1): void {
+		this.sendTelemetryEvent('graphDetails/file/opened', { action: action, 'files.count': filesCount });
+	}
+
 	openFile(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('open');
 		fileActions.openFile(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileOnRemote(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('openOnRemote');
 		fileActions.openFileOnRemote(this.services.files, detail, ref);
 	}
 
 	openFileCompareWorking(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('compareWorking');
 		fileActions.openFileCompareWorking(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileComparePrevious(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('comparePrevious');
 		fileActions.openFileComparePrevious(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openFileCompareWipChanges(detail: FileChangeListItemDetail): void {
+		this.trackFileOpened('compareWip');
 		fileActions.openFileCompareWipChanges(this.services.files, detail, detail.showOptions);
 	}
 
 	openFileCompareBetween(detail: FileChangeListItemDetail, fromRef?: string, toRef?: string): void {
+		this.trackFileOpened('compareBetween');
 		fileActions.openFileCompareBetween(this.services.files, detail, detail.showOptions, fromRef, toRef);
 	}
 
@@ -2581,10 +2723,12 @@ export class DetailsActions {
 	}
 
 	executeFileAction(detail: FileChangeListItemDetail, ref?: { ref: string; stash?: boolean }): void {
+		this.trackFileOpened('defaultAction');
 		fileActions.executeFileAction(this.services.files, detail, detail.showOptions, ref);
 	}
 
 	openMultipleChanges(args: OpenMultipleChangesArgs): void {
+		this.trackFileOpened('multiDiff', args.files.length);
 		fileActions.openMultipleChanges(this.services.files, args);
 	}
 
@@ -2856,6 +3000,19 @@ export class DetailsActions {
 
 		const all = !hasStagedFiles && smartCommit;
 
+		// Shared commit composition — emitted on both success and failure so they form a
+		// comparable funnel. Privacy-safe: counts/booleans + message length only.
+		const files = wip?.changes?.files;
+		const composition = {
+			amend: isAmend,
+			all: all,
+			smartCommit: smartCommit,
+			hasStagedFiles: hasStagedFiles,
+			'files.staged.count': files?.filter(f => f.staged).length ?? 0,
+			'files.total.count': files?.length ?? 0,
+			'message.length': message?.length ?? 0,
+		};
+
 		// Clear any prior error and enter the in-flight state (spinner + input lock).
 		this.state.commitError.set(undefined);
 		this.state.committing.set(true);
@@ -2874,13 +3031,14 @@ export class DetailsActions {
 				this.optimisticallyClearCommittedFiles(all);
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath);
+				this.sendTelemetryEvent('graph/wip/commit/succeeded', composition);
 			} else {
 				// Message + amend are intentionally preserved so the user can fix and retry.
 				this.state.commitError.set(result.summary);
 				this.sendTelemetryEvent('graph/wip/commit/failed', {
+					...composition,
 					reason: result.reason,
 					hasOutput: result.hasOutput,
-					amend: isAmend,
 				});
 			}
 		} finally {

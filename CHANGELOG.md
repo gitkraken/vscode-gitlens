@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [18.2.0] - 2026-06-15
+
+### Added
+
+- Introduces AI-powered conflict resolution (Preview) &mdash; a new **Resolve** mode in the _Commit Graph_ WIP details panel that uses AI to resolve merge, rebase, and cherry-pick conflicts ([#5306](https://github.com/gitkraken/vscode-gitlens/issues/5306))
+  - Resolves conflicted files in parallel with streamed progress, proposing a per-file resolution (merged, kept current, took incoming, deleted, or flagged as needs review) that you review as a diff before anything is applied
+  - Adds the ability to refine the whole run with a prompt, give per-file feedback to re-resolve a single file, and apply or discard the proposed resolutions
+  - Adds entry points across GitLens: a **Resolve** action on the WIP details header and the paused-operation banner, _Commit Graph_ context menus and WIP row buttons (all conflicts or selected files), the **Resolve Conflicts with AI** Command Palette command, and a **Resolve Conflict with AI** action on individual conflicted files in the sidebar views
+  - Adds clickable file links in the resolve panel that open a conflicted working-tree file so you can inspect it before resolving
+
+### Changed
+
+- Changes the working changes (WIP) details header to lead with the _Resolve_ action when conflicts are present, ahead of _Compose_, _Review_, and _Compare_
+- Updates the design and readbility of the Pro feature gates (e.g. _Commit Graph_, _Visual History_) &mdash; with an optional _Switch Repos_ action to move to a repository where the feature is available ([#5335](https://github.com/gitkraken/vscode-gitlens/issues/5335))
+- Improves the AI weekly usage-limit message with a _Get More Credits_ action to purchase additional AI credits for users who can buy credits, or guidance to contact an org admin for those who can't ([#5298](https://github.com/gitkraken/vscode-gitlens/issues/5298))
+
 ## [18.1.0] - 2026-06-09
 
 ### Added
@@ -6980,7 +6996,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...HEAD
+[18.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...gitkraken:v18.2.0
 [18.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.0.0...gitkraken:v18.1.0
 [18.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.2...gitkraken:v18.0.0
 [17.12.2]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.1...gitkraken:v17.12.2

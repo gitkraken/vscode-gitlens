@@ -3,7 +3,6 @@ import type { AIActionType } from '@gitlens/ai/models/model.js';
 import type { GitContributionTiers } from '@gitlens/git/models/contributor.js';
 import type { Flatten } from '@gitlens/utils/object.js';
 import type { Config, GraphBranchesVisibility, GraphConfig } from './config.js';
-import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { GlCommands, GlCommandsDeprecated } from './constants.commands.js';
 import type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.integrations.js';
 import type { WalkthroughSteps } from './constants.js';
@@ -18,6 +17,7 @@ import type {
 import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
 import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.js';
+import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
 import type { TimelinePeriod, TimelineScopeType, TimelineSliceBy } from './webviews/plus/timeline/protocol.js';
@@ -279,6 +279,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a search was performed on the Commit Graph */
 	'graph/searched': GraphSearchedEvent;
 
+	/** Sent when a commit from the Graph's WIP panel succeeds (commit or amend) */
+	'graph/wip/commit/succeeded': GraphWipCommitSucceededEvent;
 	/** Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure) */
 	'graph/wip/commit/failed': GraphWipCommitFailedEvent;
 
@@ -302,6 +304,77 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
 	/** Sent when commit reachability fails to load in Graph Details */
 	'graphDetails/reachability/failed': DetailsReachabilityFailedEvent;
+	/** Sent when the user opens or diffs a file from a real (non-virtual) commit/compare in Graph Details */
+	'graphDetails/file/opened': GraphDetailsFileOpenedEvent;
+	/** Sent when the user changes the base/compare ref in Graph Details compare mode */
+	'graphDetails/compare/refChanged': GraphDetailsCompareRefChangedEvent;
+	/** Sent when the user switches the Ahead/Behind/All tab in Graph Details compare mode */
+	'graphDetails/compare/tabChanged': GraphDetailsCompareTabChangedEvent;
+	/** Sent when the user opens the current comparison in the Search & Compare view */
+	'graphDetails/compare/openedInSearchAndCompare': GraphDetailsCompareOpenedInSearchAndCompareEvent;
+	/** Sent when the user runs AI explain on a comparison in Graph Details */
+	'graphDetails/compare/explain': GraphDetailsCompareExplainEvent;
+	/** Sent when the user generates an AI changelog for a comparison in Graph Details */
+	'graphDetails/compare/generateChangelog': GraphDetailsCompareGenerateChangelogEvent;
+
+	/** Sent when the user enters compose mode in the Graph Details panel */
+	'graphDetails/compose/opened': GraphDetailsComposeLifecycleEvent;
+	/** Sent when the user exits compose mode in the Graph Details panel (toggled off or destroyed) */
+	'graphDetails/compose/closed': GraphDetailsComposeLifecycleEvent;
+	/** Sent when the user restarts a completed compose run (Back from result) */
+	'graphDetails/compose/restarted': GraphDetailsComposeLifecycleEvent;
+	/** Sent when a compose plan generation completes successfully (initial or refine/recompose) */
+	'graphDetails/compose/generatePlan/completed': GraphDetailsComposeGeneratePlanCompletedEvent;
+	/** Sent when a compose plan generation is cancelled (user-clicked Cancel or host-side abort) */
+	'graphDetails/compose/generatePlan/cancelled': GraphDetailsComposeGeneratePlanLifecycleEvent;
+	/** Sent when a compose plan generation fails */
+	'graphDetails/compose/generatePlan/failed': GraphDetailsComposeGeneratePlanLifecycleEvent;
+	/** Sent when a compose plan is applied (commits created) successfully */
+	'graphDetails/compose/applyPlan/completed': GraphDetailsComposeApplyPlanEvent;
+	/** Sent when applying a compose plan fails */
+	'graphDetails/compose/applyPlan/failed': GraphDetailsComposeApplyPlanEvent;
+	/** Sent when the user switches the AI model from the compose-mode chip in the Graph Details panel */
+	'graphDetails/compose/changeAiModel': GraphDetailsChangeAiModelEvent;
+
+	/** Sent when the user enters review mode in the Graph Details panel */
+	'graphDetails/review/opened': GraphDetailsReviewLifecycleEvent;
+	/** Sent when the user exits review mode in the Graph Details panel (toggled off or destroyed) */
+	'graphDetails/review/closed': GraphDetailsReviewLifecycleEvent;
+	/** Sent when the user restarts a completed review (Back from result) */
+	'graphDetails/review/restarted': GraphDetailsReviewLifecycleEvent;
+	/** Sent when a review generation completes successfully */
+	'graphDetails/review/generateReview/completed': GraphDetailsReviewGenerateReviewCompletedEvent;
+	/** Sent when a review generation is cancelled (user-clicked Cancel or host-side abort) */
+	'graphDetails/review/generateReview/cancelled': GraphDetailsReviewGenerateReviewLifecycleEvent;
+	/** Sent when a review generation fails */
+	'graphDetails/review/generateReview/failed': GraphDetailsReviewGenerateReviewLifecycleEvent;
+	/** Sent when a per-focus-area review (two-pass) generation completes successfully */
+	'graphDetails/review/generateFocusArea/completed': GraphDetailsReviewGenerateFocusAreaCompletedEvent;
+	/** Sent when a per-focus-area review (two-pass) generation fails */
+	'graphDetails/review/generateFocusArea/failed': GraphDetailsReviewGenerateFocusAreaFailedEvent;
+	/** Sent when the user copies all or part of a review to clipboard */
+	'graphDetails/review/copied': GraphDetailsReviewActionEvent;
+	/** Sent when the user sends all or part of a review to an AI agent */
+	'graphDetails/review/sentToAgent': GraphDetailsReviewActionEvent;
+	/** Sent when the user switches the AI model from the review-mode chip in the Graph Details panel */
+	'graphDetails/review/changeAiModel': GraphDetailsChangeAiModelEvent;
+
+	/** Sent when the user enters resolve (AI conflict-resolution) mode in the Graph Details panel */
+	'graphDetails/resolve/opened': GraphDetailsResolveLifecycleEvent;
+	/** Sent when the user exits resolve mode in the Graph Details panel (toggled off or destroyed) */
+	'graphDetails/resolve/closed': GraphDetailsResolveLifecycleEvent;
+	/** Sent when an AI conflict-resolution run completes successfully (initial or refine/retry) */
+	'graphDetails/resolve/generateResolutions/completed': GraphDetailsResolveGenerateCompletedEvent;
+	/** Sent when an AI conflict-resolution run is cancelled (user-clicked Cancel or host-side abort) */
+	'graphDetails/resolve/generateResolutions/cancelled': GraphDetailsResolveGenerateLifecycleEvent;
+	/** Sent when an AI conflict-resolution run fails */
+	'graphDetails/resolve/generateResolutions/failed': GraphDetailsResolveGenerateLifecycleEvent;
+	/** Sent when AI conflict resolutions are applied to the working tree successfully */
+	'graphDetails/resolve/applyResolutions/completed': GraphDetailsResolveApplyEvent;
+	/** Sent when applying AI conflict resolutions fails */
+	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyEvent;
+	/** Sent when the user discards pending AI conflict resolutions without applying them */
+	'graphDetails/resolve/discarded': GraphDetailsResolveDiscardedEvent;
 
 	/** Sent when a Home command is executed */
 	'home/command': CommandEventData;
@@ -944,6 +1017,174 @@ interface GraphDetailsModeChangedEvent extends GraphContextEventData {
 	'mode.new': GraphDetailsMode;
 }
 
+type GraphDetailsScopeEventData = {
+	/** Scope type at the time of the event */
+	'scope.type': 'wip' | 'commit' | 'compare';
+	/** Whether staged changes were included (wip scope only) */
+	'scope.includeStaged': boolean | undefined;
+	/** Whether unstaged changes were included (wip scope only) */
+	'scope.includeUnstaged': boolean | undefined;
+	/** Number of commits included in the scope */
+	'scope.commits.count': number;
+	/** Effective number of files in the scope (post AI-ignore, pre user-exclusion) */
+	'scope.files.count': number;
+	/** Number of files the user has excluded from the scope */
+	'scope.files.excluded.count': number;
+};
+
+type GraphDetailsAIModelEventData = {
+	'ai.model.id': string | undefined;
+	'ai.model.name': string | undefined;
+	'ai.model.provider.id': AIProviders | undefined;
+	'ai.model.provider.name': string | undefined;
+};
+
+type GraphDetailsInstructionsEventData = {
+	'customInstructions.used': boolean;
+	'customInstructions.length': number;
+};
+
+interface GraphDetailsComposeLifecycleEvent extends GraphContextEventData {}
+
+interface GraphDetailsComposeGeneratePlanLifecycleEvent
+	extends
+		GraphContextEventData,
+		GraphDetailsScopeEventData,
+		GraphDetailsInstructionsEventData,
+		GraphDetailsAIModelEventData {
+	/** True when this generation refined a prior plan; false on the initial compose */
+	refine: boolean;
+	/** Time from dispatch to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeGeneratePlanCompletedEvent extends GraphDetailsComposeGeneratePlanLifecycleEvent {
+	/** Number of proposed commits in the resulting plan */
+	'result.commits.count': number;
+	/** Sum of file changes across all proposed commits */
+	'result.files.count': number;
+	/** Sum of additions across all proposed commits */
+	'result.additions.count': number;
+	/** Sum of deletions across all proposed commits */
+	'result.deletions.count': number;
+}
+
+interface GraphDetailsComposeApplyPlanEvent extends GraphContextEventData {
+	/** Total commits in the proposed plan */
+	'plan.commits.count': number;
+	/** Number of commits actually committed (post-exclusion) */
+	'commits.count': number;
+	/** Number of commits excluded by the user before apply */
+	'commits.excluded.count': number;
+	/** Whether the plan was stale (working changes diverged since it was generated) at apply time */
+	stale: boolean;
+	/** Time from apply click to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsChangeAiModelEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
+	/** Previously-selected model id (undefined when no model was set) */
+	'ai.model.previous.id': string | undefined;
+	/** Previously-selected model name */
+	'ai.model.previous.name': string | undefined;
+	/** Previously-selected model provider id */
+	'ai.model.previous.provider.id': AIProviders | undefined;
+	/** Previously-selected model provider name */
+	'ai.model.previous.provider.name': string | undefined;
+}
+
+interface GraphDetailsReviewLifecycleEvent extends GraphContextEventData {}
+
+interface GraphDetailsReviewGenerateReviewLifecycleEvent
+	extends
+		GraphContextEventData,
+		GraphDetailsScopeEventData,
+		GraphDetailsInstructionsEventData,
+		GraphDetailsAIModelEventData {
+	/** Time from dispatch to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsReviewGenerateReviewCompletedEvent extends GraphDetailsReviewGenerateReviewLifecycleEvent {
+	/** Whether the review used the single-pass or two-pass mode */
+	'result.mode': 'single-pass' | 'two-pass';
+	/** Number of focus areas produced by the run */
+	'result.focusAreas.count': number;
+	/** Total findings across all focus areas (single-pass only; two-pass enriches later) */
+	'result.findings.count': number;
+	'result.severity.critical.count': number;
+	'result.severity.warning.count': number;
+	'result.severity.suggestion.count': number;
+}
+
+interface GraphDetailsReviewGenerateFocusAreaCompletedEvent
+	extends GraphContextEventData, GraphDetailsAIModelEventData {
+	duration: number;
+	/** Findings produced for this focus area */
+	'findings.count': number;
+	'findings.severity.critical.count': number;
+	'findings.severity.warning.count': number;
+	'findings.severity.suggestion.count': number;
+}
+
+interface GraphDetailsReviewGenerateFocusAreaFailedEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
+	duration: number;
+}
+
+interface GraphDetailsReviewActionEvent extends GraphContextEventData {
+	/** Whether the action targeted the whole review, a focus area, or a single finding */
+	granularity: 'review' | 'focusArea' | 'finding';
+}
+
+interface GraphDetailsResolveLifecycleEvent extends GraphContextEventData {}
+
+interface GraphDetailsResolveGenerateLifecycleEvent
+	extends GraphContextEventData, GraphDetailsInstructionsEventData, GraphDetailsAIModelEventData {
+	/** True when this run refined/retried a prior result; false on the initial resolve */
+	refine: boolean;
+	/** Whether the run was scoped to a focused subset of conflicted files rather than all */
+	focused: boolean;
+	/** Number of conflicted files the run was focused on (0 when resolving all) */
+	'files.focused.count': number;
+	/** Time from dispatch to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsResolveGenerateCompletedEvent extends GraphDetailsResolveGenerateLifecycleEvent {
+	/** Number of files the AI produced a resolution for */
+	'result.resolutions.count': number;
+	/** Number of files the resolver errored on */
+	'result.errors.count': number;
+	/** Number of files skipped (couldn't be auto-resolved, e.g. binary/marker-less) */
+	'result.skipped.count': number;
+	/** Resolutions using the AI-merged strategy */
+	'result.strategy.ai.count': number;
+	/** Resolutions resolved by taking the current/ours side */
+	'result.strategy.takeOurs.count': number;
+	/** Resolutions resolved by taking the incoming/theirs side */
+	'result.strategy.takeTheirs.count': number;
+	/** Resolutions resolved as a deletion */
+	'result.strategy.deleted.count': number;
+	/** Resolutions left as skipped */
+	'result.strategy.skipped.count': number;
+}
+
+interface GraphDetailsResolveApplyEvent extends GraphContextEventData {
+	/** Total resolutions in the pending set */
+	'resolutions.count': number;
+	/** Number of resolutions actually applied (post user file-exclusion) */
+	'applied.count': number;
+	/** Number of resolutions excluded by the user before apply */
+	'excluded.count': number;
+	/** Time from apply click to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsResolveDiscardedEvent extends GraphContextEventData {
+	/** Number of pending resolutions that were discarded */
+	'resolutions.count': number;
+}
+
 interface DetailsReachabilityLoadedEvent {
 	'refs.count': number;
 	duration: number;
@@ -1092,12 +1333,87 @@ export type GraphWipCommitFailureReason =
 	| 'identityMissing'
 	| 'unknown';
 
-interface GraphWipCommitFailedEvent extends GraphContextEventData {
+/** Shared composition of a WIP commit — attached to both the succeeded and failed events so the
+ *  two form a comparable funnel. Privacy-safe: counts and booleans only, never file paths or message text. */
+type GraphWipCommitEventData = {
+	/** Whether the commit was an amend */
+	amend: boolean;
+	/** Whether smart-commit committed everything (`-a`) because nothing was explicitly staged */
+	all: boolean;
+	/** Whether the `git.enableSmartCommit` preference was on at commit time */
+	smartCommit: boolean;
+	/** Whether any files were staged at commit time */
+	hasStagedFiles: boolean;
+	/** Number of staged files */
+	'files.staged.count': number;
+	/** Total number of changed files in the working tree */
+	'files.total.count': number;
+	/** Length of the commit message (characters, not content) */
+	'message.length': number;
+};
+
+interface GraphWipCommitSucceededEvent extends GraphContextEventData, GraphWipCommitEventData {}
+
+interface GraphWipCommitFailedEvent extends GraphContextEventData, GraphWipCommitEventData {
 	reason: GraphWipCommitFailureReason;
 	/** Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output" */
 	hasOutput: boolean;
-	/** Whether the failed commit was an amend */
-	amend: boolean;
+}
+
+export type GraphDetailsFileAction =
+	| 'open'
+	| 'openOnRemote'
+	| 'compareWorking'
+	| 'comparePrevious'
+	| 'compareWip'
+	| 'compareBetween'
+	| 'defaultAction'
+	| 'multiDiff';
+
+interface GraphDetailsFileOpenedEvent extends GraphContextEventData {
+	/** Which file open/diff operation was triggered */
+	action: GraphDetailsFileAction;
+	/** Number of files opened (1 for single-file actions, N for multiDiff) */
+	'files.count': number;
+}
+
+interface GraphDetailsCompareRefChangedEvent extends GraphContextEventData {
+	/** Which side's ref the user changed (left = Base, right = Compare) */
+	side: 'left' | 'right';
+	/** Whether a new ref was picked (false = picker cancelled) */
+	changed: boolean;
+	/** Type of the newly picked ref (e.g. branch/tag/revision); undefined when cancelled */
+	refType: string | undefined;
+}
+
+interface GraphDetailsCompareTabChangedEvent extends GraphContextEventData {
+	'tab.new': 'all' | 'ahead' | 'behind';
+	'tab.old': 'all' | 'ahead' | 'behind';
+	/** Commits ahead at switch time */
+	'ahead.count': number;
+	/** Commits behind at switch time */
+	'behind.count': number;
+}
+
+interface GraphDetailsCompareOpenedInSearchAndCompareEvent extends GraphContextEventData {
+	tab: 'all' | 'ahead' | 'behind';
+	includeWorkingTree: boolean;
+}
+
+interface GraphDetailsCompareExplainEvent extends GraphContextEventData {
+	/** Single-commit/range compare vs branch-compare tabs */
+	variant: 'compare' | 'branchCompare';
+	/** Whether the user supplied custom guidance */
+	hasCustomPrompt: boolean;
+	/** Active tab driving the diff direction (branch-compare only; undefined otherwise) */
+	tab: 'all' | 'ahead' | 'behind' | undefined;
+	includeWorkingTree: boolean;
+}
+
+interface GraphDetailsCompareGenerateChangelogEvent extends GraphContextEventData {
+	variant: 'compare' | 'branchCompare';
+	tab: 'all' | 'ahead' | 'behind' | undefined;
+	includeWorkingTree: boolean;
 }
 
 interface GraphVirtualFileOpenedEvent extends GraphContextEventData {

@@ -1,4 +1,5 @@
 import { EventEmitter, Uri } from 'vscode';
+import { fetch } from '@env/fetch.js';
 import type { CommitAuthor } from '@gitlens/git/models/author.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -272,6 +273,45 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.timestamp = Date.now();
 		avatar.retries++;
 
+		return undefined;
+	}
+}
+
+const maxAvatarProxyBytes = 512 * 1024; // 512 KB
+const rasterImageTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp']);
+
+export async function fetchAvatarImageAsDataUri(url: string): Promise<Uri | undefined> {
+	try {
+		if (!url.startsWith('https://')) return undefined;
+
+		const rsp = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+		if (!rsp.ok) {
+			void rsp.body?.cancel();
+			return undefined;
+		}
+		if (!rsp.url.startsWith('https://')) {
+			void rsp.body?.cancel();
+			return undefined;
+		}
+
+		const contentType = rsp.headers.get('content-type')?.split(';')[0].trim().toLowerCase();
+		if (!rasterImageTypes.has(contentType ?? '')) {
+			void rsp.body?.cancel();
+			return undefined;
+		}
+
+		const contentLength = rsp.headers.get('content-length');
+		if (contentLength != null && parseInt(contentLength, 10) > maxAvatarProxyBytes) {
+			void rsp.body?.cancel();
+			return undefined;
+		}
+
+		const buffer = await rsp.arrayBuffer();
+		if (buffer.byteLength > maxAvatarProxyBytes) return undefined;
+
+		const data = base64(new Uint8Array(buffer));
+		return Uri.parse(`data:${contentType};base64,${data}`);
+	} catch {
 		return undefined;
 	}
 }

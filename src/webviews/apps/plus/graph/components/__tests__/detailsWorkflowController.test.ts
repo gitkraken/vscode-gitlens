@@ -113,6 +113,9 @@ function createServices(overrides?: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 		},
+		telemetry: {
+			sendEvent: () => Promise.resolve(),
+		},
 	} as unknown as ResolvedServices;
 }
 
@@ -449,7 +452,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.runReview('/A', undefined, undefined);
+		controller.runReview('/A', undefined, undefined, 0);
 
 		// Immediately after dispatch — entry should be 'generating'.
 		const generatingEntry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review;
@@ -491,7 +494,7 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 		state.activeModeRepoPath.set('/A');
 		state.activeModeSha.set(uncommitted);
 
-		controller.runReview('/A', 'my prompt', undefined);
+		controller.runReview('/A', 'my prompt', undefined, 0);
 		const entryAbort = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.review?.abortController;
 		assert.ok(entryAbort);
 		assert.strictEqual(entryAbort.signal.aborted, false);
@@ -1180,7 +1183,7 @@ suite('DetailsWorkflowController — R1 fix regressions', () => {
 		(actions as unknown as { startCompose: (...args: unknown[]) => Promise<ComposeResult> }).startCompose = () =>
 			Promise.resolve(settledResult);
 
-		controller.runCompose('/A', 'my prompt', undefined, undefined);
+		controller.runCompose('/A', 'my prompt', undefined, undefined, 0);
 
 		// Immediately after dispatch the entry is `'generating'` with the prompt set.
 		const generating = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
@@ -1358,6 +1361,9 @@ function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
 						reject: reject,
 					});
 				}),
+		},
+		telemetry: {
+			sendEvent: () => Promise.resolve(),
 		},
 	} as unknown as ResolvedServices;
 }
