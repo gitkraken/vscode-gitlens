@@ -264,9 +264,8 @@ a.secondary {
 	width: 600px;
 	height: auto;
 	border-radius: 8px;
-	box-shadow:
-		0 0 1px 0 rgb(0 0 0 / 80%),
-		0 0 12px 1px rgb(0 0 0 / 50%);
+
+	@include utils.elevated-surface(var(--gl-shadow-raised));
 }
 
 .image__preview--fit {

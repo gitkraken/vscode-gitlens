@@ -9,7 +9,8 @@
 	max-width: 472px;
 	padding: 1em;
 	cursor: default;
-	box-shadow: 0 0 28px 0 rgb(0 0 0 / 50%);
+
+	@include utils.elevated-surface(var(--gl-shadow-dialog));
 
 	&::before {
 		position: absolute;

@@ -1,6 +1,7 @@
 import type WaPopup from '@awesome.me/webawesome/dist/components/popup/popup.js';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { elevatedSurface } from '../styles/lit/elevation.css.js';
 import { handleUnsafeOverlayContent } from './overlays.utils.js';
 import '@awesome.me/webawesome/dist/components/popup/popup.js';
 
@@ -49,6 +50,9 @@ export class GlTooltip extends LitElement {
 		}
 
 		.tooltip__body {
+			--gl-elevation: var(--gl-shadow-tooltip);
+			--gl-elevation-border-color: var(--gl-tooltip-border-color);
+
 			max-width: min(var(--auto-size-available-width, 100vw), var(--max-width));
 			padding: var(--wa-tooltip-padding);
 			font-family: var(--wa-tooltip-font-family);
@@ -62,9 +66,9 @@ export class GlTooltip extends LitElement {
 			-webkit-user-select: none;
 			user-select: none;
 			background-color: var(--wa-tooltip-background-color);
-			border: 1px solid var(--gl-tooltip-border-color);
 			border-radius: var(--wa-tooltip-border-radius);
-			box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
+
+			${elevatedSurface}
 		}
 
 		/* Style hr inside the tooltip body. The slot[name=content] selector matches

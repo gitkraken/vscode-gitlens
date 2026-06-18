@@ -1,5 +1,7 @@
 // Driver.js (onboarding tour) styles — adapted from driver.js/dist/driver.css and themed for VS Code webviews.
 
+@use '../../shared/styles/utils';
+
 @mixin core() {
 	.driver-overlay path {
 		opacity: 1 !important;
@@ -55,9 +57,9 @@
 		margin: 0;
 		color: var(--wa-tooltip-color);
 		background-color: var(--wa-tooltip-background-color);
-		border: 1px solid var(--gl-tooltip-border-color);
 		border-radius: var(--wa-tooltip-border-radius);
-		box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
+
+		@include utils.elevated-surface(var(--gl-shadow-tooltip), var(--gl-tooltip-border-color));
 	}
 
 	.driver-popover * {

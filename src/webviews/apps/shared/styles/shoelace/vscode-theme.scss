@@ -146,11 +146,14 @@
 	--wa-border-radius-circle: 50%;
 	--wa-border-radius-pill: 9999px;
 
-	--wa-shadow-x-small: 0 1px 2px var(--vscode-widget-shadow);
-	--wa-shadow-small: 0 1px 2px var(--vscode-widget-shadow);
-	--wa-shadow-medium: 0 2px 4px var(--vscode-widget-shadow);
-	--wa-shadow-large: 0 2px 8px var(--vscode-widget-shadow);
-	--wa-shadow-x-large: 0 4px 16px var(--vscode-widget-shadow);
+	// WebAwesome shadow aliases track the --gl-shadow-* scale so WA component shadows stay
+	// theme-reactive and vanish in high-contrast like the rest of the system (large → tooltip is
+	// byte-identical, so existing toast shadows are unchanged). See docs/webview-styling.md.
+	--wa-shadow-x-small: var(--gl-shadow-raised);
+	--wa-shadow-small: var(--gl-shadow-raised);
+	--wa-shadow-medium: var(--gl-shadow-raised);
+	--wa-shadow-large: var(--gl-shadow-tooltip);
+	--wa-shadow-x-large: var(--gl-shadow-popover);
 
 	--wa-spacing-3x-small: 0.2rem; // 0.125rem;
 	--wa-spacing-2x-small: 0.4rem; // 0.25rem;
@@ -332,7 +335,7 @@
 	--wa-color-neutral-on-quiet: var(--vscode-foreground);
 	--wa-color-brand-fill-loud: var(--vscode-list-activeSelectionBackground);
 	--wa-color-brand-on-loud: var(--vscode-list-activeSelectionForeground);
-	--wa-shadow-m: 0 2px 8px rgb(0 0 0 / 15%);
+	--wa-shadow-m: var(--gl-shadow-tooltip); // was hardcoded rgb(0 0 0 / 15%), bypassing the theme
 	--wa-border-style: solid;
 	--wa-border-width-s: 1px;
 	--wa-border-radius-m: 3px;

@@ -3,6 +3,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { focusableBaseStyles } from '../styles/lit/a11y.css.js';
+import { elevatedSurface } from '../styles/lit/elevation.css.js';
 
 // #0000004d - light
 
@@ -21,15 +22,18 @@ export class GlDialog extends LitElement {
 			}
 
 			dialog {
+				--gl-elevation: var(--gl-shadow-dialog);
+				--gl-elevation-border-color: var(--vscode-widget-border);
+
 				width: min-content;
 				min-width: 40rem;
 				max-width: 50rem;
 				padding: 2rem;
 				color: var(--vscode-editorWidget-foreground);
 				background: var(--vscode-editorWidget-background);
-				border: 0.1rem solid var(--vscode-widget-border);
 				border-radius: 0.3rem;
-				box-shadow: 0 0 0.8rem 0 var(--vscode-widget-shadow);
+
+				${elevatedSurface}
 			}
 		`,
 	];

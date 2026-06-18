@@ -1,4 +1,5 @@
 import { css } from 'lit';
+import { elevatedSurface } from '../styles/lit/elevation.css.js';
 
 export const selectStyles = css`
 	:host {
@@ -51,11 +52,14 @@ export const selectStyles = css`
 
 	/* Listbox (dropdown menu) */
 	wa-select::part(listbox) {
+		--gl-elevation: var(--gl-shadow-popover);
+		--gl-elevation-border-color: var(--vscode-dropdown-border);
+
 		padding: 4px 0;
 		background-color: var(--vscode-dropdown-background);
-		border: 1px solid var(--vscode-dropdown-border);
 		border-radius: 3px;
-		box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
+
+		${elevatedSurface}
 	}
 
 	/* VS Code-style scrollbar for the listbox (we can't apply class="scrollable",

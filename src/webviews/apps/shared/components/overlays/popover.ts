@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { parseDuration, waitForEvent } from '../../dom.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
+import { elevatedSurface } from '../styles/lit/elevation.css.js';
 import '@awesome.me/webawesome/dist/components/popup/popup.js';
 
 declare const CloseWatcher: CloseWatcher;
@@ -220,6 +221,9 @@ export class GlPopover extends GlElement {
 			}
 
 			.popover__body {
+				--gl-elevation: var(--gl-shadow-popover);
+				--gl-elevation-border-color: var(--gl-tooltip-border-color);
+
 				display: block;
 				width: fit-content;
 				min-width: 0;
@@ -237,9 +241,9 @@ export class GlPopover extends GlElement {
 				-webkit-user-select: none;
 				user-select: none;
 				background-color: var(--wa-tooltip-background-color);
-				border: 1px solid var(--gl-tooltip-border-color);
 				border-radius: var(--wa-tooltip-border-radius);
-				box-shadow: 0 2px 8px var(--gl-tooltip-shadow);
+
+				${elevatedSurface}
 			}
 
 			:host([auto-size-vertical]) .popover__body {

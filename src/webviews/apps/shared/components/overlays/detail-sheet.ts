@@ -91,7 +91,12 @@ export class GlDetailSheet extends LitElement {
 				pointer-events: auto;
 				background: var(--vscode-sideBar-background, var(--color-background));
 				border-top: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
-				box-shadow: 0 -0.4rem 1.2rem -0.2rem var(--vscode-widget-shadow);
+
+				/* Bottom-anchored sheet: directional top-only border (it fills the panel, flush on the
+		   other edges), so it can't use the full-border elevatedSurface helper. The top border
+		   survives high-contrast where the --gl-shadow-sheet upward cast vanishes. */
+				/* stylelint-disable-next-line declaration-property-value-disallowed-list */
+				box-shadow: var(--gl-shadow-sheet);
 				animation: gl-sheet-slide-up 0.2s ease-out;
 			}
 

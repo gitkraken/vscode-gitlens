@@ -4,6 +4,7 @@ import { getCssVariable } from '@gitlens/utils/color.js';
 import { groupByMap } from '@gitlens/utils/iterable.js';
 import { capitalize, pluralize } from '@gitlens/utils/string.js';
 import { GlElement, observe } from '../../../shared/components/element.js';
+import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
@@ -158,6 +159,9 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip {
+			--gl-elevation: var(--gl-shadow-tooltip);
+			--gl-elevation-border-color: var(--color-hover-border);
+
 			position: absolute;
 			top: calc(100% + 4px);
 			left: 0;
@@ -173,9 +177,9 @@ export class GlGraphMinimap extends GlElement {
 			pointer-events: none;
 			user-select: none;
 			background-color: var(--color-hover-background);
-			border: 1px solid var(--color-hover-border);
-			box-shadow: 0 2px 8px var(--vscode-widget-shadow);
 			opacity: 1;
+
+			${elevatedSurface}
 		}
 
 		#tooltip[data-visible='true'] {

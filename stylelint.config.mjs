@@ -36,6 +36,18 @@ const sharedRules = {
 	'property-no-vendor-prefix': null,
 	// `var(--vscode-font-*)` carries its own fallback; icon fonts (codicon) must NOT get a generic fallback
 	'font-family-no-missing-generic-family-keyword': null,
+	// Elevation: a `--gl-shadow-*` tier must be applied via the elevated-surface helper (Lit
+	// `elevatedSurface` / SCSS `@include elevated-surface`), which pairs it with the border that
+	// survives high-contrast (where the shadow vanishes). Applying it raw on `box-shadow` skips that
+	// border and silently regresses HC. Rare intentional exceptions (a vendored `!important` override,
+	// a directional sheet that can't take a full border) opt out with a `stylelint-disable-line`.
+	'declaration-property-value-disallowed-list': [
+		{ 'box-shadow': ['/--gl-shadow-/'] },
+		{
+			message:
+				'Apply --gl-shadow-* via the elevated-surface helper (Lit `elevatedSurface` / SCSS `@include elevated-surface`), not raw on box-shadow — see docs/webview-styling.md',
+		},
+	],
 };
 
 /**

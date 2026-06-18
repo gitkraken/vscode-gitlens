@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves shadow and elevation consistency across GitLens webviews &mdash; dialogs, popovers, tooltips, dropdowns, autocompletes, and panels now derive their shadows from a shared, theme-reactive elevation scale, and elevated surfaces show a border in high-contrast themes (where box-shadows don't render) so they stay clearly separated from the content behind them
 - Improves graph selection reliability and performance
 - Honors VS Code's `scm.defaultViewSortKey` setting when sorting working changes (WIP) file lists in the _Commit Graph_, while keeping unresolved conflicts at the top ([#5289](https://github.com/gitkraken/vscode-gitlens/issues/5289))
 - Changes the _Add as Co-author_ action in the _Commit Graph_ to append the co-author to the graph's working changes (WIP) commit message box instead of writing to the Source Control input and switching to the Source Control view ([#5294](https://github.com/gitkraken/vscode-gitlens/issues/5294))

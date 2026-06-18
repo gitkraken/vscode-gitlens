@@ -4,6 +4,7 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { CommitFrequencyData, TreemapData, TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
+import { elevatedSurface } from '../../../shared/components/styles/lit/elevation.css.js';
 import type { TreemapRect } from '../utils/squarify.js';
 import { descendants, leaves, squarify } from '../utils/squarify.js';
 import '../../../shared/components/indicators/watermark-loader.js';
@@ -287,6 +288,9 @@ export class GlTreemapChart extends LitElement {
 		}
 
 		.tooltip {
+			--gl-elevation: var(--gl-shadow-tooltip);
+			--gl-elevation-border-color: var(--vscode-editorHoverWidget-border);
+
 			position: fixed;
 			z-index: 1000;
 			padding: 0.4rem 0.8rem;
@@ -296,9 +300,9 @@ export class GlTreemapChart extends LitElement {
 			white-space: nowrap;
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background);
-			border: 1px solid var(--vscode-editorHoverWidget-border);
 			border-radius: 0.3rem;
-			box-shadow: 0 0.2rem 0.8rem rgb(0 0 0 / 30%);
+
+			${elevatedSurface}
 		}
 
 		/* Compositor-thread pulse overlay for "the agent is here right now" leaves. One element per

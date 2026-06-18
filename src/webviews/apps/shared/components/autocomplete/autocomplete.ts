@@ -4,6 +4,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { FuzzyMatchResult } from '@gitlens/utils/fuzzy.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
+import { elevatedSurface } from '../styles/lit/elevation.css.js';
 import '../code-icon.js';
 
 export interface CompletionItem<T = any> {
@@ -42,6 +43,9 @@ export class GlAutocomplete extends LitElement {
 			}
 
 			.scrollable {
+				--gl-elevation: var(--gl-shadow-popover);
+				--gl-elevation-border-color: var(--vscode-widget-border);
+
 				position: absolute;
 				top: 100%;
 				left: 0;
@@ -53,9 +57,9 @@ export class GlAutocomplete extends LitElement {
 				overflow-y: auto;
 				color: var(--vscode-quickInput-foreground);
 				background-color: var(--vscode-quickInput-background);
-				border: 1px solid var(--vscode-widget-border);
 				border-radius: 0.4rem;
-				box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+
+				${elevatedSurface}
 			}
 
 			/* Override scrollbar thumb to not inherit the visible border-color */
