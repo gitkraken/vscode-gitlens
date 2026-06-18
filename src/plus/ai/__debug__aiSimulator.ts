@@ -207,6 +207,18 @@ class AISimulatorDebug {
 				iconPath: new ThemeIcon('blank'),
 				item: 'quota',
 			},
+			{
+				label: 'Provider Error',
+				description: 'Throws a generic Error (mimics Copilot credit-limit / VSCode provider failure)',
+				iconPath: new ThemeIcon('blank'),
+				item: 'provider-error',
+			},
+			{
+				label: 'Provider Unavailable',
+				description: 'Returns undefined (mimics unavailable Copilot model after credit exhaustion)',
+				iconPath: new ThemeIcon('blank'),
+				item: 'provider-unavailable',
+			},
 		];
 
 		if (this.active != null) {
