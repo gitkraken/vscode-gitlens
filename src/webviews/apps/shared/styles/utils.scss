@@ -3,6 +3,17 @@
 	outline-offset: -1px;
 }
 
+// Elevation-surface contract for plain-SCSS surfaces — the SCSS twin of the Lit `elevatedSurface`
+// helper. Applies a `--gl-shadow-*` tier; the border defaults to --vscode-contrastBorder, which is
+// unset in normal themes (→ no border) and set in high-contrast (→ the border that replaces the
+// vanished shadow), mirroring VS Code's widget pattern. Pass an always-set $border-color (e.g.
+// var(--vscode-widget-border)) for a surface that also wants a border in normal themes.
+// See docs/webview-styling.md (Elevation).
+@mixin elevated-surface($elevation, $border-color: var(--vscode-contrastBorder)) {
+	border: 1px solid #{$border-color};
+	box-shadow: #{$elevation};
+}
+
 @mixin dark-theme($selectorPrefix: '', $selectorPostfix: '') {
 	#{$selectorPrefix}.vscode-dark#{$selectorPostfix},
 	#{$selectorPrefix}.vscode-high-contrast:not(.vscode-high-contrast-light)#{$selectorPostfix} {

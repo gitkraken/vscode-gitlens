@@ -2,6 +2,7 @@
 // Reaches every webview app root — via base.scss (graph / settings), details-base.scss
 // (commitDetails / patchDetails), or a direct @use in the remaining app stylesheets
 // (home / timeline / rebase / welcome / composer).
+// Full reference (prefixes, the rem base, the elevation model): docs/webview-styling.md
 
 :root {
 	// Font-size scale (1rem = 10px via html font-size: 62.5%)
@@ -20,16 +21,9 @@
 	--gl-panel-padding-left: 1.2rem;
 	--gl-panel-padding-right: 1.2rem;
 
-	// Z-index / stacking scale — semantic tiers for the few declarations that escape into a
-	// shared stacking context. Shadow-isolated internals need no token: keep small raw
-	// ordinals (1/2/3) and trap them with the shadow root or `isolation: isolate`.
-	// True modals/dialogs are NOT a tier — use the top layer (`<dialog>.showModal()` /
-	// `[popover]`), which stacks above all of these by insertion order.
-	// The WebAwesome `--wa-z-index-*` band (700…1000, see shoelace/vscode-theme.scss) sits
-	// deliberately ABOVE this whole scale — it's the floating-surface band (hoisted
-	// popovers/tooltips, toasts). Keep the bands disjoint; never interleave.
-	// Guard: a raw z-index climbing past ~100 is the signal to reach for a tier token,
-	// `isolation: isolate`, or the top layer — not a bigger number.
+	// Z-index / stacking scale — semantic tiers for declarations that escape into a shared stacking
+	// context. The guard, the top-layer rule for modals, and the disjoint --wa-z-index-* band are
+	// in docs/webview-styling.md (Elevation).
 	--gl-z-buried: -2; // deepest tier — beneath even a `behind` layer
 	--gl-z-behind: -1; // decorative layer beneath its in-flow siblings
 	--gl-z-base: 0; // stacking-context anchor, not a raise (prefer `isolation: isolate`)
@@ -39,4 +33,28 @@
 	--gl-z-sheet: 300; // panel-scoped modal sheet (cross-shadow-root contract with `sticky` chrome)
 	--gl-z-popover: 400; // anchored interactive surface (menus, row-hovers, dropdowns)
 	--gl-z-tooltip: 500; // topmost in-document content — never occluded, even nested in a popover
+
+	// Elevation / shadow scale — tiers mirror --gl-z-* 1:1 and derive from --vscode-widget-shadow.
+	// Apply ONLY via the elevated-surface helper (Lit `elevatedSurface` / SCSS `@include
+	// elevated-surface`), never raw — every --gl-shadow-* vanishes in high-contrast, so the helper
+	// pairs each shadow with a border. Model + high-contrast contract: docs/webview-styling.md.
+	// private base — mixed from, never applied directly. No fallback on purpose: --vscode-widget-shadow
+	// is unset in high-contrast, so the color-mix tiers below compute invalid there and the shadow
+	// vanishes (the elevated-surface border takes over).
+	--gl-shadow-color: var(--vscode-widget-shadow);
+	--gl-shadow-raised:
+		0 1px 2px -1px color-mix(in srgb, var(--gl-shadow-color) 90%, transparent),
+		0 2px 4px -2px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-popover:
+		0 2px 6px -2px color-mix(in srgb, var(--gl-shadow-color) 90%, transparent),
+		0 6px 12px -4px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+
+	// --gl-shadow-sheet casts UPWARD (negative Y) — for a bottom-anchored sheet
+	--gl-shadow-sheet:
+		0 -2px 6px -2px color-mix(in srgb, var(--gl-shadow-color) 85%, transparent),
+		0 -6px 16px -4px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-dialog:
+		0 4px 12px -4px color-mix(in srgb, var(--gl-shadow-color) 95%, transparent),
+		0 12px 28px -8px color-mix(in srgb, var(--gl-shadow-color) 55%, transparent);
+	--gl-shadow-tooltip: 0 2px 8px var(--vscode-widget-shadow); // single-layer, byte-identical to VS Code's native hover
 }

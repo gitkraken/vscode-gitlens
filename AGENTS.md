@@ -190,6 +190,8 @@ custom-elements.json          # Custom Elements Manifest - generated web compone
 
 > For error handling patterns, implementation quality rules, and completeness checklist: see `docs/coding-standards.md`
 >
+> For webview styling — prefix conventions, the `1rem = 10px` base, the `--gl-*` design tokens, and the elevation (z-index + shadow) system: see `docs/webview-styling.md`
+>
 > For webview accessibility requirements: see `docs/accessibility.md`
 
 ### Decorator System

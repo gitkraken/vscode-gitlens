@@ -116,6 +116,7 @@ This is non-negotiable. It surfaces miscalibration before it corrupts output. Th
 - Never reach into shadow DOM from outside. Use `::part`, `::slotted`, or custom properties. (→ `references/selectors.md`)
 - Never use `transform: translateZ(0)` or permanent `will-change` for layer promotion. Use `isolation: isolate` or `contain` instead. (→ `references/performance.md`)
 - Never fix layering by escalating a raw z-index. A raw z-index climbing past ~100 is the signal to use a semantic tier token (`--gl-z-*` in GitLens webviews), `isolation: isolate` on the trapping ancestor, or the top layer (`<dialog>.showModal()` / `[popover]`) — not a bigger number. Shadow-isolated internals keep small raw ordinals (`1`/`2`/`3`). (→ `references/performance.md`)
+- In GitLens webviews, never apply a `--gl-shadow-*` elevation token raw — go through the `elevated-surface` helper (Lit `elevatedSurface` / SCSS `@include elevated-surface`), which pairs the shadow with the border that survives forced-colors (where every shadow renders as nothing). Tokens, tiers, and the elevation model live in `docs/webview-styling.md`.
 - Name custom properties by role, not appearance. `--color-accent`, not `--blue`. In component code, prefer semantic tokens over primitives. (→ `references/theming.md`)
 
 ## When to load which reference
