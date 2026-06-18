@@ -116,6 +116,7 @@ import { stageConflictResolution } from '../../../git/utils/-webview/conflictRes
 import { getRemoteProviderUrl, remoteSupportsIntegration } from '../../../git/utils/-webview/remote.utils.js';
 import { sortRepositories } from '../../../git/utils/-webview/sorting.js';
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
+import { showGenericErrorMessage } from '../../../messages.js';
 import { getFeedbackIssueUrl } from '../../../plus/gk/feedbackService.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import {
