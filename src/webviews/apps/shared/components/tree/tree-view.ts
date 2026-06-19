@@ -970,7 +970,6 @@ export class GlTreeView extends GlElement {
 						.anchor=${this._hoveredAnchor}
 						placement="right-start"
 						trigger="manual"
-						hoist
 						.distance=${12}
 					>
 						<div slot="content" class="hover-content">

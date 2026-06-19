@@ -230,7 +230,7 @@ export class GlRebaseEntryElement extends LitElement {
 							></gl-select>
 						</div>`
 					: nothing}
-				<gl-popover class="entry-message" hoist placement="bottom-start" trigger="hover">
+				<gl-popover class="entry-message" placement="bottom-start" trigger="hover">
 					<span slot="anchor" class="entry-message-content">${this.renderMessage(message)}</span>
 					<span slot="content"
 						>${this.hasConflict

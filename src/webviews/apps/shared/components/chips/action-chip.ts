@@ -189,7 +189,7 @@ export class ActionChip extends LitElement {
 		}
 
 		if (this.overlay === 'popover') {
-			return html`<gl-popover hoist
+			return html`<gl-popover
 				>${this.renderContent()}
 				<div slot="content">${handleUnsafeOverlayContent(this.label)}</div></gl-popover
 			>`;

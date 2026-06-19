@@ -579,7 +579,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		>
 			<span class="compose-commit__num">${num}</span>
 			<div class="compose-commit__info">
-				<gl-popover class="compose-commit__message" hoist placement="bottom-start" trigger="hover">
+				<gl-popover class="compose-commit__message" placement="bottom-start" trigger="hover">
 					<span slot="anchor" class="compose-commit__message-content"
 						>${this.renderCommitMessageInline(commit.message)}</span
 					>

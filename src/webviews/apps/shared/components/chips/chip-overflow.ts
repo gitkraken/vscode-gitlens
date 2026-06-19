@@ -224,7 +224,7 @@ export class GlChipOverflow extends LitElement {
 				><slot name="prefix" @slotchange=${this.handleNamedSlotChange}></slot></span
 			><slot @slotchange=${this.handleSlotChange}></slot>${this._overflowCount > 0
 				? html`<span class="overflow-host"
-						><gl-popover hoist trigger="click" placement="bottom-start" appearance="menu">
+						><gl-popover trigger="click" placement="bottom-start" appearance="menu">
 							<button
 								slot="anchor"
 								class="overflow-chip"

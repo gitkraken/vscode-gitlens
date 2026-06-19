@@ -1036,7 +1036,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 			placement="bottom-start"
 			appearance="menu"
 			?arrow=${false}
-			hoist
 		>
 			<button slot="anchor" class="compare-view-trigger" type="button">
 				<span class="compare-view-trigger__label">${label}</span>

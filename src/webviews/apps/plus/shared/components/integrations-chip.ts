@@ -261,7 +261,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 		const anyConnected = this.hasConnectedIntegrations;
 		const statusFilter = createStatusIconFilter(this.integrations);
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
 			<span slot="anchor" class="chip" tabindex="0"
 				>${!anyConnected ? html`<span class="chip__label">Connect</span>` : ''}${this.integrations
 					.filter(statusFilter)

@@ -152,7 +152,6 @@ export class GlPopoverConfirm extends LitElement {
 			<gl-popover
 				placement=${this.placement}
 				trigger="click"
-				hoist
 				@keydown=${this.onKeydown}
 				@gl-popover-show=${this.onPopoverShow}
 				@gl-popover-after-show=${this.onPopoverAfterShow}

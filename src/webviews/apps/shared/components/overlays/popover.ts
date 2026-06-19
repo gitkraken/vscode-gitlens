@@ -200,10 +200,6 @@ export class GlPopover extends GlElement {
 				--popup-border-width: 1px;
 			}
 
-			.popover::part(popup) {
-				z-index: var(--wa-z-index-tooltip);
-			}
-
 			.popover[placement^='top']::part(popup) {
 				transform-origin: bottom;
 			}
@@ -447,14 +443,6 @@ export class GlPopover extends GlElement {
 
 	@property()
 	trigger: Triggers = 'hover focus';
-
-	/**
-	 * @deprecated No longer needed — `wa-popup` renders in the browser's top layer via the HTML Popover API,
-	 * which escapes all clipping, stacking contexts, and transform containing blocks. Kept as a no-op for
-	 * source compatibility; will be removed in a follow-up.
-	 */
-	@property({ type: Boolean })
-	hoist = false;
 
 	@property({ reflect: true })
 	appearance?: 'menu';

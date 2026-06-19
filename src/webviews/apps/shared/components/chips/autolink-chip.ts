@@ -89,7 +89,7 @@ export class GlAutolinkChip extends LitElement {
 	override render(): unknown {
 		const { icon, modifier } = getAutolinkIcon(this.type, this.status, this.isDraft);
 
-		return html`<gl-popover hoist trigger="hover focus click">
+		return html`<gl-popover trigger="hover focus click">
 			<gl-action-chip
 				exportparts="icon"
 				slot="anchor"

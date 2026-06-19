@@ -379,7 +379,7 @@ export class GlCommitAuthor extends LitElement {
 		const dateLabel = this.authorDate ? this.formatDateLabel(this.authorDate) : undefined;
 
 		return html`
-			<gl-popover hoist placement="bottom" trigger="hover click focus">
+			<gl-popover placement="bottom" trigger="hover click focus">
 				<span slot="anchor" class="author" tabindex="0"
 					><span class="avatar">${this.renderAvatar()}</span>${this.layout === 'stacked'
 						? html`<span class="name-group"

@@ -624,7 +624,6 @@ export class GlGraphOverviewCard extends LitElement {
 		// popover's flip behavior auto-corrects when there isn't room.
 		return html`
 			<gl-popover
-				hoist
 				trigger="hover focus-visible"
 				placement="right"
 				@gl-popover-show=${this.onPopoverShow}

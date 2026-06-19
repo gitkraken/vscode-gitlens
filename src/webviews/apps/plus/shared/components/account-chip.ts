@@ -365,7 +365,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			></span>`;
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
 				<span id="chip" slot="anchor" class="chip" tabindex="0">
 					${this.accountAvatar
 						? html`<img class="chip__media" src=${this.accountAvatar} />`
@@ -683,7 +683,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 		this.showUpgrade = true;
 
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
 			<span slot="anchor" class="chip chip--outlined" tabindex="0">
 				<span>Upgrade</span>
 			</span>

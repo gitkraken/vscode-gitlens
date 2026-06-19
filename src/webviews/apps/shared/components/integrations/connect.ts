@@ -75,7 +75,7 @@ export class GlConnect extends LitElement {
 	}
 
 	private renderInline() {
-		return html`<gl-popover hoist class="inline-popover">
+		return html`<gl-popover class="inline-popover">
 			<span class="tooltip-hint" slot="anchor"
 				>${this.label} <code-icon icon="${this.connected ? 'check' : 'gl-unplug'}"></code-icon
 			></span>

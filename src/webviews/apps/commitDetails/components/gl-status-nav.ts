@@ -120,7 +120,7 @@ export class GlStatusNav extends LitElement {
 				${when(
 					this.pullRequest != null,
 					() =>
-						html`<gl-popover hoist>
+						html`<gl-popover>
 							<a href="#" class="commit-action pr-pill" slot="anchor"
 								><code-icon icon=${prIcon} class="pr pr--${this.pullRequest!.state}"></code-icon
 								><span>#${this.pullRequest!.id}</span></a

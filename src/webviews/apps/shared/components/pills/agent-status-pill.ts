@@ -533,7 +533,7 @@ export class GlAgentStatusPill extends LitElement {
 		const canResolve = category === 'needs-input' && permission != null;
 
 		return html`
-			<gl-popover placement="bottom" hoist>
+			<gl-popover placement="bottom">
 				<span slot="anchor" class=${`pill ${category ? `pill--${category}` : ''}`.trim()} tabindex="0">
 					<span class="pill__label">
 						<span class="pill__dot"></span>
@@ -555,7 +555,7 @@ export class GlAgentStatusPill extends LitElement {
 		const label = count > 1 ? `${baseLabel} · ${count}` : baseLabel;
 
 		return html`
-			<gl-popover placement="bottom" hoist>
+			<gl-popover placement="bottom">
 				<span slot="anchor" class=${`pill pill--${category}`} tabindex="0">
 					<span class="pill__label">
 						<span class="pill__dot"></span>
@@ -824,7 +824,7 @@ export class GlAgentStatusPill extends LitElement {
 	 *  trigger — the parent hover popover stays open while focus is on this anchor. */
 	private renderMoreActionsMenu(openHref: string, alwaysAllowHref: string | undefined): unknown {
 		return html`
-			<gl-popover placement="bottom-end" trigger="click" hoist>
+			<gl-popover placement="bottom-end" trigger="click">
 				<action-item slot="anchor" label="More actions" icon="ellipsis"></action-item>
 				<div slot="content" class="more-menu" role="menu" @mousedown=${this.onActionMouseDown}>
 					${alwaysAllowHref != null

@@ -133,7 +133,7 @@ export class GlCompactCommitRow extends LitElement {
 	dateStyle: 'relative' | 'absolute' = 'relative';
 
 	override render() {
-		return html`<gl-popover hoist placement="bottom" trigger="hover focus">
+		return html`<gl-popover placement="bottom" trigger="hover focus">
 			<div
 				slot="anchor"
 				class="row"

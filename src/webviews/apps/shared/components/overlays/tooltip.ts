@@ -35,7 +35,6 @@ export class GlTooltip extends LitElement {
 		}
 
 		.tooltip::part(popup) {
-			z-index: var(--wa-z-index-tooltip);
 			pointer-events: none;
 		}
 

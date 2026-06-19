@@ -494,7 +494,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 					: (commit.author.date.toISOString?.() ?? ''),
 		};
 
-		return html`<gl-popover hoist placement="bottom" trigger="hover focus" class="pole-card__popover">
+		return html`<gl-popover placement="bottom" trigger="hover focus" class="pole-card__popover">
 			<div slot="anchor" class="pole-card" tabindex="0" @click=${() => this.handlePoleClick(commit.sha)}>
 				${showSignature
 					? html`<gl-signature-badge

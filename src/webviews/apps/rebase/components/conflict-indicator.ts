@@ -214,7 +214,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 		if (this.compact) {
 			return html`
-				<gl-popover placement="top" trigger="hover click focus" hoist>
+				<gl-popover placement="top" trigger="hover click focus">
 					<div slot="anchor" class="indicator indicator--error" tabindex="0">
 						${this.renderStateIcon('error')}
 					</div>
@@ -229,7 +229,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 		}
 
 		return html`
-			<gl-popover placement="bottom" trigger="hover click focus" hoist>
+			<gl-popover placement="bottom" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--error" tabindex="0">
 					${this.renderStateIcon('error')}
 					<span class="indicator__content">Conflict Detection Unavailable</span>
@@ -249,7 +249,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 		if (this.compact) {
 			return html`
-				<gl-popover placement="top" trigger="hover click focus" hoist>
+				<gl-popover placement="top" trigger="hover click focus">
 					<div slot="anchor" class="indicator indicator--clean ${staleClass}" tabindex="0">
 						${this.renderStateIcon('pass')}
 					</div>
@@ -269,7 +269,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 		}
 
 		return html`
-			<gl-popover placement="bottom" trigger="hover click focus" hoist>
+			<gl-popover placement="bottom" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--clean ${staleClass}" tabindex="0">
 					${this.renderStateIcon('pass')}
 					<span class="indicator__content"
@@ -300,7 +300,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 		if (this.compact) {
 			return html`
-				<gl-popover placement="top" trigger="hover click focus" hoist>
+				<gl-popover placement="top" trigger="hover click focus">
 					<div slot="anchor" class="indicator indicator--conflict ${staleClass}" tabindex="0">
 						${this.renderStateIcon('warning')}
 					</div>
@@ -325,7 +325,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 		}
 
 		return html`
-			<gl-popover placement="bottom" trigger="hover click focus" hoist>
+			<gl-popover placement="bottom" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--conflict ${staleClass}" tabindex="0">
 					${this.renderStateIcon('warning')}
 					<span class="indicator__content"
@@ -358,7 +358,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 		const placement = this.compact ? 'top' : 'bottom';
 
 		return html`
-			<gl-popover placement="${placement}" trigger="hover click focus" hoist>
+			<gl-popover placement="${placement}" trigger="hover click focus">
 				<div slot="anchor" class="indicator indicator--upgrade" tabindex="0">
 					<code-icon class="indicator__icon" icon="lock" size="16"></code-icon>
 					${this.compact ? nothing : html`<span class="indicator__content">Conflict Detection (Pro)</span>`}

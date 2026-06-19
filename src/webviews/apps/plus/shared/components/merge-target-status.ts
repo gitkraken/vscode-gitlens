@@ -344,7 +344,7 @@ export class GlMergeTargetStatus extends LitElement {
 			status = 'in-sync';
 		}
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>
@@ -691,7 +691,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 		const icon = 'warning';
 		const status = 'upgrade';
 
-		return html`<gl-popover placement="bottom" trigger="hover click focus" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover click focus">
 			<span slot="anchor" class="chip status--${status}" tabindex="0"
 				><code-icon class="icon" icon="gl-merge-target" size="18"></code-icon
 				><code-icon class="status-indicator icon--${status}" icon="${icon}" size="12"></code-icon>

@@ -698,7 +698,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		const visibleDots = sessions.slice(0, maxClusterDots);
 		const overflow = sessions.length - visibleDots.length;
 		return html`
-			<gl-popover placement="bottom" hoist>
+			<gl-popover placement="bottom">
 				<span slot="anchor" class="section__cluster" tabindex="0" role="button" aria-label="Agent sessions">
 					<span class="section__cluster-dots">
 						${visibleDots.map(
@@ -758,7 +758,7 @@ export class GlDetailsAgentStatus extends LitElement {
 					data-expand=${state}
 				></code-icon>
 				<span class="section__heading-label">Agents</span>
-				<gl-popover placement="bottom" hoist ?disabled=${state === 'expanded'}>
+				<gl-popover placement="bottom" ?disabled=${state === 'expanded'}>
 					<span slot="anchor" class="section__cluster">
 						<span class="section__cluster-dots">
 							${visibleDots.map(

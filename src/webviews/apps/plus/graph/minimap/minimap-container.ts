@@ -351,7 +351,7 @@ export class GlGraphMinimapContainer extends GlElement {
 				@gl-graph-minimap-zoom-change=${this.handleZoomChanged}
 			></gl-graph-minimap>
 			<div class="minimap-settings-wrapper">
-				<gl-popover placement="bottom-end" trigger="hover focus click" ?arrow=${false} distance=${0} hoist>
+				<gl-popover placement="bottom-end" trigger="hover focus click" ?arrow=${false} distance=${0}>
 					<button type="button" class="minimap-settings__trigger" aria-label="Minimap Options" slot="anchor">
 						<code-icon
 							icon=${this.dataType === 'lines' ? 'request-changes' : 'git-commit'}

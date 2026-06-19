@@ -556,7 +556,7 @@ export class GlTimelineHeader extends LitElement {
 	};
 
 	private renderConfigPopover() {
-		return html`<gl-popover placement="bottom" trigger="hover focus click" hoist>
+		return html`<gl-popover placement="bottom" trigger="hover focus click">
 			<gl-button slot="anchor" appearance="toolbar" aria-label="Timeline Options">
 				<code-icon icon="settings"></code-icon>
 			</gl-button>
