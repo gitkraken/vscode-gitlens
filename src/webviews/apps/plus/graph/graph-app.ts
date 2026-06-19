@@ -124,7 +124,7 @@ function primaryFallbackLabel(repoPath: string): string {
 
 const sidebarDefaultPct = 20;
 const sidebarMinPct = 15;
-const sidebarMaxPct = 80;
+const sidebarMaxPct = 99;
 
 const detailsDefaultPct = 50;
 const detailsMinPct = 20;
