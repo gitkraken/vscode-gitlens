@@ -41,11 +41,16 @@ rl.question(
 		// Update CHANGELOG.md: insert new section under [Unreleased], refresh unreleased link, add compare link.
 		await updateChangelog(version);
 
-		// pnpm version (delegating to npm version) only commits and tags when run at the workspace root,
-		// because npm's git-repo check looks for .git/ in the package directory and doesn't walk up.
-		// In packages/core/ it just rewrites package.json, so we stage, commit, and tag manually below.
+		// `pnpm version` would otherwise abort on the dirty tree (we just edited CHANGELOG.md) and
+		// then create its own commit + tag (e.g. `0.3.1` / `v0.3.1`). We only want it to rewrite
+		// package.json's version: `--no-git-checks` skips the clean-tree check and
+		// `--no-git-tag-version` skips the commit/tag, so we stage, commit, and tag manually below.
 		try {
-			const { stdout, stderr } = await execFileAsync('pnpm', ['version', version], { cwd: coreRoot });
+			const { stdout, stderr } = await execFileAsync(
+				'pnpm',
+				['version', version, '--no-git-tag-version', '--no-git-checks'],
+				{ cwd: coreRoot },
+			);
 			if (stdout) process.stdout.write(stdout);
 			if (stderr) process.stderr.write(stderr);
 		} catch (err) {
@@ -71,6 +76,7 @@ rl.question(
 	},
 );
 
+/** @param {string} newVersion */
 async function updateChangelog(newVersion) {
 	let data = await readFile(coreChangelogPath, 'utf8');
 
