@@ -65,7 +65,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
+			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
@@ -278,7 +278,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
+			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
 			throw getGitCommandError(
 				'fetch',
@@ -425,7 +425,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, configs: gitConfigsPull, ...runOptions }, ...params);
+			await this.git.run({ cwd: repoPath, configs: gitConfigsPull, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
 			await this.throwIfSigningError(repoPath, params, ex, options.source);
 			throw getGitCommandError(
@@ -590,7 +590,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		}
 
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
+			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
 			const error = getGitCommandError(
 				'push',
@@ -779,7 +779,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 		params.push(rev, '--');
 
 		try {
-			await this.git.run({ cwd: repoPath, ...runOptions }, ...params);
+			await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...params);
 		} catch (ex) {
 			throw getGitCommandError(
 				'reset',
@@ -823,7 +823,10 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 					args.push(selector);
 				}
 				args.push('--pathspec-from-file=-', '--pathspec-file-nul');
-				await this.git.run({ cwd: repoPath, ...runOptions, stdin: normalized.join('\0') }, ...args);
+				await this.git.run(
+					{ cwd: repoPath, errors: 'throw', ...runOptions, stdin: normalized.join('\0') },
+					...args,
+				);
 			} else {
 				// Older git: pass pathspecs as args, one git invocation per chunk (collapsing N
 				// path-mode checkouts into ⌈N / chunk⌉ spawns). Reserve the command prefix length and
@@ -832,7 +835,7 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 				const perArgOverhead = 3;
 				const prefixLength = prefix.reduce((sum, arg) => sum + arg.length + perArgOverhead, 0);
 				for (const batch of chunkByStringLength(normalized, maxGitCliLength - prefixLength, perArgOverhead)) {
-					await this.git.run({ cwd: repoPath, ...runOptions }, ...prefix, ...batch);
+					await this.git.run({ cwd: repoPath, errors: 'throw', ...runOptions }, ...prefix, ...batch);
 				}
 			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'status');
