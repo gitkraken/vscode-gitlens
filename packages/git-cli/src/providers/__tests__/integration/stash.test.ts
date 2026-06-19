@@ -176,6 +176,57 @@ suite('StashSubProvider.saveStash', () => {
 			r.cleanup();
 		}
 	});
+
+	test('keeps staged changes when stashing tracked files by pathspec (#5281)', async () => {
+		// Regression for #5281 (file-selection path): selecting tracked files and choosing "Keep Staged"
+		// must keep the index intact. The selection has no untracked files (includeUntracked: false), so
+		// the git --keep-index pathspec bug doesn't apply and --keep-index must NOT be dropped. A prior
+		// bug dropped --keep-index for *every* pathspec push (because --include-untracked is auto-added as
+		// a safety net), stashing the staged changes too.
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'both.txt', 'L1\nL2\n', 'add both.txt');
+
+			// Staged change to a tracked file...
+			writeFileSync(join(r.path, 'both.txt'), 'L1-staged\nL2\n');
+			execFileSync('git', ['add', 'both.txt'], { cwd: r.path, stdio: 'pipe' });
+			// ...plus a further unstaged change to the same file
+			writeFileSync(join(r.path, 'both.txt'), 'L1-staged\nL2-unstaged\n');
+			// Untracked file present but NOT part of the selection
+			writeFileSync(join(r.path, 'untracked.txt'), 'untracked\n');
+
+			// Stash only the tracked file, keeping the index — no untracked files in the selection
+			await r.provider.stash?.saveStash(r.path, 'tracked only, keep staged', [join(r.path, 'both.txt')], {
+				includeUntracked: false,
+				keepIndex: true,
+			});
+
+			// The staged change must remain staged (index kept intact)
+			assert.strictEqual(
+				execFileSync('git', ['show', ':both.txt'], { cwd: r.path, encoding: 'utf-8' }),
+				'L1-staged\nL2\n',
+				'Staged change must remain staged after stashing tracked files with keepIndex',
+			);
+			// The working tree must be reset to the staged state (the unstaged change was stashed)
+			assert.strictEqual(
+				readFileSync(join(r.path, 'both.txt'), 'utf-8'),
+				'L1-staged\nL2\n',
+				'Unstaged change should have been stashed',
+			);
+			// The unselected untracked file must be left untouched
+			assert.strictEqual(
+				readFileSync(join(r.path, 'untracked.txt'), 'utf-8'),
+				'untracked\n',
+				'Unselected untracked file should be left in the working tree',
+			);
+
+			// Exactly one stash entry should have been created
+			const stash = await r.provider.stash?.getStash(r.path);
+			assert.strictEqual(stash?.stashes.size, 1, 'Expected exactly one stash entry');
+		} finally {
+			r.cleanup();
+		}
+	});
 });
 
 suite('CommitsSubProvider.getLog with stashes after rebase', () => {
