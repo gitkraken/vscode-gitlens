@@ -190,7 +190,7 @@ export const composeModePanelStyles = css`
 		   on both light and dark themes (the previous hardcoded rgba(86,156,214,0.08) was
 		   invisible on light themes and produced an unintended blue cast on non-default themes). */
 		background: var(--vscode-list-activeSelectionBackground);
-		border-left-color: var(--vscode-charts-purple, #7c3aed);
+		border-left-color: var(--gl-agent-working-color);
 	}
 
 	.compose-commit--excluded .compose-commit__num,

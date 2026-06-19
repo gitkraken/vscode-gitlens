@@ -158,7 +158,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			.action-button--mcp,
 			.action-button--hooks {
-				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				background: var(--gl-gradient-brand-subtle);
 				border: 1px solid var(--vscode-panel-border);
 			}
 

@@ -13,6 +13,17 @@
 	// Brand accent gradient (GitKraken purple → blue) — Pro feature gates, promos, etc.
 	--gl-gradient-brand: linear-gradient(to right, #7900c9, #196fff);
 
+	// Subtle brand wash (magenta → blue @ ~10%) — low-emphasis feature-region backgrounds
+	// (auto-compose container, MCP/hooks buttons, matching promo banner). Static + decorative;
+	// drops out under forced-colors, where these surfaces carry their own border.
+	--gl-gradient-brand-subtle: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+
+	// AI accent gradient stops (violet → sky → cyan) — high-emphasis AI affordances
+	// (active-input shimmer borders, AI action buttons). Static + decorative; drop out under forced-colors.
+	--gl-ai-accent-1: #7c3aed;
+	--gl-ai-accent-2: #0ea5e9;
+	--gl-ai-accent-3: #06b6d4;
+
 	--color-background: var(--vscode-editor-background);
 
 	// Computed variants in code

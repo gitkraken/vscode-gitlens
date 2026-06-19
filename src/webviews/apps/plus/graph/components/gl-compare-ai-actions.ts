@@ -57,9 +57,9 @@ export class GlCompareAIActions extends LitElement {
 	   that the Explain input shows when focused. Busy keeps the gradient border and
 	   animates --angle so the gradient sweeps around the perimeter. */
 			.changelog-btn {
-				--gradient-start: #7c3aed;
-				--gradient-mid: #0ea5e9;
-				--gradient-end: #06b6d4;
+				--gradient-start: var(--gl-ai-accent-1);
+				--gradient-mid: var(--gl-ai-accent-2);
+				--gradient-end: var(--gl-ai-accent-3);
 
 				display: inline-flex;
 				flex: none;

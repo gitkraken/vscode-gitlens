@@ -20,7 +20,7 @@ export const commitBoxStyles = css`
 		gap: 0.4rem;
 		padding: 0.6rem 1.2rem 0.8rem;
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		--gl-input-working-border-color: var(--vscode-charts-purple, #7c3aed);
+		--gl-input-working-border-color: var(--gl-agent-working-color);
 	}
 
 	.options {
@@ -30,7 +30,7 @@ export const commitBoxStyles = css`
 	}
 
 	.compose-icon {
-		color: var(--vscode-charts-purple, #7c3aed);
+		color: var(--gl-agent-working-color);
 	}
 
 	.amend-checkbox {

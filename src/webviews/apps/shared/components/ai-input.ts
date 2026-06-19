@@ -17,9 +17,9 @@ try {
 export class GlAiInput extends LitElement {
 	static override styles = css`
 		:host {
-			--gradient-start: #7c3aed;
-			--gradient-mid: #0ea5e9;
-			--gradient-end: #06b6d4;
+			--gradient-start: var(--gl-ai-accent-1);
+			--gradient-mid: var(--gl-ai-accent-2);
+			--gradient-end: var(--gl-ai-accent-3);
 
 			position: relative;
 			display: flex;

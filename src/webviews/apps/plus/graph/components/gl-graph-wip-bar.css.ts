@@ -97,7 +97,7 @@ export const wipBarStyles = css`
 	.pill__dot {
 		width: 0.7rem;
 		height: 0.7rem;
-		background: var(--vscode-charts-purple, #b180d7);
+		background: var(--gl-agent-working-color);
 		border-radius: 50%;
 	}
 

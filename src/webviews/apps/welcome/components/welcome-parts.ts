@@ -285,7 +285,7 @@ export class GlWalkthroughProgress extends LitElement {
 
 			.progress-bar__fill {
 				height: 100%;
-				background: linear-gradient(to right, #7900c9, #196fff);
+				background: var(--gl-gradient-brand);
 				border-radius: 2px;
 				transition: width 0.3s ease;
 			}

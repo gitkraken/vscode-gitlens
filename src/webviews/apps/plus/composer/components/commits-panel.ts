@@ -253,7 +253,7 @@ export class CommitsPanel extends LitElement {
 			/* Auto-Compose container styles */
 			.auto-compose {
 				padding: 1.2rem;
-				background: linear-gradient(135deg, #a100ff1a 0%, #255ed11a 100%);
+				background: var(--gl-gradient-brand-subtle);
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 6px;
 			}
