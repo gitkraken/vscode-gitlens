@@ -227,6 +227,171 @@ suite('StashSubProvider.saveStash', () => {
 			r.cleanup();
 		}
 	});
+
+	test('stashes only staged changes, keeping unstaged changes intact (#2539, #5138)', async () => {
+		// Regression for #2539/#5138: "Stash Staged Changes" (onlyStaged) must stash only what's staged
+		// and leave unstaged changes in the working tree. Staged and unstaged edits are on *different*
+		// lines to avoid git's same-line --staged limitation.
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 'f.txt', 'L1\nL2\nL3\n', 'add f.txt');
+
+			// Staged change on line 1...
+			writeFileSync(join(r.path, 'f.txt'), 'L1-staged\nL2\nL3\n');
+			execFileSync('git', ['add', 'f.txt'], { cwd: r.path, stdio: 'pipe' });
+			// ...unstaged change on a different line (line 3)
+			writeFileSync(join(r.path, 'f.txt'), 'L1-staged\nL2\nL3-unstaged\n');
+
+			await r.provider.stash?.saveStash(r.path, 'staged only', undefined, { onlyStaged: true });
+
+			// The index is reset to HEAD — the staged change moved into the stash
+			assert.strictEqual(
+				execFileSync('git', ['show', ':f.txt'], { cwd: r.path, encoding: 'utf-8' }),
+				'L1\nL2\nL3\n',
+				'Index should be reset to HEAD after stashing only staged changes',
+			);
+			// The unstaged change is left untouched in the working tree
+			assert.strictEqual(
+				readFileSync(join(r.path, 'f.txt'), 'utf-8'),
+				'L1\nL2\nL3-unstaged\n',
+				'Unstaged changes should remain in the working tree',
+			);
+
+			const stash = await r.provider.stash?.getStash(r.path);
+			assert.strictEqual(stash?.stashes.size, 1, 'Expected exactly one stash entry');
+		} finally {
+			r.cleanup();
+		}
+	});
+
+	test('stashes only staged changes for a specific tracked file by pathspec (#4894)', async () => {
+		// Regression for #4894: "--staged" combined with a pathspec for a tracked file must not fail with
+		// "pathspec ... did not match any file(s) known to git".
+		const r = createTestRepo();
+		try {
+			addCommit(r.path, 't.txt', 'L1\nL2\n', 'add t.txt');
+			writeFileSync(join(r.path, 't.txt'), 'L1-staged\nL2\n');
+			execFileSync('git', ['add', 't.txt'], { cwd: r.path, stdio: 'pipe' });
+
+			await assert.doesNotReject(
+				() => r.provider.stash?.saveStash(r.path, 'staged file', [join(r.path, 't.txt')], { onlyStaged: true }),
+				'Stashing a staged tracked file by pathspec with --staged should not error',
+			);
+
+			// The staged change was stashed and the index reset to HEAD
+			assert.strictEqual(
+				execFileSync('git', ['show', ':t.txt'], { cwd: r.path, encoding: 'utf-8' }),
+				'L1\nL2\n',
+				'Index should be reset to HEAD',
+			);
+			const stash = await r.provider.stash?.getStash(r.path);
+			assert.strictEqual(stash?.stashes.size, 1, 'Expected exactly one stash entry');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('StashSubProvider untracked files', () => {
+	test('lists and restores untracked files stashed with --include-untracked (#2033, #1890)', async () => {
+		// Regression for #2033/#1890: untracked files captured in a stash must be listed and restored on
+		// apply (git stores them in the stash's third parent).
+		const r = createTestRepo();
+		try {
+			writeFileSync(join(r.path, 'untracked.txt'), 'untracked content\n');
+			await r.provider.stash?.saveStash(r.path, 'with untracked', undefined, { includeUntracked: true });
+
+			// The untracked file was stashed away (removed from the working tree)
+			assert.throws(
+				() => readFileSync(join(r.path, 'untracked.txt'), 'utf-8'),
+				'Untracked file should have been stashed',
+			);
+
+			const stash = await r.provider.stash?.getStash(r.path);
+			const commit = [...(stash?.stashes.values() ?? [])][0];
+			const stashName = commit?.stashName;
+			assert.ok(stashName, 'Expected a stash entry with a name');
+
+			// The untracked file is listed among the stash's files
+			const files = await r.provider.stash?.getStashCommitFiles(r.path, stashName);
+			assert.ok(
+				files?.some(f => f.path === 'untracked.txt'),
+				'Untracked file should be listed in the stash',
+			);
+
+			// Applying the stash restores the untracked file to the working tree
+			const result = await r.provider.stash?.applyStash(r.path, stashName);
+			assert.strictEqual(result?.conflicted, false, 'Apply should not conflict');
+			assert.strictEqual(
+				readFileSync(join(r.path, 'untracked.txt'), 'utf-8'),
+				'untracked content\n',
+				'Untracked file should be restored on apply',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('StashSubProvider.applyStash (pop)', () => {
+	test('pop removes the entry from the stash list (#3163)', async () => {
+		// Regression for #3163: applying with deleteAfter (pop) must drop the entry from the stash list.
+		const r = createTestRepo();
+		try {
+			writeFileSync(join(r.path, 'README.md'), '# changed\n');
+			await r.provider.stash?.saveStash(r.path, 'popme');
+
+			const stash = await r.provider.stash?.getStash(r.path);
+			const stashName = [...(stash?.stashes.values() ?? [])][0]?.stashName;
+			assert.ok(stashName, 'Expected a stash entry');
+
+			await r.provider.stash?.applyStash(r.path, stashName, { deleteAfter: true });
+
+			// Assert against git directly: the provider's cached getStash isn't invalidated without the
+			// cache-reset hooks the extension wires up, so it can return a stale entry here.
+			const remaining = execFileSync('git', ['stash', 'list'], { cwd: r.path, encoding: 'utf-8' })
+				.split('\n')
+				.filter(Boolean);
+			assert.strictEqual(remaining.length, 0, 'pop should drop the stash entry');
+			// The changes were applied to the working tree
+			assert.strictEqual(readFileSync(join(r.path, 'README.md'), 'utf-8'), '# changed\n');
+		} finally {
+			r.cleanup();
+		}
+	});
+});
+
+suite('StashSubProvider.deleteStash', () => {
+	test('drops the targeted entry by name + sha, leaving others intact (#1971)', async () => {
+		// Regression for #1971: dropping must target the exact entry (verified by sha), not be confused by
+		// stash-number/index shifts.
+		const r = createTestRepo();
+		try {
+			writeFileSync(join(r.path, 'README.md'), '# first\n');
+			await r.provider.stash?.saveStash(r.path, 'first');
+			writeFileSync(join(r.path, 'README.md'), '# second\n');
+			await r.provider.stash?.saveStash(r.path, 'second');
+
+			const stash = await r.provider.stash?.getStash(r.path);
+			const first = [...(stash?.stashes.values() ?? [])].find(c => c.message === 'first');
+			assert.ok(first?.stashName, 'Expected to find the "first" stash');
+
+			// Pass the sha so git drops the exact entry even if list indices have shifted
+			await r.provider.stash?.deleteStash(r.path, first.stashName, first.sha);
+
+			// Assert against git directly (the provider's cached getStash isn't invalidated in tests)
+			const remaining = execFileSync('git', ['stash', 'list'], { cwd: r.path, encoding: 'utf-8' }).trim();
+			assert.match(remaining, /second/, 'The "second" stash should remain');
+			assert.doesNotMatch(remaining, /first/, 'The "first" stash should have been dropped');
+			assert.strictEqual(
+				remaining.split('\n').filter(Boolean).length,
+				1,
+				'Exactly one stash should remain after dropping the other',
+			);
+		} finally {
+			r.cleanup();
+		}
+	});
 });
 
 suite('CommitsSubProvider.getLog with stashes after rebase', () => {
