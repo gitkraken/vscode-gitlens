@@ -197,10 +197,6 @@ export const diff2htmlStyles = css`
 		cursor: pointer;
 		border: 1px solid var(--d2h-border-color);
 		border-radius: 3px;
-		-webkit-box-pack: end;
-		-ms-flex-pack: end;
-		align-items: center;
-		-ms-flex-align: center;
 	}
 
 	.d2h-file-collapse.d2h-selected {

@@ -27,6 +27,7 @@ export const detailsHeaderStyles = css`
 	.details-header__content {
 		flex: 1;
 		min-width: 0;
+
 		/* The content box can shrink below its children's intrinsic width (min-width: 0), so clip
 		   anything that would otherwise spill out and paint under the actions cluster. */
 		overflow: hidden;

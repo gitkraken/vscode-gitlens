@@ -9,7 +9,6 @@ export const featureGateBaseStyles = css`
 
 		position: absolute;
 		inset: 0;
-
 		box-sizing: border-box;
 	}
 
@@ -33,28 +32,26 @@ export const featureGateBaseStyles = css`
 
 		position: fixed;
 		inset: 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
 		width: 100%;
 		max-width: none;
 		height: 100%;
 		max-height: none;
-		margin: 0;
 		padding: 2.4rem 0;
-
-		display: flex;
-		flex-direction: column;
-		box-sizing: border-box;
+		margin: 0;
 		overflow: hidden;
-
 		color: var(--section-foreground);
+		background:
+			linear-gradient(var(--section-background), var(--section-background)) padding-box,
+			var(--gl-gradient-brand) border-box;
+
 		/* Gradient border that follows border-radius (border-image ignores radius): a transparent
 		   real border, a solid fill clipped to padding-box, and the brand gradient clipped to
 		   border-box so it only shows through the border ring. */
 		border: var(--gate-border-size) solid transparent;
 		border-radius: 1.2rem;
-		background:
-			linear-gradient(var(--section-background), var(--section-background)) padding-box,
-			var(--gl-gradient-brand) border-box;
-
 		box-shadow: 0 0 0 1px var(--section-border-color);
 	}
 
@@ -71,13 +68,12 @@ export const featureGateBaseStyles = css`
 	}
 
 	.content {
-		padding-inline: 2.4rem;
-		flex: 1 1 auto;
-		min-height: 0;
-		overflow: auto;
-
 		display: flex;
+		flex: 1 1 auto;
 		flex-direction: column;
+		min-height: 0;
+		padding-inline: 2.4rem;
+		overflow: auto;
 	}
 
 	:host-context(body[data-placement='editor']) dialog,
@@ -101,8 +97,7 @@ export const featureGateBaseStyles = css`
 	:host-context(body[data-placement='editor']) .content ::slotted(gl-button),
 	:host([appearance='alert']) .content ::slotted(gl-button) {
 		display: block;
-		margin-left: auto;
-		margin-right: auto;
+		margin-inline: auto;
 	}
 
 	.switch-repos {
@@ -110,7 +105,6 @@ export const featureGateBaseStyles = css`
 		top: 0.6rem;
 		right: 0.6rem;
 		z-index: 1;
-
 		opacity: 0.6;
 	}
 
@@ -126,8 +120,8 @@ export const featureGateContentStyles = css`
 		--icon-background: color-mix(in srgb, var(--icon-color) 10%, transparent);
 		--icon-size: 1.4em;
 
-		flex: none;
 		display: inline-flex;
+		flex: none;
 		align-items: center;
 		justify-content: center;
 		width: calc(var(--icon-size) * 1.6);
@@ -153,8 +147,8 @@ export const featureGateContentStyles = css`
 	.feature__header {
 		display: flex;
 		flex-direction: row;
-		align-items: flex-start;
 		gap: 1.2rem;
+		align-items: flex-start;
 	}
 
 	.feature__feature-icon {
@@ -166,9 +160,9 @@ export const featureGateContentStyles = css`
 
 	.feature__title {
 		display: flex;
-		align-items: baseline;
 		flex-wrap: wrap;
 		gap: 0.6rem;
+		align-items: baseline;
 		margin: 0;
 		font-size: 1.6rem;
 		font-weight: 600;
@@ -191,19 +185,19 @@ export const featureGateContentStyles = css`
 	}
 
 	.list {
-		list-style: none;
-		margin-block: 0.6rem;
-		margin-inline: 0;
-		padding-inline-start: 0;
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
 		gap: 1.6rem;
+		padding-inline-start: 0;
+		margin-block: 0.6rem;
+		margin-inline: 0;
+		list-style: none;
 	}
 
 	.list__item {
 		display: flex;
-		align-items: flex-start;
 		gap: 1.2rem;
+		align-items: flex-start;
 	}
 
 	.list__copy {

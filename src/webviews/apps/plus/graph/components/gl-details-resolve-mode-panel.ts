@@ -10,8 +10,8 @@ import type {
 	ResolveSkippedFile,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
-import { panelErrorStyles, panelHostStyles, panelLoadingStyles } from './shared-panel.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
+import { panelErrorStyles, panelHostStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -54,8 +54,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 		css`
 			.resolve-panel {
 				display: flex;
-				flex-direction: column;
 				flex: 1;
+				flex-direction: column;
 				min-height: 0;
 			}
 
@@ -65,10 +65,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-files {
-				list-style: none;
-				margin: 0.4rem 0;
 				padding: 0;
+				margin: 0.4rem 0;
 				overflow-y: auto;
+				list-style: none;
 			}
 
 			.resolve-file {
@@ -81,35 +81,35 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 			.resolve-file__head {
 				display: flex;
-				align-items: center;
 				gap: 0.4rem;
+				align-items: center;
 			}
 
 			.resolve-file__path {
-				font-weight: 600;
+				flex: 1;
 				overflow: hidden;
 				text-overflow: ellipsis;
+				font-weight: 600;
 				white-space: nowrap;
-				flex: 1;
 			}
 
 			/* Idle-state file link — opens the conflicted working-tree file. Mirrors the review
-			   panel's .review-area__file-link affordance (hover background + path underline). */
+	   panel's .review-area__file-link affordance (hover background + path underline). */
 			.resolve-file__link {
 				display: flex;
-				align-items: center;
-				gap: 0.4rem;
 				flex: 1;
+				gap: 0.4rem;
+				align-items: center;
 				min-width: 0;
-				margin: -0.2rem -0.4rem;
 				padding: 0.2rem 0.4rem;
-				font-size: inherit;
+				margin: -0.2rem -0.4rem;
 				font-family: inherit;
+				font-size: inherit;
 				color: var(--vscode-textLink-foreground);
+				text-align: left;
+				cursor: pointer;
 				background: transparent;
 				border: none;
-				cursor: pointer;
-				text-align: left;
 				border-radius: 0.2rem;
 			}
 
@@ -118,32 +118,32 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* Underline only the path text on hover — without this scope, the rule applies to the
-			   whole button and the icon picks up a stray underline at its baseline. */
+	   whole button and the icon picks up a stray underline at its baseline. */
 			.resolve-file__link:hover .resolve-file__path {
 				text-decoration: underline;
 			}
 
 			.resolve-file__link code-icon {
+				flex: none;
 				color: var(--vscode-foreground);
 				opacity: 0.7;
-				flex: none;
 			}
 
 			.resolve-file__badge {
 				display: inline-flex;
-				align-items: center;
-				gap: 0.3rem;
 				flex: none;
-				font-size: 1.1rem;
+				gap: 0.3rem;
+				align-items: center;
 				padding: 0.1rem 0.5rem;
-				border-radius: 0.4rem;
-				background: var(--vscode-badge-background);
+				font-size: 1.1rem;
 				color: var(--vscode-badge-foreground);
+				background: var(--vscode-badge-background);
+				border-radius: 0.4rem;
 			}
 
 			.resolve-file__badge--warn {
-				background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background));
 				color: var(--vscode-inputValidation-warningForeground, var(--vscode-badge-foreground));
+				background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background));
 			}
 
 			.resolve-file__reasoning {
@@ -158,19 +158,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 			.resolve-footer {
 				display: flex;
-				justify-content: flex-end;
+				flex: none;
 				gap: 0.6rem;
+				justify-content: flex-end;
 				padding: 0.6rem 1.2rem;
 				border-top: 1px solid var(--vscode-panel-border);
-				flex: none;
 			}
 
 			.resolve-actions {
 				display: flex;
+				flex: none;
 				flex-direction: column;
 				gap: 0.4rem;
 				padding: 0.6rem 1.2rem;
-				flex: none;
 			}
 
 			.resolve-loading-actions {

@@ -686,7 +686,7 @@ export class GlTimelineChart extends GlElement {
 			overflow: hidden;
 			white-space: nowrap;
 			border: 0;
-			clip: rect(0, 0, 0, 0);
+			clip-path: inset(50%);
 		}
 	`;
 

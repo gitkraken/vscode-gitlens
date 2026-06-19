@@ -132,13 +132,12 @@ export const rebaseStyles = css`
 	.container {
 		box-sizing: border-box;
 		display: grid;
-		grid-template-areas:
-			'header'
-			'banner'
-			'content'
-			'footer';
-		grid-template-rows: auto auto minmax(0, 1fr) auto;
-		grid-template-columns: minmax(0, 1fr);
+		grid-template:
+			'header' auto
+			'banner' auto
+			'content' minmax(0, 1fr)
+			'footer' auto
+			/ minmax(0, 1fr);
 		min-width: 0;
 		height: 100vh;
 		padding: 0.5rem;
