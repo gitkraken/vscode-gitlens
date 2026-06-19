@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { RunError } from '../exec.errors.js';
 import {
 	classifySigningError,
+	defaultExceptionHandler,
 	getGitCommandError,
 	GitError,
 	GitErrors,
@@ -443,6 +444,31 @@ suite('getGitCommandError() Test Suite', () => {
 	test('maps fetch stderr to "remoteConnectionFailed" reason', () => {
 		const ex = makeGitError('fatal: Could not read from remote repository.');
 		assert.strictEqual(captureReason('fetch', ex), 'remoteConnectionFailed');
+	});
+});
+
+suite('defaultExceptionHandler() Test Suite', () => {
+	// Documents the mechanism behind the requirement that mutating operations (push, etc.) pass
+	// `errors: 'throw'`: any rejection whose message matches a `GitWarnings` regex is treated as
+	// non-fatal and swallowed here, so it never reaches the operation's catch block. A push left to
+	// the default handler would resolve as if it succeeded on a non-fast-forward (`tipBehind`) rejection.
+	test('swallows tipBehind (non-fast-forward) rejections as non-fatal', () => {
+		const ex = makeGitError(
+			'hint: Updates were rejected because the tip of your current branch is behind\nhint: its remote counterpart.',
+		);
+		assert.doesNotThrow(() => defaultExceptionHandler(ex, '/repo'));
+	});
+
+	test('rethrows remoteAhead rejections (not a GitWarning)', () => {
+		const ex = makeGitError(
+			"error: failed to push some refs to 'origin'\nhint: Updates were rejected because the remote contains work that you do not have locally.",
+		);
+		assert.throws(() => defaultExceptionHandler(ex, '/repo'));
+	});
+
+	test('rethrows unrecognized errors', () => {
+		const ex = makeGitError('some unknown error happened');
+		assert.throws(() => defaultExceptionHandler(ex, '/repo'));
 	});
 });
 
