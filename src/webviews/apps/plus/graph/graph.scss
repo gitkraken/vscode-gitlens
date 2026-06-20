@@ -6,7 +6,7 @@
 @include meta.load-css('../../../../../node_modules/@gitkraken/gitkraken-components/dist/styles.css');
 
 @mixin focusStyles() {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
@@ -1299,7 +1299,7 @@ web-graph {
 			width: var(--sash-size);
 			height: 1.6rem;
 			content: '';
-			border-left: 1px solid var(--titlebar-fg);
+			border-left: var(--gl-border-width) solid var(--titlebar-fg);
 			opacity: 0.3;
 			transition: border-color 0.1s ease-out;
 		}
@@ -1469,7 +1469,7 @@ web-graph {
 			var(--vscode-sideBarSectionHeader-background) 90%,
 			var(--vscode-foreground) 10%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 100%, var(--vscode-foreground) 70%) !important;
 		border-radius: var(--gl-radius-sm);
 
@@ -1512,7 +1512,7 @@ web-graph {
 		color: var(--vscode-textLink-foreground);
 		text-decoration: none;
 		cursor: pointer;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
 		transition: color 0.2s ease;
 
@@ -1522,7 +1522,7 @@ web-graph {
 		}
 
 		&:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 0;
 			border-color: var(--vscode-focusBorder) !important;
 		}
@@ -1559,7 +1559,7 @@ web-graph {
 		text-align: start !important;
 		white-space: break-spaces !important;
 		background-color: var(--color-hover-background) !important;
-		border: 1px solid var(--color-hover-border) !important;
+		border: var(--gl-border-width) solid var(--color-hover-border) !important;
 		border-radius: 0 !important;
 
 		// Light-DOM vendor tooltip (web-graph): needs `!important` to beat the library's own styles,
@@ -1588,7 +1588,7 @@ web-graph {
 		position: relative;
 		flex: 1;
 		overflow: hidden;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
 		isolation: isolate;
 	}
@@ -1697,11 +1697,11 @@ web-graph {
 		background-color: var(--vscode-sideBar-background, var(--color-background));
 
 		.graph__details-split[orientation='horizontal'] & {
-			border-left: 1px solid var(--vscode-sideBar-border);
+			border-left: var(--gl-border-width) solid var(--vscode-sideBar-border);
 		}
 
 		.graph__details-split[orientation='vertical'] & {
-			border-top: 1px solid var(--vscode-sideBar-border);
+			border-top: var(--gl-border-width) solid var(--vscode-sideBar-border);
 		}
 
 		gl-graph-details-panel {
@@ -1808,7 +1808,7 @@ web-graph {
 			flex-direction: column;
 			min-height: 0;
 			background: var(--vscode-sideBar-background, var(--color-background));
-			border-left: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__header {
@@ -1821,7 +1821,7 @@ web-graph {
 			min-height: 4.2rem;
 			padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
-			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.compare-pinned-host__title {

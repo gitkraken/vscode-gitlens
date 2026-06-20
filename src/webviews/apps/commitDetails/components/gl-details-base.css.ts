@@ -86,7 +86,7 @@ export const detailsBaseStyles = [
 			padding: 0.5rem;
 			font-size: var(--gl-font-base);
 			background: var(--vscode-input-background);
-			border: 1px solid var(--vscode-input-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-xs) var(--gl-radius-xs) 0 0;
 		}
 
@@ -392,7 +392,7 @@ export const detailsBaseStyles = [
 			margin-top: var(--gl-space-10);
 			font-size: var(--gl-font-base);
 			background: var(--vscode-input-background);
-			border: 0.1rem solid var(--vscode-input-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-xs);
 		}
 
@@ -431,7 +431,7 @@ export const detailsBaseStyles = [
 			margin-block: 0;
 			color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
 			background-color: var(--color-alert-warningBackground);
-			border: 1px solid var(--color-alert-warningBorder);
+			border: var(--gl-border-width) solid var(--color-alert-warningBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -455,7 +455,7 @@ export const detailsBaseStyles = [
 
 		.tooltip-hint {
 			white-space: nowrap;
-			border-bottom: 1px dashed currentcolor;
+			border-bottom: var(--gl-border-width) dashed currentcolor;
 		}
 
 		/* Child component layout — these live inside the shadow root */
@@ -487,7 +487,8 @@ export const detailsBaseStyles = [
 			justify-content: center;
 			width: 100%;
 			height: 100%;
-			border-top: 1px solid color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
+			border-top: var(--gl-border-width) solid
+				color-mix(in srgb, var(--vscode-sideBarSectionHeader-border) 60%, transparent);
 		}
 
 		:host([variant='embedded']) .split__handle::after {

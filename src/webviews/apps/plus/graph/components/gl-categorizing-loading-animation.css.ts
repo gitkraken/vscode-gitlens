@@ -42,8 +42,8 @@ export const categorizingLoadingAnimationStyles = css`
 			color-mix(in srgb, var(--vscode-foreground) 4%, transparent) 50%,
 			transparent 100%
 		);
-		border-top: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
-		border-bottom: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+		border-top: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+		border-bottom: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
 	}
 
 	.lens__scanline {

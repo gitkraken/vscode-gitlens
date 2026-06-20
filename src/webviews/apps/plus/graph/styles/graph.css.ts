@@ -51,7 +51,7 @@ export const actionButton = css`
 	}
 
 	.action-button[aria-checked] {
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 	}
 
 	.action-button[aria-checked='true'] {

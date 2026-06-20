@@ -65,7 +65,7 @@ export const resumeBarStyles = css`
 		text-align: left;
 		cursor: pointer;
 		background: transparent;
-		border: 1px solid var(--vscode-button-border);
+		border: var(--gl-border-width) solid var(--vscode-button-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -74,7 +74,7 @@ export const resumeBarStyles = css`
 	}
 
 	.resume-bar:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -178,7 +178,7 @@ export const panelScopeSplitStyles = css`
 		height: 100%;
 		padding: var(--gl-space-6);
 		overflow: hidden;
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.scope-split__files {
@@ -223,7 +223,8 @@ export const panelErrorStyles = css`
 		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
 		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
-		border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
+		border: var(--gl-border-width) solid
+			var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
 		border-radius: var(--gl-radius-sm);
 	}
 

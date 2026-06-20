@@ -104,12 +104,13 @@ export class GlFeatureGatePlusState extends LitElement {
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentcolor;
+				border-bottom: var(--gl-border-width) dashed currentcolor;
 			}
 
 			hr {
 				border: none;
-				border-top: 1px solid color-mix(in srgb, var(--section-border-color) 20%, transparent);
+				border-top: var(--gl-border-width) solid
+					color-mix(in srgb, var(--section-border-color) 20%, transparent);
 			}
 		`,
 		linkStyles,

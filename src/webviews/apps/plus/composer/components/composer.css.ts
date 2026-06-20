@@ -21,7 +21,7 @@ export const composerItemStyles = css`
 		background: var(--composer-item-background);
 
 		/* gap: 0.8rem; */
-		border: 1px solid var(--composer-item-border);
+		border: var(--gl-border-width) solid var(--composer-item-border);
 		border-radius: var(--composer-item-radius);
 		transition: background-color 0.2s ease;
 	}

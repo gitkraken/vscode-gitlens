@@ -17,8 +17,8 @@ export const multiCommitPanelStyles = css`
 		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compare-metadata__left {
@@ -91,7 +91,7 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata__right .mode-status__resume:focus-visible {
 		color: var(--vscode-foreground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 		background: var(--vscode-toolbar-hoverBackground);
 	}
@@ -135,7 +135,7 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.pole-card:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
@@ -198,7 +198,7 @@ export const multiCommitPanelStyles = css`
 		color: var(--color-foreground--65);
 		cursor: pointer;
 		background: var(--color-background--level-10);
-		border: 0.1rem solid var(--vscode-sideBarSectionHeader-border);
+		border: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -342,7 +342,7 @@ export const multiCommitPanelStyles = css`
 		flex: none;
 		flex-direction: column;
 		padding-bottom: var(--gl-space-4);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compare-files {

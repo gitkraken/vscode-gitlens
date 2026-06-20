@@ -150,7 +150,7 @@ ul {
 	padding: 0.5rem;
 	font-size: var(--gl-font-base);
 	background: var(--vscode-input-background);
-	border: 1px solid var(--vscode-input-border, transparent);
+	border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 	border-radius: var(--gl-radius-xs) var(--gl-radius-xs) 0 0;
 
 	&__text {
@@ -395,7 +395,7 @@ ul {
 	margin-top: var(--gl-space-10);
 	font-size: var(--gl-font-base);
 	background: var(--vscode-input-background);
-	border: 0.1rem solid var(--vscode-input-border, transparent);
+	border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 	border-radius: var(--gl-radius-xs);
 
 	&.has-error {

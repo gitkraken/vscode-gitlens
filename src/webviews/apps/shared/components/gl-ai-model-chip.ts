@@ -34,7 +34,7 @@ export class GlAiModelChip extends LitElement {
 			text-align: left;
 			cursor: pointer;
 			background: transparent;
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition:
 				color 0.15s,

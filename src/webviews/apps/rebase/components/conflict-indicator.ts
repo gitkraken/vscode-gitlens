@@ -46,7 +46,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 				padding: var(--gl-space-4) var(--gl-space-8);
 				font-size: var(--gl-font-md);
 				background-color: var(--vscode-button-secondaryBackground);
-				border: 1px solid var(--vscode-button-secondaryBorder, transparent);
+				border: var(--gl-border-width) solid var(--vscode-button-secondaryBorder, transparent);
 				border-radius: var(--gl-radius-sm);
 			}
 
@@ -66,7 +66,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.indicator--clean {
 				color: var(--vscode-foreground);
 				background-color: color-mix(in srgb, var(--vscode-testing-iconPassed) 18%, transparent) !important;
-				border: 1px solid color-mix(in srgb, var(--vscode-testing-iconPassed) 50%, transparent) !important;
+				border: var(--gl-border-width) solid
+					color-mix(in srgb, var(--vscode-testing-iconPassed) 50%, transparent) !important;
 			}
 
 			.indicator--clean .indicator__icon {
@@ -81,7 +82,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 					var(--vscode-editorWarning-foreground) 18%,
 					transparent
 				) !important;
-				border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent) !important;
+				border: var(--gl-border-width) solid
+					color-mix(in srgb, var(--vscode-editorWarning-foreground) 50%, transparent) !important;
 			}
 
 			.indicator--conflict .indicator__icon {
@@ -105,7 +107,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 					var(--vscode-editorWarning-foreground) 12%,
 					transparent
 				) !important;
-				border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground) 30%, transparent) !important;
+				border: var(--gl-border-width) solid
+					color-mix(in srgb, var(--vscode-editorWarning-foreground) 30%, transparent) !important;
 				opacity: 0.8;
 			}
 

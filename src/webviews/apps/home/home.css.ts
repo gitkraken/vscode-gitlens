@@ -15,7 +15,7 @@ export const homeBaseStyles = css`
 
 	/* roll into shared focus style */
 	:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
@@ -70,8 +70,8 @@ export const homeStyles = css`
 
 	.home__header {
 		padding: var(--gl-space-4);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.home__aux:has(gl-promo-banner:has(gl-promo:not([has-promo])):only-child) {

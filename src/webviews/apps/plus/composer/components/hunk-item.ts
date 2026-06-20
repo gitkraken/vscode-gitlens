@@ -19,7 +19,7 @@ export class HunkItem extends LitElement {
 			cursor: grab;
 			user-select: none;
 			background: var(--vscode-editor-background);
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition: all 0.2s ease;
 		}

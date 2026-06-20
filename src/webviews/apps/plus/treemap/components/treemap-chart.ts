@@ -236,7 +236,7 @@ export class GlTreemapChart extends LitElement {
 			width: 100%;
 			min-height: 0;
 			background: var(--vscode-editor-background);
-			border-top: 1px solid var(--vscode-editorWidget-border, transparent);
+			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
 
 		.empty {
@@ -282,7 +282,7 @@ export class GlTreemapChart extends LitElement {
 			text-align: center;
 			pointer-events: none;
 			background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
-			border: 1px solid var(--vscode-editorWidget-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 			border-radius: var(--gl-radius-sm);
 			transform: translate(-50%, -50%);
 		}

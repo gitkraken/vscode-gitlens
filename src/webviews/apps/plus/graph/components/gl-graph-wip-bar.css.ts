@@ -7,7 +7,7 @@ export const wipBarStyles = css`
 		padding-block-end: 0.3rem;
 		font-family: var(--font-family);
 		background: var(--color-background);
-		border-block-end: 1px solid var(--vscode-panel-border, var(--color-foreground--25));
+		border-block-end: var(--gl-border-width) solid var(--vscode-panel-border, var(--color-foreground--25));
 	}
 
 	.bar {
@@ -75,7 +75,7 @@ export const wipBarStyles = css`
 		white-space: nowrap;
 		cursor: pointer;
 		background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
-		border: 1px solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
+		border: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
 		border-radius: var(--gl-radius-sm);
 	}
 

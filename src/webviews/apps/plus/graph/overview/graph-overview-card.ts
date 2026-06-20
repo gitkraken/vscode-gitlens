@@ -407,7 +407,7 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.hover__section + .hover__section {
 			padding-top: var(--gl-space-6);
-			border-top: 1px solid var(--vscode-widget-border, transparent);
+			border-top: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
 		}
 
 		.hover__row {

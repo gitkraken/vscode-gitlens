@@ -94,7 +94,7 @@ input[type='checkbox'] {
 	border: none;
 
 	&:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 		background: rgb(0 0 0 / 10%);
 		border-radius: 3px;
@@ -122,11 +122,11 @@ textarea {
 	background: none;
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgb(255 255 255 / 30%);
+		border: var(--gl-border-width) solid rgb(255 255 255 / 30%);
 	}
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgb(0 0 0 / 30%);
+		border: var(--gl-border-width) solid rgb(0 0 0 / 30%);
 	}
 
 	&:focus {
@@ -180,11 +180,11 @@ select {
 	background: none;
 
 	@include utils.light-theme($selectorPostfix: ' &') {
-		border: 1px solid rgb(0 0 0 / 30%);
+		border: var(--gl-border-width) solid rgb(0 0 0 / 30%);
 	}
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
-		border: 1px solid rgb(255 255 255 / 30%);
+		border: var(--gl-border-width) solid rgb(255 255 255 / 30%);
 	}
 
 	&:focus {

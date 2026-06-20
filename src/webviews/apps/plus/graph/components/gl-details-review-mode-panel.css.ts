@@ -77,7 +77,7 @@ export const reviewModePanelStyles = css`
 		justify-content: center;
 		padding: var(--gl-space-8) var(--gl-space-12);
 		background: var(--gl-metadata-bar-bg, transparent);
-		border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 	}
 
 	.review-footer__copy gl-button {
@@ -193,8 +193,8 @@ export const reviewModePanelStyles = css`
 		padding: 0 var(--gl-panel-padding-right, 1.2rem) 0 var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.review-metadata__left {
@@ -286,7 +286,7 @@ export const reviewModePanelStyles = css`
 		padding: var(--gl-space-8);
 		margin-bottom: var(--gl-space-8);
 		line-height: 1.5;
-		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+		border: var(--gl-border-width) solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -343,7 +343,7 @@ export const reviewModePanelStyles = css`
 	.review-area {
 		margin-bottom: var(--gl-space-6);
 		overflow: hidden;
-		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+		border: var(--gl-border-width) solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -367,7 +367,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__header:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -488,7 +488,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__analyze-btn:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 0.1rem;
 	}
 
@@ -522,7 +522,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__retry-btn:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 0.1rem;
 		border-radius: var(--gl-radius-xs);
 	}
@@ -675,7 +675,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-findings__dismissed:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 		border-radius: var(--gl-radius-xs);
 	}

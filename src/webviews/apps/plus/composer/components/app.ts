@@ -140,7 +140,7 @@ export class ComposerApp extends LitElement {
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-12);
 				background-color: var(--vscode-inputValidation-warningBackground);
-				border: 1px solid var(--vscode-inputValidation-warningBorder);
+				border: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder);
 				border-radius: var(--gl-radius-sm);
 			}
 
@@ -198,7 +198,7 @@ export class ComposerApp extends LitElement {
 				cursor: pointer;
 				user-select: none;
 				background: var(--vscode-editorGroupHeader-tabsBackground);
-				border-bottom: 1px solid var(--vscode-panel-border);
+				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			.section-header:hover {
@@ -265,7 +265,7 @@ export class ComposerApp extends LitElement {
 				cursor: pointer;
 				user-select: none;
 				background: var(--vscode-list-inactiveSelectionBackground);
-				border: 1px solid var(--vscode-panel-border);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-sm);
 				transition: all 0.2s ease;
 			}
@@ -326,7 +326,7 @@ export class ComposerApp extends LitElement {
 				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
 				background: var(--color-background);
-				border: 1px solid var(--vscode-panel-border);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-sm);
 			}
 

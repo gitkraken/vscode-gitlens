@@ -265,7 +265,7 @@ export const commitsScopePaneStyles = css`
 	     sibling selector hops the indicator onto the trailing handle bar. */
 	.scope-handle:focus-visible .scope-handle__bar,
 	.scope-row:focus-visible + .scope-handle .scope-handle__bar {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: 2px;
 	}
 

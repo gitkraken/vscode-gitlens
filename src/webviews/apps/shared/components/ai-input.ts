@@ -35,7 +35,7 @@ export class GlAiInput extends LitElement {
 			align-items: stretch;
 			min-width: 0;
 			background: var(--vscode-input-background);
-			border: 1px solid var(--vscode-input-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-md);
 			transition:
 				border-color 0.3s,
@@ -56,11 +56,11 @@ export class GlAiInput extends LitElement {
 			padding: 0.1rem;
 			margin-inline: 0.5rem;
 			color: var(--vscode-descriptionForeground);
-			border-right: 1px solid var(--vscode-input-border, transparent);
+			border-right: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 
 			/* background: var(--vscode-input-background); */
-			border-bottom: 1px solid var(--vscode-input-border, transparent);
-			border-left: 1px solid var(--vscode-input-border, transparent);
+			border-bottom: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-left: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: 0 0 var(--gl-radius-md) var(--gl-radius-md);
 		}
 
@@ -207,7 +207,7 @@ export class GlAiInput extends LitElement {
 			cursor: pointer;
 			background: transparent;
 			border: none;
-			border-right: 1px solid transparent;
+			border-right: var(--gl-border-width) solid transparent;
 			border-radius: 0 var(--gl-radius-md) var(--gl-radius-md) 0;
 			transition:
 				background 0.25s,

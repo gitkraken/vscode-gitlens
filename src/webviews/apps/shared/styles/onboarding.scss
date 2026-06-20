@@ -140,7 +140,7 @@
 
 		// text-shadow: 1px 1px 0 #fff;
 		background-color: var(--vscode-button-secondaryBackground);
-		border: 1px solid var(--vscode-button-border, transparent);
+		border: var(--gl-border-width) solid var(--vscode-button-border, transparent);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -176,7 +176,7 @@
 		height: var(--wa-tooltip-arrow-size);
 		content: '';
 		background-color: var(--wa-tooltip-background-color);
-		border: 1px solid var(--gl-tooltip-border-color);
+		border: var(--gl-border-width) solid var(--gl-tooltip-border-color);
 	}
 
 	.driver-popover-arrow-side-over {

@@ -179,7 +179,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		 * widths even the shrunken description + pill may overflow the right edge. Clipping
 		 * keeps the right-edge controls anchored visually instead of pushing them off-screen. */
 			overflow: hidden;
-			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
+			border-bottom: var(--gl-border-width) solid var(--vscode-editorWidget-border, transparent);
 		}
 
 		.toolbar gl-graph-visualizations-switcher {
@@ -250,7 +250,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			appearance: none;
 			cursor: pointer;
 			background: transparent;
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition:
 				background 120ms ease,

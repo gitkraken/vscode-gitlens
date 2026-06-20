@@ -106,7 +106,7 @@ export class InspectPatch extends GlElement {
 			.section--action {
 				padding-top: 1.5rem;
 				padding-bottom: 1.5rem;
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 			}
 
 			.section--action > :first-child {
@@ -127,7 +127,7 @@ export class InspectPatch extends GlElement {
 				line-height: 1.4;
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-radius-xs);
 			}
 
@@ -141,7 +141,7 @@ export class InspectPatch extends GlElement {
 			}
 
 			.message-input__control:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 

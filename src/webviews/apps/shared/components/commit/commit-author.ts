@@ -28,7 +28,7 @@ export class GlCommitAuthor extends LitElement {
 			border-radius: var(--gl-radius-sm);
 
 			&:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 			}
 		}
@@ -150,7 +150,7 @@ export class GlCommitAuthor extends LitElement {
 			}
 
 			a:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 			}
 		}

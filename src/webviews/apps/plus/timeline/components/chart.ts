@@ -137,7 +137,7 @@ export class GlTimelineChart extends GlElement {
 			pointer-events: none;
 			content: '';
 			background: linear-gradient(90deg, var(--timeline-glass-start), var(--timeline-glass-end));
-			border-right: 1px solid color-mix(in srgb, var(--vscode-widget-border) 32%, transparent);
+			border-right: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 32%, transparent);
 			box-shadow: inset -1px 0 0 color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 			-webkit-backdrop-filter: var(--timeline-glass-filter);
 			backdrop-filter: var(--timeline-glass-filter);
@@ -355,7 +355,7 @@ export class GlTimelineChart extends GlElement {
 				color-mix(in srgb, var(--vscode-editor-background) 68%, transparent),
 				color-mix(in srgb, var(--vscode-editor-background) 56%, transparent)
 			);
-			border-top: 1px solid color-mix(in srgb, var(--vscode-widget-border) 22%, transparent);
+			border-top: var(--gl-border-width) solid color-mix(in srgb, var(--vscode-widget-border) 22%, transparent);
 			box-shadow: inset 0 1px 0 color-mix(in srgb, var(--vscode-foreground) 7%, transparent);
 			-webkit-backdrop-filter: var(--timeline-glass-filter);
 			backdrop-filter: var(--timeline-glass-filter);
@@ -458,7 +458,7 @@ export class GlTimelineChart extends GlElement {
 			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));
-			border: 1px solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
+			border: var(--gl-border-width) solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
 			border-radius: var(--gl-radius-sm);
 		}
 

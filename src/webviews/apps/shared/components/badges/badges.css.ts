@@ -67,7 +67,8 @@ export const badgeBase = css`
 		color: var(--vscode-editorWarning-foreground, var(--color-foreground--65));
 		letter-spacing: 0.06em;
 		background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 12%, transparent);
-		border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
+		border: var(--gl-border-width) solid
+			color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
 		border-radius: var(--gl-radius-sm);
 	}
 `;

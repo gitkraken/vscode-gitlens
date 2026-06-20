@@ -229,7 +229,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__heading:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: 2px;
 				border-radius: var(--gl-radius-xs);
 			}
@@ -325,7 +325,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.section__hover-row + .section__hover-row {
 				padding-top: var(--gl-space-6);
-				border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 			}
 
 			.section__hover-dot {
@@ -397,7 +397,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				align-items: start;
 				padding: var(--gl-space-6) var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
-				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
+				border: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
 				border-radius: var(--gl-radius-sm);
 				transition:
@@ -439,7 +439,7 @@ export class GlDetailsAgentStatus extends LitElement {
 	   stable. opacity: 1 reasserts idle cards (which are dimmed by default) on selection.
 	   forced-colors mode substitutes Highlight for the focusBorder token automatically. */
 			.card--selected {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 				opacity: 1;
 			}

@@ -116,7 +116,7 @@ export const treeItemStyles = [
 		/* Focused state - when the item is the active descendant in the tree */
 		:host([focused]) {
 			z-index: 1;
-			outline: 1px solid var(--vscode-list-focusOutline);
+			outline: var(--gl-border-width) solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
 		}
 
@@ -138,7 +138,7 @@ export const treeItemStyles = [
 		/* TODO: these should be :has(.input:focus) instead of :focus-within */
 		:host(:focus-within) {
 			z-index: 1;
-			outline: 1px solid var(--vscode-list-focusOutline);
+			outline: var(--gl-border-width) solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
 		}
 
@@ -212,7 +212,7 @@ export const treeItemStyles = [
 			width: 0.1rem;
 			height: 2.2rem;
 			content: '';
-			border-left: 1px solid transparent;
+			border-left: var(--gl-border-width) solid transparent;
 			opacity: 0.4;
 			transform: translate(-1px, -50%);
 			transition: border-color 0.1s linear;
@@ -298,7 +298,7 @@ export const treeItemStyles = [
 			color: var(--vscode-checkbox-foreground);
 			text-align: center;
 			background: var(--vscode-checkbox-background);
-			border: 1px solid var(--vscode-checkbox-border);
+			border: var(--gl-border-width) solid var(--vscode-checkbox-border);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -463,7 +463,7 @@ export const treeItemStyles = [
 			}
 
 			.checkbox {
-				border: 1px solid CanvasText;
+				border: var(--gl-border-width) solid CanvasText;
 			}
 
 			.checkbox:has(:checked),

@@ -162,7 +162,7 @@ export const entryStyles = css`
 		&.entry--current {
 			--fg-intensity: 100%;
 
-			outline: 1px solid color-mix(in srgb, var(--current-entry-color) 50%, transparent);
+			outline: var(--gl-border-width) solid color-mix(in srgb, var(--current-entry-color) 50%, transparent);
 			outline-offset: -1px;
 			background-color: color-mix(in srgb, var(--current-entry-color) 25%, transparent);
 
@@ -179,7 +179,7 @@ export const entryStyles = css`
 				#c74e39
 			);
 
-			outline: 1px solid color-mix(in srgb, var(--conflict-color) 50%, transparent);
+			outline: var(--gl-border-width) solid color-mix(in srgb, var(--conflict-color) 50%, transparent);
 			outline-offset: -1px;
 			background-color: color-mix(in srgb, var(--conflict-color) 25%, transparent);
 
@@ -216,7 +216,7 @@ export const entryStyles = css`
 			width: 100%;
 			margin: 0.5rem 0;
 			border: none;
-			border-top: 1px solid var(--color-foreground--25);
+			border-top: var(--gl-border-width) solid var(--color-foreground--25);
 		}
 	}
 
@@ -467,7 +467,7 @@ export const entryStyles = css`
 				font-family: var(--vscode-editor-font-family, monospace);
 				font-style: normal;
 				background-color: var(--vscode-textCodeBlock-background, rgb(128 128 128 / 15%));
-				border: 1px solid var(--color-foreground--10);
+				border: var(--gl-border-width) solid var(--color-foreground--10);
 				border-radius: var(--gl-radius-sm);
 			}
 		}

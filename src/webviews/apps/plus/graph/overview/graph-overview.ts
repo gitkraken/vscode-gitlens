@@ -71,7 +71,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.group + .group {
 				padding-top: var(--gl-space-8);
-				border-top: 1px solid var(--vscode-sideBarSectionHeader-border, transparent);
+				border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
 			}
 
 			.group__label {
@@ -117,7 +117,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.threshold-filter:focus-visible {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
 
 			.threshold-filter code-icon {

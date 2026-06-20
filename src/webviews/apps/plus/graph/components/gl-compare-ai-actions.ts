@@ -71,7 +71,7 @@ export class GlCompareAIActions extends LitElement {
 				color: var(--vscode-input-foreground);
 				cursor: pointer;
 				background: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-radius-md);
 			}
 

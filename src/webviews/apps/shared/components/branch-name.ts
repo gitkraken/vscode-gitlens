@@ -41,12 +41,12 @@ export class GlBranchName extends LitElement {
 		}
 
 		:host([appearance='button']:focus-visible) {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 2px;
 		}
 
 		:host(:focus:not([appearance='button'])) {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 2px;
 		}
 

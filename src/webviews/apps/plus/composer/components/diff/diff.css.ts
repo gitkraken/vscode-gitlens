@@ -133,7 +133,7 @@ export const diff2htmlStyles = css`
 		padding: 4px 5px;
 		font-family: var(--vscode-font-family);
 		background-color: var(--d2h-file-header-bg-color);
-		border-bottom: 1px solid var(--d2h-file-header-border-color);
+		border-bottom: var(--gl-border-width) solid var(--d2h-file-header-border-color);
 	}
 
 	.d2h-file-header.d2h-sticky-header {
@@ -153,7 +153,7 @@ export const diff2htmlStyles = css`
 		vertical-align: middle;
 		color: var(--d2h-ins-label-color);
 		text-align: right;
-		border: 1px solid var(--d2h-ins-border-color);
+		border: var(--gl-border-width) solid var(--d2h-ins-border-color);
 		border-radius: var(--gl-radius-sm) 0 0 var(--gl-radius-sm);
 	}
 
@@ -163,7 +163,7 @@ export const diff2htmlStyles = css`
 		vertical-align: middle;
 		color: var(--d2h-del-label-color);
 		text-align: left;
-		border: 1px solid var(--d2h-del-border-color);
+		border: var(--gl-border-width) solid var(--d2h-del-border-color);
 		border-radius: 0 var(--gl-radius-sm) var(--gl-radius-sm) 0;
 	}
 
@@ -184,7 +184,7 @@ export const diff2htmlStyles = css`
 
 	.d2h-file-wrapper {
 		margin-bottom: 1em;
-		border: 1px solid var(--d2h-border-color);
+		border: var(--gl-border-width) solid var(--d2h-border-color);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -195,7 +195,7 @@ export const diff2htmlStyles = css`
 		padding: var(--gl-space-4) var(--gl-space-8);
 		font-size: var(--gl-font-md);
 		cursor: pointer;
-		border: 1px solid var(--d2h-border-color);
+		border: var(--gl-border-width) solid var(--d2h-border-color);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -329,7 +329,7 @@ export const diff2htmlStyles = css`
 		background-color: var(--d2h-bg-color);
 		border-color: transparent var(--d2h-line-border-color);
 		border-style: solid;
-		border-width: 1px;
+		border-width: var(--gl-border-width);
 	}
 
 	.d2h-code-linenumber::after {
@@ -447,7 +447,7 @@ export const diff2htmlStyles = css`
 	.d2h-file-list > li {
 		padding: 5px 10px;
 		margin: 0;
-		border-bottom: 1px solid var(--d2h-border-color);
+		border-bottom: var(--gl-border-width) solid var(--d2h-border-color);
 	}
 
 	.d2h-file-list > li:last-child {
@@ -492,29 +492,29 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-deleted-tag {
-		border: 1px solid var(--d2h-del-label-color);
+		border: var(--gl-border-width) solid var(--d2h-del-label-color);
 	}
 
 	.d2h-added-tag {
-		border: 1px solid var(--d2h-ins-label-color);
+		border: var(--gl-border-width) solid var(--d2h-ins-label-color);
 	}
 
 	.d2h-changed-tag {
-		border: 1px solid var(--d2h-change-label-color);
+		border: var(--gl-border-width) solid var(--d2h-change-label-color);
 	}
 
 	.d2h-moved-tag {
-		border: 1px solid var(--d2h-moved-label-color);
+		border: var(--gl-border-width) solid var(--d2h-moved-label-color);
 	}
 
 	:host-context(.vscode-high-contrast) .d2h-ins .d2h-code-line {
 		line-height: calc(var(--d2h-intrinsic-line-height) - 0.2rem);
-		border: 1px dashed var(--d2h-ins-border-color);
+		border: var(--gl-border-width) dashed var(--d2h-ins-border-color);
 	}
 
 	:host-context(.vscode-high-contrast) .d2h-del .d2h-code-line {
 		line-height: calc(var(--d2h-intrinsic-line-height) - 0.2rem);
-		border: 1px dashed var(--d2h-del-border-color);
+		border: var(--gl-border-width) dashed var(--d2h-del-border-color);
 	}
 `;
 /*
@@ -531,14 +531,14 @@ export const diff2htmlStyles = css`
 		border-bottom: var(--d2h-dark-file-header-border-color);
 	}
 	.d2h-dark-color-scheme .d2h-lines-added {
-		border: 1px solid rgba(46, 160, 67, 0.4);
-		border: 1px solid var(--d2h-dark-ins-border-color);
+		border: var(--gl-border-width) solid rgba(46, 160, 67, 0.4);
+		border: var(--gl-border-width) solid var(--d2h-dark-ins-border-color);
 		color: #3fb950;
 		color: var(--d2h-dark-ins-label-color);
 	}
 	.d2h-dark-color-scheme .d2h-lines-deleted {
-		border: 1px solid rgba(248, 81, 73, 0.4);
-		border: 1px solid var(--d2h-dark-del-border-color);
+		border: var(--gl-border-width) solid rgba(248, 81, 73, 0.4);
+		border: var(--gl-border-width) solid var(--d2h-dark-del-border-color);
 		color: #f85149;
 		color: var(--d2h-dark-del-label-color);
 	}
@@ -608,12 +608,12 @@ export const diff2htmlStyles = css`
 		background-color: var(--d2h-dark-change-ins-color);
 	}
 	.d2h-dark-color-scheme .d2h-file-wrapper {
-		border: 1px solid #30363d;
-		border: 1px solid var(--d2h-dark-border-color);
+		border: var(--gl-border-width) solid #30363d;
+		border: var(--gl-border-width) solid var(--d2h-dark-border-color);
 	}
 	.d2h-dark-color-scheme .d2h-file-collapse {
-		border: 1px solid #0d1117;
-		border: 1px solid var(--d2h-dark-bg-color);
+		border: var(--gl-border-width) solid #0d1117;
+		border: var(--gl-border-width) solid var(--d2h-dark-bg-color);
 	}
 	.d2h-dark-color-scheme .d2h-file-collapse.d2h-selected {
 		background-color: rgba(56, 139, 253, 0.1);
@@ -625,8 +625,8 @@ export const diff2htmlStyles = css`
 		color: var(--d2h-dark-moved-label-color);
 	}
 	.d2h-dark-color-scheme .d2h-file-list > li {
-		border-bottom: 1px solid #0d1117;
-		border-bottom: 1px solid var(--d2h-dark-bg-color);
+		border-bottom: var(--gl-border-width) solid #0d1117;
+		border-bottom: var(--gl-border-width) solid var(--d2h-dark-bg-color);
 	}
 	.d2h-dark-color-scheme .d2h-deleted {
 		color: #f85149;
@@ -649,20 +649,20 @@ export const diff2htmlStyles = css`
 		background-color: var(--d2h-dark-bg-color);
 	}
 	.d2h-dark-color-scheme .d2h-deleted-tag {
-		border: 1px solid #f85149;
-		border: 1px solid var(--d2h-dark-del-label-color);
+		border: var(--gl-border-width) solid #f85149;
+		border: var(--gl-border-width) solid var(--d2h-dark-del-label-color);
 	}
 	.d2h-dark-color-scheme .d2h-added-tag {
-		border: 1px solid #3fb950;
-		border: 1px solid var(--d2h-dark-ins-label-color);
+		border: var(--gl-border-width) solid #3fb950;
+		border: var(--gl-border-width) solid var(--d2h-dark-ins-label-color);
 	}
 	.d2h-dark-color-scheme .d2h-changed-tag {
-		border: 1px solid #d29922;
-		border: 1px solid var(--d2h-dark-change-label-color);
+		border: var(--gl-border-width) solid #d29922;
+		border: var(--gl-border-width) solid var(--d2h-dark-change-label-color);
 	}
 	.d2h-dark-color-scheme .d2h-moved-tag {
-		border: 1px solid #3572b0;
-		border: 1px solid var(--d2h-dark-moved-label-color);
+		border: var(--gl-border-width) solid #3572b0;
+		border: var(--gl-border-width) solid var(--d2h-dark-moved-label-color);
 	}
 	@media (prefers-color-scheme: dark) {
 		.d2h-auto-color-scheme {
@@ -678,14 +678,14 @@ export const diff2htmlStyles = css`
 			border-bottom: var(--d2h-dark-file-header-border-color);
 		}
 		.d2h-auto-color-scheme .d2h-lines-added {
-			border: 1px solid rgba(46, 160, 67, 0.4);
-			border: 1px solid var(--d2h-dark-ins-border-color);
+			border: var(--gl-border-width) solid rgba(46, 160, 67, 0.4);
+			border: var(--gl-border-width) solid var(--d2h-dark-ins-border-color);
 			color: #3fb950;
 			color: var(--d2h-dark-ins-label-color);
 		}
 		.d2h-auto-color-scheme .d2h-lines-deleted {
-			border: 1px solid rgba(248, 81, 73, 0.4);
-			border: 1px solid var(--d2h-dark-del-border-color);
+			border: var(--gl-border-width) solid rgba(248, 81, 73, 0.4);
+			border: var(--gl-border-width) solid var(--d2h-dark-del-border-color);
 			color: #f85149;
 			color: var(--d2h-dark-del-label-color);
 		}
@@ -755,12 +755,12 @@ export const diff2htmlStyles = css`
 			background-color: var(--d2h-dark-change-ins-color);
 		}
 		.d2h-auto-color-scheme .d2h-file-wrapper {
-			border: 1px solid #30363d;
-			border: 1px solid var(--d2h-dark-border-color);
+			border: var(--gl-border-width) solid #30363d;
+			border: var(--gl-border-width) solid var(--d2h-dark-border-color);
 		}
 		.d2h-auto-color-scheme .d2h-file-collapse {
-			border: 1px solid #0d1117;
-			border: 1px solid var(--d2h-dark-bg-color);
+			border: var(--gl-border-width) solid #0d1117;
+			border: var(--gl-border-width) solid var(--d2h-dark-bg-color);
 		}
 		.d2h-auto-color-scheme .d2h-file-collapse.d2h-selected {
 			background-color: rgba(56, 139, 253, 0.1);
@@ -772,8 +772,8 @@ export const diff2htmlStyles = css`
 			color: var(--d2h-dark-moved-label-color);
 		}
 		.d2h-auto-color-scheme .d2h-file-list > li {
-			border-bottom: 1px solid #0d1117;
-			border-bottom: 1px solid var(--d2h-dark-bg-color);
+			border-bottom: var(--gl-border-width) solid #0d1117;
+			border-bottom: var(--gl-border-width) solid var(--d2h-dark-bg-color);
 		}
 		.d2h-dark-color-scheme .d2h-deleted {
 			color: #f85149;
@@ -796,20 +796,20 @@ export const diff2htmlStyles = css`
 			background-color: var(--d2h-dark-bg-color);
 		}
 		.d2h-auto-color-scheme .d2h-deleted-tag {
-			border: 1px solid #f85149;
-			border: 1px solid var(--d2h-dark-del-label-color);
+			border: var(--gl-border-width) solid #f85149;
+			border: var(--gl-border-width) solid var(--d2h-dark-del-label-color);
 		}
 		.d2h-auto-color-scheme .d2h-added-tag {
-			border: 1px solid #3fb950;
-			border: 1px solid var(--d2h-dark-ins-label-color);
+			border: var(--gl-border-width) solid #3fb950;
+			border: var(--gl-border-width) solid var(--d2h-dark-ins-label-color);
 		}
 		.d2h-auto-color-scheme .d2h-changed-tag {
-			border: 1px solid #d29922;
-			border: 1px solid var(--d2h-dark-change-label-color);
+			border: var(--gl-border-width) solid #d29922;
+			border: var(--gl-border-width) solid var(--d2h-dark-change-label-color);
 		}
 		.d2h-auto-color-scheme .d2h-moved-tag {
-			border: 1px solid #3572b0;
-			border: 1px solid var(--d2h-dark-moved-label-color);
+			border: var(--gl-border-width) solid #3572b0;
+			border: var(--gl-border-width) solid var(--d2h-dark-moved-label-color);
 		}
 	} */
 

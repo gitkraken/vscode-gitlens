@@ -40,7 +40,7 @@ gl-popover[appearance='menu'] menu-list {
 	}
 
 	&:focus {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
@@ -106,7 +106,7 @@ gl-popover[appearance='menu'] menu-list {
 			text-overflow: ellipsis;
 			font-family: var(--vscode-editor-font-family);
 			white-space: nowrap;
-			border: 1px solid var(--color-background--level-15);
+			border: var(--gl-border-width) solid var(--color-background--level-15);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -170,7 +170,7 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 .section--action {
-	border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+	border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	padding: {
 		top: 1.5rem;
 		bottom: 1.5rem;
@@ -202,7 +202,7 @@ gl-popover[appearance='menu'] menu-list {
 		line-height: 1.4;
 		color: var(--vscode-input-foreground);
 		background: var(--vscode-input-background);
-		border: 1px solid var(--vscode-input-border, transparent);
+		border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 		border-radius: var(--gl-input-border-radius);
 
 		&::placeholder {
@@ -215,7 +215,7 @@ gl-popover[appearance='menu'] menu-list {
 		}
 
 		&:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 

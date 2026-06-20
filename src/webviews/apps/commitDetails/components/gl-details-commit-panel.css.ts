@@ -57,7 +57,7 @@ export const detailsCommitPanelStyles = css`
 
 	/* Child Shadow DOM component overrides */
 	:host([variant='embedded']) webview-pane::part(header) {
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 		padding-right: calc(var(--gl-panel-padding-right) - 0.4rem);
 		background-color: inherit;
 	}
@@ -178,7 +178,7 @@ export const detailsCommitPanelStyles = css`
 	.metadata-bar .mode-status__resume:focus-visible {
 		background: var(--vscode-toolbar-hoverBackground);
 		color: var(--vscode-foreground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -208,8 +208,8 @@ export const detailsCommitPanelStyles = css`
 		min-height: var(--gl-metadata-bar-min-height);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--gl-metadata-bar-border);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 	:host([variant='embedded']) .metadata-bar:has(+ .reachability) {
 		border-bottom-color: transparent;
@@ -329,7 +329,7 @@ export const detailsCommitPanelStyles = css`
 		font-size: var(--gl-font-base);
 		flex: none;
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	:host([variant='embedded']) .reachability__load-all {

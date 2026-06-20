@@ -118,7 +118,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.integration-row--ai {
 				padding-top: var(--gl-space-6);
-				border-top: 1px solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.integration-row--mcp,

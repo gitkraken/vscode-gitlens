@@ -91,7 +91,7 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.button:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 			background-color: var(--vscode-toolbar-activeBackground);
 		}

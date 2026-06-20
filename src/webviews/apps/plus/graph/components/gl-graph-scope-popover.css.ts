@@ -19,7 +19,7 @@ export const graphScopePopoverStyles = css`
 		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		cursor: pointer;
 		background: transparent;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -28,7 +28,7 @@ export const graphScopePopoverStyles = css`
 	}
 
 	.mode-chip:focus-visible {
-		outline: 1px solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 	}
 
@@ -262,7 +262,8 @@ export const graphScopePopoverStyles = css`
 		flex-direction: column;
 		min-height: 12rem;
 		overflow: hidden;
-		border-top: 1px solid var(--vscode-menu-separatorBackground, color-mix(in srgb, currentColor 15%, transparent));
+		border-top: var(--gl-border-width) solid
+			var(--vscode-menu-separatorBackground, color-mix(in srgb, currentColor 15%, transparent));
 	}
 
 	.mode-popover__branches {

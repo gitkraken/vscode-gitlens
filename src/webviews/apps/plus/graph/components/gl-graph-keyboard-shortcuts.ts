@@ -184,7 +184,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
 			text-align: center;
 			background-color: var(--vscode-keybindingLabel-background, var(--vscode-toolbar-hoverBackground));
-			border: 1px solid var(--vscode-keybindingLabel-border, transparent);
+			border: var(--gl-border-width) solid var(--vscode-keybindingLabel-border, transparent);
 			border-bottom-color: var(
 				--vscode-keybindingLabel-bottomBorder,
 				var(--vscode-keybindingLabel-border, transparent)

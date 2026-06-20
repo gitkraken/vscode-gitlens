@@ -19,7 +19,7 @@ export const commitBoxStyles = css`
 		flex-direction: column;
 		gap: var(--gl-space-4);
 		padding: var(--gl-space-6) var(--gl-space-12) var(--gl-space-8);
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 		--gl-input-working-border-color: var(--gl-agent-working-color);
 	}
 
@@ -134,7 +134,7 @@ export const commitBoxStyles = css`
 		color: var(--vscode-input-foreground);
 		resize: none;
 		background: var(--vscode-input-background);
-		border: 1px solid var(--vscode-input-border, transparent);
+		border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 		border-radius: var(--gl-input-border-radius);
 		transition: padding-right 0.2s ease;
 		field-sizing: content;

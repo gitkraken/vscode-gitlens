@@ -20,6 +20,6 @@ import { css } from 'lit';
  * Full contract: docs/webview-styling.md (Elevation).
  */
 export const elevatedSurface = css`
-	border: 1px solid var(--gl-elevation-border-color, var(--vscode-contrastBorder));
+	border: var(--gl-border-width) solid var(--gl-elevation-border-color, var(--vscode-contrastBorder));
 	box-shadow: var(--gl-elevation);
 `;

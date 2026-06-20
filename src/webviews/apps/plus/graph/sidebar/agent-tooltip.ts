@@ -117,7 +117,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		hr {
 			margin: var(--gl-space-8) 0;
 			border: none;
-			border-top: 1px solid var(--vscode-widget-border, var(--vscode-foreground));
+			border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--vscode-foreground));
 			opacity: 0.4;
 		}
 

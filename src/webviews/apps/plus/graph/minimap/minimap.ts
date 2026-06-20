@@ -228,7 +228,7 @@ export class GlGraphMinimap extends GlElement {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-highlightForeground);
 			background-color: var(--color-graph-minimap-tip-highlightBackground);
-			border: 1px solid var(--color-graph-minimap-tip-highlightBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-highlightBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -249,35 +249,35 @@ export class GlGraphMinimap extends GlElement {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-branchForeground);
 			background-color: var(--color-graph-minimap-tip-branchBackground);
-			border: 1px solid var(--color-graph-minimap-tip-branchBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-branchBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .branch.current {
 			color: var(--color-graph-minimap-tip-headForeground);
 			background-color: var(--color-graph-minimap-tip-headBackground);
-			border: 1px solid var(--color-graph-minimap-tip-headBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-headBorder);
 		}
 
 		#tooltip .refs .remote {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-remoteForeground);
 			background-color: var(--color-graph-minimap-tip-remoteBackground);
-			border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-remoteBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
 		#tooltip .refs .remote.current {
 			color: var(--color-graph-minimap-tip-upstreamForeground);
 			background-color: var(--color-graph-minimap-tip-upstreamBackground);
-			border: 1px solid var(--color-graph-minimap-tip-upstreamBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-upstreamBorder);
 		}
 
 		#tooltip .refs .stash {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-stashForeground);
 			background-color: var(--color-graph-minimap-tip-stashBackground);
-			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-stashBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -285,7 +285,7 @@ export class GlGraphMinimap extends GlElement {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-pullRequestForeground);
 			background-color: var(--color-graph-minimap-pullRequestBackground);
-			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-pullRequestBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -293,7 +293,7 @@ export class GlGraphMinimap extends GlElement {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-tagForeground);
 			background-color: var(--color-graph-minimap-tip-tagBackground);
-			border: 1px solid var(--color-graph-minimap-tip-tagBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-tagBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 
@@ -301,7 +301,7 @@ export class GlGraphMinimap extends GlElement {
 			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-worktreeForeground);
 			background-color: var(--color-graph-minimap-tip-worktreeBackground);
-			border: 1px solid var(--color-graph-minimap-tip-worktreeBorder);
+			border: var(--gl-border-width) solid var(--color-graph-minimap-tip-worktreeBorder);
 			border-radius: var(--gl-radius-sm);
 		}
 	`;

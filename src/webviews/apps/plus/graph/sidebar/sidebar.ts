@@ -98,7 +98,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			color: var(--color-view-foreground--65);
 			background-color: var(--color-view-background);
 			border-color: var(--vscode-sideBar-border, transparent);
-			border-right: 1px solid transparent;
+			border-right: var(--gl-border-width) solid transparent;
 		}
 
 		gl-tooltip {

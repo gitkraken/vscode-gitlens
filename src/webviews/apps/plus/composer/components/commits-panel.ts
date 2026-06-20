@@ -254,7 +254,7 @@ export class CommitsPanel extends LitElement {
 			.auto-compose {
 				padding: var(--gl-space-12);
 				background: var(--gl-gradient-brand-subtle);
-				border: 1px solid var(--vscode-panel-border);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-md);
 			}
 
@@ -307,7 +307,7 @@ export class CommitsPanel extends LitElement {
 				line-height: 1.8rem;
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius);
 			}
 

@@ -71,7 +71,7 @@ export const rebaseStyles = css`
 	}
 
 	a:focus {
-		outline: 1px solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--color-focus-border);
 		outline-offset: 2px;
 	}
 
@@ -322,8 +322,8 @@ export const rebaseStyles = css`
 		overflow-x: hidden !important;
 		overflow-y: auto;
 		outline: none;
-		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.entries {
@@ -540,7 +540,7 @@ export const rebaseStyles = css`
 		&.warning {
 			color: var(--vscode-inputValidation-warningForeground, #cca700);
 			background-color: var(--vscode-inputValidation-warningBackground, rgb(200 140 0 / 20%));
-			border: 1px solid var(--vscode-inputValidation-warningBorder, #cca700);
+			border: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder, #cca700);
 		}
 	}
 

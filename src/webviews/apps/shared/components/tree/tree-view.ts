@@ -126,12 +126,12 @@ export class GlTreeView extends GlElement {
 				color: var(--vscode-input-foreground);
 				outline: none;
 				background-color: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius);
 			}
 
 			.filter-input:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 
@@ -206,7 +206,7 @@ export class GlTreeView extends GlElement {
 				padding: 0 var(--gl-space-6);
 				font-size: var(--gl-font-sm);
 				font-weight: 500;
-				border: 1px solid;
+				border: var(--gl-border-width) solid;
 				border-radius: 0.9rem;
 			}
 

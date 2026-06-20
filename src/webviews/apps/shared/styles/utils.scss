@@ -1,5 +1,5 @@
 @mixin focus() {
-	outline: 1px solid var(--vscode-focusBorder);
+	outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 	outline-offset: -1px;
 }
 
@@ -10,7 +10,7 @@
 // var(--vscode-widget-border)) for a surface that also wants a border in normal themes.
 // See docs/webview-styling.md (Elevation).
 @mixin elevated-surface($elevation, $border-color: var(--vscode-contrastBorder)) {
-	border: 1px solid #{$border-color};
+	border: var(--gl-border-width) solid #{$border-color};
 	box-shadow: #{$elevation};
 }
 

@@ -76,7 +76,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-2);
 				padding: 0.5rem 1.2rem;
-				border-top: 1px solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			.resolve-file__head {
@@ -162,7 +162,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: var(--gl-space-6);
 				justify-content: flex-end;
 				padding: var(--gl-space-6) var(--gl-space-12);
-				border-top: 1px solid var(--vscode-panel-border);
+				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			.resolve-actions {

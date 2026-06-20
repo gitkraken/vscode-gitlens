@@ -25,7 +25,7 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		gl-tooltip:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 2px;
 		}
 
@@ -44,7 +44,7 @@ export class GlCopyContainer extends LitElement {
 
 			color: var(--copy-foreground);
 			background: var(--copy-background);
-			border: 1px solid var(--copy-border);
+			border: var(--gl-border-width) solid var(--copy-border);
 			border-radius: var(--copy-border-radius);
 		}
 
@@ -53,7 +53,7 @@ export class GlCopyContainer extends LitElement {
 		}
 
 		:host([appearance='toolbar']:focus-within) {
-			outline: 1px solid var(--color-focus-border);
+			outline: var(--gl-border-width) solid var(--color-focus-border);
 			outline-offset: -1px;
 		}
 

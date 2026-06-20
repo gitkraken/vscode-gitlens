@@ -11,7 +11,7 @@ export const titlebarStyles = css`
 
 	:host-context(body[data-placement='panel']) .titlebar {
 		border-color: var(--vscode-sideBarSectionHeader-border, transparent);
-		border-top: 1px solid transparent;
+		border-top: var(--gl-border-width) solid transparent;
 	}
 
 	.titlebar,
@@ -38,8 +38,8 @@ export const titlebarStyles = css`
 		flex: 0 0 100%;
 		padding: 0.5rem 0.8rem;
 		margin: -0.5rem -0.8rem;
-		border-top: 1px solid transparent;
-		border-bottom: 1px solid transparent;
+		border-top: var(--gl-border-width) solid transparent;
+		border-bottom: var(--gl-border-width) solid transparent;
 	}
 
 	.titlebar__row--filtered {

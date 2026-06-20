@@ -779,7 +779,7 @@ section {
 		text-decoration: none;
 		cursor: pointer;
 		user-select: none;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
 
 		// background-color: var(--color-button-secondary-background);

@@ -45,7 +45,7 @@ export class CommitMessage extends LitElement {
 			.commit-message__text {
 				margin-block: 0;
 				background: var(--color-background);
-				border: 1px solid var(--vscode-panel-border);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
 			.commit-message__text[tabindex='0']:hover {
@@ -93,7 +93,7 @@ export class CommitMessage extends LitElement {
 				vertical-align: middle;
 				resize: none;
 				background: var(--vscode-input-background, #3c3c3c);
-				border: 1px solid var(--vscode-input-border, #858585);
+				border: var(--gl-border-width) solid var(--vscode-input-border, #858585);
 				field-sizing: content;
 			}
 
@@ -142,7 +142,7 @@ export class CommitMessage extends LitElement {
 			}
 
 			.commit-message__input:focus {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 
@@ -163,7 +163,7 @@ export class CommitMessage extends LitElement {
 				line-height: 1.4;
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-multiDiffEditor-headerBackground);
-				border: 1px solid var(--vscode-panel-border);
+				border: var(--gl-border-width) solid var(--vscode-panel-border);
 				border-top: none;
 				border-radius: 0 0 var(--gl-input-border-radius) var(--gl-input-border-radius);
 			}
@@ -200,7 +200,7 @@ export class CommitMessage extends LitElement {
 				line-height: 1.4;
 				color: var(--gl-search-input-foreground);
 				background-color: var(--vscode-inputValidation-infoBackground);
-				border: 1px solid var(--vscode-inputValidation-infoBorder);
+				border: var(--gl-border-width) solid var(--vscode-inputValidation-infoBorder);
 				transform: translateY(-0.1rem);
 			}
 

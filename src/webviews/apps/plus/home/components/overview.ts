@@ -70,7 +70,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			}
 
 			.select:not(:disabled):focus {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
 
 			.select:not(:disabled):hover {
@@ -98,7 +98,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			}
 
 			.threshold-filter:focus-visible {
-				outline: 1px solid var(--color-focus-border);
+				outline: var(--gl-border-width) solid var(--color-focus-border);
 			}
 
 			.threshold-filter:disabled {

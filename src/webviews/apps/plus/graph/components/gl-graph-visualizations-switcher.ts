@@ -78,7 +78,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			appearance: none;
 			cursor: pointer;
 			background: none;
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			--code-icon-size: 1.6rem;
 		}
@@ -99,7 +99,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		}
 
 		.visualization-button:focus-visible {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: 1px;
 		}
 

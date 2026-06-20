@@ -106,7 +106,7 @@ export class GlAgentStatusPill extends LitElement {
 				line-height: normal;
 				white-space: nowrap;
 				cursor: default;
-				border: 1px solid transparent;
+				border: var(--gl-border-width) solid transparent;
 				border-radius: var(--gl-radius-sm);
 				transition:
 					background-color 250ms ease,
@@ -398,7 +398,7 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-summary-row + .hover-summary-row {
 				padding-top: var(--gl-space-6);
-				border-top: 1px solid
+				border-top: var(--gl-border-width) solid
 					var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 15%, transparent));
 			}
 

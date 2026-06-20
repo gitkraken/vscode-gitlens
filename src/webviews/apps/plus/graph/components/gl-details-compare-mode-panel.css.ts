@@ -45,7 +45,7 @@ export const compareModePanelStyles = css`
 		padding: 0.5rem 1.2rem;
 		color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 		background: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compare-bar__refs {
@@ -187,7 +187,7 @@ export const compareModePanelStyles = css`
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorError-foreground);
 		background: var(--vscode-inputValidation-errorBackground);
-		border-bottom: 1px solid var(--vscode-inputValidation-errorBorder);
+		border-bottom: var(--gl-border-width) solid var(--vscode-inputValidation-errorBorder);
 	}
 
 	.compare-stale {
@@ -199,7 +199,7 @@ export const compareModePanelStyles = css`
 		font-size: var(--gl-font-base);
 		color: var(--vscode-inputValidation-warningForeground);
 		background: var(--vscode-inputValidation-warningBackground);
-		border-bottom: 1px solid var(--vscode-inputValidation-warningBorder);
+		border-bottom: var(--gl-border-width) solid var(--vscode-inputValidation-warningBorder);
 	}
 
 	.compare-stale span {
@@ -369,7 +369,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-split__start {
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	/* Commit list scrollbar is gated to commit-list hover/focus-within (not the host-hover
@@ -489,7 +489,7 @@ export const compareModePanelStyles = css`
 			var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 30%,
 			transparent
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(
 				in srgb,
 				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 55%,
@@ -605,13 +605,13 @@ export const compareModePanelStyles = css`
 			var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 18%,
 			transparent
 		);
-		border-top: 1px solid
+		border-top: var(--gl-border-width) solid
 			color-mix(
 				in srgb,
 				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 60%,
 				transparent
 			) !important;
-		border-bottom: 1px solid
+		border-bottom: var(--gl-border-width) solid
 			color-mix(
 				in srgb,
 				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 40%,
@@ -692,7 +692,7 @@ export const compareModePanelStyles = css`
 		letter-spacing: inherit;
 		cursor: pointer;
 		background: transparent;
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -701,7 +701,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-view-trigger:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 		background: var(--vscode-toolbar-hoverBackground);
 	}

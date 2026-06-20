@@ -27,6 +27,6 @@ export const baseStyles = css`
 	.pill--outlined {
 		padding: var(--gl-pill-padding, 0.2rem 0.4rem);
 		background-color: transparent;
-		border: 1px solid var(--gl-pill-border, var(--vscode-foreground));
+		border: var(--gl-border-width) solid var(--gl-pill-border, var(--vscode-foreground));
 	}
 `;

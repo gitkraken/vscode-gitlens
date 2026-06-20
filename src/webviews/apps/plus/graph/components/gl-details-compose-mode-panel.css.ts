@@ -151,7 +151,7 @@ export const composeModePanelStyles = css`
 	/* Border on the bottom of the scope section (proposed-commits list) so the divider
 	   sits flush against it. */
 	.compose-plan__split-start {
-		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
 	/* Commit All row is always anchored to the top of the right pane, above the file-tree-pane.
@@ -181,7 +181,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit:focus-visible {
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 
@@ -309,7 +309,7 @@ export const composeModePanelStyles = css`
 		margin-top: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
-		border-top: 1px dashed var(--vscode-sideBarSectionHeader-border);
+		border-top: var(--gl-border-width) dashed var(--vscode-sideBarSectionHeader-border);
 	}
 
 	.compose-base__marker {

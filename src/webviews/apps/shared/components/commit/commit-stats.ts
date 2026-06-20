@@ -68,7 +68,7 @@ export class CommitStats extends LitElement {
 				var(--vscode-sideBarSectionHeader-background) 90%,
 				var(--vscode-foreground) 10%
 			);
-			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
+			border: var(--gl-border-width) solid color-mix(in srgb, transparent 80%, var(--color-foreground));
 			border-radius: var(--gl-radius-sm);
 		}
 

@@ -58,7 +58,7 @@ export class GlFeatureBadge extends LitElement {
 				color: var(--gl-feature-badge-color, currentColor);
 				white-space: nowrap;
 				cursor: help;
-				border: 1px solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
+				border: var(--gl-border-width) solid var(--gl-feature-badge-border-color, var(--color-foreground--50));
 				border-radius: 1rem;
 			}
 
@@ -99,7 +99,7 @@ export class GlFeatureBadge extends LitElement {
 				display: flex;
 				flex-direction: column;
 				padding-top: var(--gl-space-6);
-				border-top: 1px solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.popup-content p {
@@ -124,7 +124,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.hint {
-				border-bottom: 1px dashed currentcolor;
+				border-bottom: var(--gl-border-width) dashed currentcolor;
 			}
 		`,
 	];

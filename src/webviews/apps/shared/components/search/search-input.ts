@@ -128,7 +128,7 @@ export class GlSearchInput extends GlElement {
 		}
 
 		label:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 
@@ -150,12 +150,12 @@ export class GlSearchInput extends GlElement {
 			font-size: inherit;
 			color: var(--gl-search-input-foreground);
 			background-color: var(--gl-search-input-background);
-			border: 1px solid var(--gl-search-input-border);
+			border: var(--gl-border-width) solid var(--gl-search-input-border);
 			border-radius: var(--gl-input-border-radius);
 		}
 
 		input:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 
@@ -189,7 +189,7 @@ export class GlSearchInput extends GlElement {
 			line-height: 1.4;
 			color: var(--gl-search-input-foreground);
 			background-color: var(--vscode-inputValidation-infoBackground);
-			border: 1px solid var(--vscode-inputValidation-infoBorder);
+			border: var(--gl-border-width) solid var(--vscode-inputValidation-infoBorder);
 			transform: translateY(-0.1rem);
 		}
 
@@ -221,7 +221,7 @@ export class GlSearchInput extends GlElement {
 			color: var(--gl-search-input-foreground);
 			white-space: pre;
 			pointer-events: none;
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-input-border-radius);
 		}
 
@@ -274,11 +274,11 @@ export class GlSearchInput extends GlElement {
 			padding: 0;
 			color: var(--gl-search-input-foreground);
 			background: none;
-			border: 1px solid transparent;
+			border: var(--gl-border-width) solid transparent;
 		}
 
 		button:focus:not([disabled]) {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 

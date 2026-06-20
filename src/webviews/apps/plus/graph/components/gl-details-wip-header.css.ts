@@ -56,7 +56,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		padding: 0.4rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__paused-op > gl-merge-rebase-status {
@@ -82,7 +82,7 @@ export const detailsWipHeaderStyles = css`
 		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
 		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
-		border-top: 1px solid var(--gl-metadata-bar-border);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	/* When the issues row follows, drop the branch row's bottom border so the two rows
@@ -176,7 +176,7 @@ export const detailsWipHeaderStyles = css`
 
 	.mode-status__resume:focus-visible {
 		color: var(--vscode-foreground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 		background: var(--vscode-toolbar-hoverBackground);
 	}
@@ -237,14 +237,14 @@ export const detailsWipHeaderStyles = css`
 		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		font-size: var(--gl-font-sm);
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 		--gl-chip-overflow-gap: 0.4rem;
 	}
 
 	/* When no issues row and no paused-op row follow, the branch row owns the trailing
 	   border instead. */
 	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues, + .graph-details-header__paused-op)) {
-		border-bottom: 1px solid var(--gl-metadata-bar-border);
+		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__issues-chips {
@@ -298,7 +298,7 @@ export const detailsWipHeaderStyles = css`
 
 	.issue-chip-group__remove:focus-visible {
 		color: var(--vscode-errorForeground);
-		outline: 0.1rem solid var(--vscode-focusBorder);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
 	}
 

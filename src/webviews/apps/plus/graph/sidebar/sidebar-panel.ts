@@ -236,7 +236,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				overflow: visible;
 				background-color: var(--color-view-background);
 				border-color: var(--vscode-sideBar-border, transparent);
-				border-right: 1px solid transparent;
+				border-right: var(--gl-border-width) solid transparent;
 			}
 
 			/* Play enter animations only when the parent signals the user-visible moment —
@@ -288,7 +288,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				text-transform: uppercase;
 				background-color: var(--color-view-background);
 				border-color: var(--vscode-sideBarSectionHeader-border, transparent);
-				border-bottom: 1px solid transparent;
+				border-bottom: var(--gl-border-width) solid transparent;
 			}
 
 			.header-title {

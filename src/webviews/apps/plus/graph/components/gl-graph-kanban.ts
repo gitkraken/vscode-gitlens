@@ -131,7 +131,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
 		 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
 				padding: var(--gl-space-4) var(--gl-space-6) var(--gl-space-4) var(--gl-space-12);
-				border-bottom: 1px solid var(--vscode-panel-border, transparent);
+				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border, transparent);
 			}
 
 			.header__title {
@@ -203,7 +203,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				contain: content;
 				overflow: hidden;
 				background-color: color-mix(in srgb, var(--vscode-editor-background) 92%, transparent);
-				border: 1px solid var(--gl-kanban-card-border);
+				border: var(--gl-border-width) solid var(--gl-kanban-card-border);
 				border-radius: var(--gl-kanban-card-radius);
 			}
 
@@ -217,7 +217,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 				letter-spacing: 0.04em;
-				border-bottom: 1px solid var(--gl-kanban-card-border);
+				border-bottom: var(--gl-border-width) solid var(--gl-kanban-card-border);
 			}
 
 			.column__heading[data-column='needs-input'] {
@@ -281,7 +281,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				appearance: none;
 				cursor: pointer;
 				background-color: var(--gl-kanban-card-bg);
-				border: 1px solid var(--gl-kanban-card-border);
+				border: var(--gl-border-width) solid var(--gl-kanban-card-border);
 				border-radius: var(--gl-kanban-card-radius);
 				box-shadow: 0 1px 0 rgb(0 0 0 / 6%);
 			}
@@ -292,7 +292,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.card:focus-visible {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 

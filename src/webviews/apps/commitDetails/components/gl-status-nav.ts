@@ -75,7 +75,7 @@ export class GlStatusNav extends LitElement {
 
 			hr {
 				border: none;
-				border-top: 1px solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.md-code {

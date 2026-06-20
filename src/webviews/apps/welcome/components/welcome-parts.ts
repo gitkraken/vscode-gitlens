@@ -42,7 +42,7 @@ export class GlWalkthroughStep extends LitElement {
 			}
 
 			:host(:focus-within) {
-				outline: 1px solid var(--vscode-focusBorder);
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 				outline-offset: -1px;
 			}
 

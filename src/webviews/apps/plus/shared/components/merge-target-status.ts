@@ -155,11 +155,11 @@ const mergeTargetStyles = css`
 		margin: 0 var(--gl-space-2) var(--gl-space-4);
 		overflow: hidden;
 		color: var(--color-foreground--85);
-		border: 1px solid transparent;
+		border: var(--gl-border-width) solid transparent;
 	}
 
 	details[open] {
-		border: 1px solid var(--vscode-sideBar-border);
+		border: var(--gl-border-width) solid var(--vscode-sideBar-border);
 		border-radius: var(--gl-radius-sm);
 	}
 

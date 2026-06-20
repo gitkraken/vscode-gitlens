@@ -22,7 +22,7 @@ export class GlAccordion extends LitElement {
 
 		/*
 	details {
-		border: 1px solid var(--vscode-panel-border);
+		border: var(--gl-border-width) solid var(--vscode-panel-border);
 		border-radius: var(--gl-radius-sm);
 		overflow: hidden;
 	}
@@ -61,7 +61,7 @@ export class GlAccordion extends LitElement {
 		}
 
 		.header:focus {
-			outline: 1px solid var(--vscode-focusBorder);
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
 			outline-offset: -1px;
 		}
 

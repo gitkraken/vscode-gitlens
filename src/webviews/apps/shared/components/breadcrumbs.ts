@@ -74,7 +74,7 @@ export class GlBreadcrumbs extends LitElement {
 		.overflow-menu gl-tooltip hr {
 			margin: var(--gl-space-4) 0;
 			border: none;
-			border-top: 1px solid var(--color-foreground--25);
+			border-top: var(--gl-border-width) solid var(--color-foreground--25);
 		}
 
 		.overflow-menu-item {

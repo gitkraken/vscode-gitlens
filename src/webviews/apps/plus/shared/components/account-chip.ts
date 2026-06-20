@@ -83,7 +83,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.chip--outlined {
 				background-color: transparent;
-				border: 1px solid var(--gl-account-chip-color);
+				border: var(--gl-border-width) solid var(--gl-account-chip-color);
 			}
 
 			.chip__media {

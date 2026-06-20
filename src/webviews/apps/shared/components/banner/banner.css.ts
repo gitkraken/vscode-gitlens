@@ -36,7 +36,8 @@ export const bannerStyles = css`
 	/* Solid display mode - same as card background */
 	.banner--solid {
 		background-color: var(--gl-banner-primary-background);
-		border: 1px solid color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
+		border: var(--gl-border-width) solid
+			color-mix(in lab, var(--gl-banner-primary-background) 100%, var(--vscode-foreground) 12%);
 	}
 
 	/* Outline display mode - emphasis color outline with secondary background */
@@ -52,7 +53,7 @@ export const bannerStyles = css`
 			var(--gl-banner-primary-emphasis-background) 0%,
 			var(--gl-banner-secondary-emphasis-background) 100%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(
 				in lab,
 				var(--gl-banner-primary-emphasis-background) 50%,
@@ -77,7 +78,7 @@ export const bannerStyles = css`
 				)
 				100%
 		);
-		border: 1px solid
+		border: var(--gl-border-width) solid
 			color-mix(
 				in lab,
 				color-mix(
@@ -93,7 +94,7 @@ export const bannerStyles = css`
 	/* Gradient purple display mode - matches the auto-composer container styling */
 	.banner--gradient-purple {
 		background: var(--gl-gradient-brand-subtle);
-		border: 1px solid var(--vscode-panel-border);
+		border: var(--gl-border-width) solid var(--vscode-panel-border);
 		border-radius: var(--gl-radius-md);
 	}
 

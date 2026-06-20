@@ -170,7 +170,7 @@ export class GlAutocomplete extends LitElement {
 				line-height: 1.4;
 				color: var(--vscode-foreground);
 				background-color: var(--vscode-list-inactiveSelectionBackground);
-				border-bottom: 1px solid var(--vscode-widget-border);
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border);
 			}
 
 			.autocomplete-description:empty {

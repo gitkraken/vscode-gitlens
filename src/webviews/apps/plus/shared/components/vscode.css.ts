@@ -10,7 +10,7 @@ export const linkStyles = css`
 	}
 
 	a:focus-visible {
-		outline: 1px solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--color-focus-border);
 		border-radius: var(--gl-radius-xs);
 	}
 
@@ -23,6 +23,6 @@ export const linkStyles = css`
 export const ruleStyles = css`
 	hr {
 		border: none;
-		border-top: 1px solid var(--color-foreground--25);
+		border-top: var(--gl-border-width) solid var(--color-foreground--25);
 	}
 `;

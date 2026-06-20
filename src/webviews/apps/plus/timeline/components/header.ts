@@ -166,7 +166,7 @@ export class GlTimelineHeader extends LitElement {
 			[slot='tooltip'] hr {
 				margin: var(--gl-space-4) 0;
 				border: none;
-				border-top: 1px solid var(--color-foreground--25);
+				border-top: var(--gl-border-width) solid var(--color-foreground--25);
 			}
 
 			.details__timeframe {
@@ -190,7 +190,7 @@ export class GlTimelineHeader extends LitElement {
 				color: inherit;
 				cursor: pointer;
 				background: transparent;
-				border: 1px solid transparent;
+				border: var(--gl-border-width) solid transparent;
 				border-radius: var(--gl-radius-sm);
 				transition:
 					background 120ms ease,
@@ -259,7 +259,7 @@ export class GlTimelineHeader extends LitElement {
 				font: inherit;
 				color: var(--vscode-dropdown-foreground);
 				background: var(--vscode-dropdown-background);
-				border: 1px solid var(--vscode-dropdown-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-dropdown-border, transparent);
 			}
 		`,
 	];
