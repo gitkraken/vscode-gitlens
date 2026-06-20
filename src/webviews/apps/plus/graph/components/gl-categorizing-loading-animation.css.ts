@@ -8,7 +8,7 @@ export const categorizingLoadingAnimationStyles = css`
 		height: 100%;
 		overflow: hidden;
 		opacity: 0;
-		transition: opacity 0.6s ease-in;
+		transition: opacity 0.6s var(--gl-ease-in);
 		--gl-loading-accent: var(--vscode-charts-purple, #c084fc);
 	}
 
@@ -58,7 +58,7 @@ export const categorizingLoadingAnimationStyles = css`
 			color-mix(in srgb, var(--gl-loading-accent) 70%, transparent) 50%,
 			transparent 100%
 		);
-		animation: gl-categorizing-scanline 1.4s ease-in-out infinite alternate;
+		animation: gl-categorizing-scanline 1.4s var(--gl-ease-in-out) infinite alternate;
 		will-change: top, opacity;
 	}
 

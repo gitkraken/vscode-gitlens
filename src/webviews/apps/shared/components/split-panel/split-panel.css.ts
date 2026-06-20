@@ -57,7 +57,7 @@ export const splitPanelStyles = css`
 		touch-action: none;
 		cursor: ew-resize;
 		background-color: transparent;
-		transition: background-color 0.1s ease-out;
+		transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 	}
 
 	:host([orientation='vertical']) .divider {
@@ -127,7 +127,7 @@ export const splitPanelStyles = css`
 		width: var(--_start-size, 0%);
 		max-width: 100%;
 		box-shadow: 0 0 0.5rem var(--vscode-widget-shadow, rgb(0 0 0 / 36%));
-		transition: width 0.08s ease-out;
+		transition: width var(--gl-duration-x-fast) var(--gl-ease-out);
 	}
 
 	:host([mode='overlay'][dragging]) ::slotted([slot='start']) {
@@ -153,8 +153,8 @@ export const splitPanelStyles = css`
 		width: var(--gl-split-panel-divider-width, 4px);
 		height: auto;
 		transition:
-			background-color 0.1s ease-out,
-			left 0.08s ease-out;
+			background-color var(--gl-duration-x-fast) var(--gl-ease-out),
+			left var(--gl-duration-x-fast) var(--gl-ease-out);
 	}
 
 	:host([mode='overlay'][dragging]) .divider {

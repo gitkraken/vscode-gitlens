@@ -109,9 +109,9 @@ export class GlAgentStatusPill extends LitElement {
 				border: var(--gl-border-width) solid transparent;
 				border-radius: var(--gl-radius-sm);
 				transition:
-					background-color 250ms ease,
-					border-color 250ms ease,
-					color 250ms ease;
+					background-color var(--gl-duration-slow) ease,
+					border-color var(--gl-duration-slow) ease,
+					color var(--gl-duration-slow) ease;
 			}
 
 			.pill__label {
@@ -126,7 +126,7 @@ export class GlAgentStatusPill extends LitElement {
 				width: 5px;
 				height: 5px;
 				border-radius: 50%;
-				transition: background-color 250ms ease;
+				transition: background-color var(--gl-duration-slow) ease;
 			}
 
 			/* Full mode — pill grows to fill its container and surfaces inline actions on the
@@ -190,7 +190,7 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.pill--needs-input {
-				animation: gl-agent-pill-breathing 3.5s ease-in-out 0s infinite;
+				animation: gl-agent-pill-breathing 3.5s var(--gl-ease-in-out) 0s infinite;
 			}
 
 			@keyframes gl-agent-pill-breathing {

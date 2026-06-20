@@ -407,7 +407,7 @@ export const rebaseStyles = css`
 			background-repeat: no-repeat;
 			background-position: center;
 			background-size: 100% 1px;
-			transition: background-color 0.1s ease-out;
+			transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		&::part(divider):hover,
@@ -417,7 +417,7 @@ export const rebaseStyles = css`
 				var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
 			);
 			background-size: 100% 100%;
-			transition: background-color 0.1s ease-out 0.2s;
+			transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out) 0.2s;
 		}
 	}
 

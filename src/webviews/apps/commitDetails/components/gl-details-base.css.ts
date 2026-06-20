@@ -108,7 +108,7 @@ export const detailsBaseStyles = [
 			z-index: 1;
 			color: var(--vscode-descriptionForeground);
 			opacity: 0.7;
-			transition: opacity 0.15s ease;
+			transition: opacity var(--gl-duration-fast) ease;
 		}
 
 		.message-block__copy:hover,
@@ -355,7 +355,7 @@ export const detailsBaseStyles = [
 			max-width: 30rem;
 			margin: 1rem auto 0;
 			text-align: left;
-			transition: max-width 0.2s ease-out;
+			transition: max-width var(--gl-duration-medium) var(--gl-ease-out);
 		}
 
 		@media (width >= 640px) {
@@ -499,7 +499,7 @@ export const detailsBaseStyles = [
 			content: '';
 			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--color-background));
 			border-radius: var(--gl-radius-xs);
-			transition: background-color 0.15s ease;
+			transition: background-color var(--gl-duration-fast) ease;
 		}
 
 		:host([variant='embedded']) .split__handle:hover::after,

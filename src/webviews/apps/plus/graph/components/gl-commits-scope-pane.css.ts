@@ -40,7 +40,7 @@ export const commitsScopePaneStyles = css`
 		min-height: 2.4rem;
 		padding: 0 var(--gl-space-10) 0 var(--gl-space-12);
 		font-size: var(--gl-font-base);
-		transition: opacity 0.15s ease;
+		transition: opacity var(--gl-duration-fast) ease;
 	}
 
 	.scope-row--included {
@@ -240,7 +240,7 @@ export const commitsScopePaneStyles = css`
 		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
 		border-radius: var(--gl-radius-xs);
 		opacity: 0.7;
-		transition: opacity 0.15s ease;
+		transition: opacity var(--gl-duration-fast) ease;
 	}
 
 	.scope-handle:hover .scope-handle__bar,

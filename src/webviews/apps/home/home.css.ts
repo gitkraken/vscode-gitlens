@@ -104,7 +104,7 @@ export const buttonStyles = css`
 		max-width: 30rem;
 		margin: 1rem auto 0;
 		text-align: left;
-		transition: max-width 0.2s ease-out;
+		transition: max-width var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (width >= 640px) {
@@ -274,7 +274,7 @@ export const walkthroughProgressStyles = css`
 	.walkthrough-progress__bar::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
 		border-radius: var(--gl-radius-xs);
-		transition: 0.1s ease-in;
+		transition: var(--gl-duration-x-fast) var(--gl-ease-in);
 	}
 
 	.walkthrough-progress__bar {

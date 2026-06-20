@@ -371,7 +371,7 @@ section {
 			mask-repeat: no-repeat;
 			-webkit-mask-size: 32px 40px;
 			mask-size: 32px 40px;
-			transition: transform 250ms ease-in-out;
+			transition: transform var(--gl-duration-slow) var(--gl-ease-in-out);
 		}
 	}
 
@@ -538,7 +538,7 @@ section {
 		-webkit-mask-size: 32px 28px;
 		mask-size: 32px 28px;
 		transform: translate(-9px, 4px) rotate(-90deg);
-		transition: transform 250ms ease-in-out;
+		transition: transform var(--gl-duration-slow) var(--gl-ease-in-out);
 	}
 
 	& + .settings {

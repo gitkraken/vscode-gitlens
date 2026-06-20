@@ -35,7 +35,7 @@ export class SkeletonLoader extends LitElement {
 				transparent 100%
 			);
 			transform: translateX(-100%);
-			animation: skeleton-loader 2s ease-in-out infinite;
+			animation: skeleton-loader 2s var(--gl-ease-in-out) infinite;
 		}
 
 		@keyframes skeleton-loader {

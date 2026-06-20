@@ -75,7 +75,7 @@ export class GlChipOverflow extends LitElement {
 				border: none;
 				border-radius: var(--gl-radius-sm);
 				opacity: 0.65;
-				transition: opacity 0.15s ease;
+				transition: opacity var(--gl-duration-fast) ease;
 			}
 
 			.overflow-chip:hover,

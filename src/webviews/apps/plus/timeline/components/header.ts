@@ -193,9 +193,9 @@ export class GlTimelineHeader extends LitElement {
 				border: var(--gl-border-width) solid transparent;
 				border-radius: var(--gl-radius-sm);
 				transition:
-					background 120ms ease,
-					border-color 120ms ease,
-					color 120ms ease;
+					background var(--gl-duration-x-fast) ease,
+					border-color var(--gl-duration-x-fast) ease,
+					color var(--gl-duration-x-fast) ease;
 			}
 
 			.details__timeframe--button:hover,

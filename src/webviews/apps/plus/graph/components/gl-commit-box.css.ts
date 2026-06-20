@@ -136,7 +136,7 @@ export const commitBoxStyles = css`
 		background: var(--vscode-input-background);
 		border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 		border-radius: var(--gl-input-border-radius);
-		transition: padding-right 0.2s ease;
+		transition: padding-right var(--gl-duration-medium) ease;
 		field-sizing: content;
 	}
 
@@ -186,7 +186,7 @@ export const commitBoxStyles = css`
 		gap: var(--gl-space-2);
 		align-items: center;
 		pointer-events: none;
-		transition: right 0.2s ease;
+		transition: right var(--gl-duration-medium) ease;
 	}
 
 	/* Mirror of the top controls, pinned to the bottom corner. Row layout so the char-count

@@ -257,7 +257,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		min-width: 0;
 		border-radius: var(--gl-radius-sm);
-		transition: background-color 150ms ease-out;
+		transition: background-color var(--gl-duration-fast) var(--gl-ease-out);
 	}
 
 	.issue-chip-group:hover,
@@ -283,8 +283,8 @@ export const detailsWipHeaderStyles = css`
 		border-radius: 0 var(--gl-radius-sm) var(--gl-radius-sm) 0;
 		opacity: 0;
 		transition:
-			opacity 150ms ease-out,
-			color 150ms ease-out;
+			opacity var(--gl-duration-fast) var(--gl-ease-out),
+			color var(--gl-duration-fast) var(--gl-ease-out);
 	}
 
 	.issue-chip-group:hover .issue-chip-group__remove,

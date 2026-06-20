@@ -49,9 +49,9 @@
 
 .button--flat {
 	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
+		background-color var(--gl-duration-slow),
+		border-color var(--gl-duration-slow),
+		color var(--gl-duration-slow);
 
 	@include utils.light-theme($selectorPostfix: ' &') {
 		color: black;
@@ -89,9 +89,9 @@
 	background-color: white;
 	border: var(--gl-border-width) solid white;
 	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
+		background-color var(--gl-duration-slow),
+		border-color var(--gl-duration-slow),
+		color var(--gl-duration-slow);
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -111,9 +111,9 @@
 	background-color: var(--color-button-background);
 	border: var(--gl-border-width) solid var(--color-button-background);
 	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
+		background-color var(--gl-duration-slow),
+		border-color var(--gl-duration-slow),
+		color var(--gl-duration-slow);
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -141,9 +141,9 @@
 	background-color: var(--color-button-secondary-background);
 	border: var(--gl-border-width) solid var(--color-button-secondary-background);
 	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
+		background-color var(--gl-duration-slow),
+		border-color var(--gl-duration-slow),
+		color var(--gl-duration-slow);
 
 	&:not([disabled]):hover,
 	&:not([disabled]):focus {
@@ -167,9 +167,9 @@
 
 .button--flat-subtle {
 	transition:
-		background-color 250ms,
-		border-color 250ms,
-		color 250ms;
+		background-color var(--gl-duration-slow),
+		border-color var(--gl-duration-slow),
+		color var(--gl-duration-slow);
 
 	@include utils.light-theme($selectorPostfix: ' &') {
 		color: rgb(0 0 0 / 60%);

@@ -15,7 +15,7 @@ export const reviewModePanelStyles = css`
 	   mode animates in instead of popping. @keyframes sub-panel-enter is provided by
 	   subPanelEnterStyles in the component's styles array. */
 	:host {
-		animation: sub-panel-enter 0.2s ease-out;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {

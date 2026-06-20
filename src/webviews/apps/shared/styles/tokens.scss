@@ -51,6 +51,19 @@
 	--gl-space-36: var(--vscode-spacing-size360, 3.6rem);
 	--gl-space-40: var(--vscode-spacing-size400, 4rem);
 
+	// Motion — duration tiers (semantic by speed, slow→fast) + easings. Bespoke: VS Code has no motion
+	// tokens to bridge. Long-running loop/effect timings (≥350ms: spinners, pulses, shimmers, scanners)
+	// stay literal — their duration is intrinsic to the effect, not a UI-transition speed.
+	--gl-duration-x-slow: 300ms; // deliberate / largest movement
+	--gl-duration-slow: 250ms;
+	--gl-duration-medium: 200ms; // default — most common transition
+	--gl-duration-fast: 150ms;
+	--gl-duration-x-fast: 100ms; // snappy micro-feedback (hover, focus, tint)
+	--gl-ease-out: ease-out;
+	--gl-ease-in: ease-in;
+	--gl-ease-in-out: ease-in-out;
+	--gl-ease-spin: cubic-bezier(0.53, 0.21, 0.29, 0.67); // codicon/glicon spin timing
+
 	// Z-index / stacking scale — semantic tiers for declarations that escape into a shared stacking
 	// context. The guard, the top-layer rule for modals, and the disjoint --wa-z-index-* band are
 	// in docs/webview-styling.md (Elevation).

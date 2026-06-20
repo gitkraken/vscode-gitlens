@@ -171,7 +171,7 @@ const mergeTargetStyles = css`
 		color: var(--color-foreground);
 		cursor: pointer;
 		list-style: none;
-		transition: transform ease-in-out 0.1s;
+		transition: transform var(--gl-ease-in-out) var(--gl-duration-x-fast);
 	}
 
 	summary:hover {
@@ -190,7 +190,7 @@ const mergeTargetStyles = css`
 	}
 
 	summary code-icon {
-		transition: transform 0.2s;
+		transition: transform var(--gl-duration-medium);
 	}
 
 	.files {

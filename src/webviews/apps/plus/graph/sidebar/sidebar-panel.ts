@@ -250,11 +250,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	   (in overlay mode the host floats over the graph; an opacity/translate on the host
 	   would expose the graph through fade or at the gap left by the translate). */
 			:host([opening]) .panel {
-				animation: panel-enter 0.2s ease-out;
+				animation: panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			:host([switching]) .panel {
-				animation: sub-panel-enter 0.2s ease-out;
+				animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			@media (prefers-reduced-motion: reduce) {

@@ -152,8 +152,8 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			border-radius: 1px;
 			transform: translateY(var(--indicator-top, 0));
 			transition:
-				transform 0.25s ease-in-out,
-				height 0.15s ease-in-out;
+				transform var(--gl-duration-slow) var(--gl-ease-in-out),
+				height var(--gl-duration-fast) var(--gl-ease-in-out);
 		}
 
 		.indicator.no-transition {

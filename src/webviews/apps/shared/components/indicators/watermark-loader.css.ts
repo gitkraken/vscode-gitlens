@@ -56,7 +56,7 @@ export const pulseStyles = css`
 	   but the same animation on SVG sub-elements runs on the main thread. */
 	.watermark--pulse .watermark-piece {
 		transform: scale(0.9);
-		animation: pulse 1.8s ease-in-out infinite;
+		animation: pulse 1.8s var(--gl-ease-in-out) infinite;
 		will-change: transform;
 	}
 

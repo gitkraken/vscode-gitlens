@@ -31,9 +31,9 @@ export class GlSnow extends LitElement {
 				opacity: 0.6;
 				transform: rotate(90deg) scaleX(-1);
 				transition:
-					filter ease-in-out 250ms,
-					opacity ease-in-out 250ms,
-					transform ease-in-out 250ms;
+					filter var(--gl-ease-in-out) var(--gl-duration-slow),
+					opacity var(--gl-ease-in-out) var(--gl-duration-slow),
+					transform var(--gl-ease-in-out) var(--gl-duration-slow);
 			}
 
 			:host(:not([snowing])) .snow__toggle {

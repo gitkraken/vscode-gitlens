@@ -184,7 +184,7 @@ export const graphHeaderControlStyles = css`
 
 	.shrink {
 		max-width: fit-content;
-		transition: all 0.2s;
+		transition: all var(--gl-duration-medium);
 	}
 	.shrink.hidden {
 		max-width: 0;

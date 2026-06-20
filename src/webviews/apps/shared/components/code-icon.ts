@@ -82,7 +82,7 @@ export class CodeIcon extends LitElement {
 
 			/* custom speed & easing for loading icon */
 			animation-duration: 1s !important;
-			animation-timing-function: cubic-bezier(0.53, 0.21, 0.29, 0.67) !important;
+			animation-timing-function: var(--gl-ease-spin) !important;
 		}
 
 		:host([flip='inline']) {

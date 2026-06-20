@@ -16,7 +16,7 @@ export class ButtonContainer extends LitElement {
 				max-width: var(--button-max-width, 30rem);
 				margin-inline: auto;
 				text-align: left;
-				transition: max-width 0.2s ease-out;
+				transition: max-width var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			:host([grouping='gap-wide']) {

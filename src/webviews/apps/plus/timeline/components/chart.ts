@@ -154,9 +154,9 @@ export class GlTimelineChart extends GlElement {
 			border-radius: 50%;
 			transform: translate(-50%, -50%);
 			transition:
-				transform 120ms ease-out,
-				opacity 120ms ease-out,
-				background 120ms ease-out;
+				transform var(--gl-duration-x-fast) var(--gl-ease-out),
+				opacity var(--gl-duration-x-fast) var(--gl-ease-out),
+				background var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		.rail__avatar gl-tooltip {
@@ -240,8 +240,8 @@ export class GlTimelineChart extends GlElement {
 			border-radius: var(--gl-radius-xl);
 			transform: translateY(-50%);
 			transition:
-				max-width 220ms ease-out,
-				opacity 120ms ease-out;
+				max-width var(--gl-duration-medium) var(--gl-ease-out),
+				opacity var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		.rail__branch gl-tooltip {
@@ -528,7 +528,7 @@ export class GlTimelineChart extends GlElement {
 			opacity: 0;
 			-webkit-backdrop-filter: blur(15px);
 			backdrop-filter: blur(15px);
-			animation: notice-fade-in 0.2s ease-in forwards;
+			animation: notice-fade-in var(--gl-duration-medium) var(--gl-ease-in) forwards;
 		}
 
 		:host([placement='view']) .notice--blur {
@@ -577,7 +577,7 @@ export class GlTimelineChart extends GlElement {
 				-1.4rem 0 2.6rem 0.3rem
 					color-mix(in srgb, var(--vscode-progressBar-background, #0078d4) 7%, transparent);
 			clip-path: inset(0 -0.5rem 0 -100rem);
-			animation: load-more-edge-line-pulse 1.6s ease-in-out infinite;
+			animation: load-more-edge-line-pulse 1.6s var(--gl-ease-in-out) infinite;
 
 			/* Hint the compositor that this element will animate so the browser promotes it to its
 	   own layer. Keeps the pulse and the inner scanner running on the GPU instead of
@@ -638,7 +638,7 @@ export class GlTimelineChart extends GlElement {
 	   forward through the line. Setting transform here as the static base avoids a
 	   first-frame jump between unset and the keyframes starting transform. */
 			transform: translate(-50%, -120%);
-			animation: load-more-edge-scanner 1.4s ease-in-out infinite;
+			animation: load-more-edge-scanner 1.4s var(--gl-ease-in-out) infinite;
 			will-change: transform, opacity;
 		}
 

@@ -258,7 +258,7 @@ export class GlPopover extends GlElement {
 				z-index: 1;
 				touch-action: none;
 				background-color: transparent;
-				transition: background-color 0.1s ease-out;
+				transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 			}
 
 			/* Edges — 4px thick bars */

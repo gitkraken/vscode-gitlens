@@ -112,7 +112,7 @@ export const subPanelEnterStyles = css`
 		flex-direction: column;
 		min-height: 0;
 		overflow: hidden;
-		animation: sub-panel-enter 0.2s ease-out;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {

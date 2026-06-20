@@ -112,7 +112,7 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-foreground);
 				cursor: pointer;
 				border-radius: var(--gl-radius-sm);
-				transition: background-color 0.2s ease;
+				transition: background-color var(--gl-duration-medium) ease;
 			}
 
 			.composition-summary__feedback-action:hover,
@@ -168,7 +168,7 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 				border: 2px dashed var(--vscode-panel-border);
 				border-radius: var(--gl-radius-sm);
-				transition: all 0.2s ease;
+				transition: all var(--gl-duration-medium) ease;
 			}
 
 			.new-commit-drop-zone.drag-over {
@@ -194,7 +194,7 @@ export class CommitsPanel extends LitElement {
 				background-color: var(--vscode-inputValidation-errorBackground);
 				border: 2px dashed var(--vscode-errorForeground);
 				border-radius: var(--gl-radius-sm);
-				transition: all 0.2s ease;
+				transition: all var(--gl-duration-medium) ease;
 			}
 
 			.unassign-drop-zone.hidden {

@@ -132,11 +132,11 @@ export class GlSearchBox extends GlElement {
 		}
 
 		.button.navigating > code-icon[icon='arrow-up'] {
-			animation: bounce-up 0.6s ease-in-out 0.15s infinite;
+			animation: bounce-up 0.6s var(--gl-ease-in-out) 0.15s infinite;
 		}
 
 		.button.navigating > code-icon[icon='arrow-down'] {
-			animation: bounce-down 0.6s ease-in-out 0.15s infinite;
+			animation: bounce-down 0.6s var(--gl-ease-in-out) 0.15s infinite;
 		}
 
 		.sr-hidden {

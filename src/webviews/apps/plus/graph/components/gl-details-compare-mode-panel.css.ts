@@ -9,7 +9,7 @@ export const compareModePanelStyles = css`
 
 		/* Matches the fade+slide-up entrance used by other graph details sub-panels so
 		   compare mode animates in like review / compose instead of popping. */
-		animation: sub-panel-enter 0.2s ease-out;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -228,9 +228,9 @@ export const compareModePanelStyles = css`
 		border-bottom: 2px solid transparent;
 		opacity: 0.55;
 		transition:
-			opacity 0.15s,
-			border-color 0.15s,
-			background-color 0.15s;
+			opacity var(--gl-duration-fast),
+			border-color var(--gl-duration-fast),
+			background-color var(--gl-duration-fast);
 	}
 
 	.compare-tab--all {

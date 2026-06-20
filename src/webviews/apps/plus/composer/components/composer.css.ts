@@ -23,7 +23,7 @@ export const composerItemStyles = css`
 		/* gap: 0.8rem; */
 		border: var(--gl-border-width) solid var(--composer-item-border);
 		border-radius: var(--composer-item-radius);
-		transition: background-color 0.2s ease;
+		transition: background-color var(--gl-duration-medium) ease;
 	}
 
 	.composer-item:not(.is-selected):is(:focus-visible, :hover) {

@@ -566,8 +566,8 @@ export class GlBreadcrumbItem extends LitElement {
 				user-select: none;
 				opacity: 0.5;
 				transition:
-					opacity 120ms ease,
-					color 120ms ease;
+					opacity var(--gl-duration-x-fast) ease,
+					color var(--gl-duration-x-fast) ease;
 			}
 
 			.separator::before {

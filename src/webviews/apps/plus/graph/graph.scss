@@ -167,7 +167,7 @@ body {
 		.vertical_scrollbar,
 		.horizontal_scrollbar {
 			border-color: var(--vscode-scrollbarSlider-background);
-			transition: border-color 0.1s linear;
+			transition: border-color var(--gl-duration-x-fast) linear;
 		}
 	}
 }
@@ -1086,7 +1086,7 @@ button:not([disabled]),
 
 	&:not(.filtering) {
 		opacity: 0;
-		transition: opacity 120ms ease;
+		transition: opacity var(--gl-duration-x-fast) ease;
 
 		&:hover {
 			background-color: var(--vscode-toolbar-hoverBackground);
@@ -1301,7 +1301,7 @@ web-graph {
 			content: '';
 			border-left: var(--gl-border-width) solid var(--titlebar-fg);
 			opacity: 0.3;
-			transition: border-color 0.1s ease-out;
+			transition: border-color var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		&::before {
@@ -1313,7 +1313,7 @@ web-graph {
 			pointer-events: none;
 			content: '';
 			background: transparent;
-			transition: background-color 0.1s ease-out;
+			transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 		}
 
 		&:hover,
@@ -1514,7 +1514,7 @@ web-graph {
 		cursor: pointer;
 		border: var(--gl-border-width) solid transparent;
 		border-radius: var(--gl-radius-sm);
-		transition: color 0.2s ease;
+		transition: color var(--gl-duration-medium) ease;
 
 		&:hover {
 			color: var(--vscode-textLink-activeForeground);
@@ -1908,7 +1908,7 @@ web-graph {
 				background-repeat: no-repeat;
 				background-position: center;
 				background-size: 100% 1px;
-				transition: background-color 0.1s ease-out;
+				transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 			}
 
 			&:not([disabled])::part(divider):hover,
@@ -1918,7 +1918,7 @@ web-graph {
 					var(--vscode-sash-hoverBorder, var(--vscode-focusBorder))
 				);
 				background-size: 100% 100%;
-				transition: background-color 0.1s ease-out 0.2s;
+				transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out) 0.2s;
 			}
 
 			&__top {
@@ -1989,7 +1989,7 @@ web-graph {
 
 .details-opening {
 	overflow: hidden;
-	animation: details-fade-in 0.2s ease-out;
+	animation: details-fade-in var(--gl-duration-medium) var(--gl-ease-out);
 
 	&.-vertical {
 		animation-name: details-fade-in-vertical;
@@ -2024,7 +2024,7 @@ web-graph {
 		height: 32px;
 		background: var(--color-foreground);
 		border-radius: 50%;
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__lines {
@@ -2038,7 +2038,7 @@ web-graph {
 		height: 10px;
 		background: var(--color-foreground);
 		border-radius: var(--gl-radius-sm);
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__line--short {
@@ -2069,7 +2069,7 @@ web-graph {
 		height: 28px;
 		background: var(--color-foreground);
 		border-radius: var(--gl-radius-sm);
-		animation: skeleton-pulse 1.5s ease-in-out infinite;
+		animation: skeleton-pulse 1.5s var(--gl-ease-in-out) infinite;
 	}
 
 	&__body {
@@ -2091,7 +2091,7 @@ web-graph {
 .details-stale {
 	pointer-events: none;
 	opacity: 0.85;
-	transition: opacity 0.5s ease-out 0.5s;
+	transition: opacity 0.5s var(--gl-ease-out) 0.5s;
 }
 
 .graph-row-actions {

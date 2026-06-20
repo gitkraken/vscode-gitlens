@@ -66,7 +66,7 @@ export const modeHeaderStyles = css`
 		background-color: var(--mode-header-bg);
 
 		/* Exit transition (class removed): fast fade back to base */
-		transition: background-color 0.1s ease-out;
+		transition: background-color var(--gl-duration-x-fast) var(--gl-ease-out);
 	}
 
 	.mode-header--active {
@@ -77,7 +77,7 @@ export const modeHeaderStyles = css`
 		);
 
 		/* Enter transition (class added): slightly slower fade to tinted */
-		transition: background-color 0.15s ease-in;
+		transition: background-color var(--gl-duration-fast) var(--gl-ease-in);
 	}
 `;
 

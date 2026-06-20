@@ -452,7 +452,7 @@ export const detailsCommitPanelStyles = css`
 		padding: var(--gl-space-2);
 		border-radius: var(--gl-radius-sm);
 		opacity: 1;
-		transition: color 0.15s ease;
+		transition: color var(--gl-duration-fast) ease;
 	}
 
 	/* ── Zone 4: Autolinks footer ── */

@@ -16,7 +16,7 @@ export const composeModePanelStyles = css`
 	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */
 	:host {
 		overflow: hidden;
-		animation: sub-panel-enter 0.2s ease-out;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	:host([data-anim-done]) {
@@ -173,7 +173,7 @@ export const composeModePanelStyles = css`
 		padding: 0.5rem 1.2rem;
 		cursor: pointer;
 		border-left: 2px solid transparent;
-		transition: background 0.1s;
+		transition: background var(--gl-duration-x-fast);
 	}
 
 	.compose-commit:hover {

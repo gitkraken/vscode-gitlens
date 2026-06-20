@@ -65,7 +65,7 @@ export class GlDetailSheet extends LitElement {
 				pointer-events: auto;
 				background-color: rgb(0 0 0 / 55%);
 				backdrop-filter: blur(0.3rem);
-				animation: gl-sheet-scrim-fade 0.18s ease-out;
+				animation: gl-sheet-scrim-fade var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			:host([closing]) .scrim {
@@ -74,7 +74,7 @@ export class GlDetailSheet extends LitElement {
 		   the animation ending and the host removing the sheet from the DOM. Distinct
 		   animation name (vs. the entry's gl-sheet-scrim-fade) so the browser starts a
 		   fresh run instead of treating it as a continuation of the finished entry. */
-				animation: gl-sheet-scrim-fade-out 0.18s ease-in forwards;
+				animation: gl-sheet-scrim-fade-out var(--gl-duration-medium) var(--gl-ease-in) forwards;
 			}
 
 			.sheet {
@@ -97,7 +97,7 @@ export class GlDetailSheet extends LitElement {
 		   survives high-contrast where the --gl-shadow-sheet upward cast vanishes. */
 				/* stylelint-disable-next-line declaration-property-value-disallowed-list */
 				box-shadow: var(--gl-shadow-sheet);
-				animation: gl-sheet-slide-up 0.2s ease-out;
+				animation: gl-sheet-slide-up var(--gl-duration-medium) var(--gl-ease-out);
 			}
 
 			:host([closing]) .sheet {
@@ -105,7 +105,7 @@ export class GlDetailSheet extends LitElement {
 		   so the sheet stays parked off-screen until the host removes it. Distinct
 		   animation name (vs. the entry's gl-sheet-slide-up) so the browser starts a
 		   fresh run instead of treating it as a continuation of the finished entry. */
-				animation: gl-sheet-slide-down 0.2s ease-in forwards;
+				animation: gl-sheet-slide-down var(--gl-duration-medium) var(--gl-ease-in) forwards;
 			}
 
 			.sheet__header {

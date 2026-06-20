@@ -37,9 +37,9 @@ export class GlAiModelChip extends LitElement {
 			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition:
-				color 0.15s,
-				background 0.15s,
-				border-color 0.15s;
+				color var(--gl-duration-fast),
+				background var(--gl-duration-fast),
+				border-color var(--gl-duration-fast);
 		}
 
 		.chip:hover,

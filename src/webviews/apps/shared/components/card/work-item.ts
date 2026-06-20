@@ -42,7 +42,7 @@ export class GlWorkUnit extends LitElement {
 				flex-direction: column;
 				gap: var(--gl-space-8);
 				max-height: 100px;
-				transition-duration: 0.2s;
+				transition-duration: var(--gl-duration-medium);
 				transition-property: opacity, max-height, display;
 				transition-behavior: allow-discrete;
 			}

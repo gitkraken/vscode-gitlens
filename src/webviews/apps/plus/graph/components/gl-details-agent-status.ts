@@ -198,7 +198,7 @@ export class GlDetailsAgentStatus extends LitElement {
 		   the rotation cycle for collapsed↔partial. Default at 0deg in case the attribute
 		   is briefly missing. */
 				transform: rotate(0deg);
-				transition: transform 0.2s ease;
+				transition: transform var(--gl-duration-medium) ease;
 			}
 
 			.section__heading-chevron[data-expand='collapsed'] {
@@ -401,8 +401,8 @@ export class GlDetailsAgentStatus extends LitElement {
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
 				border-radius: var(--gl-radius-sm);
 				transition:
-					background 250ms ease,
-					border-left-color 250ms ease;
+					background var(--gl-duration-slow) ease,
+					border-left-color var(--gl-duration-slow) ease;
 			}
 
 			.card--needs-input {
@@ -480,8 +480,8 @@ export class GlDetailsAgentStatus extends LitElement {
 				background-color: color-mix(in srgb, var(--card-accent) 18%, transparent);
 				border-radius: 50%;
 				transition:
-					color 250ms ease,
-					background-color 250ms ease;
+					color var(--gl-duration-slow) ease,
+					background-color var(--gl-duration-slow) ease;
 			}
 
 			.card__body {

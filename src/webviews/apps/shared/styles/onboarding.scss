@@ -31,11 +31,11 @@
 	}
 
 	.driver-fade .driver-overlay {
-		animation: animate-fade-in 0.2s ease-in-out;
+		animation: animate-fade-in var(--gl-duration-medium) var(--gl-ease-in-out);
 	}
 
 	.driver-fade .driver-popover {
-		animation: animate-fade-in 0.2s;
+		animation: animate-fade-in var(--gl-duration-medium);
 	}
 
 	.driver-popover {
@@ -91,7 +91,7 @@
 		cursor: pointer;
 		opacity: 0.5;
 		transition: opacity;
-		transition-duration: 0.2s;
+		transition-duration: var(--gl-duration-medium);
 	}
 
 	.driver-popover-close-btn:hover,

@@ -45,7 +45,7 @@ export class CommitItem extends LitElement {
 				cursor: grab;
 				opacity: 0.3;
 				transform: translateY(-50%);
-				transition: opacity 0.2s ease;
+				transition: opacity var(--gl-duration-medium) ease;
 			}
 
 			.drag-handle:hover,

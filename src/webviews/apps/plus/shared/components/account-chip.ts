@@ -265,7 +265,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 					transparent 100%
 				);
 				transform: translateX(-100%);
-				animation: shimmer 2s ease-in-out infinite;
+				animation: shimmer 2s var(--gl-ease-in-out) infinite;
 			}
 		`,
 	];

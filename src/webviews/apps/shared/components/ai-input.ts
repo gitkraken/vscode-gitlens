@@ -38,9 +38,9 @@ export class GlAiInput extends LitElement {
 			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: var(--gl-radius-md);
 			transition:
-				border-color 0.3s,
-				box-shadow 0.3s,
-				background 0.3s;
+				border-color var(--gl-duration-x-slow),
+				box-shadow var(--gl-duration-x-slow),
+				background var(--gl-duration-x-slow);
 		}
 
 		/* Footer area — only visible when the consumer slots content (e.g. the model chip).
@@ -210,10 +210,10 @@ export class GlAiInput extends LitElement {
 			border-right: var(--gl-border-width) solid transparent;
 			border-radius: 0 var(--gl-radius-md) var(--gl-radius-md) 0;
 			transition:
-				background 0.25s,
-				color 0.25s,
-				border-color 0.25s,
-				flex-direction 0.3s;
+				background var(--gl-duration-slow),
+				color var(--gl-duration-slow),
+				border-color var(--gl-duration-slow),
+				flex-direction var(--gl-duration-x-slow);
 		}
 
 		/* Hovering anywhere in the row lights up the button too, so the pill responds as
@@ -291,8 +291,8 @@ export class GlAiInput extends LitElement {
 			align-items: center;
 			justify-content: center;
 			transition:
-				transform 0.3s ease,
-				opacity 0.3s ease;
+				transform var(--gl-duration-x-slow) ease,
+				opacity var(--gl-duration-x-slow) ease;
 		}
 
 		.icon-sparkle {

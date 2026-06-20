@@ -215,7 +215,7 @@ export const treeItemStyles = [
 			border-left: var(--gl-border-width) solid transparent;
 			opacity: 0.4;
 			transform: translate(-1px, -50%);
-			transition: border-color 0.1s linear;
+			transition: border-color var(--gl-duration-x-fast) linear;
 		}
 
 		@media (prefers-reduced-motion: reduce) {
@@ -342,7 +342,7 @@ export const treeItemStyles = [
 			color: var(--vscode-checkbox-foreground);
 			pointer-events: none;
 			opacity: 0;
-			transition: opacity 0.1s linear;
+			transition: opacity var(--gl-duration-x-fast) linear;
 		}
 
 		.checkbox__input:checked + .checkbox__check {

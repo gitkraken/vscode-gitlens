@@ -39,7 +39,7 @@ export class ProgressIndicator extends LitElement {
 
 		:host([mode='discrete']) .progress-bar {
 			left: 0;
-			transition: width 0.1s linear;
+			transition: width var(--gl-duration-x-fast) linear;
 		}
 
 		:host([mode='discrete done']) .progress-bar {

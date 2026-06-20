@@ -21,7 +21,7 @@ export class HunkItem extends LitElement {
 			background: var(--vscode-editor-background);
 			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
-			transition: all 0.2s ease;
+			transition: all var(--gl-duration-medium) ease;
 		}
 
 		.hunk-item:hover {
@@ -151,7 +151,7 @@ export class HunkItem extends LitElement {
 			color: var(--vscode-descriptionForeground);
 			opacity: 0;
 			transform: translateY(-50%);
-			transition: opacity 0.2s ease;
+			transition: opacity var(--gl-duration-medium) ease;
 		}
 
 		.hunk-item:hover .drag-handle {

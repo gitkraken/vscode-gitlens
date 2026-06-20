@@ -213,7 +213,7 @@ export class ComposerApp extends LitElement {
 
 			.section-toggle {
 				color: var(--vscode-descriptionForeground);
-				transition: transform 0.2s ease;
+				transition: transform var(--gl-duration-medium) ease;
 			}
 
 			.section-toggle.expanded {
@@ -267,7 +267,7 @@ export class ComposerApp extends LitElement {
 				background: var(--vscode-list-inactiveSelectionBackground);
 				border: var(--gl-border-width) solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-sm);
-				transition: all 0.2s ease;
+				transition: all var(--gl-duration-medium) ease;
 			}
 
 			.unassigned-changes-item:hover {

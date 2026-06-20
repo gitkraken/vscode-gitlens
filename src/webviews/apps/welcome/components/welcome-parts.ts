@@ -65,7 +65,7 @@ export class GlWalkthroughStep extends LitElement {
 
 			.icon {
 				flex: none;
-				transition: transform 0.2s ease;
+				transition: transform var(--gl-duration-medium) ease;
 			}
 
 			:host([expanded]) .icon {
@@ -287,7 +287,7 @@ export class GlWalkthroughProgress extends LitElement {
 				height: 100%;
 				background: var(--gl-gradient-brand);
 				border-radius: var(--gl-radius-xs);
-				transition: width 0.3s ease;
+				transition: width var(--gl-duration-x-slow) ease;
 			}
 
 			p {

@@ -253,8 +253,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			border: var(--gl-border-width) solid transparent;
 			border-radius: var(--gl-radius-sm);
 			transition:
-				background 120ms ease,
-				border-color 120ms ease;
+				background var(--gl-duration-x-fast) ease,
+				border-color var(--gl-duration-x-fast) ease;
 		}
 
 		.period-button:hover,
