@@ -72,7 +72,7 @@ export class GlCompactCommitRow extends LitElement {
 			.diff-stats {
 				display: inline-flex;
 				flex-shrink: 0;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				font-family: var(--vscode-editor-font-family, monospace);
 				font-size: 1rem;

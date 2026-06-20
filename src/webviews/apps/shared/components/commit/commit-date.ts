@@ -10,7 +10,7 @@ export class GlCommitDate extends LitElement {
 	static override styles = css`
 		:host {
 			display: inline-flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 			font-size: inherit;
 			vertical-align: middle;

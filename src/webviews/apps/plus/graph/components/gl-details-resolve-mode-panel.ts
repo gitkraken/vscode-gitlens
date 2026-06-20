@@ -60,13 +60,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-intro {
-				margin: 0.8rem 1.2rem 0.4rem;
+				margin: var(--gl-space-8) var(--gl-space-12) var(--gl-space-4);
 				color: var(--vscode-descriptionForeground);
 			}
 
 			.resolve-files {
 				padding: 0;
-				margin: 0.4rem 0;
+				margin: var(--gl-space-4) 0;
 				overflow-y: auto;
 				list-style: none;
 			}
@@ -74,14 +74,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 			.resolve-file {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				padding: 0.5rem 1.2rem;
 				border-top: 1px solid var(--vscode-panel-border);
 			}
 
 			.resolve-file__head {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 			}
 
@@ -98,10 +98,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 			.resolve-file__link {
 				display: flex;
 				flex: 1;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				min-width: 0;
-				padding: 0.2rem 0.4rem;
+				padding: var(--gl-space-2) var(--gl-space-4);
 				margin: -0.2rem -0.4rem;
 				font-family: inherit;
 				font-size: inherit;
@@ -159,9 +159,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 			.resolve-footer {
 				display: flex;
 				flex: none;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				justify-content: flex-end;
-				padding: 0.6rem 1.2rem;
+				padding: var(--gl-space-6) var(--gl-space-12);
 				border-top: 1px solid var(--vscode-panel-border);
 			}
 
@@ -169,27 +169,27 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: flex;
 				flex: none;
 				flex-direction: column;
-				gap: 0.4rem;
-				padding: 0.6rem 1.2rem;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-6) var(--gl-space-12);
 			}
 
 			.resolve-loading-actions {
 				display: flex;
 				justify-content: center;
-				padding: 0.4rem;
+				padding: var(--gl-space-4);
 			}
 
 			/* Per-row feedback input, indented under its file. */
 			.resolve-file__feedback {
 				display: block;
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 			}
 
 			/* Whole-run "Refine" input between the results list and the footer. */
 			.resolve-refine {
 				display: block;
 				flex: none;
-				margin: 0.4rem 1.2rem;
+				margin: var(--gl-space-4) var(--gl-space-12);
 			}
 		`,
 	];

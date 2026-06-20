@@ -17,7 +17,7 @@ export const commitPopoverStyles = css`
 		flex-direction: column;
 		gap: 0.75rem;
 		max-width: 52rem;
-		margin: 0.6rem 0.2rem 0.2rem;
+		margin: var(--gl-space-6) var(--gl-space-2) var(--gl-space-2);
 	}
 
 	.commit-popover-content__header {
@@ -92,7 +92,7 @@ export const commitPopoverStyles = css`
 
 	.commit-popover-content__sha {
 		display: inline-flex;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: 1.1rem;

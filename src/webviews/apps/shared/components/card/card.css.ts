@@ -12,9 +12,9 @@ export const cardStyles = css`
 		position: relative;
 		display: block;
 		flex-direction: column;
-		gap: 0.8rem;
-		padding: 0.8rem 1.2rem;
-		margin-block-end: 0.6rem;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-8) var(--gl-space-12);
+		margin-block-end: var(--gl-space-6);
 
 		/* border-inline-end: 0.3rem solid transparent; */
 		background-color: var(--gl-card-background, color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%));

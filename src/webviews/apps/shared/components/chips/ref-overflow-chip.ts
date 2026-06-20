@@ -34,7 +34,7 @@ export class GlRefOverflowChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			max-width: 100%;
 			padding: 0.1rem 0.4rem;
@@ -63,7 +63,7 @@ export class GlRefOverflowChip extends LitElement {
 		.chip__label {
 			display: inline-flex;
 			flex: 1 1 auto;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-width: 0;
 			overflow: hidden;
@@ -77,12 +77,12 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.chip__ellipsis {
-			padding: 0 0.4rem;
+			padding: 0 var(--gl-space-4);
 			opacity: 0.8;
 		}
 
 		.chip__count {
-			padding-left: 0.4rem;
+			padding-left: var(--gl-space-4);
 			font-size: 0.85em;
 			font-weight: 600;
 		}
@@ -98,14 +98,14 @@ export class GlRefOverflowChip extends LitElement {
 		}
 
 		.tooltip-header {
-			padding-bottom: 0.6rem;
+			padding-bottom: var(--gl-space-6);
 			font-weight: 500;
 		}
 
 		.tooltip-list {
 			display: flex;
 			flex-direction: column;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			max-height: 300px;
 			overflow-y: auto;
 		}

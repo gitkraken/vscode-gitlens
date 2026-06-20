@@ -63,7 +63,7 @@ export class GitActionsButtons extends LitElement {
 			}
 
 			gl-tooltip {
-				margin-left: 0.4rem;
+				margin-left: var(--gl-space-4);
 			}
 		`,
 	];
@@ -241,29 +241,29 @@ export class GlFetchButton extends LitElement {
 				display: flex;
 				flex-direction: column;
 				min-width: 0;
-				padding: 0.2rem 0;
+				padding: var(--gl-space-2) 0;
 			}
 
 			.fetch-popover__info {
-				padding: 0.4rem 0.8rem;
+				padding: var(--gl-space-4) var(--gl-space-8);
 				font-size: 1.2rem;
 				line-height: 1.4;
 				color: var(--vscode-menu-foreground);
 			}
 
 			.fetch-popover__info-secondary {
-				margin-top: 0.2rem;
+				margin-top: var(--gl-space-2);
 				font-size: 1.1rem;
 				opacity: 0.7;
 			}
 
 			.fetch-popover__divider {
-				margin: 0.2rem 0;
+				margin: var(--gl-space-2) 0;
 			}
 
 			.fetch-popover__row {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				min-height: 2.4rem;
 				padding: 0.3rem 0.4rem 0.3rem 0.8rem;
@@ -310,7 +310,7 @@ export class GlFetchButton extends LitElement {
 
 			.fetch-popover__row--info .fetch-popover__label-text {
 				display: inline-flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 			}
 		`,

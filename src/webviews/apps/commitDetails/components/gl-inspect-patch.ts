@@ -115,7 +115,7 @@ export class InspectPatch extends GlElement {
 
 			/* TODO: these form styles should be moved to a common location */
 			.message-input {
-				padding-top: 0.8rem;
+				padding-top: var(--gl-space-8);
 			}
 
 			.message-input__control {
@@ -196,8 +196,8 @@ export class InspectPatch extends GlElement {
 
 			.message-input__select .message-input__control {
 				box-sizing: border-box;
-				padding-right: 2.4rem;
-				padding-left: 2.4rem;
+				padding-right: var(--gl-space-24);
+				padding-left: var(--gl-space-24);
 				appearance: none;
 			}
 
@@ -214,7 +214,7 @@ export class InspectPatch extends GlElement {
 			.message-input--group {
 				display: flex;
 				flex-direction: row;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: stretch;
 			}
 
@@ -238,7 +238,7 @@ export class InspectPatch extends GlElement {
 
 				display: flex;
 				flex-direction: row;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				height: 2.4rem;
 			}
@@ -264,7 +264,7 @@ export class InspectPatch extends GlElement {
 			}
 
 			.user-selection__actions gl-button::part(base) {
-				padding-block: 0.4rem;
+				padding-block: var(--gl-space-4);
 				padding-right: 0;
 			}
 
@@ -280,7 +280,7 @@ export class InspectPatch extends GlElement {
 				display: flex;
 				flex-direction: row;
 				align-items: center;
-				padding: 0.8rem 1.2rem;
+				padding: var(--gl-space-8) var(--gl-space-12);
 				line-height: 1.2;
 				color: var(--color-alert-foreground);
 				background-color: var(--color-alert-errorBackground);
@@ -288,7 +288,7 @@ export class InspectPatch extends GlElement {
 			}
 
 			.alert code-icon {
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 				vertical-align: baseline;
 			}
 

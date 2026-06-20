@@ -108,14 +108,14 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 		.header {
 			display: flex;
-			gap: 1.6rem;
+			gap: var(--gl-space-16);
 			align-items: center;
 			justify-content: space-between;
 		}
 
 		.header h2 {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			margin: 0;
 			font-size: 1.5rem;
@@ -126,7 +126,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			padding: 0.4rem;
+			padding: var(--gl-space-4);
 			color: inherit;
 			cursor: pointer;
 			background: none;
@@ -140,11 +140,11 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 		.groups {
 			column-count: 2;
-			column-gap: 2.4rem;
+			column-gap: var(--gl-space-24);
 		}
 
 		.group {
-			margin-bottom: 1.2rem;
+			margin-bottom: var(--gl-space-12);
 			break-inside: avoid;
 		}
 
@@ -153,7 +153,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		}
 
 		.group h3 {
-			margin: 0 0 0.4rem;
+			margin: 0 0 var(--gl-space-4);
 			font-size: 1.1rem;
 			font-weight: 600;
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
@@ -164,14 +164,14 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		.rows {
 			display: grid;
 			grid-template-columns: max-content 1fr;
-			gap: 0.4rem 1rem;
+			gap: var(--gl-space-4) var(--gl-space-10);
 			align-items: baseline;
 		}
 
 		.keys {
 			display: inline-flex;
 			flex-wrap: wrap;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 		}
 
 		kbd {

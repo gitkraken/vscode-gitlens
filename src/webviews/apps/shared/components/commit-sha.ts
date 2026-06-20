@@ -9,7 +9,7 @@ const styles = css`
 		display: inline-flex;
 		align-items: baseline;
 		max-width: 100%;
-		margin-inline-end: 0.2rem;
+		margin-inline-end: var(--gl-space-2);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

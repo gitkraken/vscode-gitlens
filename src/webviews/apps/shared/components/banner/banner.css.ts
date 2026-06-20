@@ -20,7 +20,7 @@ export const bannerStyles = css`
 		--gl-banner-button-padding: 0.4rem 0.8rem;
 
 		display: block;
-		margin-block-end: 1.2rem;
+		margin-block-end: var(--gl-space-12);
 	}
 
 	.banner {
@@ -139,7 +139,7 @@ export const bannerStyles = css`
 	.banner--responsive .banner__text {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.banner--responsive .banner__title,
@@ -151,9 +151,9 @@ export const bannerStyles = css`
 	.banner--responsive .banner__buttons {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		width: 100%;
-		margin-top: 0.8rem;
+		margin-top: var(--gl-space-8);
 	}
 
 	.banner--responsive .banner__button {
@@ -170,7 +170,7 @@ export const bannerStyles = css`
 	@container (min-width: 500px) {
 		.banner--responsive .banner__content {
 			flex-direction: row;
-			gap: 1.6rem;
+			gap: var(--gl-space-16);
 			align-items: center;
 		}
 
@@ -186,7 +186,7 @@ export const bannerStyles = css`
 			display: flex;
 			flex-shrink: 0;
 			flex-direction: column;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-self: center;
 			width: auto;
 			margin-top: 0;
@@ -226,10 +226,10 @@ export const bannerStyles = css`
 	.banner__buttons {
 		display: grid;
 		grid-template-columns: 1fr auto 1fr;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		width: 100%;
-		margin-top: 0.8rem;
+		margin-top: var(--gl-space-8);
 	}
 
 	.banner:not(.banner--gradient-purple) .banner__button--primary {
@@ -353,10 +353,10 @@ export const bannerStyles = css`
 		.banner__buttons {
 			display: flex;
 			flex-direction: column;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			width: 100%;
-			margin-top: 0.8rem;
+			margin-top: var(--gl-space-8);
 		}
 
 		.banner__button--primary,
@@ -381,10 +381,10 @@ export const bannerStyles = css`
 	.banner__buttons[data-layout='column'] {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		width: 100%;
-		margin-top: 0.8rem;
+		margin-top: var(--gl-space-8);
 	}
 
 	:host([data-banner-buttons-layout='column']) .banner__button--primary,

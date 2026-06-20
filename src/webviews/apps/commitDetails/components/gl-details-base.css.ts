@@ -52,7 +52,7 @@ export const detailsBaseStyles = [
 		}
 
 		.section:first-child {
-			padding-top: 0.8rem;
+			padding-top: var(--gl-space-8);
 		}
 
 		.section > :first-child {
@@ -122,7 +122,7 @@ export const detailsBaseStyles = [
 		.message-block-group {
 			display: flex;
 			flex-direction: row;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 		}
 
 		.message-block-row {
@@ -130,7 +130,7 @@ export const detailsBaseStyles = [
 		}
 
 		.message-block-row--actions {
-			padding: 0.2rem;
+			padding: var(--gl-space-2);
 			font-size: var(--gl-font-base);
 			color: var(--color-foreground--65);
 			background: var(--color-background--level-075);
@@ -155,7 +155,7 @@ export const detailsBaseStyles = [
 	   the strip doesn't jump between the spinner and the chip-based states. */
 		.autolinks-loading {
 			display: inline-flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-height: 2rem;
 			color: var(--vscode-descriptionForeground);
@@ -166,10 +166,10 @@ export const detailsBaseStyles = [
 	   shell waiting for the full fetch. */
 		.files-loading {
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: center;
-			padding: 2rem 1.2rem;
+			padding: var(--gl-space-20) var(--gl-space-12);
 			color: var(--vscode-descriptionForeground);
 			text-align: center;
 		}
@@ -180,7 +180,7 @@ export const detailsBaseStyles = [
 		}
 
 		.message-block-row--actions gl-commit-date {
-			margin-inline-end: 0.2rem;
+			margin-inline-end: var(--gl-space-2);
 		}
 
 		.message-block-row--actions gl-action-chip.error {
@@ -196,7 +196,7 @@ export const detailsBaseStyles = [
 			display: flex;
 			flex: 1 1 0;
 			flex-wrap: wrap;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			min-width: 0;
 			overflow: hidden;
@@ -275,17 +275,17 @@ export const detailsBaseStyles = [
 		}
 
 		.reachability-range-chip__label code-icon {
-			margin-right: 0.2rem;
+			margin-right: var(--gl-space-2);
 			vertical-align: middle;
 		}
 
 		.reachability-range-chip__ellipsis {
-			padding: 0 0.4rem;
+			padding: 0 var(--gl-space-4);
 			opacity: 0.8;
 		}
 
 		.reachability-range-chip__count {
-			padding-left: 0.4rem;
+			padding-left: var(--gl-space-4);
 			font-size: var(--gl-font-micro);
 			font-weight: 600;
 			color: var(--color-foreground--50);
@@ -297,14 +297,14 @@ export const detailsBaseStyles = [
 		}
 
 		.reachability-popover__header {
-			padding-bottom: 0.6rem;
+			padding-bottom: var(--gl-space-6);
 			font-weight: 500;
 		}
 
 		.reachability-popover__list {
 			display: flex;
 			flex-direction: column;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			max-height: 300px;
 			overflow-y: auto;
 		}
@@ -389,7 +389,7 @@ export const detailsBaseStyles = [
 		/* AI content */
 		.ai-content {
 			padding: 0.5rem;
-			margin-top: 1rem;
+			margin-top: var(--gl-space-10);
 			font-size: var(--gl-font-base);
 			background: var(--vscode-input-background);
 			border: 0.1rem solid var(--vscode-input-border, transparent);
@@ -397,7 +397,7 @@ export const detailsBaseStyles = [
 		}
 
 		.ai-content.has-error {
-			padding-left: 0.8rem;
+			padding-left: var(--gl-space-8);
 			border-left-color: var(--color-alert-errorBorder);
 			border-left-width: 0.3rem;
 		}
@@ -415,7 +415,7 @@ export const detailsBaseStyles = [
 
 		/* Popover content */
 		.popover-content {
-			padding: 0.8rem 1.2rem;
+			padding: var(--gl-space-8) var(--gl-space-12);
 			background-color: var(--color-background--level-15);
 		}
 
@@ -423,11 +423,11 @@ export const detailsBaseStyles = [
 		.alert {
 			box-sizing: border-box;
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			width: 100%;
 			max-width: 100%;
-			padding: 0.4rem 0.8rem;
+			padding: var(--gl-space-4) var(--gl-space-8);
 			margin-block: 0;
 			color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
 			background-color: var(--color-alert-warningBackground);

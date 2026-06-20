@@ -20,7 +20,7 @@ export class GlHooksBanner extends LitElement {
 			}
 
 			gl-banner {
-				margin-bottom: 1.2rem;
+				margin-bottom: var(--gl-space-12);
 			}
 
 			:host([layout='responsive']) gl-banner {

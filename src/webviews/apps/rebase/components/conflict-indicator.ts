@@ -27,7 +27,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.indicator {
 				position: relative;
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				cursor: pointer;
 			}
@@ -43,7 +43,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			/* Button mode (full) */
 			:host(:not([compact])) .indicator {
-				padding: 0.4rem 0.8rem;
+				padding: var(--gl-space-4) var(--gl-space-8);
 				font-size: 1.2rem;
 				background-color: var(--vscode-button-secondaryBackground);
 				border: 1px solid var(--vscode-button-secondaryBorder, transparent);
@@ -118,8 +118,8 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.popover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
-				padding: 1.2rem;
+				gap: var(--gl-space-8);
+				padding: var(--gl-space-12);
 			}
 
 			.popover__title {
@@ -138,7 +138,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 
 			.popover__files {
 				max-height: 20rem;
-				padding: 0.4rem 0.8rem;
+				padding: var(--gl-space-4) var(--gl-space-8);
 				margin: 0;
 				overflow-y: auto;
 				list-style: none;
@@ -146,7 +146,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 			}
 
 			.popover__file {
-				padding: 0.4rem 0;
+				padding: var(--gl-space-4) 0;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
 			}

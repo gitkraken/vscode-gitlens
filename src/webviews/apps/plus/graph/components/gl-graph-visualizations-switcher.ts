@@ -57,9 +57,9 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 	static override styles = css`
 		:host {
 			display: inline-flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
-			padding: 0.2rem;
+			padding: var(--gl-space-2);
 			background: var(--vscode-editorWidget-background, transparent);
 			border-radius: var(--gl-radius-sm);
 		}
@@ -72,7 +72,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			display: inline-flex;
 			align-items: center;
 			justify-content: center;
-			padding: 0.4rem 0.6rem;
+			padding: var(--gl-space-4) var(--gl-space-6);
 			font: inherit;
 			color: var(--vscode-descriptionForeground);
 			appearance: none;

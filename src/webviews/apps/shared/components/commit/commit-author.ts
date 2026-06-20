@@ -22,7 +22,7 @@ export class GlCommitAuthor extends LitElement {
 		.author {
 			display: flex;
 			flex-direction: row;
-			gap: 0 0.6rem;
+			gap: 0 var(--gl-space-6);
 			align-items: center;
 			cursor: pointer;
 			border-radius: var(--gl-radius-sm);
@@ -41,10 +41,10 @@ export class GlCommitAuthor extends LitElement {
 		.author-hover {
 			display: flex;
 			flex-direction: column;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: center;
-			margin: 0.6rem 0.2rem 0.2rem;
+			margin: var(--gl-space-6) var(--gl-space-2) var(--gl-space-2);
 		}
 
 		.author-hover img {
@@ -96,7 +96,7 @@ export class GlCommitAuthor extends LitElement {
 		}
 
 		gl-signature-badge {
-			margin-left: 0.4rem;
+			margin-left: var(--gl-space-4);
 			vertical-align: middle;
 		}
 

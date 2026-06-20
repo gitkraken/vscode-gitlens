@@ -1080,7 +1080,7 @@ button:not([disabled]),
 // `.columns-btn.columns-filter` matches the library's `.columns-btn.small-btn` specificity
 // so our padding wins on every variant (incl. the ref column's non-small-btn filter).
 .gk-graph .graph-header .columns-btn.columns-filter {
-	padding: 0.2rem;
+	padding: var(--gl-space-2);
 	margin-right: 0.3rem;
 	cursor: pointer;
 
@@ -1242,7 +1242,7 @@ web-graph {
 
 	&__gate {
 		// top: 40px; /* height of the header bar */
-		padding-top: 40px;
+		padding-top: var(--gl-space-40);
 	}
 
 	// header
@@ -1350,7 +1350,7 @@ web-graph {
 	}
 
 	.columns-btn.spinner {
-		margin-right: 0.6rem;
+		margin-right: var(--gl-space-6);
 	}
 
 	.button {
@@ -1397,7 +1397,7 @@ web-graph {
 .gk-graph .ref-zone .merge-target-ref-node {
 	flex-shrink: 0;
 	align-items: center;
-	padding: 0 4px;
+	padding: 0 var(--gl-space-4);
 	margin-left: 0;
 	font-size: 0;
 	white-space: nowrap;
@@ -1424,8 +1424,8 @@ web-graph {
 @container refcol (min-width: 100px) {
 	.gk-graph .ref-zone .merge-base-ref-node,
 	.gk-graph .ref-zone .merge-target-ref-node {
-		gap: 4px;
-		padding: 0 6px;
+		gap: var(--gl-space-4);
+		padding: 0 var(--gl-space-6);
 		font-size: 11px;
 	}
 }
@@ -1459,7 +1459,7 @@ web-graph {
 	}
 
 	& .changes-zone.changes-bar .changes-sub-bar.deleted {
-		margin-left: 2px;
+		margin-left: var(--gl-space-2);
 	}
 
 	& .wip-stats-pill {
@@ -1815,11 +1815,11 @@ web-graph {
 			box-sizing: border-box;
 			display: flex;
 			flex: 0 0 auto;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			justify-content: space-between;
 			min-height: 4.2rem;
-			padding: 0.8rem 0.8rem 0.8rem 1.6rem;
+			padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 			background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
 			border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
@@ -1838,7 +1838,7 @@ web-graph {
 		.compare-pinned-host__actions {
 			display: inline-flex;
 			flex: 0 0 auto;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 		}
 
@@ -2010,12 +2010,12 @@ web-graph {
 .details-skeleton {
 	display: flex;
 	flex-direction: column;
-	gap: 1.2rem;
-	padding: 1.2rem;
+	gap: var(--gl-space-12);
+	padding: var(--gl-space-12);
 
 	&__header {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 	}
 
@@ -2083,7 +2083,7 @@ web-graph {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 2rem 1.2rem;
+	padding: var(--gl-space-20) var(--gl-space-12);
 	font-size: 1.2rem;
 	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 }

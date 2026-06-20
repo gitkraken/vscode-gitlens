@@ -38,7 +38,7 @@ export class GlSearchBox extends GlElement {
 			display: inline-flex;
 			flex: 1 100 auto;
 			flex-direction: row;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			min-width: 16rem;
 			color: var(--color-foreground);
@@ -64,7 +64,7 @@ export class GlSearchBox extends GlElement {
 			flex: 0 1 auto;
 			min-width: 0;
 			max-width: 12ch;
-			margin-right: 0.4rem;
+			margin-right: var(--gl-space-4);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: 1.2rem;

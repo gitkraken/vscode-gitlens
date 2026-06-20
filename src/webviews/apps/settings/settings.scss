@@ -28,7 +28,7 @@ header {
 	display: flex;
 	flex-flow: row wrap;
 	grid-column: 1/-1;
-	gap: 1.6rem;
+	gap: var(--gl-space-16);
 	align-items: center;
 	justify-content: space-between;
 
@@ -42,7 +42,7 @@ header {
 
 		small {
 			display: inline-block;
-			margin-left: 1rem;
+			margin-left: var(--gl-space-10);
 			font-size: 1.6rem;
 			font-weight: 200;
 			color: var(--color-foreground--50);
@@ -98,7 +98,7 @@ a.secondary {
 
 .command--show-view {
 	padding: 1px;
-	margin-right: 4px;
+	margin-right: var(--gl-space-4);
 
 	&::after {
 		position: relative;
@@ -280,7 +280,7 @@ a.secondary {
 
 .link__configure,
 .link__learn-more {
-	margin-left: 10px;
+	margin-left: var(--gl-space-10);
 }
 
 .presets {
@@ -512,7 +512,7 @@ section {
 		flex: 0 0 16px;
 		width: 16px;
 		height: 16px;
-		margin: 0 10px 0 0;
+		margin: 0 var(--gl-space-10) 0 0;
 	}
 
 	&[disabled] {
@@ -854,7 +854,7 @@ section {
 	li {
 		display: flex;
 		flex-flow: row nowrap;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 }
 
@@ -866,7 +866,7 @@ section {
 			position: absolute;
 			left: -1em;
 			height: 1em;
-			padding-bottom: 4px;
+			padding-bottom: var(--gl-space-4);
 			content: ' ';
 			border-left: 4px solid var(--color-link-foreground--darken-20);
 

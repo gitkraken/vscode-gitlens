@@ -68,7 +68,7 @@ export class CommitMessage extends LitElement {
 			.commit-message__input {
 				min-height: 1lh;
 				max-height: 10lh;
-				padding: 0.8rem 1rem;
+				padding: var(--gl-space-8) var(--gl-space-10);
 			}
 
 			.commit-message__summary {
@@ -157,7 +157,7 @@ export class CommitMessage extends LitElement {
 			}
 
 			.commit-message__explanation {
-				padding: 0.8rem 1.6rem;
+				padding: var(--gl-space-8) var(--gl-space-16);
 				margin-block: 0;
 				font-size: 1.2rem;
 				line-height: 1.4;
@@ -195,7 +195,7 @@ export class CommitMessage extends LitElement {
 		top: 100%;
 		left: 0;
 		width: 100%; */
-				padding: 0.4rem;
+				padding: var(--gl-space-4);
 				font-size: 1.2rem;
 				line-height: 1.4;
 				color: var(--gl-search-input-foreground);

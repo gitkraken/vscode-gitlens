@@ -116,7 +116,7 @@ export class GlAgentStatusPill extends LitElement {
 
 			.pill__label {
 				display: inline-flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				min-width: 0;
 			}
@@ -254,7 +254,7 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-card {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				min-width: 16rem;
 				white-space: normal;
 			}
@@ -299,7 +299,7 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-section {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.hover-section__label {
@@ -322,14 +322,14 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-actions {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
-				margin-top: 0.2rem;
+				gap: var(--gl-space-4);
+				margin-top: var(--gl-space-2);
 			}
 
 			.hover-actions__row {
 				display: flex;
 				flex-direction: row;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.hover-actions__row > gl-button {
@@ -350,14 +350,14 @@ export class GlAgentStatusPill extends LitElement {
 				display: flex;
 				flex-direction: column;
 				min-width: 14rem;
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 			}
 
 			.more-menu__item {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
-				padding: 0.4rem 0.6rem;
+				padding: var(--gl-space-4) var(--gl-space-6);
 				font-size: 0.95em;
 				color: var(--vscode-foreground);
 				text-decoration: none;
@@ -379,7 +379,7 @@ export class GlAgentStatusPill extends LitElement {
 			.hover-summary {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				min-width: 24rem;
 				max-width: min(44rem, 60vw);
 				max-height: 28rem;
@@ -397,7 +397,7 @@ export class GlAgentStatusPill extends LitElement {
 			}
 
 			.hover-summary-row + .hover-summary-row {
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
 				border-top: 1px solid
 					var(--vscode-widget-border, color-mix(in srgb, var(--vscode-foreground) 15%, transparent));
 			}

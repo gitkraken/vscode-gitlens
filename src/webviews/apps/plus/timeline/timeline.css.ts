@@ -104,8 +104,8 @@ export const timelineStyles = css`
 	}
 
 	gl-feature-gate gl-feature-badge {
-		margin-right: 0.4rem;
-		margin-left: 0.4rem;
+		margin-right: var(--gl-space-4);
+		margin-left: var(--gl-space-4);
 		vertical-align: super;
 	}
 `;

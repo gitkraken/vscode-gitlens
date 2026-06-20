@@ -75,11 +75,11 @@ export class WebviewPane extends LitElement {
 			}
 
 			:host(:not([collapsable])) .title {
-				margin-left: 0.8rem;
+				margin-left: var(--gl-space-8);
 			}
 
 			.subtitle {
-				margin-left: 1rem;
+				margin-left: var(--gl-space-10);
 			}
 
 			.subtitle::slotted(*) {
@@ -87,7 +87,7 @@ export class WebviewPane extends LitElement {
 			}
 
 			.icon {
-				margin: 0 0.2rem;
+				margin: 0 var(--gl-space-2);
 				font-weight: normal;
 			}
 
@@ -101,7 +101,7 @@ export class WebviewPane extends LitElement {
 	scrollbar-gutter: stable;
 	box-shadow: #000000 0 0.6rem 0.6rem -0.6rem inset;
 	*/
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
 				overflow: auto;
 			}
 

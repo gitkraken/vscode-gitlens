@@ -24,12 +24,12 @@ export class GlPromo extends LitElement {
 
 			.promo {
 				margin: 0;
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 				text-align: center;
 			}
 
 			.header {
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 			}
 
 			.content {

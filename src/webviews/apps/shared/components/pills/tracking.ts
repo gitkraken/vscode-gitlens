@@ -10,7 +10,7 @@ export class GlTrackingPill extends LitElement {
 		baseStyles,
 		css`
 			.pill {
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				text-transform: none;
 				user-select: none;
 			}

@@ -31,9 +31,9 @@ export const detailsCommitPanelStyles = css`
 		flex: 1;
 		min-height: 0;
 		overflow: hidden;
-		margin-top: 0.4rem;
-		padding-left: 0.6rem;
-		padding-right: 0.6rem;
+		margin-top: var(--gl-space-4);
+		padding-left: var(--gl-space-6);
+		padding-right: var(--gl-space-6);
 	}
 
 	/* Explain input override */
@@ -65,7 +65,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) webview-pane [slot='title'] {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	/* Add spacing between header and tree generator */
@@ -80,7 +80,7 @@ export const detailsCommitPanelStyles = css`
 		display: flex;
 		align-items: center;
 		padding: 0.8rem var(--gl-panel-padding-right) 0.6rem var(--gl-panel-padding-left);
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		flex: none;
 		position: sticky;
 		top: 0;
@@ -103,7 +103,7 @@ export const detailsCommitPanelStyles = css`
 		justify-content: center;
 		min-width: 0;
 		flex: 1;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 	}
 
 	.mode-title__verb {
@@ -148,7 +148,7 @@ export const detailsCommitPanelStyles = css`
 	.metadata-bar .mode-status__group {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.metadata-bar .mode-status__group code-icon {
@@ -160,8 +160,8 @@ export const detailsCommitPanelStyles = css`
 	.metadata-bar .mode-status__resume {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.8rem;
-		padding: 0.2rem 0.6rem;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-2) var(--gl-space-6);
 		font: inherit;
 		color: inherit;
 		background: transparent;
@@ -198,7 +198,7 @@ export const detailsCommitPanelStyles = css`
 		align-items: center;
 		justify-content: space-between;
 		padding: 0 var(--gl-panel-padding-right) 0 var(--gl-panel-padding-left);
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		flex: none;
 		min-width: 0;
 		// Contain children's intrinsic overflow so an unwrapped SHA / branch name / date
@@ -269,7 +269,7 @@ export const detailsCommitPanelStyles = css`
 		min-height: 2rem;
 		box-sizing: border-box;
 		overflow: hidden;
-		padding: 0 0.4rem;
+		padding: 0 var(--gl-space-4);
 		border-radius: var(--gl-radius-sm);
 		color: var(--color-foreground--65);
 		font-size: inherit;
@@ -313,7 +313,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .metadata-bar__right {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		flex-shrink: 0;
 		font-size: var(--gl-font-sm);
 		font-weight: 600;
@@ -324,7 +324,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .reachability {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		padding: 0.2rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
 		font-size: var(--gl-font-base);
 		flex: none;
@@ -341,7 +341,7 @@ export const detailsCommitPanelStyles = css`
 		border: none;
 		background: transparent;
 		cursor: pointer;
-		padding: 0.4rem;
+		padding: var(--gl-space-4);
 		color: var(--color-foreground);
 		border-radius: var(--gl-radius-sm);
 	}
@@ -382,7 +382,7 @@ export const detailsCommitPanelStyles = css`
 		scroll-timeline: --msg-scroll block;
 		flex: 1;
 		min-height: 0;
-		padding-bottom: 0.6rem;
+		padding-bottom: var(--gl-space-6);
 
 		/* Scrollbar: fade in on hover/focus, hidden otherwise */
 		border-color: transparent;
@@ -436,7 +436,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .message .message-block__text strong {
 		font-size: var(--gl-font-lg);
 		display: block;
-		margin-bottom: 0.2rem;
+		margin-bottom: var(--gl-space-2);
 	}
 
 	:host([variant='embedded']) .message .message-block__copy {
@@ -449,7 +449,7 @@ export const detailsCommitPanelStyles = css`
 		margin-right: -0.4rem;
 		margin-bottom: -2.4rem;
 		background: var(--vscode-sideBar-background, var(--color-background));
-		padding: 0.2rem;
+		padding: var(--gl-space-2);
 		border-radius: var(--gl-radius-sm);
 		opacity: 1;
 		transition: color 0.15s ease;
@@ -473,7 +473,7 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .autolinks__label {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		font-weight: 600;
 		letter-spacing: 0.04em;
@@ -507,7 +507,7 @@ export const detailsCommitPanelStyles = css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 	}
 
 	/* ── Scroll fade keyframes ── */

@@ -37,7 +37,7 @@ export class GlRepoAlerts extends SignalWatcher(LitElement) {
 			}
 
 			gl-button.is-basic + gl-button.is-basic {
-				margin-top: 1rem;
+				margin-top: var(--gl-space-10);
 			}
 		`,
 	];

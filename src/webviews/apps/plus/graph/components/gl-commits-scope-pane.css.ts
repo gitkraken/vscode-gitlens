@@ -35,10 +35,10 @@ export const commitsScopePaneStyles = css`
 	/* Scope rows — no vertical padding so connectors can span the full row height seamlessly */
 	.scope-row {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		min-height: 2.4rem;
-		padding: 0 1rem 0 1.2rem;
+		padding: 0 var(--gl-space-10) 0 var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		transition: opacity 0.15s ease;
 	}
@@ -275,7 +275,7 @@ export const commitsScopePaneStyles = css`
 	.scope-handle--proxy {
 		position: sticky;
 		z-index: 3;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 		pointer-events: auto;
 	}
 

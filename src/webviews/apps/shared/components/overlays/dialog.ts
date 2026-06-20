@@ -28,7 +28,7 @@ export class GlDialog extends LitElement {
 				width: min-content;
 				min-width: 40rem;
 				max-width: 50rem;
-				padding: 2rem;
+				padding: var(--gl-space-20);
 				color: var(--vscode-editorWidget-foreground);
 				background: var(--vscode-editorWidget-background);
 				border-radius: var(--gl-radius-sm);

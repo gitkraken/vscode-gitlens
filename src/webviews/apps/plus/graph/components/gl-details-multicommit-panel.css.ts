@@ -10,7 +10,7 @@ export const multiCommitPanelStyles = css`
 	.compare-metadata {
 		display: flex;
 		flex: none;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
 		min-height: var(--gl-metadata-bar-min-height);
@@ -43,7 +43,7 @@ export const multiCommitPanelStyles = css`
 	.compare-metadata__right {
 		display: flex;
 		flex-shrink: 0;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 
@@ -51,7 +51,7 @@ export const multiCommitPanelStyles = css`
 	   review on a multi-commit anchor. */
 	.compare-metadata__right .mode-status {
 		display: inline-flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		font-size: var(--gl-font-small, 1.2rem);
 		color: var(--color-foreground--65);
@@ -73,9 +73,9 @@ export const multiCommitPanelStyles = css`
 
 	.compare-metadata__right .mode-status__resume {
 		display: inline-flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
-		padding: 0.2rem 0.6rem;
+		padding: var(--gl-space-2) var(--gl-space-6);
 		font: inherit;
 		color: inherit;
 		cursor: pointer;
@@ -123,7 +123,7 @@ export const multiCommitPanelStyles = css`
 	   handles the popover/signature concerns. */
 	.pole-card {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-width: 0;
 		padding: 0.55rem 1.2rem;
@@ -140,7 +140,7 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.pole-card--loading {
-		padding: 0.8rem 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
 	}
@@ -159,7 +159,7 @@ export const multiCommitPanelStyles = css`
 		display: flex;
 		align-items: center;
 		max-height: 1.6rem;
-		padding: 0 1.2rem;
+		padding: 0 var(--gl-space-12);
 	}
 
 	.compare-middle__line {
@@ -219,7 +219,7 @@ export const multiCommitPanelStyles = css`
 		gap: 0.5rem;
 		align-items: center;
 		min-width: 0;
-		padding: 0.4rem 1.2rem;
+		padding: var(--gl-space-4) var(--gl-space-12);
 		font-size: var(--gl-font-sm);
 	}
 
@@ -229,7 +229,7 @@ export const multiCommitPanelStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip::part(base) {
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.compare-enrichment gl-action-chip::part(icon) {
@@ -243,7 +243,7 @@ export const multiCommitPanelStyles = css`
 	   the strip doesn't jump between the spinner and the chip-based states. */
 	.compare-enrichment__loading {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-height: 2rem;
 		color: var(--vscode-descriptionForeground);
@@ -254,7 +254,7 @@ export const multiCommitPanelStyles = css`
 		flex-direction: column;
 		gap: 0.75rem;
 		max-width: 400px;
-		margin: 0.6rem 0.2rem 0.2rem;
+		margin: var(--gl-space-6) var(--gl-space-2) var(--gl-space-2);
 	}
 
 	.pole-popover__header {
@@ -341,7 +341,7 @@ export const multiCommitPanelStyles = css`
 		display: flex;
 		flex: none;
 		flex-direction: column;
-		padding-bottom: 0.4rem;
+		padding-bottom: var(--gl-space-4);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
 
@@ -350,8 +350,8 @@ export const multiCommitPanelStyles = css`
 		flex: 1;
 		flex-direction: column;
 		min-height: 12rem;
-		padding-right: 0.6rem;
-		padding-left: 0.6rem;
+		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
 		overflow: hidden;
 	}
 
@@ -365,10 +365,10 @@ export const multiCommitPanelStyles = css`
 	   of the "No Files" empty text while the comparison diff is still being fetched. */
 	.compare-files--loading {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: center;
-		padding: 2rem 1.2rem;
+		padding: var(--gl-space-20) var(--gl-space-12);
 		color: var(--vscode-descriptionForeground);
 		text-align: center;
 	}
@@ -377,7 +377,7 @@ export const multiCommitPanelStyles = css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 2rem;
+		padding: var(--gl-space-20);
 		font-size: var(--gl-font-base);
 		color: var(--color-foreground--50);
 	}

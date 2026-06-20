@@ -84,7 +84,7 @@ export class IssuePullRequest extends GlElement {
 			display: flex;
 			grid-row: 1 / 3;
 			grid-column: 3;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 			margin: 0;
 		}

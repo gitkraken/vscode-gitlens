@@ -126,7 +126,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 
 				/* Tight bottom padding (vs. 0.6rem top) avoids a dead gap above the next
 		   section's intrinsic padding. Background inherits from the WIP details panel;
@@ -137,7 +137,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			/* Divider between this section and the WIP section lives on the split-panel sash
 	   (see .agent-status-split::part(divider) in graph.scss), not as a border here. */
 			.section[data-expand='expanded'] {
-				padding-bottom: 0.8rem;
+				padding-bottom: var(--gl-space-8);
 			}
 
 			/* Heading doubles as the collapse toggle AND the at-a-glance phase summary —
@@ -155,7 +155,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				top: 0;
 				z-index: 1;
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				padding: 0.6rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
 				margin: -0.6rem calc(-1 * var(--gl-panel-padding-right, 1rem)) 0
@@ -238,7 +238,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section__cluster {
 				display: inline-flex;
 				flex: none;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				font-size: 0.95em;
 				color: var(--vscode-foreground);
@@ -298,19 +298,19 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section__list {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.section__hover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				min-width: 24rem;
 
 				/* Bound the popover so long detail strings (errors, multi-line prompts) truncate
 		   via ellipsis instead of stretching the popover to the viewport edge. */
 				max-width: min(44rem, 60vw);
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 			}
 
 			.section__hover-row {
@@ -324,7 +324,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			}
 
 			.section__hover-row + .section__hover-row {
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
 				border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 			}
 
@@ -393,9 +393,9 @@ export class GlDetailsAgentStatus extends LitElement {
 				display: grid;
 				grid-template-rows: auto auto;
 				grid-template-columns: auto 1fr;
-				gap: 0.4rem 0.6rem;
+				gap: var(--gl-space-4) var(--gl-space-6);
 				align-items: start;
-				padding: 0.6rem 0.8rem;
+				padding: var(--gl-space-6) var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
 				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
@@ -489,13 +489,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				flex-direction: column;
 				grid-row: 1;
 				grid-column: 2;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				min-width: 0;
 			}
 
 			.card__title-row {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				min-width: 0;
 			}
@@ -532,7 +532,7 @@ export class GlDetailsAgentStatus extends LitElement {
 
 			.card__prompt {
 				display: -webkit-box;
-				margin-top: 0.2rem;
+				margin-top: var(--gl-space-2);
 				overflow: hidden;
 				-webkit-line-clamp: 2;
 				font-size: 0.9em;

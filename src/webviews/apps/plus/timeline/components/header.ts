@@ -97,7 +97,7 @@ export class GlTimelineHeader extends LitElement {
 				flex: none;
 				grid-template-areas: 'details toolbox';
 				grid-template-columns: 1fr min-content;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 				min-width: 0;
 				margin: 0.5rem 1rem;
@@ -105,7 +105,7 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			:host([placement='editor']) .header {
-				margin-top: 1rem;
+				margin-top: var(--gl-space-10);
 				margin-right: 1.5rem;
 			}
 
@@ -120,10 +120,10 @@ export class GlTimelineHeader extends LitElement {
 			.details {
 				display: flex;
 				grid-area: details;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 				min-width: 0;
-				margin-right: 1rem;
+				margin-right: var(--gl-space-10);
 				font-size: var(--font-size);
 			}
 
@@ -141,7 +141,7 @@ export class GlTimelineHeader extends LitElement {
 				/* Slotted into <gl-breadcrumbs>; the host is display: flex with item orders
 		   at idx * 2. Push to the end of the chain via flex order. */
 				order: 9999;
-				margin-left: 0.4rem;
+				margin-left: var(--gl-space-4);
 
 				/* Match the breadcrumbs' compact density: smaller font, smaller icons, tighter
 	   button padding. The buttons sit visually adjacent to the crumb chain so they
@@ -164,14 +164,14 @@ export class GlTimelineHeader extends LitElement {
 	   tooltip in the View Options popover). Browser default hr is a thick beveled line
 	   that looks wrong inside the dark tooltip body. */
 			[slot='tooltip'] hr {
-				margin: 0.4rem 0;
+				margin: var(--gl-space-4) 0;
 				border: none;
 				border-top: 1px solid var(--color-foreground--25);
 			}
 
 			.details__timeframe {
 				flex: 0 0 auto;
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 				font-size: 1.2rem;
 				color: var(--color-foreground--75);
 				white-space: nowrap;
@@ -183,7 +183,7 @@ export class GlTimelineHeader extends LitElement {
 	   focus affordance to advertise interactivity. */
 			.details__timeframe--button {
 				display: inline-flex;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 				padding: 0.1rem 0.4rem;
 				font: inherit;
@@ -215,7 +215,7 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			.config__help {
-				padding: 0 0.4rem;
+				padding: 0 var(--gl-space-4);
 				font-size: 1.1rem;
 				color: var(--color-foreground--50);
 			}
@@ -236,26 +236,26 @@ export class GlTimelineHeader extends LitElement {
 			.config__content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				min-width: 20rem;
-				padding: 0.4rem 0.2rem;
+				padding: var(--gl-space-4) var(--gl-space-2);
 			}
 
 			.config__content section {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
-				padding: 0.2rem 0.4rem;
+				gap: var(--gl-space-2);
+				padding: var(--gl-space-2) var(--gl-space-4);
 			}
 
 			.select-container {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.select {
-				padding: 0.2rem 0.4rem;
+				padding: var(--gl-space-2) var(--gl-space-4);
 				font: inherit;
 				color: var(--vscode-dropdown-foreground);
 				background: var(--vscode-dropdown-background);

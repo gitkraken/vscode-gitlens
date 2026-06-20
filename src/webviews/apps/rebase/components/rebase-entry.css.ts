@@ -88,11 +88,11 @@ export const entryStyles = css`
 		position: relative;
 		box-sizing: border-box;
 		display: flex;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 		width: 100%;
 		padding-block: var(--gl-rebase-entry-padding-block, 0.2rem);
-		padding-inline: 1rem;
+		padding-inline: var(--gl-space-10);
 		color: var(--fg);
 		border-radius: var(--gl-radius-sm);
 
@@ -199,7 +199,7 @@ export const entryStyles = css`
 		flex: 0 0 auto;
 		align-items: center;
 		justify-content: center;
-		padding-inline: 0.4rem;
+		padding-inline: var(--gl-space-4);
 		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c74e39);
 	}
 
@@ -207,7 +207,7 @@ export const entryStyles = css`
 	.popover-conflict-header {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		font-weight: 600;
 		color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c74e39);
@@ -324,7 +324,7 @@ export const entryStyles = css`
 			gap: 0.1rem;
 			width: max-content;
 			min-width: anchor-size(width, 90px);
-			padding-block: 0.2rem 0;
+			padding-block: var(--gl-space-2) 0;
 		}
 	}
 
@@ -366,7 +366,7 @@ export const entryStyles = css`
 	}
 
 	.entry-message-body {
-		margin-left: 1rem;
+		margin-left: var(--gl-space-10);
 		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
 	}
 

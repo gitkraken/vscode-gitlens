@@ -47,7 +47,7 @@ export class GlGitStatus extends LitElement {
 
 				width: 22px;
 				aspect-ratio: auto;
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 			}
 
 			svg {

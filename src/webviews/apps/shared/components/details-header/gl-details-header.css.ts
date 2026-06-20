@@ -17,7 +17,7 @@ export const detailsHeaderStyles = css`
 
 	.details-header__row {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: flex-start;
 		padding: 0.7rem 1.2rem 0.5rem;
 		container-name: gl-action-chip-host;
@@ -36,7 +36,7 @@ export const detailsHeaderStyles = css`
 	.details-header__actions {
 		display: flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 	}
 
@@ -53,9 +53,9 @@ export const detailsHeaderStyles = css`
 
 	.details-header__actions-secondary.has-actions {
 		display: flex;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
-		margin-inline-start: 0.4rem;
+		margin-inline-start: var(--gl-space-4);
 	}
 
 	/* Mode-toggle label collapse, staggered right-to-left in display order: Compare yields

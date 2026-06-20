@@ -19,13 +19,13 @@ export class GlAgentSessionCard extends LitElement {
 			.content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
-				padding: 0.4rem 0;
+				gap: var(--gl-space-4);
+				padding: var(--gl-space-4) 0;
 			}
 
 			.header {
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				max-width: 100%;
 				margin-block: 0;
@@ -48,27 +48,27 @@ export class GlAgentSessionCard extends LitElement {
 			.details {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 			}
 
 			.detail {
 				display: inline-flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 			}
 
 			.sessions {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.session {
 				display: flex;
 				flex-flow: row wrap;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 			}
 

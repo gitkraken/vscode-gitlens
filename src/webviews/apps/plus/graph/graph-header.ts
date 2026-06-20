@@ -182,14 +182,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				gap: 1ch;
 				align-items: center;
 				justify-content: space-between;
-				margin-block-end: 0.4rem;
+				margin-block-end: var(--gl-space-4);
 			}
 
 			.graph-walkthrough-tooltip__actions {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
-				margin-block-start: 0.8rem;
+				margin-block-start: var(--gl-space-8);
 			}
 
 			/* Search is meaningless in Timeline mode — visually dim it and let \\\`inert\\\` block focus

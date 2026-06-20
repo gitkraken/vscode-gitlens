@@ -52,14 +52,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		.header-row {
 			display: flex;
 			flex: none;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			min-width: 0;
 			min-height: 3.2rem;
 
 			/* 0.6rem horizontal so the switcher (left) and close button (right) sit at matching
 		 * tight insets — same chrome as the Treemap visualization toolbar. */
-			padding: 0.4rem 0.6rem;
+			padding: var(--gl-space-4) var(--gl-space-6);
 			border-bottom: 1px solid var(--vscode-editorWidget-border, transparent);
 		}
 
@@ -89,7 +89,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 			flex: 1 1 auto;
 			align-items: center;
 			justify-content: center;
-			padding: 1rem;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65);
 			text-align: center;
 		}

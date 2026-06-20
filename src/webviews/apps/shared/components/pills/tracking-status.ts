@@ -11,7 +11,7 @@ export class GlTrackingStatus extends LitElement {
 		.tracking__pill {
 			display: flex;
 			flex-direction: row;
-			gap: 1rem;
+			gap: var(--gl-space-10);
 		}
 
 		.pill {
@@ -30,7 +30,7 @@ export class GlTrackingStatus extends LitElement {
 		}
 
 		::slotted(p[slot='extra']) {
-			margin-block: 1rem 0;
+			margin-block: var(--gl-space-10) 0;
 		}
 	`;
 

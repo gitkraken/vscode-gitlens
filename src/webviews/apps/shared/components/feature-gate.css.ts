@@ -39,7 +39,7 @@ export const featureGateBaseStyles = css`
 		max-width: none;
 		height: 100%;
 		max-height: none;
-		padding: 2.4rem 0;
+		padding: var(--gl-space-24) 0;
 		margin: 0;
 		overflow: hidden;
 		color: var(--section-foreground);
@@ -72,7 +72,7 @@ export const featureGateBaseStyles = css`
 		flex: 1 1 auto;
 		flex-direction: column;
 		min-height: 0;
-		padding-inline: 2.4rem;
+		padding-inline: var(--gl-space-24);
 		overflow: auto;
 	}
 
@@ -138,8 +138,8 @@ export const featureGateContentStyles = css`
 	.feature {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
-		margin-block-end: 1.2rem;
+		gap: var(--gl-space-10);
+		margin-block-end: var(--gl-space-12);
 		line-height: 1.5;
 		color: var(--color-foreground--65);
 	}
@@ -147,7 +147,7 @@ export const featureGateContentStyles = css`
 	.feature__header {
 		display: flex;
 		flex-direction: row;
-		gap: 1.2rem;
+		gap: var(--gl-space-12);
 		align-items: flex-start;
 	}
 
@@ -161,7 +161,7 @@ export const featureGateContentStyles = css`
 	.feature__title {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: baseline;
 		margin: 0;
 		font-size: 1.6rem;
@@ -187,23 +187,23 @@ export const featureGateContentStyles = css`
 	.list {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: 1.6rem;
+		gap: var(--gl-space-16);
 		padding-inline-start: 0;
-		margin-block: 0.6rem;
+		margin-block: var(--gl-space-6);
 		margin-inline: 0;
 		list-style: none;
 	}
 
 	.list__item {
 		display: flex;
-		gap: 1.2rem;
+		gap: var(--gl-space-12);
 		align-items: flex-start;
 	}
 
 	.list__copy {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		font-size: 1.1rem;
 		text-wrap: pretty;
 

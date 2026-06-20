@@ -48,7 +48,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 
 		.header {
 			display: flex;
-			gap: 1.6rem;
+			gap: var(--gl-space-16);
 			align-items: baseline;
 			justify-content: space-between;
 		}
@@ -56,7 +56,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		.header__identity {
 			display: flex;
 			flex: 1 1 auto;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-width: 0;
 		}
@@ -71,7 +71,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		.header__phase {
 			display: inline-flex;
 			flex: 0 0 auto;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
@@ -89,10 +89,10 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 
 		.identity-line {
 			display: flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-width: 0;
-			margin-top: 0.4rem;
+			margin-top: var(--gl-space-4);
 			color: var(--vscode-descriptionForeground);
 		}
 
@@ -115,7 +115,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		}
 
 		hr {
-			margin: 0.8rem 0;
+			margin: var(--gl-space-8) 0;
 			border: none;
 			border-top: 1px solid var(--vscode-widget-border, var(--vscode-foreground));
 			opacity: 0.4;
@@ -126,7 +126,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 	 * the rest and is allowed to break long tokens (paths, branch names) at any point. */
 		.section {
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: flex-start;
 			color: var(--vscode-foreground);
 		}
@@ -135,7 +135,7 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 			flex: 0 0 auto;
 
 			/* Nudge to align the icon's optical center with the first line of body text. */
-			margin-top: 0.2rem;
+			margin-top: var(--gl-space-2);
 			color: var(--vscode-descriptionForeground);
 		}
 

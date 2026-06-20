@@ -42,7 +42,7 @@ export class CommitsPanel extends LitElement {
 			.container {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				height: 100%;
 				overflow: hidden auto;
 			}
@@ -50,26 +50,26 @@ export class CommitsPanel extends LitElement {
 			.working-section {
 				display: flex;
 				flex-direction: column;
-				gap: 1.6rem;
+				gap: var(--gl-space-16);
 			}
 
 			.commits-list {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.commits-header {
-				margin-block: 0 0.4rem;
+				margin-block: 0 var(--gl-space-4);
 				font-size: 1.4rem;
 			}
 
 			.commits-list > *:not(.commits-header) + .commits-header {
-				margin-block-start: 1.2rem;
+				margin-block-start: var(--gl-space-12);
 			}
 
 			.no-changes-message {
-				margin-block: 1.2rem;
+				margin-block: var(--gl-space-12);
 				font-style: italic;
 				color: var(--vscode-descriptionForeground);
 				text-align: center;
@@ -78,23 +78,23 @@ export class CommitsPanel extends LitElement {
 			.commits-only {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.composition-summary {
-				margin-bottom: 0.4rem;
+				margin-bottom: var(--gl-space-4);
 			}
 
 			.composition-summary__header {
-				margin-block: 0 0.8rem;
+				margin-block: 0 var(--gl-space-8);
 			}
 
 			.composition-summary__feedback {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				justify-content: space-between;
-				margin-block: 0.8rem;
+				margin-block: var(--gl-space-8);
 				font-size: 1.2rem;
 			}
 
@@ -104,11 +104,11 @@ export class CommitsPanel extends LitElement {
 
 			.composition-summary__feedback-actions {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.composition-summary__feedback-action {
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 				color: var(--vscode-foreground);
 				cursor: pointer;
 				border-radius: var(--gl-radius-sm);
@@ -126,7 +126,7 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.composition-summary__instructions {
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 				font-size: 1.2rem;
 				line-height: 1.4;
 				color: var(--vscode-descriptionForeground);
@@ -137,23 +137,23 @@ export class CommitsPanel extends LitElement {
 				position: sticky;
 				bottom: 0;
 				z-index: 600;
-				padding-block-start: 0.8rem;
+				padding-block-start: var(--gl-space-8);
 				background-color: var(--color-background);
 			}
 
 			.finish-commit__header {
-				margin-block: 0 0.4rem;
+				margin-block: 0 var(--gl-space-4);
 				font-size: 1.4rem;
 			}
 
 			.finish-commit__description {
-				margin-block: 0 0.8rem;
+				margin-block: 0 var(--gl-space-8);
 				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
 			}
 
 			.cancel-button-container {
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 			}
 
 			.new-commit-drop-zone {
@@ -252,38 +252,38 @@ export class CommitsPanel extends LitElement {
 
 			/* Auto-Compose container styles */
 			.auto-compose {
-				padding: 1.2rem;
+				padding: var(--gl-space-12);
 				background: var(--gl-gradient-brand-subtle);
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-md);
 			}
 
 			.auto-compose.is-used {
-				margin-block: 1.2rem 0;
+				margin-block: var(--gl-space-12) 0;
 			}
 
 			.auto-compose__header {
-				margin-block: 0 0.4rem;
+				margin-block: 0 var(--gl-space-4);
 				font-size: 1.3rem;
 				color: var(--vscode-foreground);
 			}
 
 			.auto-compose__description {
-				margin-block: 0 0.4rem;
+				margin-block: 0 var(--gl-space-4);
 				font-size: 1.2rem;
 				line-height: 1.4;
 				color: var(--vscode-descriptionForeground);
 			}
 
 			.auto-compose__header ~ .auto-compose__model-picker {
-				margin-block-start: 0.4rem;
+				margin-block-start: var(--gl-space-4);
 			}
 
 			.auto-compose__instructions {
 				display: flex;
 				flex-direction: row;
-				gap: 0.2rem;
-				margin-block: 0.8rem;
+				gap: var(--gl-space-2);
+				margin-block: var(--gl-space-8);
 			}
 
 			.auto-compose__instructions-info {
@@ -326,15 +326,15 @@ export class CommitsPanel extends LitElement {
 			}
 
 			.auto-compose__footer {
-				margin-block: 0.8rem 0;
+				margin-block: var(--gl-space-8) 0;
 				font-size: 1.1rem;
 				color: var(--color-foreground--75);
 				text-align: center;
 			}
 
 			.instructions-list {
-				padding-inline-start: 1.6rem;
-				margin-block: 0.4rem;
+				padding-inline-start: var(--gl-space-16);
+				margin-block: var(--gl-space-4);
 			}
 		`,
 	];

@@ -49,7 +49,7 @@ export class GlAiInput extends LitElement {
 	   the input — visually attached but clearly distinct from the input pill. */
 		.ai-input__footer {
 			display: none;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			justify-content: flex-start;
 			min-height: 0;
@@ -247,8 +247,8 @@ export class GlAiInput extends LitElement {
 		textarea:not(:placeholder-shown) ~ .action-btn {
 			flex-direction: row-reverse;
 			gap: 0.5rem;
-			padding-right: 0.8rem;
-			padding-left: 1rem;
+			padding-right: var(--gl-space-8);
+			padding-left: var(--gl-space-10);
 			color: var(--vscode-button-foreground);
 			background: var(--vscode-button-background);
 		}

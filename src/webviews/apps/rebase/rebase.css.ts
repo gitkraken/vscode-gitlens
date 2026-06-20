@@ -122,7 +122,7 @@ export const rebaseStyles = css`
 	}
 
 	.mr-1 {
-		margin-right: 0.4rem;
+		margin-right: var(--gl-space-4);
 	}
 
 	/* ==========================================================================
@@ -204,8 +204,8 @@ export const rebaseStyles = css`
 	.header-info {
 		flex: 1 1 0;
 		min-width: 0;
-		padding-block: 0.4rem;
-		margin-left: 1rem;
+		padding-block: var(--gl-space-4);
+		margin-left: var(--gl-space-10);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		color: var(--color-foreground--65);
@@ -223,7 +223,7 @@ export const rebaseStyles = css`
 	}
 
 	.header-count {
-		margin-left: 1rem;
+		margin-left: var(--gl-space-10);
 		white-space: nowrap;
 	}
 
@@ -235,7 +235,7 @@ export const rebaseStyles = css`
 	.header-actions {
 		display: flex;
 		flex: 0 0 auto;
-		gap: 1.6rem;
+		gap: var(--gl-space-16);
 		align-items: center;
 		white-space: nowrap;
 	}
@@ -258,7 +258,7 @@ export const rebaseStyles = css`
 	/* Rebase banner */
 	.rebase-banner {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		padding: 0.3rem 0.6rem;
 		color: #000;
@@ -295,7 +295,7 @@ export const rebaseStyles = css`
 
 		.rebase-action-link {
 			flex: none;
-			margin-left: 1rem;
+			margin-left: var(--gl-space-10);
 			color: inherit;
 			text-decoration: underline dotted;
 			text-underline-offset: 0.3rem;
@@ -425,14 +425,14 @@ export const rebaseStyles = css`
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		padding: 0 1rem;
+		padding: 0 var(--gl-space-10);
 		overflow: hidden;
 	}
 
 	.conflict-panel__header {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		padding: 0.5rem 0;
 		font-weight: 600;
@@ -458,7 +458,7 @@ export const rebaseStyles = css`
 		z-index: 1;
 		display: flex;
 		grid-area: footer;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: flex-end;
 		min-width: 0;
@@ -483,7 +483,7 @@ export const rebaseStyles = css`
 	.shortcut {
 		display: inline-flex;
 		flex: 0 0 auto;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: baseline;
 		color: var(--color-foreground--65);
 		white-space: nowrap;
@@ -510,13 +510,13 @@ export const rebaseStyles = css`
 	.actions {
 		display: flex;
 		flex-shrink: 0;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 	}
 
 	gl-rebase-conflict-indicator {
 		margin-right: auto;
-		margin-left: 1.6rem;
+		margin-left: var(--gl-space-16);
 	}
 
 	.conflict-loading {
@@ -529,9 +529,9 @@ export const rebaseStyles = css`
 
 	.conflict-summary {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.2rem 0.6rem;
+		padding: var(--gl-space-2) var(--gl-space-6);
 		margin-left: 0.5rem;
 		font-size: 1.1rem;
 		font-weight: 500;
@@ -546,7 +546,7 @@ export const rebaseStyles = css`
 
 	gl-button .button-shortcut {
 		display: block;
-		margin-top: 0.2rem;
+		margin-top: var(--gl-space-2);
 		font-size: 0.9rem;
 		font-weight: 200;
 		text-transform: none;

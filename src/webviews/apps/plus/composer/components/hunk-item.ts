@@ -68,14 +68,14 @@ export class HunkItem extends LitElement {
 			display: flex;
 
 			/* justify-content: space-between; */
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
-			padding: 0.8rem;
+			padding: var(--gl-space-8);
 		}
 
 		.file-info {
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 		}
 
@@ -90,14 +90,14 @@ export class HunkItem extends LitElement {
 
 		.hunk-stats {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			font-size: 0.9em;
 		}
 
 		.stat {
 			display: flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 		}
 
@@ -121,7 +121,7 @@ export class HunkItem extends LitElement {
 		.code-block {
 			/* border: 1px solid var(--vscode-panel-border);
 		border-radius: 4px; */
-			padding: 0.8rem;
+			padding: var(--gl-space-8);
 			overflow-x: auto;
 			font-family: var(--vscode-editor-font-family);
 			font-size: 0.9em;
@@ -167,7 +167,7 @@ export class HunkItem extends LitElement {
 
 		.rename-line {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			font-weight: 500;
 		}

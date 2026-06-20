@@ -35,7 +35,7 @@ export class GlCommitRow extends LitElement {
 			grid-template-columns: auto minmax(0, 1fr);
 			gap: 0.1rem 0.6rem;
 			min-width: 0;
-			padding: 0.2rem 0;
+			padding: var(--gl-space-2) 0;
 			line-height: 1.35;
 		}
 
@@ -69,7 +69,7 @@ export class GlCommitRow extends LitElement {
 		.meta {
 			display: inline-flex;
 			grid-area: meta;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			min-width: 0;
 			font-size: var(--gl-font-sm);
@@ -98,7 +98,7 @@ export class GlCommitRow extends LitElement {
 		.trailing {
 			display: inline-flex;
 			flex-shrink: 0;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 		}
 
@@ -116,7 +116,7 @@ export class GlCommitRow extends LitElement {
 		.stats {
 			display: inline-flex;
 			flex-shrink: 0;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			font-family: var(--vscode-editor-font-family, monospace);
 		}

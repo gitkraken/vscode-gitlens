@@ -96,9 +96,9 @@ export const composerItemStyles = css`
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		min-width: 0;
-		padding: 0.8rem 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
 	}
 
 	.composer-item__header {
@@ -138,7 +138,7 @@ export const composerItemCommitStyles = css`
 		flex: none;
 		align-self: stretch;
 		width: 2.2rem;
-		margin-inline-start: 0.8rem;
+		margin-inline-start: var(--gl-space-8);
 	}
 
 	.composer-item__commit::before {
@@ -217,7 +217,7 @@ export const composerItemCommitStyles = css`
 export const composerItemContentStyles = css`
 	.change-stats {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 	}
 

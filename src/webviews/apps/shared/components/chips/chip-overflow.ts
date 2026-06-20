@@ -63,7 +63,7 @@ export class GlChipOverflow extends LitElement {
 				align-items: center;
 				justify-content: center;
 				height: 2rem;
-				padding: 0.2rem 0.4rem;
+				padding: var(--gl-space-2) var(--gl-space-4);
 				margin-block-end: var(--gl-chip-overflow-gap, 0.5rem);
 				margin-inline-end: var(--gl-chip-overflow-gap, 0.5rem);
 				font: inherit;

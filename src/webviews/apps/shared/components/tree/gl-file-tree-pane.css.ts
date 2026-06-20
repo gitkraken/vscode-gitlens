@@ -42,7 +42,7 @@ export const fileTreeStyles = css`
 	   contents (checkbox + label + badge) center-align with the action buttons. */
 	webview-pane [slot='title'] {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		width: 100%;
 		min-width: 0;
@@ -116,14 +116,14 @@ export const fileTreeStyles = css`
 	   shrink) so the staged text ellipses first under width pressure, and inset it from that text. */
 	gl-badge.checkbox-header__badge-mixed {
 		flex: 0 0 auto;
-		margin-left: 0.4rem;
+		margin-left: var(--gl-space-4);
 		overflow: visible;
 	}
 
 	.checkbox-header {
 		display: inline-flex;
 		flex: 1 1 auto;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		min-width: 0;
 		padding: 5px 0 5px 2px; /* prevent focus ring from clipping */
@@ -142,7 +142,7 @@ export const fileTreeStyles = css`
 	.checkbox-header__label {
 		display: inline-flex;
 		flex: 1 1 auto;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		min-width: 0;
 		color: var(--vscode-sideBarSectionHeader-foreground);

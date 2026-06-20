@@ -30,9 +30,9 @@ export class GlAccordion extends LitElement {
 
 		.header {
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
-			padding: 8px 12px;
+			padding: var(--gl-space-8) var(--gl-space-12);
 			cursor: pointer;
 			user-select: none;
 			outline: none;
@@ -66,7 +66,7 @@ export class GlAccordion extends LitElement {
 		}
 
 		.content {
-			padding: 12px;
+			padding: var(--gl-space-12);
 			background-color: var(--gl-accordion-content-background, var(--vscode-editor-background));
 		}
 	`;

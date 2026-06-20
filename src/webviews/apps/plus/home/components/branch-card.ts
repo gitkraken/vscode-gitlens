@@ -72,7 +72,7 @@ export const branchCardStyles = css`
 	.branch-item__container {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	.branch-item__container > * {
@@ -82,7 +82,7 @@ export const branchCardStyles = css`
 	.branch-item__section {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.branch-item__section > * {
@@ -97,7 +97,7 @@ export const branchCardStyles = css`
 	.branch-item__actions {
 		display: flex;
 		flex-direction: row;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		justify-content: flex-end;
 		font-size: 0.9em;
@@ -132,7 +132,7 @@ export const branchCardStyles = css`
 
 	.branch-item__grouping {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		max-width: 100%;
 		margin-block: 0;
@@ -141,7 +141,7 @@ export const branchCardStyles = css`
 	.branch-item__agents {
 		display: flex;
 		flex-flow: row wrap;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 
@@ -152,7 +152,7 @@ export const branchCardStyles = css`
 	.branch-item__changes {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: flex-end;
 		white-space: nowrap;
@@ -164,7 +164,7 @@ export const branchCardStyles = css`
 
 	.branch-item__summary {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 	}
 
@@ -173,7 +173,7 @@ export const branchCardStyles = css`
 		right: 0.4rem;
 		bottom: 0.3rem;
 		z-index: var(--gl-branch-card-actions-zindex, 2);
-		padding: 0.4rem 0.6rem;
+		padding: var(--gl-space-4) var(--gl-space-6);
 		background-color: var(--gl-card-hover-background);
 	}
 
@@ -191,7 +191,7 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__section.mb-1 {
-		margin-block: 0.4rem;
+		margin-block: var(--gl-space-4);
 	}
 
 	.branch-item__merge-target {
@@ -200,7 +200,7 @@ export const branchCardStyles = css`
 
 	.branch-item__row {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 	}
 
 	.branch-item__row [full] {
@@ -226,7 +226,7 @@ export const branchCardStyles = css`
 	}
 
 	.branch-item__category {
-		margin-inline-start: 0.6rem;
+		margin-inline-start: var(--gl-space-6);
 	}
 
 	.launchpad-grouping--mergeable {
@@ -244,7 +244,7 @@ export const branchCardStyles = css`
 	.wip__pill {
 		display: flex;
 		flex-direction: row;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 	}
 
 	.wip__tooltip {

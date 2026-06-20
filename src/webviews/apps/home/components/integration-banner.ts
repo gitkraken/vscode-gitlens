@@ -25,7 +25,7 @@ export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 	static override styles = [
 		css`
 			gl-card::part(base) {
-				margin-block-end: 1.2rem;
+				margin-block-end: var(--gl-space-12);
 			}
 		`,
 	];

@@ -30,17 +30,17 @@ export const reviewModePanelStyles = css`
 		display: flex;
 		flex: 1;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: center;
 		min-height: 0;
-		padding: 2.4rem 1.2rem;
+		padding: var(--gl-space-24) var(--gl-space-12);
 		text-align: center;
 	}
 
 	.review-idle__scope {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		font-size: var(--gl-font-base);
 		font-weight: 500;
@@ -72,10 +72,10 @@ export const reviewModePanelStyles = css`
 	.review-footer {
 		display: flex;
 		flex: none;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: center;
-		padding: 0.8rem 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
 		background: var(--gl-metadata-bar-bg, transparent);
 		border-top: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 	}
@@ -89,7 +89,7 @@ export const reviewModePanelStyles = css`
 	.review-results {
 		flex: 1;
 		min-height: 0;
-		padding: 1.2rem;
+		padding: var(--gl-space-12);
 		overflow-y: auto;
 	}
 
@@ -99,9 +99,9 @@ export const reviewModePanelStyles = css`
 	.review-header {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.6rem 1.2rem;
+		padding: var(--gl-space-6) var(--gl-space-12);
 	}
 
 	.review-header__back {
@@ -116,7 +116,7 @@ export const reviewModePanelStyles = css`
 
 	.review-header__count {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		margin-left: auto;
 		font-size: var(--gl-font-sm);
@@ -137,15 +137,15 @@ export const reviewModePanelStyles = css`
 	.review-header__actions {
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
-		margin-left: 0.4rem;
+		margin-left: var(--gl-space-4);
 	}
 
 	.review-area__header-row {
 		display: flex;
 		align-items: center;
-		padding-right: 0.4rem;
+		padding-right: var(--gl-space-4);
 	}
 
 	.review-area__header-row > .review-area__header {
@@ -156,14 +156,14 @@ export const reviewModePanelStyles = css`
 	.review-area__actions {
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 	}
 
 	.review-finding__actions {
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 		margin-left: auto;
 	}
@@ -186,7 +186,7 @@ export const reviewModePanelStyles = css`
 	.review-metadata {
 		display: flex;
 		flex: none;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
 		min-height: var(--gl-metadata-bar-min-height);
@@ -219,7 +219,7 @@ export const reviewModePanelStyles = css`
 	.review-metadata__right {
 		display: flex;
 		flex-shrink: 0;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 
@@ -229,7 +229,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.stale-banner {
-		margin-bottom: 0.8rem;
+		margin-bottom: var(--gl-space-8);
 	}
 
 	/* Wraps the loading branch so the categorizing animation can sit behind the spinner +
@@ -258,19 +258,19 @@ export const reviewModePanelStyles = css`
 		display: flex;
 		flex: none;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 	}
 
 	.review-cancel {
-		margin-bottom: 1.2rem;
+		margin-bottom: var(--gl-space-12);
 	}
 
 	/* Review scope toggle */
 
 	.review-scope__toggle {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		font-size: inherit;
 		cursor: pointer;
@@ -283,8 +283,8 @@ export const reviewModePanelStyles = css`
 	/* Review overview */
 
 	.review-overview {
-		padding: 0.8rem;
-		margin-bottom: 0.8rem;
+		padding: var(--gl-space-8);
+		margin-bottom: var(--gl-space-8);
 		line-height: 1.5;
 		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
 		border-radius: var(--gl-radius-sm);
@@ -297,7 +297,7 @@ export const reviewModePanelStyles = css`
 
 	.review-overview__hint {
 		display: block;
-		margin-top: 0.6rem;
+		margin-top: var(--gl-space-6);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 	}
@@ -306,7 +306,7 @@ export const reviewModePanelStyles = css`
 
 	.review-clean {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		padding: 1.5rem 1rem;
 		font-weight: 500;
@@ -319,9 +319,9 @@ export const reviewModePanelStyles = css`
 	   1.3rem, normal weight, uppercase, foreground color. */
 	.review-areas__header-row {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 	}
 
 	.review-areas__header {
@@ -336,12 +336,12 @@ export const reviewModePanelStyles = css`
 	.review-areas__actions {
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 	}
 
 	.review-area {
-		margin-bottom: 0.6rem;
+		margin-bottom: var(--gl-space-6);
 		overflow: hidden;
 		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
 		border-radius: var(--gl-radius-sm);
@@ -352,7 +352,7 @@ export const reviewModePanelStyles = css`
 		gap: 0.5rem;
 		align-items: center;
 		width: 100%;
-		padding: 0.6rem 0.8rem;
+		padding: var(--gl-space-6) var(--gl-space-8);
 		font-family: var(--vscode-font-family);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
@@ -406,11 +406,11 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-area__body {
-		padding: 0 0.8rem 0.8rem;
+		padding: 0 var(--gl-space-8) var(--gl-space-8);
 	}
 
 	.review-area__rationale {
-		margin-bottom: 0.6rem;
+		margin-bottom: var(--gl-space-6);
 		font-size: var(--gl-font-base);
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
@@ -420,15 +420,15 @@ export const reviewModePanelStyles = css`
 	.review-area__files {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
-		margin-bottom: 0.6rem;
+		gap: var(--gl-space-2);
+		margin-bottom: var(--gl-space-6);
 	}
 
 	.review-area__file-link {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font-family: var(--vscode-editor-font-family);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-textLink-foreground);
@@ -471,9 +471,9 @@ export const reviewModePanelStyles = css`
 
 	.review-area__analyze-btn {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.4rem 0.8rem;
+		padding: var(--gl-space-4) var(--gl-space-8);
 		font-family: var(--vscode-font-family);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-button-foreground);
@@ -496,9 +496,9 @@ export const reviewModePanelStyles = css`
 	.review-area__error,
 	.review-area__clean {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.6rem;
+		padding: var(--gl-space-6);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-descriptionForeground);
 	}
@@ -532,8 +532,8 @@ export const reviewModePanelStyles = css`
 	.review-findings {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
-		margin-top: 0.6rem;
+		gap: var(--gl-space-6);
+		margin-top: var(--gl-space-6);
 	}
 
 	.review-finding {
@@ -544,7 +544,7 @@ export const reviewModePanelStyles = css`
 		   pattern above. */
 		display: flex;
 		flex-direction: column;
-		padding: 0.6rem 0.8rem;
+		padding: var(--gl-space-6) var(--gl-space-8);
 		background: var(--vscode-editor-inactiveSelectionBackground, rgb(255 255 255 / 4%));
 		border-left: 3px solid transparent;
 		border-radius: var(--gl-radius-sm);
@@ -571,7 +571,7 @@ export const reviewModePanelStyles = css`
 		   misaligned. Baseline locks the badge's text baseline to the title's first-line
 		   baseline so they look like they sit on the same line of text. */
 		align-items: baseline;
-		margin-bottom: 0.4rem;
+		margin-bottom: var(--gl-space-4);
 	}
 
 	.review-finding__severity {
@@ -615,7 +615,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-finding__description {
-		margin-bottom: 0.4rem;
+		margin-bottom: var(--gl-space-4);
 		font-size: var(--gl-font-base);
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
@@ -661,7 +661,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-findings__dismissed {
-		padding: 0.4rem;
+		padding: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		text-align: center;
@@ -683,12 +683,12 @@ export const reviewModePanelStyles = css`
 	.review-areas {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	.checkbox-header {
 		display: inline-flex;
-		padding-left: 2px;
+		padding-left: var(--gl-space-2);
 	}
 
 	.checkbox-header gl-checkbox {
@@ -702,13 +702,13 @@ export const reviewModePanelStyles = css`
 
 	.checkbox-header gl-checkbox::part(label) {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 
 	webview-pane [slot='title'] {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 

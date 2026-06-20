@@ -21,7 +21,7 @@ export class GlChartSlider extends GlElement {
 		.slider-container {
 			position: relative;
 			width: 100%;
-			padding-bottom: 0.4rem;
+			padding-bottom: var(--gl-space-4);
 		}
 
 		wa-slider {

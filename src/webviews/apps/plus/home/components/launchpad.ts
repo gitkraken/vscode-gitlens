@@ -36,18 +36,18 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
 
 			.summary {
-				margin-bottom: 1rem;
+				margin-bottom: var(--gl-space-10);
 			}
 
 			.menu {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				padding-inline-start: 0;
 				margin-block-start: 0;
 				list-style: none;
@@ -55,7 +55,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 
 			.launchpad-action {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				color: inherit;
 				text-decoration: none;
@@ -95,7 +95,7 @@ export class GlLaunchpad extends SignalWatcher(LitElement) {
 			.loader {
 				display: flex;
 				flex-direction: column;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.section-heading-actions {

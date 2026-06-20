@@ -16,15 +16,15 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 			}
 
 			.workspace-group {
-				margin-block-start: 0.4rem;
+				margin-block-start: var(--gl-space-4);
 			}
 
 			.workspace-group__label {
-				margin-block: 0 0.2rem;
+				margin-block: 0 var(--gl-space-2);
 				font-size: 0.9em;
 				font-weight: 600;
 				color: var(--vscode-descriptionForeground);
@@ -33,12 +33,12 @@ export class GlAgentStatus extends SignalWatcher(LitElement) {
 			.sessions {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.session {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				margin-block: 0;
 			}

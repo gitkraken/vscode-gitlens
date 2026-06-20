@@ -57,14 +57,14 @@ export class GlPopoverConfirm extends LitElement {
 			.confirm-popover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				max-width: 28rem;
-				padding: 0.6rem 0.4rem;
+				padding: var(--gl-space-6) var(--gl-space-4);
 			}
 
 			.confirm-popover__header {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: flex-start;
 			}
 
@@ -88,9 +88,9 @@ export class GlPopoverConfirm extends LitElement {
 
 			.confirm-popover__actions {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				justify-content: flex-end;
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 			}
 		`,
 	];

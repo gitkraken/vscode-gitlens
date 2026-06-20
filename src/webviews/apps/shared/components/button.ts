@@ -211,7 +211,7 @@ export class GlButton extends LitElement {
 			}
 
 			:host([appearance='input']) .control {
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				height: var(--button-input-height, 1.8rem);
 				padding: var(--button-input-padding);
 				--button-line-height: 1.1;

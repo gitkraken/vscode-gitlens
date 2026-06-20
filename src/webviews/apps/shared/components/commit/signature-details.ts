@@ -42,7 +42,7 @@ export class GlSignatureDetails extends LitElement {
 		}
 
 		.signature-status-description {
-			margin-left: 0.8rem;
+			margin-left: var(--gl-space-8);
 			font-variant: small-caps;
 			color: var(--vscode-descriptionForeground);
 			text-transform: lowercase;

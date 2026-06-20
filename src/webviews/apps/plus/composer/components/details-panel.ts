@@ -40,7 +40,7 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex: 1;
 				flex-direction: column;
-				gap: 1.6rem;
+				gap: var(--gl-space-16);
 				overflow: hidden;
 			}
 
@@ -54,7 +54,7 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				flex: 1;
 				flex-direction: column;
-				gap: 3.2rem;
+				gap: var(--gl-space-32);
 				overflow-y: auto;
 				--commit-message-sticky-top: 0;
 			}
@@ -66,14 +66,14 @@ export class DetailsPanel extends LitElement {
 			.change-details {
 				display: flex;
 				flex-direction: column;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 			}
 
 			.files-headline {
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
-				margin-block: 0 0.8rem;
+				margin-block: 0 var(--gl-space-8);
 				font-size: 1.4rem;
 			}
 
@@ -83,13 +83,13 @@ export class DetailsPanel extends LitElement {
 
 			.files-headline__actions {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 			}
 
 			.files-list {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			.files-list.drag-over {
@@ -157,7 +157,7 @@ export class DetailsPanel extends LitElement {
 			.empty-state,
 			.no-changes-state {
 				max-width: 80rem;
-				padding: 2rem;
+				padding: var(--gl-space-20);
 				color: var(--color-foreground--85);
 				background: var(--vscode-editor-background);
 				border: 0.1rem solid var(--vscode-panel-border);
@@ -166,7 +166,7 @@ export class DetailsPanel extends LitElement {
 
 			.change-details.composition-summary {
 				gap: 0;
-				padding: 1.6rem;
+				padding: var(--gl-space-16);
 				border: 0.1rem solid var(--vscode-panel-border);
 				border-radius: var(--gl-radius-sm);
 			}
@@ -178,7 +178,7 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.empty-state__icon {
-				margin-block-end: 0.8rem;
+				margin-block-end: var(--gl-space-8);
 				font-size: 7.2rem;
 				opacity: 0.75;
 			}
@@ -191,15 +191,15 @@ export class DetailsPanel extends LitElement {
 			}
 
 			.no-changes-description {
-				margin-block: 1.6rem;
+				margin-block: var(--gl-space-16);
 				line-height: 1.5;
 				text-wrap: pretty;
 			}
 
 			.no-changes-actions {
 				display: flex;
-				gap: 1.2rem;
-				margin-block-start: 1.6rem;
+				gap: var(--gl-space-12);
+				margin-block-start: var(--gl-space-16);
 			}
 		`,
 	];

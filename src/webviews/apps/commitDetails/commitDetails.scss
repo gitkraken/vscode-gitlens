@@ -34,14 +34,14 @@ gl-details-wip-panel {
 }
 
 .popover-content {
-	padding: 0.8rem 1.2rem;
+	padding: var(--gl-space-8) var(--gl-space-12);
 	background-color: var(--color-background--level-15);
 }
 
 .inspect-header {
 	display: flex;
 	flex-direction: row;
-	gap: 0.4rem;
+	gap: var(--gl-space-4);
 	align-items: flex-start; // center;
 	justify-content: space-between;
 	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
@@ -58,7 +58,7 @@ gl-details-wip-panel {
 
 	&__tab {
 		position: relative;
-		padding: 0.4rem 1.2rem;
+		padding: var(--gl-space-4) var(--gl-space-12);
 		color: var(--color-foreground--85);
 		appearance: none;
 		cursor: pointer;
@@ -72,7 +72,7 @@ gl-details-wip-panel {
 
 		&.is-active {
 			z-index: 1;
-			padding-block: 0.6rem;
+			padding-block: var(--gl-space-6);
 			color: var(--color-foreground);
 			background-color: color-mix(in srgb, var(--gl-color-background-counter) 25%, var(--color-background));
 			box-shadow: 0 -2px 0 0 var(--vscode-button-hoverBackground);
@@ -159,7 +159,7 @@ hr {
 }
 
 .md-code {
-	padding: 0 4px 2px;
+	padding: 0 var(--gl-space-4) var(--gl-space-2);
 	font-family: var(--vscode-editor-font-family);
 	background: var(--vscode-textCodeBlock-background);
 	border-radius: var(--gl-radius-sm);

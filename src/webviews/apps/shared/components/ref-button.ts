@@ -29,7 +29,7 @@ export class GlRefButton extends LitElement {
 			}
 
 			gl-ref-name:not([icon]) {
-				padding-left: 0.2rem;
+				padding-left: var(--gl-space-2);
 			}
 		`,
 		pickerIconStyles,

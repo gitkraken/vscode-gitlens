@@ -89,7 +89,7 @@ export class GlRepoButtonGroup extends GlElement {
 				grid-row: 1;
 				grid-column: 3;
 				min-width: 0;
-				padding-inline: 0.4rem;
+				padding-inline: var(--gl-space-4);
 				overflow-wrap: anywhere;
 				pointer-events: none;
 			}
@@ -176,7 +176,7 @@ export class GlRepoButtonGroup extends GlElement {
 			.provider-popover {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			.provider-popover hr {
@@ -185,7 +185,7 @@ export class GlRepoButtonGroup extends GlElement {
 
 			.provider-popover__line {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 			}
 

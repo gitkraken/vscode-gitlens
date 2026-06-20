@@ -11,7 +11,7 @@ export class MenuItem extends LitElement {
 			:host {
 				display: block;
 				height: auto;
-				padding: 0 0.6rem;
+				padding: 0 var(--gl-space-6);
 				font-family: inherit;
 				line-height: 2.2rem;
 				color: var(--vscode-menu-foreground);
@@ -52,7 +52,7 @@ export class MenuItem extends LitElement {
 
 			a {
 				display: block;
-				padding: 0 0.6rem;
+				padding: 0 var(--gl-space-6);
 				color: inherit;
 				text-decoration: none;
 			}

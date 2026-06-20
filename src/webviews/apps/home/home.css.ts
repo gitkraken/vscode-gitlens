@@ -37,7 +37,7 @@ export const homeStyles = css`
 	.home {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		height: 100vh;
 		padding: 0;
 		overflow: hidden;
@@ -46,7 +46,7 @@ export const homeStyles = css`
 	.home__alerts {
 		position: relative;
 		flex: none;
-		padding: 0 2rem;
+		padding: 0 var(--gl-space-20);
 	}
 
 	.home__alerts:not([has-alerts]) {
@@ -55,7 +55,7 @@ export const homeStyles = css`
 
 	.home__main {
 		flex: 1;
-		padding: 0.8rem 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
 		overflow: auto;
 	}
 
@@ -69,7 +69,7 @@ export const homeStyles = css`
 	}
 
 	.home__header {
-		padding: 0.4rem;
+		padding: var(--gl-space-4);
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
@@ -87,7 +87,7 @@ export const homeStyles = css`
 	}
 
 	details[open] summary {
-		margin-block-end: 0.8rem;
+		margin-block-end: var(--gl-space-8);
 	}
 
 	gl-home-header {
@@ -114,12 +114,12 @@ export const buttonStyles = css`
 	}
 
 	.button-container--trio > gl-button:first-child {
-		margin-bottom: 0.4rem;
+		margin-bottom: var(--gl-space-4);
 	}
 
 	.button-group {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.button-group--single {
@@ -145,8 +145,8 @@ export const buttonStyles = css`
 export const alertStyles = css`
 	.alert {
 		position: relative;
-		padding: 0.8rem 1.2rem;
-		margin-bottom: 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
+		margin-bottom: var(--gl-space-12);
 		line-height: 1.2;
 		color: var(--color-alert-foreground);
 		background-color: var(--color-alert-neutralBackground);
@@ -159,7 +159,7 @@ export const alertStyles = css`
 	}
 
 	.alert__description {
-		margin: 0.4rem 0 0;
+		margin: var(--gl-space-4) 0 0;
 		font-size: 1.2rem;
 	}
 
@@ -239,10 +239,10 @@ export const walkthroughProgressStyles = css`
 	.walkthrough-progress {
 		display: flex;
 		flex-direction: column;
-		gap: 2px;
+		gap: var(--gl-space-2);
 		align-items: stretch;
-		padding: 2px 4px 4px;
-		margin-top: 4px;
+		padding: var(--gl-space-2) var(--gl-space-4) var(--gl-space-4);
+		margin-top: var(--gl-space-4);
 		cursor: pointer;
 		border-radius: var(--gl-radius-sm);
 	}

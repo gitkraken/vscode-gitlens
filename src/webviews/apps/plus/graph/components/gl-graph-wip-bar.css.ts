@@ -12,12 +12,12 @@ export const wipBarStyles = css`
 
 	.bar {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 
 		/* No start inset so the sticky label can cover the edge as pills scroll under it; the label
 		   carries the leading inset itself. */
-		padding-inline-end: 0.8rem;
+		padding-inline-end: var(--gl-space-8);
 		overflow: auto hidden;
 		scrollbar-width: none;
 	}
@@ -36,7 +36,7 @@ export const wipBarStyles = css`
 
 		/* Stretch over the bar's full height so the opaque background fully masks pills passing under. */
 		align-self: stretch;
-		padding-inline: 0.8rem 0.4rem;
+		padding-inline: var(--gl-space-8) var(--gl-space-4);
 		font-size: 1rem;
 		font-weight: 600;
 		color: var(--vscode-descriptionForeground, var(--color-foreground--65));
@@ -58,10 +58,10 @@ export const wipBarStyles = css`
 	.pills {
 		display: flex;
 		flex: 0 0 auto;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-height: 2rem;
-		padding-block: 0.6rem;
+		padding-block: var(--gl-space-6);
 	}
 
 	.pill {
@@ -151,7 +151,7 @@ export const wipBarStyles = css`
 
 	.pill-hover__row {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		font-size: 1.1rem;
 		opacity: 0.9;
 	}

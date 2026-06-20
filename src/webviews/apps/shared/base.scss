@@ -86,7 +86,7 @@ button:not(:disabled) {
 }
 
 input[type='checkbox'] {
-	padding: 0 10px;
+	padding: 0 var(--gl-space-10);
 	margin: 0;
 	accent-color: var(--color-background--lighten-30);
 	cursor: pointer;
@@ -116,8 +116,8 @@ input:not([type]),
 textarea {
 	width: 100%;
 	max-width: 300px;
-	padding: 4px;
-	margin: 0 10px;
+	padding: var(--gl-space-4);
+	margin: 0 var(--gl-space-10);
 	color: var(--color-foreground);
 	background: none;
 
@@ -159,7 +159,7 @@ input[type='number'] {
 kbd {
 	display: inline-block;
 	padding: 3px 5px;
-	margin: 0 2px;
+	margin: 0 var(--gl-space-2);
 	font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
 	font-size: 11px;
 	line-height: 11px;
@@ -259,7 +259,7 @@ ul {
 }
 
 code {
-	padding: 0 4px 2px;
+	padding: 0 var(--gl-space-4) var(--gl-space-2);
 	color: var(--color-foreground--75);
 	background: var(--vscode-textCodeBlock-background);
 	border-radius: var(--gl-radius-sm);

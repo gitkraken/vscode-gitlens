@@ -123,20 +123,20 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.header {
 				display: flex;
 				flex: none;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				min-height: 3.2rem;
 
 				/* 0.6rem right so the close button sits at a tight inset matching the visualizations
 		 * toolbar; left stays at 1.2rem for the title's breathing room. min-height + tight
 		 * vertical padding matches the Treemap/Visual History toolbar height (3.2rem). */
-				padding: 0.4rem 0.6rem 0.4rem 1.2rem;
+				padding: var(--gl-space-4) var(--gl-space-6) var(--gl-space-4) var(--gl-space-12);
 				border-bottom: 1px solid var(--vscode-panel-border, transparent);
 			}
 
 			.header__title {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: baseline;
 				font-size: 1.3rem;
 				font-weight: 600;
@@ -172,7 +172,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				/* No bottom margin — .body below has its own 1.2rem padding-top, so an extra
 		 * margin-bottom here would double up to 2.4rem of visual gap. */
 				display: block;
-				margin: 1.2rem 1.2rem 0;
+				margin: var(--gl-space-12) var(--gl-space-12) 0;
 			}
 
 			.body {
@@ -182,7 +182,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				grid-auto-flow: column;
 				gap: var(--gl-kanban-column-gap);
 				min-height: 0;
-				padding: 1.2rem;
+				padding: var(--gl-space-12);
 				overflow: auto hidden;
 
 				/* Hint to the browser to GPU-composite the scrolling layer. Without this, horizontal
@@ -209,9 +209,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.column__heading {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
-				padding: 0.8rem 1rem;
+				padding: var(--gl-space-8) var(--gl-space-10);
 				font-size: 1.1rem;
 				font-weight: 600;
 				color: var(--color-foreground--65);
@@ -247,9 +247,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				flex: 1 1 auto;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				min-height: 0;
-				padding: 0.8rem;
+				padding: var(--gl-space-8);
 				overflow-y: auto;
 
 				/* Same GPU-composite hint as the body. Each column scrolls independently when its
@@ -258,7 +258,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}
 
 			.column__empty {
-				padding: 0.4rem 0.2rem;
+				padding: var(--gl-space-4) var(--gl-space-2);
 				font-size: 1.1rem;
 				font-style: italic;
 				color: var(--color-foreground--50);
@@ -267,7 +267,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.card {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				padding: 0.9rem 1rem;
 
 				/* Paint isolation: card hover (border-color + color-mix background change) repaints
@@ -314,7 +314,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.card__head {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: baseline;
 				justify-content: space-between;
 			}
@@ -347,7 +347,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 	   even when the subtitle is missing so the Open Session stays visually anchored. */
 			.card__sub-row {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: space-between;
 				min-height: 1.8rem;
@@ -379,10 +379,10 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.card__actions {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				justify-content: flex-end;
-				margin-top: 0.2rem;
+				margin-top: var(--gl-space-2);
 			}
 
 			/* Permission actions (Allow / Deny / View Plan) cluster on the left when present;
@@ -391,7 +391,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			.card__permission-actions {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				margin-right: auto;
 			}
@@ -404,10 +404,10 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				flex: 1 1 auto;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				justify-content: center;
-				padding: 2rem;
+				padding: var(--gl-space-20);
 				color: var(--color-foreground--65);
 				text-align: center;
 			}

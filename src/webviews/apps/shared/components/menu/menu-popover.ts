@@ -42,14 +42,14 @@ export class GlMenuPopover extends GlElement {
 	   the popover's menu-mode body it just needs a small symmetric vertical pad so the first/
 	   last item clear the body padding. */
 		menu-list {
-			padding: 0.2rem 0;
+			padding: var(--gl-space-2) 0;
 			background: transparent;
 			border: 0;
 		}
 
 		menu-item {
 			display: flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 		}
 

@@ -91,7 +91,7 @@ export class GlSearchInput extends GlElement {
 			display: inline-flex;
 			flex: auto 1 1;
 			flex-direction: row;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 		}
 
@@ -113,7 +113,7 @@ export class GlSearchInput extends GlElement {
 
 		label {
 			display: flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 			justify-content: center;
 			width: 3.2rem;
@@ -184,7 +184,7 @@ export class GlSearchInput extends GlElement {
 			   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
 			z-index: var(--gl-z-popover);
 			width: 100%;
-			padding: 0.4rem;
+			padding: var(--gl-space-4);
 			font-size: 1.2rem;
 			line-height: 1.4;
 			color: var(--gl-search-input-foreground);
@@ -293,7 +293,7 @@ export class GlSearchInput extends GlElement {
 
 		code {
 			display: inline-block;
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			font-family: var(--vscode-editor-font-family);
 			border-radius: var(--gl-radius-sm);
 			backdrop-filter: brightness(1.3);

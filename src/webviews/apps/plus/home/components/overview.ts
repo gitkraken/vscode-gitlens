@@ -40,7 +40,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
 
@@ -81,7 +81,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			/* Recent-timeframe filter — the gl-menu-popover anchor button. */
 			.threshold-filter {
 				display: inline-flex;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 				padding: 0;
 				font: inherit;
@@ -112,7 +112,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 
 			.tabs {
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			.tab {

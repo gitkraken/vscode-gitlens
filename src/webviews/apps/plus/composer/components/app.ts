@@ -83,22 +83,22 @@ export class ComposerApp extends LitElement {
 				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
-				gap: 1.6rem;
+				gap: var(--gl-space-16);
 				height: 100vh;
-				padding: 1.6rem;
+				padding: var(--gl-space-16);
 			}
 
 			.header {
 				display: flex;
 				flex: none;
-				gap: 1.6rem;
+				gap: var(--gl-space-16);
 				align-items: center;
 				justify-content: space-between;
 			}
 
 			.header__group {
 				display: flex;
-				gap: 1.6rem;
+				gap: var(--gl-space-16);
 				align-items: center;
 			}
 
@@ -109,7 +109,7 @@ export class ComposerApp extends LitElement {
 			}
 
 			.header small {
-				margin-inline-start: 0.4rem;
+				margin-inline-start: var(--gl-space-4);
 				font-size: 1.2rem;
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
@@ -130,15 +130,15 @@ export class ComposerApp extends LitElement {
 			.header-actions {
 				display: flex;
 				flex: none;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				justify-content: flex-end;
 			}
 
 			.working-directory-warning {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
-				padding: 0.8rem 1.2rem;
+				padding: var(--gl-space-8) var(--gl-space-12);
 				background-color: var(--vscode-inputValidation-warningBackground);
 				border: 1px solid var(--vscode-inputValidation-warningBorder);
 				border-radius: var(--gl-radius-sm);
@@ -161,7 +161,7 @@ export class ComposerApp extends LitElement {
 			.main-content {
 				display: flex;
 				flex: 1;
-				gap: 2.4rem;
+				gap: var(--gl-space-24);
 				min-height: 0;
 			}
 
@@ -181,12 +181,12 @@ export class ComposerApp extends LitElement {
 			}
 
 			.modal h2 {
-				margin: 0 0 1.6rem;
+				margin: 0 0 var(--gl-space-16);
 				color: var(--vscode-foreground);
 			}
 
 			.modal p {
-				margin: 0 0 2.4rem;
+				margin: 0 0 var(--gl-space-24);
 				color: var(--vscode-descriptionForeground);
 			}
 
@@ -194,7 +194,7 @@ export class ComposerApp extends LitElement {
 				display: flex;
 				align-items: center;
 				justify-content: space-between;
-				padding: 1.2rem;
+				padding: var(--gl-space-12);
 				cursor: pointer;
 				user-select: none;
 				background: var(--vscode-editorGroupHeader-tabsBackground);
@@ -224,7 +224,7 @@ export class ComposerApp extends LitElement {
 				box-sizing: border-box;
 				display: flex;
 				flex-direction: column;
-				padding: 0.8rem;
+				padding: var(--gl-space-8);
 				overflow: hidden;
 			}
 
@@ -258,10 +258,10 @@ export class ComposerApp extends LitElement {
 
 			.unassigned-changes-item {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
-				padding: 1.2rem;
-				margin-bottom: 1.2rem;
+				padding: var(--gl-space-12);
+				margin-bottom: var(--gl-space-12);
 				cursor: pointer;
 				user-select: none;
 				background: var(--vscode-list-inactiveSelectionBackground);
@@ -317,11 +317,11 @@ export class ComposerApp extends LitElement {
 			.generic-dialog__container {
 				display: flex;
 				flex-direction: column;
-				gap: 16px;
+				gap: var(--gl-space-16);
 			}
 
 			.generic-dialog__message {
-				padding: 1.2rem;
+				padding: var(--gl-space-12);
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.2rem;
 				color: var(--vscode-foreground);
@@ -343,7 +343,7 @@ export class ComposerApp extends LitElement {
 
 			.generic-dialog__actions {
 				display: flex;
-				gap: 8px;
+				gap: var(--gl-space-8);
 				justify-content: flex-end;
 			}
 		`,

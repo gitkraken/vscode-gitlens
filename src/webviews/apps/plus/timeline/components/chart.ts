@@ -147,7 +147,7 @@ export class GlTimelineChart extends GlElement {
 			position: absolute;
 			left: calc(var(--rail-left-offset, 8px) + var(--rail-column-width, 36px) / 2);
 			z-index: 1;
-			padding: 2px;
+			padding: var(--gl-space-2);
 			pointer-events: auto;
 			cursor: pointer;
 			background: transparent;
@@ -262,7 +262,7 @@ export class GlTimelineChart extends GlElement {
 		.rail__branch-name {
 			flex: 0 1 auto;
 			max-width: 22rem;
-			padding: 0 0.8rem 0 0.2rem;
+			padding: 0 var(--gl-space-8) 0 var(--gl-space-2);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-size: 1.1rem;
@@ -297,7 +297,7 @@ export class GlTimelineChart extends GlElement {
 
 		.rail-tooltip__hint {
 			max-width: 16rem;
-			margin-top: 0.4rem;
+			margin-top: var(--gl-space-4);
 			font-size: 0.8em;
 			color: var(--color-foreground--50);
 		}
@@ -414,9 +414,9 @@ export class GlTimelineChart extends GlElement {
 		footer {
 			display: flex;
 			flex: 0 0 auto;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
-			margin: 0 1rem 0.4rem;
+			margin: 0 var(--gl-space-10) var(--gl-space-4);
 		}
 
 		gl-chart-slider {
@@ -426,14 +426,14 @@ export class GlTimelineChart extends GlElement {
 
 		gl-commit-sha-copy {
 			min-width: 7.5rem;
-			margin-left: 1.2rem;
+			margin-left: var(--gl-space-12);
 			color: var(--color-foreground--75);
 			text-align: right;
 		}
 
 		.actions {
 			display: flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 		}
 
@@ -453,7 +453,7 @@ export class GlTimelineChart extends GlElement {
 			z-index: 10;
 			display: none;
 			max-width: 320px;
-			padding: 6px 8px;
+			padding: var(--gl-space-6) var(--gl-space-8);
 			font-size: 11px;
 			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
 			pointer-events: none;
@@ -467,14 +467,14 @@ export class GlTimelineChart extends GlElement {
 		}
 
 		.tooltip .tooltip__author {
-			margin-bottom: 2px;
+			margin-bottom: var(--gl-space-2);
 			font-weight: 600;
 		}
 
 		.tooltip .tooltip__row {
 			display: flex;
-			gap: 6px;
-			margin-top: 2px;
+			gap: var(--gl-space-6);
+			margin-top: var(--gl-space-2);
 			color: var(--color-foreground--75);
 		}
 
@@ -488,7 +488,7 @@ export class GlTimelineChart extends GlElement {
 
 		.tooltip .tooltip__message {
 			max-width: 300px;
-			margin-top: 4px;
+			margin-top: var(--gl-space-4);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;

@@ -65,14 +65,14 @@ export class GlBreadcrumbs extends LitElement {
 			gap: 0.1rem;
 			min-width: 16rem;
 			max-width: 32rem;
-			padding: 0.4rem 0.2rem;
+			padding: var(--gl-space-4) var(--gl-space-2);
 		}
 
 		/* Style the cloned tooltip content from each menu row's tooltip — the source
 	   markup is text + hr + path, and the default browser hr style looks wrong
 	   in our dark tooltip body. */
 		.overflow-menu gl-tooltip hr {
-			margin: 0.4rem 0;
+			margin: var(--gl-space-4) 0;
 			border: none;
 			border-top: 1px solid var(--color-foreground--25);
 		}
@@ -80,9 +80,9 @@ export class GlBreadcrumbs extends LitElement {
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
-			padding: 0.4rem 0.8rem;
+			padding: var(--gl-space-4) var(--gl-space-8);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font: inherit;
@@ -475,7 +475,7 @@ export class GlBreadcrumbItem extends LitElement {
 			.breadcrumb-item {
 				display: flex;
 				flex-direction: row;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				width: 100%;
 				min-width: 0;

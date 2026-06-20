@@ -38,7 +38,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.stale-banner {
-		margin: 0.4rem 1.2rem 0;
+		margin: var(--gl-space-4) var(--gl-space-12) 0;
 	}
 
 	.compose-plan {
@@ -51,9 +51,9 @@ export const composeModePanelStyles = css`
 	.compose-plan__header {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.4rem 0.8rem;
+		padding: var(--gl-space-4) var(--gl-space-8);
 	}
 
 	.compose-plan__back {
@@ -68,7 +68,7 @@ export const composeModePanelStyles = css`
 
 	.compose-plan__count {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		margin-left: auto;
 		font-size: var(--gl-font-sm);
@@ -90,8 +90,8 @@ export const composeModePanelStyles = css`
 	   Compose or Refine call without waiting on the AI to resolve. */
 	.compose-cancel {
 		align-self: center;
-		margin-top: 1rem;
-		margin-bottom: 1.2rem;
+		margin-top: var(--gl-space-10);
+		margin-bottom: var(--gl-space-12);
 	}
 
 	/* Wraps the loading branch so the vertical-stream animation can sit behind the spinner +
@@ -159,7 +159,7 @@ export const composeModePanelStyles = css`
 	.compose-plan__commit-all {
 		display: flex;
 		flex: none;
-		padding: 0.6rem 1.2rem;
+		padding: var(--gl-space-6) var(--gl-space-12);
 	}
 
 	.compose-plan__commit-all > gl-button {
@@ -168,7 +168,7 @@ export const composeModePanelStyles = css`
 
 	.compose-commit {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: flex-start;
 		padding: 0.5rem 1.2rem;
 		cursor: pointer;
@@ -248,7 +248,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit__message-body {
-		margin-left: 0.8rem;
+		margin-left: var(--gl-space-8);
 		color: color-mix(in srgb, var(--vscode-descriptionForeground) 75%, transparent);
 	}
 
@@ -303,10 +303,10 @@ export const composeModePanelStyles = css`
 
 	.compose-base {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
-		padding: 0.4rem 1.2rem 0.6rem;
-		margin-top: 0.4rem;
+		padding: var(--gl-space-4) var(--gl-space-12) var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 		border-top: 1px dashed var(--vscode-sideBarSectionHeader-border);
@@ -338,7 +338,7 @@ export const composeModePanelStyles = css`
 
 	.compose-base__meta {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-width: 0;
 		font-size: var(--gl-font-micro);

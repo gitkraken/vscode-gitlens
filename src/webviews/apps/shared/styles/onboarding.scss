@@ -53,7 +53,7 @@
 		box-sizing: border-box;
 		min-width: var(--gl-onboarding-width-min, 250px);
 		max-width: var(--gl-onboarding-width-max, 300px);
-		padding: 2.4rem;
+		padding: var(--gl-space-24);
 		margin: 0;
 		color: var(--wa-tooltip-color);
 		background-color: var(--wa-tooltip-background-color);
@@ -100,7 +100,7 @@
 	}
 
 	.driver-popover-title[style*='block'] + .driver-popover-description {
-		margin-top: 1.6rem;
+		margin-top: var(--gl-space-16);
 	}
 
 	.driver-popover-description {
@@ -114,7 +114,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		margin-top: 1.6rem;
+		margin-top: var(--gl-space-16);
 		text-align: right;
 		zoom: 1;
 	}
@@ -129,7 +129,7 @@
 		all: unset;
 		box-sizing: border-box;
 		display: inline-block;
-		padding: 0.8rem;
+		padding: var(--gl-space-8);
 		font: 12px / normal var(--wa-tooltip-font-family);
 		line-height: 1.35;
 		color: var(--vscode-button-secondaryForeground);
@@ -166,7 +166,7 @@
 	.driver-popover-navigation-btns {
 		display: flex;
 		flex-grow: 1;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		justify-content: flex-end;
 	}
 

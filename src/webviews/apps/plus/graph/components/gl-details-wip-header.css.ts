@@ -9,7 +9,7 @@ export const detailsWipHeaderStyles = css`
 	.graph-details-header__title-group {
 		display: flex;
 		flex: 1;
-		gap: 1.2rem;
+		gap: var(--gl-space-12);
 		align-items: center;
 		min-width: 0;
 		--commit-stats-pill-line-height: 2rem;
@@ -77,7 +77,7 @@ export const detailsWipHeaderStyles = css`
 	   from gl-details-base.css.ts. */
 	.graph-details-header__branch-row {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		min-height: var(--gl-metadata-bar-min-height, 3.2rem);
 		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.2rem var(--gl-panel-padding-left, 1.2rem);
@@ -88,13 +88,13 @@ export const detailsWipHeaderStyles = css`
 	/* When the issues row follows, drop the branch row's bottom border so the two rows
 	   read as a single tinted strip; the issues row carries the trailing border. */
 	.graph-details-header__branch-row:has(+ .graph-details-header__issues) {
-		padding-bottom: 0.4rem;
+		padding-bottom: var(--gl-space-4);
 	}
 
 	.branch-identity,
 	.branch-ops {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		min-height: 2.4rem;
 		--commit-stats-pill-line-height: 2rem;
@@ -131,7 +131,7 @@ export const detailsWipHeaderStyles = css`
 	.mode-status {
 		display: inline-flex;
 		flex: 0 0 auto;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		margin-left: auto;
 		overflow: hidden;
@@ -158,9 +158,9 @@ export const detailsWipHeaderStyles = css`
 	   snapshot is present (forward-available state). The whole pill is the click target. */
 	.mode-status__resume {
 		display: inline-flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
-		padding: 0.2rem 0.6rem;
+		padding: var(--gl-space-2) var(--gl-space-6);
 		font: inherit;
 		color: inherit;
 		cursor: pointer;
@@ -231,7 +231,7 @@ export const detailsWipHeaderStyles = css`
 
 	.graph-details-header__issues {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-width: 0;
 		padding: 0.2rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
@@ -274,7 +274,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		justify-content: center;
 		height: 2rem;
-		padding: 0 0.4rem;
+		padding: 0 var(--gl-space-4);
 		margin-left: -0.2rem;
 		color: var(--color-foreground--50);
 		cursor: pointer;

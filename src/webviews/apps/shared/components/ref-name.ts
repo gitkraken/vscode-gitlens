@@ -44,7 +44,7 @@ export class GlRefName extends LitElement {
 	   when the label is hidden via display:none — e.g. the icon-only
 	   collapse step in the graph header — the gap collapses with it. */
 		:host([icon]) .label {
-			margin-left: 0.4rem;
+			margin-left: var(--gl-space-4);
 		}
 	`;
 

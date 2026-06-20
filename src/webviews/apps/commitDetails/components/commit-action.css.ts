@@ -3,11 +3,11 @@ import { css } from 'lit';
 export const commitActionStyles = css`
 	.commit-action {
 		display: inline-flex;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 		justify-content: center;
 		height: 2rem;
-		padding: 0.2rem;
+		padding: var(--gl-space-2);
 		vertical-align: middle;
 		color: inherit;
 		text-decoration: none;

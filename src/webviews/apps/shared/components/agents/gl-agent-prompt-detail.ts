@@ -50,7 +50,7 @@ export class GlAgentPromptDetail extends LitElement {
 		.composite {
 			display: flex;
 			flex-direction: column;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			min-width: 0;
 			padding: 0.4rem 0.5rem;
 			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
@@ -79,7 +79,7 @@ export class GlAgentPromptDetail extends LitElement {
 
 		.caption-row {
 			display: flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-width: 0;
 		}
@@ -97,7 +97,7 @@ export class GlAgentPromptDetail extends LitElement {
 		.caption-actions {
 			display: inline-flex;
 			flex: none;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 		}
 

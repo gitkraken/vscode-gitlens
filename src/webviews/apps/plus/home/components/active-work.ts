@@ -67,7 +67,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 			:host {
 				display: block;
-				margin-bottom: 2.4rem;
+				margin-bottom: var(--gl-space-24);
 				color: var(--vscode-foreground);
 			}
 
@@ -76,7 +76,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			}
 
 			gl-section::part(header) {
-				margin-block-end: 0.2rem;
+				margin-block-end: var(--gl-space-2);
 			}
 
 			.section-heading-actions {
@@ -111,7 +111,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 			/* Style hr inside any slotted tooltip — the default browser hr renders too
 	   bright and without proper spacing inside the dark tooltip body. */
 			[slot='tooltip'] hr {
-				margin: 0.4rem 0;
+				margin: var(--gl-space-4) 0;
 				border: none;
 				border-top: 1px solid var(--color-foreground--25);
 			}
@@ -293,7 +293,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			:host {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			span.branch-item__missing {

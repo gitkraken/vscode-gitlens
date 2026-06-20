@@ -215,7 +215,7 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		gl-card::part(base) {
-			padding: 0.4rem 0.6rem;
+			padding: var(--gl-space-4) var(--gl-space-6);
 			margin-block-end: 0;
 			border-radius: var(--gl-radius-sm);
 		}
@@ -254,7 +254,7 @@ export class GlGraphOverviewCard extends LitElement {
 		.branch-item__grouping {
 			position: relative;
 			display: inline-flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			max-width: 100%;
 			margin-block: 0;
@@ -290,7 +290,7 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__meta {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			margin-block: 0;
 			font-size: 0.9em;
@@ -299,14 +299,14 @@ export class GlGraphOverviewCard extends LitElement {
 
 		.branch-item__meta-left {
 			display: inline-flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			min-width: 0;
 		}
 
 		.branch-item__meta-right {
 			display: inline-flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			margin-inline-start: auto;
 		}
@@ -317,7 +317,7 @@ export class GlGraphOverviewCard extends LitElement {
 		.branch-item__meta-inline {
 			display: inline-flex;
 			flex: none;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			margin-inline-start: auto;
 			font-size: 0.9em;
@@ -338,7 +338,7 @@ export class GlGraphOverviewCard extends LitElement {
 		.branch-item__active-agents {
 			display: flex;
 			flex-direction: column;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 
 			/* flex-start so a compact-fallback pill (needs-input + !canResolve) shrinks to its
 		   content instead of inheriting stretch. Full-mode pills still span the row via their
@@ -362,7 +362,7 @@ export class GlGraphOverviewCard extends LitElement {
 			z-index: 2;
 			display: inline-flex;
 			align-items: center;
-			padding: 0 0.4rem;
+			padding: 0 var(--gl-space-4);
 			font-size: 0.9em;
 			background-color: var(--gl-card-hover-background);
 		}
@@ -387,7 +387,7 @@ export class GlGraphOverviewCard extends LitElement {
 		.hover {
 			display: flex;
 			flex-direction: column;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			min-width: 24rem;
 			max-width: 36rem;
 		}
@@ -395,24 +395,24 @@ export class GlGraphOverviewCard extends LitElement {
 		.hover__section {
 			display: flex;
 			flex-direction: column;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 		}
 
 		.hover__section--inline {
 			flex-flow: row wrap;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: space-between;
 		}
 
 		.hover__section + .hover__section {
-			padding-top: 0.6rem;
+			padding-top: var(--gl-space-6);
 			border-top: 1px solid var(--vscode-widget-border, transparent);
 		}
 
 		.hover__row {
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			max-width: 100%;
 		}
@@ -457,13 +457,13 @@ export class GlGraphOverviewCard extends LitElement {
 		}
 
 		.hover__muted {
-			margin-inline-start: 0.4rem;
+			margin-inline-start: var(--gl-space-4);
 			color: var(--vscode-descriptionForeground);
 		}
 
 		.hover__launchpad {
 			display: inline-flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			font-size: 0.9em;
 		}
@@ -488,7 +488,7 @@ export class GlGraphOverviewCard extends LitElement {
 		.hover__status-group {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 		}
 
@@ -499,14 +499,14 @@ export class GlGraphOverviewCard extends LitElement {
 		.hover__agents {
 			display: flex;
 			flex-flow: row wrap;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 		}
 
 		.hover__actions {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 		}
 	`;
 

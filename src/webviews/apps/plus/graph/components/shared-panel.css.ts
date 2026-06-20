@@ -45,7 +45,7 @@ export const panelActionInputStyles = css`
 	}
 
 	.review-input-row > .review-action-input {
-		margin-bottom: 0.2rem;
+		margin-bottom: var(--gl-space-2);
 	}
 `;
 
@@ -56,10 +56,10 @@ export const resumeBarStyles = css`
 	.resume-bar {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
-		padding: 0.4rem 0.8rem;
-		margin: 0.6rem 0.6rem 0;
+		padding: var(--gl-space-4) var(--gl-space-8);
+		margin: var(--gl-space-6) var(--gl-space-6) 0;
 		font: inherit;
 		color: var(--vscode-foreground);
 		text-align: left;
@@ -85,7 +85,7 @@ export const resumeBarStyles = css`
 
 	.resume-bar__count {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		margin-left: auto;
 		font-size: var(--gl-font-sm);
@@ -105,7 +105,7 @@ export const resumeBarStyles = css`
 
 	.resume-bar__arrow {
 		flex-shrink: 0;
-		margin-left: 0.4rem;
+		margin-left: var(--gl-space-4);
 		font-size: 1.4rem;
 		opacity: 0.85;
 	}
@@ -121,7 +121,7 @@ export const panelLoadingStyles = css`
 	.review-loading {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: var(--gl-space-10);
 		align-items: center;
 		justify-content: center;
 		padding: 3rem 1rem 0;
@@ -140,9 +140,9 @@ export const panelLoadingStyles = css`
 export const panelStaleBannerStyles = css`
 	.stale-banner {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
-		padding: 0.6rem 0.8rem;
+		padding: var(--gl-space-6) var(--gl-space-8);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorWarning-foreground, #cca700);
 		background-color: var(--vscode-editorWarning-background, rgb(204 167 0 / 10%));
@@ -176,7 +176,7 @@ export const panelScopeSplitStyles = css`
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		padding: 0.6rem;
+		padding: var(--gl-space-6);
 		overflow: hidden;
 		border-bottom: 1px solid var(--vscode-sideBarSectionHeader-border);
 	}
@@ -200,9 +200,9 @@ export const panelScopeSplitStyles = css`
 		flex: 1;
 		flex-direction: column;
 		min-height: 0;
-		padding-right: 0.6rem;
-		padding-left: 0.6rem;
-		margin-top: 0.4rem;
+		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		overflow: hidden;
 	}
 
@@ -217,9 +217,9 @@ export const panelErrorStyles = css`
 	.panel-error {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
-		padding: 1rem 1.2rem;
-		margin: 0.8rem 1.2rem;
+		gap: var(--gl-space-8);
+		padding: var(--gl-space-10) var(--gl-space-12);
+		margin: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-foreground);
 		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
@@ -229,7 +229,7 @@ export const panelErrorStyles = css`
 
 	.panel-error__header {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 	}
 
@@ -252,7 +252,7 @@ export const panelErrorStyles = css`
 
 	.panel-error__actions {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		justify-content: flex-end;
 	}
 `;

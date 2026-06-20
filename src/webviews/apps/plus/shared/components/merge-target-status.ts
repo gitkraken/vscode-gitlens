@@ -23,12 +23,12 @@ type MergeTargetPromise = Promise<OverviewBranchMergeTarget | undefined> | undef
 
 const mergeTargetStyles = css`
 	.header__actions {
-		margin-top: 0.4rem;
+		margin-top: var(--gl-space-4);
 		margin-left: auto;
 	}
 
 	.content {
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	:host-context(.vscode-dark),
@@ -62,7 +62,7 @@ const mergeTargetStyles = css`
 	}
 
 	.header__subtitle {
-		margin: 0.2rem 0 0;
+		margin: var(--gl-space-2) 0 0;
 		font-size: 1.3rem;
 	}
 
@@ -111,26 +111,26 @@ const mergeTargetStyles = css`
 	}
 
 	.status-indicator {
-		margin-top: 0.8rem;
+		margin-top: var(--gl-space-8);
 		margin-left: -0.5rem;
 	}
 
 	.body {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		width: 100%;
 	}
 
 	.button-container {
 		display: flex;
 		flex-direction: column;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		margin-top: 0.4rem;
-		margin-bottom: 0.4rem;
+		margin-top: var(--gl-space-4);
+		margin-bottom: var(--gl-space-4);
 	}
 
 	.button-container gl-button {
@@ -138,7 +138,7 @@ const mergeTargetStyles = css`
 	}
 
 	p {
-		margin: 0 0.4rem;
+		margin: 0 var(--gl-space-4);
 	}
 
 	p code-icon,
@@ -150,9 +150,9 @@ const mergeTargetStyles = css`
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		padding: 0;
-		margin: 0 0.2rem 0.4rem;
+		margin: 0 var(--gl-space-2) var(--gl-space-4);
 		overflow: hidden;
 		color: var(--color-foreground--85);
 		border: 1px solid transparent;
@@ -167,7 +167,7 @@ const mergeTargetStyles = css`
 		position: sticky;
 		top: 0;
 		z-index: 1;
-		padding: 0.4rem 0.6rem;
+		padding: var(--gl-space-4) var(--gl-space-6);
 		color: var(--color-foreground);
 		cursor: pointer;
 		list-style: none;
@@ -196,9 +196,9 @@ const mergeTargetStyles = css`
 	.files {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		max-height: 8rem;
-		padding: 0.4rem 0.8rem;
+		padding: var(--gl-space-4) var(--gl-space-8);
 		overflow-y: auto;
 		background: var(--vscode-sideBar-background);
 	}
@@ -677,7 +677,7 @@ export class GlMergeTargetUpgrade extends LitElement {
 				margin-inline: 0.5rem;
 
 				p {
-					margin-block: 1rem;
+					margin-block: var(--gl-space-10);
 					margin-inline: 0;
 				}
 			}

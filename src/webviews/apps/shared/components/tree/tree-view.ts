@@ -105,9 +105,9 @@ export class GlTreeView extends GlElement {
 			.filter {
 				display: flex;
 				flex: none;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
-				padding: 0.4rem 0.6rem;
+				padding: var(--gl-space-4) var(--gl-space-6);
 			}
 
 			.filter-field {
@@ -120,7 +120,7 @@ export class GlTreeView extends GlElement {
 				box-sizing: border-box;
 				width: 100%;
 				height: 2.4rem;
-				padding: 0 2rem 0 0.6rem;
+				padding: 0 var(--gl-space-20) 0 var(--gl-space-6);
 				font-family: var(--vscode-font-family);
 				font-size: var(--vscode-font-size);
 				color: var(--vscode-input-foreground);
@@ -157,7 +157,7 @@ export class GlTreeView extends GlElement {
 				display: inline-flex;
 				gap: 0.1rem;
 				align-items: center;
-				padding-right: 0.2rem;
+				padding-right: var(--gl-space-2);
 			}
 
 			.filter-controls gl-button {
@@ -174,7 +174,7 @@ export class GlTreeView extends GlElement {
 			/* Shared by both the no-data case (emptyText) and the filter-yields-no-matches
 	   case ("No results found"); class name dates from the latter. */
 			.no-results {
-				padding: 1rem;
+				padding: var(--gl-space-10);
 				font-style: italic;
 				color: var(--vscode-descriptionForeground);
 				text-align: center;
@@ -203,7 +203,7 @@ export class GlTreeView extends GlElement {
 				gap: 0.3rem;
 				align-items: center;
 				height: 1.8rem;
-				padding: 0 0.6rem;
+				padding: 0 var(--gl-space-6);
 				font-size: 1.1rem;
 				font-weight: 500;
 				border: 1px solid;

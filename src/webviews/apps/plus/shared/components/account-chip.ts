@@ -54,7 +54,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: inline-flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 			}
 
@@ -73,7 +73,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.chip {
-				padding-right: 0.6rem;
+				padding-right: var(--gl-space-6);
 				font-size: 1.1rem;
 				font-weight: 400;
 				line-height: 2rem;
@@ -91,7 +91,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				flex: 0 0 auto;
 				align-items: center;
 				justify-content: center;
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 			}
 
 			img.chip__media {
@@ -104,26 +104,26 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.chip-group {
 				display: inline-flex;
 				flex-direction: row;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				cursor: pointer;
 			}
 
 			.account-info {
 				display: flex;
 				flex-direction: column;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 			}
 
 			.row {
 				position: relative;
 				display: flex;
 				flex-direction: row;
-				gap: 0 0.6rem;
+				gap: 0 var(--gl-space-6);
 				align-items: center;
 			}
 
 			.row:last-of-type {
-				margin-bottom: 0.6rem;
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.row__media {
@@ -169,7 +169,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				display: flex;
 				flex: none;
 				flex-direction: row;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 				justify-content: center;
 			}
@@ -180,7 +180,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				justify-content: center;
 				width: 2.4rem;
 				height: 2.4rem;
-				margin-right: 0.6rem;
+				margin-right: var(--gl-space-6);
 				font-size: 1rem;
 				font-weight: 600;
 				line-height: 2.4rem;
@@ -205,16 +205,16 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				display: inline-flex;
 				gap: 0.2em;
 				align-items: center;
-				margin-left: 0.4rem;
+				margin-left: var(--gl-space-4);
 				white-space: nowrap;
 			}
 
 			.upgrade > * {
-				margin-block: 0.8rem 0;
+				margin-block: var(--gl-space-8) 0;
 			}
 
 			.upgrade ul {
-				padding-inline-start: 2rem;
+				padding-inline-start: var(--gl-space-20);
 			}
 
 			.upgrade li {
@@ -225,7 +225,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				margin-block-start: 0;
 
 				/* border-radius: 0.3rem;
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		background-color: var(--gl-account-chip-color); */
 			}
 

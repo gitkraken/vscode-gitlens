@@ -60,13 +60,13 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.chip {
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: baseline;
-				padding: 0.2rem 0.4rem 0.4rem;
+				padding: var(--gl-space-2) var(--gl-space-4) var(--gl-space-4);
 			}
 
 			.chip__label {
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 				font-size: 1.1rem;
 				font-weight: 400;
 				color: var(--color-foreground--75);
@@ -78,7 +78,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			.content {
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			:host-context(.vscode-dark),
@@ -100,24 +100,24 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			}
 
 			gl-tooltip.status-indicator {
-				margin-right: 0.4rem;
+				margin-right: var(--gl-space-4);
 			}
 
 			.integrations {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				width: 100%;
 			}
 
 			.integration-row {
 				display: flex;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 			}
 
 			.integration-row--ai {
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
 				border-top: 1px solid var(--color-foreground--25);
 			}
 
@@ -160,14 +160,14 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 				display: flex;
 				flex: none;
 				flex-direction: row;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 				justify-content: flex-end;
 			}
 
 			button-container {
 				width: 100%;
-				margin-bottom: 0.4rem;
+				margin-bottom: var(--gl-space-4);
 			}
 
 			p {

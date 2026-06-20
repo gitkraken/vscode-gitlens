@@ -67,7 +67,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.badge-icon {
-				margin-left: 0.4rem;
+				margin-left: var(--gl-space-4);
 				font-weight: 400;
 				white-space: nowrap;
 			}
@@ -75,14 +75,14 @@ export class GlFeatureBadge extends LitElement {
 			.badge-popup {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				white-space: normal;
 			}
 
 			.popup-header {
 				display: flex;
 				flex-direction: column;
-				margin-bottom: 0.4rem;
+				margin-bottom: var(--gl-space-4);
 			}
 
 			.popup-title {
@@ -91,14 +91,14 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-subtitle {
-				margin-top: 0.6rem;
+				margin-top: var(--gl-space-6);
 				font-size: smaller;
 			}
 
 			.popup-content {
 				display: flex;
 				flex-direction: column;
-				padding-top: 0.6rem;
+				padding-top: var(--gl-space-6);
 				border-top: 1px solid var(--color-foreground--25);
 			}
 
@@ -107,20 +107,20 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-content .actions {
-				margin-top: 0.8rem;
-				margin-bottom: 0.6rem;
+				margin-top: var(--gl-space-8);
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.popup-content .actions:first-child {
-				margin-bottom: 0.8rem;
+				margin-bottom: var(--gl-space-8);
 			}
 
 			.popup-content .actions :not(:first-child) {
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 			}
 
 			.popup-content .actions gl-button:not(:first-child) {
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 			}
 
 			.hint {

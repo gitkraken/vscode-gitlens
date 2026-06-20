@@ -24,7 +24,7 @@ export class GlMergeConflictWarning extends LitElement {
 
 				box-sizing: border-box;
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				width: 100%;
 				max-width: 100%;
@@ -57,7 +57,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			.md-code {
-				padding: 0 4px 2px;
+				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
 				border-radius: var(--gl-radius-sm);
@@ -80,7 +80,7 @@ export class GlMergeConflictWarning extends LitElement {
 			}
 
 			.link--conflicts {
-				margin-left: 1rem;
+				margin-left: var(--gl-space-10);
 			}
 
 			.ref-link {

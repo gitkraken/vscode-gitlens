@@ -9,8 +9,8 @@ export class MenuLabel extends LitElement {
 		css`
 			:host {
 				display: block;
-				padding-right: 0.6rem;
-				padding-left: 0.6rem;
+				padding-right: var(--gl-space-6);
+				padding-left: var(--gl-space-6);
 				margin: 0;
 				font-size: 0.84em;
 				line-height: 2.2rem;

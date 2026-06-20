@@ -76,7 +76,7 @@ export class GlTooltip extends LitElement {
 	   Slotted content from consumers lives in their light DOM and isn't reachable
 	   from here — those consumers need their own [slot=content] hr rule. */
 		slot[name='content'] hr {
-			margin: 0.4rem 0;
+			margin: var(--gl-space-4) 0;
 			border: none;
 			border-top: 1px solid var(--color-foreground--25);
 		}

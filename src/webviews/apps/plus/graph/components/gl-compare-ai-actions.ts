@@ -37,7 +37,7 @@ export class GlCompareAIActions extends LitElement {
 
 			.row {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: stretch;
 				min-width: 0;
 			}
@@ -65,7 +65,7 @@ export class GlCompareAIActions extends LitElement {
 				flex: none;
 				align-items: center;
 				justify-content: center;
-				padding: 0 0.8rem;
+				padding: 0 var(--gl-space-8);
 				font: inherit;
 				font-size: var(--gl-font-base);
 				color: var(--vscode-input-foreground);

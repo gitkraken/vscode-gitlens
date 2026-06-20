@@ -189,7 +189,7 @@ export class GlGraphMinimap extends GlElement {
 		#tooltip .header {
 			display: flex;
 			flex-direction: row;
-			gap: 1rem;
+			gap: var(--gl-space-10);
 			justify-content: space-between;
 		}
 
@@ -225,7 +225,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .results .result {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-highlightForeground);
 			background-color: var(--color-graph-minimap-tip-highlightBackground);
 			border: 1px solid var(--color-graph-minimap-tip-highlightBorder);
@@ -246,7 +246,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .branch {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-branchForeground);
 			background-color: var(--color-graph-minimap-tip-branchBackground);
 			border: 1px solid var(--color-graph-minimap-tip-branchBorder);
@@ -260,7 +260,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .remote {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-remoteForeground);
 			background-color: var(--color-graph-minimap-tip-remoteBackground);
 			border: 1px solid var(--color-graph-minimap-tip-remoteBorder);
@@ -274,7 +274,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .stash {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-stashForeground);
 			background-color: var(--color-graph-minimap-tip-stashBackground);
 			border: 1px solid var(--color-graph-minimap-tip-stashBorder);
@@ -282,7 +282,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .pull-request {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-pullRequestForeground);
 			background-color: var(--color-graph-minimap-pullRequestBackground);
 			border: 1px solid var(--color-graph-minimap-pullRequestBorder);
@@ -290,7 +290,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .tag {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-tagForeground);
 			background-color: var(--color-graph-minimap-tip-tagBackground);
 			border: 1px solid var(--color-graph-minimap-tip-tagBorder);
@@ -298,7 +298,7 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		#tooltip .refs .worktree {
-			padding: 0 4px;
+			padding: 0 var(--gl-space-4);
 			color: var(--color-graph-minimap-tip-worktreeForeground);
 			background-color: var(--color-graph-minimap-tip-worktreeBackground);
 			border: 1px solid var(--color-graph-minimap-tip-worktreeBorder);

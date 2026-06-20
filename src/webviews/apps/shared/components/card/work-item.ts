@@ -11,7 +11,7 @@ export class GlWorkUnit extends LitElement {
 			.work-item {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			.work-item_content-empty {
@@ -21,7 +21,7 @@ export class GlWorkUnit extends LitElement {
 			.work-item__header {
 				display: flex;
 				flex-direction: row;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				justify-content: space-between;
 			}
@@ -40,7 +40,7 @@ export class GlWorkUnit extends LitElement {
 			.work-item__content {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				max-height: 100px;
 				transition-duration: 0.2s;
 				transition-property: opacity, max-height, display;

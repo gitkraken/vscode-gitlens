@@ -38,7 +38,7 @@ export const compareModePanelStyles = css`
 	.compare-bar {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
@@ -124,10 +124,10 @@ export const compareModePanelStyles = css`
 		   it past the wrapper's box and trigger a horizontal scrollbar on a narrow panel. */
 		box-sizing: border-box;
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		width: 100%;
-		padding: 0.6rem 1.2rem;
+		padding: var(--gl-space-6) var(--gl-space-12);
 		font: inherit;
 		color: var(--vscode-descriptionForeground);
 		text-align: left;
@@ -149,7 +149,7 @@ export const compareModePanelStyles = css`
 
 	.compare-swap {
 		flex: 0 0 auto;
-		margin-inline: 0.4rem;
+		margin-inline: var(--gl-space-4);
 	}
 
 	.compare-wt-toggle {
@@ -181,9 +181,9 @@ export const compareModePanelStyles = css`
 	.compare-error {
 		display: flex;
 		flex: none;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
-		padding: 0.6rem 1.2rem;
+		padding: var(--gl-space-6) var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorError-foreground);
 		background: var(--vscode-inputValidation-errorBackground);
@@ -193,9 +193,9 @@ export const compareModePanelStyles = css`
 	.compare-stale {
 		display: flex;
 		flex: none;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
-		padding: 0.6rem 1.2rem;
+		padding: var(--gl-space-6) var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		color: var(--vscode-inputValidation-warningForeground);
 		background: var(--vscode-inputValidation-warningBackground);
@@ -278,7 +278,7 @@ export const compareModePanelStyles = css`
 	   inactive dim comes from the parent tab's opacity:0.55, not a different color. This avoids
 	   the badge flashing to the default vscode-badge palette when switching tabs. */
 	.compare-tab__count {
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font-size: var(--gl-font-micro);
 		font-weight: 500;
 		line-height: 1;
@@ -319,7 +319,7 @@ export const compareModePanelStyles = css`
 		align-items: center;
 		justify-content: center;
 		min-width: 0;
-		padding: 1rem 1.2rem;
+		padding: var(--gl-space-10) var(--gl-space-12);
 		font-size: 1.2rem;
 		color: var(--color-foreground--65);
 	}
@@ -424,7 +424,7 @@ export const compareModePanelStyles = css`
 		--gl-tree-item-min-height: 2.4rem;
 		--gl-tree-item-padding-y: 0.2rem;
 
-		padding-right: 0.2rem;
+		padding-right: var(--gl-space-2);
 	}
 
 	/* This consumer doesn't slot any actions; tree-item's show-on-hover behavior would otherwise
@@ -457,10 +457,10 @@ export const compareModePanelStyles = css`
 	.compare-empty {
 		display: flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		justify-content: center;
-		padding: 1rem 1.2rem;
+		padding: var(--gl-space-10) var(--gl-space-12);
 		font-size: var(--gl-font-base);
 		color: var(--color-foreground--50);
 	}
@@ -476,10 +476,10 @@ export const compareModePanelStyles = css`
 	.compare-scope-tag {
 		display: inline-flex;
 		flex: none;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		padding: 0.1rem 0.3rem 0.1rem 0.4rem;
-		margin: 0 0.6rem;
+		margin: 0 var(--gl-space-6);
 		font-size: 1.2rem;
 		font-weight: normal;
 		line-height: 1;
@@ -563,7 +563,7 @@ export const compareModePanelStyles = css`
 	   Contributors header (selector + count badge) aligns identically to the Files Changed header. */
 	.compare-contributors-title {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 	}
 
@@ -575,7 +575,7 @@ export const compareModePanelStyles = css`
 		flex: 0 100 auto;
 		min-width: 0;
 		max-width: 100%;
-		margin-inline-start: 0.4rem;
+		margin-inline-start: var(--gl-space-4);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		font-size: var(--gl-font-micro);
@@ -586,7 +586,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-stats__additions {
-		margin-inline-end: 0.6rem;
+		margin-inline-end: var(--gl-space-6);
 		color: var(--gl-stat-added);
 	}
 
@@ -630,7 +630,7 @@ export const compareModePanelStyles = css`
 		gap: 0.5rem;
 		align-items: center;
 		min-width: 0;
-		padding: 0.4rem 1.2rem;
+		padding: var(--gl-space-4) var(--gl-space-12);
 		font-size: var(--gl-font-sm);
 	}
 
@@ -640,7 +640,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-enrichment gl-action-chip::part(base) {
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.compare-enrichment gl-action-chip::part(icon) {
@@ -722,9 +722,9 @@ export const compareModePanelStyles = css`
 	.compare-view-menu {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		min-width: 16rem;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 		font-size: var(--gl-font-base);
 		font-weight: normal;
 		text-transform: none;
@@ -737,7 +737,7 @@ export const compareModePanelStyles = css`
 	}
 
 	.compare-view-menu menu-item code-icon {
-		margin-right: 0.6rem;
+		margin-right: var(--gl-space-6);
 		opacity: 0.75;
 	}
 
@@ -754,10 +754,10 @@ export const compareModePanelStyles = css`
 	.compare-contributors--loading,
 	.compare-contributors--empty,
 	.compare-files--loading {
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: center;
-		padding: 2rem 1.2rem;
+		padding: var(--gl-space-20) var(--gl-space-12);
 		color: var(--vscode-descriptionForeground);
 	}
 
@@ -774,11 +774,11 @@ export const compareModePanelStyles = css`
 	.compare-side-loading {
 		display: flex;
 		flex: 1;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: center;
 		min-height: 0;
-		padding: 2rem 1.2rem;
+		padding: var(--gl-space-20) var(--gl-space-12);
 		color: var(--vscode-descriptionForeground);
 	}
 
@@ -788,7 +788,7 @@ export const compareModePanelStyles = css`
 	   the spinner and the chip-based states. */
 	.compare-enrichment__loading {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-height: 2rem;
 		font-size: var(--gl-font-sm);
@@ -811,7 +811,7 @@ export const compareModePanelStyles = css`
 
 	.compare-contributor {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
 		min-width: 0;
 		padding: 0.5rem 1.2rem;
@@ -852,14 +852,14 @@ export const compareModePanelStyles = css`
 	.compare-contributor__stats {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		font-size: 1.1rem;
 		color: var(--vscode-descriptionForeground);
 	}
 
 	.compare-contributor__diffstat {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.compare-contributor__additions {

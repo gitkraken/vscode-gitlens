@@ -151,7 +151,7 @@ export const treeItemStyles = [
 			display: flex;
 			flex: 1;
 			flex-direction: row;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			justify-content: flex-start;
 			min-width: 0;
@@ -235,7 +235,7 @@ export const treeItemStyles = [
 		.branch {
 			display: inline-block;
 			height: 2.2rem;
-			margin-right: 0.6rem;
+			margin-right: var(--gl-space-6);
 			line-height: 2.2rem;
 			vertical-align: text-bottom;
 		}
@@ -263,7 +263,7 @@ export const treeItemStyles = [
 
 		.actions {
 			flex: none;
-			margin-left: 0.4rem;
+			margin-left: var(--gl-space-4);
 			color: var(--vscode-icon-foreground);
 			user-select: none;
 		}
@@ -294,7 +294,7 @@ export const treeItemStyles = [
 			display: inline-flex;
 			width: 1.6rem;
 			aspect-ratio: 1 / 1;
-			margin-right: 0.6rem;
+			margin-right: var(--gl-space-6);
 			color: var(--vscode-checkbox-foreground);
 			text-align: center;
 			background: var(--vscode-checkbox-background);
@@ -357,9 +357,9 @@ export const treeItemStyles = [
 		slot[name='decorations-after'] {
 			display: inline-flex;
 			flex: none;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
-			margin-left: 0.4rem;
+			margin-left: var(--gl-space-4);
 			white-space: nowrap;
 			--gl-pill-border: color-mix(in srgb, transparent 80%, var(--color-foreground));
 		}

@@ -244,7 +244,7 @@ export class GlTreemapChart extends LitElement {
 			flex: 1 1 auto;
 			align-items: center;
 			justify-content: center;
-			padding: 1rem;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-align: center;
 		}
@@ -273,10 +273,10 @@ export class GlTreemapChart extends LitElement {
 			top: 50%;
 			left: 50%;
 			display: flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 			max-width: 80%;
-			padding: 0.6rem 1rem;
+			padding: var(--gl-space-6) var(--gl-space-10);
 			font-size: 1.2rem;
 			color: var(--vscode-descriptionForeground);
 			text-align: center;
@@ -293,7 +293,7 @@ export class GlTreemapChart extends LitElement {
 
 			position: fixed;
 			z-index: 1000;
-			padding: 0.4rem 0.8rem;
+			padding: var(--gl-space-4) var(--gl-space-8);
 			font-family: var(--vscode-font-family);
 			font-size: 1.2rem;
 			color: var(--vscode-editorHoverWidget-foreground);

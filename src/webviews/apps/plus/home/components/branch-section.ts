@@ -12,15 +12,15 @@ export class GlSection extends LitElement {
 	static override styles = [
 		css`
 			.section {
-				margin-bottom: 1.2rem;
+				margin-bottom: var(--gl-space-12);
 			}
 
 			.section__header {
 				position: relative;
 				display: flex;
-				gap: 8px;
+				gap: var(--gl-space-8);
 				justify-content: space-between;
-				margin-block: 0 0.8rem;
+				margin-block: 0 var(--gl-space-8);
 			}
 
 			.section__heading {

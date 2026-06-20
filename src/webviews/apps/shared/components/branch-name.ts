@@ -11,7 +11,7 @@ export class GlBranchName extends LitElement {
 			align-items: baseline;
 			min-width: 0;
 			max-width: 100%;
-			margin-inline: 0.2rem;
+			margin-inline: var(--gl-space-2);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
@@ -29,7 +29,7 @@ export class GlBranchName extends LitElement {
 		}
 
 		:host([appearance='button']) {
-			padding: 0.2rem 0.4rem;
+			padding: var(--gl-space-2) var(--gl-space-4);
 			font-size: var(--gl-font-base);
 			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 			cursor: pointer;
@@ -71,7 +71,7 @@ export class GlBranchName extends LitElement {
 		.chevron {
 			flex-shrink: 0;
 			align-self: center;
-			margin-left: 0.2rem;
+			margin-left: var(--gl-space-2);
 		}
 	`;
 

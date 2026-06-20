@@ -63,13 +63,13 @@ export class ActionChip extends LitElement {
 
 			.chip {
 				display: inline-flex;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 				justify-content: center;
 				min-width: 2rem;
 				max-width: 100%;
 				height: 2rem;
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 				overflow: hidden;
 				font: inherit;
 
@@ -94,7 +94,7 @@ export class ActionChip extends LitElement {
 			}
 
 			::slotted(*) {
-				padding-inline-end: 0.2rem;
+				padding-inline-end: var(--gl-space-2);
 				vertical-align: middle;
 				text-transform: var(--chip-text-transform, capitalize);
 			}

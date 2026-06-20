@@ -17,8 +17,8 @@ export const commitBoxStyles = css`
 		display: flex;
 		flex: none;
 		flex-direction: column;
-		gap: 0.4rem;
-		padding: 0.6rem 1.2rem 0.8rem;
+		gap: var(--gl-space-4);
+		padding: var(--gl-space-6) var(--gl-space-12) var(--gl-space-8);
 		border-top: 1px solid var(--vscode-sideBarSectionHeader-border);
 		--gl-input-working-border-color: var(--gl-agent-working-color);
 	}
@@ -183,7 +183,7 @@ export const commitBoxStyles = css`
 		right: 0.4rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 		pointer-events: none;
 		transition: right 0.2s ease;
@@ -195,7 +195,7 @@ export const commitBoxStyles = css`
 		top: auto;
 		bottom: 0.4rem;
 		flex-direction: row;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	/* Shift left when a scrollbar is rendered (using scroll-timeline state detection via CSS if available)

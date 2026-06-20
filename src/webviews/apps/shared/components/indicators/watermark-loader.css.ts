@@ -12,7 +12,7 @@ export const baseStyles = css`
 	}
 
 	::slotted(p) {
-		padding-top: 1rem;
+		padding-top: var(--gl-space-10);
 		font-size: 1.4rem;
 		color: var(--color-foreground--75);
 	}

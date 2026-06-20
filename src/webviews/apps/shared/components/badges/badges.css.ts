@@ -16,7 +16,7 @@ export const badgeBase = css`
 	:host([appearance='filled']) .badge {
 		justify-content: center;
 		min-width: 1.6rem;
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font-weight: 500;
 		line-height: 1;
 		color: var(--vscode-badge-foreground);
@@ -28,7 +28,7 @@ export const badgeBase = css`
 	:host([appearance='warning']) .badge {
 		justify-content: center;
 		min-width: 1.6rem;
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 		font-weight: 500;
 		line-height: 1;
 		color: var(--vscode-button-foreground, #fff);

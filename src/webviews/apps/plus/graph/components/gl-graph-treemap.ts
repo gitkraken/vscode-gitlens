@@ -167,13 +167,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.toolbar {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			min-height: 3.2rem;
 
 			/* 0.6rem horizontal so the switcher (left) and the close button (right) sit at matching
 		 * inset from the toolbar edges. Vertical kept at 0.4rem for the 32px toolbar height. */
-			padding: 0.4rem 0.6rem;
+			padding: var(--gl-space-4) var(--gl-space-6);
 
 			/* Clip rather than overflow when content exceeds the toolbar width — at very narrow
 		 * widths even the shrunken description + pill may overflow the right edge. Clipping
@@ -240,7 +240,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 * dimming) to match the rest of the toolbar text. */
 		.period-button {
 			display: inline-flex;
-			gap: 0.2rem;
+			gap: var(--gl-space-2);
 			align-items: center;
 			padding: 0.1rem 0.4rem;
 			font: inherit;
@@ -275,7 +275,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		.toolbar__right {
 			display: flex;
 			flex: none;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			min-width: 0;
 
@@ -297,7 +297,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		.hooks-banner {
 			display: block;
-			margin: 1.2rem;
+			margin: var(--gl-space-12);
 		}
 
 		gl-treemap-chart {
@@ -320,10 +320,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			inset: 0;
 			display: flex;
 			flex-direction: column;
-			gap: 1.2rem;
+			gap: var(--gl-space-12);
 			align-items: center;
 			justify-content: center;
-			padding: 1rem;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-align: center;
 			background: var(--vscode-editor-background, transparent);
@@ -333,10 +333,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			display: flex;
 			flex: 1 1 auto;
 			flex-direction: column;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			justify-content: center;
-			padding: 1rem;
+			padding: var(--gl-space-10);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-align: center;
 		}

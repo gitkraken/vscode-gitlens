@@ -10,7 +10,7 @@ export const graphScopePopoverStyles = css`
 
 	.mode-chip {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		min-width: 0;
 		max-width: 24rem;
@@ -82,7 +82,7 @@ export const graphScopePopoverStyles = css`
 		justify-content: center;
 		width: 1.6rem;
 		height: 1.6rem;
-		margin-left: 0.2rem;
+		margin-left: var(--gl-space-2);
 		color: inherit;
 		cursor: pointer;
 		border-radius: var(--gl-radius-xs);
@@ -106,7 +106,7 @@ export const graphScopePopoverStyles = css`
 		flex: 1 1 auto;
 		flex-direction: column;
 		min-height: 0;
-		padding: 0.2rem 0;
+		padding: var(--gl-space-2) 0;
 	}
 
 	.mode-popover__content menu-divider {
@@ -157,7 +157,7 @@ export const graphScopePopoverStyles = css`
 		flex: 0 1 auto;
 		min-width: 0;
 		max-width: 16rem;
-		margin-right: 0.2rem;
+		margin-right: var(--gl-space-2);
 		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 	}
 
@@ -173,7 +173,7 @@ export const graphScopePopoverStyles = css`
 
 	.mode-popover__section-header {
 		display: flex;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 		min-height: 1.8rem;
 		padding: 0.2rem 0.8rem 0.1rem;
@@ -281,14 +281,14 @@ export const graphScopePopoverStyles = css`
 	}
 
 	.mode-popover__empty {
-		padding: 0.8rem 1.2rem;
+		padding: var(--gl-space-8) var(--gl-space-12);
 		font-style: italic;
 		color: var(--color-foreground--65);
 	}
 
 	.mode-popover__empty--retry {
 		display: flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 	}
 `;

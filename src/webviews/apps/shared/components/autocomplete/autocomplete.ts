@@ -53,7 +53,7 @@ export class GlAutocomplete extends LitElement {
 				min-width: min(max(100%, 30rem), var(--_max-width, 100%));
 				max-width: var(--_max-width, none);
 				max-height: 20rem;
-				margin-top: 0.2rem;
+				margin-top: var(--gl-space-2);
 				overflow-y: auto;
 				color: var(--vscode-quickInput-foreground);
 				background-color: var(--vscode-quickInput-background);
@@ -75,9 +75,9 @@ export class GlAutocomplete extends LitElement {
 			.autocomplete-item {
 				display: flex;
 				flex-direction: row;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
-				padding: 0.2rem 0.8rem;
+				padding: var(--gl-space-2) var(--gl-space-8);
 				cursor: pointer;
 			}
 
@@ -112,7 +112,7 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item__header {
 				display: flex;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 				justify-content: space-between;
 			}
@@ -151,7 +151,7 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-item.help {
 				gap: 0.5rem;
-				padding: 0.2rem 0.8rem;
+				padding: var(--gl-space-2) var(--gl-space-8);
 				color: var(--vscode-list-inactiveSelectionForeground);
 				cursor: default;
 				background-color: var(--vscode-list-inactiveSelectionBackground) !important;
@@ -165,7 +165,7 @@ export class GlAutocomplete extends LitElement {
 			}
 
 			.autocomplete-description {
-				padding: 0.6rem 0.8rem;
+				padding: var(--gl-space-6) var(--gl-space-8);
 				font-size: 0.85em;
 				line-height: 1.4;
 				color: var(--vscode-foreground);
@@ -179,7 +179,7 @@ export class GlAutocomplete extends LitElement {
 
 			.autocomplete-description__example {
 				display: block;
-				margin-top: 0.4rem;
+				margin-top: var(--gl-space-4);
 				font-size: 0.95em;
 				color: var(--vscode-descriptionForeground);
 			}

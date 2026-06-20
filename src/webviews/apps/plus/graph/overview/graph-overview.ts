@@ -61,22 +61,22 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.content {
 				flex: 1;
 				min-height: 0;
-				padding: 0.4rem;
+				padding: var(--gl-space-4);
 				overflow: hidden auto;
 			}
 
 			.group {
-				margin-bottom: 1.6rem;
+				margin-bottom: var(--gl-space-16);
 			}
 
 			.group + .group {
-				padding-top: 0.8rem;
+				padding-top: var(--gl-space-8);
 				border-top: 1px solid var(--vscode-sideBarSectionHeader-border, transparent);
 			}
 
 			.group__label {
-				padding-inline: 0.4rem;
-				margin-block: 0 0.4rem;
+				padding-inline: var(--gl-space-4);
+				margin-block: 0 var(--gl-space-4);
 				font-size: 1.1rem;
 				font-weight: normal;
 				color: var(--vscode-descriptionForeground);
@@ -85,7 +85,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.group__header {
 				display: flex;
-				gap: 0.4rem;
+				gap: var(--gl-space-4);
 				align-items: center;
 				justify-content: space-between;
 			}
@@ -100,9 +100,9 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.threshold-filter {
 				display: inline-flex;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
-				padding: 0 0.4rem;
+				padding: 0 var(--gl-space-4);
 				font-family: inherit;
 				font-size: 1.1rem;
 				color: var(--color-foreground--50);
@@ -125,12 +125,12 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.section {
-				margin-bottom: 0.6rem;
+				margin-bottom: var(--gl-space-6);
 			}
 
 			.section-label {
-				padding-inline: 0.4rem;
-				margin-block: 0 0.2rem;
+				padding-inline: var(--gl-space-4);
+				margin-block: 0 var(--gl-space-2);
 				font-size: 1rem;
 				font-weight: normal;
 				color: var(--vscode-descriptionForeground);
@@ -145,11 +145,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.cards {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 			}
 
 			.empty {
-				padding: 0.6rem 0.8rem;
+				padding: var(--gl-space-6) var(--gl-space-8);
 				font-size: 1.1rem;
 				font-style: italic;
 				color: var(--vscode-descriptionForeground);

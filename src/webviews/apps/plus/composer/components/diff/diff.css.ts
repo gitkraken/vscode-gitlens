@@ -149,7 +149,7 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-lines-added {
-		padding: 2px;
+		padding: var(--gl-space-2);
 		vertical-align: middle;
 		color: var(--d2h-ins-label-color);
 		text-align: right;
@@ -158,7 +158,7 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-lines-deleted {
-		padding: 2px;
+		padding: var(--gl-space-2);
 		margin-left: 1px;
 		vertical-align: middle;
 		color: var(--d2h-del-label-color);
@@ -192,7 +192,7 @@ export const diff2htmlStyles = css`
 		display: none;
 		align-items: center;
 		justify-content: flex-end;
-		padding: 4px 8px;
+		padding: var(--gl-space-4) var(--gl-space-8);
 		font-size: 12px;
 		cursor: pointer;
 		border: 1px solid var(--d2h-border-color);
@@ -204,7 +204,7 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-file-collapse-input {
-		margin: 0 4px 0 0;
+		margin: 0 var(--gl-space-4) 0 0;
 	}
 
 	.d2h-diff-table {
@@ -411,7 +411,7 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-file-list-wrapper {
-		margin-bottom: 10px;
+		margin-bottom: var(--gl-space-10);
 	}
 
 	.d2h-file-list-wrapper a {
@@ -461,7 +461,7 @@ export const diff2htmlStyles = css`
 	}
 
 	.d2h-icon {
-		margin-right: 10px;
+		margin-right: var(--gl-space-10);
 		vertical-align: middle;
 		fill: currentcolor;
 	}
@@ -485,7 +485,7 @@ export const diff2htmlStyles = css`
 	.d2h-tag {
 		display: flex;
 		padding: 0 3px;
-		margin-left: 6px;
+		margin-left: var(--gl-space-6);
 		font-size: 10px;
 		background-color: var(--d2h-bg-color);
 		border-radius: var(--gl-radius-xs);
@@ -839,7 +839,7 @@ export const diffStyles = css`
 	}
 
 	.d2h-file-header {
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: center;
 		cursor: pointer;
 	}

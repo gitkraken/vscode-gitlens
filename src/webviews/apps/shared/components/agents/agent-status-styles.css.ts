@@ -7,7 +7,7 @@ import { css } from 'lit';
 export const agentToolStyles = css`
 	.agent-tool {
 		display: inline-flex;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 		align-items: baseline;
 		min-width: 0;
 		font-size: 0.9em;

@@ -35,7 +35,7 @@ export const selectStyles = css`
 	}
 
 	wa-select::part(expand-icon) {
-		margin-inline-start: 0.4rem;
+		margin-inline-start: var(--gl-space-4);
 	}
 
 	wa-select:focus-within::part(combobox) {
@@ -55,7 +55,7 @@ export const selectStyles = css`
 		--gl-elevation: var(--gl-shadow-popover);
 		--gl-elevation-border-color: var(--vscode-dropdown-border);
 
-		padding: 4px 0;
+		padding: var(--gl-space-4) 0;
 		background-color: var(--vscode-dropdown-background);
 		border-radius: var(--gl-radius-sm);
 

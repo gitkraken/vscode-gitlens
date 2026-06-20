@@ -112,11 +112,11 @@ export class GlDetailSheet extends LitElement {
 				box-sizing: border-box;
 				display: flex;
 				flex: 0 0 auto;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				justify-content: space-between;
 				min-height: 4.2rem;
-				padding: 0.8rem 0.8rem 0.8rem 1.6rem;
+				padding: var(--gl-space-8) var(--gl-space-8) var(--gl-space-8) var(--gl-space-16);
 				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
 				background: var(--vscode-sideBarSectionHeader-background, var(--vscode-sideBar-background));
 				border-bottom: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
@@ -142,7 +142,7 @@ export class GlDetailSheet extends LitElement {
 			.sheet__actions {
 				display: inline-flex;
 				flex: 0 0 auto;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: center;
 			}
 
@@ -157,8 +157,8 @@ export class GlDetailSheet extends LitElement {
 			.sheet__footer {
 				display: flex;
 				flex: 0 0 auto;
-				gap: 0.8rem;
-				padding: 0.6rem 1.2rem;
+				gap: var(--gl-space-8);
+				padding: var(--gl-space-6) var(--gl-space-12);
 				border-top: 0.1rem solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 

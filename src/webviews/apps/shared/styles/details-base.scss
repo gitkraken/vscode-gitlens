@@ -185,7 +185,7 @@ ul {
 .message-block-group {
 	display: flex;
 	flex-direction: row;
-	gap: 0.6rem;
+	gap: var(--gl-space-6);
 }
 
 .message-block-row {
@@ -193,7 +193,7 @@ ul {
 }
 
 .message-block-row--actions {
-	padding: 0.2rem;
+	padding: var(--gl-space-2);
 	font-size: 1.3rem;
 	color: var(--color-foreground--65);
 	background: var(--color-background--level-075);
@@ -218,7 +218,7 @@ ul {
 	}
 
 	gl-commit-date {
-		margin-inline-end: 0.2rem;
+		margin-inline-end: var(--gl-space-2);
 	}
 
 	gl-action-chip.error {
@@ -235,7 +235,7 @@ ul {
 	display: flex;
 	flex: 1 1 0;
 	flex-wrap: wrap;
-	gap: 0.6rem;
+	gap: var(--gl-space-6);
 	align-items: center;
 	min-width: 0;
 	overflow: hidden;
@@ -310,18 +310,18 @@ ul {
 		white-space: nowrap;
 
 		code-icon {
-			margin-right: 0.2rem;
+			margin-right: var(--gl-space-2);
 			vertical-align: middle;
 		}
 	}
 
 	&__ellipsis {
-		padding: 0 0.4rem;
+		padding: 0 var(--gl-space-4);
 		opacity: 0.8;
 	}
 
 	&__count {
-		padding-left: 0.4rem;
+		padding-left: var(--gl-space-4);
 		font-size: 10px;
 		font-weight: 600;
 		color: var(--color-foreground--50);
@@ -333,14 +333,14 @@ ul {
 	max-width: 400px;
 
 	&__header {
-		padding-bottom: 0.6rem;
+		padding-bottom: var(--gl-space-6);
 		font-weight: 500;
 	}
 
 	&__list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		max-height: 300px;
 		overflow-y: auto;
 	}
@@ -392,14 +392,14 @@ ul {
 
 .ai-content {
 	padding: 0.5rem;
-	margin-top: 1rem;
+	margin-top: var(--gl-space-10);
 	font-size: 1.3rem;
 	background: var(--vscode-input-background);
 	border: 0.1rem solid var(--vscode-input-border, transparent);
 	border-radius: var(--gl-radius-xs);
 
 	&.has-error {
-		padding-left: 0.8rem;
+		padding-left: var(--gl-space-8);
 		border-left-color: var(--color-alert-errorBorder);
 		border-left-width: 0.3rem;
 	}

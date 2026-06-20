@@ -278,10 +278,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				position: relative;
 				display: flex;
 				flex: none;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				min-height: 2.2rem;
-				padding: 0 0 0 0.4rem;
+				padding: 0 0 0 var(--gl-space-4);
 				font-size: 1.1rem;
 				font-weight: 600;
 				color: var(--color-view-header-foreground);
@@ -324,16 +324,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			.loading {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
-				padding: 0.4rem 0;
+				gap: var(--gl-space-6);
+				padding: var(--gl-space-4) 0;
 			}
 
 			.skeleton {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				height: 2.2rem;
-				padding: 0.2rem 1rem;
+				padding: var(--gl-space-2) var(--gl-space-10);
 			}
 
 			.skeleton-icon {
@@ -381,7 +381,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 
 			.empty {
-				padding: 1rem;
+				padding: var(--gl-space-10);
 				font-size: 1.2rem;
 				color: var(--vscode-descriptionForeground);
 				text-align: center;
@@ -389,7 +389,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.agents-banner {
 				flex: none;
-				padding: 0 0.4rem 0.4rem;
+				padding: 0 var(--gl-space-4) var(--gl-space-4);
 			}
 		`,
 	];

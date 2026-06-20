@@ -17,7 +17,7 @@ export class CommitItem extends LitElement {
 		css`
 			:host {
 				display: block;
-				margin-bottom: 0.2rem;
+				margin-bottom: var(--gl-space-2);
 			}
 
 			.commit-item.sortable-ghost {
@@ -40,7 +40,7 @@ export class CommitItem extends LitElement {
 				position: absolute;
 				top: 50%;
 				left: 0.4rem;
-				padding: 0.2rem;
+				padding: var(--gl-space-2);
 				color: var(--vscode-descriptionForeground);
 				cursor: grab;
 				opacity: 0.3;

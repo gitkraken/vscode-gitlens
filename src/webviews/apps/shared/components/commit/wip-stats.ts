@@ -51,7 +51,7 @@ export class GlWipStats extends LitElement {
 			}
 
 			.indicator-pill.pill {
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				text-transform: none;
 				user-select: none;
 			}
@@ -69,7 +69,7 @@ export class GlWipStats extends LitElement {
 
 			.paused-op-badge {
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				padding: 0.1rem 0.4rem;
 				font-size: 1.1rem;

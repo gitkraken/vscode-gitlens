@@ -21,7 +21,7 @@ export class ActionItem extends LitElement {
 			justify-content: center;
 			width: 2rem;
 			height: 2rem;
-			padding: 0.2rem;
+			padding: var(--gl-space-2);
 			vertical-align: text-bottom;
 			color: var(--action-item-foreground, var(--vscode-icon-foreground));
 			text-decoration: none;

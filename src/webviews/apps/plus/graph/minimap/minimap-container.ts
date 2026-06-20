@@ -92,7 +92,7 @@ export class GlGraphMinimapContainer extends GlElement {
 
 		.minimap-datatype__label {
 			display: inline-flex;
-			gap: 0.6rem;
+			gap: var(--gl-space-6);
 			align-items: center;
 		}
 
@@ -109,7 +109,7 @@ export class GlGraphMinimapContainer extends GlElement {
 			display: inline-block;
 			width: 1rem;
 			height: 1rem;
-			margin-right: 1rem;
+			margin-right: var(--gl-space-10);
 			margin-left: 0.3rem;
 			border-radius: 0.125rem;
 			transform: scale(1.6);

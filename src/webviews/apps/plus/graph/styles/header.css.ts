@@ -232,7 +232,7 @@ export const graphHeaderControlStyles = css`
 	}
 
 	wa-option::part(base) {
-		padding: 0.2rem 0.4rem;
+		padding: var(--gl-space-2) var(--gl-space-4);
 	}
 
 	wa-option:focus::part(base) {
@@ -253,7 +253,7 @@ export const graphHeaderControlStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: 0.1rem;
-		padding-block: 0.2rem 0;
+		padding-block: var(--gl-space-2) 0;
 		width: max-content;
 	}
 

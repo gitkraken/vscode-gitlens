@@ -33,9 +33,9 @@ export const detailsWipPanelStyles = css`
 		flex: 1;
 		flex-direction: column;
 		min-height: 0;
-		padding-right: 0.6rem;
-		padding-left: 0.6rem;
-		margin-top: 0.4rem;
+		padding-right: var(--gl-space-6);
+		padding-left: var(--gl-space-6);
+		margin-top: var(--gl-space-4);
 		overflow: hidden;
 	}
 
@@ -71,7 +71,7 @@ export const detailsWipPanelStyles = css`
 
 	:host([variant='embedded']) webview-pane [slot='title'] {
 		display: inline-flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 	}
 
@@ -85,7 +85,7 @@ export const detailsWipPanelStyles = css`
 
 	:host([variant='embedded']) .header__identity {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		padding: 0.8rem var(--gl-panel-padding-right) 0.4rem var(--gl-panel-padding-left);
 	}
@@ -126,16 +126,16 @@ export const detailsWipPanelStyles = css`
 	:host([variant='embedded']) .header__identity-right {
 		display: flex;
 		flex-shrink: 0;
-		gap: 0.2rem;
+		gap: var(--gl-space-2);
 		align-items: center;
 	}
 
 	:host([variant='embedded']) .header__branch-row {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.2rem 1rem 0.6rem 1.2rem;
+		padding: var(--gl-space-2) var(--gl-space-10) var(--gl-space-6) var(--gl-space-12);
 	}
 
 	:host([variant='embedded']) .header__branch-pill {
@@ -146,11 +146,11 @@ export const detailsWipPanelStyles = css`
 	.paused-op {
 		display: flex;
 		align-items: center;
-		padding: 0.4rem 1rem;
+		padding: var(--gl-space-4) var(--gl-space-10);
 	}
 
 	:host([variant='embedded']) .header .paused-op {
-		padding: 0.2rem 1rem 0.6rem 1.2rem;
+		padding: var(--gl-space-2) var(--gl-space-10) var(--gl-space-6) var(--gl-space-12);
 	}
 
 	.paused-op > gl-merge-rebase-status {
@@ -172,7 +172,7 @@ export const detailsWipPanelStyles = css`
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 0.4rem 0;
+		padding: var(--gl-space-4) 0;
 		background-color: transparent !important;
 	}
 `;

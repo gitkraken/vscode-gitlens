@@ -88,11 +88,11 @@ export class CommitStats extends LitElement {
 		}
 
 		.stat + .stat {
-			margin-inline-start: 1rem;
+			margin-inline-start: var(--gl-space-10);
 		}
 
 		:host([symbol='icons']) .stat + .stat {
-			margin-inline-start: 0.8rem;
+			margin-inline-start: var(--gl-space-8);
 		}
 
 		.added {
@@ -115,7 +115,7 @@ export class CommitStats extends LitElement {
 			--code-icon-size: 1.1rem;
 			--code-icon-v-align: middle;
 
-			margin-inline-end: 0.2rem;
+			margin-inline-end: var(--gl-space-2);
 			font-weight: 600;
 		}
 
@@ -125,7 +125,7 @@ export class CommitStats extends LitElement {
 		}
 
 		:host([appearance='pill']) .stat + .stat {
-			margin-inline-start: 0.8rem;
+			margin-inline-start: var(--gl-space-8);
 		}
 
 		:host([appearance='pill']) .icon {

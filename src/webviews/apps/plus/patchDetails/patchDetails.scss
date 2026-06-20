@@ -29,7 +29,7 @@ gl-popover[appearance='menu'] menu-list {
 	align-items: center;
 	justify-content: center;
 	height: 21px;
-	padding: 0.2rem;
+	padding: var(--gl-space-2);
 	vertical-align: text-bottom;
 	color: inherit;
 	text-decoration: none;
@@ -101,7 +101,7 @@ gl-popover[appearance='menu'] menu-list {
 		}
 
 		&--highlight {
-			padding: 0 4px 2px;
+			padding: 0 var(--gl-space-4) var(--gl-space-2);
 			overflow: hidden;
 			text-overflow: ellipsis;
 			font-family: var(--vscode-editor-font-family);
@@ -139,7 +139,7 @@ gl-popover[appearance='menu'] menu-list {
 }
 
 .title {
-	margin: 0.2rem 0 0.8rem;
+	margin: var(--gl-space-2) 0 var(--gl-space-8);
 	font-size: 1.6rem;
 	font-weight: 600;
 
@@ -156,7 +156,7 @@ gl-popover[appearance='menu'] menu-list {
 .patch-base {
 	display: flex;
 	flex-direction: row;
-	gap: 0.4rem;
+	gap: var(--gl-space-4);
 	align-items: center;
 	justify-content: flex-end;
 	padding: {
@@ -186,12 +186,12 @@ gl-popover[appearance='menu'] menu-list {
 	flex: 1;
 	flex-direction: column;
 	min-height: 0;
-	margin-bottom: 1rem;
+	margin-bottom: var(--gl-space-10);
 }
 
 // TODO: these form styles should be moved to a common location
 .message-input {
-	padding-top: 0.8rem;
+	padding-top: var(--gl-space-8);
 
 	&__control {
 		flex: 1;
@@ -271,8 +271,8 @@ gl-popover[appearance='menu'] menu-list {
 
 	&__select &__control {
 		box-sizing: border-box;
-		padding-right: 2.4rem;
-		padding-left: 2.4rem;
+		padding-right: var(--gl-space-24);
+		padding-left: var(--gl-space-24);
 		appearance: none;
 	}
 
@@ -285,7 +285,7 @@ gl-popover[appearance='menu'] menu-list {
 	&--group {
 		display: flex;
 		flex-direction: row;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: stretch;
 	}
 
@@ -310,7 +310,7 @@ textarea.message-input__control {
 
 	display: flex;
 	flex-direction: row;
-	gap: 0.4rem;
+	gap: var(--gl-space-4);
 	align-items: center;
 	height: 2.4rem;
 
@@ -334,7 +334,7 @@ textarea.message-input__control {
 		color: var(--gl-patch-ghost-color);
 
 		gl-button::part(base) {
-			padding-block: 0.4rem;
+			padding-block: var(--gl-space-4);
 			padding-right: 0;
 		}
 
@@ -354,7 +354,7 @@ textarea.message-input__control {
 	}
 
 	&-deemphasize {
-		margin: 0.8rem 0 0.4rem;
+		margin: var(--gl-space-8) 0 var(--gl-space-4);
 		opacity: 0.7;
 	}
 
@@ -367,14 +367,14 @@ textarea.message-input__control {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-	padding: 0.8rem 1.2rem;
+	padding: var(--gl-space-8) var(--gl-space-12);
 	line-height: 1.2;
 	color: var(--color-alert-foreground);
 	background-color: var(--color-alert-errorBackground);
 	border-left: 0.3rem solid var(--color-alert-errorBorder);
 
 	code-icon {
-		margin-right: 0.4rem;
+		margin-right: var(--gl-space-4);
 		vertical-align: baseline;
 	}
 

@@ -3,24 +3,24 @@ import { css } from 'lit';
 export const detailsWipEmptyPaneStyles = css`
 	:host {
 		display: block;
-		padding: 1rem 1.2rem 1.6rem;
+		padding: var(--gl-space-10) var(--gl-space-12) var(--gl-space-16);
 	}
 
 	.hub {
 		display: flex;
 		flex-direction: column;
-		gap: 1.6rem;
+		gap: var(--gl-space-16);
 	}
 
 	.section {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	.section__header {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		justify-content: space-between;
 	}
@@ -42,9 +42,9 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.next-step {
 		display: flex;
-		gap: 0.8rem;
+		gap: var(--gl-space-8);
 		align-items: center;
-		padding: 0.4rem 0.6rem;
+		padding: var(--gl-space-4) var(--gl-space-6);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -69,7 +69,7 @@ export const detailsWipEmptyPaneStyles = css`
 	.ai-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 	}
 
 	.ai-button {
@@ -78,22 +78,22 @@ export const detailsWipEmptyPaneStyles = css`
 	}
 
 	.ai-button code-icon {
-		margin-right: 0.4rem;
+		margin-right: var(--gl-space-4);
 	}
 
 	.start-new {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		width: 100%;
 		min-width: 20rem;
 		max-width: 28rem;
-		padding-inline-start: 0.6rem;
+		padding-inline-start: var(--gl-space-6);
 
 		/* Match the visual heading-to-content gap of the Next-steps section. Next-step rows have
 		   internal padding that effectively widens the gap from the section heading; bare buttons
 		   don't, so add equivalent top padding here to keep section rhythm consistent. */
-		padding-top: 0.8rem;
+		padding-top: var(--gl-space-8);
 	}
 
 	.start-new gl-button {
@@ -102,32 +102,32 @@ export const detailsWipEmptyPaneStyles = css`
 	}
 
 	.start-new gl-button code-icon {
-		margin-right: 0.4rem;
+		margin-right: var(--gl-space-4);
 	}
 
 	.launchpad-items {
 		display: flex;
 		flex-direction: column;
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 
 		/* Match the left inset of Next-step rows so the launchpad items line up with the
 		   Next-steps content column rather than sitting flush with the section heading. */
-		padding-inline-start: 0.6rem;
+		padding-inline-start: var(--gl-space-6);
 
 		/* Matches the start-new top padding so the Launchpad heading-to-content gap reads the
 		   same as the other sections — first launchpad row sits flush with where the first row
 		   of Next-steps and the first button of Start-new sit. */
-		margin-block: 0.8rem 0.6rem;
+		margin-block: var(--gl-space-8) var(--gl-space-6);
 		list-style: none;
 	}
 
 	.launchpad-items--loading {
-		gap: 0.4rem;
+		gap: var(--gl-space-4);
 	}
 
 	.launchpad-item {
 		display: flex;
-		gap: 0.6rem;
+		gap: var(--gl-space-6);
 		align-items: center;
 		font-size: 1.2rem;
 		color: inherit;

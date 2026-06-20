@@ -17,7 +17,7 @@ export const checkboxBaseStyles = css`
 		--checkbox-spacing: 1rem;
 
 		display: block;
-		margin-block: 0.8rem;
+		margin-block: var(--gl-space-8);
 	}
 
 	label {

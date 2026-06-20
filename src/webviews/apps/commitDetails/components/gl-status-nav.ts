@@ -21,7 +21,7 @@ export class GlStatusNav extends LitElement {
 			:host {
 				display: flex;
 				flex-direction: row;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 
 				/* flex-wrap: wrap; */
 				align-items: center;
@@ -79,7 +79,7 @@ export class GlStatusNav extends LitElement {
 			}
 
 			.md-code {
-				padding: 0 4px 2px;
+				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
 				border-radius: var(--gl-radius-sm);

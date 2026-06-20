@@ -138,7 +138,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.item.overview {
-			padding: 0.6rem 0;
+			padding: var(--gl-space-6) 0;
 		}
 
 		.indicator {
@@ -167,7 +167,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		.count {
-			margin-top: 0.4rem;
+			margin-top: var(--gl-space-4);
 			color: var(--color-view-foreground--50);
 		}
 
@@ -241,11 +241,11 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		}
 
 		:host([compact]) .sidebar {
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 		}
 
 		:host([compact]) .item.group-end {
-			margin-bottom: 0.6rem;
+			margin-bottom: var(--gl-space-6);
 		}
 
 		:host([compact]) .item.overview {
@@ -268,9 +268,9 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		.overflow-menu-item {
 			display: flex;
 			flex-direction: row;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
-			padding: 0.4rem 0.8rem;
+			padding: var(--gl-space-4) var(--gl-space-8);
 			font: inherit;
 			color: var(--vscode-foreground);
 			text-align: start;

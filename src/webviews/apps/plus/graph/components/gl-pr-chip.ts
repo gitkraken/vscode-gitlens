@@ -17,12 +17,12 @@ export class GlPrChip extends LitElement {
 
 		.chip {
 			display: inline-flex;
-			gap: 0.4rem;
+			gap: var(--gl-space-4);
 			align-items: center;
 			min-width: 0;
 			max-width: 100%;
 			height: 2rem;
-			padding: 0 0.4rem;
+			padding: 0 var(--gl-space-4);
 			overflow: hidden;
 			color: inherit;
 			text-decoration: none;
