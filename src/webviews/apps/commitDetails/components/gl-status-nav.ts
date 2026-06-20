@@ -82,7 +82,7 @@ export class GlStatusNav extends LitElement {
 				padding: 0 4px 2px;
 				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 			}
 		`,
 	];

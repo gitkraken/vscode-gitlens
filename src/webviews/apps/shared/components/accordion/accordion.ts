@@ -23,7 +23,7 @@ export class GlAccordion extends LitElement {
 		/*
 	details {
 		border: 1px solid var(--vscode-panel-border);
-		border-radius: 4px;
+		border-radius: var(--gl-radius-sm);
 		overflow: hidden;
 	}
 	*/

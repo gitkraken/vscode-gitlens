@@ -192,7 +192,7 @@ export const commitsScopePaneStyles = css`
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.scope-row__stats {
@@ -238,7 +238,7 @@ export const commitsScopePaneStyles = css`
 		width: 5rem;
 		height: 0.5rem;
 		background-color: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
-		border-radius: 0.25rem;
+		border-radius: var(--gl-radius-xs);
 		opacity: 0.7;
 		transition: opacity 0.15s ease;
 	}

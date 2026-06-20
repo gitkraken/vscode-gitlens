@@ -28,7 +28,7 @@ export class GlInspectNav extends LitElement {
 			:host([pinned]) {
 				color: var(--color-alert-warningForeground);
 				background-color: var(--color-alert-warningBackground);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 				box-shadow: 0 0 0 0.1rem var(--color-alert-warningBorder);
 			}
 

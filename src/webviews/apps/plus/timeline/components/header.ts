@@ -191,7 +191,7 @@ export class GlTimelineHeader extends LitElement {
 				cursor: pointer;
 				background: transparent;
 				border: 1px solid transparent;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 				transition:
 					background 120ms ease,
 					border-color 120ms ease,

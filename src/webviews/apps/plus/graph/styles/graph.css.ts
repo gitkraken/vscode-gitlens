@@ -28,7 +28,7 @@ export const actionButton = css`
 		color: var(--vscode-foreground);
 		padding: 0 0.75rem;
 		cursor: pointer;
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 		height: auto;
 
 		display: grid;

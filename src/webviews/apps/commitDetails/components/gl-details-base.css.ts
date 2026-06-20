@@ -87,7 +87,7 @@ export const detailsBaseStyles = [
 			font-size: var(--gl-font-base);
 			background: var(--vscode-input-background);
 			border: 1px solid var(--vscode-input-border, transparent);
-			border-radius: 0.2rem 0.2rem 0 0;
+			border-radius: var(--gl-radius-xs) var(--gl-radius-xs) 0 0;
 		}
 
 		.message-block__text {
@@ -137,11 +137,11 @@ export const detailsBaseStyles = [
 		}
 
 		.message-block-row--actions:last-child {
-			border-radius: 0 0 0.2rem 0.2rem;
+			border-radius: 0 0 var(--gl-radius-xs) var(--gl-radius-xs);
 		}
 
 		.message-block-row--actions:first-of-type:last-child {
-			border-radius: 0.2rem;
+			border-radius: var(--gl-radius-xs);
 		}
 
 		.message-block-row--actions gl-action-chip::part(icon),
@@ -232,7 +232,7 @@ export const detailsBaseStyles = [
 			padding: 0.1rem 0.25rem;
 			overflow: hidden;
 			color: var(--color-foreground--65);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 			--chip-text-transform: none;
 			--chip-background: transparent;
 		}
@@ -393,7 +393,7 @@ export const detailsBaseStyles = [
 			font-size: var(--gl-font-base);
 			background: var(--vscode-input-background);
 			border: 0.1rem solid var(--vscode-input-border, transparent);
-			border-radius: 2px;
+			border-radius: var(--gl-radius-xs);
 		}
 
 		.ai-content.has-error {
@@ -432,7 +432,7 @@ export const detailsBaseStyles = [
 			color: var(--color-alert-warningForeground, var(--vscode-input-foreground));
 			background-color: var(--color-alert-warningBackground);
 			border: 1px solid var(--color-alert-warningBorder);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.alert code-icon {
@@ -497,7 +497,7 @@ export const detailsBaseStyles = [
 			height: 0.3rem;
 			content: '';
 			background-color: color-mix(in srgb, var(--color-foreground) 55%, var(--color-background));
-			border-radius: 0.25rem;
+			border-radius: var(--gl-radius-xs);
 			transition: background-color 0.15s ease;
 		}
 

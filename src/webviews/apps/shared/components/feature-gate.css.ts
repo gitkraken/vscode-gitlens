@@ -51,7 +51,7 @@ export const featureGateBaseStyles = css`
 		   real border, a solid fill clipped to padding-box, and the brand gradient clipped to
 		   border-box so it only shows through the border ring. */
 		border: var(--gate-border-size) solid transparent;
-		border-radius: 1.2rem;
+		border-radius: var(--gl-radius-xl);
 		box-shadow: 0 0 0 1px var(--section-border-color);
 	}
 
@@ -127,7 +127,7 @@ export const featureGateContentStyles = css`
 		width: calc(var(--icon-size) * 1.6);
 		aspect-ratio: 1;
 		background: var(--icon-background);
-		border-radius: 0.6rem;
+		border-radius: var(--gl-radius-md);
 
 		code-icon {
 			font-size: var(--icon-size);

@@ -166,7 +166,7 @@ export const detailsCommitPanelStyles = css`
 		color: inherit;
 		background: transparent;
 		border: none;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 		cursor: pointer;
 	}
 
@@ -450,7 +450,7 @@ export const detailsCommitPanelStyles = css`
 		margin-bottom: -2.4rem;
 		background: var(--vscode-sideBar-background, var(--color-background));
 		padding: 0.2rem;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 		opacity: 1;
 		transition: color 0.15s ease;
 	}

@@ -43,7 +43,7 @@ export class CommitIdentity extends LitElement {
 			width: 100%;
 			height: auto;
 			vertical-align: middle;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.name {

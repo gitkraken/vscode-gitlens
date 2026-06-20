@@ -280,13 +280,13 @@ export class GlWalkthroughProgress extends LitElement {
 				height: 4px;
 				overflow: hidden;
 				background: var(--card-background);
-				border-radius: 2px;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.progress-bar__fill {
 				height: 100%;
 				background: var(--gl-gradient-brand);
-				border-radius: 2px;
+				border-radius: var(--gl-radius-xs);
 				transition: width 0.3s ease;
 			}
 

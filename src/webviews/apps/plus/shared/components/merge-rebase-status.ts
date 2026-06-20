@@ -32,7 +32,7 @@ export class GlMergeConflictWarning extends LitElement {
 				margin-block: 0;
 				color: #000;
 				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			:host([conflicts]) .status {
@@ -60,7 +60,7 @@ export class GlMergeConflictWarning extends LitElement {
 				padding: 0 4px 2px;
 				font-family: var(--vscode-editor-font-family);
 				background: var(--vscode-textCodeBlock-background);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			gl-commit-sha::part(label) {

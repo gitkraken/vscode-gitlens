@@ -110,7 +110,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				cursor: pointer;
 				background: transparent;
 				border: none;
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.resolve-file__link:hover {
@@ -138,7 +138,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				font-size: 1.1rem;
 				color: var(--vscode-badge-foreground);
 				background: var(--vscode-badge-background);
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.resolve-file__badge--warn {

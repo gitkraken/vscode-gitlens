@@ -299,7 +299,7 @@ export const treeItemStyles = [
 			text-align: center;
 			background: var(--vscode-checkbox-background);
 			border: 1px solid var(--vscode-checkbox-border);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.checkbox:has(:checked),
@@ -322,7 +322,7 @@ export const treeItemStyles = [
 			margin: 0;
 			appearance: none;
 			cursor: pointer;
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.checkbox__input:disabled {

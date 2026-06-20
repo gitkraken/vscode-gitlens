@@ -287,7 +287,7 @@ export const reviewModePanelStyles = css`
 		margin-bottom: 0.8rem;
 		line-height: 1.5;
 		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-overview__text {
@@ -344,7 +344,7 @@ export const reviewModePanelStyles = css`
 		margin-bottom: 0.6rem;
 		overflow: hidden;
 		border: 1px solid var(--vscode-panel-border, var(--vscode-widget-border, transparent));
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-area__header {
@@ -436,7 +436,7 @@ export const reviewModePanelStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: none;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.review-area__file-link:hover {
@@ -480,7 +480,7 @@ export const reviewModePanelStyles = css`
 		cursor: pointer;
 		background: var(--vscode-button-background);
 		border: none;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-area__analyze-btn:hover {
@@ -524,7 +524,7 @@ export const reviewModePanelStyles = css`
 	.review-area__retry-btn:focus-visible {
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: 0.1rem;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	/* Review findings */
@@ -547,7 +547,7 @@ export const reviewModePanelStyles = css`
 		padding: 0.6rem 0.8rem;
 		background: var(--vscode-editor-inactiveSelectionBackground, rgb(255 255 255 / 4%));
 		border-left: 3px solid transparent;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.review-finding[data-severity='critical'] {
@@ -585,7 +585,7 @@ export const reviewModePanelStyles = css`
 		font-weight: 700;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	/* Mix the badge background against the matching VS Code semantic foreground token so the
@@ -677,7 +677,7 @@ export const reviewModePanelStyles = css`
 	.review-findings__dismissed:focus-visible {
 		outline: 0.1rem solid var(--vscode-focusBorder);
 		outline-offset: -0.1rem;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.review-areas {
@@ -695,7 +695,6 @@ export const reviewModePanelStyles = css`
 		--checkbox-foreground: var(--vscode-sideBarSectionHeader-foreground);
 		--checkbox-size: 1.6rem;
 		--checkbox-spacing: 0.6rem;
-		--checkbox-radius: 0.3rem;
 		--code-icon-size: 14px;
 
 		margin-block: 0;

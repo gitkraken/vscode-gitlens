@@ -19,7 +19,7 @@ export class MenuItem extends LitElement {
 				cursor: pointer;
 				background-color: var(--vscode-menu-background);
 				border: none;
-				border-radius: var(--menu-item-radius, 0.3rem);
+				border-radius: var(--menu-item-radius, var(--gl-radius-sm));
 				-webkit-font-smoothing: auto;
 			}
 

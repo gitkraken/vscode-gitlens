@@ -11,7 +11,7 @@ export const linkStyles = css`
 
 	a:focus-visible {
 		outline: 1px solid var(--color-focus-border);
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	a:hover {

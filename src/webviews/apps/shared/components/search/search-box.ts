@@ -83,7 +83,7 @@ export class GlSearchBox extends GlElement {
 			text-align: center;
 			background: none;
 			border: none;
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.button[disabled] {

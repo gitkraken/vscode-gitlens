@@ -78,7 +78,7 @@ export class GlWipStats extends LitElement {
 				color: #000;
 				white-space: nowrap;
 				background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.paused-op-badge--conflicts {

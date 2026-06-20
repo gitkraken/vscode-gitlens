@@ -111,7 +111,7 @@ export class CommitsPanel extends LitElement {
 				padding: 0.2rem;
 				color: var(--vscode-foreground);
 				cursor: pointer;
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 				transition: background-color 0.2s ease;
 			}
 
@@ -167,7 +167,7 @@ export class CommitsPanel extends LitElement {
 				font-size: 0.9em;
 				color: var(--vscode-descriptionForeground);
 				border: 2px dashed var(--vscode-panel-border);
-				border-radius: 4px;
+				border-radius: var(--gl-radius-sm);
 				transition: all 0.2s ease;
 			}
 
@@ -193,7 +193,7 @@ export class CommitsPanel extends LitElement {
 				color: var(--vscode-errorForeground);
 				background-color: var(--vscode-inputValidation-errorBackground);
 				border: 2px dashed var(--vscode-errorForeground);
-				border-radius: 4px;
+				border-radius: var(--gl-radius-sm);
 				transition: all 0.2s ease;
 			}
 
@@ -255,7 +255,7 @@ export class CommitsPanel extends LitElement {
 				padding: 1.2rem;
 				background: var(--gl-gradient-brand-subtle);
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 6px;
+				border-radius: var(--gl-radius-md);
 			}
 
 			.auto-compose.is-used {

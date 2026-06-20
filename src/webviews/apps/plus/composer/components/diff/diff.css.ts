@@ -154,7 +154,7 @@ export const diff2htmlStyles = css`
 		color: var(--d2h-ins-label-color);
 		text-align: right;
 		border: 1px solid var(--d2h-ins-border-color);
-		border-radius: 5px 0 0 5px;
+		border-radius: var(--gl-radius-sm) 0 0 var(--gl-radius-sm);
 	}
 
 	.d2h-lines-deleted {
@@ -164,7 +164,7 @@ export const diff2htmlStyles = css`
 		color: var(--d2h-del-label-color);
 		text-align: left;
 		border: 1px solid var(--d2h-del-border-color);
-		border-radius: 0 5px 5px 0;
+		border-radius: 0 var(--gl-radius-sm) var(--gl-radius-sm) 0;
 	}
 
 	.d2h-file-name-wrapper {
@@ -185,7 +185,7 @@ export const diff2htmlStyles = css`
 	.d2h-file-wrapper {
 		margin-bottom: 1em;
 		border: 1px solid var(--d2h-border-color);
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.d2h-file-collapse {
@@ -196,7 +196,7 @@ export const diff2htmlStyles = css`
 		font-size: 12px;
 		cursor: pointer;
 		border: 1px solid var(--d2h-border-color);
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.d2h-file-collapse.d2h-selected {
@@ -488,7 +488,7 @@ export const diff2htmlStyles = css`
 		margin-left: 6px;
 		font-size: 10px;
 		background-color: var(--d2h-bg-color);
-		border-radius: 2px;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.d2h-deleted-tag {

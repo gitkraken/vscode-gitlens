@@ -25,7 +25,7 @@ export class GlBranchName extends LitElement {
 				var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, #4ec9b0)) 15%,
 				transparent
 			);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		:host([appearance='button']) {

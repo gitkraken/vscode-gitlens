@@ -66,7 +66,7 @@ export const resumeBarStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: 1px solid var(--vscode-button-border);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.resume-bar:hover {
@@ -146,7 +146,7 @@ export const panelStaleBannerStyles = css`
 		font-size: var(--gl-font-base);
 		color: var(--vscode-editorWarning-foreground, #cca700);
 		background-color: var(--vscode-editorWarning-background, rgb(204 167 0 / 10%));
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.stale-banner code-icon {
@@ -224,7 +224,7 @@ export const panelErrorStyles = css`
 		color: var(--vscode-foreground);
 		background: var(--vscode-inputValidation-errorBackground, rgb(255 0 0 / 8%));
 		border: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-editorError-foreground));
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.panel-error__header {

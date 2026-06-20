@@ -151,7 +151,7 @@ ul {
 	font-size: 1.3rem;
 	background: var(--vscode-input-background);
 	border: 1px solid var(--vscode-input-border, transparent);
-	border-radius: 0.2rem 0.2rem 0 0;
+	border-radius: var(--gl-radius-xs) var(--gl-radius-xs) 0 0;
 
 	&__text {
 		max-height: 9rem;
@@ -199,11 +199,11 @@ ul {
 	background: var(--color-background--level-075);
 
 	&:last-child {
-		border-radius: 0 0 0.2rem 0.2rem;
+		border-radius: 0 0 var(--gl-radius-xs) var(--gl-radius-xs);
 	}
 
 	&:first-of-type:last-child {
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	gl-action-chip::part(icon),
@@ -269,7 +269,7 @@ ul {
 	padding: 0.1rem 0.25rem;
 	overflow: hidden;
 	color: var(--color-foreground--65);
-	border-radius: 0.3rem;
+	border-radius: var(--gl-radius-sm);
 	--chip-text-transform: none;
 	--chip-background: transparent;
 
@@ -396,7 +396,7 @@ ul {
 	font-size: 1.3rem;
 	background: var(--vscode-input-background);
 	border: 0.1rem solid var(--vscode-input-border, transparent);
-	border-radius: 2px;
+	border-radius: var(--gl-radius-xs);
 
 	&.has-error {
 		padding-left: 0.8rem;

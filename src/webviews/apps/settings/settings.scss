@@ -263,7 +263,7 @@ a.secondary {
 .image__preview {
 	width: 600px;
 	height: auto;
-	border-radius: 8px;
+	border-radius: var(--gl-radius-lg);
 
 	@include utils.elevated-surface(var(--gl-shadow-raised));
 }
@@ -336,7 +336,7 @@ section {
 	flex-wrap: wrap;
 	padding: 1em;
 	margin: 1em;
-	border-radius: 6px;
+	border-radius: var(--gl-radius-md);
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
 		background: var(--color-background--lighten-075);
@@ -780,7 +780,7 @@ section {
 		cursor: pointer;
 		user-select: none;
 		border: 1px solid transparent;
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 
 		// background-color: var(--color-button-secondary-background);
 

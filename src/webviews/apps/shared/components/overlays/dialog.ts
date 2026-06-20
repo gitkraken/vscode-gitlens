@@ -31,7 +31,7 @@ export class GlDialog extends LitElement {
 				padding: 2rem;
 				color: var(--vscode-editorWidget-foreground);
 				background: var(--vscode-editorWidget-background);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 
 				${elevatedSurface}
 			}

@@ -38,7 +38,7 @@ export const commitPopoverStyles = css`
 		flex-shrink: 0;
 		width: 32px;
 		height: 32px;
-		border-radius: 8px;
+		border-radius: var(--gl-radius-lg);
 	}
 
 	.commit-popover-content__details {

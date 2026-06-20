@@ -20,7 +20,7 @@ export class HunkItem extends LitElement {
 			user-select: none;
 			background: var(--vscode-editor-background);
 			border: 1px solid transparent;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 			transition: all 0.2s ease;
 		}
 
@@ -115,7 +115,7 @@ export class HunkItem extends LitElement {
 			font-size: var(--vscode-editor-font-size);
 			line-height: 1.4;
 			background: var(--vscode-editor-background);
-			border-radius: 0 0 4px 4px;
+			border-radius: 0 0 var(--gl-radius-sm) var(--gl-radius-sm);
 		}
 
 		.code-block {

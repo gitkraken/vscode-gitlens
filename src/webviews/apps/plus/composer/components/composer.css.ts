@@ -9,7 +9,7 @@ export const composerItemStyles = css`
 	.composer-item {
 		--composer-item-background: var(--composer-background-05);
 		--composer-item-border: transparent;
-		--composer-item-radius: 1.2rem;
+		--composer-item-radius: var(--gl-radius-xl);
 		--composer-item-color: var(--vscode-foreground);
 		--composer-item-icon-color: var(--vscode-icon-foreground);
 
@@ -49,7 +49,7 @@ export const composerItemStyles = css`
 
 	.composer-item.is-summary {
 		--composer-item-border: var(--vscode-panel-border);
-		--composer-item-radius: 0.4rem;
+		--composer-item-radius: var(--gl-radius-sm);
 	}
 
 	.composer-item.is-uncommitted {
@@ -59,7 +59,7 @@ export const composerItemStyles = css`
 			transparent
 		);
 		--composer-item-border: color-mix(in srgb, var(--vscode-notificationsWarningIcon-foreground) 20%, transparent);
-		--composer-item-radius: 0.4rem;
+		--composer-item-radius: var(--gl-radius-sm);
 
 		border-style: dashed;
 	}

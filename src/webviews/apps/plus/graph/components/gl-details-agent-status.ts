@@ -231,7 +231,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			.section__heading:focus-visible {
 				outline: 1px solid var(--vscode-focusBorder);
 				outline-offset: 2px;
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			/* Cluster — dots + textual summary inside the heading row. */
@@ -399,7 +399,7 @@ export class GlDetailsAgentStatus extends LitElement {
 				background-color: var(--vscode-editor-background);
 				border: 1px solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 				border-left: 3px solid var(--card-accent, var(--gl-agent-idle-color));
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 				transition:
 					background 250ms ease,
 					border-left-color 250ms ease;

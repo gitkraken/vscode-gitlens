@@ -13,7 +13,7 @@
 	user-select: none;
 	background: none;
 	border: none;
-	border-radius: 3px;
+	border-radius: var(--gl-radius-sm);
 
 	&:focus {
 		outline: none;

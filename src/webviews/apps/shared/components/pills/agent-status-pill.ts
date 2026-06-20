@@ -107,7 +107,7 @@ export class GlAgentStatusPill extends LitElement {
 				white-space: nowrap;
 				cursor: default;
 				border: 1px solid transparent;
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 				transition:
 					background-color 250ms ease,
 					border-color 250ms ease,
@@ -166,7 +166,7 @@ export class GlAgentStatusPill extends LitElement {
 				width: 1.8rem;
 				height: 1.8rem;
 				color: inherit;
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			/* Background-only animation (no box-shadow) so it doesn't get clipped by ancestors
@@ -362,7 +362,7 @@ export class GlAgentStatusPill extends LitElement {
 				color: var(--vscode-foreground);
 				text-decoration: none;
 				cursor: pointer;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.more-menu__item:hover {

@@ -102,7 +102,7 @@ export const detailsWipHeaderStyles = css`
 		--gl-pill-min-height: 2rem;
 		--gl-pill-padding: 0 0.6rem;
 		--gl-pill-font-size: 1.1rem;
-		--gl-pill-border-radius: 0.4rem;
+		--gl-pill-border-radius: var(--gl-radius-sm);
 	}
 
 	.branch-identity {
@@ -166,7 +166,7 @@ export const detailsWipHeaderStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: none;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.mode-status__resume:hover {
@@ -256,7 +256,7 @@ export const detailsWipHeaderStyles = css`
 		display: inline-flex;
 		align-items: center;
 		min-width: 0;
-		border-radius: 0.5rem;
+		border-radius: var(--gl-radius-sm);
 		transition: background-color 150ms ease-out;
 	}
 
@@ -280,7 +280,7 @@ export const detailsWipHeaderStyles = css`
 		cursor: pointer;
 		background: none;
 		border: none;
-		border-radius: 0 0.5rem 0.5rem 0;
+		border-radius: 0 var(--gl-radius-sm) var(--gl-radius-sm) 0;
 		opacity: 0;
 		transition:
 			opacity 150ms ease-out,

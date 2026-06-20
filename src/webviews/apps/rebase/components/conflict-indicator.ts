@@ -47,7 +47,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 				font-size: 1.2rem;
 				background-color: var(--vscode-button-secondaryBackground);
 				border: 1px solid var(--vscode-button-secondaryBorder, transparent);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.indicator__icon {

@@ -120,7 +120,7 @@ export class GlSearchInput extends GlElement {
 			height: 2.4rem;
 			color: var(--gl-search-input-foreground);
 			cursor: pointer;
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		label:hover {
@@ -295,7 +295,7 @@ export class GlSearchInput extends GlElement {
 			display: inline-block;
 			padding: 0 4px;
 			font-family: var(--vscode-editor-font-family);
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 			backdrop-filter: brightness(1.3);
 		}
 

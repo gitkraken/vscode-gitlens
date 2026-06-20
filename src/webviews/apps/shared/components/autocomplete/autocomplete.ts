@@ -57,7 +57,7 @@ export class GlAutocomplete extends LitElement {
 				overflow-y: auto;
 				color: var(--vscode-quickInput-foreground);
 				background-color: var(--vscode-quickInput-background);
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 
 				${elevatedSurface}
 			}

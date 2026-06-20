@@ -25,7 +25,7 @@ export class GlCommitAuthor extends LitElement {
 			gap: 0 0.6rem;
 			align-items: center;
 			cursor: pointer;
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 
 			&:focus {
 				outline: 1px solid var(--vscode-focusBorder);
@@ -59,7 +59,7 @@ export class GlCommitAuthor extends LitElement {
 			width: 100%;
 			height: auto;
 			vertical-align: middle;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.name {
@@ -116,7 +116,7 @@ export class GlCommitAuthor extends LitElement {
 			flex-shrink: 0;
 			width: 32px;
 			height: 32px;
-			border-radius: 8px;
+			border-radius: var(--gl-radius-lg);
 		}
 
 		.author-details {

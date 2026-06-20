@@ -14,7 +14,7 @@ export const bannerStyles = css`
 		/* Layout properties */
 		--gl-banner-padding: 1.2rem;
 		--gl-banner-gap: 0.8rem;
-		--gl-banner-border-radius: 0.4rem;
+		--gl-banner-border-radius: var(--gl-radius-sm);
 
 		/* Button customization - use 8px horizontal padding, keep original vertical padding */
 		--gl-banner-button-padding: 0.4rem 0.8rem;
@@ -94,7 +94,7 @@ export const bannerStyles = css`
 	.banner--gradient-purple {
 		background: var(--gl-gradient-brand-subtle);
 		border: 1px solid var(--vscode-panel-border);
-		border-radius: 6px;
+		border-radius: var(--gl-radius-md);
 	}
 
 	.banner--gradient-purple .banner__title {

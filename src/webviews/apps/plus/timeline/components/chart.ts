@@ -237,7 +237,7 @@ export class GlTimelineChart extends GlElement {
 			pointer-events: auto;
 			cursor: pointer;
 			background: var(--rail-avatar-color, transparent);
-			border-radius: 12px;
+			border-radius: var(--gl-radius-xl);
 			transform: translateY(-50%);
 			transition:
 				max-width 220ms ease-out,
@@ -459,7 +459,7 @@ export class GlTimelineChart extends GlElement {
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));
 			border: 1px solid var(--vscode-editorHoverWidget-border, var(--color-hover-border));
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.tooltip[data-visible='true'] {
@@ -622,7 +622,7 @@ export class GlTimelineChart extends GlElement {
 					)
 					center / 100% 100% no-repeat,
 				var(--vscode-progressBar-background, #0078d4);
-			border-radius: 0.2rem;
+			border-radius: var(--gl-radius-xs);
 
 			/* Inset brand-color rim wraps the editor-foreground hot-spot so the body reads as a
 	   bold layered "lit" object: brand-color shell with a bright contrast core. Then

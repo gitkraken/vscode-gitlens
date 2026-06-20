@@ -27,7 +27,7 @@ export class GlPrChip extends LitElement {
 			color: inherit;
 			text-decoration: none;
 			cursor: pointer;
-			border-radius: 0.5rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.chip:hover {

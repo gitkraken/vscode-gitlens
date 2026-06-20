@@ -23,7 +23,7 @@ export class ActionChip extends LitElement {
 				min-width: 0;
 				max-width: 100%;
 				vertical-align: text-bottom;
-				border-radius: 0.5rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			* {

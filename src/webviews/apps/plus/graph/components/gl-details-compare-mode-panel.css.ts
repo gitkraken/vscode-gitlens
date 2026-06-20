@@ -163,7 +163,7 @@ export const compareModePanelStyles = css`
 	.compare-wt-toggle--active {
 		color: var(--gl-tracking-ahead, #4ec9b0);
 		background: color-mix(in srgb, var(--gl-tracking-ahead, #4ec9b0) 12%, transparent);
-		border-radius: 0.5rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-wt-toggle--active:hover {
@@ -283,7 +283,7 @@ export const compareModePanelStyles = css`
 		font-weight: 500;
 		line-height: 1;
 		color: var(--vscode-editor-background, var(--vscode-badge-foreground));
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-tab--all .compare-tab__count {
@@ -495,7 +495,7 @@ export const compareModePanelStyles = css`
 				var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground)) 55%,
 				transparent
 			);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-scope-tag:hover {
@@ -523,7 +523,7 @@ export const compareModePanelStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: none;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 		opacity: 0.75;
 	}
 
@@ -693,7 +693,7 @@ export const compareModePanelStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: 1px solid transparent;
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-view-trigger:hover {

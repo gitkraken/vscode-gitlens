@@ -471,7 +471,7 @@ export class PushPullButton extends LitElement {
 				color: var(--vscode-foreground);
 				text-transform: uppercase;
 				background-color: var(--vscode-editorWidget-background);
-				border-radius: 0.5rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.pill > span {

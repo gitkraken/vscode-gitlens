@@ -283,7 +283,7 @@ export class GlTreemapChart extends LitElement {
 			pointer-events: none;
 			background: color-mix(in srgb, var(--vscode-editor-background) 80%, transparent);
 			border: 1px solid var(--vscode-editorWidget-border, transparent);
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 			transform: translate(-50%, -50%);
 		}
 
@@ -300,7 +300,7 @@ export class GlTreemapChart extends LitElement {
 			white-space: nowrap;
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 
 			${elevatedSurface}
 		}
@@ -326,7 +326,7 @@ export class GlTreemapChart extends LitElement {
 		.activity-pulse {
 			position: absolute;
 			background: rgb(var(--pulse-ring));
-			border-radius: 0.5rem;
+			border-radius: var(--gl-radius-sm);
 			box-shadow: 0 0 1rem 0.1rem rgb(var(--pulse-ring), 0.5);
 			isolation: isolate;
 		}

@@ -12,7 +12,7 @@ export const chipStyles = css`
 		align-items: center;
 		padding: 0.2rem 0.4rem;
 		cursor: pointer;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.chip:focus-visible {

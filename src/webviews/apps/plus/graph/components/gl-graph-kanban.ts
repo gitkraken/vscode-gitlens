@@ -105,7 +105,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				--gl-kanban-card-bg: var(--vscode-sideBar-background, var(--vscode-editor-background));
 				--gl-kanban-card-border: var(--vscode-panel-border, transparent);
 				--gl-kanban-column-gap: 1.2rem;
-				--gl-kanban-card-radius: 0.4rem;
+				--gl-kanban-card-radius: var(--gl-radius-sm);
 			}
 
 			/* Section is a flex column so the header stays auto-sized at the top and the body

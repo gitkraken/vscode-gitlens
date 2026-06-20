@@ -21,7 +21,7 @@ export const baseStyles = css`
 		text-transform: uppercase;
 		white-space: nowrap;
 		background-color: var(--gl-pill-background, var(--vscode-editorWidget-background));
-		border-radius: var(--gl-pill-border-radius, 0.5rem);
+		border-radius: var(--gl-pill-border-radius, var(--gl-radius-sm));
 	}
 
 	.pill--outlined {

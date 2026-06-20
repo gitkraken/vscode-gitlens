@@ -141,7 +141,7 @@ export class ComposerApp extends LitElement {
 				padding: 0.8rem 1.2rem;
 				background-color: var(--vscode-inputValidation-warningBackground);
 				border: 1px solid var(--vscode-inputValidation-warningBorder);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.working-directory-warning--error {
@@ -266,7 +266,7 @@ export class ComposerApp extends LitElement {
 				user-select: none;
 				background: var(--vscode-list-inactiveSelectionBackground);
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 4px;
+				border-radius: var(--gl-radius-sm);
 				transition: all 0.2s ease;
 			}
 
@@ -327,7 +327,7 @@ export class ComposerApp extends LitElement {
 				color: var(--vscode-foreground);
 				background: var(--color-background);
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.generic-dialog__message.is-error {

@@ -128,7 +128,7 @@ export class InspectPatch extends GlElement {
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.message-input__control::placeholder {

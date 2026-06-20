@@ -22,7 +22,7 @@ export const badgeBase = css`
 		color: var(--vscode-badge-foreground);
 		background-color: var(--vscode-badge-background);
 		border: none;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	:host([appearance='warning']) .badge {
@@ -34,7 +34,7 @@ export const badgeBase = css`
 		color: var(--vscode-button-foreground, #fff);
 		background-color: var(--vscode-gitDecoration-conflictingResourceForeground);
 		border: none;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	/* Recessed sub-segment meant to nest INSIDE a filled badge (e.g. "+N Mixed" inside
@@ -48,7 +48,7 @@ export const badgeBase = css`
 		color: var(--vscode-badge-foreground);
 		background-color: color-mix(in srgb, var(--vscode-badge-foreground) 20%, transparent);
 		border: none;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	/* "Experimental" stamp used by features still gated behind a config flag (e.g. Agent Kanban,
@@ -68,6 +68,6 @@ export const badgeBase = css`
 		letter-spacing: 0.06em;
 		background-color: color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 12%, transparent);
 		border: 1px solid color-mix(in srgb, var(--vscode-editorWarning-foreground, currentColor) 60%, transparent);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 `;

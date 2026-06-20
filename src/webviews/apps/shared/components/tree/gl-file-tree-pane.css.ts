@@ -133,7 +133,6 @@ export const fileTreeStyles = css`
 		--checkbox-foreground: var(--vscode-sideBarSectionHeader-foreground);
 		--checkbox-size: 1.6rem;
 		--checkbox-spacing: 0;
-		--checkbox-radius: 0.3rem;
 		--code-icon-size: 14px;
 
 		flex-shrink: 0;

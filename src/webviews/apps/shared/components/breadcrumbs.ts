@@ -92,7 +92,7 @@ export class GlBreadcrumbs extends LitElement {
 			cursor: pointer;
 			background: none;
 			border: none;
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.overflow-menu-item:hover,
@@ -499,7 +499,7 @@ export class GlBreadcrumbItem extends LitElement {
 				cursor: default;
 				background: none;
 				border: none;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			button.breadcrumb-item {

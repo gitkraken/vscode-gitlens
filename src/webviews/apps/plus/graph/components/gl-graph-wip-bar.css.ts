@@ -76,7 +76,7 @@ export const wipBarStyles = css`
 		cursor: pointer;
 		background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
 		border: 1px solid color-mix(in srgb, var(--vscode-foreground) 18%, transparent);
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.pill:hover {

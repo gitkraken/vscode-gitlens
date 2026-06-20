@@ -217,7 +217,7 @@ export class GlGraphOverviewCard extends LitElement {
 		gl-card::part(base) {
 			padding: 0.4rem 0.6rem;
 			margin-block-end: 0;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		gl-card.is-scoped {

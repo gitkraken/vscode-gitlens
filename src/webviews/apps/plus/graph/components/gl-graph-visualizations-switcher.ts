@@ -61,7 +61,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			align-items: center;
 			padding: 0.2rem;
 			background: var(--vscode-editorWidget-background, transparent);
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.visualization-tablist {
@@ -79,7 +79,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 			cursor: pointer;
 			background: none;
 			border: 1px solid transparent;
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 			--code-icon-size: 1.6rem;
 		}
 

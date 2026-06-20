@@ -73,7 +73,7 @@ export class GlChipOverflow extends LitElement {
 				cursor: pointer;
 				background: none;
 				border: none;
-				border-radius: 0.5rem;
+				border-radius: var(--gl-radius-sm);
 				opacity: 0.65;
 				transition: opacity 0.15s ease;
 			}

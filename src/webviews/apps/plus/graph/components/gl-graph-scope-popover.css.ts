@@ -20,7 +20,7 @@ export const graphScopePopoverStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: 1px solid transparent;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.mode-chip:hover {
@@ -85,7 +85,7 @@ export const graphScopePopoverStyles = css`
 		margin-left: 0.2rem;
 		color: inherit;
 		cursor: pointer;
-		border-radius: 0.2rem;
+		border-radius: var(--gl-radius-xs);
 		opacity: 0.75;
 	}
 
@@ -227,7 +227,7 @@ export const graphScopePopoverStyles = css`
 		padding: 0.3rem 0.8rem;
 		color: var(--vscode-menu-foreground);
 		cursor: pointer;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.mode-popover__checkbox-item:hover {

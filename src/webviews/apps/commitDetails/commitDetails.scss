@@ -64,7 +64,7 @@ gl-details-wip-panel {
 		cursor: pointer;
 		background-color: var(--color-background--level-10);
 		border: none;
-		border-radius: 0 0 0.5rem 0.5rem;
+		border-radius: 0 0 var(--gl-radius-sm) var(--gl-radius-sm);
 
 		&:last-child {
 			margin-inline-start: -0.6rem;
@@ -162,7 +162,7 @@ hr {
 	padding: 0 4px 2px;
 	font-family: var(--vscode-editor-font-family);
 	background: var(--vscode-textCodeBlock-background);
-	border-radius: 3px;
+	border-radius: var(--gl-radius-sm);
 }
 
 .inline-popover {

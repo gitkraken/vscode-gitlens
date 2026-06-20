@@ -27,7 +27,7 @@ export const modeToggleStyles = css`
 		   hardcoded white, which falls below WCAG contrast on pale-accent light themes. */
 		color: var(--vscode-button-foreground, #fff) !important;
 		background: var(--mode-toggle-accent) !important;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.mode-toggle--has-status:hover {

@@ -244,7 +244,7 @@ export const walkthroughProgressStyles = css`
 		padding: 2px 4px 4px;
 		margin-top: 4px;
 		cursor: pointer;
-		border-radius: 4px;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.walkthrough-progress:focus-within,
@@ -268,12 +268,12 @@ export const walkthroughProgressStyles = css`
 
 	.walkthrough-progress__bar::-webkit-progress-bar {
 		background: var(--color-alert-neutralBackground);
-		border-radius: 2px;
+		border-radius: var(--gl-radius-xs);
 	}
 
 	.walkthrough-progress__bar::-webkit-progress-value {
 		background: var(--vscode-progressBar-background, blue);
-		border-radius: 2px;
+		border-radius: var(--gl-radius-xs);
 		transition: 0.1s ease-in;
 	}
 
@@ -284,6 +284,6 @@ export const walkthroughProgressStyles = css`
 		height: 4px;
 		pointer-events: none;
 		background: unset;
-		border-radius: 2px;
+		border-radius: var(--gl-radius-xs);
 	}
 `;

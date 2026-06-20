@@ -97,7 +97,7 @@ input[type='checkbox'] {
 		outline: 1px solid var(--vscode-focusBorder);
 		outline-offset: -1px;
 		background: rgb(0 0 0 / 10%);
-		border-radius: 5px;
+		border-radius: 3px;
 	}
 
 	&[disabled] {
@@ -262,5 +262,5 @@ code {
 	padding: 0 4px 2px;
 	color: var(--color-foreground--75);
 	background: var(--vscode-textCodeBlock-background);
-	border-radius: 3px;
+	border-radius: var(--gl-radius-sm);
 }

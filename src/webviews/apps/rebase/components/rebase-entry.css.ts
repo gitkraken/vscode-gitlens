@@ -94,7 +94,7 @@ export const entryStyles = css`
 		padding-block: var(--gl-rebase-entry-padding-block, 0.2rem);
 		padding-inline: 1rem;
 		color: var(--fg);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 
 		&:hover {
 			--entry-bg: var(--vscode-list-hoverBackground);
@@ -254,7 +254,7 @@ export const entryStyles = css`
 			z-index: -1;
 			width: 16px;
 			height: 16px;
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		/* throughline */
@@ -468,7 +468,7 @@ export const entryStyles = css`
 				font-style: normal;
 				background-color: var(--vscode-textCodeBlock-background, rgb(128 128 128 / 15%));
 				border: 1px solid var(--color-foreground--10);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 			}
 		}
 	}

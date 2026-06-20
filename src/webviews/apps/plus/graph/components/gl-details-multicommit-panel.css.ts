@@ -81,7 +81,7 @@ export const multiCommitPanelStyles = css`
 		cursor: pointer;
 		background: transparent;
 		border: none;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-metadata__right .mode-status__resume:hover {
@@ -199,7 +199,7 @@ export const multiCommitPanelStyles = css`
 		cursor: pointer;
 		background: var(--color-background--level-10);
 		border: 0.1rem solid var(--vscode-sideBarSectionHeader-border);
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.compare-middle__swap code-icon {
@@ -275,7 +275,7 @@ export const multiCommitPanelStyles = css`
 		flex-shrink: 0;
 		width: 3.2rem;
 		height: 3.2rem;
-		border-radius: 0.8rem;
+		border-radius: var(--gl-radius-lg);
 	}
 
 	.pole-popover__details {

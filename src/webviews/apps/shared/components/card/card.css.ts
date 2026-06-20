@@ -19,7 +19,7 @@ export const cardStyles = css`
 		/* border-inline-end: 0.3rem solid transparent; */
 		background-color: var(--gl-card-background, color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 3%));
 		border-inline-start: 0.3rem solid transparent;
-		border-radius: 0.4rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	:host-context(.vscode-dark) .card.is-base,

@@ -371,7 +371,7 @@ export const composeModePanelStyles = css`
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	/* When the splitter is in play, the file-tree-pane sits in a flex column inside the

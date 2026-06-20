@@ -95,7 +95,7 @@ export class IssuePullRequest extends GlElement {
 			font-size: 0.9em;
 			line-height: 1;
 			border: 1px solid var(--color-foreground--50);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 			opacity: 0.8;
 		}
 

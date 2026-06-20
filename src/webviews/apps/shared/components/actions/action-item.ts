@@ -26,7 +26,7 @@ export class ActionItem extends LitElement {
 			color: var(--action-item-foreground, var(--vscode-icon-foreground));
 			text-decoration: none;
 			cursor: pointer;
-			border-radius: 0.5rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.icon-wrapper {

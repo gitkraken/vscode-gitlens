@@ -57,7 +57,7 @@ export const selectStyles = css`
 
 		padding: 4px 0;
 		background-color: var(--vscode-dropdown-background);
-		border-radius: 3px;
+		border-radius: var(--gl-radius-sm);
 
 		${elevatedSurface}
 	}

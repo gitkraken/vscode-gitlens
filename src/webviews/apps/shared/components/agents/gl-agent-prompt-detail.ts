@@ -54,7 +54,7 @@ export class GlAgentPromptDetail extends LitElement {
 			min-width: 0;
 			padding: 0.4rem 0.5rem;
 			background-color: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.block {
@@ -111,7 +111,7 @@ export class GlAgentPromptDetail extends LitElement {
 			height: 2rem;
 			color: inherit;
 			cursor: pointer;
-			border-radius: 0.5rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.caption-copy:hover {

@@ -29,7 +29,7 @@ export const categorizingLoadingAnimationStyles = css`
 		position: absolute;
 		background: linear-gradient(180deg, transparent 0%, color-mix(in srgb, currentcolor 12%, transparent) 100%);
 		border-bottom: 0.2rem solid currentcolor;
-		border-radius: 0.6rem;
+		border-radius: var(--gl-radius-md);
 		opacity: 0.55;
 	}
 

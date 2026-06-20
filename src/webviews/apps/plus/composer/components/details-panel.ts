@@ -100,7 +100,7 @@ export class DetailsPanel extends LitElement {
 			.file-group {
 				overflow: hidden;
 				border: 1px solid var(--vscode-panel-border);
-				border-radius: 0.4rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.file-group__header {
@@ -161,14 +161,14 @@ export class DetailsPanel extends LitElement {
 				color: var(--color-foreground--85);
 				background: var(--vscode-editor-background);
 				border: 0.1rem solid var(--vscode-panel-border);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.change-details.composition-summary {
 				gap: 0;
 				padding: 1.6rem;
 				border: 0.1rem solid var(--vscode-panel-border);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.empty-state {

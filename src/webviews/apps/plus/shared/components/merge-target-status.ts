@@ -160,7 +160,7 @@ const mergeTargetStyles = css`
 
 	details[open] {
 		border: 1px solid var(--vscode-sideBar-border);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	summary {
@@ -182,7 +182,7 @@ const mergeTargetStyles = css`
 		margin-left: 0;
 		color: var(--vscode-textLink-foreground);
 		background: var(--vscode-sideBar-background);
-		border-radius: 0.3rem 0.3rem 0 0;
+		border-radius: var(--gl-radius-sm) var(--gl-radius-sm) 0 0;
 	}
 
 	details[open] > summary code-icon {

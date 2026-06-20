@@ -341,14 +341,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				width: 16px;
 				height: 16px;
 				background: var(--vscode-foreground);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 				opacity: 0.07;
 			}
 
 			.skeleton-text {
 				height: 10px;
 				background: var(--vscode-foreground);
-				border-radius: 3px;
+				border-radius: var(--gl-radius-sm);
 				opacity: 0.07;
 			}
 

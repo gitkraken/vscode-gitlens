@@ -43,7 +43,7 @@ export class GlRefOverflowChip extends LitElement {
 			color: var(--vscode-badge-foreground);
 			white-space: nowrap;
 			background-color: var(--vscode-badge-background);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 			opacity: 0.8;
 			transition:
 				opacity 0.3s ease-in-out,

@@ -72,7 +72,7 @@ export class GlCompareAIActions extends LitElement {
 				cursor: pointer;
 				background: var(--vscode-input-background);
 				border: 1px solid var(--vscode-input-border, transparent);
-				border-radius: 0.6rem;
+				border-radius: var(--gl-radius-md);
 			}
 
 			.changelog-btn:hover:not([disabled]),

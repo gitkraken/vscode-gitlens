@@ -263,7 +263,7 @@ export const rebaseStyles = css`
 		padding: 0.3rem 0.6rem;
 		color: #000;
 		background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor, #c4a000);
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 
 		&.has-conflicts {
 			color: #fff;
@@ -535,7 +535,7 @@ export const rebaseStyles = css`
 		margin-left: 0.5rem;
 		font-size: 1.1rem;
 		font-weight: 500;
-		border-radius: 0.3rem;
+		border-radius: var(--gl-radius-sm);
 
 		&.warning {
 			color: var(--vscode-inputValidation-warningForeground, #cca700);

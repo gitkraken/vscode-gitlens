@@ -131,7 +131,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			cursor: pointer;
 			background: none;
 			border: none;
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.close:hover {
@@ -189,7 +189,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 				--vscode-keybindingLabel-bottomBorder,
 				var(--vscode-keybindingLabel-border, transparent)
 			);
-			border-radius: 0.3rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		.desc {

@@ -36,7 +36,7 @@ export class GlAiInput extends LitElement {
 			min-width: 0;
 			background: var(--vscode-input-background);
 			border: 1px solid var(--vscode-input-border, transparent);
-			border-radius: 0.6rem;
+			border-radius: var(--gl-radius-md);
 			transition:
 				border-color 0.3s,
 				box-shadow 0.3s,
@@ -61,7 +61,7 @@ export class GlAiInput extends LitElement {
 			/* background: var(--vscode-input-background); */
 			border-bottom: 1px solid var(--vscode-input-border, transparent);
 			border-left: 1px solid var(--vscode-input-border, transparent);
-			border-radius: 0 0 0.6rem 0.6rem;
+			border-radius: 0 0 var(--gl-radius-md) var(--gl-radius-md);
 		}
 
 		:host([has-footer]) .ai-input__footer {
@@ -158,7 +158,7 @@ export class GlAiInput extends LitElement {
 
 		textarea::-webkit-scrollbar-thumb {
 			background-color: var(--vscode-scrollbarSlider-background);
-			border-radius: 3px;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		textarea::-webkit-scrollbar-thumb:hover {
@@ -208,7 +208,7 @@ export class GlAiInput extends LitElement {
 			background: transparent;
 			border: none;
 			border-right: 1px solid transparent;
-			border-radius: 0 0.6rem 0.6rem 0;
+			border-radius: 0 var(--gl-radius-md) var(--gl-radius-md) 0;
 			transition:
 				background 0.25s,
 				color 0.25s,

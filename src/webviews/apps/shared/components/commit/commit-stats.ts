@@ -69,7 +69,7 @@ export class CommitStats extends LitElement {
 				var(--vscode-foreground) 10%
 			);
 			border: 1px solid color-mix(in srgb, transparent 80%, var(--color-foreground));
-			border-radius: 0.4rem;
+			border-radius: var(--gl-radius-sm);
 		}
 
 		:host-context(.vscode-light):host([appearance='pill']),
