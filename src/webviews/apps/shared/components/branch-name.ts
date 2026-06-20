@@ -33,7 +33,7 @@ export class GlBranchName extends LitElement {
 			font-size: var(--gl-font-base);
 			color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
 			cursor: pointer;
-			border-radius: var(--gl-action-radius, 0.3rem);
+			border-radius: var(--gl-radius-sm);
 		}
 
 		:host([appearance='button']:hover) {

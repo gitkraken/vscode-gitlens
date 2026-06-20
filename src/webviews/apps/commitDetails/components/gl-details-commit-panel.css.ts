@@ -270,7 +270,7 @@ export const detailsCommitPanelStyles = css`
 		box-sizing: border-box;
 		overflow: hidden;
 		padding: 0 0.4rem;
-		border-radius: var(--gl-action-radius, 0.3rem);
+		border-radius: var(--gl-radius-sm);
 		color: var(--color-foreground--65);
 		font-size: inherit;
 		font-family: inherit;
@@ -343,7 +343,7 @@ export const detailsCommitPanelStyles = css`
 		cursor: pointer;
 		padding: 0.4rem;
 		color: var(--color-foreground);
-		border-radius: var(--gl-action-radius, 0.3rem);
+		border-radius: var(--gl-radius-sm);
 	}
 	:host([variant='embedded']) .reachability__load-all:hover {
 		background: var(--vscode-toolbar-hoverBackground);

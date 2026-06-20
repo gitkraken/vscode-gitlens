@@ -52,7 +52,7 @@ export class GlButton extends LitElement {
 				background: var(--button-background);
 				border: none;
 				border: 1px solid var(--button-border);
-				border-radius: var(--gl-action-radius, 0.3rem);
+				border-radius: var(--gl-radius-sm);
 				-webkit-font-smoothing: auto;
 			}
 
