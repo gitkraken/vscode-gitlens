@@ -79,7 +79,7 @@ export const homeStyles = css`
 	}
 
 	summary {
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		font-weight: normal;
 		color: var(--vscode-foreground);
 		text-transform: uppercase;
@@ -155,12 +155,12 @@ export const alertStyles = css`
 
 	.alert__title {
 		margin: 0;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 	}
 
 	.alert__description {
 		margin: var(--gl-space-4) 0 0;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 	}
 
 	.alert__description > :first-child {

@@ -246,14 +246,14 @@ export class GlFetchButton extends LitElement {
 
 			.fetch-popover__info {
 				padding: var(--gl-space-4) var(--gl-space-8);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.4;
 				color: var(--vscode-menu-foreground);
 			}
 
 			.fetch-popover__info-secondary {
 				margin-top: var(--gl-space-2);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				opacity: 0.7;
 			}
 
@@ -274,7 +274,7 @@ export class GlFetchButton extends LitElement {
 				flex: 1;
 				min-width: 0;
 				margin: 0;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				--checkbox-foreground: currentcolor;
 				--checkbox-background: var(--vscode-checkbox-selectBackground);
 				--checkbox-border: var(--vscode-checkbox-selectBorder);
@@ -284,7 +284,7 @@ export class GlFetchButton extends LitElement {
 			.fetch-popover__row .fetch-popover__label-text {
 				flex: 1;
 				min-width: 0;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 			}
 
 			.fetch-popover__row gl-button {
@@ -302,7 +302,7 @@ export class GlFetchButton extends LitElement {
 
 			.fetch-popover__hint {
 				padding: 0 0.8rem 0.4rem 2.6rem;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				line-height: 1.4;
 				color: var(--vscode-menu-foreground);
 				opacity: 0.7;
@@ -465,7 +465,7 @@ export class PushPullButton extends LitElement {
 				gap: 0.5rem;
 				align-items: center;
 				padding: 0.2rem 0.5rem;
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: 500;
 				line-height: 1.2;
 				color: var(--vscode-foreground);

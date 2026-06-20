@@ -61,7 +61,7 @@ export class CommitsPanel extends LitElement {
 
 			.commits-header {
 				margin-block: 0 var(--gl-space-4);
-				font-size: 1.4rem;
+				font-size: var(--gl-font-lg);
 			}
 
 			.commits-list > *:not(.commits-header) + .commits-header {
@@ -95,7 +95,7 @@ export class CommitsPanel extends LitElement {
 				align-items: center;
 				justify-content: space-between;
 				margin-block: var(--gl-space-8);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 			}
 
 			.composition-summary__feedback-label {
@@ -127,7 +127,7 @@ export class CommitsPanel extends LitElement {
 
 			.composition-summary__instructions {
 				margin-top: var(--gl-space-8);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.4;
 				color: var(--vscode-descriptionForeground);
 			}
@@ -143,12 +143,12 @@ export class CommitsPanel extends LitElement {
 
 			.finish-commit__header {
 				margin-block: 0 var(--gl-space-4);
-				font-size: 1.4rem;
+				font-size: var(--gl-font-lg);
 			}
 
 			.finish-commit__description {
 				margin-block: 0 var(--gl-space-8);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--vscode-descriptionForeground);
 			}
 
@@ -264,13 +264,13 @@ export class CommitsPanel extends LitElement {
 
 			.auto-compose__header {
 				margin-block: 0 var(--gl-space-4);
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				color: var(--vscode-foreground);
 			}
 
 			.auto-compose__description {
 				margin-block: 0 var(--gl-space-4);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.4;
 				color: var(--vscode-descriptionForeground);
 			}
@@ -303,7 +303,7 @@ export class CommitsPanel extends LitElement {
 				width: 100%;
 				padding: 0.5rem;
 				font-family: inherit;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				line-height: 1.8rem;
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-input-background);
@@ -327,7 +327,7 @@ export class CommitsPanel extends LitElement {
 
 			.auto-compose__footer {
 				margin-block: var(--gl-space-8) 0;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--75);
 				text-align: center;
 			}

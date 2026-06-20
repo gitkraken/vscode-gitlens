@@ -99,14 +99,14 @@ export const resumeBarStyles = css`
 	}
 
 	.resume-bar__count-item > code-icon {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.85;
 	}
 
 	.resume-bar__arrow {
 		flex-shrink: 0;
 		margin-left: var(--gl-space-4);
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		opacity: 0.85;
 	}
 
@@ -235,7 +235,7 @@ export const panelErrorStyles = css`
 
 	.panel-error__icon {
 		flex-shrink: 0;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		color: var(--vscode-editorError-foreground);
 	}
 

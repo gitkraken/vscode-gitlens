@@ -73,7 +73,7 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	 * file) keeps its existing chrome. */
 		.header-row__title {
 			flex: none;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			text-transform: uppercase;
 			white-space: nowrap;

@@ -130,7 +130,7 @@ export const reviewModePanelStyles = css`
 	}
 
 	.review-header__count-item > code-icon {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.85;
 	}
 
@@ -327,7 +327,7 @@ export const reviewModePanelStyles = css`
 	.review-areas__header {
 		flex: 1 1 auto;
 		min-width: 0;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		font-weight: normal;
 		color: var(--vscode-foreground);
 		text-transform: uppercase;

@@ -221,7 +221,7 @@ export class GlGraphMinimap extends GlElement {
 			gap: 0.5rem;
 			max-width: fit-content;
 			margin: 0.5rem 0;
-			font-size: 12px;
+			font-size: var(--gl-font-md);
 		}
 
 		#tooltip .results .result {
@@ -238,7 +238,7 @@ export class GlGraphMinimap extends GlElement {
 			gap: 0.5rem;
 			max-width: fit-content;
 			margin: 0.5rem 0;
-			font-size: 12px;
+			font-size: var(--gl-font-md);
 		}
 
 		#tooltip .refs:empty {

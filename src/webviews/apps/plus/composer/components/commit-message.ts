@@ -35,7 +35,7 @@ export class CommitMessage extends LitElement {
 			.commit-message__text,
 			.commit-message__input {
 				font-family: inherit;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				line-height: 2rem;
 				color: var(--vscode-input-foreground);
 				border-radius: var(--gl-input-border-radius);
@@ -159,7 +159,7 @@ export class CommitMessage extends LitElement {
 			.commit-message__explanation {
 				padding: var(--gl-space-8) var(--gl-space-16);
 				margin-block: 0;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.4;
 				color: var(--vscode-input-foreground);
 				background: var(--vscode-multiDiffEditor-headerBackground);
@@ -196,7 +196,7 @@ export class CommitMessage extends LitElement {
 		left: 0;
 		width: 100%; */
 				padding: var(--gl-space-4);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.4;
 				color: var(--gl-search-input-foreground);
 				background-color: var(--vscode-inputValidation-infoBackground);

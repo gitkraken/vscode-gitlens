@@ -4,7 +4,7 @@ export const titlebarStyles = css`
 	.titlebar {
 		flex-wrap: wrap;
 		padding: 0.5rem 0.8rem;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		color: var(--titlebar-fg);
 		background: var(--titlebar-bg);
 	}
@@ -179,7 +179,7 @@ export const graphHeaderControlStyles = css`
 
 	.titlebar__group gl-repo-button-group,
 	.titlebar__group gl-ref-button {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 	}
 
 	.shrink {

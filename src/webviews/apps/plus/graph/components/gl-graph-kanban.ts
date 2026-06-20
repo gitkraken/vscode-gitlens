@@ -138,7 +138,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: flex;
 				gap: var(--gl-space-8);
 				align-items: baseline;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
 			}
 
@@ -146,14 +146,14 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				padding: 0;
 				margin: 0;
 				font: inherit;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				text-transform: uppercase;
 				white-space: nowrap;
 			}
 
 			.header__count {
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--65);
 			}
 
@@ -212,7 +212,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				gap: var(--gl-space-6);
 				align-items: center;
 				padding: var(--gl-space-8) var(--gl-space-10);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
@@ -236,7 +236,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.column__count {
 				margin-left: auto;
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: 400;
 				color: var(--color-foreground--65);
 				text-transform: none;
@@ -259,7 +259,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 
 			.column__empty {
 				padding: var(--gl-space-4) var(--gl-space-2);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-style: italic;
 				color: var(--color-foreground--50);
 			}
@@ -323,13 +323,13 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				font-weight: 600;
 				white-space: nowrap;
 			}
 
 			.card__phase {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: 500;
 				color: var(--color-foreground--65);
 				white-space: nowrap;
@@ -358,7 +358,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				color: var(--color-foreground--65);
 				white-space: nowrap;
 			}
@@ -371,7 +371,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				display: -webkit-box;
 				overflow: hidden;
 				-webkit-line-clamp: 3;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				line-height: 1.4;
 				color: var(--vscode-foreground);
 				-webkit-box-orient: vertical;

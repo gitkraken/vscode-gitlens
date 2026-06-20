@@ -121,7 +121,7 @@ export const detailsCommitPanelStyles = css`
 	}
 
 	.mode-title__subtitle {
-		font-size: var(--gl-font-small, 1.2rem);
+		font-size: var(--gl-font-md);
 		color: var(--color-foreground--65);
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -136,7 +136,7 @@ export const detailsCommitPanelStyles = css`
 	   commit-stats render when present so the bar's right side carries the mode's current
 	   state rather than the static stats. */
 	.metadata-bar .mode-status {
-		font-size: var(--gl-font-small, 1.2rem);
+		font-size: var(--gl-font-md);
 		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}

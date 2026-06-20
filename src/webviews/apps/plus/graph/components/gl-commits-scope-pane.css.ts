@@ -303,7 +303,7 @@ export const commitsScopePaneStyles = css`
 
 	.scope-handle--proxy code-icon {
 		position: absolute;
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		color: var(--vscode-descriptionForeground);
 		pointer-events: none;
 	}

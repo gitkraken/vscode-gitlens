@@ -442,7 +442,7 @@ export const entryStyles = css`
 		--fg-intensity: 60%;
 
 		.entry-graph code-icon {
-			font-size: 13px;
+			font-size: var(--gl-font-base);
 			color: var(--color-foreground--65);
 		}
 

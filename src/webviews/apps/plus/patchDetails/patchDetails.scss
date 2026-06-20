@@ -198,7 +198,7 @@ gl-popover[appearance='menu'] menu-list {
 		width: 100%;
 		padding: 0.5rem;
 		font-family: inherit;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		line-height: 1.4;
 		color: var(--vscode-input-foreground);
 		background: var(--vscode-input-background);
@@ -380,7 +380,7 @@ textarea.message-input__control {
 
 	&__content {
 		margin: 0;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		line-height: 1.2;
 		text-align: left;
 	}

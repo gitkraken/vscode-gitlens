@@ -145,7 +145,7 @@ export const diff2htmlStyles = css`
 	.d2h-file-stats {
 		display: flex;
 		margin-left: auto;
-		font-size: 14px;
+		font-size: var(--gl-font-lg);
 	}
 
 	.d2h-lines-added {
@@ -171,7 +171,7 @@ export const diff2htmlStyles = css`
 		display: flex;
 		align-items: center;
 		width: 100%;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		align-items: center;
 		-ms-flex-align: center;
 	}
@@ -193,7 +193,7 @@ export const diff2htmlStyles = css`
 		align-items: center;
 		justify-content: flex-end;
 		padding: var(--gl-space-4) var(--gl-space-8);
-		font-size: 12px;
+		font-size: var(--gl-font-md);
 		cursor: pointer;
 		border: 1px solid var(--d2h-border-color);
 		border-radius: var(--gl-radius-sm);
@@ -456,7 +456,7 @@ export const diff2htmlStyles = css`
 
 	.d2h-file-switch {
 		display: none;
-		font-size: 10px;
+		font-size: var(--gl-font-micro);
 		cursor: pointer;
 	}
 
@@ -486,7 +486,7 @@ export const diff2htmlStyles = css`
 		display: flex;
 		padding: 0 3px;
 		margin-left: var(--gl-space-6);
-		font-size: 10px;
+		font-size: var(--gl-font-micro);
 		background-color: var(--d2h-bg-color);
 		border-radius: var(--gl-radius-xs);
 	}

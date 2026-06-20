@@ -54,20 +54,20 @@ export const graphScopePopoverStyles = css`
 
 	.mode-chip__icon {
 		flex: none;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 	}
 
 	.mode-chip__label {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		white-space: nowrap;
 	}
 
 	.mode-chip__chevron {
 		flex: none;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.7;
 	}
 
@@ -134,18 +134,18 @@ export const graphScopePopoverStyles = css`
 		justify-content: center;
 		width: 1.8rem;
 		margin-right: 0.5rem;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		opacity: 0.9;
 	}
 
 	.mode-menu-item__label {
 		flex: 1;
 		min-width: 0;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 	}
 
 	.mode-menu-item__info {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.6;
 	}
 
@@ -163,7 +163,7 @@ export const graphScopePopoverStyles = css`
 
 	.mode-menu-item__chevron {
 		flex: none;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		opacity: 0.7;
 	}
 
@@ -181,7 +181,7 @@ export const graphScopePopoverStyles = css`
 
 	.mode-popover__section-title {
 		flex: 1;
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		font-weight: 600;
 		color: var(--vscode-menu-foreground, var(--color-foreground));
 		text-transform: uppercase;
@@ -249,7 +249,7 @@ export const graphScopePopoverStyles = css`
 		flex: 1;
 		padding: 0;
 		margin: 0;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		--checkbox-foreground: currentcolor;
 		--checkbox-background: var(--vscode-checkbox-selectBackground);
 		--checkbox-border: var(--vscode-checkbox-selectBorder);

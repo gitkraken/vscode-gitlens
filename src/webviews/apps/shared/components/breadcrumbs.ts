@@ -38,7 +38,7 @@ export class GlBreadcrumbs extends LitElement {
 		}
 
 		:host([density='compact']) {
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 		}
 
 		nav {

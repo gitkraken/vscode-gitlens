@@ -53,7 +53,7 @@ export class CommitStats extends LitElement {
 			display: inline-flex;
 			flex-direction: row;
 			align-items: center;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			white-space: nowrap;
 		}

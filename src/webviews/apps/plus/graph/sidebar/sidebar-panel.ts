@@ -282,7 +282,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				align-items: center;
 				min-height: 2.2rem;
 				padding: 0 0 0 var(--gl-space-4);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				color: var(--color-view-header-foreground);
 				text-transform: uppercase;
@@ -382,7 +382,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 			.empty {
 				padding: var(--gl-space-10);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--vscode-descriptionForeground);
 				text-align: center;
 			}

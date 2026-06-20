@@ -74,7 +74,7 @@ export class DetailsPanel extends LitElement {
 				align-items: center;
 				justify-content: space-between;
 				margin-block: 0 var(--gl-space-8);
-				font-size: 1.4rem;
+				font-size: var(--gl-font-lg);
 			}
 
 			.files-headline__title {
@@ -128,7 +128,7 @@ export class DetailsPanel extends LitElement {
 				display: flex;
 				gap: 0.5rem;
 				align-items: center;
-				font-size: 1.4rem;
+				font-size: var(--gl-font-lg);
 				font-weight: 500;
 				color: var(--vscode-foreground);
 			}

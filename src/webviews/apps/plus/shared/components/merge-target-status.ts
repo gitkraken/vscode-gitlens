@@ -63,7 +63,7 @@ const mergeTargetStyles = css`
 
 	.header__subtitle {
 		margin: var(--gl-space-2) 0 0;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 	}
 
 	.status--conflict .icon,

@@ -74,7 +74,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.chip {
 				padding-right: var(--gl-space-6);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 400;
 				line-height: 2rem;
 				text-transform: uppercase;
@@ -154,13 +154,13 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 
 			.details__title {
 				margin: 0;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
 			}
 
 			.details__subtitle {
 				margin: 0;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 400;
 				color: var(--color-foreground--65);
 			}
@@ -181,7 +181,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 				width: 2.4rem;
 				height: 2.4rem;
 				margin-right: var(--gl-space-6);
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: 600;
 				line-height: 2.4rem;
 				color: var(--color-foreground--65);
@@ -234,7 +234,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			}
 
 			.upgrade-button {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				text-transform: uppercase;
 			}
 

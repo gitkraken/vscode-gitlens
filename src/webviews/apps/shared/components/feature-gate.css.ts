@@ -181,7 +181,7 @@ export const featureGateContentStyles = css`
 
 	.feature__sub {
 		margin: 0;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 	}
 
 	.list {
@@ -204,11 +204,11 @@ export const featureGateContentStyles = css`
 		display: flex;
 		flex-direction: column;
 		gap: var(--gl-space-2);
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		text-wrap: pretty;
 
 		strong {
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			color: var(--color-foreground);
 		}
 	}

@@ -518,7 +518,7 @@ button:not([disabled]),
 
 	code-icon {
 		position: relative;
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 	}
 }
 
@@ -686,7 +686,7 @@ button:not([disabled]),
 	-moz-osx-font-smoothing: grayscale;
 
 	&.mini-icon {
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		line-height: 1.6rem;
 	}
 }
@@ -1022,7 +1022,7 @@ button:not([disabled]),
 	justify-content: center;
 	width: 1.6rem;
 	height: 1.6rem;
-	font-size: 1.4rem;
+	font-size: var(--gl-font-lg);
 	line-height: 1;
 }
 
@@ -1404,7 +1404,7 @@ web-graph {
 
 	&::before {
 		display: inline-block;
-		font-size: 13px;
+		font-size: var(--gl-font-base);
 		line-height: 1;
 	}
 }
@@ -1426,7 +1426,7 @@ web-graph {
 	.gk-graph .ref-zone .merge-target-ref-node {
 		gap: var(--gl-space-4);
 		padding: 0 var(--gl-space-6);
-		font-size: 11px;
+		font-size: var(--gl-font-sm);
 	}
 }
 
@@ -1497,7 +1497,7 @@ web-graph {
 
 	// Graph footer styles
 	& .graph-footer__message {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		font-style: italic;
 		color: var(--vscode-descriptionForeground);
 	}
@@ -1508,7 +1508,7 @@ web-graph {
 
 	& .graph-footer__link {
 		padding: 0.2rem 0.5rem;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		color: var(--vscode-textLink-foreground);
 		text-decoration: none;
 		cursor: pointer;
@@ -1829,7 +1829,7 @@ web-graph {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.4rem;
+			font-size: var(--gl-font-lg);
 			font-weight: 600;
 			color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 			white-space: nowrap;
@@ -2084,7 +2084,7 @@ web-graph {
 	align-items: center;
 	justify-content: center;
 	padding: var(--gl-space-20) var(--gl-space-12);
-	font-size: 1.2rem;
+	font-size: var(--gl-font-md);
 	color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 }
 
@@ -2098,7 +2098,7 @@ web-graph {
 	display: flex;
 	gap: 0.3rem;
 	height: 100%;
-	font-size: 1.3rem;
+	font-size: var(--gl-font-base);
 
 	gl-button {
 		height: 100%;

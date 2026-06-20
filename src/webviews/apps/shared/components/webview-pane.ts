@@ -48,7 +48,7 @@ export class WebviewPane extends LitElement {
 				padding: 0;
 				text-overflow: ellipsis;
 				font-family: var(--font-family);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				line-height: 2.2rem;
 				color: inherit;
 				text-align: left;

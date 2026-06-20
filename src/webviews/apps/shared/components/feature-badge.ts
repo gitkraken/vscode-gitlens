@@ -86,7 +86,7 @@ export class GlFeatureBadge extends LitElement {
 			}
 
 			.popup-title {
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				font-weight: 600;
 			}
 

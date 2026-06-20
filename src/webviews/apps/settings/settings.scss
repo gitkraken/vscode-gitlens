@@ -105,7 +105,7 @@ a.secondary {
 		top: 3px;
 		left: 3px;
 		font-family: codicon;
-		font-size: 14px;
+		font-size: var(--gl-font-lg);
 		font-weight: 400;
 		content: '\eb14';
 	}
@@ -127,7 +127,7 @@ a.secondary {
 
 .content__area {
 	grid-area: content;
-	font-size: 1.4rem;
+	font-size: var(--gl-font-lg);
 
 	@include utils.dark-theme($selectorPostfix: ' &') {
 		background-color: var(--color-background--lighten-05);
@@ -220,7 +220,7 @@ a.secondary {
 
 .hero__subtitle {
 	margin: 0.25em 0 0;
-	font-size: 1.4rem;
+	font-size: var(--gl-font-lg);
 	color: var(--color-foreground--75);
 }
 
@@ -299,7 +299,7 @@ a.secondary {
 	p {
 		display: block;
 		margin: -0.5em 1em 0.5em;
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		font-weight: 200;
 		color: var(--color-foreground--75);
 		text-align: center;
@@ -722,7 +722,7 @@ section {
 .setting__hint {
 	display: block;
 	margin: 0 1em 0.5em;
-	font-size: 1.3rem;
+	font-size: var(--gl-font-base);
 	font-weight: 200;
 	color: var(--color-foreground--75);
 }
@@ -811,7 +811,7 @@ section {
 	align-self: flex-start;
 	min-width: 160px;
 	margin-right: -2rem;
-	font-size: 1.3rem;
+	font-size: var(--gl-font-base);
 
 	@media all and (width <= 925px) {
 		display: none;

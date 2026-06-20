@@ -154,7 +154,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 
 		.group h3 {
 			margin: 0 0 var(--gl-space-4);
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 			text-transform: uppercase;
@@ -179,7 +179,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 			min-width: 1.6rem;
 			padding: 0.1rem 0.4rem;
 			font-family: inherit;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			line-height: 1.5;
 			color: var(--vscode-keybindingLabel-foreground, var(--vscode-foreground));
 			text-align: center;
@@ -193,13 +193,13 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		}
 
 		.desc {
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			color: var(--color-foreground--75, var(--vscode-foreground));
 		}
 
 		.footnote {
 			margin: 0;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			color: var(--color-foreground--65, var(--vscode-descriptionForeground));
 		}
 	`;

@@ -25,7 +25,7 @@ export class IssuePullRequest extends GlElement {
 			grid-template-columns: min-content 1fr min-content;
 			gap: 0.25rem 0.6rem;
 			justify-content: start;
-			font-size: 1.3rem;
+			font-size: var(--gl-font-base);
 		}
 
 		:host([compact]) {

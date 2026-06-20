@@ -98,13 +98,13 @@ export const bannerStyles = css`
 	}
 
 	.banner--gradient-purple .banner__title {
-		font-size: 1.3rem;
+		font-size: var(--gl-font-base);
 		font-weight: normal;
 		color: var(--vscode-foreground);
 	}
 
 	.banner--gradient-purple .banner__body {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		line-height: 1.4;
 		color: var(--vscode-descriptionForeground);
 	}

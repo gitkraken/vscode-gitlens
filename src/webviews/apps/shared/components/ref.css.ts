@@ -17,7 +17,7 @@ export const pickerIconStyles = css`
 	code-icon.picker-icon {
 		/* margin-top: 0.4rem; */
 		margin-right: -0.25rem;
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 	}
 
 	code-icon.picker-icon::before {

@@ -110,7 +110,7 @@ export class ComposerApp extends LitElement {
 
 			.header small {
 				margin-inline-start: var(--gl-space-4);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--color-foreground--65);
 				text-transform: uppercase;
 			}
@@ -150,7 +150,7 @@ export class ComposerApp extends LitElement {
 			}
 
 			.working-directory-warning__text {
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 				color: var(--vscode-inputValidation-warningForeground);
 			}
 
@@ -323,7 +323,7 @@ export class ComposerApp extends LitElement {
 			.generic-dialog__message {
 				padding: var(--gl-space-12);
 				font-family: var(--vscode-editor-font-family);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
 				background: var(--color-background);
 				border: 1px solid var(--vscode-panel-border);
@@ -337,7 +337,7 @@ export class ComposerApp extends LitElement {
 
 			.generic-dialog__secondary {
 				margin: 0;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--color-foreground--75);
 			}
 

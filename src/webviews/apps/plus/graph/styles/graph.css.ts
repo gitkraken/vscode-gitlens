@@ -20,7 +20,7 @@ export const actionButton = css`
 		position: relative;
 		appearance: none;
 		font-family: inherit;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		line-height: 2.2rem;
 		// background-color: var(--color-graph-actionbar-background);
 		background-color: transparent;
@@ -80,7 +80,7 @@ export const actionButton = css`
 
 	.action-button__more,
 	.action-button__more.codicon[class*='codicon-'] {
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		margin-right: -0.25rem;
 	}
 

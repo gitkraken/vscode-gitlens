@@ -265,7 +265,7 @@ export class GlTimelineChart extends GlElement {
 			padding: 0 var(--gl-space-8) 0 var(--gl-space-2);
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			white-space: nowrap;
 		}
@@ -306,7 +306,7 @@ export class GlTimelineChart extends GlElement {
 			position: absolute;
 			left: calc(var(--rail-left-offset, 8px) + 2px);
 			z-index: 1;
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			color: var(--color-foreground--75);
 			white-space: nowrap;
 			pointer-events: none;
@@ -327,7 +327,7 @@ export class GlTimelineChart extends GlElement {
 			position: absolute;
 			right: 6px;
 			z-index: 1;
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			color: var(--color-foreground--75);
 			white-space: nowrap;
 			pointer-events: none;
@@ -340,7 +340,7 @@ export class GlTimelineChart extends GlElement {
 			z-index: 2;
 			width: 100%;
 			overflow: visible;
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			line-height: 12px;
 			color: var(--axis-label-color);
 			pointer-events: none;
@@ -378,7 +378,7 @@ export class GlTimelineChart extends GlElement {
 		.axis-overlay__label {
 			position: absolute;
 			bottom: 4px;
-			font-size: 10px;
+			font-size: var(--gl-font-micro);
 			line-height: 12px;
 			color: var(--axis-label-color);
 			white-space: nowrap;
@@ -454,7 +454,7 @@ export class GlTimelineChart extends GlElement {
 			display: none;
 			max-width: 320px;
 			padding: var(--gl-space-6) var(--gl-space-8);
-			font-size: 11px;
+			font-size: var(--gl-font-sm);
 			color: var(--vscode-editorHoverWidget-foreground, var(--color-hover-foreground));
 			pointer-events: none;
 			background: var(--vscode-editorHoverWidget-background, var(--color-hover-background));

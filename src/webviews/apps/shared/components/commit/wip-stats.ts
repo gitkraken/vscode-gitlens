@@ -72,7 +72,7 @@ export class GlWipStats extends LitElement {
 				gap: var(--gl-space-6);
 				align-items: center;
 				padding: 0.1rem 0.4rem;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 600;
 				line-height: 2rem;
 				color: #000;

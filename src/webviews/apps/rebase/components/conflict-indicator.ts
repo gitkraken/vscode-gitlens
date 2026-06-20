@@ -44,7 +44,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 			/* Button mode (full) */
 			:host(:not([compact])) .indicator {
 				padding: var(--gl-space-4) var(--gl-space-8);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				background-color: var(--vscode-button-secondaryBackground);
 				border: 1px solid var(--vscode-button-secondaryBorder, transparent);
 				border-radius: var(--gl-radius-sm);
@@ -148,7 +148,7 @@ export class GlRebaseConflictIndicator extends LitElement {
 			.popover__file {
 				padding: var(--gl-space-4) 0;
 				font-family: var(--vscode-editor-font-family);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 			}
 
 			gl-feature-gate-plus-state {

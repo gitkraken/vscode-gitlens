@@ -135,7 +135,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 				gap: 0.3rem;
 				align-items: center;
 				padding: 0.1rem 0.5rem;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--vscode-badge-foreground);
 				background: var(--vscode-badge-background);
 				border-radius: var(--gl-radius-sm);

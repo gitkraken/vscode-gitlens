@@ -129,7 +129,7 @@ export class GlDetailSheet extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-size: 1.4rem;
+				font-size: var(--gl-font-lg);
 				font-weight: 600;
 				color: var(--vscode-sideBarTitle-foreground, var(--vscode-foreground));
 				white-space: nowrap;

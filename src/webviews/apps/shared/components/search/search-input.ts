@@ -133,7 +133,7 @@ export class GlSearchInput extends GlElement {
 		}
 
 		.icon-small {
-			font-size: 1rem;
+			font-size: var(--gl-font-micro);
 		}
 
 		.field {
@@ -185,7 +185,7 @@ export class GlSearchInput extends GlElement {
 			z-index: var(--gl-z-popover);
 			width: 100%;
 			padding: var(--gl-space-4);
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			line-height: 1.4;
 			color: var(--gl-search-input-foreground);
 			background-color: var(--vscode-inputValidation-infoBackground);

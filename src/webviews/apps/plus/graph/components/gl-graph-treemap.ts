@@ -199,7 +199,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			font-weight: 600;
 			text-transform: uppercase;
 			white-space: nowrap;
@@ -222,7 +222,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			min-width: 0;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			color: var(--color-foreground--65);
 			white-space: nowrap;
 		}
@@ -244,7 +244,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			align-items: center;
 			padding: 0.1rem 0.4rem;
 			font: inherit;
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			color: var(--vscode-foreground);
 			white-space: nowrap;
 			appearance: none;
@@ -268,7 +268,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		}
 
 		.period-button code-icon {
-			font-size: 1rem;
+			font-size: var(--gl-font-micro);
 			opacity: 0.75;
 		}
 

@@ -27,7 +27,7 @@ export const detailsWipEmptyPaneStyles = css`
 
 	.section__heading {
 		margin: 0;
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		font-weight: 500;
 		color: var(--color-foreground--65);
 		text-transform: uppercase;
@@ -129,7 +129,7 @@ export const detailsWipEmptyPaneStyles = css`
 		display: flex;
 		gap: var(--gl-space-6);
 		align-items: center;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		color: inherit;
 		text-decoration: none;
 	}

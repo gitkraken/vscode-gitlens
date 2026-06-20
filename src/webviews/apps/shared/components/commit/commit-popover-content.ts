@@ -70,7 +70,7 @@ export const commitPopoverStyles = css`
 
 	.commit-popover-content__date {
 		flex-shrink: 0;
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		color: var(--color-foreground--50);
 		white-space: nowrap;
 	}
@@ -78,7 +78,7 @@ export const commitPopoverStyles = css`
 	.commit-popover-content__message {
 		max-height: 10rem;
 		overflow: auto;
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--85);
 		overflow-wrap: anywhere;
 		white-space: pre-wrap;
@@ -95,7 +95,7 @@ export const commitPopoverStyles = css`
 		gap: var(--gl-space-2);
 		align-items: center;
 		font-family: var(--vscode-editor-font-family, monospace);
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 	}
 `;

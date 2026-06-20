@@ -136,7 +136,7 @@ export const detailsWipHeaderStyles = css`
 		margin-left: auto;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: var(--gl-font-small, 1.2rem);
+		font-size: var(--gl-font-md);
 		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}

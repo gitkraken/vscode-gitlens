@@ -190,7 +190,7 @@ export class GlTreeView extends GlElement {
 			}
 
 			.hover-content {
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				line-height: 1.5;
 
 				/* anywhere wraps at any character when forced — avoids the default behavior of
@@ -204,7 +204,7 @@ export class GlTreeView extends GlElement {
 				align-items: center;
 				height: 1.8rem;
 				padding: 0 var(--gl-space-6);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 500;
 				border: 1px solid;
 				border-radius: 0.9rem;

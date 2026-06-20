@@ -26,7 +26,7 @@ export class GlSection extends LitElement {
 			.section__heading {
 				flex: 1;
 				min-width: 0;
-				font-size: 1.3rem;
+				font-size: var(--gl-font-base);
 			}
 
 			.section__headline {

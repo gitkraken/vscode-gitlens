@@ -64,7 +64,7 @@ export class GlCompactCommitRow extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				text-overflow: ellipsis;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--color-foreground--85);
 				white-space: nowrap;
 			}
@@ -75,7 +75,7 @@ export class GlCompactCommitRow extends LitElement {
 				gap: var(--gl-space-4);
 				align-items: center;
 				font-family: var(--vscode-editor-font-family, monospace);
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 			}
 
 			.diff-stats__added {
@@ -88,7 +88,7 @@ export class GlCompactCommitRow extends LitElement {
 
 			.date {
 				flex-shrink: 0;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 			}
 

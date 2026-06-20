@@ -49,14 +49,14 @@ export class CommitIdentity extends LitElement {
 		.name {
 			flex: 1;
 			text-overflow: ellipsis;
-			font-size: 1.3rem;
+			font-size: var(--gl-font-base);
 			white-space: nowrap;
 		}
 
 		.date {
 			flex: none;
 			margin-inline-start: auto;
-			font-size: 1.3rem;
+			font-size: var(--gl-font-base);
 			color: var(--color-foreground--50);
 		}
 	`;

@@ -67,7 +67,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.chip__label {
 				margin-right: var(--gl-space-4);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: 400;
 				color: var(--color-foreground--75);
 				text-transform: uppercase;
@@ -147,7 +147,7 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.integration__details {
 				display: block;
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				color: var(--color-foreground--75);
 			}
 

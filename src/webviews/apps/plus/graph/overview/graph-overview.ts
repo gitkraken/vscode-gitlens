@@ -53,7 +53,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				width: 100%;
 				height: 100%;
 				overflow: hidden;
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--vscode-foreground);
 				background-color: var(--color-graph-background);
 			}
@@ -77,7 +77,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.group__label {
 				padding-inline: var(--gl-space-4);
 				margin-block: 0 var(--gl-space-4);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-weight: normal;
 				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
@@ -104,7 +104,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: 0 var(--gl-space-4);
 				font-family: inherit;
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--50);
 				white-space: nowrap;
 				cursor: pointer;
@@ -121,7 +121,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			}
 
 			.threshold-filter code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 			}
 
 			.section {
@@ -131,7 +131,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 			.section-label {
 				padding-inline: var(--gl-space-4);
 				margin-block: 0 var(--gl-space-2);
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				font-weight: normal;
 				color: var(--vscode-descriptionForeground);
 				text-transform: uppercase;
@@ -150,7 +150,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 			.empty {
 				padding: var(--gl-space-6) var(--gl-space-8);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				font-style: italic;
 				color: var(--vscode-descriptionForeground);
 			}

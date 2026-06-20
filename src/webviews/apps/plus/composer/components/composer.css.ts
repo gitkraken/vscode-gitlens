@@ -104,7 +104,7 @@ export const composerItemStyles = css`
 	.composer-item__header {
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		white-space: nowrap;
 	}
 
@@ -121,7 +121,7 @@ export const composerItemStyles = css`
 	}
 
 	.composer-item__body {
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 	}
 
 	.composer-item.is-base .composer-item__body {

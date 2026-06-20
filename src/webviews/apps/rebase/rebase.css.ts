@@ -87,7 +87,7 @@ export const rebaseStyles = css`
 		margin: 1em 0 0.3em;
 		overflow: hidden;
 		text-overflow: ellipsis;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 		font-weight: 200;
 		line-height: normal;
 		white-space: nowrap;
@@ -108,7 +108,7 @@ export const rebaseStyles = css`
 		top: 2px;
 		margin: 0 3px;
 		font-family: codicon;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		content: '\\ea68';
 	}
 
@@ -117,7 +117,7 @@ export const rebaseStyles = css`
 		top: 2px;
 		margin: 0 1px 0 3px;
 		font-family: codicon;
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		content: '\\eafc';
 	}
 
@@ -533,7 +533,7 @@ export const rebaseStyles = css`
 		align-items: center;
 		padding: var(--gl-space-2) var(--gl-space-6);
 		margin-left: 0.5rem;
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		font-weight: 500;
 		border-radius: var(--gl-radius-sm);
 

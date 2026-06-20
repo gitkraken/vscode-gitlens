@@ -107,7 +107,7 @@ export class GlOverview extends SignalWatcher(LitElement) {
 			}
 
 			.threshold-filter code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 			}
 
 			.tabs {

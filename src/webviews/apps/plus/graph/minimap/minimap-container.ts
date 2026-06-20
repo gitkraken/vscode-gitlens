@@ -97,7 +97,7 @@ export class GlGraphMinimapContainer extends GlElement {
 		}
 
 		.minimap-datatype__info {
-			font-size: 1.3rem;
+			font-size: var(--gl-font-base);
 			color: var(--color-foreground--50);
 		}
 

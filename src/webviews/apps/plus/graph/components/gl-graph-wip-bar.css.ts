@@ -37,7 +37,7 @@ export const wipBarStyles = css`
 		/* Stretch over the bar's full height so the opaque background fully masks pills passing under. */
 		align-self: stretch;
 		padding-inline: var(--gl-space-8) var(--gl-space-4);
-		font-size: 1rem;
+		font-size: var(--gl-font-micro);
 		font-weight: 600;
 		color: var(--vscode-descriptionForeground, var(--color-foreground--65));
 		text-transform: uppercase;
@@ -102,13 +102,13 @@ export const wipBarStyles = css`
 	}
 
 	.pill__agent-icon {
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 	}
 
 	/* Unpushed indicator — shares the canonical ahead/unpublished color (theme.scss :root token), the
 	   same one the scope pane uses for unpushed commits. */
 	.pill__unpushed-icon {
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		color: var(--gl-tracking-ahead, #4ec9b0);
 	}
 
@@ -152,7 +152,7 @@ export const wipBarStyles = css`
 	.pill-hover__row {
 		display: flex;
 		gap: var(--gl-space-8);
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		opacity: 0.9;
 	}
 
@@ -176,7 +176,7 @@ export const wipBarStyles = css`
 		display: inline-flex;
 		gap: 0.3rem;
 		align-items: center;
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		opacity: 0.9;
 	}
 

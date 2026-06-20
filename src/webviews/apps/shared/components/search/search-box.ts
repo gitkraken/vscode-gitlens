@@ -67,7 +67,7 @@ export class GlSearchBox extends GlElement {
 			margin-right: var(--gl-space-4);
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.2rem;
+			font-size: var(--gl-font-md);
 			white-space: nowrap;
 		}
 

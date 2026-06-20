@@ -146,7 +146,7 @@ export class GlTimelineHeader extends LitElement {
 				/* Match the breadcrumbs' compact density: smaller font, smaller icons, tighter
 	   button padding. The buttons sit visually adjacent to the crumb chain so they
 	   need to share its size scale or they look like a different control set. */
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				--code-icon-size: 1.3rem;
 			}
 
@@ -172,7 +172,7 @@ export class GlTimelineHeader extends LitElement {
 			.details__timeframe {
 				flex: 0 0 auto;
 				margin-right: var(--gl-space-4);
-				font-size: 1.2rem;
+				font-size: var(--gl-font-md);
 				color: var(--color-foreground--75);
 				white-space: nowrap;
 				user-select: none;
@@ -210,13 +210,13 @@ export class GlTimelineHeader extends LitElement {
 			}
 
 			.details__timeframe--button code-icon {
-				font-size: 1rem;
+				font-size: var(--gl-font-micro);
 				opacity: 0.75;
 			}
 
 			.config__help {
 				padding: 0 var(--gl-space-4);
-				font-size: 1.1rem;
+				font-size: var(--gl-font-sm);
 				color: var(--color-foreground--50);
 			}
 

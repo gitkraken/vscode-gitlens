@@ -53,7 +53,7 @@ export const multiCommitPanelStyles = css`
 		display: inline-flex;
 		gap: var(--gl-space-8);
 		align-items: center;
-		font-size: var(--gl-font-small, 1.2rem);
+		font-size: var(--gl-font-md);
 		color: var(--color-foreground--65);
 		white-space: nowrap;
 	}

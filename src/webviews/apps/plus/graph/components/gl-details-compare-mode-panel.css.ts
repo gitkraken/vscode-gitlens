@@ -320,7 +320,7 @@ export const compareModePanelStyles = css`
 		justify-content: center;
 		min-width: 0;
 		padding: var(--gl-space-10) var(--gl-space-12);
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		color: var(--color-foreground--65);
 	}
 
@@ -480,7 +480,7 @@ export const compareModePanelStyles = css`
 		align-items: center;
 		padding: 0.1rem 0.3rem 0.1rem 0.4rem;
 		margin: 0 var(--gl-space-6);
-		font-size: 1.2rem;
+		font-size: var(--gl-font-md);
 		font-weight: normal;
 		line-height: 1;
 		color: var(--vscode-statusBarItem-warningForeground, var(--vscode-foreground));
@@ -508,7 +508,7 @@ export const compareModePanelStyles = css`
 
 	.compare-scope-tag > code-icon {
 		flex: none;
-		font-size: 1.4rem;
+		font-size: var(--gl-font-lg);
 	}
 
 	.compare-scope-tag__close {
@@ -853,7 +853,7 @@ export const compareModePanelStyles = css`
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--gl-space-6);
-		font-size: 1.1rem;
+		font-size: var(--gl-font-sm);
 		color: var(--vscode-descriptionForeground);
 	}
 

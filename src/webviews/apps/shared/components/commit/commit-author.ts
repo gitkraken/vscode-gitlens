@@ -66,14 +66,14 @@ export class GlCommitAuthor extends LitElement {
 			flex: 1;
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.3rem;
+			font-size: var(--gl-font-base);
 			white-space: nowrap;
 		}
 
 		.date {
 			overflow: hidden;
 			text-overflow: ellipsis;
-			font-size: 1.1rem;
+			font-size: var(--gl-font-sm);
 			line-height: 1.4;
 			color: var(--vscode-descriptionForeground, var(--color-foreground--50));
 			white-space: nowrap;
