@@ -5,21 +5,51 @@
 // Full reference (prefixes, the rem base, the elevation model): docs/webview-styling.md
 
 :root {
-	// Font-size scale (1rem = 10px via html font-size: 62.5%)
-	--gl-font-micro: 1rem; // 10px — tiny badge counts only
-	--gl-font-sm: 1.1rem; // 11px — secondary metadata, dates, stats, chips, tracking
-	--gl-font-base: 1.3rem; // 13px — primary body text, messages, controls
-	--gl-font-lg: 1.4rem; // 14px — emphasized headline (commit message subject)
+	// Font-size scale (1rem = 10px via html font-size: 62.5%). The 11/12/13 steps bridge to VS Code's
+	// bodyFontSize tokens (1.110+) and fall back to rem; micro/lg are bespoke (VS Code has no equivalent).
+	--gl-font-micro: 1rem; // 10px — tiny badge counts only (bespoke)
+	--gl-font-sm: var(--vscode-bodyFontSize-xSmall, 1.1rem); // 11px — secondary metadata, dates, stats, chips
+	--gl-font-md: var(--vscode-bodyFontSize-small, 1.2rem); // 12px — most-used; was --gl-font-small
+	--gl-font-base: var(--vscode-bodyFontSize, 1.3rem); // 13px — primary body text, messages, controls
+	--gl-font-lg: 1.4rem; // 14px — emphasized headline (commit message subject) (bespoke)
 
 	// Input max-width (AI input / action input)
 	--gl-max-input: 560px;
 
-	// Border radius for text-entry controls (inputs, textareas) — shared across all webviews
-	--gl-input-border-radius: 0.4rem;
+	// Radius scale — bridges to VS Code's cornerRadius tokens (1.110+), falls back to rem.
+	// sm (4px) is the control radius (buttons, inputs, diffs) — re-synced from a stale 3px to match VS Code.
+	--gl-radius-xs: var(--vscode-cornerRadius-xSmall, 0.2rem); // 2px
+	--gl-radius-sm: var(--vscode-cornerRadius-small, 0.4rem); // 4px — controls
+	--gl-radius-md: var(--vscode-cornerRadius-medium, 0.6rem); // 6px
+	--gl-radius-lg: var(--vscode-cornerRadius-large, 0.8rem); // 8px
+	--gl-radius-xl: var(--vscode-cornerRadius-xLarge, 1.2rem); // 12px
+	--gl-radius-circle: var(--vscode-cornerRadius-circle, 9999px);
+
+	// Border / outline thickness — bridges to VS Code's strokeThickness (1.110+).
+	--gl-border-width: var(--vscode-strokeThickness, 0.1rem); // 1px
+
+	// Border radius for text-entry controls (inputs, textareas) — aliased onto the control radius.
+	--gl-input-border-radius: var(--gl-radius-sm);
 
 	// Horizontal padding for detail panels (embedded + standalone). Component hosts may override.
 	--gl-panel-padding-left: 1.2rem;
 	--gl-panel-padding-right: 1.2rem;
+
+	// Spacing ramp — bridges to VS Code's spacing tokens (1.110+), falls back to rem.
+	// Named by px (1rem = 10px); maps to VS Code's spacing.size{px * 10}.
+	--gl-space-2: var(--vscode-spacing-size20, 0.2rem);
+	--gl-space-4: var(--vscode-spacing-size40, 0.4rem);
+	--gl-space-6: var(--vscode-spacing-size60, 0.6rem);
+	--gl-space-8: var(--vscode-spacing-size80, 0.8rem);
+	--gl-space-10: var(--vscode-spacing-size100, 1rem);
+	--gl-space-12: var(--vscode-spacing-size120, 1.2rem);
+	--gl-space-16: var(--vscode-spacing-size160, 1.6rem);
+	--gl-space-20: var(--vscode-spacing-size200, 2rem);
+	--gl-space-24: var(--vscode-spacing-size240, 2.4rem);
+	--gl-space-28: var(--vscode-spacing-size280, 2.8rem);
+	--gl-space-32: var(--vscode-spacing-size320, 3.2rem);
+	--gl-space-36: var(--vscode-spacing-size360, 3.6rem);
+	--gl-space-40: var(--vscode-spacing-size400, 4rem);
 
 	// Z-index / stacking scale — semantic tiers for declarations that escape into a shared stacking
 	// context. The guard, the top-layer rule for modals, and the disjoint --wa-z-index-* band are
