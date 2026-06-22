@@ -1,10 +1,17 @@
 import { css } from 'lit';
+import { srOnlyStyles } from '../styles/lit/a11y.css.js';
 import { elevatedSurface } from '../styles/lit/elevation.css.js';
 
 export const selectStyles = css`
 	:host {
 		display: inline-block;
 		width: 100%;
+	}
+
+	/* The label names the internal combobox (aria-labelledby) but is never shown —
+	   visible labels are composed outside the control */
+	wa-select::part(form-control-label) {
+		${srOnlyStyles}
 	}
 
 	gl-select wa-select {
