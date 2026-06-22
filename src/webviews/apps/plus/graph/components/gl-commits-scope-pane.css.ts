@@ -10,6 +10,13 @@ const bgColor = unsafeCSS('var(--vscode-sideBar-background, var(--color-backgrou
 
 export const commitsScopePaneStyles = css`
 	:host {
+		--details-scope-pane-uncommitted-color: ${uncommittedColor};
+		--details-scope-pane-unpushed-color: ${unpushedColor};
+		--details-scope-pane-pushed-color: ${pushedColor};
+		--details-scope-pane-merge-base-color: ${mergeBaseColor};
+		--details-scope-pane-connector-pushed-color: ${connectorPushedColor};
+		--details-scope-pane-bg-color: ${bgColor};
+
 		display: flex;
 		flex: 1;
 		min-height: 0;
@@ -113,7 +120,7 @@ export const commitsScopePaneStyles = css`
 		position: absolute;
 		left: 50%;
 		width: 2px;
-		background: postcss_lit_0;
+		background: var(--details-scope-pane-connector-pushed-color);
 		transform: translateX(-50%);
 	}
 
@@ -121,19 +128,19 @@ export const commitsScopePaneStyles = css`
 	   own --below uses its state, and the row's --above uses the previous
 	   row's state. Both segments meet across the row boundary in one color. */
 	.scope-row[data-state='uncommitted'] .scope-row__connector--below {
-		background: postcss_lit_1;
+		background: var(--details-scope-pane-uncommitted-color);
 	}
 
 	.scope-row[data-state='unpushed'] .scope-row__connector--below {
-		background: postcss_lit_2;
+		background: var(--details-scope-pane-unpushed-color);
 	}
 
 	.scope-row[data-prev-state='uncommitted'] .scope-row__connector--above {
-		background: postcss_lit_3;
+		background: var(--details-scope-pane-uncommitted-color);
 	}
 
 	.scope-row[data-prev-state='unpushed'] .scope-row__connector--above {
-		background: postcss_lit_4;
+		background: var(--details-scope-pane-unpushed-color);
 	}
 
 	/* Connectors stop short of the dot edge (dot radius 0.6rem + 2px gap) so
@@ -221,16 +228,16 @@ export const commitsScopePaneStyles = css`
 		left: calc(1.2rem + 7px);
 		width: 2px;
 		content: '';
-		background: postcss_lit_5;
+		background: var(--details-scope-pane-connector-pushed-color);
 		transform: translateX(-50%);
 	}
 
 	.scope-handle[data-state='uncommitted']::before {
-		background: postcss_lit_6;
+		background: var(--details-scope-pane-uncommitted-color);
 	}
 
 	.scope-handle[data-state='unpushed']::before {
-		background: postcss_lit_7;
+		background: var(--details-scope-pane-unpushed-color);
 	}
 
 	.scope-handle__bar {
@@ -285,12 +292,22 @@ export const commitsScopePaneStyles = css`
 
 	.scope-handle--proxy-start {
 		top: 0;
-		background: linear-gradient(to bottom, postcss_lit_8 0%, postcss_lit_9 60%, transparent 100%);
+		background: linear-gradient(
+			to bottom,
+			var(--details-scope-pane-bg-color) 0%,
+			var(--details-scope-pane-bg-color) 60%,
+			transparent 100%
+		);
 	}
 
 	.scope-handle--proxy-end {
 		bottom: 0;
-		background: linear-gradient(to top, postcss_lit_10 0%, postcss_lit_11 60%, transparent 100%);
+		background: linear-gradient(
+			to top,
+			var(--details-scope-pane-bg-color) 0%,
+			var(--details-scope-pane-bg-color) 60%,
+			transparent 100%
+		);
 	}
 
 	.scope-handle--proxy .scope-handle__bar {
@@ -329,25 +346,25 @@ export const commitsScopePaneStyles = css`
 
 	/* Uncommitted: hollow ring in amber to read as the WIP/in-flight marker. */
 	.scope-row[data-state='uncommitted'] .dot-uncommitted {
-		background: postcss_lit_13;
-		border: 2px dotted postcss_lit_12;
+		background: var(--details-scope-pane-bg-color);
+		border: 2px dotted var(--details-scope-pane-uncommitted-color);
 	}
 
 	/* Unpushed: filled in tracking-ahead teal — matches ahead-tracking pills. */
 	.scope-row[data-state='unpushed'] .dot-unpushed {
-		background: postcss_lit_15;
-		border: 3px solid postcss_lit_14;
+		background: var(--details-scope-pane-bg-color);
+		border: 3px solid var(--details-scope-pane-unpushed-color);
 	}
 
 	/* Pushed: muted filled circle — pushed commits are context, not focus. */
 	.scope-row[data-state='pushed'] .dot-pushed {
-		background: postcss_lit_16;
+		background: var(--details-scope-pane-pushed-color);
 	}
 
 	/* Merge base: open ring in a quieter foreground tone — reads as a
 	   boundary marker, not another commit dot. */
 	.scope-row[data-state='merge-base'] .dot-merge-base {
-		background: postcss_lit_17;
+		background: var(--details-scope-pane-merge-base-color);
 	}
 
 	/* Merge base row — matches the --excluded/--loading pattern so any

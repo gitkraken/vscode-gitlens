@@ -102,6 +102,11 @@ export default {
 				'no-empty-source': null,
 				// postcss-lit substitutes `${…}` interpolations with placeholder tokens this rule can't validate
 				'declaration-property-value-no-unknown': null,
+				// `value-keyword-case`'s --fix rewrites every declaration value; under postcss-lit that write-back
+				// clobbers the `${…}` interpolation placeholders and persists raw `postcss_lit_N` tokens to source
+				// (corrupting `unsafeCSS` color vars). Disable it on the Lit surface — authors already write
+				// keywords lowercase, so there's nothing to gain and a real corruption vector to lose.
+				'value-keyword-case': null,
 			},
 		},
 		{
