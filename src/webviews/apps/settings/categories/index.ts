@@ -4,15 +4,13 @@ import { annotationsCategories } from './annotations.js';
 import { editorCategories } from './editor.js';
 import { generalCategories } from './general.js';
 import { integrationsCategories } from './integrations.js';
-import { views1Categories } from './views1.js';
-import { views2Categories } from './views2.js';
+import { viewsCategories } from './views.js';
 
 /** All categories, in nav order (group order: Annotations, In-editor, Views, Integrations, Editing, General). */
 export const settingsCategories: readonly SettingsCategory[] = [
 	...annotationsCategories,
 	...editorCategories,
-	...views1Categories,
-	...views2Categories,
+	...viewsCategories,
 	...integrationsCategories,
 	...generalCategories,
 ];
