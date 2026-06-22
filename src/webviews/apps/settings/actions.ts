@@ -1,5 +1,6 @@
 import type { Remote } from '@eamodio/supertalk';
-import type { AutolinkConfig } from '../../../config.js';
+import type { AutolinkConfig, Config } from '../../../config.js';
+import { isCustomConfigKey } from '../../protocol.js';
 import type { SettingsServices, SettingsUpdateParams } from '../../settings/settingsService.js';
 import { anchorToCategory } from './categories/index.js';
 import type { CheckDescriptor, SettingsKey } from './model.js';
@@ -83,8 +84,12 @@ export class SettingsActions {
 		const generation = ++this._servicesLoadGeneration;
 		s.serviceErrors.set({ subscription: false, integrations: false, ai: false });
 
+		// A superseded attempt's late resolution must touch neither the error flags
+		// nor the data signals, or it could overwrite fresher data from the retry
+		const current = () => generation === this._servicesLoadGeneration;
+
 		const failed = (...services: ('subscription' | 'integrations' | 'ai')[]) => {
-			if (generation !== this._servicesLoadGeneration) return;
+			if (!current()) return;
 
 			const errors = { ...s.serviceErrors.get() };
 			for (const service of services) {
@@ -110,19 +115,35 @@ export class SettingsActions {
 		}
 
 		void subscription.getSubscription().then(
-			sub => s.subscription.set(sub),
+			sub => {
+				if (current()) {
+					s.subscription.set(sub);
+				}
+			},
 			() => failed('subscription'),
 		);
 		void integrations.getIntegrationStates().then(
-			states => s.cloudIntegrations.set(states),
+			states => {
+				if (current()) {
+					s.cloudIntegrations.set(states);
+				}
+			},
 			() => failed('integrations'),
 		);
 		void ai.getModel().then(
-			model => s.aiModel.set(model),
+			model => {
+				if (current()) {
+					s.aiModel.set(model);
+				}
+			},
 			() => failed('ai'),
 		);
 		void ai.getState().then(
-			state => s.aiState.set(state),
+			state => {
+				if (current()) {
+					s.aiState.set(state);
+				}
+			},
 			() => failed('ai'),
 		);
 	}
@@ -148,10 +169,61 @@ export class SettingsActions {
 			}
 		}
 
+		// Reflect the change locally before the write round-trips. The host echo
+		// (`onConfigChanged`) lags each write, so without this a second edit to the
+		// same composite setting (the `menus` object, a checkgroup array, autolinks)
+		// would recompute from the pre-edit snapshot and clobber the first — the
+		// legacy app sidestepped this by mutating its config in place. The echo
+		// reconciles to authoritative values; a failed write rolls back.
+		const previousConfig = this.state.config.get();
+		const previousCustomSettings = this.state.customSettings.get();
+		this.applyOptimistic(changes);
+
 		try {
 			await this.settings.update({ changes: writes, removes: removes, scope: this.state.scope.get() });
 		} catch (ex) {
+			// The failed write never echoes, so restore the pre-edit values
+			this.state.config.set(previousConfig);
+			this.state.customSettings.set(previousCustomSettings);
 			this.state.error.set(ex instanceof Error ? ex.message : String(ex));
+		}
+	}
+
+	/**
+	 * Mirrors a set of changes onto the local config/customSettings signals so
+	 * apply-on-interaction reflects immediately and successive edits to the same
+	 * composite setting accumulate instead of racing the host echo. Custom keys
+	 * live in `customSettings`; everything else is a (dot-delimited) path within
+	 * the raw config. An `undefined` value clears the path — the host strips it to
+	 * the default, which the authoritative echo then restores.
+	 */
+	private applyOptimistic(changes: Record<string, unknown>): void {
+		const config = this.state.config.get();
+
+		let draftConfig: Config | undefined;
+		let draftCustomSettings: Record<string, boolean> | undefined;
+
+		for (const [key, value] of Object.entries(changes)) {
+			if (isCustomConfigKey(key)) {
+				if (typeof value === 'boolean') {
+					draftCustomSettings ??= { ...this.state.customSettings.get() };
+					draftCustomSettings[key] = value;
+				}
+				continue;
+			}
+
+			if (config == null) continue;
+
+			// Clone once, then layer every config change onto the same draft
+			draftConfig ??= structuredClone(config);
+			setPath(draftConfig, key, value);
+		}
+
+		if (draftConfig != null) {
+			this.state.config.set(draftConfig);
+		}
+		if (draftCustomSettings != null) {
+			this.state.customSettings.set(draftCustomSettings);
 		}
 	}
 
