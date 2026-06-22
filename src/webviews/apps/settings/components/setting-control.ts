@@ -53,7 +53,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 					var(--vscode-editor-findMatchHighlightBackground, #ea5c0055) 60%,
 					transparent
 				);
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.control {
@@ -109,7 +109,7 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 				font-size: 1.25rem;
 				color: var(--vscode-input-foreground);
 				background-color: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius, 0.4rem);
 			}
 
@@ -120,15 +120,15 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 			.checkgroup {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			.checkgroup__option {
 				flex: 1 1 0;
 				min-width: 13rem;
 				padding: 0.9rem 1.1rem;
-				border: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
-				border-radius: 0.6rem;
+				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-radius: var(--gl-radius-md);
 			}
 
 			.checkgroup__option--on {
@@ -142,14 +142,14 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 
 			.info {
 				display: flex;
-				gap: 0.8rem;
-				padding: 1rem 1.2rem;
+				gap: var(--gl-space-8);
+				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
 				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--vscode-inputValidation-infoBackground) 60%, transparent);
-				border: 1px solid color-mix(in srgb, var(--vscode-inputValidation-infoBorder) 70%, transparent);
-				border-radius: 0.6rem;
+				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
+				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				border-radius: var(--gl-radius-md);
 			}
 		`,
 	];

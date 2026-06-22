@@ -105,10 +105,10 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 			.field {
 				display: flex;
-				max-width: 56rem;
+				max-width: var(--gl-max-input);
 				overflow: hidden;
 				background-color: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius, 0.4rem);
 			}
 
@@ -134,12 +134,12 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 			.tokens-trigger {
 				flex: none;
-				padding: 0 0.8rem;
+				padding: 0 var(--gl-space-8);
 				color: var(--color-foreground--75);
 				cursor: pointer;
 				background: transparent;
 				border: none;
-				border-left: 1px solid var(--vscode-input-border, transparent);
+				border-left: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			}
 
 			.tokens-trigger:hover {
@@ -170,7 +170,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 			.token {
 				display: flex;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 				align-items: center;
 				justify-content: space-between;
 				width: 100%;
@@ -179,7 +179,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 				cursor: pointer;
 				background: transparent;
 				border: none;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.token:hover,
@@ -210,7 +210,7 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 			.example {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: baseline;
 				margin-block-start: 0.7rem;
 				font-size: 1.15rem;

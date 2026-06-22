@@ -33,25 +33,25 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			:host {
 				display: flex;
 				flex-direction: column;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 			}
 
 			.banner {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: flex-start;
-				padding: 1rem 1.2rem;
+				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
 				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--vscode-inputValidation-infoBackground) 60%, transparent);
-				border: 1px solid color-mix(in srgb, var(--vscode-inputValidation-infoBorder) 70%, transparent);
-				border-radius: 0.6rem;
+				background-color: color-mix(in srgb, var(--color-alert-infoBackground) 60%, transparent);
+				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-infoBorder) 70%, transparent);
+				border-radius: var(--gl-radius-md);
 			}
 
 			.banner code-icon {
 				flex: none;
-				margin-block-start: 0.2rem;
+				margin-block-start: var(--gl-space-2);
 			}
 
 			.banner--connected {
@@ -62,23 +62,23 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 			.rules {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 			}
 
 			.rule {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 			}
 
 			input[type='text'] {
-				padding: 0.6rem 0.8rem;
+				padding: var(--gl-space-6) var(--gl-space-8);
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.2rem;
 				color: var(--vscode-input-foreground);
 				background-color: var(--vscode-input-background);
-				border: 1px solid var(--vscode-input-border, transparent);
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 				border-radius: var(--gl-input-border-radius, 0.4rem);
 			}
 
@@ -98,18 +98,18 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 
 			.rule__options {
 				display: flex;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 				align-items: center;
 			}
 
 			.rule__delete {
 				flex: none;
-				padding: 0.4rem;
+				padding: var(--gl-space-4);
 				color: var(--color-foreground--50);
 				cursor: pointer;
 				background: transparent;
 				border: none;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.rule__delete:hover {

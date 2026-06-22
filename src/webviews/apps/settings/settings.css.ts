@@ -25,11 +25,11 @@ export const settingsAppStyles = [
 		.header {
 			display: flex;
 			flex: none;
-			gap: 1.6rem;
+			gap: var(--gl-space-16);
 			align-items: center;
 			justify-content: space-between;
 			padding: 1.2rem 1.8rem;
-			border-bottom: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.header__brand {
@@ -86,8 +86,8 @@ export const settingsAppStyles = [
 			color: var(--vscode-input-foreground);
 			outline: none;
 			background-color: var(--vscode-input-background);
-			border: 1px solid var(--vscode-input-border, transparent);
-			border-radius: 0.5rem;
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-radius: var(--gl-input-border-radius);
 		}
 
 		.header__search input::placeholder {
@@ -100,7 +100,7 @@ export const settingsAppStyles = [
 
 		.header__scope {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: center;
 			font-size: 1.2rem;
 			color: var(--color-foreground--65);
@@ -137,7 +137,7 @@ export const settingsAppStyles = [
 			width: 24rem;
 			padding: 1.6rem 1.4rem;
 			background-color: var(--vscode-sideBar-background);
-			border-right: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.body--loading__detail {
@@ -149,7 +149,7 @@ export const settingsAppStyles = [
 		/* Bootstrap failure — persists even if the error banner is dismissed */
 		.body--error {
 			display: flex;
-			gap: 0.8rem;
+			gap: var(--gl-space-8);
 			align-items: flex-start;
 			padding: 2.4rem 2.6rem;
 			font-size: 1.3rem;
@@ -158,7 +158,7 @@ export const settingsAppStyles = [
 
 		.body--error code-icon {
 			flex: none;
-			margin-block-start: 0.2rem;
+			margin-block-start: var(--gl-space-2);
 			color: var(--vscode-errorForeground);
 		}
 
@@ -168,7 +168,7 @@ export const settingsAppStyles = [
 
 		.body__nav {
 			background-color: var(--vscode-sideBar-background);
-			border-right: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+			border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 		}
 
 		.body__detail {

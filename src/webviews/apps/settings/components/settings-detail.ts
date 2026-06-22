@@ -38,12 +38,12 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 
 			.header {
 				padding: 2rem 2.6rem 1.6rem;
-				border-bottom: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.header__row {
 				display: flex;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 				align-items: center;
 			}
 
@@ -60,7 +60,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 
 			.header__title {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				margin: 0;
 				font-size: 1.6rem;
@@ -69,7 +69,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			}
 
 			.header__hint {
-				margin: 0.2rem 0 0;
+				margin: var(--gl-space-2) 0 0;
 				font-size: 1.2rem;
 				color: var(--color-foreground--65);
 			}
@@ -78,7 +78,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				display: flex;
 				gap: 0.7rem;
 				align-items: center;
-				margin: 1.2rem 0 0;
+				margin: var(--gl-space-12) 0 0;
 				font-size: 1.15rem;
 				color: var(--color-foreground--65);
 			}
@@ -90,11 +90,11 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			.preview {
 				padding: 1.6rem 2.6rem;
 				background-color: color-mix(in srgb, var(--vscode-sideBar-background) 60%, transparent);
-				border-bottom: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.preview__label {
-				margin: 0 0 0.8rem;
+				margin: 0 0 var(--gl-space-8);
 				font-size: 1.05rem;
 				font-weight: 400;
 				color: var(--color-foreground--50);
@@ -113,7 +113,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 			.no-results {
 				display: flex;
 				flex-direction: column;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: flex-start;
 				max-width: 64rem;
 				padding: 3.2rem 2.6rem;
@@ -139,11 +139,11 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 				display: flex;
 				gap: 0.7rem;
 				align-items: center;
-				padding-top: 1.6rem;
+				padding-top: var(--gl-space-16);
 				margin: 0 2.6rem 2.4rem;
 				font-size: 1.15rem;
 				color: var(--color-foreground--65);
-				border-top: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.footer code {

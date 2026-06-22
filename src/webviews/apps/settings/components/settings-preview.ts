@@ -86,24 +86,24 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				position: relative;
 				overflow: hidden;
 				background-color: var(--vscode-editor-background);
-				border: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
-				border-radius: 0.6rem;
+				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-radius: var(--gl-radius-md);
 			}
 
 			.tab {
 				display: inline-flex;
 				gap: 0.7rem;
 				align-items: center;
-				padding: 0.6rem 1.2rem;
+				padding: var(--gl-space-6) var(--gl-space-12);
 				font-size: 1.15rem;
 				color: var(--color-foreground--85);
 				background-color: var(--vscode-editor-background);
-				border-top: 1px solid var(--vscode-button-background);
+				border-top: var(--gl-border-width) solid var(--vscode-button-background);
 			}
 
 			.tabs {
 				background-color: var(--vscode-sideBar-background);
-				border-bottom: 1px solid var(--vscode-widget-border, transparent);
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
 			}
 
 			.code {
@@ -149,7 +149,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			.line__number {
 				flex: none;
 				width: 3.2rem;
-				padding-right: 1.2rem;
+				padding-right: var(--gl-space-12);
 				color: var(--vscode-editorLineNumber-foreground, var(--color-foreground--50));
 				text-align: right;
 				user-select: none;
@@ -168,7 +168,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 			.codelens {
 				display: flex;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 				align-items: center;
 				height: 2rem;
 				padding-left: 4.4rem;
@@ -183,7 +183,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			/* When the file-scope lens is also shown, separate it from the
 	   container-scope lens (both sit at column 0) so they read distinctly. */
 			.codelens--spaced {
-				margin-top: 0.8rem;
+				margin-top: var(--gl-space-8);
 			}
 
 			.syntax-keyword {
@@ -197,20 +197,20 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			.blame-gutter {
 				display: flex;
 				flex: none;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				width: 17rem;
 				height: 100%;
-				padding-left: 0.8rem;
+				padding-left: var(--gl-space-8);
 				overflow: hidden;
-				border-right: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-right: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.blame-gutter__heat {
 				flex: none;
 				width: 0.3rem;
 				height: 1.6rem;
-				border-radius: 0.2rem;
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.avatar {
@@ -221,7 +221,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 				/* HC themes set button-background to the editor background, so a
 		   borderless fill vanishes — the contrast border keeps it visible. */
-				border: 1px solid var(--vscode-contrastBorder, transparent);
+				border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
 				border-radius: 50%;
 			}
 
@@ -242,8 +242,8 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				flex: none;
 				width: 0.4rem;
 				height: 1.7rem;
-				margin-left: 0.6rem;
-				border-radius: 0.2rem;
+				margin-left: var(--gl-space-6);
+				border-radius: var(--gl-radius-xs);
 			}
 
 			.overview-ruler {
@@ -256,9 +256,9 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				gap: 0.3rem;
 				align-items: center;
 				width: 1.2rem;
-				padding-top: 0.8rem;
+				padding-top: var(--gl-space-8);
 				background-color: var(--vscode-editor-background);
-				border-left: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-left: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.overview-ruler__mark {
@@ -272,7 +272,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				gap: 1.4rem;
 				align-items: center;
 				height: 2.4rem;
-				padding: 0 1rem;
+				padding: 0 var(--gl-space-10);
 				font-size: 1.1rem;
 				color: var(--vscode-statusBar-foreground, var(--vscode-button-foreground));
 				background-color: var(--vscode-statusBar-background, var(--vscode-button-background));
@@ -299,11 +299,11 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 			.hover-card {
 				max-width: 40rem;
-				margin: 1rem auto;
+				margin: var(--gl-space-10) auto;
 				overflow: hidden;
 				background-color: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
-				border: 1px solid var(--vscode-editorHoverWidget-border, var(--color-foreground--25));
-				border-radius: 0.5rem;
+				border: var(--gl-border-width) solid var(--vscode-editorHoverWidget-border, var(--color-foreground--25));
+				border-radius: var(--gl-radius-md);
 				box-shadow: 0 0.8rem 2.4rem var(--vscode-widget-shadow);
 			}
 
@@ -319,7 +319,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			.hover-card__avatar {
 				flex: none;
 				background: var(--vscode-button-background);
-				border: 1px solid var(--vscode-contrastBorder, transparent);
+				border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
 				border-radius: 50%;
 			}
 
@@ -330,14 +330,14 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
 				color: var(--color-link-foreground);
-				border-top: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.hover-card__diff {
 				padding: 0.8rem 1.3rem;
 				font-family: var(--vscode-editor-font-family);
 				font-size: 1.1rem;
-				border-top: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-top: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.diff-removed {
@@ -350,21 +350,21 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 			.graph-header {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 				padding: 0.7rem 1.1rem;
 				font-size: 1.1rem;
 				color: var(--color-foreground--75);
-				border-bottom: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.graph-minimap {
 				display: flex;
-				gap: 0.2rem;
+				gap: var(--gl-space-2);
 				align-items: flex-end;
 				height: 2.2rem;
 				padding: 0 0.8rem 0.3rem;
-				border-bottom: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
 			}
 
 			.graph-minimap__bar {
@@ -400,7 +400,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 				align-items: center;
 				padding: 0.1rem 0.6rem;
 				font-size: 1rem;
-				border-radius: 0.3rem;
+				border-radius: var(--gl-radius-sm);
 			}
 
 			.graph-row__message {
@@ -423,7 +423,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 			.off-overlay span {
 				display: inline-flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 			}
 		`,
@@ -803,7 +803,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 								? html`<span
 										class="graph-row__ref"
 										style=${cspStyleMap({
-											border: `1px solid color-mix(in srgb, ${laneColors[row.lane]} 60%, transparent)`,
+											border: `var(--gl-border-width) solid color-mix(in srgb, ${laneColors[row.lane]} 60%, transparent)`,
 											background: `color-mix(in srgb, ${laneColors[row.lane]} 16%, transparent)`,
 											color: laneColors[row.lane],
 										})}
