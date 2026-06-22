@@ -468,6 +468,35 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 			.catch(() => {});
 	}, 200);
 
+	override willUpdate(): void {
+		// Trigger the (debounced) host preview fetches here, not in render(), so
+		// render stays side-effect-free. Only the two annotation-bearing previews
+		// need them; the composite key re-fetches when the format or any setting
+		// the host formatter reads (PR toggle, default date format) changes. Signal
+		// reads here are tracked the same as in render (SignalWatcher).
+		if (this.actions == null) return;
+
+		if (this.kind === 'blame' && (this.get<boolean>('currentLine.enabled') ?? false)) {
+			const format = this.get<string>('currentLine.format') ?? '';
+			const key = `${format}\n${this.get<boolean>('currentLine.pullRequests.enabled') ?? false}\n${
+				this.get<string>('defaultDateFormat') ?? ''
+			}`;
+			if (key !== this._lastBlameKey) {
+				this._lastBlameKey = key;
+				this.fetchBlameAnnotation(format);
+			}
+		} else if (this.kind === 'statusbar' && (this.get<boolean>('statusBar.enabled') ?? false)) {
+			const format = this.get<string>('statusBar.format') ?? '';
+			const key = `${format}\n${this.get<boolean>('statusBar.pullRequests.enabled') ?? false}\n${
+				this.get<string>('defaultDateFormat') ?? ''
+			}`;
+			if (key !== this._lastStatusBarKey) {
+				this._lastStatusBarKey = key;
+				this.fetchStatusBarText(format);
+			}
+		}
+	}
+
 	override render(): unknown {
 		switch (this.kind) {
 			case 'blame':
@@ -529,19 +558,6 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 	private renderBlame() {
 		const on = this.get<boolean>('currentLine.enabled') ?? false;
-		const format = this.get<string>('currentLine.format') ?? '';
-
-		if (on && this.actions != null) {
-			// The host preview also reads pullRequests.enabled and defaultDateFormat, so re-fetch when
-			// any of those change — not just the format string (and only once actions are wired up)
-			const key = `${format}\n${this.get<boolean>('currentLine.pullRequests.enabled') ?? false}\n${
-				this.get<string>('defaultDateFormat') ?? ''
-			}`;
-			if (key !== this._lastBlameKey) {
-				this._lastBlameKey = key;
-				this.fetchBlameAnnotation(format);
-			}
-		}
 
 		return this.renderEditorChrome(
 			html`<div class="code">
@@ -583,18 +599,7 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 
 	private renderStatusBar() {
 		const on = this.get<boolean>('statusBar.enabled') ?? false;
-		const format = this.get<string>('statusBar.format') ?? '';
 		const right = (this.get<string>('statusBar.alignment') ?? 'right') === 'right';
-
-		if (on && this.actions != null) {
-			const key = `${format}\n${this.get<boolean>('statusBar.pullRequests.enabled') ?? false}\n${
-				this.get<string>('defaultDateFormat') ?? ''
-			}`;
-			if (key !== this._lastStatusBarKey) {
-				this._lastStatusBarKey = key;
-				this.fetchStatusBarText(format);
-			}
-		}
 
 		const blame = on
 			? html`<span class="statusbar__item"
