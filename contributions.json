@@ -6084,6 +6084,19 @@
 				]
 			}
 		},
+		"gitlens.settings.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.settings",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
+		},
 		"gitlens.setUpstream:graph": {
 			"label": "Set Upstream...",
 			"icon": "$(link)",
