@@ -7,25 +7,25 @@ export const segmentedStyles = css`
 
 	.group {
 		display: inline-flex;
-		gap: 0.2rem;
-		padding: 0.2rem;
-		border-radius: 0.5rem;
+		gap: var(--gl-space-2);
+		padding: var(--gl-space-2);
 		background-color: var(--vscode-input-background);
-		border: 1px solid var(--vscode-input-border, var(--vscode-contrastBorder, transparent));
+		border: var(--gl-border-width) solid var(--vscode-input-border, var(--vscode-contrastBorder, transparent));
+		border-radius: 0.5rem;
 	}
 
 	.segment {
-		appearance: none;
-		border: 1px solid transparent;
-		border-radius: 0.3rem;
 		padding: 0.3rem 1.2rem;
 		font-family: var(--vscode-font-family);
 		font-size: 1.2rem;
 		line-height: 1.4;
 		color: var(--color-foreground--75);
-		background-color: transparent;
-		cursor: pointer;
 		white-space: nowrap;
+		appearance: none;
+		cursor: pointer;
+		background-color: transparent;
+		border: 1px solid transparent;
+		border-radius: 0.3rem;
 	}
 
 	.segment:hover:not([aria-checked='true']) {
@@ -36,10 +36,10 @@ export const segmentedStyles = css`
 	/* Fill + weight, not color alone, distinguish the selected segment;
 	   the contrast border keeps it visible in high-contrast themes. */
 	.segment[aria-checked='true'] {
+		font-weight: 600;
+		color: var(--vscode-button-foreground);
 		background-color: var(--vscode-button-background);
 		border-color: var(--vscode-contrastBorder, transparent);
-		color: var(--vscode-button-foreground);
-		font-weight: 600;
 	}
 
 	.segment:focus-visible {

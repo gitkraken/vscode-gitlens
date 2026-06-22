@@ -3,8 +3,8 @@ import { css } from 'lit';
 export const sliderStyles = css`
 	:host {
 		display: inline-flex;
+		gap: var(--gl-space-12);
 		align-items: center;
-		gap: 1.2rem;
 	}
 
 	wa-slider {
@@ -18,7 +18,7 @@ export const sliderStyles = css`
 
 	wa-slider::part(track) {
 		background-color: color-mix(in srgb, var(--color-foreground) 20%, transparent);
-		border: 1px solid var(--vscode-contrastBorder, transparent);
+		border: var(--gl-border-width) solid var(--vscode-contrastBorder, transparent);
 	}
 
 	wa-slider::part(indicator) {
@@ -27,12 +27,12 @@ export const sliderStyles = css`
 
 	wa-slider::part(thumb) {
 		background-color: var(--vscode-button-background);
-		border: 1px solid var(--vscode-contrastBorder, var(--vscode-button-background));
+		border: var(--gl-border-width) solid var(--vscode-contrastBorder, var(--vscode-button-background));
 		box-shadow: 0 1px 2px var(--vscode-widget-shadow);
 	}
 
 	wa-slider:focus-within::part(thumb) {
-		outline: 1px solid var(--color-focus-border);
+		outline: var(--gl-border-width) solid var(--color-focus-border);
 		outline-offset: 2px;
 	}
 
