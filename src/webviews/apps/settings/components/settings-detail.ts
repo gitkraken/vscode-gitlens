@@ -231,7 +231,16 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 	 */
 	private isHighlighted(d: SettingDescriptor, highlighted: ReadonlySet<string>): boolean {
 		if (!('key' in d) || !highlighted.has(d.key)) return false;
-		if (this.isNaturallyVisible(d)) return true;
+
+		if (this.isNaturallyVisible(d)) {
+			// A key can have several visible variants (e.g. a checkbox + select pair
+			// differing only by `enabledWhen`) — highlight just the first so the pair
+			// doesn't double-highlight.
+			const firstVisible = this.category.controls.find(
+				c => 'key' in c && c.key === d.key && this.isNaturallyVisible(c),
+			);
+			return firstVisible === d;
+		}
 
 		// Hidden match: force-reveal only when no visible variant of the key exists
 		return !this.category.controls.some(
@@ -294,7 +303,7 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 									.checked=${masterOn && !masterDisabledByOrg}
 									?disabled=${masterDisabledByOrg}
 									label="Enable ${category.name}"
-									title=${ifDefined(
+									hint=${ifDefined(
 										masterDisabledByOrg
 											? 'AI features have been disabled by your GitKraken admin.'
 											: undefined,
