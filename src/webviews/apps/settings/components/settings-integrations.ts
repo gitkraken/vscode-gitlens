@@ -223,6 +223,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 						? html`<gl-feature-badge
 								placement="right"
 								.source=${{ source: 'settings', detail: 'integrations' } as const}
+								.subscription=${this._state.subscription.get()}
 								cloud
 							></gl-feature-badge>`
 						: nothing}
