@@ -24,7 +24,10 @@ export function registerSettingsWebviewPanel(
 			column: ViewColumn.Active,
 			webviewHostOptions: {
 				retainContextWhenHidden: false,
-				enableFindWidget: true,
+				// The native find widget can't see into the per-category shadow DOM
+				// (only ~1 of 29 categories is in the document at a time) — the app
+				// intercepts mod+F and routes it to its own search instead
+				enableFindWidget: false,
 			},
 		},
 		async (container, host) => {
