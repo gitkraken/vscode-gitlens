@@ -43,6 +43,7 @@ export function registerSettingsWebviewCommands<T>(
 	panels: WebviewPanelsProxy<'gitlens.settings', SettingsWebviewShowingArgs, T>,
 ): Disposable {
 	return Disposable.from(
+		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
 		...(
 			[
 				'gitlens.showSettingsPage!file-annotations',

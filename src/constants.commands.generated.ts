@@ -339,6 +339,7 @@ export type ContributedCommands =
 	| 'gitlens.setRemoteAsDefault:views'
 	| 'gitlens.setUpstream:graph'
 	| 'gitlens.setUpstream:views'
+	| 'gitlens.settings.refresh'
 	| 'gitlens.shareAsCloudPatch'
 	| 'gitlens.shareAsCloudPatch:commitDetails'
 	| 'gitlens.shareAsCloudPatch:graphDetails'
