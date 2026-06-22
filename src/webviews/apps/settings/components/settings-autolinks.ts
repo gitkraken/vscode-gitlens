@@ -12,7 +12,6 @@ import type { SettingsActions } from '../actions.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
-import '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/code-icon.js';
 
 export const tagName = 'gl-settings-autolinks';
@@ -86,9 +85,21 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				${focusOutline}
 			}
 
-			.rule__prefix {
+			/* The prefix field embeds its match-option toggles, so the prefix + its
+			   options read as one control (mirrors gl-search-input's field pattern) */
+			.rule__prefix-field {
+				--toggle-size: 2rem;
+
+				position: relative;
 				flex: none;
-				width: 10rem;
+				width: 16rem;
+			}
+
+			.rule__prefix {
+				width: 100%;
+
+				/* Reserve room so typed text never runs under the toggles */
+				padding-inline-end: calc(2 * var(--toggle-size) + var(--gl-space-2) + 2 * var(--gl-space-4));
 			}
 
 			.rule__url {
@@ -96,10 +107,45 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				min-width: 24rem;
 			}
 
-			.rule__options {
-				display: flex;
-				gap: var(--gl-space-12);
+			.rule__toggles {
+				position: absolute;
+				inset-block: var(--gl-space-2);
+				inset-inline-end: var(--gl-space-4);
+				z-index: 1;
+				display: inline-flex;
+				gap: var(--gl-space-2);
+				align-items: stretch;
+			}
+
+			.rule__toggle {
+				display: inline-flex;
 				align-items: center;
+				justify-content: center;
+				min-width: var(--toggle-size);
+				padding-inline: var(--gl-space-2);
+				font-family: var(--vscode-editor-font-family);
+				font-size: 1.1rem;
+				line-height: 1;
+				color: var(--color-foreground--65);
+				cursor: pointer;
+				background: transparent;
+				border: var(--gl-border-width) solid transparent;
+				border-radius: var(--gl-radius-sm);
+			}
+
+			.rule__toggle:hover {
+				color: var(--color-foreground);
+				background-color: var(--vscode-inputOption-hoverBackground);
+			}
+
+			.rule__toggle[aria-pressed='true'] {
+				color: var(--vscode-inputOption-activeForeground);
+				background-color: var(--vscode-inputOption-activeBackground);
+				border-color: var(--vscode-inputOption-activeBorder);
+			}
+
+			.rule__toggle:focus-visible {
+				${focusOutline}
 			}
 
 			.rule__delete {
@@ -304,18 +350,48 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 		// position, so deleting an earlier rule doesn't silently rename the rest
 		const name = autolink.prefix?.trim() || 'New';
 
+		// `ignoreCase: false` IS case-sensitive (the config semantics are inverted
+		// from the label), so the Case-sensitive toggle is pressed when ignoreCase
+		// is false and toggling simply flips the flag.
+		const caseSensitive = !(autolink.ignoreCase ?? false);
+		const alphanumeric = autolink.alphanumeric ?? false;
+
 		return html`<div class="rule" data-index=${index}>
-			<input
-				class="rule__prefix ${invalid.prefix ? 'rule__prefix--invalid' : ''}"
-				type="text"
-				placeholder="TICKET-"
-				spellcheck="false"
-				aria-label="${name} autolink prefix"
-				aria-invalid=${invalid.prefix ? 'true' : 'false'}
-				aria-describedby=${invalid.prefix ? prefixErrorId : nothing}
-				.value=${autolink.prefix ?? ''}
-				@blur=${(e: FocusEvent) => this.commitRule(index, 'prefix', (e.target as HTMLInputElement).value)}
-			/>
+			<span class="rule__prefix-field">
+				<input
+					class="rule__prefix ${invalid.prefix ? 'rule__prefix--invalid' : ''}"
+					type="text"
+					placeholder="TICKET-"
+					spellcheck="false"
+					aria-label="${name} autolink prefix"
+					aria-invalid=${invalid.prefix ? 'true' : 'false'}
+					aria-describedby=${invalid.prefix ? prefixErrorId : nothing}
+					.value=${autolink.prefix ?? ''}
+					@blur=${(e: FocusEvent) => this.commitRule(index, 'prefix', (e.target as HTMLInputElement).value)}
+				/>
+				<span class="rule__toggles">
+					<button
+						type="button"
+						class="rule__toggle"
+						aria-pressed=${caseSensitive ? 'true' : 'false'}
+						aria-label="Case-sensitive"
+						title="Case-sensitive matching"
+						@click=${() => this.commitRule(index, 'ignoreCase', caseSensitive)}
+					>
+						Aa
+					</button>
+					<button
+						type="button"
+						class="rule__toggle"
+						aria-pressed=${alphanumeric ? 'true' : 'false'}
+						aria-label="Alphanumeric"
+						title="Match alphanumeric references"
+						@click=${() => this.commitRule(index, 'alphanumeric', !alphanumeric)}
+					>
+						a1
+					</button>
+				</span>
+			</span>
 			<input
 				class="rule__url ${invalid.url ? 'rule__url--invalid' : ''}"
 				type="text"
@@ -327,32 +403,6 @@ export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 				.value=${autolink.url ?? ''}
 				@blur=${(e: FocusEvent) => this.commitRule(index, 'url', (e.target as HTMLInputElement).value)}
 			/>
-			<span class="rule__options">
-				<gl-checkbox
-					.checked=${!(autolink.ignoreCase ?? false)}
-					@gl-change-value=${(e: Event) =>
-						this.commitRule(
-							index,
-							'ignoreCase',
-							// The config semantics are inverted from the label: `ignoreCase: false`
-							// IS case-sensitive. The legacy view bound these directly — a
-							// long-standing bug hidden behind an icon-only toggle — so bind
-							// inverted to make the labeled checkbox tell the truth.
-							!(e.target as HTMLElement & { checked: boolean }).checked,
-						)}
-					>Case-sensitive</gl-checkbox
-				>
-				<gl-checkbox
-					.checked=${autolink.alphanumeric ?? false}
-					@gl-change-value=${(e: Event) =>
-						this.commitRule(
-							index,
-							'alphanumeric',
-							(e.target as HTMLElement & { checked: boolean }).checked,
-						)}
-					>Alphanumeric</gl-checkbox
-				>
-			</span>
 			<button
 				type="button"
 				class="rule__delete"
