@@ -3,7 +3,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { AutolinkConfig } from '../../../../config.js';
-import { focusOutlineButton } from '../../shared/components/styles/lit/a11y.css.js';
+import { focusOutlineButton, srOnly } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
 import type { CheckDescriptor, SettingsCategory, SettingsGroup, SettingsSearchMatch } from '../model.js';
 import type { SettingsState } from '../state.js';
@@ -25,6 +25,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
 		linkBase,
+		srOnly,
 		css`
 			:host {
 				display: block;
@@ -128,18 +129,6 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 
 			.empty p {
 				margin: 0 0 var(--gl-space-8);
-			}
-
-			.sr-only {
-				position: absolute;
-				width: 1px;
-				height: 1px;
-				padding: 0;
-				margin: -1px;
-				overflow: hidden;
-				white-space: nowrap;
-				border: 0;
-				clip: rect(0, 0, 0, 0);
 			}
 		`,
 	];

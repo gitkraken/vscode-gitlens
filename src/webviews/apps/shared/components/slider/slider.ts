@@ -77,7 +77,7 @@ export class GlSlider extends LitElement {
 				step=${this.step}
 				?disabled=${this.disabled}
 				label=${ifDefined(this.label)}
-				aria-valuetext=${ifDefined(this.unit ? `${this.value}${this.unit}` : undefined)}
+				.valueFormatter=${(value: number) => `${value}${this.unit}`}
 				@input=${this.handleInput}
 				@change=${this.handleChange}
 			></wa-slider>

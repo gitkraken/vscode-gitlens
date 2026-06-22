@@ -430,16 +430,17 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 							>
 								<code-icon icon="chevron-down" aria-hidden="true"></code-icon>
 							</button>
-							<div slot="content" class="tokens" role="listbox" aria-label="Available tokens">
+							<div slot="content" class="tokens" role="group" aria-label="Available tokens">
 								<h3 class="tokens__title">Insert token</h3>
 								${tokens.map(t => {
 									// Commit tokens insert wrapped in `${…}`; date tokens insert bare
 									// eslint-disable-next-line prefer-template -- a template literal would need `\${` escaping, which is harder to read
 									const text = tokenMode === 'date' ? t.token : '${' + t.token + '}';
+									// Plain action buttons (insert on click) — not listbox options,
+									// which would imply arrow-key selection semantics
 									return html`<button
 										type="button"
 										class="token"
-										role="option"
 										@click=${() => this.insertToken(text)}
 									>
 										<code>${text}</code><span>${t.label}</span>

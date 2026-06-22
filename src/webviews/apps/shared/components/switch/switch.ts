@@ -1,6 +1,7 @@
 import type WaSwitch from '@awesome.me/webawesome/dist/components/switch/switch.js';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { switchStyles } from './switch.css.js';
 import '@awesome.me/webawesome/dist/components/switch/switch.js';
 import '../shoelace-stub.js';
@@ -38,6 +39,14 @@ export class GlSwitch extends LitElement {
 	@property({ type: String })
 	label?: string;
 
+	/**
+	 * Optional description, surfaced to assistive tech via `wa-switch`'s `hint`
+	 * (which wires it to the inner control's `aria-describedby`) — host-level ARIA
+	 * never reaches the focused input. Renders visibly beneath the switch.
+	 */
+	@property({ type: String })
+	hint?: string;
+
 	@property({ type: String, reflect: true })
 	size: 'medium' | 'large' = 'medium';
 
@@ -59,6 +68,7 @@ export class GlSwitch extends LitElement {
 			exportparts="base, control, thumb, label"
 			.checked=${this.checked}
 			?disabled=${this.disabled}
+			hint=${ifDefined(this.hint)}
 			@change=${this.handleChange}
 			><slot>${this.label ? html`<span class="sr-only">${this.label}</span>` : nothing}</slot></wa-switch
 		>`;
