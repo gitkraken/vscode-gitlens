@@ -17,6 +17,9 @@ export const settingsAppStyles = [
 			display: flex;
 			flex-direction: column;
 			height: 100%;
+
+			/* Lets the header respond to the panel width, not the viewport */
+			container: settings-app / inline-size;
 		}
 
 		.header {
@@ -102,6 +105,20 @@ export const settingsAppStyles = [
 			font-size: 1.2rem;
 			color: var(--color-foreground--65);
 			white-space: nowrap;
+		}
+
+		/* Narrow panel: drop the search onto its own full-width line below the
+   title/scope row (ordered last so the title + scope share the first row) */
+		@container settings-app (max-width: 768px) {
+			.header {
+				flex-wrap: wrap;
+			}
+
+			.header__search {
+				flex-basis: 100%;
+				order: 1;
+				max-width: none;
+			}
 		}
 
 		.body {
