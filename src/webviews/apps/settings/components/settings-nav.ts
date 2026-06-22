@@ -28,7 +28,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 		css`
 			:host {
 				display: block;
-				padding: 1rem 0;
+				padding: var(--gl-space-10) 0;
 				overflow-y: auto;
 			}
 
@@ -43,15 +43,15 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			}
 
 			.group {
-				margin-block-end: 1rem;
+				margin-block-end: var(--gl-space-10);
 			}
 
 			.item {
 				display: flex;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 				width: 100%;
-				padding: 0.8rem 1.2rem;
+				padding: var(--gl-space-8) var(--gl-space-12);
 				font-family: var(--vscode-font-family);
 				font-size: 1.25rem;
 				color: var(--color-foreground);
@@ -81,7 +81,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 				width: 0.6rem;
 				height: 0.6rem;
 				background: transparent;
-				border: 1px solid var(--color-foreground--50);
+				border: var(--gl-border-width) solid var(--color-foreground--50);
 				border-radius: 50%;
 			}
 
@@ -127,7 +127,7 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 			}
 
 			.empty p {
-				margin: 0 0 0.8rem;
+				margin: 0 0 var(--gl-space-8);
 			}
 
 			.sr-only {

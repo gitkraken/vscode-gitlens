@@ -1,16 +1,7 @@
+@use '../shared/styles/tokens';
 @use '../shared/styles/theme';
 @use '../shared/styles/scrollbars';
 @use '../shared/styles/utils';
-
-@include utils.dark-theme {
-	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 6%);
-	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%);
-}
-
-@include utils.light-theme {
-	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 4%);
-	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 6%);
-}
 
 * {
 	box-sizing: border-box;

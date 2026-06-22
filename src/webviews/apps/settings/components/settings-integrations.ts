@@ -41,7 +41,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			:host {
 				display: flex;
 				flex-direction: column;
-				gap: 1.2rem;
+				gap: var(--gl-space-12);
 
 				/* Semantic success token so custom/high-contrast themes keep contrast */
 				--status-color--connected: var(--vscode-testing-iconPassed, var(--vscode-charts-green));
@@ -50,7 +50,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			.rows {
 				display: flex;
 				flex-direction: column;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				padding: 0;
 				margin: 0;
 				list-style: none;
@@ -58,11 +58,11 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 
 			.row {
 				display: flex;
-				gap: 1rem;
+				gap: var(--gl-space-10);
 				align-items: center;
 				padding: 0.9rem 1.1rem;
-				border: 1px solid var(--vscode-widget-border, var(--color-foreground--25));
-				border-radius: 0.6rem;
+				border: var(--gl-border-width) solid var(--vscode-widget-border, var(--color-foreground--25));
+				border-radius: var(--gl-radius-md);
 			}
 
 			.row__icon {
@@ -81,7 +81,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 
 			.row__title {
 				display: flex;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 				font-size: 1.25rem;
 				color: var(--color-foreground);
@@ -100,7 +100,7 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 			.row__actions {
 				display: flex;
 				flex: none;
-				gap: 0.6rem;
+				gap: var(--gl-space-6);
 				align-items: center;
 			}
 
@@ -114,21 +114,21 @@ export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 
 			.panel-actions {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
 			}
 
 			.error {
 				display: flex;
-				gap: 0.8rem;
+				gap: var(--gl-space-8);
 				align-items: center;
-				padding: 1rem 1.2rem;
+				padding: var(--gl-space-10) var(--gl-space-12);
 				font-size: 1.2rem;
 				line-height: 1.5;
 				color: var(--color-foreground--85);
-				background-color: color-mix(in srgb, var(--vscode-inputValidation-errorBackground) 60%, transparent);
-				border: 1px solid color-mix(in srgb, var(--vscode-inputValidation-errorBorder) 70%, transparent);
-				border-radius: 0.6rem;
+				background-color: color-mix(in srgb, var(--color-alert-errorBackground) 60%, transparent);
+				border: var(--gl-border-width) solid color-mix(in srgb, var(--color-alert-errorBorder) 70%, transparent);
+				border-radius: var(--gl-radius-md);
 			}
 
 			.error span {
