@@ -32,9 +32,11 @@ enableGlobalVirtualStore: true
 minimumReleaseAge: 7200
 
 minimumReleaseAgeExclude:
+    # First-party/trusted scopes — exempt from the release-age gate
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
+    # oxlint pinned at 1.68.0 (platform binaries + plugins)
     - '@oxlint/binding-android-arm-eabi@1.68.0'
     - '@oxlint/binding-android-arm64@1.68.0'
     - '@oxlint/binding-darwin-arm64@1.68.0'
@@ -58,10 +60,15 @@ minimumReleaseAgeExclude:
     - '@oxlint/plugins@1.68.0'
 
 overrides:
+    '@opentelemetry/core@<2.8.0': ^2.8.0
     '@types/vscode': '1.101.0'
-    esbuild: '0.28.0'
+    '@xmldom/xmldom@<0.8.13': ^0.8.13
+    diff@>=6.0.0 <8.0.3: ^8.0.3
+    esbuild: '0.28.1'
     handlebars: '4.7.9'
+    ip-address@<=10.1.0: ^10.1.1
     'serialize-javascript@<7.0.5': '7.0.5'
+    uuid@<11.1.1: ^11.1.1
 
 packageExtensions:
     '@gitkraken/gitkraken-components':
