@@ -162,6 +162,11 @@ body[data-placement='panel'] {
 	--color-alert-neutralBackground: color-mix(in srgb, #fff 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #fff 5%, var(--color-alert-neutralBackground));
 
+	/* Card surface defaults — shared by every card-rendering app. Component-scoped overrides
+	   (grouping items, branch work-items, graph cards) set these deeper in the tree and still win. */
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 6%);
+	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #fff 8%);
+
 	/* Force bright, vivid chip indicator colors on dark themes — themes vary widely on
 	   statusBarItem-* tokens (some are teal/cyan instead of blue/yellow). The bg uses the
 	   saturated hue (it's already translucent); text uses a lighter/brighter shade so it
@@ -178,6 +183,10 @@ body[data-placement='panel'] {
 	--color-alert-errorHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-errorBackground));
 	--color-alert-neutralBackground: color-mix(in srgb, #000 5%, var(--color-background));
 	--color-alert-neutralHoverBackground: color-mix(in srgb, #000 5%, var(--color-alert-neutralBackground));
+
+	/* Card surface defaults — light-theme variant of the dark-theme block above. */
+	--gl-card-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 4%);
+	--gl-card-hover-background: color-mix(in lab, var(--vscode-sideBar-background) 100%, #000 6%);
 
 	/* Force saturated, high-contrast stat colors on light backgrounds — many themes' gitDecoration
 	   colors are too pale to read against white surfaces (esp. inside chip backgrounds). */
