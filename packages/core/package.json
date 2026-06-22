@@ -149,7 +149,7 @@
 	},
 	"dependencies": {
 		"@octokit/graphql": "9.0.3",
-		"@octokit/request": "10.0.8",
+		"@octokit/request": "10.0.10",
 		"@octokit/request-error": "7.1.0",
 		"@octokit/types": "16.0.0",
 		"fast-string-truncated-width": "3.0.3",
