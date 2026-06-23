@@ -396,11 +396,15 @@ export class GlTimelineChart extends GlElement {
 			background: color-mix(in srgb, var(--axis-scrollbar-track) 35%, transparent);
 		}
 
+		/* Thumb is translucent (but more opaque than the 35% track) so the date labels behind it stay
+		   readable. Themes whose scrollbar tokens are fully opaque -- e.g. Amethyst Dark's opaque
+		   purple hover slider -- would otherwise paint over the labels and blend into an unreadable
+		   smear. */
 		.axis-overlay__scrollbar-thumb {
 			position: absolute;
 			top: 0;
 			height: 100%;
-			background: var(--axis-scrollbar-thumb);
+			background: color-mix(in srgb, var(--axis-scrollbar-thumb) 55%, transparent);
 		}
 
 		#wrapper {
