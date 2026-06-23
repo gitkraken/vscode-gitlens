@@ -150,7 +150,12 @@ export class GitActionsButtons extends LitElement {
 				.fetchedText=${this.fetchedText}
 				.branchName=${this.branchName}
 			></gl-push-pull-button>
-			<gl-publish-button .branchState=${this.branchState} .branchName=${this.branchName}></gl-publish-button>
+			${this.branchState != null && this.branchState.upstream == null
+				? html`<gl-publish-button
+						.branchState=${this.branchState}
+						.branchName=${this.branchName}
+					></gl-publish-button>`
+				: nothing}
 			<gl-fetch-button
 				.branchState=${this.branchState}
 				.fetchedText=${this.fetchedText}
