@@ -29325,9 +29325,9 @@
 		"@types/sortablejs": "1.15.9",
 		"@types/vscode": "1.101.0",
 		"@typescript-eslint/parser": "8.61.1",
-		"@vscode/test-cli": "0.0.12",
-		"@vscode/test-electron": "2.5.2",
-		"@vscode/test-web": "0.0.80",
+		"@vscode/test-cli": "0.0.15",
+		"@vscode/test-electron": "3.0.0",
+		"@vscode/test-web": "0.0.81",
 		"@vscode/vsce": "3.9.2",
 		"@wc-toolkit/cem-sorter": "1.0.1",
 		"cheerio": "1.0.0-rc.12",
@@ -29361,7 +29361,7 @@
 		"lint-staged": "17.0.7",
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
-		"ovsx": "1.0.1",
+		"ovsx": "1.0.2",
 		"oxlint": "1.70.0",
 		"oxlint-tsgolint": "0.23.0",
 		"playwright": "1.61.0",
@@ -29396,7 +29396,7 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "prettier --write --experimental-cli --cache"
 	},
-	"packageManager": "pnpm@11.5.1",
+	"packageManager": "pnpm@11.9.0",
 	"postcss-lit": {
 		"babelOptions": {
 			"sourceType": "unambiguous",

@@ -24,7 +24,7 @@ catalog:
     mocha: 11.7.6
     sinon: 22.0.0
     tinybench: 6.0.2
-    tsx: 4.22.3
+    tsx: 4.22.4
     typescript: 6.0.3
 
 enableGlobalVirtualStore: true
@@ -36,28 +36,7 @@ minimumReleaseAgeExclude:
     - '@eamodio/*'
     - '@gitkraken/*'
     - '@vscode/*'
-    # oxlint pinned at 1.68.0 (platform binaries + plugins)
-    - '@oxlint/binding-android-arm-eabi@1.68.0'
-    - '@oxlint/binding-android-arm64@1.68.0'
-    - '@oxlint/binding-darwin-arm64@1.68.0'
-    - '@oxlint/binding-darwin-x64@1.68.0'
-    - '@oxlint/binding-freebsd-x64@1.68.0'
-    - '@oxlint/binding-linux-arm-gnueabihf@1.68.0'
-    - '@oxlint/binding-linux-arm-musleabihf@1.68.0'
-    - '@oxlint/binding-linux-arm64-gnu@1.68.0'
-    - '@oxlint/binding-linux-arm64-musl@1.68.0'
-    - '@oxlint/binding-linux-ppc64-gnu@1.68.0'
-    - '@oxlint/binding-linux-riscv64-gnu@1.68.0'
-    - '@oxlint/binding-linux-riscv64-musl@1.68.0'
-    - '@oxlint/binding-linux-s390x-gnu@1.68.0'
-    - '@oxlint/binding-linux-x64-gnu@1.68.0'
-    - '@oxlint/binding-linux-x64-musl@1.68.0'
-    - '@oxlint/binding-openharmony-arm64@1.68.0'
-    - '@oxlint/binding-win32-arm64-msvc@1.68.0'
-    - '@oxlint/binding-win32-ia32-msvc@1.68.0'
-    - '@oxlint/binding-win32-x64-msvc@1.68.0'
-    - oxlint@1.68.0
-    - '@oxlint/plugins@1.68.0'
+    - 'ovsx@1.0.2'
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0
