@@ -81,7 +81,7 @@ export class GlSearchInput extends GlElement {
 			--gl-search-input-foreground: var(--vscode-input-foreground);
 			--gl-search-input-border: var(--vscode-input-border, transparent);
 			--gl-search-input-placeholder: var(
-				--vscode-editor-placeholder\\\\.foreground,
+				--vscode-editor-placeholder\\.foreground,
 				var(--vscode-input-placeholderForeground)
 			);
 			--gl-search-input-buttons-left: 1;
@@ -181,7 +181,7 @@ export class GlSearchInput extends GlElement {
 			left: 0;
 
 			/* Same tier as the gl-autocomplete dropdown (its display: contents host puts both in
-			   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
+   this stacking context) — the tie keeps the later-in-DOM autocomplete on top, as before */
 			z-index: var(--gl-z-popover);
 			width: 100%;
 			padding: var(--gl-space-4);
@@ -300,13 +300,13 @@ export class GlSearchInput extends GlElement {
 		}
 
 		/* .popover {
-		margin-left: -0.25rem;
-	}
-	.popover::part(body) {
-		padding: 0 0 0.5rem 0;
-		font-size: var(--vscode-font-size);
-		background-color: var(--vscode-menu-background);
-	} */
+margin-left: -0.25rem;
+}
+.popover::part(body) {
+padding: 0 0 0.5rem 0;
+font-size: var(--vscode-font-size);
+background-color: var(--vscode-menu-background);
+} */
 
 		gl-copy-container {
 			--copy-padding: 0 0.1rem;
