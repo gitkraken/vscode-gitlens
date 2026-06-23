@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Keep Staged_ not keeping staged changes when stashing selected files &mdash; choosing _Keep Staged_ while stashing specific tracked files no longer drops the `--keep-index` flag, so staged changes are correctly kept intact ([#5281](https://github.com/gitkraken/vscode-gitlens/issues/5281))
 - Fixes pushing a branch that needs a force-push (e.g. after an amend or rebase) silently reporting success without updating the remote &mdash; a non-fast-forward (_tip of your current branch is behind_) rejection is now surfaced as an error instead of being swallowed as non-fatal ([#5364](https://github.com/gitkraken/vscode-gitlens/issues/5364))
 - Fixes _Fetch_, _Pull_, _Switch_, _Reset_, and _Restore_ operations silently reporting success when the underlying Git command failed with a message Git treats as a warning (e.g. an unreachable remote, or an invalid ref/revision) &mdash; these failures are now surfaced as errors instead of being swallowed as non-fatal
+- Fixes the working changes (WIP) stats tooltip in the details header duplicating the visible stats pill instead of describing the change breakdown &mdash; the tooltip now reads e.g. _1 file added, 2 files changed in the working tree_
 
 ## [18.2.0] - 2026-06-15
 

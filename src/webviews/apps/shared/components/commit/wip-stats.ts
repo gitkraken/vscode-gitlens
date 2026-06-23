@@ -126,18 +126,12 @@ export class GlWipStats extends LitElement {
 
 			if (this.noTooltip) return visible;
 
-			// Tooltip: show the commit-stats pill when we have a breakdown, falling back to a
-			// generic message when only the dirty bit is known (cheap probes — upgrades on hover).
-			const hasBreakdown = added + modified + removed > 0;
-			const tooltipContent = hasBreakdown
-				? html`<commit-stats
-						added=${added || nothing}
-						modified=${modified || nothing}
-						removed=${removed || nothing}
-						symbol="icons"
-						appearance="pill"
-						no-tooltip
-					></commit-stats>`
+			// Tooltip: describe the breakdown in words via getWipTooltipParts so the tooltip adds
+			// detail over the icon pill instead of echoing it. Falls back to a generic message when
+			// only the dirty bit is known (cheap probes — upgrades on hover).
+			const parts = getWipTooltipParts({ added: added, changed: modified, deleted: removed });
+			const tooltipContent = parts.length
+				? `${parts.join(', ')} in the working tree`
 				: 'Working tree has changes';
 
 			return html`<gl-tooltip placement="bottom"
