@@ -81,7 +81,7 @@ export class GlDetailsBase extends LitElement {
 	searchBoxFilter?: boolean;
 
 	protected _getFileActions = (file: File, opts?: Partial<TreeItemBase>) => this.getFileActions(file, opts);
-	protected _getFileContext = (file: File) => this.getFileContext(file);
+	protected _getFileContext = (file: File, opts?: Partial<TreeItemBase>) => this.getFileContext(file, opts);
 	protected _getFolderContext = (folder: { name: string; relativePath: string; repoPath?: string }) =>
 		this.getFolderContext(folder);
 	protected _onFileChecked = (e: CustomEvent) => this.onFileChecked(e);
@@ -214,7 +214,7 @@ export class GlDetailsBase extends LitElement {
 		return [];
 	}
 
-	protected getFileContext(_file: File): string | undefined {
+	protected getFileContext(_file: File, _options?: Partial<TreeItemBase>): string | undefined {
 		return undefined;
 	}
 

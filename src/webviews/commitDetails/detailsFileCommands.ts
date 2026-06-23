@@ -93,6 +93,63 @@ export class DetailsFileCommands {
 		}
 	}
 
+	// --- Mixed WIP file (both staged + unstaged): the deduped row is the unstaged side, so the
+	// generic Open Changes can only reach index↔working. These three expose every diff. The row's
+	// `staged`/`status` come from the unstaged side; `openStagedChanges` overrides `staged` (same
+	// approach as the inline `file-compare-wip-staged` button). ---
+
+	@command('gitlens.openBothChanges:')
+	@debug()
+	openBothChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		// Combined diff of both the staged and unstaged changes to the file: HEAD ↔ working tree.
+		void openChangesWithWorking(
+			file,
+			{ repoPath: commit.repoPath, ref: 'HEAD' },
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
+	@command('gitlens.openUnstagedChanges:')
+	@debug()
+	openUnstagedChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		void openWipChanges(
+			{
+				repoPath: file.repoPath,
+				path: file.path,
+				originalPath: file.originalPath,
+				status: file.status,
+				staged: false,
+			},
+			commit.repoPath,
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
+	@command('gitlens.openStagedChanges:')
+	@debug()
+	openStagedChanges(commit: GitCommit, file: GitFileChange, showOptions?: TextDocumentShowOptions): void {
+		void openWipChanges(
+			{
+				repoPath: file.repoPath,
+				path: file.path,
+				originalPath: file.originalPath,
+				status: file.status,
+				staged: true,
+			},
+			commit.repoPath,
+			{ preserveFocus: true, preview: true, ...showOptions },
+		);
+		if (this.source != null) {
+			this.container.events.fire('file:selected', { uri: file.uri }, { source: this.source });
+		}
+	}
+
 	@command('gitlens.views.openChangesWithWorking:')
 	@debug()
 	openChangesWithWorking(
@@ -671,8 +728,9 @@ export class DetailsFileCommands {
 	@multiCommand('gitlens.views.unstageFile.multi:')
 	@debug()
 	async unstageFilesMulti(items: ResolvedDetailsFile[]): Promise<void> {
-		// Mirror of stage: unstage only the `+staged` files in the selection.
-		const files = items.filter(i => i.webviewItem?.includes('+staged'));
+		// Mirror of stage: unstage only the files with staged content — `+staged` plus `+mixed`
+		// (the deduped mixed row carries `+unstaged+mixed` but still has a staged portion to unstage).
+		const files = items.filter(i => i.webviewItem?.includes('+staged') || i.webviewItem?.includes('+mixed'));
 		if (!files.length) return;
 
 		const svc = this.container.git.getRepositoryService(files[0].commit.repoPath);

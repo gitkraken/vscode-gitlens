@@ -78,7 +78,7 @@ export class GlWipTreePane extends LitElement {
 	fileActions?: TreeItemAction[] | ((file: FileItem, options?: Partial<TreeItemBase>) => TreeItemAction[]);
 
 	@property({ attribute: false })
-	fileContext?: (file: FileItem) => string | undefined;
+	fileContext?: (file: FileItem, options?: Partial<TreeItemBase>) => string | undefined;
 
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
@@ -144,6 +144,7 @@ export class GlWipTreePane extends LitElement {
 		| TreeItemAction[]
 		| ((file: FileItem, options?: Partial<TreeItemBase>) => TreeItemAction[])
 		| undefined;
+	private _wrappedContext: ((file: FileItem, options?: Partial<TreeItemBase>) => string | undefined) | undefined;
 	/** Paths with both staged and unstaged hunks. Computed in checkbox mode during dedup; kept on
 	 *  the instance so the dispatch overrides for `file-compare-wip` (alt-click) and
 	 *  `file-compare-wip-staged` (inline button) can recognize the deduped row as mixed. */
@@ -155,7 +156,8 @@ export class GlWipTreePane extends LitElement {
 			!changedProperties.has('checkable') &&
 			!changedProperties.has('checkableStates') &&
 			!changedProperties.has('checkableStateDefault') &&
-			!changedProperties.has('fileActions')
+			!changedProperties.has('fileActions') &&
+			!changedProperties.has('fileContext')
 		) {
 			return;
 		}
@@ -222,6 +224,13 @@ export class GlWipTreePane extends LitElement {
 				? (file, options) => callerActions(file, { ...(options ?? {}), mixed: mixedPaths.has(file.path) })
 				: callerActions;
 
+		// Same mixed injection for the context callback, so getFileContext can tag the deduped row
+		// `+mixed` from the dedup's single source of truth instead of re-deriving it.
+		const callerContext = this.fileContext;
+		this._wrappedContext = callerContext
+			? (file, options) => callerContext(file, { ...(options ?? {}), mixed: mixedPaths.has(file.path) })
+			: undefined;
+
 		this._effectiveFiles = effectiveFiles;
 		this._effectiveStates = effectiveStates;
 		this._grouping = grouping;
@@ -248,7 +257,7 @@ export class GlWipTreePane extends LitElement {
 			?show-file-icons=${this.showFileIcons}
 			.searchContext=${this.searchContext}
 			.fileActions=${this._wrappedActions}
-			.fileContext=${this.fileContext}
+			.fileContext=${this._wrappedContext}
 			.folderContext=${this.folderContext}
 			.filesLayout=${this.preferences?.files}
 			.showIndentGuides=${this.preferences?.indentGuides}

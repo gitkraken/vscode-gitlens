@@ -902,7 +902,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		return buildFolderContext(this.wip?.repo?.path, folder);
 	}
 
-	override getFileContext(file: File): string | undefined {
+	override getFileContext(file: File, options?: Partial<TreeItemBase>): string | undefined {
 		if (!this.wip?.repo?.path) return undefined;
 
 		// Two-char `XY` conflict statuses (UU/AA/UD/DU/AU/UA/DD) carry the side semantics
@@ -923,6 +923,12 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 			webviewItem = `gitlens:file${modifiers.join('')}`;
 		} else {
 			webviewItem = file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged';
+			// Checkbox mode dedupes a mixed file (staged + unstaged) to its unstaged row; gl-wip-tree-pane
+			// flags that row via `options.mixed` (same source as the inline Stage/Unstage actions) so the
+			// context menu can offer the staged/combined diffs the single row otherwise can't reach.
+			if (options?.mixed) {
+				webviewItem += '+mixed';
+			}
 		}
 
 		const context: DetailsItemTypedContext = {

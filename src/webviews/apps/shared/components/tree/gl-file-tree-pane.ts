@@ -102,7 +102,7 @@ export class GlFileTreePane extends LitElement {
 	 * When set, each file's tree model will include the returned contextData string.
 	 */
 	@property({ attribute: false })
-	fileContext?: (file: FileItem) => string | undefined;
+	fileContext?: (file: FileItem, options?: Partial<TreeItemBase>) => string | undefined;
 
 	/**
 	 * Optional callback to generate context data for folder tree items. When set, each folder's
@@ -901,7 +901,7 @@ export class GlFileTreePane extends LitElement {
 			context: [file],
 			actions: actions,
 			decorations: decorations.length > 0 ? decorations : undefined,
-			contextData: this.fileContext?.(file),
+			contextData: this.fileContext?.(file, options),
 			matched: isMatchedFile,
 			...options,
 			...checkableOverrides,
