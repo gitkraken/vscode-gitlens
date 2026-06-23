@@ -3898,6 +3898,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.subscribeToTreemapInvalidations();
 		}
 
+		if (configuration.changed(e, 'graph.showWorkingTreeBadge')) {
+			this._lastBadgeCount = -1;
+			if (configuration.get('graph.showWorkingTreeBadge')) {
+				void this.notifyDidChangeWorkingTree();
+			} else if (this.host.is('view')) {
+				this.host.badge = undefined;
+			}
+		}
+
 		// `graph.showUpstreamStatus` feeds `resetRefsMetadata`'s feature-on/off decision (upstream is
 		// local-git data, so it keeps metadata populatable even with no integration). The catch-all `graph`
 		// block below only re-sends the component config — re-evaluate the gate here too, but only when the
@@ -6780,6 +6789,23 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  `_lastSentWipDrafts` in `setGraph(undefined)`. */
 	private _lastSentWipNotificationParams: DidChangeWorkingTreeParams | undefined;
 
+	/** Last working-tree count pushed to the view badge — skips redundant `host.badge` writes.
+	 *  Reset to -1 (force re-set) on repo swap (`setGraph(undefined)`) and on setting toggle. */
+	private _lastBadgeCount = -1;
+
+	/** Mirrors the SCM view's change-count badge onto the Graph's panel-tab view. Only the panel
+	 *  WebviewView can carry a badge (`host.is('view')`); the editor-tab variant no-ops. */
+	private updateWorkingTreeBadge(stats: { added: number; deleted: number; modified: number } | undefined): void {
+		if (!this.host.is('view') || !configuration.get('graph.showWorkingTreeBadge')) return;
+
+		const count = stats != null ? stats.added + stats.deleted + stats.modified : 0;
+		if (count === this._lastBadgeCount) return;
+
+		this._lastBadgeCount = count;
+		this.host.badge =
+			count > 0 ? { value: count, tooltip: `${count} working tree change${count === 1 ? '' : 's'}` } : undefined;
+	}
+
 	private notifyDidChangeWorkingTree(): Promise<boolean> {
 		if (this._wipNotifyInFlight != null) {
 			this._wipNotifyDirty = true;
@@ -6820,6 +6846,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async runNotifyDidChangeWorkingTree(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidChangeWorkingTreeNotification, this._ipcNotificationMap, this);
+
+			// The webview can't update while hidden, but the panel-tab badge should stay live (matches
+			// SCM). Recompute the count off a lightweight status — only when a badge actually exists
+			// (panel view + setting enabled), so the editor variant and disabled case stay zero-cost.
+			// Fire-and-forget to keep the early return fast; guard the repo identity in the callback,
+			// and skip undefined (cancelled/failed) so we never fabricate a zero and clear the badge.
+			if (this.host.is('view') && configuration.get('graph.showWorkingTreeBadge') && this.repository != null) {
+				const repo = this.repository;
+				void this.getWorkingTreeStatsAndPausedOperations().then(stats => {
+					if (stats != null && this.repository === repo) {
+						this.updateWorkingTreeBadge(stats);
+					}
+				});
+			}
 			return false;
 		}
 
@@ -6851,6 +6891,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// and pin the wrong payload in `_lastSentWipNotificationParams`, blocking the legitimate
 		// next push for the new repo. The new repo's own watcher tick will produce a fresh push.
 		if (this.repository !== repo) return false;
+
+		// Update the panel-tab badge from the same status we just fetched — no extra git cost.
+		this.updateWorkingTreeBadge(wipAndStatsResult.wip.stats);
 
 		// Overview entries for this repo's branch are updated inline by the webview's notification
 		// handler from the same `wip` payload above (`mergeOverviewWipForRepo`). The previous bulk
@@ -8103,12 +8146,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._searchRequest = undefined;
 
 		if (this.container.git.repositoryCount === 0) {
+			this.updateWorkingTreeBadge(undefined);
 			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
+				this.updateWorkingTreeBadge(undefined);
 				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
 			}
 		}
@@ -8329,6 +8374,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const resolvedWorkingTreeStats = getSettledValue(workingStatsResult);
 		if (resolvedWorkingTreeStats == null) {
 			this.scheduleInitialWorkingTreeStatsRetry();
+		} else {
+			// Seed the panel-tab badge on initial load. A null here is a transient fetch failure (the
+			// retry above re-pushes), not a real zero — don't fabricate a zero and clear the badge.
+			this.updateWorkingTreeBadge(resolvedWorkingTreeStats);
 		}
 
 		const graphWalkthroughBanner = this.getGraphWalkthroughBannerState();
@@ -8879,6 +8928,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._lastSentWipDrafts = undefined;
 			this._lastSentWipDraftsInitialized = false;
 			this._lastSentWipNotificationParams = undefined;
+			// Force the badge to re-evaluate on the next push so a repo swap to one with the same
+			// change count as the prior repo still re-stamps (and the tooltip stays correct).
+			this._lastBadgeCount = -1;
 			this._graphLoading = undefined;
 			this._avatarProxyCache.clear();
 			this._avatarProxyFailed.clear();

@@ -1290,6 +1290,13 @@
 						"scope": "window",
 						"order": 752
 					},
+					"gitlens.graph.showWorkingTreeBadge": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether to show a badge with the working tree change count on the _Commit Graph_ view",
+						"scope": "window",
+						"order": 752
+					},
 					"gitlens.graph.showWorktreeWipStats": {
 						"type": "boolean",
 						"default": true,
