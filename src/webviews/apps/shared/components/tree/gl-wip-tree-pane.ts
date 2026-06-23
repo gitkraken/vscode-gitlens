@@ -1,6 +1,6 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -150,6 +150,12 @@ export class GlWipTreePane extends LitElement {
 	 *  `file-compare-wip-staged` (inline button) can recognize the deduped row as mixed. */
 	private _mixedPaths: Set<string> = new Set();
 
+	/** The inner tree's current multi-selection (≥2 = selection-aware toolbar). Mirrored up from
+	 *  `gl-file-tree-pane`'s `file-selection-changed` so the Stash/Copy toolbar buttons can act on the
+	 *  selection (primary) and fall back to the scope action on Alt — like "Open Selected Changes". */
+	@state()
+	private _selectedFiles: readonly FileItem[] = [];
+
 	override willUpdate(changedProperties: PropertyValues): void {
 		if (
 			!changedProperties.has('files') &&
@@ -251,6 +257,13 @@ export class GlWipTreePane extends LitElement {
 		const multiDiffLabel = hasStagedAndUnstaged ? 'Open Staged Changes' : 'Open All Changes';
 		const multiDiffAltLabel = hasStagedAndUnstaged ? 'Open Unstaged Changes' : undefined;
 
+		// With ≥2 rows selected the Stash/Copy toolbar buttons act on the selection (primary), demoting
+		// the scope action (staged-aware, the no-selection primary) to Alt — mirrors "Open Selected
+		// Changes". `> 1` matches `gl-file-tree-pane`'s `showOpenSelected` gate.
+		const hasSelection = this.multiSelectable && this._selectedFiles.length > 1;
+		// The scope action shown/run on the demoted Alt slot (and as primary when nothing is selected).
+		const stashScopeLabel = hasStagedAndUnstaged ? 'Stash Staged Changes' : 'Stash All Changes';
+
 		return html`<gl-file-tree-pane
 			.files=${this._effectiveFiles}
 			.collapsable=${this.collapsable}
@@ -279,6 +292,7 @@ export class GlWipTreePane extends LitElement {
 			check-verb="Stage"
 			uncheck-verb="Unstage"
 			@gl-check-all=${this.onCheckAll}
+			@file-selection-changed=${this.onFileSelectionChanged}
 			@file-compare-wip=${this.onFileCompareWip}
 			@file-compare-wip-staged=${this.onFileCompareWipStaged}
 			@gl-file-tree-pane-open-multi-diff=${multiDiff
@@ -295,13 +309,17 @@ export class GlWipTreePane extends LitElement {
 						${this.renderDiscardUnstagedAction(files)}
 						<gl-action-chip
 							icon="gl-stash-save"
-							label=${hasStagedAndUnstaged ? 'Stash Staged Changes' : 'Stash All Changes'}
-							alt-label=${hasStagedAndUnstaged ? 'Stash All Changes' : nothing}
+							label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
+							alt-label=${hasSelection
+								? stashScopeLabel
+								: hasStagedAndUnstaged
+									? 'Stash All Changes'
+									: nothing}
 							@click=${this.onStashSave}
 						>
 							<span class="stash-label">Stash</span>
 						</gl-action-chip>
-						${this.renderCopyPatchButton(hasStagedAndUnstaged)}
+						${this.renderCopyPatchButton(hasStagedAndUnstaged, hasSelection)}
 					</div>`
 				: nothing}
 			<slot name="before-tree" slot="before-tree"></slot>
@@ -333,21 +351,25 @@ export class GlWipTreePane extends LitElement {
 		></gl-action-chip>`;
 	}
 
-	private renderCopyPatchButton(hasStagedAndUnstaged: boolean) {
+	private renderCopyPatchButton(hasStagedAndUnstaged: boolean, hasSelection: boolean) {
 		// Need a repoPath to dispatch — fall back to the first file's repoPath if `multiDiff` is
 		// undefined (multiDiff is only set when the host wires multi-diff refs, but the Copy
 		// button is independent of that flow and should still work).
 		const repoPath = this.multiDiff?.repoPath ?? this.files?.find(f => f.repoPath)?.repoPath;
 		if (!repoPath) return nothing;
 
-		// When both staged + unstaged changes exist, the chip's alt-label drives a live Alt-swap
-		// (primary = staged, Alt = unstaged), composing the `Primary\n[Alt] …` tooltip and swapping
-		// the announced label when Alt is held — matching the Open Multi-Diff chip. Otherwise it's a
-		// plain "Copy All Changes (Patch)" with no alt action.
+		// The scope action (staged-aware, the no-selection primary) — runs as primary when nothing is
+		// selected, and demotes to the Alt slot when a selection is active.
+		const scopeLabel = hasStagedAndUnstaged ? 'Copy Staged Changes (Patch)' : 'Copy All Changes (Patch)';
+
+		// With ≥2 rows selected the primary copies the selection and Alt falls back to the scope action
+		// (mirrors "Open Selected Changes"). Otherwise the chip's alt-label drives the live staged↔
+		// unstaged Alt-swap (primary = staged, Alt = unstaged) — matching the Open Multi-Diff chip — or
+		// is a plain "Copy All Changes (Patch)" with no alt action.
 		return html`<gl-action-chip
 			icon="copy"
-			label=${hasStagedAndUnstaged ? 'Copy Staged Changes (Patch)' : 'Copy All Changes (Patch)'}
-			alt-label=${hasStagedAndUnstaged ? 'Copy Unstaged Changes (Patch)' : nothing}
+			label=${hasSelection ? 'Copy Selected Changes (Patch)' : scopeLabel}
+			alt-label=${hasSelection ? scopeLabel : hasStagedAndUnstaged ? 'Copy Unstaged Changes (Patch)' : nothing}
 			@click=${(e: MouseEvent) => this.onCopyPatch(e, repoPath)}
 		></gl-action-chip>`;
 	}
@@ -377,9 +399,28 @@ export class GlWipTreePane extends LitElement {
 		this.dispatchEvent(new CustomEvent('resolve-all-incoming', { bubbles: true, composed: true }));
 	};
 
+	private onFileSelectionChanged = (e: CustomEvent<{ files: readonly FileItem[] }>): void => {
+		this._selectedFiles = e.detail?.files ?? [];
+	};
+
 	private onStashSave(e: MouseEvent) {
-		// Mixed staged + unstaged: primary stashes only staged, Alt stashes all. Otherwise stash all.
-		const onlyStaged = this.hasStagedAndUnstaged && e.altKey !== true;
+		// With a multi-selection, the primary stashes just the selected files; Alt falls back to the
+		// scope action below (mirrors "Open Selected Changes").
+		const hasSelection = this.multiSelectable && this._selectedFiles.length > 1;
+		if (hasSelection && e.altKey !== true) {
+			this.dispatchEvent(
+				new CustomEvent('stash-save', {
+					detail: { files: this._selectedFiles },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			return;
+		}
+
+		// No selection: mixed staged + unstaged → primary stashes only staged, Alt stashes all; else stash
+		// all. Selection + Alt collapses to the no-selection primary (staged when mixed, else all).
+		const onlyStaged = this.hasStagedAndUnstaged && (hasSelection || e.altKey !== true);
 		this.dispatchEvent(
 			new CustomEvent('stash-save', { detail: { onlyStaged: onlyStaged }, bubbles: true, composed: true }),
 		);
@@ -447,7 +488,27 @@ export class GlWipTreePane extends LitElement {
 	}
 
 	private onCopyPatch(e: MouseEvent, repoPath: string): void {
-		const scope = this.resolveScope(e.altKey === true);
+		// With a multi-selection, the primary copies a combined HEAD↔working patch of just the selected
+		// files (scope `all` + the selected paths as pathspec); Alt falls back to the scope action below
+		// (mirrors "Open Selected Changes").
+		const hasSelection = this.multiSelectable && this._selectedFiles.length > 1;
+		if (hasSelection && e.altKey !== true) {
+			this.dispatchEvent(
+				new CustomEvent('copy-wip-patch', {
+					detail: {
+						repoPath: repoPath,
+						scope: 'all',
+						uris: this._selectedFiles.map(f => f.path),
+					} satisfies CopyWipPatchEventDetail,
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			return;
+		}
+
+		// Selection + Alt collapses to the no-selection primary scope (staged when mixed, else all).
+		const scope = this.resolveScope(hasSelection ? false : e.altKey === true);
 		// For staged/unstaged scopes, pass the scope-filtered file paths through so the
 		// host-side `getDiff` uses pathspec to constrain output to exactly those files —
 		// matches the file set the Open Multi-Diff button opens for the same scope, and

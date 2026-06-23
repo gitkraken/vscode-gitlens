@@ -1156,6 +1156,30 @@
 				]
 			}
 		},
+		"gitlens.copyPatchToClipboard.multi:commitDetails": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.copyPatchToClipboard.multi:graphDetails": {
+			"label": "Copy Changes (Patch)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "7_gitlens_cutcopypaste",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.copyPath:commitDetails": {
 			"label": "Copy Path",
 			"icon": "$(copy)",

@@ -59,6 +59,8 @@ export type ContributedCommands =
 	| 'gitlens.copyDeepLinkToTag'
 	| 'gitlens.copyDeepLinkToWorkspace'
 	| 'gitlens.copyMessageToClipboard'
+	| 'gitlens.copyPatchToClipboard.multi:commitDetails'
+	| 'gitlens.copyPatchToClipboard.multi:graphDetails'
 	| 'gitlens.copyPatchToClipboard:commitDetails'
 	| 'gitlens.copyPatchToClipboard:graph'
 	| 'gitlens.copyPatchToClipboard:graphDetails'

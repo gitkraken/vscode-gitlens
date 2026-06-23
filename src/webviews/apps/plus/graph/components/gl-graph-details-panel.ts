@@ -2857,8 +2857,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private handleOpenPullRequestDetails = (e: CustomEvent<{ id: string; providerId: string | undefined }>) =>
 		this._actions.openPullRequestDetails(e.detail.id || undefined, e.detail.providerId);
 
-	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean }>) =>
-		this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
+	private handleStashSave = (e: CustomEvent<{ onlyStaged?: boolean; files?: FileChangeListItemDetail['files'] }>) => {
+		// Toolbar Stash with a multi-selection carries the selected files (same path as the inline
+		// `file-stash` batch action); otherwise it's the scope action (`onlyStaged` staged-vs-all).
+		if (e.detail?.files?.length) {
+			this._actions.stashFiles([...e.detail.files]);
+		} else {
+			this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
+		}
+	};
 
 	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
 		this._actions.startWork(e.detail?.showOpenInAgent);

@@ -763,6 +763,24 @@ export class DetailsFileCommands {
 		);
 	}
 
+	@multiCommand('gitlens.copyPatchToClipboard.multi:')
+	@debug()
+	copyPatchMulti(items: ResolvedDetailsFile[]): void {
+		// Same WIP union as stash: only files with working changes (excludes conflicts/committed).
+		const files = items.filter(i => i.webviewItem?.includes('+staged') || i.webviewItem?.includes('+unstaged'));
+		if (!files.length) return;
+
+		// Combined HEAD↔working patch of exactly the selected files (`to: uncommitted` captures both
+		// staged + unstaged; the command stages untracked files for the diff, like the single copyPatch).
+		const args: CreatePatchCommandArgs = {
+			repoPath: files[0].file.repoPath,
+			to: uncommitted,
+			title: 'Uncommitted Changes',
+			uris: files.map(i => i.file.uri),
+		};
+		void executeCommand<CreatePatchCommandArgs>('gitlens.copyPatchToClipboard', args);
+	}
+
 	@multiCommand('gitlens.openSelectedChanges.multi:')
 	@debug()
 	async openSelectedChangesMulti(items: ResolvedDetailsFile[]): Promise<void> {
