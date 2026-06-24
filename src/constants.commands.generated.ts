@@ -343,6 +343,8 @@ export type ContributedCommands =
 	| 'gitlens.restorePrevious.file:graphDetails'
 	| 'gitlens.restorePrevious.file:views'
 	| 'gitlens.revealCommitInView'
+	| 'gitlens.revealFileInExplorer:commitDetails'
+	| 'gitlens.revealFileInExplorer:graphDetails'
 	| 'gitlens.reviewChanges:graph'
 	| 'gitlens.setRemoteAsDefault:graph'
 	| 'gitlens.setRemoteAsDefault:views'

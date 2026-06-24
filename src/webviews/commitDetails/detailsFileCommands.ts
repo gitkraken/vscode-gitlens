@@ -33,7 +33,7 @@ import * as StashActions from '../../git/actions/stash.js';
 import { getReachableWorktrees } from '../../git/utils/-webview/worktree.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { showWorktreePicker } from '../../quickpicks/worktreePicker.js';
-import { executeCommand } from '../../system/-webview/command.js';
+import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { getContext, setContext } from '../../system/-webview/context.js';
 import type { MergeEditorInputs } from '../../system/-webview/vscode/editors.js';
 import { openMergeEditor } from '../../system/-webview/vscode/editors.js';
@@ -269,6 +269,15 @@ export class DetailsFileCommands {
 	openFileOnRemote(commit: GitCommit, file: GitFileChange): void {
 		void openFileOnRemote(file, commit);
 	}
+
+	@command('gitlens.revealFileInExplorer:')
+	@debug()
+	revealFileInExplorer(commit: GitCommit, file: GitFileChange): void {
+		// Always reveal the on-disk working-tree file (WIP rows are uncommitted) so the Explorer view
+		// selects a real file: URI — not a git: revision URI. getAbsoluteUri gives the working copy.
+		void executeCoreCommand('revealInExplorer', this.container.git.getAbsoluteUri(file.path, commit.repoPath));
+	}
+
 	@command('gitlens.views.stageFile:')
 	@debug()
 	async stageFile(commit: GitCommit, file: GitFileChange): Promise<void> {

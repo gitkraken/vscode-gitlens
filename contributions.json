@@ -6181,6 +6181,32 @@
 				]
 			}
 		},
+		"gitlens.revealFileInExplorer:commitDetails": {
+			"label": "Reveal in Explorer View",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)/ && webview == gitlens.views.commitDetails",
+						"group": "2_gitlens_quickopen_file",
+						"order": 5
+					}
+				]
+			}
+		},
+		"gitlens.revealFileInExplorer:graphDetails": {
+			"label": "Reveal in Explorer View",
+			"icon": "$(go-to-file)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "2_gitlens_quickopen_file",
+						"order": 5
+					}
+				]
+			}
+		},
 		"gitlens.reviewChanges:graph": {
 			"label": "Review Changes (Preview)...",
 			"icon": "$(checklist)",
