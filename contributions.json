@@ -2696,6 +2696,11 @@
 			"label": "Git Cherry Pick...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.git.editAllowedSigners": {
+			"label": "Edit SSH Allowed Signers...",
+			"icon": "$(key)",
+			"commandPalette": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+		},
 		"gitlens.git.history": {
 			"label": "Git History (log)...",
 			"commandPalette": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"

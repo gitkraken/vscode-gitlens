@@ -7469,6 +7469,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.git.editAllowedSigners",
+				"title": "Edit SSH Allowed Signers...",
+				"category": "GitLens",
+				"icon": "$(key)"
+			},
+			{
 				"command": "gitlens.git.history",
 				"title": "Git History (log)...",
 				"category": "GitLens"
@@ -13231,6 +13237,10 @@
 				{
 					"command": "gitlens.git.cherryPick",
 					"when": "!gitlens:disabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.git.editAllowedSigners",
+					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
 					"command": "gitlens.git.history",

@@ -93,6 +93,7 @@ import {
 	registerTimelineWebviewPanel,
 } from './webviews/plus/timeline/registration.js';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor.js';
+import { registerAllowedSignersWebviewPanel } from './webviews/allowedSigners/registration.js';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration.js';
 import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar.js';
 import { WebviewsController } from './webviews/webviewsController.js';
@@ -317,6 +318,8 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		this._disposables.push(registerAllowedSignersWebviewPanel(webviews));
 
 		this._disposables.push(new ViewFileDecorationProvider());
 
