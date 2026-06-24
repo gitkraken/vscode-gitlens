@@ -15,6 +15,17 @@ export interface GitLabUser {
 	webUrl: string;
 }
 
+/** A user's SSH key as returned by `GET /users/:id/keys`. */
+export interface GitLabSshKey {
+	id: number;
+	title: string;
+	key: string;
+	created_at: string;
+	expires_at: string | null;
+	/** Whether the key can be used for authentication, signing, or both. */
+	usage_type: 'auth' | 'signing' | 'auth_and_signing';
+}
+
 export interface GitLabCommit {
 	id: string;
 	short_id: string;

@@ -64,6 +64,40 @@ export abstract class GitHostIntegration<
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
 
+	/**
+	 * Returns the SSH signing keys (full OpenSSH-format `<type> <key> [comment]` strings) registered by the accounts
+	 * matching the given emails on this integration, for building an `allowed_signers` file. Keyed by lowercased email;
+	 * emails with no match (and unsupported integrations) are absent. Batching the lookups is left to the integration.
+	 */
+	@gate()
+	@trace()
+	async getSshSigningKeysForEmails(repo: T, emails: string[]): Promise<Map<string, string[]>> {
+		const scope = getScopedLogger();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return new Map();
+
+		await this.refreshSessionIfExpired(scope);
+
+		try {
+			const keys = await this.getProviderSshSigningKeysForEmails(this._session!, repo, emails);
+			this.resetRequestExceptionCount('getSshSigningKeysForEmails');
+			return keys;
+		} catch (ex) {
+			this.handleProviderException('getSshSigningKeysForEmails', ex, { scope: scope });
+			return new Map();
+		}
+	}
+
+	/** Override in integrations that expose users' SSH signing keys. Defaults to none. */
+	protected getProviderSshSigningKeysForEmails(
+		_session: ProviderAuthenticationSession,
+		_repo: T,
+		_emails: string[],
+	): Promise<Map<string, string[]>> {
+		return Promise.resolve(new Map<string, string[]>());
+	}
+
 	@gate()
 	@trace()
 	async getAccountForCommit(

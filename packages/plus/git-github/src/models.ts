@@ -51,6 +51,8 @@ export interface GitHubCommitRef {
 
 export type GitHubContributor = Endpoints['GET /repos/{owner}/{repo}/contributors']['response']['data'][0];
 
+export type GitHubSshSigningKey = Endpoints['GET /users/{username}/ssh_signing_keys']['response']['data'][0];
+
 export interface GitHubMember {
 	login: string;
 	avatarUrl: string;

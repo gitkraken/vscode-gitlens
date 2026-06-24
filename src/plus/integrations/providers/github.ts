@@ -6,6 +6,7 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
@@ -89,6 +90,56 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderSshSigningKeysForEmails(
+		session: ProviderAuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		emails: string[],
+	): Promise<Map<string, string[]>> {
+		const result = new Map<string, string[]>();
+
+		const api = await this.container.github;
+		if (api == null) return result;
+
+		const token = toTokenWithInfo(this.id, session);
+
+		// Resolve each email to a login: GitHub noreply addresses encode it locally; the rest are resolved in a single
+		// batched GraphQL request rather than one round-trip per email.
+		const loginByEmail = new Map<string, string>();
+		const toResolve: string[] = [];
+		for (const email of emails) {
+			const login = getGitHubNoReplyAddressParts(email)?.login;
+			if (login != null) {
+				loginByEmail.set(email.toLowerCase(), login);
+			} else {
+				toResolve.push(email);
+			}
+		}
+
+		if (toResolve.length) {
+			const resolved = await api.getAccountsForEmails(this, token, toResolve, { baseUrl: this.apiBaseUrl });
+			for (const [emailLower, login] of resolved) {
+				loginByEmail.set(emailLower, login);
+			}
+		}
+
+		// Fetch signing keys once per distinct login (REST has no batch endpoint), then map back to each email.
+		const keysByLogin = new Map<string, Promise<string[]>>();
+		for (const login of new Set(loginByEmail.values())) {
+			keysByLogin.set(
+				login,
+				api
+					.getUserSshSigningKeys(this, token, login, { baseUrl: this.apiBaseUrl })
+					.then(keys => keys.map(k => k.key)),
+			);
+		}
+
+		for (const [emailLower, login] of loginByEmail) {
+			result.set(emailLower, await keysByLogin.get(login)!);
+		}
+
+		return result;
 	}
 
 	protected override async getProviderDefaultBranch(

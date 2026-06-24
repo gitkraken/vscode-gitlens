@@ -10,6 +10,7 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
+import { batch } from '@gitlens/utils/promise.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../../constants.integrations.js';
 import type { Sources } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -46,6 +47,9 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 });
 
 export type GitLabRepositoryDescriptor = RepositoryDescriptor;
+
+/** How many SSH signing-key lookups (account resolve + keys fetch) to run concurrently, to avoid a request burst. */
+const sshSigningKeyResolveBatchSize = 10;
 
 abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends GitHostIntegration<
 	ID,
@@ -93,6 +97,34 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderSshSigningKeysForEmails(
+		session: ProviderAuthenticationSession,
+		repo: GitLabRepositoryDescriptor,
+		emails: string[],
+	): Promise<Map<string, string[]>> {
+		const result = new Map<string, string[]>();
+
+		const api = await this.container.gitlab;
+		if (api == null) return result;
+
+		const token = toTokenWithInfo(this.id, session);
+
+		// GitLab resolves users one email at a time (no batch search). Run them in bounded batches rather than firing all
+		// (up to providerVerifyLimit) account + key lookups at once, to avoid a request burst that trips rate limiting.
+		await batch(emails, sshSigningKeyResolveBatchSize, async email => {
+			const account = await this.getProviderAccountForEmail(session, repo, email);
+			if (account?.id == null) return;
+
+			const keys = await api.getUserSigningKeys(this, token, account.id, { baseUrl: this.apiBaseUrl });
+			result.set(
+				email.toLowerCase(),
+				keys.map(k => k.key),
+			);
+		});
+
+		return result;
 	}
 
 	protected override async getProviderDefaultBranch(
