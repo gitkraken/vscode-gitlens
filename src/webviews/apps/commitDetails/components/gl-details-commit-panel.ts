@@ -674,7 +674,15 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		if (!commit) return nothing;
 
 		const message = this.formattedMessage ?? commit.message;
-		const index = message.indexOf(messageHeadlineSplitterToken);
+		// The splitter token is only injected during autolink linkification; the raw commit.message
+		// (graph commitLite / full fetch) carries a plain newline. Fall back to it so the
+		// headline/body split — and its font sizing — is stable before autolinks land.
+		let index = message.indexOf(messageHeadlineSplitterToken);
+		let bodyOffset = messageHeadlineSplitterToken.length;
+		if (index === -1) {
+			index = message.indexOf('\n');
+			bodyOffset = 1;
+		}
 
 		return html`<div class="message">
 			<div class="message-block">
@@ -707,7 +715,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							<strong
 								><gl-markdown .markdown=${message.substring(0, index)} density="compact"></gl-markdown
 							></strong>
-							<gl-markdown .markdown=${message.substring(index + 3)} density="compact"></gl-markdown>
+							<gl-markdown
+								.markdown=${message.substring(index + bodyOffset)}
+								density="compact"
+							></gl-markdown>
 						</div>`,
 				)}
 			</div>
