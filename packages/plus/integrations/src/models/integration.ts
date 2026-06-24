@@ -65,6 +65,7 @@ type SyncReqUsecase = Exclude<
 	| 'getPullRequestForCommit'
 	| 'getRepositoryMetadata'
 	| 'getResourcesForUser'
+	| 'getSshSigningKeysForEmails'
 	| 'mergePullRequest'
 	| 'searchMyIssues'
 	| 'searchMyPullRequests'
