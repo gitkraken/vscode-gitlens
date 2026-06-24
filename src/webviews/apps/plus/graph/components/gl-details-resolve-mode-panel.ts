@@ -2,9 +2,11 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type {
 	ConflictResolutionStrategy,
+	ConflictSide,
 	ResolvedFileSummary,
 	ResolveFileError,
 	ResolveSkippedFile,
@@ -156,6 +158,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 				color: var(--vscode-errorForeground);
 			}
 
+			/* Manual take-side fallback actions on a skipped/errored row. */
+			.resolve-file__actions {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--gl-space-4);
+				margin-top: var(--gl-space-2);
+			}
+
 			.resolve-footer {
 				display: flex;
 				flex: none;
@@ -206,6 +216,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 	@property({ type: Object }) aiModel?: AiModelInfo;
 	/** Paths currently being re-resolved with feedback — drives the per-row busy state. */
 	@property({ type: Object }) retryingFiles?: ReadonlySet<string>;
+	/** Paths currently being manually resolved via a take-side fallback — drives the per-row busy state. */
+	@property({ type: Object }) stagingFiles?: ReadonlySet<string>;
 	/** The whole-run prompt, recalled into the "Refine" input (ArrowUp). */
 	@property() lastPrompt?: string;
 
@@ -427,27 +439,85 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	/** A still-conflicted file the resolver couldn't auto-resolve (no parseable markers — binary,
-	 *  unsupported type, …). Not a failure and not retryable: it needs manual resolution. */
+	 *  symlink, mode, rename, …). Not retryable with AI, but the user can take a side manually. */
 	private renderSkipped(s: ResolveSkippedFile): unknown {
+		const badge = s.kind != null ? getConflictKindLabel(s.kind, s.renameOf).label : 'needs review';
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
-					<code-icon icon="warning" size="11"></code-icon>needs review
+					<code-icon icon="warning" size="11"></code-icon>${badge}
 				</span>
 				<span class="resolve-file__path">${s.filePath}</span>
 			</div>
 			<p class="resolve-file__reasoning">${s.message}</p>
+			${this.renderFallbackActions(s)}
 		</li>`;
 	}
 
+	/** A file the AI resolver errored on. Offer the same manual take-side fallback so the user isn't
+	 *  dead-ended — taking a side doesn't depend on the AI succeeding. When the conflict type is known
+	 *  (binary/symlink/rename/…), label it so a non-text conflict doesn't read as a generic failure. */
 	private renderError(e: ResolveFileError): unknown {
+		const kindLabel = e.kind != null ? getConflictKindLabel(e.kind, e.renameOf).label : undefined;
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<code-icon class="resolve-file__error" icon="error"></code-icon>
+				${kindLabel != null
+					? html`<span class="resolve-file__badge resolve-file__badge--warn" title="Conflict type"
+							><code-icon icon="warning" size="11"></code-icon>${kindLabel}</span
+						>`
+					: nothing}
 				<span class="resolve-file__path">${e.filePath}</span>
 			</div>
 			<p class="resolve-file__reasoning resolve-file__error">${e.message}</p>
+			${this.renderFallbackActions(e)}
 		</li>`;
+	}
+
+	/** Manual take-side actions for a skipped/errored row, gated by which sides have content to take.
+	 *  Renders nothing when the file is no longer conflicted (no status) or no side can be taken. */
+	private renderFallbackActions(file: ResolveSkippedFile | ResolveFileError): unknown {
+		const status = file.conflictStatus;
+		if (status == null) {
+			return html`<p class="resolve-file__reasoning">This file is no longer conflicted.</p>`;
+		}
+
+		const staging = this.stagingFiles?.has(file.filePath) ?? false;
+		// For delete-modify / rename-delete (UD/DU), one stageable side resolves to a delete rather than
+		// keeping content — label that button "Delete file" so the action isn't surprising.
+		const sideLabel = (side: 'current' | 'incoming') =>
+			classifyConflictAction(status, side) === 'delete'
+				? 'Delete file'
+				: side === 'current'
+					? 'Take current'
+					: 'Take incoming';
+
+		const buttons: unknown[] = [];
+		if (file.canStageCurrent) {
+			buttons.push(this.renderTakeSideButton(file.filePath, 'current', sideLabel('current'), staging));
+		}
+		if (file.canStageIncoming) {
+			buttons.push(this.renderTakeSideButton(file.filePath, 'incoming', sideLabel('incoming'), staging));
+		}
+		// both-deleted (DD): neither side has content — the only resolution is to confirm the deletion.
+		if (!file.canStageCurrent && !file.canStageIncoming && file.kind === 'both-deleted') {
+			buttons.push(this.renderTakeSideButton(file.filePath, 'delete', 'Delete file', staging));
+		}
+		if (buttons.length === 0) return nothing;
+
+		return html`<div class="resolve-file__actions">${buttons}</div>`;
+	}
+
+	private renderTakeSideButton(filePath: string, side: ConflictSide, label: string, staging: boolean): unknown {
+		return html`<gl-button
+			appearance="secondary"
+			density="compact"
+			aria-label="${label} for ${filePath}"
+			?disabled=${staging}
+			@click=${() => this.emit('resolve-take-side', { filePath: filePath, side: side })}
+		>
+			${staging ? html`<code-icon icon="loading" modifier="spin"></code-icon>` : nothing}${label}
+		</gl-button>`;
 	}
 
 	private emit(name: string, detail?: unknown): void {
