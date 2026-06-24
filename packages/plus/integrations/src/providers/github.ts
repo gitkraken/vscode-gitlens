@@ -10,8 +10,10 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import { batch } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -39,6 +41,9 @@ const cloudEnterpriseAuthProvider: IntegrationAuthenticationProviderDescriptor =
 });
 
 export type GitHubRepositoryDescriptor = RepositoryDescriptor;
+
+/** How many per-login SSH signing-key lookups to run concurrently, to avoid a request burst that trips rate limiting. */
+const sshSigningKeyResolveBatchSize = 10;
 
 abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends GitHostIntegration<
 	ID,
@@ -86,6 +91,56 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				baseUrl: this.apiBaseUrl,
 			},
 		);
+	}
+
+	protected override async getProviderSshSigningKeysForEmails(
+		session: ProviderAuthenticationSession,
+		repo: GitHubRepositoryDescriptor,
+		emails: string[],
+	): Promise<Map<string, string[]>> {
+		const result = new Map<string, string[]>();
+
+		const api = await this.authenticationService.apis.github;
+		if (api == null) return result;
+
+		const token = toTokenWithInfo(this.id, session);
+
+		// Resolve each email to a login: GitHub noreply addresses encode it locally; the rest are resolved in a single
+		// batched GraphQL request rather than one round-trip per email.
+		const loginByEmail = new Map<string, string>();
+		const toResolve: string[] = [];
+		for (const email of emails) {
+			const login = getGitHubNoReplyAddressParts(email)?.login;
+			if (login != null) {
+				loginByEmail.set(email.toLowerCase(), login);
+			} else {
+				toResolve.push(email);
+			}
+		}
+
+		if (toResolve.length) {
+			const resolved = await api.getAccountsForEmails(this, token, toResolve, { baseUrl: this.apiBaseUrl });
+			for (const [emailLower, login] of resolved) {
+				loginByEmail.set(emailLower, login);
+			}
+		}
+
+		// Fetch signing keys once per distinct login (REST has no batch endpoint), in bounded batches rather than firing
+		// all lookups at once, to avoid a request burst that could trip secondary rate limiting. Then map keys to each email.
+		const keysByLogin = new Map<string, string[]>();
+		await batch([...new Set(loginByEmail.values())], sshSigningKeyResolveBatchSize, async login => {
+			const keys = await api.getUserSshSigningKeys(this, token, login, { baseUrl: this.apiBaseUrl });
+			keysByLogin.set(
+				login,
+				keys.map(k => k.key),
+			);
+		});
+
+		for (const [emailLower, login] of loginByEmail) {
+			result.set(emailLower, keysByLogin.get(login) ?? []);
+		}
+
+		return result;
 	}
 
 	protected override async getProviderDefaultBranch(
