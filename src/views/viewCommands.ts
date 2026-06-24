@@ -613,10 +613,14 @@ export class ViewCommands implements Disposable {
 		return executeCoreCommand('openInTerminal', Uri.file(node.repoPath));
 	}
 
-	@command('gitlens.views.openInIntegratedTerminal')
+	@command('gitlens.openInIntegratedTerminal:views')
 	@debug()
-	private openInIntegratedTerminal(node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode) {
-		if (!node.isAny('tracking-status', 'repository', 'repo-folder')) return Promise.resolve();
+	private openInIntegratedTerminal(
+		node: BranchTrackingStatusNode | RepositoryNode | RepositoryFolderNode | WorktreeNode,
+	) {
+		if (!node.isAny('tracking-status', 'repository', 'repo-folder', 'worktree')) return Promise.resolve();
+		// worktree.uri preserves remote-dev schemes, unlike Uri.file(node.repoPath).
+		if (node.is('worktree')) return executeCoreCommand('openInIntegratedTerminal', node.worktree.uri);
 
 		return executeCoreCommand('openInIntegratedTerminal', Uri.file(node.repoPath));
 	}

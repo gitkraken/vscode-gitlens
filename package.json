@@ -6986,19 +6986,19 @@
 				"title": "Copy Changes (Patch)"
 			},
 			{
-				"command": "gitlens.copyPatchToClipboard.multi:commitDetails",
-				"title": "Copy Changes (Patch)"
-			},
-			{
-				"command": "gitlens.copyPatchToClipboard.multi:graphDetails",
-				"title": "Copy Changes (Patch)"
-			},
-			{
 				"command": "gitlens.copyPatchToClipboard:scm",
 				"title": "Copy Changes (Patch)"
 			},
 			{
 				"command": "gitlens.copyPatchToClipboard:views",
+				"title": "Copy Changes (Patch)"
+			},
+			{
+				"command": "gitlens.copyPatchToClipboard.multi:commitDetails",
+				"title": "Copy Changes (Patch)"
+			},
+			{
+				"command": "gitlens.copyPatchToClipboard.multi:graphDetails",
 				"title": "Copy Changes (Patch)"
 			},
 			{
@@ -10516,7 +10516,7 @@
 				"icon": "$(gitlens-open-revision)"
 			},
 			{
-				"command": "gitlens.views.openInIntegratedTerminal",
+				"command": "gitlens.openInIntegratedTerminal:views",
 				"title": "Open in Integrated Terminal"
 			},
 			{
@@ -13947,6 +13947,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.openInIntegratedTerminal:views",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openIssueOnRemote",
 					"when": "false"
 				},
@@ -15616,10 +15620,6 @@
 				},
 				{
 					"command": "gitlens.views.openFileRevision:graphDetails",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.openInIntegratedTerminal",
 					"when": "false"
 				},
 				{
@@ -21494,7 +21494,7 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.views.openInIntegratedTerminal",
+					"command": "gitlens.openInIntegratedTerminal:views",
 					"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens_quickopen@2"
 				},
@@ -21671,7 +21671,7 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.views.openInIntegratedTerminal",
+					"command": "gitlens.openInIntegratedTerminal:views",
 					"when": "viewItem =~ /gitlens:repository\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens_quickopen@2"
 				},
@@ -21882,7 +21882,7 @@
 					"group": "2_gitlens_quickopen_terminal@1"
 				},
 				{
-					"command": "gitlens.views.openInIntegratedTerminal",
+					"command": "gitlens.openInIntegratedTerminal:views",
 					"when": "viewItem =~ /gitlens:status:upstream\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 					"group": "2_gitlens_quickopen_terminal@2"
 				},
@@ -24275,6 +24275,11 @@
 					"group": "0_gitlens_worktree_1@1"
 				},
 				{
+					"command": "gitlens.openInIntegratedTerminal:views",
+					"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_1@2"
+				},
+				{
 					"command": "gitlens.copyWorkingChangesToWorktree:views",
 					"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "0_gitlens_worktree_1@99"
@@ -26665,196 +26670,6 @@
 					"group": "1_gitlens_action@3"
 				},
 				{
-					"command": "gitlens.publishBranch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
-					"group": "1_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.setUpstream:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@10"
-				},
-				{
-					"command": "gitlens.recomposeBranch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens_actions_1@2"
-				},
-				{
-					"command": "gitlens.graph.resetToTip",
-					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions_1@4"
-				},
-				{
-					"command": "gitlens.views.compareWithSelected:graph",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection && gitlens:views:canCompare",
-					"group": "4_gitlens_compare@98"
-				},
-				{
-					"command": "gitlens.views.selectForCompare:graph",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
-					"group": "4_gitlens_compare@99"
-				},
-				{
-					"command": "gitlens.star.branch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.unstar.branch:graph",
-					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.graph.unpinBranchFromEdge",
-					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
-					"group": "8_gitlens_actions@8"
-				},
-				{
-					"command": "gitlens.graph.soloBranch",
-					"when": "webviewItem =~ /gitlens:branch\\b/",
-					"group": "8_gitlens_actions@9"
-				},
-				{
-					"command": "gitlens.openWorktreeInNewWindow:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_action@1"
-				},
-				{
-					"command": "gitlens.openWorktree:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_action@2"
-				},
-				{
-					"command": "gitlens.graph.undoCommit",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.graph.undoCommitOnWorktree",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.graph.revert",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@3"
-				},
-				{
-					"command": "gitlens.graph.resetToCommit",
-					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.graph.rewordCommit",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.recomposeFromCommit:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
-					"group": "1_gitlens_actions@6"
-				},
-				{
-					"command": "gitlens.graph.switchToCommit",
-					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@7"
-				},
-				{
-					"command": "gitlens.recomposeSelectedCommits:graph",
-					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && listContiguousSelection && listUniqueBranchSelection",
-					"group": "1_gitlens_actions_1@3"
-				},
-				{
-					"command": "gitlens.openUnstagedChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "0_gitlens_open@1"
-				},
-				{
-					"command": "gitlens.openUnstagedChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "0_gitlens_open@1"
-				},
-				{
-					"command": "gitlens.views.openChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "0_gitlens_open@1"
-				},
-				{
-					"command": "gitlens.views.openChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "0_gitlens_open@1"
-				},
-				{
-					"command": "gitlens.openStagedChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "0_gitlens_open@2"
-				},
-				{
-					"command": "gitlens.openStagedChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "0_gitlens_open@2"
-				},
-				{
-					"command": "gitlens.openBothChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "0_gitlens_open@3"
-				},
-				{
-					"command": "gitlens.openBothChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "0_gitlens_open@3"
-				},
-				{
-					"submenu": "gitlens/commit/file/changes",
-					"when": "webviewItem =~ /gitlens:file\\b/",
-					"group": "0_gitlens_open@4"
-				},
-				{
-					"command": "gitlens.graph.resolveConflictWithAI:graph",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_conflict@0"
-				},
-				{
-					"command": "gitlens.graph.stageConflictCurrentChanges:graph",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageCurrent\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_conflict@1"
-				},
-				{
-					"command": "gitlens.graph.stageConflictIncomingChanges:graph",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageIncoming\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_conflict@2"
-				},
-				{
-					"command": "gitlens.views.applyChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.applyChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.stageFile:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.stageFile:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.stageFile.multi:commitDetails",
-					"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.stageFile.multi:graphDetails",
-					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@1"
-				},
-				{
 					"command": "gitlens.graph.pull",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(behind|tracking)\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@2"
@@ -26865,9 +26680,9 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.discardChanges.multi:commitDetails",
-					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
-					"group": "1_gitlens_actions@3"
+					"command": "gitlens.publishBranch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)(?!.*?\\b\\+closed\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
+					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.discardChanges.multi:graphDetails",
@@ -26885,9 +26700,19 @@
 					"group": "1_gitlens_actions@10"
 				},
 				{
+					"command": "gitlens.setUpstream:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+closed\\b)(?!.*?\\b\\+tracking\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@10"
+				},
+				{
 					"command": "gitlens.graph.mergeBranchInto",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@1"
+				},
+				{
+					"command": "gitlens.recomposeBranch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.graph.rebaseOntoBranch",
@@ -26898,6 +26723,11 @@
 					"command": "gitlens.graph.rebaseOntoUpstream",
 					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@3"
+				},
+				{
+					"command": "gitlens.graph.resetToTip",
+					"when": "webviewItem =~ /gitlens:branch\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions_1@4"
 				},
 				{
 					"command": "gitlens.associateIssueWithBranch:graph",
@@ -26985,9 +26815,14 @@
 					"group": "4_gitlens_compare@5"
 				},
 				{
-					"submenu": "gitlens/share",
-					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag|file\\b(?=.*?\\b\\+(committed|staged|unstaged)\\b))\\b/",
-					"group": "7_gitlens_a_share@1"
+					"command": "gitlens.views.compareWithSelected:graph",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection && gitlens:views:canCompare",
+					"group": "4_gitlens_compare@98"
+				},
+				{
+					"command": "gitlens.views.selectForCompare:graph",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && !listMultiSelection",
+					"group": "4_gitlens_compare@99"
 				},
 				{
 					"command": "gitlens.graph.copy",
@@ -27005,9 +26840,29 @@
 					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
+					"command": "gitlens.star.branch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.unstar.branch:graph",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/ && !listMultiSelection",
+					"group": "8_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.graph.pinBranchToEdge",
 					"when": "webviewItem =~ /gitlens:branch\\b(?!.*?\\b\\+pinned\\b)/",
 					"group": "8_gitlens_actions@8"
+				},
+				{
+					"command": "gitlens.graph.unpinBranchFromEdge",
+					"when": "webviewItem =~ /gitlens:branch\\b(?=.*?\\b\\+pinned\\b)/",
+					"group": "8_gitlens_actions@8"
+				},
+				{
+					"command": "gitlens.graph.soloBranch",
+					"when": "webviewItem =~ /gitlens:branch\\b/",
+					"group": "8_gitlens_actions@9"
 				},
 				{
 					"command": "gitlens.graph.hideRemote",
@@ -27025,14 +26880,49 @@
 					"group": "8_gitlens_actions@11"
 				},
 				{
+					"command": "gitlens.openWorktreeInNewWindow:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_action@1"
+				},
+				{
+					"command": "gitlens.openWorktree:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktree\\b)/ && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_action@2"
+				},
+				{
 					"command": "gitlens.graph.cherryPick",
 					"when": "webviewItem =~ /gitlens:commit\\b(?!.*?\\b\\+(current|rebase)\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.undoCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.graph.undoCommitOnWorktree",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+worktreeHEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.graph.pushToCommit",
 					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unpublished\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.revert",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.resetToCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.graph.rewordCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+rewriteable\\b)(?!.*?\\b\\+rebase\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@4"
 				},
 				{
 					"command": "gitlens.graph.modifyCommits",
@@ -27050,6 +26940,16 @@
 					"group": "1_gitlens_actions@6"
 				},
 				{
+					"command": "gitlens.recomposeFromCommit:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.graph.switchToCommit",
+					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@7"
+				},
+				{
 					"command": "gitlens.createBranch:graph",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "1_gitlens_actions_1@1"
@@ -27062,6 +26962,11 @@
 				{
 					"command": "gitlens.createCloudPatch:graph",
 					"when": "webviewItem =~ /gitlens:(commit|stash)\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:gk:organization:drafts:enabled && config.gitlens.cloudPatches.enabled",
+					"group": "1_gitlens_actions_1@3"
+				},
+				{
+					"command": "gitlens.recomposeSelectedCommits:graph",
+					"when": "webviewItem =~ /gitlens:commit\\b(?=.*?\\b\\+unique\\b)/ && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled && listContiguousSelection && listUniqueBranchSelection",
 					"group": "1_gitlens_actions_1@3"
 				},
 				{
@@ -27078,11 +26983,6 @@
 					"command": "gitlens.ai.explainCommit:graph",
 					"when": "webviewItem =~ /gitlens:commit\\b/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && gitlens:gk:organization:ai:enabled",
 					"group": "1_gitlens_ai@10"
-				},
-				{
-					"submenu": "gitlens/graph/commit/changes",
-					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/ && !listMultiSelection",
-					"group": "2_gitlens_quickopen@1"
 				},
 				{
 					"command": "gitlens.graph.openCommitOnRemote",
@@ -27105,34 +27005,84 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.mergeChangesWithWorking:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.openUnstagedChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "0_gitlens_open@1"
 				},
 				{
-					"command": "gitlens.views.mergeChangesWithWorking:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.openUnstagedChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "0_gitlens_open@1"
 				},
 				{
-					"command": "gitlens.views.unstageFile:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.views.openChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "0_gitlens_open@1"
 				},
 				{
-					"command": "gitlens.views.unstageFile:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.views.openChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "0_gitlens_open@1"
 				},
 				{
-					"command": "gitlens.views.unstageFile.multi:commitDetails",
-					"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.openStagedChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "0_gitlens_open@2"
 				},
 				{
-					"command": "gitlens.views.unstageFile.multi:graphDetails",
-					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@2"
+					"command": "gitlens.openStagedChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "0_gitlens_open@2"
+				},
+				{
+					"command": "gitlens.openBothChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "0_gitlens_open@3"
+				},
+				{
+					"command": "gitlens.openBothChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "0_gitlens_open@3"
+				},
+				{
+					"submenu": "gitlens/commit/file/changes",
+					"when": "webviewItem =~ /gitlens:file\\b/",
+					"group": "0_gitlens_open@4"
+				},
+				{
+					"command": "gitlens.graph.resolveConflictWithAI:graph",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_conflict@0"
+				},
+				{
+					"command": "gitlens.graph.stageConflictCurrentChanges:graph",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageCurrent\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_conflict@1"
+				},
+				{
+					"command": "gitlens.graph.stageConflictIncomingChanges:graph",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\+conflict\\b)(?=.*?\\+canStageIncoming\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_conflict@2"
+				},
+				{
+					"command": "gitlens.views.applyChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.applyChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.stageFile:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.stageFile:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.discardChanges:commitDetails",
@@ -27165,26 +27115,6 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
-					"command": "gitlens.stashChanges.multi:commitDetails",
-					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.stashChanges.multi:graphDetails",
-					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "1_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.views.openFile:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
-					"group": "2_gitlens_quickopen_file@3"
-				},
-				{
-					"command": "gitlens.views.openFile:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "2_gitlens_quickopen_file@3"
-				},
-				{
 					"command": "gitlens.openWorktreeFile:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && webview == gitlens.views.commitDetails",
 					"group": "2_gitlens_quickopen_file@4"
@@ -27195,16 +27125,6 @@
 					"group": "2_gitlens_quickopen_file@4"
 				},
 				{
-					"command": "gitlens.views.openFileRevision:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "2_gitlens_quickopen_file@5"
-				},
-				{
-					"command": "gitlens.views.openFileRevision:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "2_gitlens_quickopen_file@5"
-				},
-				{
 					"command": "gitlens.openFileOnRemote:commitDetails",
 					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && webview == gitlens.views.commitDetails",
 					"group": "2_gitlens_quickopen_file@6"
@@ -27213,31 +27133,6 @@
 					"command": "gitlens.openFileOnRemote:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)(?!.*?\\+submodule)/ && gitlens:repos:withRemotes && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "2_gitlens_quickopen_file@6"
-				},
-				{
-					"submenu": "gitlens/commit/file/history",
-					"when": "webviewItem =~ /gitlens:file\\b/",
-					"group": "3_gitlens_explore@2"
-				},
-				{
-					"command": "gitlens.views.compareFileWithSelected:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.commitDetails",
-					"group": "4_gitlens_compare@98"
-				},
-				{
-					"command": "gitlens.views.compareFileWithSelected:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "4_gitlens_compare@98"
-				},
-				{
-					"command": "gitlens.views.selectFileForCompare:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && webview == gitlens.views.commitDetails",
-					"group": "4_gitlens_compare@99"
-				},
-				{
-					"command": "gitlens.views.selectFileForCompare:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "4_gitlens_compare@99"
 				},
 				{
 					"command": "gitlens.copyPath:commitDetails",
@@ -27268,56 +27163,6 @@
 					"command": "gitlens.copyPatchToClipboard:graphDetails",
 					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)|:comparison)(?!.*?\\+submodule)/ && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
 					"group": "7_gitlens_cutcopypaste@3"
-				},
-				{
-					"submenu": "gitlens/commit/copy",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
-					"group": "7_gitlens_cutcopypaste@10"
-				},
-				{
-					"command": "gitlens.views.applyChanges:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.applyChanges:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "8_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.mergeChangesWithWorking:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
-					"group": "8_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.views.mergeChangesWithWorking:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "8_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.restore.file:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
-					"group": "8_gitlens_actions@3"
-				},
-				{
-					"command": "gitlens.restore.file:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "8_gitlens_actions@3"
-				},
-				{
-					"command": "gitlens.restorePrevious.file:commitDetails",
-					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
-					"group": "8_gitlens_actions@4"
-				},
-				{
-					"command": "gitlens.restorePrevious.file:graphDetails",
-					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "8_gitlens_actions@4"
-				},
-				{
-					"submenu": "gitlens/webview/folder/history",
-					"when": "webviewItem =~ /gitlens:folder\\b/ && (webview == gitlens.views.commitDetails || webview == gitlens.graph || webview == gitlens.views.graph)",
-					"group": "4_timeline@1"
 				},
 				{
 					"submenu": "gitlens/graph/markers",
@@ -27395,16 +27240,6 @@
 					"group": "1_columns@7"
 				},
 				{
-					"command": "gitlens.graph.columnGraphCompact",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
-					"group": "2_columns@1"
-				},
-				{
-					"command": "gitlens.graph.columnGraphDefault",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
-					"group": "2_columns@1"
-				},
-				{
 					"command": "gitlens.graph.resetColumnsDefault",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/",
 					"group": "3_columns@1"
@@ -27418,6 +27253,166 @@
 					"command": "gitlens.openPullRequestChanges:graph",
 					"when": "webviewItem =~ /gitlens:pullrequest\\b(?=.*?\\b\\+refs\\b)/",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.fetchRemote:graph",
+					"when": "webviewItem =~ /gitlens:remote\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.stageFile.multi:commitDetails",
+					"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.stageFile.multi:graphDetails",
+					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.stashChanges.multi:commitDetails",
+					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.stashChanges.multi:graphDetails",
+					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"submenu": "gitlens/graph/commit/changes",
+					"when": "webviewItem =~ /gitlens:(commit|stash|wip)\\b/ && !listMultiSelection",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.views.mergeChangesWithWorking:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.mergeChangesWithWorking:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.unstageFile:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.unstageFile:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.unstageFile.multi:commitDetails",
+					"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.unstageFile.multi:graphDetails",
+					"when": "webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/ && listMultiSelection && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"submenu": "gitlens/share",
+					"when": "webviewItem =~ /gitlens:(branch|commit|stash|tag|file\\b(?=.*?\\b\\+(committed|staged|unstaged)\\b))\\b/",
+					"group": "7_gitlens_a_share@1"
+				},
+				{
+					"command": "gitlens.views.openFile:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && webview == gitlens.views.commitDetails",
+					"group": "2_gitlens_quickopen_file@3"
+				},
+				{
+					"command": "gitlens.views.openFile:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "2_gitlens_quickopen_file@3"
+				},
+				{
+					"command": "gitlens.views.openFileRevision:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "2_gitlens_quickopen_file@5"
+				},
+				{
+					"command": "gitlens.views.openFileRevision:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "2_gitlens_quickopen_file@5"
+				},
+				{
+					"submenu": "gitlens/commit/file/history",
+					"when": "webviewItem =~ /gitlens:file\\b/",
+					"group": "3_gitlens_explore@2"
+				},
+				{
+					"command": "gitlens.views.compareFileWithSelected:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && webview == gitlens.views.commitDetails",
+					"group": "4_gitlens_compare@98"
+				},
+				{
+					"command": "gitlens.views.compareFileWithSelected:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b/ && !listMultiSelection && gitlens:views:canCompare:file && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "4_gitlens_compare@98"
+				},
+				{
+					"command": "gitlens.views.selectFileForCompare:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "4_gitlens_compare@99"
+				},
+				{
+					"command": "gitlens.views.selectFileForCompare:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+conflicted\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "4_gitlens_compare@99"
+				},
+				{
+					"submenu": "gitlens/commit/copy",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "7_gitlens_cutcopypaste@10"
+				},
+				{
+					"command": "gitlens.views.applyChanges:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.applyChanges:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.mergeChangesWithWorking:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
+					"group": "8_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.mergeChangesWithWorking:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "8_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.restore.file:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails",
+					"group": "8_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.restore.file:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "8_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.restorePrevious.file:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?!.*?\\+submodule)/ && webview == gitlens.views.commitDetails",
+					"group": "8_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.restorePrevious.file:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:comparison)(?!.*?\\+submodule)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "8_gitlens_actions@4"
+				},
+				{
+					"submenu": "gitlens/webview/folder/history",
+					"when": "webviewItem =~ /gitlens:folder\\b/ && (webview == gitlens.views.commitDetails || webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "4_timeline@1"
 				},
 				{
 					"command": "gitlens.openPullRequest:graph",
@@ -27443,11 +27438,6 @@
 					"command": "gitlens.rebase.stageIncomingChanges:rebase",
 					"when": "webviewItem =~ /gitlens:rebase:conflict\\+file\\b(?=.*?\\+canStageIncoming\\b)/ && webview == gitlens.rebase",
 					"group": "1_conflict@2"
-				},
-				{
-					"command": "gitlens.fetchRemote:graph",
-					"when": "webviewItem =~ /gitlens:remote\\b/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
-					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.pruneRemote:graph",
@@ -27495,11 +27485,6 @@
 					"command": "gitlens.connectRemoteProvider:graph",
 					"when": "webviewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/ && config.gitlens.integrations.enabled",
 					"group": "9_gitlens_integrations@1"
-				},
-				{
-					"command": "gitlens.disconnectRemoteProvider:graph",
-					"when": "webviewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && config.gitlens.integrations.enabled",
-					"group": "9_gitlens_integrations@2"
 				},
 				{
 					"command": "gitlens.stashApply:graph",
@@ -27560,11 +27545,6 @@
 					"command": "gitlens.graph.pull",
 					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
 					"group": "1_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.fetch:graph",
-					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
-					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.openWorktree:graph",
@@ -27652,6 +27632,11 @@
 					"group": "0_gitlens_worktree_1@1"
 				},
 				{
+					"command": "gitlens.openInIntegratedTerminal:graph",
+					"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+					"group": "0_gitlens_worktree_1@2"
+				},
+				{
 					"command": "gitlens.copyWorkingChangesToWorktree:graph",
 					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+working\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 					"group": "0_gitlens_worktree_1@99"
@@ -27670,6 +27655,31 @@
 					"command": "gitlens.publishBranch:graph",
 					"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)(?!.*?\\b\\+tracking\\b)/ && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:repos:withRemotes",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.discardChanges.multi:commitDetails",
+					"when": "listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|conflict)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.graph.columnGraphCompact",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
+					"group": "2_columns@1"
+				},
+				{
+					"command": "gitlens.graph.columnGraphDefault",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
+					"group": "2_columns@1"
+				},
+				{
+					"command": "gitlens.disconnectRemoteProvider:graph",
+					"when": "webviewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/ && config.gitlens.integrations.enabled",
+					"group": "9_gitlens_integrations@2"
+				},
+				{
+					"command": "gitlens.fetch:graph",
+					"when": "webviewItem =~ /gitlens:upstreamStatus\\b/",
+					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.fetch:graph",

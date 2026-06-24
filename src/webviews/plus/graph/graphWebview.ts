@@ -11520,17 +11520,25 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@command('gitlens.openInIntegratedTerminal:')
 	@debug()
-	private openInIntegratedTerminal(item?: GraphItemContext | { worktreeUri: string }) {
+	private async openInIntegratedTerminal(item?: GraphItemContext | { worktreeUri: string }): Promise<void> {
 		// Header button path: a full URI string is provided so remote-dev schemes are preserved.
 		if (item != null && typeof item === 'object' && 'worktreeUri' in item && typeof item.worktreeUri === 'string') {
-			return executeCoreCommand('openInIntegratedTerminal', Uri.parse(item.worktreeUri));
+			void executeCoreCommand('openInIntegratedTerminal', Uri.parse(item.worktreeUri));
+			return;
 		}
 
-		// Context-menu path: the WIP row's ref carries the worktree's own repoPath.
-		const ref = this.getGraphItemRef(item);
-		if (ref == null) return Promise.resolve();
+		// Worktree sidebar / secondary-WIP path: worktree.uri preserves remote-dev schemes.
+		const worktree = await this.getGraphItemWorktree(item);
+		let uri = worktree?.uri;
+		if (uri == null) {
+			// Primary WIP row: the row's ref carries the worktree's own repoPath.
+			const ref = this.getGraphItemRef(item);
+			if (ref == null) return;
 
-		return executeCoreCommand('openInIntegratedTerminal', Uri.file(ref.repoPath));
+			uri = Uri.file(ref.repoPath);
+		}
+
+		void executeCoreCommand('openInIntegratedTerminal', uri);
 	}
 
 	@command('gitlens.graph.revealWorktreeInExplorer')
@@ -11919,7 +11927,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
-	private async getGraphItemWorktree(item?: GraphItemContext): Promise<GitWorktree | undefined> {
+	private async getGraphItemWorktree(item?: GraphItemContext | unknown): Promise<GitWorktree | undefined> {
 		if (isGraphItemRefContext(item, 'branch')) {
 			const { ref } = item.webviewItemValue;
 			if (ref.id == null) return undefined;

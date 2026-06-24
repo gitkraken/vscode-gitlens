@@ -4938,6 +4938,38 @@
 						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
 						"group": "0_gitlens_worktree_1",
 						"order": 2
+					},
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.openInIntegratedTerminal:views": {
+			"label": "Open in Integrated Terminal",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens_quickopen",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:repository\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens_quickopen",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:status:upstream\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "2_gitlens_quickopen_terminal",
+						"order": 2
+					},
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
+						"group": "0_gitlens_worktree_1",
+						"order": 2
 					}
 				]
 			}
@@ -12967,28 +12999,6 @@
 						"when": "webviewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:comparison)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
 						"group": "2_gitlens_quickopen_file",
 						"order": 5
-					}
-				]
-			}
-		},
-		"gitlens.views.openInIntegratedTerminal": {
-			"label": "Open in Integrated Terminal",
-			"menus": {
-				"view/item/context": [
-					{
-						"when": "viewItem =~ /gitlens:repo-folder\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens_quickopen",
-						"order": 2
-					},
-					{
-						"when": "viewItem =~ /gitlens:repository\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens_quickopen",
-						"order": 2
-					},
-					{
-						"when": "viewItem =~ /gitlens:status:upstream\\b/ && !listMultiSelection && !gitlens:hasVirtualFolders",
-						"group": "2_gitlens_quickopen_terminal",
-						"order": 2
 					}
 				]
 			}
