@@ -24,6 +24,11 @@ export function getTempFile(filename: string): string {
 	return filename;
 }
 
+/** Returns the current user's home directory, or an empty string when unavailable (e.g. on the web). */
+export function getHomeDir(): string {
+	return '';
+}
+
 export function getAltKeySymbol(): string {
 	if (isMac) return '⌥';
 	return 'Alt';

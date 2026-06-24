@@ -712,6 +712,45 @@ void
 void
 ```
 
+### allowedSigners/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### allowedSigners/showAborted
+
+```typescript
+{
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### allowedSigners/shown
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
 ### associateIssueWithBranch/action
 
 > Sent when the user chooses to manage integrations

@@ -475,6 +475,7 @@ function getUnitTestConfig(_target, mode, env) {
 function getWebviewsConfigs(mode, env) {
 	/** @type GlWebviews */
 	let webviews = {
+		allowedSigners: { entry: './allowedSigners/allowedSigners.ts' },
 		commitDetails: { entry: './commitDetails/commitDetails.ts' },
 		composer: { entry: './plus/composer/composer.ts', plus: true },
 		graph: { entry: './plus/graph/graph.ts', plus: true },
