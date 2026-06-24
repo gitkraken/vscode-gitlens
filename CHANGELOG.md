@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Fetch_, _Pull_, _Switch_, _Reset_, and _Restore_ operations silently reporting success when the underlying Git command failed with a message Git treats as a warning (e.g. an unreachable remote, or an invalid ref/revision) &mdash; these failures are now surfaced as errors instead of being swallowed as non-fatal
 - Fixes the working changes (WIP) stats tooltip in the details header duplicating the visible stats pill instead of describing the change breakdown &mdash; the tooltip now reads e.g. _1 file added, 2 files changed in the working tree_
 - Fixes a stray gap in the _Commit Graph_ header next to the fetch and sync actions when the current branch is already published &mdash; the publish action no longer reserves empty space once the branch has an upstream
+- Fixes the design of the paused-operation banner (shown during a merge, rebase, cherry-pick, or revert in the _Commit Graph_/_Inspect_ details and _Home_) &mdash; the _Continue_ action now uses a start icon, and the action buttons' hover and active states blend into the banner instead of showing a clashing grey toolbar highlight ([#5394](https://github.com/gitkraken/vscode-gitlens/issues/5394))
 
 ## [18.2.0] - 2026-06-15
 

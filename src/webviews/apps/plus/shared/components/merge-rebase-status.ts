@@ -21,6 +21,11 @@ export class GlMergeConflictWarning extends LitElement {
 		css`
 			.status {
 				--action-item-foreground: #000;
+				/* Blend the action hover/active states into the banner instead of the generic
+				   grey toolbar hover. currentColor tracks --action-item-foreground, so the
+				   conflicts variant (white foreground) tints correctly without redeclaring. */
+				--action-item-hover-background: color-mix(in srgb, currentColor 12%, transparent);
+				--action-item-active-background: color-mix(in srgb, currentColor 22%, transparent);
 
 				box-sizing: border-box;
 				display: flex;

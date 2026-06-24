@@ -49,11 +49,11 @@ export class ActionItem extends LitElement {
 
 		:host(:hover),
 		:host(:focus-within) {
-			background-color: var(--vscode-toolbar-hoverBackground);
+			background-color: var(--action-item-hover-background, var(--vscode-toolbar-hoverBackground));
 		}
 
 		:host(:active) {
-			background-color: var(--vscode-toolbar-activeBackground);
+			background-color: var(--action-item-active-background, var(--vscode-toolbar-activeBackground));
 		}
 
 		:host([disabled]) {
