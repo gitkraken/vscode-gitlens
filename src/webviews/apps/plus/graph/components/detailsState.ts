@@ -388,6 +388,9 @@ function createTransientState() {
 	// Paths currently being re-resolved with per-file feedback — drives the per-row busy spinner in
 	// the resolve results while a retry is in flight (multiple rows can retry concurrently).
 	const resolveRetryingFiles = signal<ReadonlySet<string>>(new Set());
+	// Paths currently being manually resolved via a take-side fallback action (skipped/errored rows) —
+	// drives the per-row busy spinner while the stage is in flight.
+	const resolveStagingFiles = signal<ReadonlySet<string>>(new Set());
 
 	// Error-recovery snapshot — `*PreErrorValue` is captured BEFORE an action that could mutate
 	// the resource into an error sentinel (runReview / runCompose / composeCommitAll). The error
@@ -482,6 +485,7 @@ function createTransientState() {
 		resolveFocusedFilePaths: resolveFocusedFilePaths,
 		resolvePreErrorValue: resolvePreErrorValue,
 		resolveRetryingFiles: resolveRetryingFiles,
+		resolveStagingFiles: resolveStagingFiles,
 
 		composePreErrorValue: composePreErrorValue,
 		reviewPreErrorValue: reviewPreErrorValue,

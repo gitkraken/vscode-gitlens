@@ -53,6 +53,7 @@ import {
 	getRemoteNameFromBranchName,
 } from '@gitlens/git/utils/branch.utils.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
+import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
 import { getLastFetchedUpdateInterval } from '@gitlens/git/utils/fetch.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
@@ -180,6 +181,7 @@ import {
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
 import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
+import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
@@ -327,12 +329,15 @@ import type {
 	BranchComparisonContributor,
 	BranchComparisonFile,
 	ComposeProgressUpdate,
+	ConflictFallbackInfo,
 	GraphServices,
+	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveFileError,
 	ResolveProgressUpdate,
 	ResolveSkippedFile,
 	ScopeSelection,
+	TakeConflictSideResult,
 	VirtualRefShape,
 } from './graphService.js';
 import {
@@ -2111,15 +2116,43 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							},
 						);
 						const resolutions: ConflictToolsResolution[] = result.resolutions;
+
+						// Enrich skipped/errored files with conflict-type info so the panel can label them and
+						// offer the right manual take-side fallback. One cheap `ls-files --unmerged` (+ diff for
+						// rename detection); only matters when there are files to enrich. Best-effort: an
+						// enrichment failure must not throw away the AI resolutions we already computed — fall
+						// back to unlabeled rows.
+						const needInfos = result.errors.length > 0 || (result.skipped?.length ?? 0) > 0;
+						const infos = needInfos ? await getConflictFileInfos(svc).catch(() => undefined) : undefined;
+						const fallbackInfo = (filePath: string): ConflictFallbackInfo => {
+							const info = infos?.get(filePath);
+							if (info == null) return {};
+							return {
+								conflictStatus: info.conflictStatus,
+								kind: info.kind,
+								canStageCurrent: info.canStageCurrent,
+								canStageIncoming: info.canStageIncoming,
+								renameOf: info.renameOf,
+							};
+						};
+
 						const errors: ResolveFileError[] = result.errors.map(e => ({
 							filePath: e.filePath,
 							message: e.error.message,
+							...fallbackInfo(e.filePath),
 						}));
-						const skipped: ResolveSkippedFile[] = (result.skipped ?? []).map(s => ({
-							filePath: s.filePath,
-							message:
-								'No conflict markers were found — this may be a binary or unsupported conflict; resolve it manually.',
-						}));
+						const skipped: ResolveSkippedFile[] = (result.skipped ?? []).map(s => {
+							const info = fallbackInfo(s.filePath);
+							// A skipped file that would otherwise classify as plain text is binary/unsupported by
+							// inference (it was skipped precisely because no markers were parseable).
+							const kind = info.kind == null || info.kind === 'text' ? 'binary' : info.kind;
+							return {
+								filePath: s.filePath,
+								message: getConflictKindLabel(kind, info.renameOf).description,
+								...info,
+								kind: kind,
+							};
+						});
 
 						if (resolveSignal?.aborted) return { cancelled: true };
 
@@ -2246,13 +2279,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						);
 						if (resolveSignal?.aborted) return { cancelled: true };
 
+						// Re-read the cached session right before writing — the `session` snapshot above was
+						// captured before the (long) resolveSingle await, so reusing it here would let a
+						// concurrent retry/take-side that completed meanwhile get clobbered. Bail if it was
+						// discarded mid-flight.
+						const latest = this._activeResolveSessions.get(repoPath);
+						if (latest == null) return { cancelled: true };
+
 						// Replace this file's resolution in the cached session (others untouched).
-						const exists = session.resolutions.some(r => r.filePath === filePath);
+						const exists = latest.resolutions.some(r => r.filePath === filePath);
 						this._activeResolveSessions.set(repoPath, {
-							...session,
+							...latest,
 							resolutions: exists
-								? session.resolutions.map(r => (r.filePath === filePath ? resolution : r))
-								: [...session.resolutions, resolution],
+								? latest.resolutions.map(r => (r.filePath === filePath ? resolution : r))
+								: [...latest.resolutions, resolution],
 						});
 
 						// Refresh the file's virtual content in place so its existing `resolved` ref re-reads
@@ -2260,14 +2300,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						const conflictedContents = await integration.readWorkingFiles(svc, [filePath]);
 						let virtualRef: VirtualRefShape | undefined;
 						if (resolution.strategy !== 'skipped' && conflictedContents.has(filePath)) {
-							this._resolveVirtual?.provider.updateFile(session.sessionId, {
+							this._resolveVirtual?.provider.updateFile(latest.sessionId, {
 								path: filePath,
 								conflictedContent: conflictedContents.get(filePath)!,
 								resolvedContent: resolution.content,
 							});
 							virtualRef = {
 								namespace: GraphResolveVirtualNamespace,
-								sessionId: session.sessionId,
+								sessionId: latest.sessionId,
 								commitId: ResolveVirtualSide.resolved,
 							};
 						}
@@ -2365,6 +2405,67 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				discardResolutions: repoPath => {
 					this.discardResolveSession(repoPath);
 					return Promise.resolve();
+				},
+				takeConflictSide: async (repoPath, filePath, side): Promise<TakeConflictSideResult> => {
+					const svc = this.container.git.getRepositoryService(repoPath);
+					try {
+						// Take-side rides the same cached session + Apply/Discard lifecycle as AI resolutions,
+						// so it must not touch the working tree here — it queues a pending resolution that
+						// `applyResolutions` writes (and `discardResolutions` drops).
+
+						// Do all the IO (rename/kind classification) up front, before touching the cached
+						// session — see the atomic read-modify-write note below.
+						const infos = await getConflictFileInfos(svc);
+						const info = infos.get(filePath);
+						if (info == null) {
+							return { error: { message: `${filePath} is no longer conflicted.` } };
+						}
+
+						// 'delete' is only offered for both-deleted (DD), where either side maps to a delete.
+						const resolution: 'current' | 'incoming' = side === 'delete' ? 'current' : side;
+						const action = classifyConflictAction(info.conflictStatus, resolution);
+						if (action === 'unsupported') {
+							return { error: { message: `Can't take the ${side} side for this conflict.` } };
+						}
+
+						const strategy =
+							action === 'delete' ? 'deleted' : action === 'take-ours' ? 'take-ours' : 'take-theirs';
+
+						// The library's `applyResolutions` applies take-ours/take-theirs/deleted via
+						// checkout/remove with no content, so a content-less Resolution is all we queue.
+						const queued: QueuedTakeSide[] = [{ filePath: filePath, strategy: strategy }];
+						// rename/rename: keeping this name makes the other side's target the loser — queue its
+						// deletion so applying resolves both and the tree isn't left carrying both names.
+						if (info.kind === 'rename-rename' && info.renamePairPath != null) {
+							queued.push({ filePath: info.renamePairPath, strategy: 'deleted' });
+						}
+
+						// Read-modify-write the cached session atomically (no `await` between the read and the
+						// `set`) so two concurrent take-side clicks on different rows can't each derive from a
+						// stale snapshot and clobber the other's queued resolution. A session always exists once
+						// the panel is in its ready state (resolveConflicts caches one even when empty).
+						const session = this._activeResolveSessions.get(repoPath);
+						if (session == null) {
+							return { error: { message: 'No active resolve session; please re-run.' } };
+						}
+
+						const queuedPaths = new Set(queued.map(q => q.filePath));
+						const resolutions: ConflictToolsResolution[] = [
+							...session.resolutions.filter(r => !queuedPaths.has(r.filePath)),
+							...queued.map(q => ({
+								filePath: q.filePath,
+								content: '',
+								strategy: q.strategy,
+								confidence: 1,
+								description: '',
+							})),
+						];
+						this._activeResolveSessions.set(repoPath, { ...session, resolutions: resolutions });
+
+						return { result: { resolved: queued } };
+					} catch (ex) {
+						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
+					}
 				},
 				onResolveProgress: this._resolveProgressEvent.subscribe(buffer, tracker),
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {

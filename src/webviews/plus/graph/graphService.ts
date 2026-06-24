@@ -1,6 +1,8 @@
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
+import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import type { GlCommands } from '../../../constants.commands.js';
 import type { LaunchpadSummaryResult } from '../../../plus/launchpad/launchpadIndicator.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
@@ -42,11 +44,37 @@ export type ResolvedFileSummary = {
 	virtualRef?: VirtualRefShape;
 };
 
-export type ResolveFileError = { filePath: string; message: string };
+/** Conflict-type info + which sides can be staged, attached to skipped/errored files so the resolve
+ *  panel can label them and offer the right manual take-side fallback actions. Optional throughout —
+ *  populated from `getConflictFileInfos`; absent when the file is no longer conflicted. */
+export type ConflictFallbackInfo = {
+	conflictStatus?: GitFileConflictStatus;
+	kind?: ConflictKind;
+	canStageCurrent?: boolean;
+	canStageIncoming?: boolean;
+	/** Original (pre-rename) path, for rename labels. */
+	renameOf?: string;
+};
+
+export type ResolveFileError = { filePath: string; message: string } & ConflictFallbackInfo;
 
 /** A conflicted file the resolver couldn't auto-resolve (e.g. binary or a marker-less conflict) —
  *  it still needs manual attention, but distinct from a failure: retrying won't help. */
-export type ResolveSkippedFile = { filePath: string; message: string };
+export type ResolveSkippedFile = { filePath: string; message: string } & ConflictFallbackInfo;
+
+/** Side to take when manually resolving a conflict from the resolve panel's fallback actions. */
+export type ConflictSide = 'current' | 'incoming' | 'delete';
+
+/** A queued take-side resolution — the file and the strategy it will be applied with on Apply. */
+export type QueuedTakeSide = {
+	filePath: string;
+	strategy: Extract<ConflictResolutionStrategy, 'take-ours' | 'take-theirs' | 'deleted'>;
+};
+
+/** Result of queuing a manual take-side resolution. `resolved` lists every file queued (the chosen
+ *  file, plus the losing target deleted for a rename/rename) so the panel can promote the matching
+ *  rows. Nothing is applied to the working tree until the user clicks Apply. */
+export type TakeConflictSideResult = { result: { resolved: QueuedTakeSide[] } } | { error: { message: string } };
 
 export type ResolveResult =
 	| {
@@ -356,6 +384,12 @@ export interface GraphInspectService {
 	applyResolutions(repoPath: string, includedFilePaths?: readonly string[]): Promise<CommitResult>;
 	/** Drops the host-side cached resolve session for the repo without writing anything. */
 	discardResolutions(repoPath: string): Promise<void>;
+	/** Queues a manual take-side resolution for a single conflicted file — the fallback for files the
+	 *  AI resolver skipped or errored on. Like AI resolutions, it's cached as pending and only written
+	 *  to the working tree on {@link applyResolutions} (and dropped by {@link discardResolutions}); it
+	 *  does NOT touch the working tree immediately. Returns every file queued so the panel can promote
+	 *  the matching rows without re-running the AI. */
+	takeConflictSide(repoPath: string, filePath: string, side: ConflictSide): Promise<TakeConflictSideResult>;
 	/** Streams human-readable progress messages while {@link resolveConflicts} runs. `undefined`
 	 *  fires when no resolve is in flight (entry/exit clearing). */
 	readonly onResolveProgress: RpcEventSubscription<ResolveProgressUpdate | undefined>;

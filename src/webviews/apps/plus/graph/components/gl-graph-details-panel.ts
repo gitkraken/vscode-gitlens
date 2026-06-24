@@ -13,7 +13,7 @@ import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
 import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
-import type { GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
 import {
 	getSecondaryWipPath,
 	isSecondaryWipSha,
@@ -2595,6 +2595,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.progressMessage=${this._state.resolveProgressMessage.get()}
 			.aiModel=${this._state.aiModel.get()}
 			.retryingFiles=${this._state.resolveRetryingFiles.get()}
+			.stagingFiles=${this._state.resolveStagingFiles.get()}
 			.lastPrompt=${resolveEntry?.prompt}
 			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose/review — open the picker first when no model is set.
@@ -2631,6 +2632,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			}}
 			@resolve-retry-file=${(e: CustomEvent<{ filePath: string; prompt: string }>) =>
 				void this._workflow.resolve.retryFile(e.detail.filePath, e.detail.prompt)}
+			@resolve-take-side=${(e: CustomEvent<{ filePath: string; side: ConflictSide }>) =>
+				void this._workflow.resolve.takeSide(e.detail.filePath, e.detail.side)}
 		></gl-details-resolve-mode-panel>`;
 	}
 

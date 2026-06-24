@@ -7,6 +7,8 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	ComposeResult,
+	ConflictSide,
+	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveResult,
 	ReviewResult,
@@ -1258,6 +1260,28 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.actions.state.resolveRetryingFiles.set(next);
 			}
 		},
+		// Manual take-side fallback for a skipped/errored row — queues the chosen side as a pending
+		// resolution (applied on Apply, dropped on Discard, like AI resolutions) and promotes the
+		// matching rows without re-running the AI. `resolveStagingFiles` drives the row's busy spinner.
+		takeSide: async (filePath: string, side: ConflictSide): Promise<void> => {
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			if (!repoPath) return;
+
+			const busy = this.actions.state.resolveStagingFiles;
+			busy.set(new Set(busy.get()).add(filePath));
+			try {
+				const result = await this.actions.takeConflictSide(repoPath, filePath, side);
+				if (this._disconnected) return;
+
+				if ('result' in result) {
+					this.promoteToResolved(result.result.resolved);
+				}
+			} finally {
+				const next = new Set(this.actions.state.resolveStagingFiles.get());
+				next.delete(filePath);
+				this.actions.state.resolveStagingFiles.set(next);
+			}
+		},
 	};
 
 	/** Replaces one file's resolution in the engaged resolve result (resource + registry entry) in
@@ -1273,6 +1297,46 @@ export class DetailsWorkflowController implements ReactiveController {
 			result: {
 				...current.result,
 				resolutions: current.result.resolutions.map(r => (r.filePath === summary.filePath ? summary : r)),
+			},
+		};
+		if (entry != null) {
+			this.registerRunningOperation({ ...entry, result: merged });
+		}
+		this.actions.resources.resolve.mutate(merged);
+	}
+
+	/** Promotes the take-side files the host just queued out of `skipped`/`errors` into `resolutions`
+	 *  (as synthetic summaries, so each row shows "kept current/took incoming/deleted") without an AI
+	 *  re-run. The host's `resolved` list is the source of truth — it includes the chosen file plus,
+	 *  for a rename/rename, the losing target queued as `deleted` — so the panel mirrors exactly what
+	 *  will be applied. These resolutions carry no `content`; the queued take-ours/theirs/deleted
+	 *  strategy is applied by the library on Apply. */
+	private promoteToResolved(resolved: readonly QueuedTakeSide[]): void {
+		if (resolved.length === 0) return;
+
+		const anchor = this.currentAnchor();
+		const key = anchorKey(anchor);
+		const entry = this.host.crossPaneState.runningOperations.get().get(key)?.resolve;
+		const current = entry?.result ?? this.actions.resources.resolve.value.get();
+		if (current == null || !('result' in current)) return;
+
+		const byPath = new Map(resolved.map(r => [r.filePath, r]));
+		const summaries: ResolvedFileSummary[] = resolved.map(r => ({
+			filePath: r.filePath,
+			strategy: r.strategy,
+			reasoning: '',
+			confidence: 1,
+		}));
+
+		const resolutions = [...current.result.resolutions.filter(r => !byPath.has(r.filePath)), ...summaries];
+		const skipped = current.result.skipped?.filter(s => !byPath.has(s.filePath));
+		const errors = current.result.errors?.filter(e => !byPath.has(e.filePath));
+
+		const merged: ResolveResult = {
+			result: {
+				resolutions: resolutions,
+				skipped: skipped != null && skipped.length > 0 ? skipped : undefined,
+				errors: errors != null && errors.length > 0 ? errors : undefined,
 			},
 		};
 		if (entry != null) {

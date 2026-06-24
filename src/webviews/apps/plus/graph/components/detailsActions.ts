@@ -43,11 +43,13 @@ import type {
 	BranchComparisonSide,
 	BranchComparisonSummary,
 	ComposeResult,
+	ConflictSide,
 	GraphServices,
 	ReresolveFileResult,
 	ResolveResult,
 	ReviewResult,
 	ScopeSelection,
+	TakeConflictSideResult,
 } from '../../../../plus/graph/graphService.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
@@ -744,6 +746,13 @@ export class DetailsActions {
 		signal: AbortSignal,
 	): Promise<ReresolveFileResult> {
 		return this.services.graphInspect.reresolveFile(repoPath, filePath, feedback, signal);
+	}
+
+	/** Queue a manual take-side resolution for a single skipped/errored conflicted file (the fallback
+	 *  for files the AI resolver can't auto-merge). Applied on Apply, dropped on Discard — nothing is
+	 *  written to the working tree here. See {@link startResolve}. */
+	takeConflictSide(repoPath: string, filePath: string, side: ConflictSide): Promise<TakeConflictSideResult> {
+		return this.services.graphInspect.takeConflictSide(repoPath, filePath, side);
 	}
 
 	/** Apply the cached AI resolutions to the working tree. On success, tears down the engagement
