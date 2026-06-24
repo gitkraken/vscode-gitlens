@@ -10,7 +10,7 @@ import type { GitLog } from '@gitlens/git/models/log.js';
 import type { GitReflog } from '@gitlens/git/models/reflog.js';
 import type { GitRevisionRange } from '@gitlens/git/models/revision.js';
 import type { SearchQuery, SearchQueryFilters } from '@gitlens/git/models/search.js';
-import type { CommitSignature } from '@gitlens/git/models/signature.js';
+import type { CommitSignature, SshSignedCommit } from '@gitlens/git/models/signature.js';
 import type { GitUser } from '@gitlens/git/models/user.js';
 import type {
 	GitCommitReachability,
@@ -58,6 +58,10 @@ import {
 } from '../parsers/logParser.js';
 import { getReflogParser, parseGitRefLog } from '../parsers/reflogParser.js';
 import { parseSignatureOutput, signatureFormat } from '../parsers/signatureParser.js';
+import {
+	extractCommitterFromCommitObject,
+	extractSshPublicKeyFromCommitObject,
+} from '../parsers/sshSignatureParser.js';
 import { createCommitFileset } from './commitFilesetUtils.js';
 import { convertStashesToStdin } from './stash.js';
 
@@ -1475,6 +1479,69 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			scope?.error(ex);
 			return false;
 		}
+	}
+
+	@debug()
+	async getCommitsSshSigners(repoPath: string, shas: string[]): Promise<Map<string, SshSignedCommit>> {
+		const scope = getScopedLogger();
+
+		const result = new Map<string, SshSignedCommit>();
+		if (shas.length === 0) return result;
+
+		try {
+			// Read every commit object in a single `cat-file --batch` process (the SHAs are piped to stdin) rather than
+			// spawning one `git` per commit — the embedded SSH signature and committer identity are then parsed from
+			// each raw object, avoiding a separate (and far heavier) `git log` pass to enumerate identities.
+			const data = await this.git.run(
+				{ cwd: repoPath, errors: 'ignore', stdin: `${shas.join('\n')}\n` },
+				'cat-file',
+				'--batch',
+			);
+			parseCatFileBatchForSshSigners(data.stdout, new Set(shas), result);
+		} catch (ex) {
+			scope?.error(ex);
+		}
+		return result;
+	}
+}
+
+/**
+ * Parses `git cat-file --batch` output, extracting the embedded SSH public key (if any) from each commit object.
+ * Object boundaries are `<sha> <type> <size>` header lines; only headers whose SHA was requested are treated as
+ * boundaries, so a commit-message line that happens to look like a header can't be misread as one.
+ *
+ * Exported for unit testing.
+ */
+export function parseCatFileBatchForSshSigners(
+	stdout: string,
+	requestedShas: Set<string>,
+	out: Map<string, SshSignedCommit>,
+): void {
+	const headerRegex = /^([0-9a-f]{40,64}) (?:commit|tag|blob|missing)\b/;
+
+	const lines = stdout.split('\n');
+	let i = 0;
+	while (i < lines.length) {
+		const match = headerRegex.exec(lines[i]);
+		i++;
+		if (match == null || !requestedShas.has(match[1])) continue;
+
+		const sha = match[1];
+		const content: string[] = [];
+		while (i < lines.length) {
+			const next = headerRegex.exec(lines[i]);
+			if (next != null && requestedShas.has(next[1])) break;
+
+			content.push(lines[i]);
+			i++;
+		}
+
+		const object = content.join('\n');
+		const key = extractSshPublicKeyFromCommitObject(object);
+		if (key == null) continue;
+
+		const committer = extractCommitterFromCommitObject(object);
+		out.set(sha, { key: key, name: committer?.name, email: committer?.email });
 	}
 }
 
