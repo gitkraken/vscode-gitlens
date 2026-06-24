@@ -76,6 +76,7 @@ import { ViewFileDecorationProvider } from './views/viewDecorationProvider.js';
 import { Views } from './views/views.js';
 import { VirtualFileSystemService } from './virtual/virtualFileSystemService.js';
 import { VslsController } from './vsls/vsls.js';
+import { registerAllowedSignersWebviewPanel } from './webviews/allowedSigners/registration.js';
 import {
 	registerComposerWebviewCommands,
 	registerComposerWebviewPanel,
@@ -311,6 +312,8 @@ export class Container {
 		const settingsPanels = registerSettingsWebviewPanel(webviews);
 		this._disposables.push(settingsPanels);
 		this._disposables.push(registerSettingsWebviewCommands(settingsPanels));
+
+		this._disposables.push(registerAllowedSignersWebviewPanel(webviews));
 
 		this._disposables.push(new ViewFileDecorationProvider());
 

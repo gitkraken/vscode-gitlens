@@ -994,6 +994,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.git.branch.setUpstream'
 	| 'gitlens.git.checkout'
 	| 'gitlens.git.cherryPick'
+	| 'gitlens.git.editAllowedSigners'
 	| 'gitlens.git.history'
 	| 'gitlens.git.merge'
 	| 'gitlens.git.rebase'
