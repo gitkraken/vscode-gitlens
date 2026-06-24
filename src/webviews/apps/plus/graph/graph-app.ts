@@ -692,10 +692,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		action: GraphShowAction;
 		target?: { sha: string; worktreePath: string; filePaths?: string[] };
 		commitMessage?: string;
+		scopeBranch?: { branchName: string; upstreamName?: string };
 	}): Promise<void> {
-		const { action, target, commitMessage } = pending;
+		const { action, target, commitMessage, scopeBranch } = pending;
 		if (action === 'scope-to-branch') {
-			await this.scopeToBranch();
+			// A target branch (from a Focus on Branch/Worktree command) scopes to it; otherwise scope
+			// to the current branch (the welcome-page / generic `scope-to-branch` entry point).
+			if (scopeBranch != null) {
+				await this.scopeToBranchByName(scopeBranch.branchName, scopeBranch.upstreamName);
+			} else {
+				await this.scopeToBranch();
+			}
 			return;
 		}
 
@@ -2167,9 +2174,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		});
 	}
 
-	private async handleScopeToBranchFromHeader(
+	private handleScopeToBranchFromHeader(
 		e: CustomEvent<{ branchName: string; upstreamName?: string }>,
 	): Promise<void> {
+		return this.scopeToBranchByName(e.detail.branchName, e.detail.upstreamName);
+	}
+
+	/** Focuses (scopes) the graph onto an arbitrary branch by name. Shared by the header popover, the
+	 *  sidebar/overview events, and the Focus on Branch/Worktree context-menu commands (via the
+	 *  `scope-to-branch` action). */
+	private async scopeToBranchByName(branchName: string, upstreamName?: string): Promise<void> {
 		// Use the selected repo's actual path (the opened workspace's path). That's what the host
 		// passes as `this.repository.path` when building the graph's row index AND the
 		// `wipMetadataBySha` branchRefs, so any scope/lookup branchRef constructed here must use
@@ -2178,8 +2192,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// any row or WIP entry.
 		const repoPath = this.fallbackRepoPath;
 		if (repoPath == null) return;
-
-		const { branchName, upstreamName } = e.detail;
 
 		// Prefer the overview path so the merge target is resolved consistently with the overview card.
 		const overview = this.graphState.overview;

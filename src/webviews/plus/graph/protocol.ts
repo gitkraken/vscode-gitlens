@@ -193,6 +193,14 @@ export interface GraphActionTarget {
 	 *  entry points). Omitted means "resolve all conflicts". Ignored by other actions. */
 	filePaths?: string[];
 }
+
+/** Target branch for a `scope-to-branch` action. When present, the webview focuses (scopes) the
+ *  graph to this branch instead of the current branch — used by the Focus on Branch/Worktree
+ *  context-menu commands. */
+export interface GraphScopeBranch {
+	branchName: string;
+	upstreamName?: string;
+}
 /** Sub-visualization shown when `displayMode === 'visualizations'`.
  *  Adding a new visualization is a 4-step extension: extend this union, render its component in
  *  `gl-graph-visualizations`, persist any per-visualization config in `graph-app.persistStateNow`,
@@ -326,7 +334,12 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		visible?: boolean;
 		position?: number;
 	};
-	pendingAction?: { action: GraphShowAction; target?: GraphActionTarget; commitMessage?: string };
+	pendingAction?: {
+		action: GraphShowAction;
+		target?: GraphActionTarget;
+		commitMessage?: string;
+		scopeBranch?: GraphScopeBranch;
+	};
 	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
 	 *  Restored on WIP row selection; mutated via {@link UpdateWipDraftCommand}. */
@@ -1148,6 +1161,8 @@ export interface DidRequestGraphActionParams {
 	/** Optional seed value for the WIP details panel's commit message input. Currently used after
 	 *  Undo Commit to restore the undone commit's message into the box where the user will redo it. */
 	commitMessage?: string;
+	/** For `scope-to-branch`: the branch to focus the graph on. Absent = focus the current branch. */
+	scopeBranch?: GraphScopeBranch;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

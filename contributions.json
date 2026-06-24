@@ -2605,6 +2605,35 @@
 				]
 			}
 		},
+		"gitlens.focusBranch:graph": {
+			"label": "Focus on Branch",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:branch\\b/",
+						"group": "8_gitlens_actions",
+						"order": 7
+					}
+				]
+			}
+		},
+		"gitlens.focusWorktree:graph": {
+			"label": "Focus on Worktree",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/",
+						"group": "8_gitlens_actions",
+						"order": 7
+					},
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+branch\\b)/",
+						"group": "8_gitlens_actions",
+						"order": 7
+					}
+				]
+			}
+		},
 		"gitlens.getStarted": {
 			"label": "Get Started",
 			"commandPalette": "gitlens:walkthroughSupported",
@@ -4136,6 +4165,11 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:branch\\b/",
+						"group": "8_gitlens_actions",
+						"order": 9
+					},
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/",
 						"group": "8_gitlens_actions",
 						"order": 9
 					},

@@ -133,6 +133,8 @@ export type ContributedCommands =
 	| 'gitlens.fetch:views'
 	| 'gitlens.fetchRemote:graph'
 	| 'gitlens.fetchRepositories'
+	| 'gitlens.focusBranch:graph'
+	| 'gitlens.focusWorktree:graph'
 	| 'gitlens.getStarted'
 	| 'gitlens.ghpr.views.openOrCreateWorktree'
 	| 'gitlens.graph.addAuthor'

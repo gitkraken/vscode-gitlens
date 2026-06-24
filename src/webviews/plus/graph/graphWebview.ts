@@ -381,6 +381,7 @@ import type {
 	GraphRefType,
 	GraphRemoteContextValue,
 	GraphRepository,
+	GraphScopeBranch,
 	GraphScrollMarkerTypes,
 	GraphSearchResults,
 	GraphSelectedRows,
@@ -10274,20 +10275,44 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@command('gitlens.graph.soloBranch')
 	@command('gitlens.graph.soloTag')
 	@debug()
-	private soloReference(item?: GraphItemContext) {
-		if (!isGraphItemRefContext(item)) return;
+	private soloReference(item?: GraphItemContext): Promise<void> {
+		// Branch/tag/worktree leaves & rows carry a real ref with an id. WIP rows carry an
+		// uncommitted revision (no id) — fall through to resolve the worktree's branch.
+		if (isGraphItemRefContext(item)) {
+			const { ref } = item.webviewItemValue;
+			if (ref.id != null) {
+				this.soloByName(ref.repoPath, ref.name);
+				return Promise.resolve();
+			}
+		}
 
-		const { ref } = item.webviewItemValue;
-		if (ref.id == null) return;
+		return this.soloWipReference(item);
+	}
 
-		const repo = this.container.git.getRepository(ref.repoPath);
-		if (repo == null) return Promise.resolve();
+	/** Solo the WIP row's worktree onto its current branch. The WIP context carries only an
+	 *  uncommitted revision + `worktreePath`, so resolve that worktree's branch and filter the
+	 *  graph (on its own repo) to it. */
+	private async soloWipReference(item?: GraphItemContext): Promise<void> {
+		if (!isGraphItemRefContext(item, 'revision')) return;
+
+		const { worktreePath } = item.webviewItemValue;
+		if (worktreePath == null) return;
+
+		const branch = await this.container.git.getRepositoryService(worktreePath).branches.getBranch();
+		if (branch == null) return;
+
+		this.soloByName(this.repository?.path ?? worktreePath, branch.name);
+	}
+
+	private soloByName(repoPath: string, name: string): void {
+		const repo = this.container.git.getRepository(repoPath);
+		if (repo == null) return;
 
 		// Show the graph with a ref: search query to filter the graph to this branch
-		return void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
+		void executeCommand<ShowInCommitGraphCommandArgs>('gitlens.showInCommitGraph', {
 			repository: repo,
 			search: {
-				query: `ref:${ref.name}`,
+				query: `ref:${name}`,
 				filter: true,
 				matchAll: false,
 				matchCase: false,
@@ -10295,6 +10320,39 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			},
 			source: { source: 'graph' },
 		});
+	}
+
+	// Two command ids, one handler — VS Code menu titles are static, so distinct ids let the menu
+	// read "Focus on Branch" on branch rows/leaves and "Focus on Worktree" on worktree/WIP rows.
+	@command('gitlens.focusBranch:graph')
+	@command('gitlens.focusWorktree:graph')
+	@debug()
+	private async focusReference(item?: GraphItemContext): Promise<void> {
+		const scopeBranch = await this.getScopeBranch(item);
+		if (scopeBranch == null) return;
+
+		// Invoked from a context menu inside the open graph (warm), so notify the webview directly to
+		// focus (scope) onto the branch — mirrors the `scope-to-branch` action the popover/overview use.
+		void this.host.notify(DidRequestGraphActionNotification, {
+			action: 'scope-to-branch',
+			scopeBranch: scopeBranch,
+		});
+	}
+
+	/** Resolves the branch to focus from a Focus context item. Branch leaves/rows and worktree
+	 *  leaves carry a branch ref directly; WIP rows carry only `worktreePath`, so resolve its
+	 *  current branch. */
+	private async getScopeBranch(item?: GraphItemContext): Promise<GraphScopeBranch | undefined> {
+		const ref = this.getGraphItemRef(item, 'branch');
+		if (ref != null) return { branchName: ref.name, upstreamName: ref.upstream?.name };
+
+		if (!isGraphItemRefContext(item, 'revision')) return undefined;
+
+		const { worktreePath } = item.webviewItemValue;
+		if (worktreePath == null) return undefined;
+
+		const branch = await this.container.git.getRepositoryService(worktreePath).branches.getBranch();
+		return branch != null ? { branchName: branch.name, upstreamName: branch.upstream?.name } : undefined;
 	}
 
 	@command('gitlens.switchToAnotherBranch:graph')
