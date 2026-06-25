@@ -490,5 +490,9 @@ export interface GraphServices extends SharedWebviewServices {
 }
 
 export interface GraphLaunchpadService {
+	/** Fires when Launchpad items change (PR status updates, integration connection changes, etc.).
+	 *  The host impl (`LaunchpadService`) already exposes this; consumed by the graph header's
+	 *  Launchpad indicator to keep its counts fresh. */
+	readonly onLaunchpadChanged: RpcEventSubscription<undefined>;
 	getSummary(): Promise<LaunchpadSummaryResult | { error: Error } | undefined>;
 }

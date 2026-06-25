@@ -60,6 +60,7 @@ import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
+import { subscribeAll } from '../../shared/events/subscriptions.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
@@ -78,6 +79,8 @@ import type { GlGraphHeader } from './graph-header.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
 import type { GraphCrossPaneState } from './graphCrossPaneState.js';
 import { abortRunningOperations, createGraphCrossPaneState, graphCrossPaneContext } from './graphCrossPaneState.js';
+import type { GraphLaunchpadState } from './graphLaunchpadState.js';
+import { createGraphLaunchpadState, graphLaunchpadContext } from './graphLaunchpadState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
 import type { GraphMinimapDaySelectedEventDetail, GraphMinimapWheelEvent } from './minimap/minimap.js';
@@ -325,6 +328,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	@provide({ context: graphCrossPaneContext })
 	private readonly _crossPaneState: GraphCrossPaneState = createGraphCrossPaneState();
 
+	// Shared Launchpad summary — fetched once here (the common ancestor) and read by BOTH the
+	// header's Launchpad indicator and the WIP details "empty pane", so there's a single fetch and
+	// a single source of truth. See `graphLaunchpadState.ts`.
+	@provide({ context: graphLaunchpadContext })
+	private readonly _launchpadState: GraphLaunchpadState = createGraphLaunchpadState();
+
+	/** One-shot guard: the Launchpad fetch + `onLaunchpadChanged` subscription start once `services`
+	 *  first resolves (a `@consume`d context value, so it isn't in `updated`'s changedProperties). */
+	private _launchpadInitialized = false;
+	private _launchpadUnsubscribe: (() => void) | undefined;
+	/** Coalesce `onLaunchpadChanged` bursts (pin/snooze/connection changes can fire several in a row). */
+	private readonly _launchpadRefreshDebounced: Deferrable<() => void> = debounce(
+		() => void this.refreshLaunchpadSummary(),
+		500,
+	);
+
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
 
@@ -417,6 +436,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this.graphRootEl != null) {
 			this._graphSizeObserver?.observe(this.graphRootEl);
 		}
+
+		// Manual refresh entry point (the WIP empty pane's refresh button, routed through the
+		// details panel) — force an immediate refetch rather than waiting on `onLaunchpadChanged`.
+		this._launchpadState.refresh = () => void this.refreshLaunchpadSummary();
 	}
 
 	override disconnectedCallback(): void {
@@ -438,6 +461,56 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (this._releaseSuspensionRafId != null) {
 			cancelAnimationFrame(this._releaseSuspensionRafId);
 			this._releaseSuspensionRafId = undefined;
+		}
+
+		this._launchpadUnsubscribe?.();
+		this._launchpadUnsubscribe = undefined;
+		this._launchpadRefreshDebounced.cancel();
+	}
+
+	/** Starts the shared Launchpad pipeline once `services` resolves: subscribes to host-side
+	 *  change notifications (debounced refetch) and kicks off a deferred initial fetch. */
+	private async initLaunchpad(services: NonNullable<typeof this.services>): Promise<void> {
+		try {
+			this._launchpadUnsubscribe = await subscribeAll([
+				async () => {
+					const launchpad = await services.launchpad;
+					return launchpad.onLaunchpadChanged(() => this._launchpadRefreshDebounced());
+				},
+			]);
+		} catch {
+			// A failed subscription shouldn't break the graph — counts just won't auto-refresh.
+		}
+		// Defer the initial fetch off the cold graph-load path.
+		setTimeout(() => void this.refreshLaunchpadSummary(), 0);
+	}
+
+	/** Fetches the Launchpad summary into the shared store. Connection-gated: probes integration
+	 *  connection first (cheap) and skips the expensive `getSummary` categorize when nothing is
+	 *  connected, so opening the graph without integrations costs nothing. The `plug` state in the
+	 *  header indicator is driven by `connected === false`. */
+	private async refreshLaunchpadSummary(): Promise<void> {
+		const services = this.services;
+		if (services == null) return;
+		if (this._launchpadState.loading.get()) return;
+
+		this._launchpadState.loading.set(true);
+		try {
+			const integrations = await services.integrations;
+			const states = await integrations.getIntegrationStates();
+			const connected = states?.some(i => i.connected) ?? false;
+			this._launchpadState.connected.set(connected);
+			if (!connected) {
+				this._launchpadState.summary.set(undefined);
+				return;
+			}
+
+			const launchpad = await services.launchpad;
+			this._launchpadState.summary.set(await launchpad.getSummary());
+		} catch (ex) {
+			this._launchpadState.summary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
+		} finally {
+			this._launchpadState.loading.set(false);
 		}
 	}
 
@@ -1074,6 +1147,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
+
+		// Start the Launchpad pipeline once `services` first resolves. `services` is a `@consume`d
+		// context value (not a reactive property), so it won't appear in `changedProperties` — guard
+		// with a one-shot flag instead.
+		if (!this._launchpadInitialized && this.services != null) {
+			this._launchpadInitialized = true;
+			void this.initLaunchpad(this.services);
+		}
 
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
 		// always belongs to the repo that was active when `openTimelineScope` ran. If the user

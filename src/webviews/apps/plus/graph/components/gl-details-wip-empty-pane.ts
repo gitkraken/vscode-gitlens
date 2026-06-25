@@ -1,13 +1,9 @@
 import { consume } from '@lit/context';
-import type { TemplateResult } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { pluralize } from '@gitlens/utils/string.js';
-import type { ConnectCloudIntegrationsCommandArgs } from '../../../../../commands/cloudIntegrations.js';
-import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
-import { createCommandLink } from '../../../../../system/commands.js';
 import type { GitBranchShape, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
 import type { BranchRef } from '../../../../shared/branchRefs.js';
@@ -18,7 +14,7 @@ import { detailsWipEmptyPaneStyles } from './gl-details-wip-empty-pane.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
-import '../../../shared/components/skeleton-loader.js';
+import './gl-launchpad-summary.js';
 
 type NextStepAction = {
 	actionLabel: string;
@@ -100,7 +96,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 
 		// Launchpad renders from initial mount (when `showLaunchpad`) — the summary content is
 		// branch-agnostic (PRs across the user's connected integrations) and the inner
-		// `renderLaunchpadSummary` handles its own loading/empty/unconnected states with a
+		// `gl-launchpad-summary` handles its own loading/empty/unconnected states with a
 		// stable footprint. Gating on `branch != null` here would cause the section to pop into
 		// existence the moment WIP arrived, shifting `Start New` down — the very layout flip
 		// this scaffold was reshaped to avoid.
@@ -131,7 +127,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 					<code-icon icon="refresh"></code-icon>
 				</gl-button>
 			</header>
-			${this.renderLaunchpadSummary()}
+			<gl-launchpad-summary
+				.summary=${this.launchpadSummary}
+				?has-integrations-connected=${this.hasIntegrationsConnected}
+				source="graph-details"
+			></gl-launchpad-summary>
 		</section>`;
 	}
 
@@ -265,195 +265,6 @@ export class GlDetailsWipEmptyPane extends LitElement {
 				</gl-button>
 			</div>
 		</section>`;
-	}
-
-	private renderLaunchpadSummary(): TemplateResult {
-		if (!this.hasIntegrationsConnected) {
-			return html`<ul class="launchpad-items">
-				<li>
-					<a
-						class="launchpad-item launchpad-item--link"
-						href=${createCommandLink<ConnectCloudIntegrationsCommandArgs>(
-							'gitlens.plus.cloudIntegrations.connect',
-							{ source: { source: 'graph' } },
-						)}
-					>
-						<code-icon class="launchpad-item__icon" icon="plug"></code-icon>
-						<span>Connect to see PRs here</span>
-					</a>
-				</li>
-			</ul>`;
-		}
-
-		const summary = this.launchpadSummary;
-		if (summary == null) {
-			// Single skeleton line matches the most common landed content — "You are all caught
-			// up!" or a single group summary. Two lines was nearly always over-tall, causing a
-			// downward shift when content landed.
-			return html`<div class="launchpad-items launchpad-items--loading">
-				<skeleton-loader lines="1"></skeleton-loader>
-			</div>`;
-		}
-
-		if (!('total' in summary)) {
-			return html`<ul class="launchpad-items">
-				<li class="launchpad-item launchpad-item--muted">Unable to load items</li>
-			</ul>`;
-		}
-
-		const items: TemplateResult[] = [];
-
-		if (summary.error != null) {
-			items.push(
-				html`<li>
-					<span class="launchpad-item launchpad-item--muted">
-						<code-icon class="launchpad-item__icon" icon="warning"></code-icon>
-						<span>Some integrations failed to load</span>
-					</span>
-				</li>`,
-			);
-		}
-
-		if (summary.total === 0) {
-			items.push(html`<li class="launchpad-item launchpad-item--muted">You are all caught up!</li>`);
-			return html`<ul class="launchpad-items">
-				${items}
-			</ul>`;
-		}
-
-		if (!summary.hasGroupedItems) {
-			items.push(
-				html`<li class="launchpad-item launchpad-item--muted">No pull requests need your attention</li>
-					<li class="launchpad-item launchpad-item--muted">(${summary.total} other pull requests)</li>`,
-			);
-			return html`<ul class="launchpad-items">
-				${items}
-			</ul>`;
-		}
-
-		for (const group of summary.groups) {
-			switch (group) {
-				case 'mergeable': {
-					const total = summary.mergeable?.total ?? 0;
-					if (total === 0) continue;
-
-					items.push(
-						html`<li>
-							<a
-								class="launchpad-item launchpad-item--link launchpad-item--mergeable"
-								href=${this.createShowLaunchpadLink('mergeable')}
-							>
-								<code-icon class="launchpad-item__icon" icon="rocket"></code-icon>
-								<span>${pluralize('pull request', total)} can be merged</span>
-							</a>
-						</li>`,
-					);
-					break;
-				}
-				case 'blocked': {
-					const total = summary.blocked?.total ?? 0;
-					if (total === 0) continue;
-
-					const messages: { count: number; message: string }[] = [];
-					if (summary.blocked!.unassignedReviewers) {
-						messages.push({
-							count: summary.blocked!.unassignedReviewers,
-							message: `${summary.blocked!.unassignedReviewers > 1 ? 'need' : 'needs'} reviewers`,
-						});
-					}
-					if (summary.blocked!.failedChecks) {
-						messages.push({
-							count: summary.blocked!.failedChecks,
-							message: `${summary.blocked!.failedChecks > 1 ? 'have' : 'has'} failed CI checks`,
-						});
-					}
-					if (summary.blocked!.conflicts) {
-						messages.push({
-							count: summary.blocked!.conflicts,
-							message: `${summary.blocked!.conflicts > 1 ? 'have' : 'has'} conflicts`,
-						});
-					}
-
-					const href = this.createShowLaunchpadLink('blocked');
-					if (messages.length === 1) {
-						items.push(
-							html`<li>
-								<a class="launchpad-item launchpad-item--link launchpad-item--blocked" href=${href}>
-									<code-icon class="launchpad-item__icon" icon="error"></code-icon>
-									<span>${pluralize('pull request', total)} ${messages[0].message}</span>
-								</a>
-							</li>`,
-						);
-					} else {
-						items.push(
-							html`<li>
-								<a class="launchpad-item launchpad-item--link launchpad-item--blocked" href=${href}>
-									<code-icon class="launchpad-item__icon" icon="error"></code-icon>
-									<span
-										>${pluralize('pull request', total)} ${total > 1 ? 'are' : 'is'} blocked
-										(${messages.map(m => `${m.count} ${m.message}`).join(', ')})</span
-									>
-								</a>
-							</li>`,
-						);
-					}
-					break;
-				}
-				case 'follow-up': {
-					const total = summary.followUp?.total ?? 0;
-					if (total === 0) continue;
-
-					items.push(
-						html`<li>
-							<a
-								class="launchpad-item launchpad-item--link launchpad-item--attention"
-								href=${this.createShowLaunchpadLink('follow-up')}
-							>
-								<code-icon class="launchpad-item__icon" icon="report"></code-icon>
-								<span
-									>${pluralize('pull request', total)} ${total > 1 ? 'require' : 'requires'}
-									follow-up</span
-								>
-							</a>
-						</li>`,
-					);
-					break;
-				}
-				case 'needs-review': {
-					const total = summary.needsReview?.total ?? 0;
-					if (total === 0) continue;
-
-					items.push(
-						html`<li>
-							<a
-								class="launchpad-item launchpad-item--link launchpad-item--attention"
-								href=${this.createShowLaunchpadLink('needs-review')}
-							>
-								<code-icon class="launchpad-item__icon" icon="comment-unresolved"></code-icon>
-								<span
-									>${pluralize('pull request', total)} ${total > 1 ? 'need' : 'needs'} your
-									review</span
-								>
-							</a>
-						</li>`,
-					);
-					break;
-				}
-			}
-		}
-
-		return html`<ul class="launchpad-items">
-			${items}
-		</ul>`;
-	}
-
-	private createShowLaunchpadLink(group: NonNullable<LaunchpadCommandArgs['state']>['initialGroup']): string {
-		return `command:gitlens.showLaunchpad?${encodeURIComponent(
-			JSON.stringify({
-				source: 'graph-details',
-				state: { initialGroup: group },
-			} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-		)}`;
 	}
 
 	private computeNextSteps(branch: GitBranchShape): NextStep[] {
