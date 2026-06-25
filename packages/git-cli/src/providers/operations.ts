@@ -52,14 +52,18 @@ export class OperationsGitSubProvider implements GitOperationsSubProvider {
 	async checkout(
 		repoPath: string,
 		ref: string,
-		options?: { createBranch?: string },
+		options?: { createBranch?: string; noTracking?: boolean },
 		runOptions?: GitOperationRunOptions,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
 		const params = ['checkout'];
 		if (options?.createBranch) {
-			params.push('-b', options.createBranch, ref, '--');
+			params.push('-b', options.createBranch);
+			if (options.noTracking) {
+				params.push('--no-track');
+			}
+			params.push(ref, '--');
 		} else {
 			params.push(ref, '--');
 		}

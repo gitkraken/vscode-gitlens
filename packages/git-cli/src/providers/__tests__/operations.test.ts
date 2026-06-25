@@ -144,6 +144,33 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		);
 	});
 
+	test('checkout with createBranch passes -b and ref', async () => {
+		await operations.checkout(repoPath, 'origin/main', { createBranch: 'feature/foo' });
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('checkout'));
+		assert.ok(call, 'expected git.run to be invoked with checkout');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.deepStrictEqual(gitArgs, ['checkout', '-b', 'feature/foo', 'origin/main', '--']);
+	});
+
+	test('checkout with createBranch and noTracking passes --no-track', async () => {
+		await operations.checkout(repoPath, 'origin/main', { createBranch: 'feature/foo', noTracking: true });
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('checkout'));
+		assert.ok(call, 'expected git.run to be invoked with checkout');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.deepStrictEqual(gitArgs, ['checkout', '-b', 'feature/foo', '--no-track', 'origin/main', '--']);
+	});
+
+	test('checkout with createBranch and noTracking=false omits --no-track', async () => {
+		await operations.checkout(repoPath, 'origin/main', { createBranch: 'feature/foo', noTracking: false });
+
+		const call = (gitStub.run as sinon.SinonStub).getCalls().find(c => c.args.includes('checkout'));
+		assert.ok(call, 'expected git.run to be invoked with checkout');
+		const gitArgs = call.args.filter((a): a is string => typeof a === 'string');
+		assert.deepStrictEqual(gitArgs, ['checkout', '-b', 'feature/foo', 'origin/main', '--']);
+	});
+
 	test('checkout surfaces an invalid-ref failure as CheckoutError', async () => {
 		// `unknownRevision` is a GitWarning, so without `errors: 'throw'` the default handler swallows
 		// it and the checkout resolves as if it succeeded.
