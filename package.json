@@ -12516,6 +12516,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14d"
 				}
+			},
+			"gitlens-start-new": {
+				"description": "start-new icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14e"
+				}
 			}
 		},
 		"menus": {
