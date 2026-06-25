@@ -218,6 +218,7 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						: undefined;
 
 				const isRemoteBranch = isBranchReference(state.reference) && state.reference?.remote;
+				const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
 				if (
 					(isRemoteBranch || isRevisionReference(state.reference) || state.worktree != null) &&
 					!state.flags.includes('-b')
@@ -358,6 +359,9 @@ export class WorktreeCreateGitCommand extends QuickCommand<State> {
 						createBranch: state.flags.includes('-b') ? state.createBranch : undefined,
 						detach: state.flags.includes('--detach'),
 						force: state.flags.includes('--force'),
+						...(isRemoteBranch && state.createBranch !== remoteBranchName
+							? { noTracking: true }
+							: undefined),
 					});
 					state.result?.fulfill(worktree);
 

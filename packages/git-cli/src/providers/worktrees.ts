@@ -29,7 +29,13 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	async createWorktree(
 		repoPath: string,
 		path: string,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+		options?: {
+			commitish?: string;
+			createBranch?: string;
+			detach?: boolean;
+			force?: boolean;
+			noTracking?: boolean;
+		},
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -39,6 +45,9 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		}
 		if (options?.createBranch) {
 			args.push('-b', options.createBranch);
+		}
+		if (options?.createBranch && options.noTracking) {
+			args.push('--no-track');
 		}
 		if (options?.detach) {
 			args.push('--detach');
@@ -76,7 +85,13 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	async createWorktreeWithResult(
 		repoPath: string,
 		path: string,
-		options?: { commitish?: string; createBranch?: string; detach?: boolean; force?: boolean },
+		options?: {
+			commitish?: string;
+			createBranch?: string;
+			detach?: boolean;
+			force?: boolean;
+			noTracking?: boolean;
+		},
 	): Promise<GitWorktree | undefined> {
 		await this.createWorktree(repoPath, path, options);
 		const normalized = normalizePath(path);
