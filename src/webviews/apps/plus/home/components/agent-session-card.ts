@@ -6,9 +6,13 @@ import '../../../shared/components/card/card.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/pills/agent-status-pill.js';
 
-export const agentSessionCardTagName = 'gl-agent-session-card';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-agent-session-card']: GlAgentSessionCard;
+	}
+}
 
-@customElement(agentSessionCardTagName)
+@customElement('gl-agent-session-card')
 export class GlAgentSessionCard extends LitElement {
 	static override styles = [
 		css`
@@ -163,11 +167,5 @@ export class GlAgentSessionCard extends LitElement {
 					: nothing}
 			</div>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[agentSessionCardTagName]: GlAgentSessionCard;
 	}
 }

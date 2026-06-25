@@ -2,13 +2,11 @@ import { html, LitElement } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { splitPanelStyles } from './split-panel.css.js';
 
-export const tagName = 'gl-split-panel';
-
 export type GlSplitPanelSnapFunction = (params: { pos: number; size: number }) => number;
 
 declare global {
 	interface HTMLElementTagNameMap {
-		[tagName]: GlSplitPanel;
+		['gl-split-panel']: GlSplitPanel;
 	}
 
 	interface GlobalEventHandlersEventMap {
@@ -41,7 +39,7 @@ declare global {
  * @cssproperty --gl-split-panel-divider-width - Divider visual width. Default `4px`.
  * @cssproperty --gl-split-panel-divider-hit-area - Divider interactive hit area. Default `var(--vscode-sash-hoverSize, 8px)`.
  */
-@customElement(tagName)
+@customElement('gl-split-panel')
 export class GlSplitPanel extends LitElement {
 	static override styles = splitPanelStyles;
 

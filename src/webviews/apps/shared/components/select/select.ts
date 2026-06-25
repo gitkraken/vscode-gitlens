@@ -9,15 +9,19 @@ import '@awesome.me/webawesome/dist/components/popup/popup.js';
 import '../code-icon.js';
 import '../shoelace-stub.js';
 
-export const tagName = 'gl-select';
-
 export interface SelectOption {
 	value: string;
 	label: string;
 	disabled?: boolean;
 }
 
-@customElement(tagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-select']: GlSelect;
+	}
+}
+
+@customElement('gl-select')
 export class GlSelect extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -122,11 +126,5 @@ export class GlSelect extends LitElement {
 	/** Closes the listbox. */
 	async hide(): Promise<void> {
 		await this.selectElement?.hide();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSelect;
 	}
 }

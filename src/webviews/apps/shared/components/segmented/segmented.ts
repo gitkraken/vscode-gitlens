@@ -3,11 +3,15 @@ import { customElement, property } from 'lit/decorators.js';
 import { GlElement } from '../element.js';
 import { segmentedStyles } from './segmented.css.js';
 
-export const tagName = 'gl-segmented-control';
-
 export interface SegmentedOption {
 	value: string;
 	label: string;
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-segmented-control']: GlSegmentedControl;
+	}
 }
 
 /**
@@ -17,7 +21,7 @@ export interface SegmentedOption {
  * Follows the WAI-ARIA radio-group pattern: one tab stop, arrow keys move
  * between segments and select as they go (selection follows focus).
  */
-@customElement(tagName)
+@customElement('gl-segmented-control')
 export class GlSegmentedControl extends GlElement {
 	static override readonly styles = [segmentedStyles];
 
@@ -100,11 +104,5 @@ export class GlSegmentedControl extends GlElement {
 					</button>`,
 			)}
 		</div>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSegmentedControl;
 	}
 }

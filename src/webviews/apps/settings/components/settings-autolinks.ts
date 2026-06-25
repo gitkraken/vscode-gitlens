@@ -14,7 +14,11 @@ import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 
-export const tagName = 'gl-settings-autolinks';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-autolinks']: GlSettingsAutolinks;
+	}
+}
 
 /**
  * The custom autolink rules editor plus the cloud-integration banner.
@@ -23,7 +27,7 @@ export const tagName = 'gl-settings-autolinks';
  * whole array; deleting the last rule removes the key (legacy semantics).
  * A draft row only becomes a rule once one of its inputs commits a value.
  */
-@customElement(tagName)
+@customElement('gl-settings-autolinks')
 export class GlSettingsAutolinks extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -469,10 +473,4 @@ function validateRule(autolink: AutolinkConfig): { prefix: boolean; url: boolean
 		// A rule with a URL but no prefix has nothing to match against
 		prefix: url.length > 0 && prefix.length === 0,
 	};
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsAutolinks;
-	}
 }

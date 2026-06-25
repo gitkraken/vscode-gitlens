@@ -5,11 +5,19 @@ import type { TimelineDatum } from '../../../../plus/timeline/protocol.js';
 import { GlElement } from '../../../shared/components/element.js';
 import '@awesome.me/webawesome/dist/components/slider/slider.js';
 
-const tagName = 'gl-chart-slider';
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-chart-slider': GlChartSlider;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-slider-change': CustomEvent<SliderChangeEventDetail>;
+	}
+}
 
 type WaTooltipLike = HTMLElement & { open: boolean; popup?: { reposition: () => void } };
 
-@customElement(tagName)
+@customElement('gl-chart-slider')
 export class GlChartSlider extends GlElement {
 	static readonly tagName = tagName;
 
@@ -203,16 +211,6 @@ export class GlChartSlider extends GlElement {
 
 		const date = new Date(this.data[index].date);
 		this.emit('gl-slider-change', { date: date, shift: this.shift, interim: e.type === 'input' });
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-chart-slider': GlChartSlider;
-	}
-
-	interface GlobalEventHandlersEventMap {
-		'gl-slider-change': CustomEvent<SliderChangeEventDetail>;
 	}
 }
 

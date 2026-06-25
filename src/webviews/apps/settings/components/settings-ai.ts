@@ -13,7 +13,11 @@ import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/skeleton-loader.js';
 
-export const tagName = 'gl-settings-ai';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-ai']: GlSettingsAI;
+	}
+}
 
 /**
  * The AI integrations panel — provider/model, GitKraken MCP, default coding
@@ -23,7 +27,7 @@ export const tagName = 'gl-settings-ai';
  * config settings: state comes from the shared AI RPC service and all actions
  * run commands (switch model, install MCP, switch agent, install hooks).
  */
-@customElement(tagName)
+@customElement('gl-settings-ai')
 export class GlSettingsAI extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -332,11 +336,5 @@ export class GlSettingsAI extends SignalWatcher(LitElement) {
 						>`}
 			</span>
 		</li>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsAI;
 	}
 }

@@ -11,7 +11,11 @@ import { settingsStateContext } from '../state.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 
-export const tagName = 'gl-settings-nav';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-nav']: GlSettingsNav;
+	}
+}
 
 /**
  * The grouped category rail. One tab stop; Up/Down/Home/End move between
@@ -20,7 +24,7 @@ export const tagName = 'gl-settings-nav';
  * Each item shows a non-color on/off cue (filled vs hollow pip + on/total
  * count) for categories with toggleable settings.
  */
-@customElement(tagName)
+@customElement('gl-settings-nav')
 export class GlSettingsNav extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -381,11 +385,5 @@ export class GlSettingsNav extends SignalWatcher(LitElement) {
 					? html`<span class="sr-only">${on ? 'On' : 'Off'}</span>`
 					: nothing}
 		</button>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsNav;
 	}
 }

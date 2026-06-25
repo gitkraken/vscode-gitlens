@@ -4,9 +4,13 @@ import { urls } from '../../../../constants.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import './banner/banner.js';
 
-export const hooksBannerTagName = 'gl-hooks-banner';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-hooks-banner']: GlHooksBanner;
+	}
+}
 
-@customElement(hooksBannerTagName)
+@customElement('gl-hooks-banner')
 export class GlHooksBanner extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -59,11 +63,5 @@ export class GlHooksBanner extends LitElement {
 				})}"
 			></gl-banner>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[hooksBannerTagName]: GlHooksBanner;
 	}
 }

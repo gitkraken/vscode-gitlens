@@ -2,8 +2,6 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { baseStyles, pulseStyles } from './watermark-loader.css.js';
 
-export const tagName = 'gl-watermark-loader';
-
 // Each piece is an HTML <div> wrapping one <path> in its own <svg>. The pulse animation
 // targets the div's transform — Blink composites HTML transform animations, but the same
 // CSS animation on SVG path/g sub-elements runs on the main thread and stutters when JS
@@ -16,7 +14,13 @@ const watermarkPaths = [
 	'M12.25 22C12.8467 22 13.419 21.7629 13.841 21.341C14.2629 20.919 14.5 20.3467 14.5 19.75C14.5 19.1533 14.2629 18.581 13.841 18.159C13.419 17.7371 12.8467 17.5 12.25 17.5C11.6533 17.5 11.081 17.7371 10.659 18.159C10.2371 18.581 10 19.1533 10 19.75C10 20.3467 10.2371 20.919 10.659 21.341C11.081 21.7629 11.6533 22 12.25 22Z',
 ];
 
-@customElement(tagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-watermark-loader']: GlWatermarkLoader;
+	}
+}
+
+@customElement('gl-watermark-loader')
 export class GlWatermarkLoader extends LitElement {
 	static override styles = [baseStyles, pulseStyles];
 

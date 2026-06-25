@@ -43,9 +43,13 @@ import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../shared/components/merge-rebase-status.js';
 
-export const activeWorkTagName = 'gl-active-work';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-active-work']: GlActiveWork;
+	}
+}
 
-@customElement(activeWorkTagName)
+@customElement('gl-active-work')
 export class GlActiveWork extends SignalWatcher(LitElement) {
 	@consume({ context: subscriptionContext, subscribe: true })
 	private _subscription!: SubscriptionContextState;
@@ -280,7 +284,7 @@ export class GlActiveWork extends SignalWatcher(LitElement) {
 
 declare global {
 	interface HTMLElementTagNameMap {
-		[activeWorkTagName]: GlActiveWork;
+		['gl-active-branch-card']: GlBranchCardBase;
 	}
 }
 

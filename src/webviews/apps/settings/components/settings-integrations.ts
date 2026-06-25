@@ -22,7 +22,11 @@ import '../../shared/components/code-icon.js';
 import '../../shared/components/feature-badge.js';
 import '../../shared/components/skeleton-loader.js';
 
-export const tagName = 'gl-settings-integrations';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-integrations']: GlSettingsIntegrations;
+	}
+}
 
 /**
  * The cloud-integrations connection panel — one row per supported integration
@@ -32,7 +36,7 @@ export const tagName = 'gl-settings-integrations';
  * subscription RPC services, and all actions run commands (connect, upgrade,
  * synchronize, manage).
  */
-@customElement(tagName)
+@customElement('gl-settings-integrations')
 export class GlSettingsIntegrations extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -290,10 +294,4 @@ function getIntegrationDetails(integration: IntegrationStateInfo): string {
 
 	const last = features.pop();
 	return `Supports ${features.join(', ')}, and ${last}`;
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsIntegrations;
-	}
 }

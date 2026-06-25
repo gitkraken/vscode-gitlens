@@ -2,9 +2,13 @@ import { html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { baseStyles, pulseStyles } from './indicator.css.js';
 
-export const tagName = 'gl-indicator';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-indicator']: GlIndicator;
+	}
+}
 
-@customElement(tagName)
+@customElement('gl-indicator')
 export class GlIndicator extends LitElement {
 	static override styles = [baseStyles, pulseStyles];
 

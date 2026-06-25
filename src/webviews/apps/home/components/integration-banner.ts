@@ -13,9 +13,13 @@ import '../../shared/components/button.js';
 import '../../shared/components/button-container.js';
 import '../../shared/components/card/card.js';
 
-export const integrationBannerTagName = 'gl-integration-banner';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-integration-banner']: GlIntegrationBanner;
+	}
+}
 
-@customElement(integrationBannerTagName)
+@customElement('gl-integration-banner')
 export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -84,11 +88,5 @@ export class GlIntegrationBanner extends SignalWatcher(LitElement) {
 
 	override focus(): void {
 		this._button.focus();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[integrationBannerTagName]: GlIntegrationBanner;
 	}
 }

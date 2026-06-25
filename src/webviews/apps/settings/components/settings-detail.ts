@@ -18,13 +18,17 @@ import '../../shared/components/feature-badge.js';
 import '../../shared/components/icons/icon-cube.js';
 import '../../shared/components/switch/switch.js';
 
-export const tagName = 'gl-settings-detail';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-detail']: GlSettingsDetail;
+	}
+}
 
 /**
  * The right pane: selected category header (with master switch), docked live
  * preview, and the category's controls.
  */
-@customElement(tagName)
+@customElement('gl-settings-detail')
 export class GlSettingsDetail extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -379,11 +383,5 @@ export class GlSettingsDetail extends SignalWatcher(LitElement) {
 		const first = category.controls.find(c => c.kind !== 'info' && c.kind !== 'autolinks');
 		const key = category.master?.key ?? (first != null && 'key' in first ? first.key : category.id);
 		return `gitlens.${key.split('.')[0]}`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsDetail;
 	}
 }

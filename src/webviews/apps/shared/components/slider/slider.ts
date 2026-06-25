@@ -6,7 +6,11 @@ import { sliderStyles } from './slider.css.js';
 import '@awesome.me/webawesome/dist/components/slider/slider.js';
 import '../shoelace-stub.js';
 
-export const tagName = 'gl-slider';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-slider']: GlSlider;
+	}
+}
 
 /**
  * A single-value numeric slider wrapping `wa-slider`, themed for VS Code.
@@ -17,7 +21,7 @@ export const tagName = 'gl-slider';
  * Events: `gl-input-value` fires continuously while dragging (drive live previews
  * from it); `gl-change-value` fires once the value is committed (persist from it).
  */
-@customElement(tagName)
+@customElement('gl-slider')
 export class GlSlider extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -90,11 +94,5 @@ export class GlSlider extends LitElement {
 
 	override blur(): void {
 		this.sliderElement?.blur();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSlider;
 	}
 }

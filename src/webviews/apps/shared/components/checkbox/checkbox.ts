@@ -3,12 +3,15 @@ import { customElement, property } from 'lit/decorators.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { GlElement } from '../element.js';
 import { checkboxBaseStyles } from './checkbox.css.js';
-
 import '../code-icon.js';
 
-export const tagName = 'gl-checkbox';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-checkbox']: Checkbox;
+	}
+}
 
-@customElement(tagName)
+@customElement('gl-checkbox')
 export class Checkbox extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...GlElement.shadowRootOptions,
@@ -81,11 +84,5 @@ export class Checkbox extends GlElement {
 			<div class="control">${this.renderCheck()}</div>
 			<slot class="label-text" part="label"></slot>
 		</label>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: Checkbox;
 	}
 }

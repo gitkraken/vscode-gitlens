@@ -73,17 +73,26 @@ const defaultSlicePalette: readonly string[] = [
 	'#26A69A',
 ];
 
-export const tagName = 'gl-timeline-chart';
+declare global {
+	interface HTMLElementTagNameMap {
+		'gl-timeline-chart': GlTimelineChart;
+	}
+
+	interface GlobalEventHandlersEventMap {
+		'gl-commit-select': CustomEvent<CommitEventDetail>;
+		'gl-loading': CustomEvent<Promise<void>>;
+		'gl-load-more': CustomEvent<LoadMoreEventDetail>;
+		'gl-visible-range-changed': CustomEvent<VisibleRangeEventDetail>;
+	}
+}
 
 /**
  * Canvas-backed Visual File History chart. Owns the bubble swimlanes, volume histogram, slider footer,
  * and all interactions; the surrounding [timeline.ts](../timeline.ts) wires it to scope/period/sliceBy
  * state and forwards `gl-commit-select` selections to the host extension.
  */
-@customElement(tagName)
+@customElement('gl-timeline-chart')
 export class GlTimelineChart extends GlElement {
-	static readonly tagName = tagName;
-
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,
@@ -2811,17 +2820,4 @@ export interface LoadMoreEventDetail {
 export interface VisibleRangeEventDetail {
 	oldest: number;
 	newest: number;
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		'gl-timeline-chart': GlTimelineChart;
-	}
-
-	interface GlobalEventHandlersEventMap {
-		'gl-commit-select': CustomEvent<CommitEventDetail>;
-		'gl-loading': CustomEvent<Promise<void>>;
-		'gl-load-more': CustomEvent<LoadMoreEventDetail>;
-		'gl-visible-range-changed': CustomEvent<VisibleRangeEventDetail>;
-	}
 }

@@ -19,6 +19,7 @@ import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import { linkStyles } from './vscode.css.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/promo.js';
 
 declare global {
@@ -29,6 +30,11 @@ declare global {
 	// interface GlobalEventHandlersEventMap {}
 }
 
+/**
+ * @tag gl-feature-gate-plus-state
+ *
+ * @slot feature
+ */
 @customElement('gl-feature-gate-plus-state')
 export class GlFeatureGatePlusState extends LitElement {
 	static override styles = [

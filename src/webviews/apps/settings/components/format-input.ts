@@ -15,7 +15,11 @@ import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/overlays/popover.js';
 
-export const tagName = 'gl-format-input';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-format-input']: GlFormatInput;
+	}
+}
 
 /** The fixed sample date used by date-format previews (parity with the legacy app). */
 const offset = (new Date().getTimezoneOffset() / 60) * 100;
@@ -86,7 +90,7 @@ const dateTokens: TokenInfo[] = [
  * on Enter — moving focus to the token menu does NOT commit (parity with the
  * legacy popup, which suppressed blur). The example reacts to the draft.
  */
-@customElement(tagName)
+@customElement('gl-format-input')
 export class GlFormatInput extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -460,11 +464,5 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 						<span class="example__text">${this._example || '—'}</span>
 					</p>`
 				: nothing}`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlFormatInput;
 	}
 }

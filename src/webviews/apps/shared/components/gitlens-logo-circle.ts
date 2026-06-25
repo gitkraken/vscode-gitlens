@@ -2,7 +2,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement } from 'lit/decorators.js';
 
 @customElement('gitlens-logo-circle')
-export class GitLensLogo extends LitElement {
+export class GitLensLogoCircle extends LitElement {
 	static override styles = [
 		css`
 			:host {

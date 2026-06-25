@@ -4,12 +4,14 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GlTooltip } from './overlays/tooltip.js';
 import './overlays/tooltip.js';
 
-const tagName = 'gl-copy-container';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-copy-container']: GlCopyContainer;
+	}
+}
 
-@customElement(tagName)
+@customElement('gl-copy-container')
 export class GlCopyContainer extends LitElement {
-	static readonly tagName = tagName;
-
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
 		delegatesFocus: true,

@@ -6,7 +6,11 @@ import { switchStyles } from './switch.css.js';
 import '@awesome.me/webawesome/dist/components/switch/switch.js';
 import '../shoelace-stub.js';
 
-export const tagName = 'gl-switch';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-switch']: GlSwitch;
+	}
+}
 
 /**
  * An on/off toggle switch wrapping `wa-switch`, themed for VS Code.
@@ -17,7 +21,7 @@ export const tagName = 'gl-switch';
  * The default slot is the visible label; when no label is slotted, provide
  * `label` so the control still has an accessible name.
  */
-@customElement(tagName)
+@customElement('gl-switch')
 export class GlSwitch extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -80,11 +84,5 @@ export class GlSwitch extends LitElement {
 
 	override blur(): void {
 		this.switchElement?.blur();
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSwitch;
 	}
 }

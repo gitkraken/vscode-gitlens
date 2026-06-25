@@ -1,9 +1,13 @@
 import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-const accordionTagName = 'gl-accordion';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-accordion']: GlAccordion;
+	}
+}
 
-@customElement(accordionTagName)
+@customElement('gl-accordion')
 export class GlAccordion extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -101,11 +105,5 @@ export class GlAccordion extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[accordionTagName]: GlAccordion;
 	}
 }

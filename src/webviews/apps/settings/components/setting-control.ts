@@ -21,14 +21,18 @@ import '../../shared/components/segmented/segmented.js';
 import '../../shared/components/select/select.js';
 import '../../shared/components/slider/slider.js';
 
-export const tagName = 'gl-setting-control';
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-setting-control']: GlSettingControl;
+	}
+}
 
 /**
  * Renders one setting descriptor — dispatches on `kind`, binds the current
  * config value, evaluates visibility/enablement expressions, and routes
  * changes through `SettingsActions` (apply-on-interaction, text on commit).
  */
-@customElement(tagName)
+@customElement('gl-setting-control')
 export class GlSettingControl extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -398,11 +402,5 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 		return html`<p class="hint">
 			<code-icon icon="info" aria-hidden="true"></code-icon><span>${linkify(hint)}</span>
 		</p>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingControl;
 	}
 }

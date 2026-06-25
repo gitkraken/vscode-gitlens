@@ -6,11 +6,15 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { bannerStyles } from './banner.css.js';
 import '../button.js';
 
-export const bannerTagName = 'gl-banner';
-
 export type BannerDisplay = 'solid' | 'outline' | 'gradient' | 'gradient-transparent' | 'gradient-purple';
 
-@customElement(bannerTagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-banner']: GlBanner;
+	}
+}
+
+@customElement('gl-banner')
 export class GlBanner extends LitElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,
@@ -187,11 +191,5 @@ export class GlBanner extends LitElement {
 				composed: true,
 			}),
 		);
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[bannerTagName]: GlBanner;
 	}
 }

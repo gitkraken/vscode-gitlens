@@ -21,8 +21,6 @@ import '../../../shared/components/skeleton-loader.js';
 import './agent-session-card.js';
 import './branch-section.js';
 
-export const overviewTagName = 'gl-overview';
-
 type OverviewTab = 'recent' | 'agents';
 type AgentFilter = 'workspace' | 'all';
 
@@ -33,7 +31,13 @@ const recentThresholdItems: { value: OverviewRecentThreshold; label: string }[] 
 	{ value: 'OneMonth', label: '1 month' },
 ];
 
-@customElement(overviewTagName)
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-overview']: GlOverview;
+	}
+}
+
+@customElement('gl-overview')
 export class GlOverview extends SignalWatcher(LitElement) {
 	static override styles = [
 		linkStyles,
@@ -525,11 +529,5 @@ export class GlOverview extends SignalWatcher(LitElement) {
 				<skeleton-loader lines="3"></skeleton-loader>
 			</gl-section>
 		`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[overviewTagName]: GlOverview;
 	}
 }

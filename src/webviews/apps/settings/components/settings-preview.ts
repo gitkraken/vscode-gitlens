@@ -11,8 +11,6 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/code-icon.js';
 
-export const tagName = 'gl-settings-preview';
-
 const sampleCode: { n: number; text: string; fn?: boolean; current?: boolean; container?: boolean }[] = [
 	{ n: 1, text: 'export namespace Gitlens {', container: true },
 	{ n: 2, text: '  export function supercharge(code: string) {', fn: true },
@@ -53,6 +51,12 @@ function heatColor(age: number): string {
 	return 'var(--vscode-charts-red)';
 }
 
+declare global {
+	interface HTMLElementTagNameMap {
+		['gl-settings-preview']: GlSettingsPreview;
+	}
+}
+
 /**
  * Live, state-driven previews replacing the legacy static `.webp` images.
  *
@@ -60,7 +64,7 @@ function heatColor(age: number): string {
  * text for Inline Blame/Status Bar is rendered by the host's real
  * `CommitFormatter` (debounced RPC), so what you see is what GitLens shows.
  */
-@customElement(tagName)
+@customElement('gl-settings-preview')
 export class GlSettingsPreview extends SignalWatcher(LitElement) {
 	static override styles = [
 		boxSizingBase,
@@ -869,11 +873,5 @@ export class GlSettingsPreview extends SignalWatcher(LitElement) {
 					</div>`
 				: nothing}
 		</div>`;
-	}
-}
-
-declare global {
-	interface HTMLElementTagNameMap {
-		[tagName]: GlSettingsPreview;
 	}
 }

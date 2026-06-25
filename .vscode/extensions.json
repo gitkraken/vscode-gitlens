@@ -6,7 +6,8 @@
 		"amodio.tsl-problem-matcher",
 		"esbenp.prettier-vscode",
 		"stylelint.vscode-stylelint",
-		"jackolope.lit-analyzer-plugin",
+		"runem.lit-plugin",
+		"pwrs.cem-language-server-vscode",
 		"ms-vscode.extension-test-runner",
 		"ms-playwright.playwright"
 	]
