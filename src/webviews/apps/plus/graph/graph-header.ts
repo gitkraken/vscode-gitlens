@@ -18,7 +18,6 @@ import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
 import { GlyphChars } from '../../../../constants.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
 import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
-import type { LaunchpadCommandArgs } from '../../../../plus/launchpad/launchpad.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type {
 	DidChooseRefParams,
@@ -65,6 +64,7 @@ import '../../shared/components/branch-name.js';
 import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
 import '../../shared/components/progress.js';
@@ -77,6 +77,7 @@ import '../../shared/components/repo-button-group.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
 import './actions/gitActionsButtons.js';
+import './components/gl-graph-launchpad-indicator.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -201,6 +202,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 			.minimap-toggle-icon {
 				transform: rotate(180deg);
+			}
+
+			/* Create/Start menu rows: icon + label as an inline-flex pair. Color is inherited so the
+			   icon follows the menu-item's hover/selection foreground (no override). */
+			.action-menu__item {
+				display: inline-flex;
+				gap: var(--gl-space-6);
+				align-items: center;
 			}
 		`,
 	];
@@ -1083,19 +1092,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 									: html`Jump to HEAD<br />[${getAltKeySymbol()}] Jump to Reference...`}
 							</span>
 						</gl-button>
-						<gl-button
-							appearance="toolbar"
-							href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
-								command: 'branch',
-								confirm: true,
-								state: { subcommand: 'create', reference: branch },
-							})}
-						>
-							<code-icon icon="custom-start-work"></code-icon>
-							<span slot="tooltip">
-								Create New Branch from <gl-branch-name .name=${branch?.name}></gl-branch-name>
-							</span>
-						</gl-button>
+						${this.renderCreateMenu()}
 					`,
 				)}
 			</div>
@@ -1171,32 +1168,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 						</gl-popover>
 					`,
 				)}
-				${this.renderGraphWalkthroughBanner(state)}
-				<gl-button
-					appearance="toolbar"
-					href=${`command:gitlens.showLaunchpad?${encodeURIComponent(
-						JSON.stringify({
-							source: 'graph',
-						} satisfies Omit<LaunchpadCommandArgs, 'command'>),
-					)}`}
-				>
-					<code-icon icon="rocket"></code-icon>
-					<span slot="tooltip">
-						<strong>Launchpad</strong> &mdash; organizes your pull requests into actionable groups to help
-						you focus and keep your team unblocked
-					</span>
-				</gl-button>
-				<gl-button
-					appearance="toolbar"
-					href=${'command:gitlens.showHomeView'}
-					aria-label=${`Open GitLens Home View`}
-				>
-					<code-icon icon=${'gl-gitlens'} aria-hidden="true"></code-icon>
-					<span slot="tooltip">
-						<strong>GitLens Home</strong> — track, manage, and collaborate on your branches and pull
-						requests, all in one intuitive hub
-					</span>
-				</gl-button>
+				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
+				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
 				${when(
 					subscription == null || !isSubscriptionPaid(subscription),
 					() => html`
@@ -1243,6 +1216,79 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				</div>
 			</gl-popover>
 		`;
+	}
+
+	private renderCreateMenu() {
+		// `reference: branch` preserves the prior single-button behavior — create from the branch
+		// currently shown in the graph, not a generic picker default.
+		const branch = this.graphState.branch;
+		return html`<gl-popover
+			appearance="menu"
+			placement="bottom-start"
+			trigger="click focus"
+			?arrow=${false}
+			distance=${0}
+		>
+			<gl-tooltip slot="anchor" placement="bottom">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label="Create">
+					<code-icon icon="add"></code-icon>
+					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
+				</button>
+				<span slot="content">Create</span>
+			</gl-tooltip>
+			<div slot="content">
+				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
+					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
+				</menu-item>
+				<menu-item
+					href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
+						command: 'branch',
+						confirm: true,
+						state: { subcommand: 'create', reference: branch },
+					})}
+				>
+					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
+				</menu-item>
+				<menu-divider></menu-divider>
+				<menu-item
+					href=${createCommandLink('gitlens.stashesApply', { repoPath: this.graphState.selectedRepository })}
+				>
+					<span class="action-menu__item"><code-icon icon="gl-stash-pop"></code-icon>Apply / Pop Stash…</span>
+				</menu-item>
+			</div>
+		</gl-popover>`;
+	}
+
+	private renderStartMenu() {
+		// Source shapes mirror the WIP details actions (detailsActions.ts): startWork takes a bare
+		// `source`, startReview takes a nested `{ source }`.
+		// `bottom-end` (vs Create's `bottom-start`) because Start lives in the right-side group near
+		// the viewport edge — right-aligning the dropdown keeps it on-screen.
+		return html`<gl-popover
+			appearance="menu"
+			placement="bottom-end"
+			trigger="click focus"
+			?arrow=${false}
+			distance=${0}
+		>
+			<gl-tooltip slot="anchor" placement="bottom">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start">
+					<code-icon icon="custom-start-work"></code-icon>
+					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
+				</button>
+				<span slot="content">Start</span>
+			</gl-tooltip>
+			<div slot="content">
+				<menu-item href=${createCommandLink('gitlens.startWork', { source: 'graph-header' })}>
+					<span class="action-menu__item"><code-icon icon="issues"></code-icon>Start Work on an Issue…</span>
+				</menu-item>
+				<menu-item href=${createCommandLink('gitlens.startReview', { source: { source: 'graph-header' } })}>
+					<span class="action-menu__item"
+						><code-icon icon="git-pull-request"></code-icon>Start Review on a PR…</span
+					>
+				</menu-item>
+			</div>
+		</gl-popover>`;
 	}
 
 	private renderHiddenRefs(excludeRefs: GraphExcludeRefs | undefined) {

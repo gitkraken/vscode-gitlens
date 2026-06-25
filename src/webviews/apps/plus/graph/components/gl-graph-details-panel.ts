@@ -29,6 +29,8 @@ import { ContextMenuProxyController } from '../../../shared/controllers/context-
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
+import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
+import { graphLaunchpadContext } from '../graphLaunchpadState.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import { anchorKey } from './anchorKey.js';
@@ -130,6 +132,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	@consume({ context: graphStateContext, subscribe: true })
 	private _graphState?: typeof graphStateContext.__context__;
+
+	// Shared Launchpad summary, owned/fetched by `gl-graph-app`. Read here only to feed the WIP
+	// empty pane — this panel no longer fetches it. `hasIntegrationsConnected` stays in
+	// `detailsState` (its other consumers — compare/multi-commit panels — still need it).
+	@consume({ context: graphLaunchpadContext, subscribe: true })
+	private _launchpadState?: GraphLaunchpadState;
 
 	@consume({ context: ipcContext })
 	private _ipc?: typeof ipcContext.__context__;
@@ -1588,10 +1596,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		void this._actions.fetchCapabilities();
-		// Fetched eagerly (not gated on isWip) because resolveServices runs once on
-		// connect — if the initial selection is a commit, a isWip guard would skip
-		// the fetch and it never re-runs when the user later selects a WIP row.
-		void this.fetchLaunchpadSummary(services);
 		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
 		} else {
@@ -1923,8 +1927,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.pullRequest=${this._state.wipPullRequest.get()}
 										.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
 										.hasIntegrationsConnected=${this._state.hasIntegrationsConnected.get()}
-										.launchpadSummary=${this._state.launchpadSummary.get()}
-										.launchpadSummaryLoading=${this._state.launchpadSummaryLoading.get()}
+										.launchpadSummary=${this._launchpadState?.summary.get()}
+										.launchpadSummaryLoading=${this._launchpadState?.loading.get() ?? false}
 										.mergeTargetStatus=${this._state.wipMergeTarget.get()}
 										show-launchpad
 										@switch-branch=${this.handleSwitchBranch}
@@ -2879,25 +2883,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleNewWorktree = () => this._actions.createWorktree();
 
-	private async fetchLaunchpadSummary(services: Remote<GraphServices>): Promise<void> {
-		if (this._state.launchpadSummaryLoading.get()) return;
-
-		this._state.launchpadSummaryLoading.set(true);
-		try {
-			const launchpad = await services.launchpad;
-			const summary = await launchpad.getSummary();
-			this._state.launchpadSummary.set(summary);
-		} catch (ex) {
-			this._state.launchpadSummary.set({ error: ex instanceof Error ? ex : new Error(String(ex)) });
-		} finally {
-			this._state.launchpadSummaryLoading.set(false);
-		}
-	}
-
 	private handleRefreshLaunchpad = (): void => {
-		if (this._remoteServices == null) return;
-
-		void this.fetchLaunchpadSummary(this._remoteServices);
+		this._launchpadState?.refresh();
 	};
 
 	private handleCompareWithMergeTarget = (e: CustomEvent<{ leftRef: string; leftRefType: 'branch' | 'commit' }>) => {
