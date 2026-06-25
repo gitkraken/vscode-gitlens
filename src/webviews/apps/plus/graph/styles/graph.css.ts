@@ -18,6 +18,7 @@ export const linkBase = css`
 export const actionButton = css`
 	.action-button {
 		position: relative;
+		box-sizing: border-box;
 		appearance: none;
 		font-family: inherit;
 		font-size: var(--gl-font-md);
