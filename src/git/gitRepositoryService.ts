@@ -513,7 +513,10 @@ export class GitRepositoryService {
 
 	@gate()
 	@debug()
-	async switch(ref: string, options?: { createBranch?: string | undefined; progress?: boolean }): Promise<void> {
+	async switch(
+		ref: string,
+		options?: { createBranch?: string | undefined; noTracking?: boolean; progress?: boolean },
+	): Promise<void> {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.switchCore(ref, opts);
 
@@ -528,7 +531,7 @@ export class GitRepositoryService {
 		);
 	}
 
-	private async switchCore(ref: string, options?: { createBranch?: string }) {
+	private async switchCore(ref: string, options?: { createBranch?: string; noTracking?: boolean }) {
 		try {
 			await this.ops?.checkout(ref, options);
 		} catch (ex) {

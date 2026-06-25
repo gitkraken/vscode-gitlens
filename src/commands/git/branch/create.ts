@@ -263,7 +263,10 @@ export class BranchCreateGitCommand extends QuickCommand<State> {
 				steps.markStepsComplete();
 
 				if (state.flags.includes('--switch')) {
-					await state.repo.git.switch(state.reference.ref, { createBranch: state.name });
+					await state.repo.git.switch(state.reference.ref, {
+						createBranch: state.name,
+						...(isRemoteBranch && state.name !== remoteBranchName ? { noTracking: true } : undefined),
+					});
 				} else {
 					try {
 						await state.repo.git.branches.createBranch?.(
