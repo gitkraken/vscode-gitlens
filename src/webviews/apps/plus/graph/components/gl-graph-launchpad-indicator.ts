@@ -5,9 +5,9 @@ import { customElement } from 'lit/decorators.js';
 import type { LaunchpadCommandArgs } from '../../../../../plus/launchpad/launchpad.js';
 import type { LaunchpadSummaryResult } from '../../../../../plus/launchpad/launchpadIndicator.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
-import { actionButton } from '../styles/graph.css.js';
 import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
 import { graphLaunchpadContext } from '../graphLaunchpadState.js';
+import { actionButton } from '../styles/graph.css.js';
 import './gl-launchpad-summary.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
@@ -88,8 +88,7 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 				padding: 0 var(--gl-space-8) var(--gl-space-4);
 			}
 
-			/* Not-connected welcome blurb — constrain width so the popover wraps to a readable column
-			   instead of stretching to the single-line max-content width. */
+			/* Not-connected welcome blurb — constrain width so the popover wraps to a readable column instead of stretching to the single-line max-content width. */
 			.welcome {
 				max-width: 26rem;
 				margin: 0 0 var(--gl-space-6);
@@ -114,7 +113,7 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const connected = this._state?.connected.get();
 
-		return html`<gl-popover placement="bottom" trigger="click focus" ?arrow=${false} distance=${0}>
+		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} distance=${0}>
 			<button
 				type="button"
 				class="action-button"

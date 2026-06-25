@@ -1273,7 +1273,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		>
 			<gl-tooltip slot="anchor" placement="bottom">
 				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start">
-					<code-icon icon="custom-start-work"></code-icon>
+					<code-icon icon="gl-start-new"></code-icon>
 					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
 				</button>
 				<span slot="content">Start</span>
