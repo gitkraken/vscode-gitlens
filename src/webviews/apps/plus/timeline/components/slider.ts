@@ -19,7 +19,7 @@ type WaTooltipLike = HTMLElement & { open: boolean; popup?: { reposition: () => 
 
 @customElement('gl-chart-slider')
 export class GlChartSlider extends GlElement {
-	static readonly tagName = tagName;
+	static readonly tagName = 'gl-chart-slider';
 
 	static override styles = css`
 		:host {
