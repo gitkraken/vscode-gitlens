@@ -202,7 +202,11 @@ export class CliBinaryInstaller implements Disposable {
 				scope?.trace(
 					`Fetching CLI proxy: platform=${platformName}, arch=${architecture}, edition=${insidersEnabled ? 'insiders' : 'production'}`,
 				);
-				const response = await fetchProxyMetadata(proxyUrl, proxyMetadataFetchTimeout);
+				const response = await fetchProxyMetadata(
+					proxyUrl,
+					proxyMetadataFetchTimeout,
+					this.container.userAgent,
+				);
 				if (!response.ok) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyUrlFetch,
@@ -234,7 +238,11 @@ export class CliBinaryInstaller implements Disposable {
 				}
 
 				scope?.trace(`Downloading CLI proxy (version: ${cliVersion})`);
-				const cliProxyZipFileDownloadData = await downloadProxyArchive(downloadUrl, proxyDownloadStallTimeout);
+				const cliProxyZipFileDownloadData = await downloadProxyArchive(
+					downloadUrl,
+					proxyDownloadStallTimeout,
+					this.container.userAgent,
+				);
 				if (cliProxyZipFileDownloadData.byteLength === 0) {
 					throw new CLIInstallError(
 						CLIInstallErrorReason.ProxyDownload,
@@ -569,9 +577,9 @@ function isAbortOrTimeoutError(ex: unknown): boolean {
 
 /** Fetches the proxy metadata JSON with a total-duration timeout, surfacing a stall as a `CLIInstallError`
  * (so it gets standard install-failure telemetry) instead of hanging until the OS socket timeout. */
-async function fetchProxyMetadata(url: string, timeoutMs: number): Promise<Response> {
+async function fetchProxyMetadata(url: string, timeoutMs: number, userAgent: string): Promise<Response> {
 	try {
-		return await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+		return await fetch(url, { headers: { 'User-Agent': userAgent }, signal: AbortSignal.timeout(timeoutMs) });
 	} catch (ex) {
 		if (isAbortOrTimeoutError(ex)) {
 			throw new CLIInstallError(
@@ -586,7 +594,7 @@ async function fetchProxyMetadata(url: string, timeoutMs: number): Promise<Respo
 
 /** Downloads the proxy archive, aborting if no bytes arrive for `stallTimeoutMs` (rationale on
  * `proxyDownloadStallTimeout`). Surfaces both HTTP failures and timeouts as `CLIInstallError`s. */
-async function downloadProxyArchive(url: string, stallTimeoutMs: number): Promise<Uint8Array> {
+async function downloadProxyArchive(url: string, stallTimeoutMs: number, userAgent: string): Promise<Uint8Array> {
 	const controller = new AbortController();
 	let timedOut = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -602,7 +610,7 @@ async function downloadProxyArchive(url: string, stallTimeoutMs: number): Promis
 
 	try {
 		armStallTimer();
-		const response = await fetch(url, { signal: controller.signal });
+		const response = await fetch(url, { headers: { 'User-Agent': userAgent }, signal: controller.signal });
 		if (!response.ok) {
 			throw new CLIInstallError(
 				CLIInstallErrorReason.ProxyFetch,

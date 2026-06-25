@@ -879,6 +879,11 @@ export class Container {
 		return this._usage;
 	}
 
+	/** Shared `GitLens/<version> (...)` User-Agent for outbound HTTP, sourced from the GK server connection. */
+	get userAgent(): string {
+		return this._connection.userAgent;
+	}
+
 	private readonly _walkthrough: WalkthroughStateProvider;
 	get walkthrough(): WalkthroughStateProvider {
 		return this._walkthrough;
