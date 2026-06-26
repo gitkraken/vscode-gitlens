@@ -423,10 +423,6 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case 'open-worktree':
 						void this.container.launchpad.switchTo(state.item, { openInWorktree: true });
 						break;
-					case 'switch-and-code-suggest':
-					case 'code-suggest':
-						void this.container.launchpad.switchTo(state.item, { startCodeSuggestion: true });
-						break;
 					case 'open-changes':
 						void this.container.launchpad.openChanges(state.item);
 						break;
@@ -1073,36 +1069,12 @@ export class LaunchpadCommand extends QuickCommand<State> {
 							),
 						);
 						break;
-					case 'switch-and-code-suggest':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: `Switch & Suggest ${
-										state.item.viewer.isAuthor ? 'Additional ' : ''
-									}Code Changes`,
-									detail: 'Will checkout and start suggesting code changes',
-								},
-								action,
-							),
-						);
-						break;
-					case 'code-suggest':
-						confirmations.push(
-							createQuickPickItemOfT(
-								{
-									label: `Suggest ${state.item.viewer.isAuthor ? 'Additional ' : ''}Code Changes`,
-									detail: 'Will start suggesting code changes',
-								},
-								action,
-							),
-						);
-						break;
 					case 'show-overview':
 						confirmations.push(
 							createQuickPickItemOfT(
 								{
-									label: 'Open Details',
-									detail: 'Will open the pull request details in the Side Bar',
+									label: 'Open Working Changes',
+									detail: 'Will open the working changes in the Commit Graph',
 								},
 								action,
 							),

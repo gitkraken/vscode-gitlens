@@ -53,7 +53,6 @@ import { getContext, onDidChangeContext, setContext } from '../../../system/-web
 import { gate } from '../../../system/decorators/gate.js';
 import type { Serialized } from '../../../system/serialize.js';
 import { serialize } from '../../../system/serialize.js';
-import { showInspectView } from '../../commitDetails/actions.js';
 import type { IpcParams, IpcResponse } from '../../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../../ipc/handlerRegistry.js';
 import type { WebviewHost, WebviewProvider } from '../../webviewProvider.js';
@@ -445,18 +444,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		if (this._context.mode === 'create') {
 			void this.container.views.drafts.show();
 		} else if (this._context.draft?.draftType === 'cloud') {
-			if (this._context.draft.type === 'suggested_pr_change') {
-				const repositoryOrIdentity = this._context.draft.changesets?.[0].patches[0].repository;
-				void showInspectView({
-					type: 'wip',
-					repository: isRepoLocated(repositoryOrIdentity)
-						? (repositoryOrIdentity as GlRepository)
-						: undefined,
-					source: 'patchDetails',
-				});
-			} else {
-				void this.container.views.drafts.revealDraft(this._context.draft);
-			}
+			void this.container.views.drafts.revealDraft(this._context.draft);
 		}
 	}
 

@@ -95,9 +95,7 @@ export type LaunchpadAction =
 	| 'open'
 	| 'soft-open'
 	| 'switch'
-	| 'switch-and-code-suggest'
 	| 'open-worktree'
-	| 'code-suggest'
 	| 'show-overview'
 	| 'open-changes'
 	| 'open-in-graph';
