@@ -391,6 +391,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the user takes an action on a launchpad item */
 	'launchpad/action': LaunchpadActionEvent;
+	/** Sent when the manual-vs-agent flow resolves for a launchpad _Start Review with an Agent_ action */
+	'launchpad/agent/resolved': LaunchpadAgentResolvedEvent;
 	/** Sent when the user changes launchpad configuration settings */
 	'launchpad/configurationChanged': LaunchpadConfigurationChangedEvent;
 	/** Sent when the user expands/collapses a launchpad group */
@@ -1648,6 +1650,8 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'open-suggestion'
 		| 'open-suggestion-browser';
 } & Partial<Record<`item.${string}`, string | number | boolean>>;
+
+type LaunchpadAgentResolvedEvent = LaunchpadEventData & AgentResolvedEventData;
 
 interface LaunchpadConfigurationChangedEvent {
 	'config.launchpad.staleThreshold': number | null;

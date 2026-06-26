@@ -55,7 +55,7 @@ import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
-import { resolveAgentFlow } from '../agents/agentPicker.js';
+import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
 import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
@@ -428,7 +428,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 						break;
 					case 'start-review':
 						// Cancelling the agent flow closes the wizard, mirroring StartReviewCommand.
-						yield* this.startReviewWithAgent(state);
+						yield* this.startReviewWithAgent(state, context);
 						break;
 					case 'open-changes':
 						void this.container.launchpad.openChanges(state.item);
@@ -455,16 +455,26 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	/**
 	 * Resolves the agent flow and hands off to the shared review pipeline for the selected item.
 	 * Forces the `'agent'` route so the action goes straight to the agent picker (or the persisted
-	 * default agent) rather than the manual-vs-agent pre-picker. `yield*` keeps the picker on the
-	 * wizard's step machinery, avoiding a collision with the still-alive confirm-step quickpick.
+	 * default agent) rather than the manual-vs-agent pre-picker. `yield*` keeps the agent picker on
+	 * the wizard's step machinery, preserving the single-quickpick model and back-navigation history.
 	 */
-	private async *startReviewWithAgent(state: LaunchpadStepState): AsyncStepResultGenerator<void> {
+	private async *startReviewWithAgent(state: LaunchpadStepState, context: Context): AsyncStepResultGenerator<void> {
 		// Defense-in-depth: the action is only offered when AI is enabled, but enforce it here too in
 		// case an item's cached suggested actions are stale relative to the org's AI setting.
 		if (!getContext('gitlens:gk:organization:ai:enabled', true)) return;
 
 		const flow = yield* resolveAgentFlow(this.container, { requestedRoute: 'agent' });
-		if (flow === StepResultBreak || flow.kind === 'cancel') return;
+		if (flow === StepResultBreak) return;
+
+		if (this.container.telemetry.enabled) {
+			this.container.telemetry.sendEvent(
+				'launchpad/agent/resolved',
+				{ ...context.telemetryContext!, ...buildAgentResolvedTelemetryData(flow) },
+				this.source,
+			);
+		}
+
+		if (flow.kind === 'cancel') return;
 
 		const agent = flow.kind === 'agent' ? flow.descriptor : undefined;
 		try {

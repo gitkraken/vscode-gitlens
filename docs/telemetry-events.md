@@ -4152,6 +4152,84 @@ void
 }
 ```
 
+### launchpad/agent/resolved
+
+> Sent when the manual-vs-agent flow resolves for a launchpad _Start Review with an Agent_ action
+
+```typescript
+{
+  'instance': number,
+  'items.error': string,
+  'agent.resolution': 'manual' | 'cancel',
+  'groups.blocked.collapsed': boolean,
+  'groups.blocked.count': number,
+  'groups.count': number,
+  'groups.current-branch.collapsed': boolean,
+  'groups.current-branch.count': number,
+  'groups.draft.collapsed': boolean,
+  'groups.draft.count': number,
+  'groups.follow-up.collapsed': boolean,
+  'groups.follow-up.count': number,
+  'groups.mergeable.collapsed': boolean,
+  'groups.mergeable.count': number,
+  'groups.needs-review.collapsed': boolean,
+  'groups.needs-review.count': number,
+  'groups.other.collapsed': boolean,
+  'groups.other.count': number,
+  'groups.pinned.collapsed': boolean,
+  'groups.pinned.count': number,
+  'groups.snoozed.collapsed': boolean,
+  'groups.snoozed.count': number,
+  'groups.waiting-for-review.collapsed': boolean,
+  'groups.waiting-for-review.count': number,
+  'initialState.group': string,
+  'initialState.selectTopItem': boolean,
+  'items.count': number,
+  'items.timings.codeSuggestionCounts': number,
+  'items.timings.enrichedItems': number,
+  'items.timings.prs': number
+}
+```
+
+or
+
+```typescript
+{
+  'instance': number,
+  'items.error': string,
+  'agent.id': string,
+  'agent.kind': 'ide-chat' | 'claude-extension' | 'cli',
+  'agent.resolution': 'agent',
+  'groups.blocked.collapsed': boolean,
+  'groups.blocked.count': number,
+  'groups.count': number,
+  'groups.current-branch.collapsed': boolean,
+  'groups.current-branch.count': number,
+  'groups.draft.collapsed': boolean,
+  'groups.draft.count': number,
+  'groups.follow-up.collapsed': boolean,
+  'groups.follow-up.count': number,
+  'groups.mergeable.collapsed': boolean,
+  'groups.mergeable.count': number,
+  'groups.needs-review.collapsed': boolean,
+  'groups.needs-review.count': number,
+  'groups.other.collapsed': boolean,
+  'groups.other.count': number,
+  'groups.pinned.collapsed': boolean,
+  'groups.pinned.count': number,
+  'groups.snoozed.collapsed': boolean,
+  'groups.snoozed.count': number,
+  'groups.waiting-for-review.collapsed': boolean,
+  'groups.waiting-for-review.count': number,
+  'initialState.group': string,
+  'initialState.selectTopItem': boolean,
+  'items.count': number,
+  'items.timings.codeSuggestionCounts': number,
+  'items.timings.enrichedItems': number,
+  'items.timings.prs': number
+}
+```
+
 ### launchpad/configurationChanged
 
 > Sent when the user changes launchpad configuration settings

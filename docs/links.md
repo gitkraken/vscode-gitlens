@@ -89,8 +89,6 @@ _{prefix}/r/{repoId}/b/{branchName}?{baseQuery}(&action={action})(&prId={prId})(
 
   - _switch-to-pr_: Does everything that the _switch_ action does, but also opens the inspect overview, which contains details about pull requests related to the branch.
 
-  - _switch-to-and-suggest-pr_: Does everything that the _switch-to-pr_ action does, but also opens the form to submit a new code suggestion.
-
   - _switch-to-pr-worktree_: Does everything that the _switch-to-pr_ action does, but always chooses to open the branch in a worktree, creating a new one if needed and creating a new local branch if needed. For creating the local branch and worktree, default options are chosen. The worktree is then opened in a new window.
 
   - _delete-branch_: Delete the branch after confirmation.
