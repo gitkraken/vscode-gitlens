@@ -27,3 +27,31 @@
 		@content;
 	}
 }
+
+// Four explicit per-scheme mixins — unlike dark-theme/light-theme above (which fold high-contrast
+// into dark/light), these keep all four VS Code schemes distinct so the color system can assign
+// high-contrast its own values. The new --gl-color-* foundation uses these; existing call sites
+// keep dark-theme/light-theme until migrated. Same $selectorPrefix/$selectorPostfix contract.
+@mixin scheme-dark($selectorPrefix: '', $selectorPostfix: '') {
+	#{$selectorPrefix}.vscode-dark#{$selectorPostfix} {
+		@content;
+	}
+}
+
+@mixin scheme-light($selectorPrefix: '', $selectorPostfix: '') {
+	#{$selectorPrefix}.vscode-light#{$selectorPostfix} {
+		@content;
+	}
+}
+
+@mixin scheme-hc-dark($selectorPrefix: '', $selectorPostfix: '') {
+	#{$selectorPrefix}.vscode-high-contrast:not(.vscode-high-contrast-light)#{$selectorPostfix} {
+		@content;
+	}
+}
+
+@mixin scheme-hc-light($selectorPrefix: '', $selectorPostfix: '') {
+	#{$selectorPrefix}.vscode-high-contrast-light#{$selectorPostfix} {
+		@content;
+	}
+}
