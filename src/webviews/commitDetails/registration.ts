@@ -1,9 +1,9 @@
 import type { CommitSelectedEvent } from '../../eventBus.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewsController, WebviewViewProxy } from '../webviewsController.js';
-import type { ShowWipArgs, State } from './protocol.js';
+import type { State } from './protocol.js';
 
-export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']> | ShowWipArgs];
+export type CommitDetailsWebviewShowingArgs = [Partial<CommitSelectedEvent['data']>];
 
 export function registerCommitDetailsWebviewView(
 	controller: WebviewsController,

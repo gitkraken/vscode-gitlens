@@ -6,12 +6,12 @@
  * 2. Make RPC calls to the backend
  *
  * Patterns used:
- * - Resources: commit, wip, reachability, explain, generate resources handle
+ * - Resources: commit, reachability, explain resources handle
  *   fetch/cancel/staleness (replaces CancellableRequest + manual loading)
  * - Auto-persistence: persisted signals are auto-saved via `startAutoPersist()`
  *   (replaces manual `persistState()` / `getHostIpcApi().setState()`)
  * - State bridging: after resource fetch, actions writes results to state signals
- *   so derived signals (isUncommitted, wipStatus) and events can read them
+ *   so derived signals (isUncommitted) and events can read them
  *
  * The CommitDetailsActions class requires resolved sub-services, state, and
  * resources in the constructor (resolve-once pattern), which enables:
@@ -33,36 +33,23 @@ import type { Autolink } from '../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../config.js';
 import type { GlExtensionCommands } from '../../../constants.commands.js';
 import type { InspectWebviewTelemetryContext, TelemetryEvents } from '../../../constants.telemetry.js';
-import type { Draft } from '../../../plus/drafts/models/drafts.js';
 import type { CommitDetailsServices, InitialContext } from '../../commitDetails/commitDetailsService.js';
-import type {
-	CommitDetails,
-	CommitSignatureShape,
-	FileShowOptions,
-	Mode,
-	Wip,
-	WipChange,
-} from '../../commitDetails/protocol.js';
+import type { CommitDetails, CommitSignatureShape, FileShowOptions } from '../../commitDetails/protocol.js';
 import { fetchCommitEnrichment } from '../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import * as fileActions from '../shared/actions/file.js';
-import * as gitActions from '../shared/actions/git.js';
 import * as prActions from '../shared/actions/pr.js';
 import {
 	enrichmentGuard,
-	entry,
 	fireAndForget,
 	fireRpc,
 	noop,
 	noopUnlessReal,
-	optimisticBatchFireAndForget,
 	optimisticFireAndForget,
 } from '../shared/actions/rpc.js';
 import { NavigationStack } from '../shared/controllers/navigationStack.js';
-import { getRemoteNameFromBranchName } from '../shared/git-utils.js';
 import type { Resource } from '../shared/state/resource.js';
-import type { CreatePatchEventDetail } from './components/gl-inspect-patch.js';
-import type { CommitDetailsState, ExplainState, GenerateState } from './state.js';
+import type { CommitDetailsState, ExplainState } from './state.js';
 
 // ============================================================
 // Resolved Services Type (resolve-once pattern)
@@ -100,10 +87,8 @@ export interface ResolvedServices {
  */
 export interface CommitDetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
-	readonly wip: Resource<Wip | undefined, [string | undefined]>;
 	readonly reachability: Resource<GitCommitReachability | undefined>;
 	readonly explain: Resource<ExplainState | undefined, [string | undefined]>;
-	readonly generate: Resource<GenerateState | undefined>;
 }
 
 interface FetchCommitOptions {
@@ -139,8 +124,6 @@ const commitEnrichmentCacheLimit = 32;
  */
 export class CommitDetailsActions {
 	private _navigating = false;
-	private _wipWatchRepoPath: string | undefined;
-	private _wipWatchUnsubscribe: (() => void) | undefined;
 
 	/** Aborts when a new commit selection arrives — propagates to host-side enrichment RPCs
 	 *  via `signal?.throwIfAborted()` so abandoned work stops at the next checkpoint instead
@@ -188,46 +171,8 @@ export class CommitDetailsActions {
 	 */
 	cancelPendingRequests(): void {
 		this.resources.commit.cancel();
-		this.resources.wip.cancel();
 		this.resources.reachability.cancel();
 		this.resources.explain.cancel();
-		this.resources.generate.cancel();
-	}
-
-	/**
-	 * Subscribe to FS changes for a WIP repo. Unsubscribes from previous repo if different.
-	 *
-	 * Supertalk RPC marshals subscription methods as `Promise<Unsubscribe>`, so the call
-	 * must be awaited — a synchronous assignment captures the Promise (not callable)
-	 * and breaks teardown with `is not a function`.
-	 */
-	private watchWipRepo(repoPath: string): void {
-		if (repoPath === this._wipWatchRepoPath) return;
-
-		this._wipWatchUnsubscribe?.();
-		this._wipWatchUnsubscribe = undefined;
-		this._wipWatchRepoPath = repoPath;
-
-		void (async () => {
-			const unsubscribe = (await this.services.repository.onRepositoryWorkingChanged(repoPath, () => {
-				void this.fetchWipState(repoPath);
-			})) as unknown as (() => void) | undefined;
-			if (typeof unsubscribe !== 'function') return;
-			// Repo changed again (or was cleared) while awaiting — drop this subscription.
-			if (this._wipWatchRepoPath !== repoPath) {
-				unsubscribe();
-				return;
-			}
-
-			this._wipWatchUnsubscribe = unsubscribe;
-		})();
-	}
-
-	/** Stop watching WIP repo FS changes. */
-	unwatchWip(): void {
-		this._wipWatchUnsubscribe?.();
-		this._wipWatchUnsubscribe = undefined;
-		this._wipWatchRepoPath = undefined;
 	}
 
 	// ============================================================
@@ -314,53 +259,6 @@ export class CommitDetailsActions {
 	 */
 	searchCommit(): void {
 		fireAndForget(this.services.inspect.searchCommit(), 'search commit');
-	}
-
-	// ============================================================
-	// Mode Switching Actions
-	// ============================================================
-
-	/**
-	 * Switch between commit and WIP modes.
-	 * When switching to WIP, also fetches WIP data.
-	 * Auto-persisted via `startAutoPersist()` — no manual `persistState()`.
-	 */
-	switchMode(newMode: Mode): void {
-		if (newMode === this.state.mode.get()) return;
-
-		const commit = this.state.currentCommit.get();
-		const repoPath = commit?.repoPath;
-
-		// Update mode immediately
-		this.state.mode.set(newMode);
-
-		// Tell backend about mode change (handles telemetry)
-		this.services.inspect.switchMode(newMode, repoPath).catch((ex: unknown) => {
-			Logger.error(ex, 'switch mode RPC failed');
-		});
-
-		// If switching to WIP, fetch WIP data (also starts FS watching)
-		if (newMode === 'wip') {
-			void this.fetchWipState(repoPath);
-		} else {
-			this.unwatchWip();
-		}
-	}
-
-	/**
-	 * Toggle review mode for WIP.
-	 * Uses optimistic batch update with rollback on error.
-	 */
-	changeReviewMode(inReview: boolean): void {
-		if (inReview === this.state.inReview.get()) return;
-
-		const repoPath = this.state.wipState.get()?.repo?.path;
-		optimisticBatchFireAndForget(
-			[entry(this.state.inReview, inReview), entry(this.state.draftState, { inReview: inReview })],
-			this.services.inspect.changeReviewMode(inReview, repoPath),
-			'change review mode',
-			this.state.error,
-		);
 	}
 
 	// ============================================================
@@ -468,145 +366,16 @@ export class CommitDetailsActions {
 	}
 
 	// ============================================================
-	// Git Actions
-	// ============================================================
-
-	/** Get the current repository path (from WIP state or commit) */
-	private getRepoPath(): string | undefined {
-		const wip = this.state.wipState.get();
-		if (wip?.repo?.path) return wip.repo.path;
-		return this.state.currentCommit.get()?.repoPath;
-	}
-
-	fetch(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.fetch(this.services.repository, repoPath);
-	}
-
-	push(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.push(this.services.repository, repoPath);
-	}
-
-	pull(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.pull(this.services.repository, repoPath);
-	}
-
-	switchBranch(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.switchBranch(this.services.repository, repoPath);
-	}
-
-	startWork(): void {
-		void this.services.commands.execute('gitlens.startWork', { source: 'inspect' });
-	}
-
-	createPullRequest(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		const wip = this.state.wipState.get();
-		const branch = wip?.branch;
-		const upstreamName = branch?.upstream?.name;
-		if (branch?.name == null || upstreamName == null) return;
-
-		void this.services.commands.execute('gitlens.createPullRequestOnRemote', {
-			repoPath: repoPath,
-			compare: branch.name,
-			remote: getRemoteNameFromBranchName(upstreamName),
-		});
-	}
-
-	createBranch(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		void this.services.repository.createBranch(repoPath);
-	}
-
-	applyStash(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		void this.services.commands.execute('gitlens.stashesApply', { repoPath: repoPath });
-	}
-
-	createWorktree(): void {
-		void this.services.commands.execute('gitlens.views.createWorktree');
-	}
-
-	stageFile(file: GitFileChangeShape): void {
-		gitActions.stageFile(this.state.error, this.services.repository, file);
-	}
-
-	unstageFile(file: GitFileChangeShape): void {
-		gitActions.unstageFile(this.state.error, this.services.repository, file);
-	}
-
-	stageFiles(files: GitFileChangeShape[]): void {
-		gitActions.stageFiles(this.state.error, this.services.repository, files);
-	}
-
-	unstageFiles(files: GitFileChangeShape[]): void {
-		gitActions.unstageFiles(this.state.error, this.services.repository, files);
-	}
-
-	discardFile(file: GitFileChangeShape): void {
-		gitActions.discardFile(this.state.error, this.services.repository, file);
-	}
-
-	discardFiles(files: GitFileChangeShape[]): void {
-		gitActions.discardFiles(this.state.error, this.services.repository, files);
-	}
-
-	stashFile(file: GitFileChangeShape): void {
-		gitActions.stashFile(this.state.error, this.services.repository, file);
-	}
-
-	stashFiles(files: GitFileChangeShape[]): void {
-		gitActions.stashFiles(this.state.error, this.services.repository, files);
-	}
-
-	discardUnstagedFiles(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.discardUnstagedFiles(this.state.error, this.services.repository, repoPath);
-	}
-
-	discardStagedFiles(): void {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		gitActions.discardStagedFiles(this.state.error, this.services.repository, repoPath);
-	}
-
-	openConflictChanges(file: GitFileChangeShape, side: 'current' | 'incoming'): void {
-		void this.services.repository.openConflictChanges(file, side);
-	}
-
-	// ============================================================
 	// File Actions
 	// ============================================================
 
 	/**
-	 * Get the current commit's ref + whether it's a stash for file actions. WIP mode returns
-	 * undefined so callers fall through the `ref == null` branches (uncommitted path). The
+	 * Get the current commit's ref + whether it's a stash for file actions. Returns undefined for
+	 * uncommitted shas so callers fall through the `ref == null` branches (uncommitted path). The
 	 * `stash` flag lets `FilesService` route stash refs through the stash sub-provider (which
 	 * has untracked files in its fileset) instead of `commits.getCommit` (which doesn't).
 	 */
 	private getCurrentRef(): { ref: string; stash?: boolean } | undefined {
-		if (this.state.mode.get() === 'wip') return undefined;
-
 		const commit = this.state.currentCommit.get();
 		if (commit?.sha == null || isUncommitted(commit.sha)) return undefined;
 		return { ref: commit.sha, stash: commit.stashNumber != null };
@@ -704,7 +473,7 @@ export class CommitDetailsActions {
 		| { repoPath: string; refs: PullRequestRefs; url: string; id: string; provider: string }
 		| undefined {
 		const pr = this.state.pullRequest.get();
-		const repoPath = this.state.wipState.get()?.repo?.path ?? this.state.currentCommit.get()?.repoPath;
+		const repoPath = this.state.currentCommit.get()?.repoPath;
 		if (!pr?.refs || !repoPath) return undefined;
 		return {
 			repoPath: repoPath,
@@ -715,86 +484,11 @@ export class CommitDetailsActions {
 		};
 	}
 
-	openPullRequestChanges(): void {
-		const ctx = this.getPrContext();
-		if (!ctx) return;
-
-		prActions.openPullRequestChanges(this.services.pullRequests, ctx.repoPath, ctx.refs);
-	}
-
-	openPullRequestComparison(): void {
-		const ctx = this.getPrContext();
-		if (!ctx) return;
-
-		prActions.openPullRequestComparison(this.services.pullRequests, ctx.repoPath, ctx.refs);
-	}
-
-	openPullRequestOnRemote(): void {
-		const ctx = this.getPrContext();
-		if (!ctx) return;
-
-		prActions.openPullRequestOnRemote(this.services.pullRequests, ctx.url);
-	}
-
 	openPullRequestDetails(): void {
 		const ctx = this.getPrContext();
 		if (!ctx) return;
 
 		prActions.openPullRequestDetails(this.services.pullRequests, ctx.repoPath, ctx.id, ctx.provider);
-	}
-
-	// ============================================================
-	// Draft/Patch Actions
-	// ============================================================
-
-	/**
-	 * Create a patch from WIP changes.
-	 */
-	createPatchFromWip(changes: WipChange, checked: boolean | 'staged'): void {
-		fireAndForget(this.services.drafts.createPatchFromWip(changes, checked), 'create patch from WIP');
-	}
-
-	/**
-	 * Copy a WIP patch to the system clipboard.
-	 *
-	 * Scope selects which slice of the working tree to capture:
-	 * - `all`      → HEAD ↔ working tree (matches the existing Copy as Patch command).
-	 * - `staged`   → HEAD ↔ index (staged hunks only; conflicts surface here).
-	 * - `unstaged` → index ↔ working tree (unstaged hunks only).
-	 *
-	 * `uris` (optional, scope-filtered repo-relative paths) constrains the underlying
-	 * `git diff` via pathspec — required for `staged`/`unstaged` to mirror what Open
-	 * Multi-Diff shows for the same scope, especially around merge-conflict files which
-	 * raw `git diff` would otherwise emit regardless of intent. Omit for `all` so git
-	 * sees the entire working tree (including the `intentToAdd`-staged untracked files).
-	 */
-	copyWipPatchToClipboard(repoPath: string, scope: 'all' | 'staged' | 'unstaged', uris?: readonly string[]): void {
-		fireAndForget(this.services.drafts.copyWipPatchToClipboard(repoPath, scope, uris), 'copy WIP patch');
-	}
-
-	/**
-	 * Suggest changes (create a draft).
-	 * Requires WIP state with PR context.
-	 */
-	suggestChanges(params: CreatePatchEventDetail): void {
-		const wip = this.state.wipState.get();
-		if (!wip?.repo?.path) return;
-
-		void this.services.drafts
-			.suggestChanges({
-				repoPath: wip.repo.path,
-				...params,
-			})
-			.then(() => {
-				this.changeReviewMode(false);
-			}, noop);
-	}
-
-	/**
-	 * Show a code suggestion.
-	 */
-	showCodeSuggestion(draft: Draft): void {
-		fireAndForget(this.services.drafts.showCodeSuggestion(draft), 'show code suggestion');
 	}
 
 	// ============================================================
@@ -810,17 +504,6 @@ export class CommitDetailsActions {
 		if (!commit) return;
 
 		await this.resources.explain.fetch(prompt);
-	}
-
-	/**
-	 * Generate AI title and description for WIP changes.
-	 * Resource handles cancel-previous and staleness.
-	 */
-	async generateDescription(): Promise<void> {
-		const repoPath = this.getRepoPath();
-		if (!repoPath) return;
-
-		await this.resources.generate.fetch();
 	}
 
 	// ============================================================
@@ -863,7 +546,7 @@ export class CommitDetailsActions {
 
 	/**
 	 * Fetch all initial state for the webview.
-	 * Persisted mode/pinned/commitRef are already restored by `createStateGroup` —
+	 * Persisted pinned/commitRef are already restored by `createStateGroup` —
 	 * no manual `getHostIpcApi().getState()` needed.
 	 */
 	async fetchInitialState(): Promise<void> {
@@ -871,29 +554,14 @@ export class CommitDetailsActions {
 		this.state.error.set(undefined);
 
 		// Persisted signals already contain restored values from previous session
-		const persistedMode = this.state.mode.get();
 		const persistedPinned = this.state.pinned.get();
 		const persistedCommitRef = this.state.commitRef.get();
 
 		try {
-			// Get initial context (mode, navigation, initial commit/wip info)
+			// Get initial context (pinned, initial commit info)
 			const context: InitialContext = await this.services.inspect.getInitialContext();
 
-			// When the host explicitly provides an initial commit, honor its mode (e.g., graph
-			// selecting a specific commit should show it in commit mode, not WIP).
-			// Otherwise, persisted state takes priority — it reflects the user's most recent interaction.
-			const mode =
-				context.initialCommit != null
-					? context.mode
-					: persistedMode !== 'commit'
-						? persistedMode
-						: context.mode;
-			const pinned = persistedPinned || context.pinned;
-
-			this.state.mode.set(mode);
-			this.state.pinned.set(pinned);
-			this.state.inReview.set(context.inReview);
-			this.state.draftState.set({ inReview: context.inReview });
+			this.state.pinned.set(persistedPinned || context.pinned);
 
 			// Fire config calls as fire-and-forget — each sets its signal on resolve.
 			// These don't gate domain data; signals have safe defaults until they arrive.
@@ -906,13 +574,11 @@ export class CommitDetailsActions {
 				.getIntegrationStates()
 				.then(s => (this.state.capabilities.hasIntegrationsConnected = s.some(i => i.connected)), noop);
 
-			// Fetch domain data based on mode — the only thing worth blocking on.
+			// Fetch the initial commit — the only thing worth blocking on.
 			// Use persisted commitRef as fallback when host has no initial commit.
 			const initialCommit = context.initialCommit ?? persistedCommitRef;
-			if (mode === 'commit' && initialCommit != null) {
+			if (initialCommit != null) {
 				await this.fetchCommit(initialCommit.repoPath, initialCommit.sha);
-			} else if (mode === 'wip') {
-				await this.fetchWipState(context.initialWipRepoPath);
 			}
 		} catch (ex) {
 			Logger.error(ex, 'Failed to fetch initial state');
@@ -945,7 +611,6 @@ export class CommitDetailsActions {
 		this.state.error.set(undefined);
 		this.resources.reachability.cancel();
 		this.resources.explain.cancel();
-		this.resources.generate.cancel();
 
 		// Abort any prior in-flight enrichment so a slow autolinks / PR / signature lookup from
 		// the previous selection can't overwrite the new selection's state. Host-side methods
@@ -1051,54 +716,6 @@ export class CommitDetailsActions {
 	}
 
 	/**
-	 * Fetch WIP state from the backend.
-	 * Resource handles cancel-previous and loading state. After fetch,
-	 * the result is written to state signals. PR and code suggestions
-	 * are fire-and-forget.
-	 */
-	async fetchWipState(repoPath?: string): Promise<void> {
-		this.state.error.set(undefined);
-
-		// Clear WIP-dependent state
-		this.state.pullRequest.set(undefined);
-		this.state.codeSuggestions.set(undefined);
-
-		await this.resources.wip.fetch(repoPath);
-
-		// Write result to state for derived signals and events
-		if (this.resources.wip.status.get() === 'success') {
-			const wip = this.resources.wip.value.get();
-			this.state.wipState.set(wip);
-
-			// Watch this repo for FS changes (replaces backend subscribeToRepository)
-			const effectiveRepoPath = wip?.repo?.path ?? repoPath;
-			if (effectiveRepoPath != null) {
-				this.watchWipRepo(effectiveRepoPath);
-
-				// Fire PR and code suggestions in parallel — don't block WIP render
-				// enrichmentGuard() prevents stale callbacks from writing data for a replaced WIP
-				const guard = <T>(onResult: (value: T) => void) => enrichmentGuard<T>(this.resources.wip, onResult);
-				void this.services.pullRequests.getPullRequestForBranch(effectiveRepoPath).then(
-					guard(pr => {
-						this.state.pullRequest.set(pr);
-						if (pr != null) {
-							void this.services.drafts.getCodeSuggestions(effectiveRepoPath).then(
-								enrichmentGuard(this.resources.wip, suggestions =>
-									this.state.codeSuggestions.set(suggestions),
-								),
-								noop,
-							);
-						}
-					}),
-					noop,
-				);
-			}
-		} else if (this.resources.wip.error.get() != null) {
-			this.state.error.set(this.resources.wip.error.get());
-		}
-	}
-
-	/**
 	 * Fetch preferences from the backend via individual config calls.
 	 */
 	async fetchPreferences(): Promise<void> {
@@ -1180,60 +797,6 @@ export class CommitDetailsActions {
 			this.state.capabilities.hasIntegrationsConnected = states.some(i => i.connected);
 		} catch (ex) {
 			Logger.error(ex, 'Failed to check integrations status');
-		}
-	}
-
-	// ============================================================
-	// Branch Actions (convenience wrapper)
-	// ============================================================
-
-	/**
-	 * Handle branch action by name.
-	 */
-	handleBranchAction(action: string): void {
-		switch (action) {
-			case 'pull':
-				this.pull();
-				break;
-			case 'push':
-				this.push();
-				break;
-			case 'fetch':
-				this.fetch();
-				break;
-			case 'publish-branch':
-				this.push();
-				break;
-			case 'switch':
-				this.switchBranch();
-				break;
-			case 'create-pr':
-				this.createPullRequest();
-				break;
-			case 'start-work':
-				this.startWork();
-				break;
-			case 'create-branch':
-				this.createBranch();
-				break;
-			case 'apply-stash':
-				this.applyStash();
-				break;
-			case 'new-worktree':
-				this.createWorktree();
-				break;
-			case 'open-pr-changes':
-				this.openPullRequestChanges();
-				break;
-			case 'open-pr-compare':
-				this.openPullRequestComparison();
-				break;
-			case 'open-pr-remote':
-				this.openPullRequestOnRemote();
-				break;
-			case 'open-pr-details':
-				this.openPullRequestDetails();
-				break;
 		}
 	}
 }

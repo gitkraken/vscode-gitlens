@@ -10,8 +10,6 @@ import type { SigningFormat } from '@gitlens/git/models/signature.js';
 import type { CurrentUserNameStyle } from '@gitlens/git/utils/commit.utils.js';
 import type { DateTimeFormat } from '@gitlens/utils/date.js';
 import type { Config, DateStyle } from '../../config.js';
-import type { Sources } from '../../constants.telemetry.js';
-import type { GlRepository } from '../../git/models/repository.js';
 import type { WebviewItemContext } from '../../system/webview.js';
 import { serializeWebviewItemContext } from '../../system/webview.js';
 import type { IpcScope } from '../ipc/models/ipc.js';
@@ -79,8 +77,6 @@ export interface Preferences {
 	searchBoxFilter: boolean;
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
-
-export type Mode = 'commit' | 'wip';
 
 export interface GitBranchShape {
 	name: string;
@@ -154,8 +150,6 @@ export interface DraftState {
 }
 
 export interface State extends WebviewState<'gitlens.views.commitDetails'> {
-	mode: Mode;
-
 	pinned: boolean;
 	preferences: Preferences;
 	orgSettings: {
@@ -167,21 +161,12 @@ export interface State extends WebviewState<'gitlens.views.commitDetails'> {
 	autolinksEnabled: boolean;
 	autolinkedIssues?: IssueOrPullRequest[];
 	pullRequest?: PullRequestShape;
-	wip?: Wip;
-	inReview?: boolean;
 	hasAccount: boolean;
 	hasIntegrationsConnected: boolean;
 	searchContext?: GitCommitSearchContext;
 }
 
 export type ShowCommitDetailsViewCommandArgs = string[];
-
-export interface ShowWipArgs {
-	type: 'wip';
-	inReview?: boolean;
-	repository?: GlRepository;
-	source: Sources;
-}
 
 // COMMANDS
 
