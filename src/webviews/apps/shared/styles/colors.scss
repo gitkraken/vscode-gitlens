@@ -1,0 +1,155 @@
+// GitLens semantic color tokens (--gl-color-*). The layer webview code consumes.
+//
+//   L0    --vscode-*              VS Code's palette — the basis for all functional color
+//   L0.5  --gl-color-*-base       the few hues VS Code lacks; assigned per scheme below
+//   L1    --gl-color-{role}-…     semantic tokens, derived from L0/L0.5 via color-mix()
+//
+// Four schemes are assigned via the :root:has(...) selectors VS Code's root classes enable
+// (scheme-* mixins in utils.scss). Meaning-bearing color stays vivid in high-contrast; decorative
+// color drops to border-defined (the elevated-surface contract handles that, untouched here).
+// Legacy --color-* names are kept as faithful aliases in theme.scss — see that file.
+// Derivative convention: oklch for tints/shades, srgb for alpha/transparency. Full reference: docs/webview-styling.md.
+
+@use 'utils';
+
+// ── L0.5 · GitLens primitives ───────────────────────────────────────────────
+// Only the hues VS Code has no good token for. The base :root values are a dark-leaning fallback;
+// the scheme blocks below are authoritative once a .vscode-* class is present.
+:root {
+	--gl-color-success-base: #3fb950;
+	// Hand-picked slate-purple — reads as "AI / in motion" on light & dark without colliding with
+	// chip blue or waiting yellow; intentionally NOT a --vscode-* token (those vary too wildly).
+	--gl-color-agent-working-base: #7b68ee;
+	--gl-color-agent-waiting-base: var(--vscode-editorWarning-foreground, #cca700);
+	--gl-color-agent-idle-base: var(--vscode-descriptionForeground);
+	--gl-color-tracking-ahead-base: #4ec9b0;
+	--gl-color-tracking-behind-base: #ce9178;
+	--gl-color-scrim-base: #000;
+	// Max-contrast text over a saturated fill (accent/status). Most fills are dark enough for white;
+	// hc-light flips to black. Surfaces with an unusually light fill override locally.
+	--gl-color-on-emphasis-base: #fff;
+	--gl-color-brand-base: #a371f7;
+	--gl-color-ai-1-base: #7c3aed;
+	--gl-color-ai-2-base: #0ea5e9;
+	--gl-color-ai-3-base: #06b6d4;
+}
+
+@include utils.scheme-light(':root:has(', ')') {
+	--gl-color-success-base: #1a7f37; // darker green stays legible on white
+	--gl-color-brand-base: #8250df;
+}
+
+@include utils.scheme-hc-dark(':root:has(', ')') {
+	--gl-color-agent-working-base: #b3a4ff; // brighten for black bg
+}
+
+@include utils.scheme-hc-light(':root:has(', ')') {
+	--gl-color-success-base: #0f5323;
+	--gl-color-agent-working-base: #5a3fb8;
+	--gl-color-on-emphasis-base: #000;
+}
+
+// ── Tint direction (one factor per scheme) ───────────────────────────────────
+// Collapses the lighten-in-dark / darken-in-light duplication: surface tints below mix toward this
+// single value, so one declaration is correct in all four schemes. white in dark, black in light.
+:root {
+	--gl-tint-toward: #fff;
+}
+@include utils.scheme-light(':root:has(', ')') {
+	--gl-tint-toward: #000;
+}
+@include utils.scheme-hc-light(':root:has(', ')') {
+	--gl-tint-toward: #000;
+}
+
+// ── L1 · Semantic tokens — the layer consumers read ──────────────────────────
+// Base tokens adopt the EXACT current definitions (from theme.scss) so the legacy --color-* aliases
+// stay pixel-identical; new tokens (surface-raised, border-*, status surfaces, …) get clean defs.
+:root {
+	// Foreground
+	--gl-color-fg: var(--vscode-editor-foreground, var(--vscode-foreground));
+	--gl-color-fg-muted: var(--vscode-descriptionForeground, color-mix(in srgb, transparent 35%, var(--gl-color-fg)));
+	--gl-color-fg-subtle: color-mix(in srgb, transparent 50%, var(--gl-color-fg));
+	--gl-color-fg-faint: color-mix(in srgb, transparent 75%, var(--gl-color-fg));
+	--gl-color-fg-disabled: var(--vscode-disabledForeground, var(--gl-color-fg-faint));
+	--gl-color-fg-on-emphasis: var(--gl-color-on-emphasis-base);
+
+	// Surface — base matches current --color-background; placement repointing preserved below.
+	--gl-color-surface: var(--vscode-editor-background);
+	--gl-color-surface-raised: color-mix(in oklch, var(--gl-color-surface), var(--gl-tint-toward) 6%);
+	--gl-color-surface-sunken: color-mix(in oklch, var(--gl-color-surface), var(--gl-tint-toward) 3%);
+	--gl-color-surface-hover: var(--vscode-list-hoverBackground);
+	--gl-color-surface-selected: var(--vscode-list-activeSelectionBackground);
+	--gl-color-surface-selected-fg: var(--vscode-list-activeSelectionForeground, var(--gl-color-fg));
+	--gl-color-surface-code: var(--vscode-textCodeBlock-background);
+	--gl-color-scrim: color-mix(in srgb, var(--gl-color-scrim-base) 50%, transparent);
+
+	// Border
+	--gl-color-border: var(--vscode-widget-border, color-mix(in srgb, transparent 75%, var(--gl-color-fg)));
+	--gl-color-border-subtle: var(--vscode-panel-border, var(--gl-color-border));
+	--gl-color-border-focus: var(--vscode-focusBorder);
+	// Unset in normal themes (→ no border), set in high-contrast — self-collapsing, by design.
+	--gl-color-border-contrast: var(--vscode-contrastBorder);
+	--gl-color-border-sash-hover: var(--vscode-sash-hoverBorder, var(--gl-color-border-focus));
+
+	// Accent / interactive — base matches current --color-button-* / --color-link-* / --color-highlight.
+	--gl-color-accent: var(--vscode-button-background, transparent);
+	--gl-color-accent-fg: var(--vscode-button-foreground, var(--gl-color-fg));
+	--gl-color-accent-active: color-mix(in srgb, #000 30%, var(--gl-color-accent));
+	--gl-color-accent-secondary: var(--vscode-button-secondaryBackground, transparent);
+	--gl-color-link: var(--vscode-textLink-foreground);
+	--gl-color-link-active: var(--vscode-textLink-activeForeground, var(--gl-color-link));
+	--gl-color-highlight: var(--vscode-button-background, var(--vscode-button-border));
+
+	// Status + alert surfaces (GitLens-owned: VS Code has no general banner bg+border pair).
+	--gl-color-success: var(--gl-color-success-base);
+	--gl-color-warning: var(--vscode-editorWarning-foreground, #cca700);
+	--gl-color-danger: var(--vscode-errorForeground, var(--vscode-editorError-foreground));
+	--gl-color-info: var(--vscode-inputValidation-infoBorder, var(--gl-color-link));
+	--gl-color-on-status: var(--gl-color-on-emphasis-base);
+	--gl-color-info-bg: color-mix(in srgb, var(--gl-color-info) 18%, var(--gl-color-surface));
+	--gl-color-info-border: color-mix(in srgb, var(--gl-color-info) 50%, var(--gl-color-surface));
+	--gl-color-warning-bg: color-mix(in srgb, var(--gl-color-warning) 18%, var(--gl-color-surface));
+	--gl-color-warning-border: color-mix(in srgb, var(--gl-color-warning) 50%, var(--gl-color-surface));
+	--gl-color-danger-bg: color-mix(in srgb, var(--gl-color-danger) 18%, var(--gl-color-surface));
+	--gl-color-danger-border: color-mix(in srgb, var(--gl-color-danger) 50%, var(--gl-color-surface));
+	--gl-color-neutral-bg: color-mix(in srgb, var(--gl-color-fg) 6%, var(--gl-color-surface));
+
+	// GitLens domain — diff stats decoupled from the chart-semantic tokens they used to borrow.
+	--gl-color-diff-added: var(--vscode-gitDecoration-addedResourceForeground, var(--gl-color-success));
+	--gl-color-diff-modified: var(--vscode-gitDecoration-modifiedResourceForeground, var(--gl-color-warning));
+	--gl-color-diff-removed: var(--vscode-gitDecoration-deletedResourceForeground, var(--gl-color-danger));
+	--gl-color-agent-working: var(--gl-color-agent-working-base);
+	--gl-color-agent-waiting: var(--gl-color-agent-waiting-base);
+	--gl-color-agent-idle: var(--gl-color-agent-idle-base);
+	--gl-color-tracking-ahead: var(--gl-color-tracking-ahead-base);
+	--gl-color-tracking-behind: var(--gl-color-tracking-behind-base);
+
+	// Expressive
+	--gl-color-brand: var(--gl-color-brand-base);
+	--gl-color-brand-on: var(--gl-color-on-emphasis-base);
+	--gl-color-ai-1: var(--gl-color-ai-1-base);
+	--gl-color-ai-2: var(--gl-color-ai-2-base);
+	--gl-color-ai-3: var(--gl-color-ai-3-base);
+}
+
+// Placement repointing — matches current --color-background behavior (theme.scss).
+body[data-placement='view'] {
+	--gl-color-surface: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+body[data-placement='panel'] {
+	--gl-color-surface: var(--vscode-panel-background, var(--vscode-editor-background));
+}
+
+// Light themes: many gitDecoration colors are too pale on white — match the current
+// --gl-stat-* light-theme punch-up so diff stats stay legible.
+@include utils.scheme-light(':root:has(', ')') {
+	--gl-color-diff-added: #2da44e;
+	--gl-color-diff-modified: #bf8700;
+	--gl-color-diff-removed: #cf222e;
+}
+@include utils.scheme-hc-light(':root:has(', ')') {
+	--gl-color-diff-added: #2da44e;
+	--gl-color-diff-modified: #bf8700;
+	--gl-color-diff-removed: #cf222e;
+}

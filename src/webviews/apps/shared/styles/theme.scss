@@ -1,5 +1,6 @@
 @use '../../shared/styles/utils';
 @use '../../shared/styles/shoelace/vscode-theme';
+@use './colors';
 
 :root {
 	--font-family: var(--vscode-font-family);
@@ -24,7 +25,10 @@
 	--gl-ai-accent-2: #0ea5e9;
 	--gl-ai-accent-3: #06b6d4;
 
-	--color-background: var(--vscode-editor-background);
+	// Legacy --color-* tokens now alias the --gl-color-* layer (colors.scss). Only the BASE tokens
+	// re-point; the --NN / --lighten/darken derivatives below reference these bases, so they track
+	// automatically and stay byte-identical. Consumers migrate to --gl-color-* names incrementally.
+	--color-background: var(--gl-color-surface);
 
 	// Computed variants in code
 	--color-background--lighten-05: color-mix(in srgb, #fff 5%, var(--color-background));
@@ -40,7 +44,7 @@
 	--color-background--lighten-50: color-mix(in srgb, #fff 50%, var(--color-background));
 	--color-background--darken-50: color-mix(in srgb, #000 50%, var(--color-background));
 
-	--color-foreground: var(--vscode-editor-foreground, var(--vscode-foreground));
+	--color-foreground: var(--gl-color-fg);
 
 	// Computed variants in code
 	--color-foreground--85: color-mix(in srgb, transparent 15%, var(--color-foreground));
@@ -49,13 +53,13 @@
 	--color-foreground--50: color-mix(in srgb, transparent 50%, var(--color-foreground));
 	--color-foreground--25: color-mix(in srgb, transparent 75%, var(--color-foreground));
 
-	--color-button-background: var(--vscode-button-background, transparent);
+	--color-button-background: var(--gl-color-accent);
 
 	// Computed variants in code
 	--color-button-background--darken-30: color-mix(in srgb, #000 30%, var(--color-button-background));
-	--color-button-foreground: var(--vscode-button-foreground, var(--color-foreground));
+	--color-button-foreground: var(--gl-color-accent-fg);
 
-	--color-button-secondary-background: var(--vscode-button-secondaryBackground, transparent);
+	--color-button-secondary-background: var(--gl-color-accent-secondary);
 
 	// Computed variants in code
 	--color-button-secondary-background--darken-30: color-mix(
@@ -64,16 +68,16 @@
 		var(--color-button-secondary-background)
 	);
 
-	--color-highlight: var(--vscode-button-background, var(--vscode-button-border));
+	--color-highlight: var(--gl-color-highlight);
 
 	// Computed variants in code
 	--color-highlight--75: color-mix(in srgb, transparent 25%, var(--color-highlight));
 	--color-highlight--50: color-mix(in srgb, transparent 50%, var(--color-highlight));
 	--color-highlight--25: color-mix(in srgb, transparent 75%, var(--color-highlight));
 
-	--color-focus-border: var(--vscode-focusBorder);
+	--color-focus-border: var(--gl-color-border-focus);
 
-	--color-link-foreground: var(--vscode-textLink-foreground);
+	--color-link-foreground: var(--gl-color-link);
 
 	// Computed variants in code
 	--color-link-foreground--darken-20: color-mix(in srgb, #000 20%, var(--color-link-foreground));
