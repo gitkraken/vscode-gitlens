@@ -47,6 +47,8 @@ export class AgentStatusService implements Disposable {
 
 	private readonly _disposables: Disposable[] = [];
 	private readonly _providers: AgentSessionProvider[];
+	/** Timer for the deferred initial hooks-installed push; cleared on dispose if it hasn't fired. */
+	private _initialHooksPushTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(
 		private readonly container: Container,
@@ -109,9 +111,27 @@ export class AgentStatusService implements Disposable {
 		);
 
 		this.startProviders();
-		// Resolve hooks-installed state once (async, off the providers' poll interval) and push it
-		// down so providers can gate their reconciliation poll from the start.
-		void this.pushHooksInstalledToProviders();
+		// Resolve the host's hooks-installed state once and push it to providers so they can gate
+		// their reconciliation poll. Deferred out of the first-render window — like the CLI version
+		// probe in GkCliService — so the `gk agents list` subprocess doesn't contend with Graph/Home
+		// webview bootstrap on slower filesystems (e.g. WSL). Providers fail-open (keep polling) until
+		// this lands, so the delay never suppresses session discovery.
+		this._disposables.push(
+			container.onReady(() => {
+				this._initialHooksPushTimer = setTimeout(() => {
+					this._initialHooksPushTimer = undefined;
+					void this.pushHooksInstalledToProviders();
+				}, 3000);
+			}),
+			{
+				dispose: () => {
+					if (this._initialHooksPushTimer != null) {
+						clearTimeout(this._initialHooksPushTimer);
+						this._initialHooksPushTimer = undefined;
+					}
+				},
+			},
+		);
 	}
 
 	dispose(): void {

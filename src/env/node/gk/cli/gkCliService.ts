@@ -109,6 +109,11 @@ export class GkCliService implements Disposable {
 	private async onInstallCompleted(result: CliInstallResult | undefined, source?: Sources): Promise<void> {
 		if (result?.status !== 'completed' || !result.changed) return;
 
+		// A fresh binary just landed — drop any agent list cached against the previous (or absent) CLI
+		// so the next read reflects the newly installed CLI. Notably covers first launch, where the
+		// startup agent probe cached an empty list because the CLI wasn't installed yet.
+		this.container.agents.invalidateCache();
+
 		await this.authenticate();
 		this._onDidChangeInstall.fire({
 			status: 'completed',

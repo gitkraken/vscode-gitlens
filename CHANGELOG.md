@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes the coding agents integration running the GitKraken CLI during extension startup &mdash; the agent-detection probe is now deferred out of the initial render window so it no longer competes with _Commit Graph_ and _Home_ view loading, and a fresh CLI install on first launch no longer leaves the detected agents list empty for up to 5 minutes
 - Fixes creating a branch from a remote ref incorrectly setting upstream tracking when the new branch name differs from the remote branch name &mdash; e.g. creating `feature/foo` from `origin/main` no longer makes it track `origin/main`; affects _Create & Switch to Branch_, _Switch to... → Create & Switch to New Local Branch_, and _Create Branch in New Worktree_ ([#5360](https://github.com/gitkraken/vscode-gitlens/issues/5360))
 - Fixes _Keep Staged_ not keeping staged changes when stashing selected files &mdash; choosing _Keep Staged_ while stashing specific tracked files no longer drops the `--keep-index` flag, so staged changes are correctly kept intact ([#5281](https://github.com/gitkraken/vscode-gitlens/issues/5281))
 - Fixes pushing a branch that needs a force-push (e.g. after an amend or rebase) silently reporting success without updating the remote &mdash; a non-fast-forward (_tip of your current branch is behind_) rejection is now surfaced as an error instead of being swallowed as non-fatal ([#5364](https://github.com/gitkraken/vscode-gitlens/issues/5364))
