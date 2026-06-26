@@ -9,8 +9,8 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
-import type { ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import {
 	getComparisonRefsForPullRequest,
@@ -42,8 +42,6 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
 import { DeepLinkActionType, DeepLinkType } from '../../uris/deepLinks/deepLink.js';
-import { showInspectView } from '../../webviews/commitDetails/actions.js';
-import type { ShowWipArgs } from '../../webviews/commitDetails/protocol.js';
 import type { CodeSuggestionCounts, Draft } from '../drafts/models/drafts.js';
 import type { ConnectionStateChangeEvent } from '../integrations/integrationService.js';
 import type { GitHostIntegration } from '../integrations/models/gitHostIntegration.js';
@@ -72,26 +70,12 @@ import {
 	sharedCategoryToLaunchpadActionCategoryMap,
 } from './models/launchpad.js';
 
-export function getSuggestedActions(
-	category: LaunchpadActionCategory,
-	provider: ProviderReference,
-	isCurrentBranch: boolean,
-): LaunchpadAction[] {
+export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 	if (isCurrentBranch) {
-		actions.push('show-overview', 'open-changes');
-		if (supportsCodeSuggest(provider)) {
-			actions.push('code-suggest');
-		}
-
-		actions.push('open-in-graph');
+		actions.push('show-overview', 'open-changes', 'open-in-graph');
 	} else {
-		actions.push('open-worktree', 'switch');
-		if (supportsCodeSuggest(provider)) {
-			actions.push('switch-and-code-suggest');
-		}
-
-		actions.push('open-in-graph');
+		actions.push('open-worktree', 'switch', 'open-in-graph');
 	}
 	return actions;
 }
@@ -480,27 +464,21 @@ export class LaunchpadProvider implements Disposable {
 	}
 
 	@debug({ args: item => ({ item: `${item.id} (${item.provider.name} ${item.type})` }) })
-	async switchTo(
-		item: LaunchpadItem,
-		options?: { openInWorktree?: boolean; startCodeSuggestion?: boolean },
-	): Promise<void> {
+	async switchTo(item: LaunchpadItem, options?: { openInWorktree?: boolean }): Promise<void> {
 		if (item.openRepository?.localBranch?.current) {
-			void showInspectView({
-				type: 'wip',
-				inReview: options?.startCodeSuggestion,
-				repository: item.openRepository.repo,
-				source: 'launchpad',
-			} satisfies ShowWipArgs);
+			void executeCommand('gitlens.showGraph', {
+				action: 'show-wip',
+				target: { sha: uncommitted, worktreePath: item.openRepository.repo.path },
+				source: { source: 'launchpad' },
+			});
 			return;
 		}
 
 		const deepLinkUrl = this.getItemBranchDeepLink(
 			item,
-			options?.startCodeSuggestion
-				? DeepLinkActionType.SwitchToAndSuggestPullRequest
-				: options?.openInWorktree
-					? DeepLinkActionType.SwitchToPullRequestWorktree
-					: DeepLinkActionType.SwitchToPullRequest,
+			options?.openInWorktree
+				? DeepLinkActionType.SwitchToPullRequestWorktree
+				: DeepLinkActionType.SwitchToPullRequest,
 		);
 		if (deepLinkUrl == null) return;
 
@@ -835,7 +813,6 @@ export class LaunchpadProvider implements Disposable {
 
 					const suggestedActions = getSuggestedActions(
 						actionableCategory,
-						item.provider,
 						openRepository?.localBranch?.current ?? false,
 					);
 
