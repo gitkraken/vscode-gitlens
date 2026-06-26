@@ -1184,48 +1184,6 @@ or
 }
 ```
 
-### commitDetails/mode/changed
-
-> Sent when the user changes the selected tab (mode) on the Graph Details view
-
-```typescript
-{
-  'context.autolinks': number,
-  'context.codeSuggestions': number,
-  'context.inReview': boolean,
-  'context.mode': 'wip',
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string,
-  'mode.new': 'wip' | 'commit',
-  'mode.old': 'wip' | 'commit'
-}
-```
-
-or
-
-```typescript
-{
-  'context.autolinks': number,
-  'context.mode': 'commit',
-  'context.pinned': boolean,
-  'context.type': 'stash' | 'commit',
-  'context.uncommitted': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string,
-  'mode.new': 'wip' | 'commit',
-  'mode.old': 'wip' | 'commit'
-}
-```
-
 ### commitDetails/reachability/failed
 
 > Sent when commit reachability fails to load
@@ -1265,36 +1223,6 @@ or
 ### commitDetails/shown
 
 > Sent when the Inspect view is shown
-
-```typescript
-{
-  'context.autolinks': number,
-  'context.codeSuggestions': number,
-  'context.config.autolinks.enabled': boolean,
-  'context.config.autolinks.enhanced': boolean,
-  'context.config.avatars': boolean,
-  'context.config.files.compact': boolean,
-  'context.config.files.icon': 'status' | 'type',
-  'context.config.files.layout': 'auto' | 'list' | 'tree',
-  'context.config.files.threshold': number,
-  'context.config.pullRequests.enabled': boolean,
-  'context.inReview': boolean,
-  'context.mode': 'wip',
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string,
-  'duration': number,
-  'loading': boolean
-}
-```
-
-or
 
 ```typescript
 {
@@ -2965,6 +2893,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.showGhostRefsOnRowHover': boolean,
   'context.config.showRemoteNames': boolean,
   'context.config.showUpstreamStatus': boolean,
+  'context.config.showWorkingTreeBadge': boolean,
   'context.config.showWorktreeWipStats': boolean,
   'context.config.sidebar.enabled': boolean,
   'context.config.sidebar.pinned': boolean,
@@ -4191,7 +4120,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'code-suggest' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'switch-and-code-suggest' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
@@ -4639,22 +4568,6 @@ void
   'queued.normal': number,
   // Time in ms the command waited in the queue before executing
   'waitTime': number
-}
-```
-
-### openReviewMode
-
-> Sent when a PR review was started in the inspect overview
-
-```typescript
-{
-  'filesChanged': number,
-  'provider': string,
-  // Provided for compatibility with other GK surfaces
-  'repoPrivacy': 'private' | 'public' | 'local',
-  'repository.visibility': 'private' | 'public' | 'local',
-  // Provided for compatibility with other GK surfaces
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
