@@ -37,7 +37,7 @@ import { getOrOpenPullRequestRepository } from '../../git/utils/-webview/pullReq
 import { getCancellationTokenId } from '../../system/-webview/cancellation.js';
 import { executeCommand, registerCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { setContext } from '../../system/-webview/context.js';
+import { getContext, setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { gate } from '../../system/decorators/gate.js';
 import type { UriTypes } from '../../uris/deepLinks/deepLink.js';
@@ -72,6 +72,12 @@ import {
 
 export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
+
+	// Offer an agent-driven PR review on every item, gated on AI being enabled for the org.
+	if (getContext('gitlens:gk:organization:ai:enabled', true)) {
+		actions.push('start-review');
+	}
+
 	if (isCurrentBranch) {
 		actions.push('show-overview', 'open-changes', 'open-in-graph');
 	} else {

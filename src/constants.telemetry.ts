@@ -1637,6 +1637,7 @@ type LaunchpadActionEvent = LaunchpadEventData & {
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'
+		| 'start-review'
 		| 'show-overview'
 		| 'open-changes'
 		| 'open-in-graph'
