@@ -734,7 +734,13 @@ export class DetailsActions {
 		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal);
 	}
 
-	/** Direct-RPC compose run. See {@link startReview} for rationale. */
+	/** Direct-RPC compose run. See {@link startReview} for rationale.
+	 *
+	 *  `continuation` threads the prior cached AI session into the host so the library uses
+	 *  continuation prompts instead of a cold start. `'refine'` = same diff, new instruction;
+	 *  `'post-apply'` = a commit-to-here just landed and the AI should plan the remainder with
+	 *  a synthetic "you committed X" bridge turn. Both reuse `priorCacheKey` (the cacheKey from
+	 *  the prior plan or, after partial apply, the retained continuation cacheKey). */
 	startCompose(
 		repoPath: string,
 		scope: ScopeSelection,
@@ -742,6 +748,7 @@ export class DetailsActions {
 		excludedFiles: string[] | undefined,
 		aiExcludedFiles: string[] | undefined,
 		signal: AbortSignal,
+		options?: { priorCacheKey?: string; mode?: 'refine'; lockedCommitIds?: readonly string[] },
 	): Promise<ComposeResult> {
 		return this.services.graphInspect.composeChanges(
 			repoPath,
@@ -750,6 +757,7 @@ export class DetailsActions {
 			excludedFiles,
 			aiExcludedFiles,
 			signal,
+			options,
 		);
 	}
 
@@ -2626,33 +2634,35 @@ export class DetailsActions {
 			});
 			if ('error' in result && result.error) {
 				this.resources.compose.mutate({ error: { message: result.error.message } });
-			} else {
-				// Engagement teardown — mirrors the full `hideMode` clear so a stale
-				// `activeModeRepoPath`/`Sha`/`Shas`/`scope`/`aiExcludedFiles` can't bleed into the
-				// next action via `currentAnchor()`. (Registry-entry removal is handled by the
-				// controller's `applyPlan` wrapper since the action has no controller reference.)
-				this.state.activeMode.set(null);
-				this.state.activeModeContext.set(null);
-				this.state.activeModeRepoPath.set(undefined);
-				this.state.activeModeSha.set(undefined);
-				this.state.activeModeShas.set(undefined);
-				this.state.scope.set(undefined);
-				this.state.aiExcludedFiles.set(undefined);
-				// Match `hideMode`'s fetch-generation bump so a slow `fetchAiExcludedFiles` RPC
-				// from the prior `toggleMode` tail can't write its result back into the
-				// just-cleared signal after the apply completes.
-				this.invalidateAiExcludedFilesFetch();
-				this.state.wipStale.set(false);
-				this.resources.compose.reset();
-				this.state.composeForwardAvailable.set(false);
-				this.state.composeBackPreview.set(undefined);
-				this.state.composePreErrorValue.set(undefined);
-				this.state.composeLastFailedAction.set(undefined);
-				this.state.composeLastCommitAllIncludedIds.set(undefined);
-				void this.refreshScopedAiModel();
-				this.refreshWip();
-				void this.fetchDetails(sha, repoPath, graphReachability);
+				return;
 			}
+
+			// Engagement teardown — mirrors the full `hideMode` clear so a stale
+			// `activeModeRepoPath`/`Sha`/`Shas`/`scope`/`aiExcludedFiles` can't bleed into the
+			// next action via `currentAnchor()`. (Registry-entry removal is handled by the
+			// controller's `applyPlan` wrapper since the action has no controller reference.)
+			this.state.activeMode.set(null);
+			this.state.activeModeContext.set(null);
+			this.state.activeModeRepoPath.set(undefined);
+			this.state.activeModeSha.set(undefined);
+			this.state.activeModeShas.set(undefined);
+			this.state.scope.set(undefined);
+			this.state.aiExcludedFiles.set(undefined);
+			// Match `hideMode`'s fetch-generation bump so a slow `fetchAiExcludedFiles` RPC
+			// from the prior `toggleMode` tail can't write its result back into the
+			// just-cleared signal after the apply completes.
+			this.invalidateAiExcludedFilesFetch();
+			this.state.wipStale.set(false);
+			this.resources.compose.reset();
+			this.state.composeForwardAvailable.set(false);
+			this.state.composeBackPreview.set(undefined);
+			this.state.composePreErrorValue.set(undefined);
+			this.state.composeLastFailedAction.set(undefined);
+			this.state.composeLastCommitAllIncludedIds.set(undefined);
+			this.state.composeCurrentCacheKey.set(undefined);
+			void this.refreshScopedAiModel();
+			this.refreshWip();
+			void this.fetchDetails(sha, repoPath, graphReachability);
 		} catch {
 			this.resources.compose.mutate({ error: { message: 'Failed to commit plan.' } });
 		} finally {

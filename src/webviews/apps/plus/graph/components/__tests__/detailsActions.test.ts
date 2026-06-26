@@ -166,11 +166,13 @@ suite('scopeSelectionEqual', () => {
 });
 
 suite('DetailsActions', () => {
-	test('composeCommitAll without includedCommitIds clears stale compose plan after successful commit', async () => {
+	test('composeCommitAll clears compose plan and engagement after successful commit', async () => {
 		const state = createDetailsState();
 		state.activeMode.set('compose');
 		state.activeModeContext.set('wip');
 		state.composeForwardAvailable.set(true);
+		state.composeCurrentCacheKey.set('cache-key');
+		state.composeLockedCommitIds.set(new Set(['c1']));
 
 		let committedPlan: unknown;
 		const resources = createResources();
@@ -199,6 +201,7 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.activeMode.get(), null);
 		assert.strictEqual(state.activeModeContext.get(), null);
 		assert.strictEqual(state.composeForwardAvailable.get(), false);
+		assert.strictEqual(state.composeCurrentCacheKey.get(), undefined);
 		assert.strictEqual(resources.compose.status.get(), 'idle');
 		assert.strictEqual(resources.compose.value.get(), undefined);
 		assert.deepStrictEqual(fetchedDetails, { sha: 'abc', repoPath: '/repo' });
@@ -230,6 +233,11 @@ suite('DetailsActions', () => {
 			base: composeResult.result.baseCommit,
 			includedCommitIds: ['c1'],
 		});
+		assert.strictEqual(
+			state.composeLastCommitAllIncludedIds.get(),
+			undefined,
+			'cleared after success — retry-after-error would have nothing to re-issue with',
+		);
 	});
 
 	test('toggleCompareWorkingTree invalidates side data and refetches summary with the toggle enabled', async () => {

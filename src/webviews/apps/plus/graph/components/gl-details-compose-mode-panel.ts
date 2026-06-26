@@ -45,6 +45,16 @@ import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-commits-scope-pane.js';
 import './gl-categorizing-loading-animation.js';
 
+/** Event detail for the per-commit lock-toggle button. The parent panel routes this back to
+ *  the workflow controller's lock state, which forwards locked ids into the next refine call. */
+export interface ComposeLockToggleDetail {
+	commitId: string;
+	locked: boolean;
+}
+
+/** Event detail for "Commit All / Commit N" — when `includedCommitIds` is undefined, all
+ *  commits in the displayed plan are applied; when set, only those ids are applied and the
+ *  rest become unstaged workdir changes (library leftover-patch path). */
 export interface ComposeCommitAllDetail {
 	includedCommitIds?: readonly string[];
 }
@@ -126,27 +136,37 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
-	/** Pushed by the orchestrator from the engaged compose entry's `prompt` field (set when the
-	 *  run was dispatched). Per-anchor: each WIP row remembers its own run's prompt across mode
-	 *  toggles and anchor switches because it rides on the registry entry. Drives two seeding
-	 *  paths in this panel:
+	/** Pushed by the orchestrator from the engaged compose entry's `prompt` field — the *last*
+	 *  prompt submitted on this anchor's compose flow (cold-start instructions or whichever
+	 *  refine was most recently sent). Drives the Refine input's `.recall`: ArrowUp from cursor
+	 *  position 0 loads this back into the Refine field (terminal-style history recall), letting
+	 *  the user tweak the prompt that produced the current plan without retyping.
 	 *
-	 *  1. **Idle scope picker** — the AI input's `.value` seeds with `lastPrompt` on every idle
-	 *     re-render (success → Restart and error → Go Back). Re-mounting `gl-ai-input` via the
-	 *     `keyed` directive in `renderIdleState` is what triggers the seed: `.value` is one-shot
-	 *     in `firstUpdated`.
-	 *
-	 *  2. **Refine input** — passed as `.recall` so ArrowUp from cursor position 0 loads the run's
-	 *     prompt back into the Refine field (terminal-style history recall). Lets the user tweak
-	 *     the prompt that produced the current plan without retyping. */
+	 *  Not used to seed the idle scope-picker's input — that reads {@link basePrompt} instead,
+	 *  so Restart re-fills with the user's original compose instructions rather than the last
+	 *  refine. */
 	@property()
 	lastPrompt?: string;
+
+	/** Pushed by the orchestrator from the engaged compose entry's `basePrompt` field — the
+	 *  *cold-start* instructions for this anchor's compose flow. Diverges from {@link lastPrompt}
+	 *  on refine: each refine overwrites `lastPrompt` but leaves `basePrompt` untouched, so the
+	 *  original base persists across the session. Drives the idle scope picker's AI-input seed
+	 *  on every idle re-render (success → Restart and error → Go Back). Re-mounting `gl-ai-input`
+	 *  via the `keyed` directive in `renderIdleState` is what triggers the seed: `.value` is
+	 *  one-shot in `firstUpdated`. */
+	@property()
+	basePrompt?: string;
 
 	@state() private _selectedCommitId?: string;
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
 	@state() private _excludedFiles = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
+	/** Commit ids the user has excluded from the next "Commit" action. Independent of the
+	 *  lock state — locks affect what changes during refine, excludes affect what gets applied
+	 *  at commit time. Panel-local because it resets per plan (a fresh refine result starts
+	 *  with all commits included). */
 	@state() private _excludedCommitIds = new Set<string>();
 
 	/** Pushed by the orchestrator from `state.composeForwardAvailable`. See review panel for the
@@ -159,6 +179,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 	 * resume bar. Cleared by the orchestrator in lockstep with `forwardAvailable`. */
 	@property({ type: Object, attribute: false })
 	backPreview?: { commitCount: number; fileCount: number };
+
+	/** Commit ids the user has locked. Pushed by the orchestrator from
+	 *  `state.composeLockedCommitIds`. Each proposed commit renders a lock toggle in its row;
+	 *  toggling fires `compose-lock-toggle` which the orchestrator routes back into the signal. */
+	@property({ type: Object, attribute: false })
+	lockedCommitIds: ReadonlySet<string> = new Set();
 
 	get excludedFiles(): ReadonlySet<string> {
 		return this._excludedFiles;
@@ -189,6 +215,13 @@ export class GlDetailsComposeModePanel extends LitElement {
 			}
 		}
 
+		// Locked commits are owned by the parent (signal-state). When the plan refreshes with
+		// commit ids that no longer exist in the new plan, the parent's signal is responsible
+		// for pruning them. The panel just renders the current set.
+		//
+		// Excluded commits, in contrast, are panel-local and need to be pruned here when the
+		// plan changes — a refined plan may rename / drop commit ids, so stale entries would
+		// silently filter from a commit the user didn't intend to exclude.
 		if (changedProperties.has('commits') && this._excludedCommitIds.size > 0) {
 			const validIds = new Set(this.commits?.map(c => c.id));
 			let changed = false;
@@ -298,12 +331,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 		// exclusions). Stale user exclusions are pruned in willUpdate.
 		const disabled = this.getEffectiveFileCount() === 0;
 
-		// Key the input on the last-submitted prompt so a Restart / Go Back into idle remounts
-		// the element. `gl-ai-input.value` is one-shot in `firstUpdated`; without a remount the
-		// reseed silently no-ops on subsequent renders.
+		// Key the input on the base prompt so a Restart / Go Back into idle remounts the element
+		// and reseeds `.value`. `gl-ai-input.value` is one-shot in `firstUpdated`; without a
+		// remount the reseed silently no-ops on subsequent renders.
 		const aiInput = html`<div class="review-input-row">
 			${keyed(
-				this.lastPrompt,
+				this.basePrompt,
 				html`<gl-ai-input
 					class="review-action-input"
 					multiline
@@ -313,7 +346,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 					busy-label="Composing changes…"
 					event-name="compose-generate"
 					placeholder='Instructions — e.g. "Group by feature, keep perf changes separate"'
-					.value=${this.lastPrompt}
+					.value=${this.basePrompt}
 					.busy=${this.status === 'loading'}
 					?disabled=${disabled}
 					@input=${this.onAiInputType}
@@ -557,17 +590,25 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private renderProposedCommit(commit: ProposedCommit, index: number) {
 		const num = this.commits!.length - index;
 		const isSelected = this._selectedCommitId === commit.id;
+		const isLocked = this.lockedCommitIds.has(commit.id);
 		const isExcluded = this._excludedCommitIds.has(commit.id);
-		const toggleLabel = isExcluded ? 'Include this commit' : 'Exclude this commit';
+		const lockLabel = isLocked
+			? 'Unlock these changes (let the AI reassign them when refining)'
+			: 'Lock these changes (AI leaves them unchanged when refining)';
+		const includeLabel = isExcluded
+			? 'Include these changes when committing'
+			: 'Exclude these changes when committing';
+
+		const ariaState = [isLocked ? 'locked' : '', isExcluded ? 'excluded' : ''].filter(Boolean).join(', ');
 
 		return html`<div
-			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isExcluded
-				? 'compose-commit--excluded'
-				: ''}"
+			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isLocked
+				? 'compose-commit--locked'
+				: ''} ${isExcluded ? 'compose-commit--excluded' : ''}"
 			role="button"
 			tabindex="0"
 			aria-current=${isSelected ? 'true' : 'false'}
-			aria-label="Commit ${num}, ${pluralize('file', commit.files.length)}"
+			aria-label="Commit ${num}, ${pluralize('file', commit.files.length)}${ariaState ? `, ${ariaState}` : ''}"
 			@click=${() => this.handleSelectCommit(commit.id)}
 			@keydown=${(e: KeyboardEvent) => {
 				if (e.key === 'Enter' || e.key === ' ') {
@@ -590,20 +631,40 @@ export class GlDetailsComposeModePanel extends LitElement {
 					<span class="compose-commit__deletions">&minus;${commit.deletions}</span>
 				</span>
 			</div>
-			<gl-tooltip placement="left">
-				<gl-button
-					class="compose-commit__action ${isExcluded ? 'compose-commit__action--excluded' : ''}"
-					aria-pressed=${isExcluded ? 'false' : 'true'}
-					aria-label=${toggleLabel}
-					@click=${(e: Event) => {
-						e.stopPropagation();
-						this.handleToggleCommitIncluded(commit.id);
-					}}
-				>
-					<code-icon icon="check"></code-icon>
-				</gl-button>
-				<span slot="content">${toggleLabel}</span>
-			</gl-tooltip>
+			<div class="compose-commit__actions">
+				<gl-tooltip placement="left">
+					<gl-button
+						class="compose-commit__action compose-commit__action--lock ${isLocked
+							? 'compose-commit__action--locked'
+							: ''}"
+						aria-pressed=${isLocked ? 'true' : 'false'}
+						aria-label=${lockLabel}
+						@click=${(e: Event) => {
+							e.stopPropagation();
+							this.handleToggleCommitLocked(commit.id);
+						}}
+					>
+						<code-icon icon=${isLocked ? 'lock' : 'unlock'}></code-icon>
+					</gl-button>
+					<span slot="content">${lockLabel}</span>
+				</gl-tooltip>
+				<gl-tooltip placement="left">
+					<gl-button
+						class="compose-commit__action compose-commit__action--include ${isExcluded
+							? 'compose-commit__action--excluded'
+							: ''}"
+						aria-pressed=${isExcluded ? 'false' : 'true'}
+						aria-label=${includeLabel}
+						@click=${(e: Event) => {
+							e.stopPropagation();
+							this.handleToggleCommitIncluded(commit.id);
+						}}
+					>
+						<code-icon icon="check"></code-icon>
+					</gl-button>
+					<span slot="content">${includeLabel}</span>
+				</gl-tooltip>
+			</div>
 		</div>`;
 	}
 
@@ -771,6 +832,17 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent<ComposeCommitAllDetail>('compose-commit-all', {
 				detail: { includedCommitIds: includedCommitIds },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private handleToggleCommitLocked(commitId: string): void {
+		const locked = !this.lockedCommitIds.has(commitId);
+		this.dispatchEvent(
+			new CustomEvent<ComposeLockToggleDetail>('compose-lock-toggle', {
+				detail: { commitId: commitId, locked: locked },
 				bubbles: true,
 				composed: true,
 			}),

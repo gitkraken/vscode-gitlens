@@ -168,15 +168,33 @@ export type ComposeBaseCommit = {
 	selectedShas?: string[];
 };
 
+/**
+ * Refinement knobs for {@link composeChanges}. Present means "refine the cached plan
+ * identified by `priorCacheKey`" — the webview passes back the cache key tracked locally,
+ * plus any commits the user has locked in the UI. Absent means cold-start compose.
+ */
+export type ComposeChangesOptions = {
+	priorCacheKey?: string;
+	/** Mode marker — currently `'refine'` only. Reserved as a discriminator if other
+	 *  continuation flavors are added later. */
+	mode?: 'refine';
+	/** Commit ids the user has locked in the UI. Forwarded to the library's `refinePlan` as
+	 *  `lockedCommits` so the AI preserves them verbatim across the refinement. Ignored on
+	 *  cold start. */
+	lockedCommitIds?: readonly string[];
+};
+
 export type ComposeResult =
-	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit } }
+	| { result: { commits: ProposedCommit[]; baseCommit: ComposeBaseCommit; cacheKey?: string } }
 	| { error: { message: string } }
 	| { cancelled: true };
 
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
 	base: ComposeBaseCommit;
-	/** When provided, only commits whose `id` is in this list are applied. `undefined` means all. */
+	/** When provided, only commits whose `id` is in this list are applied. Undefined means all.
+	 *  Excluded commits' hunks stay in the workdir as uncommitted changes (the library lays them
+	 *  back via `git apply` from its leftover-patch path). */
 	includedCommitIds?: readonly string[];
 };
 
@@ -360,6 +378,7 @@ export interface GraphInspectService {
 		excludedFiles?: string[],
 		aiExcludedFiles?: string[],
 		signal?: AbortSignal,
+		options?: ComposeChangesOptions,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`

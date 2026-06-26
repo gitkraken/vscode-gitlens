@@ -1812,7 +1812,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return undefined;
 					}
 				},
-				composeChanges: async (repoPath, scope, instructions, excludedFiles, aiExcludedFiles, signal) => {
+				composeChanges: async (
+					repoPath,
+					scope,
+					instructions,
+					excludedFiles,
+					aiExcludedFiles,
+					signal,
+					options,
+				) => {
 					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
 						signal,
 						this._aiCancellations,
@@ -1847,13 +1855,35 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'Compose is not available in this environment.' } };
 						}
 
-						const priorKey = this._activeComposeCacheKeys.get(repoPath);
-						if (priorKey != null) {
-							composeTools?.discardCachedPlan(priorKey);
+						// Resolve the prior cache key the webview wants threaded into this generate.
+						// Falls back to our tracked active key per repo (covers refines where the
+						// webview hasn't yet stored the latest key locally). For continuation flows
+						// the integration owns the discard of the prior entry — it drops it ONLY
+						// after the new entry is registered, so a mid-generate failure can't leave
+						// us with no plan. For cold starts (no `continuation`) we explicitly
+						// discard any stray prior entry here so we don't leak it.
+						// Resolve the prior cache key the webview wants threaded for refinement.
+						// Falls back to our tracked active key per repo (covers refines where the
+						// webview hasn't yet stored the latest key locally). For refine the integration
+						// owns the discard of the prior entry — it drops it ONLY after the new entry
+						// is registered, so a mid-refine failure can't leave us with no plan. For cold
+						// starts (no `mode`) we explicitly discard any stray prior entry.
+						const priorCacheKey = options?.priorCacheKey ?? this._activeComposeCacheKeys.get(repoPath);
+						const isRefine = options?.mode === 'refine';
+						if (!isRefine && priorCacheKey != null) {
+							composeTools?.discardCachedPlan(priorCacheKey);
 							this._activeComposeCacheKeys.delete(repoPath);
 						}
 
-						this._composeProgressEvent.fire({ phase: 'collecting', message: 'Preparing changes…' });
+						// Refine path: chat-style continuation against the cached plan. NO git
+						// operations, NO re-analysis. Falls through to a fresh generate if the
+						// prior cache is missing (e.g. the host restarted between turns).
+						const useRefinePath = !simulated && isRefine && priorCacheKey != null && composeTools != null;
+
+						this._composeProgressEvent.fire({
+							phase: useRefinePath ? 'refining' : 'collecting',
+							message: useRefinePath ? 'Refining commits…' : 'Preparing changes…',
+						});
 
 						const planResult = simulated
 							? await runSimulatedComposeChanges({
@@ -1867,21 +1897,36 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 										});
 									},
 								})
-							: await composeTools!.generatePlanForGraphDetails({
-									svc: svc,
-									scope: scope,
-									customInstructions: instructions,
-									excludedFiles: excludedFiles,
-									aiExcludedFiles: aiExcludedFiles,
-									cancellation: cancellation,
-									telemetrySource: { source: 'graph' },
-									onProgress: event => {
-										this._composeProgressEvent.fire({
-											phase: event.phase,
-											message: event.message,
-										});
-									},
-								});
+							: useRefinePath
+								? await composeTools.refinePlanForGraphDetails({
+										svc: svc,
+										priorCacheKey: priorCacheKey,
+										customInstructions: instructions,
+										lockedCommitIds: options?.lockedCommitIds,
+										cancellation: cancellation,
+										telemetrySource: { source: 'graph' },
+										onProgress: event => {
+											this._composeProgressEvent.fire({
+												phase: event.phase,
+												message: event.message,
+											});
+										},
+									})
+								: await composeTools!.generatePlanForGraphDetails({
+										svc: svc,
+										scope: scope,
+										customInstructions: instructions,
+										excludedFiles: excludedFiles,
+										aiExcludedFiles: aiExcludedFiles,
+										cancellation: cancellation,
+										telemetrySource: { source: 'graph' },
+										onProgress: event => {
+											this._composeProgressEvent.fire({
+												phase: event.phase,
+												message: event.message,
+											});
+										},
+									});
 						signal?.throwIfAborted();
 
 						// The library cached the plan keyed by `planResult.cacheKey` once
@@ -1960,6 +2005,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									kind: planResult.kind,
 									selectedShas: planResult.selectedShas,
 								},
+								cacheKey: cacheKeyToRegister,
 							},
 						};
 					} catch (ex) {
@@ -1999,11 +2045,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return await executeComposeCommit(this.container, repoPath, plan, composeTools, cacheKey);
 					} finally {
 						this._activeComposeCacheKeys.delete(repoPath);
-						// `discardCachedPlan` is idempotent (Map.delete on a missing key is a no-op).
-						// Always call it here so a thrown `executeComposeCommit` can't leak the
-						// library-side plan — once we drop the cache-key handle, we have no other
-						// way to discard it later, and `dispose()` only iterates keys still in our
-						// own map.
+						// `discardCachedPlan` is idempotent (Map.delete on missing key is a no-op).
+						// Always call so a thrown `executeComposeCommit` can't leak the library
+						// plan — once we drop our cache-key handle, the library has no other way
+						// to discard it later. `dispose()` only iterates keys still in our map.
 						composeTools.discardCachedPlan(cacheKey);
 					}
 				},

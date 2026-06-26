@@ -318,6 +318,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			const composeHasValue = resources.compose.value.get() != null;
 			if (composeHasValue && this._composeFetchedForSelection !== newKey) {
 				resources.compose.reset();
+				this.compose.invalidateContinuation();
 				this.compose.invalidateSnapshot();
 				this.compose.invalidateErrorRecovery();
 				this._composeFetchedForSelection = undefined;
@@ -608,6 +609,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.actions.resources.compose.reset();
 				this.compose.invalidateSnapshot();
 				this.compose.invalidateErrorRecovery();
+				this.compose.invalidateContinuation();
 				this._composeFetchedForSelection = undefined;
 			} else if (wasMode === 'resolve') {
 				this.actions.resources.resolve.reset();
@@ -653,6 +655,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.review.invalidateErrorRecovery();
 		} else if (exitingMode === 'compose') {
 			this.compose.invalidateErrorRecovery();
+			this.compose.invalidateContinuation();
 		} else if (exitingMode === 'resolve') {
 			// The focused-file scope is an input of the engagement that set it (per-file/multi-select
 			// entry points) — clear it on exit so a later chip-initiated session defaults back to all
@@ -1000,8 +1003,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			// Pre-error value + action tracking consumed. Clearing `composeLastFailedAction` /
 			// `composeLastCommitAllIncludedIds` prevents a stale `'commit-all'` from steering a
 			// later `retryFromError` into the commit-all branch against a plan that's no longer
-			// in the resource. The prompt rides on the engaged entry's `prompt` field and survives
-			// through both branches via the spread / no-result re-register.
+			// in the resource. The prompt rides on the engaged entry's `prompt` field and
+			// survives through both branches via the spread / no-result re-register.
 			this.actions.state.composePreErrorValue.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
@@ -1053,6 +1056,16 @@ export class DetailsWorkflowController implements ReactiveController {
 			this.actions.state.composePreErrorValue.set(undefined);
 			this.actions.state.composeLastFailedAction.set(undefined);
 			this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
+		},
+		/** Drop the cross-call continuation state — the cacheKey that drives refine and the
+		 *  locked-commits set. Called on mode exit / destroy / anchor switch so a returning
+		 *  user enters cold compose instead of resuming a stale session. The host's cache is
+		 *  keyed per-repo and cleaned up on its own cold-start path; a stale key here is
+		 *  benign (the host treats it as a missing entry and runs cold) but clearing keeps the
+		 *  webview state truthful. */
+		invalidateContinuation: (): void => {
+			this.actions.state.composeCurrentCacheKey.set(undefined);
+			this.actions.state.composeLockedCommitIds.set(new Set());
 		},
 		// Wraps `composeCommitAll` so the registry entry stays in sync with the resource on
 		// apply failure. Without this, the action mutates only the resource (legacy of the
@@ -1109,11 +1122,12 @@ export class DetailsWorkflowController implements ReactiveController {
 				stale: stale,
 				duration: duration,
 			});
-			// Success path — the action cleared the resource + engagement signals but cannot
-			// reach the cross-pane registry. Remove the stale `'complete'` entry so the WIP-row
-			// adornment and chip overlay drop the pass icon (otherwise the row keeps signaling a
-			// compose result for a plan that has already been committed). Also forget the mode
-			// so a return-visit doesn't auto-restore compose on this anchor.
+
+			// The action cleared the resource + engagement signals but cannot reach the
+			// cross-pane registry. Remove the stale `'complete'` entry so the WIP-row adornment
+			// and chip overlay drop the pass icon (otherwise the row keeps signaling a compose
+			// result for a plan that has already been committed). Also forget the mode so a
+			// return-visit doesn't auto-restore compose on this anchor.
 			this.removeRunningOperation(anchorKey(engagedAnchor), 'compose');
 			this.forgetMode(engagedAnchor);
 		},
@@ -1143,6 +1157,24 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.composeLastFailedAction.set('generate');
 		this.actions.state.composeLastCommitAllIncludedIds.set(undefined);
 		this._composeFetchedForSelection = this.selectionKey();
+
+		// Refine continuation: a successfully-resolved prior plan in the resource + a tracked
+		// cache key means the user is refining. Cold start otherwise. Locked-commit ids and
+		// the prior key are forwarded as `startCompose` options; the host routes to
+		// `refinePlanForGraphDetails` when `mode === 'refine'`.
+		const priorCacheKey = this.actions.state.composeCurrentCacheKey.get();
+		const isRefine = priorCacheKey != null && currentValue != null && 'result' in currentValue;
+		const lockedCommitIds = isRefine ? this.actions.state.composeLockedCommitIds.get() : undefined;
+
+		// On refine, carry the prior entry's `basePrompt` so the original cold-start instructions
+		// keep driving the idle AI-input seed; the refine's own instructions still land on the
+		// entry's `prompt` for retry/recall. Cold-start passes undefined so dispatchOperation
+		// defaults `basePrompt` to `instructions`.
+		const priorComposeEntry = isRefine
+			? this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.compose
+			: undefined;
+		const basePrompt = isRefine ? priorComposeEntry?.basePrompt : undefined;
+
 		this.dispatchOperation(
 			'compose',
 			instructions,
@@ -1154,12 +1186,20 @@ export class DetailsWorkflowController implements ReactiveController {
 					excludedFiles,
 					aiExcludedFiles,
 					controller.signal,
+					isRefine
+						? {
+								priorCacheKey: priorCacheKey,
+								mode: 'refine' as const,
+								lockedCommitIds: lockedCommitIds?.size ? [...lockedCommitIds] : undefined,
+							}
+						: undefined,
 				),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,
-				refine: currentValue != null && 'result' in currentValue,
+				refine: isRefine,
 			},
+			basePrompt,
 		);
 	}
 
@@ -1400,6 +1440,7 @@ export class DetailsWorkflowController implements ReactiveController {
 				focused: focusedFilePaths != null && focusedFilePaths.length > 0,
 				focusedCount: focusedFilePaths?.length ?? 0,
 			},
+			undefined,
 			focusedFilePaths,
 		);
 	}
@@ -1412,9 +1453,12 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  same `(anchor, kind)`; clears the engaged resource; creates a fresh `AbortController`;
 	 *  invokes `start` (the direct-RPC call) with the controller's signal; registers a
 	 *  `'generating'` entry immediately so adornments + chip overlays show the spinner; wires the
-	 *  promise to `onRunSettled` with stale-guard. The `prompt` lands on the new entry so each
-	 *  anchor remembers what was submitted for its run — drives the AI-input seed on Restart and
-	 *  the prompt that `retryFromError` resubmits. */
+	 *  promise to `onRunSettled` with stale-guard. `prompt` lands on the entry as "last
+	 *  submitted" (drives `retryFromError` + Refine ArrowUp recall); `basePrompt` lands as
+	 *  "original cold-start instructions" (drives the AI-input seed on Restart). When
+	 *  `basePrompt` is undefined the entry's `basePrompt` defaults to `prompt` — correct for
+	 *  cold-start callers and modes without a refine concept (review/resolve). Refine callers
+	 *  pass the prior entry's `basePrompt` so the base survives across refines. */
 	private dispatchOperation(
 		kind: DetailsMode,
 		prompt: string | undefined,
@@ -1426,6 +1470,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			focused?: boolean;
 			focusedCount?: number;
 		},
+		basePrompt?: string,
 		/** Resolve-only run scope, persisted on the entry so it survives anchor switches. */
 		focusedFilePaths?: readonly string[],
 	): void {
@@ -1455,6 +1500,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			abortController: controller,
 			promise: promise,
 			prompt: prompt,
+			basePrompt: basePrompt ?? prompt,
 			focusedFilePaths: focusedFilePaths,
 		});
 
@@ -1877,6 +1923,17 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState = 'complete';
 		}
 
+		// Compose-only: capture the new cacheKey from the host so refine + commit-to-here can
+		// thread the session back. Clears the post-commit "Committed N of M" banner once the
+		// follow-up plan has actually landed (the user has visible work to refine again).
+		if (kind === 'compose' && execState === 'complete' && value != null && 'result' in value) {
+			const composeValue = value as Extract<ComposeResult, { result: unknown }>;
+			const newCacheKey = (composeValue.result as { cacheKey?: string }).cacheKey;
+			if (newCacheKey != null) {
+				this.actions.state.composeCurrentCacheKey.set(newCacheKey);
+			}
+		}
+
 		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
 		// Carry forward the live entry's `prompt` (seeds the AI input on Restart) and `focusedFilePaths`
 		// (resolve scope — so Refine/retry after a row-switch-and-return re-run the same subset instead
@@ -1888,6 +1945,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState: execState,
 			result: value,
 			prompt: current.prompt,
+			basePrompt: current.basePrompt,
 			focusedFilePaths: current.focusedFilePaths,
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.

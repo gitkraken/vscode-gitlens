@@ -615,6 +615,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow.compose.discard();
 	};
 
+	/** Toggle a commit's locked state in the compose plan. Locked commits are forwarded to
+	 *  `refinePlan` as `lockedCommits` so the AI preserves them verbatim across refinements. */
+	private handleComposeLockToggle(commitId: string, locked: boolean): void {
+		const current = this._state.composeLockedCommitIds.get();
+		const next = new Set(current);
+		if (locked) {
+			next.add(commitId);
+		} else {
+			next.delete(commitId);
+		}
+		this._state.composeLockedCommitIds.set(next);
+	}
+
 	/** External entry point — invoked when the extension requests entering compare mode with
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
@@ -2157,10 +2170,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${composeEntry?.prompt}
+			.basePrompt=${composeEntry?.basePrompt}
 			.progressMessage=${this._state.composeProgressMessage.get()}
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
 			.backPreview=${this._state.composeBackPreview.get()}
+			.lockedCommitIds=${this._state.composeLockedCommitIds.get()}
 			@compose-generate=${handleCompose}
 			@compose-refine=${handleCompose}
 			@compose-forward=${() => this._workflow.compose.forward()}
@@ -2187,6 +2202,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@compose-discard=${this.handleDiscardMode}
 			@compose-commit-all=${(e: CustomEvent<{ includedCommitIds?: readonly string[] }>) =>
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
+			@compose-lock-toggle=${(e: CustomEvent<{ commitId: string; locked: boolean }>) =>
+				this.handleComposeLockToggle(e.detail.commitId, e.detail.locked)}
 			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>

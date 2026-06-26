@@ -64,8 +64,8 @@ importers:
         specifier: 0.0.6
         version: 0.0.6(signal-polyfill@0.2.2)
       '@gitkraken/compose-tools':
-        specifier: 0.3.2
-        version: 0.3.2
+        specifier: 0.4.0
+        version: 0.4.0
       '@gitkraken/conflict-tools':
         specifier: 0.2.1
         version: 0.2.1
@@ -1195,8 +1195,8 @@ packages:
   '@github/catalyst@1.8.1':
     resolution: {integrity: sha512-dnN4WWpbeuQvA17LvsGdlXEueJdBk9y+I+WO5pdNpoHNOXPsFcz3hJrq1iRmdsNgQOf4S8e83axtwIxvG62eWA==}
 
-  '@gitkraken/compose-tools@0.3.2':
-    resolution: {integrity: sha512-VMC2Svm9UuxYUhpR92tQYI0/k9W8Ia8iVa8Ca3eDawThXeJqhJ4Nyn1YKa7ccK9NTS7lgndUHF955J02SG+9Zg==}
+  '@gitkraken/compose-tools@0.4.0':
+    resolution: {integrity: sha512-DJ2mt/RaEbanGGiPl3xOaQcOWkOTIVJAG/FAdWhFmUpa04B9BoZD+R5LuW3Zk/eeNz0GyR+T6xANqJfsajkSuQ==}
     engines: {node: '>= 22'}
 
   '@gitkraken/conflict-tools@0.2.1':
@@ -8552,7 +8552,7 @@ snapshots:
 
   '@github/catalyst@1.8.1': {}
 
-  '@gitkraken/compose-tools@0.3.2':
+  '@gitkraken/compose-tools@0.4.0':
     dependencies:
       '@gitkraken/shared-tools': 0.2.0
       zod: 4.4.3

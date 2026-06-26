@@ -10,7 +10,7 @@ import type { CancellationToken } from 'vscode';
  * the importing module. Worker-bundle code paths must NOT value-import from here —
  * they should rely on `./types.js` (type-only) instead.
  */
-export { applyComposePlan, composePlan, undoCompose, validateUndoCompose } from '@gitkraken/compose-tools';
+export { applyComposePlan, composePlan, refinePlan, undoCompose, validateUndoCompose } from '@gitkraken/compose-tools';
 
 /**
  * Convert a VS Code `CancellationToken` to an `AbortSignal` the compose-tools

@@ -14,6 +14,7 @@ import type {
 	ComposeGitPort,
 	ComposeHunk,
 	ComposePlan,
+	ComposeSession,
 	ComposeSource,
 	GitExecOptions,
 	OnBeforePrompt,
@@ -23,7 +24,8 @@ import { undoCompose, validateUndoCompose } from './utils.js';
 
 /**
  * Shape cached between generate + apply phases. UX-specific subclasses may carry
- * additional opaque fields (e.g. graph's `excludedFiles` filter snapshot).
+ * additional opaque fields (e.g. graph's `excludedFiles` filter snapshot, or resolved
+ * scope metadata for the refine path's result shape).
  */
 export interface CachedPlan {
 	plan: ComposePlan;
@@ -35,6 +37,19 @@ export interface CachedPlan {
 	 *  cached snapshot's diff hash won't match the freshly collected diff. */
 	excludedFiles?: readonly string[];
 	aiExcludedFiles?: readonly string[];
+	/**
+	 * Conversation + completed-steps cache returned by `composePlan`. Passed unmodified to
+	 * `refinePlan` when the caller wants to refine the cached plan. The library treats this
+	 * as opaque carry-forward state — we do not strip messages, clear completedSteps, or
+	 * otherwise mutate it on the way to refine.
+	 */
+	session?: ComposeSession;
+	/**
+	 * UX-specific extras stamped onto the cache entry by the integration subclass. Opaque to
+	 * the base. The graph integration stores the resolved scope (head sha, kind, etc.) so
+	 * refine can produce a downstream-equivalent result shape without re-running any git ops.
+	 */
+	extras?: unknown;
 }
 
 /**

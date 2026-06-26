@@ -10,10 +10,16 @@ import type {
 	ComposePlanResult,
 	ComposeProgressEvent,
 	ComposeSource,
+	RefineProgressEvent,
 	SigningConfig,
 	StashConflict,
 } from '../../../../plus/coretools/compose/types.js';
-import { applyComposePlan, cancellationTokenToSignal, composePlan } from '../../../../plus/coretools/compose/utils.js';
+import {
+	applyComposePlan,
+	cancellationTokenToSignal,
+	composePlan,
+	refinePlan,
+} from '../../../../plus/coretools/compose/utils.js';
 import type { ScopeSelection } from '../graphService.js';
 import { graphComposeStashPrefix } from './utils.js';
 
@@ -44,7 +50,9 @@ export interface GeneratePlanForGraphDetailsResult {
 export interface ApplyPlanForGraphDetailsInput {
 	svc: GitRepositoryService;
 	cacheKey: string;
-	/** When provided, only commits whose `id` is in this list are applied. `undefined` means all. */
+	/** When provided, only commits whose `id` is in this list are applied. Hunks belonging to
+	 *  omitted commits become unstaged workdir changes via the library's leftover-patch path.
+	 *  Undefined applies every commit. */
 	includedCommitIds?: readonly string[];
 	signing?: SigningConfig;
 	telemetrySource: Source;
@@ -58,18 +66,49 @@ export interface ApplyPlanForGraphDetailsResult {
 }
 
 /**
+ * Input for {@link GraphComposeIntegration.refinePlanForGraphDetails} — a chat-style follow-up
+ * to an existing cached plan. No re-collection, no re-analysis: a single AI continuation call
+ * that produces an updated plan from the prior session + the user's new instructions.
+ */
+export interface RefinePlanForGraphDetailsInput {
+	svc: GitRepositoryService;
+	/** Cache key from the prior `generatePlanForGraphDetails` (or earlier refine) call. */
+	priorCacheKey: string;
+	/** The user's refinement instructions — passed verbatim to the library. */
+	customInstructions?: string;
+	/**
+	 * Commit ids from the prior plan that the user has locked in the UI. The library
+	 * enforces that every locked commit appears in the AI's output (retries if missing)
+	 * and substitutes their content from the prior plan to keep id/message/hunks
+	 * byte-identical regardless of minor AI drift.
+	 */
+	lockedCommitIds?: readonly string[];
+	cancellation?: CancellationToken;
+	telemetrySource: Source;
+	suppressLargePromptWarning?: boolean;
+	onProgress?: (event: RefineProgressEvent) => void;
+}
+
+/** Cached scope info stamped onto the integration cache entry by the graph compose flow.
+ *  Read on refine so we can return the same downstream shape without re-running any git ops. */
+interface GraphCacheExtras {
+	headSha: string;
+	rewriteFromSha: string;
+	selectedShas?: string[];
+	kind: 'wip-only' | 'wip+commits' | 'commits-only';
+}
+
+/**
  * Compose-tools integration specialized for the graph-details compose panel.
  *
- * Translates the graph's `ScopeSelection` (WIP-only, commits-only, WIP+commits)
- * into the library's `ComposeSource` shape, and returns the library `ComposePlan`
- * directly (the graph webview turns it into `ProposedCommit[]` via
- * `libraryPlanToProposedCommits` in `./utils.js`).
+ * Translates the graph's `ScopeSelection` (WIP-only, commits-only, WIP+commits) into the
+ * library's `ComposeSource` shape, and returns the library `ComposePlan` directly (the graph
+ * webview turns it into `ProposedCommit[]` via `libraryPlanToProposedCommits` in `./utils.js`).
  *
  * Lives in its own file (separate from `./utils.js`) so that the worker-targeted
- * `graphWebview.ts` can value-import the pure helpers from `utils.ts` without
- * dragging this class's transitive `node:child_process` dependency into the
- * worker bundle. The class itself is only value-imported by the env-routed
- * factory in `@env/coretools/composer.js`.
+ * `graphWebview.ts` can value-import the pure helpers from `utils.ts` without dragging this
+ * class's transitive `node:child_process` dependency into the worker bundle. The class itself
+ * is only value-imported by the env-routed factory in `@env/coretools/composer.js`.
  */
 export class GraphComposeIntegration extends ComposeToolsIntegration {
 	async generatePlanForGraphDetails(
@@ -111,6 +150,12 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			});
 
 			const cacheKey = this.createCacheKey(input.svc.path);
+			const extras: GraphCacheExtras = {
+				headSha: resolved.headSha,
+				rewriteFromSha: resolved.rewriteFromSha,
+				selectedShas: resolved.selectedShas,
+				kind: resolved.kind,
+			};
 			this._cache.set(cacheKey, {
 				plan: result.plan,
 				snapshot: result.snapshot,
@@ -118,6 +163,8 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				sourceHunks: result.source.hunks,
 				excludedFiles: userExcluded?.size ? [...userExcluded] : undefined,
 				aiExcludedFiles: input.aiExcludedFiles?.length ? [...input.aiExcludedFiles] : undefined,
+				session: result.session,
+				extras: extras,
 			});
 
 			return {
@@ -144,6 +191,100 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		}
 	}
 
+	/**
+	 * Refine an existing cached plan with new user instructions — chat-style continuation.
+	 *
+	 * NO git operations. NO re-collection. NO re-analysis. Reuses the cached session + plan
+	 * from the prior `generatePlanForGraphDetails` (or earlier refine) call and runs a single
+	 * AI call via `refinePlan` from `@gitkraken/compose-tools`. The cached snapshot is carried
+	 * forward unchanged so a subsequent `applyPlanForGraphDetails` can validate against it.
+	 *
+	 * Adds two GitLens-specific wrinkles on top of the library contract:
+	 *
+	 * 1. Builds a `clientContext` string with a UI-ordering note — the webview displays commits
+	 *    in REVERSE of the library's planning order, so positional references in user
+	 *    instructions ("merge commits 1 and 2") need explicit mapping. The note is appended to
+	 *    the library's refinement prompt verbatim.
+	 *
+	 * 2. Reconstructs the same `redactHunkContent` predicate used at original generate time so
+	 *    AI-excluded file content stays masked in the refinement prompt's references.
+	 */
+	async refinePlanForGraphDetails(input: RefinePlanForGraphDetailsInput): Promise<GeneratePlanForGraphDetailsResult> {
+		const prior = this._cache.get(input.priorCacheKey);
+		if (prior == null) {
+			throw new Error(
+				`No cached compose plan for key '${input.priorCacheKey}'. Call generatePlanForGraphDetails() first.`,
+			);
+		}
+
+		if (prior.session == null || prior.session.messages.length === 0) {
+			throw new Error(
+				`Cannot refine — prior compose session lacks message history. Regenerate a fresh plan first.`,
+			);
+		}
+
+		const priorExtras = prior.extras as GraphCacheExtras | undefined;
+		if (priorExtras == null) {
+			throw new Error(`Cannot refine — prior cache entry lacks scope metadata. Regenerate a fresh plan first.`);
+		}
+
+		const model = this.createAiModelPort(input.telemetrySource);
+		const { signal, dispose: disposeSignal } = cancellationTokenToSignal(input.cancellation);
+		const onBeforePrompt = this.buildLargePromptGate(input.suppressLargePromptWarning ?? false);
+
+		try {
+			const refined = await refinePlan({
+				session: prior.session,
+				priorPlan: prior.plan,
+				model: model,
+				instructions: input.customInstructions,
+				lockedCommits: input.lockedCommitIds,
+				clientContext: buildUiOrderingNote(prior.plan),
+				cancellation: signal,
+				onBeforePrompt: onBeforePrompt,
+				onProgress: input.onProgress,
+			});
+
+			const cacheKey = this.createCacheKey(input.svc.path);
+			this._cache.set(cacheKey, {
+				plan: refined.plan,
+				snapshot: prior.snapshot,
+				source: prior.source,
+				sourceHunks: prior.sourceHunks,
+				excludedFiles: prior.excludedFiles,
+				aiExcludedFiles: prior.aiExcludedFiles,
+				session: refined.session,
+				extras: priorExtras,
+			});
+
+			if (input.priorCacheKey !== cacheKey) {
+				this._cache.delete(input.priorCacheKey);
+			}
+
+			return {
+				cacheKey: cacheKey,
+				plan: refined.plan,
+				sourceHunks: prior.sourceHunks,
+				headSha: priorExtras.headSha,
+				rewriteFromSha: priorExtras.rewriteFromSha,
+				selectedShas: priorExtras.selectedShas,
+				kind: priorExtras.kind,
+				diffStats: {
+					fileCount: new Set(prior.sourceHunks.map(h => h.fileName)).size,
+					hunkCount: prior.sourceHunks.length,
+					addedLines: prior.sourceHunks.reduce((sum, h) => sum + h.additions, 0),
+					removedLines: prior.sourceHunks.reduce((sum, h) => sum + h.deletions, 0),
+				},
+				usage: {
+					inputTokens: refined.usage.inputTokens,
+					outputTokens: refined.usage.outputTokens,
+				},
+			};
+		} finally {
+			disposeSignal();
+		}
+	}
+
 	async applyPlanForGraphDetails(input: ApplyPlanForGraphDetailsInput): Promise<ApplyPlanForGraphDetailsResult> {
 		const cached = this._cache.get(input.cacheKey);
 		if (!cached) {
@@ -159,12 +300,10 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			snapshot: cached.snapshot,
 		};
 
-		const applyCommitIds = input.includedCommitIds != null ? [...input.includedCommitIds] : undefined;
-
 		const stashLabel = `${graphComposeStashPrefix}${new Date().toISOString().replace(/[:.]/g, '-')}`;
 
 		// Reconstruct the same user-only hunkFilter the plan was generated with. The cached
-		// snapshot's diffHash was computed from the filtered hunk set; if we don't re-apply the
+		// snapshot's diffHash was computed from the filtered hunk set; without re-applying the
 		// filter at apply time, the library's drift check sees the fresh unfiltered diff and
 		// reports a false-positive SAFETY_CHECK_FAILED. aiexclude-masked files were NOT filtered
 		// (only their AI prompt content was masked), so they don't participate here.
@@ -181,10 +320,11 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				onProgress: input.onProgress,
 				signing: input.signing,
 				authorAttribution: 'plurality',
-				applyCommitIds: applyCommitIds,
+				applyCommitIds: input.includedCommitIds != null ? [...input.includedCommitIds] : undefined,
 				stashLabel: stashLabel,
 				hunkFilter: hunkFilter,
 			});
+
 			return {
 				commitShas: result.commitShas,
 				undoId: result.undoId,
@@ -317,4 +457,23 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			},
 		};
 	}
+}
+
+/**
+ * Build the GitLens-specific UI-ordering note that gets passed to `refinePlan` as
+ * `clientContext`. The library doesn't know about the graph webview's reversed display order;
+ * this note tells the AI how the user perceives the commit ordering so positional references
+ * like "the first commit" resolve correctly.
+ */
+function buildUiOrderingNote(priorPlan: ComposePlan): string {
+	const commits = priorPlan.allOrderedCommits;
+	if (commits.length === 0) return '';
+
+	const uiOrdered = [...commits].reverse();
+	const mapping = uiOrdered.map((c, i) => `${String(i + 1)}. [${c.id}] ${c.message.split('\n')[0]}`).join('\n');
+
+	return `UI ORDERING NOTE: In GitLens's graph compose panel, commits are displayed in REVERSE of your prior plan's allOrderedCommits order — newest at the top, labeled "commit 1". When the user says "the first commit" or "commit 1", they mean the TOP of the UI list (which is the LAST commit in your prior plan).
+
+UI label → commit id (in the order the user sees them):
+${mapping}`;
 }

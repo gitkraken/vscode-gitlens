@@ -82,10 +82,17 @@ interface RunningOperationBase {
 	promise?: Promise<ReviewResult | ComposeResult | ResolveResult | GenerateMessageResult>;
 	/** The user-submitted prompt that initiated this run. Set at `dispatchOperation` time and
 	 *  preserved through every entry transition (success, error, backed, retry-update) via the
-	 *  spread pattern. Drives the AI-input seed on Restart / Go Back: the panel reads it off the
-	 *  engaged entry so each anchor remembers its own run's prompt across mode toggles and anchor
-	 *  switches. Empty/undefined for runs that don't carry a prompt. */
+	 *  spread pattern. Drives the Refine input's ArrowUp recall and the `retryFromError`
+	 *  resubmit path (so an errored refine retries the refine instructions, not the base).
+	 *  Empty/undefined for runs that don't carry a prompt. */
 	prompt?: string;
+	/** The user-submitted prompt from the *cold-start* of this anchor's compose flow. Diverges
+	 *  from `prompt` on refine: each refine call overwrites `prompt` with its own instructions
+	 *  but leaves `basePrompt` untouched, so the original base persists across the lifetime of
+	 *  the compose session. Drives the AI-input seed on Restart / Go Back — the panel reads
+	 *  this so the idle box re-fills with the user's original compose instructions, not the
+	 *  last refine. Defaulted to `prompt` on cold-start by `dispatchOperation`. */
+	basePrompt?: string;
 	/** Resolve-only: the conflict-file scope the run was dispatched with (the user-checked subset;
 	 *  undefined = all conflicts). Carried on the entry like {@link prompt} so a row-switch-and-return
 	 *  doesn't lose it — whole-run Refine / retry-after-error re-run the SAME scope instead of silently
@@ -403,7 +410,22 @@ function createTransientState() {
 	const composePreErrorValue = signal<ComposeResult | undefined>(undefined);
 	const reviewPreErrorValue = signal<ReviewResult | undefined>(undefined);
 	const composeLastFailedAction = signal<'generate' | 'commit-all' | undefined>(undefined);
+	/** Subset of commit ids that were targeted by the last commit-all attempt. Stored so the
+	 *  panel's `retryFromError` can re-issue the same subset rather than fall back to "Commit
+	 *  All". Cleared on success / mode exit. */
 	const composeLastCommitAllIncludedIds = signal<readonly string[] | undefined>(undefined);
+
+	// Refine continuation. `composeCurrentCacheKey` is the host-side cache key for the plan
+	// currently displayed; threaded back into `composeChanges` on the next generate so the host
+	// routes to `refinePlanForGraphDetails` (chat-style continuation) instead of starting cold.
+	// Cleared on full-apply success, cold-start compose, cancel, and panel close.
+	const composeCurrentCacheKey = signal<string | undefined>(undefined);
+	// Commit ids the user has locked in the compose panel UI (a per-commit toggle on each
+	// proposed commit row). Passed to `refinePlan` as `lockedCommits` so the AI preserves
+	// those commits' id/message/hunks across the refinement. Lock state is intentionally
+	// engagement-local — it carries across refine rounds for the active plan but clears when
+	// the user exits compose mode or the plan is committed.
+	const composeLockedCommitIds = signal<ReadonlySet<string>>(new Set());
 
 	// Compare-mode UI settings (not fetched data — user's interactive choices while in
 	// compare mode)
@@ -488,6 +510,8 @@ function createTransientState() {
 		reviewPreErrorValue: reviewPreErrorValue,
 		composeLastFailedAction: composeLastFailedAction,
 		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
+		composeCurrentCacheKey: composeCurrentCacheKey,
+		composeLockedCommitIds: composeLockedCommitIds,
 
 		branchCompareLeftRef: branchCompareLeftRef,
 		branchCompareLeftRefType: branchCompareLeftRefType,

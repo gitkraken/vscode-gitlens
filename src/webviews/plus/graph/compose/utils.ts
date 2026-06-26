@@ -216,7 +216,9 @@ export async function executeComposeCommit(
 	}
 
 	const stashConflict = result.stashConflict;
-	if (stashConflict == null) return { success: true as const };
+	if (stashConflict == null) {
+		return { success: true as const };
+	}
 
 	const choice = await window.showWarningMessage(
 		`The compose rewrite succeeded, but re-applying your working changes hit a conflict. Your original state is saved as stash "${stashConflict.stashLabel}".`,

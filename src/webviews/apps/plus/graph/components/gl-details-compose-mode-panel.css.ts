@@ -164,6 +164,16 @@ export const composeModePanelStyles = css`
 		border-left-color: var(--gl-agent-working-color);
 	}
 
+	/* Locked rows get an amber accent on the leading border — visible at a glance that the
+	   AI is forbidden from changing them. Number + message stay full-opacity since locked
+	   commits ARE rendered in the plan; lock is a refine-time constraint, not visibility. */
+	.compose-commit--locked {
+		border-left-color: var(--vscode-charts-orange, #d18616);
+	}
+
+	/* Excluded rows are visually dimmed — they're still in the plan view but will NOT be
+	   applied on the next "Commit". The number + info dim together; the include toggle's
+	   own dimmed state reinforces that the commit is being skipped. */
 	.compose-commit--excluded .compose-commit__num,
 	.compose-commit--excluded .compose-commit__info {
 		opacity: 0.45;
@@ -236,12 +246,19 @@ export const composeModePanelStyles = css`
 		color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
 	}
 
-	/* Include/exclude toggle — gl-button skinned as a checkbox.
-	   Checked (included): solid green fill, white checkmark.
-	   Unchecked (excluded): dimmed border with a dimmed checkmark, transparent fill.
-	   Hover previews the post-click state via the gl-button hover-background var. */
-	.compose-commit__action {
+	/* Two stacked toggle buttons per commit row: lock (refine-time) above, include (apply-time)
+	   below. The wrapper keeps them grouped and prevents the gl-button widths from drifting. */
+	.compose-commit__actions {
+		display: flex;
 		flex-shrink: 0;
+		flex-direction: column;
+		gap: var(--gl-space-2);
+	}
+
+	/* Both toggles share the same chrome (size, icon scale, hover semantics) and only diverge
+	   on the active-color palette. Defined here as the base; the --lock / --include modifiers
+	   set the accent and active-state styling below. */
+	.compose-commit__action {
 		--button-padding: 0.3rem;
 		--button-padding-inline: 0.3rem;
 		--button-width: 2rem;
@@ -249,6 +266,37 @@ export const composeModePanelStyles = css`
 		--button-gap: 0;
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: middle;
+	}
+
+	/* Lock toggle.
+	   Default (unlocked): dimmed transparent button with an unlock icon — visible but not loud.
+	   Locked: solid amber fill with a lock icon — pinned-by-user at a glance. */
+	.compose-commit__action--lock {
+		--lock-amber: color-mix(in srgb, #000 25%, var(--vscode-charts-orange, #d18616));
+
+		--button-foreground: var(--color-foreground--50);
+		--button-background: transparent;
+		--button-border: var(--color-foreground--50);
+		--button-hover-background: var(--lock-amber);
+	}
+
+	.compose-commit__action--lock:hover {
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-border: var(--lock-amber);
+	}
+
+	.compose-commit__action--locked {
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-background: var(--lock-amber);
+		--button-border: var(--lock-amber);
+		--button-hover-background: color-mix(in srgb, #000 40%, var(--vscode-charts-orange, #d18616));
+	}
+
+	/* Include toggle — gl-button skinned as a checkbox.
+	   Checked (included): solid green fill, white checkmark.
+	   Unchecked (excluded): dimmed border with a dimmed checkmark, transparent fill.
+	   Hover previews the post-click state via the gl-button hover-background var. */
+	.compose-commit__action--include {
 		--check-green: color-mix(in srgb, #000 35%, var(--vscode-testing-iconPassed, #73c991));
 
 		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
