@@ -4120,7 +4120,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
+  'action': 'soft-open' | 'merge' | 'switch' | 'open' | 'open-worktree' | 'start-review' | 'show-overview' | 'open-changes' | 'open-in-graph' | 'pin' | 'unpin' | 'snooze' | 'unsnooze' | 'open-suggestion' | 'open-suggestion-browser',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,

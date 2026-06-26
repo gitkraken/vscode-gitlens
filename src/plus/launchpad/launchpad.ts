@@ -1,5 +1,5 @@
 import type { CancellationToken, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { commands, QuickInputButtons, ThemeIcon, Uri } from 'vscode';
+import { commands, QuickInputButtons, ThemeIcon, Uri, window } from 'vscode';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { some } from '@gitlens/utils/iterable.js';
@@ -53,7 +53,9 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { resolveAgentFlow } from '../agents/agentPicker.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
 import { getOpenOnGitProviderQuickInputButtons } from '../integrations/utils/-webview/integration.quickPicks.js';
 import type { LaunchpadCategorizedResult, LaunchpadItem } from './launchpadProvider.js';
@@ -65,6 +67,7 @@ import {
 } from './launchpadProvider.js';
 import type { LaunchpadAction, LaunchpadGroup, LaunchpadTargetAction } from './models/launchpad.js';
 import { actionGroupMap, launchpadGroupIconMap, launchpadGroupLabelMap, launchpadGroups } from './models/launchpad.js';
+import { startReviewFromLaunchpadItem } from './utils/-webview/startReview.utils.js';
 
 export interface LaunchpadItemQuickPickItem extends QuickPickItem {
 	readonly type: 'item';
@@ -423,6 +426,10 @@ export class LaunchpadCommand extends QuickCommand<State> {
 					case 'open-worktree':
 						void this.container.launchpad.switchTo(state.item, { openInWorktree: true });
 						break;
+					case 'start-review':
+						// Cancelling the agent flow closes the wizard, mirroring StartReviewCommand.
+						yield* this.startReviewWithAgent(state);
+						break;
 					case 'open-changes':
 						void this.container.launchpad.openChanges(state.item);
 						break;
@@ -443,6 +450,35 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		return steps.isComplete ? undefined : StepResultBreak;
+	}
+
+	/**
+	 * Resolves the agent flow and hands off to the shared review pipeline for the selected item.
+	 * Forces the `'agent'` route so the action goes straight to the agent picker (or the persisted
+	 * default agent) rather than the manual-vs-agent pre-picker. `yield*` keeps the picker on the
+	 * wizard's step machinery, avoiding a collision with the still-alive confirm-step quickpick.
+	 */
+	private async *startReviewWithAgent(state: LaunchpadStepState): AsyncStepResultGenerator<void> {
+		// Defense-in-depth: the action is only offered when AI is enabled, but enforce it here too in
+		// case an item's cached suggested actions are stale relative to the org's AI setting.
+		if (!getContext('gitlens:gk:organization:ai:enabled', true)) return;
+
+		const flow = yield* resolveAgentFlow(this.container, { requestedRoute: 'agent' });
+		if (flow === StepResultBreak || flow.kind === 'cancel') return;
+
+		const agent = flow.kind === 'agent' ? flow.descriptor : undefined;
+		try {
+			await startReviewFromLaunchpadItem(
+				this.container,
+				state.item,
+				undefined,
+				flow.kind === 'agent',
+				false,
+				agent,
+			);
+		} catch (ex) {
+			void window.showErrorMessage(`Failed to start review: ${ex instanceof Error ? ex.message : String(ex)}`);
+		}
 	}
 
 	private *pickLaunchpadItemStep(
@@ -1064,6 +1100,17 @@ export class LaunchpadCommand extends QuickCommand<State> {
 								{
 									label: 'Open in Worktree',
 									detail: 'Will create or open a worktree in a new window',
+								},
+								action,
+							),
+						);
+						break;
+					case 'start-review':
+						confirmations.push(
+							createQuickPickItemOfT(
+								{
+									label: 'Start Review with an Agent',
+									detail: 'Will open the pull request in a worktree and start a review with an AI agent',
 								},
 								action,
 							),
