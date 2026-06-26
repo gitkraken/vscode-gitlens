@@ -92,6 +92,9 @@ export class SwitchGitCommand extends QuickCommand<State> {
 	}
 
 	private async execute(state: StepState<State<GlRepository[]>>) {
+		const isRemoteBranch = isBranchReference(state.reference) && state.reference.remote;
+		const remoteBranchName = isRemoteBranch ? getReferenceNameWithoutRemote(state.reference) : undefined;
+
 		await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
@@ -104,7 +107,13 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			() =>
 				Promise.all(
 					state.repos.map(r =>
-						r.git.switch(state.reference.ref, { createBranch: state.createBranch, progress: false }),
+						r.git.switch(state.reference.ref, {
+							createBranch: state.createBranch,
+							...(isRemoteBranch && state.createBranch !== remoteBranchName
+								? { noTracking: true }
+								: undefined),
+							progress: false,
+						}),
 					),
 				),
 		);
