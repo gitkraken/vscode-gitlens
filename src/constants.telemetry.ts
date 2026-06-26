@@ -194,8 +194,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 
 	/** Sent when the Inspect view is shown */
 	'commitDetails/shown': DetailsShownEvent;
-	/** Sent when the user changes the selected tab (mode) on the Graph Details view */
-	'commitDetails/mode/changed': DetailsModeChangedEvent;
 	/** Sent when commit reachability is successfully loaded */
 	'commitDetails/reachability/loaded': DetailsReachabilityLoadedEvent;
 	/** Sent when commit reachability fails to load */
@@ -424,9 +422,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'mcp/registration/failed': MCPSetupFailedEvent;
 	/** Sent when user selects agents for MCP installation */
 	'mcp/agents/selected': MCPAgentsSelectedEvent;
-
-	/** Sent when a PR review was started in the inspect overview */
-	openReviewMode: OpenReviewModeEvent;
 
 	'op/gate/deadlock': OperationGateDeadlockEvent;
 	'op/git/aborted': OperationGitAbortedEvent;
@@ -976,11 +971,6 @@ interface CoreCommandEvent {
 
 type DetailsShownEvent = WebviewShownEventData & InspectShownEventData;
 
-type DetailsModeChangedEvent = InspectContextEventData & {
-	'mode.old': 'wip' | 'commit';
-	'mode.new': 'wip' | 'commit';
-};
-
 export type GraphDetailsMode = 'commit' | 'wip' | 'multicommit' | 'review' | 'compose' | 'resolve' | 'compare' | 'none';
 
 interface GraphDetailsShownEvent {
@@ -1467,13 +1457,6 @@ interface HomeFailedEvent {
 	'error.detail'?: string;
 }
 
-type InspectWipContextEventData = {
-	'context.mode': 'wip';
-	'context.autolinks': number;
-	'context.inReview': boolean;
-	'context.codeSuggestions': number;
-} & Partial<RepositoryContext>;
-
 type InspectCommitContextEventData = {
 	'context.mode': 'commit';
 	'context.autolinks': number;
@@ -1482,7 +1465,7 @@ type InspectCommitContextEventData = {
 	'context.uncommitted': boolean;
 };
 
-type InspectContextEventData = WebviewTelemetryContext & (InspectWipContextEventData | InspectCommitContextEventData);
+type InspectContextEventData = WebviewTelemetryContext & InspectCommitContextEventData;
 
 type InspectShownEventData = InspectContextEventData & FlattenedContextConfig<Config['views']['commitDetails']>;
 
@@ -1490,9 +1473,10 @@ export type InspectTelemetryContext = InspectContextEventData;
 export type InspectShownTelemetryContext = InspectShownEventData;
 
 /** Telemetry context fields pushed from the Inspect webview to the host via RPC. */
-export type InspectWebviewTelemetryContext =
-	| Pick<InspectWipContextEventData, 'context.autolinks' | 'context.codeSuggestions'>
-	| Pick<InspectCommitContextEventData, 'context.autolinks' | 'context.type' | 'context.uncommitted'>;
+export type InspectWebviewTelemetryContext = Pick<
+	InspectCommitContextEventData,
+	'context.autolinks' | 'context.type' | 'context.uncommitted'
+>;
 
 export type ComposerTelemetryContext = ComposerContextEventData;
 type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
@@ -1649,12 +1633,10 @@ type LaunchpadTitleActionEvent = LaunchpadEventData & {
 type LaunchpadActionEvent = LaunchpadEventData & {
 	action:
 		| 'open'
-		| 'code-suggest'
 		| 'merge'
 		| 'soft-open'
 		| 'switch'
 		| 'open-worktree'
-		| 'switch-and-code-suggest'
 		| 'show-overview'
 		| 'open-changes'
 		| 'open-in-graph'
@@ -1703,16 +1685,6 @@ interface LaunchpadOperationSlowEvent {
 		| 'getEnrichedItems'
 		| 'getCodeSuggestionCounts';
 	duration: number;
-}
-
-interface OpenReviewModeEvent {
-	provider: string;
-	'repository.visibility': 'private' | 'public' | 'local' | undefined;
-	/** Provided for compatibility with other GK surfaces */
-	repoPrivacy: 'private' | 'public' | 'local' | undefined;
-	filesChanged: number;
-	/** Provided for compatibility with other GK surfaces */
-	source: Sources;
 }
 
 interface OperationGateDeadlockEvent {
