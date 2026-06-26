@@ -2,15 +2,13 @@ import './commitDetails.scss';
 import type { Remote } from '@eamodio/supertalk';
 import { html, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { when } from 'lit/directives/when.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
-import { pluralize } from '@gitlens/utils/string.js';
 import type { StashApplyCommandArgs } from '../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../config.js';
 import type { InspectWebviewTelemetryContext } from '../../../constants.telemetry.js';
 import type { CommitDetailsServices } from '../../commitDetails/commitDetailsService.js';
 import type { ExecuteCommitActionsParams } from '../../commitDetails/protocol.js';
-import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs } from '../shared/actions/file.js';
+import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
 import { DOM } from '../shared/dom.js';
@@ -21,19 +19,12 @@ import { createResource } from '../shared/state/resource.js';
 import type { CommitDetailsActions, CommitDetailsResources } from './actions.js';
 import { createActions } from './actions.js';
 import type { FileChangeListItemDetail } from './components/gl-details-base.js';
-import type { CreatePatchEventDetail } from './components/gl-inspect-patch.js';
 import { setupSubscriptions } from './events.js';
-import type { CommitDetailsState, ExplainState, GenerateState } from './state.js';
+import type { CommitDetailsState, ExplainState } from './state.js';
 import { createCommitDetailsState } from './state.js';
-import '../shared/components/code-icon.js';
 import '../shared/components/gl-error-banner.js';
-import '../shared/components/indicators/indicator.js';
-import '../shared/components/overlays/tooltip.js';
-import '../shared/components/pills/tracking.js';
 import './components/gl-details-commit-panel.js';
-import './components/gl-details-wip-panel.js';
 import './components/gl-inspect-nav.js';
-import './components/gl-status-nav.js';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -46,7 +37,7 @@ export const uncommittedSha = '0000000000000000000000000000000000000000';
  * - Instance-owned state created via createCommitDetailsState()
  * - HostContext for portable persistence and RPC endpoint creation
  * - RemoteSignalBridge for host-pushed signals (orgSettings, hasAccount)
- * - Resources for async data lifecycle (commit, wip, reachability, explain, generate)
+ * - Resources for async data lifecycle (commit, reachability, explain)
  */
 @customElement('gl-commit-details-app')
 export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
@@ -103,9 +94,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	}
 
 	override disconnectedCallback(): void {
-		// Stop watching WIP repo FS changes
-		this._actions?.unwatchWip();
-
 		// Unsubscribe RPC event callbacks (before RPC connection is disposed)
 		this._unsubscribeEvents?.();
 		this._unsubscribeEvents = undefined;
@@ -116,10 +104,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 
 		// Dispose all resources
 		this._resources?.commit.dispose();
-		this._resources?.wip.dispose();
 		this._resources?.reachability.dispose();
 		this._resources?.explain.dispose();
-		this._resources?.generate.dispose();
 		this._resources = undefined;
 
 		// Disconnect remote signal bridges
@@ -195,7 +181,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		// Create resources — fetchers read current state signals via closure
 		const resources: CommitDetailsResources = {
 			commit: createResource((signal, repoPath: string, sha: string) => inspect.getCommit(repoPath, sha, signal)),
-			wip: createResource((signal, repoPath: string | undefined) => inspect.getWipChanges(repoPath, signal)),
 			reachability: createResource<GitCommitReachability | undefined>(async _signal => {
 				const commit = s.currentCommit.get();
 				if (commit == null) return undefined;
@@ -211,23 +196,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						return { error: { message: result.error.message ?? 'Error retrieving content' } };
 					}
 					return { result: result.result };
-				} catch (_ex) {
-					return { error: { message: 'Error retrieving content' } };
-				}
-			}),
-			generate: createResource<GenerateState | undefined>(async signal => {
-				const repoPath = s.wipState.get()?.repo?.path ?? s.currentCommit.get()?.repoPath;
-				if (repoPath == null) return undefined;
-
-				try {
-					const result = await inspect.generateDescription(repoPath, signal);
-					if (result.error) {
-						return { error: { message: result.error.message ?? 'Error retrieving content' } };
-					}
-					if (result.title || result.description) {
-						return { title: result.title, description: result.description };
-					}
-					return undefined;
 				} catch (_ex) {
 					return { error: { message: 'Error retrieving content' } };
 				}
@@ -278,7 +246,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	/**
 	 * Set up DOM event listeners for data-action buttons inside child templates.
 	 * These use document-level delegation because the buttons are rendered by
-	 * child components (gl-details-commit-panel, gl-details-wip-panel) in light DOM.
+	 * child components (gl-details-commit-panel) in light DOM.
 	 * Custom events from named child elements use template @event bindings instead.
 	 */
 	private setupDomListeners(): void {
@@ -288,7 +256,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const s = this._state;
 
 		// Cancel pending RPC requests on hide (responses would be silently dropped
-		// by VS Code); refresh WIP data on visibility restore
+		// by VS Code); refresh the current commit on visibility restore
 		const onVisibilityChange = (): void => {
 			if (document.visibilityState !== 'visible') {
 				actions.cancelPendingRequests();
@@ -297,14 +265,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 
 			if (s.loading.get()) return;
 
-			if (s.mode.get() === 'wip') {
-				const repoPath = s.wipState.get()?.repo?.path;
-				if (repoPath != null) {
-					void actions.fetchWipState(repoPath);
-				}
-				return;
-			}
-
 			void actions.refetchCurrentCommit();
 		};
 		document.addEventListener('visibilitychange', onVisibilityChange);
@@ -312,11 +272,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 
 		this.disposables.push(
 			DOM.on('[data-action="pick-commit"]', 'click', () => actions.pickCommit()),
-			DOM.on('[data-action="wip"]', 'click', () => actions.switchMode('wip')),
-			DOM.on('[data-action="details"]', 'click', () => actions.switchMode('commit')),
 			DOM.on('[data-action="search-commit"]', 'click', () => actions.searchCommit()),
 			DOM.on('[data-action="files-layout"]', 'click', e => this.onToggleFilesLayout(e)),
-			DOM.on('[data-action="create-patch"]', 'click', () => this.onCreatePatchFromWip(true)),
 			DOM.on<WebviewPane, WebviewPaneExpandedChangeEventDetail>(
 				'[data-region="pullrequest-pane"]',
 				'expanded-change',
@@ -337,22 +294,12 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		if (actions == null) return;
 
 		const s = this._state;
-		const mode = s.mode.get();
-		let context: InspectWebviewTelemetryContext;
-
-		if (mode === 'wip') {
-			context = {
-				'context.autolinks': 0,
-				'context.codeSuggestions': s.codeSuggestions.get()?.length ?? 0,
-			};
-		} else {
-			const commit = s.currentCommit.get();
-			context = {
-				'context.autolinks': s.autolinks.get()?.length ?? 0,
-				'context.type': commit?.stashNumber != null ? 'stash' : commit != null ? 'commit' : undefined,
-				'context.uncommitted': s.isUncommitted.get(),
-			};
-		}
+		const commit = s.currentCommit.get();
+		const context: InspectWebviewTelemetryContext = {
+			'context.autolinks': s.autolinks.get()?.length ?? 0,
+			'context.type': commit?.stashNumber != null ? 'stash' : commit != null ? 'commit' : undefined,
+			'context.uncommitted': s.isUncommitted.get(),
+		};
 
 		const str = JSON.stringify(context);
 		if (str !== this._lastTelemetryContextStr) {
@@ -377,154 +324,28 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// Render methods
 	// ============================================================
 
-	private renderTopInspect() {
-		const actions = this._actions;
+	private renderTopSection() {
+		// No header chrome until a commit/stash is selected — the empty state lives in the panel below.
 		const s = this._state;
 		const commit = s.currentCommit.get();
 		if (commit == null) return nothing;
 
-		const nav = s.navigationStack.get();
-		const isPinned = s.pinned.get();
-
-		return html`<gl-inspect-nav
-			?uncommitted=${s.isUncommitted.get()}
-			?pinned=${isPinned}
-			.navigation=${nav}
-			.shortSha=${commit.shortSha ?? ''}
-			.stashNumber=${commit.stashNumber}
-			@gl-commit-actions=${(e: CustomEvent<{ action: string; alt: boolean }>) => this.onCommitActions(e)}
-			@gl-pin=${() => actions?.togglePin()}
-			@gl-nav-back=${() => actions?.navigateBack()}
-			@gl-nav-forward=${() => actions?.navigateForward()}
-		></gl-inspect-nav>`;
-	}
-
-	private renderTopWip() {
 		const actions = this._actions;
-		const s = this._state;
-		const wip = s.wipState.get();
-		const prefs = s.preferences.get();
-		if (wip == null) return nothing;
-
-		return html`<gl-status-nav
-			.wip=${wip}
-			.pullRequest=${s.pullRequest.get()}
-			.preferences=${prefs}
-			@gl-branch-action=${(e: CustomEvent<{ action: string }>) => this.onBranchAction(e.detail.action)}
-			@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
-		></gl-status-nav>`;
-	}
-
-	private renderRepoStatusContent(_isWip: boolean) {
-		const wipStatus = this._state.wipStatus.get();
-		const statusIndicator = wipStatus?.status;
-		return html`
-			<code-icon icon="gl-repository-filled"></code-icon>
-			${when(
-				wipStatus?.status != null,
-				() =>
-					html`<gl-tracking-pill
-						class="inspect-header__tab-tracking"
-						.ahead=${wipStatus!.ahead}
-						.behind=${wipStatus!.behind}
-						.working=${wipStatus!.working}
-						outlined
-					></gl-tracking-pill>`,
-			)}
-			${when(
-				statusIndicator != null,
-				() =>
-					html`<gl-indicator
-						class="inspect-header__tab-indicator inspect-header__tab-indicator--${statusIndicator}"
-					></gl-indicator>`,
-			)}
-		`;
-	}
-
-	private renderWipTooltipContent() {
-		const wipStatus = this._state.wipStatus.get();
-		if (wipStatus == null) return 'Overview';
-
-		return html`
-			Overview of &nbsp;<code-icon icon="git-branch" size="12"></code-icon
-			><span class="md-code">${wipStatus.branch}</span>
-			${when(
-				wipStatus.status === 'both',
-				() =>
-					html`<hr />
-						<span class="md-code">${wipStatus.branch}</span> is ${pluralize('commit', wipStatus.behind)}
-						behind and ${pluralize('commit', wipStatus.ahead)} ahead of
-						<span class="md-code">${wipStatus.upstream ?? 'origin'}</span>`,
-			)}
-			${when(
-				wipStatus.status === 'behind',
-				() =>
-					html`<hr />
-						<span class="md-code">${wipStatus.branch}</span> is ${pluralize('commit', wipStatus.behind)}
-						behind <span class="md-code">${wipStatus.upstream ?? 'origin'}</span>`,
-			)}
-			${when(
-				wipStatus.status === 'ahead',
-				() =>
-					html`<hr />
-						<span class="md-code">${wipStatus.branch}</span> is ${pluralize('commit', wipStatus.ahead)}
-						ahead of <span class="md-code"> ${wipStatus.upstream ?? 'origin'}</span>`,
-			)}
-			${when(
-				wipStatus.working > 0,
-				() =>
-					html`<hr />
-						${pluralize('working change', wipStatus.working)}`,
-			)}
-		`;
-	}
-
-	private renderTopSection() {
-		const s = this._state;
-		const currentMode = s.mode.get();
-		const isWip = currentMode === 'wip';
-		const commit = s.currentCommit.get();
-		const isPinned = s.pinned.get();
-
 		return html`
 			<div class="inspect-header">
-				<nav class="inspect-header__tabs">
-					<gl-tooltip>
-						<button class="inspect-header__tab${!isWip ? ' is-active' : ''}" data-action="details">
-							<code-icon icon="gl-inspect"></code-icon>
-						</button>
-						<span slot="content"
-							>${commit != null
-								? !s.isStash.get()
-									? html`Inspect Commit
-											<span class="md-code"
-												><code-icon icon="git-commit"></code-icon> ${commit.shortSha}</span
-											>`
-									: html`Inspect Stash
-											<span class="md-code"
-												><code-icon icon="gl-stashes-view"></code-icon>
-												#${commit.stashNumber}</span
-											>`
-								: 'Inspect'}${isPinned
-								? html`(pinned)
-										<hr />
-										Automatic following is suspended while pinned`
-								: ''}</span
-						>
-					</gl-tooltip>
-					<gl-tooltip>
-						<button class="inspect-header__tab${isWip ? ' is-active' : ''}" data-action="wip">
-							${this.renderRepoStatusContent(isWip)}
-						</button>
-						<span slot="content">${this.renderWipTooltipContent()}</span>
-					</gl-tooltip>
-				</nav>
 				<div class="inspect-header__content">
-					${when(
-						!isWip,
-						() => this.renderTopInspect(),
-						() => this.renderTopWip(),
-					)}
+					<gl-inspect-nav
+						?uncommitted=${s.isUncommitted.get()}
+						?pinned=${s.pinned.get()}
+						.navigation=${s.navigationStack.get()}
+						.shortSha=${commit.shortSha ?? ''}
+						.stashNumber=${commit.stashNumber}
+						@gl-commit-actions=${(e: CustomEvent<{ action: string; alt: boolean }>) =>
+							this.onCommitActions(e)}
+						@gl-pin=${() => actions?.togglePin()}
+						@gl-nav-back=${() => actions?.navigateBack()}
+						@gl-nav-forward=${() => actions?.navigateForward()}
+					></gl-inspect-nav>
 				</div>
 			</div>
 		`;
@@ -534,161 +355,79 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		const actions = this._actions;
 		const s = this._state;
 		const resources = this._resources;
-		const currentMode = s.mode.get();
 		const commit = s.currentCommit.get();
-		const wip = s.wipState.get();
 		const prefs = s.preferences.get();
 		const org = s.orgSettings.get();
 		const explain = resources?.explain.value.get();
-		const generate = resources?.generate.value.get();
 		const reach = resources?.reachability.value.get();
 		const reachStatus = resources?.reachability.status.get() ?? 'idle';
 		const reachState = mapReachabilityStatus(reachStatus);
 		const searchCtx = s.searchContext.get();
-		const draft = s.draftState.get();
 
 		return html`
 			<div class="commit-detail-panel scrollable">
 				<gl-error-banner .error=${s.error}></gl-error-banner>
 				${this.renderTopSection()}
 				<main id="main" tabindex="-1">
-					${when(
-						currentMode === 'commit',
-						() =>
-							html`<gl-details-commit-panel
-								variant="embedded"
-								file-icons
-								?multi-selectable=${true}
-								?panel-actions=${false}
-								.commit=${commit}
-								.loading=${resources?.commit.loading.get() ?? false}
-								.files=${commit?.files}
-								.preferences=${prefs}
-								.showSearchBox=${prefs?.showSearchBox ?? true}
-								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
-								.orgSettings=${org}
-								.isUncommitted=${s.isUncommitted.get()}
-								.filesCollapsable=${false}
-								.autolinksEnabled=${s.capabilities.autolinksEnabled}
-								.autolinks=${s.autolinks.get()}
-								.formattedMessage=${s.formattedMessage.get()}
-								.autolinkedIssues=${s.autolinkedIssues.get()}
-								.pullRequest=${s.pullRequest.get()}
-								.signature=${s.signature.get()}
-								.hasAccount=${s.hasAccount.get()}
-								.hasIntegrationsConnected=${s.capabilities.hasIntegrationsConnected}
-								.hasRemotes=${s.hasRemotes.get()}
-								.explain=${explain}
-								.searchContext=${searchCtx}
-								.reachability=${reach}
-								.reachabilityState=${reachState}
-								.branchName=${commit?.stashOnRef}
-								.aiEnabled=${org?.ai !== false}
-								@toggle-mode=${(e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>) =>
-									actions?.openCommitInGraphMode(e.detail.mode, commit)}
-								@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
-									actions?.executeCommand('gitlens.stashesApply', e.detail)}
-								@explain-commit=${(e: CustomEvent<{ prompt?: string }>) =>
-									void actions?.explainCommit(e.detail?.prompt)}
-								@load-reachability=${() => void actions?.loadReachability()}
-								@refresh-reachability=${() => actions?.refreshReachability()}
-								@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
-									actions?.openOnRemote(commit?.repoPath, e.detail.sha)}
-								@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) =>
-									actions?.changeFilesLayout(e.detail.layout)}
-								@file-open-on-remote=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileOnRemote(e.detail)}
-								@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFile(e.detail, e.detail.showOptions)}
-								@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileCompareWorking(e.detail, e.detail.showOptions)}
-								@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
-								@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.executeFileAction(e.detail, e.detail.showOptions)}
-								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
-									actions?.openMultipleChanges(e.detail)}
-								@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
-								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
-									actions?.updateShowSearchBox(e.detail)}
-								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
-									actions?.updateSearchBoxFilter(e.detail)}
-							></gl-details-commit-panel>`,
-						() =>
-							html`<gl-details-wip-panel
-								.wip=${wip}
-								.pullRequest=${s.pullRequest.get()}
-								.codeSuggestions=${s.codeSuggestions.get()}
-								.files=${wip?.changes?.files}
-								.preferences=${prefs}
-								.showSearchBox=${prefs?.showSearchBox ?? true}
-								.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
-								.orgSettings=${org}
-								.generate=${generate}
-								.isUncommitted=${true}
-								.emptyText=${'No working changes'}
-								.draftState=${draft}
-								@draft-state-changed=${(e: CustomEvent<{ inReview: boolean }>) =>
-									actions?.changeReviewMode(e.detail.inReview)}
-								@create-patch=${(e: CustomEvent<{ checked: boolean | 'staged' }>) =>
-									this.onCreatePatchFromWip(e.detail.checked)}
-								@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFile(e.detail, e.detail.showOptions)}
-								@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
-								@file-compare-wip=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileCompareWipChanges(e.detail, e.detail.showOptions)}
-								@file-stage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									e.detail.files?.length
-										? actions?.stageFiles([...e.detail.files])
-										: actions?.stageFile(e.detail)}
-								@file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									e.detail.files?.length
-										? actions?.unstageFiles([...e.detail.files])
-										: actions?.unstageFile(e.detail)}
-								@file-discard=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									e.detail.files?.length
-										? actions?.discardFiles([...e.detail.files])
-										: actions?.discardFile(e.detail)}
-								@file-stash=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									e.detail.files?.length
-										? actions?.stashFiles([...e.detail.files])
-										: actions?.stashFile(e.detail)}
-								@discard-unstaged=${() => actions?.discardUnstagedFiles()}
-								@discard-staged=${() => actions?.discardStagedFiles()}
-								@file-open-current=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openConflictChanges(e.detail, 'current')}
-								@file-open-incoming=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openConflictChanges(e.detail, 'incoming')}
-								@data-action=${(e: CustomEvent<{ name: string }>) => this.onBranchAction(e.detail.name)}
-								@gl-inspect-create-suggestions=${(e: CustomEvent<CreatePatchEventDetail>) =>
-									actions?.suggestChanges(e.detail)}
-								@gl-patch-generate-title=${() => void actions?.generateDescription()}
-								@gl-show-code-suggestion=${(e: CustomEvent<{ id: string }>) => {
-									const draft = s.codeSuggestions.get()?.find(d => d.id === e.detail.id);
-									if (draft) {
-										actions?.showCodeSuggestion(draft);
-									}
-								}}
-								@gl-patch-file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
-								@gl-patch-file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.openFile(e.detail, e.detail.showOptions)}
-								@gl-patch-file-stage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.stageFile(e.detail)}
-								@gl-patch-file-unstage=${(e: CustomEvent<FileChangeListItemDetail>) =>
-									actions?.unstageFile(e.detail)}
-								@gl-patch-create-cancelled=${() => actions?.changeReviewMode(false)}
-								@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
-									actions?.openMultipleChanges(e.detail)}
-								@copy-wip-patch=${(e: CustomEvent<CopyWipPatchEventDetail>) =>
-									actions?.copyWipPatchToClipboard(e.detail.repoPath, e.detail.scope, e.detail.uris)}
-								@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
-									actions?.updateShowSearchBox(e.detail)}
-								@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
-									actions?.updateSearchBoxFilter(e.detail)}
-							></gl-details-wip-panel>`,
-					)}
+					<gl-details-commit-panel
+						variant="embedded"
+						file-icons
+						?multi-selectable=${true}
+						.panelActions=${commit != null}
+						.commit=${commit}
+						.loading=${resources?.commit.loading.get() ?? false}
+						.files=${commit?.files}
+						.preferences=${prefs}
+						.showSearchBox=${prefs?.showSearchBox ?? true}
+						.searchBoxFilter=${prefs?.searchBoxFilter ?? true}
+						.orgSettings=${org}
+						.isUncommitted=${s.isUncommitted.get()}
+						.filesCollapsable=${false}
+						.autolinksEnabled=${s.capabilities.autolinksEnabled}
+						.autolinks=${s.autolinks.get()}
+						.formattedMessage=${s.formattedMessage.get()}
+						.autolinkedIssues=${s.autolinkedIssues.get()}
+						.pullRequest=${s.pullRequest.get()}
+						.signature=${s.signature.get()}
+						.hasAccount=${s.hasAccount.get()}
+						.hasIntegrationsConnected=${s.capabilities.hasIntegrationsConnected}
+						.hasRemotes=${s.hasRemotes.get()}
+						.explain=${explain}
+						.searchContext=${searchCtx}
+						.reachability=${reach}
+						.reachabilityState=${reachState}
+						.branchName=${commit?.stashOnRef}
+						.aiEnabled=${org?.ai !== false}
+						@toggle-mode=${(e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>) =>
+							actions?.openCommitInGraphMode(e.detail.mode, commit)}
+						@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
+							actions?.executeCommand('gitlens.stashesApply', e.detail)}
+						@explain-commit=${(e: CustomEvent<{ prompt?: string }>) =>
+							void actions?.explainCommit(e.detail?.prompt)}
+						@load-reachability=${() => void actions?.loadReachability()}
+						@refresh-reachability=${() => actions?.refreshReachability()}
+						@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
+							actions?.openOnRemote(commit?.repoPath, e.detail.sha)}
+						@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) =>
+							actions?.changeFilesLayout(e.detail.layout)}
+						@file-open-on-remote=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							actions?.openFileOnRemote(e.detail)}
+						@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							actions?.openFile(e.detail, e.detail.showOptions)}
+						@file-compare-working=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							actions?.openFileCompareWorking(e.detail, e.detail.showOptions)}
+						@file-compare-previous=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							actions?.openFileComparePrevious(e.detail, e.detail.showOptions)}
+						@file-more-actions=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							actions?.executeFileAction(e.detail, e.detail.showOptions)}
+						@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
+							actions?.openMultipleChanges(e.detail)}
+						@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
+						@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
+							actions?.updateShowSearchBox(e.detail)}
+						@gl-search-box-filter-change=${(e: CustomEvent<boolean>) =>
+							actions?.updateSearchBoxFilter(e.detail)}
+					></gl-details-commit-panel>
 				</main>
 			</div>
 		`;
@@ -697,17 +436,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// ============================================================
 	// Event handlers
 	// ============================================================
-
-	private onBranchAction(name: string): void {
-		this._actions?.handleBranchAction(name);
-	}
-
-	private onCreatePatchFromWip(checked: boolean | 'staged' = true): void {
-		const wip = this._state.wipState.get();
-		if (wip?.changes == null) return;
-
-		this._actions?.createPatchFromWip(wip.changes, checked);
-	}
 
 	private onToggleFilesLayout(e: MouseEvent): void {
 		const layout = ((e.target as HTMLElement)?.dataset.filesLayout as ViewFilesLayout) ?? undefined;

@@ -776,13 +776,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					<li>stashes in the <a href="command:gitlens.showStashesView">Stashes view</a></li>
 				</ul>
 
-				<p>Alternatively, show your work-in-progress, or search for or choose a commit</p>
+				<p>Alternatively, search for or choose a commit</p>
 
-				<p class="button-container">
-					<span class="button-group button-group--single">
-						<gl-button full data-action="wip">Overview</gl-button>
-					</span>
-				</p>
 				<p class="button-container">
 					<span class="button-group button-group--single">
 						<gl-button full data-action="pick-commit">Choose Commit...</gl-button>

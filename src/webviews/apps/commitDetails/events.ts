@@ -15,7 +15,6 @@
  *
  * Events are co-located with their domain services:
  * - inspect.onCommitSelected (view-specific commit selection)
- * - inspect.onShowWip (host requests WIP mode)
  * - repositories.onRepositoryChanged (workspace-level repo changes)
  * - config.onConfigChanged
  * - integrations.onIntegrationsChanged
@@ -24,11 +23,7 @@
  * via signal bridges — see commitDetails.ts _onRpcReady.
  */
 import type { Remote } from '@eamodio/supertalk';
-import type {
-	CommitDetailsServices,
-	CommitSelectionEvent,
-	ShowWipEvent,
-} from '../../commitDetails/commitDetailsService.js';
+import type { CommitDetailsServices, CommitSelectionEvent } from '../../commitDetails/commitDetailsService.js';
 import type { RepositoryChangeEventData, Unsubscribe } from '../../rpc/services/types.js';
 import { subscribeAll } from '../shared/events/subscriptions.js';
 import type { CommitDetailsActions } from './actions.js';
@@ -68,8 +63,6 @@ export function setupSubscriptions(
 		// Note: onOrgSettingsChanged removed — orgSettings signal bridged from host
 		() =>
 			services.integrations.onIntegrationsChanged(data => handleIntegrationsChanged(state, data.hasAnyConnected)),
-		// Host requests WIP mode on an already-live webview (Launchpad, deep links, etc.)
-		() => services.inspect.onShowWip((event: ShowWipEvent) => handleShowWip(state, event, actions)),
 	]);
 }
 
@@ -94,36 +87,20 @@ function handleCommitSelected(
 	// Clear stale search metadata when the new selection is not coming from search.
 	state.searchContext.set(event.searchContext);
 
-	// Only fetch when in commit mode — avoids unnecessary network round-trip while in WIP mode
-	if (state.mode.get() === 'commit') {
-		void actions.fetchCommit(event.repoPath, event.sha);
-	}
+	void actions.fetchCommit(event.repoPath, event.sha);
 }
 
 /**
  * Handle repository change event (generic, fires for all repos).
  * Filters by change type to decide what to refresh.
  *
- * - WIP mode: Index/Head changes for the current WIP repo trigger a WIP refetch
- *   (FS-level changes are handled separately via `onRepositoryWorkingChanged` in actions)
- * - Commit mode: Head/Heads changes clear stale reachability data
+ * - Head/Heads changes clear stale reachability data for the current commit
  */
 function handleRepositoryChanged(
 	state: CommitDetailsState,
 	event: RepositoryChangeEventData,
 	actions: CommitDetailsActions,
 ): void {
-	// WIP mode: refetch on Index/Head changes for the current WIP repo
-	if (state.mode.get() === 'wip') {
-		const wipRepoPath = state.wipState.get()?.repo?.path;
-		if (event.repoPath === wipRepoPath) {
-			const hasWipChanges = event.changes.some(c => c === 'index' || c === 'head');
-			if (hasWipChanges) {
-				void actions.fetchWipState(event.repoPath);
-			}
-		}
-	}
-
 	// Clear stale reachability on significant repo changes (Head/Heads)
 	const currentCommit = state.currentCommit.get();
 	if (currentCommit?.repoPath === event.repoPath) {
@@ -147,15 +124,4 @@ function handleConfigChanged(actions: CommitDetailsActions): void {
  */
 function handleIntegrationsChanged(state: CommitDetailsState, hasConnected: boolean): void {
 	state.capabilities.hasIntegrationsConnected = hasConnected;
-}
-
-/**
- * Handle host requesting WIP mode on an already-live webview.
- * Fired when Launchpad, deep links, or code review opens WIP in the existing Inspect panel.
- */
-function handleShowWip(state: CommitDetailsState, event: ShowWipEvent, actions: CommitDetailsActions): void {
-	state.mode.set('wip');
-	state.inReview.set(event.inReview);
-	state.draftState.set({ inReview: event.inReview });
-	void actions.fetchWipState(event.repoPath);
 }

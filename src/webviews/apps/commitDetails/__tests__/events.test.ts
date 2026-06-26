@@ -7,7 +7,6 @@ import { createCommitDetailsState } from '../state.js';
 suite('commit details subscriptions', () => {
 	test('should clear stale search context when a new commit selection has none', async () => {
 		const state = createCommitDetailsState(new InMemoryStorage());
-		state.mode.set('commit');
 
 		let onCommitSelected: ((event: any) => void) | undefined;
 		const services = {
@@ -16,7 +15,6 @@ suite('commit details subscriptions', () => {
 					onCommitSelected = callback;
 					return () => {};
 				},
-				onShowWip: () => () => {},
 			},
 			repositories: {
 				onRepositoryChanged: () => () => {},
@@ -31,11 +29,9 @@ suite('commit details subscriptions', () => {
 
 		const fetches: Array<{ repoPath: string; sha: string }> = [];
 		const actions = {
-			switchMode: () => {},
 			fetchCommit: async (repoPath: string, sha: string) => {
 				fetches.push({ repoPath: repoPath, sha: sha });
 			},
-			fetchWipState: async () => {},
 			clearReachability: () => {},
 		} as any;
 
