@@ -1,0 +1,9 @@
+// Single shared webview foundation — the ONE stylesheet every webview links (built as webview.css).
+// Emits the full token system exactly once instead of duplicating it into every app bundle:
+//   • dimensionless --gl-* scales (tokens)
+//   • the --gl-color-* semantic layer + four-scheme assignment + legacy --color-* aliases (theme → colors)
+//   • the WebAwesome bridge (theme → shoelace/vscode-theme)
+// Per-app SCSS no longer @use these; their rules read the tokens via :root inheritance from this file.
+// Mixin libraries (utils, scrollbars) stay @use'd per-app — they emit nothing on their own.
+@use './styles/tokens';
+@use './styles/theme';

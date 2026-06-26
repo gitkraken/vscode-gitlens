@@ -642,7 +642,12 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 	return {
 		name: name,
 		context: basePath,
-		entry: Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
+		entry: {
+			// Shared foundation — emitted once as webview.css and linked by every webview (see getHtmlPlugin).
+			// Kept outside the `webviews` map so it's always built, even in subset builds (--env webviews=…).
+			webview: './shared/webview.ts',
+			...Object.fromEntries(Object.entries(webviews).map(([n, { entry }]) => [n, entry])),
+		},
 		mode: mode,
 		target: 'web',
 		devtool: mode === 'production' && !env.analyzeBundle ? false : 'cheap-module-source-map',
@@ -839,11 +844,12 @@ function getImageMinimizerConfig(mode, env) {
 function getHtmlPlugin(name, plus, mode, env) {
 	return new HtmlPlugin({
 		template: plus ? path.join('plus', name, `${name}.html`) : path.join(name, `${name}.html`),
-		chunks: [name],
+		// 'webview' first so the shared foundation (webview.css/js) is linked before the app's own assets.
+		chunks: ['webview', name],
+		chunksSortMode: 'manual',
 		filename: path.join(__dirname, 'dist', 'webviews', `${name}.html`),
 		inject: true,
 		scriptLoading: 'module',
-		inlineSource: mode === 'production' ? '.css$' : undefined,
 		minify:
 			mode === 'production'
 				? {

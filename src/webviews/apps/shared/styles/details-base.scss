@@ -1,7 +1,5 @@
 @use '../../shared/styles/utils';
-@use './theme';
 @use './scrollbars';
-@use './tokens';
 
 :root {
 	--gitlens-scrollbar-gutter-width: 10px;
