@@ -17,6 +17,7 @@
 import type { Remote } from '@eamodio/supertalk';
 import type { AIReviewFinding } from '@gitlens/ai/models/results.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
@@ -55,6 +56,7 @@ import type {
 } from '../../../../plus/graph/graphService.js';
 import { isWipSha } from '../../../../plus/graph/protocol.js';
 import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.js';
+import type { ConflictDetails } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import { fetchCommitEnrichment } from '../../../shared/actions/commitEnrichment.js';
@@ -2792,6 +2794,27 @@ export class DetailsActions {
 			this.services.repository.resolveAllConflicts(repoPath, resolution),
 			'resolve all conflicts',
 		);
+	}
+
+	/** Lazy fetch of per-side conflict details for the WIP Conflict Details sheet. */
+	getConflictDetails(repoPath: string, filePath: string, status: string): Promise<ConflictDetails | undefined> {
+		return this.services.repository.getConflictDetails(repoPath, filePath, status);
+	}
+
+	/** Resolve a single conflicted file by taking one side, then stage it. */
+	stageConflictSide(repoPath: string, filePath: string, status: string, side: 'current' | 'incoming'): void {
+		this._pendingStagingOp = this.runStagingOp(
+			this.services.repository.stageConflictResolution(
+				{ repoPath: repoPath, path: filePath, status: status as GitFileConflictStatus },
+				side,
+			),
+			'stage conflict side',
+		);
+	}
+
+	/** Open the diff a single commit made to the conflicted file (commit^ → commit). */
+	openConflictCommit(repoPath: string, filePath: string, sha: string): void {
+		this.openFileByPath(filePath, repoPath, { lhs: `${sha}^`, rhs: sha });
 	}
 
 	unstageFile(detail: FileChangeListItemDetail): void {

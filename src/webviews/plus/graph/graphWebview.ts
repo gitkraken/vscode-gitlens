@@ -2648,6 +2648,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							deletions: commitStats?.deletions,
 						};
 						this.setAvatarIfCached(entry, commit.author?.email, sha, repoPath);
+						// Committer identity only when the committer differs from the author (name OR email,
+						// mirroring gl-commit-author.hasDistinctCommitter).
+						const committerEmail = commit.committer?.email;
+						if (
+							(commit.committer?.name != null && commit.committer.name !== commit.author?.name) ||
+							(committerEmail != null &&
+								committerEmail.toLowerCase() !== commit.author?.email?.toLowerCase())
+						) {
+							entry.committerName = commit.committer?.name;
+							entry.committerEmail = committerEmail;
+							entry.committerDate =
+								commit.committer?.date != null ? String(commit.committer.date) : undefined;
+							this.setAvatarIfCached(entry, committerEmail, sha, repoPath, 'committerAvatarUrl');
+						}
 						commits.push(entry);
 					}
 
@@ -11210,10 +11224,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	private setAvatarIfCached(
-		entry: { avatarUrl?: string },
+		entry: { avatarUrl?: string; committerAvatarUrl?: string },
 		email: string | undefined,
 		ref: string | undefined,
 		repoPath: string | undefined,
+		field: 'avatarUrl' | 'committerAvatarUrl' = 'avatarUrl',
 	): void {
 		if (!email) return;
 
@@ -11222,7 +11237,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				? getAvatarUri(email, { ref: ref, repoPath: repoPath }, { size: 16 })
 				: getAvatarUri(email, undefined, { size: 16 });
 		if (!(avatar instanceof Promise)) {
-			entry.avatarUrl = avatar.toString();
+			entry[field] = avatar.toString();
 		} else {
 			void avatar.catch(() => undefined);
 		}

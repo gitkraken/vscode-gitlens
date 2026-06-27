@@ -20,6 +20,7 @@ import {
 	isWipSha,
 	UpdateWipDraftCommand,
 } from '../../../../plus/graph/protocol.js';
+import type { ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
 	CopyCommitPatchEventDetail,
@@ -63,6 +64,8 @@ import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
+import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
+import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
 import './gl-details-review-mode-panel.js';
@@ -937,6 +940,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private _resizeObserver?: ResizeObserver;
 	@state() private _preferredCompareOrientation: PanelOrientation = 'vertical';
 
+	/** Open state + lazily-fetched data for the WIP Conflict Details sheet (undefined = closed). */
+	@state()
+	private _conflictSheet?: {
+		detail: FileChangeListItemDetail;
+		fileName: string;
+		loading: boolean;
+		error: boolean;
+		details?: ConflictDetails;
+	};
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('switch-model', this.handleSwitchModel);
@@ -1684,7 +1697,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${stale ? 'details-content details-stale' : 'details-content'}
-			?inert=${compareSheetOpen}
+			?inert=${compareSheetOpen || this._conflictSheet != null}
 		>
 			${resolved != null
 				? resolved.content
@@ -1738,8 +1751,26 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				})()
 			: nothing;
 
+		const conflictSheet =
+			this._conflictSheet != null
+				? html`<gl-wip-conflict-sheet
+						.details=${this._conflictSheet.details}
+						?loading=${this._conflictSheet.loading}
+						?error=${this._conflictSheet.error}
+						file-name=${this._conflictSheet.fileName}
+						.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+						.preferences=${this._state.preferences.get()}
+						@gl-detail-sheet-close=${this.handleCloseConflictDetails}
+						@conflict-open-changes=${this.handleConflictOpenChanges}
+						@conflict-stage=${this.handleConflictStage}
+						@conflict-open-commit=${this.handleConflictOpenCommit}
+						@conflict-open-file=${this.handleConflictOpenFile}
+						@conflict-resolve-ai=${this.handleConflictResolveAi}
+					></gl-wip-conflict-sheet>`
+				: nothing;
+
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${compareSheet}</div>`;
+			return html`<div class="details-host">${detailsContent}${compareSheet}${conflictSheet}</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -1880,6 +1911,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													checkbox-mode
 													?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type ===
 													'rebase'}
+													conflict-details
 													?show-search-box=${this.showSearchBox}
 													?search-box-filter=${this.searchBoxFilter}
 													.wip=${wip}
@@ -1898,6 +1930,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													@file-compare-wip=${this.handleFileCompareWipChanges}
 													@file-open-current=${this.handleFileOpenConflictCurrent}
 													@file-open-incoming=${this.handleFileOpenConflictIncoming}
+													@file-conflict-details=${this.handleOpenConflictDetails}
 													@file-more-actions=${this.handleFileMoreActions}
 													@file-stage=${this.handleFileStage}
 													@file-unstage=${this.handleFileUnstage}
@@ -3033,6 +3066,81 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleFileOpenConflictIncoming = (e: CustomEvent<FileChangeListItemDetail>) => {
 		this._actions.openConflictChanges(e.detail, 'incoming');
+	};
+
+	private handleOpenConflictDetails = (e: CustomEvent<FileChangeListItemDetail>) => {
+		const detail = e.detail;
+		const fileName = detail.path.split('/').pop() || detail.path;
+		this._conflictSheet = { detail: detail, fileName: fileName, loading: true, error: false };
+		void this.loadConflictDetails(detail);
+	};
+
+	private async loadConflictDetails(detail: FileChangeListItemDetail): Promise<void> {
+		let details: ConflictDetails | undefined;
+		let error = false;
+		try {
+			details = await this._actions.getConflictDetails(detail.repoPath, detail.path, detail.status ?? '');
+			error = details == null;
+		} catch {
+			error = true;
+		}
+
+		// Stale-guard: ignore the result if the user closed the sheet or opened another file mid-flight.
+		const current = this._conflictSheet;
+		if (current == null || current.detail.repoPath !== detail.repoPath || current.detail.path !== detail.path) {
+			return;
+		}
+
+		this._conflictSheet = { ...current, loading: false, error: error, details: details };
+	}
+
+	private handleCloseConflictDetails = () => {
+		this._conflictSheet = undefined;
+	};
+
+	private handleConflictOpenChanges = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openConflictChanges(conflict.detail, e.detail.side);
+	};
+
+	private handleConflictStage = (e: CustomEvent<ConflictSheetSideEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.stageConflictSide(
+			conflict.detail.repoPath,
+			conflict.detail.path,
+			conflict.detail.status ?? '',
+			e.detail.side,
+		);
+	};
+
+	private handleConflictOpenCommit = (e: CustomEvent<ConflictSheetCommitEventDetail>) => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openConflictCommit(conflict.detail.repoPath, conflict.detail.path, e.detail.sha);
+	};
+
+	private handleConflictOpenFile = () => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		this._actions.openFile(conflict.detail);
+	};
+
+	/** Header "Resolve Conflict with AI" — closes the sheet and enters resolve mode focused on this
+	 *  one file (mirrors the paused-op banner's AI resolve, but scoped to the sheet's file). */
+	private handleConflictResolveAi = () => {
+		const conflict = this._conflictSheet;
+		if (conflict == null) return;
+
+		const repoPath = conflict.detail.repoPath;
+		const filePath = conflict.detail.path;
+		this._conflictSheet = undefined;
+		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
 	};
 
 	private handleFileStage = (e: CustomEvent<FileChangeListItemDetail>) => {

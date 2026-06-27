@@ -398,58 +398,44 @@ export const compareModePanelStyles = css`
 		border-color: transparent;
 	}
 
-	/* Zero out the tree's indent columns (flat list — no nesting). No outer padding here;
-	   horizontal insets live on the tree-item host so they match the scope-pane row rhythm.
-	   Override gl-tree's default :host height (100%) to auto so the element sizes to its
-	   children's total height — otherwise gl-tree's box stays viewport-tall while children
-	   overflow below into the scroll area, and any sibling (e.g. the load-more row) would be
-	   visually overlapped by the overflowing children instead of flowing after them. */
-	.compare-commits gl-tree {
+	/* Listbox grouping the scope-commit options (block, so display:contents can't drop its role). */
+	.compare-listbox {
 		display: block;
-		height: auto;
-		--gl-tree-indent: 0;
-		--gitlens-tree-indent: 0;
 	}
 
-	/* Inset matches the file tree below so the avatar column and the FILES CHANGED icons land on
-	   the same vertical guide — file-tree gl-tree-items inherit --gitlens-gutter-width: 20px from
-	   the global properties default, and we explicitly mirror that here (the original 0.3rem was
-	   too tight to align with the file rows). The 3px selected-row rail (drawn as an inset
-	   box-shadow on the host) sits flush to the panel edge regardless of this padding, so the
-	   wider gutter doesn't push it inward. Padding-y is small; the row's natural two-line height
-	   drives height. */
+	/* Left inset (2rem) matches the file tree's icon gutter below so the avatar column and the FILES
+	   CHANGED icons land on the same vertical guide; small block padding keeps the row dense and lets
+	   the row's natural two-line height drive its size. Applied to the item part since the anchor
+	   button owns the padding. */
+	.compare-commit::part(item) {
+		padding-block: 0.2rem;
+		padding-inline: 2rem var(--gl-space-2);
+	}
+
+	/* Selected/scoping commit row — full-row tint + 3px left rail in the warning hue used by the
+	   graph header's focus-branch scope chip (both pull from --vscode-statusBarItem-warningBackground),
+	   so the row reads as "the active scope filtering the file pane below" rather than a generic list
+	   selection. Re-themes gl-commit-row-item's selection vars; the rail is flush with the panel edge. */
 	.compare-commit {
-		--gitlens-gutter-width: 2rem;
-		--gl-popover-anchor-width: 100%;
-		--gl-tree-item-min-height: 2.4rem;
-		--gl-tree-item-padding-y: 0.2rem;
-
-		padding-right: var(--gl-space-2);
+		--gl-commit-row-item-selected-background: color-mix(
+			in srgb,
+			var(--vscode-statusBarItem-warningBackground) 18%,
+			transparent
+		);
+		--gl-commit-row-item-selected-accent: var(
+			--vscode-statusBarItem-warningBackground,
+			var(--vscode-toolbar-hoverBackground)
+		);
+		--gl-commit-row-item-selected-rail-width: 3px;
 	}
 
-	/* This consumer doesn't slot any actions; tree-item's show-on-hover behavior would otherwise
-	   add a 0.4rem margin on hover and shift the date column leftward each time. Hide outright. */
-	.compare-commit::part(actions) {
-		display: none;
-	}
-
-	/* Selected/scoping commit row — full-row tint + 3px left rail in the same warning hue used
-	   by the graph header's focus-branch scope chip (both pull from --vscode-statusBarItem-
-	   warningBackground). The shared color says "this row is the active scope filtering the file
-	   pane below". The tint OVERRIDES tree-item's default --vscode-list-*SelectionBackground so
-	   the row reads as a scope indicator, not a generic list selection. The rail is on the host
-	   (not ::part(item)) so it sits flush with the panel edge. */
-	.compare-commit--selected,
-	.compare-commit--selected:hover {
-		background-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 18%, transparent);
-		box-shadow: inset 3px 0 0 0 var(--vscode-statusBarItem-warningBackground, var(--vscode-toolbar-hoverBackground));
-	}
-
-	/* Strengthen the tint when the selected row is also focused (keyboard / active click) so the
-	   focused state still reads through the warning tint. */
-	.compare-commit--selected[focused],
-	.compare-commit--selected:focus-within {
-		background-color: color-mix(in srgb, var(--vscode-statusBarItem-warningBackground) 28%, transparent);
+	/* Strengthen the tint when the selected row is also focused (keyboard / active click). */
+	.compare-commit[selected]:focus-within {
+		--gl-commit-row-item-selected-background: color-mix(
+			in srgb,
+			var(--vscode-statusBarItem-warningBackground) 28%,
+			transparent
+		);
 	}
 
 	/* Empty states */

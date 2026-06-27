@@ -13,17 +13,25 @@ import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange, GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { RepositoryChange } from '@gitlens/git/models/repository.js';
 import { repositoryChanges } from '@gitlens/git/models/repository.js';
 import type { CommitSignature } from '@gitlens/git/models/signature.js';
 import type { GitStatusFile } from '@gitlens/git/models/statusFile.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { canStageCurrent, canStageIncoming } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
-import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import {
+	getConflictCurrentRef,
+	getConflictIncomingRef,
+	resolveConflictFilePaths,
+} from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import { getAvatarUri } from '../../../avatars.js';
 import type { DiffWithCommandArgs } from '../../../commands/diffWith.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -49,6 +57,9 @@ import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure
 import { discardOneWith } from './discard.utils.js';
 import type {
 	CommitSignatureShape,
+	ConflictDetails,
+	ConflictDetailsCommit,
+	ConflictDetailsSide,
 	RepositoryChangeEventData,
 	SerializedGitBranch,
 	SerializedGitCommit,
@@ -311,6 +322,99 @@ export class RepositoryService {
 			repoPath: file.repoPath,
 			showOptions: { preserveFocus: false, preview: true },
 		});
+	}
+
+	/**
+	 * Per-side details for the graph WIP Conflict Details sheet: for each side (current/incoming) the
+	 * ref, a display label, and the commits that changed the file from the merge-base to that side's
+	 * ref. Mirrors the tree-view `MergeConflictChangesNode` log logic. `status` is the file's two-char
+	 * conflict status, used to gate the stage-current/incoming affordances.
+	 */
+	async getConflictDetails(repoPath: string, filePath: string, status: string): Promise<ConflictDetails | undefined> {
+		const normalizedPath = normalizePath(filePath);
+		const svc = this.container.git.getRepositoryService(repoPath);
+		const pausedStatus = await svc.pausedOps?.getPausedOperationStatus?.();
+		if (pausedStatus == null) {
+			Logger.warn('getConflictDetails: paused-operation status unavailable');
+			return undefined;
+		}
+
+		const mergeBase = pausedStatus.mergeBase;
+		const incomingRef = getConflictIncomingRef(pausedStatus) ?? pausedStatus.HEAD.ref;
+
+		// Rename-aware path per side (mirrors openConflictChanges / mergeConflictFileNode).
+		let currentPath = normalizedPath;
+		let incomingPath = normalizedPath;
+		if (mergeBase != null) {
+			const [currentFilesResult, incomingFilesResult] = await Promise.allSettled([
+				svc.diff.getDiffStatus(mergeBase, 'HEAD', { renameLimit: 0 }),
+				svc.diff.getDiffStatus(mergeBase, incomingRef, { renameLimit: 0 }),
+			]);
+			const currentFiles = getSettledValue(currentFilesResult);
+			const incomingFiles = getSettledValue(incomingFilesResult);
+			currentPath = resolveConflictFilePaths(currentFiles, incomingFiles, normalizedPath).rhsPath;
+			incomingPath = resolveConflictFilePaths(incomingFiles, currentFiles, normalizedPath).rhsPath;
+		}
+
+		const buildSide = async (
+			path: string,
+			ref: string,
+			display: GitReference | undefined,
+		): Promise<ConflictDetailsSide> => {
+			let commits: ConflictDetailsCommit[] = [];
+			if (mergeBase != null) {
+				const log = await svc.commits.getLogForPath(path, createRevisionRange(mergeBase, ref, '..'), {
+					isFolder: false,
+					renames: true,
+				});
+				if (log?.commits != null) {
+					commits = Array.from(log.commits.values(), c => {
+						const committerEmail = c.committer?.email;
+						// Distinct committer = different name OR email (mirrors gl-commit-author.hasDistinctCommitter).
+						const hasDistinctCommitter =
+							(c.committer?.name != null && c.committer.name !== c.author.name) ||
+							(committerEmail != null && committerEmail.toLowerCase() !== c.author.email?.toLowerCase());
+						return {
+							sha: c.sha,
+							shortSha: c.shortSha,
+							message: c.message ?? c.summary,
+							author: c.author.name,
+							authorEmail: c.author.email,
+							avatarUrl: getAvatarUri(c.author.email, undefined, { size: 32 }).toString(),
+							committerAvatarUrl: hasDistinctCommitter
+								? getAvatarUri(committerEmail, undefined, { size: 32 }).toString()
+								: undefined,
+							committerName: hasDistinctCommitter ? c.committer?.name : undefined,
+							committerEmail: hasDistinctCommitter ? committerEmail : undefined,
+							committerDate: hasDistinctCommitter ? c.committer?.date?.getTime() : undefined,
+							date: c.author.date.getTime(),
+						};
+					});
+				}
+			}
+			const refKind: 'branch' | 'commit' = display?.refType === 'branch' ? 'branch' : 'commit';
+			const refName = display == null ? ref : refKind === 'branch' ? display.name : display.ref;
+			return { ref: ref, refKind: refKind, refName: refName, commits: commits };
+		};
+
+		const [current, incoming] = await Promise.all([
+			buildSide(currentPath, 'HEAD', getConflictCurrentRef(pausedStatus)),
+			buildSide(incomingPath, incomingRef, pausedStatus.incoming),
+		]);
+
+		// The generic single-char 'U' carries no side semantics, so it can't be staged per-side.
+		const conflictStatus =
+			status !== 'U' && isConflictStatus(status) ? (status as GitFileConflictStatus) : undefined;
+
+		return {
+			path: normalizedPath,
+			status: status,
+			hasMergeBase: mergeBase != null,
+			canStageCurrent: conflictStatus != null ? canStageCurrent(conflictStatus) : false,
+			canStageIncoming: conflictStatus != null ? canStageIncoming(conflictStatus) : false,
+			current: current,
+			incoming: incoming,
+		};
 	}
 
 	/**

@@ -1,8 +1,10 @@
 import type { TemplateResult } from 'lit';
 import { css, html, nothing } from 'lit';
 import { formatDate } from '@gitlens/utils/date.js';
+import type { CommitSignatureShape } from '../../../../commitDetails/protocol.js';
 import { messageHeadlineSplitterToken } from '../../../../commitDetails/protocol.js';
 import '../code-icon.js';
+import './signature-details.js';
 
 export interface CompactCommitAuthor {
 	name: string;
@@ -82,10 +84,16 @@ export const commitPopoverStyles = css`
 		color: var(--color-foreground--85);
 		overflow-wrap: anywhere;
 		white-space: pre-wrap;
+
+		/* Auto-hide scrollbar: scrollableBase's ::-webkit-scrollbar-thumb inherits this element's
+		   border-color, so transparent → hidden, revealed only while hovering the message itself.
+		   NOT keyed on the host (:host(:hover)) — the popover is shown the whole time the row is
+		   hovered, which would otherwise pin the scrollbar visible and never fade. */
+		border-color: transparent;
+		transition: border-color 1s linear;
 	}
 
-	.commit-popover-content:hover .scrollable,
-	.commit-popover-content:focus-within .scrollable {
+	.commit-popover-content__message:hover {
 		border-color: var(--vscode-scrollbarSlider-background);
 		transition: none;
 	}
@@ -96,6 +104,18 @@ export const commitPopoverStyles = css`
 		align-items: center;
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: var(--gl-font-sm);
+		color: var(--vscode-descriptionForeground);
+	}
+
+	.commit-popover-content__committer {
+		display: flex;
+		gap: 0.625rem;
+		align-items: center;
+		min-width: 0;
+	}
+
+	.commit-popover-content__committer-label {
+		font-weight: 400;
 		color: var(--vscode-descriptionForeground);
 	}
 `;
@@ -118,6 +138,9 @@ export function renderCommitPopoverContent(
 	message: string | undefined,
 	shortSha: string | undefined,
 	dateFormat?: string,
+	signature?: CommitSignatureShape,
+	committerEmail?: string,
+	committer?: { name?: string; email?: string; avatarUrl?: string; date?: Date },
 ): TemplateResult | typeof nothing {
 	if (!author) return nothing;
 
@@ -141,11 +164,46 @@ export function renderCommitPopoverContent(
 			</div>
 			<span class="commit-popover-content__date">${absoluteDate}</span>
 		</div>
+		${committer != null && (committer.name || committer.email)
+			? html`<div class="commit-popover-content__committer">
+					<div class="commit-popover-content__info">
+						${committer.avatarUrl
+							? html`<img
+									class="commit-popover-content__avatar"
+									src=${committer.avatarUrl}
+									alt=${committer.name ?? ''}
+								/>`
+							: nothing}
+						<div class="commit-popover-content__details">
+							<span class="commit-popover-content__name"
+								>${committer.name || committer.email}
+								<span class="commit-popover-content__committer-label">(committer)</span></span
+							>
+							${committer.email
+								? html`<span class="commit-popover-content__email"
+										><a href="mailto:${committer.email}">${committer.email}</a></span
+									>`
+								: nothing}
+						</div>
+					</div>
+					${committer.date
+						? html`<span class="commit-popover-content__date"
+								>${formatDate(committer.date, dateFormat ?? 'MMMM Do, YYYY h:mma')}</span
+							>`
+						: nothing}
+				</div>`
+			: nothing}
 		${shortSha
 			? html`<span class="commit-popover-content__sha"
 					><code-icon icon="git-commit"></code-icon>${shortSha}</span
 				>`
 			: nothing}
-		${fullMessage ? html`<div class="commit-popover-content__message scrollable">${fullMessage}</div>` : nothing}
+		${signature != null
+			? html`<gl-signature-details
+					.signature=${signature}
+					.committerEmail=${committerEmail}
+				></gl-signature-details>`
+			: nothing}
+		${fullMessage ? html`<div class="commit-popover-content__message">${fullMessage}</div>` : nothing}
 	</div>`;
 }

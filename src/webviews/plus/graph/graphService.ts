@@ -224,6 +224,11 @@ export type BranchComparisonCommit = {
 	author: string;
 	authorEmail?: string;
 	avatarUrl?: string;
+	/** Committer identity (avatar overlay + hover) — set only when the committer differs from the author. */
+	committerAvatarUrl?: string;
+	committerName?: string;
+	committerEmail?: string;
+	committerDate?: string;
 	date: string;
 	additions?: number;
 	deletions?: number;

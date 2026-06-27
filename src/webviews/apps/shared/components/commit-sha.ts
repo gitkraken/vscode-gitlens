@@ -20,6 +20,14 @@ const styles = css`
 		outline-offset: 2px;
 	}
 
+	/* Neutral/grey counterpart to gl-branch-name's pill — same shape, muted (not branch-colored). */
+	:host([appearance='pill']) {
+		padding: 0.1rem 0.6rem;
+		color: var(--vscode-foreground);
+		background-color: color-mix(in srgb, var(--vscode-descriptionForeground) 18%, transparent);
+		border-radius: var(--gl-radius-sm);
+	}
+
 	.label--uncommitted {
 		cursor: default;
 	}
@@ -33,6 +41,9 @@ const styles = css`
 @customElement('gl-commit-sha')
 export class GlCommitSha extends LitElement {
 	static override styles = styles;
+
+	@property({ reflect: true })
+	appearance?: 'pill';
 
 	@property({ type: String })
 	sha?: string;

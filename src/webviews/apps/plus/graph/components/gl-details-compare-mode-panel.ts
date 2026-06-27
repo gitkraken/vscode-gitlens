@@ -30,7 +30,8 @@ import type { TreeItemAction } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
 import { panelActionInputStyles } from './shared-panel.css.js';
-import './gl-commit-row.js';
+import type { GlCommitRowItem } from './gl-commit-row-item.js';
+import './gl-commit-row-item.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/badges/badge.js';
@@ -48,8 +49,6 @@ import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/webview-pane.js';
 import '../../../shared/components/split-panel/split-panel.js';
-import '../../../shared/components/tree/tree.js';
-import '../../../shared/components/tree/tree-item.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import '../../../shared/components/avatar/avatar.js';
 
@@ -188,6 +187,11 @@ export class GlDetailsCompareModePanel extends LitElement {
 
 	@property({ attribute: 'selected-commit-sha' })
 	selectedCommitSha?: string;
+
+	/** The commit row that currently holds the listbox's single tab stop (roving tabindex). Tracks
+	 *  the last-focused row; falls back to the selected/first row in `rovingShaFor`. */
+	@state()
+	private _activeCommitSha?: string;
 
 	@property({ attribute: 'active-view' })
 	activeView: 'files' | 'contributors' = 'files';
@@ -643,21 +647,79 @@ export class GlDetailsCompareModePanel extends LitElement {
 		// another row in the list, so scrolling reaches it naturally. `box-sizing: border-box`
 		// on the button (see CSS) keeps `width: 100%` honest so the button doesn't push past
 		// the scroll container and trigger a horizontal scrollbar.
+		const rovingSha = this.rovingShaFor(commits);
 		return html`<div
 			id="compare-tabpanel-${this.activeTab}"
 			class="compare-commits scrollable"
 			role="tabpanel"
 			aria-labelledby="compare-tab-${this.activeTab}"
 		>
-			<gl-tree>
+			<div
+				class="compare-listbox"
+				role="listbox"
+				aria-label="Comparison Commits"
+				@keydown=${this.handleCommitListKeydown}
+				@focusin=${this.handleCommitListFocusIn}
+			>
 				${repeat(
 					commits,
 					commit => commit.sha,
-					commit => this.renderCommitRow(commit),
+					commit => this.renderCommitRow(commit, rovingSha),
 				)}
-			</gl-tree>
+			</div>
 			${hasMore ? this.renderLoadMoreRow(loadingMore) : nothing}
 		</div>`;
+	}
+
+	/** The row that holds the listbox's single tab stop: the last-focused row if still present, else
+	 *  the active-scope row, else the first — so Tab always lands on a meaningful row. */
+	private rovingShaFor(commits: readonly BranchComparisonCommit[]): string | undefined {
+		if (this._activeCommitSha != null && commits.some(c => c.sha === this._activeCommitSha)) {
+			return this._activeCommitSha;
+		}
+		if (this.selectedCommitSha != null && commits.some(c => c.sha === this.selectedCommitSha)) {
+			return this.selectedCommitSha;
+		}
+		return commits[0]?.sha;
+	}
+
+	/** Roving focus across the flat single-select list (replaces the arrow-nav gl-tree once provided).
+	 *  Moves DOM focus only; activation (scope toggle) stays on Enter/Space/click via the option. */
+	private handleCommitListKeydown(e: KeyboardEvent) {
+		if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+
+		const rows = [...this.renderRoot.querySelectorAll<GlCommitRowItem>('.compare-commit')];
+		if (!rows.length) return;
+
+		const current = rows.indexOf(e.target as GlCommitRowItem);
+		let next: number;
+		switch (e.key) {
+			case 'ArrowDown':
+				next = current < 0 ? 0 : Math.min(current + 1, rows.length - 1);
+				break;
+			case 'ArrowUp':
+				next = current < 0 ? rows.length - 1 : Math.max(current - 1, 0);
+				break;
+			case 'Home':
+				next = 0;
+				break;
+			case 'End':
+				next = rows.length - 1;
+				break;
+			default:
+				return;
+		}
+
+		e.preventDefault();
+		rows[next].focus();
+	}
+
+	/** Sync the roving tab stop to whichever row last received focus (arrow, Tab, or click). */
+	private handleCommitListFocusIn(e: FocusEvent) {
+		const sha = (e.target as GlCommitRowItem | null)?.commit?.sha;
+		if (sha != null) {
+			this._activeCommitSha = sha;
+		}
 	}
 
 	/** "Load More" row that pulls the next page of commits for the active side. Styled to mirror
@@ -674,27 +736,22 @@ export class GlDetailsCompareModePanel extends LitElement {
 		</button>`;
 	}
 
-	private renderCommitRow(commit: BranchComparisonCommit) {
+	private renderCommitRow(commit: BranchComparisonCommit, rovingSha: string | undefined) {
 		const isSelected = this.selectedCommitSha === commit.sha;
 
-		// showIcon=false suppresses tree-item's empty 1.6rem icon column (+ 0.6rem button gap)
-		// — gl-commit-row has its own avatar slot, so the tree-item's icon column would just add
-		// dead space to the left of the avatar.
-		//
-		// `.selected` (property binding) drives gl-tree-item's internal `@state selected` field,
-		// which is what updates `aria-selected` and thus the default selection background. A
-		// `?selected` (attribute binding) would NOT — `@state` doesn't reflect from attribute, so
-		// the host's selected state would only ever flip TRUE (on user click) and never back to
-		// FALSE when the parent re-renders with a different/no scope.
-		return html`<gl-tree-item
-			rich
-			.showIcon=${false}
-			class="compare-commit ${isSelected ? 'compare-commit--selected' : ''}"
+		// `.selected` (property binding) drives gl-commit-row-item's reflected `selected` so the row's
+		// scope styling toggles back off when the parent re-renders with a different/no scope. The
+		// toggle-and-clear semantics live in `dispatchSelectCommit`. `selectable` renders the row as a
+		// listbox option; `.tabbable` gives only the roving row the single tab stop.
+		return html`<gl-commit-row-item
+			class="compare-commit"
+			selectable
 			.selected=${isSelected}
-			@gl-tree-item-selected=${() => this.dispatchSelectCommit(commit.sha)}
-		>
-			<gl-commit-row .commit=${commit} .preferences=${this.preferences}></gl-commit-row>
-		</gl-tree-item>`;
+			.tabbable=${commit.sha === rovingSha}
+			.commit=${commit}
+			.preferences=${this.preferences}
+			@gl-commit-row-item-select=${() => this.dispatchSelectCommit(commit.sha)}
+		></gl-commit-row-item>`;
 	}
 
 	private _getFileContext = (file: BranchComparisonFile) => this.getFileContext(file);

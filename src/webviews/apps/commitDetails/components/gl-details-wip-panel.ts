@@ -114,12 +114,23 @@ const stashAction: TreeItemAction = {
 	multiBehavior: 'batch',
 };
 
+// `single`: opens the conflicted row's two-sided details sheet — meaningless fanned out to other rows.
+const openConflictDetailsAction: TreeItemAction = {
+	icon: 'eye',
+	label: 'Conflict Details',
+	action: 'file-conflict-details',
+	multiBehavior: 'single',
+};
 const conflictedCheckboxActions: TreeItemAction[] = [
-	openFileAction,
+	openConflictDetailsAction,
 	openCurrentChangesAction,
 	openIncomingChangesAction,
 ];
 const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
+// Graph host opt-in (`conflict-details`): adds the "Conflict Details" chip before Stage so the
+// stage action stays rightmost. Separate stable arrays keep gl-tree-item's identity diffing happy.
+const conflictedCheckboxActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions];
+const conflictedActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
 const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, stashAction, discardAction];
 const checkboxMixedActions: TreeItemAction[] = [
 	openFileAction,
@@ -175,6 +186,11 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	 * vouch that bulk resolve is supported (currently graph WIP + paused rebase). */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Opt-in for the per-row "Conflict Details" chip that opens the two-sided conflict sheet.
+	 *  Set true only by the graph host, which mounts the sheet and wires `file-conflict-details`. */
+	@property({ type: Boolean, attribute: 'conflict-details' })
+	conflictDetails = false;
 
 	/** Active agent sessions matched to this worktree (already filtered by the graph host).
 	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
@@ -884,6 +900,9 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		// performs staging. Stage routes through the existing `file-stage` event, which prompts
 		// when unresolved conflict markers remain.
 		if (isConflictStatus(file.status)) {
+			if (this.conflictDetails) {
+				return this.checkboxMode ? conflictedCheckboxActionsWithDetails : conflictedActionsWithDetails;
+			}
 			return this.checkboxMode ? conflictedCheckboxActions : conflictedActions;
 		}
 

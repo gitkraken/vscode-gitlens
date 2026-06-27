@@ -13,6 +13,12 @@ export interface CommitRowData {
 	author: string;
 	authorEmail?: string;
 	avatarUrl?: string;
+	/** Committer identity — avatar overlaid on the author's bottom-right + shown in the hover card;
+	 *  set only when the committer differs from the author (mirrors gl-commit-author's convention). */
+	committerAvatarUrl?: string;
+	committerName?: string;
+	committerEmail?: string;
+	committerDate?: string;
 	date: string;
 	additions?: number;
 	deletions?: number;
@@ -45,14 +51,32 @@ export class GlCommitRow extends LitElement {
 		}
 
 		.avatar {
+			position: relative;
 			flex-shrink: 0;
 			grid-area: avatar;
 			align-self: center;
 			--gl-avatar-size: 2.4rem;
+			width: var(--gl-avatar-size);
+			height: var(--gl-avatar-size);
+			/* collapse the inline-block baseline gap so the wrapper hugs the avatar exactly */
+			line-height: 0;
 		}
 
-		.avatar::part(avatar):hover {
+		.avatar__author::part(avatar):hover {
 			transform: none;
+		}
+
+		/* Committer avatar overlaid on the author's bottom-right (mirrors gl-commit-author) — the host
+	   only provides committerAvatarUrl when the committer differs from the author. */
+		.avatar__committer {
+			position: absolute;
+			right: -0.2rem;
+			bottom: -0.2rem;
+			width: 45%;
+			height: 45%;
+			object-fit: cover;
+			border: 0.15rem solid var(--vscode-sideBar-background, var(--color-background));
+			border-radius: 50%;
 		}
 
 		.msg {
@@ -160,7 +184,14 @@ export class GlCommitRow extends LitElement {
 		const isWip = commit.sha === uncommitted;
 
 		return html`<div class="row ${isWip ? 'row--wip' : ''}">
-			${commit.avatarUrl ? html`<gl-avatar class="avatar" .src=${commit.avatarUrl}></gl-avatar>` : nothing}
+			${commit.avatarUrl
+				? html`<span class="avatar">
+						<gl-avatar class="avatar__author" .src=${commit.avatarUrl}></gl-avatar>
+						${commit.committerAvatarUrl
+							? html`<img class="avatar__committer" src=${commit.committerAvatarUrl} alt="" />`
+							: nothing}
+					</span>`
+				: nothing}
 			<span class="msg">${headline}</span>
 			${isWip
 				? nothing

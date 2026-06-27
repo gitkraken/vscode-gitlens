@@ -2,6 +2,7 @@ import type { PropertyValues } from 'lit';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { cache } from 'lit/directives/cache.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
@@ -17,7 +18,7 @@ import type {
 	Preferences,
 	State,
 } from '../../../../plus/graph/detailsProtocol.js';
-import { buildFolderContext, messageHeadlineSplitterToken } from '../../../../plus/graph/detailsProtocol.js';
+import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
@@ -37,9 +38,6 @@ import './gl-compare-ai-actions.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/commit/commit-stats.js';
-import '../../../shared/components/commit/signature-badge.js';
-import '../../../shared/components/commit/signature-details.js';
-import '../../../shared/components/formatted-date.js';
 import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/chips/autolink-chip.js';
 import '../../../shared/components/chips/chip-overflow.js';
@@ -47,12 +45,11 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/menu/menu-divider.js';
 import '../../../shared/components/menu/menu-item.js';
 import '../../../shared/components/menu/menu-label.js';
-import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/panes/pane-group.js';
 import '../../../shared/components/tree/gl-file-tree-pane.js';
 import '../../../shared/components/details-header/gl-details-header.js';
-import './gl-commit-row.js';
+import './gl-commit-row-item.js';
 
 @customElement('gl-details-multicommit-panel')
 export class GlDetailsMultiCommitPanel extends LitElement {
@@ -495,69 +492,46 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	private renderPoleCard(commit: CommitDetails | undefined, signature?: CommitSignatureShape) {
 		if (!commit) return html`<div class="pole-card pole-card--loading">Loading...</div>`;
 
-		const message = commit.message;
 		const showSignature = this.preferences?.showSignatureBadges && signature != null;
 
-		// Map CommitDetails into the shared gl-commit-row data shape so the multi-commit pole
-		// anchor and the WIP-compare commit list render identically. The signature badge stays
-		// as a card-only adornment overlaid on the avatar (passed via the row's signature slot
-		// would couple gl-commit-row to signature concerns; instead the card renders it next to
-		// the row).
+		// Overlay the committer avatar only when the committer differs from the author (the
+		// gl-commit-author convention), so ordinary author==committer commits stay un-cluttered.
+		const committerEmail = commit.committer?.email;
+		// Distinct committer = different name OR email (mirrors gl-commit-author.hasDistinctCommitter).
+		const hasDistinctCommitter =
+			(commit.committer?.name != null && commit.committer.name !== commit.author.name) ||
+			(committerEmail != null && committerEmail.toLowerCase() !== commit.author.email?.toLowerCase());
+
+		// Map CommitDetails into the shared CommitRowData shape consumed by gl-commit-row-item.
 		const rowData = {
 			sha: commit.sha,
 			shortSha: commit.shortSha,
-			message: message,
+			message: commit.message,
 			author: commit.author.name,
 			authorEmail: commit.author.email,
 			avatarUrl: commit.author.avatar ?? undefined,
+			committerAvatarUrl: hasDistinctCommitter ? (commit.committer?.avatar ?? undefined) : undefined,
+			committerName: hasDistinctCommitter ? commit.committer?.name : undefined,
+			committerEmail: hasDistinctCommitter ? committerEmail : undefined,
+			committerDate: hasDistinctCommitter
+				? typeof commit.committer?.date === 'string'
+					? commit.committer.date
+					: commit.committer?.date?.toISOString?.()
+				: undefined,
 			date:
 				typeof commit.author.date === 'string'
 					? commit.author.date
 					: (commit.author.date.toISOString?.() ?? ''),
 		};
 
-		return html`<gl-popover placement="bottom" trigger="hover focus" class="pole-card__popover">
-			<div slot="anchor" class="pole-card" tabindex="0" @click=${() => this.handlePoleClick(commit.sha)}>
-				${showSignature
-					? html`<gl-signature-badge
-							class="pole-card__signature"
-							.signature=${signature}
-							.committerEmail=${commit.committer?.email}
-						></gl-signature-badge>`
-					: nothing}
-				<gl-commit-row .commit=${rowData} .preferences=${this.preferences}></gl-commit-row>
-			</div>
-			<div slot="content" class="pole-popover">
-				<div class="pole-popover__header">
-					<div class="pole-popover__info">
-						<img class="pole-popover__avatar" src=${commit.author.avatar ?? ''} alt=${commit.author.name} />
-						<div class="pole-popover__details">
-							<span class="pole-popover__name">${commit.author.name}</span>
-							${commit.author.email
-								? html`<span class="pole-popover__email"
-										><a href="mailto:${commit.author.email}">${commit.author.email}</a></span
-									>`
-								: nothing}
-						</div>
-					</div>
-					<formatted-date
-						class="pole-popover__date"
-						.date=${commit.author.date}
-						.format=${this.preferences?.dateFormat ?? 'MMMM Do, YYYY h:mma'}
-						.dateStyle=${'absolute'}
-					></formatted-date>
-				</div>
-				${showSignature
-					? html`<gl-signature-details
-							.signature=${signature}
-							.committerEmail=${commit.committer?.email}
-						></gl-signature-details>`
-					: nothing}
-				<span class="pole-popover__message scrollable"
-					>${message.replaceAll(messageHeadlineSplitterToken, '\n')}</span
-				>
-			</div>
-		</gl-popover>`;
+		return html`<gl-commit-row-item
+			class="pole-card"
+			.commit=${rowData}
+			.preferences=${this.preferences}
+			.signature=${showSignature ? signature : undefined}
+			committer-email=${ifDefined(commit.committer?.email)}
+			@gl-commit-row-item-select=${() => this.handlePoleClick(commit.sha)}
+		></gl-commit-row-item>`;
 	}
 
 	private _cachedMergedAutolinks?: {

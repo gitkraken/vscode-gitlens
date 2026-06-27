@@ -242,6 +242,15 @@ export class GlPopover extends GlElement {
 				${elevatedSurface}
 			}
 
+			/* Keep the body's visible border at the elevation color on hover/focus. The body carries the
+			   .scrollable class (so it can scroll when content overflows), and scrollableBase's
+			   :host(:hover) .scrollable rule would otherwise flip its border-color to the scrollbar-slider
+			   color — the body's own scrollbar thumb is handled separately below. */
+			:host(:hover) .popover__body,
+			:host(:focus-within) .popover__body {
+				border-color: var(--gl-elevation-border-color, var(--vscode-contrastBorder));
+			}
+
 			:host([auto-size-vertical]) .popover__body {
 				display: flex;
 				flex-direction: column;

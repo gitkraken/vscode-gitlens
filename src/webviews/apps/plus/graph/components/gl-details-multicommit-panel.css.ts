@@ -113,45 +113,17 @@ export const multiCommitPanelStyles = css`
 		flex-direction: column;
 	}
 
-	.pole-card__popover {
-		display: block;
-		--gl-popover-anchor-width: 100%;
-	}
-
-	/* Pole card wraps the shared gl-commit-row in a hover-popover anchor with optional signature
-	   badge. The row owns its own avatar + headline + meta layout — the card just frames it and
-	   handles the popover/signature concerns. */
+	/* Pole card = the shared gl-commit-row-item (row + hover popover + signature). Match the panel's
+	   denser row padding; all interaction/popover styling lives in the component. */
 	.pole-card {
-		display: flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-		min-width: 0;
-		padding: 0.55rem 1.2rem;
-		cursor: pointer;
-	}
-
-	.pole-card:hover {
-		background: var(--vscode-list-hoverBackground);
-	}
-
-	.pole-card:focus {
-		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
-		outline-offset: -1px;
+		--gl-commit-row-item-padding-block: 0.55rem;
+		--gl-commit-row-item-padding-inline: 1.2rem;
 	}
 
 	.pole-card--loading {
 		padding: var(--gl-space-8) var(--gl-space-12);
 		font-size: var(--gl-font-sm);
 		color: var(--color-foreground--50);
-	}
-
-	.pole-card > gl-commit-row {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.pole-card__signature {
-		flex-shrink: 0;
 	}
 
 	.compare-middle {
@@ -247,94 +219,6 @@ export const multiCommitPanelStyles = css`
 		align-items: center;
 		min-height: 2rem;
 		color: var(--vscode-descriptionForeground);
-	}
-
-	.pole-popover {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		max-width: 400px;
-		margin: var(--gl-space-6) var(--gl-space-2) var(--gl-space-2);
-	}
-
-	.pole-popover__header {
-		display: flex;
-		gap: 0.5rem;
-		align-items: flex-start;
-	}
-
-	.pole-popover__info {
-		display: flex;
-		flex: 1;
-		gap: 0.625rem;
-		align-items: center;
-		min-width: 0;
-	}
-
-	.pole-popover__avatar {
-		flex-shrink: 0;
-		width: 3.2rem;
-		height: 3.2rem;
-		border-radius: var(--gl-radius-lg);
-	}
-
-	.pole-popover__details {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		gap: 0;
-		min-width: 0;
-		line-height: normal;
-	}
-
-	.pole-popover__name {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		font-weight: 500;
-		color: var(--vscode-foreground);
-		white-space: nowrap;
-	}
-
-	.pole-popover__email {
-		font-weight: 400;
-		color: var(--vscode-descriptionForeground);
-	}
-
-	.pole-popover__email a {
-		color: var(--color-link-foreground);
-		text-decoration: none;
-	}
-
-	.pole-popover__message {
-		max-height: 10rem;
-		overflow: auto;
-		font-size: var(--gl-font-base);
-		color: var(--color-foreground--85);
-		overflow-wrap: anywhere;
-		white-space: pre-wrap;
-	}
-
-	/* Pole popover content is portaled by gl-popover (hoist), so scrollableBase's
-	   :host(:hover) gate never matches when the user is hovering the popover.
-	   Force the scrollbar slider to be visible via the same border-color trick the
-	   shared mixin uses, so future tweaks to scrollbar slider colors flow through. */
-	.pole-popover__message.scrollable {
-		border-color: var(--vscode-scrollbarSlider-background);
-	}
-
-	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:hover {
-		border-color: var(--vscode-scrollbarSlider-hoverBackground);
-	}
-
-	.pole-popover__message.scrollable::-webkit-scrollbar-thumb:active {
-		border-color: var(--vscode-scrollbarSlider-activeBackground);
-	}
-
-	.pole-popover__date {
-		flex-shrink: 0;
-		font-size: var(--gl-font-sm);
-		color: var(--color-foreground--50);
-		white-space: nowrap;
 	}
 
 	.compare-section {
