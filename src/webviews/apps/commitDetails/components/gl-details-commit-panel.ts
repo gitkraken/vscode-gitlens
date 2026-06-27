@@ -380,36 +380,31 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			?in-results-view=${this.inResultsView}
 		>
 			${headerContent}
-			${this.activeMode == null && (this.navigation?.count ?? 0) > 1
-				? html`<gl-nav-buttons slot="actions" .navigation=${this.navigation}></gl-nav-buttons>`
+			${this.activeMode == null &&
+			((this.navigation?.count ?? 0) > 1 || (this.showJumpToNearestWip && !isStash && !this.isUncommitted))
+				? html`<span slot="actions" class="nav-jump">
+						<gl-nav-buttons .navigation=${this.navigation}></gl-nav-buttons>
+						${this.showJumpToNearestWip && !isStash && !this.isUncommitted
+							? html`<gl-action-chip
+									icon="download"
+									iconFlip="block"
+									label="Jump to Working Changes"
+									overlay="tooltip"
+									@click=${this.onJumpToNearestWipClick}
+								></gl-action-chip>`
+							: nothing}
+					</span>`
 				: nothing}
 			${when(
-				this.showJumpToNearestWip && !isStash && !this.isUncommitted && this.activeMode == null,
+				this.activeMode == null && !this.isUncommitted,
 				() =>
 					html`<gl-action-chip
 						slot="actions"
-						icon="arrow-up"
-						label="Jump to Working Changes"
-						overlay="tooltip"
-						@click=${this.onJumpToNearestWipClick}
-					></gl-action-chip>`,
-			)}
-			${when(
-				!isStash && !this.isUncommitted && this.hasRemotes && this.activeMode == null,
-				() =>
-					html`<gl-action-chip
-						slot="actions"
-						icon="globe"
-						label="Open Commit on Remote"
+						icon="refresh"
+						label="Refresh"
 						overlay="tooltip"
 						@click=${() =>
-							this.dispatchEvent(
-								new CustomEvent('open-on-remote', {
-									detail: { sha: commit.sha },
-									bubbles: true,
-									composed: true,
-								}),
-							)}
+							this.dispatchEvent(new CustomEvent('refresh-commit', { bubbles: true, composed: true }))}
 					></gl-action-chip>`,
 			)}
 		</gl-details-header>`;
@@ -459,6 +454,23 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					${this.modeStatusText
 						? html`<span class="mode-status">${this.modeStatusText}</span>`
 						: this.renderCommitStats(commit.stats)}
+					${when(
+						!isStash && !this.isUncommitted && this.hasRemotes && this.activeMode == null,
+						() =>
+							html`<gl-action-chip
+								icon="globe"
+								label="Open Commit on Remote"
+								overlay="tooltip"
+								@click=${() =>
+									this.dispatchEvent(
+										new CustomEvent('open-on-remote', {
+											detail: { sha: commit.sha },
+											bubbles: true,
+											composed: true,
+										}),
+									)}
+							></gl-action-chip>`,
+					)}
 				</div>
 			</div>
 			${this._reachabilityExpanded ? html`<div class="reachability">${this.renderReachability()}</div>` : nothing}`;

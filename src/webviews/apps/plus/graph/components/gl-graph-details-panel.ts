@@ -2320,6 +2320,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@refresh-reachability=${() => this._actions.refreshReachability()}
 			@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
 				this._actions.openOnRemote(commit.repoPath ?? this.repoPath, e.detail.sha)}
+			@refresh-commit=${this.handleRefreshCommit}
 			@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>
 				void this._actions.services.commands.execute('gitlens.stashesApply', e.detail)}
 			@change-files-layout=${this.handleChangeFilesLayout}
@@ -2816,6 +2817,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._actions.refreshWip();
 			void this._actions.fetchDetails(this.sha, this.repoPath, this.graphReachability);
 		}
+	};
+
+	private handleRefreshCommit = () => {
+		// Mirror of the WIP refresh button for a single commit — `refetchCommitQuiet` resets the
+		// `fetchDetails` dedup key so a same-selection click always re-queries the host.
+		const repoPath = this.effectiveRepoPath;
+		if (repoPath == null || this.sha == null) return;
+
+		void this._actions.refetchCommitQuiet(this.sha, repoPath, this.graphReachability, this.commitLite);
 	};
 
 	private handleSwitchBranch = () => this._actions.switchBranch(this.effectiveRepoPath);

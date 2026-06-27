@@ -144,6 +144,9 @@ export class ActionChip extends LitElement {
 	@property()
 	icon = '';
 
+	@property()
+	iconFlip?: 'inline' | 'block';
+
 	@property({ attribute: 'alt-icon' })
 	altIcon?: string;
 
@@ -205,6 +208,7 @@ export class ActionChip extends LitElement {
 				class="chip__icon"
 				part="icon"
 				icon="${icon}"
+				flip="${ifDefined(this.iconFlip)}"
 				modifier="${ifDefined(icon === 'loading' ? 'spin' : '')}"
 			></code-icon
 			>${this.activeIcon

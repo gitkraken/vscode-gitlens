@@ -2873,6 +2873,22 @@ export class DetailsActions {
 	}
 
 	/**
+	 * Re-fetch the displayed commit's details with a genuinely fresh round-trip, bypassing the
+	 * `fetchDetails` dedup. Mirrors {@link refetchWipQuiet} for the commit Refresh button —
+	 * enrichment chips stay visible (hydrated from cache) while the body + enrichment re-query.
+	 */
+	async refetchCommitQuiet(
+		sha: string,
+		repoPath: string,
+		graphReachability?: GitCommitReachability,
+		commitLite?: CommitDetails,
+	): Promise<void> {
+		// Bypass the fetch dedup so a same-selection click always re-queries the host.
+		this._lastFetchedKey = undefined;
+		await this.fetchDetails(sha, repoPath, graphReachability, { commitLite: commitLite });
+	}
+
+	/**
 	 * Adopt a WIP payload pushed by the host (via `DidChangeWorkingTreeNotification`). Same
 	 * semantics as the tail of `refetchWipQuiet` — replace local WIP in-place, mark stale when
 	 * a mode is active, re-fire branch enrichment on branch identity changes — but without the

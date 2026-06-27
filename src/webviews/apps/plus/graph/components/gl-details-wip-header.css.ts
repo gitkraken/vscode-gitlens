@@ -28,21 +28,21 @@ export const detailsWipHeaderStyles = css`
 		white-space: nowrap;
 	}
 
-	/* The stats pill is the informative part of the title row, so it never shrinks — the
-	   "Working Changes" label (static text) ellipsizes away first as the panel narrows. */
-	.graph-details-header__title-group > gl-wip-stats {
-		flex: none;
+	/* The label text. text-overflow:ellipsis needs a non-flex block, so the text lives in this
+	   inner span (the outer .graph-details-header__wip-title is inline-flex for the mode icon).
+	   This lets the label ELLIPSIZE as the panel narrows rather than clip or vanish. */
+	.graph-details-header__wip-title-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	/* Below this the leftover for the label is a useless sliver — drop it entirely so the pill
-	   keeps every remaining pixel (scoped via :has so mode-active titles, which have no pill
-	   beside them, keep their label). The pill itself never yields; on extreme widths its tail
-	   clips, and partial counts still beat none. The container is the host header's row (a
-	   flat-tree ancestor, so the query crosses the shadow boundary). */
-	@container gl-action-chip-host (max-width: 340px) {
-		.graph-details-header__title-group:has(gl-wip-stats) .graph-details-header__wip-title {
-			display: none;
-		}
+	/* The stats pill is the informative part of the title row, so it never shrinks — the
+	   "Working Changes" label ellipsizes (down to "…") first as the panel narrows, keeping the
+	   pill intact while still signalling there's a label there. */
+	.graph-details-header__title-group > gl-wip-stats {
+		flex: none;
 	}
 
 	/* Mode icon prefixed to the title in compose/review — same icon as the active chip
@@ -103,6 +103,14 @@ export const detailsWipHeaderStyles = css`
 		--gl-pill-padding: 0 0.6rem;
 		--gl-pill-font-size: 1.1rem;
 		--gl-pill-border-radius: var(--gl-radius-sm);
+	}
+
+	/* Groups the back/forward nav buttons with the contextual jump chip into one "move around"
+	   cluster, slotted into the header's right-anchored actions next to Refresh. */
+	.nav-jump {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--gl-space-2);
 	}
 
 	.branch-identity {
@@ -204,6 +212,17 @@ export const detailsWipHeaderStyles = css`
 		flex: 0 1 auto;
 		min-width: 0;
 		max-width: 20rem;
+	}
+
+	/* In a mode the branch is a fully inert label: no appearance="button", so gl-branch-name adds
+	   no role/tabindex/hover/focus/pointer. This mirrors that button's resting box (padding, font,
+	   color, radius) so it looks identical while staying plain readable text — minus the chevron. */
+	gl-branch-name.graph-details-header__branch--static {
+		padding: var(--gl-space-2) var(--gl-space-4);
+		font-size: var(--gl-font-base);
+		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+		border-radius: var(--gl-radius-sm);
+		cursor: default;
 	}
 
 	.graph-details-header__merge-target {

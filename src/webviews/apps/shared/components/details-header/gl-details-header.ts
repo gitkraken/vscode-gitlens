@@ -38,7 +38,7 @@ const modeConfig: Record<
 		icon: 'sparkle',
 		label: 'Resolve Conflicts',
 		closeLabel: 'Close',
-		text: 'Resolve',
+		text: 'Resolve Conflicts',
 		collapsible: true,
 	},
 };
@@ -79,24 +79,43 @@ export class GlDetailsHeader extends LitElement {
 
 	override render() {
 		const isModeActive = this.activeMode != null;
+		// The mode toggles + Compare form a "center" group, gap-centered between the title and the
+		// right-anchored actions slot via two flex spacers. Only render the scaffold when there's
+		// something to center; an empty center between two spacers would leave a phantom gap.
+		const hasCenter = !isModeActive && ((this.modes?.length ?? 0) >= 1 || this.compareEnabled);
 
 		return html`<div class="details-header mode-header ${isModeActive ? 'mode-header--active' : ''}">
 			<div class="details-header__row">
 				<div class="details-header__content">
 					<slot></slot>
 				</div>
-				<div class="details-header__actions">
-					${isModeActive
-						? this.renderCloseButton()
-						: html`${this.renderModeToggles()}${this.renderCompareToggle()}<slot
-									name="actions"
-									class=${classMap({
-										'details-header__actions-secondary': true,
-										'has-actions': this.hasActions,
-									})}
-									@slotchange=${this.onActionsSlotChange}
-								></slot>`}
-				</div>
+				${isModeActive
+					? html`<div class="details-header__spacer"></div>
+							<div class="details-header__actions">${this.renderCloseButton()}</div>`
+					: html`<div class="details-header__spacer"></div>
+							${hasCenter
+								? html`<div class="details-header__center">
+											${this.modes?.length
+												? html`<div class="details-header__modes">
+														${this.renderModeToggles()}
+													</div>`
+												: nothing}${this.renderCompareToggle()}
+										</div>
+										${
+											// Trailing spacer only when the actions slot has content — otherwise the
+											// center group right-aligns against the empty anchor (comparison panel)
+											// instead of floating center-right against zero width.
+											this.hasActions ? html`<div class="details-header__spacer"></div>` : nothing
+										}`
+								: nothing}
+							<slot
+								name="actions"
+								class=${classMap({
+									'details-header__actions-secondary': true,
+									'has-actions': this.hasActions,
+								})}
+								@slotchange=${this.onActionsSlotChange}
+							></slot>`}
 			</div>
 			<slot name="secondary"></slot>
 			<progress-indicator position="bottom" ?active=${this.loading}></progress-indicator>

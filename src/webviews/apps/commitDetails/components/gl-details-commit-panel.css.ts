@@ -313,11 +313,17 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .metadata-bar__right {
 		display: flex;
 		align-items: center;
-		gap: var(--gl-space-4);
+		/* Wider gap sets the trailing action(s) apart from the diff stats (info vs action). */
+		gap: var(--gl-space-8);
 		flex-shrink: 0;
 		font-size: var(--gl-font-sm);
 		font-weight: 600;
+		/* Stats-only (no trailing action): keep them inset from the right edge. */
 		margin-right: 0.5rem;
+	}
+	/* A trailing action present → drop the inset so the action sits at the panel's right edge. */
+	:host([variant='embedded']) .metadata-bar__right:has(gl-action-chip) {
+		margin-right: 0;
 	}
 
 	/* Reachability (below metadata bar) */
@@ -529,5 +535,13 @@ export const detailsCommitPanelStyles = css`
 		100% {
 			opacity: 0;
 		}
+	}
+
+	/* Groups nav (back/forward) with the contextual jump chip into one "move around" cluster,
+	   slotted into the header's right-anchored actions next to Refresh. */
+	.nav-jump {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--gl-space-2);
 	}
 `;

@@ -408,6 +408,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						@refresh-reachability=${() => actions?.refreshReachability()}
 						@open-on-remote=${(e: CustomEvent<{ sha: string }>) =>
 							actions?.openOnRemote(commit?.repoPath, e.detail.sha)}
+						@refresh-commit=${() => void actions?.refetchCurrentCommit()}
 						@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) =>
 							actions?.changeFilesLayout(e.detail.layout)}
 						@file-open-on-remote=${(e: CustomEvent<FileChangeListItemDetail>) =>
