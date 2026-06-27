@@ -1,0 +1,18 @@
+// Document-level styles for the styleguide webview. Tokens come from the shared webview.css.
+@use '../shared/styles/scrollbars';
+
+html {
+	height: 100%;
+	font-size: 62.5%;
+}
+
+body {
+	height: 100%;
+	margin: 0;
+	font-family: var(--font-family);
+	font-size: var(--font-size);
+	color: var(--gl-color-fg);
+	background: var(--gl-color-surface);
+}
+
+@include scrollbars.scrollableBase;

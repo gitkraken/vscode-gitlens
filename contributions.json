@@ -7322,6 +7322,10 @@
 			"label": "Show Stashes View",
 			"commandPalette": "gitlens:enabled && !gitlens:hasVirtualFolders"
 		},
+		"gitlens.showStyleguide": {
+			"label": "Show Color Styleguide (Debugging)",
+			"commandPalette": "gitlens:enabled && gitlens:debugging"
+		},
 		"gitlens.showTagsView": {
 			"label": "Show Tags View",
 			"commandPalette": "gitlens:enabled"

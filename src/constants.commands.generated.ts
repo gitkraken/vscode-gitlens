@@ -1107,6 +1107,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.showSettingsPage!autolinks'
 	| 'gitlens.showSettingsPage!current-line'
 	| 'gitlens.showStashesView'
+	| 'gitlens.showStyleguide'
 	| 'gitlens.showTagsView'
 	| 'gitlens.showTimelinePage'
 	| 'gitlens.showTimelineView'

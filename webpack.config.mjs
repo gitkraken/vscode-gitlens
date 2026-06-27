@@ -491,6 +491,11 @@ function getWebviewsConfigs(mode, env) {
 		welcome: { entry: './welcome/welcome.ts' },
 	};
 
+	// Dev-only styleguide (color/token reference). Built only in dev/debug; registered behind DEBUG.
+	if (debug || mode === 'development') {
+		webviews.styleguide = { entry: './styleguide/styleguide.ts' };
+	}
+
 	if (env.webviews) {
 		const chosen = env.webviews.split(',');
 		webviews = Object.fromEntries(Object.entries(webviews).filter(([key]) => chosen.includes(key)));

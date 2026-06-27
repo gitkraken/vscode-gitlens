@@ -46,7 +46,7 @@ export type GroupableTreeViewIds<T extends GroupableTreeViewTypes = GroupableTre
 /** Grouped views that require a local repository and are unavailable for virtual repositories */
 export const localOnlyGroupedViews: ReadonlySet<GroupableTreeViewTypes> = new Set(['worktrees', 'stashes']);
 
-export type WebviewPanelTypes = 'composer' | 'graph' | 'patchDetails' | 'settings' | 'timeline';
+export type WebviewPanelTypes = 'composer' | 'graph' | 'patchDetails' | 'settings' | 'styleguide' | 'timeline';
 export type WebviewPanelIds = `gitlens.${WebviewPanelTypes}`;
 
 export type WebviewViewTypes = 'commitDetails' | 'graph' | 'home' | 'patchDetails' | 'timeline' | 'welcome';
