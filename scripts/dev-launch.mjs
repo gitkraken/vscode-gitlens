@@ -32,6 +32,9 @@
  *                         --build=extension → build:extension only (faster)
  *       --build-cmd=<cmd> Custom build command to run in the worktree
  *       --force           Launch even if dist/ looks unbuilt
+ *       --folder=<path>   Folder to open (overrides [folder-to-open]; default: the
+ *                         worktree). Lets you override the folder while using the
+ *                         current worktree (i.e. without passing <worktree>).
  *       --profile=<name>  VS Code profile (default: "Debugging (GitLens)")
  *       --sandbox         Use a fresh throwaway profile (--profile-temp)
  *       --reuse           Reuse the active window instead of opening a new one
@@ -45,6 +48,7 @@
  *   pnpm run dev:launch graph-wip-discard
  *   pnpm run dev:launch feature/new-graph --build
  *   pnpm run dev:launch debug ~/code/some-other-repo --sandbox
+ *   pnpm run dev:launch --folder=~/code/some-other-repo
  *   pnpm run dev:launch --list
  */
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -78,6 +82,7 @@ function parseArgs(argv) {
 		dryRun: false,
 	};
 	const positionals = [];
+	let folderFlag;
 
 	for (let i = 2; i < argv.length; i++) {
 		const arg = argv[i];
@@ -97,6 +102,8 @@ function parseArgs(argv) {
 			opts.build = script;
 		} else if (arg.startsWith('--build-cmd=')) {
 			opts.buildCmd = arg.slice('--build-cmd='.length);
+		} else if (arg.startsWith('--folder=')) {
+			folderFlag = arg.slice('--folder='.length);
 		} else if (arg === '--force') {
 			opts.force = true;
 		} else if (arg.startsWith('--profile=')) {
@@ -119,7 +126,7 @@ function parseArgs(argv) {
 	}
 
 	opts.worktree = positionals[0];
-	opts.open = positionals[1];
+	opts.open = folderFlag ?? positionals[1];
 	if (opts.buildCmd != null) opts.build = opts.build ?? 'custom';
 	return opts;
 }
@@ -139,6 +146,7 @@ function printHelp() {
 			'',
 			'  -l, --list            Pick a worktree (plain list when non-TTY)',
 			'  -b, --build[=target]  Build first (quick|extension|full); default: skip',
+			'      --folder=<path>   Folder to open (overrides [folder-to-open]; default: the worktree)',
 			'      --profile=<name>  VS Code profile (default: "Debugging (GitLens)")',
 			'      --sandbox         Fresh throwaway profile (--profile-temp)',
 			'      --reuse           Reuse active window',
