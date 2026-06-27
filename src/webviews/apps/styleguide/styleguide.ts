@@ -2,13 +2,32 @@
 import './styleguide.scss';
 import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import type { State } from '../../styleguide/protocol.js';
 import { GlAppHost } from '../shared/appHost.js';
 import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
 import '../shared/components/code-icon.js';
+// Real shared components, imported so the Components tab can render them live.
+import '../shared/components/accordion/accordion.js';
+import '../shared/components/avatar/avatar.js';
+import '../shared/components/badges/badge.js';
+import '../shared/components/banner/banner.js';
+import '../shared/components/button.js';
+import '../shared/components/card/card.js';
+import '../shared/components/checkbox/checkbox.js';
+import '../shared/components/chips/action-chip.js';
+import '../shared/components/commit-sha.js';
+import '../shared/components/gl-error-banner.js';
+import '../shared/components/indicators/indicator.js';
+import '../shared/components/overlays/popover.js';
+import '../shared/components/overlays/tooltip.js';
+import '../shared/components/progress.js';
+import '../shared/components/radio/radio.js';
+import '../shared/components/radio/radio-group.js';
+import '../shared/components/search/search-input.js';
+import '../shared/components/skeleton-loader.js';
+import '../shared/components/switch/switch.js';
 import { adoptionStatusLabels, componentAdoption } from './adoptionStatus.js';
 import type { AdoptionStatus } from './adoptionStatus.js';
 import { StyleguideStateProvider } from './stateProvider.js';
@@ -173,6 +192,128 @@ const SCALES: Scale[] = [
 	},
 ];
 
+interface ComponentDemo {
+	label: string;
+	render: () => unknown;
+}
+interface ComponentGroup {
+	family: string;
+	demos: ComponentDemo[];
+}
+
+// Real shared components rendered live in the Components tab, so you can see them consuming the tokens.
+const COMPONENT_GROUPS: ComponentGroup[] = [
+	{
+		family: 'Buttons & actions',
+		demos: [
+			{ label: 'gl-button', render: () => html`<gl-button>Primary</gl-button>` },
+			{
+				label: 'gl-button (secondary)',
+				render: () => html`<gl-button appearance="secondary">Secondary</gl-button>`,
+			},
+			{
+				label: 'gl-button (icon)',
+				render: () => html`<gl-button><code-icon icon="git-commit"></code-icon> Commit</gl-button>`,
+			},
+			{ label: 'gl-action-chip', render: () => html`<gl-action-chip icon="add" label="Add"></gl-action-chip>` },
+		],
+	},
+	{
+		family: 'Badges & pills',
+		demos: [
+			{ label: 'gl-badge', render: () => html`<gl-badge>New</gl-badge>` },
+			{ label: 'gl-badge (filled)', render: () => html`<gl-badge appearance="filled">3</gl-badge>` },
+		],
+	},
+	{
+		family: 'Cards & surfaces',
+		demos: [{ label: 'gl-card', render: () => html`<gl-card>Card content</gl-card>` }],
+	},
+	{
+		family: 'Banners & alerts',
+		demos: [
+			{
+				label: 'gl-banner',
+				render: () =>
+					html`<gl-banner banner-title="Heads up" body="A short message about something."></gl-banner>`,
+			},
+			{ label: 'gl-error-banner', render: () => html`<gl-error-banner>Something went wrong.</gl-error-banner>` },
+		],
+	},
+	{
+		family: 'Form controls',
+		demos: [
+			{ label: 'gl-checkbox', render: () => html`<gl-checkbox checked>Enabled</gl-checkbox>` },
+			{
+				label: 'gl-radio-group',
+				render: () =>
+					html`<gl-radio-group>
+						<gl-radio value="a" checked>Option A</gl-radio>
+						<gl-radio value="b">Option B</gl-radio>
+					</gl-radio-group>`,
+			},
+			{ label: 'gl-switch', render: () => html`<gl-switch>Toggle feature</gl-switch>` },
+			{ label: 'gl-search-input', render: () => html`<gl-search-input placeholder="Search…"></gl-search-input>` },
+		],
+	},
+	{
+		family: 'Overlays',
+		demos: [
+			{
+				label: 'gl-tooltip',
+				render: () => html`<gl-tooltip content="Tooltip text"><gl-button>Hover me</gl-button></gl-tooltip>`,
+			},
+			{
+				label: 'gl-popover',
+				render: () =>
+					html`<gl-popover>
+						<gl-button slot="anchor">Open popover</gl-button>
+						<div slot="content">Popover content</div>
+					</gl-popover>`,
+			},
+		],
+	},
+	{
+		family: 'Indicators',
+		demos: [
+			{ label: 'gl-indicator', render: () => html`<gl-indicator></gl-indicator>` },
+			{ label: 'progress-indicator', render: () => html`<progress-indicator active></progress-indicator>` },
+			{ label: 'skeleton-loader', render: () => html`<skeleton-loader></skeleton-loader>` },
+		],
+	},
+	{
+		family: 'Avatars',
+		demos: [{ label: 'gl-avatar', render: () => html`<gl-avatar name="Alice">A</gl-avatar>` }],
+	},
+	{
+		family: 'Content',
+		demos: [
+			{
+				label: 'gl-accordion',
+				render: () => html`<gl-accordion><span slot="header">Section</span>Body content</gl-accordion>`,
+			},
+			{ label: 'gl-commit-sha', render: () => html`<gl-commit-sha>a1b2c3d</gl-commit-sha>` },
+			{ label: 'code-icon', render: () => html`<code-icon icon="git-branch"></code-icon>` },
+		],
+	},
+];
+
+// Shared components that depend on extension context/data (subscription, integrations, IPC, git models)
+// and can't render standalone — listed for completeness, not demoed.
+const UNDEMOED = [
+	'gl-account-chip',
+	'gl-integrations-chip',
+	'gl-feature-badge',
+	'gl-ai-input',
+	'gl-ai-model-chip',
+	'gl-dialog',
+	'gl-detail-sheet',
+	'gl-git-status',
+	'gl-merge-rebase-status',
+	'gl-mcp-banner',
+	'gl-hooks-banner',
+];
+
 interface Rgba {
 	r: number;
 	g: number;
@@ -185,6 +326,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	static override styles = styleguideStyles;
 
 	@query('.probe') private probe!: HTMLElement;
+	@state() private tab: 'tokens' | 'components' = 'tokens';
 	@state() private auditOn = localStorage.getItem('gl-styleguide-audit') === 'on';
 	@state() private resolved = new Map<string, string>();
 	@state() private contrast = new Map<string, number>();
@@ -202,6 +344,29 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 
 	override firstUpdated(): void {
 		this.recompute();
+	}
+
+	override updated(changed: Map<string, unknown>): void {
+		super.updated?.(changed);
+		// Apply dynamic swatch/scale styles via CSSOM (.style.setProperty) rather than inline style
+		// attributes — the webview CSP blocks inline style attributes (incl. Lit styleMap output) but
+		// permits CSSOM mutations. data-* attrs carry the token; we resolve them to var() refs here.
+		const root = this.renderRoot as ParentNode;
+		root.querySelectorAll<HTMLElement>('.swatch[data-bg]').forEach(el => {
+			el.style.setProperty('background', `var(${el.dataset.bg})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-radius]').forEach(el => {
+			el.style.setProperty('border-radius', `var(${el.dataset.radius})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-w]').forEach(el => {
+			el.style.setProperty('width', `var(${el.dataset.w})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-fs]').forEach(el => {
+			el.style.setProperty('font-size', `var(${el.dataset.fs})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-shadow]').forEach(el => {
+			el.style.setProperty('box-shadow', `var(${el.dataset.shadow})`);
+		});
 	}
 
 	protected override onThemeUpdated(_e: ThemeChangeEvent): void {
@@ -290,6 +455,10 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		localStorage.setItem('gl-styleguide-audit', this.auditOn ? 'on' : 'off');
 	}
 
+	private selectTab(tab: 'tokens' | 'components'): void {
+		this.tab = tab;
+	}
+
 	private renderBadge(label: string): unknown {
 		if (!this.auditOn) return nothing;
 
@@ -325,7 +494,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 					${group.tokens.map(
 						t => html`
 							<div class="swatch-row">
-								<div class="swatch" style=${styleMap({ background: `var(${t.name})` })}></div>
+								<div class="swatch" data-bg=${t.name}></div>
 								<div>
 									<div class="token-name">${t.name}</div>
 									<div class="token-derivation">${t.derivation}</div>
@@ -364,29 +533,17 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	}
 
 	private renderScaleItem(kind: Scale['kind'], token: string): unknown {
+		// Dynamic dims/colors are applied via CSSOM in updated() (data-* attrs), not inline style
+		// attributes — the webview CSP blocks inline style attributes but allows CSSOM .style.setProperty.
 		let sample: unknown = nothing;
 		if (kind === 'radius') {
-			sample = html`<div
-				class="scale-box"
-				style=${styleMap({ width: '4rem', height: '2.4rem', borderRadius: `var(${token})` })}
-			></div>`;
+			sample = html`<div class="scale-box scale-radius" data-radius=${token}></div>`;
 		} else if (kind === 'space') {
-			sample = html`<div
-				class="scale-box"
-				style=${styleMap({ width: `var(${token})`, height: '1.6rem' })}
-			></div>`;
+			sample = html`<div class="scale-box scale-space" data-w=${token}></div>`;
 		} else if (kind === 'font') {
-			sample = html`<span style=${styleMap({ fontSize: `var(${token})` })}>Aa</span>`;
+			sample = html`<span class="scale-font" data-fs=${token}>Aa</span>`;
 		} else if (kind === 'shadow') {
-			sample = html`<div
-				style=${styleMap({
-					width: '4rem',
-					height: '2.4rem',
-					borderRadius: 'var(--gl-radius-sm)',
-					background: 'var(--gl-color-surface-raised)',
-					boxShadow: `var(${token})`,
-				})}
-			></div>`;
+			sample = html`<div class="scale-shadow" data-shadow=${token}></div>`;
 		}
 		return html`<div class="scale-item">${sample}<span>${token}</span></div>`;
 	}
@@ -455,20 +612,80 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 					<span class="scheme-chip ${this.isHc ? 'scheme-chip--hc' : ''}">
 						<code-icon icon="${this.isHc ? 'color-mode' : 'symbol-color'}"></code-icon> ${this.scheme}
 					</span>
-					<label class="toggle">
-						Accessibility audit
-						<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
-					</label>
+					${this.tab === 'tokens'
+						? html`<label class="toggle">
+								Accessibility audit
+								<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
+							</label>`
+						: nothing}
 				</div>
 
-				<h1>GitLens color &amp; token styleguide</h1>
+				<h1>GitLens styleguide</h1>
 				<p class="subtitle">
-					Live reference for the --gl-color-* system. Switch VS Code themes to verify all four schemes.
+					Live reference for the --gl-color-* system and the shared components that consume it. Switch VS Code
+					themes to verify all four schemes.
 				</p>
 
-				${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()} ${this.renderGallery()}
-				${this.renderScoreboard()}
+				<div class="tabs" role="tablist">
+					<button
+						class="tab ${this.tab === 'tokens' ? 'tab--active' : ''}"
+						role="tab"
+						aria-selected=${this.tab === 'tokens'}
+						@click=${() => this.selectTab('tokens')}
+					>
+						Colors &amp; tokens
+					</button>
+					<button
+						class="tab ${this.tab === 'components' ? 'tab--active' : ''}"
+						role="tab"
+						aria-selected=${this.tab === 'components'}
+						@click=${() => this.selectTab('components')}
+					>
+						Components
+					</button>
+				</div>
+
+				${this.tab === 'tokens' ? this.renderTokensTab() : this.renderComponentsTab()}
 			</div>
+		`;
+	}
+
+	private renderTokensTab(): unknown {
+		return html`
+			${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()} ${this.renderGallery()}
+			${this.renderScoreboard()}
+		`;
+	}
+
+	private renderComponentsTab(): unknown {
+		return html`
+			<p class="section-note">
+				Real shared components rendered live, consuming the tokens. Switch themes to see them adapt.
+			</p>
+			${COMPONENT_GROUPS.map(
+				group => html`
+					<section>
+						<h2 class="section-title">${group.family}</h2>
+						<div class="demo-grid">
+							${group.demos.map(
+								d => html`
+									<div class="demo">
+										<div class="demo__stage">${d.render()}</div>
+										<div class="demo__label">${d.label}</div>
+									</div>
+								`,
+							)}
+						</div>
+					</section>
+				`,
+			)}
+			<section>
+				<h2 class="section-title">Needs extension context</h2>
+				<p class="section-note">
+					These depend on subscription/integration/IPC/git state and aren't rendered here.
+				</p>
+				<div class="undemoed">${UNDEMOED.map(name => html`<span class="undemoed__item">${name}</span>`)}</div>
+			</section>
 		`;
 	}
 }
