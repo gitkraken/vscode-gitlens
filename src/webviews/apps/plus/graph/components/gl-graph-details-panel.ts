@@ -1806,15 +1806,25 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._state.compareSplitPosition.set(e.detail.position);
 	};
 
+	/** Loading placeholder shown until `preferences` (the file layout) loads, so the tree never
+	 *  paints the wrong layout and flips. */
+	private renderFilesLoading() {
+		return html`<div class="commit-panel__files-loading" aria-busy="true">
+			<code-icon icon="loading" modifier="spin"></code-icon>
+			<span>Loading…</span>
+		</div>`;
+	}
+
 	private renderWip() {
 		const wip = this._state.wip.get();
 		if (!wip) return nothing;
 
 		const branchName = wip.branch?.name ?? 'unknown';
 		const activeMode = this._state.activeMode.get();
+		const preferences = this._state.preferences.get();
 		const hasChanges = (wip.changes?.files?.length ?? 0) > 0;
 		const aiCreatePrEnabled =
-			(this._state.preferences.get()?.aiEnabled ?? false) &&
+			(preferences?.aiEnabled ?? false) &&
 			(this._state.orgSettings.get()?.ai ?? false) &&
 			(wip.repo?.provider?.supportedFeatures?.createPullRequestWithDetails ?? false);
 		// Read the worktree-matched sessions from the cycle snapshot captured in `willUpdate` so
@@ -1861,45 +1871,48 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						: hasChanges || hasPausedOp
 							? html`
 									<div class="commit-panel__files">
-										<gl-details-wip-panel
-											variant="embedded"
-											file-icons
-											checkbox-mode
-											?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type === 'rebase'}
-											?show-search-box=${this.showSearchBox}
-											?search-box-filter=${this.searchBoxFilter}
-											.wip=${wip}
-											.files=${wip.changes?.files}
-											.agentSessions=${worktreeAgentSessions}
-											.preferences=${this._state.preferences.get()}
-											.orgSettings=${this._state.orgSettings.get()}
-											.isUncommitted=${true}
-											.filesCollapsable=${false}
-											empty-text=${hasPausedOp && !hasChanges
-												? 'No conflicting or changed files'
-												: 'No working changes'}
-											@file-open=${this.handleFileOpen}
-											@file-compare-working=${this.handleFileCompareWorking}
-											@file-compare-previous=${this.handleFileComparePrevious}
-											@file-compare-wip=${this.handleFileCompareWipChanges}
-											@file-open-current=${this.handleFileOpenConflictCurrent}
-											@file-open-incoming=${this.handleFileOpenConflictIncoming}
-											@file-more-actions=${this.handleFileMoreActions}
-											@file-stage=${this.handleFileStage}
-											@file-unstage=${this.handleFileUnstage}
-											@file-discard=${this.handleFileDiscard}
-											@file-stash=${this.handleFileStash}
-											@discard-unstaged=${this.handleDiscardUnstaged}
-											@discard-staged=${this.handleDiscardStaged}
-											@stage-all=${this.handleStageAll}
-											@unstage-all=${this.handleUnstageAll}
-											@stash-save=${this.handleStashSave}
-											@resolve-all-current=${this.handleResolveAllCurrent}
-											@resolve-all-incoming=${this.handleResolveAllIncoming}
-											@change-files-layout=${this.handleChangeFilesLayout}
-											@open-multiple-changes=${this.handleOpenMultipleChanges}
-											@copy-wip-patch=${this.handleCopyWipPatch}
-										></gl-details-wip-panel>
+										${preferences != null
+											? html`<gl-details-wip-panel
+													variant="embedded"
+													file-icons
+													checkbox-mode
+													?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type ===
+													'rebase'}
+													?show-search-box=${this.showSearchBox}
+													?search-box-filter=${this.searchBoxFilter}
+													.wip=${wip}
+													.files=${wip.changes?.files}
+													.agentSessions=${worktreeAgentSessions}
+													.preferences=${preferences}
+													.orgSettings=${this._state.orgSettings.get()}
+													.isUncommitted=${true}
+													.filesCollapsable=${false}
+													empty-text=${hasPausedOp && !hasChanges
+														? 'No conflicting or changed files'
+														: 'No working changes'}
+													@file-open=${this.handleFileOpen}
+													@file-compare-working=${this.handleFileCompareWorking}
+													@file-compare-previous=${this.handleFileComparePrevious}
+													@file-compare-wip=${this.handleFileCompareWipChanges}
+													@file-open-current=${this.handleFileOpenConflictCurrent}
+													@file-open-incoming=${this.handleFileOpenConflictIncoming}
+													@file-more-actions=${this.handleFileMoreActions}
+													@file-stage=${this.handleFileStage}
+													@file-unstage=${this.handleFileUnstage}
+													@file-discard=${this.handleFileDiscard}
+													@file-stash=${this.handleFileStash}
+													@discard-unstaged=${this.handleDiscardUnstaged}
+													@discard-staged=${this.handleDiscardStaged}
+													@stage-all=${this.handleStageAll}
+													@unstage-all=${this.handleUnstageAll}
+													@stash-save=${this.handleStashSave}
+													@resolve-all-current=${this.handleResolveAllCurrent}
+													@resolve-all-incoming=${this.handleResolveAllIncoming}
+													@change-files-layout=${this.handleChangeFilesLayout}
+													@open-multiple-changes=${this.handleOpenMultipleChanges}
+													@copy-wip-patch=${this.handleCopyWipPatch}
+												></gl-details-wip-panel>`
+											: this.renderFilesLoading()}
 									</div>
 									<gl-commit-box
 										.message=${this._state.commitMessage.get()}
@@ -1909,7 +1922,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.branchName=${branchName}
 										.canCommit=${this._actions.canCommit()}
 										.disabledReason=${this._actions.canCommitReason()}
-										.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+										.aiEnabled=${preferences?.aiEnabled ?? false}
 										.commitError=${this._state.commitError.get()}
 										.signing=${wip.signing}
 										@message-change=${this.handleCommitMessageChange}
@@ -1958,7 +1971,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.navigation=${this.navigation}
 				.activeMode=${activeMode}
 				.modeStatus=${this.engagedModeStatus}
-				.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+				.aiEnabled=${preferences?.aiEnabled ?? false}
 				.loading=${this.isLoading}
 				.autolinks=${this._state.wipAutolinks.get()}
 				.issues=${this._state.wipIssues.get()}
@@ -1966,8 +1979,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				.mergeTargetStatusLoading=${this._state.wipMergeTargetLoading.get()}
 				.pullRequest=${this._state.wipPullRequest.get()}
 				.pullRequestLoading=${this._state.wipPullRequestLoading.get()}
-				.dateFormat=${this._state.preferences.get()?.dateFormat}
-				.dateStyle=${this._state.preferences.get()?.dateStyle}
+				.dateFormat=${preferences?.dateFormat}
+				.dateStyle=${preferences?.dateStyle}
 				.modeStatusText=${this.computeModeStatusText()}
 				.inResultsView=${this.inModeResultsView}
 				@toggle-mode=${this.handleToggleMode}

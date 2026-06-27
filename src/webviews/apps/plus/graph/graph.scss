@@ -1858,6 +1858,17 @@ web-graph {
 				min-height: 100px;
 				overflow: visible;
 			}
+
+			// Placeholder while preferences (the file layout) load; matches `&__files` sizing to avoid a jump.
+			&__files-loading {
+				display: flex;
+				flex: 1;
+				gap: var(--gl-space-6);
+				align-items: center;
+				justify-content: center;
+				min-height: 100px;
+				color: var(--vscode-descriptionForeground, var(--color-foreground--50));
+			}
 		}
 
 		.agent-status-split {

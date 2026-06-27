@@ -78,6 +78,14 @@ export interface Preferences {
 }
 export type UpdateablePreferences = Partial<Pick<Preferences, 'pullRequestExpanded' | 'files'>>;
 
+/** Fallback file-list layout when the persisted `views.commitDetails.files` preference is unavailable. */
+export const defaultViewFilesConfig: Preferences['files'] = {
+	layout: 'auto',
+	compact: true,
+	threshold: 5,
+	icon: 'type',
+};
+
 export interface GitBranchShape {
 	name: string;
 	repoPath: string;

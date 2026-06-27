@@ -26,6 +26,7 @@ import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.j
 import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -35,6 +36,7 @@ import type {
 	TelemetryEvents,
 } from '../../../../../constants.telemetry.js';
 import { getVirtualFsErrorReason } from '../../../../../virtual/virtualFsError.js';
+import { defaultViewFilesConfig } from '../../../../commitDetails/protocol.js';
 import type { CommitDetails, CommitSignatureShape, CompareDiff, Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type {
 	BranchComparisonContributorsScope,
@@ -223,6 +225,8 @@ export class DetailsActions {
 	 *  on a tab aborts any in-flight fetch for the same tab so the latest click wins. */
 	private _compareCommitFilesControllers = new Map<string, AbortController>();
 	private _aiExcludedFilesGeneration = 0;
+	/** Latest-fetch-wins guard for overlapping `fetchPreferences` re-fetches. */
+	private _preferencesGeneration = 0;
 
 	/** Branch-keyed cache of WIP enrichment (autolinks/issues/mergeTarget). Populated on first
 	 *  successful fetch; consulted on subsequent visits to hydrate state synchronously and avoid
@@ -561,19 +565,40 @@ export class DetailsActions {
 	}
 
 	async fetchCapabilities(): Promise<void> {
-		const s = this.services;
+		// Preferences (fast config reads) gate the file-list render, so resolve them first; the slower
+		// account/integration/AI-model capabilities settle into their own signals after.
+		await this.fetchPreferences();
 
-		const [
-			pullRequestExpanded,
-			[avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges],
-			[indentGuides, indent, enableSmartCommit, workingFilesOrderBy],
-			aiEnabled,
-			aiModel,
-			autolinksEnabled,
-			integrations,
-			hasAccount,
-			orgSettings,
-		] = await Promise.all([
+		// allSettled so one failing leg can't reject the batch and skip `subscribeEvents` below.
+		const s = this.services;
+		const [aiModelRes, autolinksEnabledRes, integrationsRes, hasAccountRes, orgSettingsRes] =
+			await Promise.allSettled([
+				s.ai.getModel(scopeForActiveMode(this.state.activeMode.get())),
+				s.config.get('views.commitDetails.autolinks.enabled'),
+				s.integrations.getIntegrationStates(),
+				s.subscription.hasAccount(),
+				s.subscription.getOrgSettings(),
+			]);
+
+		this.state.autolinksEnabled.set(getSettledValue(autolinksEnabledRes) ?? true);
+		this.state.hasIntegrationsConnected.set(getSettledValue(integrationsRes)?.some(i => i.connected) ?? false);
+		this.state.hasAccount.set(getSettledValue(hasAccountRes) ?? false);
+		this.state.orgSettings.set(getSettledValue(orgSettingsRes) ?? { ai: false, drafts: false });
+		this.state.aiModel.set(getSettledValue(aiModelRes));
+
+		// Subscribe to AI model + config changes so the chips and preferences stay in sync.
+		void this.subscribeEvents();
+	}
+
+	/** Publishes the fast, config/storage-derived {@link Preferences}. Run up front by
+	 *  {@link fetchCapabilities} (correct layout on first paint) and on every `config.onConfigChanged`. */
+	private async fetchPreferences(): Promise<void> {
+		// Latest-fetch-wins guard against overlapping re-fetches (see `_preferencesGeneration`).
+		const generation = ++this._preferencesGeneration;
+		// allSettled so a single failing read can't leave `preferences` unset (stuck loading gate);
+		// each missing value falls back to its default below.
+		const s = this.services;
+		const [pullRequestExpandedRes, filesPrefsRes, treePrefsRes, aiEnabledRes] = await Promise.allSettled([
 			s.storage.getWorkspace('views:commitDetails:pullRequestExpanded'),
 			s.config.getMany(
 				'views.commitDetails.avatars',
@@ -590,43 +615,41 @@ export class DetailsActions {
 				'scm.defaultViewSortKey',
 			),
 			s.ai.isEnabled(),
-			s.ai.getModel(scopeForActiveMode(this.state.activeMode.get())),
-			s.config.get('views.commitDetails.autolinks.enabled'),
-			s.integrations.getIntegrationStates(),
-			s.subscription.hasAccount(),
-			s.subscription.getOrgSettings(),
 		]);
+
+		// A newer fetch superseded this one mid-flight — it read fresher config, so don't clobber it.
+		if (this._preferencesGeneration !== generation) return;
+
+		const pullRequestExpanded = getSettledValue(pullRequestExpandedRes);
+		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges] =
+			getSettledValue(filesPrefsRes) ?? [];
+		const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] = getSettledValue(treePrefsRes) ?? [];
+		const aiEnabled = getSettledValue(aiEnabledRes);
 
 		this.state.preferences.set({
 			pullRequestExpanded: pullRequestExpanded ?? true,
-			avatars: avatars,
+			avatars: avatars ?? true,
 			currentUserNameStyle: currentUserNameStyle ?? 'you',
 			dateFormat: dateFormat ?? 'MMMM Do, YYYY h:mma',
 			dateStyle: dateStyle ?? 'relative',
-			files: files,
+			files: files ?? defaultViewFilesConfig,
 			indentGuides: indentGuides ?? 'onHover',
 			indent: indent,
 			workingFilesOrderBy: workingFilesOrderBy ?? 'path',
-			aiEnabled: aiEnabled,
+			aiEnabled: aiEnabled ?? false,
 			enableSmartCommit: enableSmartCommit ?? false,
-			showSignatureBadges: showSignatureBadges,
+			showSignatureBadges: showSignatureBadges ?? true,
 			// Graph reads its own per-view `details.showSearchBox` / `details.searchBoxFilter`
 			// from `graph:state`; these fields satisfy the shared `Preferences` shape only.
 			showSearchBox: true,
 			searchBoxFilter: true,
 		});
-		this.state.autolinksEnabled.set(autolinksEnabled ?? true);
-		this.state.hasIntegrationsConnected.set(integrations?.some(i => i.connected) ?? false);
-		this.state.hasAccount.set(hasAccount ?? false);
-		this.state.orgSettings.set(orgSettings ?? { ai: false, drafts: false });
-		this.state.aiModel.set(aiModel);
-
-		// Subscribe to AI model so the picker chip stays in sync with native quickpick changes.
-		void this.subscribeEvents();
 	}
 
 	private async subscribeEvents(): Promise<void> {
 		const unsubscribe = await subscribeAll([
+			// Keep preferences in sync with external settings edits without a reload.
+			() => this.services.config.onConfigChanged(() => void this.fetchPreferences()),
 			// Re-read the model with the active mode's scope. The compose-mode chip should
 			// reflect `'compose'` storage, the review-mode chip should reflect `'review'`
 			// storage, and either falls back to the global default when its scope is unset.

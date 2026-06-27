@@ -35,6 +35,7 @@ import type { GlExtensionCommands } from '../../../constants.commands.js';
 import type { InspectWebviewTelemetryContext, TelemetryEvents } from '../../../constants.telemetry.js';
 import type { CommitDetailsServices, InitialContext } from '../../commitDetails/commitDetailsService.js';
 import type { CommitDetails, CommitSignatureShape, FileShowOptions } from '../../commitDetails/protocol.js';
+import { defaultViewFilesConfig } from '../../commitDetails/protocol.js';
 import { fetchCommitEnrichment } from '../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import * as fileActions from '../shared/actions/file.js';
@@ -764,13 +765,7 @@ export class CommitDetailsActions {
 				avatars: avatars ?? true,
 				dateFormat: dateFormat ?? 'MMMM Do, YYYY h:mma',
 				dateStyle: dateStyle ?? 'relative',
-				files: files ??
-					this.state.preferences.get()?.files ?? {
-						layout: 'auto',
-						compact: true,
-						threshold: 5,
-						icon: 'type',
-					},
+				files: files ?? this.state.preferences.get()?.files ?? defaultViewFilesConfig,
 				indentGuides: indentGuides ?? 'onHover',
 				indent: indent,
 				workingFilesOrderBy: workingFilesOrderBy ?? 'path',
