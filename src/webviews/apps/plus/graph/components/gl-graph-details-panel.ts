@@ -936,13 +936,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('switch-model', this.handleSwitchModel);
-		this._preferredCompareOrientation = this.clientWidth >= narrowPanelThreshold ? 'horizontal' : 'vertical';
+		// Tracks panel width → preferred orientation for promoting the compare sheet to a pinned
+		// panel; the observer's initial callback seeds it, so no synchronous width read is needed.
 		this._resizeObserver = new ResizeObserver(entries => {
-			const preferred: PanelOrientation =
+			this._preferredCompareOrientation =
 				(entries[0]?.contentRect.width ?? this.clientWidth) >= narrowPanelThreshold ? 'horizontal' : 'vertical';
-			if (this._preferredCompareOrientation !== preferred) {
-				this._preferredCompareOrientation = preferred;
-			}
 		});
 		this._resizeObserver.observe(this);
 	}
