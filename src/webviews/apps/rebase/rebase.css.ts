@@ -267,7 +267,10 @@ export const rebaseStyles = css`
 
 		&.has-conflicts {
 			color: #fff;
-			background-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor, #c60);
+			background-color: var(
+				--vscode-gitlens-decorations\\.statusMergingOrRebasingConflictForegroundColor,
+				#c74e39
+			);
 		}
 
 		code-icon {

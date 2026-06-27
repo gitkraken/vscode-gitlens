@@ -8672,11 +8672,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showStyleguide",
-				"title": "Show Color Styleguide (Debugging)",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.plus.upgrade",
 				"title": "Upgrade to Pro...",
 				"category": "GitLens"
@@ -9172,6 +9167,11 @@
 			{
 				"command": "gitlens.showStashesView",
 				"title": "Show Stashes View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showStyleguide",
+				"title": "Show Color Styleguide (Debugging)",
 				"category": "GitLens"
 			},
 			{

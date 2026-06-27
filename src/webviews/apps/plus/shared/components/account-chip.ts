@@ -62,14 +62,14 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			:host-context(.vscode-high-contrast) {
 				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
 				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 25%);
-				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 20%);
+				--gl-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #fff 20%);
 			}
 
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
 				--gl-account-chip-color: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
 				--gl-account-chip-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 18%);
-				--gl-account-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 15%);
+				--gl-account-media-color: color-mix(in lab, var(--vscode-sideBar-background), #000 15%);
 			}
 
 			.chip {
@@ -141,7 +141,7 @@ export class GlAccountChip extends SignalWatcher(LitElement) {
 			.row__media img {
 				width: 2rem;
 				aspect-ratio: 1 / 1;
-				background-color: var(--gl-account-account-media-color);
+				background-color: var(--gl-account-media-color);
 				border-radius: 50%;
 			}
 

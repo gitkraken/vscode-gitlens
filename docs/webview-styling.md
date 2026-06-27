@@ -58,6 +58,61 @@ Spacing, border-radius, and motion (duration/easing) are largely **hardcoded** �
 - **Match the surrounding component's existing values.** Don't invent a new step. (Spacing clusters around a ~2px step: 0.2 / 0.4 / 0.6 / 0.8 / 1.0 / 1.2rem.)
 - **Don't reach into `--wa-*`** for a length scale — those are WebAwesome-isolated, not a GitLens scale.
 
+## Color
+
+GitLens webview color is built on VS Code's theme tokens in four layers. **Consume the semantic `--gl-color-*` layer** — don't reach for raw `--vscode-*` (except where no semantic token fits) and never hardcode a hex.
+
+| Layer                            | What                                                              | Example                   |
+| -------------------------------- | ----------------------------------------------------------------- | ------------------------- |
+| `--vscode-*`                     | VS Code's palette — the basis for all functional color            | `--vscode-foreground`     |
+| `--gl-color-*-base`              | GitLens primitives — only hues VS Code lacks, authored per scheme | `--gl-color-success-base` |
+| `--gl-color-{role}-{prominence}` | **Semantic — the layer you consume**                              | `--gl-color-fg-muted`     |
+| `--gl-{component}-*`             | Component-scoped knobs, pointing at the semantic layer            | `--gl-card-background`    |
+
+Defined in [`colors.scss`](../src/webviews/apps/shared/styles/colors.scss).
+
+### Roles
+
+- **fg** (text/icon): `fg` · `-muted` · `-subtle` · `-faint` · `-disabled` · `-on-emphasis`
+- **surface**: `surface` · `-raised` · `-sunken` · `-hover` · `-selected` · `-code` · `scrim`
+- **border**: `border` · `-subtle` · `-focus` · `-contrast` · `-sash-hover`
+- **accent**: `accent` · `-fg` · `-active` · `-secondary` · `link` · `link-active` · `highlight`
+- **status**: `success` · `warning` · `danger` · `info` (+ `-bg`/`-border` alert surfaces, `on-status`)
+- **domain**: `diff-added/-modified/-removed` · `agent-working/-waiting/-idle` · `tracking-ahead/-behind` · `chip-filtered/-scoped`
+- **expressive**: `brand` · `brand-on` · `ai-1/2/3`
+
+### Four schemes
+
+Color is assigned per scheme via `:root:has(.vscode-*)` selectors — the `scheme-dark` / `scheme-light` / `scheme-hc-dark` / `scheme-hc-light` mixins in [`utils.scss`](../src/webviews/apps/shared/styles/utils.scss). High-contrast is first-class: meaning-bearing color stays vivid (often via VS Code's own HC tokens — `contrastBorder`, `charts-*`, `editorError/Warning`), while decorative color (gradients, washes, scrim, surface tints) drops to border-defined — mirroring VS Code's own registry pattern.
+
+**`--gl-tint-toward`** collapses the lighten-in-dark / darken-in-light duplication: `#fff` in dark/hc-dark, `#000` in light/hc-light, so a surface tint is one declaration valid in all four schemes:
+
+```scss
+--gl-color-surface-raised: color-mix(in oklch, var(--gl-color-surface), var(--gl-tint-toward) 6%);
+```
+
+### Deriving colors
+
+- **Default to `color-mix()`** (Baseline-wide). Tints/shades use `in oklch` (perceptually even); alpha/translucent variants use `in srgb`.
+- **Relative color** (`oklch(from …)`) is reserved for precise channel control — it's only "newly available" and webviews ship to vscode.dev across browsers.
+- **Never hardcode a hex in consuming code.** Intentionally-absolute palettes (syntax highlighting, file-type icons, graph lanes, decorative gradients) are the exception — leave them.
+
+### Single shared `webview.css`
+
+The whole foundation (dimensionless tokens + colors + the four scheme blocks + the WebAwesome bridge) is emitted **once** into `webview.css` (from [`shared/webview.scss`](../src/webviews/apps/shared/webview.scss)) and `<link>`ed by every webview — not duplicated into each app's bundle. App entry SCSS no longer `@use`s `theme`/`tokens`/`colors`; their rules read tokens via `:root` inheritance. Mixin libraries (`utils`, `scrollbars`) stay `@use`d — they emit nothing on their own.
+
+### Legacy `--color-*` (transitional)
+
+The old `--color-*` names are kept as **faithful aliases** of the new layer, so existing consumers render identically. New and migrated code uses `--gl-color-*` directly — don't add new `--color-*` consumers.
+
+### Debug styleguide
+
+A dev-only panel renders the full palette + scales + a component-adoption dashboard with a live WCAG contrast audit. Run **"Show Color Styleguide (Debugging)"** (`gitlens.showStyleguide`) in a debug build, and switch VS Code themes to verify all four schemes.
+
+### Canvas / JS color (timeline, treemap)
+
+Canvas-rendered surfaces (d3 timeline, treemap) read tokens in JS at paint time and **don't react to CSS theme changes for free**. When painting with a `--gl-color-*` value on canvas, resolve it from the computed style and re-resolve on theme change — and keep any JS hex fallback in sync with the CSS token so the two can't silently diverge.
+
 ## Elevation
 
 Stacking and shadow share one mental model: the tier names line up 1:1, so a floating surface picks both from the same word — `z-index: var(--gl-z-popover)` pairs with `box-shadow: var(--gl-shadow-popover)`.

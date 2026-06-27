@@ -775,7 +775,7 @@ button:not([disabled]),
 	}
 
 	&--warning {
-		color: #de9b43;
+		color: var(--gl-color-warning);
 
 		::before {
 			font-family: codicon;
