@@ -379,10 +379,16 @@ export class GlPopover extends GlElement {
 				width: max-content;
 			}
 
-			:host([appearance='menu']) {
+			/* Scope menu styling to the popover body + arrow so it doesn't leak via
+			   custom-property inheritance into a tooltip slotted as the anchor (which
+			   would wrongly paint that tooltip with the menu background). */
+			:host([appearance='menu']) .popover__body {
 				--wa-tooltip-padding: var(--wa-spacing-2x-small);
 				--wa-tooltip-font-size: var(--vscode-font-size);
 				--wa-tooltip-background-color: var(--vscode-menu-background);
+			}
+
+			:host([appearance='menu']) .popover {
 				--arrow-color: var(--vscode-menu-background);
 			}
 
