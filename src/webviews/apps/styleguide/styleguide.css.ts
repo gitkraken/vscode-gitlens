@@ -311,6 +311,7 @@ export const styleguideStyles = css`
 	}
 	.demo__stage {
 		display: flex;
+		position: relative; /* contain absolutely-positioned demo components (e.g. progress-indicator) so they don't escape the app's scroll and add a second scrollbar */
 		flex-wrap: wrap;
 		gap: var(--gl-space-8);
 		align-items: center;
@@ -331,6 +332,7 @@ export const styleguideStyles = css`
 	}
 	.demo--block .demo__stage {
 		display: block;
+		overflow: hidden; /* clip the progress-indicator's translateX animation to its card */
 	}
 
 	.undemoed {
