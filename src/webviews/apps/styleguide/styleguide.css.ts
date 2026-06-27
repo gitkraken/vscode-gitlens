@@ -325,6 +325,13 @@ export const styleguideStyles = css`
 		color: var(--gl-color-fg-muted);
 		border-top: var(--gl-border-width) solid var(--gl-color-border);
 	}
+	/* Full-width block components (banner, progress, skeleton) — span the grid + don't flex-squish */
+	.demo--block {
+		grid-column: 1 / -1;
+	}
+	.demo--block .demo__stage {
+		display: block;
+	}
 
 	.undemoed {
 		display: flex;
