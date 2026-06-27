@@ -2238,6 +2238,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._actions.setBranchCompareActiveView(e.detail.view, repoPath)}
 			@request-enrichment=${() => this._actions.requestBranchCompareEnrichment(repoPath)}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
+			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-explain=${(e: CustomEvent<{ prompt?: string }>) =>
 				this._actions.branchCompareExplain(repoPath, e.detail?.prompt)}
 			@gl-generate-changelog=${() => this._actions.branchCompareGenerateChangelog(repoPath)}
@@ -2447,6 +2448,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@mode-back=${this.handleModeBack}
 			@mode-refresh=${this.handleModeRefresh}
 			@open-multiple-changes=${this.handleOpenMultipleChanges}
+			@copy-commit-patch=${this.handleCopyCommitPatch}
 			@gl-issue-pull-request-details=${this.handleOpenPullRequestDetails}
 		></gl-details-multicommit-panel>`;
 	}

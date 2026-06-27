@@ -10,6 +10,7 @@ import type { CopyWipPatchEventDetail, OpenMultipleChangesArgs, WipScope } from 
 import { renderCommitStatsIcons } from '../commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from './base.js';
 import type { FileGroup } from './file-tree-utils.js';
+import { renderOpenChangesAction } from './file-tree-utils.js';
 import type { FileChangeListItemDetail, FileItem } from './gl-file-tree-pane.js';
 import './gl-file-tree-pane.js';
 import '../chips/action-chip.js';
@@ -28,19 +29,9 @@ export class GlWipTreePane extends LitElement {
 			container-type: inline-size;
 		}
 
-		/* Group Stash/Discard/Copy as one slotted flex child so they read as a cohesive cluster,
-	   flush (no internal gap) like action-nav — each gl-action-chip's own 0.2rem padding
-	   supplies the rhythm, matching the spacing and 2rem sizing of the action-nav chips. The
-	   header-actions gap in gl-file-tree-pane separates the whole group from the right-hand
-	   action-nav cluster (open-multi-diff / layout / search).
-
-	   The group is the single leading-actions child, so zero out the per-child trailing margin
-	   gl-file-tree-pane adds — the header-actions gap alone now owns the group↔action-nav
-	   separation, and the margin would otherwise stack a second, asymmetric gap onto it. */
-		gl-file-tree-pane {
-			--gl-leading-action-trailing-gap: 0;
-		}
-
+		/* Group the leading actions (Discard/Stash/Open Changes/Copy) as a cohesive cluster — each
+	   gl-action-chip's own padding supplies the internal rhythm; the gl-file-tree-pane header-actions
+	   gap separates the cluster from the action-nav toggles. */
 		.wip-actions {
 			display: flex;
 			align-items: center;
@@ -246,9 +237,6 @@ export class GlWipTreePane extends LitElement {
 	override render() {
 		const files = (this.files as Files) ?? [];
 		const multiDiff = this.multiDiff;
-		const buttons: ('layout' | 'search' | 'multi-diff')[] | undefined = multiDiff
-			? ['layout', 'search', 'multi-diff']
-			: undefined;
 
 		const hasStagedAndUnstaged = this.hasStagedAndUnstaged;
 		// Primary action label always set; alt label only when both staged + unstaged changes exist.
@@ -281,9 +269,6 @@ export class GlWipTreePane extends LitElement {
 			.checkableStates=${this._effectiveStates}
 			.checkableStateDefault=${this.checkableStateDefault}
 			.agentTouchedFiles=${this.agentTouchedFiles}
-			.buttons=${buttons}
-			.multiDiffLabel=${multiDiffLabel}
-			.multiDiffAltLabel=${multiDiffAltLabel}
 			.showSearchBox=${this.showSearchBox}
 			.searchBoxFilter=${this.searchBoxFilter}
 			empty-text=${this.emptyText}
@@ -295,12 +280,6 @@ export class GlWipTreePane extends LitElement {
 			@file-selection-changed=${this.onFileSelectionChanged}
 			@file-compare-wip=${this.onFileCompareWip}
 			@file-compare-wip-staged=${this.onFileCompareWipStaged}
-			@gl-file-tree-pane-open-multi-diff=${multiDiff
-				? (e: CustomEvent<{ altKey: boolean }>) => this.onOpenMultiDiff(multiDiff, e.detail?.altKey === true)
-				: null}
-			@gl-file-tree-pane-open-selected-changes=${multiDiff
-				? (e: CustomEvent<{ files: readonly { path: string }[] }>) => this.onOpenSelectedChanges(e, multiDiff)
-				: null}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
 			${this.renderConflictBulkActions(files)}
@@ -319,6 +298,15 @@ export class GlWipTreePane extends LitElement {
 						>
 							<span class="stash-label">Stash</span>
 						</gl-action-chip>
+						${multiDiff
+							? renderOpenChangesAction({
+									label: multiDiffLabel,
+									altLabel: multiDiffAltLabel,
+									selectedCount: this._selectedFiles.length,
+									onOpenAll: (altKey: boolean) => this.onOpenMultiDiff(multiDiff, altKey),
+									onOpenSelected: () => this.onOpenSelectedChanges(multiDiff),
+								})
+							: nothing}
 						${this.renderCopyPatchButton(hasStagedAndUnstaged, hasSelection)}
 					</div>`
 				: nothing}
@@ -463,11 +451,14 @@ export class GlWipTreePane extends LitElement {
 		);
 	}
 
-	private onOpenSelectedChanges(
-		e: CustomEvent<{ files: readonly { path: string }[] }>,
-		refs: { repoPath: string; lhs: string; rhs: string; wip?: boolean; title?: string },
-	): void {
-		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+	private onOpenSelectedChanges(refs: {
+		repoPath: string;
+		lhs: string;
+		rhs: string;
+		wip?: boolean;
+		title?: string;
+	}): void {
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
 		const files = (this.files ?? []).filter(f => selectedPaths.has(f.path));
 		if (!files.length) return;
 

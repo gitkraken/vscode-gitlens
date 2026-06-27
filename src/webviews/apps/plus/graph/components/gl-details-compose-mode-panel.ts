@@ -14,6 +14,7 @@ import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ProposedCommit, ProposedCommitFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
+import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -140,6 +141,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 	lastPrompt?: string;
 
 	@state() private _selectedCommitId?: string;
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly { path: string }[] = [];
 	@state() private _excludedFiles = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	@state() private _excludedCommitIds = new Set<string>();
@@ -646,7 +649,6 @@ export class GlDetailsComposeModePanel extends LitElement {
 			show-file-icons
 			header="File Changes"
 			empty-text=${emptyText}
-			.buttons=${['multi-diff', 'layout', 'search']}
 			?multi-selectable=${true}
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
@@ -657,22 +659,26 @@ export class GlDetailsComposeModePanel extends LitElement {
 			@file-compare-previous=${this.forwardFileEventWithVirtualRef}
 			@file-stage=${this.redispatch}
 			@file-unstage=${this.redispatch}
-			@gl-file-tree-pane-open-multi-diff=${this.onOpenMultiDiff}
-			@gl-file-tree-pane-open-selected-changes=${this.onOpenSelectedChanges}
+			@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+				(this._selectedFiles = e.detail?.files ?? [])}
 			@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
 				// Share the same property as the idle-state file tree — separate slots meant
 				// the user's layout choice in one view didn't carry over to the other.
 				this.fileLayout = e.detail.layout;
 			}}
-		></gl-file-tree-pane>`;
+		>
+			${files.length > 0
+				? renderOpenChangesAction({
+						selectedCount: this._selectedFiles.length,
+						slot: 'leading-actions',
+						onOpenAll: () => this.onOpenMultiDiff(),
+						onOpenSelected: () => this.onOpenSelectedChanges(),
+					})
+				: nothing}
+		</gl-file-tree-pane>`;
 	}
 
-	/**
-	 * Bridge the file tree's `gl-file-tree-pane-open-multi-diff` event into a
-	 * `compose-open-multi-diff` event carrying the selected proposed commit's virtualRef and the
-	 * file list. The graph details panel routes this through `openVirtualMultipleChanges` so the
-	 * multi-diff editor sees per-commit synthesized content from the virtual FS provider.
-	 */
+	/** Opens the selected proposed commit's full change set as a multi-diff (via `compose-open-multi-diff`). */
 	private onOpenMultiDiff = (): void => {
 		const commit = this.commits?.find(c => c.id === this._selectedCommitId);
 		const virtualRef = commit?.virtualRef;
@@ -688,10 +694,10 @@ export class GlDetailsComposeModePanel extends LitElement {
 		);
 	};
 
-	private onOpenSelectedChanges = (e: CustomEvent<{ files: readonly { path: string }[] }>): void => {
+	private onOpenSelectedChanges = (): void => {
 		const commit = this.commits?.find(c => c.id === this._selectedCommitId);
 		const virtualRef = commit?.virtualRef;
-		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
 		const files = commit?.files?.filter(f => selectedPaths.has(f.path));
 		if (virtualRef == null || !files?.length) return;
 

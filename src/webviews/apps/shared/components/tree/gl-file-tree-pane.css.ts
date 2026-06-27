@@ -68,14 +68,17 @@ export const fileTreeStyles = css`
 	.header-actions {
 		display: flex;
 
-		/* Both gaps are var-driven so consumers (e.g. gl-wip-tree-pane) can collapse them
-		   to 0 from their own container queries when the leading action goes icon-only. */
+		/* Gap separating the consumer's file-set action cluster (leading-actions) from the pane's view toggles (action-nav). */
 		gap: var(--gl-header-actions-gap, 0.4rem);
 		align-items: center;
 	}
 
-	.leading-actions::slotted(*) {
-		margin-right: var(--gl-leading-action-trailing-gap, 0.2rem);
+	/* Make the slot a flex box (not the default display:contents) so multiple slotted chips form ONE
+	   tight cluster riding their own padding — otherwise each becomes a separate header-actions flex
+	   item and picks up the cluster↔toggles gap between them. */
+	.leading-actions {
+		display: flex;
+		align-items: center;
 	}
 
 	gl-badge {

@@ -21,6 +21,7 @@ import { buildFolderContext, messageHeadlineSplitterToken } from '../../../../pl
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
+import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import {
 	elementBase,
 	metadataBarVarsBase,
@@ -161,6 +162,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 	searchContext?: GitCommitSearchContext;
 
 	@state() private _enrichmentNoneFound = false;
+
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly GitFileChangeShape[] = [];
 	private _enrichmentNoneFoundTimer?: ReturnType<typeof setTimeout>;
 
 	/**
@@ -254,19 +258,33 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 													.showSearchBox=${this.showSearchBox}
 													.searchBoxFilter=${this.searchBoxFilter}
 													empty-text=${filesLoadingEmpty ? '' : 'No Files'}
-													.buttons=${this.getMultiDiffRefs()
-														? ['layout', 'search', 'multi-diff']
-														: undefined}
 													?multi-selectable=${true}
 													@file-compare-previous=${this.handleFileCompareBetween}
 													@file-open=${this.redispatch}
 													@file-compare-working=${this.redispatch}
 													@file-more-actions=${this.redispatch}
 													@change-files-layout=${this.redispatch}
-													@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
-													@gl-file-tree-pane-open-selected-changes=${this
-														.handleOpenSelectedChanges}
+													@file-selection-changed=${this.handleFileSelectionChanged}
 												>
+													${this.getMultiDiffRefs() != null
+														? renderOpenChangesAction({
+																selectedCount: this._selectedFiles.length,
+																slot: 'leading-actions',
+																onOpenAll: () => this.handleOpenMultiDiff(),
+																onOpenSelected: () => this.handleOpenSelectedChanges(),
+															})
+														: nothing}
+													${(() => {
+														const refs = this.getMultiDiffRefs();
+														return refs != null
+															? renderCopyChangesAction({
+																	repoPath: refs.repoPath,
+																	to: refs.rhs,
+																	from: refs.lhs || undefined,
+																	slot: 'leading-actions',
+																})
+															: nothing;
+													})()}
 													${filesLoadingEmpty
 														? html`<div
 																slot="before-tree"
@@ -361,9 +379,13 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 		);
 	};
 
-	private handleOpenSelectedChanges = (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>): void => {
+	private handleFileSelectionChanged = (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>): void => {
+		this._selectedFiles = e.detail?.files ?? [];
+	};
+
+	private handleOpenSelectedChanges = (): void => {
 		const refs = this.getMultiDiffRefs();
-		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
 		const files = (this.files ?? []).filter(f => selectedPaths.has(f.path));
 		if (!refs || !files.length) return;
 

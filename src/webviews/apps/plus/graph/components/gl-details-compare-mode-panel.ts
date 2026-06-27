@@ -18,6 +18,7 @@ import type {
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
+import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
 	elementBase,
@@ -243,6 +244,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 */
 	@state()
 	private _comparisonChanging = false;
+
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly { path: string }[] = [];
 
 	override connectedCallback(): void {
 		super.connectedCallback?.();
@@ -781,7 +785,6 @@ export class GlDetailsCompareModePanel extends LitElement {
 					.fileActions=${GlDetailsCompareModePanel._fileActions}
 					.fileContext=${this._getFileContext}
 					.folderContext=${(folder: { relativePath: string }) => buildFolderContext(folderRepoPath, folder)}
-					.buttons=${this.getMultiDiffRefs(files) ? ['layout', 'search', 'multi-diff'] : undefined}
 					?multi-selectable=${true}
 					selection-action="file-compare-range"
 					.showSearchBox=${this.showSearchBox}
@@ -793,10 +796,31 @@ export class GlDetailsCompareModePanel extends LitElement {
 					@file-compare-working=${this.redispatch}
 					@file-more-actions=${this.redispatch}
 					@change-files-layout=${this.redispatch}
-					@gl-file-tree-pane-open-multi-diff=${this.handleOpenMultiDiff}
-					@gl-file-tree-pane-open-selected-changes=${this.handleOpenSelectedChanges}
+					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+						(this._selectedFiles = e.detail?.files ?? [])}
 				>
 					<span slot="title-content">${this.renderViewSelector()}</span>
+					${this.getMultiDiffRefs(files) != null
+						? renderOpenChangesAction({
+								selectedCount: this._selectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.handleOpenMultiDiff(),
+								onOpenSelected: () => this.handleOpenSelectedChanges(),
+							})
+						: nothing}
+					${(() => {
+						// Copy-as-patch only applies to commit↔commit comparisons; the working-tree tabs
+						// (wip / rhs === '') aren't a committed diff the copy-commit-patch path can produce.
+						const refs = this.getMultiDiffRefs(files);
+						return refs != null && refs.wip !== true && refs.rhs !== ''
+							? renderCopyChangesAction({
+									repoPath: refs.repoPath,
+									to: refs.rhs,
+									from: refs.lhs || undefined,
+									slot: 'leading-actions',
+								})
+							: nothing;
+					})()}
 					${isLoadingEmpty
 						? html`<div slot="before-tree" class="compare-files--loading" aria-busy="true">
 								<code-icon icon="loading" modifier="spin"></code-icon>
@@ -1209,10 +1233,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 		);
 	};
 
-	private handleOpenSelectedChanges = (e: CustomEvent<{ files: readonly { path: string }[] }>): void => {
+	private handleOpenSelectedChanges = (): void => {
 		// Keep the typed BranchComparisonFile shapes from activeFiles, scoped to the selected paths,
 		// so the refs/title derivation matches "Open All Changes".
-		const selectedPaths = new Set(e.detail?.files?.map(f => f.path));
+		const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
 		const files = this.activeFiles.filter(f => selectedPaths.has(f.path));
 		const refs = this.getMultiDiffRefs(files);
 		if (!refs || !files.length) return;

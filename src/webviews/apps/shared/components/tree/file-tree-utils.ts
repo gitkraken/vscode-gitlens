@@ -95,6 +95,59 @@ export function renderLayoutAction(layout: ViewFilesLayout, onToggle: (e: Event)
 	></gl-action-chip>`;
 }
 
+/** Renders the shared "Copy Changes (Patch)" action chip — dispatches `copy-commit-patch` with the diff refs. */
+export function renderCopyChangesAction(options: {
+	repoPath: string;
+	to: string;
+	from?: string;
+	slot?: string;
+}): TemplateResult<1> {
+	return html`<gl-action-chip
+		slot=${options.slot ?? nothing}
+		icon="copy"
+		label="Copy Changes (Patch)"
+		@click=${(e: MouseEvent) =>
+			(e.currentTarget as HTMLElement).dispatchEvent(
+				new CustomEvent('copy-commit-patch', {
+					detail: { repoPath: options.repoPath, to: options.to, from: options.from },
+					bubbles: true,
+					composed: true,
+				}),
+			)}
+	></gl-action-chip>`;
+}
+
+/** Renders the shared "Open Changes" action chip: ≥2 selected → "Open Selected Changes" (Alt/Shift opens all). */
+export function renderOpenChangesAction(options: {
+	label?: string;
+	altLabel?: string;
+	selectedCount: number;
+	slot?: string;
+	onOpenAll: (altKey: boolean) => void;
+	onOpenSelected: () => void;
+}): TemplateResult<1> {
+	const label = options.label ?? 'Open All Changes';
+	if (options.selectedCount > 1) {
+		return html`<gl-action-chip
+			slot=${options.slot ?? nothing}
+			data-action="open-selected"
+			icon="diff-multiple"
+			label="Open Selected Changes"
+			alt-label=${label}
+			@click=${(e: MouseEvent) => (e.altKey || e.shiftKey ? options.onOpenAll(false) : options.onOpenSelected())}
+		></gl-action-chip>`;
+	}
+
+	return html`<gl-action-chip
+		slot=${options.slot ?? nothing}
+		data-action="multi-diff"
+		icon="diff-multiple"
+		label=${label}
+		alt-label=${options.altLabel ?? nothing}
+		@click=${(e: MouseEvent) => options.onOpenAll(e.altKey)}
+	></gl-action-chip>`;
+}
+
 // Approximates VS Code's SCM "status" sort ordering for working changes. Conflicts are floated
 // first separately (see `compareWorkingFiles`), so they're omitted here.
 const workingFileStatusOrder: Record<string, number> = {
