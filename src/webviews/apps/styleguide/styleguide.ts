@@ -18,7 +18,6 @@ import '../shared/components/card/card.js';
 import '../shared/components/checkbox/checkbox.js';
 import '../shared/components/chips/action-chip.js';
 import '../shared/components/commit-sha.js';
-import '../shared/components/gl-error-banner.js';
 import '../shared/components/indicators/indicator.js';
 import '../shared/components/overlays/popover.js';
 import '../shared/components/overlays/tooltip.js';
@@ -195,6 +194,7 @@ const SCALES: Scale[] = [
 interface ComponentDemo {
 	label: string;
 	render: () => unknown;
+	block?: boolean; // full-width block component — stage uses display:block instead of flex
 }
 interface ComponentGroup {
 	family: string;
@@ -234,10 +234,14 @@ const COMPONENT_GROUPS: ComponentGroup[] = [
 		demos: [
 			{
 				label: 'gl-banner',
+				block: true,
 				render: () =>
-					html`<gl-banner banner-title="Heads up" body="A short message about something."></gl-banner>`,
+					html`<gl-banner
+						banner-title="Heads up"
+						body="A short message about something."
+						primary-button="Got it"
+					></gl-banner>`,
 			},
-			{ label: 'gl-error-banner', render: () => html`<gl-error-banner>Something went wrong.</gl-error-banner>` },
 		],
 	},
 	{
@@ -277,13 +281,26 @@ const COMPONENT_GROUPS: ComponentGroup[] = [
 		family: 'Indicators',
 		demos: [
 			{ label: 'gl-indicator', render: () => html`<gl-indicator></gl-indicator>` },
-			{ label: 'progress-indicator', render: () => html`<progress-indicator active></progress-indicator>` },
-			{ label: 'skeleton-loader', render: () => html`<skeleton-loader></skeleton-loader>` },
+			{
+				label: 'progress-indicator',
+				block: true,
+				render: () => html`<progress-indicator active mode="infinite"></progress-indicator>`,
+			},
+			{
+				label: 'skeleton-loader',
+				block: true,
+				render: () => html`<skeleton-loader lines="3"></skeleton-loader>`,
+			},
 		],
 	},
 	{
 		family: 'Avatars',
-		demos: [{ label: 'gl-avatar', render: () => html`<gl-avatar name="Alice">A</gl-avatar>` }],
+		demos: [
+			{
+				label: 'gl-avatar',
+				render: () => html`<gl-avatar name="Alice" data-avatar-size="3.2rem">AL</gl-avatar>`,
+			},
+		],
 	},
 	{
 		family: 'Content',
@@ -292,7 +309,7 @@ const COMPONENT_GROUPS: ComponentGroup[] = [
 				label: 'gl-accordion',
 				render: () => html`<gl-accordion><span slot="header">Section</span>Body content</gl-accordion>`,
 			},
-			{ label: 'gl-commit-sha', render: () => html`<gl-commit-sha>a1b2c3d</gl-commit-sha>` },
+			{ label: 'gl-commit-sha', render: () => html`<gl-commit-sha sha="a1b2c3d4e5f6"></gl-commit-sha>` },
 			{ label: 'code-icon', render: () => html`<code-icon icon="git-branch"></code-icon>` },
 		],
 	},
@@ -301,6 +318,7 @@ const COMPONENT_GROUPS: ComponentGroup[] = [
 // Shared components that depend on extension context/data (subscription, integrations, IPC, git models)
 // and can't render standalone — listed for completeness, not demoed.
 const UNDEMOED = [
+	'gl-error-banner',
 	'gl-account-chip',
 	'gl-integrations-chip',
 	'gl-feature-badge',
@@ -366,6 +384,9 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		});
 		root.querySelectorAll<HTMLElement>('[data-shadow]').forEach(el => {
 			el.style.setProperty('box-shadow', `var(${el.dataset.shadow})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-avatar-size]').forEach(el => {
+			el.style.setProperty('--gl-avatar-size', el.dataset.avatarSize ?? '');
 		});
 	}
 
@@ -669,7 +690,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 						<div class="demo-grid">
 							${group.demos.map(
 								d => html`
-									<div class="demo">
+									<div class="demo ${d.block ? 'demo--block' : ''}">
 										<div class="demo__stage">${d.render()}</div>
 										<div class="demo__label">${d.label}</div>
 									</div>
