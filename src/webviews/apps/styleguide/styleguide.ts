@@ -2,6 +2,7 @@
 import './styleguide.scss';
 import { html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import type { State } from '../../styleguide/protocol.js';
 import { GlAppHost } from '../shared/appHost.js';
 import type { LoggerContext } from '../shared/contexts/logger.js';
@@ -324,7 +325,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 					${group.tokens.map(
 						t => html`
 							<div class="swatch-row">
-								<div class="swatch" style="background: var(${t.name})"></div>
+								<div class="swatch" style=${styleMap({ background: `var(${t.name})` })}></div>
 								<div>
 									<div class="token-name">${t.name}</div>
 									<div class="token-derivation">${t.derivation}</div>
@@ -367,15 +368,24 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		if (kind === 'radius') {
 			sample = html`<div
 				class="scale-box"
-				style="width: 4rem; height: 2.4rem; border-radius: var(${token})"
+				style=${styleMap({ width: '4rem', height: '2.4rem', borderRadius: `var(${token})` })}
 			></div>`;
 		} else if (kind === 'space') {
-			sample = html`<div class="scale-box" style="width: var(${token}); height: 1.6rem"></div>`;
+			sample = html`<div
+				class="scale-box"
+				style=${styleMap({ width: `var(${token})`, height: '1.6rem' })}
+			></div>`;
 		} else if (kind === 'font') {
-			sample = html`<span style="font-size: var(${token})">Aa</span>`;
+			sample = html`<span style=${styleMap({ fontSize: `var(${token})` })}>Aa</span>`;
 		} else if (kind === 'shadow') {
 			sample = html`<div
-				style="width: 4rem; height: 2.4rem; border-radius: var(--gl-radius-sm); background: var(--gl-color-surface-raised); box-shadow: var(${token})"
+				style=${styleMap({
+					width: '4rem',
+					height: '2.4rem',
+					borderRadius: 'var(--gl-radius-sm)',
+					background: 'var(--gl-color-surface-raised)',
+					boxShadow: `var(${token})`,
+				})}
 			></div>`;
 		}
 		return html`<div class="scale-item">${sample}<span>${token}</span></div>`;
@@ -439,11 +449,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 
 	override render(): unknown {
 		return html`
-			<span
-				class="probe"
-				aria-hidden="true"
-				style="position: absolute; width: 0; height: 0; overflow: hidden"
-			></span>
+			<span class="probe" aria-hidden="true"></span>
 			<div class="page">
 				<div class="controlbar">
 					<span class="scheme-chip ${this.isHc ? 'scheme-chip--hc' : ''}">

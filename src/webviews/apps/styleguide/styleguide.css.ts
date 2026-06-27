@@ -16,6 +16,13 @@ export const styleguideStyles = css`
 		box-sizing: border-box;
 	}
 
+	.probe {
+		position: absolute;
+		width: 0;
+		height: 0;
+		overflow: hidden;
+	}
+
 	.page {
 		max-width: 1080px;
 		margin: 0 auto;
