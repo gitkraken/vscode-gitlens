@@ -8672,6 +8672,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showStyleguide",
+				"title": "Show Color Styleguide (Debugging)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.plus.upgrade",
 				"title": "Upgrade to Pro...",
 				"category": "GitLens"
@@ -14551,6 +14556,10 @@
 				{
 					"command": "gitlens.showStashesView",
 					"when": "gitlens:enabled && !gitlens:hasVirtualFolders"
+				},
+				{
+					"command": "gitlens.showStyleguide",
+					"when": "gitlens:enabled && gitlens:debugging"
 				},
 				{
 					"command": "gitlens.showTagsView",
