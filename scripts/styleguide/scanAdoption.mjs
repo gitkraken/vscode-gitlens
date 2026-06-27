@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Scans shared webview components for color-token adoption and prints a status report to reconcile
-// against src/webviews/apps/styleguide/adoptionStatus.ts. Classification per file's color sourcing:
+// Scans shared webview components for color-token adoption and prints a standalone status report.
+// Ad-hoc tool for eyeballing migration progress off legacy --color-* onto --gl-color-*; run by hand,
+// not wired into the build. Classification per file's color sourcing:
 //   new-tokens  uses var(--gl-color-*)
 //   legacy      uses var(--color-*)
 //   vscode-direct  only var(--vscode-*)
@@ -65,4 +66,3 @@ const rows = [...byComponent.entries()]
 
 console.log(`Scanned ${rows.length} component folders under shared/components/\n`);
 for (const { comp, status } of rows) console.log(`  ${status.padEnd(14)} ${comp}`);
-console.log('\nReconcile against src/webviews/apps/styleguide/adoptionStatus.ts');

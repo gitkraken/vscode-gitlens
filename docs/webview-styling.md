@@ -107,7 +107,7 @@ The old `--color-*` names are kept as **faithful aliases** of the new layer, so 
 
 ### Debug styleguide
 
-A dev-only panel renders the full palette + scales + a component-adoption dashboard with a live WCAG contrast audit. Run **"Show Color Styleguide (Debugging)"** (`gitlens.showStyleguide`) in a debug build, and switch VS Code themes to verify all four schemes.
+A dev-only panel renders the full palette + scales with a live WCAG contrast audit, plus a Components tab showing the shared components live. Run **"Show Color Styleguide (Debugging)"** (`gitlens.showStyleguide`) in a debug build, and switch VS Code themes to verify all four schemes.
 
 ### Canvas / JS color (timeline, treemap)
 

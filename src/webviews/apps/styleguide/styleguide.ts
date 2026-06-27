@@ -27,8 +27,6 @@ import '../shared/components/radio/radio-group.js';
 import '../shared/components/search/search-input.js';
 import '../shared/components/skeleton-loader.js';
 import '../shared/components/switch/switch.js';
-import { adoptionStatusLabels, componentAdoption } from './adoptionStatus.js';
-import type { AdoptionStatus } from './adoptionStatus.js';
 import { StyleguideStateProvider } from './stateProvider.js';
 import { styleguideStyles } from './styleguide.css.js';
 
@@ -569,62 +567,6 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		return html`<div class="scale-item">${sample}<span>${token}</span></div>`;
 	}
 
-	private renderGallery(): unknown {
-		const families = [...new Set(componentAdoption.map(c => c.family))];
-		return html`
-			<section>
-				<h2 class="section-title">Component adoption</h2>
-				<p class="section-note">
-					Shared components tagged by how they source color today — the migration scoreboard.
-				</p>
-				${families.map(
-					family => html`
-						<div class="gallery-group">
-							<h3 class="gallery-group-title">${family}</h3>
-							<div class="gallery-grid">
-								${componentAdoption
-									.filter(c => c.family === family)
-									.map(
-										c => html`
-											<div class="gallery-card">
-												<span class="gallery-card__name">${c.name}</span>
-												<span class="pill pill--${c.status}"
-													>${adoptionStatusLabels[c.status]}</span
-												>
-											</div>
-										`,
-									)}
-							</div>
-						</div>
-					`,
-				)}
-			</section>
-		`;
-	}
-
-	private renderScoreboard(): unknown {
-		const order: AdoptionStatus[] = ['new-tokens', 'mixed', 'vscode-direct', 'legacy', 'hardcoded', 'none'];
-		const counts = new Map<AdoptionStatus, number>();
-		for (const c of componentAdoption) {
-			counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
-		}
-		return html`
-			<section>
-				<h2 class="section-title">Adoption scoreboard</h2>
-				<div class="scoreboard">
-					${order.map(
-						s => html`
-							<div class="metric">
-								<div class="metric__n">${counts.get(s) ?? 0}</div>
-								<div class="metric__l">${adoptionStatusLabels[s]}</div>
-							</div>
-						`,
-					)}
-				</div>
-			</section>
-		`;
-	}
-
 	override render(): unknown {
 		return html`
 			<span class="probe" aria-hidden="true"></span>
@@ -672,10 +614,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	}
 
 	private renderTokensTab(): unknown {
-		return html`
-			${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()} ${this.renderGallery()}
-			${this.renderScoreboard()}
-		`;
+		return html`${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()}`;
 	}
 
 	private renderComponentsTab(): unknown {

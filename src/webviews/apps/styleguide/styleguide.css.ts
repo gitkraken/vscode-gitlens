@@ -4,12 +4,10 @@ import { css } from 'lit';
 export const styleguideStyles = css`
 	:host {
 		display: block;
-		height: 100%;
-		overflow: auto;
-		color: var(--gl-color-fg);
-		background: var(--gl-color-surface);
 		font-family: var(--font-family);
 		font-size: var(--gl-font-base);
+		color: var(--gl-color-fg);
+		background: var(--gl-color-surface);
 	}
 
 	* {
@@ -25,8 +23,8 @@ export const styleguideStyles = css`
 
 	.page {
 		max-width: 1080px;
-		margin: 0 auto;
 		padding: var(--gl-space-24) var(--gl-space-20) var(--gl-space-40);
+		margin: 0 auto;
 	}
 
 	.controlbar {
@@ -54,6 +52,7 @@ export const styleguideStyles = css`
 		background: var(--gl-color-info-bg);
 		border-radius: var(--gl-radius-circle);
 	}
+
 	.scheme-chip--hc {
 		color: var(--gl-color-warning);
 		background: var(--gl-color-warning-bg);
@@ -68,6 +67,7 @@ export const styleguideStyles = css`
 		cursor: pointer;
 		user-select: none;
 	}
+
 	.toggle input {
 		accent-color: var(--gl-color-accent);
 	}
@@ -77,6 +77,7 @@ export const styleguideStyles = css`
 		font-size: 2rem;
 		font-weight: 600;
 	}
+
 	.subtitle {
 		margin: 0 0 var(--gl-space-24);
 		color: var(--gl-color-fg-muted);
@@ -85,11 +86,13 @@ export const styleguideStyles = css`
 	section {
 		margin-bottom: var(--gl-space-32);
 	}
+
 	.section-title {
 		margin: 0 0 var(--gl-space-4);
 		font-size: var(--gl-font-lg);
 		font-weight: 600;
 	}
+
 	.section-note {
 		margin: 0 0 var(--gl-space-12);
 		font-size: var(--gl-font-sm);
@@ -108,6 +111,7 @@ export const styleguideStyles = css`
 		border: var(--gl-border-width) solid var(--gl-color-danger-border);
 		border-radius: var(--gl-radius-sm);
 	}
+
 	.audit-banner--ok {
 		color: var(--gl-color-success);
 		background: color-mix(in srgb, var(--gl-color-success) 14%, var(--gl-color-surface));
@@ -122,20 +126,24 @@ export const styleguideStyles = css`
 		padding: var(--gl-space-8) var(--gl-space-4);
 		border-bottom: var(--gl-border-width) solid var(--gl-color-border);
 	}
+
 	.swatch {
 		width: 2.8rem;
 		height: 2.8rem;
 		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-sm);
 	}
+
 	.token-name {
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: var(--gl-font-md);
 	}
+
 	.token-derivation {
 		font-size: var(--gl-font-sm);
 		color: var(--gl-color-fg-faint);
 	}
+
 	.token-value {
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: var(--gl-font-sm);
@@ -151,10 +159,12 @@ export const styleguideStyles = css`
 		white-space: nowrap;
 		border-radius: var(--gl-radius-circle);
 	}
+
 	.badge--pass {
 		color: var(--gl-color-success);
 		background: color-mix(in srgb, var(--gl-color-success) 16%, var(--gl-color-surface));
 	}
+
 	.badge--fail {
 		color: var(--gl-color-danger);
 		background: var(--gl-color-danger-bg);
@@ -165,6 +175,7 @@ export const styleguideStyles = css`
 		flex-wrap: wrap;
 		gap: var(--gl-space-12);
 	}
+
 	.scale-item {
 		display: flex;
 		flex-direction: column;
@@ -174,6 +185,7 @@ export const styleguideStyles = css`
 		font-size: var(--gl-font-sm);
 		color: var(--gl-color-fg-muted);
 	}
+
 	.scale-box {
 		background: var(--gl-color-accent);
 	}
@@ -182,9 +194,11 @@ export const styleguideStyles = css`
 		width: 4rem;
 		height: 2.4rem;
 	}
+
 	.scale-space {
 		height: 1.6rem;
 	}
+
 	.scale-shadow {
 		width: 4rem;
 		height: 2.4rem;
@@ -195,80 +209,11 @@ export const styleguideStyles = css`
 	.gallery-group {
 		margin-bottom: var(--gl-space-16);
 	}
+
 	.gallery-group-title {
 		margin: 0 0 var(--gl-space-8);
 		font-size: var(--gl-font-md);
 		font-weight: 600;
-		color: var(--gl-color-fg-muted);
-	}
-	.gallery-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		gap: var(--gl-space-10);
-	}
-	.gallery-card {
-		display: flex;
-		gap: var(--gl-space-8);
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--gl-space-10) var(--gl-space-12);
-		background: var(--gl-color-surface-raised);
-		border: var(--gl-border-width) solid var(--gl-color-border);
-		border-radius: var(--gl-radius-md);
-	}
-	.gallery-card__name {
-		font-family: var(--vscode-editor-font-family, monospace);
-		font-size: var(--gl-font-md);
-	}
-
-	.pill {
-		padding: var(--gl-space-2) var(--gl-space-8);
-		font-size: var(--gl-font-micro);
-		white-space: nowrap;
-		border-radius: var(--gl-radius-circle);
-	}
-	.pill--new-tokens {
-		color: var(--gl-color-success);
-		background: color-mix(in srgb, var(--gl-color-success) 16%, var(--gl-color-surface));
-	}
-	.pill--mixed {
-		color: var(--gl-color-warning);
-		background: var(--gl-color-warning-bg);
-	}
-	.pill--vscode-direct {
-		color: var(--gl-color-info);
-		background: var(--gl-color-info-bg);
-	}
-	.pill--legacy {
-		color: var(--gl-color-fg-muted);
-		background: var(--gl-color-neutral-bg);
-	}
-	.pill--hardcoded {
-		color: var(--gl-color-danger);
-		background: var(--gl-color-danger-bg);
-	}
-	.pill--none {
-		color: var(--gl-color-fg-faint);
-		background: var(--gl-color-neutral-bg);
-	}
-
-	.scoreboard {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
-		gap: var(--gl-space-10);
-	}
-	.metric {
-		padding: var(--gl-space-12);
-		background: var(--gl-color-surface-raised);
-		border-radius: var(--gl-radius-md);
-	}
-	.metric__n {
-		font-size: 2.2rem;
-		font-weight: 600;
-	}
-	.metric__l {
-		margin-top: var(--gl-space-2);
-		font-size: var(--gl-font-sm);
 		color: var(--gl-color-fg-muted);
 	}
 
@@ -278,8 +223,10 @@ export const styleguideStyles = css`
 		margin-bottom: var(--gl-space-24);
 		border-bottom: var(--gl-border-width) solid var(--gl-color-border);
 	}
+
 	.tab {
 		padding: var(--gl-space-8) var(--gl-space-16);
+		margin-bottom: calc(-1 * var(--gl-border-width));
 		font-family: inherit;
 		font-size: var(--gl-font-base);
 		color: var(--gl-color-fg-muted);
@@ -287,11 +234,12 @@ export const styleguideStyles = css`
 		background: none;
 		border: none;
 		border-bottom: 2px solid transparent;
-		margin-bottom: calc(-1 * var(--gl-border-width));
 	}
+
 	.tab:hover {
 		color: var(--gl-color-fg);
 	}
+
 	.tab--active {
 		color: var(--gl-color-fg);
 		border-bottom-color: var(--gl-color-accent);
@@ -302,16 +250,18 @@ export const styleguideStyles = css`
 		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 		gap: var(--gl-space-12);
 	}
+
 	.demo {
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-md);
-		overflow: hidden;
 	}
+
 	.demo__stage {
-		display: flex;
 		position: relative; /* contain absolutely-positioned demo components (e.g. progress-indicator) so they don't escape the app's scroll and add a second scrollbar */
+		display: flex;
 		flex-wrap: wrap;
 		gap: var(--gl-space-8);
 		align-items: center;
@@ -319,6 +269,7 @@ export const styleguideStyles = css`
 		padding: var(--gl-space-16);
 		background: var(--gl-color-surface-raised);
 	}
+
 	.demo__label {
 		padding: var(--gl-space-4) var(--gl-space-12);
 		font-family: var(--vscode-editor-font-family, monospace);
@@ -330,6 +281,7 @@ export const styleguideStyles = css`
 	.demo--block {
 		grid-column: 1 / -1;
 	}
+
 	.demo--block .demo__stage {
 		display: block;
 		overflow: hidden; /* clip the progress-indicator's translateX animation to its card */
@@ -340,6 +292,7 @@ export const styleguideStyles = css`
 		flex-wrap: wrap;
 		gap: var(--gl-space-8);
 	}
+
 	.undemoed__item {
 		padding: var(--gl-space-4) var(--gl-space-10);
 		font-family: var(--vscode-editor-font-family, monospace);
