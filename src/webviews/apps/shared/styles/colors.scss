@@ -17,6 +17,7 @@
 // the scheme blocks below are authoritative once a .vscode-* class is present.
 :root {
 	--gl-color-success-base: #3fb950;
+
 	// Hand-picked slate-purple — reads as "AI / in motion" on light & dark without colliding with
 	// chip blue or waiting yellow; intentionally NOT a --vscode-* token (those vary too wildly).
 	--gl-color-agent-working-base: #7b68ee;
@@ -25,6 +26,7 @@
 	--gl-color-tracking-ahead-base: #4ec9b0;
 	--gl-color-tracking-behind-base: #ce9178;
 	--gl-color-scrim-base: #000;
+
 	// Max-contrast text over a saturated fill (accent/status). Most fills are dark enough for white;
 	// hc-light flips to black. Surfaces with an unusually light fill override locally.
 	--gl-color-on-emphasis-base: #fff;
@@ -55,9 +57,11 @@
 :root {
 	--gl-tint-toward: #fff;
 }
+
 @include utils.scheme-light(':root:has(', ')') {
 	--gl-tint-toward: #000;
 }
+
 @include utils.scheme-hc-light(':root:has(', ')') {
 	--gl-tint-toward: #000;
 }
@@ -88,6 +92,7 @@
 	--gl-color-border: var(--vscode-widget-border, color-mix(in srgb, transparent 75%, var(--gl-color-fg)));
 	--gl-color-border-subtle: var(--vscode-panel-border, var(--gl-color-border));
 	--gl-color-border-focus: var(--vscode-focusBorder);
+
 	// Unset in normal themes (→ no border), set in high-contrast — self-collapsing, by design.
 	--gl-color-border-contrast: var(--vscode-contrastBorder);
 	--gl-color-border-sash-hover: var(--vscode-sash-hoverBorder, var(--gl-color-border-focus));
@@ -137,6 +142,7 @@
 body[data-placement='view'] {
 	--gl-color-surface: var(--vscode-sideBar-background, var(--vscode-editor-background));
 }
+
 body[data-placement='panel'] {
 	--gl-color-surface: var(--vscode-panel-background, var(--vscode-editor-background));
 }
@@ -148,6 +154,7 @@ body[data-placement='panel'] {
 	--gl-color-diff-modified: #bf8700;
 	--gl-color-diff-removed: #cf222e;
 }
+
 @include utils.scheme-hc-light(':root:has(', ')') {
 	--gl-color-diff-added: #2da44e;
 	--gl-color-diff-modified: #bf8700;
