@@ -8,7 +8,7 @@ import type { ViewFilesLayout } from '../../../config.js';
 import type { InspectWebviewTelemetryContext } from '../../../constants.telemetry.js';
 import type { CommitDetailsServices } from '../../commitDetails/commitDetailsService.js';
 import type { ExecuteCommitActionsParams } from '../../commitDetails/protocol.js';
-import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
+import type { CopyCommitPatchEventDetail, OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import { SignalWatcherWebviewApp } from '../shared/appBase.js';
 import type { WebviewPane, WebviewPaneExpandedChangeEventDetail } from '../shared/components/webview-pane.js';
 import { DOM } from '../shared/dom.js';
@@ -423,6 +423,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 							actions?.executeFileAction(e.detail, e.detail.showOptions)}
 						@open-multiple-changes=${(e: CustomEvent<OpenMultipleChangesArgs>) =>
 							actions?.openMultipleChanges(e.detail)}
+						@copy-commit-patch=${(e: CustomEvent<CopyCommitPatchEventDetail>) =>
+							actions?.copyCommitPatchToClipboard(e.detail.repoPath, e.detail.to, e.detail.from)}
 						@gl-issue-pull-request-details=${() => actions?.openPullRequestDetails()}
 						@gl-show-search-box-change=${(e: CustomEvent<boolean>) =>
 							actions?.updateShowSearchBox(e.detail)}

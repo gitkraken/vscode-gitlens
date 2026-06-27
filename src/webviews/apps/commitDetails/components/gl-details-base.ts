@@ -4,12 +4,13 @@ import { property } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { FileShowOptions, Preferences, State } from '../../../commitDetails/protocol.js';
-import type { OpenMultipleChangesArgs } from '../../shared/actions/file.js';
+import type { CopyCommitPatchEventDetail, OpenMultipleChangesArgs } from '../../shared/actions/file.js';
 import { renderCommitStatsIcons } from '../../shared/components/commit/commit-stats.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../shared/controllers/context-menu-proxy.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/tree/gl-file-tree-pane.js';
 
 type Files = Mutable<NonNullable<NonNullable<State['commit']>['files']>>;
@@ -132,6 +133,25 @@ export class GlDetailsBase extends LitElement {
 					? html`<span class="commit-stats-subtitle" slot="subtitle"
 							>${this.renderCommitStats(options.stats)}</span
 						>`
+					: nothing}
+				${multiDiff != null && !multiDiff.wip && (this.files?.length ?? 0) > 0
+					? html`<gl-action-chip
+							slot="leading-actions"
+							icon="copy"
+							label="Copy Changes (Patch)"
+							@click=${() =>
+								this.dispatchEvent(
+									new CustomEvent('copy-commit-patch', {
+										detail: {
+											repoPath: multiDiff.repoPath,
+											to: multiDiff.rhs,
+											from: multiDiff.lhs || undefined,
+										} satisfies CopyCommitPatchEventDetail,
+										bubbles: true,
+										composed: true,
+									}),
+								)}
+						></gl-action-chip>`
 					: nothing}
 				${isLoadingEmpty
 					? html`<div slot="before-tree" class="files-loading" aria-busy="true">

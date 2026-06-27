@@ -2768,6 +2768,14 @@ export class DetailsActions {
 		fireAndForget(this.services.drafts.copyWipPatchToClipboard(repoPath, scope, uris), 'copy WIP patch');
 	}
 
+	/**
+	 * Copy a commit's (or stash's) full diff to the system clipboard.
+	 * `to` is the commit sha, `from` the parent (undefined for a root commit).
+	 */
+	copyCommitPatchToClipboard(repoPath: string, to: string, from?: string): void {
+		fireAndForget(this.services.drafts.copyCommitPatchToClipboard(repoPath, to, from), 'copy commit patch');
+	}
+
 	stageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, true);
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail), 'stage file');

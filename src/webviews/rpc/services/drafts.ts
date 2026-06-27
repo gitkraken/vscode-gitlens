@@ -25,6 +25,8 @@ import { getContext } from '../../../system/-webview/context.js';
 import type { Change, DraftUserSelection } from '../../plus/patchDetails/protocol.js';
 import type { RpcServiceHost, WipChange } from './types.js';
 
+const copiedPatchMessage = "Copied patch — use 'Apply Copied Patch' in another window to apply it";
+
 export class DraftsService {
 	constructor(
 		private readonly container: Container,
@@ -142,7 +144,7 @@ export class DraftsService {
 			}
 
 			await env.clipboard.writeText(diff.contents);
-			void window.showInformationMessage("Copied patch — use 'Apply Copied Patch' in another window to apply it");
+			void window.showInformationMessage(copiedPatchMessage);
 		} catch (ex) {
 			// `fireAndForget` at the actions.ts caller only logs rejections — surface a toast here
 			// so users see *something* when the copy fails (clipboard denied, git error, etc.)
@@ -157,6 +159,26 @@ export class DraftsService {
 					Logger.error(ex, `Failed to unstage (${untrackedPaths.length}) untracked files for patch`);
 				}
 			}
+		}
+	}
+
+	/** Copy a commit's (or stash's) full diff (`from`→`to`, parent→commit) to the clipboard.
+	 *  `from` is undefined for a root commit, where we fall back to `${to}^`. */
+	async copyCommitPatchToClipboard(repoPath: string, to: string, from?: string): Promise<void> {
+		const git = this.container.git.getRepositoryService(repoPath);
+
+		try {
+			const diff = await git.diff.getDiff?.(to, from ?? `${to}^`);
+			if (!diff?.contents) {
+				void window.showWarningMessage('No changes found to copy');
+				return;
+			}
+
+			await env.clipboard.writeText(diff.contents);
+			void window.showInformationMessage(copiedPatchMessage);
+		} catch (ex) {
+			Logger.error(ex, 'Failed to copy commit patch to clipboard');
+			void window.showErrorMessage(`Unable to copy patch: ${ex instanceof Error ? ex.message : String(ex)}`);
 		}
 	}
 

@@ -410,6 +410,14 @@ export class CommitDetailsActions {
 		fileActions.openMultipleChanges(this.services.files, args);
 	}
 
+	/**
+	 * Copy a commit's (or stash's) full diff to the system clipboard.
+	 * `to` is the commit sha, `from` the parent (undefined for a root commit).
+	 */
+	copyCommitPatchToClipboard(repoPath: string, to: string, from?: string): void {
+		fireAndForget(this.services.drafts.copyCommitPatchToClipboard(repoPath, to, from), 'copy commit patch');
+	}
+
 	// ============================================================
 	// Commit Actions
 	// ============================================================
