@@ -176,7 +176,20 @@ export const styleguideStyles = css`
 	}
 	.scale-box {
 		background: var(--gl-color-accent);
-		border-radius: var(--gl-radius-xs);
+	}
+	/* Fixed dims via class; dynamic radius/width/font-size/shadow applied via CSSOM in updated() */
+	.scale-radius {
+		width: 4rem;
+		height: 2.4rem;
+	}
+	.scale-space {
+		height: 1.6rem;
+	}
+	.scale-shadow {
+		width: 4rem;
+		height: 2.4rem;
+		background: var(--gl-color-surface-raised);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.gallery-group {
@@ -257,5 +270,73 @@ export const styleguideStyles = css`
 		margin-top: var(--gl-space-2);
 		font-size: var(--gl-font-sm);
 		color: var(--gl-color-fg-muted);
+	}
+
+	.tabs {
+		display: flex;
+		gap: var(--gl-space-4);
+		margin-bottom: var(--gl-space-24);
+		border-bottom: var(--gl-border-width) solid var(--gl-color-border);
+	}
+	.tab {
+		padding: var(--gl-space-8) var(--gl-space-16);
+		font-family: inherit;
+		font-size: var(--gl-font-base);
+		color: var(--gl-color-fg-muted);
+		cursor: pointer;
+		background: none;
+		border: none;
+		border-bottom: 2px solid transparent;
+		margin-bottom: calc(-1 * var(--gl-border-width));
+	}
+	.tab:hover {
+		color: var(--gl-color-fg);
+	}
+	.tab--active {
+		color: var(--gl-color-fg);
+		border-bottom-color: var(--gl-color-accent);
+	}
+
+	.demo-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: var(--gl-space-12);
+	}
+	.demo {
+		display: flex;
+		flex-direction: column;
+		border: var(--gl-border-width) solid var(--gl-color-border);
+		border-radius: var(--gl-radius-md);
+		overflow: hidden;
+	}
+	.demo__stage {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-8);
+		align-items: center;
+		min-height: 5.6rem;
+		padding: var(--gl-space-16);
+		background: var(--gl-color-surface-raised);
+	}
+	.demo__label {
+		padding: var(--gl-space-4) var(--gl-space-12);
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: var(--gl-font-sm);
+		color: var(--gl-color-fg-muted);
+		border-top: var(--gl-border-width) solid var(--gl-color-border);
+	}
+
+	.undemoed {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-8);
+	}
+	.undemoed__item {
+		padding: var(--gl-space-4) var(--gl-space-10);
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: var(--gl-font-sm);
+		color: var(--gl-color-fg-faint);
+		background: var(--gl-color-neutral-bg);
+		border-radius: var(--gl-radius-sm);
 	}
 `;
