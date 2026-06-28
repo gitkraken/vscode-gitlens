@@ -28,6 +28,7 @@ interface CompareSelectedFileInfo {
 
 export type ContextKeys = {
 	'gitlens:agents:enabled': boolean;
+	'gitlens:ai:allowed': boolean;
 	'gitlens:debugging': boolean;
 	'gitlens:disabled': boolean;
 	'gitlens:disabledToggleCodeLens': boolean;

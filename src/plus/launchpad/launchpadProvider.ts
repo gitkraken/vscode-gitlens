@@ -73,8 +73,8 @@ import {
 export function getSuggestedActions(category: LaunchpadActionCategory, isCurrentBranch: boolean): LaunchpadAction[] {
 	const actions = [...prActionsMap.get(category)!];
 
-	// Offer an agent-driven PR review on every item, gated on AI being enabled for the org.
-	if (getContext('gitlens:gk:organization:ai:enabled', true)) {
+	// Offer an agent-driven PR review on every item, gated on AI being enabled (org + user setting).
+	if (getContext('gitlens:ai:allowed', true)) {
 		actions.push('start-review');
 	}
 

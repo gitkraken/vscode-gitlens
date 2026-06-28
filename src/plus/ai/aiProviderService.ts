@@ -426,12 +426,19 @@ export class AIProviderService implements AIService, Disposable {
 		return this._actions;
 	}
 
+	/** Whether AI is usable: enabled by the user AND allowed by the org. */
 	get allowed(): boolean {
-		return getContext('gitlens:gk:organization:ai:enabled', true);
+		return this.enabled && this.orgEnabled;
 	}
 
+	/** Whether the user has enabled AI features (`gitlens.ai.enabled` setting). */
 	get enabled(): boolean {
 		return configuration.get('ai.enabled', undefined, true);
+	}
+
+	/** Whether the org permits AI (GitKraken admin setting). Fail-open: defaults true until org settings load. */
+	get orgEnabled(): boolean {
+		return getContext('gitlens:gk:organization:ai:enabled', true);
 	}
 
 	constructor(
@@ -1140,7 +1147,7 @@ export class AIProviderService implements AIService, Disposable {
 		let label;
 		switch (feature) {
 			case 'generate-searchQuery':
-				label = `AI-powered search (preview) ${suffix}`;
+				label = `AI-powered search ${suffix}`;
 				break;
 
 			default:

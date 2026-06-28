@@ -327,7 +327,7 @@ export async function detailsMessage(
 		commit,
 		{ source: options.sourceName },
 		{
-			ai: { allowed: container.ai.allowed, enabled: container.ai.enabled },
+			ai: { allowed: container.ai.allowed },
 			enrichedAutolinks:
 				enrichedResult?.value != null && !enrichedResult.paused ? enrichedResult.value : undefined,
 			dateFormat: options.dateFormat === null ? 'MMMM Do, YYYY h:mma' : options.dateFormat,

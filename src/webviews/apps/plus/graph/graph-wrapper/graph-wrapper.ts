@@ -1057,10 +1057,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// `wipMetadataBySha` entry (keyed by the same secondary sha).
 		if (graphRow.type === ('work-dir-changes' satisfies GitGraphRowType)) {
 			if (isSecondaryWipSha(graphRow.sha)) {
-				const worktreePath = this.graphState.wipMetadataBySha?.[graphRow.sha]?.repoPath;
-				return worktreePath != null ? serializeWipContext(worktreePath, true) : undefined;
+				const meta = this.graphState.wipMetadataBySha?.[graphRow.sha];
+				return meta?.repoPath != null
+					? serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false)
+					: undefined;
 			}
-			return serializeWipContext(repoPath, false);
+			return serializeWipContext(repoPath, false, this.graphState.workingTreeStats?.hasConflicts ?? false);
 		}
 
 		// Lean commit rows: build the commit (or avatar/contributor) context from `contexts.flags` + row
@@ -1375,7 +1377,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			if (
 				!prev.workDirStatsStale &&
 				areEqual(prev.workDirStats, incoming.workDirStats) &&
-				prev.pausedOpStatus === incoming.pausedOpStatus
+				prev.pausedOpStatus === incoming.pausedOpStatus &&
+				prev.hasConflicts === incoming.hasConflicts
 			) {
 				continue;
 			}
@@ -1386,6 +1389,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				workDirStats: incoming.workDirStats,
 				workDirStatsStale: false,
 				pausedOpStatus: incoming.pausedOpStatus,
+				hasConflicts: incoming.hasConflicts,
 			};
 		}
 		if (next == null) return;

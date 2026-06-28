@@ -245,10 +245,9 @@ export class StashPushGitCommand extends QuickCommand<State> {
 			placeholder: 'Stash message',
 			value: state.message,
 			prompt: 'Please provide a stash message',
-			buttons:
-				this.container.ai.enabled && this.container.ai.allowed
-					? [QuickInputButtons.Back, GenerateStashMessageQuickInputButton]
-					: [QuickInputButtons.Back],
+			buttons: this.container.ai.allowed
+				? [QuickInputButtons.Back, GenerateStashMessageQuickInputButton]
+				: [QuickInputButtons.Back],
 			validate: (_value: string | undefined): [boolean, string | undefined] => [true, undefined],
 			onDidClickButton: async (input, button) => {
 				if (button === GenerateStashMessageQuickInputButton) {

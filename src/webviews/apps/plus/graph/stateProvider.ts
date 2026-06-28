@@ -1755,6 +1755,9 @@ export function mergeWipMetadata(
 				workDirStats: prevEntry.workDirStats,
 				workDirStatsStale: prevEntry.workDirStatsStale,
 				pausedOpStatus: prevEntry.pausedOpStatus,
+				// Client-side fetched (GetWipStatsRequest), like `pausedOpStatus`; preserve so the WIP
+				// row's Resolve Conflicts menu doesn't flicker off when the host rebuilds anchors.
+				hasConflicts: prevEntry.hasConflicts,
 				// `hasChanges` is only sent on the graph-load probe build; per-tick pushes omit it.
 				// Preserve the last-known dirty bit so the WIP bar doesn't drop a worktree between loads.
 				hasChanges: entry.hasChanges ?? prevEntry.hasChanges,

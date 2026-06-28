@@ -66,7 +66,7 @@ import { scheduleAddMissingCurrentWorkspaceRepos, WorkspacesService } from './pl
 import { StatusBarController } from './statusbar/statusBarController.js';
 import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
-import { onDidChangeContext, setContext } from './system/-webview/context.js';
+import { getContext, onDidChangeContext, setContext } from './system/-webview/context.js';
 import { Keyboard } from './system/-webview/keyboard.js';
 import { loadChunk } from './system/-webview/loadChunk.js';
 import type { Storage } from './system/-webview/storage.js';
@@ -330,7 +330,7 @@ export class Container {
 		this._disposables.push(this._onDidChangeAgentStatus, {
 			dispose: () => this._agentStatusService?.dispose(),
 		});
-		this.updateAgentStatusService();
+		this.updateAiStatus();
 
 		if (configuration.get('terminalLinks.enabled')) {
 			this._disposables.push((this._terminalLinks = new GitTerminalLinkProvider(this)));
@@ -371,12 +371,12 @@ export class Container {
 				}
 
 				if (configuration.changed(e, 'ai.enabled')) {
-					this.updateAgentStatusService();
+					this.updateAiStatus();
 				}
 			}),
 			onDidChangeContext(key => {
 				if (key === 'gitlens:gk:organization:ai:enabled') {
-					this.updateAgentStatusService();
+					this.updateAiStatus();
 				}
 			}),
 		);
@@ -423,10 +423,14 @@ export class Container {
 		await this._git.registerProviders();
 	}
 
-	private updateAgentStatusService(): void {
-		const enabled = this.ai.enabled && this.ai.allowed;
-		const providers = enabled ? getAgentSessionProviders(this) : [];
-		const canEnable = enabled && providers.length > 0;
+	private updateAiStatus(): void {
+		// Visibility gate: require a CONFIRMED org state so AI/agent commands don't flash on before org
+		// settings load. `ai.orgEnabled` stays fail-open (defaults true) for runtime feature-access checks.
+		const allowed = this.ai.enabled && getContext('gitlens:gk:organization:ai:enabled') === true;
+		void setContext('gitlens:ai:allowed', allowed);
+
+		const providers = allowed ? getAgentSessionProviders(this) : [];
+		const canEnable = allowed && providers.length > 0;
 
 		void setContext('gitlens:agents:enabled', canEnable);
 

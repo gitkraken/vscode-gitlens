@@ -25,7 +25,11 @@ export interface RecomposeBranchCommandArgs {
 @command()
 export class RecomposeBranchCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.recomposeBranch', 'gitlens.recomposeBranch:views', 'gitlens.recomposeSelectedCommits']);
+		super([
+			'gitlens.ai.recomposeBranch',
+			'gitlens.ai.recomposeBranch:views',
+			'gitlens.ai.recomposeSelectedCommits',
+		]);
 	}
 
 	protected override preExecute(context: CommandContext, args?: RecomposeBranchCommandArgs): Promise<void> {

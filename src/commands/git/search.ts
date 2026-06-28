@@ -392,7 +392,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			);
 		}
 
-		const aiAllowed = this.container.ai.enabled && this.container.ai.allowed;
+		const aiAllowed = this.container.ai.allowed;
 
 		const matchCaseButton = createMatchCaseToggle(state.matchCase);
 		const matchAllButton = createMatchAllToggle(state.matchAll);

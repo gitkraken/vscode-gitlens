@@ -135,7 +135,7 @@ export class GlCompareAIActions extends LitElement {
 		const busy = this.generateChangelogBusy;
 		return html`<div class="row">
 			<gl-ai-input multiline button-tooltip="Explain Changes" .busy=${this.explainBusy}></gl-ai-input>
-			<gl-tooltip content="Generate Changelog (Preview)" placement="bottom"
+			<gl-tooltip content="Generate Changelog" placement="bottom"
 				><button
 					class=${busy ? 'changelog-btn is-busy' : 'changelog-btn'}
 					aria-label="Generate Changelog"

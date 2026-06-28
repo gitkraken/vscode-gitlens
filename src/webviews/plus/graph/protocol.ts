@@ -434,6 +434,13 @@ export interface GraphWipNodeMetadata {
 	 * the same indicator the action bar does. Not consumed by the GK component.
 	 */
 	pausedOpStatus?: GitPausedOperationStatus;
+	/**
+	 * Host-only: whether this worktree's working tree has merge/rebase conflicts. Fetched lazily with
+	 * the rest of the secondary's stats (on-demand, for visible rows) and preserved client-side, like
+	 * `pausedOpStatus`. Drives the `+hasConflicts` segment of the WIP row's `gitlens:wip` context so the
+	 * Resolve Conflicts menu item only appears when there's something to resolve.
+	 */
+	hasConflicts?: boolean;
 }
 
 export type GraphWipMetadataBySha = Record<string, GraphWipNodeMetadata>;
@@ -869,6 +876,7 @@ export interface GetWipStatsParams {
 export interface WipRowStats {
 	workDirStats: WorkDirStats;
 	pausedOpStatus?: GitPausedOperationStatus;
+	hasConflicts?: boolean;
 }
 export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
 export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');

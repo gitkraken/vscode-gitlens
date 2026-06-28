@@ -19,7 +19,7 @@ export interface RecomposeFromCommitCommandArgs {
 @command()
 export class RecomposeFromCommitCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.recomposeFromCommit']);
+		super(['gitlens.ai.recomposeFromCommit']);
 	}
 
 	protected override preExecute(context: CommandContext, args?: RecomposeFromCommitCommandArgs): Promise<void> {

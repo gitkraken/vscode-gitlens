@@ -1192,7 +1192,7 @@ export class ViewCommands implements Disposable {
 		});
 	}
 
-	@command('gitlens.recomposeFromCommit:views')
+	@command('gitlens.ai.recomposeFromCommit:views')
 	@debug()
 	private recomposeFromCommit(node: CommitNode | FileRevisionAsCommitNode) {
 		if (!node.isAny('commit', 'file-commit')) return;
@@ -1209,7 +1209,7 @@ export class ViewCommands implements Disposable {
 			return;
 		}
 
-		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+		void executeCommand<RecomposeFromCommitCommandArgs>('gitlens.ai.recomposeFromCommit', {
 			repoPath: node.repoPath,
 			commitSha: node.commit.sha,
 			branchName: branch.name,

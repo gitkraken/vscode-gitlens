@@ -1076,7 +1076,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
 				...pickAgent(fallbackRepoPath),
 				isPrimary: true,
-				context: serializeWipContext(fallbackRepoPath, false),
+				context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
 			});
 		}
 
@@ -1124,7 +1124,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						: {}),
 					...pickAgent(meta.repoPath),
 					isPrimary: false,
-					context: serializeWipContext(meta.repoPath, true),
+					context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),
 				});
 			}
 		}
@@ -2708,6 +2708,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						workDirStats: stats.workDirStats,
 						workDirStatsStale: false,
 						pausedOpStatus: stats.pausedOpStatus,
+						hasConflicts: stats.hasConflicts,
 					};
 		const next = { ...map, [sha]: updated };
 		this.graphState.wipMetadataBySha = next;

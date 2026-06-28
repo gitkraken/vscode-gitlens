@@ -53,7 +53,6 @@ import { createDirectiveQuickPickItem, Directive, isDirectiveQuickPickItem } fro
 import { createAsyncDebouncer } from '../../system/-webview/asyncDebouncer.js';
 import { executeCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
-import { getContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
 import { ProviderBuildStatusState, ProviderPullRequestReviewState } from '../integrations/providers/models.js';
@@ -460,8 +459,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 	 */
 	private async *startReviewWithAgent(state: LaunchpadStepState, context: Context): AsyncStepResultGenerator<void> {
 		// Defense-in-depth: the action is only offered when AI is enabled, but enforce it here too in
-		// case an item's cached suggested actions are stale relative to the org's AI setting.
-		if (!getContext('gitlens:gk:organization:ai:enabled', true)) return;
+		// case an item's cached suggested actions are stale relative to the AI setting (org or user).
+		if (!this.container.ai.allowed) return;
 
 		const flow = yield* resolveAgentFlow(this.container, { requestedRoute: 'agent' });
 		if (flow === StepResultBreak) return;

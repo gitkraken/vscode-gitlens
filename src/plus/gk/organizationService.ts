@@ -32,7 +32,15 @@ export class OrganizationService implements Disposable {
 	) {
 		this._disposable = Disposable.from(
 			once(container.onReady)(async () => {
-				const orgId = await this.getActiveOrganizationId();
+				// Always resolve org permissions on ready — including no account/org (orgId undefined),
+				// which applies the fallback defaults (AI allowed). Guard the lookup so a failure still
+				// applies those defaults rather than leaving the org context unset (which would gate AI off).
+				let orgId: string | undefined;
+				try {
+					orgId = await this.getActiveOrganizationId();
+				} catch {
+					orgId = undefined;
+				}
 				void this.updateOrganizationPermissions(orgId);
 			}),
 			container.subscription.onDidCheckIn(this.onUserCheckedIn, this),

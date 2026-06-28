@@ -61,7 +61,7 @@ const newlineRegex = /\r?\n/g;
 const lineStartRegex = /^/gm;
 
 export interface CommitFormatOptions extends FormatOptions {
-	ai?: { allowed: boolean; enabled: boolean };
+	ai?: { allowed: boolean };
 	avatarSize?: number;
 	dateSource?: DateSource;
 	dateStyle?: DateStyle;
@@ -534,7 +534,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands = shaOrInspectLink(shaText);
 			}
 
-			if (this._options.ai?.enabled && this._options.ai?.allowed) {
+			if (this._options.ai?.allowed) {
 				commands += `${separator}[$(sparkle) Explain](${ExplainWipCommand.createMarkdownCommandLink({
 					repoPath: this._item.repoPath,
 					staged: undefined,
@@ -598,7 +598,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
 		}
 
-		if (this._options.ai?.enabled && this._options.ai?.allowed) {
+		if (this._options.ai?.allowed) {
 			commands += `${separator}[$(sparkle) Explain](${ExplainCommitCommand.createMarkdownCommandLink({
 				repoPath: this._item.repoPath,
 				rev: this._item.sha,

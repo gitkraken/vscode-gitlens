@@ -889,7 +889,7 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 							this.remote?.provider?.supportedFeatures?.createPullRequestWithDetails
 								? html`<gl-button
 										class="branch-item__missing"
-										tooltip="Create a Pull Request with AI (Preview)"
+										tooltip="Create a Pull Request with AI"
 										appearance="secondary"
 										href="${this._webview.createCommandLink<CreatePullRequestCommandArgs>(
 											'gitlens.createPullRequest:',
@@ -1232,7 +1232,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				if (hasWip) {
 					actions.push(
 						html`<action-item
-							label="Explain Working Changes (Preview)"
+							label="Explain Working Changes"
 							icon="sparkle"
 							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
 						></action-item>`,
@@ -1240,7 +1240,7 @@ export class GlBranchCard extends GlBranchCardBase {
 				} else {
 					actions.push(
 						html`<action-item
-							label="Explain Branch Changes (Preview)"
+							label="Explain Branch Changes"
 							icon="sparkle"
 							href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 						></action-item>`,
@@ -1259,7 +1259,7 @@ export class GlBranchCard extends GlBranchCardBase {
 			if (aiEnabled) {
 				actions.push(
 					html`<action-item
-						label="Explain Branch Changes (Preview)"
+						label="Explain Branch Changes"
 						icon="sparkle"
 						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
 					></action-item>`,

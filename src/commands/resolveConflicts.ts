@@ -13,7 +13,7 @@ import {
 	isCommandContextViewNodeHasWorktree,
 } from './commandContext.utils.js';
 
-export interface ResolveConflictsWithAICommandArgs {
+export interface ResolveConflictsCommandArgs {
 	repoPath?: string;
 	/** When set, scopes the run to a single conflicted file; otherwise all conflicts are resolved. */
 	filePath?: string;
@@ -27,15 +27,12 @@ export interface ResolveConflictsWithAICommandArgs {
  * routes through the graph's `enter-resolve` pending action so there's a single results surface.
  */
 @command()
-export class ResolveConflictsWithAICommand extends GlCommandBase {
+export class ResolveConflictsCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super(['gitlens.ai.resolveConflicts', 'gitlens.ai.resolveConflicts:views']);
 	}
 
-	protected override async preExecute(
-		context: CommandContext,
-		args?: ResolveConflictsWithAICommandArgs,
-	): Promise<void> {
+	protected override async preExecute(context: CommandContext, args?: ResolveConflictsCommandArgs): Promise<void> {
 		args = { ...args };
 
 		if (isCommandContextViewNodeHasFile(context)) {
@@ -56,7 +53,7 @@ export class ResolveConflictsWithAICommand extends GlCommandBase {
 		return this.execute(args);
 	}
 
-	async execute(args?: ResolveConflictsWithAICommandArgs): Promise<void> {
+	async execute(args?: ResolveConflictsCommandArgs): Promise<void> {
 		try {
 			// Resolve the target repo. When invoked from a surface that already names one (view/scm
 			// context), use it; otherwise resolve the workspace repo (single repo → no prompt; several
@@ -81,7 +78,7 @@ export class ResolveConflictsWithAICommand extends GlCommandBase {
 				source: { source: args?.source ?? 'commandPalette' },
 			});
 		} catch (ex) {
-			Logger.error(ex, 'ResolveConflictsWithAICommand', 'execute');
+			Logger.error(ex, 'ResolveConflictsCommand', 'execute');
 			void showGenericErrorMessage('Unable to resolve conflicts with AI');
 		}
 	}

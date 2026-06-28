@@ -3493,6 +3493,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							modified: diff?.changed ?? 0,
 						},
 						pausedOpStatus: pausedOpStatus,
+						hasConflicts: status?.hasConflicts,
 					};
 				}),
 			);
@@ -8170,7 +8171,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			conflictsCount: status.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: isSecondaryWorktree ? 'gitlens:wip+worktree' : 'gitlens:wip',
+				webviewItem: `gitlens:wip${isSecondaryWorktree ? '+worktree' : ''}${status.hasConflicts ? '+hasConflicts' : ''}`,
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.getRevisionReference(repo.path, uncommitted, 'work-dir-changes')!,
@@ -8261,7 +8262,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			conflictsCount: status?.hasConflicts ? status.conflicts.length : undefined,
 			pausedOpStatus: pausedOpStatus,
 			context: serializeWebviewItemContext<GraphItemContext>({
-				webviewItem: 'gitlens:wip',
+				webviewItem: `gitlens:wip${status?.hasConflicts ? '+hasConflicts' : ''}`,
 				webviewItemValue: {
 					type: 'commit',
 					ref: this.getRevisionReference(this.repository.path, uncommitted, 'work-dir-changes')!,
@@ -10060,9 +10061,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		await this.runStageConflictResolution(item, 'incoming');
 	}
 
-	@command('gitlens.graph.resolveConflictWithAI:')
+	@command('gitlens.ai.resolveConflicts:')
 	@debug()
-	private async resolveConflictWithAI(item?: DetailsItemTypedContext): Promise<void> {
+	private async resolveConflicts(item?: DetailsItemTypedContext): Promise<void> {
 		const value = item?.webviewItemValue;
 		if (value?.type !== 'file' || !value.path || !value.repoPath) return;
 
@@ -10074,9 +10075,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	@command('gitlens.graph.resolveConflictsWithAI.multi:')
+	@command('gitlens.ai.resolveConflicts.multi:')
 	@debug()
-	private async resolveConflictsWithAIMulti(item?: DetailsItemTypedContext): Promise<void> {
+	private async resolveConflictsMulti(item?: DetailsItemTypedContext): Promise<void> {
 		// The right-clicked row carries the whole multi-selection in `webviewItemsValues`; keep just
 		// the conflicted file entries (the menu gates on `webviewItemsUnion`, which matches when ANY
 		// selected item is a conflict — others may be plain changes).
@@ -10093,9 +10094,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
-	@command('gitlens.graph.resolveAllConflictsWithAI:')
+	@command('gitlens.ai.resolveAllConflicts:')
 	@debug()
-	private async resolveAllConflictsWithAI(item?: GraphItemContext): Promise<void> {
+	private async resolveAllConflicts(item?: GraphItemContext): Promise<void> {
 		// Invoked from the WIP-row context menu (sibling to Compose/Review), so the item is a WIP-row
 		// ref — mirror `composeCommits`. For a secondary WIP row `ref.repoPath` is that worktree's path.
 		const ref = this.getGraphItemRef(item);
@@ -11062,7 +11063,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private async recomposeBranch(item?: GraphItemContext): Promise<void> {
 		const ref = this.getGraphItemRef(item, 'branch');
 		if (ref != null) {
-			await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeBranch', {
+			await executeCommand<RecomposeBranchCommandArgs>('gitlens.ai.recomposeBranch', {
 				repoPath: ref.repoPath,
 				branchName: ref.name,
 				source: 'graph',
@@ -11118,7 +11119,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		const branchName = branchesReachingAll[0];
 
-		await executeCommand<RecomposeBranchCommandArgs>('gitlens.recomposeSelectedCommits', {
+		await executeCommand<RecomposeBranchCommandArgs>('gitlens.ai.recomposeSelectedCommits', {
 			repoPath: repoPath,
 			branchName: branchName,
 			commitShas: commitShas,
@@ -11181,7 +11182,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return;
 		}
 
-		await executeCommand<RecomposeFromCommitCommandArgs>('gitlens.recomposeFromCommit', {
+		await executeCommand<RecomposeFromCommitCommandArgs>('gitlens.ai.recomposeFromCommit', {
 			repoPath: ref.repoPath,
 			commitSha: ref.ref,
 			branchName: branchName,
@@ -11190,7 +11191,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	}
 
 	// Recompose wrappers
-	@command('gitlens.recomposeBranch:')
+	@command('gitlens.ai.recomposeBranch:')
 	private recomposeBranchCommand(item?: GraphItemContext) {
 		return this.recomposeBranch(item);
 	}
@@ -11198,11 +11199,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private composeCommitsCommand(item?: GraphItemContext) {
 		return this.composeCommits(item);
 	}
-	@command('gitlens.recomposeSelectedCommits:')
+	@command('gitlens.ai.recomposeSelectedCommits:')
 	private recomposeSelectedCommitsCommand(item?: GraphItemContext) {
 		return this.recomposeBranch(item);
 	}
-	@command('gitlens.recomposeFromCommit:')
+	@command('gitlens.ai.recomposeFromCommit:')
 	private recomposeFromCommitCommand(item?: GraphItemContext) {
 		return this.recomposeFromCommit(item);
 	}

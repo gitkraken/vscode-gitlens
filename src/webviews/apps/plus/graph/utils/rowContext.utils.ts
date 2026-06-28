@@ -167,14 +167,19 @@ export function serializeRowAvatarContext(row: RowContextSource, repoPath: strin
 }
 
 /**
- * Builds the `gitlens:wip…` webview-item context for a working-changes row. The context is static — it
- * carries only the worktree's path and the synthetic `uncommitted` ref — so the webview can build it for
- * any WIP row it renders, no host-serialized blob required. `+worktree` marks a secondary (non-selected)
- * worktree's WIP row.
+ * Builds the `gitlens:wip…` webview-item context for a working-changes row. The context carries the
+ * worktree's path and the synthetic `uncommitted` ref, so the webview can build it for any WIP row it
+ * renders, no host-serialized blob required. `+worktree` marks a secondary (non-selected) worktree's WIP
+ * row; `+hasConflicts` marks a WIP with a paused merge/rebase that has conflicts — it gates the
+ * Resolve Conflicts context-menu item so it only appears when there's something to resolve.
  */
-function buildWipContext(worktreePath: string, secondary: boolean): GraphItemTypedContext<GraphCommitContextValue> {
+function buildWipContext(
+	worktreePath: string,
+	secondary: boolean,
+	hasConflicts: boolean,
+): GraphItemTypedContext<GraphCommitContextValue> {
 	return {
-		webviewItem: secondary ? 'gitlens:wip+worktree' : 'gitlens:wip',
+		webviewItem: `gitlens:wip${secondary ? '+worktree' : ''}${hasConflicts ? '+hasConflicts' : ''}`,
 		webviewItemValue: {
 			type: 'commit',
 			ref: createReference(uncommitted, worktreePath, { refType: 'revision' }),
@@ -184,6 +189,6 @@ function buildWipContext(worktreePath: string, secondary: boolean): GraphItemTyp
 }
 
 /** Serializes the WIP-row context to the string the `data-vscode-context` DOM attribute carries. */
-export function serializeWipContext(worktreePath: string, secondary: boolean): string {
-	return serializeWebviewItemContext(buildWipContext(worktreePath, secondary));
+export function serializeWipContext(worktreePath: string, secondary: boolean, hasConflicts: boolean): string {
+	return serializeWebviewItemContext(buildWipContext(worktreePath, secondary, hasConflicts));
 }

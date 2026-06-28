@@ -448,7 +448,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 						source: 'inspect',
 					})}
 					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
-						><strong>Compose Commits</strong> (Preview)<br /><i
+						><strong>Compose Commits</strong><br /><i
 							>Automatically or interactively organize changes into meaningful commits</i
 						></span
 					></gl-button

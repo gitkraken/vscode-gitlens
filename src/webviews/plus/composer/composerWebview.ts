@@ -984,7 +984,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 		if (currentMode === 'experimental') {
 			this.host.title = 'Commit Composer (Experimental)';
 		} else {
-			this.host.title = 'Commit Composer (Preview)';
+			this.host.title = 'Commit Composer';
 		}
 	}
 
@@ -1931,7 +1931,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 	private onContextChanged(key: keyof ContextKeys) {
 		if (key === 'gitlens:gk:organization:ai:enabled') {
-			const newSetting = this.container.ai.allowed;
+			const newSetting = this.container.ai.orgEnabled;
 			this._context.ai.enabled.org = newSetting;
 			// Update AI org setting in state
 			void this.host.notify(DidChangeAiEnabledNotification, { org: newSetting });
@@ -1956,7 +1956,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 	}
 
 	private getAiEnabled() {
-		return { org: this.container.ai.allowed, config: this.container.ai.enabled };
+		return { org: this.container.ai.orgEnabled, config: this.container.ai.enabled };
 	}
 
 	private _panelWasVisible: boolean | undefined;

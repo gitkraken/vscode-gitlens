@@ -7,7 +7,6 @@ import { StepResultBreak } from '../../commands/quick-wizard/models/steps.js';
 import { getSteps } from '../../commands/quick-wizard/utils/quickWizard.utils.js';
 import type { Source, Sources } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
-import { getContext } from '../../system/-webview/context.js';
 import type { AgentRoute } from '../agents/agentDescriptor.js';
 import type { ResolveAgentFlowResult } from '../agents/agentPicker.js';
 import { buildAgentResolvedTelemetryData, resolveAgentFlow } from '../agents/agentPicker.js';
@@ -92,11 +91,11 @@ export class StartWorkCommand extends StartWorkBaseCommand {
 		// When `showOpenInAgent` is set, run the manual-vs-agent flow (overriding the persisted
 		// route for this invocation). Otherwise, fall back to the legacy `openChatOnComplete`
 		// behavior — always hand off to the host IDE chat.
-		// Defense-in-depth: skip the agent flow entirely when the org has disabled AI, even if a
-		// caller passed `showOpenInAgent`. UI surfaces should already gate, but the wizard enforces.
-		const aiEnabled = getContext('gitlens:gk:organization:ai:enabled', true);
+		// Defense-in-depth: skip the agent flow entirely when AI is disabled (org or user setting),
+		// even if a caller passed `showOpenInAgent`. UI surfaces gate, but the wizard enforces too.
+		const aiAllowed = this.container.ai.allowed;
 		let chatAction: StartWorkChatAction | undefined;
-		if (aiEnabled && state.showOpenInAgent != null && issue) {
+		if (aiAllowed && state.showOpenInAgent != null && issue) {
 			// yield* so any picker steps go through the wizard machinery (NOT standalone QuickPicks,
 			// which collide with the wizard's still-alive picker and silently exit the wizard).
 			const flow = yield* resolveAgentFlow(this.container, {

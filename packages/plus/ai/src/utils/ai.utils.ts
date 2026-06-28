@@ -11,19 +11,19 @@ export function getActionName(action: AIActionType): string {
 		case 'generate-stashMessage':
 			return 'Generate Stash Message';
 		case 'generate-changelog':
-			return 'Generate Changelog (Preview)';
+			return 'Generate Changelog';
 		case 'generate-create-cloudPatch':
 			return 'Create Cloud Patch Details';
 		case 'generate-create-codeSuggestion':
 			return 'Create Code Suggestion Details';
 		case 'generate-create-pullRequest':
-			return 'Create Pull Request Details (Preview)';
+			return 'Create Pull Request Details';
 		case 'generate-commits':
-			return 'Generate Commits (Preview)';
+			return 'Generate Commits';
 		case 'conflict-resolution':
 			return 'Resolve Conflicts with AI (Preview)';
 		case 'generate-searchQuery':
-			return 'Generate Search Query (Preview)';
+			return 'Generate Search Query';
 	}
 }
 

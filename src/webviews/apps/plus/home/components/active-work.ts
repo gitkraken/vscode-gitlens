@@ -356,7 +356,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					html`<menu-item
 						?disabled=${isFetching}
 						href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainWip:')}
-						>Explain Working Changes (Preview)</menu-item
+						>Explain Working Changes</menu-item
 					>`,
 				);
 			}
@@ -365,7 +365,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 				html`<menu-item
 					?disabled=${isFetching}
 					href=${this.createWebviewCommandLinkWithBranchRef('gitlens.ai.explainBranch:')}
-					>Explain Branch Changes (Preview)</menu-item
+					>Explain Branch Changes</menu-item
 				>`,
 			);
 
@@ -433,7 +433,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 					appearance="secondary"
 					density="compact"
 					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
-						><strong>Compose Commits</strong> (Preview)<br /><i
+						><strong>Compose Commits</strong><br /><i
 							>Automatically or interactively organize changes into meaningful commits</i
 						></span
 					></gl-button
