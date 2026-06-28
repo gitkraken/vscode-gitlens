@@ -10,6 +10,7 @@ import { getAgentCategoryLabel } from '../../../shared/agentUtils.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../../shared/components/styles/lit/base.css.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { wipBarStyles } from './gl-graph-wip-bar.css.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit/commit-stats.js';
@@ -141,6 +142,100 @@ export class GlGraphWipBar extends LitElement {
 		);
 	};
 
+	private wheelTarget: number | undefined;
+	private wheelPos = 0;
+	private wheelMax = 0;
+	private wheelClientWidth = 0;
+	private wheelRaf: number | undefined;
+
+	// Translate a wheel into a horizontal pan. Native wheel scrolling won't pan a horizontal-only strip
+	// when an ancestor (the graph) can scroll vertically, so we redirect the axis ourselves. Rather than
+	// `scrollLeft += delta` (an instant per-event jump that reads as steppy/janky — especially with a
+	// notched wheel — and can thrash layout under the heavy graph), accumulate into a target and ease
+	// toward it once per frame, mirroring native smooth scrolling.
+	private readonly onWheel = (e: WheelEvent): void => {
+		// Pan from either axis: a vertical wheel is redirected to horizontal, and a horizontal wheel /
+		// trackpad swipe pans directly — we consume the event, so its native scroll must be applied here.
+		if (e.deltaY === 0 && e.deltaX === 0) return;
+
+		const bar = e.currentTarget as HTMLElement;
+		// scrollWidth/clientWidth only change on resize or items-change, not on scroll — sample them once
+		// at the start of a gesture (RAF idle) and reuse for the in-flight pan, so a fast wheel stream
+		// doesn't force a layout read (and reflow against the RAF's scrollLeft writes) on every event.
+		if (this.wheelRaf == null) {
+			this.wheelClientWidth = bar.clientWidth;
+			this.wheelMax = bar.scrollWidth - this.wheelClientWidth;
+		}
+		if (this.wheelMax <= 0) return; // nothing to pan — let the page scroll
+
+		// Accumulate onto the in-flight target (not the live scrollLeft) so rapid ticks add up instead of
+		// each resetting from wherever the easing happens to be.
+		const delta = normalizeWheelDelta(e.deltaMode, e.deltaY + e.deltaX, this.wheelClientWidth);
+		const from = this.wheelTarget ?? bar.scrollLeft;
+		const target = Math.max(0, Math.min(this.wheelMax, from + delta));
+		if (Math.abs(target - from) < 0.5) return; // at the boundary in this direction — let the page scroll
+
+		e.preventDefault();
+		this.wheelTarget = target;
+		if (this.wheelRaf != null) return; // a pan is animating — it will ease toward the updated target
+
+		// Pills run hover machinery (CSS `:hover`, `mouseenter` → lazy stats fetch, per-pill tooltips).
+		// As the bar pans, pills slide under a stationary cursor and fire that machinery every frame,
+		// which stutters the scroll. Suppress pointer hit-testing on the pills until the pan settles —
+		// toggled directly (not via reactive state) so it never triggers a re-render mid-scroll.
+		bar.classList.add('scrolling');
+
+		// Ease a float position toward the target and write it to scrollLeft each frame. Converging on our
+		// own float — not the read-back scrollLeft — is what guarantees the loop terminates: scrollLeft
+		// snaps to the pixel grid, so a sub-pixel eased step can round to no movement; reading it back would
+		// leave `diff` stuck above the threshold and spin forever (never dropping `.scrolling`, so hover
+		// would stay dead). The float always converges, so the pan reliably settles and re-enables hover.
+		this.wheelPos = bar.scrollLeft;
+		const step = (): void => {
+			const target = this.wheelTarget;
+			if (target == null) {
+				// Pan was cancelled (e.g. keyboard focus took over) — stop and re-enable hover.
+				this.wheelRaf = undefined;
+				bar.classList.remove('scrolling');
+				return;
+			}
+
+			const diff = target - this.wheelPos;
+			if (Math.abs(diff) < 0.5) {
+				bar.scrollLeft = target;
+				bar.classList.remove('scrolling');
+				this.wheelRaf = undefined;
+				this.wheelTarget = undefined;
+				return;
+			}
+
+			this.wheelPos += diff * 0.25; // ease ~95% toward target in ~10 frames (≈ native feel)
+			bar.scrollLeft = this.wheelPos;
+			this.wheelRaf = requestAnimationFrame(step);
+		};
+		this.wheelRaf = requestAnimationFrame(step);
+	};
+
+	// Stable listener object (non-passive so `onWheel` can `preventDefault`) — kept off the template so
+	// Lit doesn't remove/re-add the wheel listener on every render.
+	private readonly wheelListener = { handleEvent: this.onWheel, passive: false };
+
+	// Stop an in-flight wheel pan and re-enable pill hit-testing. Centralized so teardown and the
+	// keyboard-focus path can't leave `.scrolling` (pointer-events: none) latched on the pills.
+	private cancelWheelPan(): void {
+		if (this.wheelRaf != null) {
+			cancelAnimationFrame(this.wheelRaf);
+			this.wheelRaf = undefined;
+		}
+		this.wheelTarget = undefined;
+		this.shadowRoot?.querySelector('.bar')?.classList.remove('scrolling');
+	}
+
+	override disconnectedCallback(): void {
+		this.cancelWheelPan();
+		super.disconnectedCallback?.();
+	}
+
 	private readonly onPillsKeyDown = (e: KeyboardEvent): void => {
 		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
 
@@ -180,21 +275,19 @@ export class GlGraphWipBar extends LitElement {
 	protected override updated(): void {
 		if (!this.pendingFocusUpdate) return;
 
+		// Keyboard focus owns the scroll position: `focus()` scrolls the pill into view, so cancel any
+		// in-flight wheel pan first or its RAF would yank scrollLeft back and fight the focus scroll.
+		this.cancelWheelPan();
 		const el = this.shadowRoot?.querySelector<HTMLElement>(`.pill[data-index="${this.focusedPillIndex}"]`);
 		el?.focus();
 		this.pendingFocusUpdate = false;
 	}
 
 	override render(): unknown {
-		// The label is decorative: the listbox's `aria-label` ("Working changes") already conveys the
-		// region to AT, so hiding "WIP" avoids a redundant (and likely mispronounced) announcement.
-		// It sits inside the scroll container — so it can stick — but outside the listbox, which may
-		// only contain options.
 		// Roving tabindex (one focusable item at a time) is the chosen listbox keyboard pattern;
 		// see WAI-ARIA APG. Don't mix with aria-activedescendant.
 		return html`
-			<div class="bar">
-				<span class="label" aria-hidden="true">WIP</span>
+			<div class="bar" @wheel=${this.wheelListener}>
 				<div
 					class="pills"
 					role="listbox"

@@ -1014,22 +1014,46 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
 	};
 
-	/** Computes WIP entries for the bar from real graph state: the primary worktree's WIP
-	 *  (when there are changes) plus one entry per secondary worktree with WIP. Agent state is
-	 *  resolved per-worktree via the existing session-by-worktree index. Returns an empty array
-	 *  when no WIPs exist — the bar renders nothing in that case. */
+	/** Computes the bar's WIP entries. The bar exists to surface OTHER worktrees' working changes, so it
+	 *  returns an empty array — hiding the bar — unless at least one secondary worktree qualifies. When it
+	 *  does, the primary worktree is the first entry (always, even when clean) as a stable anchor, followed
+	 *  by one entry per secondary, most-recent first. Agent state is resolved per-worktree via the
+	 *  session-by-worktree index. */
 	private get wipBarItems(): readonly WipBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
 
-		const now = Date.now();
-		const items: WipBarItem[] = [];
-
 		// The bar is a GLOBAL working-changes affordance: it surfaces every worktree that has working
 		// changes, independent of the graph's active scope / branchesVisibility. (The in-graph WIP
 		// rows ARE scope/visibility-filtered — see `getDecoratedRows` — so the bar can intentionally
 		// show worktrees the graph has filtered out.)
+
+		// Secondary worktrees — one pill per worktree that has working changes OR unpushed commits, NOT
+		// scope/visibility filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched
+		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
+		// before the full breakdown is fetched (lazily, on hover). Ordered by HEAD commit date, most-recent
+		// first (`parentDate`). Built FIRST so we can bail before the primary/agent work: the bar's whole
+		// reason to exist is to surface these, so when none qualify we return [] (the bar renders nothing)
+		// — a lone primary pill would be redundant with the graph's WIP row + details panel.
+		const wipMetadata = gs.wipMetadataBySha;
+		const secondaries =
+			wipMetadata != null
+				? Object.entries(wipMetadata)
+						.map(([sha, meta]) => {
+							const stats = meta.workDirStats;
+							const dirty =
+								stats != null
+									? stats.added + stats.modified + stats.deleted > 0
+									: meta.hasChanges === true;
+							return { sha: sha, meta: meta, dirty: dirty };
+						})
+						.filter(({ meta, dirty }) => dirty || meta.hasUnpushed === true)
+						.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0))
+				: [];
+		if (secondaries.length === 0) return [];
+
+		const now = Date.now();
 
 		// Resolve agent state per worktree through a single index (O(sessions) to build, O(1) per
 		// lookup) instead of re-scanning every session per worktree — mirrors `getAgentStatusByRowSha`
@@ -1048,85 +1072,65 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			return { agent: status.category, lastActivity: formatAgentElapsed(latest) };
 		};
 
-		// Primary worktree's WIP, whenever it has changes — shown regardless of scope/visibility
-		// (`workingTreeStats` is computed independent of the graph's filters). WorkDirStats fields are
-		// FILE counts: `added` (new files), `modified` (changed files), `deleted` (removed files).
-		// When no branch is checked out (detached HEAD), fall back to the worktree directory basename
-		// so the user still sees their primary WIP entry in the bar.
-		// Unpushed comes free from `branchState.ahead` (tracked branch); a primary on a local-only
-		// branch is intentionally NOT probed — those commits are already visible in the main graph,
-		// unlike a hidden secondary's.
+		const items: WipBarItem[] = [];
+
+		// Primary worktree's WIP — ALWAYS the first entry, even when the primary is clean (no changes /
+		// unpushed / agent), so it stays a stable anchor as secondaries come and go. `workingTreeStats` is
+		// computed independent of the graph's filters; WorkDirStats fields are FILE counts
+		// (added/modified/deleted files). A detached HEAD falls back to the worktree basename. Unpushed
+		// comes free from `branchState.ahead` (tracked branch); a primary on a local-only branch is
+		// intentionally NOT probed — those commits are already visible in the main graph, unlike a hidden
+		// secondary's.
 		const primary = gs.workingTreeStats;
 		const primaryDirty = primary != null && (primary.added > 0 || primary.modified > 0 || primary.deleted > 0);
 		const primaryAhead = gs.branchState?.ahead ?? 0;
-		if (primaryDirty || primaryAhead > 0) {
+		items.push({
+			id: uncommitted,
+			branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
+			repoPath: fallbackRepoPath,
+			hasWorkingChanges: primaryDirty,
+			...(primary != null && primaryDirty
+				? {
+						files: primary.added + primary.modified + primary.deleted,
+						added: primary.added,
+						modified: primary.modified,
+						deleted: primary.deleted,
+					}
+				: {}),
+			...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
+			...pickAgent(fallbackRepoPath),
+			isPrimary: true,
+			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
+		});
+
+		for (const { sha, meta, dirty } of secondaries) {
+			const stats = meta.workDirStats;
 			items.push({
-				id: uncommitted,
-				branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
-				repoPath: fallbackRepoPath,
-				hasWorkingChanges: primaryDirty,
-				...(primary != null && primaryDirty
+				id: sha,
+				branch: branchNameFromRef(meta.branchRef) ?? meta.label,
+				repoPath: meta.repoPath,
+				hasWorkingChanges: dirty,
+				// Stats omitted until hover fetches them — the pill renders from the dirty signal.
+				// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled
+				// without a breakdown (failed/cancelled), so flag it for the hover's terminal state
+				// instead of leaving the tooltip stuck on "Loading changes…".
+				...(stats != null
 					? {
-							files: primary.added + primary.modified + primary.deleted,
-							added: primary.added,
-							modified: primary.modified,
-							deleted: primary.deleted,
+							files: stats.added + stats.modified + stats.deleted,
+							added: stats.added,
+							modified: stats.modified,
+							deleted: stats.deleted,
 						}
-					: {}),
-				...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
-				...pickAgent(fallbackRepoPath),
-				isPrimary: true,
-				context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
-			});
-		}
-
-		// Secondary worktrees — one pill per worktree that has working changes OR unpushed commits, NOT
-		// scope/visibility filtered (unlike the graph's WIP rows). A worktree is "dirty" by its fetched
-		// `workDirStats` when present, else by the host's cheap `hasChanges` probe — so the pill appears
-		// before the full breakdown is fetched (lazily, on hover). `hasUnpushed` is host-computed (free
-		// ahead for tracked branches; a `rev-list` probe for local-only). Ordered by HEAD commit date,
-		// most-recent first (`parentDate`); the primary pushed above stays first.
-		const wipMetadata = gs.wipMetadataBySha;
-		if (wipMetadata != null) {
-			const secondaries = Object.entries(wipMetadata)
-				.map(([sha, meta]) => {
-					const stats = meta.workDirStats;
-					const dirty =
-						stats != null ? stats.added + stats.modified + stats.deleted > 0 : meta.hasChanges === true;
-					return { sha: sha, meta: meta, dirty: dirty };
-				})
-				.filter(({ meta, dirty }) => dirty || meta.hasUnpushed === true)
-				.sort((a, b) => (b.meta.parentDate ?? 0) - (a.meta.parentDate ?? 0));
-
-			for (const { sha, meta, dirty } of secondaries) {
-				const stats = meta.workDirStats;
-				items.push({
-					id: sha,
-					branch: branchNameFromRef(meta.branchRef) ?? meta.label,
-					repoPath: meta.repoPath,
-					hasWorkingChanges: dirty,
-					// Stats omitted until hover fetches them — the pill renders from the dirty signal.
-					// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled
-					// without a breakdown (failed/cancelled), so flag it for the hover's terminal state
-					// instead of leaving the tooltip stuck on "Loading changes…".
-					...(stats != null
-						? {
-								files: stats.added + stats.modified + stats.deleted,
-								added: stats.added,
-								modified: stats.modified,
-								deleted: stats.deleted,
-							}
-						: meta.workDirStatsStale === false
-							? { statsUnavailable: true }
-							: {}),
-					...(meta.hasUnpushed === true
-						? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
+					: meta.workDirStatsStale === false
+						? { statsUnavailable: true }
 						: {}),
-					...pickAgent(meta.repoPath),
-					isPrimary: false,
-					context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),
-				});
-			}
+				...(meta.hasUnpushed === true
+					? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
+					: {}),
+				...pickAgent(meta.repoPath),
+				isPrimary: false,
+				context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),
+			});
 		}
 
 		return items;
@@ -1634,8 +1638,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private renderGraphContent(slot?: 'end') {
 		// Compute once per render — getter allocates a fresh array, and we read it twice
-		// (length check + binding). Local var dedupes the work and gives the bar a stable
-		// reference identity within a single render cycle.
+		// (visibility check + binding). Local var dedupes the work and gives the bar a stable
+		// reference identity within a single render cycle. The getter returns [] unless a secondary
+		// worktree's WIP qualifies, so an empty array is the bar's hide condition.
 		const wipItems = this.wipBarItems;
 		// `_selectedCommit.sha` is normalized to `uncommitted` for ALL WIP selections (the graph
 		// collapses secondary WIP rows to `uncommitted` at selection time), so the selected worktree

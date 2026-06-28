@@ -11,13 +11,8 @@ export const wipBarStyles = css`
 	}
 
 	.bar {
+		/* Flex so the single '.pills' child (flex: 0 0 auto) sizes to its content and overflows to scroll. */
 		display: flex;
-		gap: var(--gl-space-4);
-		align-items: center;
-
-		/* No start inset so the sticky label can cover the edge as pills scroll under it; the label
-		   carries the leading inset itself. */
-		padding-inline-end: var(--gl-space-8);
 		overflow: auto hidden;
 		scrollbar-width: none;
 	}
@@ -26,33 +21,10 @@ export const wipBarStyles = css`
 		display: none;
 	}
 
-	.label {
-		position: sticky;
-		inset-inline-start: 0;
-		z-index: 1;
-		display: inline-flex;
-		flex: 0 0 auto;
-		align-items: center;
-
-		/* Stretch over the bar's full height so the opaque background fully masks pills passing under. */
-		align-self: stretch;
-		padding-inline: var(--gl-space-8) var(--gl-space-4);
-		font-size: var(--gl-font-micro);
-		font-weight: 600;
-		color: var(--vscode-descriptionForeground, var(--color-foreground--65));
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		user-select: none;
-		background: var(--color-background);
-	}
-
-	.label::after {
-		position: absolute;
-		inset-inline-start: 100%;
-		width: 0.4rem;
-		height: 100%;
-		content: '';
-		background: linear-gradient(to right, var(--color-background), transparent);
+	/* While a wheel-pan is animating, take the pills out of hit-testing so sliding them under a
+	   stationary cursor doesn't fire per-frame hover work (see onWheel). Restored once it settles. */
+	.bar.scrolling .pills {
+		pointer-events: none;
 	}
 
 	.pills {
@@ -61,7 +33,7 @@ export const wipBarStyles = css`
 		gap: var(--gl-space-4);
 		align-items: center;
 		min-height: 2rem;
-		padding-block: var(--gl-space-6);
+		padding: var(--gl-space-6) var(--gl-space-8);
 	}
 
 	.pill {
