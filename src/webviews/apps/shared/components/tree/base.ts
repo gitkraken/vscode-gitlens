@@ -20,6 +20,10 @@ export interface TreeItemBase {
 	checkable: boolean;
 	checked?: boolean | 'indeterminate';
 	disableCheck?: boolean;
+	/** When set, the checkbox is fully controlled by `checked` (model-driven): a user toggle does NOT
+	 *  optimistically flip the box — it stays put until the model updates. Use for checkboxes whose
+	 *  action can be blocked or cancelled (e.g. staging a conflicted file behind a confirm prompt). */
+	controlledCheck?: boolean;
 	checkableTooltip?: string;
 	/** Alt-action tooltip — surfaced only when the checkbox has a distinct alt+click behavior
 	 *  (currently set by `gl-file-tree-pane` for mixed-state files where alt+click flips to

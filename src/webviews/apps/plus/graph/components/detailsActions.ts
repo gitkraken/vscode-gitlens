@@ -24,6 +24,7 @@ import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { appendCoauthorsToMessage } from '@gitlens/git/utils/contributor.utils.js';
+import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
@@ -2779,7 +2780,11 @@ export class DetailsActions {
 	}
 
 	stageFile(detail: FileChangeListItemDetail): void {
-		this.optimisticallyUpdateFileStaged(detail.path, true);
+		// Conflicted files may hit a host prompt the user can cancel (we can't check markers here), so
+		// skip optimism and let the host's working-tree push reflect the real result.
+		if (!isConflictStatus(detail.status)) {
+			this.optimisticallyUpdateFileStaged(detail.path, true);
+		}
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail), 'stage file');
 	}
 
@@ -2839,7 +2844,10 @@ export class DetailsActions {
 	stageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
-		this.optimisticallyUpdateAllFilesStaged(true);
+		// Same as stageFile — skip optimism when the repo has conflicts (host may prompt + cancel).
+		if (!this.state.wip.get()?.changes?.hasConflicts) {
+			this.optimisticallyUpdateAllFilesStaged(true);
+		}
 		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath), 'stage all');
 	}
 

@@ -855,6 +855,7 @@ export class GlTreeView extends GlElement {
 			.position=${model.position}
 			.checkable=${model.checkable}
 			.checked=${model.checked ?? false}
+			.controlledCheck=${model.controlledCheck ?? false}
 			.disableCheck=${model.disableCheck ?? false}
 			.checkableTooltip=${model.checkableTooltip}
 			.checkableAltTooltip=${model.checkableAltTooltip}

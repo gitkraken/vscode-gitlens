@@ -820,6 +820,9 @@ export class GlFileTreePane extends LitElement {
 			level: 1,
 			checkable: this.checkable,
 			checked: false,
+			// Conflicted files stage behind a confirm prompt the user can cancel — keep their checkbox
+			// model-controlled so a click doesn't optimistically check it before the stage lands.
+			controlledCheck: conflicted,
 			icon: icon,
 			label: fileName,
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,

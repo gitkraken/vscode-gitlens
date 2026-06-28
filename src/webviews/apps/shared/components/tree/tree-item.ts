@@ -48,6 +48,11 @@ export class GlTreeItem extends GlElement {
 	@property()
 	checked: boolean | 'indeterminate' = false;
 
+	// When set, the checkbox is controlled by `checked` (model-driven): a user toggle doesn't
+	// optimistically flip it. See TreeItemBase.controlledCheck.
+	@property({ type: Boolean })
+	controlledCheck = false;
+
 	@property({ type: Boolean, reflect: true, attribute: 'disable-check' })
 	disableCheck = false;
 
@@ -350,7 +355,14 @@ export class GlTreeItem extends GlElement {
 			(e.target as HTMLInputElement).checked = false;
 		}
 		this._checkboxClickAlt = false;
-		this.checked = newChecked;
+		if (this.controlledCheck) {
+			// Controlled: the action may be blocked or cancelled (e.g. a conflict-stage confirm), so don't
+			// adopt the toggle optimistically — revert the input and let the model drive `checked` once the
+			// operation actually completes.
+			(e.target as HTMLInputElement).checked = this.checked === true;
+		} else {
+			this.checked = newChecked;
+		}
 
 		this.emit('gl-tree-item-checked', { node: this, checked: newChecked });
 	}
