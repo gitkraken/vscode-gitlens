@@ -37,6 +37,15 @@ export class GlWipTreePane extends LitElement {
 			align-items: center;
 		}
 
+		/* Set the general file actions (Open Changes/Copy) apart from the conflict-resolution cluster
+		   (Resolve Conflicts + Stage-all) when it precedes them, so the two read as distinct groups.
+		   The adjacent-sibling match only fires when a leading-actions chip immediately precedes
+		   wip-actions — i.e. exactly the conflict scenarios; with no conflicts wip-actions is the first
+		   leading action and the previous element sibling is the subtitle span, so no leading gap. */
+		gl-action-chip[slot='leading-actions'] + .wip-actions {
+			margin-left: var(--gl-space-8);
+		}
+
 		/* Collapse the Stash label to icon-only when the pane runs out of room. display:none
 	   cleanly removes the slotted flex item so the button's internal gap collapses too — true
 	   icon-only, no half-clipped text. The button's tooltip (Stash All/Staged Changes) keeps it
@@ -108,6 +117,12 @@ export class GlWipTreePane extends LitElement {
 	 * cherry-pick/revert pauses where clicks would silently no-op. */
 	@property({ type: Boolean, attribute: 'bulk-conflict-actions' })
 	bulkConflictActions = false;
+
+	/** Opt-in for the toolbar "Resolve Conflicts" button (fires `resolve-conflicts`). Set true only
+	 *  by hosts that route it into AI resolve mode (the graph WIP details when `aiEnabled`); off
+	 *  everywhere else so it never renders as a dead button. */
+	@property({ type: Boolean, attribute: 'resolve-enabled' })
+	resolveEnabled = false;
 
 	/** Repo-relative normalized paths the connected agent(s) are actively editing, mapped to the
 	 *  agent's phase. Pass-through to `gl-file-tree-pane`. */
@@ -238,6 +253,10 @@ export class GlWipTreePane extends LitElement {
 		const files = (this.files as Files) ?? [];
 		const multiDiff = this.multiDiff;
 
+		// Mid-conflict (paused rebase/merge), a bulk Discard or Stash would blow away the in-progress
+		// resolution, so hide both — staging/resolve actions and Open/Copy stay.
+		const hasConflicts = files.some(f => isConflictStatus(f.status));
+
 		const hasStagedAndUnstaged = this.hasStagedAndUnstaged;
 		// Primary action label always set; alt label only when both staged + unstaged changes exist.
 		// Both flow into gl-action-chip's `label`/`alt-label`, which composes the tooltip, swaps live
@@ -282,22 +301,24 @@ export class GlWipTreePane extends LitElement {
 			@file-compare-wip-staged=${this.onFileCompareWipStaged}
 		>
 			<span class="subtitle-stats" slot="subtitle">${this.renderStats()}</span>
-			${this.renderConflictBulkActions(files)}
+			${this.renderResolveConflictsAction(files)}${this.renderConflictBulkActions(files)}
 			${files.length > 0
 				? html`<div class="wip-actions" slot="leading-actions">
-						${this.renderDiscardUnstagedAction(files)}
-						<gl-action-chip
-							icon="gl-stash-save"
-							label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
-							alt-label=${hasSelection
-								? stashScopeLabel
-								: hasStagedAndUnstaged
-									? 'Stash All Changes'
-									: nothing}
-							@click=${this.onStashSave}
-						>
-							<span class="stash-label">Stash</span>
-						</gl-action-chip>
+						${hasConflicts
+							? nothing
+							: html`${this.renderDiscardUnstagedAction(files)}
+									<gl-action-chip
+										icon="gl-stash-save"
+										label=${hasSelection ? 'Stash Selected Changes' : stashScopeLabel}
+										alt-label=${hasSelection
+											? stashScopeLabel
+											: hasStagedAndUnstaged
+												? 'Stash All Changes'
+												: nothing}
+										@click=${this.onStashSave}
+									>
+										<span class="stash-label">Stash</span>
+									</gl-action-chip>`}
 						${multiDiff
 							? renderOpenChangesAction({
 									label: multiDiffLabel,
@@ -361,6 +382,22 @@ export class GlWipTreePane extends LitElement {
 			@click=${(e: MouseEvent) => this.onCopyPatch(e, repoPath)}
 		></gl-action-chip>`;
 	}
+
+	private renderResolveConflictsAction(files: Files) {
+		if (!this.resolveEnabled || !files.some(f => isConflictStatus(f.status))) return nothing;
+
+		return html`<gl-action-chip
+			slot="leading-actions"
+			icon="sparkle"
+			label="Resolve Conflicts"
+			@click=${this.onResolveConflicts}
+			><span>Resolve Conflicts</span></gl-action-chip
+		>`;
+	}
+
+	private onResolveConflicts = () => {
+		this.dispatchEvent(new CustomEvent('resolve-conflicts', { bubbles: true, composed: true }));
+	};
 
 	private renderConflictBulkActions(files: Files) {
 		if (!this.bulkConflictActions || !files.some(f => isConflictStatus(f.status))) return nothing;

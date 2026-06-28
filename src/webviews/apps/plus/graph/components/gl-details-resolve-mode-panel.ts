@@ -266,9 +266,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return html`
 			<p class="resolve-intro">
 				${focused?.length === 1
-					? html`Resolve the conflict in <strong>${focused[0]}</strong> with AI.`
-					: html`Resolve ${focused != null ? 'the selected' : ''} ${pluralize('conflicted file', count)} with
-						AI. You'll be able to review each resolution before applying.`}
+					? html`Resolve the conflict in <strong>${focused[0]}</strong>.`
+					: html`Resolve ${focused != null ? 'the selected' : ''} ${pluralize('conflicted file', count)}.
+						You'll be able to review each resolution before applying.`}
 			</p>
 			${count > 0
 				? html`<ul class="resolve-files" aria-label="Conflicted files">
@@ -297,7 +297,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					multiline
 					active
 					rows="2"
-					button-label=${focused?.length === 1 ? 'Resolve File with AI' : 'Resolve Conflicts with AI'}
+					button-label=${focused?.length === 1 ? 'Resolve File' : 'Resolve Conflicts'}
 					busy-label="Resolving conflicts…"
 					event-name="resolve-run"
 					placeholder='Optional guidance — e.g. "prefer incoming for generated files"'

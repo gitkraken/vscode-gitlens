@@ -21,7 +21,7 @@ export function getActionName(action: AIActionType): string {
 		case 'generate-commits':
 			return 'Generate Commits';
 		case 'conflict-resolution':
-			return 'Resolve Conflicts with AI (Preview)';
+			return 'Resolve Conflicts (Preview)';
 		case 'generate-searchQuery':
 			return 'Generate Search Query';
 	}

@@ -56,7 +56,7 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 		padding: 0.4rem var(--gl-panel-padding-right, 1rem) 0.4rem var(--gl-panel-padding-left, 1.2rem);
 		background-color: var(--gl-metadata-bar-bg);
-		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
+		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 
 	.graph-details-header__paused-op > gl-merge-rebase-status {
@@ -64,11 +64,11 @@ export const detailsWipHeaderStyles = css`
 		min-width: 0;
 	}
 
-	/* The paused-op row trails the metadata strip; drop the prior row's bottom border so the
-	   chunk reads as one tinted strip with paused-op carrying the trailing border. */
-	.graph-details-header__branch-row:has(+ .graph-details-header__paused-op),
-	.graph-details-header__issues:has(+ .graph-details-header__paused-op) {
-		border-bottom: 0;
+	/* The paused-op row leads the metadata strip directly under the header, carrying the strip's
+	   top border; the branch row that follows drops its own top border so the chunk reads as one
+	   tinted strip rather than two rules butting together. */
+	.graph-details-header__paused-op + .graph-details-header__branch-row {
+		border-top: 0;
 	}
 
 	/* Secondary row beneath the WIP title — branch name, tracking pill, and branch ops.
@@ -260,9 +260,9 @@ export const detailsWipHeaderStyles = css`
 		--gl-chip-overflow-gap: 0.4rem;
 	}
 
-	/* When no issues row and no paused-op row follow, the branch row owns the trailing
-	   border instead. */
-	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues, + .graph-details-header__paused-op)) {
+	/* When no issues row follows, the branch row owns the trailing border instead. (The paused-op
+	   row now leads the strip, so it never follows the branch row.) */
+	.graph-details-header__branch-row:not(:has(+ .graph-details-header__issues)) {
 		border-bottom: var(--gl-border-width) solid var(--gl-metadata-bar-border);
 	}
 

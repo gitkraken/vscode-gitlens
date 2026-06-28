@@ -102,11 +102,17 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, reflect: true })
 	conflicts = false;
 
-	/** Opt-in for the "Resolve Conflicts with AI" action (fires `ai-resolve-conflicts`). Only hosts
-	 *  that can route the event into a resolve flow (the graph WIP details) should enable it —
-	 *  otherwise the action would render as a dead button. */
+	/** Opt-in for routing the conflicts status text into Resolve Conflicts mode (fires
+	 *  `ai-resolve-conflicts`). Only hosts that can handle the event (the graph WIP details) should
+	 *  enable it; elsewhere the text falls back to revealing the conflicts. */
 	@property({ type: Boolean, attribute: 'ai-resolve' })
 	aiResolve = false;
+
+	/** Render the bar as a plain status read-out — no paused-op action buttons and no clickable
+	 *  conflicts text. Set by hosts that are in a mode (compose/review/resolve) so the bar doesn't
+	 *  compete with the mode's own controls. */
+	@property({ type: Boolean, attribute: 'readonly', reflect: true })
+	readOnly = false;
 
 	@property({ type: Object })
 	pausedOpStatus?: GitPausedOperationStatus;
@@ -172,7 +178,15 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	private renderConflictsLink(label: string) {
-		if (!this.conflicts) return label;
+		if (!this.conflicts || this.readOnly) return label;
+
+		// With AI resolve available (graph host), clicking the status text enters Resolve Conflicts mode.
+		// Elsewhere it falls back to revealing the conflicts in the tree / rebase editor.
+		if (this.aiResolve) {
+			return html`<gl-tooltip content="Resolve Conflicts">
+				<a href="#" class="link" @click=${this.onResolveWithAI}>${label}</a>
+			</gl-tooltip>`;
+		}
 
 		return html`<gl-tooltip content="Show Conflicts">
 			<a href="${this.onShowConflictsUrl}" class="link">${label}</a>
@@ -180,10 +194,17 @@ export class GlMergeConflictWarning extends LitElement {
 	}
 
 	private renderReference(ref: GitReference) {
+		const isBranch = ref.refType === 'branch';
+		const content = isBranch
+			? html`<gl-branch-name .name=${ref.name} .size=${12}></gl-branch-name>`
+			: html`<gl-commit-sha .sha=${ref.ref} .size=${12}></gl-commit-sha>`;
+
+		// Read-only: plain ref text, no jump-to-branch/commit link or tooltip.
+		if (this.readOnly) return content;
+
 		const webviewId = this._webview.webviewId;
 		const isInGraph = webviewId === 'gitlens.graph' || webviewId === 'gitlens.views.graph';
 
-		const isBranch = ref.refType === 'branch';
 		const tooltip = isInGraph
 			? isBranch
 				? 'Jump to Branch'
@@ -194,11 +215,7 @@ export class GlMergeConflictWarning extends LitElement {
 		const jumpUrl = this.createJumpUrl(ref);
 
 		return html`<gl-tooltip content=${tooltip}>
-			<a href=${jumpUrl} class="ref-link">
-				${isBranch
-					? html`<gl-branch-name .name=${ref.name} .size=${12}></gl-branch-name>`
-					: html`<gl-commit-sha .sha=${ref.ref} .size=${12}></gl-commit-sha>`}
-			</a>
+			<a href=${jumpUrl} class="ref-link">${content}</a>
 		</gl-tooltip>`;
 	}
 
@@ -215,20 +232,11 @@ export class GlMergeConflictWarning extends LitElement {
 	};
 
 	private renderActions() {
-		if (this.pausedOpStatus == null) return nothing;
+		if (this.pausedOpStatus == null || this.readOnly) return nothing;
 
 		const status = this.pausedOpStatus.type;
 
 		return html`<action-nav class="actions">
-			${when(
-				this.conflicts && this.aiResolve,
-				() =>
-					html`<action-item
-						label="Resolve Conflicts with AI"
-						icon="sparkle"
-						@click=${this.onResolveWithAI}
-					></action-item>`,
-			)}
 			${when(
 				status === 'rebase',
 				() =>

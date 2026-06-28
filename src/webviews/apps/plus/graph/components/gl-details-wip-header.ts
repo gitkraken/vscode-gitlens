@@ -161,6 +161,7 @@ export class GlDetailsWipHeader extends LitElement {
 							@click=${() => this.emit('refresh-wip')}
 						></gl-action-chip>`
 				: nothing}
+			${this.renderPausedOpStatus()}
 			<div slot="secondary" class="graph-details-header__branch-row">
 				<div class="branch-identity">
 					${branchName
@@ -252,7 +253,7 @@ export class GlDetailsWipHeader extends LitElement {
 						? html`<div class="mode-status">${this.modeStatusText}</div>`
 						: nothing}
 			</div>
-			${!isModeActive ? this.renderIssuesRow() : nothing}${this.renderPausedOpStatus()}
+			${!isModeActive ? this.renderIssuesRow() : nothing}
 		</gl-details-header>`;
 	}
 
@@ -371,6 +372,7 @@ export class GlDetailsWipHeader extends LitElement {
 			<gl-merge-rebase-status
 				?conflicts=${this.wip?.changes?.hasConflicts ?? false}
 				?ai-resolve=${this.aiEnabled}
+				?readonly=${this.activeMode != null}
 				.pausedOpStatus=${pausedOpStatus}
 			></gl-merge-rebase-status>
 		</div>`;

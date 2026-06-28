@@ -121,6 +121,14 @@ const openConflictDetailsAction: TreeItemAction = {
 	action: 'file-conflict-details',
 	multiBehavior: 'single',
 };
+// Per-row sparkle on a conflicted file — enters AI resolve mode focused on just that file.
+// `single`: resolve is row-specific; fanning it out would scope the wrong files.
+const resolveFileAction: TreeItemAction = {
+	icon: 'sparkle',
+	label: 'Resolve Conflicts',
+	action: 'file-resolve-conflict',
+	multiBehavior: 'single',
+};
 const conflictedCheckboxActions: TreeItemAction[] = [
 	openConflictDetailsAction,
 	openCurrentChangesAction,
@@ -131,6 +139,18 @@ const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stage
 // stage action stays rightmost. Separate stable arrays keep gl-tree-item's identity diffing happy.
 const conflictedCheckboxActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions];
 const conflictedActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
+// Resolve-enabled (graph host + aiEnabled): the sparkle sits right after the eye, keeping "Conflict
+// Details" leftmost and Stage rightmost.
+const conflictedCheckboxActionsWithDetailsResolve: TreeItemAction[] = [
+	openConflictDetailsAction,
+	resolveFileAction,
+	openCurrentChangesAction,
+	openIncomingChangesAction,
+];
+const conflictedActionsWithDetailsResolve: TreeItemAction[] = [
+	...conflictedCheckboxActionsWithDetailsResolve,
+	stageConflictAction,
+];
 const checkboxDiscardOnly: TreeItemAction[] = [openFileAction, stashAction, discardAction];
 const checkboxMixedActions: TreeItemAction[] = [
 	openFileAction,
@@ -191,6 +211,11 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	 *  Set true only by the graph host, which mounts the sheet and wires `file-conflict-details`. */
 	@property({ type: Boolean, attribute: 'conflict-details' })
 	conflictDetails = false;
+
+	/** Opt-in for the AI Resolve Conflicts entry points (toolbar button + per-row sparkle). Set true
+	 *  only by the graph host when `aiEnabled`; gates the affordances that route into resolve mode. */
+	@property({ type: Boolean, attribute: 'resolve-enabled' })
+	resolveEnabled = false;
 
 	/** Active agent sessions matched to this worktree (already filtered by the graph host).
 	 *  Used to compute per-file editing decorations — see {@link _agentTouchedFiles}. */
@@ -771,6 +796,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				?checkable=${this.checkboxMode}
 				?multi-selectable=${true}
 				?bulk-conflict-actions=${this.bulkConflictActions}
+				?resolve-enabled=${this.resolveEnabled}
 				.showSearchBox=${this.showSearchBox}
 				.searchBoxFilter=${this.searchBoxFilter}
 				.fileActions=${this._getFileActions}
@@ -901,6 +927,11 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 		// when unresolved conflict markers remain.
 		if (isConflictStatus(file.status)) {
 			if (this.conflictDetails) {
+				if (this.resolveEnabled) {
+					return this.checkboxMode
+						? conflictedCheckboxActionsWithDetailsResolve
+						: conflictedActionsWithDetailsResolve;
+				}
 				return this.checkboxMode ? conflictedCheckboxActionsWithDetails : conflictedActionsWithDetails;
 			}
 			return this.checkboxMode ? conflictedCheckboxActions : conflictedActions;

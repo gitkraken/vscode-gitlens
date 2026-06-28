@@ -294,7 +294,7 @@ export const treeItemStyles = [
 			display: inline-flex;
 			width: 1.6rem;
 			aspect-ratio: 1 / 1;
-			margin-right: var(--gl-space-6);
+			margin-right: var(--gl-space-8);
 			color: var(--vscode-checkbox-foreground);
 			text-align: center;
 			background: var(--vscode-checkbox-background);

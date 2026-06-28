@@ -22,6 +22,7 @@ import {
 	xToDay,
 	xToTimestamp,
 } from './minimapRenderer.js';
+import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 
 const brushThresholdPx = 3;
 const scrollbarHeightPx = 8;
@@ -105,10 +106,7 @@ export interface GraphMinimapZoomChangeEventDetail {
 	zoomed: boolean;
 }
 
-// CSS-pixel conversion constants for `WheelEvent.deltaMode`. Browsers report wheel deltas in three
-// units (pixels / lines / pages); these convert the non-pixel modes to pixels so the graph scroller
-// can apply the delta without caring about the wheel source.
-const wheelLineHeightPx = 16;
+// Viewport extent (CSS px) for a `DOM_DELTA_PAGE` wheel — the per-page scroll step for the graph.
 const wheelPageHeightPx = 400;
 
 declare global {
@@ -1150,12 +1148,7 @@ export class GlGraphMinimap extends GlElement {
 	private onWheel = (e: WheelEvent) => {
 		if (this._viewModel == null) return;
 
-		const deltaY =
-			e.deltaMode === WheelEvent.DOM_DELTA_LINE
-				? e.deltaY * wheelLineHeightPx
-				: e.deltaMode === WheelEvent.DOM_DELTA_PAGE
-					? e.deltaY * wheelPageHeightPx
-					: e.deltaY;
+		const deltaY = normalizeWheelDelta(e.deltaMode, e.deltaY, wheelPageHeightPx);
 		if (deltaY === 0) return;
 
 		e.preventDefault();

@@ -547,9 +547,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return repos?.[0]?.path;
 	}
 
-	/** Paused-op banner "Resolve Conflicts with AI" — enters resolve mode for all conflicts on the
-	 *  shown WIP. Uses `enterModeForWip` (not `toggleMode`) so a click while resolve mode is already
-	 *  engaged re-focuses instead of exiting. */
+	/** Paused-op banner "Resolve Conflicts" text + the file-tree toolbar button — enters resolve mode
+	 *  for all conflicts on the shown WIP. Uses `enterModeForWip` (not `toggleMode`) so a click while
+	 *  resolve mode is already engaged re-focuses instead of exiting. */
 	private handleAiResolveConflicts = (): void => {
 		const repoPath = this._state.wip.get()?.repo.path ?? this.effectiveRepoPath;
 		if (!repoPath) return;
@@ -1911,6 +1911,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													checkbox-mode
 													?bulk-conflict-actions=${wip.changes?.pausedOpStatus?.type ===
 													'rebase'}
+													?resolve-enabled=${preferences?.aiEnabled ?? false}
 													conflict-details
 													?show-search-box=${this.showSearchBox}
 													?search-box-filter=${this.searchBoxFilter}
@@ -1931,6 +1932,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													@file-open-current=${this.handleFileOpenConflictCurrent}
 													@file-open-incoming=${this.handleFileOpenConflictIncoming}
 													@file-conflict-details=${this.handleOpenConflictDetails}
+													@file-resolve-conflict=${this.handleFileResolveConflict}
 													@file-more-actions=${this.handleFileMoreActions}
 													@file-stage=${this.handleFileStage}
 													@file-unstage=${this.handleFileUnstage}
@@ -1941,6 +1943,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													@stage-all=${this.handleStageAll}
 													@unstage-all=${this.handleUnstageAll}
 													@stash-save=${this.handleStashSave}
+													@resolve-conflicts=${this.handleAiResolveConflicts}
 													@resolve-all-current=${this.handleResolveAllCurrent}
 													@resolve-all-incoming=${this.handleResolveAllIncoming}
 													@change-files-layout=${this.handleChangeFilesLayout}
@@ -3131,8 +3134,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.openFile(conflict.detail);
 	};
 
-	/** Header "Resolve Conflict with AI" — closes the sheet and enters resolve mode focused on this
-	 *  one file (mirrors the paused-op banner's AI resolve, but scoped to the sheet's file). */
+	/** Header "Resolve Conflicts" — closes the sheet and enters resolve mode focused on this
+	 *  one file (mirrors the paused-op banner's resolve, but scoped to the sheet's file). */
 	private handleConflictResolveAi = () => {
 		const conflict = this._conflictSheet;
 		if (conflict == null) return;
@@ -3141,6 +3144,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const filePath = conflict.detail.path;
 		this._conflictSheet = undefined;
 		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
+	};
+
+	/** Per-row sparkle on a conflicted file — enters resolve mode focused on just that file (mirrors
+	 *  {@link handleConflictResolveAi}, but sourced from the inline tree action's event detail). */
+	private handleFileResolveConflict = (e: CustomEvent<FileChangeListItemDetail>) => {
+		const { path, repoPath } = e.detail;
+		if (!repoPath || !path) return;
+
+		this.enterModeForWip('resolve', repoPath, uncommitted, [path]);
 	};
 
 	private handleFileStage = (e: CustomEvent<FileChangeListItemDetail>) => {

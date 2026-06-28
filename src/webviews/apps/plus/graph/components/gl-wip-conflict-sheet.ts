@@ -187,7 +187,7 @@ export class GlWipConflictSheet extends LitElement {
 	@property({ type: String, attribute: 'file-name' })
 	fileName = '';
 
-	/** Whether AI is available — gates the header "Resolve Conflict with AI" action. */
+	/** Whether AI is available — gates the header "Resolve Conflicts" action. */
 	@property({ type: Boolean, attribute: 'ai-enabled' })
 	aiEnabled = false;
 
@@ -236,7 +236,7 @@ export class GlWipConflictSheet extends LitElement {
 				? html`<gl-action-chip
 						slot="actions"
 						icon="sparkle"
-						label="Resolve Conflict with AI (Preview)"
+						label="Resolve Conflicts (Preview)"
 						overlay="tooltip"
 						@click=${this.onResolveAi}
 						><span>Resolve Conflicts</span></gl-action-chip
