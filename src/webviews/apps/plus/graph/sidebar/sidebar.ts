@@ -180,10 +180,6 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 			flex: 1 1 auto;
 		}
 
-		.item.dimmed {
-			opacity: 0.4;
-		}
-
 		/* Visualization toggle — uses <gl-button> for the checked/unchecked styling. Sits at the
    bottom of the rail; the parent's 1.4rem flex gap is enough to read it as its own group. */
 		.display-mode-toggle {
@@ -285,11 +281,6 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		.overflow-menu-item:focus-visible {
 			outline: none;
 			background: var(--vscode-list-hoverBackground);
-		}
-
-		.overflow-menu-item[disabled] {
-			cursor: default;
-			opacity: 0.5;
 		}
 
 		.overflow-menu-item-label {
@@ -656,8 +647,12 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		return Math.min(Math.max(k, 1), count - 2);
 	}
 
-	private renderIcon(icon: Icon, enabled: boolean) {
-		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
+	private renderIcon(icon: Icon, isGraphMode: boolean) {
+		// Gate only the active/pressed indicator on graph mode — no side panel is visibly open in
+		// visualization/kanban modes (and `sidebarVisible` is preserved across them). The icon itself
+		// stays clickable in every mode: from a visualization a click returns to the graph with this
+		// panel open (handled in graph-app's `handleSidebarToggle`).
+		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
 
 		return html`<gl-tooltip placement="right" content="${icon.tooltip}">
 			<button
@@ -665,11 +660,9 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 					item: true,
 					active: isActive,
 					overview: icon.type === 'overview',
-					dimmed: !enabled,
 					'group-end': icon.type === 'agents',
 				})}
 				@click=${() => this.handleIconClick(icon)}
-				?disabled=${!enabled}
 				aria-pressed=${isActive}
 			>
 				<code-icon icon="${icon.icon}"></code-icon>
@@ -693,12 +686,13 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 		return renderCount(this._actions?.state.counts.get()?.[icon.type]);
 	}
 
-	private renderOverflow(overflowIcons: Icon[], enabled: boolean) {
+	private renderOverflow(overflowIcons: Icon[], isGraphMode: boolean) {
 		if (overflowIcons.length === 0) return nothing;
 
 		// Surface the active state on the … toggle when the active panel is folded away, so the
 		// rail indicator (which targets `.item.active`) lands on the toggle instead of going stale.
-		const containsActive = enabled && this.sidebarVisible && overflowIcons.some(i => i.type === this.activePanel);
+		const containsActive =
+			isGraphMode && this.sidebarVisible && overflowIcons.some(i => i.type === this.activePanel);
 		return html`<gl-popover
 			class="overflow-popover"
 			appearance="menu"
@@ -718,17 +712,16 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				${repeat(
 					overflowIcons,
 					i => i.type,
-					i => this.renderOverflowItem(i, enabled),
+					i => this.renderOverflowItem(i, isGraphMode),
 				)}
 			</div>
 		</gl-popover>`;
 	}
 
-	private renderOverflowItem(icon: Icon, enabled: boolean) {
-		const isActive = enabled && this.sidebarVisible && this.activePanel === icon.type;
+	private renderOverflowItem(icon: Icon, isGraphMode: boolean) {
+		const isActive = isGraphMode && this.sidebarVisible && this.activePanel === icon.type;
 		return html`<button
 			class=${classMap({ 'overflow-menu-item': true, active: isActive })}
-			?disabled=${!enabled}
 			aria-pressed=${isActive}
 			@click=${(e: Event) => this.handleOverflowItemClick(icon, e)}
 		>

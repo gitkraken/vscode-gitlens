@@ -2032,6 +2032,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleSidebarToggle(e: CustomEvent<GraphSidebarToggleEventDetail>) {
 		const gs = this.graphState;
 		const panel = e.detail.panel;
+
+		// From a visualization/kanban mode the rail icons return to the graph with the chosen panel
+		// open rather than toggling — a click here always means "show me this in the graph". Written
+		// inline (not via `setSidebarPanel`) so the `displayMode` change is always persisted: the
+		// preserved `gs.sidebar` state can already match this panel, and `setSidebarPanel` early-returns
+		// without persisting in that case.
+		if ((gs.displayMode ?? 'graph') !== 'graph') {
+			gs.displayMode = 'graph';
+			gs.sidebar = { activePanel: panel, visible: true };
+			this.persistState();
+			this.focusSidebarFilterAfterRender();
+			return;
+		}
+
 		if (gs.sidebar?.visible && gs.sidebar?.activePanel === panel) {
 			this.hideSidebar();
 		} else {
