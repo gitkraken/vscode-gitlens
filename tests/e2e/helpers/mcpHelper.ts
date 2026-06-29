@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
@@ -93,51 +93,6 @@ export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 
 		await new Promise(r => setTimeout(r, 500));
 	}
 
-	return undefined;
-}
-
-/**
- * Finds the newest live IPC discovery file, optionally filtered by PID.
- * Used as a fallback when workspace-based lookup is not available.
- */
-export function findLatestIpcFile(vscodePid?: number): string | undefined {
-	if (!existsSync(ipcDiscoveryDir)) return undefined;
-
-	const candidates = readdirSync(ipcDiscoveryDir)
-		.filter(f => {
-			if (!f.startsWith('gitlens-ipc-server-') || !f.endsWith('.json')) return false;
-			if (vscodePid != null) {
-				return f.startsWith(`gitlens-ipc-server-${vscodePid}-`);
-			}
-			return true;
-		})
-		.map(f => {
-			const fullPath = path.join(ipcDiscoveryDir, f);
-			try {
-				return { fullPath: fullPath, mtime: statSync(fullPath).mtime };
-			} catch {
-				return null;
-			}
-		})
-		.filter((x): x is { fullPath: string; mtime: Date } => x != null)
-		.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-
-	for (const { fullPath } of candidates) {
-		try {
-			const data = JSON.parse(readFileSync(fullPath, 'utf8')) as { pid: number };
-			try {
-				process.kill(data.pid, 0);
-				return fullPath;
-			} catch (killErr) {
-				const code = (killErr as { code?: string }).code;
-				// EPERM means the process exists but we can't signal it — still valid
-				if (code === 'EPERM') return fullPath;
-				// ESRCH means the process is gone — skip
-			}
-		} catch {
-			// unreadable or invalid file — skip
-		}
-	}
 	return undefined;
 }
 

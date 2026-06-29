@@ -12,7 +12,7 @@
 import { execSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import * as process from 'node:process';
-import { expect, mcpTest as test, readIpcDiscoveryFile } from '../fixtures/mcp.js';
+import { expect, readIpcDiscoveryFile, mcpTest as test } from '../fixtures/mcp.js';
 import { McpClient } from '../helpers/mcpHelper.js';
 
 test.describe('MCP — Configuration', () => {
@@ -38,26 +38,21 @@ test.describe('MCP — Configuration', () => {
 		expect(config.args).toContain('mcp');
 	});
 
-	test('should include --experimental in args when setting is enabled', async ({ mcpClient, vscode }) => {
-		using _ = await vscode.gitlens.withSettings({
-			'gitlens.gitkraken.mcp.experimental.enabled': true,
-		});
-
+	// GitLens appends `--experimental` to the gk MCP server command when the
+	// `gitlens.gitkraken.mcp.experimental.enabled` setting is on (see GkMcpService.getMcpConfigCore).
+	// GitLens's own config generation isn't observable from here — it registers the server via the
+	// VS Code lm API — so these tests pin the CLI contract GitLens relies on: `gk mcp config` reflects
+	// `--experimental` in the generated server `args` when, and only when, the flag is passed.
+	test('should reflect --experimental in server args when the flag is passed', async ({ mcpClient }) => {
 		const config = await mcpClient.getMcpConfig({ experimental: true });
 
-		expect(config).toBeDefined();
 		expect(config.type).toBe('stdio');
 		expect(config.args).toContain('--experimental');
 	});
 
-	test('should not include --experimental in args when setting is disabled', async ({ mcpClient, vscode }) => {
-		using _ = await vscode.gitlens.withSettings({
-			'gitlens.gitkraken.mcp.experimental.enabled': false,
-		});
+	test('should omit --experimental from server args when the flag is not passed', async ({ mcpClient }) => {
+		const config = await mcpClient.getMcpConfig();
 
-		const config = await mcpClient.getMcpConfig({ experimental: false });
-
-		expect(config).toBeDefined();
 		expect(config.type).toBe('stdio');
 		expect(config.args).not.toContain('--experimental');
 	});
@@ -120,9 +115,14 @@ test.describe('MCP — Tool Invocation', () => {
 
 		const response = await mcpClient.callTool(toolName, {});
 
-		// Should get a response (either result or error), not a timeout/crash
-		expect(response).toBeDefined();
+		// A well-formed JSON-RPC reply correlated to our request (callTool uses id 3), carrying
+		// exactly one of `result`/`error` — not a timeout, crash, or stray/unmatched message.
 		expect(response.jsonrpc).toBe('2.0');
+		expect(response.id).toBe(3);
+		const hasResult = response.result !== undefined;
+		const hasError = response.error !== undefined;
+		expect(hasResult || hasError).toBe(true);
+		expect(hasResult && hasError).toBe(false);
 	});
 });
 
@@ -133,7 +133,7 @@ test.describe('MCP — Tool Invocation', () => {
 test.describe('MCP — IPC Discovery', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	test('should find IPC discovery file for current workspace', async ({ mcpClient, vscode }) => {
+	test('should find IPC discovery file for current workspace', ({ mcpClient, vscode }) => {
 		const ipcPath = mcpClient.ipcFilePath;
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
@@ -150,7 +150,7 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(wsLower).toContain(workspacePath.toLowerCase());
 	});
 
-	test('should contain valid IPC discovery data', async ({ mcpClient }) => {
+	test('should contain valid IPC discovery data', ({ mcpClient }) => {
 		const ipcPath = mcpClient.ipcFilePath;
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
@@ -165,7 +165,7 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(data.scheme).toBeTruthy();
 	});
 
-	test('should include workspace paths in discovery data', async ({ mcpClient }) => {
+	test('should include workspace paths in discovery data', ({ mcpClient }) => {
 		const ipcPath = mcpClient.ipcFilePath;
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
@@ -177,7 +177,7 @@ test.describe('MCP — IPC Discovery', () => {
 		expect(data.workspacePaths?.length).toBeGreaterThan(0);
 	});
 
-	test('should include IDE metadata in discovery data', async ({ mcpClient }) => {
+	test('should include IDE metadata in discovery data', ({ mcpClient }) => {
 		const ipcPath = mcpClient.ipcFilePath;
 		test.skip(ipcPath == null, 'No IPC discovery file available');
 
@@ -196,18 +196,18 @@ test.describe('MCP — IPC Discovery', () => {
 test.describe('MCP — CLI Installation', () => {
 	test.describe.configure({ mode: 'serial' });
 
-	test('should install gk CLI binary on activation', async ({ mcpClient }) => {
+	test('should install gk CLI binary on activation', ({ mcpClient }) => {
 		expect(existsSync(mcpClient.gkPath)).toBe(true);
 	});
 
-	test('should have correct binary file size', async ({ mcpClient }) => {
+	test('should have correct binary file size', ({ mcpClient }) => {
 		const stats = statSync(mcpClient.gkPath);
 
 		// gk binary should be a substantial executable, not a stub
 		expect(stats.size).toBeGreaterThan(1_000_000);
 	});
 
-	test('should report CLI version via gk version', async ({ mcpClient }) => {
+	test('should report CLI version via gk version', ({ mcpClient }) => {
 		const output = execSync(`"${mcpClient.gkPath}" version`, { encoding: 'utf8' }).trim();
 
 		// Proxy binary returns "CLI Core: X.Y.Z\nCLI Installer: X.Y.Z"
@@ -215,7 +215,7 @@ test.describe('MCP — CLI Installation', () => {
 		expect(output).toMatch(/\d+\.\d+\.\d+/);
 	});
 
-	test('should have executable permissions on Unix', async ({ mcpClient }) => {
+	test('should have executable permissions on Unix', ({ mcpClient }) => {
 		test.skip(process.platform === 'win32', 'Permission check not applicable on Windows');
 
 		const stats = statSync(mcpClient.gkPath);
