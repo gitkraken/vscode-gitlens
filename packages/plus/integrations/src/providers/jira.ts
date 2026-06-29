@@ -233,7 +233,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async searchProviderMyIssues(
 		session: ProviderAuthenticationSession,
 		resources?: JiraOrganizationDescriptor[],
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
 		const myResources = resources ?? (await this.getProviderResourcesForUser(session));
 		if (!myResources) return undefined;
@@ -242,11 +242,15 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		const results: IssueShape[] = [];
 		for (const resource of myResources) {
+			if (cancellation?.aborted) break;
+
 			try {
 				let cursor = undefined;
 				let hasMore = false;
 				let requestCount = 0;
 				do {
+					if (cancellation?.aborted) break;
+
 					const resourceIssues = await api.getIssuesForResourceForCurrentUser(
 						toTokenWithInfo(this.id, session),
 						resource.id,
@@ -305,10 +309,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		this._autolinks = undefined;
 		if (this._session == null) return;
 
-		const storedOrganizations = this.authenticationService.ctx.storage.get(
-			`jira:${this._session.accessToken}:organizations`,
-		);
-		const storedProjects = this.authenticationService.ctx.storage.get(`jira:${this._session.accessToken}:projects`);
+		const storedOrganizations = this.ctx.storage.get(`jira:${this._session.accessToken}:organizations`);
+		const storedProjects = this.ctx.storage.get(`jira:${this._session.accessToken}:projects`);
 
 		let organizations = storedOrganizations?.data?.map((o: JiraOrganizationDescriptor) => ({ ...o }));
 
@@ -317,8 +319,8 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		if (storedOrganizations == null) {
 			organizations = await this.getProviderResourcesForUser(this._session, true);
 			// Clear all other stored organizations and projects when our session changes
-			await this.authenticationService.ctx.storage.deleteWithPrefix('jira');
-			await this.authenticationService.ctx.storage.store(`jira:${this._session.accessToken}:organizations`, {
+			await this.ctx.storage.deleteWithPrefix('jira');
+			await this.ctx.storage.store(`jira:${this._session.accessToken}:organizations`, {
 				v: 1,
 				timestamp: Date.now(),
 				data: organizations,
@@ -330,7 +332,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		if (storedProjects == null && organizations?.length) {
 			projects = await this.getProviderProjectsForResources(this._session, organizations);
-			await this.authenticationService.ctx.storage.store(`jira:${this._session.accessToken}:projects`, {
+			await this.ctx.storage.store(`jira:${this._session.accessToken}:projects`, {
 				v: 1,
 				timestamp: Date.now(),
 				data: projects,

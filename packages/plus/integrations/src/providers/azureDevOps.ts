@@ -9,6 +9,7 @@ import type { Emitter } from '@gitlens/utils/event.js';
 import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationServiceContext } from '../context.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
 	ProviderAuthenticationSession,
@@ -227,7 +228,7 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	protected showMergeErrorMessage(ex: Error): void {
-		this.authenticationService.ctx.hooks?.ui?.onError?.(
+		this.ctx.hooks?.ui?.onError?.(
 			`${ex.message}. Check branch policies, and ensure you have the necessary permissions to merge the pull request.`,
 		);
 	}
@@ -484,13 +485,9 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async providerOnConnect(): Promise<void> {
 		if (this._session == null) return;
 
-		const storedAccount = this.authenticationService.ctx.storage.get(`azure:${this._session.accessToken}:account`);
-		const storedOrganizations = this.authenticationService.ctx.storage.get(
-			`azure:${this._session.accessToken}:organizations`,
-		);
-		const storedProjects = this.authenticationService.ctx.storage.get(
-			`azure:${this._session.accessToken}:projects`,
-		);
+		const storedAccount = this.ctx.storage.get(`azure:${this._session.accessToken}:account`);
+		const storedOrganizations = this.ctx.storage.get(`azure:${this._session.accessToken}:organizations`);
+		const storedProjects = this.ctx.storage.get(`azure:${this._session.accessToken}:projects`);
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
 		let organizations = storedOrganizations?.data?.map((o: AzureOrganizationDescriptor) => ({ ...o }));
@@ -501,8 +498,8 @@ export abstract class AzureDevOpsIntegrationBase<
 			account = await this.getProviderCurrentAccount(this._session);
 			if (account != null) {
 				// Clear all other stored organizations and projects and accounts when our session changes
-				await this.authenticationService.ctx.storage.deleteWithPrefix('azure');
-				await this.authenticationService.ctx.storage.store(`azure:${this._session.accessToken}:account`, {
+				await this.ctx.storage.deleteWithPrefix('azure');
+				await this.ctx.storage.store(`azure:${this._session.accessToken}:account`, {
 					v: 1,
 					timestamp: Date.now(),
 					data: {
@@ -521,7 +518,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		if (storedOrganizations == null) {
 			organizations = await this.getProviderResourcesForUser(this._session, true);
-			await this.authenticationService.ctx.storage.store(`azure:${this._session.accessToken}:organizations`, {
+			await this.ctx.storage.store(`azure:${this._session.accessToken}:organizations`, {
 				v: 1,
 				timestamp: Date.now(),
 				data: organizations,
@@ -533,7 +530,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		if (storedProjects == null && organizations?.length) {
 			projects = await this.getProviderProjectsForResources(this._session, organizations);
-			await this.authenticationService.ctx.storage.store(`azure:${this._session.accessToken}:projects`, {
+			await this.ctx.storage.store(`azure:${this._session.accessToken}:projects`, {
 				v: 1,
 				timestamp: Date.now(),
 				data: projects,
@@ -626,12 +623,13 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 	readonly name: string = 'Azure DevOps Server';
 
 	constructor(
+		ctx: IntegrationServiceContext,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
 		readonly domain: string,
 	) {
-		super(authenticationService, getProvidersApi, didChangeConnection);
+		super(ctx, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}`;
 	}
 

@@ -4,11 +4,6 @@
 // package's internal subpaths. The internal classes (IntegrationService,
 // IntegrationAuthenticationService, etc.) are not part of the public API and
 // may be refactored without semver bumps.
-//
-// The GitLens host adapter ALSO consumes the package through this facade —
-// see `src/container.ts` `integrations` getter. This is what proves the
-// architecture is honest: GitLens is just one consumer of the package, with
-// a richer runtime than an external consumer would supply.
 
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
