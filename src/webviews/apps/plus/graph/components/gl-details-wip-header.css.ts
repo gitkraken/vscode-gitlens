@@ -155,6 +155,11 @@ export const detailsWipHeaderStyles = css`
 		align-items: center;
 	}
 
+	/* Active AI model name in the generating snippet — the gl-tooltip carries the full "provider · model". */
+	.mode-status__model {
+		cursor: help;
+	}
+
 	.mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;

@@ -20,7 +20,7 @@ import {
 	isWipSha,
 	UpdateWipDraftCommand,
 } from '../../../../plus/graph/protocol.js';
-import type { ConflictDetails } from '../../../../rpc/services/types.js';
+import type { AiModelInfo, ConflictDetails } from '../../../../rpc/services/types.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
 import type {
 	CopyCommitPatchEventDetail,
@@ -118,6 +118,20 @@ function formatModeCounts(primary: number, files: number, primaryLabel: 'commits
 		${counts}
 		<code-icon class="mode-status__resume-arrow" icon="arrow-right"></code-icon>
 	</button>`;
+}
+
+/** "<verb> with <model>..." generating snippet for the mode-status row. The model name carries the
+ *  full "provider · model" in a gl-tooltip; falls back to the bare verb when no model is known. */
+function formatGeneratingStatus(verb: 'Composing' | 'Reviewing' | 'Resolving', model: AiModelInfo | undefined) {
+	if (model == null) return `${verb}...`;
+
+	const full = `${model.provider.name} · ${model.name}`;
+	// Wrap in a single element so the `.mode-status` flex `gap` doesn't insert space around the
+	// model name — inside, the verb/name/ellipsis flow as plain inline text.
+	return html`<span class="mode-status__generating"
+		>${verb} with <gl-tooltip content=${full}><span class="mode-status__model">${model.name}</span></gl-tooltip
+		>...</span
+	>`;
 }
 
 declare global {
@@ -1481,7 +1495,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode === 'resolve') {
 			const status =
 				this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.execState : undefined;
-			if (status === 'generating') return 'Resolving...';
+			if (status === 'generating') return formatGeneratingStatus('Resolving', this._state.aiModel.get());
 			if (status === 'error') return 'Error';
 
 			// Complete: show a resolved-files count in the identity row, mirroring compose/review's
@@ -1502,7 +1516,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const status = this.engagedModeStatus?.[mode]?.execState;
 		if (status === 'generating') {
-			return mode === 'compose' ? 'Composing...' : 'Reviewing...';
+			return formatGeneratingStatus(mode === 'compose' ? 'Composing' : 'Reviewing', this._state.aiModel.get());
 		}
 		if (status === 'error') return 'Error';
 

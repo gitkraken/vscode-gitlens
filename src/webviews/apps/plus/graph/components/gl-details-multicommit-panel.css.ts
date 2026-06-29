@@ -64,6 +64,11 @@ export const multiCommitPanelStyles = css`
 		align-items: center;
 	}
 
+	/* Active AI model name in the generating snippet — the gl-tooltip carries the full "provider · model". */
+	.compare-metadata__right .mode-status__model {
+		cursor: help;
+	}
+
 	.compare-metadata__right .mode-status__group code-icon {
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: text-bottom;
