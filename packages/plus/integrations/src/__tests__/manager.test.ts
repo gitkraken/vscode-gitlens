@@ -54,6 +54,30 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 		manager.dispose();
 	});
 
+	test('auth session change refreshes only the matching integration', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+
+		// Instantiating caches each integration in the manager's `_integrations` map, which is what the
+		// authentication-session handler iterates over.
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+
+		let ghRefreshed = 0;
+		let glRefreshed = 0;
+		gh.refresh = () => void ghRefreshed++; // `refresh()` is synchronous `void` — a counter stub is enough
+		gl.refresh = () => void glRefreshed++;
+
+		runtime.fireAuthenticationSessionChange(gh.authProvider.id);
+		assert.equal(ghRefreshed, 1, 'matching integration refreshed');
+		assert.equal(glRefreshed, 0, 'non-matching integration untouched');
+
+		runtime.fireAuthenticationSessionChange('not-a-real-provider');
+		assert.equal(ghRefreshed, 1, 'unknown provider id refreshes nothing');
+
+		manager.dispose();
+	});
+
 	test('manager disposes cleanly and idempotently', () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

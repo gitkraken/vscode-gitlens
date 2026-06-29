@@ -8,6 +8,7 @@ import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationServiceContext } from '../context.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
 	ProviderAuthenticationSession,
@@ -36,12 +37,13 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	readonly name: string = 'Bitbucket Data Center';
 
 	constructor(
+		ctx: IntegrationServiceContext,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 	) {
-		super(authenticationService, getProvidersApi, didChangeConnection);
+		super(ctx, authenticationService, getProvidersApi, didChangeConnection);
 	}
 
 	get domain(): string {
@@ -248,9 +250,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 		const accountStorageKey = md5(this._session.accessToken);
 
-		const storedAccount = this.authenticationService.ctx.storage.get(
-			`${this.storagePrefix}:${accountStorageKey}:account`,
-		);
+		const storedAccount = this.ctx.storage.get(`${this.storagePrefix}:${accountStorageKey}:account`);
 
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
@@ -258,21 +258,18 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			account = await this.getProviderCurrentAccount(this._session);
 			if (account != null) {
 				// Clear all other stored workspaces and repositories and accounts when our session changes
-				await this.authenticationService.ctx.storage.deleteWithPrefix(this.storagePrefix);
-				await this.authenticationService.ctx.storage.store(
-					`${this.storagePrefix}:${accountStorageKey}:account`,
-					{
-						v: 1,
-						timestamp: Date.now(),
-						data: {
-							id: account.id,
-							name: account.name,
-							email: account.email,
-							avatarUrl: account.avatarUrl,
-							username: account.username,
-						},
+				await this.ctx.storage.deleteWithPrefix(this.storagePrefix);
+				await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:account`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: {
+						id: account.id,
+						name: account.name,
+						email: account.email,
+						avatarUrl: account.avatarUrl,
+						username: account.username,
 					},
-				);
+				});
 			}
 		}
 		this._accounts ??= new Map<string, Account | undefined>();

@@ -21,6 +21,7 @@ import type { IntegrationAuthenticationService } from '../authentication/integra
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, RequestClientError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
@@ -82,6 +83,7 @@ export abstract class IntegrationBase<
 	}
 
 	constructor(
+		protected readonly ctx: IntegrationServiceContext,
 		protected readonly authenticationService: IntegrationAuthenticationService,
 		protected readonly getProvidersApi: () => Promise<ProvidersApi>,
 		private readonly didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
@@ -106,7 +108,7 @@ export abstract class IntegrationBase<
 	}
 
 	access(): Promise<boolean> {
-		return this.authenticationService.ctx.account.isTrialOrPaid();
+		return this.ctx.account.isTrialOrPaid();
 	}
 
 	autolinks():
@@ -170,7 +172,7 @@ export abstract class IntegrationBase<
 		let signOut = !options?.currentSessionOnly;
 
 		if (connected && !options?.currentSessionOnly && !options?.silent) {
-			const decision = await this.authenticationService.ctx.hooks?.onConfirmDisconnect?.({
+			const decision = await this.ctx.hooks?.onConfirmDisconnect?.({
 				integrationName: this.name,
 				offerSignOut: this.authenticationService.supports(this.authProvider.id),
 			});
@@ -191,7 +193,7 @@ export abstract class IntegrationBase<
 			// Don't store the disconnected flag if silently disconnecting or disconnecting this only for
 			// this current VS Code session (will be re-connected on next restart)
 			if (!options?.currentSessionOnly && !options?.silent) {
-				void this.authenticationService.ctx.storage.storeWorkspace(this.connectedKey, false).catch();
+				void this.ctx.storage.storeWorkspace(this.connectedKey, false).catch();
 			}
 
 			this._onDidChange.fire();
@@ -246,7 +248,7 @@ export abstract class IntegrationBase<
 
 	async reset(): Promise<void> {
 		await this.disconnect({ silent: true });
-		await this.authenticationService.ctx.storage.deleteWorkspace(this.connectedKey);
+		await this.ctx.storage.deleteWorkspace(this.connectedKey);
 	}
 
 	private skippedNonCloudReported = false;
@@ -258,7 +260,7 @@ export abstract class IntegrationBase<
 		// However this is needed to be tested with PATs, e.g. with a GitLab PAT.
 		if (this._session?.cloud === false && state !== 'connected') {
 			if (this.id !== GitCloudHostIntegrationId.GitHub && !this.skippedNonCloudReported) {
-				this.authenticationService.ctx.hooks?.session?.onRefreshSkipped?.({
+				this.ctx.hooks?.session?.onRefreshSkipped?.({
 					id: this.id,
 					reason: 'skip-non-cloud',
 					cloud: false,
@@ -277,13 +279,13 @@ export abstract class IntegrationBase<
 					await authProvider.deleteSession(this.authProviderDescriptor);
 					// Reset the session and clear our "stay disconnected" flag
 					this._session = undefined;
-					await this.authenticationService.ctx.storage.deleteWorkspace(this.connectedKey);
+					await this.ctx.storage.deleteWorkspace(this.connectedKey);
 				} else {
 					// Only sync if we're not connected and not disabled and don't have pending errors
 					if (
 						this._session != null ||
 						this.requestExceptionCount > 0 ||
-						this.authenticationService.ctx.storage.getWorkspace(this.connectedKey) === false
+						this.ctx.storage.getWorkspace(this.connectedKey) === false
 					) {
 						return;
 					}
@@ -346,7 +348,7 @@ export abstract class IntegrationBase<
 			this.id !== GitCloudHostIntegrationId.GitHub &&
 			!this.missingExpirityReported
 		) {
-			this.authenticationService.ctx.hooks?.session?.onRefreshSkipped?.({
+			this.ctx.hooks?.session?.onRefreshSkipped?.({
 				id: this.id,
 				reason: 'missing-expiry',
 				cloud: this._session?.cloud,
@@ -361,7 +363,7 @@ export abstract class IntegrationBase<
 
 		if (this.requestExceptionCount >= IntegrationBase.requestExceptionLimit && this._session !== null) {
 			if (!options?.silent) {
-				this.authenticationService.ctx.hooks?.ui?.onDisconnectedAfterTooManyFailures?.(this.name);
+				this.ctx.hooks?.ui?.onDisconnectedAfterTooManyFailures?.(this.name);
 			}
 			void this.disconnect({ currentSessionOnly: true });
 		}
@@ -391,11 +393,11 @@ export abstract class IntegrationBase<
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const { createIfNeeded, forceNewSession, source, sync } = options;
 		if (this._session != null) return this._session;
-		if (this.authenticationService.ctx.config.isIntegrationsEnabled?.() === false) return undefined;
+		if (this.ctx.config.isIntegrationsEnabled?.() === false) return undefined;
 
 		if (createIfNeeded || sync) {
-			await this.authenticationService.ctx.storage.deleteWorkspace(this.connectedKey);
-		} else if (this.authenticationService.ctx.storage.getWorkspace(this.connectedKey) === false) {
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
+		} else if (this.ctx.storage.getWorkspace(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -417,7 +419,7 @@ export abstract class IntegrationBase<
 				session = null;
 			}
 		} catch (ex) {
-			await this.authenticationService.ctx.storage.deleteWorkspace(this.connectedKey);
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				return undefined;
@@ -427,14 +429,14 @@ export abstract class IntegrationBase<
 		}
 
 		if (session === undefined && !createIfNeeded && !sync) {
-			await this.authenticationService.ctx.storage.deleteWorkspace(this.connectedKey);
+			await this.ctx.storage.deleteWorkspace(this.connectedKey);
 		}
 
 		this._session = session ?? null;
 		this.smoothifyRequestExceptionCount();
 
 		if (session != null) {
-			await this.authenticationService.ctx.storage.storeWorkspace(this.connectedKey, true);
+			await this.ctx.storage.storeWorkspace(this.connectedKey, true);
 
 			queueMicrotask(() => {
 				this._onDidChange.fire();
@@ -499,7 +501,7 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const issueOrPR = this.authenticationService.ctx.cache.getIssueOrPullRequest(
+		const issueOrPR = this.ctx.cache.getIssueOrPullRequest(
 			link.key,
 			options?.type,
 			resource,
@@ -546,7 +548,7 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const issue = this.authenticationService.ctx.cache.getIssue(
+		const issue = this.ctx.cache.getIssue(
 			id,
 			resource,
 			this,
@@ -586,7 +588,7 @@ export abstract class IntegrationBase<
 
 		const { expiryOverride, ...opts } = options ?? {};
 
-		const currentAccount = await this.authenticationService.ctx.cache.getCurrentAccount(
+		const currentAccount = await this.ctx.cache.getCurrentAccount(
 			this,
 
 			(cacheable: any) => ({
@@ -632,7 +634,7 @@ export abstract class IntegrationBase<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const pr = await this.authenticationService.ctx.cache.getPullRequest(id, resource, this, () => ({
+		const pr = await this.ctx.cache.getPullRequest(id, resource, this, () => ({
 			value: (async () => {
 				try {
 					const result = await this.getProviderPullRequest?.(this._session!, resource, id);

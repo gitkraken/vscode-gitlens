@@ -209,6 +209,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/github.js')
 					).GitHubIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -229,6 +230,7 @@ export class IntegrationService implements Disposable {
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/github.js')
 							).GitHubEnterpriseIntegration(
+								this.ctx,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
@@ -246,6 +248,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/github.js')
 					).GitHubEnterpriseIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -257,6 +260,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/gitlab.js')
 					).GitLabIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -277,6 +281,7 @@ export class IntegrationService implements Disposable {
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/gitlab.js')
 							).GitLabSelfHostedIntegration(
+								this.ctx,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
@@ -294,6 +299,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/gitlab.js')
 					).GitLabSelfHostedIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -305,6 +311,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket.js')
 					).BitbucketIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -325,6 +332,7 @@ export class IntegrationService implements Disposable {
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/bitbucket-server.js')
 							).BitbucketServerIntegration(
+								this.ctx,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
@@ -342,6 +350,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/bitbucket-server.js')
 					).BitbucketServerIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -353,6 +362,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps.js')
 					).AzureDevOpsIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -373,6 +383,7 @@ export class IntegrationService implements Disposable {
 							integration = new (
 								await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps.js')
 							).AzureDevOpsServerIntegration(
+								this.ctx,
 								this.authenticationService,
 								this.getProvidersApi.bind(this),
 								this._onDidChangeIntegrationConnection,
@@ -390,6 +401,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/azureDevOps.js')
 					).AzureDevOpsServerIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -401,6 +413,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/jira.js')
 					).JiraIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -411,6 +424,7 @@ export class IntegrationService implements Disposable {
 					integration = new (
 						await import(/* webpackChunkName: "integrations" */ './providers/linear.js')
 					).LinearIntegration(
+						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
@@ -460,7 +474,7 @@ export class IntegrationService implements Disposable {
 		) as GitCloudHostIntegrationId[];
 		const openRemotesByIntegrationId = new Map<IntegrationIds, ResourceDescriptor[]>();
 		let hasOpenAzureRepository = false;
-		for (const remote of await this.authenticationService.ctx.repositories.getOpenRemotes()) {
+		for (const remote of await this.ctx.repositories.getOpenRemotes()) {
 			const remoteIntegration = await this.getByRemote(remote);
 			if (remoteIntegration == null) continue;
 

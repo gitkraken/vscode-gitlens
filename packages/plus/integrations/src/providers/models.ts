@@ -1091,11 +1091,11 @@ export type GitConfigEntityIdentifier = AnyEntityIdentifierInput & {
 	};
 };
 
-export function isGitHubDotCom(domain: string): boolean {
+export function isGitHubDotCom(domain: string | null | undefined): boolean {
 	return equalsIgnoreCase(domain, 'github.com');
 }
 
-export function isGitLabDotCom(domain: string): boolean {
+export function isGitLabDotCom(domain: string | null | undefined): boolean {
 	return equalsIgnoreCase(domain, 'gitlab.com');
 }
 

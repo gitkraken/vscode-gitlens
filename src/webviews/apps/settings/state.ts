@@ -1,7 +1,7 @@
 import { createContext } from '@lit/context';
 import { computed } from '@lit-labs/signals';
+import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { Config } from '../../../config.js';
-import { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { AiModelInfo, AIState, IntegrationStateInfo } from '../../rpc/services/types.js';
 import type { SettingsScope } from '../../settings/settingsService.js';

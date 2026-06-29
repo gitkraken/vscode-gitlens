@@ -231,7 +231,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			return undefined;
 		}
 
-		const remotes = await this.authenticationService.ctx.repositories.getOpenRemotes();
+		const remotes = await this.ctx.repositories.getOpenRemotes();
 		const workspaceRepos = await nonnullSettled(
 			remotes.map(async (r: GitRemote) => {
 				const integration = await this.authenticationService.getByRemote(r);
@@ -303,12 +303,8 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		const accountStorageKey = md5(this._session.accessToken);
 
-		const storedAccount = this.authenticationService.ctx.storage.get(
-			`${this.storagePrefix}:${accountStorageKey}:account`,
-		);
-		const storedWorkspaces = this.authenticationService.ctx.storage.get(
-			`${this.storagePrefix}:${accountStorageKey}:workspaces`,
-		);
+		const storedAccount = this.ctx.storage.get(`${this.storagePrefix}:${accountStorageKey}:account`);
+		const storedWorkspaces = this.ctx.storage.get(`${this.storagePrefix}:${accountStorageKey}:workspaces`);
 
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
@@ -318,21 +314,18 @@ export class BitbucketIntegration extends GitHostIntegration<
 			account = await this.getProviderCurrentAccount(this._session);
 			if (account != null) {
 				// Clear all other stored workspaces and repositories and accounts when our session changes
-				await this.authenticationService.ctx.storage.deleteWithPrefix(this.storagePrefix);
-				await this.authenticationService.ctx.storage.store(
-					`${this.storagePrefix}:${accountStorageKey}:account`,
-					{
-						v: 1,
-						timestamp: Date.now(),
-						data: {
-							id: account.id,
-							name: account.name,
-							email: account.email,
-							avatarUrl: account.avatarUrl,
-							username: account.username,
-						},
+				await this.ctx.storage.deleteWithPrefix(this.storagePrefix);
+				await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:account`, {
+					v: 1,
+					timestamp: Date.now(),
+					data: {
+						id: account.id,
+						name: account.name,
+						email: account.email,
+						avatarUrl: account.avatarUrl,
+						username: account.username,
 					},
-				);
+				});
 			}
 		}
 		this._accounts ??= new Map<string, Account | undefined>();
@@ -340,14 +333,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		if (storedWorkspaces == null) {
 			workspaces = await this.getProviderResourcesForCurrentUser(this._session, true);
-			await this.authenticationService.ctx.storage.store(
-				`${this.storagePrefix}:${accountStorageKey}:workspaces`,
-				{
-					v: 1,
-					timestamp: Date.now(),
-					data: workspaces,
-				},
-			);
+			await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
+				v: 1,
+				timestamp: Date.now(),
+				data: workspaces,
+			});
 		}
 		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
 		this._workspaces.set(this._session.accessToken, workspaces);

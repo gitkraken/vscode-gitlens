@@ -9,6 +9,7 @@ import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.util
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationServiceContext } from '../context.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -353,12 +354,13 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 	}
 
 	constructor(
+		ctx: IntegrationServiceContext,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 	) {
-		super(authenticationService, getProvidersApi, didChangeConnection);
+		super(ctx, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}` as const;
 	}
 }

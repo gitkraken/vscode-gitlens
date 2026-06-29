@@ -15,6 +15,7 @@ import type { IntegrationManager } from '@gitlens/integrations/index.js';
 import { createIntegrationManager } from '@gitlens/integrations/index.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { AgentService } from './agents/agentService.js';
 import { AgentStatusService } from './agents/agentStatusService.js';
 import { FileAnnotationController } from './annotations/fileAnnotationController.js';

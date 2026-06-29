@@ -106,7 +106,7 @@ export abstract class GitHostIntegration<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const defaultBranch = this.authenticationService.ctx.cache.getRepositoryDefaultBranch(
+		const defaultBranch = this.ctx.cache.getRepositoryDefaultBranch(
 			repo,
 			this,
 			() => ({
@@ -146,7 +146,7 @@ export abstract class GitHostIntegration<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const metadata = this.authenticationService.ctx.cache.getRepositoryMetadata(
+		const metadata = this.ctx.cache.getRepositoryMetadata(
 			repo,
 			this,
 			() => ({
@@ -215,7 +215,7 @@ export abstract class GitHostIntegration<
 
 		const { expiryOverride, ...opts } = options ?? {};
 
-		const pr = this.authenticationService.ctx.cache.getPullRequestForBranch(
+		const pr = this.ctx.cache.getPullRequestForBranch(
 			branch,
 			repo,
 			this,
@@ -256,7 +256,7 @@ export abstract class GitHostIntegration<
 
 		await this.refreshSessionIfExpired(scope);
 
-		const pr = this.authenticationService.ctx.cache.getPullRequestForSha(
+		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,
 			repo,
 			this,

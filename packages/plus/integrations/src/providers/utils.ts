@@ -55,11 +55,11 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 
 	let provider = fromStringToEntityIdentifierProviderType(entity.provider.id);
 	let domain = null;
-	if (provider === EntityIdentifierProviderType.Github && !isGitHubDotCom(entity.provider.domain!)) {
+	if (provider === EntityIdentifierProviderType.Github && !isGitHubDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GithubEnterprise;
 		domain = entity.provider.domain ?? null;
 	}
-	if (provider === EntityIdentifierProviderType.Gitlab && !isGitLabDotCom(entity.provider.domain!)) {
+	if (provider === EntityIdentifierProviderType.Gitlab && !isGitLabDotCom(entity.provider.domain)) {
 		provider = EntityIdentifierProviderType.GitlabSelfHosted;
 		domain = entity.provider.domain ?? null;
 	}

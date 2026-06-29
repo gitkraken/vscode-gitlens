@@ -10,6 +10,7 @@ import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type { IntegrationServiceContext } from '../context.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -385,7 +386,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		// Unfortunately, providers-api does not let us know the exact reason for the error,
 		// so we show the same message to everything.
 		// When we update the library, we can improve the error handling here.
-		const reauthenticate = await this.authenticationService.ctx.hooks?.onReauthenticationRequired?.(
+		const reauthenticate = await this.ctx.hooks?.onReauthenticationRequired?.(
 			`${ex.message}. Would you like to try reauthenticating to provide additional access? Your token needs to have the 'api' scope to perform merge.`,
 		);
 
@@ -460,12 +461,13 @@ export class GitLabSelfHostedIntegration extends GitLabIntegrationBase<GitSelfMa
 	}
 
 	constructor(
+		ctx: IntegrationServiceContext,
 		authenticationService: IntegrationAuthenticationService,
 		getProvidersApi: () => Promise<ProvidersApi>,
 		didChangeConnection: Emitter<IntegrationConnectionChangeEvent>,
 		private readonly _domain: string,
 	) {
-		super(authenticationService, getProvidersApi, didChangeConnection);
+		super(ctx, authenticationService, getProvidersApi, didChangeConnection);
 		this.key = `${this.id}:${this.domain}` as const;
 	}
 }
