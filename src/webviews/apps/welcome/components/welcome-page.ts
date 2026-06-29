@@ -237,7 +237,7 @@ const walkthroughSteps: WalkthroughStep[] = [
 				and model to fit your needs.
 			</p>
 			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.showComposer">Compose Commits with AI</gl-button>
+				<gl-button href="command:gitlens.welcome.showComposer">Compose Commits</gl-button>
 			</div>
 		`,
 	},
@@ -383,7 +383,7 @@ const graphWalkthroughSteps: GraphWalkthroughStep[] = [
 	{
 		id: 'graph-ai-review',
 		graphWalkthroughKey: 'graphAiReview',
-		title: 'Review changes with AI in the details panel',
+		title: 'Review changes in the details panel',
 		body: html`
 			<p>
 				The new Review mode in the details panel reads through any commits or WIP and surfaces severity-tagged

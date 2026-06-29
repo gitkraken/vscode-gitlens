@@ -3773,6 +3773,24 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/review/discarded
+
+> Sent when the user discards a completed review from the ready-state footer
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/review/generateFocusArea/completed
 
 > Sent when a per-focus-area review (two-pass) generation completes successfully

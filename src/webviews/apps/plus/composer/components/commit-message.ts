@@ -309,7 +309,7 @@ export class CommitMessage extends LitElement {
 							class="commit-message__ai-button"
 							appearance="toolbar"
 							?disabled=${this.generating}
-							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
+							.tooltip=${this.generating ? 'Generating...' : 'Generate Commit Message'}
 							@click=${() => this.onGenerateCommitMessageClick()}
 						>
 							<code-icon
@@ -364,7 +364,7 @@ export class CommitMessage extends LitElement {
 							class="commit-message__ai-button"
 							appearance="toolbar"
 							?disabled=${this.generating}
-							.tooltip=${this.generating ? 'Generating...' : 'Generate commit message with AI'}
+							.tooltip=${this.generating ? 'Generating...' : 'Generate Commit Message'}
 							@click=${() => this.onGenerateCommitMessageClick()}
 						>
 							<code-icon

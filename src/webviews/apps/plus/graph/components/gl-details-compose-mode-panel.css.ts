@@ -159,11 +159,13 @@ export const composeModePanelStyles = css`
 	.compose-plan__commit-all {
 		display: flex;
 		flex: none;
+		gap: var(--gl-space-8);
 		padding: var(--gl-space-6) var(--gl-space-12);
 	}
 
-	.compose-plan__commit-all > gl-button {
-		width: 100%;
+	.compose-plan__commit-all > gl-button[full] {
+		flex: 1;
+		min-width: 0;
 	}
 
 	.compose-commit {

@@ -583,6 +583,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow.cancelOperation(mode);
 	};
 
+	/** Handler for `compose-discard` — fired by the Discard button on a ready compose plan.
+	 *  Tears down the engaged compose operation and exits compose mode, returning to plain WIP
+	 *  details. The user's working-tree changes are untouched; only the proposed plan is discarded. */
+	private handleDiscardMode = (): void => {
+		if (this._state.activeMode.get() !== 'compose') return;
+
+		this.suppressContentOverflow();
+		this._actions.sendTelemetryEvent('graphDetails/compose/closed');
+		this._workflow.compose.discard();
+	};
+
 	/** External entry point — invoked when the extension requests entering compare mode with
 	 *  explicit left/right refs (e.g. from a sidebar tree compare action). The current graph
 	 *  selection is left untouched; both sides of the comparison are driven by the supplied
@@ -1844,7 +1855,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private renderFilesLoading() {
 		return html`<div class="commit-panel__files-loading" aria-busy="true">
 			<code-icon icon="loading" modifier="spin"></code-icon>
-			<span>Loading…</span>
+			<span>Loading...</span>
 		</div>`;
 	}
 
@@ -1885,7 +1896,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const agentStatusPosition = this._agentStatusSplitPosition ?? agentStatusDefaultPct;
 		// `--auto-size` (fit-content fallback) applies only in collapsed/partial states — the
 		// section is non-draggable there and the intent is "snug to content". Expanded never uses
-		// it: the split-panel's default grid template (`min(--_start-size, …)`) reflects the
+		// it: the split-panel's default grid template (`min(--_start-size, ...)`) reflects the
 		// splitter position directly.
 		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
@@ -2164,6 +2175,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				);
 			}}
 			@compose-cancel=${this.handleCancelMode}
+			@compose-discard=${this.handleDiscardMode}
 			@compose-commit-all=${(e: CustomEvent<{ includedCommitIds?: readonly string[] }>) =>
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
 			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
@@ -2607,6 +2619,31 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				});
 			}}
 			@review-cancel=${this.handleCancelMode}
+			@review-discard=${() => {
+				// Clamp content overflow during the results→plain-view swap so the panel doesn't jump.
+				this.suppressContentOverflow();
+				this._workflow.review.discard();
+			}}
+			@review-refine=${(e: CustomEvent<{ prompt?: string }>) => {
+				// Same model gate as the initial run. Refine re-reviews the same scope that produced
+				// the current findings — in the ready state the scope picker isn't mounted, so
+				// `panel.selectedIds` is undefined and `runReview` falls back to the stored scope.
+				if (this._state.aiModel.get() == null) {
+					this._actions.switchAIModel('review');
+					return;
+				}
+
+				const panel = this.findReviewModePanel();
+				const excludedFiles = panel?.excludedFiles.size ? [...panel.excludedFiles] : undefined;
+				this._workflow.runReview(
+					this.effectiveRepoPath,
+					e.detail?.prompt,
+					excludedFiles,
+					this.getCurrentScopeFilesCount(),
+					panel?.selectedIds,
+					scopeItems ?? undefined,
+				);
+			}}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}

@@ -68,7 +68,7 @@ export const reviewModePanelStyles = css`
 	   actions reachable regardless of scroll position. Send-to-AI is the primary action and
 	   stretches to fill the row; Copy is a compact icon-only secondary button trailing it. */
 
-	/* Send (primary) + Copy (icon-only secondary) sit as a centered, adjacent pair. */
+	/* Send (primary) + Copy + Discard sit as a centered, adjacent group. */
 	.review-footer {
 		display: flex;
 		flex: none;
@@ -76,7 +76,6 @@ export const reviewModePanelStyles = css`
 		align-items: center;
 		justify-content: center;
 		padding: var(--gl-space-8) var(--gl-space-12);
-		background: var(--gl-metadata-bar-bg, transparent);
 		border-top: var(--gl-border-width) solid var(--gl-metadata-bar-border, var(--vscode-widget-border));
 	}
 

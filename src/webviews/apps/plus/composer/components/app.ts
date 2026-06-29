@@ -1916,7 +1916,7 @@ export class ComposerApp extends LitElement {
 			key: `${onboardingKey}-compose`,
 			element: () => this.commitsPanel.autoComposeSection!,
 			popover: {
-				title: 'Auto Compose Commits with AI',
+				title: 'Auto Compose Commits',
 				description:
 					'Allow AI to organize your working changes into well-formed commits with clear messages and descriptions that help reviewers. <br><br> You can change which model to use and add custom instructions.',
 			},

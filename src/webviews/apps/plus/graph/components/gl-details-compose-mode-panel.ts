@@ -246,6 +246,10 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.dispatchEvent(new CustomEvent('compose-cancel', { bubbles: true, composed: true }));
 	};
 
+	private handleDiscard = (): void => {
+		this.dispatchEvent(new CustomEvent('compose-discard', { bubbles: true, composed: true }));
+	};
+
 	private renderCancelButton() {
 		return html`<gl-button class="compose-cancel" appearance="secondary" @click=${this.handleCancel}
 			>Cancel</gl-button
@@ -512,6 +516,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			<gl-button full ?disabled=${includedCount === 0} @click=${this.handleCommitAll}
 				>${commitButtonLabel}</gl-button
 			>
+			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
 		</div>`;
 
 		const listEl = html`<div class="compose-plan__list scrollable">

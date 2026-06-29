@@ -308,7 +308,20 @@ export class GlDetailsReviewModePanel extends LitElement {
 			<div class="review-results scrollable">
 				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>
-			${this.renderReadyFooter()}`;
+			${this.renderReadyFooter()}
+			<gl-ai-input
+				class="review-action-input"
+				multiline
+				active
+				rows="2"
+				button-label="Refine"
+				busy-label="Reviewing changes…"
+				event-name="review-refine"
+				placeholder='Refine — e.g. "Also check for error handling"'
+				.recall=${this.lastPrompt}
+			>
+				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+			</gl-ai-input>`;
 	}
 
 	private renderReadyFooter() {
@@ -333,6 +346,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<code-icon icon="copy"></code-icon>
 				</gl-button>
 			</gl-copy-container>
+			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
 		</div>`;
 	}
 
@@ -567,6 +581,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	private handleCancel = (): void => {
 		this.dispatchEvent(new CustomEvent('review-cancel', { bubbles: true, composed: true }));
+	};
+
+	private handleDiscard = (): void => {
+		this.dispatchEvent(new CustomEvent('review-discard', { bubbles: true, composed: true }));
 	};
 
 	private handleForward = (): void => {

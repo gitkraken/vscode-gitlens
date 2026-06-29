@@ -63,7 +63,7 @@ export class ActionChip extends LitElement {
 
 			.chip {
 				display: inline-flex;
-				gap: var(--gl-space-2);
+				gap: var(--gl-space-4);
 				align-items: center;
 				justify-content: center;
 				min-width: 2rem;
@@ -97,6 +97,12 @@ export class ActionChip extends LitElement {
 				padding-inline-end: var(--gl-space-2);
 				vertical-align: middle;
 				text-transform: var(--chip-text-transform, capitalize);
+			}
+
+			/* Optically center the label against the icon — text sits slightly low in its line-box
+			   under flex centering, so nudge it up a hair. Excludes the suffix icon (centered fine). */
+			::slotted(:not([slot='suffix'])) {
+				margin-block-start: -0.1rem;
 			}
 
 			/* Drop the trailing inline padding for suffix-slotted icons — the asymmetric box

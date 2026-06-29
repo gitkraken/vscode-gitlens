@@ -880,6 +880,13 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 			this.actions.resources.review.mutate(enriched);
 		},
+		// Destructive discard from the ready state — throw away the findings and exit to the plain
+		// view. Review produces read-only findings with no host session (unlike resolve), so
+		// `destroyEngagedOperation` is the complete teardown: abort + remove entry + reset + hide.
+		discard: (): void => {
+			this.actions.sendTelemetryEvent('graphDetails/review/discarded');
+			this.destroyEngagedOperation('review');
+		},
 	};
 
 	runReview(
@@ -920,6 +927,11 @@ export class DetailsWorkflowController implements ReactiveController {
 	// region Compose workflow
 
 	readonly compose = {
+		// Discard a ready plan and exit compose mode — full teardown back to plain WIP details.
+		// Working-tree changes are untouched; only the in-memory plan + mode state are dropped.
+		discard: (): void => {
+			this.destroyEngagedOperation('compose');
+		},
 		back: (): void => {
 			// See `review.back` for rationale on the conditional transition. The original code
 			// transitioned the entry to `'backed'` unconditionally even when no snapshot was

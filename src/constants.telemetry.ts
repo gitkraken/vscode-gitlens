@@ -341,6 +341,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/review/closed': GraphDetailsReviewLifecycleEvent;
 	/** Sent when the user restarts a completed review (Back from result) */
 	'graphDetails/review/restarted': GraphDetailsReviewLifecycleEvent;
+	/** Sent when the user discards a completed review from the ready-state footer */
+	'graphDetails/review/discarded': GraphDetailsReviewLifecycleEvent;
 	/** Sent when a review generation completes successfully */
 	'graphDetails/review/generateReview/completed': GraphDetailsReviewGenerateReviewCompletedEvent;
 	/** Sent when a review generation is cancelled (user-clicked Cancel or host-side abort) */

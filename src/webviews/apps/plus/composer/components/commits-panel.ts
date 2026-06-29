@@ -1260,7 +1260,7 @@ export class CommitsPanel extends LitElement {
 				${when(
 					!this.hasUsedAutoCompose && !this.isRecomposeLocked,
 					() => html`
-						<h4 class="auto-compose__header">Auto-Compose Commits with AI</h4>
+						<h4 class="auto-compose__header">Auto-Compose Commits</h4>
 						<p class="auto-compose__description">
 							Let AI organize your changes into well-formed commits with clear messages and descriptions
 							that help reviewers.
@@ -1270,7 +1270,7 @@ export class CommitsPanel extends LitElement {
 				${when(
 					this.isRecomposeLocked,
 					() => html`
-						<h4 class="auto-compose__header">Recompose Commits with AI</h4>
+						<h4 class="auto-compose__header">Recompose Commits</h4>
 						<p class="auto-compose__description">
 							Let AI reorganize work into logical commits with clear messages and descriptions that help
 							reviewers.

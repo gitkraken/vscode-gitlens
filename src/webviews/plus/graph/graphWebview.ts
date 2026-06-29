@@ -2392,8 +2392,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						this.discardResolveSession(repoPath);
 						void window.showInformationMessage(
 							skipped > 0
-								? `Resolved ${pluralize('file', toApply.length)} with AI — ${skipped} skipped (no longer conflicted).`
-								: `Resolved ${pluralize('file', toApply.length)} with AI.`,
+								? `Resolved ${pluralize('file', toApply.length)} — ${skipped} skipped (no longer conflicted).`
+								: `Resolved ${pluralize('file', toApply.length)}.`,
 						);
 						return skipped > 0
 							? { success: true, warning: `${skipped} file(s) were skipped (no longer conflicted).` }

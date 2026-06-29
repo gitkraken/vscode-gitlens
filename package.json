@@ -29219,7 +29219,7 @@
 					{
 						"id": "ai-features",
 						"title": "Commit smarter, not harder",
-						"description": "Let **GitKraken AI** turn your changes into clear, logical commits - making reviews efficient and keeping your commit history clean.\n\n**- Auto-Compose Commits:** instantly generate a sequence of commits with descriptive summaries in an interactive editor\n**- Explain Commits and Branches:** understand changes without wasting time diving into the diffs\n**- Create PR Titles & Descriptions:** save reviewers 10+ minutes per review\n\nStay in control - review and edit before committing.\nSee how effortless documenting your work can be, all without leaving VS Code.\n\n[Compose Commits with AI](command:gitlens.walkthrough.showComposer)",
+						"description": "Let **GitKraken AI** turn your changes into clear, logical commits - making reviews efficient and keeping your commit history clean.\n\n**- Auto-Compose Commits:** instantly generate a sequence of commits with descriptive summaries in an interactive editor\n**- Explain Commits and Branches:** understand changes without wasting time diving into the diffs\n**- Create PR Titles & Descriptions:** save reviewers 10+ minutes per review\n\nStay in control - review and edit before committing.\nSee how effortless documenting your work can be, all without leaving VS Code.\n\n[Compose Commits](command:gitlens.walkthrough.showComposer)",
 						"media": {
 							"markdown": "walkthroughs/welcome/ai-features.md"
 						},

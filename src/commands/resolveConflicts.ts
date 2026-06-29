@@ -61,7 +61,7 @@ export class ResolveConflictsCommand extends GlCommandBase {
 			// works from the Command Palette where there's no active editor.
 			let repoPath = args?.repoPath;
 			if (repoPath == null) {
-				const repo = await getRepositoryOrShowPicker(this.container, 'Resolve Conflicts with AI');
+				const repo = await getRepositoryOrShowPicker(this.container, 'Resolve Conflicts');
 				repoPath = repo?.path;
 			}
 			if (repoPath == null) return;
@@ -79,7 +79,7 @@ export class ResolveConflictsCommand extends GlCommandBase {
 			});
 		} catch (ex) {
 			Logger.error(ex, 'ResolveConflictsCommand', 'execute');
-			void showGenericErrorMessage('Unable to resolve conflicts with AI');
+			void showGenericErrorMessage('Unable to resolve conflicts');
 		}
 	}
 }
