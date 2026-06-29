@@ -18,10 +18,12 @@ import {
 	applyComposePlan,
 	cancellationTokenToSignal,
 	composePlan,
+	REDACTED_HUNK_CONTENT,
 	refinePlan,
 } from '../../../../plus/coretools/compose/utils.js';
+import type { ComposerHunk } from '../../composer/protocol.js';
 import type { ScopeSelection } from '../graphService.js';
-import { graphComposeStashPrefix } from './utils.js';
+import { graphComposeStashPrefix, toComposerHunk } from './utils.js';
 
 export interface GeneratePlanForGraphDetailsInput {
 	svc: GitRepositoryService;
@@ -333,6 +335,64 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		} finally {
 			this._cache.delete(input.cacheKey);
 		}
+	}
+
+	/**
+	 * Read the hunks belonging to a cached draft commit, converted to GitLens's `ComposerHunk`
+	 * shape and with content masked for any file in the original compose run's `aiExcludedFiles`.
+	 *
+	 * Used by the per-commit message-regen flow: the AI gets a masked view of excluded content
+	 * that matches the original compose run's prompt, so single-commit regen doesn't quietly
+	 * bypass an aiexclude rule the original compose honored.
+	 *
+	 * Returns `undefined` when the cache entry or commit id isn't found.
+	 */
+	getMaskedHunksForCachedCommit(
+		cacheKey: string,
+		commitId: string,
+	): { hunks: ComposerHunk[]; currentMessage: string } | undefined {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return undefined;
+
+		const commit = cached.plan.allOrderedCommits.find(c => c.id === commitId);
+		if (commit == null) return undefined;
+
+		const indexSet = new Set(commit.hunkIndices);
+		const aiExcluded = cached.aiExcludedFiles?.length ? new Set(cached.aiExcludedFiles) : undefined;
+
+		const hunks: ComposerHunk[] = [];
+		for (const h of cached.sourceHunks) {
+			if (!indexSet.has(h.index)) continue;
+
+			const composerHunk = toComposerHunk(h);
+			if (aiExcluded?.has(h.fileName) || (h.originalFileName != null && aiExcluded?.has(h.originalFileName))) {
+				composerHunk.content = REDACTED_HUNK_CONTENT;
+			}
+			hunks.push(composerHunk);
+		}
+
+		return { hunks: hunks, currentMessage: commit.message };
+	}
+
+	/**
+	 * Mutate the cached plan's commit message in place. `branches[*].branchGroup.commits[*]`
+	 * and `grouping.branches[*].commits[*]` share the same object references with
+	 * `allOrderedCommits[*]` (the library builds the latter via `flatMap` over the former),
+	 * so one assignment propagates to every read site. Subsequent `refinePlan` calls' locked-
+	 * commit substitution will pick up the new message, and `applyComposePlan` writes it to
+	 * the resulting commit.
+	 *
+	 * Returns `false` when the cache entry or commit id isn't found.
+	 */
+	updateCachedPlanCommitMessage(cacheKey: string, commitId: string, message: string): boolean {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const commit = cached.plan.allOrderedCommits.find(c => c.id === commitId);
+		if (commit == null) return false;
+
+		commit.message = message;
+		return true;
 	}
 
 	private async resolveGraphScope(

@@ -189,6 +189,14 @@ export type ComposeResult =
 	| { error: { message: string } }
 	| { cancelled: true };
 
+/** Result of {@link GraphInspectService.regenerateProposedCommitMessage}. On success the host has
+ *  already mutated its cached plan; the new message is returned for the webview to swap into its
+ *  rendered resource. */
+export type RegenerateProposedCommitMessageResult =
+	| { result: { commitId: string; message: string } }
+	| { error: { message: string } }
+	| { cancelled: true };
+
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
 	base: ComposeBaseCommit;
@@ -381,6 +389,23 @@ export interface GraphInspectService {
 		options?: ComposeChangesOptions,
 	): Promise<ComposeResult>;
 	commitCompose(repoPath: string, plan: ComposeCommitPlan): Promise<CommitResult>;
+	/**
+	 * Regenerate the commit message for a single draft commit in the cached plan identified
+	 * by `cacheKey`. Uses GitLens's internal `ai.actions.generateCommitMessage` against a patch
+	 * rebuilt from the cached hunks (with AI-excluded file content re-masked, matching the
+	 * convention of the original compose run). The host mutates the cached plan's
+	 * `allOrderedCommits[i].message` in place so subsequent refines pick up the new message
+	 * via the locked-commit substitution path, and so apply uses the regenerated message.
+	 *
+	 * Independent of hunk assignments and other commits' messages — only the targeted commit's
+	 * message field changes.
+	 */
+	regenerateProposedCommitMessage(
+		repoPath: string,
+		cacheKey: string,
+		commitId: string,
+		signal?: AbortSignal,
+	): Promise<RegenerateProposedCommitMessageResult>;
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
 	 *  fires when no compose is in flight (entry/exit clearing). */
 	readonly onComposeProgress: RpcEventSubscription<ComposeProgressUpdate | undefined>;

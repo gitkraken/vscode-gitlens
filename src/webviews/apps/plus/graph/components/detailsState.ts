@@ -426,6 +426,11 @@ function createTransientState() {
 	// engagement-local — it carries across refine rounds for the active plan but clears when
 	// the user exits compose mode or the plan is committed.
 	const composeLockedCommitIds = signal<ReadonlySet<string>>(new Set());
+	// Commit id currently regenerating its message via the per-commit sparkle button. Drives the
+	// in-row spinner in `renderProposedCommit` and gates concurrent regen / refine / commit-all
+	// in the panel. One in-flight regen at a time (matches the composer webview's convention).
+	// Cleared on RPC resolve / reject / cancel, on mode exit, and on plan replacement (refine).
+	const composeRegeneratingCommitId = signal<string | undefined>(undefined);
 
 	// Compare-mode UI settings (not fetched data — user's interactive choices while in
 	// compare mode)
@@ -512,6 +517,7 @@ function createTransientState() {
 		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
 		composeCurrentCacheKey: composeCurrentCacheKey,
 		composeLockedCommitIds: composeLockedCommitIds,
+		composeRegeneratingCommitId: composeRegeneratingCommitId,
 
 		branchCompareLeftRef: branchCompareLeftRef,
 		branchCompareLeftRefType: branchCompareLeftRefType,

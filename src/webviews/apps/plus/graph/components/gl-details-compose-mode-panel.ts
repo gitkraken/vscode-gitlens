@@ -52,6 +52,15 @@ export interface ComposeLockToggleDetail {
 	locked: boolean;
 }
 
+/** Event detail for the per-commit "regenerate message" button. The parent routes this back to
+ *  the workflow controller, which calls the host to regenerate just this commit's message via
+ *  GitLens's internal `ai.actions.generateCommitMessage` against the cached plan's hunks for
+ *  this commit. The host mutates the cached plan in place so subsequent refine + apply pick up
+ *  the new message; the controller patches the resource/registry so the rendered plan does too. */
+export interface ComposeRegenMessageDetail {
+	commitId: string;
+}
+
 /** Event detail for "Commit All / Commit N" — when `includedCommitIds` is undefined, all
  *  commits in the displayed plan are applied; when set, only those ids are applied and the
  *  rest become unstaged workdir changes (library leftover-patch path). */
@@ -185,6 +194,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 	 *  toggling fires `compose-lock-toggle` which the orchestrator routes back into the signal. */
 	@property({ type: Object, attribute: false })
 	lockedCommitIds: ReadonlySet<string> = new Set();
+
+	/** Commit id currently regenerating its message (sparkle button → spinner). Pushed by the
+	 *  orchestrator from `state.composeRegeneratingCommitId`. Drives the in-row icon swap and
+	 *  is read here to gate concurrent regen clicks across the plan. */
+	@property({ attribute: false })
+	regeneratingCommitId?: string;
 
 	get excludedFiles(): ReadonlySet<string> {
 		return this._excludedFiles;
@@ -601,6 +616,21 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		const ariaState = [isLocked ? 'locked' : '', isExcluded ? 'excluded' : ''].filter(Boolean).join(', ');
 
+		// Per-commit message regen gate. Disabled when AI isn't configured (the existing flow's
+		// model-picker entry point is on the bigger Compose/Refine input — keep this button
+		// disabled rather than hijack it to open the picker), while the panel is loading/applying
+		// any other compose action, and while a regen for *another* commit is in flight.
+		const isRegeneratingThis = this.regeneratingCommitId === commit.id;
+		const isRegeneratingOther = this.regeneratingCommitId != null && !isRegeneratingThis;
+		const regenBlocked = this.aiModel == null || this.status === 'loading' || this.applying || isRegeneratingOther;
+		const regenDisabled = regenBlocked && !isRegeneratingThis;
+		const regenLabel =
+			this.aiModel == null
+				? 'AI model required to regenerate commit messages'
+				: isRegeneratingThis
+					? 'Regenerating commit message…'
+					: 'Regenerate commit message';
+
 		return html`<div
 			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isLocked
 				? 'compose-commit--locked'
@@ -619,12 +649,34 @@ export class GlDetailsComposeModePanel extends LitElement {
 		>
 			<span class="compose-commit__num">${num}</span>
 			<div class="compose-commit__info">
-				<gl-popover class="compose-commit__message" placement="bottom-start" trigger="hover">
-					<span slot="anchor" class="compose-commit__message-content"
-						>${this.renderCommitMessageInline(commit.message)}</span
-					>
-					<gl-markdown slot="content" .markdown=${commit.message}></gl-markdown>
-				</gl-popover>
+				<div class="compose-commit__message-row">
+					<gl-popover class="compose-commit__message" placement="bottom-start" trigger="hover">
+						<span slot="anchor" class="compose-commit__message-content"
+							>${this.renderCommitMessageInline(commit.message)}</span
+						>
+						<gl-markdown slot="content" .markdown=${commit.message}></gl-markdown>
+					</gl-popover>
+					<gl-tooltip placement="left">
+						<gl-button
+							class="compose-commit__action compose-commit__action--regen"
+							appearance="toolbar"
+							aria-label=${regenLabel}
+							?disabled=${regenDisabled}
+							@click=${(e: Event) => {
+								e.stopPropagation();
+								if (regenBlocked) return;
+
+								this.handleRegenerateMessage(commit.id);
+							}}
+						>
+							<code-icon
+								.icon=${isRegeneratingThis ? 'loading' : 'sparkle'}
+								.modifier=${isRegeneratingThis ? 'spin' : ''}
+							></code-icon>
+						</gl-button>
+						<span slot="content">${regenLabel}</span>
+					</gl-tooltip>
+				</div>
 				<span class="compose-commit__stats">
 					${pluralize('file', commit.files.length)}
 					<span class="compose-commit__additions">+${commit.additions}</span>
@@ -843,6 +895,16 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent<ComposeLockToggleDetail>('compose-lock-toggle', {
 				detail: { commitId: commitId, locked: locked },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private handleRegenerateMessage(commitId: string): void {
+		this.dispatchEvent(
+			new CustomEvent<ComposeRegenMessageDetail>('compose-regen-message', {
+				detail: { commitId: commitId },
 				bubbles: true,
 				composed: true,
 			}),

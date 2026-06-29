@@ -1066,6 +1066,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		invalidateContinuation: (): void => {
 			this.actions.state.composeCurrentCacheKey.set(undefined);
 			this.actions.state.composeLockedCommitIds.set(new Set());
+			// Drop any in-flight per-commit message regen handle too. The RPC's own
+			// `finally` clears it, but an anchor switch can leave the signal pointing at
+			// a commit that no longer belongs to the panel's current plan.
+			this.actions.state.composeRegeneratingCommitId.set(undefined);
 		},
 		// Wraps `composeCommitAll` so the registry entry stays in sync with the resource on
 		// apply failure. Without this, the action mutates only the resource (legacy of the
@@ -1130,6 +1134,121 @@ export class DetailsWorkflowController implements ReactiveController {
 			// return-visit doesn't auto-restore compose on this anchor.
 			this.removeRunningOperation(anchorKey(engagedAnchor), 'compose');
 			this.forgetMode(engagedAnchor);
+		},
+		/**
+		 * Per-commit message regeneration. Calls the host's `regenerateProposedCommitMessage`
+		 * RPC against the cached plan's current cache key, then patches just the targeted
+		 * commit's `message` into both the resource and the engaged registry entry so the
+		 * panel mapping (entry's `result` shadows the resource) reflects the new message
+		 * immediately.
+		 *
+		 * The host also mutates its own cached plan; that keeps refine continuation honest —
+		 * a later refine sees the regenerated message in `priorPlan` and (if the commit is
+		 * locked) the library's locked-commit substitution preserves it verbatim.
+		 *
+		 * Concurrency: one in-flight regen at a time via `composeRegeneratingCommitId`. A
+		 * second click while busy is dropped; the panel also disables the icon during refine /
+		 * applying / loading states.
+		 */
+		regenerateCommitMessage: async (commitId: string): Promise<void> => {
+			if (!commitId) return;
+
+			// Drop the click if another regen is already in flight — the panel's render is the
+			// primary gate (disabled icon), but a second message can race the disabled state.
+			if (this.actions.state.composeRegeneratingCommitId.get() != null) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			// Capture the engaged entry up front — an anchor switch / mode exit mid-call
+			// invalidates it; we'll re-resolve later and bail if it's gone.
+			const engagedAnchor = this.currentAnchor();
+			const engagedKey = anchorKey(engagedAnchor);
+
+			this.actions.state.composeRegeneratingCommitId.set(commitId);
+			const startedAt = performance.now();
+			try {
+				const result = await this.actions.services.graphInspect.regenerateProposedCommitMessage(
+					repoPath,
+					cacheKey,
+					commitId,
+					// No per-call abort signal yet — the host owns cancellation via its own
+					// `_aiCancellations` registry, and the user can't currently cancel a regen
+					// individually. Add an AbortController here if per-commit cancel becomes a
+					// requirement.
+					undefined,
+				);
+				if (this._disconnected) return;
+
+				// User exited compose / switched anchors while the call was in flight. The
+				// engaged entry no longer applies; drop the result rather than write into a
+				// foreign state. The host has already mutated its own cache — benign on next
+				// compose run (cache is per-repo and replaced on each generate).
+				const stillEngaged =
+					this.actions.state.activeMode.get() === 'compose' &&
+					this.actions.state.activeModeRepoPath.get() === repoPath &&
+					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+				if (!stillEngaged) return;
+
+				if ('cancelled' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+						'failure.reason': 'cancelled',
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+				if ('error' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+						'failure.reason': 'error',
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				// Patch the resource. The resource's value is the source of truth for the
+				// post-engagement projection; the registry entry's result shadows it for the
+				// panel mapping, so we update both.
+				const currentValue = this.actions.resources.compose.value.get();
+				if (currentValue == null || !('result' in currentValue)) return;
+
+				const patchedCommits = currentValue.result.commits.map(c =>
+					c.id === result.result.commitId ? { ...c, message: result.result.message } : c,
+				);
+				const patched = {
+					...currentValue,
+					result: { ...currentValue.result, commits: patchedCommits },
+				};
+				this.actions.resources.compose.mutate(patched);
+
+				const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+				if (entry?.execState === 'complete') {
+					this.registerRunningOperation({ ...entry, result: patched });
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/completed', {
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/regenerateMessage/failed', {
+					'failure.reason': 'error',
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			} finally {
+				if (!this._disconnected) {
+					// Only clear when we're still the in-flight regen — a parallel run (e.g.
+					// future per-commit concurrency) shouldn't have its handle stomped by a
+					// settling earlier call. Today only one is in flight at a time, so this
+					// reduces to a simple clear; the equality guard documents the invariant.
+					if (this.actions.state.composeRegeneratingCommitId.get() === commitId) {
+						this.actions.state.composeRegeneratingCommitId.set(undefined);
+					}
+				}
+			}
 		},
 	};
 

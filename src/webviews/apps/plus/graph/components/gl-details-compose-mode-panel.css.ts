@@ -196,6 +196,22 @@ export const composeModePanelStyles = css`
 		min-width: 0;
 	}
 
+	/* Message + per-commit regen icon share a row. The popover flexes to fill; the icon stays
+	   pinned at the trailing edge as a compact toolbar button. Without an explicit min-width:0
+	   on the popover, the icon would push the text past the row's edge instead of letting it
+	   ellipsize. */
+	.compose-commit__message-row {
+		display: flex;
+		align-items: center;
+		gap: var(--gl-space-4);
+		min-width: 0;
+	}
+
+	.compose-commit__message-row gl-popover.compose-commit__message {
+		flex: 1;
+		min-width: 0;
+	}
+
 	/* Commit message — single-line summary with a dimmed body continuation (graph-row style).
 	   The gl-popover anchor carries the inline message; hover reveals the full markdown. */
 	gl-popover.compose-commit__message {
@@ -266,6 +282,24 @@ export const composeModePanelStyles = css`
 		--button-gap: 0;
 		--code-icon-size: 1.2rem;
 		--code-icon-v-align: middle;
+	}
+
+	/* Regen-message icon — lives inline with the commit message (not in the right-side actions
+	   cluster) and stays subtle: dimmed by default, full opacity on hover/focus. The spinning
+	   icon during regen carries enough visual weight without a colored fill, so this variant
+	   keeps the toolbar-button look and avoids competing with the lock/include accent colors. */
+	.compose-commit__action--regen {
+		flex-shrink: 0;
+		opacity: 0.65;
+	}
+
+	.compose-commit__action--regen:hover:not([disabled]),
+	.compose-commit__action--regen:focus-within:not([disabled]) {
+		opacity: 1;
+	}
+
+	.compose-commit__action--regen[disabled] {
+		opacity: 0.35;
 	}
 
 	/* Lock toggle.

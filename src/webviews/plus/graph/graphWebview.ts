@@ -2052,6 +2052,76 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						composeTools.discardCachedPlan(cacheKey);
 					}
 				},
+				regenerateProposedCommitMessage: async (repoPath, cacheKey, commitId, signal) => {
+					const composeTools = await this.getOrCreateComposeToolsForGraph();
+					if (composeTools == null) {
+						return { error: { message: 'Compose is not available in this environment.' } };
+					}
+
+					// Defend against a stale cacheKey (refine swaps keys, panel close discards):
+					// the panel must always send the active key from its workflow signal. A miss
+					// surfaces a recoverable error so the user can simply re-run compose.
+					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					if (activeKey !== cacheKey) {
+						return {
+							error: { message: 'This compose plan is no longer active; please regenerate.' },
+						};
+					}
+
+					const cached = composeTools.getMaskedHunksForCachedCommit(cacheKey, commitId);
+					if (cached == null) {
+						return {
+							error: { message: 'Unable to find the selected commit in the current plan.' },
+						};
+					}
+
+					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
+						signal,
+						this._aiCancellations,
+					);
+					try {
+						const { createCombinedDiffForCommit } = await loadChunk(
+							() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
+						);
+						const { patch } = createCombinedDiffForCommit(cached.hunks);
+						if (!patch) {
+							return { error: { message: 'Unable to build a diff for the selected commit.' } };
+						}
+
+						const result = await this.container.ai.actions.generateCommitMessage(
+							patch,
+							{ source: 'graph-details', correlationId: this.host.instanceId },
+							{ cancellation: cancellation },
+						);
+
+						if (result === 'cancelled') return { cancelled: true };
+						if (result == null) {
+							return { error: { message: 'AI did not return a message. Please try again.' } };
+						}
+
+						const message = result.result.body
+							? `${result.result.summary}\n\n${result.result.body}`
+							: result.result.summary;
+
+						// Mutate the cached plan so subsequent refine sees the new message in
+						// priorPlan (used for locked-commit substitution) and apply commits it.
+						// If the cache entry was discarded between our earlier read and now (race
+						// with a parallel refine or close), the mutation just no-ops and the
+						// caller falls back to refreshing.
+						composeTools.updateCachedPlanCommitMessage(cacheKey, commitId, message);
+
+						return { result: { commitId: commitId, message: message } };
+					} catch (ex) {
+						if (isCancellationError(ex)) return { cancelled: true };
+
+						Logger.error(ex, 'graph.regenerateProposedCommitMessage');
+						return {
+							error: { message: ex instanceof Error ? ex.message : String(ex) },
+						};
+					} finally {
+						disposeCancellation();
+					}
+				},
 				resolveConflicts: async (repoPath, focusedFilePaths, instructions, signal) => {
 					const integration = await this.getOrCreateConflictToolsForGraph();
 					if (integration == null) {

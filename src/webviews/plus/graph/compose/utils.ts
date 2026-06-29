@@ -154,7 +154,7 @@ export function isComposeCancelled(ex: unknown): boolean {
 	return ex instanceof Error && ex.name === 'ComposeWorkflowError' && (ex as { code?: string }).code === 'CANCELLED';
 }
 
-function toComposerHunk(h: ComposeHunk): ComposerHunk {
+export function toComposerHunk(h: ComposeHunk): ComposerHunk {
 	return {
 		index: h.index + 1,
 		fileName: h.fileName,

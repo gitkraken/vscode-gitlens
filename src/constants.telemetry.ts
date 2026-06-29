@@ -332,6 +332,10 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/compose/applyPlan/completed': GraphDetailsComposeApplyPlanEvent;
 	/** Sent when applying a compose plan fails */
 	'graphDetails/compose/applyPlan/failed': GraphDetailsComposeApplyPlanEvent;
+	/** Sent when a per-commit message regeneration completes successfully (icon button next to a draft commit) */
+	'graphDetails/compose/regenerateMessage/completed': GraphDetailsComposeRegenerateMessageEvent;
+	/** Sent when a per-commit message regeneration fails or is cancelled */
+	'graphDetails/compose/regenerateMessage/failed': GraphDetailsComposeRegenerateMessageFailedEvent;
 	/** Sent when the user switches the AI model from the compose-mode chip in the Graph Details panel */
 	'graphDetails/compose/changeAiModel': GraphDetailsChangeAiModelEvent;
 
@@ -1075,6 +1079,18 @@ interface GraphDetailsComposeApplyPlanEvent extends GraphContextEventData {
 	stale: boolean;
 	/** Time from apply click to settlement in milliseconds */
 	duration: number;
+}
+
+interface GraphDetailsComposeRegenerateMessageEvent extends GraphContextEventData {
+	/** Time from icon click to settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeRegenerateMessageFailedEvent extends GraphDetailsComposeRegenerateMessageEvent {
+	/** Why the run did not complete successfully */
+	'failure.reason': 'cancelled' | 'error';
+	/** Error message text — present only when `failure.reason` is `'error'` */
+	'failure.error.message'?: string;
 }
 
 interface GraphDetailsChangeAiModelEvent extends GraphContextEventData, GraphDetailsAIModelEventData {

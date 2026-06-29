@@ -2176,8 +2176,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?forward-available=${this._state.composeForwardAvailable.get()}
 			.backPreview=${this._state.composeBackPreview.get()}
 			.lockedCommitIds=${this._state.composeLockedCommitIds.get()}
+			.regeneratingCommitId=${this._state.composeRegeneratingCommitId.get()}
 			@compose-generate=${handleCompose}
 			@compose-refine=${handleCompose}
+			@compose-regen-message=${(e: CustomEvent<{ commitId: string }>) =>
+				void this._workflow.compose.regenerateCommitMessage(e.detail.commitId)}
 			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
 			@compose-error-back=${() => this._workflow.compose.backFromError()}

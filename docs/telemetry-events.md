@@ -3402,6 +3402,50 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/compose/regenerateMessage/completed
+
+> Sent when a per-commit message regeneration completes successfully (icon button next to a draft commit)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from icon click to settlement in milliseconds
+  'duration': number
+}
+```
+
+### graphDetails/compose/regenerateMessage/failed
+
+> Sent when a per-commit message regeneration fails or is cancelled
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from icon click to settlement in milliseconds
+  'duration': number,
+  // Error message text — present only when `failure.reason` is `'error'`
+  'failure.error.message': string,
+  // Why the run did not complete successfully
+  'failure.reason': 'cancelled' | 'error'
+}
+```
+
 ### graphDetails/compose/restarted
 
 > Sent when the user restarts a completed compose run (Back from result)
