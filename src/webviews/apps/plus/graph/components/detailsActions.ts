@@ -35,6 +35,9 @@ import type {
 	GraphDetailsFileAction,
 	GraphVirtualFileFailureReason,
 	GraphVirtualFileMode,
+	GraphWipStagingDiscardScope,
+	GraphWipStagingOperation,
+	GraphWipStagingScope,
 	TelemetryEvents,
 } from '../../../../../constants.telemetry.js';
 import { getVirtualFsErrorReason } from '../../../../../virtual/virtualFsError.js';
@@ -2784,7 +2787,11 @@ export class DetailsActions {
 		if (!isConflictStatus(detail.status)) {
 			this.optimisticallyUpdateFileStaged(detail.path, true);
 		}
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail), 'stage file');
+		this.sendStagingTelemetry('stage', 'file', 1);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFile(detail), 'stage file', {
+			operation: 'stage',
+			scope: 'file',
+		});
 	}
 
 	openConflictChanges(detail: FileChangeListItemDetail, side: 'current' | 'incoming'): void {
@@ -2794,9 +2801,11 @@ export class DetailsActions {
 	resolveAllConflicts(repoPath: string | undefined, resolution: 'current' | 'incoming'): void {
 		if (!repoPath) return;
 
+		this.sendTelemetryEvent('graph/wip/staging/resolveConflict', { scope: 'all', side: resolution });
 		this._pendingStagingOp = this.runStagingOp(
 			this.services.repository.resolveAllConflicts(repoPath, resolution),
 			'resolve all conflicts',
+			{ operation: 'resolveConflict', scope: 'all' },
 		);
 	}
 
@@ -2807,12 +2816,14 @@ export class DetailsActions {
 
 	/** Resolve a single conflicted file by taking one side, then stage it. */
 	stageConflictSide(repoPath: string, filePath: string, status: string, side: 'current' | 'incoming'): void {
+		this.sendTelemetryEvent('graph/wip/staging/resolveConflict', { scope: 'file', side: side });
 		this._pendingStagingOp = this.runStagingOp(
 			this.services.repository.stageConflictResolution(
 				{ repoPath: repoPath, path: filePath, status: status as GitFileConflictStatus },
 				side,
 			),
 			'stage conflict side',
+			{ operation: 'resolveConflict', scope: 'file' },
 		);
 	}
 
@@ -2823,72 +2834,135 @@ export class DetailsActions {
 
 	unstageFile(detail: FileChangeListItemDetail): void {
 		this.optimisticallyUpdateFileStaged(detail.path, false);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail), 'unstage file');
+		this.sendStagingTelemetry('unstage', 'file', 1);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFile(detail), 'unstage file', {
+			operation: 'unstage',
+			scope: 'file',
+		});
 	}
 
 	stageFiles(files: GitFileChangeShape[]): void {
 		for (const file of files) {
 			this.optimisticallyUpdateFileStaged(file.path, true);
 		}
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFiles(files), 'stage files');
+		this.sendStagingTelemetry('stage', 'files', files.length);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageFiles(files), 'stage files', {
+			operation: 'stage',
+			scope: 'files',
+		});
 	}
 
 	unstageFiles(files: GitFileChangeShape[]): void {
 		for (const file of files) {
 			this.optimisticallyUpdateFileStaged(file.path, false);
 		}
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFiles(files), 'unstage files');
+		this.sendStagingTelemetry('unstage', 'files', files.length);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageFiles(files), 'unstage files', {
+			operation: 'unstage',
+			scope: 'files',
+		});
 	}
 
 	stageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
+		const wip = this.state.wip.get();
+		const hasConflicts = wip?.changes?.hasConflicts ?? false;
 		// Same as stageFile — skip optimism when the repo has conflicts (host may prompt + cancel).
-		if (!this.state.wip.get()?.changes?.hasConflicts) {
+		if (!hasConflicts) {
 			this.optimisticallyUpdateAllFilesStaged(true);
 		}
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath), 'stage all');
+		this.sendStagingTelemetry('stage', 'all', wip?.changes?.files?.length ?? 0, hasConflicts);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stageAll(repoPath), 'stage all', {
+			operation: 'stage',
+			scope: 'all',
+		});
 	}
 
 	unstageAll(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
 		this.optimisticallyUpdateAllFilesStaged(false);
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath), 'unstage all');
+		this.sendStagingTelemetry('unstage', 'all', this.state.wip.get()?.changes?.files?.length ?? 0);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.unstageAll(repoPath), 'unstage all', {
+			operation: 'unstage',
+			scope: 'all',
+		});
 	}
 
 	discardFile(detail: FileChangeListItemDetail): void {
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail), 'discard file');
+		this.sendDiscardTelemetry('file', 1);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFile(detail), 'discard file', {
+			operation: 'discard',
+			scope: 'file',
+		});
 	}
 
 	discardFiles(files: GitFileChangeShape[]): void {
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFiles(files), 'discard files');
+		this.sendDiscardTelemetry('files', files.length);
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.discardFiles(files), 'discard files', {
+			operation: 'discard',
+			scope: 'files',
+		});
 	}
 
 	stashFile(detail: FileChangeListItemDetail): void {
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFile(detail), 'stash file');
+		this.sendTelemetryEvent('graph/wip/staging/stash', { scope: 'file', 'files.count': 1 });
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFile(detail), 'stash file', {
+			operation: 'stash',
+			scope: 'file',
+		});
 	}
 
 	stashFiles(files: GitFileChangeShape[]): void {
-		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFiles(files), 'stash files');
+		this.sendTelemetryEvent('graph/wip/staging/stash', { scope: 'files', 'files.count': files.length });
+		this._pendingStagingOp = this.runStagingOp(this.services.repository.stashFiles(files), 'stash files', {
+			operation: 'stash',
+			scope: 'files',
+		});
 	}
 
 	discardUnstagedFiles(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
+		this.sendDiscardTelemetry('unstaged', undefined);
 		this._pendingStagingOp = this.runStagingOp(
 			this.services.repository.discardUnstagedFiles(repoPath),
 			'discard unstaged files',
+			{ operation: 'discard', scope: 'unstaged' },
 		);
 	}
 
 	discardStagedFiles(repoPath: string | undefined): void {
 		if (!repoPath) return;
 
+		this.sendDiscardTelemetry('staged', undefined);
 		this._pendingStagingOp = this.runStagingOp(
 			this.services.repository.discardStagedFiles(repoPath),
 			'discard staged files',
+			{ operation: 'discard', scope: 'staged' },
 		);
+	}
+
+	private sendStagingTelemetry(
+		action: 'stage' | 'unstage',
+		scope: GraphWipStagingScope,
+		filesCount: number,
+		hasConflicts?: boolean,
+	): void {
+		if (action === 'stage') {
+			this.sendTelemetryEvent('graph/wip/staging/stage', {
+				scope: scope,
+				'files.count': filesCount,
+				hasConflicts: hasConflicts ?? this.state.wip.get()?.changes?.hasConflicts ?? false,
+			});
+		} else {
+			this.sendTelemetryEvent('graph/wip/staging/unstage', { scope: scope, 'files.count': filesCount });
+		}
+	}
+
+	private sendDiscardTelemetry(scope: GraphWipStagingDiscardScope, filesCount: number | undefined): void {
+		this.sendTelemetryEvent('graph/wip/staging/discard', { scope: scope, 'files.count': filesCount });
 	}
 
 	/**
@@ -2898,11 +2972,18 @@ export class DetailsActions {
 	 * push directly. The optimistic update (already fired by the caller) covers the brief
 	 * window between RPC dispatch and the push arriving.
 	 */
-	private async runStagingOp(op: Promise<void>, context: string): Promise<void> {
+	private async runStagingOp(
+		op: Promise<void>,
+		context: string,
+		telemetry?: { operation: GraphWipStagingOperation; scope: string },
+	): Promise<void> {
 		try {
 			await op;
 		} catch (ex) {
 			Logger.error(ex, `Staging op failed (${context})`);
+			if (telemetry != null) {
+				this.sendTelemetryEvent('graph/wip/staging/failed', telemetry);
+			}
 		}
 	}
 
