@@ -1,4 +1,5 @@
 import { execSync, spawn } from 'node:child_process';
+import { globSync } from 'node:fs';
 import process from 'node:process';
 import { defineConfig } from '@vscode/test-cli';
 
@@ -53,7 +54,10 @@ const display = ensureXvfb();
 export default defineConfig([
 	{
 		label: 'Unit Tests',
-		files: 'out/tests/**/*.test.js',
+		// Run only node-target tests; exclude stale webworker output under out/tests/browser/
+		files: globSync('out/tests/**/*.test.js').filter(
+			f => !f.replaceAll('\\', '/').startsWith('out/tests/browser/'),
+		),
 		version: 'stable',
 		launchArgs: ['--disable-extensions', '--disable-gpu'],
 		env: display ? { DISPLAY: display } : {},
