@@ -1327,19 +1327,34 @@ export class DetailsActions {
 		const commit = this.state.commit.get();
 		if (!commit) return;
 
+		const hasCustomPrompt = (prompt?.length ?? 0) > 0;
+		const isStash = commit.stashNumber != null;
+		const telemetryData = { hasCustomPrompt: hasCustomPrompt, isStash: isStash };
+		this.sendTelemetryEvent('graphDetails/commit/explain', telemetryData);
+
 		try {
 			const result = await this.services.graphInspect.explainCommit(commit.repoPath, commit.sha, prompt);
-			if (this.state.commit.get()?.sha !== commit.sha) return;
+			const isStale = this.state.commit.get()?.sha !== commit.sha;
 
 			if ('error' in result && result.error) {
-				this.state.explain.set({ error: result.error });
+				if (!isStale) {
+					this.state.explain.set({ error: result.error });
+				}
+				this.sendTelemetryEvent('graphDetails/commit/explain/failed', telemetryData);
 			} else if ('result' in result && result.result) {
-				this.state.explain.set({ result: result.result });
+				if (!isStale) {
+					this.state.explain.set({ result: result.result });
+				}
+				this.sendTelemetryEvent('graphDetails/commit/explain/completed', telemetryData);
 			}
 		} catch {
-			if (this.state.commit.get()?.sha !== commit.sha) return;
+			if (this.state.commit.get()?.sha !== commit.sha) {
+				this.sendTelemetryEvent('graphDetails/commit/explain/failed', telemetryData);
+				return;
+			}
 
 			this.state.explain.set({ error: { message: 'Failed to explain commit' } });
+			this.sendTelemetryEvent('graphDetails/commit/explain/failed', telemetryData);
 		}
 	}
 
@@ -1570,16 +1585,29 @@ export class DetailsActions {
 		const toSha = this.toSha(shas, swapped);
 		if (!fromSha || !toSha || !repoPath) return;
 
-		this.sendTelemetryEvent('graphDetails/compare/explain', {
-			variant: 'compare',
+		const telemetryData = {
+			variant: 'compare' as const,
 			hasCustomPrompt: (prompt?.length ?? 0) > 0,
-			tab: undefined,
+			tab: undefined as 'all' | 'ahead' | 'behind' | undefined,
 			includeWorkingTree: false,
-		});
+		};
+		this.sendTelemetryEvent('graphDetails/compare/explain', telemetryData);
 		this.state.compareExplainBusy.set(true);
-		void this.services.graphInspect.explainCompare(repoPath, fromSha, toSha, prompt).finally(() => {
-			this.state.compareExplainBusy.set(false);
-		});
+		void this.services.graphInspect
+			.explainCompare(repoPath, fromSha, toSha, prompt)
+			.then(
+				result => {
+					if ('error' in result && result.error) {
+						this.sendTelemetryEvent('graphDetails/compare/explain/failed', telemetryData);
+					} else {
+						this.sendTelemetryEvent('graphDetails/compare/explain/completed', telemetryData);
+					}
+				},
+				() => this.sendTelemetryEvent('graphDetails/compare/explain/failed', telemetryData),
+			)
+			.finally(() => {
+				this.state.compareExplainBusy.set(false);
+			});
 	}
 
 	compareGenerateChangelog(shas: string[] | undefined, repoPath: string | undefined): void {
@@ -1618,16 +1646,29 @@ export class DetailsActions {
 		const refs = this.getCompareAIRefs();
 		if (!repoPath || !refs) return;
 
-		this.sendTelemetryEvent('graphDetails/compare/explain', {
-			variant: 'branchCompare',
+		const telemetryData = {
+			variant: 'branchCompare' as const,
 			hasCustomPrompt: (prompt?.length ?? 0) > 0,
 			tab: this.state.branchCompareActiveTab.get(),
 			includeWorkingTree: this.state.branchCompareIncludeWorkingTree.get(),
-		});
+		};
+		this.sendTelemetryEvent('graphDetails/compare/explain', telemetryData);
 		this.state.compareExplainBusy.set(true);
-		void this.services.graphInspect.explainCompare(repoPath, refs.fromRef, refs.toRef, prompt).finally(() => {
-			this.state.compareExplainBusy.set(false);
-		});
+		void this.services.graphInspect
+			.explainCompare(repoPath, refs.fromRef, refs.toRef, prompt)
+			.then(
+				result => {
+					if ('error' in result && result.error) {
+						this.sendTelemetryEvent('graphDetails/compare/explain/failed', telemetryData);
+					} else {
+						this.sendTelemetryEvent('graphDetails/compare/explain/completed', telemetryData);
+					}
+				},
+				() => this.sendTelemetryEvent('graphDetails/compare/explain/failed', telemetryData),
+			)
+			.finally(() => {
+				this.state.compareExplainBusy.set(false);
+			});
 	}
 
 	branchCompareGenerateChangelog(repoPath: string | undefined): void {

@@ -3038,9 +3038,125 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/commit/explain
+
+> Sent when the user runs AI explain on a single commit in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  // Whether the target is a stash entry rather than a regular commit
+  'isStash': boolean
+}
+```
+
+### graphDetails/commit/explain/completed
+
+> Sent when a single-commit AI explain completes successfully in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  // Whether the target is a stash entry rather than a regular commit
+  'isStash': boolean
+}
+```
+
+### graphDetails/commit/explain/failed
+
+> Sent when a single-commit AI explain fails in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  // Whether the target is a stash entry rather than a regular commit
+  'isStash': boolean
+}
+```
+
 ### graphDetails/compare/explain
 
 > Sent when the user runs AI explain on a comparison in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  'includeWorkingTree': boolean,
+  // Active tab driving the diff direction (branch-compare only; undefined otherwise)
+  'tab': 'all' | 'ahead' | 'behind',
+  // Single-commit/range compare vs branch-compare tabs
+  'variant': 'compare' | 'branchCompare'
+}
+```
+
+### graphDetails/compare/explain/completed
+
+> Sent when a comparison AI explain completes successfully in Graph Details
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the user supplied custom guidance
+  'hasCustomPrompt': boolean,
+  'includeWorkingTree': boolean,
+  // Active tab driving the diff direction (branch-compare only; undefined otherwise)
+  'tab': 'all' | 'ahead' | 'behind',
+  // Single-commit/range compare vs branch-compare tabs
+  'variant': 'compare' | 'branchCompare'
+}
+```
+
+### graphDetails/compare/explain/failed
+
+> Sent when a comparison AI explain fails in Graph Details
 
 ```typescript
 {

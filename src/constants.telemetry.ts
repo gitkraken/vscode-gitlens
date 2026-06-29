@@ -316,6 +316,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user generates an AI changelog for a comparison in Graph Details */
 	'graphDetails/compare/generateChangelog': GraphDetailsCompareGenerateChangelogEvent;
 
+	/** Sent when the user runs AI explain on a single commit in Graph Details */
+	'graphDetails/commit/explain': GraphDetailsCommitExplainEvent;
+	/** Sent when a single-commit AI explain completes successfully in Graph Details */
+	'graphDetails/commit/explain/completed': GraphDetailsCommitExplainEvent;
+	/** Sent when a single-commit AI explain fails in Graph Details */
+	'graphDetails/commit/explain/failed': GraphDetailsCommitExplainEvent;
+	/** Sent when a comparison AI explain completes successfully in Graph Details */
+	'graphDetails/compare/explain/completed': GraphDetailsCompareExplainEvent;
+	/** Sent when a comparison AI explain fails in Graph Details */
+	'graphDetails/compare/explain/failed': GraphDetailsCompareExplainEvent;
+
 	/** Sent when the user enters compose mode in the Graph Details panel */
 	'graphDetails/compose/opened': GraphDetailsComposeLifecycleEvent;
 	/** Sent when the user exits compose mode in the Graph Details panel (toggled off or destroyed) */
@@ -1425,6 +1436,13 @@ interface GraphDetailsCompareGenerateChangelogEvent extends GraphContextEventDat
 	variant: 'compare' | 'branchCompare';
 	tab: 'all' | 'ahead' | 'behind' | undefined;
 	includeWorkingTree: boolean;
+}
+
+interface GraphDetailsCommitExplainEvent extends GraphContextEventData {
+	/** Whether the user supplied custom guidance */
+	hasCustomPrompt: boolean;
+	/** Whether the target is a stash entry rather than a regular commit */
+	isStash: boolean;
 }
 
 interface GraphVirtualFileOpenedEvent extends GraphContextEventData {
