@@ -4,6 +4,7 @@ export {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -231,32 +232,9 @@ export const reviewModePanelStyles = css`
 		margin-bottom: var(--gl-space-8);
 	}
 
-	/* Wraps the loading branch so the categorizing animation can sit behind the spinner +
-	   cancel block. Stage takes the full panel height; foreground is top-anchored. */
-	.review-loading-stage {
-		position: relative;
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.review-loading-stage > gl-categorizing-loading-animation {
-		position: absolute;
-		inset: 0;
-		z-index: 0;
-		pointer-events: none;
-	}
-
-	/* Loading state wrapper for the in-flight review — centers the shared spinner and the
-	   Cancel chip as a vertical column so the spinner stays visually anchored. */
+	/* Foreground extras layered on the shared .panel-loading-stage__foreground base — the in-flight
+	   review centers the spinner + Cancel chip as a vertical column so the spinner stays anchored. */
 	.review-loading-wrap {
-		position: relative;
-		z-index: 1;
-		display: flex;
-		flex: none;
-		flex-direction: column;
 		gap: var(--gl-space-10);
 		align-items: center;
 	}

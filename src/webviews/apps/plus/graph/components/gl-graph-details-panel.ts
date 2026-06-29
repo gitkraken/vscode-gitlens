@@ -56,6 +56,7 @@ import type {
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
+import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -211,7 +212,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  entry, this reads from the current selection's anchor so the chip overlay continues to
 	 *  reflect the registry. */
 	private get engagedModeStatus():
-		| Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>>
+		| Partial<
+				Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
+		  >
 		| undefined {
 		const ctx = this._state.activeModeContext.get();
 		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
@@ -225,15 +228,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const bucket = this._crossPaneState?.runningOperations.get().get(key);
 		if (bucket == null) return undefined;
 
-		const out: Partial<Record<'review' | 'compose', { execState: RunningOperationExecState; hasResult: boolean }>> =
-			{};
+		const out: Partial<
+			Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
+		> = {};
 		if (bucket.review != null) {
 			out.review = { execState: bucket.review.execState, hasResult: bucket.review.result != null };
 		}
 		if (bucket.compose != null) {
 			out.compose = { execState: bucket.compose.execState, hasResult: bucket.compose.result != null };
 		}
-		return out.review != null || out.compose != null ? out : undefined;
+		if (bucket.resolve != null) {
+			out.resolve = { execState: bucket.resolve.execState, hasResult: bucket.resolve.result != null };
+		}
+		return out.review != null || out.compose != null || out.resolve != null ? out : undefined;
 	}
 
 	@provide({ context: detailsStateContext })
@@ -1055,7 +1062,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	private findModePanelDeep(root: ParentNode | ShadowRoot, depth = 0): HTMLElement | null {
 		if (depth > 6) return null;
 
-		const here = root.querySelector<HTMLElement>('gl-details-review-mode-panel, gl-details-compose-mode-panel');
+		const here = root.querySelector<HTMLElement>(
+			'gl-details-review-mode-panel, gl-details-compose-mode-panel, gl-details-resolve-mode-panel',
+		);
 		if (here != null) return here;
 
 		for (const el of root.querySelectorAll<HTMLElement>('*')) {
@@ -1156,7 +1165,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			!isLockedCommitRunningOperation
 		) {
 			const activeMode = this._state.activeMode.get();
-			if (activeMode === 'review' || activeMode === 'compose') {
+			if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
 				this.suppressModePanelOverflow();
 				this._workflow.switchAnchorWithinMode(this.currentSelection());
 			} else if (activeMode == null && this.isWip) {
@@ -1430,10 +1439,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				}),
 			);
 
-			// Land caret in the AI input when the user enters compose/review. Defer one frame so
-			// the mode panel has rendered. Only fires on a fresh transition INTO the mode (not on
+			// Land caret in the AI input when the user enters compose/review/resolve. Defer one frame
+			// so the mode panel has rendered. Only fires on a fresh transition INTO the mode (not on
 			// re-renders within the mode), so it doesn't fight the user's own focus moves.
-			if (currentMode === 'compose' || currentMode === 'review') {
+			if (currentMode === 'compose' || currentMode === 'review' || currentMode === 'resolve') {
 				this.focusModeAiInput();
 			}
 		}
@@ -1461,7 +1470,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  the snippet entirely. Reads from existing signals only; no new IPC.
 	 *
 	 *  Priority order — generating > error > backed > complete > scope-idle:
-	 *  - generating: "Generating…" / "Reviewing…"
+	 *  - generating: "Composing..." / "Reviewing..." / "Resolving..."
 	 *  - error:      "Error"
 	 *  - backed:     reuses the back-preview snapshot's counts
 	 *  - complete:   counts from the resolved resource value
@@ -1472,15 +1481,28 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode === 'resolve') {
 			const status =
 				this.engagedRunningOperation?.kind === 'resolve' ? this.engagedRunningOperation.execState : undefined;
-			if (status === 'generating') return this._state.resolveProgressMessage.get() ?? 'Resolving…';
+			if (status === 'generating') return 'Resolving...';
 			if (status === 'error') return 'Error';
+
+			// Complete: show a resolved-files count in the identity row, mirroring compose/review's
+			// snippet (resolve has no Resume, so this is the plain non-clickable count only).
+			const value = this._actions?.resources?.resolve.value.get();
+			if (value != null && 'result' in value && value.result?.resolutions) {
+				const count = value.result.resolutions.filter(r => r.strategy !== 'skipped').length;
+				if (count > 0) {
+					return html`<span class="mode-status__group"
+						><code-icon icon="git-merge"></code-icon>${count} ${count === 1 ? 'file' : 'files'}
+						resolved</span
+					>`;
+				}
+			}
 			return undefined;
 		}
 		if (mode !== 'compose' && mode !== 'review') return undefined;
 
 		const status = this.engagedModeStatus?.[mode]?.execState;
 		if (status === 'generating') {
-			return mode === 'compose' ? 'Generating…' : 'Reviewing…';
+			return mode === 'compose' ? 'Composing...' : 'Reviewing...';
 		}
 		if (status === 'error') return 'Error';
 
@@ -2688,7 +2710,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.errors=${resolveData?.errors}
 			.skipped=${resolveData?.skipped}
 			.conflictedFiles=${conflictedFiles}
-			.focusedPaths=${this._state.resolveFocusedFilePaths.get()}
+			.focusedPaths=${resolveEntry?.focusedFilePaths ?? this._state.resolveFocusedFilePaths.get()}
+			.repoPath=${this.effectiveRepoPath}
+			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.progressMessage=${this._state.resolveProgressMessage.get()}
 			.aiModel=${this._state.aiModel.get()}
 			.retryingFiles=${this._state.resolveRetryingFiles.get()}
@@ -2701,37 +2725,66 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					return;
 				}
 
-				// Optional pre-run guidance from the idle input — the host maps it to the resolver's
-				// `userGuidance`, same as the whole-run Refine feedback.
-				this._workflow.runResolve(
-					this.effectiveRepoPath,
-					this._state.resolveFocusedFilePaths.get(),
-					e.detail?.prompt,
-				);
+				// Scope the run to the idle tree's checked set (undefined = all conflicts). `null` means
+				// bail — panel missing or nothing checked (the idle input is also disabled at zero checked,
+				// so this is defense-in-depth for the curated-set invariant). The optional pre-run guidance
+				// is mapped to the resolver's `userGuidance`, same as the whole-run Refine feedback.
+				const run = this.getResolveRunScope();
+				if (run == null) return;
+
+				this._workflow.runResolve(this.effectiveRepoPath, run.scope, e.detail?.prompt);
 			}}
 			@resolve-view-diff=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveViewDiff(e.detail.filePath)}
 			@resolve-open-file=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveOpenFile(e.detail.filePath)}
 			@resolve-apply-all=${() => void this._workflow.resolve.applyResolutions()}
-			@resolve-discard=${() => this._workflow.resolve.discard()}
+			@resolve-discard=${() => {
+				// Clamp the content height during the results→plain-WIP swap so it doesn't jump,
+				// matching compose/review discard.
+				this.suppressContentOverflow();
+				this._workflow.resolve.discard();
+			}}
 			@resolve-cancel=${this.handleCancelMode}
 			@resolve-error-back=${() => this._workflow.resolve.backFromError()}
 			@resolve-error-retry=${() => this._workflow.resolve.retryFromError()}
 			@resolve-refine=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Whole-run refine: re-resolve all conflicts with the feedback as global guidance.
+				// Whole-run refine: re-resolve the same scope that produced the current plan (stored in
+				// `resolveFocusedFilePaths` by the run), with the feedback as global guidance — so refine
+				// doesn't silently widen back to all conflicts after the user resolved a subset.
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel();
 					return;
 				}
 
-				this._workflow.runResolve(this.effectiveRepoPath, undefined, e.detail?.prompt);
+				this._workflow.runResolve(
+					this.effectiveRepoPath,
+					resolveEntry?.focusedFilePaths ?? this._state.resolveFocusedFilePaths.get(),
+					e.detail?.prompt,
+				);
 			}}
 			@resolve-retry-file=${(e: CustomEvent<{ filePath: string; prompt: string }>) =>
 				void this._workflow.resolve.retryFile(e.detail.filePath, e.detail.prompt)}
 			@resolve-take-side=${(e: CustomEvent<{ filePath: string; side: ConflictSide }>) =>
 				void this._workflow.resolve.takeSide(e.detail.filePath, e.detail.side)}
+			@change-files-layout=${this.handleChangeFilesLayout}
 		></gl-details-resolve-mode-panel>`;
+	}
+
+	/** The resolve run scope from the idle tree's checked set, or `null` to bail (panel missing /
+	 *  nothing checked). Mirrors compose's `this.querySelector` panel lookup — resolve renders directly
+	 *  in the panel template. When EVERY conflict is checked the scope is `undefined` ("resolve all")
+	 *  rather than a frozen full list — that preserves the host's `resolveAll` telemetry detail and lets
+	 *  a later Refine pick up conflicts that appear after the run; a strict subset returns its paths. */
+	private getResolveRunScope(): { scope: readonly string[] | undefined } | null {
+		const panel = this.querySelector<GlDetailsResolveModePanel>('gl-details-resolve-mode-panel');
+		if (panel == null) return null;
+
+		const checked = panel.includedFiles;
+		if (checked.size === 0) return null;
+
+		const total = panel.conflictedFiles?.length ?? 0;
+		return { scope: checked.size === total ? undefined : [...checked] };
 	}
 
 	/** Open a resolved file's AI-resolved-vs-conflicted diff (virtual FS, no disk write). */

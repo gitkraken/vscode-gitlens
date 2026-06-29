@@ -811,7 +811,6 @@ export class DetailsActions {
 				this.state.wipStale.set(false);
 				this.resources.resolve.reset();
 				this.state.resolveFocusedFilePaths.set(undefined);
-				this.state.resolvePreErrorValue.set(undefined);
 				void this.refreshScopedAiModel();
 				this.refreshWip();
 				void this.fetchDetails(sha, repoPath);

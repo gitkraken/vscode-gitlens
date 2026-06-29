@@ -12,13 +12,21 @@ import type {
 	ResolveSkippedFile,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { ViewFilesLayout } from '../../../../../config.js';
+import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
+import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
+import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
-import { panelErrorStyles, panelHostStyles, panelLoadingStyles } from './shared-panel.css.js';
+import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
+import { prunePathsToFiles } from './aiExclusion.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/overlays/tooltip.js';
+import '../../../shared/components/panes/pane-group.js';
+import '../../../shared/components/tree/gl-file-tree-pane.js';
+import './gl-converging-loading-animation.js';
 
 export type ResolveModeStatus = 'idle' | 'loading' | 'ready' | 'error' | 'applying';
 
@@ -42,17 +50,19 @@ const strategyDisplay: Record<ConflictResolutionStrategy, { label: string; icon:
 
 /**
  * AI conflict-resolution mode panel for the graph WIP details. A third AI mode alongside compose
- * and review — but simpler: no scope picker (it operates on the paused op's conflicted files) and
- * no Back/Resume (apply is terminal). States: `idle` (the conflicted-file list + a Resolve button),
- * `loading` (streamed progress), `ready` (per-file resolutions + Apply/Discard), `applying`
- * (uncancellable overlay), and `error`.
+ * and review — like compose, it curates a checkable file set (here the paused op's conflicted
+ * files) rather than a commit scope, and has no Back/Resume (apply is terminal). States: `idle`
+ * (a checkable tree of the conflicted files + a Resolve button), `loading` (streamed progress),
+ * `ready` (per-file resolutions + Apply/Discard), `applying` (uncancellable overlay), and `error`.
  */
 @customElement('gl-details-resolve-mode-panel')
 export class GlDetailsResolveModePanel extends LitElement {
 	static override styles = [
 		panelHostStyles,
 		panelLoadingStyles,
+		panelLoadingStageStyles,
 		panelErrorStyles,
+		scrollableBase,
 		css`
 			.resolve-panel {
 				display: flex;
@@ -67,6 +77,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			.resolve-files {
+				flex: 1;
+				min-height: 0;
 				padding: 0;
 				margin: var(--gl-space-4) 0;
 				overflow-y: auto;
@@ -95,40 +107,23 @@ export class GlDetailsResolveModePanel extends LitElement {
 				white-space: nowrap;
 			}
 
-			/* Idle-state file link — opens the conflicted working-tree file. Mirrors the review
-	   panel's .review-area__file-link affordance (hover background + path underline). */
-			.resolve-file__link {
+			/* Idle-state checkable conflict tree — fills the space between the intro and the run input. */
+			.resolve-tree {
 				display: flex;
 				flex: 1;
-				gap: var(--gl-space-4);
-				align-items: center;
-				min-width: 0;
-				padding: var(--gl-space-2) var(--gl-space-4);
-				margin: -0.2rem -0.4rem;
-				font-family: inherit;
-				font-size: inherit;
-				color: var(--vscode-textLink-foreground);
-				text-align: left;
-				cursor: pointer;
-				background: transparent;
-				border: none;
-				border-radius: var(--gl-radius-xs);
+				flex-direction: column;
+				min-height: 0;
+				overflow: hidden;
 			}
 
-			.resolve-file__link:hover {
-				background: var(--vscode-list-hoverBackground);
-			}
-
-			/* Underline only the path text on hover — without this scope, the rule applies to the
-	   whole button and the icon picks up a stray underline at its baseline. */
-			.resolve-file__link:hover .resolve-file__path {
-				text-decoration: underline;
-			}
-
-			.resolve-file__link code-icon {
-				flex: none;
-				color: var(--vscode-foreground);
-				opacity: 0.7;
+			/* The pane group is a flex child with no intrinsic grow — without this it stays at content
+			   height and the inner gl-file-tree-pane (flex:1; min-height:0; overflow:hidden) collapses its
+			   tree to ~0 and clips every row. Mirrors the .scope-files__tree webview-pane-group rule in
+			   shared-panel.css.ts (compose's file curation). */
+			.resolve-tree webview-pane-group {
+				flex: 1;
+				min-height: 0;
+				overflow: hidden;
 			}
 
 			.resolve-file__badge {
@@ -170,9 +165,22 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: flex;
 				flex: none;
 				gap: var(--gl-space-6);
-				justify-content: flex-end;
 				padding: var(--gl-space-6) var(--gl-space-12);
 				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
+			}
+
+			/* Apply fills the row (primary, full-width treatment) with Discard inline on the right. */
+			.resolve-apply {
+				flex: 1;
+				min-width: 0;
+			}
+
+			/* The per-row "Retry with feedback" button is a toggle — show the standard active-toggle
+			   background while its feedback input is open (keyed off the existing aria-expanded). */
+			.resolve-file__head gl-button[aria-expanded='true'] {
+				--button-background: var(--vscode-inputOption-activeBackground);
+				--button-foreground: var(--vscode-inputOption-activeForeground);
+				--button-border: var(--vscode-inputOption-activeBorder);
 			}
 
 			.resolve-actions {
@@ -183,10 +191,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 				padding: var(--gl-space-6) var(--gl-space-12);
 			}
 
-			.resolve-loading-actions {
-				display: flex;
-				justify-content: center;
-				padding: var(--gl-space-4);
+			/* Match compose/review loading spacing: breathing room above + below the Cancel button. */
+			.resolve-cancel {
+				align-self: center;
+				margin-top: var(--gl-space-10);
+				margin-bottom: var(--gl-space-12);
 			}
 
 			/* Per-row feedback input, indented under its file. */
@@ -195,11 +204,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 				margin-top: var(--gl-space-4);
 			}
 
-			/* Whole-run "Refine" input between the results list and the footer. */
-			.resolve-refine {
-				display: block;
+			/* Bottom whole-run refine input — mirrors the composer's active AI-input treatment
+			   (gradient border via the active attr) plus its centered, width-constrained layout
+			   from the .review-action-input rule in shared-panel.css.ts. */
+			.review-action-input {
 				flex: none;
-				margin: var(--gl-space-4) var(--gl-space-12);
+				width: calc(100% - var(--gl-panel-padding-left, 1.2rem) - var(--gl-panel-padding-right, 1.2rem));
+				max-width: var(--gl-max-input);
+				margin: 0.6rem auto 0.8rem;
 			}
 		`,
 	];
@@ -210,10 +222,16 @@ export class GlDetailsResolveModePanel extends LitElement {
 	@property({ type: Array }) errors?: readonly ResolveFileError[];
 	@property({ type: Array }) skipped?: readonly ResolveSkippedFile[];
 	@property({ type: Array }) conflictedFiles?: readonly GitFileChangeShape[];
-	/** Scopes the run to these conflicted files (per-file/multi-select entry); undefined = all. */
+	/** Drives the per-conflict DEFAULT checked state (per-file/multi-select entry defaults just these
+	 *  on; undefined = all on). The live run scope is the user-editable {@link includedFiles}, NOT this. */
 	@property({ type: Array }) focusedPaths?: readonly string[];
 	@property() progressMessage?: string;
 	@property({ type: Object }) aiModel?: AiModelInfo;
+	/** Engaged anchor's repo path — part of the seed identity so following selection to another WIP
+	 *  anchor reseeds (the panel element is reused across anchor switches, not re-mounted). */
+	@property() repoPath?: string;
+	/** Persisted file-tree layout preference, threaded to the idle `gl-file-tree-pane`. */
+	@property() fileLayout: ViewFilesLayout = 'auto';
 	/** Paths currently being re-resolved with feedback — drives the per-row busy state. */
 	@property({ type: Object }) retryingFiles?: ReadonlySet<string>;
 	/** Paths currently being manually resolved via a take-side fallback — drives the per-row busy state. */
@@ -223,6 +241,73 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
+	/** User check/uncheck DELTAS against the per-anchor default (resolve-all → all checked; focused
+	 *  entry → just the focused paths). The effective checked set is DERIVED from the current conflicts
+	 *  plus these deltas (see {@link includedFiles}/{@link isChecked}), so it always reflects the live
+	 *  conflicts — a conflict resolved away drops out, a new one appears under the default — with no
+	 *  stale stored set to reconcile. Reset when the anchor/focus identity changes. */
+	@state() private _userChecked = new Set<string>();
+	@state() private _userUnchecked = new Set<string>();
+	/** Anchor+focus identity the deltas belong to. The panel element is REUSED when following selection
+	 *  to another WIP anchor (hide→restore collapses to one render), so deltas must reset on identity
+	 *  change here rather than relying on a fresh instance; `repoPath` is in the key so two resolve-all
+	 *  anchors don't share key 'all' and leak deltas. */
+	private _seedKey: string | undefined;
+
+	/** The live checked set, read by the host's `resolve-run` handler to scope the run. Derived from
+	 *  the CURRENT conflicts so it never includes a path that is no longer conflicted. */
+	get includedFiles(): ReadonlySet<string> {
+		const checked = new Set<string>();
+		for (const f of this.conflictedFiles ?? []) {
+			if (this.isChecked(f.path)) {
+				checked.add(f.path);
+			}
+		}
+		return checked;
+	}
+
+	/** Default-checked state for a conflict: resolve-all entry checks everything; a focused entry
+	 *  (single/multi-file) checks only its paths. */
+	private isCheckedByDefault(path: string): boolean {
+		return this.focusedPaths == null || this.focusedPaths.length === 0 || this.focusedPaths.includes(path);
+	}
+
+	/** Effective checked state = the default, overridden by the user's explicit check/uncheck delta. */
+	private isChecked(path: string): boolean {
+		if (this._userChecked.has(path)) return true;
+		if (this._userUnchecked.has(path)) return false;
+		return this.isCheckedByDefault(path);
+	}
+
+	override willUpdate(changedProperties: Map<string, unknown>): void {
+		// Reset the user deltas when the anchor/focus identity changes (fresh entry, or following
+		// selection to another WIP). Gated to the identity inputs so the sort+join isn't recomputed on
+		// unrelated reactive updates (progressMessage, retryingFiles, …).
+		if (changedProperties.has('focusedPaths') || changedProperties.has('repoPath')) {
+			const focusKey = this.focusedPaths != null ? `focus:${[...this.focusedPaths].sort().join('\n')}` : 'all';
+			const seedKey = `${this.repoPath ?? ''}|${focusKey}`;
+			if (this._seedKey !== seedKey) {
+				this._seedKey = seedKey;
+				this._userChecked = new Set();
+				this._userUnchecked = new Set();
+				return;
+			}
+		}
+
+		// Drop deltas for paths no longer conflicted so a stale uncheck can't resurrect to suppress a
+		// path that drops then re-conflicts in the same session (and the sets don't grow unbounded).
+		// `prunePathsToFiles` skips the transient empty/undefined `conflictedFiles` during refetch.
+		if (changedProperties.has('conflictedFiles')) {
+			const checked = prunePathsToFiles(this._userChecked, this.conflictedFiles);
+			if (checked != null) {
+				this._userChecked = checked;
+			}
+			const unchecked = prunePathsToFiles(this._userUnchecked, this.conflictedFiles);
+			if (unchecked != null) {
+				this._userUnchecked = unchecked;
+			}
+		}
+	}
 
 	override render(): unknown {
 		return html`<div class="resolve-panel">${this.renderContent()}</div>`;
@@ -249,65 +334,115 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	private renderLoading(): unknown {
+		// Converging-streams animation sits behind the spinner + progress + cancel as decoration;
+		// it self-disables under prefers-reduced-motion.
 		return html`
-			${renderLoadingState(this.progressMessage ?? 'Resolving conflicts…')}
-			<div class="resolve-loading-actions">
-				<gl-button appearance="secondary" @click=${() => this.emit('resolve-cancel')}>Cancel</gl-button>
+			<div class="panel-loading-stage">
+				<gl-converging-loading-animation class="panel-loading-stage__anim"></gl-converging-loading-animation>
+				<div class="panel-loading-stage__foreground">
+					${renderLoadingState(this.progressMessage ?? 'Resolving conflicts…')}
+					<gl-button
+						class="resolve-cancel"
+						appearance="secondary"
+						@click=${() => this.emit('resolve-cancel')}
+					>
+						Cancel
+					</gl-button>
+				</div>
 			</div>
 		`;
 	}
 
 	private renderIdle(): unknown {
-		const focused = this.focusedPaths != null && this.focusedPaths.length > 0 ? this.focusedPaths : undefined;
-		const files =
-			focused != null ? this.conflictedFiles?.filter(f => focused.includes(f.path)) : this.conflictedFiles;
-		const count = files?.length ?? 0;
+		const files = this.conflictedFiles ?? [];
+
+		// Only checked files carry a state entry; the rest default to unchecked.
+		let checkedCount = 0;
+		const checkableStates = new Map<string, { state?: 'checked' }>();
+		for (const f of files) {
+			if (this.isChecked(f.path)) {
+				checkableStates.set(f.path, { state: 'checked' });
+				checkedCount++;
+			}
+		}
 
 		return html`
 			<p class="resolve-intro">
-				${focused?.length === 1
-					? html`Resolve the conflict in <strong>${focused[0]}</strong>.`
-					: html`Resolve ${focused != null ? 'the selected' : ''} ${pluralize('conflicted file', count)}.
-						You'll be able to review each resolution before applying.`}
+				Choose the conflicts to resolve with AI, then review each resolution before applying.
 			</p>
-			${count > 0
-				? html`<ul class="resolve-files" aria-label="Conflicted files">
-						${repeat(
-							files!,
-							f => f.path,
-							f =>
-								html`<li class="resolve-file">
-									<div class="resolve-file__head">
-										<button
-											class="resolve-file__link"
-											title="Open file"
-											aria-label="Open ${f.path}"
-											@click=${() => this.emit('resolve-open-file', { filePath: f.path })}
-										>
-											<code-icon icon="git-merge"></code-icon>
-											<span class="resolve-file__path">${f.path}</span>
-										</button>
-									</div>
-								</li>`,
-						)}
-					</ul>`
-				: nothing}
+			<div class="resolve-tree">
+				<webview-pane-group flexible>
+					<gl-file-tree-pane
+						.files=${files}
+						?checkable=${true}
+						?multi-selectable=${true}
+						?show-file-icons=${true}
+						.collapsable=${false}
+						.filesLayout=${{ layout: this.fileLayout }}
+						.checkableStates=${checkableStates}
+						selection-action="file-open"
+						check-verb="Resolve"
+						uncheck-verb="Skip"
+						empty-text="No conflicted files"
+						@file-checked=${this.onFileChecked}
+						@gl-check-all=${this.onToggleCheckAll}
+						@file-open=${(e: CustomEvent<FileChangeListItemDetail>) =>
+							this.emit('resolve-open-file', { filePath: e.detail.path })}
+					></gl-file-tree-pane>
+				</webview-pane-group>
+			</div>
 			<div class="resolve-actions">
 				<gl-ai-input
 					multiline
 					active
 					rows="2"
-					button-label=${focused?.length === 1 ? 'Resolve File' : 'Resolve Conflicts'}
+					button-label="Resolve"
 					busy-label="Resolving conflicts…"
 					event-name="resolve-run"
 					placeholder='Optional guidance — e.g. "prefer incoming for generated files"'
-					?disabled=${count === 0}
+					?disabled=${checkedCount === 0}
 					.value=${this.lastPrompt}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 				</gl-ai-input>
 			</div>
 		`;
+	}
+
+	/** Toggle a single conflicted file in/out of the resolve set. */
+	private onFileChecked(e: CustomEvent<TreeItemCheckedDetail>): void {
+		if (!e.detail.context) return;
+
+		const [file] = e.detail.context as unknown as GitFileChangeShape[];
+		if (!file) return;
+
+		const checked = new Set(this._userChecked);
+		const unchecked = new Set(this._userUnchecked);
+		this.applyChecked(file.path, e.detail.checked, checked, unchecked);
+		this._userChecked = checked;
+		this._userUnchecked = unchecked;
+	}
+
+	/** Check/uncheck-all from the tree header — applies to all conflicted paths (the resolve tree has
+	 *  no search box, so `gl-check-all` carries every conflict, not a filtered subset). */
+	private onToggleCheckAll(e: CustomEvent<{ checked: boolean; paths: readonly string[] }>): void {
+		const checked = new Set(this._userChecked);
+		const unchecked = new Set(this._userUnchecked);
+		for (const path of e.detail.paths) {
+			this.applyChecked(path, e.detail.checked, checked, unchecked);
+		}
+		this._userChecked = checked;
+		this._userUnchecked = unchecked;
+	}
+
+	/** Record `path`'s new checked state as a delta from its default — clearing the delta when the
+	 *  state matches the default so the sets stay minimal and keep tracking future default changes. */
+	private applyChecked(path: string, checked: boolean, userChecked: Set<string>, userUnchecked: Set<string>): void {
+		userChecked.delete(path);
+		userUnchecked.delete(path);
+		if (checked !== this.isCheckedByDefault(path)) {
+			(checked ? userChecked : userUnchecked).add(path);
+		}
 	}
 
 	private renderReady(): unknown {
@@ -317,7 +452,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const applicable = resolutions.filter(r => r.strategy !== 'skipped').length;
 
 		return html`
-			<ul class="resolve-files" aria-label="Resolved files">
+			<ul class="resolve-files scrollable" aria-label="Resolved files">
 				${repeat(
 					resolutions,
 					r => r.filePath,
@@ -334,9 +469,21 @@ export class GlDetailsResolveModePanel extends LitElement {
 					e => this.renderError(e),
 				)}
 			</ul>
+			<div class="resolve-footer">
+				<gl-button
+					class="resolve-apply"
+					full
+					?disabled=${applicable === 0}
+					@click=${() => this.emit('resolve-apply-all')}
+				>
+					Apply ${applicable > 0 ? pluralize('Resolution', applicable) : 'all'}
+				</gl-button>
+				<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}>Discard</gl-button>
+			</div>
 			<gl-ai-input
-				class="resolve-refine"
+				class="review-action-input"
 				multiline
+				active
 				rows="2"
 				button-label="Refine"
 				busy-label="Re-resolving…"
@@ -346,12 +493,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 			>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
 			</gl-ai-input>
-			<div class="resolve-footer">
-				<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}>Discard</gl-button>
-				<gl-button ?disabled=${applicable === 0} @click=${() => this.emit('resolve-apply-all')}>
-					Apply ${applicable > 0 ? pluralize('resolution', applicable) : 'all'}
-				</gl-button>
-			</div>
 		`;
 	}
 
@@ -400,7 +541,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 				? html`<gl-ai-input
 						class="resolve-file__feedback"
 						multiline
-						rows="2"
+						active
+						rows="1"
 						button-label="Retry"
 						busy-label="Re-resolving…"
 						event-name="resolve-row-retry"

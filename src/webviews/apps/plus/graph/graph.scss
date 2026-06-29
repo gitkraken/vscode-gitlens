@@ -1719,7 +1719,8 @@ web-graph {
 		// vocabulary. `--color-highlight` is GitLens's brand accent (wraps the VS Code button
 		// background), with `--vscode-focusBorder` as a safety fallback.
 		gl-graph-details-panel[data-mode='compose'],
-		gl-graph-details-panel[data-mode='review'] {
+		gl-graph-details-panel[data-mode='review'],
+		gl-graph-details-panel[data-mode='resolve'] {
 			--mode-accent: var(--color-highlight, var(--vscode-focusBorder));
 		}
 

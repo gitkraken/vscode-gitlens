@@ -34,6 +34,7 @@ export function abortRunningOperations(state: GraphCrossPaneState): void {
 	for (const bucket of current.values()) {
 		bucket.review?.abortController?.abort();
 		bucket.compose?.abortController?.abort();
+		bucket.resolve?.abortController?.abort();
 		bucket.generateMessage?.abortController?.abort();
 	}
 	if (current.size > 0) {

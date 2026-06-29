@@ -515,9 +515,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		} else {
 			const next = new Map<string, RunningOperationBucket>();
 			for (const bucket of runningOperations.values()) {
-				// Either kind in the bucket has the same anchor (the bucket is per-anchor), so
+				// Any kind in the bucket has the same anchor (the bucket is per-anchor), so
 				// derive repoPath from whichever is set.
-				const anchor = (bucket.review ?? bucket.compose)?.anchor;
+				const anchor = (bucket.review ?? bucket.compose ?? bucket.resolve)?.anchor;
 				if (anchor?.kind !== 'wip') continue;
 
 				const rowSha =
@@ -1015,9 +1015,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private onWipRowOpen({
 		detail: { target, row },
-	}: CustomEvent<{ target: 'compose' | 'review' | 'agents'; row: GraphRow }>) {
+	}: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GraphRow }>) {
 		// Webview-internal event — bubbles up to graph-app which selects the row, opens the
-		// details panel, and routes to the requested target (compose/review enter the matching
+		// details panel, and routes to the requested target (compose/review/resolve enter the matching
 		// workflow mode; `agents` expands the agents section). No IPC round-trip needed.
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-wip-row-open', {

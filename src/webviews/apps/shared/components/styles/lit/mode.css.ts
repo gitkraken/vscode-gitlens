@@ -17,7 +17,8 @@ export const modeToggleStyles = css`
 	   status icon (loading / pass / etc.) — color is redundant when icons already
 	   differentiate. Error and orphaned states still override for semantic colorization. */
 	.mode-toggle--compose,
-	.mode-toggle--review {
+	.mode-toggle--review,
+	.mode-toggle--resolve {
 		--mode-toggle-accent: var(--color-highlight, var(--vscode-focusBorder));
 	}
 

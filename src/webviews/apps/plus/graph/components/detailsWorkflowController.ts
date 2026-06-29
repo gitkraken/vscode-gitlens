@@ -609,6 +609,11 @@ export class DetailsWorkflowController implements ReactiveController {
 				this.compose.invalidateSnapshot();
 				this.compose.invalidateErrorRecovery();
 				this._composeFetchedForSelection = undefined;
+			} else if (wasMode === 'resolve') {
+				this.actions.resources.resolve.reset();
+				this.resolve.invalidateErrorRecovery();
+				this._resolveFetchedForSelection = undefined;
+				this.actions.state.resolveFocusedFilePaths.set(undefined);
 			}
 		}
 
@@ -744,6 +749,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		// gets rebuilt when the user clicks Back on it.
 		this.review.invalidateSnapshot();
 		this.compose.invalidateSnapshot();
+		// Resolve has no Resume snapshot (apply is terminal) — this is a deliberate no-op kept for
+		// uniformity so every mode's snapshot is invalidated on an anchor switch.
+		this.resolve.invalidateSnapshot();
 
 		// On row switch the mode does NOT follow — just hide. The prior anchor's `toggleMode`
 		// already called `rememberMode`, so returning to a remembered WIP anchor restores below.
@@ -1168,8 +1176,10 @@ export class DetailsWorkflowController implements ReactiveController {
 		invalidateSnapshot: (): void => {
 			/* no-op */
 		},
+		// Resolve has no prior-result Resume/snapshot, so there's no error-recovery value to clear —
+		// a no-op kept for the uniform workflow surface (mirrors invalidateSnapshot above).
 		invalidateErrorRecovery: (): void => {
-			this.actions.state.resolvePreErrorValue.set(undefined);
+			/* no-op */
 		},
 		// "Go Back" from the error pane — resolve has no prior-result Resume, so land on clean idle
 		// (the conflicted-file list). Drop the error entry so the panel maps to idle.
@@ -1177,16 +1187,17 @@ export class DetailsWorkflowController implements ReactiveController {
 			const anchor = this.currentAnchor();
 			this.removeRunningOperation(anchorKey(anchor), 'resolve');
 			this.actions.resources.resolve.reset();
-			this.actions.state.resolvePreErrorValue.set(undefined);
 		},
 		// Retry after error — re-run with the same scope (single file or all) and the run's prompt.
+		// Read the scope off the entry (survives a row-switch-and-return that clears the signal),
+		// falling back to the signal for a never-settled run.
 		retryFromError: (): void => {
 			const entry = this.host.crossPaneState.runningOperations
 				.get()
 				.get(anchorKey(this.currentAnchor()))?.resolve;
 			this.runResolve(
 				this.actions.state.activeModeRepoPath.get(),
-				this.actions.state.resolveFocusedFilePaths.get(),
+				entry?.focusedFilePaths ?? this.actions.state.resolveFocusedFilePaths.get(),
 				entry?.prompt,
 			);
 		},
@@ -1357,6 +1368,9 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.resources.resolve.mutate(merged);
 	}
 
+	/** Runs the resolver over `focusedFilePaths` — the user-checked subset from the idle file tree
+	 *  (the full conflict set when everything is checked). Stored on `resolveFocusedFilePaths` so the
+	 *  whole-run Refine and `retryFromError` re-run the same scope. */
 	runResolve(
 		repoPath: string | undefined,
 		focusedFilePaths: readonly string[] | undefined,
@@ -1366,24 +1380,27 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		this.actions.state.wipStale.set(false);
 		this.actions.state.resolveFocusedFilePaths.set(focusedFilePaths);
-		// Snapshot a prior result-bearing value for error recovery; kept symmetric with
-		// compose/review even though resolve has no Resume bar.
+		// A prior result-bearing value means this run is a Refine (re-resolve) rather than a fresh run
+		// — used only for the `refine` telemetry flag below.
 		const currentValue = this.actions.resources.resolve.value.get();
-		this.actions.state.resolvePreErrorValue.set(
-			currentValue != null && 'result' in currentValue ? currentValue : undefined,
-		);
 		this._resolveFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'resolve',
 			instructions,
 			controller => this.actions.startResolve(repoPath, focusedFilePaths, instructions, controller.signal),
 			{
+				// `excludedFilesCount`/`effectiveFilesCount` are unused on the resolve telemetry path
+				// (see `fireRunTelemetry`, which reports `files.focused.count` + the per-strategy
+				// `result.*.count`s), so they stay 0 rather than carrying a misleading scope size.
+				// `focused`/`focusedCount` describe the scoped run — the checked subset; both fall to
+				// undefined/0 for a whole-run over all conflicts.
 				excludedFilesCount: 0,
 				effectiveFilesCount: 0,
 				refine: currentValue != null && 'result' in currentValue,
 				focused: focusedFilePaths != null && focusedFilePaths.length > 0,
 				focusedCount: focusedFilePaths?.length ?? 0,
 			},
+			focusedFilePaths,
 		);
 	}
 
@@ -1409,6 +1426,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			focused?: boolean;
 			focusedCount?: number;
 		},
+		/** Resolve-only run scope, persisted on the entry so it survives anchor switches. */
+		focusedFilePaths?: readonly string[],
 	): void {
 		const anchor = this.currentAnchor();
 		const key = anchorKey(anchor);
@@ -1436,6 +1455,7 @@ export class DetailsWorkflowController implements ReactiveController {
 			abortController: controller,
 			promise: promise,
 			prompt: prompt,
+			focusedFilePaths: focusedFilePaths,
 		});
 
 		promise.then(
@@ -1477,8 +1497,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			controller.signal.aborted || (result != null && 'cancelled' in result && result.cancelled === true);
 		const isError = ex != null || (result != null && 'error' in result);
 
-		// Resolve has no scope picker, so it builds a focused-files + instructions + AI-model payload
-		// instead of the shared scope context that compose/review use.
+		// Resolve curates a checked conflict-file set (not a commit scope), so it builds a
+		// focused-files + instructions + AI-model payload instead of compose/review's scope context.
 		if (kind === 'resolve') {
 			const resolveBase = {
 				...this.actions.buildAIModelTelemetryContext(),
@@ -1858,15 +1878,17 @@ export class DetailsWorkflowController implements ReactiveController {
 		}
 
 		// Always update the entry — drives adornment + chip overlay refresh even when not engaged.
-		// Carry forward the live entry's `prompt` so the run's prompt survives settlement and
-		// later seeds the AI input on Restart. `abortController` + `promise` are intentionally
-		// dropped: the run is settled, those fields are stale (per RunningOperationBase docs).
+		// Carry forward the live entry's `prompt` (seeds the AI input on Restart) and `focusedFilePaths`
+		// (resolve scope — so Refine/retry after a row-switch-and-return re-run the same subset instead
+		// of widening to all conflicts). `abortController` + `promise` are intentionally dropped: the run
+		// is settled, those fields are stale (per RunningOperationBase docs).
 		this.registerRunningOperation({
 			kind: kind,
 			anchor: anchor,
 			execState: execState,
 			result: value,
 			prompt: current.prompt,
+			focusedFilePaths: current.focusedFilePaths,
 		} as RunningOperation);
 		// If still engaged, project the result into the panel-bound Resource.
 		this.projectIfEngaged(kind, anchor);
@@ -2062,6 +2084,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		this._composeBackSnapshot = undefined;
 		this.actions.resources.review.reset();
 		this.actions.resources.compose.reset();
+		this.actions.resources.resolve.reset();
 		// Prior repo's anchors are gone — drop their remembered modes too.
 		const modes = this.host.crossPaneState.lastModeByAnchor;
 		if (modes.get().size > 0) {
@@ -2159,6 +2182,18 @@ export class DetailsWorkflowController implements ReactiveController {
 				};
 				touched = true;
 			}
+			const resolve = bucket.resolve;
+			if (resolve != null && resolve.execState !== 'orphaned' && removedRepoPaths.has(resolve.anchor.repoPath)) {
+				resolve.abortController?.abort();
+				nextBucket ??= { ...bucket };
+				nextBucket.resolve = {
+					...resolve,
+					execState: 'orphaned',
+					abortController: undefined,
+					promise: undefined,
+				};
+				touched = true;
+			}
 			const generateMessage = bucket.generateMessage;
 			if (generateMessage != null && removedRepoPaths.has(generateMessage.anchor.repoPath)) {
 				generateMessage.abortController?.abort();
@@ -2167,7 +2202,12 @@ export class DetailsWorkflowController implements ReactiveController {
 				touched = true;
 			}
 			if (nextBucket != null) {
-				if (nextBucket.review == null && nextBucket.compose == null && nextBucket.generateMessage == null) {
+				if (
+					nextBucket.review == null &&
+					nextBucket.compose == null &&
+					nextBucket.resolve == null &&
+					nextBucket.generateMessage == null
+				) {
 					next.delete(key);
 				} else {
 					next.set(key, nextBucket);

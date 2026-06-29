@@ -4,6 +4,7 @@ export {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -92,33 +93,6 @@ export const composeModePanelStyles = css`
 		align-self: center;
 		margin-top: var(--gl-space-10);
 		margin-bottom: var(--gl-space-12);
-	}
-
-	/* Wraps the loading branch so the vertical-stream animation can sit behind the spinner +
-	   progress text + cancel block. The stage takes the full available panel height; the
-	   foreground sits on top, top-anchored. */
-	.compose-loading-stage {
-		position: relative;
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.compose-loading-stage > gl-categorizing-loading-animation {
-		position: absolute;
-		inset: 0;
-		z-index: 0;
-		pointer-events: none;
-	}
-
-	.compose-loading-foreground {
-		position: relative;
-		z-index: 1;
-		display: flex;
-		flex: none;
-		flex-direction: column;
 	}
 
 	.compose-plan__list {

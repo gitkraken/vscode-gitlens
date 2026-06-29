@@ -281,6 +281,12 @@ export const treeItemStyles = [
 			display: none;
 		}
 
+		/* Rows with no actions still render an empty action-nav; its margin would otherwise appear on
+		   hover and shift the decorations. Keep it out of layout entirely when nothing is slotted. */
+		:host(:not(:has([slot='actions']))) .actions {
+			display: none;
+		}
+
 		/* Tooltip wrapper around the checkbox has display: block + line-height from the host,
 	   which adds inline leading and pushes the checkbox 1px above the row. Center-fit it. */
 		gl-tooltip:has(> .checkbox) {

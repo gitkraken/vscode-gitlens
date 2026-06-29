@@ -1004,6 +1004,22 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 									)}
 								</gl-button>
 							)}
+							{(resolveActive || (hasConflicts && interacting)) && (
+								<gl-button
+									onClick={() => initProps.onWipRowOpen?.({ target: 'resolve', row: row })}
+									tooltip={resolveTooltip}
+									aria-label={resolveTooltip}
+								>
+									<code-icon icon="sparkle"></code-icon>
+									{resolveStatusIcon != null && (
+										<code-icon
+											slot="suffix"
+											icon={resolveStatusIcon}
+											modifier={resolveStatusIcon === 'loading' ? 'spin' : ''}
+										></code-icon>
+									)}
+								</gl-button>
+							)}
 							{(composeActive || interacting) && (
 								<gl-button
 									onClick={() => initProps.onWipRowOpen?.({ target: 'compose', row: row })}
@@ -1032,22 +1048,6 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 											slot="suffix"
 											icon={reviewStatusIcon}
 											modifier={reviewStatusIcon === 'loading' ? 'spin' : ''}
-										></code-icon>
-									)}
-								</gl-button>
-							)}
-							{(resolveActive || (hasConflicts && interacting)) && (
-								<gl-button
-									onClick={() => initProps.onWipRowOpen?.({ target: 'resolve', row: row })}
-									tooltip={resolveTooltip}
-									aria-label={resolveTooltip}
-								>
-									<code-icon icon="sparkle"></code-icon>
-									{resolveStatusIcon != null && (
-										<code-icon
-											slot="suffix"
-											icon={resolveStatusIcon}
-											modifier={resolveStatusIcon === 'loading' ? 'spin' : ''}
 										></code-icon>
 									)}
 								</gl-button>

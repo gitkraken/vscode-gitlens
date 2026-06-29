@@ -25,12 +25,13 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
-import { countIncludedFiles, pruneExcludedToFiles, syncAiExcluded } from './aiExclusion.js';
+import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -97,6 +98,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		panelHostStyles,
 		panelActionInputStyles,
 		panelLoadingStyles,
+		panelLoadingStageStyles,
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
@@ -227,7 +229,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = pruneExcludedToFiles(this._excludedFiles, this.files);
+			const pruned = prunePathsToFiles(this._excludedFiles, this.files);
 			if (pruned != null) {
 				this._excludedFiles = pruned;
 			}
@@ -353,9 +355,12 @@ export class GlDetailsReviewModePanel extends LitElement {
 	private renderLoadingWithCancel() {
 		// Animation sits behind the spinner/cancel as decoration; uses the review color triplet
 		// (green/yellow/red) and self-disables under prefers-reduced-motion.
-		return html`<div class="review-loading-stage">
-			<gl-categorizing-loading-animation variant="review"></gl-categorizing-loading-animation>
-			<div class="review-loading-wrap">
+		return html`<div class="panel-loading-stage">
+			<gl-categorizing-loading-animation
+				class="panel-loading-stage__anim"
+				variant="review"
+			></gl-categorizing-loading-animation>
+			<div class="panel-loading-stage__foreground review-loading-wrap">
 				${renderLoadingState('Analyzing changes...')}
 				<gl-button class="review-cancel" appearance="secondary" @click=${this.handleCancel}>Cancel</gl-button>
 			</div>

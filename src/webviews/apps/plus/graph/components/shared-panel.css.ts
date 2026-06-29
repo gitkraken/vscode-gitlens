@@ -137,6 +137,36 @@ export const panelLoadingStyles = css`
 	}
 `;
 
+/* Loading "stage" shared by the compose/review/resolve mode panels: a full-height relative
+   container with the background particle animation pinned behind a top-anchored foreground.
+   The animation is targeted by the `__anim` class (not its tag) so the rule is agnostic to which
+   loader sits inside. Consumers add their own foreground spacing (gap/align) as needed. */
+export const panelLoadingStageStyles = css`
+	.panel-loading-stage {
+		position: relative;
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.panel-loading-stage__anim {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+	}
+
+	.panel-loading-stage__foreground {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		flex: none;
+		flex-direction: column;
+	}
+`;
+
 export const panelStaleBannerStyles = css`
 	.stale-banner {
 		display: flex;

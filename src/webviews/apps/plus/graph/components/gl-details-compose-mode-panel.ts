@@ -18,13 +18,14 @@ import { renderOpenChangesAction } from '../../../shared/components/tree/file-tr
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import { countIncludedFiles, pruneExcludedToFiles, syncAiExcluded } from './aiExclusion.js';
+import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
 	composeModePanelStyles,
 	panelActionInputStyles,
 	panelErrorStyles,
 	panelHostStyles,
+	panelLoadingStageStyles,
 	panelLoadingStyles,
 	panelScopeSplitStyles,
 	panelStaleBannerStyles,
@@ -56,6 +57,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		panelHostStyles,
 		panelActionInputStyles,
 		panelLoadingStyles,
+		panelLoadingStageStyles,
 		panelErrorStyles,
 		panelStaleBannerStyles,
 		panelScopeSplitStyles,
@@ -181,7 +183,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		}
 
 		if (changedProperties.has('files')) {
-			const pruned = pruneExcludedToFiles(this._excludedFiles, this.files);
+			const pruned = prunePathsToFiles(this._excludedFiles, this.files);
 			if (pruned != null) {
 				this._excludedFiles = pruned;
 			}
@@ -278,9 +280,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 			// The animation sits behind the spinner/text/cancel as decoration; it self-removes
 			// when this branch is no longer rendered (status flips to 'ready'/'error') and
 			// auto-disables under prefers-reduced-motion.
-			return html`<div class="compose-loading-stage">
-				<gl-categorizing-loading-animation variant="compose"></gl-categorizing-loading-animation>
-				<div class="compose-loading-foreground">
+			return html`<div class="panel-loading-stage">
+				<gl-categorizing-loading-animation
+					class="panel-loading-stage__anim"
+					variant="compose"
+				></gl-categorizing-loading-animation>
+				<div class="panel-loading-stage__foreground">
 					${renderLoadingState(this.progressMessage ?? 'Composing changes…')}${this.renderCancelButton()}
 				</div>
 			</div>`;

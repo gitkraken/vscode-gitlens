@@ -86,6 +86,12 @@ interface RunningOperationBase {
 	 *  engaged entry so each anchor remembers its own run's prompt across mode toggles and anchor
 	 *  switches. Empty/undefined for runs that don't carry a prompt. */
 	prompt?: string;
+	/** Resolve-only: the conflict-file scope the run was dispatched with (the user-checked subset;
+	 *  undefined = all conflicts). Carried on the entry like {@link prompt} so a row-switch-and-return
+	 *  doesn't lose it — whole-run Refine / retry-after-error re-run the SAME scope instead of silently
+	 *  widening to every conflict when the engagement-scoped `resolveFocusedFilePaths` signal is cleared
+	 *  on hide. Undefined for non-resolve kinds. */
+	focusedFilePaths?: readonly string[];
 }
 
 /** Generate-commit-message result — just the composed message; the panel routes it to the WIP input/draft
@@ -377,7 +383,6 @@ function createTransientState() {
 	const resolveProgressMessage = signal<string | undefined>(undefined);
 	const resolveApplying = signal(false);
 	const resolveFocusedFilePaths = signal<readonly string[] | undefined>(undefined);
-	const resolvePreErrorValue = signal<ResolveResult | undefined>(undefined);
 	// Paths currently being re-resolved with per-file feedback — drives the per-row busy spinner in
 	// the resolve results while a retry is in flight (multiple rows can retry concurrently).
 	const resolveRetryingFiles = signal<ReadonlySet<string>>(new Set());
@@ -476,7 +481,6 @@ function createTransientState() {
 		resolveProgressMessage: resolveProgressMessage,
 		resolveApplying: resolveApplying,
 		resolveFocusedFilePaths: resolveFocusedFilePaths,
-		resolvePreErrorValue: resolvePreErrorValue,
 		resolveRetryingFiles: resolveRetryingFiles,
 		resolveStagingFiles: resolveStagingFiles,
 

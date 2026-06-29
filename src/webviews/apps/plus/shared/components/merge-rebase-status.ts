@@ -61,6 +61,17 @@ export class GlMergeConflictWarning extends LitElement {
 				flex: none;
 			}
 
+			/* Read-only (mode) banner: baseline-align so the "(N/M)" step counter lines up with the
+			   status text. The branch-name chips inflate the label's line-box, so plain center-alignment
+			   leaves the counter sitting too low. Keep the warning icon centered. */
+			:host([readonly]) .status {
+				align-items: baseline;
+			}
+
+			:host([readonly]) .icon {
+				align-self: center;
+			}
+
 			.md-code {
 				padding: 0 var(--gl-space-4) var(--gl-space-2);
 				font-family: var(--vscode-editor-font-family);
