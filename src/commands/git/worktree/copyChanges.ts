@@ -26,7 +26,6 @@ import { ensureAccessStep } from '../../quick-wizard/steps/access.js';
 import { canSkipRepositoryPick, pickRepositoryStep } from '../../quick-wizard/steps/repositories.js';
 import { pickWorktreeStep } from '../../quick-wizard/steps/worktrees.js';
 import { StepsController } from '../../quick-wizard/stepsController.js';
-import { getSteps } from '../../quick-wizard/utils/quickWizard.utils.js';
 import { assertStepState, canPickStepContinue, createConfirmStep } from '../../quick-wizard/utils/steps.utils.js';
 import type { WorktreeContext } from '../worktree.js';
 
@@ -285,23 +284,6 @@ export class WorktreeCopyChangesGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			yield* getSteps(
-				this.container,
-				{
-					command: 'worktree',
-					confirm: true,
-					state: {
-						subcommand: 'open',
-						repo: state.repo,
-						worktree: state.target,
-						flags: [],
-						openOnly: true,
-						overrides: { canGoBack: false },
-					},
-				},
-				context,
-				this.startedFrom,
-			);
 			break;
 		}
 
