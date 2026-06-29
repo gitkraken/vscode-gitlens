@@ -242,6 +242,28 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 			const { max_completion_tokens: max, ...rest } = request;
 			request = max ? { max_tokens: max, ...rest } : rest;
 		}
+		// Anthropic's Messages API rejects `system`-role entries inside `messages` ("messages.0: use
+		// the top-level 'system' parameter for the initial system prompt"). Some callers — notably
+		// the compose-tools adapter, which goes through `sendRequest` and embeds the system prompt
+		// as a leading message — put the system prompt in `messages` rather than the top-level
+		// `system` field, which is valid for the OpenAI-compatible providers sharing the base.
+		// Hoist any such entries into `system`, after any existing top-level value.
+		if ('messages' in request && Array.isArray(request.messages)) {
+			const { system, messages } = request as {
+				system?: unknown;
+				messages: { role: string; content: string }[];
+			};
+			const systemMessages = messages.filter(m => m?.role === 'system');
+			if (systemMessages.length) {
+				request = {
+					...request,
+					system: [typeof system === 'string' ? system : undefined, ...systemMessages.map(m => m.content)]
+						.filter(s => s != null)
+						.join('\n\n'),
+					messages: messages.filter(m => m?.role !== 'system'),
+				};
+			}
+		}
 		return super.fetchCore(action, model, apiKey, request, signal);
 	}
 
