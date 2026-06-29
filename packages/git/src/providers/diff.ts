@@ -40,6 +40,8 @@ export interface GitDiffSubProvider {
 		to: string,
 		from?: string,
 		options?: {
+			/** Emit a full `GIT binary patch` (with full index line) for binary files instead of the `Binary files ... differ` marker. Required when the diff will be replayed through `git apply`. */
+			binary?: boolean;
 			context?: number;
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;

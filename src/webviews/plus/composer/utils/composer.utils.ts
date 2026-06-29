@@ -10,6 +10,9 @@ import type { ComposerCommit, ComposerHunk, ComposerSafetyState } from '../proto
 
 const hunkOldRangeRegex = /@@ -(\d+),(\d+)/;
 const hunkNewRangeRegex = /@@ -\d+,\d+ \+(\d+),(\d+)/;
+// The `GIT binary patch` marker emitted by `git diff --binary` for binary files. Surrounding
+// newlines anchor it to its own line so it can't match inside a path or hunk body.
+const binaryPatchMarker = '\nGIT binary patch\n';
 
 export function getHunksForCommit(commit: ComposerCommit, hunks: ComposerHunk[]): ComposerHunk[] {
 	return hunks.filter(hunk => commit.hunkIndices.includes(hunk.index));
@@ -121,6 +124,16 @@ export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
 	// Build the complete patch string
 	let commitPatch = '';
 	for (const [header, hunkContents] of filePatches.entries()) {
+		// Binary files have no textual hunks: the `diffHeader` is the complete, verbatim per-file
+		// diff — including the `GIT binary patch` body, whose terminating blank line `git apply`
+		// requires. Emit it untouched. Trimming it (and appending synthesized hunk-header/content
+		// lines, as the text path below does) strips that terminator and corrupts the patch, which
+		// `git apply` rejects with "corrupt binary patch … no-content-change".
+		if (header.includes(binaryPatchMarker)) {
+			commitPatch += header.endsWith('\n') ? header : `${header}\n`;
+			continue;
+		}
+
 		commitPatch += `${header.trim()}\n`;
 		// Only add hunk contents if they exist (renames might have empty content)
 		const nonEmptyContents = hunkContents.filter(content => content.trim() !== '');
@@ -130,6 +143,32 @@ export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
 	}
 
 	return { patch: commitPatch, filePatches: filePatches };
+}
+
+/**
+ * Returns a copy of `hunks` safe to send to an AI model or the composer webview: each binary
+ * file's `GIT binary patch` body — base85-encoded bytes that a text model can't use and that can
+ * run to many MB (e.g. a committed build artifact), enough to overflow an AI request or freeze the
+ * webview renderer — is replaced with a compact `Binary file` placeholder.
+ *
+ * Only the body is dropped; the `diff --git`/mode/`index` header lines (and the filename) are kept
+ * so consumers still see that the file changed and whether it was added or modified. `index` is
+ * preserved on every hunk, so hunk assignments still map back to the original, un-redacted hunks
+ * that the apply path ({@link createCombinedDiffForCommit}) must always use.
+ */
+export function redactBinaryHunkContent(hunks: ComposerHunk[]): ComposerHunk[] {
+	return hunks.map(hunk => {
+		const markerIndex = hunk.diffHeader.indexOf(binaryPatchMarker);
+		if (markerIndex === -1) return hunk;
+
+		return {
+			...hunk,
+			// Keep only the textual header (diff --git / mode / index lines); drop the binary body.
+			diffHeader: hunk.diffHeader.slice(0, markerIndex),
+			hunkHeader: 'binary',
+			content: 'Binary file',
+		};
+	});
 }
 
 // Given a group of hunks assigned to a single commit, each with their own author and co-authors, determine a single author and co-authors list for the commit
@@ -459,9 +498,9 @@ export async function getComposerDiffs(
 
 			// Get all three diffs using the temp index
 			const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
-				repo.git.diff.getDiff?.(uncommittedStaged, undefined, { index: disposableIndex }),
-				repo.git.diff.getDiff?.(uncommitted, undefined, { index: disposableIndex }),
-				repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...', index: disposableIndex }),
+				repo.git.diff.getDiff?.(uncommittedStaged, undefined, { binary: true, index: disposableIndex }),
+				repo.git.diff.getDiff?.(uncommitted, undefined, { binary: true, index: disposableIndex }),
+				repo.git.diff.getDiff?.(uncommitted, 'HEAD', { binary: true, notation: '...', index: disposableIndex }),
 			]);
 
 			return {
@@ -475,11 +514,11 @@ export async function getComposerDiffs(
 
 	const [stagedDiffResult, unstagedDiffResult, unifiedDiffResult] = await Promise.allSettled([
 		// Get staged diff (index vs HEAD)
-		repo.git.diff.getDiff?.(uncommittedStaged),
+		repo.git.diff.getDiff?.(uncommittedStaged, undefined, { binary: true }),
 		// Get unstaged diff (working tree vs index)
-		repo.git.diff.getDiff?.(uncommitted),
+		repo.git.diff.getDiff?.(uncommitted, undefined, { binary: true }),
 		// Get unified diff (working tree vs HEAD)
-		repo.git.diff.getDiff?.(uncommitted, 'HEAD', { notation: '...' }),
+		repo.git.diff.getDiff?.(uncommitted, 'HEAD', { binary: true, notation: '...' }),
 	]);
 
 	return {
@@ -769,8 +808,7 @@ export async function calculateCombinedDiffBetweenCommits(
 			return undefined;
 		}
 
-		// Get the combined diff from base to head
-		const diff = await diffService.getDiff(headCommitSha, baseCommitSha);
+		const diff = await diffService.getDiff(headCommitSha, baseCommitSha, { binary: true });
 		if (!diff?.contents) {
 			return undefined;
 		}
