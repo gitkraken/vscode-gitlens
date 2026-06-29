@@ -115,7 +115,13 @@ export type RunningOperation =
 	| (RunningOperationBase & { kind: 'review'; result?: ReviewResult })
 	| (RunningOperationBase & { kind: 'compose'; result?: ComposeResult })
 	| (RunningOperationBase & { kind: 'resolve'; result?: ResolveResult })
-	| (RunningOperationBase & { kind: 'generateMessage' });
+	| (RunningOperationBase & {
+			kind: 'generateMessage';
+			/** Timestamp (`performance.now()`) when the generation was dispatched. Used to compute
+			 *  duration on cancel and settlement. */
+			startedAt?: number;
+			telemetryContext?: { amend: boolean; hasExistingMessage: boolean };
+	  });
 
 /** Per-anchor running-operation slot. An anchor may hold one of each kind concurrently. */
 export interface RunningOperationBucket {
