@@ -1,7 +1,8 @@
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
+import type { IntegrationConnectedKey } from '@gitlens/integrations/models/integration.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
-import type { IntegrationIds } from './constants.integrations.js';
 import type { SubscriptionState } from './constants.subscription.js';
 import type { TrackedUsage, TrackedUsageKeys } from './constants.telemetry.js';
 import type { GroupableTreeViewTypes, TreeViewTypes } from './constants.views.js';
@@ -11,7 +12,6 @@ import type { FeaturePreviews } from './features.js';
 import type { OnboardingStorage } from './onboarding/models/onboarding.js';
 import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
-import type { IntegrationConnectedKey } from './plus/integrations/models/integration.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 import type {
 	GraphDisplayMode,

@@ -8,7 +8,7 @@ import type { Container } from '../../container.js';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
-import { GlGitHubGitProvider } from '../../plus/integrations/providers/github/githubGitProvider.js';
+import { GlGitHubGitProvider } from '../../plus/integrations/host/providers/githubGitProvider.js';
 import type { SharedGkStorageLocationProvider } from '../../plus/repos/sharedGkStorageLocationProvider.js';
 import type { GkWorkspacesSharedStorageProvider } from '../../plus/workspaces/workspacesSharedStorageProvider.js';
 import type { TelemetryService } from '../../telemetry/telemetry.js';

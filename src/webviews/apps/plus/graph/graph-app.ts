@@ -136,8 +136,8 @@ const detailsMaxPct = 80;
 // Width thresholds (px) for the `auto` details location — below `enter` the panel flips to the
 // bottom, above `exit` it flips back to the right. The dead-band between them prevents flicker when
 // the panel is dragged across the boundary.
-const detailsAutoBottomEnterPx = 720;
-const detailsAutoBottomExitPx = 820;
+const detailsAutoBottomEnterPx = 820;
+const detailsAutoBottomExitPx = 920;
 
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;

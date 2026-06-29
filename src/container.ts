@@ -11,6 +11,8 @@ import {
 	getSupportedWorkspacesStorageProvider,
 	setTelemetryService,
 } from '@env/providers.js';
+import type { IntegrationManager } from '@gitlens/integrations/index.js';
+import { createIntegrationManager } from '@gitlens/integrations/index.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import { memoize } from '@gitlens/utils/decorators/memoize.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -48,14 +50,7 @@ import { ServerConnection } from './plus/gk/serverConnection.js';
 import { SubscriptionService } from './plus/gk/subscriptionService.js';
 import { UrlsProvider } from './plus/gk/urlsProvider.js';
 import { GraphStatusBarController } from './plus/graph/statusbar.js';
-import type { CloudIntegrationService } from './plus/integrations/authentication/cloudIntegrationService.js';
-import { ConfiguredIntegrationService } from './plus/integrations/authentication/configuredIntegrationService.js';
-import { IntegrationAuthenticationService } from './plus/integrations/authentication/integrationAuthenticationService.js';
-import { IntegrationService } from './plus/integrations/integrationService.js';
-import type { AzureDevOpsApi } from './plus/integrations/providers/azure/azure.js';
-import type { BitbucketApi } from './plus/integrations/providers/bitbucket/bitbucket.js';
-import type { GitHubApi } from './plus/integrations/providers/github/github.js';
-import type { GitLabApi } from './plus/integrations/providers/gitlab/gitlab.js';
+import { createIntegrationServiceContext } from './plus/integrations/host/context.js';
 import { EnrichmentService } from './plus/launchpad/enrichmentService.js';
 import { LaunchpadIndicator } from './plus/launchpad/launchpadIndicator.js';
 import { LaunchpadProvider } from './plus/launchpad/launchpadProvider.js';
@@ -68,7 +63,6 @@ import { executeCommand } from './system/-webview/command.js';
 import { configuration } from './system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from './system/-webview/context.js';
 import { Keyboard } from './system/-webview/keyboard.js';
-import { loadChunk } from './system/-webview/loadChunk.js';
 import type { Storage } from './system/-webview/storage.js';
 import { AIFeedbackProvider } from './telemetry/aiFeedbackProvider.js';
 import { TelemetryService } from './telemetry/telemetry.js';
@@ -502,32 +496,6 @@ export class Container {
 		return this._cache;
 	}
 
-	private _cloudIntegrations: Promise<CloudIntegrationService | undefined> | undefined;
-	get cloudIntegrations(): Promise<CloudIntegrationService | undefined> {
-		if (this._cloudIntegrations == null) {
-			async function load(this: Container) {
-				try {
-					const cloudIntegrations = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/authentication/cloudIntegrationService.js'
-								),
-						)
-					).CloudIntegrationService(this, this._connection);
-					return cloudIntegrations;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._cloudIntegrations = load.call(this);
-		}
-
-		return this._cloudIntegrations;
-	}
-
 	private _featureFlags: FeatureFlagService | undefined;
 	get featureFlags(): FeatureFlagService {
 		if (this._featureFlags == null) {
@@ -535,7 +503,6 @@ export class Container {
 		}
 		return this._featureFlags;
 	}
-
 	private _drafts: DraftService | undefined;
 	get drafts(): DraftService {
 		if (this._drafts == null) {
@@ -628,128 +595,28 @@ export class Container {
 		return this._git;
 	}
 
-	private _azure: Promise<AzureDevOpsApi | undefined> | undefined;
-	get azure(): Promise<AzureDevOpsApi | undefined> {
-		if (this._azure == null) {
-			async function load(this: Container) {
-				try {
-					const azure = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/azure/azure.js'
-								),
-						)
-					).AzureDevOpsApi(this);
-					this._disposables.push(azure);
-					return azure;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._azure = load.call(this);
-		}
-
-		return this._azure;
-	}
-
-	private _bitbucket: Promise<BitbucketApi | undefined> | undefined;
-	get bitbucket(): Promise<BitbucketApi | undefined> {
-		if (this._bitbucket == null) {
-			async function load(this: Container) {
-				try {
-					const bitbucket = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/bitbucket/bitbucket.js'
-								),
-						)
-					).BitbucketApi(this);
-					this._disposables.push(bitbucket);
-					return bitbucket;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._bitbucket = load.call(this);
-		}
-
-		return this._bitbucket;
-	}
-
-	private _github: Promise<GitHubApi | undefined> | undefined;
-	get github(): Promise<GitHubApi | undefined> {
-		if (this._github == null) {
-			async function load(this: Container) {
-				try {
-					const { createGitHubApi } = await loadChunk(
-						() =>
-							import(
-								/* webpackChunkName: "integrations" */ './plus/integrations/providers/github/github.js'
-							),
-					);
-					const github = createGitHubApi();
-					this._disposables.push(github);
-					return github;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._github = load.call(this);
-		}
-
-		return this._github;
-	}
-
-	private _gitlab: Promise<GitLabApi | undefined> | undefined;
-	get gitlab(): Promise<GitLabApi | undefined> {
-		if (this._gitlab == null) {
-			async function load(this: Container) {
-				try {
-					const gitlab = new (
-						await loadChunk(
-							() =>
-								import(
-									/* webpackChunkName: "integrations" */ './plus/integrations/providers/gitlab/gitlab.js'
-								),
-						)
-					).GitLabApi(this);
-					this._disposables.push(gitlab);
-					return gitlab;
-				} catch (ex) {
-					Logger.error(ex);
-					return undefined;
-				}
-			}
-
-			this._gitlab = load.call(this);
-		}
-
-		return this._gitlab;
-	}
-
 	@memoize()
 	get id(): string {
 		return this._context.extension.id;
 	}
 
-	private _integrations: IntegrationService | undefined;
-	get integrations(): IntegrationService {
-		if (this._integrations == null) {
-			const configuredIntegrationService = new ConfiguredIntegrationService(this);
-			const authService = new IntegrationAuthenticationService(this, configuredIntegrationService);
+	// Single host context shared by every integrations consumer (the manager, the cloud service, and
+	// the provider-API getters). Unlike git's stateless context, this one eagerly registers VS Code
+	// listeners + emitters, so building one per getter (6×) leaked redundant subscriptions.
+	private _integrationContext: ReturnType<typeof createIntegrationServiceContext> | undefined;
+	private get integrationContext(): ReturnType<typeof createIntegrationServiceContext> {
+		if (this._integrationContext == null) {
 			this._disposables.push(
-				authService,
-				configuredIntegrationService,
-				(this._integrations = new IntegrationService(this, authService, configuredIntegrationService)),
+				(this._integrationContext = createIntegrationServiceContext(this, this._connection)),
 			);
+		}
+		return this._integrationContext;
+	}
+
+	private _integrations: IntegrationManager | undefined;
+	get integrations(): IntegrationManager {
+		if (this._integrations == null) {
+			this._disposables.push((this._integrations = createIntegrationManager(this.integrationContext)));
 		}
 		return this._integrations;
 	}

@@ -11,11 +11,12 @@
 			"@gitlens/ipc/*": ["./packages/ipc/src/*"],
 			"@gitlens/git/*": ["./packages/git/src/*"],
 			"@gitlens/git-github/*": ["./packages/plus/git-github/src/*"],
+			"@gitlens/integrations/*": ["./packages/plus/integrations/src/*"],
 			"@gitlens/ai/*": ["./packages/plus/ai/src/*"],
 			"@gitlens/agents/*": ["./packages/plus/agents/src/*"]
 		},
 		"tsBuildInfoFile": "tsconfig.browser.tsbuildinfo"
 	},
-	"include": ["src/**/*"],
+	"include": ["src/**/*", "packages/plus/integrations/src/**/*"],
 	"exclude": ["src/webviews/apps/**/*", "src/env/node/**/*"]
 }

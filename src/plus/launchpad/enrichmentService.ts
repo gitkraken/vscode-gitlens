@@ -1,14 +1,14 @@
 import type { CancellationToken, Disposable } from 'vscode';
 import type { RemoteProvider, RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
-import { debug } from '@gitlens/utils/decorators/log.js';
-import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
-import type { IntegrationIds } from '../../constants.integrations.js';
+import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
 	IssuesCloudHostIntegrationId,
-} from '../../constants.integrations.js';
+} from '@gitlens/integrations/constants.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { debug } from '@gitlens/utils/decorators/log.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { Container } from '../../container.js';
 import { AuthenticationRequiredError } from '../../errors.js';
 import type { ServerConnection } from '../gk/serverConnection.js';
@@ -205,9 +205,7 @@ const supportedIntegrationIdsToEnrich: Record<IntegrationIds, EnrichedItemRespon
 	[GitCloudHostIntegrationId.GitHub]: 'github',
 	[GitCloudHostIntegrationId.Bitbucket]: 'bitbucket',
 	[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: 'github',
-	[GitSelfManagedHostIntegrationId.GitHubEnterprise]: 'github',
 	[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: 'gitlab',
-	[GitSelfManagedHostIntegrationId.GitLabSelfHosted]: 'gitlab',
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: 'bitbucket',
 	[IssuesCloudHostIntegrationId.Jira]: 'jira',
 	[IssuesCloudHostIntegrationId.Linear]: 'linear',

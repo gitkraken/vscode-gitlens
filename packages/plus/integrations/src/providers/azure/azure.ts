@@ -1,0 +1,691 @@
+import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { Issue } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import { base64 } from '@gitlens/utils/base64.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { trace } from '@gitlens/utils/decorators/log.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
+import { Logger } from '@gitlens/utils/logger.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
+import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import type { TokenInfo, TokenWithInfo } from '../../authentication/models.js';
+import type { IntegrationServiceContext } from '../../context.js';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	ProviderFetchError,
+	RequestClientError,
+	RequestNotFoundError,
+} from '../../errors.js';
+import type {
+	AzureGitCommit,
+	AzureProjectDescriptor,
+	AzurePullRequest,
+	AzurePullRequestWithLinks,
+	AzureWorkItemState,
+	AzureWorkItemStateCategory,
+	WorkItem,
+} from './models.js';
+import {
+	azurePullRequestStatusToState,
+	azureWorkItemsStateCategoryToState,
+	fromAzurePullRequest,
+	fromAzureWorkItem,
+	getAzurePullRequestWebUrl,
+	isClosedAzurePullRequestStatus,
+	isClosedAzureWorkItemStateCategory,
+} from './models.js';
+
+class WorkItemStates {
+	private readonly _categories = new Map<string, AzureWorkItemStateCategory>();
+	private readonly _types = new Map<string, AzureWorkItemState[]>();
+
+	// TODO@sergeibbb: we might need some logic for invalidating
+	public getStateCategory(
+		project: string,
+		workItemType: string,
+		stateName: string,
+	): AzureWorkItemStateCategory | undefined {
+		return this._categories.get(this.getStateKey(project, workItemType, stateName));
+	}
+
+	public clear(): void {
+		this._categories.clear();
+		this._types.clear();
+	}
+
+	public saveTypeStates(project: string, workItemType: string, states: AzureWorkItemState[]): void {
+		this.clearTypeStates(project, workItemType);
+		this._types.set(this.getTypeKey(project, workItemType), states);
+		for (const state of states) {
+			this._categories.set(this.getStateKey(project, workItemType, state.name), state.category);
+		}
+	}
+
+	public hasTypeStates(project: string, workItemType: string): boolean {
+		return this._types.has(this.getTypeKey(project, workItemType));
+	}
+
+	private clearTypeStates(project: string, workItemType: string): void {
+		const states = this._types.get(this.getTypeKey(project, workItemType));
+		if (states == null) return;
+
+		for (const state of states) {
+			this._categories.delete(this.getStateKey(project, workItemType, state.name));
+		}
+	}
+
+	private getStateKey(project: string, workItemType: string, stateName: string): string {
+		// By stringifying the pair as JSON we make sure that all possible special characters are escaped
+		return JSON.stringify([project, workItemType, stateName]);
+	}
+
+	private getTypeKey(project: string, workItemType: string): string {
+		return JSON.stringify([project, workItemType]);
+	}
+}
+
+export class AzureDevOpsApi implements Disposable {
+	private readonly _disposable: Disposable;
+	private _workItemStates: WorkItemStates = new WorkItemStates();
+
+	constructor(private readonly ctx: IntegrationServiceContext) {
+		this._disposable = ctx.config.onDidChange(e => {
+			if (e.httpProxy) {
+				this.resetCaches();
+			}
+		});
+	}
+
+	dispose(): void {
+		this._disposable.dispose();
+	}
+
+	private resetCaches(): void {
+		this._workItemStates.clear();
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, branch) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			branch: branch,
+		}),
+	})
+	public async getPullRequestForBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		branch: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+		const [projectName, _, repoName] = repo.split('/');
+
+		try {
+			const prResult = await this.request<{ value: AzurePullRequest[] }>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests?searchCriteria.status=all&searchCriteria.sourceRefName=refs/heads/${branch}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			// Sort PRs: open PRs first, then by most recent activity (creation or closure date)
+			const sortedPRs = prResult?.value.sort((a, b) => {
+				// First, prioritize open PRs (active/notSet) over closed ones (abandoned/completed)
+				const aIsOpen = a.status === 'active' || a.status === 'notSet';
+				const bIsOpen = b.status === 'active' || b.status === 'notSet';
+
+				if (aIsOpen !== bIsOpen) {
+					return aIsOpen ? -1 : 1; // Open PRs come first
+				}
+
+				// Among PRs with the same status, sort by most recent activity
+				// Use closedDate if available, otherwise use creationDate
+				const aDate = new Date(a.closedDate || a.creationDate);
+				const bDate = new Date(b.closedDate || b.creationDate);
+
+				return bDate.getTime() - aDate.getTime(); // Most recent first
+			});
+
+			const pr = sortedPRs?.[0];
+			if (pr == null) return undefined;
+
+			return fromAzurePullRequest(pr, provider, owner);
+		} catch (ex) {
+			scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
+	async getPullRequestForCommit(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		const scope = getScopedLogger();
+		const [projectName, _, repoName] = repo.split('/');
+		try {
+			const prResult = await this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
+				provider,
+				token,
+				baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullrequestquery?api-version=4.1`,
+				{
+					method: 'POST',
+					body: JSON.stringify({
+						queries: [
+							{
+								items: [rev],
+								type: 'commit',
+							},
+						],
+					}),
+				},
+				scope,
+				cancellation,
+			);
+
+			const pr = prResult?.results[0]?.[rev]?.[0];
+			if (pr == null) return undefined;
+
+			const pullRequest = await this.request<AzurePullRequestWithLinks>(
+				provider,
+				token,
+				undefined,
+				pr.url,
+				{ method: 'GET' },
+				scope,
+				cancellation,
+			);
+			if (pullRequest == null) return undefined;
+
+			return fromAzurePullRequest(pullRequest, provider, owner);
+		} catch (ex) {
+			scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, id) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			id: id,
+		}),
+	})
+	public async getIssueOrPullRequest(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		id: string,
+		options: {
+			baseUrl: string;
+			type?: IssueOrPullRequestType;
+		},
+	): Promise<IssueOrPullRequest | undefined> {
+		const scope = getScopedLogger();
+		const [projectName, _, repoName] = repo.split('/');
+
+		if (options?.type === undefined || options?.type === 'issue') {
+			try {
+				// Try to get the Work item (wit) first with specific fields
+				const issueResult = await this.request<WorkItem>(
+					provider,
+					token,
+					options?.baseUrl,
+					`${owner}/${projectName}/_apis/wit/workItems/${id}`,
+					{
+						method: 'GET',
+					},
+					scope,
+				);
+
+				if (issueResult != null) {
+					const issueType = issueResult.fields['System.WorkItemType'];
+					const state = issueResult.fields['System.State'];
+					const stateCategory = await this.getWorkItemStateCategory(
+						issueType,
+						state,
+						provider,
+						token,
+						owner,
+						projectName,
+						options,
+					);
+
+					return {
+						id: issueResult.id.toString(),
+						type: 'issue',
+						nodeId: issueResult.id.toString(),
+						provider: provider,
+						createdDate: new Date(issueResult.fields['System.CreatedDate']),
+						updatedDate: new Date(issueResult.fields['System.ChangedDate']),
+						state: azureWorkItemsStateCategoryToState(stateCategory),
+						closed: isClosedAzureWorkItemStateCategory(stateCategory),
+						title: issueResult.fields['System.Title'],
+						url: issueResult._links.html.href,
+					};
+				}
+			} catch (ex) {
+				if (ex.original?.status !== 404) {
+					scope?.error(ex);
+					return undefined;
+				}
+			}
+		}
+
+		if (options?.type === undefined || options?.type === 'pullrequest') {
+			try {
+				const prResult = await this.request<AzurePullRequestWithLinks>(
+					provider,
+					token,
+					options?.baseUrl,
+					`${owner}/${projectName}/_apis/git/repositories/${repoName}/pullRequests/${id}`,
+					{
+						method: 'GET',
+					},
+					scope,
+				);
+
+				if (prResult != null) {
+					return {
+						id: prResult.pullRequestId.toString(),
+						type: 'pullrequest',
+						nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
+						provider: provider,
+						createdDate: new Date(prResult.creationDate),
+						updatedDate: new Date(prResult.creationDate),
+						state: azurePullRequestStatusToState(prResult.status),
+						closed: isClosedAzurePullRequestStatus(prResult.status),
+						title: prResult.title,
+						url: getAzurePullRequestWebUrl(prResult),
+					};
+				}
+
+				return undefined;
+			} catch (ex) {
+				if (ex.original?.status !== 404) {
+					scope?.error(ex);
+					return undefined;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	@trace({
+		args: (provider, token, project, id) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			project: project,
+			id: id,
+		}),
+	})
+	public async getIssue(
+		provider: Provider,
+		token: TokenWithInfo,
+		project: AzureProjectDescriptor,
+		id: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<Issue | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			// Try to get the Work item (wit) first with specific fields
+			const issueResult = await this.request<WorkItem>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${project.resourceName}/${project.name}/_apis/wit/workItems/${id}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			if (issueResult != null) {
+				const issueType = issueResult.fields['System.WorkItemType'];
+				const state = issueResult.fields['System.State'];
+				const stateCategory = await this.getWorkItemStateCategory(
+					issueType,
+					state,
+					provider,
+					token,
+					project.resourceName,
+					project.name,
+					options,
+				);
+				return fromAzureWorkItem(issueResult, provider, project, stateCategory);
+			}
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				scope?.error(ex);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, rev, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			rev: rev,
+			baseUrl: baseUrl,
+		}),
+	})
+	async getAccountForCommit(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		rev: string,
+		baseUrl: string,
+		_options?: {
+			avatarSize?: number;
+		},
+	): Promise<UnidentifiedAuthor | undefined> {
+		const scope = getScopedLogger();
+		const [projectName, _, repoName] = repo.split('/');
+
+		try {
+			// Try to get the Work item (wit) first with specific fields
+			const commit = await this.request<AzureGitCommit>(
+				provider,
+				token,
+				baseUrl,
+				`${owner}/${projectName}/_apis/git/repositories/${repoName}/commits/${rev}`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+			const author = commit?.author;
+			if (!author) {
+				return undefined;
+			}
+			// Azure API never gives us an id/username we can use, therefore we always return UnidentifiedAuthor
+			return {
+				provider: provider,
+				id: undefined,
+				username: undefined,
+				name: author?.name,
+				email: author?.email,
+				avatarUrl: undefined,
+			} satisfies UnidentifiedAuthor;
+		} catch (ex) {
+			if (ex.original?.status !== 404) {
+				scope?.error(ex);
+				return undefined;
+			}
+		}
+
+		return undefined;
+	}
+
+	@trace({
+		args: (provider, token, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			baseUrl: baseUrl,
+		}),
+	})
+	async getCurrentUserOnServer(
+		provider: Provider,
+		token: TokenWithInfo,
+		baseUrl: string,
+	): Promise<{ id: string; name?: string; email?: string; username?: string; avatarUrl?: string } | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const connectionData = await this.request<{
+				authenticatedUser?: {
+					id: string;
+					descriptor: string;
+					isActive: boolean;
+					metTypeId: number;
+					providerDisplayName?: string;
+					emailAddress?: string;
+					resourceVersion: 2;
+					subjectDescriptor: string;
+					properties?: {
+						Account?: {
+							$type: string;
+							$value: string;
+						};
+					};
+				};
+			}>(
+				provider,
+				token,
+				baseUrl,
+				'_apis/connectionData',
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			const user = connectionData?.authenticatedUser;
+			const username = user?.properties?.Account?.$value;
+			if (!username) {
+				return undefined;
+			}
+
+			return {
+				id: user.id,
+				name: user.providerDisplayName,
+				email: user.emailAddress,
+				username: username,
+			};
+		} catch (ex) {
+			scope?.error(ex, `Failed to get current user from ${baseUrl}`);
+			return undefined;
+		}
+	}
+
+	async getWorkItemStateCategory(
+		issueType: string,
+		state: string,
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		projectName: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<AzureWorkItemStateCategory | undefined> {
+		const project = `${owner}/${projectName}`;
+		const category = this._workItemStates.getStateCategory(project, issueType, state);
+		if (category != null) return category;
+
+		const states = await this.retrieveWorkItemTypeStates(issueType, provider, token, owner, projectName, options);
+		this._workItemStates.saveTypeStates(project, issueType, states);
+
+		return this._workItemStates.getStateCategory(project, issueType, state);
+	}
+
+	private async retrieveWorkItemTypeStates(
+		workItemType: string,
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		projectName: string,
+		options: {
+			baseUrl: string;
+		},
+	): Promise<AzureWorkItemState[]> {
+		const scope = getScopedLogger();
+
+		try {
+			const issueResult = await this.request<{ value: AzureWorkItemState[]; count: number }>(
+				provider,
+				token,
+				options?.baseUrl,
+				`${owner}/${projectName}/_apis/wit/workItemTypes/${workItemType}/states`,
+				{
+					method: 'GET',
+				},
+				scope,
+			);
+
+			return issueResult?.value ?? [];
+		} catch (ex) {
+			scope?.error(ex);
+			return [];
+		}
+	}
+
+	private async request<T>(
+		provider: Provider,
+		token: TokenWithInfo,
+		baseUrl: string | undefined,
+		route: string,
+		options: { method: RequestInit['method'] } & Record<string, unknown>,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal | undefined,
+	): Promise<T | undefined> {
+		const { accessToken, ...tokenInfo } = token;
+		const url = baseUrl ? `${baseUrl}/${route}` : route;
+
+		let rsp: Response;
+		try {
+			const sw = maybeStopWatch(`[AZURE] ${options?.method ?? 'GET'} ${url}`, { log: { onlyExit: true } });
+
+			try {
+				if (cancellation?.aborted) throw new CancellationError();
+
+				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.ctx.http.fetch(url, {
+						headers: {
+							Authorization: `Basic ${base64(`PAT:${accessToken}`)}`,
+							'Content-Type': 'application/json',
+						},
+						signal: cancellation,
+						...options,
+					}),
+				);
+
+				if (rsp.ok) {
+					return (await rsp.json()) as T;
+				}
+
+				throw new ProviderFetchError('AzureDevOps', rsp);
+			} finally {
+				sw?.stop();
+			}
+		} catch (ex) {
+			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
+				this.handleRequestError(provider, tokenInfo, ex, scope);
+			} else if (Logger.isDebugging) {
+				this.ctx.hooks?.ui?.onError?.(`AzureDevOps request failed: ${ex.message}`);
+			}
+
+			throw ex;
+		}
+	}
+
+	private handleRequestError(
+		provider: Provider | undefined,
+		tokenInfo: TokenInfo,
+		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
+		scope: ScopedLogger | undefined,
+	): void {
+		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
+
+		switch (ex.status) {
+			case 404: // Not found
+			case 410: // Gone
+			case 422: // Unprocessable Entity
+				throw new RequestNotFoundError(ex);
+			case 401: // Unauthorized
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Unauthorized, ex);
+			case 403: // Forbidden
+				// TODO: Learn the Azure API docs and put it in order:
+				// 	if (ex.message.includes('rate limit')) {
+				// 		let resetAt: number | undefined;
+
+				// 		const reset = ex.response?.headers?.get('x-ratelimit-reset');
+				// 		if (reset != null) {
+				// 			resetAt = parseInt(reset, 10);
+				// 			if (Number.isNaN(resetAt)) {
+				// 				resetAt = undefined;
+				// 			}
+				// 		}
+
+				// 		throw new RequestRateLimitError(ex, token, resetAt);
+				// 	}
+				throw new AuthenticationError(tokenInfo, AuthenticationErrorReason.Forbidden, ex);
+			case 500: // Internal Server Error
+				scope?.error(ex);
+				if (ex.response != null) {
+					provider?.trackRequestException();
+					this.ctx.hooks?.ui?.onRequestFailed?.(
+						`${provider?.name ?? 'AzureDevOps'} failed to respond and might be experiencing issues.${
+							provider == null || provider.id === 'azure'
+								? ' Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.'
+								: ''
+						}`,
+					);
+				}
+				return;
+			case 502: // Bad Gateway
+				scope?.error(ex);
+				// TODO: Learn the Azure API docs and put it in order:
+				// if (ex.message.includes('timeout')) {
+				// 	provider?.trackRequestException();
+				// 	void showIntegrationRequestTimedOutWarningMessage(provider?.name ?? 'Azure');
+				// 	return;
+				// }
+				break;
+			default:
+				if (ex.status >= 400 && ex.status < 500) throw new RequestClientError(ex);
+				break;
+		}
+
+		scope?.error(ex);
+		if (Logger.isDebugging) {
+			this.ctx.hooks?.ui?.onError?.(
+				`AzureDevOps request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
+			);
+		}
+	}
+}

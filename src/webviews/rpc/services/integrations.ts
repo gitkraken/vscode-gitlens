@@ -7,9 +7,9 @@ import {
 	isSupportedCloudIntegrationId,
 	supportedCloudIntegrationDescriptors,
 	supportedOrderedCloudIntegrationIds,
-} from '../../../constants.integrations.js';
+} from '@gitlens/integrations/constants.js';
+import { providersMetadata } from '@gitlens/integrations/providers/models.js';
 import type { Container } from '../../../container.js';
-import { providersMetadata } from '../../../plus/integrations/providers/models.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { bufferEventHandler } from '../eventVisibilityBuffer.js';
 import type { IntegrationChangeEventData, IntegrationStateInfo, RpcEventSubscription, Unsubscribe } from './types.js';
@@ -18,8 +18,8 @@ import type { IntegrationChangeEventData, IntegrationStateInfo, RpcEventSubscrip
 // Helpers
 // ============================================================
 
-export async function getIntegrationStates(container: Container): Promise<IntegrationStateInfo[]> {
-	const configured = await container.integrations.getConfigured();
+export function getIntegrationStates(container: Container): IntegrationStateInfo[] {
+	const configured = container.integrations.getConfigured();
 	const integrations: IntegrationStateInfo[] = [];
 
 	for (const i of configured) {
@@ -80,8 +80,8 @@ export class IntegrationsService {
 			const pendingKey = Symbol('integrationsChanged');
 			const buffered = bufferEventHandler(buffer, pendingKey, callback, 'save-last');
 
-			const fireIntegrationsChanged = async () => {
-				const integrations = await getIntegrationStates(container);
+			const fireIntegrationsChanged = () => {
+				const integrations = getIntegrationStates(container);
 				const data: IntegrationChangeEventData = {
 					hasAnyConnected: integrations.some(i => i.connected),
 					integrations: integrations,
@@ -91,15 +91,15 @@ export class IntegrationsService {
 
 			const disposable = Disposable.from(
 				// Fires when configured integrations are added/removed
-				container.integrations.onDidChange(async e => {
+				container.integrations.onDidChange(e => {
 					// Only re-query if the change involves cloud integrations
 					if (![...e.added, ...e.removed].some(id => isSupportedCloudIntegrationId(id))) return;
 
-					await fireIntegrationsChanged();
+					fireIntegrationsChanged();
 				}),
 				// Fires when an integration connects or disconnects
-				container.integrations.onDidChangeConnectionState(async () => {
-					await fireIntegrationsChanged();
+				container.integrations.onDidChangeConnectionState(() => {
+					fireIntegrationsChanged();
 				}),
 			);
 			const unsubscribe = () => {
@@ -114,6 +114,7 @@ export class IntegrationsService {
 	 * Get the current state of all supported cloud integrations.
 	 */
 	getIntegrationStates(): Promise<IntegrationStateInfo[]> {
-		return getIntegrationStates(this.container);
+		// RPC methods are async by contract (webview transport); `getIntegrationStates` is now sync.
+		return Promise.resolve(getIntegrationStates(this.container));
 	}
 }

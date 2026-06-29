@@ -10,6 +10,7 @@ import {
 	remoteSupportsIntegration,
 	setRemoteAsDefault,
 } from '../git/utils/-webview/remote.utils.js';
+import { ensureIntegrationConnectAllowed } from '../plus/integrations/utils/-webview/integration.utils.js';
 import { showRepositoryPicker } from '../quickpicks/repositoryPicker.js';
 import { command } from '../system/-webview/command.js';
 import { createMarkdownCommandLink } from '../system/commands.js';
@@ -104,6 +105,7 @@ export class ConnectRemoteProviderCommand extends GlCommandBase {
 
 		const integration = await getRemoteIntegration(remote);
 		if (integration == null) return false;
+		if (!(await ensureIntegrationConnectAllowed(this.container, integration))) return false;
 
 		const connected = await integration.connect('remoteProvider');
 

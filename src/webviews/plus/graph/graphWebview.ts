@@ -71,6 +71,9 @@ import {
 	parseSearchQueryGitCommand,
 } from '@gitlens/git/utils/search.utils.js';
 import { sortBranches, sortRemotes, sortTags, sortWorktrees } from '@gitlens/git/utils/sorting.js';
+import type { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
+import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations/constants.js';
+import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
@@ -124,8 +127,6 @@ import type {
 } from '../../../config.js';
 import type { GlCommands, GlWebviewCommandsOrCommandsWithSuffix } from '../../../constants.commands.js';
 import type { ContextKeys } from '../../../constants.context.js';
-import type { IssuesCloudHostIntegrationId } from '../../../constants.integrations.js';
-import { supportedOrderedCloudIssuesIntegrationIds } from '../../../constants.integrations.js';
 import { GlyphChars } from '../../../constants.js';
 import type { StoredGraphFilters, StoredGraphRefType, StoredGraphWipDraft } from '../../../constants.storage.js';
 import type {
@@ -220,7 +221,6 @@ import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../plus/gk/utils/subscription.utils.js';
-import type { ConnectionStateChangeEvent } from '../../../plus/integrations/integrationService.js';
 import { getPullRequestBranchDeepLink } from '../../../plus/launchpad/launchpadProvider.js';
 import type { AssociateIssueWithBranchCommandArgs } from '../../../plus/startWork/associateIssueWithBranch.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';

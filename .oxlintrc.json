@@ -57,7 +57,8 @@
 		"/packages/core",
 		"/packages/git/test-harness",
 		"/packages/git-cli/test-harness",
-		"/tests/e2e/runner/**"
+		"/tests/e2e/runner/**",
+		"/tests/fixtures/**"
 	],
 	"rules": {
 		"constructor-super": "error",
@@ -317,6 +318,7 @@
 				"packages/git/src/**/*",
 				"packages/git-cli/src/**/*",
 				"packages/plus/git-github/src/**/*",
+				"packages/plus/integrations/src/**/*",
 				"packages/plus/ai/src/**/*",
 				"packages/plus/agents/src/**/*"
 			],
@@ -609,6 +611,7 @@
 				"packages/git/src/**/*",
 				"packages/git-cli/src/**/*",
 				"packages/plus/git-github/src/**/*",
+				"packages/plus/integrations/src/**/*",
 				"packages/plus/ai/src/**/*",
 				"packages/plus/agents/src/**/*"
 			],
@@ -638,6 +641,41 @@
 			},
 			"env": {
 				"node": true
+			}
+		},
+		{
+			"files": ["packages/plus/integrations/src/**/*"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "vscode",
+								"message": "Packages must not import vscode"
+							}
+						],
+						"patterns": [
+							{
+								"group": ["**/container.js", "**/container"],
+								"importNames": ["Container"],
+								"message": "Packages must not import Container"
+							},
+							{
+								"group": ["**/-webview/**/*"],
+								"message": "Packages must not import -webview modules"
+							},
+							{
+								"group": ["**/src/*", "**/src/**", "*/src/*", "*/src/**"],
+								"message": "The @gitlens/integrations package must not import from the host (src/)."
+							},
+							{
+								"group": ["@env/*"],
+								"message": "The package gets fetch/isWeb via ctx.http; @env/* belongs to the host adapter."
+							}
+						]
+					}
+				]
 			}
 		},
 		{

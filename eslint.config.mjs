@@ -34,6 +34,7 @@ const filePatterns = {
 		'packages/git/src/**/*',
 		'packages/git-cli/src/**/*',
 		'packages/plus/git-github/src/**/*',
+		'packages/plus/integrations/src/**/*',
 		'packages/plus/ai/src/**/*',
 		'packages/plus/agents/src/**/*',
 	],
@@ -71,15 +72,34 @@ const ignorePatterns = {
 		'*.*',
 		'patches',
 		'scripts',
+		'**/scripts/**',
 		'src/@types',
 		'packages/core',
 		'packages/git/test-harness',
 		'packages/git-cli/test-harness',
+		// Standalone external-consumer fixtures have their own tsconfig + lint expectations.
+		'tests/fixtures/**',
 	],
 	extensionOnly: ['**/-webview/**/*', 'src/git/models/fileChange.ts'],
 	webviewOnly: ['src/**/webview/**/*', 'src/webviews/apps/**/*'],
 	nodeOnly: ['src/env/node/**/*'],
 	browserOnly: ['src/env/browser/**/*'],
+};
+
+/**
+ * Shared restriction for ALL workspace packages (`@gitlens/*`): no `vscode`, `Container`, or
+ * `-webview` imports — packages stay host- and webview-free regardless of which package.
+ */
+const packagesRestrictedImports = {
+	paths: [{ name: 'vscode', message: 'Packages must not import vscode' }],
+	patterns: [
+		{
+			group: ['**/container.js', '**/container'],
+			importNames: ['Container'],
+			message: 'Packages must not import Container',
+		},
+		{ group: ['**/-webview/**/*'], message: 'Packages must not import -webview modules' },
+	],
 };
 
 /** Import restriction configurations for different environments */
@@ -162,6 +182,35 @@ const restrictedImports = {
 			paths: [
 				{ name: 'react-dom', importNames: ['Container'], message: 'Use our Container instead' },
 				{ name: 'vscode', importNames: ['CancellationError'], message: 'Use our CancellationError instead' },
+			],
+		},
+	],
+	/** All-packages restriction (no vscode/Container/-webview), shared with the global `packages` block. */
+	packages: ['error', packagesRestrictedImports],
+	/**
+	 * Boundary rules for `@gitlens/integrations`. Extends the shared package restrictions
+	 * (no vscode/Container/-webview) with the runtime-port boundary: the package must remain
+	 * host-free — every cross-boundary access goes through `IntegrationServiceContext`, and
+	 * fetch/isWeb come from `ctx.http` (not `@env/*`). Adding any forbidden import regresses
+	 * the boundary.
+	 */
+	integrationsPackage: [
+		'error',
+		{
+			paths: packagesRestrictedImports.paths,
+			patterns: [
+				...packagesRestrictedImports.patterns,
+				{
+					// Depth-agnostic: catch a relative back-import into the host `src/` tree at ANY nesting
+					// depth (package files live 5-7 levels deep, so fixed `../../../` patterns missed them).
+					// Bare `src/`-prefixed specifiers are additionally caught by the `@gitlens/no-src-imports` rule.
+					group: ['**/src/*', '**/src/**', '*/src/*', '*/src/**'],
+					message: 'The @gitlens/integrations package must not import from the host (src/).',
+				},
+				{
+					group: ['@env/*'],
+					message: 'The package gets fetch/isWeb via ctx.http; @env/* belongs to the host adapter.',
+				},
 			],
 		},
 	],
@@ -372,6 +421,7 @@ export default defineConfig(
 			'@typescript-eslint/no-unsafe-call': 'off',
 			'@typescript-eslint/no-unsafe-enum-comparison': 'off',
 			'@typescript-eslint/no-unsafe-member-access': 'off',
+			'@typescript-eslint/no-unsafe-return': 'off',
 			'@typescript-eslint/no-unused-expressions': ['warn', { allowShortCircuit: true }],
 			'@typescript-eslint/no-unused-vars': [
 				'warn',
@@ -517,23 +567,17 @@ export default defineConfig(
 		files: filePatterns.packages,
 		languageOptions: { ...defaultLanguageOptions, globals: { ...globals.node } },
 		rules: {
-			'@typescript-eslint/no-restricted-imports': [
-				'error',
-				{
-					paths: [{ name: 'vscode', message: 'Packages must not import vscode' }],
-					patterns: [
-						{
-							group: ['**/container.js', '**/container'],
-							importNames: ['Container'],
-							message: 'Packages must not import Container',
-						},
-						{
-							group: ['**/-webview/**/*'],
-							message: 'Packages must not import -webview modules',
-						},
-					],
-				},
-			],
+			'@typescript-eslint/no-restricted-imports': restrictedImports.packages,
+		},
+	},
+
+	// Stricter boundary for @gitlens/integrations. Remove the @host alias path,
+	// block @env/* (must come from ctx.http), block back-imports into src/.
+	{
+		name: 'package:integrations',
+		files: ['packages/plus/integrations/src/**/*'],
+		rules: {
+			'@typescript-eslint/no-restricted-imports': restrictedImports.integrationsPackage,
 		},
 	},
 

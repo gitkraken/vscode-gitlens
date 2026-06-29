@@ -9,6 +9,8 @@ import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifie
 import { env, window } from 'vscode';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import { supportsCodeSuggest } from '@gitlens/integrations/providers/models.js';
+import { getEntityIdentifierInput } from '@gitlens/integrations/providers/utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getAvatarUri } from '../../../avatars.js';
 import type { Sources } from '../../../constants.telemetry.js';
@@ -19,8 +21,6 @@ import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { CreateDraftChange, Draft, DraftVisibility } from '../../../plus/drafts/models/drafts.js';
 import { confirmDraftStorage } from '../../../plus/drafts/utils/-webview/drafts.utils.js';
 import { ensureAccount } from '../../../plus/gk/utils/-webview/acount.utils.js';
-import { supportsCodeSuggest } from '../../../plus/integrations/providers/models.js';
-import { getEntityIdentifierInput } from '../../../plus/integrations/providers/utils.js';
 import { getContext } from '../../../system/-webview/context.js';
 import type { Change, DraftUserSelection } from '../../plus/patchDetails/protocol.js';
 import type { RpcServiceHost, WipChange } from './types.js';
