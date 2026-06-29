@@ -3189,6 +3189,140 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/wip/staging/discard
+
+> Sent when the user discards file changes from the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of files affected (available for file/files scope)
+  'files.count': number,
+  // Whether a single file, multi-select, discard-all-staged, or discard-all-unstaged
+  'scope': 'files' | 'file' | 'staged' | 'unstaged'
+}
+```
+
+### graph/wip/staging/failed
+
+> Sent when any staging operation fails in the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Which staging operation failed
+  'operation': 'stash' | 'stage' | 'unstage' | 'discard' | 'resolveConflict',
+  // Scope of the failed operation
+  'scope': string
+}
+```
+
+### graph/wip/staging/resolveConflict
+
+> Sent when the user resolves conflict(s) by taking a side in the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether a single-file side pick or resolve-all-conflicts
+  'scope': 'all' | 'file',
+  // Which side was chosen
+  'side': 'current' | 'incoming'
+}
+```
+
+### graph/wip/staging/stage
+
+> Sent when the user stages file(s) in the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of files being staged
+  'files.count': number,
+  // Whether the repo has conflicts at the time (stage-all prompts about conflict markers)
+  'hasConflicts': boolean,
+  // Whether a single file, multi-select batch, or stage-all
+  'scope': 'files' | 'all' | 'file'
+}
+```
+
+### graph/wip/staging/stash
+
+> Sent when the user stashes specific file(s) from the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of files being stashed
+  'files.count': number,
+  // Whether a single file or multi-select batch
+  'scope': 'files' | 'file'
+}
+```
+
+### graph/wip/staging/unstage
+
+> Sent when the user unstages file(s) in the Graph's WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of files being unstaged
+  'files.count': number,
+  // Whether a single file, multi-select batch, or unstage-all
+  'scope': 'files' | 'all' | 'file'
+}
+```
+
 ### graphDetails/closed
 
 > Sent when the integrated graph details panel is collapsed
