@@ -299,6 +299,19 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user triggers a branch action from the WIP panel header or next-steps */
 	'graph/wip/action': GraphWipActionEvent;
 
+	/** Sent when the user stages file(s) in the Graph's WIP panel */
+	'graph/wip/staging/stage': GraphWipStagingStageEvent;
+	/** Sent when the user unstages file(s) in the Graph's WIP panel */
+	'graph/wip/staging/unstage': GraphWipStagingUnstageEvent;
+	/** Sent when the user discards file changes from the Graph's WIP panel */
+	'graph/wip/staging/discard': GraphWipStagingDiscardEvent;
+	/** Sent when the user stashes specific file(s) from the Graph's WIP panel */
+	'graph/wip/staging/stash': GraphWipStagingStashEvent;
+	/** Sent when the user resolves conflict(s) by taking a side in the Graph's WIP panel */
+	'graph/wip/staging/resolveConflict': GraphWipStagingResolveConflictEvent;
+	/** Sent when any staging operation fails in the Graph's WIP panel */
+	'graph/wip/staging/failed': GraphWipStagingFailedEvent;
+
 	/** Sent when a virtual-FS-backed file (e.g. a Graph Compose proposed commit) is opened */
 	'graph/virtualFile/opened': GraphVirtualFileOpenedEvent;
 	/** Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered) */
@@ -1477,6 +1490,56 @@ export type GraphWipAction =
 interface GraphWipActionEvent extends GraphContextEventData {
 	/** Which action was triggered */
 	action: GraphWipAction;
+}
+
+export type GraphWipStagingScope = 'file' | 'files' | 'all';
+
+interface GraphWipStagingStageEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select batch, or stage-all */
+	scope: GraphWipStagingScope;
+	/** Number of files being staged */
+	'files.count': number;
+	/** Whether the repo has conflicts at the time (stage-all prompts about conflict markers) */
+	hasConflicts: boolean;
+}
+
+interface GraphWipStagingUnstageEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select batch, or unstage-all */
+	scope: GraphWipStagingScope;
+	/** Number of files being unstaged */
+	'files.count': number;
+}
+
+export type GraphWipStagingDiscardScope = 'file' | 'files' | 'staged' | 'unstaged';
+
+interface GraphWipStagingDiscardEvent extends GraphContextEventData {
+	/** Whether a single file, multi-select, discard-all-staged, or discard-all-unstaged */
+	scope: GraphWipStagingDiscardScope;
+	/** Number of files affected (available for file/files scope) */
+	'files.count': number | undefined;
+}
+
+interface GraphWipStagingStashEvent extends GraphContextEventData {
+	/** Whether a single file or multi-select batch */
+	scope: 'file' | 'files';
+	/** Number of files being stashed */
+	'files.count': number;
+}
+
+interface GraphWipStagingResolveConflictEvent extends GraphContextEventData {
+	/** Whether a single-file side pick or resolve-all-conflicts */
+	scope: 'file' | 'all';
+	/** Which side was chosen */
+	side: 'current' | 'incoming';
+}
+
+export type GraphWipStagingOperation = 'stage' | 'unstage' | 'discard' | 'stash' | 'resolveConflict';
+
+interface GraphWipStagingFailedEvent extends GraphContextEventData {
+	/** Which staging operation failed */
+	operation: GraphWipStagingOperation;
+	/** Scope of the failed operation */
+	scope: string;
 }
 
 export type GraphDetailsFileAction =
