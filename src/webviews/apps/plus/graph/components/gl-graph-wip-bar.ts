@@ -69,6 +69,9 @@ export class GlGraphWipBar extends LitElement {
 
 	@property({ attribute: false }) items: readonly WipBarItem[] = [];
 	@property({ attribute: false }) selectedId: string | undefined;
+	/** Whether the bar sits at the top or bottom of the graph column — flips the divider border/padding
+	 *  to match. The host (`GraphApp`) places it at the bottom when the details panel is on the bottom. */
+	@property({ reflect: true }) position: 'top' | 'bottom' = 'top';
 	/** False = host's `graph.showWorktreeWipStats` opt-out: don't fetch stats on hover (no
 	 *  per-worktree `git status`); show a static "has changes" tooltip, not "Loading…". Breakdown
 	 *  appears on click. Primary pill unaffected (always has stats). */

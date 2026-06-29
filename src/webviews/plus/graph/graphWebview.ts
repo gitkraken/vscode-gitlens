@@ -7845,7 +7845,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
-			detailsLocation: configuration.get('graph.details.location') ?? 'right',
+			detailsLocation: configuration.get('graph.details.location') ?? 'auto',
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,

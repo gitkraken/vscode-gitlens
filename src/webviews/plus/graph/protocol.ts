@@ -481,7 +481,7 @@ export interface GraphComponentConfig {
 	avatars?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
-	detailsLocation?: 'right' | 'bottom';
+	detailsLocation?: 'auto' | 'right' | 'bottom';
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
 	experimentalKanbanEnabled?: boolean;

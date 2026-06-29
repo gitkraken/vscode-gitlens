@@ -241,6 +241,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	@property({ type: Boolean, attribute: 'details-visible' })
 	detailsVisible = false;
 
+	/** The resolved details side (`right`/`bottom`) from `GraphApp.effectiveDetailsLocation` — already
+	 *  accounts for `auto` width resolution, so the toggle reflects where the panel actually is. */
+	@property({ attribute: 'details-effective-location' })
+	detailsEffectiveLocation: 'right' | 'bottom' = 'right';
+
 	@property({ type: Boolean, attribute: 'minimap-visible' })
 	minimapVisible = true;
 
@@ -1443,10 +1448,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 							></code-icon>
 						</gl-button>
 						${(() => {
-							const currentLocation = config?.detailsLocation ?? 'right';
+							// Source the side from the resolved effective location (handles `auto`); Alt+Click
+							// pins to the opposite side, so the alt preview/label use that opposite.
+							const currentLocation = this.detailsEffectiveLocation;
 							const altLocation = currentLocation === 'bottom' ? 'right' : 'bottom';
-							const effectiveLocation = this._modifiers.altKey ? altLocation : currentLocation;
-							const isBottom = effectiveLocation === 'bottom';
+							const previewLocation = this._modifiers.altKey ? altLocation : currentLocation;
+							const isBottom = previewLocation === 'bottom';
 							const baseLabel = this.detailsVisible ? 'Hide Details Panel' : 'Show Details Panel';
 							const altLabel = `Show Details Panel on ${altLocation === 'bottom' ? 'Bottom' : 'Right'}`;
 							const tooltip = this._modifiers.altKey

@@ -94,6 +94,8 @@ interface GlobalStorageCore {
 	'confirm:ai:tos': boolean;
 	repoVisibility: [string, StoredRepoVisibilityInfo][];
 	pendingWhatsNewOnFocus: boolean;
+	/** Ids of one-time settings migrations already applied (see `migrateSettings`). */
+	'settings:migrated': string[];
 	// Don't change this key name ('premium`) as its the stored subscription
 	'premium:subscription': Stored<Subscription & { lastValidatedAt: number | undefined }>;
 	'synced:version': string;

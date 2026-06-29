@@ -133,6 +133,12 @@ const detailsDefaultPct = 50;
 const detailsMinPct = 20;
 const detailsMaxPct = 80;
 
+// Width thresholds (px) for the `auto` details location — below `enter` the panel flips to the
+// bottom, above `exit` it flips back to the right. The dead-band between them prevents flicker when
+// the panel is dragged across the boundary.
+const detailsAutoBottomEnterPx = 720;
+const detailsAutoBottomExitPx = 820;
+
 const minimapDefaultPx = 40;
 const minimapMaxPct = 40;
 
@@ -388,6 +394,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _detailsShownAt: number | undefined;
 	private _detailsTelemetryFirstRender = true;
 
+	/** Width-driven details location used when the configured location is `auto`. Tracked (with
+	 *  hysteresis) by `_graphSizeObserver` and seeded by its initial callback, so no synchronous
+	 *  width read is needed. See `effectiveDetailsLocation`. */
+	@state()
+	private _autoEffectiveLocation: 'right' | 'bottom' = 'right';
+
 	/**
 	 * Last observed non-zero size of the top-level `.graph` element, used to freeze it
 	 * across editor-tab hide/show transitions. Without this freeze the external GK
@@ -425,6 +437,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			// hide/show cycle.
 			if (width > 0 && height > 0) {
 				this._lastGraphSize = { width: width, height: height };
+				// Drive the `auto` details location from the overall panes width. Hysteresis
+				// (separate enter/exit thresholds) keeps it from flapping when dragged across the
+				// boundary. Only consumed when the configured location is `auto` (see
+				// `effectiveDetailsLocation`), but tracked unconditionally so switching back to
+				// `auto` is immediately correct without waiting for the next resize.
+				if (this._autoEffectiveLocation === 'right' && width < detailsAutoBottomEnterPx) {
+					this._autoEffectiveLocation = 'bottom';
+				} else if (this._autoEffectiveLocation === 'bottom' && width > detailsAutoBottomExitPx) {
+					this._autoEffectiveLocation = 'right';
+				}
 			}
 		});
 	}
@@ -1200,7 +1222,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			if (detailsVisible) {
 				const pane = this.querySelector<HTMLElement>('.graph__details-pane');
 				if (pane) {
-					const isBottom = this.graphState.config?.detailsLocation === 'bottom';
+					const isBottom = this.effectiveDetailsLocation === 'bottom';
 					pane.classList.remove('details-opening', '-vertical');
 					void pane.offsetWidth;
 					pane.classList.add('details-opening');
@@ -1322,6 +1344,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.selectCommits=${this.selectCommits}
 					.getCommits=${this.getCommits}
 					.detailsVisible=${detailsVisible}
+					.detailsEffectiveLocation=${this.effectiveDetailsLocation}
 					.minimapVisible=${minimapVisible}
 					.hasSelectedCommit=${single != null || multi != null}
 					@toggle-sidebar=${this.handleToggleSidebar}
@@ -1351,8 +1374,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const effectiveRepoPath = (single ?? multi)?.repoPath ?? fallbackPath;
 		const hasContent = effectiveSha != null || multi != null;
 		const detailsVisible = this.graphState.details?.visible ?? false;
-		const isBottom = this.graphState.config?.detailsLocation === 'bottom';
-		const persisted = isBottom ? this.graphState.details?.bottomPosition : this.graphState.details?.position;
+		const isBottom = this.effectiveDetailsLocation === 'bottom';
+		const sameSide = isBottom ? this.graphState.details?.bottomPosition : this.graphState.details?.position;
+		// Until a side has been sized, carry the OTHER orientation's proportion across an auto-flip
+		// (an open value < 100) so a wide details panel stays wide-as-tall instead of snapping to the
+		// default. Once the user drags a side, its own key wins (see `detailsPositionKeyForEvent`).
+		const otherSide = isBottom ? this.graphState.details?.position : this.graphState.details?.bottomPosition;
+		const carried = otherSide != null && otherSide < 100 ? otherSide : undefined;
+		const persisted = sameSide ?? carried;
 		const position = detailsVisible ? (persisted ?? 100 - detailsDefaultPct) : 100;
 		return html`<gl-split-panel
 			class=${classMap({ 'graph__details-split': true, '-vertical': isBottom })}
@@ -1651,11 +1680,16 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			selectedCommit != null && isWipSha(selectedCommit.sha)
 				? wipItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
 				: undefined;
+		// Move the WIP bar to the bottom of the graph (just above the details pane) whenever the
+		// details panel is — or would be — on the bottom, so the bar always sits adjacent to the
+		// details. CSS `order` (not DOM reordering) does the move to avoid remounting the bar/graph.
+		const wipBottom = this.effectiveDetailsLocation === 'bottom';
 		return html`
-			<div class="graph__graph-column" slot=${ifDefined(slot)}>
+			<div class=${classMap({ 'graph__graph-column': true, '-wip-bottom': wipBottom })} slot=${ifDefined(slot)}>
 				${wipItems.length > 0
 					? html`
 							<gl-graph-wip-bar
+								.position=${wipBottom ? 'bottom' : 'top'}
 								.items=${wipItems}
 								.selectedId=${selectedWipId}
 								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
@@ -1820,18 +1854,39 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.persistState();
 	}
 
+	/** The resolved details location: an explicit `right`/`bottom` config is a pin (ignores width);
+	 *  `auto` (the default) resolves to the width-driven `_autoEffectiveLocation`. Single source of
+	 *  truth for split orientation, the persisted-position key, the open animation, the WIP bar
+	 *  placement, the header toggle, and telemetry. */
+	get effectiveDetailsLocation(): 'right' | 'bottom' {
+		const configured = this.graphState.config?.detailsLocation ?? 'auto';
+		return configured === 'auto' ? this._autoEffectiveLocation : configured;
+	}
+
 	private get detailsPositionKey(): 'position' | 'bottomPosition' {
-		return this.graphState.config?.detailsLocation === 'bottom' ? 'bottomPosition' : 'position';
+		return this.effectiveDetailsLocation === 'bottom' ? 'bottomPosition' : 'position';
+	}
+
+	/** Position key for a split-change/closed-change event, derived from the split-panel's OWN live
+	 *  orientation rather than `effectiveDetailsLocation`. During an `auto` width flip,
+	 *  `_autoEffectiveLocation` updates synchronously while the split's re-render — and the position
+	 *  it emits — lags by one async render; reading the emitting panel's orientation keeps the
+	 *  persisted value in the key that matches the position's orientation. */
+	private detailsPositionKeyForEvent(e: Event): 'position' | 'bottomPosition' {
+		return (e.currentTarget as HTMLElement | null)?.getAttribute('orientation') === 'vertical'
+			? 'bottomPosition'
+			: 'position';
 	}
 
 	private ensureDetailsPosition(): void {
 		const gs = this.graphState;
 		const key = this.detailsPositionKey;
-		// Reset to the default when the stored position is missing or snapped to closed — so
-		// reopening after a drag-to-close shows a usable width instead of a zero-width pane.
-		// Snap lands at exact 100 when the pane is closed; anything less is a usable open width.
+		// Only reset a position that snapped to closed (exact 100) so reopening after a drag-to-close
+		// shows a usable width. Leave an UNSET side unset — `renderDetailsPanel` falls back to the
+		// default, and carries the other orientation's proportion across a flip; persisting a default
+		// here would mark the side "sized" and suppress that carry.
 		const stored = gs.details?.[key];
-		if (stored != null && stored < 100) return;
+		if (stored == null || stored < 100) return;
 
 		gs.details = { [key]: 100 - detailsDefaultPct };
 		this.persistState();
@@ -1853,6 +1908,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		gs.details = { visible: visible };
 		this.persistState();
 		this.emitDetailsVisibilityTelemetry(visible, trigger ?? 'toggle');
+
+		// Hiding the panel clears an Alt+Click pin back to `auto` — so the pin is a per-session nudge
+		// and closing the panel is the natural "return to width-aware" gesture.
+		if (!visible && gs.config?.detailsLocation != null && gs.config.detailsLocation !== 'auto') {
+			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: 'auto' } });
+		}
 	}
 
 	private emitDetailsVisibilityTelemetry(
@@ -1882,7 +1943,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				this._ipc.sendCommand(TrackGraphDetailsWipShownCommand, undefined);
 			}
 			const host = this.graphState.webviewId === 'gitlens.graph' ? 'editor' : 'panel';
-			const location = this.graphState.config?.detailsLocation === 'bottom' ? 'bottom' : 'right';
+			const location = this.effectiveDetailsLocation;
 			this._telemetry.sendEvent({
 				name: 'graphDetails/shown',
 				data: {
@@ -1956,7 +2017,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// owns visibility; recording position=100 here would clobber the last open width.
 		if (e.detail.position >= 100) return;
 
-		this.graphState.details = { [this.detailsPositionKey]: e.detail.position };
+		this.graphState.details = { [this.detailsPositionKeyForEvent(e)]: e.detail.position };
 	}
 
 	private handleDetailsClosedChange = (e: CustomEvent<{ closed: boolean; position: number }>): void => {
@@ -1964,7 +2025,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (e.detail.closed) {
 			this.setDetailsVisible(false);
 		} else if (gs.details?.visible !== true) {
-			gs.details = { [this.detailsPositionKey]: e.detail.position };
+			gs.details = { [this.detailsPositionKeyForEvent(e)]: e.detail.position };
 			this.setDetailsVisible(true, 'toggle');
 		}
 	};
@@ -1997,7 +2058,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleToggleDetails(e: CustomEvent<{ altKey?: boolean } | void>) {
 		if (e.detail?.altKey) {
-			const next = this.graphState.config?.detailsLocation === 'bottom' ? 'right' : 'bottom';
+			// Pin to the opposite of the current effective side — this disables `auto` (the value is
+			// an explicit `right`/`bottom`) and gives immediate visual feedback. Reset to `auto` via
+			// the setting to re-enable width-aware behavior.
+			const next = this.effectiveDetailsLocation === 'bottom' ? 'right' : 'bottom';
 			this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { detailsLocation: next } });
 			return;
 		}

@@ -428,7 +428,7 @@ export interface GraphConfig {
 	readonly dateStyle: DateStyle | null;
 	readonly defaultItemLimit: number;
 	readonly details: {
-		readonly location: 'right' | 'bottom';
+		readonly location: 'auto' | 'right' | 'bottom';
 	};
 	readonly dimMergeCommits: boolean;
 	readonly editorOpeningBehavior: 'auto' | 'active';

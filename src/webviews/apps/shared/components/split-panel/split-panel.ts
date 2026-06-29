@@ -57,6 +57,10 @@ export class GlSplitPanel extends LitElement {
 	private _dragAc: AbortController | undefined;
 	private _resizeObserver: ResizeObserver | undefined;
 	private _lastPointerDownTime = 0;
+	/** Orientation last reconciled with `_size`/`_cachedPrimaryPx`. On an orientation flip we re-base
+	 *  the cache to the new axis so the divider keeps its PERCENTAGE rather than carrying the old
+	 *  axis's pixels across (which would snap it to an arbitrary spot). */
+	private _observedOrientation: 'horizontal' | 'vertical' | undefined;
 
 	/** Position of the divider as a percentage (0–100) from the start edge. */
 	@property({ type: Number, reflect: true })
@@ -137,6 +141,32 @@ export class GlSplitPanel extends LitElement {
 		return this.orientation !== 'vertical';
 	}
 
+	/** Re-base `_size` and the cached primary pixels to the current orientation's axis, preserving the
+	 *  divider percentage. Returns true when an orientation flip was reconciled (px-preservation across
+	 *  axes is meaningless, so the percentage carries instead). */
+	private reconcileOrientation(): boolean {
+		// No-op until `connectedCallback` seeds the baseline (so the initial measure/snap isn't done
+		// twice), and when the axis hasn't actually flipped.
+		if (this._observedOrientation == null || this._observedOrientation === this.orientation) return false;
+
+		const rect = this.getBoundingClientRect();
+		const size = Math.round(this.isHorizontal ? rect.width : rect.height);
+		if (size <= 0) return false;
+
+		this._observedOrientation = this.orientation;
+		this._size = size;
+		// Re-clamp for the new axis (snap may be pixel-based) then re-cache, preserving the percentage.
+		// No change event: a flip isn't a user gesture and the consumer drives persistence, so a snap
+		// here must not masquerade as a deliberate resize.
+		const snapped = this.applySnap(this._position);
+		if (snapped !== this._position) {
+			this._position = snapped;
+			this.requestUpdate();
+		}
+		this.updateCachedPrimaryPx();
+		return true;
+	}
+
 	/** Update the cached pixel width of the primary panel from the current position and size. */
 	private updateCachedPrimaryPx(): void {
 		if (this._size <= 0) return;
@@ -158,6 +188,11 @@ export class GlSplitPanel extends LitElement {
 			// emits a spurious change event that persists corrupted state, and causes a one-frame
 			// flash of the collapsed position when the element is re-shown.
 			if (size === 0) return;
+
+			// An orientation flip changes which axis `size` measures; re-base the cache to keep the
+			// divider's percentage rather than px-preserving across axes. (No-op for fixed-orientation
+			// splits like the sidebar/minimap.)
+			if (this.reconcileOrientation()) return;
 
 			if (size !== this._size) {
 				const oldPos = this._position;
@@ -192,6 +227,7 @@ export class GlSplitPanel extends LitElement {
 			this._resizeObserver!.observe(this);
 			const rect = this.getBoundingClientRect();
 			this._size = Math.round(this.isHorizontal ? rect.width : rect.height);
+			this._observedOrientation = this.orientation;
 			// Seed initial closed state so transition-detection has a baseline. Setting it to
 			// a non-undefined value also flips the position setter's "not seeded" gate, so
 			// subsequent programmatic updates emit transitions. Without a `primary` there is
@@ -220,6 +256,13 @@ export class GlSplitPanel extends LitElement {
 
 	protected override willUpdate(): void {
 		this.style.setProperty('--_start-size', `${this._position}%`);
+	}
+
+	protected override updated(): void {
+		// A resize-driven flip's ResizeObserver fires before this render applies the new orientation,
+		// and a flip with no container-size change never fires it at all — reconcile here so the cache
+		// is re-based to the new axis regardless. No-ops once the orientation is already reconciled.
+		this.reconcileOrientation();
 	}
 
 	override render() {

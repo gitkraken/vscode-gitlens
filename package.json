@@ -972,12 +972,14 @@
 					},
 					"gitlens.graph.details.location": {
 						"type": "string",
-						"default": "right",
+						"default": "auto",
 						"enum": [
+							"auto",
 							"right",
 							"bottom"
 						],
 						"enumDescriptions": [
+							"Automatically show the details panel to the right or below the Commit Graph based on the available width",
 							"Show the details panel to the right of the Commit Graph",
 							"Show the details panel below the Commit Graph"
 						],
