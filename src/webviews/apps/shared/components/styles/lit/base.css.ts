@@ -90,19 +90,26 @@ export const inlineCode = css`
 `;
 
 /**
- * Fade + slide-up entrance for a sub-panel. Consumer markup: `<div class="sub-panel-enter">…`.
- * Respects `prefers-reduced-motion`.
+ * Fade + slide-up entrance for a sub-panel. Consumer markup: `<div class="sub-panel-enter">…`, or
+ * applied to a scrollable `:host` (compose/review mode panels). Respects `prefers-reduced-motion`.
+ *
+ * `overflow: hidden` is pinned across both keyframes so a scrollable consumer can't flash a
+ * scrollbar while the transform settles — the animation's own lifetime gates overflow (a running
+ * animation overrides the resting `:host { overflow-y: auto }` in the cascade, then reverts when it
+ * ends). This replaces the prior JS `animationend` latch + timer-based clamps with pure CSS.
  */
 export const subPanelEnterStyles = css`
 	@keyframes sub-panel-enter {
 		from {
 			opacity: 0;
 			transform: translateY(4px);
+			overflow: hidden;
 		}
 
 		to {
 			opacity: 1;
 			transform: translateY(0);
+			overflow: hidden;
 		}
 	}
 

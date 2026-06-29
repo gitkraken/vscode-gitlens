@@ -214,21 +214,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
 		this.setAttribute('aria-label', 'Compose Changes');
-		// Flip overflow from hidden to auto only after the slide-up settles, preventing
-		// scrollbar flicker as the transform animates.
-		this.addEventListener('animationend', this.onAnimationEnd);
 	}
-
-	override disconnectedCallback(): void {
-		this.removeEventListener('animationend', this.onAnimationEnd);
-		super.disconnectedCallback?.();
-	}
-
-	private onAnimationEnd = (e: AnimationEvent): void => {
-		if (e.animationName === 'sub-panel-enter') {
-			this.setAttribute('data-anim-done', '');
-		}
-	};
 
 	private handleForward = (): void => {
 		this.dispatchEvent(new CustomEvent('compose-forward', { bubbles: true, composed: true }));

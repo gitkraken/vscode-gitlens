@@ -12,21 +12,16 @@ export {
 } from './shared-panel.css.js';
 
 export const composeModePanelStyles = css`
-	/* Slide-up entrance with overflow pinned to hidden until animationend so the inner
-	   scroll containers don't flicker a scrollbar as the transform settles. After the
-	   animation completes, :host([data-anim-done]) below restores overflow-y: auto. */
+	/* Scrollable at rest; the sub-panel-enter keyframe pins overflow hidden for the duration of the
+	   slide-up so the inner scroll containers can't flash a scrollbar as the transform settles (see
+	   subPanelEnterStyles). No JS latch needed — the animation's lifetime is the gate. */
 	:host {
-		overflow: hidden;
-		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
-	}
-
-	:host([data-anim-done]) {
 		overflow-y: auto;
+		animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		:host {
-			overflow-y: auto;
 			animation: none;
 		}
 	}

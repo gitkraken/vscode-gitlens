@@ -15,7 +15,7 @@ import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import { prunePathsToFiles } from './aiExclusion.js';
@@ -63,7 +63,21 @@ export class GlDetailsResolveModePanel extends LitElement {
 		panelLoadingStageStyles,
 		panelErrorStyles,
 		scrollableBase,
+		subPanelEnterStyles,
 		css`
+			/* Matches the fade+slide-up entrance used by compose/review so resolve mode animates in
+			   instead of popping. The @keyframes comes from subPanelEnterStyles; overflow is gated to
+			   the animation's lifetime there, reverting to the panelHostStyles :host overflow-y: auto. */
+			:host {
+				animation: sub-panel-enter var(--gl-duration-medium) var(--gl-ease-out);
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				:host {
+					animation: none;
+				}
+			}
+
 			.resolve-panel {
 				display: flex;
 				flex: 1;

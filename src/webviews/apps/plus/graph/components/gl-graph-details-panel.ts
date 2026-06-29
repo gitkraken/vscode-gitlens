@@ -1006,11 +1006,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 	private readonly _modifiers = new ModifierKeysController(this);
-	/** Timers stored so `disconnectedCallback` can cancel them — otherwise a fast open/close
+	/** Timer stored so `disconnectedCallback` can cancel it — otherwise a fast open/close
 	 *  cycle leaves the callback firing on a detached element with `style.overflow = ''` (no
 	 *  crash, but leaks DOM references for the timer's lifetime and stacks under rapid toggling). */
 	private _suppressContentOverflowTimer?: ReturnType<typeof setTimeout>;
-	private _suppressModePanelOverflowTimer?: ReturnType<typeof setTimeout>;
 	/** Debounced WIP-draft flush. Cleared on row swap (the new selection schedules its own). */
 	private _flushWipDraftTimer?: ReturnType<typeof setTimeout>;
 	/** Payload that will be sent when {@link _flushWipDraftTimer} fires — kept on the instance
@@ -1049,28 +1048,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				}
 			}, 250);
 		}
-	}
-
-	/** Clamps the mode panel host's `overflow` to `hidden` for ~250ms so the transient
-	 *  scrollbar that appears during an in-mode anchor switch (new scope picker / loading
-	 *  placeholders briefly overflow before settling) can't reflow content width and read as
-	 *  a panel "jump". `.suppressContentOverflow()` above clamps `.details-content` in the
-	 *  *light DOM*; the mode panel's own `:host` scrollbar (its shadow root) doesn't honor
-	 *  that, so it gets its own inline-style clamp here. Pierces shadow DOM because the mode
-	 *  panel can render directly in light DOM (WIP anchor) or nested inside the commit panel's
-	 *  shadow root (commit/multicommit anchor's `subPanelContent`). */
-	private suppressModePanelOverflow(): void {
-		const panel = this.findModePanelDeep(this);
-		if (panel == null) return;
-
-		panel.style.overflow = 'hidden';
-		clearTimeout(this._suppressModePanelOverflowTimer);
-		this._suppressModePanelOverflowTimer = setTimeout(() => {
-			this._suppressModePanelOverflowTimer = undefined;
-			if (this.isConnected) {
-				panel.style.overflow = '';
-			}
-		}, 250);
 	}
 
 	private findModePanelDeep(root: ParentNode | ShadowRoot, depth = 0): HTMLElement | null {
@@ -1122,8 +1099,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._resizeObserver = undefined;
 		clearTimeout(this._suppressContentOverflowTimer);
 		this._suppressContentOverflowTimer = undefined;
-		clearTimeout(this._suppressModePanelOverflowTimer);
-		this._suppressModePanelOverflowTimer = undefined;
 		// Flush rather than cancel — closing the webview within the debounce window after a
 		// commit (which sets message='' + amend=false) would otherwise drop the `draft: null`
 		// IPC, leaving the just-committed message stale in the memento.
@@ -1180,7 +1155,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		) {
 			const activeMode = this._state.activeMode.get();
 			if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
-				this.suppressModePanelOverflow();
 				this._workflow.switchAnchorWithinMode(this.currentSelection());
 			} else if (activeMode == null && this.isWip) {
 				// Auto-restore is gated to WIP rows: WIP has a stable identity (the branch's
@@ -1189,7 +1163,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// review just because the user reviewed it earlier in the session.
 				const remembered = this._workflow.getRememberedMode(this.currentSelection());
 				if (remembered != null) {
-					this.suppressModePanelOverflow();
 					this._workflow.toggleMode(remembered, this.currentSelection());
 				}
 			}
