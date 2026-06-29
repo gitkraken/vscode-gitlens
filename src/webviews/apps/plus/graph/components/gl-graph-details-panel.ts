@@ -3250,7 +3250,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this.enterModeForWip('resolve', repoPath, uncommitted, [filePath]);
 	};
 
-	/** Per-row sparkle on a conflicted file — enters resolve mode focused on just that file (mirrors
+	/** Per-row resolve action on a conflicted file — enters resolve mode focused on just that file (mirrors
 	 *  {@link handleConflictResolveAi}, but sourced from the inline tree action's event detail). */
 	private handleFileResolveConflict = (e: CustomEvent<FileChangeListItemDetail>) => {
 		const { path, repoPath } = e.detail;

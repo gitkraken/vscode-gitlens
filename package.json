@@ -6753,7 +6753,7 @@
 			{
 				"command": "gitlens.ai.resolveAllConflicts:graph",
 				"title": "Resolve Conflicts...",
-				"icon": "$(sparkle)"
+				"icon": "$(gitlens-merge)"
 			},
 			{
 				"command": "gitlens.ai.resolveConflicts",
@@ -6763,17 +6763,17 @@
 			{
 				"command": "gitlens.ai.resolveConflicts:graph",
 				"title": "Resolve Conflicts...",
-				"icon": "$(sparkle)"
+				"icon": "$(gitlens-merge)"
 			},
 			{
 				"command": "gitlens.ai.resolveConflicts:views",
 				"title": "Resolve Conflicts...",
-				"icon": "$(sparkle)"
+				"icon": "$(gitlens-merge)"
 			},
 			{
 				"command": "gitlens.ai.resolveConflicts.multi:graph",
 				"title": "Resolve Conflicts...",
-				"icon": "$(sparkle)"
+				"icon": "$(gitlens-merge)"
 			},
 			{
 				"command": "gitlens.ai.switchProvider",
@@ -12522,6 +12522,13 @@
 				"default": {
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14e"
+				}
+			},
+			"gitlens-merge": {
+				"description": "merge icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f14f"
 				}
 			}
 		},

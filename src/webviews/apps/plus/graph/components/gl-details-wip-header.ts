@@ -126,7 +126,7 @@ export class GlDetailsWipHeader extends LitElement {
 							? html`<code-icon class="graph-details-header__mode-icon" icon="checklist"></code-icon
 									><span class="graph-details-header__wip-title-text">Reviewing Changes</span>`
 							: this.activeMode === 'resolve'
-								? html`<code-icon class="graph-details-header__mode-icon" icon="sparkle"></code-icon
+								? html`<code-icon class="graph-details-header__mode-icon" icon="gl-merge"></code-icon
 										><span class="graph-details-header__wip-title-text">Resolving Conflicts</span>`
 								: html`<span class="graph-details-header__wip-title-text">Working Changes</span>`}
 				</span>

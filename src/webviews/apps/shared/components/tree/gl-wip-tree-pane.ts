@@ -388,7 +388,7 @@ export class GlWipTreePane extends LitElement {
 
 		return html`<gl-action-chip
 			slot="leading-actions"
-			icon="sparkle"
+			icon="gl-merge"
 			label="Resolve Conflicts"
 			@click=${this.onResolveConflicts}
 			><span>Resolve Conflicts</span></gl-action-chip

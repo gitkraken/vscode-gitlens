@@ -483,7 +483,7 @@
 		},
 		"gitlens.ai.resolveAllConflicts:graph": {
 			"label": "Resolve Conflicts...",
-			"icon": "$(sparkle)",
+			"icon": "$(gitlens-merge)",
 			"menus": {
 				"webview/context": [
 					{
@@ -500,7 +500,7 @@
 		},
 		"gitlens.ai.resolveConflicts:graph": {
 			"label": "Resolve Conflicts...",
-			"icon": "$(sparkle)",
+			"icon": "$(gitlens-merge)",
 			"menus": {
 				"webview/context": [
 					{
@@ -513,7 +513,7 @@
 		},
 		"gitlens.ai.resolveConflicts:views": {
 			"label": "Resolve Conflicts...",
-			"icon": "$(sparkle)",
+			"icon": "$(gitlens-merge)",
 			"menus": {
 				"view/item/context": [
 					{
@@ -526,7 +526,7 @@
 		},
 		"gitlens.ai.resolveConflicts.multi:graph": {
 			"label": "Resolve Conflicts...",
-			"icon": "$(sparkle)",
+			"icon": "$(gitlens-merge)",
 			"menus": {
 				"webview/context": [
 					{

@@ -121,10 +121,10 @@ const openConflictDetailsAction: TreeItemAction = {
 	action: 'file-conflict-details',
 	multiBehavior: 'single',
 };
-// Per-row sparkle on a conflicted file — enters AI resolve mode focused on just that file.
+// Per-row resolve action on a conflicted file — enters AI resolve mode focused on just that file.
 // `single`: resolve is row-specific; fanning it out would scope the wrong files.
 const resolveFileAction: TreeItemAction = {
-	icon: 'sparkle',
+	icon: 'gl-merge',
 	label: 'Resolve Conflicts',
 	action: 'file-resolve-conflict',
 	multiBehavior: 'single',
@@ -139,7 +139,7 @@ const conflictedActions: TreeItemAction[] = [...conflictedCheckboxActions, stage
 // stage action stays rightmost. Separate stable arrays keep gl-tree-item's identity diffing happy.
 const conflictedCheckboxActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions];
 const conflictedActionsWithDetails: TreeItemAction[] = [...conflictedCheckboxActions, stageConflictAction];
-// Resolve-enabled (graph host + aiEnabled): the sparkle sits right after the eye, keeping "Conflict
+// Resolve-enabled (graph host + aiEnabled): the resolve action sits right after the eye, keeping "Conflict
 // Details" leftmost and Stage rightmost.
 const conflictedCheckboxActionsWithDetailsResolve: TreeItemAction[] = [
 	openConflictDetailsAction,
@@ -212,7 +212,7 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 	@property({ type: Boolean, attribute: 'conflict-details' })
 	conflictDetails = false;
 
-	/** Opt-in for the AI Resolve Conflicts entry points (toolbar button + per-row sparkle). Set true
+	/** Opt-in for the AI Resolve Conflicts entry points (toolbar button + per-row resolve action). Set true
 	 *  only by the graph host when `aiEnabled`; gates the affordances that route into resolve mode. */
 	@property({ type: Boolean, attribute: 'resolve-enabled' })
 	resolveEnabled = false;

@@ -35,7 +35,7 @@ const modeConfig: Record<
 		collapsible: true,
 	},
 	resolve: {
-		icon: 'sparkle',
+		icon: 'gl-merge',
 		label: 'Resolve Conflicts',
 		closeLabel: 'Close',
 		text: 'Resolve Conflicts',

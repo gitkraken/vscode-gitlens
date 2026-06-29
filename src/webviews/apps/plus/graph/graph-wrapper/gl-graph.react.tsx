@@ -1010,7 +1010,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 									tooltip={resolveTooltip}
 									aria-label={resolveTooltip}
 								>
-									<code-icon icon="sparkle"></code-icon>
+									<code-icon icon="gl-merge"></code-icon>
 									{resolveStatusIcon != null && (
 										<code-icon
 											slot="suffix"

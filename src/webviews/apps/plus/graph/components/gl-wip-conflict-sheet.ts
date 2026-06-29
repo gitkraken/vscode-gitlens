@@ -235,7 +235,7 @@ export class GlWipConflictSheet extends LitElement {
 			${this.aiEnabled
 				? html`<gl-action-chip
 						slot="actions"
-						icon="sparkle"
+						icon="gl-merge"
 						label="Resolve Conflicts (Preview)"
 						overlay="tooltip"
 						@click=${this.onResolveAi}

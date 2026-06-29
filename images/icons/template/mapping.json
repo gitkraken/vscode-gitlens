@@ -78,5 +78,6 @@
   "pause": 61771,
   "kanban-view": 61772,
   "filter-mixed": 61773,
-  "start-new": 61774
+  "start-new": 61774,
+  "merge": 61775
 }
