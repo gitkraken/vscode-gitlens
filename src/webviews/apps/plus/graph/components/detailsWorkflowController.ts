@@ -1995,7 +1995,12 @@ export class DetailsWorkflowController implements ReactiveController {
 		// generate-message routes to the WIP input/draft, not a resource, so it skips the review/compose
 		// `_disconnected` resource-write bail below (teardown aborts these runs; the guard above drops late settles).
 		if (kind === 'generateMessage') {
-			this.settleGenerateMessage(anchor, result as GenerateMessageResult | undefined, ex);
+			this.settleGenerateMessage(
+				anchor,
+				current as Extract<RunningOperation, { kind: 'generateMessage' }>,
+				result as GenerateMessageResult | undefined,
+				ex,
+			);
 			return;
 		}
 
@@ -2075,13 +2080,31 @@ export class DetailsWorkflowController implements ReactiveController {
 	 *  decides) and remove the entry. Ephemeral — nothing is stored; errors land nothing. */
 	private settleGenerateMessage(
 		anchor: RunningOperationAnchor,
+		entry: Extract<RunningOperation, { kind: 'generateMessage' }>,
 		result: GenerateMessageResult | undefined,
 		ex: unknown,
 	): void {
 		const message = ex == null ? (result?.message ?? '') : '';
+		const duration = entry.startedAt != null ? performance.now() - entry.startedAt : undefined;
+		const context = entry.telemetryContext;
+
 		if (message) {
 			this.host.applyGeneratedCommitMessage(anchor.repoPath, message);
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/succeeded', {
+				amend: context?.amend,
+				hasExistingMessage: context?.hasExistingMessage,
+				duration: duration,
+				'result.length': message.length,
+			});
+		} else {
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/failed', {
+				amend: context?.amend,
+				hasExistingMessage: context?.hasExistingMessage,
+				duration: duration,
+				reason: ex != null ? 'error' : 'empty',
+			});
 		}
+
 		this.removeRunningOperation(anchorKey(anchor), 'generateMessage');
 	}
 
@@ -2096,10 +2119,32 @@ export class DetailsWorkflowController implements ReactiveController {
 
 		const existing = this.host.crossPaneState.runningOperations.get().get(key)?.generateMessage;
 		if (existing?.execState === 'generating') {
+			const duration = existing.startedAt != null ? performance.now() - existing.startedAt : undefined;
 			existing.abortController?.abort();
 			this.removeRunningOperation(key, 'generateMessage');
+			this.actions.sendTelemetryEvent('graph/wip/generateMessage/cancelled', { duration: duration });
 			return;
 		}
+
+		const state = this.actions.state;
+		const wip = state.wip.get();
+		const files = wip?.changes?.files;
+		const currentMessage = state.commitMessage.get().trim();
+		const amend = state.amend.get();
+		const hasStagedFiles = files?.some(f => f.staged) ?? false;
+
+		const telemetryContext = {
+			amend: amend,
+			hasExistingMessage: currentMessage.length > 0,
+		};
+
+		this.actions.sendTelemetryEvent('graph/wip/generateMessage/started', {
+			...telemetryContext,
+			'message.length': currentMessage.length,
+			hasStagedFiles: hasStagedFiles,
+			'files.staged.count': files?.filter(f => f.staged).length ?? 0,
+			'files.total.count': files?.length ?? 0,
+		});
 
 		const controller = new AbortController();
 		const promise = this.startGenerateMessage(repoPath, controller.signal);
@@ -2109,6 +2154,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			execState: 'generating',
 			abortController: controller,
 			promise: promise,
+			startedAt: performance.now(),
+			telemetryContext: telemetryContext,
 		});
 		promise.then(
 			result => this.onRunSettled('generateMessage', anchor, controller, result, undefined),

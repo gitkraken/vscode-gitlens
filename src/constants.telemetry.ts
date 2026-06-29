@@ -282,6 +282,22 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/wip/commit/succeeded': GraphWipCommitSucceededEvent;
 	/** Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure) */
 	'graph/wip/commit/failed': GraphWipCommitFailedEvent;
+	/** Sent when the user toggles the "Amend Previous Commit" checkbox in the WIP panel */
+	'graph/wip/commit/amendToggled': GraphWipCommitAmendToggledEvent;
+	/** Sent when the user completes the co-author picker and trailers are appended to the commit message */
+	'graph/wip/commit/coauthorsAdded': GraphWipCommitCoauthorsAddedEvent;
+
+	/** Sent when the user clicks the sparkle button to generate an AI commit message */
+	'graph/wip/generateMessage/started': GraphWipGenerateMessageStartedEvent;
+	/** Sent when AI commit message generation completes with a non-empty message */
+	'graph/wip/generateMessage/succeeded': GraphWipGenerateMessageSucceededEvent;
+	/** Sent when AI commit message generation fails or returns an empty message */
+	'graph/wip/generateMessage/failed': GraphWipGenerateMessageFailedEvent;
+	/** Sent when the user cancels an in-flight AI commit message generation */
+	'graph/wip/generateMessage/cancelled': GraphWipGenerateMessageCancelledEvent;
+
+	/** Sent when the user triggers a branch action from the WIP panel header or next-steps */
+	'graph/wip/action': GraphWipActionEvent;
 
 	/** Sent when a virtual-FS-backed file (e.g. a Graph Compose proposed commit) is opened */
 	'graph/virtualFile/opened': GraphVirtualFileOpenedEvent;
@@ -1380,6 +1396,87 @@ interface GraphWipCommitFailedEvent extends GraphContextEventData, GraphWipCommi
 	reason: GraphWipCommitFailureReason;
 	/** Whether raw output (hook/git stderr) was captured and surfaced via "View Full Output" */
 	hasOutput: boolean;
+}
+
+interface GraphWipCommitAmendToggledEvent extends GraphContextEventData {
+	/** New state of the amend toggle (true = amend on) */
+	enabled: boolean;
+	/** Whether the commit box had text when toggled */
+	hasMessage: boolean;
+}
+
+interface GraphWipCommitCoauthorsAddedEvent extends GraphContextEventData {
+	/** Number of co-authors selected */
+	count: number;
+}
+
+interface GraphWipGenerateMessageStartedEvent extends GraphContextEventData {
+	/** Whether amend mode was on at generation time */
+	amend: boolean;
+	/** Whether the commit box already had text (AI refine vs. blank-slate) */
+	hasExistingMessage: boolean;
+	/** Length of existing message (0 if blank) */
+	'message.length': number;
+	/** Whether files were staged */
+	hasStagedFiles: boolean;
+	/** Count of staged files */
+	'files.staged.count': number;
+	/** Total changed files in the working tree */
+	'files.total.count': number;
+}
+
+interface GraphWipGenerateMessageSucceededEvent extends GraphContextEventData {
+	/** Whether amend mode was on */
+	amend: boolean | undefined;
+	/** Whether there was prior text (refine flow) */
+	hasExistingMessage: boolean | undefined;
+	/** Wall-clock milliseconds from start to settlement; undefined if startedAt was missing */
+	duration: number | undefined;
+	/** Character length of the generated message */
+	'result.length': number;
+}
+
+interface GraphWipGenerateMessageFailedEvent extends GraphContextEventData {
+	/** Whether amend mode was on */
+	amend: boolean | undefined;
+	/** Whether there was prior text */
+	hasExistingMessage: boolean | undefined;
+	/** Milliseconds until failure; undefined if startedAt was missing */
+	duration: number | undefined;
+	/** Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message */
+	reason: 'error' | 'empty';
+}
+
+interface GraphWipGenerateMessageCancelledEvent extends GraphContextEventData {
+	/** Milliseconds from start to cancellation; undefined if startedAt was missing */
+	duration: number | undefined;
+}
+
+export type GraphWipAction =
+	| 'push'
+	| 'forcePush'
+	| 'pull'
+	| 'fetch'
+	| 'publishBranch'
+	| 'switchBranch'
+	| 'createBranch'
+	| 'createPullRequest'
+	| 'createPullRequestWithAI'
+	| 'rebaseOntoMergeTarget'
+	| 'mergeMergeTarget'
+	| 'shareAsCloudPatch'
+	| 'copyPatch'
+	| 'stashSave'
+	| 'stashSaveStaged'
+	| 'stashSaveFiles'
+	| 'applyStash'
+	| 'createWorktree'
+	| 'startWork'
+	| 'startReview';
+
+interface GraphWipActionEvent extends GraphContextEventData {
+	/** Which action was triggered */
+	action: GraphWipAction;
 }
 
 export type GraphDetailsFileAction =

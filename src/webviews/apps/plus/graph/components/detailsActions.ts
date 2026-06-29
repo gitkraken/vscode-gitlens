@@ -3195,6 +3195,8 @@ export class DetailsActions {
 		);
 		if (coauthors == null) return; // cancelled — leave the message untouched
 
+		this.sendTelemetryEvent('graph/wip/commit/coauthorsAdded', { count: coauthors.length });
+
 		// Append against the live message so text typed before opening the picker is preserved.
 		this.state.commitMessage.set(appendCoauthorsToMessage(this.state.commitMessage.get(), coauthors));
 		// User-authored edit — survives the HEAD-move auto-clear; the debounced WIP-draft flush persists it.

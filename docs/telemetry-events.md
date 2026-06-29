@@ -2958,6 +2958,68 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/wip/action
+
+> Sent when the user triggers a branch action from the WIP panel header or next-steps
+
+```typescript
+{
+  // Which action was triggered
+  'action': 'createPullRequest' | 'startReview' | 'startWork' | 'pull' | 'push' | 'fetch' | 'publishBranch' | 'forcePush' | 'switchBranch' | 'createBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'applyStash' | 'createWorktree',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/wip/commit/amendToggled
+
+> Sent when the user toggles the "Amend Previous Commit" checkbox in the WIP panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // New state of the amend toggle (true = amend on)
+  'enabled': boolean,
+  // Whether the commit box had text when toggled
+  'hasMessage': boolean
+}
+```
+
+### graph/wip/commit/coauthorsAdded
+
+> Sent when the user completes the co-author picker and trailers are appended to the commit message
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Number of co-authors selected
+  'count': number
+}
+```
+
 ### graph/wip/commit/failed
 
 > Sent when a commit from the Graph's WIP panel fails (e.g. a hook rejection or signing failure)
@@ -3022,6 +3084,108 @@ background-upgraded the extension while the host kept running the old build
   'message.length': number,
   // Whether the `git.enableSmartCommit` preference was on at commit time
   'smartCommit': boolean
+}
+```
+
+### graph/wip/generateMessage/cancelled
+
+> Sent when the user cancels an in-flight AI commit message generation
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Milliseconds from start to cancellation; undefined if startedAt was missing
+  'duration': number
+}
+```
+
+### graph/wip/generateMessage/failed
+
+> Sent when AI commit message generation fails or returns an empty message
+
+```typescript
+{
+  // Whether amend mode was on
+  'amend': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Milliseconds until failure; undefined if startedAt was missing
+  'duration': number,
+  // Whether there was prior text
+  'hasExistingMessage': boolean,
+  // Why the generation failed: 'error' = RPC/AI threw, 'empty' = AI returned an empty message
+  'reason': 'error' | 'empty'
+}
+```
+
+### graph/wip/generateMessage/started
+
+> Sent when the user clicks the sparkle button to generate an AI commit message
+
+```typescript
+{
+  // Whether amend mode was on at generation time
+  'amend': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Count of staged files
+  'files.staged.count': number,
+  // Total changed files in the working tree
+  'files.total.count': number,
+  // Whether the commit box already had text (AI refine vs. blank-slate)
+  'hasExistingMessage': boolean,
+  // Whether files were staged
+  'hasStagedFiles': boolean,
+  // Length of existing message (0 if blank)
+  'message.length': number
+}
+```
+
+### graph/wip/generateMessage/succeeded
+
+> Sent when AI commit message generation completes with a non-empty message
+
+```typescript
+{
+  // Whether amend mode was on
+  'amend': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Wall-clock milliseconds from start to settlement; undefined if startedAt was missing
+  'duration': number,
+  // Whether there was prior text (refine flow)
+  'hasExistingMessage': boolean,
+  // Character length of the generated message
+  'result.length': number
 }
 ```
 

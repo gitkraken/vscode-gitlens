@@ -10,7 +10,7 @@ import type { AgentSessionState } from '../../../../../agents/models/agentSessio
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
-import type { GraphDetailsMode } from '../../../../../constants.telemetry.js';
+import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
@@ -2979,33 +2979,71 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		void this._actions.refetchCommitQuiet(this.sha, repoPath, this.graphReachability, this.commitLite);
 	};
 
-	private handleSwitchBranch = () => this._actions.switchBranch(this.effectiveRepoPath);
+	private trackWipAction(action: GraphWipAction): void {
+		this._actions.sendTelemetryEvent('graph/wip/action', { action: action });
+	}
 
-	private handleCreateBranch = () => this._actions.createBranch(this.effectiveRepoPath);
+	private handleSwitchBranch = () => {
+		this.trackWipAction('switchBranch');
+		this._actions.switchBranch(this.effectiveRepoPath);
+	};
 
-	private handlePublishBranch = () => void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
+	private handleCreateBranch = () => {
+		this.trackWipAction('createBranch');
+		this._actions.createBranch(this.effectiveRepoPath);
+	};
 
-	private handlePull = () => void this._actions.services.repository.pull(this.effectiveRepoPath!);
+	private handlePublishBranch = () => {
+		this.trackWipAction('publishBranch');
+		void this._actions.services.repository.publishBranch(this.effectiveRepoPath!);
+	};
 
-	private handlePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!);
+	private handlePull = () => {
+		this.trackWipAction('pull');
+		void this._actions.services.repository.pull(this.effectiveRepoPath!);
+	};
 
-	private handleForcePush = () => void this._actions.services.repository.push(this.effectiveRepoPath!, true);
+	private handlePush = () => {
+		this.trackWipAction('push');
+		void this._actions.services.repository.push(this.effectiveRepoPath!);
+	};
 
-	private handleFetch = () => void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+	private handleForcePush = () => {
+		this.trackWipAction('forcePush');
+		void this._actions.services.repository.push(this.effectiveRepoPath!, true);
+	};
 
-	private handleCreatePullRequest = () => this._actions.createPullRequest(this.effectiveRepoPath);
+	private handleFetch = () => {
+		this.trackWipAction('fetch');
+		void this._actions.services.repository.fetch(this.effectiveRepoPath!);
+	};
 
-	private handleCreatePullRequestWithAI = () =>
+	private handleCreatePullRequest = () => {
+		this.trackWipAction('createPullRequest');
+		this._actions.createPullRequest(this.effectiveRepoPath);
+	};
+
+	private handleCreatePullRequestWithAI = () => {
+		this.trackWipAction('createPullRequestWithAI');
 		this._actions.createPullRequest(this.effectiveRepoPath, { describeWithAI: true });
+	};
 
-	private handleShareWipAsCloudPatch = () =>
+	private handleShareWipAsCloudPatch = () => {
+		this.trackWipAction('shareAsCloudPatch');
 		void this._actions.services.commands.executeScoped('gitlens.shareWipAsCloudPatch:graph', {
 			repoPath: this.effectiveRepoPath,
 		});
+	};
 
-	private handleRebaseOntoMergeTarget = () => this._actions.rebaseOntoMergeTarget();
+	private handleRebaseOntoMergeTarget = () => {
+		this.trackWipAction('rebaseOntoMergeTarget');
+		this._actions.rebaseOntoMergeTarget();
+	};
 
-	private handleMergeMergeTargetIntoCurrent = () => this._actions.mergeMergeTargetIntoCurrent();
+	private handleMergeMergeTargetIntoCurrent = () => {
+		this.trackWipAction('mergeMergeTarget');
+		this._actions.mergeMergeTargetIntoCurrent();
+	};
 
 	private handleReviewBranchChanges = () => this.enterBranchWorkMode('review');
 
@@ -3030,23 +3068,33 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Toolbar Stash with a multi-selection carries the selected files (same path as the inline
 		// `file-stash` batch action); otherwise it's the scope action (`onlyStaged` staged-vs-all).
 		if (e.detail?.files?.length) {
+			this.trackWipAction('stashSaveFiles');
 			this._actions.stashFiles([...e.detail.files]);
 		} else {
+			this.trackWipAction(e.detail?.onlyStaged ? 'stashSaveStaged' : 'stashSave');
 			this._actions.stashSave(this.effectiveRepoPath, e.detail?.onlyStaged);
 		}
 	};
 
-	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
+	private handleStartWork = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
+		this.trackWipAction('startWork');
 		this._actions.startWork(e.detail?.showOpenInAgent);
+	};
 
-	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) =>
+	private handleStartReview = (e: CustomEvent<{ showOpenInAgent?: 'ask' | 'manual' | 'agent' } | undefined>) => {
+		this.trackWipAction('startReview');
 		this._actions.startPRReview(e.detail?.showOpenInAgent);
+	};
 
-	private handleCreatePr = () => this._actions.createPullRequest(this.effectiveRepoPath);
+	private handleApplyStash = () => {
+		this.trackWipAction('applyStash');
+		this._actions.applyStash(this.effectiveRepoPath);
+	};
 
-	private handleApplyStash = () => this._actions.applyStash(this.effectiveRepoPath);
-
-	private handleNewWorktree = () => this._actions.createWorktree();
+	private handleNewWorktree = () => {
+		this.trackWipAction('createWorktree');
+		this._actions.createWorktree();
+	};
 
 	private handleRefreshLaunchpad = (): void => {
 		this._launchpadState?.refresh();
@@ -3075,6 +3123,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAmendChange = (e: CustomEvent<{ checked: boolean }>) => {
+		this._actions.sendTelemetryEvent('graph/wip/commit/amendToggled', {
+			enabled: e.detail.checked,
+			hasMessage: this._state.commitMessage.get().length > 0,
+		});
 		this._state.amend.set(e.detail.checked);
 		if (e.detail.checked) {
 			// Bind the amend intent to the HEAD it was authored against. If HEAD moves later
@@ -3320,6 +3372,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleCopyWipPatch = (e: CustomEvent<CopyWipPatchEventDetail>) => {
+		this.trackWipAction('copyPatch');
 		this._actions.copyWipPatchToClipboard(e.detail.repoPath, e.detail.scope, e.detail.uris);
 	};
 
