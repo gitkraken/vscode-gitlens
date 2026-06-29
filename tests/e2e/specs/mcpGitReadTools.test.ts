@@ -15,6 +15,7 @@
  * builds its own repo rather than relying on the VS Code workspace.
  */
 import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createTmpDir, GitFixture } from '../baseTest.js';
 import type { McpMessage } from '../fixtures/mcp.js';
 import { expect, mcpTest as test } from '../fixtures/mcp.js';
@@ -25,13 +26,22 @@ type ToolResult = { content?: { text?: string }[]; isError?: boolean };
 
 /** Unwrap the `data.output` payload from a successful git tool response. */
 function toolOutput(response: McpMessage): string {
+	// Surface a genuine tool failure (JSON-RPC error) directly, rather than letting it fall
+	// through and fail later as a confusing "missing text" assertion.
+	expect(response.error, `unexpected JSON-RPC error: ${JSON.stringify(response.error)}`).toBeUndefined();
+
 	const result = response.result as ToolResult | undefined;
 	expect(result?.isError, `expected a success result; text=${result?.content?.[0]?.text}`).toBeFalsy();
 
 	const text = result?.content?.[0]?.text;
 	expect(text, 'tool response should carry text content').toBeTruthy();
 
-	const parsed = JSON.parse(text!) as { data?: { output?: string } };
+	let parsed: { data?: { output?: string } };
+	try {
+		parsed = JSON.parse(text!) as { data?: { output?: string } };
+	} catch (ex) {
+		throw new Error(`tool response text was not valid JSON: ${text!.slice(0, 200)}`, { cause: ex });
+	}
 	expect(parsed.data?.output, 'tool response should carry data.output').toBeDefined();
 	return parsed.data!.output!;
 }
@@ -54,8 +64,10 @@ test.describe('MCP — Git Read Tools', () => {
 	});
 
 	test.afterAll(async () => {
+		// Teardown cleanup must not fail the suite (e.g. transient EPERM/EBUSY on Windows),
+		// matching the swallow-on-cleanup pattern used by the shared fixtures.
 		if (repoDir) {
-			await rm(repoDir, { recursive: true, force: true });
+			await rm(repoDir, { recursive: true, force: true }).catch(() => {});
 		}
 	});
 
@@ -72,7 +84,10 @@ test.describe('MCP — Git Read Tools', () => {
 	});
 
 	test('git_status returns an error for a non-existent directory', async ({ mcpClient }) => {
-		const response = await mcpClient.callTool('git_status', { directory: '/no/such/path/here' });
+		// A path under the (existing) repo that is guaranteed not to exist — deterministic across
+		// platforms, unlike a hard-coded absolute path that an unusual filesystem layout might have.
+		const missingDir = join(repoDir, 'no', 'such', 'directory');
+		const response = await mcpClient.callTool('git_status', { directory: missingDir });
 
 		// A git failure surfaces as a JSON-RPC error (code -32603), not an isError result.
 		expect(response.error?.code).toBe(-32603);
