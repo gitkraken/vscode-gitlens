@@ -197,6 +197,16 @@ const worktreeActionMap: Partial<
 	'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
 };
 
+const remoteActionMap: Partial<
+	Record<GlCommands, 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration'>
+> = {
+	'gitlens.fetchRemote:graph': 'fetch',
+	'gitlens.openRepoOnRemote:graph': 'openOnRemote',
+	'gitlens.copyRemoteRepositoryUrl:graph': 'copyUrl',
+	'gitlens.connectRemoteProvider:graph': 'connectIntegration',
+	'gitlens.disconnectRemoteProvider:graph': 'disconnectIntegration',
+};
+
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
 	return `\u21C6 ${w.upstream}`;
@@ -435,6 +445,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  while re-renders from data mutations (e.g. WIP pushes) do not. */
 	private _worktreesShownEmitted = false;
 
+	/** Same as `_worktreesShownEmitted`, for the remotes panel. */
+	private _remotesShownEmitted = false;
+
 	// Tracks that the branches panel was just shown and its `shown` telemetry is still owed —
 	// emitted once the switch-triggered fetch settles (see maybeEmitBranchesShownTelemetry).
 	private _branchesShownPending = false;
@@ -485,7 +498,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	override disconnectedCallback(): void {
 		this.emitWorktreesFilteredTelemetryDebounced.cancel();
 		this.emitBranchesFilteredTelemetryDebounced.cancel();
+		this.emitRemotesFilteredTelemetryDebounced.cancel();
 		this._worktreesShownEmitted = false;
+		this._remotesShownEmitted = false;
 		super.disconnectedCallback?.();
 	}
 
@@ -502,11 +517,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// Reset the shown guard so switching worktrees→other→worktrees emits a fresh impression
 			// while intra-activation re-renders (WIP pushes, refresh) do not.
 			this._worktreesShownEmitted = false;
+			this._remotesShownEmitted = false;
 
 			// Cancel any pending filtered emits — filterText is shared across panels, so a trailing
 			// callback after a switch would report against the wrong (now-inactive) panel.
 			this.emitWorktreesFilteredTelemetryDebounced.cancel();
 			this.emitBranchesFilteredTelemetryDebounced.cancel();
+			this.emitRemotesFilteredTelemetryDebounced.cancel();
 
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
@@ -547,6 +564,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		// change so a fresh impression is recorded then, but intra-activation re-renders (WIP pushes,
 		// refresh(), filter/expansion changes) do not re-emit.
 		this.emitWorktreesShownTelemetry();
+		this.emitRemotesShownTelemetry();
 
 		this.maybeEmitBranchesShownTelemetry();
 	}
@@ -1315,6 +1333,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (this.activePanel === 'branches') {
 			this.emitBranchesFilteredTelemetryDebounced();
 		}
+
+		if (this.activePanel === 'remotes') {
+			this.emitRemotesFilteredTelemetryDebounced();
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1369,20 +1391,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 		}
 
+		if (this.activePanel === 'remotes') {
+			const action = command === 'gitlens.views.addRemote' ? 'addRemote' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+					name: 'graph/remotes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
 
-		// Compute the worktrees/branches layout before toggling — the service update is async, so
-		// the resource value still reflects the old layout here; invert it to get the new one.
+		// Compute the worktrees/branches/remotes layout before toggling — the service update is async,
+		// so the resource value still reflects the old layout here; invert it to get the new one.
 		const worktreesData =
 			this.activePanel === 'worktrees' ? this._actions?.state.panels.worktrees?.value.get() : undefined;
 		const worktreesNewLayout = worktreesData?.layout === 'tree' ? 'list' : 'tree';
 
 		const branchesData =
 			this.activePanel === 'branches' ? this._actions?.state.panels.branches?.value.get() : undefined;
+
+		const remotesData =
+			this.activePanel === 'remotes' ? this._actions?.state.panels.remotes?.value.get() : undefined;
 
 		this._actions.toggleLayout(this.activePanel);
 
@@ -1414,6 +1449,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				data: {
 					layout: branchesData.layout === 'tree' ? 'list' : 'tree',
 					'branches.count': branchesData.items.length,
+				},
+			});
+		}
+
+		// Same reasoning for remotes — only report when the current layout is known.
+		if (this.activePanel === 'remotes' && remotesData?.layout != null) {
+			emitTelemetrySentEvent<'graph/remotes/layoutToggled'>(this, {
+				name: 'graph/remotes/layoutToggled',
+				data: {
+					layout: remotesData.layout === 'tree' ? 'list' : 'tree',
+					'remotes.count': remotesData.items.length,
 				},
 			});
 		}
@@ -1450,6 +1496,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
+		if (this.activePanel === 'remotes') {
+			emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+				name: 'graph/remotes/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
 		this._actions?.refresh(this.activePanel);
 	}
 
@@ -1479,6 +1532,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'branches') {
 			this.emitBranchesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'remotes') {
+			this.emitRemotesTreeItemActionTelemetry(command, useAlt);
 		}
 
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
@@ -1549,6 +1606,40 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private getRemotesData(): GraphSidebarRemote[] | undefined {
+		const data = this._actions?.state.panels.remotes?.value.get();
+		if (data?.panel !== 'remotes') return undefined;
+		return data.items;
+	}
+
+	private getRemotesCount(): number {
+		return this.getRemotesData()?.length ?? 0;
+	}
+
+	private emitRemotesShownTelemetry(): void {
+		if (this._remotesShownEmitted || this.activePanel !== 'remotes') return;
+
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		const resource = this._actions?.state.panels.remotes;
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'remotes') return;
+
+		this._remotesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/remotes/shown'>(this, {
+			name: 'graph/remotes/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'remotes.count': data.items.length,
+				'remotes.connected.count': data.items.filter(r => r.connected === true).length,
+				hasMultipleRemotes: data.items.length > 1,
+			},
+		});
+	}
 
 	private emitAgentsShownTelemetry(): void {
 		// Point-in-time snapshot: fired on the `activePanel → 'agents'` transition only. Sessions
@@ -1642,6 +1733,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				hasFilter: filterText.length > 0,
 				'filter.length': filterText.length,
 				'worktrees.count': this.getWorktreesCount(),
+			},
+		});
+	}, 500);
+
+	private readonly emitRemotesFilteredTelemetryDebounced = debounce(() => {
+		if (this.activePanel !== 'remotes') return;
+
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/remotes/filtered'>(this, {
+			name: 'graph/remotes/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'remotes.count': this.getRemotesCount(),
 			},
 		});
 	}, 500);
@@ -1753,6 +1858,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/branches/branchAction'>(this, {
 			name: 'graph/branches/branchAction',
+			data: { action: action, alt: alt },
+		});
+	}
+
+	private emitRemotesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = remoteActionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
+			name: 'graph/remotes/remoteAction',
 			data: { action: action, alt: alt },
 		});
 	}
