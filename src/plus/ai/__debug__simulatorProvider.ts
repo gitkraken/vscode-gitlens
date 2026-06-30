@@ -46,6 +46,18 @@ const simulatorModels: readonly AIModel<'simulator'>[] = [
 		maxTokens: { input: 200000, output: 32000 },
 		provider: simulatorProviderDescriptor,
 	},
+	{
+		id: 'provider-error',
+		name: 'Simulator: Provider Error (generic)',
+		maxTokens: { input: 200000, output: 32000 },
+		provider: simulatorProviderDescriptor,
+	},
+	{
+		id: 'provider-unavailable',
+		name: 'Simulator: Provider Unavailable',
+		maxTokens: { input: 200000, output: 32000 },
+		provider: simulatorProviderDescriptor,
+	},
 ];
 
 export class SimulatorProvider implements AIProvider<'simulator'> {
@@ -105,6 +117,16 @@ export class SimulatorProvider implements AIProvider<'simulator'> {
 				AIErrorReason.UserQuotaExceeded,
 				new Error('(Simulator) Simulated weekly AI credit limit reached for verification'),
 			);
+		}
+
+		if (mode === 'provider-error') {
+			throw new Error(
+				"(Simulator) You've reached your credit limit. To continue working, please contact your organization's admin or wait until your credits reset.",
+			);
+		}
+
+		if (mode === 'provider-unavailable') {
+			return undefined;
 		}
 
 		if (mode === 'slow') {

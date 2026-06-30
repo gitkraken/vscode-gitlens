@@ -201,6 +201,7 @@ import {
 	getWorktreesByBranch,
 } from '../../../git/utils/-webview/worktree.utils.js';
 import type { RebaseTodoAction } from '../../../git/utils/rebaseTodo.js';
+import { showGenericErrorMessage } from '../../../messages.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
@@ -1775,8 +1776,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 						return result.result;
 					} catch (ex) {
-						// Surface the failure instead of silently returning so regressions are visible.
 						Logger.error(ex, 'graph.generateCommitMessage');
+						void showGenericErrorMessage(ex instanceof Error ? ex.message : String(ex));
 						return undefined;
 					} finally {
 						disposeCancellation();
