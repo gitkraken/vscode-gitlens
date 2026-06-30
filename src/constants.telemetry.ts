@@ -330,6 +330,21 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user clicks a PR or issue link in the Graph Overview hover popover */
 	'graph/overview/linkClicked': GraphSidebarOverviewLinkClickedEvent;
 
+	/** Sent when the Agents sidebar panel becomes visible */
+	'graph/agents/shown': GraphSidebarAgentsShownEvent;
+	/** Sent when the user clicks an agent session leaf in the sidebar agents panel */
+	'graph/agents/sessionSelected': GraphSidebarAgentsSessionSelectedEvent;
+	/** Sent when the user resolves a permission (Allow/Deny/Always Allow) from the sidebar agents panel */
+	'graph/agents/permissionResolved': GraphSidebarAgentsPermissionResolvedEvent;
+	/** Sent when the user clicks Open Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel */
+	'graph/agents/sessionAction': GraphSidebarAgentsSessionActionEvent;
+	/** Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel */
+	'graph/agents/headerAction': GraphSidebarAgentsHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar agents panel */
+	'graph/agents/layoutToggled': GraphSidebarAgentsLayoutToggledEvent;
+	/** Sent when the sidebar agents filter toggles between empty and non-empty (not on every keystroke) */
+	'graph/agents/filtered': GraphSidebarAgentsFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1695,6 +1710,47 @@ interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
 interface GraphSidebarOverviewLinkClickedEvent extends GraphContextEventData {
 	/** Type of external link clicked */
 	type: 'pullrequest' | 'issue' | 'autolink';
+}
+
+interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'sessions.count': number;
+	'sessions.working.count': number;
+	'sessions.needsInput.count': number;
+	'sessions.idle.count': number;
+}
+
+interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {
+	'session.phase': string;
+	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.hasPendingPermission': boolean;
+	'session.sameRepo': boolean;
+	layout: 'list' | 'tree';
+}
+
+interface GraphSidebarAgentsPermissionResolvedEvent extends GraphContextEventData {
+	decision: 'allow' | 'deny';
+	alwaysAllow: boolean;
+	'permission.kind': string;
+}
+
+interface GraphSidebarAgentsSessionActionEvent extends GraphContextEventData {
+	action: 'openSession' | 'openPlanFile' | 'openTerminal';
+}
+
+interface GraphSidebarAgentsHeaderActionEvent extends GraphContextEventData {
+	action: 'startWork' | 'startReview' | 'refresh';
+}
+
+interface GraphSidebarAgentsLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'sessions.count': number;
+}
+
+interface GraphSidebarAgentsFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'sessions.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
