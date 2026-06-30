@@ -2,15 +2,18 @@
 
 Shared Git, AI, and GitHub primitives from [GitLens](https://github.com/gitkraken/vscode-gitlens), bundled for consumption by internal GitKraken products.
 
-This package flattens five internal workspace packages into a single tarball:
+This package flattens eight internal workspace packages into a single tarball:
 
-| Subpath             | Source package        | License        |
-| ------------------- | --------------------- | -------------- |
-| `utils/*`           | `@gitlens/utils`      | See `LICENSE`  |
-| `git/*`             | `@gitlens/git`        | See `LICENSE`  |
-| `git-cli/*`         | `@gitlens/git-cli`    | See `LICENSE`  |
-| `plus/ai/*`         | `@gitlens/ai`         | `LICENSE.plus` |
-| `plus/git-github/*` | `@gitlens/git-github` | `LICENSE.plus` |
+| Subpath               | Source package          | License        |
+| --------------------- | ----------------------- | -------------- |
+| `utils/*`             | `@gitlens/utils`        | See `LICENSE`  |
+| `ipc/*`               | `@gitlens/ipc`          | See `LICENSE`  |
+| `git/*`               | `@gitlens/git`          | See `LICENSE`  |
+| `git-cli/*`           | `@gitlens/git-cli`      | See `LICENSE`  |
+| `plus/ai/*`           | `@gitlens/ai`           | `LICENSE.plus` |
+| `plus/git-github/*`   | `@gitlens/git-github`   | `LICENSE.plus` |
+| `plus/agents/*`       | `@gitlens/agents`       | `LICENSE.plus` |
+| `plus/integrations/*` | `@gitlens/integrations` | `LICENSE.plus` |
 
 ## Usage
 
@@ -43,7 +46,7 @@ The package is marked `"sideEffects": false` and uses per-file subpath exports. 
 ## Licensing
 
 - `LICENSE` — governs `utils/`, `git/`, and `git-cli/`.
-- `LICENSE.plus` — governs everything under `plus/` (currently `plus/ai/` and `plus/git-github/`). Proprietary; not for redistribution.
+- `LICENSE.plus` — governs everything under `plus/` (currently `plus/ai/`, `plus/git-github/`, `plus/agents/`, and `plus/integrations/`). Proprietary; not for redistribution.
 
 ## Versioning
 
