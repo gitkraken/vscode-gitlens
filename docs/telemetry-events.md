@@ -2519,6 +2519,131 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/branches/branchAction
+
+> Sent when the user clicks an inline action (switch/fetch/pull/push/compare/open) on a branch item
+
+```typescript
+{
+  'action': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'openWorktreeInNewWindow',
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/branches/branchSelected
+
+> Sent when the user clicks a branch leaf in the sidebar branches panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'hasUpstream': boolean,
+  'hasWorktree': boolean,
+  'isCurrent': boolean,
+  'isRemote': boolean,
+  'isStarred': boolean
+}
+```
+
+### graph/branches/filtered
+
+> Sent when the user types in the filter box in the sidebar branches panel
+
+```typescript
+{
+  'branches.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean
+}
+```
+
+### graph/branches/headerAction
+
+> Sent when the user clicks a header action (Switch to Branch, Create Branch, Refresh) in the sidebar branches panel
+
+```typescript
+{
+  'action': 'switchToBranch' | 'createBranch' | 'refresh',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/branches/layoutToggled
+
+> Sent when the user toggles the tree/list layout in the sidebar branches panel
+
+```typescript
+{
+  'branches.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree'
+}
+```
+
+### graph/branches/shown
+
+> Sent when the Branches sidebar panel becomes visible
+
+```typescript
+{
+  'branches.count': number,
+  'branches.local.count': number,
+  'branches.remote.count': number,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree'
+}
+```
+
 ### graph/branchesVisibility/changed
 
 > Sent when the user changes the "branches visibility" on the Commit Graph
@@ -2663,7 +2788,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.type': string,
   // Where on the card the action was invoked
   'location': 'inline' | 'hover',
-  'name': 'pull' | 'push' | 'fetch' | 'publishBranch' | 'switch' | 'openWorktree' | 'compareWithHead' | 'compareWithWorking' | 'compareWithPr' | 'other'
+  'name': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'publishBranch' | 'compareWithPr' | 'other'
 }
 ```
 
@@ -2965,7 +3090,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   // Which action was triggered
-  'action': 'createPullRequest' | 'startReview' | 'startWork' | 'pull' | 'push' | 'fetch' | 'publishBranch' | 'forcePush' | 'switchBranch' | 'createBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'applyStash' | 'createWorktree',
+  'action': 'createPullRequest' | 'startReview' | 'startWork' | 'fetch' | 'pull' | 'push' | 'createBranch' | 'publishBranch' | 'forcePush' | 'switchBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'applyStash' | 'createWorktree',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -4971,7 +5096,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'settings' | 'connect' | 'feedback' | 'open-on-gkdev' | 'refresh',
+  'action': 'settings' | 'connect' | 'refresh' | 'feedback' | 'open-on-gkdev',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
