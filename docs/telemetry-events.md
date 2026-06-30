@@ -3058,6 +3058,110 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/remotes/filtered
+
+> Sent when the user types in the filter box in the sidebar remotes panel (debounced, not on every keystroke)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  // Total remotes in the panel (the filter corpus), NOT the number of matches — matching happens inside the tree component and the match count isn't surfaced.
+  'remotes.count': number
+}
+```
+
+### graph/remotes/headerAction
+
+> Sent when the user clicks a header action (Add Remote, Refresh) in the sidebar remotes panel
+
+```typescript
+{
+  'action': 'refresh' | 'addRemote',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/remotes/layoutToggled
+
+> Sent when the user toggles the tree/list layout in the sidebar remotes panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'remotes.count': number
+}
+```
+
+### graph/remotes/remoteAction
+
+> Sent when the user clicks an inline action (fetch/open/copy/connect/disconnect) on a remote item
+
+```typescript
+{
+  'action': 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration',
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/remotes/shown
+
+> Sent when the Remotes sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'hasMultipleRemotes': boolean,
+  'layout': 'list' | 'tree',
+  // Remotes whose integration is connected
+  'remotes.connected.count': number,
+  'remotes.count': number
+}
+```
+
 ### graph/repository/changed
 
 > Sent when the user changes the current repository on the Commit Graph
@@ -3695,7 +3799,7 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/worktrees/filtered
 
-> Sent when the user types in the filter box in the sidebar worktrees panel
+> Sent when the user types in the filter box in the sidebar worktrees panel (debounced, not on every keystroke)
 
 ```typescript
 {
@@ -4467,7 +4571,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   // Which file open/diff operation was triggered
-  'action': 'comparePrevious' | 'multiDiff' | 'open' | 'openOnRemote' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
+  'action': 'openOnRemote' | 'comparePrevious' | 'multiDiff' | 'open' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

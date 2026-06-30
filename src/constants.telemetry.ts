@@ -355,7 +355,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/worktrees/headerAction': GraphSidebarWorktreesHeaderActionEvent;
 	/** Sent when the user toggles the tree/list layout in the sidebar worktrees panel */
 	'graph/worktrees/layoutToggled': GraphSidebarWorktreesLayoutToggledEvent;
-	/** Sent when the user types in the filter box in the sidebar worktrees panel */
+	/** Sent when the user types in the filter box in the sidebar worktrees panel (debounced, not on every keystroke) */
 	'graph/worktrees/filtered': GraphSidebarWorktreesFilteredEvent;
 
 	/** Sent when the Branches sidebar panel becomes visible */
@@ -370,6 +370,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graph/branches/layoutToggled': GraphSidebarBranchesLayoutToggledEvent;
 	/** Sent when the user types in the filter box in the sidebar branches panel */
 	'graph/branches/filtered': GraphSidebarBranchesFilteredEvent;
+
+	/** Sent when the Remotes sidebar panel becomes visible */
+	'graph/remotes/shown': GraphSidebarRemotesShownEvent;
+	/** Sent when the user clicks an inline action (fetch/open/copy/connect/disconnect) on a remote item */
+	'graph/remotes/remoteAction': GraphSidebarRemotesRemoteActionEvent;
+	/** Sent when the user clicks a header action (Add Remote, Refresh) in the sidebar remotes panel */
+	'graph/remotes/headerAction': GraphSidebarRemotesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar remotes panel */
+	'graph/remotes/layoutToggled': GraphSidebarRemotesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar remotes panel (debounced, not on every keystroke) */
+	'graph/remotes/filtered': GraphSidebarRemotesFilteredEvent;
 
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
@@ -1895,6 +1906,36 @@ interface GraphSidebarBranchesFilteredEvent extends GraphContextEventData {
 	/** Total branches in the panel (the filter corpus), NOT the number of matches — matching
 	 *  happens inside the tree component and the match count isn't surfaced. */
 	'branches.count': number;
+}
+
+interface GraphSidebarRemotesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+	/** Remotes whose integration is connected */
+	'remotes.connected.count': number;
+	hasMultipleRemotes: boolean;
+}
+
+interface GraphSidebarRemotesRemoteActionEvent extends GraphContextEventData {
+	action: 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration';
+	alt: boolean;
+}
+
+interface GraphSidebarRemotesHeaderActionEvent extends GraphContextEventData {
+	action: 'addRemote' | 'refresh';
+}
+
+interface GraphSidebarRemotesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+}
+
+interface GraphSidebarRemotesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	/** Total remotes in the panel (the filter corpus), NOT the number of matches — matching
+	 *  happens inside the tree component and the match count isn't surfaced. */
+	'remotes.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
