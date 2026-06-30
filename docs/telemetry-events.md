@@ -3569,6 +3569,128 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/worktrees/filtered
+
+> Sent when the user types in the filter box in the sidebar worktrees panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  'worktrees.count': number
+}
+```
+
+### graph/worktrees/headerAction
+
+> Sent when the user clicks a header action (Create Worktree, Refresh) in the sidebar worktrees panel
+
+```typescript
+{
+  'action': 'refresh' | 'createWorktree',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/worktrees/layoutToggled
+
+> Sent when the user toggles the tree/list layout in the sidebar worktrees panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'worktrees.count': number
+}
+```
+
+### graph/worktrees/shown
+
+> Sent when the Worktrees sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'worktrees.count': number
+}
+```
+
+### graph/worktrees/worktreeAction
+
+> Sent when the user clicks an inline action (pull/push/fetch/open) on a worktree item
+
+```typescript
+{
+  'action': 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow',
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/worktrees/worktreeSelected
+
+> Sent when the user clicks a worktree leaf in the sidebar worktrees panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'hasChanges': boolean,
+  'hasUpstream': boolean,
+  'isActive': boolean,
+  'isDefault': boolean
+}
+```
+
 ### graphDetails/closed
 
 > Sent when the integrated graph details panel is collapsed
