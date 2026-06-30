@@ -2663,13 +2663,111 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.type': string,
   // Where on the card the action was invoked
   'location': 'inline' | 'hover',
-  'name': 'pull' | 'push' | 'fetch' | 'publishBranch' | 'switch' | 'openWorktree' | 'compareWithHead' | 'compareWithWorking' | 'compareWithPr' | 'other'
+  'name': 'pull' | 'push' | 'fetch' | 'publishBranch' | 'switch' | 'openWorktree' | 'compareWithHead' | 'compareWithWorking' | 'compareWithPr' | 'openPrChanges' | 'openChanges' | 'other'
+}
+```
+
+### graph/overview/branchSelected
+
+> Sent when the user clicks a branch card to scope the graph to that branch
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the branch has associated issues or autolinks
+  'hasIssues': boolean,
+  // Whether the branch has an associated pull request
+  'hasPr': boolean,
+  // Whether the branch has uncommitted working tree changes
+  'hasWip': boolean,
+  // Whether the branch is the currently opened (active) branch
+  'isActive': boolean,
+  // Whether the branch is checked out in a worktree
+  'isWorktree': boolean
+}
+```
+
+### graph/overview/hoverShown
+
+> Sent when the rich hover popover opens for the first time on a branch card
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the branch has active agent sessions
+  'hasAgents': boolean,
+  // Whether the branch has associated issues or autolinks
+  'hasIssues': boolean,
+  // Whether the branch has an associated pull request
+  'hasPr': boolean,
+  // Whether the branch has uncommitted working tree changes
+  'hasWip': boolean,
+  // Whether the branch is the currently opened (active) branch
+  'isActive': boolean,
+  // Whether the branch is checked out in a worktree
+  'isWorktree': boolean
+}
+```
+
+### graph/overview/linkClicked
+
+> Sent when the user clicks a PR or issue link in the Graph Overview hover popover
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Type of external link clicked
+  'type': 'pullrequest' | 'issue' | 'autolink'
+}
+```
+
+### graph/overview/recentThresholdChanged
+
+> Sent when the user changes the Recent timeframe threshold in the Graph Overview
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // New threshold value selected by the user
+  'threshold': 'OneDay' | 'OneWeek' | 'OneMonth'
 }
 ```
 
 ### graph/overview/shown
 
-> Sent when the Graph Overview panel becomes visible (mounted in the active sidebar slot)
+> Sent when the Graph Overview panel becomes visible
 
 ```typescript
 {
@@ -2685,7 +2783,9 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.host': 'view' | 'editor' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Active Recent timeframe threshold at the time of show
+  'recentThreshold': 'OneDay' | 'OneWeek' | 'OneMonth'
 }
 ```
 

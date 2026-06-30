@@ -9,7 +9,7 @@ import { formatDate, fromNow } from '@gitlens/utils/date.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../../../../constants.commands.js';
-import type { GraphOverviewActionName } from '../../../../../constants.telemetry.js';
+import type { GraphSidebarOverviewActionName } from '../../../../../constants.telemetry.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../../../../plus/gk/utils/subscription.utils.js';
 import {
 	launchpadCategoryToGroupMap,
@@ -671,6 +671,19 @@ export class GlGraphOverviewCard extends LitElement {
 	private readonly onPopoverShow = () => {
 		if (!this._hoverShown) {
 			this._hoverShown = true;
+
+			emitTelemetrySentEvent<'graph/overview/hoverShown'>(this, {
+				name: 'graph/overview/hoverShown',
+				data: {
+					isActive: this.branch.opened,
+					isWorktree: this.isWorktree,
+					hasPr: this.enrichment?.pr != null,
+					hasIssues:
+						(this.enrichment?.issues?.length ?? 0) > 0 || (this.enrichment?.autolinks?.length ?? 0) > 0,
+					hasWip: this.hasWip,
+					hasAgents: (this.agentSessions?.length ?? 0) > 0,
+				},
+			});
 		}
 		// Kick off the lazy merge-target fetch on first popover open. Subsequent opens reuse
 		// `_mergeTargetPromise` (the chip short-circuits when the same promise reference is passed).
@@ -1140,7 +1153,9 @@ export class GlGraphOverviewCard extends LitElement {
 							<pr-icon ?draft=${pr!.draft} state=${pr!.state} pr-id=${pr!.id}></pr-icon>
 						</span>
 						<span class="hover__name">
-							<a href=${pr!.url} @click=${this.onLinkClick}>${pr!.title}</a>
+							<a href=${pr!.url} @click=${(e: Event) => this.onLinkClick(e, 'pullrequest')}
+								>${pr!.title}</a
+							>
 						</span>
 						<span class="hover__identifier">#${pr!.id}</span>
 					</div>
@@ -1160,8 +1175,10 @@ export class GlGraphOverviewCard extends LitElement {
 
 	private renderHoverItemRow(item: OverviewBranchIssue) {
 		const identifier = html`<span class="hover__identifier">${formatIssueIdentifier(item.id)}</span>`;
+		const linkType: 'pullrequest' | 'issue' | 'autolink' =
+			item.type === 'pullrequest' ? 'pullrequest' : item.type === 'issue' ? 'issue' : 'autolink';
 		const link = html`<span class="hover__name">
-			<a href=${item.url} @click=${this.onLinkClick}>${item.title}</a>
+			<a href=${item.url} @click=${(e: Event) => this.onLinkClick(e, linkType)}>${item.title}</a>
 		</span>`;
 
 		switch (item.type) {
@@ -1306,21 +1323,40 @@ export class GlGraphOverviewCard extends LitElement {
 		return false;
 	}
 
+	private isEventFromActionItem(e: Event): boolean {
+		const path = e.composedPath();
+		for (const node of path) {
+			if ((node as Element)?.tagName === 'ACTION-ITEM') return true;
+		}
+		return false;
+	}
+
 	private onCardClick(e: MouseEvent) {
-		if (this.isEventFromAgentPill(e)) return;
+		if (this.isEventFromAgentPill(e) || this.isEventFromActionItem(e)) return;
 
 		this.dispatchBranchSelected();
 	}
 
 	private onCardKeydown(e: KeyboardEvent) {
 		if (e.key !== 'Enter' && e.key !== ' ') return;
-		if (this.isEventFromAgentPill(e)) return;
+		if (this.isEventFromAgentPill(e) || this.isEventFromActionItem(e)) return;
 
 		e.preventDefault();
 		this.dispatchBranchSelected();
 	}
 
 	private dispatchBranchSelected() {
+		emitTelemetrySentEvent<'graph/overview/branchSelected'>(this, {
+			name: 'graph/overview/branchSelected',
+			data: {
+				isActive: this.branch.opened,
+				isWorktree: this.isWorktree,
+				hasPr: this.enrichment?.pr != null,
+				hasIssues: (this.enrichment?.issues?.length ?? 0) > 0 || (this.enrichment?.autolinks?.length ?? 0) > 0,
+				hasWip: this.hasWip,
+			},
+		});
+
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-overview-branch-selected', {
 				detail: {
@@ -1338,8 +1374,15 @@ export class GlGraphOverviewCard extends LitElement {
 		);
 	}
 
-	private onLinkClick(e: Event) {
+	private onLinkClick(e: Event, type?: 'pullrequest' | 'issue' | 'autolink') {
 		e.stopPropagation();
+
+		if (type != null) {
+			emitTelemetrySentEvent<'graph/overview/linkClicked'>(this, {
+				name: 'graph/overview/linkClicked',
+				data: { type: type },
+			});
+		}
 	}
 
 	private onActionItemClick(e: MouseEvent) {
@@ -1375,7 +1418,7 @@ export class GlGraphOverviewCard extends LitElement {
 	}
 }
 
-function commandToOverviewActionName(href: string): GraphOverviewActionName {
+function commandToOverviewActionName(href: string): GraphSidebarOverviewActionName {
 	// command URIs look like `command:gitlens.x?{...}` or `command:gitlens.x:graph?{...}` for
 	// "commands with suffix". Capture the full id (up to `?` or end), then strip the trailing
 	// `:graph` suffix the overview-card webview emits via createCommandLink.
@@ -1401,6 +1444,10 @@ function commandToOverviewActionName(href: string): GraphOverviewActionName {
 			return 'compareWithWorking';
 		case 'gitlens.openPullRequestComparison':
 			return 'compareWithPr';
+		case 'gitlens.openPullRequestChanges':
+			return 'openPrChanges';
+		case 'gitlens.graph.openChangedFileDiffsWithMergeBase':
+			return 'openChanges';
 		default:
 			return 'other';
 	}
