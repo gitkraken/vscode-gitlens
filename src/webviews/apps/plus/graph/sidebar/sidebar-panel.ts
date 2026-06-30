@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { URI } from 'vscode-uri';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { fromNow } from '@gitlens/utils/date.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
@@ -44,6 +45,7 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -185,6 +187,14 @@ function trackingDecorations(
 		},
 	];
 }
+
+const worktreeActionMap: Record<string, 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow'> = {
+	'gitlens.graph.pull': 'pull',
+	'gitlens.graph.push': 'push',
+	'gitlens.fetch:graph': 'fetch',
+	'gitlens.openWorktree:graph': 'openWorktree',
+	'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
+};
 
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
@@ -575,6 +585,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		} else {
 			model = this.buildTreeModel(data);
 			this._treeModelCache = { data: data, dateFormat: this.dateFormat, model: model };
+
+			if (this.activePanel === 'worktrees' && data.panel === 'worktrees') {
+				emitTelemetrySentEvent<'graph/worktrees/shown'>(this, {
+					name: 'graph/worktrees/shown',
+					data: {
+						layout: data.layout ?? 'list',
+						'worktrees.count': data.items.length,
+						'worktrees.withChanges.count': data.items.filter(w => w.hasChanges === true).length,
+					},
+				});
+			}
 		}
 
 		// Automatically track/restore tree expansion state per panel.
@@ -1264,6 +1285,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleFilterChanged = (e: CustomEvent<string>) => {
 		this._actions.filterText = e.detail;
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesFilteredTelemetryDebounced();
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1278,11 +1303,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {
+		if (this.activePanel === 'worktrees') {
+			const action = command === 'gitlens.views.title.createWorktree' ? 'createWorktree' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+					name: 'graph/worktrees/headerAction',
+					data: { action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
+
+		if (this.activePanel === 'worktrees') {
+			const data = this._actions?.state.panels.worktrees?.value.get();
+			const newLayout = data?.layout === 'tree' ? 'list' : 'tree';
+			emitTelemetrySentEvent<'graph/worktrees/layoutToggled'>(this, {
+				name: 'graph/worktrees/layoutToggled',
+				data: {
+					layout: newLayout,
+					'worktrees.count': data?.items.length ?? 0,
+				},
+			});
+		}
 
 		this._actions?.toggleLayout(this.activePanel);
 	}
@@ -1295,6 +1342,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				| null;
 			overview?.refresh?.();
 			return;
+		}
+
+		if (this.activePanel === 'worktrees') {
+			emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+				name: 'graph/worktrees/headerAction',
+				data: { action: 'refresh' },
+			});
 		}
 
 		this._actions?.refresh(this.activePanel);
@@ -1315,6 +1369,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const useAlt = e.detail.altKey && action.altAction != null;
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesTreeItemActionTelemetry(command, useAlt);
+		}
+
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
@@ -1343,6 +1402,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesSelectedTelemetry(sha);
+		}
+
 		const sessionId = context?.[2];
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
@@ -1363,6 +1426,51 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private getWorktreesCount(): number {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		return data?.panel === 'worktrees' ? data.items.length : 0;
+	}
+
+	private readonly emitWorktreesFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/worktrees/filtered'>(this, {
+			name: 'graph/worktrees/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'worktrees.count': this.getWorktreesCount(),
+			},
+		});
+	}, 500);
+
+	private emitWorktreesSelectedTelemetry(wipSha: string): void {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		if (data?.panel !== 'worktrees') return;
+
+		const worktree = data.items.find(w => w.wipSha === wipSha);
+		if (worktree == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeSelected'>(this, {
+			name: 'graph/worktrees/worktreeSelected',
+			data: {
+				isActive: worktree.opened,
+				isDefault: worktree.isDefault,
+				hasChanges: worktree.hasChanges === true,
+				hasUpstream: worktree.upstream != null,
+			},
+		});
+	}
+
+	private emitWorktreesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = worktreeActionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeAction'>(this, {
+			name: 'graph/worktrees/worktreeAction',
+			data: { action, alt },
+		});
+	}
 }
 
 /**

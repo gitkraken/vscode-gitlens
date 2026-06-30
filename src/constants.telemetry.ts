@@ -309,6 +309,19 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user invokes an action item on a Graph Overview branch card */
 	'graph/overview/action': GraphOverviewActionEvent;
 
+	/** Sent when the Worktrees sidebar panel becomes visible */
+	'graph/worktrees/shown': GraphSidebarWorktreesShownEvent;
+	/** Sent when the user clicks a worktree leaf in the sidebar worktrees panel */
+	'graph/worktrees/worktreeSelected': GraphSidebarWorktreesWorktreeSelectedEvent;
+	/** Sent when the user clicks an inline action (pull/push/fetch/open) on a worktree item */
+	'graph/worktrees/worktreeAction': GraphSidebarWorktreesWorktreeActionEvent;
+	/** Sent when the user clicks a header action (Create Worktree, Refresh) in the sidebar worktrees panel */
+	'graph/worktrees/headerAction': GraphSidebarWorktreesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar worktrees panel */
+	'graph/worktrees/layoutToggled': GraphSidebarWorktreesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar worktrees panel */
+	'graph/worktrees/filtered': GraphSidebarWorktreesFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1582,6 +1595,39 @@ interface GraphOverviewActionEvent extends GraphContextEventData {
 	location: 'inline' | 'hover';
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
+}
+
+interface GraphSidebarWorktreesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'worktrees.count': number;
+	'worktrees.withChanges.count': number;
+}
+
+interface GraphSidebarWorktreesWorktreeSelectedEvent extends GraphContextEventData {
+	isActive: boolean;
+	isDefault: boolean;
+	hasChanges: boolean;
+	hasUpstream: boolean;
+}
+
+interface GraphSidebarWorktreesWorktreeActionEvent extends GraphContextEventData {
+	action: 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow';
+	alt: boolean;
+}
+
+interface GraphSidebarWorktreesHeaderActionEvent extends GraphContextEventData {
+	action: 'createWorktree' | 'refresh';
+}
+
+interface GraphSidebarWorktreesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'worktrees.count': number;
+}
+
+interface GraphSidebarWorktreesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'worktrees.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
