@@ -322,6 +322,17 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user invokes an action item on a Graph Overview branch card */
 	'graph/overview/action': GraphOverviewActionEvent;
 
+	/** Sent when the Remotes sidebar panel becomes visible */
+	'graph/remotes/shown': GraphSidebarRemotesShownEvent;
+	/** Sent when the user clicks an inline action (fetch/open/copy/connect/disconnect) on a remote item */
+	'graph/remotes/remoteAction': GraphSidebarRemotesRemoteActionEvent;
+	/** Sent when the user clicks a header action (Add Remote, Refresh) in the sidebar remotes panel */
+	'graph/remotes/headerAction': GraphSidebarRemotesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar remotes panel */
+	'graph/remotes/layoutToggled': GraphSidebarRemotesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar remotes panel */
+	'graph/remotes/filtered': GraphSidebarRemotesFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1645,6 +1656,34 @@ interface GraphOverviewActionEvent extends GraphContextEventData {
 	location: 'inline' | 'hover';
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
+}
+
+interface GraphSidebarRemotesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+	/** Remotes whose integration is connected */
+	'remotes.connected.count': number;
+	hasMultipleRemotes: boolean;
+}
+
+interface GraphSidebarRemotesRemoteActionEvent extends GraphContextEventData {
+	action: 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration';
+	alt: boolean;
+}
+
+interface GraphSidebarRemotesHeaderActionEvent extends GraphContextEventData {
+	action: 'addRemote' | 'refresh';
+}
+
+interface GraphSidebarRemotesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'remotes.count': number;
+}
+
+interface GraphSidebarRemotesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'remotes.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
