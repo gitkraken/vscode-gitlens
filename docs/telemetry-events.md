@@ -2499,6 +2499,152 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/agents/filtered
+
+> Sent when the sidebar agents filter toggles between empty and non-empty (not on every keystroke)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  'sessions.count': number
+}
+```
+
+### graph/agents/headerAction
+
+> Sent when the user clicks a header action (Start Work, Start Review, Refresh) in the sidebar agents panel
+
+```typescript
+{
+  'action': 'startReview' | 'startWork' | 'refresh',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/agents/layoutToggled
+
+> Sent when the user toggles the tree/list layout in the sidebar agents panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'sessions.count': number
+}
+```
+
+### graph/agents/permissionResolved
+
+> Sent when the user resolves a permission (Allow/Deny/Always Allow) from the sidebar agents panel
+
+```typescript
+{
+  'alwaysAllow': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'decision': 'allow' | 'deny',
+  'permission.kind': string
+}
+```
+
+### graph/agents/sessionAction
+
+> Sent when the user clicks Open Session or View Plan on a session, or Open Terminal on a worktree group, in the sidebar agents panel
+
+```typescript
+{
+  'action': 'openSession' | 'openPlanFile' | 'openTerminal',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/agents/sessionSelected
+
+> Sent when the user clicks an agent session leaf in the sidebar agents panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'session.category': 'working' | 'needs-input' | 'idle',
+  'session.hasPendingPermission': boolean,
+  'session.phase': string,
+  'session.sameRepo': boolean
+}
+```
+
+### graph/agents/shown
+
+> Sent when the Agents sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'sessions.count': number,
+  'sessions.idle.count': number,
+  'sessions.needsInput.count': number,
+  'sessions.working.count': number
+}
+```
+
 ### graph/autoFetch
 
 > Sent when GitLens auto-fetch fires a `git fetch` for the visible Commit Graph
@@ -5071,7 +5217,7 @@ void
 {
   'instance': number,
   'items.error': string,
-  'action': 'settings' | 'connect' | 'feedback' | 'open-on-gkdev' | 'refresh',
+  'action': 'settings' | 'connect' | 'refresh' | 'feedback' | 'open-on-gkdev',
   'groups.blocked.collapsed': boolean,
   'groups.blocked.count': number,
   'groups.count': number,
