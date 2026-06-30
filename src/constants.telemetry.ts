@@ -317,10 +317,18 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered) */
 	'graph/virtualFile/failed': GraphVirtualFileFailedEvent;
 
-	/** Sent when the Graph Overview panel becomes visible (mounted in the active sidebar slot) */
-	'graph/overview/shown': GraphOverviewShownEvent;
+	/** Sent when the Graph Overview panel becomes visible */
+	'graph/overview/shown': GraphSidebarOverviewShownEvent;
 	/** Sent when the user invokes an action item on a Graph Overview branch card */
-	'graph/overview/action': GraphOverviewActionEvent;
+	'graph/overview/action': GraphSidebarOverviewActionEvent;
+	/** Sent when the user changes the Recent timeframe threshold in the Graph Overview */
+	'graph/overview/recentThresholdChanged': GraphSidebarOverviewRecentThresholdChangedEvent;
+	/** Sent when the user clicks a branch card to scope the graph to that branch */
+	'graph/overview/branchSelected': GraphSidebarOverviewBranchSelectedEvent;
+	/** Sent when the rich hover popover opens for the first time on a branch card */
+	'graph/overview/hoverShown': GraphSidebarOverviewHoverShownEvent;
+	/** Sent when the user clicks a PR or issue link in the Graph Overview hover popover */
+	'graph/overview/linkClicked': GraphSidebarOverviewLinkClickedEvent;
 
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
@@ -1620,14 +1628,16 @@ interface GraphVirtualFileFailedEvent extends GraphContextEventData {
 	'error.message'?: string;
 }
 
-interface GraphOverviewShownEvent extends GraphContextEventData {
+interface GraphSidebarOverviewShownEvent extends GraphContextEventData {
 	/** Number of branches in the "active" section at the time of show */
 	'branches.active.count': number;
 	/** Number of branches in the "recent" section at the time of show */
 	'branches.recent.count': number;
+	/** Active Recent timeframe threshold at the time of show */
+	recentThreshold: 'OneDay' | 'OneWeek' | 'OneMonth';
 }
 
-export type GraphOverviewActionName =
+export type GraphSidebarOverviewActionName =
 	| 'pull'
 	| 'push'
 	| 'fetch'
@@ -1637,14 +1647,54 @@ export type GraphOverviewActionName =
 	| 'compareWithHead'
 	| 'compareWithWorking'
 	| 'compareWithPr'
+	| 'openPrChanges'
+	| 'openChanges'
 	| 'other';
 
-interface GraphOverviewActionEvent extends GraphContextEventData {
-	name: GraphOverviewActionName;
+interface GraphSidebarOverviewActionEvent extends GraphContextEventData {
+	name: GraphSidebarOverviewActionName;
 	/** Where on the card the action was invoked */
 	location: 'inline' | 'hover';
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
+}
+
+interface GraphSidebarOverviewRecentThresholdChangedEvent extends GraphContextEventData {
+	/** New threshold value selected by the user */
+	threshold: 'OneDay' | 'OneWeek' | 'OneMonth';
+}
+
+interface GraphSidebarOverviewBranchSelectedEvent extends GraphContextEventData {
+	/** Whether the branch is the currently opened (active) branch */
+	isActive: boolean;
+	/** Whether the branch is checked out in a worktree */
+	isWorktree: boolean;
+	/** Whether the branch has an associated pull request */
+	hasPr: boolean;
+	/** Whether the branch has associated issues or autolinks */
+	hasIssues: boolean;
+	/** Whether the branch has uncommitted working tree changes */
+	hasWip: boolean;
+}
+
+interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
+	/** Whether the branch is the currently opened (active) branch */
+	isActive: boolean;
+	/** Whether the branch is checked out in a worktree */
+	isWorktree: boolean;
+	/** Whether the branch has an associated pull request */
+	hasPr: boolean;
+	/** Whether the branch has associated issues or autolinks */
+	hasIssues: boolean;
+	/** Whether the branch has uncommitted working tree changes */
+	hasWip: boolean;
+	/** Whether the branch has active agent sessions */
+	hasAgents: boolean;
+}
+
+interface GraphSidebarOverviewLinkClickedEvent extends GraphContextEventData {
+	/** Type of external link clicked */
+	type: 'pullrequest' | 'issue' | 'autolink';
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;

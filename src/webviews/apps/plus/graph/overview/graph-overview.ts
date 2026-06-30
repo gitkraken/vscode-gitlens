@@ -303,6 +303,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 				data: {
 					'branches.active.count': overview.active.length,
 					'branches.recent.count': overview.recent.length,
+					recentThreshold: this._state.overviewRecentThreshold ?? 'OneWeek',
 				},
 			});
 		}
@@ -570,6 +571,11 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 
 	private onRecentThresholdSelected(threshold: OverviewRecentThreshold): void {
 		if ((this._state.overviewRecentThreshold ?? 'OneWeek') === threshold) return;
+
+		emitTelemetrySentEvent<'graph/overview/recentThresholdChanged'>(this, {
+			name: 'graph/overview/recentThresholdChanged',
+			data: { threshold: threshold },
+		});
 
 		// Let graph-app own the persisted signal + memento write (mirrors the timeline period
 		// flow); send the request here since this panel owns the overview fetch lifecycle.
