@@ -322,6 +322,19 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user invokes an action item on a Graph Overview branch card */
 	'graph/overview/action': GraphOverviewActionEvent;
 
+	/** Sent when the Branches sidebar panel becomes visible */
+	'graph/branches/shown': GraphSidebarBranchesShownEvent;
+	/** Sent when the user clicks a branch leaf in the sidebar branches panel */
+	'graph/branches/branchSelected': GraphSidebarBranchesBranchSelectedEvent;
+	/** Sent when the user clicks an inline action (switch/fetch/pull/push/compare/open) on a branch item */
+	'graph/branches/branchAction': GraphSidebarBranchesBranchActionEvent;
+	/** Sent when the user clicks a header action (Switch to Branch, Create Branch, Refresh) in the sidebar branches panel */
+	'graph/branches/headerAction': GraphSidebarBranchesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar branches panel */
+	'graph/branches/layoutToggled': GraphSidebarBranchesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar branches panel */
+	'graph/branches/filtered': GraphSidebarBranchesFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1645,6 +1658,49 @@ interface GraphOverviewActionEvent extends GraphContextEventData {
 	location: 'inline' | 'hover';
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
+}
+
+interface GraphSidebarBranchesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+	'branches.local.count': number;
+	'branches.remote.count': number;
+}
+
+interface GraphSidebarBranchesBranchSelectedEvent extends GraphContextEventData {
+	isCurrent: boolean;
+	isRemote: boolean;
+	hasUpstream: boolean;
+	hasWorktree: boolean;
+	isStarred: boolean;
+}
+
+interface GraphSidebarBranchesBranchActionEvent extends GraphContextEventData {
+	action:
+		| 'switch'
+		| 'fetch'
+		| 'pull'
+		| 'push'
+		| 'compareWithHead'
+		| 'compareWithWorking'
+		| 'openWorktree'
+		| 'openWorktreeInNewWindow';
+	alt: boolean;
+}
+
+interface GraphSidebarBranchesHeaderActionEvent extends GraphContextEventData {
+	action: 'switchToBranch' | 'createBranch' | 'refresh';
+}
+
+interface GraphSidebarBranchesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'branches.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;

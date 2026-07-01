@@ -44,6 +44,7 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -463,6 +464,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// Overview/Agents panels manage their own data via reactive state, skip sidebar fetch.
 			if (this.activePanel != null && this.activePanel !== 'overview' && this.activePanel !== 'agents') {
 				this._actions.fetchPanel(this.activePanel);
+			}
+
+			if (this.activePanel === 'branches') {
+				this.emitBranchesShownTelemetry();
 			}
 		}
 	}
@@ -1264,6 +1269,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleFilterChanged = (e: CustomEvent<string>) => {
 		this._actions.filterText = e.detail;
+
+		if (this.activePanel === 'branches') {
+			emitTelemetrySentEvent<'graph/branches/filtered'>(this, {
+				name: 'graph/branches/filtered',
+				data: {
+					hasFilter: e.detail.length > 0,
+					'filter.length': e.detail.length,
+					'branches.count': this.getBranchesCount(),
+				},
+			});
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1278,11 +1294,38 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {
+		if (this.activePanel === 'branches') {
+			const action =
+				command === 'gitlens.switchToAnotherBranch:views'
+					? 'switchToBranch'
+					: command === 'gitlens.views.title.createBranch'
+						? 'createBranch'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/branches/headerAction'>(this, {
+					name: 'graph/branches/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
+
+		if (this.activePanel === 'branches') {
+			const data = this._actions?.state.panels.branches?.value.get();
+			const newLayout = data?.layout === 'tree' ? 'list' : 'tree';
+			emitTelemetrySentEvent<'graph/branches/layoutToggled'>(this, {
+				name: 'graph/branches/layoutToggled',
+				data: {
+					layout: newLayout,
+					'branches.count': this.getBranchesCount(),
+				},
+			});
+		}
 
 		this._actions?.toggleLayout(this.activePanel);
 	}
@@ -1295,6 +1338,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				| null;
 			overview?.refresh?.();
 			return;
+		}
+
+		if (this.activePanel === 'branches') {
+			emitTelemetrySentEvent<'graph/branches/headerAction'>(this, {
+				name: 'graph/branches/headerAction',
+				data: { action: 'refresh' },
+			});
 		}
 
 		this._actions?.refresh(this.activePanel);
@@ -1315,6 +1365,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const useAlt = e.detail.altKey && action.altAction != null;
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
+
+		if (this.activePanel === 'branches') {
+			this.emitBranchesTreeItemActionTelemetry(command, useAlt);
+		}
+
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
@@ -1343,6 +1398,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
+		if (this.activePanel === 'branches') {
+			this.emitBranchesSelectedTelemetry(sha);
+		}
+
 		const sessionId = context?.[2];
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
@@ -1363,6 +1422,80 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private getBranchesData(): GraphSidebarBranch[] | undefined {
+		const data = this._actions?.state.panels.branches?.value.get();
+		if (data?.panel !== 'branches') return undefined;
+		return data.items;
+	}
+
+	private getBranchesCount(): number {
+		return this.getBranchesData()?.length ?? 0;
+	}
+
+	private emitBranchesShownTelemetry(): void {
+		const branches = this.getBranchesData();
+		if (branches == null) return;
+
+		const data = this._actions?.state.panels.branches?.value.get();
+		emitTelemetrySentEvent<'graph/branches/shown'>(this, {
+			name: 'graph/branches/shown',
+			data: {
+				layout: data?.layout ?? 'list',
+				'branches.count': branches.length,
+				'branches.local.count': branches.filter(b => !b.remote).length,
+				'branches.remote.count': branches.filter(b => b.remote).length,
+			},
+		});
+	}
+
+	private emitBranchesSelectedTelemetry(sha: string): void {
+		const branch = this.getBranchesData()?.find(b => b.sha === sha);
+		if (branch == null) return;
+
+		emitTelemetrySentEvent<'graph/branches/branchSelected'>(this, {
+			name: 'graph/branches/branchSelected',
+			data: {
+				isCurrent: branch.current,
+				isRemote: branch.remote,
+				hasUpstream: branch.upstream != null,
+				hasWorktree: branch.worktree === true,
+				isStarred: branch.starred === true,
+			},
+		});
+	}
+
+	private emitBranchesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const actionMap: Record<
+			string,
+			| 'switch'
+			| 'fetch'
+			| 'pull'
+			| 'push'
+			| 'compareWithHead'
+			| 'compareWithWorking'
+			| 'openWorktree'
+			| 'openWorktreeInNewWindow'
+		> = {
+			'gitlens.switchToBranch:graph': 'switch',
+			'gitlens.switchToAnotherBranch:graph': 'switch',
+			'gitlens.fetch:graph': 'fetch',
+			'gitlens.graph.pull': 'pull',
+			'gitlens.graph.push': 'push',
+			'gitlens.graph.compareBranchWithHead': 'compareWithHead',
+			'gitlens.graph.compareWithWorking': 'compareWithWorking',
+			'gitlens.openWorktree:graph': 'openWorktree',
+			'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
+		};
+
+		const action = actionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/branches/branchAction'>(this, {
+			name: 'graph/branches/branchAction',
+			data: { action: action, alt: alt },
+		});
+	}
 }
 
 /**
