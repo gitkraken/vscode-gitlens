@@ -160,15 +160,39 @@ const workingFileStatusOrder: Record<string, number> = {
 	'?': 7, // untracked
 };
 
+const emptyPathSet: ReadonlySet<string> = new Set<string>();
+
+/** Ranks non-conflict working files by stage for the `stage` sort: staged-only → mixed → unstaged-only. */
+function workingStageRank(file: GitFileChangeShape, mixedPaths: ReadonlySet<string>): number {
+	if (mixedPaths.has(file.path)) return 1; // mixed (both staged + unstaged hunks)
+	return file.staged ? 0 : 2; // staged-only : unstaged-only
+}
+
 /**
  * Orders working (WIP) files per VS Code's `scm.defaultViewSortKey` (`name`/`path`/`status`).
  * Unresolved conflicts always lead regardless of the key — preserving the conflicts-first behavior
  * `sortTreeChildren` provides via `priority` for the ungrouped (checkbox) list.
+ *
+ * When `stage` is provided (the `gitlens.sortWorkingChangesBy: stage` mode), non-conflict files are
+ * floated staged → mixed → unstaged ahead of the sort key.
  */
-export function compareWorkingFiles(orderBy: WorkingFileSorting, a: GitFileChangeShape, b: GitFileChangeShape): number {
+export function compareWorkingFiles(
+	orderBy: WorkingFileSorting,
+	a: GitFileChangeShape,
+	b: GitFileChangeShape,
+	stage?: { mixedPaths: ReadonlySet<string> },
+): number {
 	const conflictA = isConflictStatus(a.status) ? 0 : 1;
 	const conflictB = isConflictStatus(b.status) ? 0 : 1;
 	if (conflictA !== conflictB) return conflictA - conflictB;
+
+	// Stage sort applies only to non-conflict files (conflicts already lead, above; among themselves
+	// they keep the plain sort-key order).
+	if (stage != null && conflictA === 1) {
+		const rankA = workingStageRank(a, stage.mixedPaths);
+		const rankB = workingStageRank(b, stage.mixedPaths);
+		if (rankA !== rankB) return rankA - rankB;
+	}
 
 	switch (orderBy) {
 		case 'path':
@@ -185,7 +209,10 @@ export function compareWorkingFiles(orderBy: WorkingFileSorting, a: GitFileChang
 	}
 }
 
-export function sortTreeChildren(children: TreeModel[]): TreeModel[] {
+export function sortTreeChildren(
+	children: TreeModel[],
+	fileCompare?: (a: TreeModel, b: TreeModel) => number,
+): TreeModel[] {
 	children.sort((a, b) => {
 		const pa = a.priority ?? 0;
 		const pb = b.priority ?? 0;
@@ -193,6 +220,13 @@ export function sortTreeChildren(children: TreeModel[]): TreeModel[] {
 
 		if (a.branch && !b.branch) return -1;
 		if (!a.branch && b.branch) return 1;
+
+		// Order sibling files (not folders) by the working comparator when provided — lets the WIP tree
+		// honor the stage + sort-key order within each folder; folders keep the alphabetical order below.
+		if (fileCompare != null && !a.branch && !b.branch) {
+			const result = fileCompare(a, b);
+			if (result !== 0) return result;
+		}
 
 		if (a.label < b.label) return -1;
 		if (a.label > b.label) return 1;
@@ -238,6 +272,7 @@ export function walkFileTree<T extends GitFileChangeShape>(
 	options: Partial<TreeItemBase> = { level: 1 },
 	repoPath?: string,
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined,
+	fileCompare?: (a: TreeModel, b: TreeModel) => number,
 ): TreeModel {
 	if (options.level === undefined) {
 		options.level = 1;
@@ -269,12 +304,13 @@ export function walkFileTree<T extends GitFileChangeShape>(
 				{ ...options, level: options.level + 1 },
 				repoPath,
 				folderToContextData,
+				fileCompare,
 			);
 			children.push(childModel);
 		}
 
 		if (children.length > 0) {
-			sortTreeChildren(children);
+			sortTreeChildren(children, fileCompare);
 			model.branch = true;
 			model.children = children;
 
@@ -314,6 +350,21 @@ export function buildFileTree<T extends GitFileChangeShape>(
 
 	if (!filteredFiles.length) return [];
 
+	// Working-files order (VS Code's `scm.defaultViewSortKey`), optionally floating staged → mixed →
+	// unstaged first (`gitlens.sortWorkingChangesBy: stage`). Built once so the comparator doesn't
+	// allocate a fallback set per comparison. In tree layout this orders the files *within* each folder
+	// (`fileCompare`); in list layout it orders the flat list directly.
+	const stage = sortByStage ? { mixedPaths: mixedPaths ?? emptyPathSet } : undefined;
+	const fileCompare =
+		orderBy != null
+			? (a: TreeModel, b: TreeModel): number => {
+					const fa = a.context?.[0] as GitFileChangeShape | undefined;
+					const fb = b.context?.[0] as GitFileChangeShape | undefined;
+					if (fa?.path == null || fb?.path == null) return 0;
+					return compareWorkingFiles(orderBy, fa, fb, stage);
+				}
+			: undefined;
+
 	const repoPath = filteredFiles[0]?.repoPath;
 	const children: TreeModel[] = [];
 	if (isTree) {
@@ -325,25 +376,33 @@ export function buildFileTree<T extends GitFileChangeShape>(
 		);
 		if (fileTree.children != null) {
 			for (const child of fileTree.children.values()) {
-				const childModel = walkFileTree(child, fileToModel, options, repoPath, folderToContextData);
+				const childModel = walkFileTree(
+					child,
+					fileToModel,
+					options,
+					repoPath,
+					folderToContextData,
+					fileCompare,
+				);
 				children.push(childModel);
 			}
 		}
 	} else {
-		// In list layout, honor an explicit working-files order (VS Code's `scm.defaultViewSortKey`).
 		const orderedFiles =
-			orderBy != null ? filteredFiles.toSorted((a, b) => compareWorkingFiles(orderBy, a, b)) : filteredFiles;
+			orderBy != null
+				? filteredFiles.toSorted((a, b) => compareWorkingFiles(orderBy, a, b, stage))
+				: filteredFiles;
 		for (const file of orderedFiles) {
 			const child = fileToModel(file, { ...options, branch: false }, true);
 			children.push(child);
 		}
 	}
 
-	// Tree layout (sort key is a no-op there, matching VS Code) and the default flat list keep the
-	// folders-first, alphabetical-by-label sort. A list with an explicit `orderBy` is already
-	// ordered by `compareWorkingFiles` above — re-sorting by label would clobber it.
+	// Tree layout keeps folders first/alphabetical but orders sibling files via `fileCompare` (the
+	// stage + sort-key order, within each folder). The default flat list (no `orderBy`) keeps the
+	// alphabetical-by-label sort; an explicit-`orderBy` list is already ordered above, so skip it.
 	if (isTree || orderBy == null) {
-		sortTreeChildren(children);
+		sortTreeChildren(children, fileCompare);
 	}
 
 	return children;
@@ -411,6 +470,8 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 			},
 			folderToContextData,
 			orderBy,
+			sortByStage,
+			mixedPaths,
 		);
 	}
 
@@ -474,6 +535,8 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 			undefined,
 			folderToContextData,
 			orderBy,
+			sortByStage,
+			mixedPaths,
 		);
 	}
 

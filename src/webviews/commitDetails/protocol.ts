@@ -68,6 +68,9 @@ export interface Preferences {
 	indentGuides: 'none' | 'onHover' | 'always';
 	/** Working (WIP) file list sort, honoring VS Code's `scm.defaultViewSortKey` (list layout only). */
 	workingFilesOrderBy: WorkingFileSorting;
+	/** Whether the working (WIP) file list orders by stage (staged → mixed → unstaged) before the
+	 *  `scm.defaultViewSortKey` order, or sorts flat by the key alone. Mirrors `gitlens.sortWorkingChangesBy`. */
+	workingChangesSortBy: Config['sortWorkingChangesBy'];
 	aiEnabled: boolean;
 	enableSmartCommit: boolean;
 	showSignatureBadges: boolean;

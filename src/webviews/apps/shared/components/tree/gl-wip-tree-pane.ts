@@ -282,6 +282,8 @@ export class GlWipTreePane extends LitElement {
 			.filesLayout=${this.preferences?.files}
 			.showIndentGuides=${this.preferences?.indentGuides}
 			.orderBy=${this.preferences?.workingFilesOrderBy}
+			?sort-by-stage=${this.preferences?.workingChangesSortBy !== 'flat'}
+			.mixedPaths=${this._mixedPaths}
 			.grouping=${this._grouping}
 			?checkable=${this.checkable}
 			?multi-selectable=${this.multiSelectable}

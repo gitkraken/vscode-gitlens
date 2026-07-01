@@ -361,6 +361,8 @@ export class GlFileTreePane extends LitElement {
 			changedProperties.has('files') ||
 			changedProperties.has('filesLayout') ||
 			changedProperties.has('orderBy') ||
+			changedProperties.has('sortByStage') ||
+			changedProperties.has('mixedPaths') ||
 			changedProperties.has('showFileIcons') ||
 			changedProperties.has('grouping') ||
 			changedProperties.has('checkable') ||

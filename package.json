@@ -4810,6 +4810,21 @@
 						"markdownDescription": "Specifies how contributors are sorted in quick pick menus and views",
 						"scope": "window",
 						"order": 50
+					},
+					"gitlens.sortWorkingChangesBy": {
+						"type": "string",
+						"default": "stage",
+						"enum": [
+							"stage",
+							"flat"
+						],
+						"enumDescriptions": [
+							"Sorts working changes by stage — staged, then mixed, then unstaged — ordering within each stage by the `scm.defaultViewSortKey` setting",
+							"Sorts working changes by the `scm.defaultViewSortKey` setting"
+						],
+						"markdownDescription": "Specifies how working (uncommitted) changes are sorted in the _Commit Graph_'s working changes (WIP) details",
+						"scope": "window",
+						"order": 60
 					}
 				}
 			},

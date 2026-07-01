@@ -748,6 +748,7 @@ export class CommitDetailsActions {
 					'views.commitDetails.files',
 					'signing.showSignatureBadges',
 					'views.commitDetails.autolinks.enabled',
+					'sortWorkingChangesBy',
 				),
 				this.services.config.getManyCore(
 					'workbench.tree.renderIndentGuides',
@@ -761,8 +762,16 @@ export class CommitDetailsActions {
 			const pullRequestExpanded = getSettledValue(pullRequestExpandedResult);
 			const showSearchBox = getSettledValue(showSearchBoxResult);
 			const searchBoxFilter = getSettledValue(searchBoxFilterResult);
-			const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, autolinksEnabled] =
-				getSettledValue(configResult) ?? [];
+			const [
+				avatars,
+				currentUserNameStyle,
+				dateFormat,
+				dateStyle,
+				files,
+				showSignatureBadges,
+				autolinksEnabled,
+				workingChangesSortBy,
+			] = getSettledValue(configResult) ?? [];
 			const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] =
 				getSettledValue(coreConfigResult) ?? [];
 			const aiEnabled = getSettledValue(aiEnabledResult);
@@ -777,6 +786,7 @@ export class CommitDetailsActions {
 				indentGuides: indentGuides ?? 'onHover',
 				indent: indent,
 				workingFilesOrderBy: workingFilesOrderBy ?? 'path',
+				workingChangesSortBy: workingChangesSortBy ?? 'stage',
 				aiEnabled: aiEnabled ?? false,
 				enableSmartCommit: enableSmartCommit ?? false,
 				showSignatureBadges: showSignatureBadges ?? false,

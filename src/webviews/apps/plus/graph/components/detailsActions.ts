@@ -613,6 +613,7 @@ export class DetailsActions {
 				'defaultDateStyle',
 				'views.commitDetails.files',
 				'signing.showSignatureBadges',
+				'sortWorkingChangesBy',
 			),
 			s.config.getManyCore(
 				'workbench.tree.renderIndentGuides',
@@ -627,7 +628,7 @@ export class DetailsActions {
 		if (this._preferencesGeneration !== generation) return;
 
 		const pullRequestExpanded = getSettledValue(pullRequestExpandedRes);
-		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges] =
+		const [avatars, currentUserNameStyle, dateFormat, dateStyle, files, showSignatureBadges, workingChangesSortBy] =
 			getSettledValue(filesPrefsRes) ?? [];
 		const [indentGuides, indent, enableSmartCommit, workingFilesOrderBy] = getSettledValue(treePrefsRes) ?? [];
 		const aiEnabled = getSettledValue(aiEnabledRes);
@@ -642,6 +643,7 @@ export class DetailsActions {
 			indentGuides: indentGuides ?? 'onHover',
 			indent: indent,
 			workingFilesOrderBy: workingFilesOrderBy ?? 'path',
+			workingChangesSortBy: workingChangesSortBy ?? 'stage',
 			aiEnabled: aiEnabled ?? false,
 			enableSmartCommit: enableSmartCommit ?? false,
 			showSignatureBadges: showSignatureBadges ?? true,
