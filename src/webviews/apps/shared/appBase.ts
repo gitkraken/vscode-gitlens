@@ -1,6 +1,6 @@
 /*global window document*/
-import { ContextProvider, provide } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { ContextProvider, provide } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { property } from 'lit/decorators.js';
 import { fromBase64ToString } from '@gitlens/utils/base64.js';

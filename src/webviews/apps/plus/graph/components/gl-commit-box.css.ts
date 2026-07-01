@@ -31,8 +31,8 @@ export const commitBoxStyles = css`
 
 	.options-group {
 		display: flex;
-		align-items: center;
 		gap: 0.4rem;
+		align-items: center;
 	}
 
 	.signing-indicator {

@@ -1,10 +1,10 @@
 //@ts-check
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import path from 'node:path';
 
 const execFileAsync = promisify(execFile);
 

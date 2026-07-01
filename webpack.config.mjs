@@ -2,27 +2,26 @@
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 import { spawn, spawnSync } from 'child_process';
-import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+import { createHash } from 'crypto';
+import fs from 'fs';
+import { createRequire } from 'module';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
 import CircularDependencyPlugin from 'circular-dependency-plugin';
-
 import CopyPlugin from 'copy-webpack-plugin';
 import CspHtmlPlugin from 'csp-html-webpack-plugin';
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin';
 import esbuild from 'esbuild';
 import { generateFonts } from 'fantasticon';
-import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
-import fs from 'fs';
-import { createHash } from 'crypto';
 import HtmlPlugin from 'html-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
-import { createRequire } from 'module';
-import path from 'path';
 import { validate } from 'schema-utils';
 import TerserPlugin from 'terser-webpack-plugin';
-import { fileURLToPath, pathToFileURL } from 'url';
 import webpack from 'webpack';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import WebpackRequireFromPlugin from 'webpack-require-from';
+import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

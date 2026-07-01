@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { CancellationTokenSource } from 'vscode';
 import { applyResolutions, defaultVerifier, extractConflict, resolveConflict } from '@gitkraken/conflict-tools';
+import { CancellationTokenSource } from 'vscode';
 import type { AIChatMessage, AIChatMessageRole, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';

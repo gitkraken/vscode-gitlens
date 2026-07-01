@@ -14,6 +14,7 @@ import {
 import type { Keys } from '../../constants.js';
 import { GlyphChars } from '../../constants.js';
 import { Container } from '../../container.js';
+import { browseAtRevision } from '../../git/actions.js';
 import {
 	applyChanges,
 	copyIdToClipboard,
@@ -35,7 +36,6 @@ import {
 	showCommitInDetailsView,
 	showCommitInGraph,
 } from '../../git/actions/commit.js';
-import { browseAtRevision } from '../../git/actions.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { formatCommitStats, getCommitGitUri } from '../../git/utils/-webview/commit.utils.js';
 import { getGitFileFormattedDirectory } from '../../git/utils/-webview/file.utils.js';

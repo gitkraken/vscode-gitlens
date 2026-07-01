@@ -56,6 +56,7 @@ export class GlCommitRow extends LitElement {
 			grid-area: avatar;
 			align-self: center;
 			--gl-avatar-size: 2.4rem;
+
 			width: var(--gl-avatar-size);
 			height: var(--gl-avatar-size);
 			/* collapse the inline-block baseline gap so the wrapper hugs the avatar exactly */

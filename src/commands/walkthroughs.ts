@@ -7,8 +7,8 @@ import { isWalkthroughSupported } from '../onboarding/walkthroughStateProvider.j
 import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscription.js';
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
-import { openUrl } from '../system/-webview/vscode/uris.js';
 import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode.js';
+import { openUrl } from '../system/-webview/vscode/uris.js';
 import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
 import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';

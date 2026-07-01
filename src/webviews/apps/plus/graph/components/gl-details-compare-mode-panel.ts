@@ -18,7 +18,6 @@ import type {
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
-import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { GlSplitPanelSnapFunction } from '../../../shared/components/split-panel/split-panel.js';
 import {
 	elementBase,
@@ -27,10 +26,11 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction } from '../../../shared/components/tree/base.js';
+import { renderCopyChangesAction, renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
+import type { GlCommitRowItem } from './gl-commit-row-item.js';
 import { compareModePanelStyles } from './gl-details-compare-mode-panel.css.js';
 import { panelActionInputStyles } from './shared-panel.css.js';
-import type { GlCommitRowItem } from './gl-commit-row-item.js';
 import './gl-commit-row-item.js';
 import './gl-compare-ai-actions.js';
 import '../../../shared/components/code-icon.js';

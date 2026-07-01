@@ -50,10 +50,10 @@ import { executeCommand, registerCommands } from './system/-webview/command.js';
 import { configuration, Configuration } from './system/-webview/configuration.js';
 import { setContext } from './system/-webview/context.js';
 import { Storage } from './system/-webview/storage.js';
+import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import { isTextDocument } from './system/-webview/vscode/documents.js';
 import { isTextEditor } from './system/-webview/vscode/editors.js';
 import { isWorkspaceFolder } from './system/-webview/vscode/workspaces.js';
-import { deviceCohortGroup, getExtensionModeLabel } from './system/-webview/vscode.js';
 import './commands.js';
 
 export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {

@@ -4,6 +4,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
+import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
 	ConflictResolutionStrategy,
 	ConflictSide,
@@ -12,13 +13,12 @@ import type {
 	ResolveSkippedFile,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
-import type { ViewFilesLayout } from '../../../../../config.js';
+import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
-import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
+import { prunePathsToFiles } from './aiExclusion.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
-import { prunePathsToFiles } from './aiExclusion.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';

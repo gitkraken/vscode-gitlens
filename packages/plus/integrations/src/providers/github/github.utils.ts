@@ -1,5 +1,5 @@
-import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl as _getGitHubPullRequestIdentityFromMaybeUrl } from '@gitlens/git-github/api/github.utils.js';
+import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 
 export type GitHubIntegrationIds =

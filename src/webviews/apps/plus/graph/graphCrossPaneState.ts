@@ -1,6 +1,6 @@
-import { createContext } from '@lit/context';
 import type { Signal } from '@lit-labs/signals';
 import { signal as litSignal } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import type { AnchorKey } from './components/anchorKey.js';
 import type { RunningOperationBucket } from './components/detailsState.js';
 

@@ -11,8 +11,8 @@ import { showGitErrorMessage } from '../../../messages.js';
 import { createQuickPickSeparator } from '../../../quickpicks/items/common.js';
 import type { FlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
-import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import type {
 	PartialStepState,
 	StepGenerator,

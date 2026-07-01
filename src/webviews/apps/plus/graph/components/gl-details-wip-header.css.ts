@@ -109,8 +109,8 @@ export const detailsWipHeaderStyles = css`
 	   cluster, slotted into the header's right-anchored actions next to Refresh. */
 	.nav-jump {
 		display: inline-flex;
-		align-items: center;
 		gap: var(--gl-space-2);
+		align-items: center;
 	}
 
 	.branch-identity {
@@ -226,8 +226,8 @@ export const detailsWipHeaderStyles = css`
 		padding: var(--gl-space-2) var(--gl-space-4);
 		font-size: var(--gl-font-base);
 		color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
-		border-radius: var(--gl-radius-sm);
 		cursor: default;
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.graph-details-header__merge-target {

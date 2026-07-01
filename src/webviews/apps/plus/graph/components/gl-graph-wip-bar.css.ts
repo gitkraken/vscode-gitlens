@@ -14,8 +14,8 @@ export const wipBarStyles = css`
 	   sits against the graph above it instead of the rows below. */
 	:host([position='bottom']) {
 		padding-block: 0.3rem 0;
-		border-block-end: none;
 		border-block-start: var(--gl-border-width) solid var(--vscode-panel-border, var(--color-foreground--25));
+		border-block-end: none;
 	}
 
 	.bar {

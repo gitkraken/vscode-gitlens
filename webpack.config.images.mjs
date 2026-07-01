@@ -2,9 +2,9 @@
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
 import path from 'path';
+import { fileURLToPath } from 'url';
 import CopyPlugin from 'copy-webpack-plugin';
 import ImageMinimizerPlugin from 'image-minimizer-webpack-plugin';
-import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

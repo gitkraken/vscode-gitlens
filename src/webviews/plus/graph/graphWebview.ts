@@ -137,6 +137,7 @@ import type {
 import type { Container } from '../../../container.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
+import { executeGitCommand } from '../../../git/actions.js';
 import * as BranchActions from '../../../git/actions/branch.js';
 import {
 	getOrderedComparisonRefs,
@@ -159,7 +160,6 @@ import * as RepoActions from '../../../git/actions/repository.js';
 import * as StashActions from '../../../git/actions/stash.js';
 import * as TagActions from '../../../git/actions/tag.js';
 import * as WorktreeActions from '../../../git/actions/worktree.js';
-import { executeGitCommand } from '../../../git/actions.js';
 import { CommitFormatter } from '../../../git/formatters/commitFormatter.js';
 import { GlGraphRowProcessor } from '../../../git/graphRowProcessor.js';
 import type { RepositoryChangeEvent, RepositoryWorkingTreeChangeEvent } from '../../../git/models/repository.js';
@@ -181,8 +181,8 @@ import {
 	isCommitPushed,
 	isCommitSigned,
 } from '../../../git/utils/-webview/commit.utils.js';
-import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
+import { stageConflictResolution } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { getRemoteIconUri } from '../../../git/utils/-webview/icons.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
@@ -240,14 +240,14 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { getContext, onDidChangeContext, setContext } from '../../../system/-webview/context.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { StorageChangeEvent } from '../../../system/-webview/storage.js';
-import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
-import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import {
 	getHostEditorCommand,
 	isDarkTheme,
 	isLightTheme,
 	revealInFileExplorer,
 } from '../../../system/-webview/vscode.js';
+import type { OpenWorkspaceLocation } from '../../../system/-webview/vscode/workspaces.js';
+import { openWorkspace } from '../../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../../system/decorators/command.js';
 import { gate } from '../../../system/decorators/gate.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';

@@ -8,6 +8,7 @@ import { elevatedSurface } from '../../../shared/components/styles/lit/elevation
 import { formatDate, formatNumeric, fromNow } from '../../../shared/date.js';
 import type { Disposable } from '../../../shared/events.js';
 import { onDidChangeTheme } from '../../../shared/theme.js';
+import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 import { getDay } from './minimapData.js';
 import type { MinimapDrawState, MinimapLayout, MinimapTheme, MinimapViewModel } from './minimapRenderer.js';
 import {
@@ -22,7 +23,6 @@ import {
 	xToDay,
 	xToTimestamp,
 } from './minimapRenderer.js';
-import { normalizeWheelDelta } from '../utils/wheel.utils.js';
 
 const brushThresholdPx = 3;
 const scrollbarHeightPx = 8;

@@ -44,10 +44,10 @@ export class GlCommitRowItem extends LitElement {
 			}
 
 			.item {
+				position: relative;
 				/* border-box so inline-size:100% INCLUDES the padding — otherwise 100% + padding overflows
 				   the gl-popover anchor (overflow:hidden) and clips the row's right edge (the date). */
 				box-sizing: border-box;
-				position: relative;
 				display: flex;
 				gap: var(--gl-space-4);
 				align-items: center;
@@ -76,14 +76,14 @@ export class GlCommitRowItem extends LitElement {
 			   Center-anchored (translate -50%) so the notch backing can't shift it. */
 			.item__signature {
 				position: absolute;
-				z-index: 1;
 				inset-block-start: calc(50% - 0.9rem);
 				inset-inline-start: calc(var(--gl-commit-row-item-padding-inline, var(--gl-space-8)) + 2rem);
+				z-index: 1;
 				padding: 0.1rem;
+				pointer-events: none;
 				background: var(--vscode-editor-background);
 				border-radius: 50%;
 				transform: translate(-50%, -50%);
-				pointer-events: none;
 			}
 
 			.item:hover {

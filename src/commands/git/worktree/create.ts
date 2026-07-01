@@ -27,8 +27,8 @@ import { createFlagsQuickPickItem } from '../../../quickpicks/items/flags.js';
 import { executeCommand } from '../../../system/-webview/command.js';
 import { configuration } from '../../../system/-webview/configuration.js';
 import { isDescendant } from '../../../system/-webview/path.js';
-import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import { revealInFileExplorer } from '../../../system/-webview/vscode.js';
+import { getWorkspaceFriendlyPath } from '../../../system/-webview/vscode/workspaces.js';
 import type { OpenChatActionCommandArgs } from '../../openChatAction.js';
 import type { CustomStep } from '../../quick-wizard/models/steps.custom.js';
 import type {

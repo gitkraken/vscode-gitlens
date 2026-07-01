@@ -8,8 +8,6 @@
 // fixture will fail to type-check or fail at runtime.
 
 import * as assert from 'node:assert/strict';
-import { Emitter } from '@gitlens/utils/event.js';
-import type { Uri } from '@gitlens/utils/uri.js';
 import {
 	createIntegrationManager,
 	createManualTokenAuthProvider,
@@ -20,6 +18,8 @@ import {
 	type IntegrationServiceContext,
 	type IntegrationStorageProvider,
 } from '@gitlens/integrations/index.js';
+import { Emitter } from '@gitlens/utils/event.js';
+import type { Uri } from '@gitlens/utils/uri.js';
 
 const failures: string[] = [];
 function check(name: string, fn: () => void | Promise<void>): Promise<void> {

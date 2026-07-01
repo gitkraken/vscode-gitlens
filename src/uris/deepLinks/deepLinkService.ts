@@ -22,8 +22,8 @@ import type { OpenChatActionCommandArgs } from '../../commands/openChatAction.js
 import type { OpenCloudPatchCommandArgs } from '../../commands/patches.js';
 import type { StoredDeepLinkContext, StoredNamedRef } from '../../constants.storage.js';
 import type { Container } from '../../container.js';
-import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit.js';
 import { executeGitCommand } from '../../git/actions.js';
+import { openComparisonChanges, openFileAtRevision } from '../../git/actions/commit.js';
 import type { GlRepository, RepositoryChangeEvent } from '../../git/models/repository.js';
 import { isWalkthroughSupported } from '../../onboarding/walkthroughStateProvider.js';
 import { isAgentDescriptor } from '../../plus/agents/agentDescriptor.js';

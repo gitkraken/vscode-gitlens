@@ -1,6 +1,6 @@
-import { createContext } from '@lit/context';
 import type { Signal } from '@lit-labs/signals';
 import { signal as litSignal } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import type { LaunchpadSummaryResult } from '../../../../plus/launchpad/launchpadIndicator.js';
 
 /** Shared Launchpad summary state for the Graph webview. The fetch + `onLaunchpadChanged`

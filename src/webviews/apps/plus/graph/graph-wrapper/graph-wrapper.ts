@@ -9,8 +9,8 @@ import type {
 	SelectCommitsOptions,
 } from '@gitkraken/gitkraken-components';
 import { refZone } from '@gitkraken/gitkraken-components';
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';

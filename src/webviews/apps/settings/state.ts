@@ -1,5 +1,5 @@
-import { createContext } from '@lit/context';
 import { computed } from '@lit-labs/signals';
+import { createContext } from '@lit/context';
 import { IssuesCloudHostIntegrationId } from '@gitlens/integrations/constants.js';
 import type { Config } from '../../../config.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';

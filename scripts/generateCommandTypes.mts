@@ -1,8 +1,8 @@
 import { exec } from 'child_process';
-import type { ContributionsJson } from './contributions/models';
 import { readFileSync, writeFileSync } from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import type { ContributionsJson } from './contributions/models';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');

@@ -202,8 +202,8 @@ export const composeModePanelStyles = css`
 	   ellipsize. */
 	.compose-commit__message-row {
 		display: flex;
-		align-items: center;
 		gap: var(--gl-space-4);
+		align-items: center;
 		min-width: 0;
 	}
 

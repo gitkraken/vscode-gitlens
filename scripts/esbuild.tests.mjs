@@ -2,9 +2,9 @@
 /** @typedef {import('esbuild').WatchOptions} WatchOptions **/
 
 import { rm } from 'node:fs/promises';
-import * as esbuild from 'esbuild';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import * as esbuild from 'esbuild';
 import { nodeExternalsPlugin } from 'esbuild-node-externals';
 
 const __filename = fileURLToPath(import.meta.url);

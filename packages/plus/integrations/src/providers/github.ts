@@ -9,10 +9,10 @@ import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.util
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { IntegrationServiceContext } from '../context.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';

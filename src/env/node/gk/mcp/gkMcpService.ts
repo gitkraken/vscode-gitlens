@@ -20,8 +20,8 @@ import {
 import { executeCoreCommand, registerCommand } from '../../../../system/-webview/command.js';
 import { configuration } from '../../../../system/-webview/configuration.js';
 import type { StorageChangeEvent } from '../../../../system/-webview/storage.js';
-import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { getHostAppName, isHostVSCode } from '../../../../system/-webview/vscode.js';
+import { openUrl } from '../../../../system/-webview/vscode/uris.js';
 import { gate } from '../../../../system/decorators/gate.js';
 import { CLIInstallError, CLIInstallErrorReason } from '../cli/errors.js';
 import type { CliInstallChangeEvent, CliIpcChangeEvent, GkCliService } from '../cli/gkCliService.js';

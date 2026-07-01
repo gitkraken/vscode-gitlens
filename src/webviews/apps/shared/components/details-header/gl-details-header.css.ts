@@ -68,9 +68,9 @@ export const detailsHeaderStyles = css`
 		gap: 0;
 		align-items: center;
 		padding: 0.1rem var(--gl-space-2);
+		background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
 		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
 		border-radius: var(--gl-radius-sm);
-		background: color-mix(in srgb, var(--vscode-focusBorder) 10%, transparent);
 	}
 
 	/* Accent-tint the AI mode icons only (scoped to the box; Compare keeps its default icon color).

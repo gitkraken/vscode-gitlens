@@ -1,3 +1,13 @@
+import { readFileSync, writeFileSync } from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import {
+	ContributesBuilder,
+	menuLocations,
+	MenuSorter,
+	parseGroup,
+	validateAndRewriteWhenClause,
+} from './contributions/contributionsBuilder.mts';
 import type {
 	Command,
 	CommandDefinition,
@@ -11,16 +21,6 @@ import type {
 	ViewDefinition,
 	View,
 } from './contributions/models';
-import {
-	ContributesBuilder,
-	menuLocations,
-	MenuSorter,
-	parseGroup,
-	validateAndRewriteWhenClause,
-} from './contributions/contributionsBuilder.mts';
-import { readFileSync, writeFileSync } from 'fs';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
 import { Parser } from './contributions/whenParser.mts';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -31,6 +31,7 @@ import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.comm
 import { urls } from '../../constants.js';
 import type { HomeTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
+import { executeGitCommand } from '../../git/actions.js';
 import { revealBranch } from '../../git/actions/branch.js';
 import { openComparisonChanges } from '../../git/actions/commit.js';
 import {
@@ -41,7 +42,6 @@ import {
 } from '../../git/actions/pausedOperation.js';
 import * as RepoActions from '../../git/actions/repository.js';
 import { revealWorktree } from '../../git/actions/worktree.js';
-import { executeGitCommand } from '../../git/actions.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import {
 	getBranchAssociatedPullRequest,

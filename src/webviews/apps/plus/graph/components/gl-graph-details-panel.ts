@@ -1,6 +1,6 @@
 import type { Remote } from '@eamodio/supertalk';
-import { consume, provide } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
@@ -34,10 +34,10 @@ import { ContextMenuProxyController } from '../../../shared/controllers/context-
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
-import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
-import { graphLaunchpadContext } from '../graphLaunchpadState.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
+import { graphLaunchpadContext } from '../graphLaunchpadState.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
 import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
@@ -50,13 +50,13 @@ import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
+import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import type {
 	ReviewAnalyzeAreaDetail,
 	ReviewCopiedDetail,
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
-import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
@@ -3229,7 +3229,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private async loadConflictDetails(detail: FileChangeListItemDetail): Promise<void> {
 		let details: ConflictDetails | undefined;
-		let error = false;
+		let error: boolean;
 		try {
 			details = await this._actions.getConflictDetails(detail.repoPath, detail.path, detail.status ?? '');
 			error = details == null;

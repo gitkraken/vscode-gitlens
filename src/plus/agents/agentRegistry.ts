@@ -1,5 +1,4 @@
 import { isCliExecutableAvailable } from '@env/gk/agentFetcher.js';
-import type { Container } from '../../container.js';
 import {
 	claudeExtensionId,
 	claudeExtensionOpenCommand,
@@ -7,6 +6,7 @@ import {
 	claudeExtensionSidebarOpenCommand,
 	isClaudeExtensionAvailable,
 } from '../../agents/utils/-webview/claudeExtension.js';
+import type { Container } from '../../container.js';
 import { getHostAppName } from '../../system/-webview/vscode.js';
 import { supportedChatHosts } from '../chat/utils/-webview/chat.utils.js';
 import type { AgentDescriptor } from './agentDescriptor.js';

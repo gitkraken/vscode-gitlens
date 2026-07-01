@@ -101,15 +101,15 @@ export const inlineCode = css`
 export const subPanelEnterStyles = css`
 	@keyframes sub-panel-enter {
 		from {
+			overflow: hidden;
 			opacity: 0;
 			transform: translateY(4px);
-			overflow: hidden;
 		}
 
 		to {
+			overflow: hidden;
 			opacity: 1;
 			transform: translateY(0);
-			overflow: hidden;
 		}
 	}
 

@@ -1,10 +1,10 @@
 // @ts-check
 /** @typedef {{ name: string; result: string; hidden: boolean; index?: number }} Prop */
 
-import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
+import * as ts from 'typescript';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');

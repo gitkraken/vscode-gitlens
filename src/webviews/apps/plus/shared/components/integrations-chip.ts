@@ -1,5 +1,5 @@
-import { consume } from '@lit/context';
 import { SignalWatcher } from '@lit-labs/signals';
+import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { SupportedCloudIntegrationIds } from '@gitlens/integrations/constants.js';
@@ -52,11 +52,13 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 			:host-context(.vscode-dark),
 			:host-context(.vscode-high-contrast) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #fff 10%);
+				--status-color--connected: #0d0;
 			}
 
 			:host-context(.vscode-light),
 			:host-context(.vscode-high-contrast-light) {
 				--gl-chip-skeleton-bg: color-mix(in lab, var(--vscode-sideBar-background), #000 7%);
+				--status-color--connected: #0a0;
 			}
 
 			.chip {
@@ -79,16 +81,6 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 
 			.content {
 				gap: var(--gl-space-6);
-			}
-
-			:host-context(.vscode-dark),
-			:host-context(.vscode-high-contrast) {
-				--status-color--connected: #0d0;
-			}
-
-			:host-context(.vscode-light),
-			:host-context(.vscode-high-contrast-light) {
-				--status-color--connected: #0a0;
 			}
 
 			.status--disconnected.integration {
@@ -285,9 +277,12 @@ export class GlIntegrationsChip extends SignalWatcher(LitElement) {
 						></gl-button>
 						<gl-button
 							appearance="toolbar"
-							href="${createCommandLink<ManageCloudIntegrationsCommandArgs>('gitlens.plus.cloudIntegrations.manage', {
-								source: { source: 'home' },
-							})}"
+							href="${createCommandLink<ManageCloudIntegrationsCommandArgs>(
+								'gitlens.plus.cloudIntegrations.manage',
+								{
+									source: { source: 'home' },
+								},
+							)}"
 							tooltip="Manage Integrations"
 							aria-label="Manage Integrations"
 							><code-icon icon="gear"></code-icon></gl-button
