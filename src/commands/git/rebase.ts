@@ -64,7 +64,7 @@ interface Context extends StepsContext<StepNames> {
 	title: string;
 }
 
-type Flags = '--interactive' | '--update-refs';
+type Flags = '--interactive' | '--update-refs' | '--committer-date-is-author-date';
 interface State<Repo = string | GlRepository> {
 	repo: Repo;
 	destination: GitReference;
@@ -93,6 +93,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	private async execute(state: StepState<State<GlRepository>>) {
 		const interactive = state.flags.includes('--interactive');
 		const updateRefs = state.flags.includes('--update-refs');
+		const committerDateIsAuthorDate = state.flags.includes('--committer-date-is-author-date');
 
 		// If the editor is not enabled, listen for the rebase todo file to be opened and then reopen it with our editor
 		const disposable =
@@ -114,6 +115,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				editor: interactive ? await getHostEditorCommand(true) : undefined,
 				interactive: interactive,
 				updateRefs: updateRefs,
+				committerDateIsAuthorDate: committerDateIsAuthorDate,
 			});
 			if (result?.conflicted) {
 				const openEditor = { title: 'Open Rebase Editor' };
@@ -363,6 +365,15 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				detail: `Will interactively update ${getReferenceLabel(context.branch, {
 					label: false,
 				})} and any branches pointing to rebased commits`,
+			}),
+			createFlagsQuickPickItem<Flags>(state.flags, ['--interactive', '--committer-date-is-author-date'], {
+				label: `Interactive ${this.title} (Preserve Author Date)`,
+				description: '--interactive --committer-date-is-author-date',
+				detail: `Will interactively update ${getReferenceLabel(context.branch, {
+					label: false,
+				})} by applying ${pluralize('commit', ahead)} on top of ${getReferenceLabel(state.destination, {
+					label: false,
+				})}, preserving the original author dates as committer dates`,
 			}),
 		];
 
