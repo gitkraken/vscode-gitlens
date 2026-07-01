@@ -83,13 +83,13 @@ test.describe('MCP — GitLens Tools', () => {
 		// would surface as `-32603 "server not found"` and throw here. Validate the payload SHAPE, not
 		// the message wording (which the gk proxy controls and could reword): the disconnected/empty
 		// path yields a `{ message }` no-op; a connected account with actionable PRs yields `{ items }`.
-		const data = gitlensToolData(await mcpClient.callTool('gitlens_launchpad', { directory: directory })) as {
-			message?: string;
-			items?: unknown[];
-		};
+		const data = gitlensToolData(await mcpClient.callTool('gitlens_launchpad', { directory: directory }));
+		// Guard against a null/non-object payload so an unexpected shape fails with the readable
+		// assertion below rather than a TypeError on property access.
+		const payload = (data ?? {}) as { message?: string; items?: unknown[] };
 
 		expect(
-			typeof data.message === 'string' || Array.isArray(data.items),
+			typeof payload.message === 'string' || Array.isArray(payload.items),
 			`unexpected launchpad payload: ${JSON.stringify(data)}`,
 		).toBeTruthy();
 	});
