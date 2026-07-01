@@ -632,7 +632,7 @@ export class GlTimelineHeader extends LitElement {
 	private renderSliceByToggle() {
 		const disabled = !this.sliceBySupported;
 		const isAuthor = this.sliceBy === 'author';
-		return html`<gl-tooltip ?disabled=${!disabled} placement="bottom" distance="6">
+		return html`<gl-tooltip ?disabled=${!disabled} placement="bottom" .distance=${6}>
 			<span class="slice-toggle">
 				<gl-button
 					appearance="toolbar"

@@ -639,7 +639,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 							class="header__experimental"
 							placement="bottom"
 							content="This is an experimental feature"
-							distance="6"
+							.distance=${6}
 						>
 							<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 						</gl-tooltip>

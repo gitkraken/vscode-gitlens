@@ -1032,7 +1032,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 					class="toolbar__experimental"
 					placement="bottom"
 					content="This is an experimental feature"
-					distance="6"
+					.distance=${6}
 				>
 					<gl-badge appearance="experimental" aria-label="Experimental feature">EXP</gl-badge>
 				</gl-tooltip>
@@ -1068,7 +1068,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 								<gl-tooltip
 									slot="anchor"
 									placement="bottom"
-									distance="6"
+									.distance=${6}
 									content="How long files stay highlighted after the agent reads or edits them"
 								>
 									<button

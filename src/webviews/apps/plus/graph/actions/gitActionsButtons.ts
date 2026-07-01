@@ -368,7 +368,7 @@ export class GlFetchButton extends LitElement {
 
 	override render() {
 		return html`
-			<gl-popover class="fetch-popover" placement="bottom" ?arrow=${false} distance=${4}>
+			<gl-popover class="fetch-popover" placement="bottom" ?arrow=${false} .distance=${4}>
 				<a
 					slot="anchor"
 					href=${this._webview.createCommandLink('gitlens.fetch:')}

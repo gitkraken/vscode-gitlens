@@ -61,9 +61,9 @@ import { isGraphSearchResultsError } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import '../../shared/components/branch-name.js';
-import '../../shared/components/shoelace-stub.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/feature-badge.js';
 import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
@@ -76,6 +76,7 @@ import '../../shared/components/ref-button.js';
 import '../../shared/components/repo-button-group.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/search/search-box.js';
+import '../../shared/components/shoelace-stub.js';
 import './actions/gitActionsButtons.js';
 import './components/gl-graph-launchpad-indicator.js';
 
@@ -1232,7 +1233,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			placement="bottom-start"
 			trigger="click focus"
 			?arrow=${false}
-			distance=${0}
+			.distance=${0}
 		>
 			<gl-tooltip slot="anchor" placement="bottom">
 				<button type="button" class="action-button" aria-haspopup="true" aria-label="Create">
@@ -1304,7 +1305,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			placement="bottom-start"
 			trigger="click focus"
 			?arrow=${false}
-			distance=${0}
+			.distance=${0}
 		>
 			<gl-tooltip placement="top" slot="anchor">
 				<button type="button" id="hiddenRefs" class="action-button">

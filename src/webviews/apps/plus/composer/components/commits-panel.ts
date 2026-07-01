@@ -1,4 +1,4 @@
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
@@ -18,6 +18,7 @@ import { ruleStyles } from '../../shared/components/vscode.css.js';
 import { composerItemCommitStyles, composerItemContentStyles, composerItemStyles } from './composer.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/button-container.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
 import './commit-item.js';
 
@@ -1330,7 +1331,7 @@ export class CommitsPanel extends LitElement {
 						() => html`
 							<gl-button
 								full
-								appearance=${this.hasUsedAutoCompose ? 'secondary' : undefined}
+								appearance=${this.hasUsedAutoCompose ? 'secondary' : nothing}
 								?disabled=${disabled || this.generating || this.committing}
 								@click=${this.dispatchGenerateCommitsWithAI}
 							>

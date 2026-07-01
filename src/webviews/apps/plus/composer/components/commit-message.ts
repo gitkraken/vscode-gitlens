@@ -7,6 +7,8 @@ import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { focusableBaseStyles } from '../../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import '../../../shared/components/button.js';
+import '../../../shared/components/code-icon.js';
 
 @customElement('gl-commit-message')
 export class CommitMessage extends LitElement {

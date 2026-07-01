@@ -165,7 +165,7 @@ export class GlGraphVisualizationsSwitcher extends SignalWatcher(LitElement) {
 		const config = visualizationConfigs[key];
 		const selected = key === active;
 		const tooltipContent = disabled ? (disabledMessage ?? config.label) : config.label;
-		return html`<gl-tooltip placement="bottom" content=${tooltipContent} distance="6">
+		return html`<gl-tooltip placement="bottom" content=${tooltipContent} .distance=${6}>
 			<button
 				class="visualization-button"
 				role="tab"

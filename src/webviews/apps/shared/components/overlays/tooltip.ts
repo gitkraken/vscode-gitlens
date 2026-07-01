@@ -300,7 +300,7 @@ export class GlTooltip extends LitElement {
 			"
 			class="tooltip"
 			placement=${this.placement}
-			distance=${this.distance}
+			.distance=${this.distance}
 			?active=${this.open && !this.disabled && !this.suppressed}
 			flip
 			flip-padding="3"

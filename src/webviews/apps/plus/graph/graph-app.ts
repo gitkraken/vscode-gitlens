@@ -1356,7 +1356,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				></gl-graph-header>
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
-					<gl-graph-hover id="commit-hover" distance=${0} skidding=${15}></gl-graph-hover>
+					<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
 					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
 				</div>
 			</div>

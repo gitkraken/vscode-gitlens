@@ -9,6 +9,7 @@ import { basename, joinPaths } from '@gitlens/utils/path.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { WorkingFileSorting } from '../../../../commitDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemDecorationKind, TreeModel } from './base.js';
+import '../chips/action-chip.js';
 
 /**
  * Determines whether the file tree should use tree layout based on the

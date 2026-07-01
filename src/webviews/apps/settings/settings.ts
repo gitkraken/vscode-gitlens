@@ -267,7 +267,7 @@ export class GlSettingsApp extends SignalWatcherWebviewApp {
 					: html`<gl-split-panel
 							class="body"
 							primary="start"
-							position=${s.navPosition.get()}
+							.position=${s.navPosition.get()}
 							.snap=${navSnap}
 							@gl-split-panel-change=${(e: CustomEvent<{ position: number }>) =>
 								s.navPosition.set(e.detail.position)}

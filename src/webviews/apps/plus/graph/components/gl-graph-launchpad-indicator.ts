@@ -113,7 +113,7 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 	override render(): unknown {
 		const connected = this._state?.connected.get();
 
-		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} distance=${0}>
+		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} .distance=${0}>
 			<button
 				type="button"
 				class="action-button"

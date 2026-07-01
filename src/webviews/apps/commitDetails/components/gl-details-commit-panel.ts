@@ -31,27 +31,29 @@ import { detailsBaseStyles } from './gl-details-base.css.js';
 import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import { detailsCommitPanelStyles } from './gl-details-commit-panel.css.js';
+import '../../shared/components/ai-input.js';
+import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/chips/autolink-chip.js';
 import '../../shared/components/chips/chip-overflow.js';
-import '../../shared/components/menu/menu-divider.js';
-import '../../shared/components/menu/menu-item.js';
-import '../../shared/components/menu/menu-label.js';
-import '../../shared/components/branch-name.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/copy-container.js';
 import '../../shared/components/commit/commit-author.js';
 import '../../shared/components/commit/commit-stats.js';
 import '../../shared/components/commit-sha.js';
+import '../../shared/components/details-header/gl-details-header.js';
 import '../../shared/components/markdown/markdown.js';
+import '../../shared/components/menu/menu-divider.js';
+import '../../shared/components/menu/menu-item.js';
+import '../../shared/components/menu/menu-label.js';
+import '../../shared/components/nav-buttons.js';
+import '../../shared/components/overlays/popover.js';
+import '../../shared/components/overlays/tooltip.js';
 import '../../shared/components/panes/pane-group.js';
+import '../../shared/components/progress.js';
 import '../../shared/components/rich/issue-pull-request.js';
 import '../../shared/components/split-panel/split-panel.js';
-import '../../shared/components/progress.js';
-import '../../shared/components/ai-input.js';
-import '../../shared/components/details-header/gl-details-header.js';
-import '../../shared/components/nav-buttons.js';
 
 type State = IpcSerialized<_State>;
 interface ExplainState {
@@ -301,7 +303,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 								orientation="vertical"
 								primary="start"
 								class="split ${this._userAdjustedSplitter ? '' : 'split--auto-size'}"
-								position="${this._messagePanelHeight ?? 25}"
+								.position=${this._messagePanelHeight ?? 25}
 								.snap=${this._messagePanelSnap}
 								@gl-split-panel-change=${this._onMessagePanelChange}
 								@gl-split-panel-drag-end=${this._onMessagePanelDragEnd}

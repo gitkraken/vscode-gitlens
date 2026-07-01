@@ -352,7 +352,7 @@ export class GlBreadcrumbs extends LitElement {
 		const first = run.items[0];
 		const foldedIcon = first?.foldable && first.icon ? first.icon : undefined;
 		return html`<span class="overflow-wrapper" style=${cspStyleMap({ order: String(order) })}>
-			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} distance="0">
+			<gl-popover appearance="menu" trigger="click focus" placement="bottom-start" .arrow=${false} .distance=${0}>
 				<gl-breadcrumb-item
 					slot="anchor"
 					appearance="ellipsis"
@@ -383,7 +383,7 @@ export class GlBreadcrumbs extends LitElement {
 
 		if (tooltipSource == null) return button;
 
-		return html`<gl-tooltip placement="right" distance="8">
+		return html`<gl-tooltip placement="right" .distance=${8}>
 			${button}
 			<span
 				slot="content"
@@ -742,7 +742,7 @@ export class GlBreadcrumbItem extends LitElement {
 
 		const inner = html`${this.icon ? html`<code-icon class="icon" icon=${this.icon}></code-icon>` : nothing}
 			<slot name="start"></slot>
-			<gl-tooltip class="breadcrumb-tooltip" ?disabled=${!tooltipEnabled} placement="bottom" distance="6">
+			<gl-tooltip class="breadcrumb-tooltip" ?disabled=${!tooltipEnabled} placement="bottom" .distance=${6}>
 				<span class="breadcrumb-label" aria-label=${_truncated ? _labelText : nothing}>
 					<slot @slotchange=${this.onLabelSlotChange}></slot>
 				</span>

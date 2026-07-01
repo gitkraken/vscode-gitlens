@@ -57,15 +57,16 @@ import type {
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
+import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/chips/action-chip.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
-import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
@@ -2079,7 +2080,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 							: ''} ${agentStatusHasVisibleCards ? '' : 'agent-status-split--no-cards'}"
 						orientation="vertical"
 						primary="start"
-						position="${agentStatusPosition}"
+						.position=${agentStatusPosition}
 						?disabled=${!agentStatusIsExpanded}
 						.snap=${this._agentStatusSplitSnap}
 						@gl-split-panel-change=${this._onAgentStatusSplitChange}

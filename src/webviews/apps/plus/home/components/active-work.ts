@@ -26,8 +26,10 @@ import { linkStyles, ruleStyles } from '../../shared/components/vscode.css.js';
 import { branchCardStyles, GlBranchCardBase } from './branch-card.js';
 import type { ActiveOverviewState } from './overviewState.js';
 import { activeOverviewStateContext } from './overviewState.js';
+import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/breadcrumbs.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/button-container.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/skeleton-loader.js';
 import '../../../shared/components/card/card.js';
@@ -42,6 +44,7 @@ import '../../../shared/components/repo-button-group.js';
 import '../../../shared/components/rich/issue-icon.js';
 import '../../../shared/components/rich/pr-icon.js';
 import '../../shared/components/merge-rebase-status.js';
+import './branch-section.js';
 
 declare global {
 	interface HTMLElementTagNameMap {
@@ -399,7 +402,7 @@ export class GlActiveBranchCard extends GlBranchCardBase {
 			trigger="click focus"
 			placement="bottom-end"
 			.arrow=${false}
-			distance="0"
+			.distance=${0}
 		>
 			<gl-button slot="anchor" appearance="toolbar" tooltipPlacement="top" aria-label="Additional Actions">
 				<code-icon icon="ellipsis"></code-icon>

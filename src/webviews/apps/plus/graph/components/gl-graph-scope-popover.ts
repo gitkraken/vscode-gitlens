@@ -192,7 +192,7 @@ export class GlGraphScopePopover extends SignalWatcher(LitElement) {
 			placement="right-start"
 			trigger="click"
 			?arrow=${false}
-			distance=${4}
+			.distance=${4}
 			auto-size-vertical
 			resize="bottom right"
 			@gl-popover-show=${this.handleModePopoverShow}

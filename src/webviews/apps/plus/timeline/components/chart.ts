@@ -1199,7 +1199,7 @@ export class GlTimelineChart extends GlElement {
 					@pointerleave=${() => this._setSliceHover(undefined)}
 					@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
 				>
-					<gl-tooltip placement="bottom-start" distance=${8}>
+					<gl-tooltip placement="bottom-start" .distance=${8}>
 						<span class="rail__branch-icon"><code-icon icon="git-branch"></code-icon></span>
 						<span class="rail__branch-name">${slice.name}</span>
 						<div slot="content">
@@ -1229,7 +1229,7 @@ export class GlTimelineChart extends GlElement {
 				@pointerleave=${() => this._setSliceHover(undefined)}
 				@click=${(e: MouseEvent) => this._toggleSlice(i, e)}
 			>
-				<gl-tooltip placement="right" distance=${10}>
+				<gl-tooltip placement="right" .distance=${10}>
 					<gl-avatar .src=${slice.avatarUrl}>${initials}</gl-avatar>
 					<div slot="content">
 						<div class="rail-tooltip__name">${displayName}</div>

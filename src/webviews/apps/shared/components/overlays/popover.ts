@@ -550,8 +550,8 @@ export class GlPopover extends GlElement {
 			class="popover"
 			.anchor=${this.anchor}
 			placement=${this.placement}
-			distance=${this.distance}
-			skidding=${this.skidding}
+			.distance=${this.distance}
+			.skidding=${this.skidding}
 			auto-size=${this.autoSizeVertical ? 'both' : 'horizontal'}
 			auto-size-padding="3"
 			flip-padding="3"
