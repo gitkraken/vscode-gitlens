@@ -56,6 +56,12 @@ function gitlensToolData(response: McpMessage): unknown {
 test.describe('MCP — GitLens Tools', () => {
 	test.describe.configure({ mode: 'serial' });
 
+	// The composer test opens an editor panel; the VS Code instance is worker-scoped and reused
+	// across spec files, so return it to a clean baseline to avoid leaking UI state into later tests.
+	test.afterAll(async ({ vscode }) => {
+		await vscode.gitlens.resetUI();
+	});
+
 	test('gitlens_commit_composer opens the Commit Composer webview', async ({ mcpClient, vscode }) => {
 		const directory = vscode.electron.workspacePath;
 
@@ -74,18 +80,16 @@ test.describe('MCP — GitLens Tools', () => {
 		const directory = vscode.electron.workspacePath;
 
 		// gitlensToolData proves the round-trip reached the live launchpad handler — a missing server
-		// would surface as `-32603 "server not found"` and throw here. The concrete payload is the
-		// external gk-proxy contract and varies with integration state: the disconnected/empty path
-		// (the deterministic case here — the fresh test instance has no connected integration) yields a
-		// `{ message }` no-op; a connected account with actionable PRs would yield `{ items }`. Accept
-		// either, rather than coupling to the account-dependent message text.
+		// would surface as `-32603 "server not found"` and throw here. Validate the payload SHAPE, not
+		// the message wording (which the gk proxy controls and could reword): the disconnected/empty
+		// path yields a `{ message }` no-op; a connected account with actionable PRs yields `{ items }`.
 		const data = gitlensToolData(await mcpClient.callTool('gitlens_launchpad', { directory: directory })) as {
 			message?: string;
 			items?: unknown[];
 		};
 
 		expect(
-			Array.isArray(data.items) || /no open pull requests|no connected integrations/i.test(data.message ?? ''),
+			typeof data.message === 'string' || Array.isArray(data.items),
 			`unexpected launchpad payload: ${JSON.stringify(data)}`,
 		).toBeTruthy();
 	});
