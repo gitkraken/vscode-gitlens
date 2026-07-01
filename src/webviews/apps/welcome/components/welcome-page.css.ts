@@ -175,9 +175,6 @@ const section = css`
 	@media (width >= 400px) {
 		.section gl-button {
 			--button-width: initial;
-		}
-
-		.section gl-button {
 			--button-padding: 0.4em 4em;
 		}
 	}

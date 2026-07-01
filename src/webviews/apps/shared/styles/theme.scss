@@ -145,6 +145,8 @@
 	--gl-chip-tint-bg: 22%;
 	--gl-chip-tint-border: 50%;
 	--gl-chip-tint-hover: 32%;
+
+	--gitlens-gutter-width: 20px;
 }
 
 body[data-placement='view'] {
@@ -205,8 +207,4 @@ body[data-placement='panel'] {
 	--gl-chip-tint-bg: 22%;
 	--gl-chip-tint-border: 55%;
 	--gl-chip-tint-hover: 32%;
-}
-
-:root {
-	--gitlens-gutter-width: 20px;
 }

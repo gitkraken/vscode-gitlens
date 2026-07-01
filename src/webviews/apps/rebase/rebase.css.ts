@@ -324,9 +324,7 @@ export const rebaseStyles = css`
 		outline: none;
 		border-top: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
-	}
 
-	.entries {
 		--current-entry-color: var(--vscode-gitlens-decorations\\.statusMergingOrRebasingForegroundColor, #c4a000);
 
 		/* Override current entry color when there are conflicts */

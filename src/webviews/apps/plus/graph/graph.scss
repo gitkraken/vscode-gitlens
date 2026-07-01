@@ -156,6 +156,13 @@
 
 // Light DOM
 body {
+	// formerly .graph-app
+	--fs-1: 1.1rem;
+	--fs-2: 1.3rem;
+
+	padding: 0;
+	overflow: hidden;
+
 	.vertical_scrollbar,
 	.horizontal_scrollbar {
 		border-color: transparent;
@@ -1192,15 +1199,6 @@ button:not([disabled]),
 // 	margin-left: 0.4rem;
 // 	margin-right: 0.4rem;
 // }
-
-// formerly .graph-app
-body {
-	--fs-1: 1.1rem;
-	--fs-2: 1.3rem;
-
-	padding: 0;
-	overflow: hidden;
-}
 
 // might not need this
 gl-graph-app,
