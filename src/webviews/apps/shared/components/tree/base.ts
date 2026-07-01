@@ -8,6 +8,14 @@ export interface TreeItemBase {
 	branch: boolean;
 	expanded: boolean;
 	path: string;
+	/**
+	 * Optional unique identity for the row. Defaults to {@link path}. Grouped trees (e.g. WIP
+	 * Conflicts/Staged/Unstaged) build an independent folder hierarchy per group, so the same
+	 * folder/file `path` can appear under multiple groups — `key` disambiguates them so the tree's
+	 * path-keyed machinery (node map, virtualizer, selection, expansion) stays collision-free.
+	 * `path` remains the real file/folder path for display and file resolution.
+	 */
+	key?: string;
 
 	// parent
 	parentPath?: string;

@@ -129,6 +129,17 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: false })
 	orderBy?: WorkingFileSorting;
 
+	/**
+	 * When set (the WIP `gitlens.sortWorkingChangesBy: stage` mode), the list-layout sort floats files
+	 * staged → mixed → unstaged ahead of `orderBy`. List layout only, like `orderBy`.
+	 */
+	@property({ type: Boolean, attribute: 'sort-by-stage' })
+	sortByStage = false;
+
+	/** Paths with both staged + unstaged hunks; lets the stage sort rank a file as "mixed". */
+	@property({ attribute: false })
+	mixedPaths?: ReadonlySet<string>;
+
 	@property()
 	showIndentGuides?: 'none' | 'onHover' | 'always';
 
@@ -249,6 +260,15 @@ export class GlFileTreePane extends LitElement {
 	searchBoxFilter?: boolean;
 
 	private _cachedTreeModel?: TreeModel[];
+	/**
+	 * Row identities (`key ?? path`) of folders the user has collapsed. The tree model is rebuilt
+	 * from scratch (default-expanded) on every `files`/preference change, so we re-apply this set
+	 * after each rebuild to keep collapse state across refreshes. Storing only collapsed *deviations*
+	 * (not expanded ids) means folders that first appear after a refresh default to expanded.
+	 * In-memory only — persists while this element lives (data refreshes, commit switches), resets on
+	 * a full webview reload.
+	 */
+	private readonly _collapsedIds = new Set<string>();
 	private _pendingScrollRestore?: number;
 	// Drives a re-render when alt is pressed/released so the header tooltip can swap between
 	// the primary and alt-action labels. Per-file checkbox tooltips swap inside `gl-tree-item`,
@@ -405,9 +425,34 @@ export class GlFileTreePane extends LitElement {
 				fileToModel: (file, opts, flat) => this.fileToTreeModel(file, opts, flat),
 				folderToContextData: this.folderContext,
 				orderBy: this.orderBy,
+				sortByStage: this.sortByStage,
+				mixedPaths: this.mixedPaths,
 			});
+			this.applyCollapsedState(this._cachedTreeModel);
 		}
 	}
+
+	/** Re-applies remembered folder collapse state onto a freshly-built (default-expanded) model. */
+	private applyCollapsedState(nodes: TreeModel[]): void {
+		if (this._collapsedIds.size === 0) return;
+
+		for (const node of nodes) {
+			if (node.branch && this._collapsedIds.has(node.key ?? node.path)) {
+				node.expanded = false;
+			}
+			if (node.children != null) {
+				this.applyCollapsedState(node.children);
+			}
+		}
+	}
+
+	private onTreeExpansionChanged = (e: CustomEvent<{ path: string; key: string; expanded: boolean }>): void => {
+		if (e.detail.expanded) {
+			this._collapsedIds.delete(e.detail.key);
+		} else {
+			this._collapsedIds.add(e.detail.key);
+		}
+	};
 
 	override updated(): void {
 		if (this._pendingScrollRestore != null) {
@@ -864,6 +909,7 @@ export class GlFileTreePane extends LitElement {
 			@gl-tree-generated-item-checked=${this.onTreeItemChecked}
 			@gl-tree-generated-item-selected=${this.onTreeItemSelected}
 			@gl-tree-generated-selection-changed=${this.onSelectionChanged}
+			@gl-tree-expansion-changed=${this.onTreeExpansionChanged}
 		></gl-tree-view>`;
 	}
 

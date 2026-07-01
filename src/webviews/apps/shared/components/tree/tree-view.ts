@@ -376,7 +376,7 @@ export class GlTreeView extends GlElement {
 	// host can drive them for tree-specific concerns (Left/Right expand, type-ahead) via the seam.
 	private readonly _collection = new VirtualCollectionController<TreeModelFlat>(this, {
 		getItems: () => this.treeItems,
-		getItemId: item => item.path,
+		getItemId: item => nodeId(item),
 		isSelectable: item => item.branch === false,
 		mode: () => (this.multiSelectable ? 'multi' : 'single'),
 		focusStrategy: 'activedescendant',
@@ -532,7 +532,7 @@ export class GlTreeView extends GlElement {
 				// Path gone — fall back to nearest positional neighbor
 				if (this.treeItems?.length) {
 					const clamped = Math.min(this._focusedItemIndex, this.treeItems.length - 1);
-					this._focusedItemPath = this.treeItems[Math.max(0, clamped)].path;
+					this._focusedItemPath = nodeId(this.treeItems[Math.max(0, clamped)]);
 					this._focusedItemIndex = Math.max(0, clamped);
 				} else {
 					this._focusedItemPath = undefined;
@@ -544,7 +544,7 @@ export class GlTreeView extends GlElement {
 				}
 			}
 		} else if (this.treeItems?.length) {
-			this._focusedItemPath = this.treeItems[0].path;
+			this._focusedItemPath = nodeId(this.treeItems[0]);
 			this._focusedItemIndex = 0;
 		}
 	}
@@ -831,17 +831,16 @@ export class GlTreeView extends GlElement {
 	}
 
 	private renderTreeItem(model: TreeModelFlat) {
-		const isSelected = this.multiSelectable
-			? this._selection.has(model.path)
-			: this._lastSelectedPath === model.path;
-		const isFocused = this._focusedItemPath === model.path;
+		const id = nodeId(model);
+		const isSelected = this.multiSelectable ? this._selection.has(id) : this._lastSelectedPath === id;
+		const isFocused = this._focusedItemPath === id;
 		// Either the list itself or the filter-as-combobox counts as "the tree is focused" for
 		// visual highlight purposes; the filter input drives the virtual active-descendant.
 		const hasTreeFocus = (this._containerHasFocus || this._filterHasFocus) && !this._actionButtonHasFocus;
 
 		// All items get tabindex="-1" (not focusable via Tab, only programmatically)
 		// Add ID for aria-activedescendant
-		const itemId = `tree-item-${model.path}`;
+		const itemId = `tree-item-${id}`;
 
 		return html`<gl-tree-item
 			id=${itemId}
@@ -862,6 +861,7 @@ export class GlTreeView extends GlElement {
 			.showIcon=${model.icon != null}
 			.matched=${model.matched ?? false}
 			.selected=${isSelected}
+			.controlledSelection=${true}
 			.focused=${isFocused && hasTreeFocus}
 			.focusedInactive=${isFocused && !hasTreeFocus}
 			.tabIndex=${-1}
@@ -955,7 +955,7 @@ export class GlTreeView extends GlElement {
 							class="scrollable"
 							${ref(this.virtualizerRef)}
 							.items=${this.treeItems}
-							.keyFunction=${(item: TreeModelFlat) => item.path}
+							.keyFunction=${(item: TreeModelFlat) => nodeId(item)}
 							.layout=${flow({ direction: 'vertical' })}
 							.renderItem=${(node: TreeModelFlat) => this.renderTreeItem(node)}
 							scroller
@@ -1027,7 +1027,7 @@ export class GlTreeView extends GlElement {
 			if (newIndex !== -1) {
 				this._focusedItemIndex = newIndex;
 			} else if (this.treeItems?.length) {
-				this._focusedItemPath = this.treeItems[0].path;
+				this._focusedItemPath = nodeId(this.treeItems[0]);
 				this._focusedItemIndex = 0;
 			} else {
 				this._focusedItemPath = undefined;
@@ -1037,21 +1037,22 @@ export class GlTreeView extends GlElement {
 	}
 
 	private onBeforeTreeItemSelected(model: TreeModelFlat) {
-		if (this._lastSelectedPath !== model.path) {
-			this._lastSelectedPath = model.path;
+		const id = nodeId(model);
+		if (this._lastSelectedPath !== id) {
+			this._lastSelectedPath = id;
 		}
 		// Update focused item when clicking
-		if (this._focusedItemPath !== model.path) {
-			this._focusedItemPath = model.path;
-			this._focusedItemIndex = this.getItemIndex(model.path);
+		if (this._focusedItemPath !== id) {
+			this._focusedItemPath = id;
+			this._focusedItemIndex = this.getItemIndex(id);
 		}
 		// Toggle expansion for branch nodes
 		if (model.branch) {
-			const treeNode = this.findTreeNode(model.path);
+			const treeNode = this.findTreeNode(id);
 			if (treeNode) {
 				treeNode.expanded = !treeNode.expanded;
 				this.rebuildFlattenedTree();
-				this.emit('gl-tree-expansion-changed', { path: model.path, expanded: treeNode.expanded });
+				this.emit('gl-tree-expansion-changed', { path: model.path, key: id, expanded: treeNode.expanded });
 			}
 		}
 		// Trigger a re-render to update selection and tabindex state across all items
@@ -1063,20 +1064,30 @@ export class GlTreeView extends GlElement {
 
 		// Multi-select: modifier-clicks mutate the selection set WITHOUT firing the open event, so
 		// the familiar plain-click-to-open behavior is preserved and only Ctrl/Cmd/Shift accumulate.
-		// Folders are never selection members — they fall through to the normal open/expand path.
-		if (this.multiSelectable && !model.branch) {
-			const d = e.detail;
-			if (d.shiftKey) {
-				this._selection.selectRange(model.path, { additive: d.ctrlKey || d.metaKey });
-				return;
-			}
-			if (d.ctrlKey || d.metaKey) {
-				this._selection.toggle(model.path);
-				return;
-			}
+		// Folders are never selection members.
+		if (this.multiSelectable) {
+			if (model.branch) {
+				// A plain click on a folder resets the selection so a prior multi-selection doesn't
+				// "stick" behind the folder's focus/expand. Modifier-clicks on a folder leave the
+				// selection untouched (folders can't be members) and just fall through to open/expand.
+				if (!e.detail.shiftKey && !e.detail.ctrlKey && !e.detail.metaKey) {
+					this._selection.clear();
+				}
+			} else {
+				const id = nodeId(model);
+				const d = e.detail;
+				if (d.shiftKey) {
+					this._selection.selectRange(id, { additive: d.ctrlKey || d.metaKey });
+					return;
+				}
+				if (d.ctrlKey || d.metaKey) {
+					this._selection.toggle(id);
+					return;
+				}
 
-			// Plain click: collapse the selection to this row, then fall through to open it.
-			this._selection.setSingle(model.path);
+				// Plain click: collapse the selection to this row, then fall through to open it.
+				this._selection.setSingle(id);
+			}
 		}
 
 		this.emit('gl-tree-generated-item-selected', {
@@ -1094,17 +1105,22 @@ export class GlTreeView extends GlElement {
 		const nodes: TreeModelFlat[] = [];
 		const contexts: unknown[] = [];
 		for (const item of this.treeItems ?? []) {
-			if (selected.has(item.path)) {
+			// Match by row identity (grouped trees key by `key`), but emit the real `path` so consumers
+			// resolve/dedupe files by their actual path.
+			if (selected.has(nodeId(item))) {
 				paths.push(item.path);
 				nodes.push(item);
 				contexts.push(item.context);
 			}
 		}
+		// Emit the anchor's real `path`, not its internal identity (which is group-prefixed in grouped
+		// trees) — keeps `lastPath` consistent with `paths`, which are real file paths.
+		const anchorId = this._selection.anchorId;
 		this.emit('gl-tree-generated-selection-changed', {
 			nodes: nodes,
 			paths: paths,
 			contexts: contexts,
-			lastPath: this._selection.anchorId,
+			lastPath: anchorId != null ? this.findTreeNode(anchorId)?.path : undefined,
 		} satisfies TreeSelectionChangedDetail);
 	}
 
@@ -1238,7 +1254,7 @@ export class GlTreeView extends GlElement {
 				this._focusedItemPath = this._lastSelectedPath;
 				this._focusedItemIndex = this.getItemIndex(this._lastSelectedPath);
 			} else if (this.treeItems?.length) {
-				this._focusedItemPath = this.treeItems[0].path;
+				this._focusedItemPath = nodeId(this.treeItems[0]);
 				this._focusedItemIndex = 0;
 			}
 			this.requestUpdate();
@@ -1425,10 +1441,11 @@ export class GlTreeView extends GlElement {
 			if (this.multiSelectable) {
 				const focusedItem = items[targetIndex];
 				if (focusedItem != null && !focusedItem.branch) {
+					const id = nodeId(focusedItem);
 					if (e.shiftKey) {
-						this._selection.selectRange(focusedItem.path);
+						this._selection.selectRange(id);
 					} else if (!e.ctrlKey && !e.metaKey) {
-						this._selection.setSingle(focusedItem.path);
+						this._selection.setSingle(id);
 					}
 					// Ctrl/Cmd+Arrow moves focus without changing the selection.
 				}
@@ -1482,11 +1499,12 @@ export class GlTreeView extends GlElement {
 		e.stopPropagation();
 
 		// Find and update the node in the hierarchical model
-		const treeNode = this.findTreeNode(item.path);
+		const id = nodeId(item);
+		const treeNode = this.findTreeNode(id);
 		if (treeNode) {
 			treeNode.expanded = !treeNode.expanded;
 			this.rebuildFlattenedTree();
-			this.emit('gl-tree-expansion-changed', { path: item.path, expanded: treeNode.expanded });
+			this.emit('gl-tree-expansion-changed', { path: item.path, key: id, expanded: treeNode.expanded });
 
 			// Trigger a re-render
 			this.requestUpdate();
@@ -1513,12 +1531,13 @@ export class GlTreeView extends GlElement {
 		const item = this.treeItems?.[index];
 		if (!item) return;
 
-		this._focusedItemPath = item.path;
+		const id = nodeId(item);
+		this._focusedItemPath = id;
 		this._focusedItemIndex = index;
 
 		// Selection follows focus - update selection to match focus
-		if (this._lastSelectedPath !== item.path) {
-			this._lastSelectedPath = item.path;
+		if (this._lastSelectedPath !== id) {
+			this._lastSelectedPath = id;
 		}
 
 		// Trigger re-render to update aria-activedescendant and focused state
@@ -1626,7 +1645,7 @@ export class GlTreeView extends GlElement {
 		// Seed the virtual active-descendant so the first ArrowDown/Enter targets something
 		// visible even if the user hasn't interacted yet.
 		if (!this._focusedItemPath && this.treeItems?.length) {
-			this._focusedItemPath = this.treeItems[0].path;
+			this._focusedItemPath = nodeId(this.treeItems[0]);
 			this._focusedItemIndex = 0;
 		}
 	};
@@ -1685,11 +1704,12 @@ export class GlTreeView extends GlElement {
 		const item = this.treeItems?.[index];
 		if (!item) return;
 
-		this._focusedItemPath = item.path;
+		const id = nodeId(item);
+		this._focusedItemPath = id;
 		this._focusedItemIndex = index;
 		// Selection follows virtual focus, matching the in-list arrow-key model.
-		if (this._lastSelectedPath !== item.path) {
-			this._lastSelectedPath = item.path;
+		if (this._lastSelectedPath !== id) {
+			this._lastSelectedPath = id;
 		}
 		this.requestUpdate();
 		// Scroll into view without yanking focus away from the filter input.
@@ -1712,6 +1732,16 @@ export class GlTreeView extends GlElement {
 }
 
 /**
+ * Row identity — the optional group-scoped {@link TreeItemBase.key}, falling back to {@link
+ * TreeItemBase.path} (unique for ungrouped trees). Every path-keyed structure (node map, index,
+ * virtualizer, selection anchor, focus, expansion) keys off this so grouped trees, whose folder/file
+ * `path` recurs across groups, stay collision-free. Emitted `paths` keep the real `path`.
+ */
+function nodeId(node: { path: string; key?: string }): string {
+	return node.key ?? node.path;
+}
+
+/**
  * Flatten a hierarchical tree node into a flat array.
  * Uses an accumulator to avoid intermediate array allocations.
  * Optionally populates a node map during traversal for O(1) lookups.
@@ -1729,7 +1759,7 @@ function flattenTree(
 
 	const result = out ?? [];
 
-	nodeMap?.set(tree.path, tree);
+	nodeMap?.set(nodeId(tree), tree);
 
 	result.push({
 		...tree,
@@ -1741,7 +1771,7 @@ function flattenTree(
 	if (tree.expanded !== false && tree.children != null && tree.children.length > 0) {
 		const childSize = tree.children.length;
 		for (let i = 0; i < childSize; i++) {
-			flattenTree(tree.children[i], childSize, i + 1, tree.path, nodeMap, hideNonMatched, result);
+			flattenTree(tree.children[i], childSize, i + 1, nodeId(tree), nodeMap, hideNonMatched, result);
 		}
 	}
 
@@ -1840,6 +1870,8 @@ declare global {
 		'gl-tree-generated-item-selected': CustomEvent<TreeItemSelectionDetail>;
 		'gl-tree-generated-item-checked': CustomEvent<TreeItemCheckedDetail>;
 		'gl-tree-generated-selection-changed': CustomEvent<TreeSelectionChangedDetail>;
-		'gl-tree-expansion-changed': CustomEvent<{ path: string; expanded: boolean }>;
+		// `path` is the real folder path; `key` is the row identity (group-scoped in grouped trees,
+		// otherwise equal to `path`) — persist/apply expansion by `key` to stay collision-free.
+		'gl-tree-expansion-changed': CustomEvent<{ path: string; key: string; expanded: boolean }>;
 	}
 }

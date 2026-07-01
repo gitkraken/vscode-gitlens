@@ -61,6 +61,7 @@ export const fileTreeStyles = css`
 	   wherever the --gl-file-tree-pane-header-border-top var isn't set (compose/review/etc.). */
 	webview-pane::part(header) {
 		align-items: center;
+		margin-right: 0.6rem;
 		background-color: inherit;
 		border-top: var(--gl-file-tree-pane-header-border-top, none) !important;
 	}

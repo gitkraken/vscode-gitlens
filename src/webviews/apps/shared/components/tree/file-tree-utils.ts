@@ -298,6 +298,8 @@ export function buildFileTree<T extends GitFileChangeShape>(
 	options: Partial<TreeItemBase> = { level: 1 },
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined,
 	orderBy?: WorkingFileSorting,
+	sortByStage?: boolean,
+	mixedPaths?: ReadonlySet<string>,
 ): TreeModel[] {
 	if (options.level === undefined) {
 		options.level = 1;
@@ -361,11 +363,39 @@ export interface GroupedTreeOptions<T extends GitFileChangeShape> {
 	folderToContextData?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 	/** Working-files sort order (VS Code's `scm.defaultViewSortKey`); applied to list layout only. */
 	orderBy?: WorkingFileSorting;
+	/** Float staged → mixed → unstaged ahead of `orderBy` (`gitlens.sortWorkingChangesBy: stage`). List layout only. */
+	sortByStage?: boolean;
+	/** Paths with both staged + unstaged hunks, used by the stage sort to rank a file as "mixed". */
+	mixedPaths?: ReadonlySet<string>;
+}
+
+/**
+ * Stamps a unique {@link TreeItemBase.key} on every node in a grouped subtree so the same
+ * folder/file `path` appearing under multiple groups (e.g. `src` under both Staged and Unstaged)
+ * doesn't collide in the tree's path-keyed machinery. `path` is left untouched (real file path).
+ */
+function applyKeyPrefix(nodes: TreeModel[], prefix: string): void {
+	for (const node of nodes) {
+		node.key = `${prefix}${node.path}`;
+		if (node.children != null) {
+			applyKeyPrefix(node.children, prefix);
+		}
+	}
 }
 
 export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTreeOptions<T>): TreeModel[] {
-	const { files, isTree, compact, contextMatchVisibility, searchContext, fileToModel, folderToContextData, orderBy } =
-		opts;
+	const {
+		files,
+		isTree,
+		compact,
+		contextMatchVisibility,
+		searchContext,
+		fileToModel,
+		folderToContextData,
+		orderBy,
+		sortByStage,
+		mixedPaths,
+	} = opts;
 
 	if (!opts.grouping) {
 		return buildFileTree(
@@ -401,6 +431,24 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 		const groupFiles = buckets.get(groupDef.key);
 		if (!groupFiles?.length) continue;
 
+		// Each group builds its own folder hierarchy, so the same folder/file `path` can recur across
+		// groups. Stamp a group-scoped `key` on every node so the tree's path-keyed identity (node map,
+		// virtualizer, selection, expansion) stays collision-free — `path` remains the real file path.
+		const groupChildren = buildFileTree(
+			groupFiles,
+			isTree,
+			compact,
+			contextMatchVisibility,
+			searchContext,
+			fileToModel,
+			{ level: 2 },
+			folderToContextData,
+			orderBy,
+			sortByStage,
+			mixedPaths,
+		);
+		applyKeyPrefix(groupChildren, `${groupDef.key}:`);
+
 		children.push({
 			label: groupDef.label,
 			path: `/:${groupDef.key}:/`,
@@ -410,17 +458,7 @@ export function buildGroupedTree<T extends GitFileChangeShape>(opts: GroupedTree
 			expanded: true,
 			checked: false,
 			context: [groupDef.key],
-			children: buildFileTree(
-				groupFiles,
-				isTree,
-				compact,
-				contextMatchVisibility,
-				searchContext,
-				fileToModel,
-				{ level: 2 },
-				folderToContextData,
-				orderBy,
-			),
+			children: groupChildren,
 			actions: groupDef.actions,
 		});
 	}

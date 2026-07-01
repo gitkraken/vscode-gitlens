@@ -53,6 +53,17 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	controlledCheck = false;
 
+	/**
+	 * When set, `selected` is fully controlled by the host (bound via `.selected`); `selectCore`
+	 * then skips the imperative self-select so it can't diverge from the host's controlled value.
+	 * The controlled `gl-tree-view` sets this and drives selection through a re-render; without it,
+	 * the imperative `this.selected = true` corrupts Lit's dirty-check and a later re-render/recycle
+	 * that binds the same committed value is skipped — leaving the selection highlight stuck. Left
+	 * off, the legacy `gl-tree` keeps managing selection imperatively via `select()`/`deselect()`.
+	 */
+	@property({ type: Boolean })
+	controlledSelection = false;
+
 	@property({ type: Boolean, reflect: true, attribute: 'disable-check' })
 	disableCheck = false;
 
@@ -258,7 +269,12 @@ export class GlTreeItem extends GlElement {
 		quiet = false,
 	) {
 		this.emit('gl-tree-item-select');
-		this.selected = true;
+		// In controlled mode the host owns `selected` (bound via `.selected`) and re-renders in
+		// response to the select event; skip the imperative set so it can't diverge from Lit's
+		// dirty-check and leave the highlight stuck. See `controlledSelection`.
+		if (!this.controlledSelection) {
+			this.selected = true;
+		}
 
 		if (!quiet) {
 			window.requestAnimationFrame(() => {
