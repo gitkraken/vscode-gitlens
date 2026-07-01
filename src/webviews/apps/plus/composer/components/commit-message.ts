@@ -213,10 +213,6 @@ export class CommitMessage extends LitElement {
 				border-color: var(--vscode-inputValidation-errorBorder);
 			}
 
-			.commit-message__field {
-				position: relative;
-			}
-
 			.commit-message__ai-button {
 				position: absolute;
 				top: 0.5rem;

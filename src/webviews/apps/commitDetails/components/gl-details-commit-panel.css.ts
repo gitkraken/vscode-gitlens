@@ -544,4 +544,17 @@ export const detailsCommitPanelStyles = css`
 		align-items: center;
 		gap: var(--gl-space-2);
 	}
+
+	/* Pinned cue: warning-tinted pin chip. Scopes the old full-band gl-inspect-nav warning
+	   (color = automatic following is suspended) down to the single relevant control. */
+	gl-action-chip.pin-action.pinned::part(base) {
+		color: var(--color-alert-warningForeground);
+		background-color: var(--color-alert-warningBackground);
+	}
+	gl-action-chip.pin-action.pinned::part(icon) {
+		color: var(--color-alert-warningForeground);
+	}
+	gl-action-chip.pin-action.pinned:hover::part(base) {
+		background-color: var(--color-alert-warningHoverBackground);
+	}
 `;

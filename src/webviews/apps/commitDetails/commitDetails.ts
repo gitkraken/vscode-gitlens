@@ -1,6 +1,6 @@
 import './commitDetails.scss';
 import type { Remote } from '@eamodio/supertalk';
-import { html, nothing } from 'lit';
+import { html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { StashApplyCommandArgs } from '../../../commands/stashApply.js';
@@ -24,7 +24,6 @@ import type { CommitDetailsState, ExplainState } from './state.js';
 import { createCommitDetailsState } from './state.js';
 import '../shared/components/gl-error-banner.js';
 import './components/gl-details-commit-panel.js';
-import './components/gl-inspect-nav.js';
 
 export const uncommittedSha = '0000000000000000000000000000000000000000';
 
@@ -324,33 +323,6 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 	// Render methods
 	// ============================================================
 
-	private renderTopSection() {
-		// No header chrome until a commit/stash is selected — the empty state lives in the panel below.
-		const s = this._state;
-		const commit = s.currentCommit.get();
-		if (commit == null) return nothing;
-
-		const actions = this._actions;
-		return html`
-			<div class="inspect-header">
-				<div class="inspect-header__content">
-					<gl-inspect-nav
-						?uncommitted=${s.isUncommitted.get()}
-						?pinned=${s.pinned.get()}
-						.navigation=${s.navigationStack.get()}
-						.shortSha=${commit.shortSha ?? ''}
-						.stashNumber=${commit.stashNumber}
-						@gl-commit-actions=${(e: CustomEvent<{ action: string; alt: boolean }>) =>
-							this.onCommitActions(e)}
-						@gl-pin=${() => actions?.togglePin()}
-						@gl-nav-back=${() => actions?.navigateBack()}
-						@gl-nav-forward=${() => actions?.navigateForward()}
-					></gl-inspect-nav>
-				</div>
-			</div>
-		`;
-	}
-
 	override render(): unknown {
 		const actions = this._actions;
 		const s = this._state;
@@ -367,13 +339,16 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		return html`
 			<div class="commit-detail-panel scrollable">
 				<gl-error-banner .error=${s.error}></gl-error-banner>
-				${this.renderTopSection()}
 				<main id="main" tabindex="-1">
 					<gl-details-commit-panel
 						variant="embedded"
 						file-icons
 						?multi-selectable=${true}
 						.panelActions=${commit != null}
+						?show-pin=${commit != null}
+						?pinned=${s.pinned.get()}
+						?show-graph-action=${commit != null}
+						.navigation=${s.navigationStack.get()}
 						.commit=${commit}
 						.loading=${resources?.commit.loading.get() ?? false}
 						.files=${commit?.files}
@@ -398,6 +373,11 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						.reachabilityState=${reachState}
 						.branchName=${commit?.stashOnRef}
 						.aiEnabled=${org?.ai !== false}
+						@gl-pin=${() => actions?.togglePin()}
+						@gl-nav-back=${() => actions?.navigateBack()}
+						@gl-nav-forward=${() => actions?.navigateForward()}
+						@gl-commit-actions=${(e: CustomEvent<{ action: string; alt: boolean }>) =>
+							this.onCommitActions(e)}
 						@toggle-mode=${(e: CustomEvent<{ mode: 'review' | 'compose' | 'compare' }>) =>
 							actions?.openCommitInGraphMode(e.detail.mode, commit)}
 						@gl-stash-apply=${(e: CustomEvent<StashApplyCommandArgs>) =>

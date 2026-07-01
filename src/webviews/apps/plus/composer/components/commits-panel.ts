@@ -235,10 +235,6 @@ export class CommitsPanel extends LitElement {
 				box-shadow: 0 0 8px var(--vscode-focusBorder);
 			}
 
-			.sortable-ghost-hidden {
-				display: none !important;
-			}
-
 			.repo-name,
 			.branch-name {
 				color: var(--vscode-descriptionForeground);

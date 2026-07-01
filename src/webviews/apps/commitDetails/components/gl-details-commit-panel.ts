@@ -139,8 +139,8 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	/** Forwarded to `gl-details-header` — when true, close becomes a back arrow. */
 	@property({ type: Boolean }) inResultsView = false;
 
-	/** Back/forward history state, forwarded to `gl-details-header`. Set by the graph host; unset
-	 *  for the inspect panel (which renders nav in `gl-inspect-nav`). */
+	/** Back/forward history state, forwarded to `gl-details-header` and rendered as nav-buttons in
+	 *  the actions cluster. Set by both the graph host and the inspect app. */
 	@property({ attribute: false }) navigation?: NavigationState;
 
 	@property({ type: Boolean })
@@ -148,6 +148,21 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 	@property({ type: Boolean, attribute: 'panel-actions' })
 	panelActions = true;
+
+	/** Inspect-host-only: render the pin toggle in the header actions cluster (the graph host
+	 *  doesn't pin). Folds in the old `gl-inspect-nav` pin. */
+	@property({ type: Boolean, attribute: 'show-pin' })
+	showPin = false;
+
+	/** Inspect-host-only: current pin state — drives the pin chip icon and its warning tint
+	 *  (the "automatic following is suspended" cue, previously the whole `gl-inspect-nav` band). */
+	@property({ type: Boolean, reflect: true })
+	pinned = false;
+
+	/** Inspect-host-only: render the "Open in Commit Graph" toggle in the header actions cluster.
+	 *  Folds in the old `gl-inspect-nav` graph toggle. */
+	@property({ type: Boolean, attribute: 'show-graph-action' })
+	showGraphAction = false;
 
 	@state()
 	private _reachabilityExpanded = false;
@@ -395,8 +410,29 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 							: nothing}
 					</span>`
 				: nothing}
+			${this.activeMode == null && this.showPin
+				? html`<gl-action-chip
+						slot="actions"
+						class="pin-action${this.pinned ? ' pinned' : ''}"
+						icon=${this.pinned ? 'gl-pinned-filled' : 'pin'}
+						label=${this.pinned
+							? 'Unpin this Commit\nRestores Automatic Following'
+							: 'Pin this Commit\nSuspends Automatic Following'}
+						overlay="tooltip"
+						@click=${this.onTogglePin}
+					></gl-action-chip>`
+				: nothing}
+			${this.activeMode == null && this.showGraphAction
+				? html`<gl-action-chip
+						slot="actions"
+						icon="gl-graph"
+						label="Open in Commit Graph"
+						overlay="tooltip"
+						@click=${this.onOpenInGraph}
+					></gl-action-chip>`
+				: nothing}
 			${when(
-				this.activeMode == null && !this.isUncommitted,
+				this.activeMode == null,
 				() =>
 					html`<gl-action-chip
 						slot="actions"
@@ -515,6 +551,22 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 				composed: true,
 			}),
 		);
+	};
+
+	// Folded-in `gl-inspect-nav` actions (inspect host only). Composed/bubbling so they reach the
+	// app's listener on the panel element, where `onCommitActions` / `togglePin` already handle them.
+	private onOpenInGraph = (e: MouseEvent): void => {
+		this.dispatchEvent(
+			new CustomEvent('gl-commit-actions', {
+				detail: { action: 'graph', alt: e.altKey },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	private onTogglePin = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-pin', { bubbles: true, composed: true }));
 	};
 
 	private onMoreActionsClick = (e: MouseEvent): void => {
