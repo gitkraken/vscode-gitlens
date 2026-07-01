@@ -159,7 +159,7 @@ export class FilesService {
 	 * Opens a diff editor showing the file at `lhsRef` vs `rhsRef`. When `rhsRef === ''`
 	 * the right side is the working tree (S&C-style cumulative `lhsRef ↔ working` diff).
 	 */
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	async openFileCompareBetween(
 		file: GitFileChangeShape,
 		showOptions?: FileShowOptions,
@@ -191,7 +191,7 @@ export class FilesService {
 	 * `line` and `lineEnd` are 1-based to match the AI's diff line numbers; the resulting
 	 * selection is anchored on the rhs (the AI's "after" reference frame).
 	 */
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	async openFileChanges(
 		repoPath: string,
 		path: string,

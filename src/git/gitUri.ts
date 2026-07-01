@@ -31,7 +31,7 @@ interface UriEx {
 	new (): Uri;
 	new (scheme: string, authority: string, path: string, query: string, fragment: string): Uri;
 	// Use this ctor, because vscode doesn't validate it
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	new (components: Partial<UriComponents>): Uri;
 }
 
@@ -55,9 +55,9 @@ export class GitUri extends (Uri as any as UriEx) {
 	readonly submoduleSha?: string;
 
 	constructor(uri?: Uri);
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	constructor(uri: Uri, commit: GitCommitish);
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	constructor(uri: Uri, repoPath: string | undefined);
 	constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
 		if (uri == null) {

@@ -1,0 +1,53 @@
+{
+	"arrowParens": "avoid",
+	"endOfLine": "lf",
+	"trailingComma": "all",
+	"printWidth": 120,
+	"singleQuote": true,
+	"tabWidth": 4,
+	"useTabs": true,
+	"sortPackageJson": false,
+	"overrides": [
+		{
+			"files": ["**/*.md"],
+			"options": { "tabWidth": 2 }
+		}
+	],
+	"sortImports": {
+		"newlinesBetween": false,
+		"customGroups": [
+			{ "groupName": "gl-internal", "elementNamePattern": ["#*", "#*/**", "@env/**", "@gitlens/**"] }
+		],
+		"groups": [
+			["value-builtin", "type-builtin"],
+			["value-external", "type-external"],
+			"gl-internal",
+			["value-parent", "type-parent", "value-sibling", "type-sibling", "value-index", "type-index"],
+			"unknown"
+		]
+	},
+	"ignorePatterns": [
+		"custom-elements.json",
+		"dist",
+		"docs/telemetry-events.md",
+		"out",
+		"node_modules",
+		"git.d.ts",
+		"glicons.scss",
+		"images/icons/template/component-map.hbs",
+		"images/icons/template/icons-contribution.hbs",
+		"images/icons/template/mapping.json",
+		"images/icons/template/sass-map.hbs",
+		"images/icons/template/styles.hbs",
+		"src/emojis.generated.ts",
+		"src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts",
+		"src/webviews/apps/shared/components/icons/codicons-map.ts",
+		"src/webviews/apps/shared/components/icons/glicons-map.ts",
+		"src/webviews/apps/shared/styles/icons/codicons-map.scss",
+		"src/webviews/apps/shared/styles/icons/glicons-map.scss",
+		"pnpm-lock.yaml",
+		"src/@types/global.d.ts",
+		"src/webviews/apps/plus/patchDetails/patchDetails.scss",
+		"src/webviews/apps/shared/styles/details-base.scss"
+	]
+}

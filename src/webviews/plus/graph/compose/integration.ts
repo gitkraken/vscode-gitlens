@@ -529,7 +529,7 @@ function buildUiOrderingNote(priorPlan: ComposePlan): string {
 	const commits = priorPlan.allOrderedCommits;
 	if (commits.length === 0) return '';
 
-	const uiOrdered = [...commits].reverse();
+	const uiOrdered = commits.toReversed();
 	const mapping = uiOrdered.map((c, i) => `${String(i + 1)}. [${c.id}] ${c.message.split('\n')[0]}`).join('\n');
 
 	return `UI ORDERING NOTE: In GitLens's graph compose panel, commits are displayed in REVERSE of your prior plan's allOrderedCommits order — newest at the top, labeled "commit 1". When the user says "the first commit" or "commit 1", they mean the TOP of the UI list (which is the LAST commit in your prior plan).

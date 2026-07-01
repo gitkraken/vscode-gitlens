@@ -73,11 +73,11 @@ This will first do an initial full build and then watch for file changes, compil
 
 ### Formatting
 
-This project uses [prettier](https://prettier.io/) for code formatting. You can run prettier across the code by calling `pnpm run pretty` from a terminal.
+This project uses [oxfmt](https://oxc.rs) for fast, Rust-native code formatting. You can format the code by calling `pnpm run fmt` from a terminal (or `pnpm run fmt:check` to check formatting without writing changes).
 
-To format the code as you make changes you can install the [Prettier - Code formatter](https://marketplace.visualstudio.com/items/esbenp.prettier-vscode) extension.
+To format as you make changes, install the [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) VS Code extension (already enabled via the workspace settings, which set it as the default formatter).
 
-Add the following to your User Settings to run prettier:
+Add the following to your User Settings to format on save:
 
 ```
 "editor.formatOnSave": true,
@@ -87,7 +87,7 @@ Add the following to your User Settings to run prettier:
 
 This project uses [oxlint](https://oxc.rs) for fast, Rust-native linting and type-aware type-checking. You can run both across the codebase by calling `pnpm run check` from a terminal (or `pnpm run check:fix` to apply auto-fixes). Linting and type-checking also run automatically as part of `pnpm run build` and `pnpm run watch`.
 
-A small set of rules that oxlint doesn't yet cover (such as import resolution and bidirectional-Unicode/"trojan source" safety) are enforced with [ESLint](https://eslint.org/). These run in CI; to run the full oxlint + ESLint suite locally for complete rule parity, use `pnpm run lint:ci`.
+A couple of heavier rules — bidirectional-Unicode/"trojan source" safety and banned-dependency checks — are too slow to run on every edit, so they're enabled only in CI via [`.oxlintrc.ci.json`](.oxlintrc.ci.json) (which extends the base config). To run the full CI lint suite locally, use `pnpm run lint:ci`.
 
 To lint as you make changes, install the [Oxc](https://marketplace.visualstudio.com/items?itemName=oxc.oxc-vscode) VS Code extension (already enabled via the workspace settings). Warnings show up in the `Problems` panel where you can navigate to them from inside VS Code.
 

@@ -52,7 +52,7 @@ type ExpiryOptions = { expiryOverride?: boolean | number; expireOnError?: boolea
 export class CacheProvider implements Disposable {
 	private readonly _cache = new Map<`${Cache}:${CacheKey<Cache>}`, Cached<CacheResult<CacheValue<Cache>>>>();
 
-	// eslint-disable-next-line @typescript-eslint/no-useless-constructor
+	// oxlint-disable-next-line typescript/no-useless-constructor
 	constructor(_container: Container) {}
 
 	dispose(): void {

@@ -2110,9 +2110,9 @@ export class GitProviderService implements UnifiedDisposable {
 	}
 
 	getBestRepository(): GlRepository | undefined;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	getBestRepository(uri?: Uri, editor?: TextEditor): GlRepository | undefined;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	getBestRepository(editor?: TextEditor): GlRepository | undefined;
 	@debug({ exit: true })
 	getBestRepository(editorOrUri?: TextEditor | Uri, editor?: TextEditor): GlRepository | undefined {
@@ -2132,9 +2132,9 @@ export class GitProviderService implements UnifiedDisposable {
 	}
 
 	getBestRepositoryOrFirst(): GlRepository | undefined;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	getBestRepositoryOrFirst(uri?: Uri, editor?: TextEditor): GlRepository | undefined;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	getBestRepositoryOrFirst(editor?: TextEditor): GlRepository | undefined;
 	@debug({ exit: true })
 	getBestRepositoryOrFirst(editorOrUri?: TextEditor | Uri, editor?: TextEditor): GlRepository | undefined {

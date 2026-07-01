@@ -560,7 +560,7 @@ const wipWatchGracePeriodMs = 30_000;
 // tooltip is built directly in `getWipTooltip` to accommodate the optional worktree path and the
 // "No working changes" fallback, neither of which is representable via formatter tokens.
 const wipAuthorTemplate =
-	// eslint-disable-next-line no-template-curly-in-string
+	// oxlint-disable-next-line no-template-curly-in-string
 	'${avatar} &nbsp;__${author}__';
 
 type CancellableOperations =

@@ -13,7 +13,7 @@ interface ConfigurationOverrides {
 export class Configuration implements Disposable {
 	static configure(context: ExtensionContext): void {
 		context.subscriptions.push(
-			// eslint-disable-next-line @typescript-eslint/no-use-before-define
+			// oxlint-disable-next-line typescript/no-use-before-define
 			workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration),
 		);
 	}

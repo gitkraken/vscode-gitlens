@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/consistent-type-assertions */
+/* oxlint-disable typescript/consistent-type-assertions */
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import type { Range, TextDocument, Uri, WorkspaceEdit } from 'vscode';

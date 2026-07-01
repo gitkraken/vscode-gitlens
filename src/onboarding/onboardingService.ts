@@ -139,7 +139,7 @@ export class OnboardingService implements Disposable {
 	 * Only used as a fallback during the brief migration window on upgrade.
 	 */
 	private isLegacyDismissed(key: OnboardingKeys): boolean {
-		/* eslint-disable @typescript-eslint/no-deprecated -- intentional: reading deprecated keys as migration fallback */
+		/* oxlint-disable typescript/no-deprecated -- intentional: reading deprecated keys as migration fallback */
 		switch (key) {
 			case 'views:scmGrouped:welcome':
 				return this.storage.get('views:scm:grouped:welcome:dismissed') ?? false;
@@ -154,7 +154,7 @@ export class OnboardingService implements Disposable {
 			default:
 				return false;
 		}
-		/* eslint-enable @typescript-eslint/no-deprecated */
+		/* oxlint-enable typescript/no-deprecated */
 	}
 
 	/** Dismiss an onboarding item, recording the current timestamp and GitLens version */
@@ -267,9 +267,9 @@ export class OnboardingService implements Disposable {
 	private async migrateLegacyState(): Promise<void> {
 		const onboarding = this.getOnboarding('global');
 		// Support both the old boolean flag and new versioned flag
-		/* eslint-disable @typescript-eslint/no-deprecated -- intentional access to deprecated `migrated` flag */
+		/* oxlint-disable typescript/no-deprecated -- intentional access to deprecated `migrated` flag */
 		const migratedVersion = onboarding.migratedVersion ?? (onboarding.migrated ? '17.8.0' : undefined);
-		/* eslint-enable @typescript-eslint/no-deprecated */
+		/* oxlint-enable typescript/no-deprecated */
 
 		// Batch 1 (17.8.0): Original deprecated key migrations
 		if (!migratedVersion || compare(migratedVersion, '17.8.0') < 0) {
@@ -281,7 +281,7 @@ export class OnboardingService implements Disposable {
 
 			for (const { legacy, current } of batch1) {
 				// Intentionally reading/deleting deprecated keys during migration
-				// eslint-disable-next-line @typescript-eslint/no-deprecated
+				// oxlint-disable-next-line typescript/no-deprecated
 				const wasDismissed = this.storage.get(legacy);
 				if (wasDismissed) {
 					if (!this.isDismissed(current, true)) {
@@ -309,9 +309,9 @@ export class OnboardingService implements Disposable {
 			}
 
 			// Intentionally reading/deleting deprecated keys during migration
-			// eslint-disable-next-line @typescript-eslint/no-deprecated
+			// oxlint-disable-next-line typescript/no-deprecated
 			const composerDismissed = this.storage.get('composer:onboarding:dismissed');
-			// eslint-disable-next-line @typescript-eslint/no-deprecated
+			// oxlint-disable-next-line typescript/no-deprecated
 			const composerStepReached = this.storage.get('composer:onboarding:stepReached');
 			if (composerDismissed != null || composerStepReached != null) {
 				if (composerDismissed != null && !this.isDismissed('composer:onboarding', true)) {
@@ -330,7 +330,7 @@ export class OnboardingService implements Disposable {
 		// Re-read since dismiss calls above may have invalidated the cached state
 		const state = this.getOnboarding('global');
 		state.migratedVersion = '17.9.0';
-		// eslint-disable-next-line @typescript-eslint/no-deprecated
+		// oxlint-disable-next-line typescript/no-deprecated
 		delete state.migrated;
 		await this.saveOnboarding('global', state);
 	}

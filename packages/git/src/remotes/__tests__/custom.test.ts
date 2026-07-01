@@ -1,4 +1,4 @@
-/* eslint-disable no-template-curly-in-string */
+/* oxlint-disable no-template-curly-in-string */
 import * as assert from 'assert';
 import type { RemotesUrlsConfig } from '../../models/remoteProvider.js';
 import { CustomRemoteProvider } from '../custom.js';

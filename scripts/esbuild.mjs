@@ -14,7 +14,6 @@ let index = args.indexOf('--mode');
 const mode = (index >= 0 ? args[index + 1] : undefined) || 'none';
 
 const watch = args.includes('--watch');
-const check = !args.includes('--no-check');
 
 /**
  * @param { 'node' | 'webworker' } target
@@ -22,37 +21,6 @@ const check = !args.includes('--no-check');
  */
 async function buildExtension(target, mode) {
 	let plugins = [];
-
-	// let TypeCheckerPlugin;
-	// if (check) {
-	// 	({ EsbuildPlugin: TypeCheckerPlugin } = require('vite-esbuild-typescript-checker'));
-	// 	plugins.push(
-	// 		TypeCheckerPlugin({
-	// 			checker: {
-	// 				async: false,
-	// 				eslint: {
-	// 					enabled: true,
-	// 					files: 'src/**/*.ts',
-	// 					options: {
-	// 						// cache: true,
-	// 						cacheLocation: path.join(
-	// 							__dirname,
-	// 							target === 'webworker' ? '.eslintcache.browser' : '.eslintcache',
-	// 						),
-	// 						overrideConfigFile: path.join(
-	// 							__dirname,
-	// 							target === 'webworker' ? '.eslintrc.browser.json' : '.eslintrc.json',
-	// 						),
-	// 					},
-	// 				},
-	// 				formatter: 'basic',
-	// 				typescript: {
-	// 					configFile: target === 'webworker' ? 'tsconfig.browser.json' : 'tsconfig.json',
-	// 				},
-	// 			},
-	// 		}),
-	// 	);
-	// }
 
 	const alias = {
 		'@env': path.resolve(__dirname, 'src', 'env', target === 'webworker' ? 'browser' : target),

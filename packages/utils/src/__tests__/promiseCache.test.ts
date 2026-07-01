@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { CancellationError } from '../cancellation.js';
+import { CancellationError, isCancellationError } from '../cancellation.js';
 import type { CacheController } from '../promiseCache.js';
 import { PromiseCache, PromiseMap, RepoPromiseCacheMap, RepoPromiseMap } from '../promiseCache.js';
 
@@ -99,7 +99,7 @@ suite('PromiseMap Test Suite', () => {
 			);
 
 			// Second caller's returned promise rejects via raceWithSignal
-			await assert.rejects(second, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(second, (e: unknown) => isCancellationError(e));
 
 			// First caller still gets the result
 			d.resolve(42);
@@ -143,8 +143,8 @@ suite('PromiseMap Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, true, 'aggregate must fire once all cancellable callers cancel');
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 		});
 	});
 
@@ -315,7 +315,7 @@ suite('PromiseMap Test Suite', () => {
 				// getCurrentBranch). The caller-facing promise is handled here; the internal
 				// `.finally(...)` cleanup chain must not leak the rejection as a separate one.
 				const p = map.getOrCreate('k', () => Promise.reject(new CancellationError()));
-				await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+				await assert.rejects(p, (e: unknown) => isCancellationError(e));
 			});
 
 			assert.deepStrictEqual(captured, [], 'cleanup chain must not produce an unhandled rejection');
@@ -364,7 +364,7 @@ suite('PromiseMap Test Suite', () => {
 			);
 
 			ctrlB.abort();
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 
 			d.resolve(99);
 			assert.strictEqual(await p1, 99);
@@ -420,8 +420,8 @@ suite('PromiseCache Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, true);
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 		});
 	});
 
@@ -455,7 +455,7 @@ suite('PromiseCache Test Suite', () => {
 				// getCurrentBranch). The caller-facing promise is handled here; the internal
 				// `.finally(...)` cleanup chain must not leak the rejection as a separate one.
 				const p = cache.getOrCreate('k', () => Promise.reject(new CancellationError()));
-				await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+				await assert.rejects(p, (e: unknown) => isCancellationError(e));
 			});
 
 			assert.deepStrictEqual(captured, [], 'cleanup chain must not produce an unhandled rejection');

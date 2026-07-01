@@ -76,8 +76,8 @@ pnpm run test:e2e         # Run Playwright E2E tests
 ```bash
 pnpm run check            # Run type-checking and lint rules (also run automatically as part of `pnpm run build`)
 pnpm run check:fix        # Run type-checking and lint rules with auto-fix (better to use so you don't have to deal with auto-fixable issues)
-pnpm run pretty           # Format code with Prettier
-pnpm run pretty:check     # Check formatting
+pnpm run fmt              # Format code
+pnpm run fmt:check        # Check formatting
 ```
 
 ### Specialized Commands (typically not needed during normal development as they are part of build/watch)

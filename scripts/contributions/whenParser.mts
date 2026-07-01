@@ -1315,7 +1315,7 @@ export class ContextKeyEqualsExpr implements IContextKeyExpression {
 
 	public evaluate(context: IContext): boolean {
 		// Intentional ==
-		// eslint-disable-next-line eqeqeq
+		// oxlint-disable-next-line eqeqeq
 		return context.getValue(this.key) == this.value;
 	}
 
@@ -1516,7 +1516,7 @@ export class ContextKeyNotEqualsExpr implements IContextKeyExpression {
 
 	public evaluate(context: IContext): boolean {
 		// Intentional !=
-		// eslint-disable-next-line eqeqeq
+		// oxlint-disable-next-line eqeqeq
 		return context.getValue(this.key) != this.value;
 	}
 

@@ -5,7 +5,7 @@ interface CustomOptions {
 	vscodeVersion: string;
 }
 
-// eslint-disable-next-line import-x/no-default-export
+// oxlint-disable-next-line import/no-default-export
 export default defineConfig<CustomOptions>({
 	use: {
 		headless: true, // Ensure headless mode is enabled

@@ -130,7 +130,7 @@ export class WebviewController<
 	>(
 		container: Container,
 		commandRegistrar: WebviewCommandRegistrar,
-		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		// oxlint-disable-next-line typescript/unified-signatures
 		descriptor: CustomEditorDescriptor<ID>,
 		instanceId: string,
 		parent: WebviewPanel,

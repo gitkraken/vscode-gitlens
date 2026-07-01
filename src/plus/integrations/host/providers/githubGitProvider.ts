@@ -1,6 +1,9 @@
-/* eslint-disable @typescript-eslint/require-await */
+/* oxlint-disable typescript/require-await */
 import type { WorkspaceFolder } from 'vscode';
 import { authentication, Uri, window, workspace } from 'vscode';
+import type { GitHubSession } from '@gitlens/git-github/context.js';
+import type { GitHubGitProviderOptions } from '@gitlens/git-github/providers/githubGitProvider.js';
+import { GitHubGitProvider } from '@gitlens/git-github/providers/githubGitProvider.js';
 import type { Cache } from '@gitlens/git/cache.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
@@ -11,9 +14,6 @@ import type { RepositoryVisibility } from '@gitlens/git/providers/types.js';
 import { getVisibilityCacheKey } from '@gitlens/git/utils/remote.utils.js';
 import { isRevisionRange, isSha } from '@gitlens/git/utils/revision.utils.js';
 import { decodeRemoteHubAuthority } from '@gitlens/git/utils/uriAuthority.js';
-import type { GitHubSession } from '@gitlens/git-github/context.js';
-import type { GitHubGitProviderOptions } from '@gitlens/git-github/providers/githubGitProvider.js';
-import { GitHubGitProvider } from '@gitlens/git-github/providers/githubGitProvider.js';
 import type { IntegrationAuthenticationSessionDescriptor } from '@gitlens/integrations/authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '@gitlens/integrations/authentication/models.js';
 import { toTokenWithInfo } from '@gitlens/integrations/authentication/models.js';
@@ -631,7 +631,7 @@ export class GlGitHubGitProvider implements GlGitProvider {
 	private _remotehub: RemoteHubApi | undefined;
 	private _remotehubPromise: Promise<RemoteHubApi> | undefined;
 	private async ensureRemoteHubApi(): Promise<RemoteHubApi>;
-	// eslint-disable-next-line @typescript-eslint/unified-signatures
+	// oxlint-disable-next-line typescript/unified-signatures
 	private async ensureRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 	private async ensureRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 	private async ensureRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {
@@ -871,7 +871,7 @@ async function ensureProviderLoaded<T extends (uri: Uri) => any>(
 	while (true) {
 		try {
 			const result = await action(uri);
-			// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+			// oxlint-disable-next-line typescript/no-unsafe-return
 			return result;
 		} catch (ex) {
 			// HACK: If the provider isn't loaded, try to force it to load

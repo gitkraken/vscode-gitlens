@@ -17,6 +17,7 @@ function generateIconStyles(iconMap: Record<string, string>, prefix = '') {
 
 @customElement('code-icon')
 export class CodeIcon extends LitElement {
+	// prettier-ignore
 	static override styles = css`
 		:host {
 			display: inline-block;
@@ -42,7 +43,7 @@ export class CodeIcon extends LitElement {
 
 		${generateIconStyles(gliconsMap, 'gl-')}
 
- 	:host([icon='custom-start-work']) {
+		:host([icon='custom-start-work']) {
 			position: relative;
 		}
 
@@ -97,6 +98,7 @@ export class CodeIcon extends LitElement {
 			transform: rotateZ(45deg);
 		}
 	`;
+
 	@property({ reflect: true })
 	icon = '';
 

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/require-await */
+/* oxlint-disable typescript/require-await */
 import type { Account } from '@gitkraken/provider-apis';
 import type { Disposable } from 'vscode';
 import type { Account as AuthorAccount } from '@gitlens/git/models/author.js';

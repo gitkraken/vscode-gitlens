@@ -309,7 +309,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 					update: async enabled =>
 						configuration.updateEffective(
 							'currentLine.uncommittedChangesFormat',
-							// eslint-disable-next-line no-template-curly-in-string
+							// oxlint-disable-next-line no-template-curly-in-string
 							enabled ? '\u270F\ufe0f ${ago}' : null,
 						),
 				},

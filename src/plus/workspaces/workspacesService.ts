@@ -442,13 +442,13 @@ export class WorkspacesService implements Disposable {
 	async locateWorkspaceRepo(
 		workspaceId: string,
 		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
-		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		// oxlint-disable-next-line typescript/unified-signatures
 		uri: Uri,
 	): Promise<void>;
 	async locateWorkspaceRepo(
 		workspaceId: string,
 		descriptor: CloudWorkspaceRepositoryDescriptor | LocalWorkspaceRepositoryDescriptor,
-		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		// oxlint-disable-next-line typescript/unified-signatures
 		repository: GlRepository,
 	): Promise<void>;
 	@debug({ args: (workspaceId: string) => ({ workspaceId: workspaceId }) })

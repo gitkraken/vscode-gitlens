@@ -157,7 +157,7 @@ export class EventBus implements Disposable {
 
 	on<T extends keyof EventsMapping>(name: T, handler: (e: EventBusEvent<T>) => void, thisArgs?: unknown): Disposable {
 		return this._emitter.event(
-			// eslint-disable-next-line prefer-arrow-callback
+			// oxlint-disable-next-line prefer-arrow-callback
 			function (e) {
 				if (name !== e.name) return;
 

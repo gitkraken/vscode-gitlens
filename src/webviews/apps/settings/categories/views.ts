@@ -1,4 +1,4 @@
-/* eslint-disable no-template-curly-in-string -- descriptor data contains literal GitLens format tokens */
+/* oxlint-disable no-template-curly-in-string -- descriptor data contains literal GitLens format tokens */
 import type { SettingsCategory } from '../model.js';
 
 export const viewsCategories: SettingsCategory[] = [

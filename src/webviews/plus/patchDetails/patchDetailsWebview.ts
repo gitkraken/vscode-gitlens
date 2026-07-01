@@ -1121,7 +1121,7 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		void this.notifyDidChangeViewDraftState();
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	private async getViewDraftState(
 		current: Context,
 		deferredPatchLoading = true,

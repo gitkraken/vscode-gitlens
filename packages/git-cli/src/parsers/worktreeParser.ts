@@ -54,7 +54,7 @@ export function parseGitWorktrees(
 		}
 
 		if (!key && entry != null) {
-			// eslint-disable-next-line no-loop-func
+			// oxlint-disable-next-line no-loop-func
 			const branch = entry.branch ? branches?.find(b => b.name === entry!.branch) : undefined;
 			const uri = fileUri(entry.path!);
 

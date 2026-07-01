@@ -278,7 +278,7 @@ export function evaluateStateExpression(expression: string, getValue: SettingVal
 // ============================================================
 
 export function getPath<T>(o: Record<string, any>, path: string): T | undefined {
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-return
+	// oxlint-disable-next-line typescript/no-unsafe-return
 	return path.split('.').reduce((o = {}, key) => (o == null ? undefined : o[key]), o) as T;
 }
 

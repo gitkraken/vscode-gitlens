@@ -298,7 +298,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// selection to another WIP). Gated to the identity inputs so the sort+join isn't recomputed on
 		// unrelated reactive updates (progressMessage, retryingFiles, …).
 		if (changedProperties.has('focusedPaths') || changedProperties.has('repoPath')) {
-			const focusKey = this.focusedPaths != null ? `focus:${[...this.focusedPaths].sort().join('\n')}` : 'all';
+			const focusKey = this.focusedPaths != null ? `focus:${this.focusedPaths.toSorted().join('\n')}` : 'all';
 			const seedKey = `${this.repoPath ?? ''}|${focusKey}`;
 			if (this._seedKey !== seedKey) {
 				this._seedKey = seedKey;

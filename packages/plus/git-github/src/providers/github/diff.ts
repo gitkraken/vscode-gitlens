@@ -265,7 +265,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	}
 
 	@debug()
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	async getPreviousComparisonUrisForRange(
 		_repoPath: string,
 		_path: string | Uri,

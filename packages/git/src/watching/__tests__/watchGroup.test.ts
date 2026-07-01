@@ -41,7 +41,7 @@ function createMockFactory(): { factory: FileWatchingProvider; watchers: MockWat
 	return { factory: factory, watchers: watchers };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+// oxlint-disable-next-line typescript/no-unsafe-function-type
 type MockFn = ReturnType<typeof mock.fn> & Function;
 
 function callCount(fn: unknown): number {

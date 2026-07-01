@@ -74,7 +74,7 @@ function getUtilsEnvAliases(target) {
 		'#env/platform.js': path.resolve(base, 'platform.ts'),
 	};
 }
-/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; quick?: boolean; trace?: boolean; webviews?: string }} GlEnv */
+/** @typedef {{ analyzeBundle?: boolean; analyzeDeps?: boolean; quick?: boolean; trace?: boolean; webviews?: string }} GlEnv */
 /** @typedef {{ [key: string]: { entry: string; plus?: boolean; alias?: { [key: string]: string } } }} GlWebviews */
 
 /**
@@ -88,7 +88,6 @@ export default function (env, argv) {
 	env = {
 		analyzeBundle: false,
 		analyzeDeps: false,
-		esbuild: true,
 		quick: false,
 		trace: false,
 		...env,
@@ -225,8 +224,8 @@ function getExtensionConfig(target, mode, env) {
 	];
 
 	// Linting and type checking (incl. tsgo-backed TS diagnostics) are both handled by oxlint:
-	// once per build, in parallel with bundling, from build.mjs — so ForkTsCheckerPlugin and the
-	// ESLint plugins are gone. The inline OxLintWebpackPlugin (added below whenever not in quick
+	// once per build, in parallel with bundling, from build.mjs — so this config adds no separate
+	// lint/type-check plugin. The inline OxLintWebpackPlugin (added below whenever not in quick
 	// mode) is watch-only, so it re-checks changed files incrementally during watch; one-shot builds
 	// rely on the single standalone oxlint pass in build.mjs.
 
@@ -383,20 +382,15 @@ function getExtensionConfig(target, mode, env) {
 					exclude: /\.d\.ts$/,
 					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
 					test: /\.tsx?$/,
-					use: env.esbuild
-						? {
-								loader: 'esbuild-loader',
-								options: {
-									format: 'esm',
-									implementation: esbuild,
-									target: ['es2023', 'chrome124', 'node20.14.0'],
-									tsconfig: tsConfigPath,
-								},
-							}
-						: {
-								loader: 'ts-loader',
-								options: { configFile: tsConfigPath, experimentalWatchApi: true, transpileOnly: true },
-							},
+					use: {
+						loader: 'esbuild-loader',
+						options: {
+							format: 'esm',
+							implementation: esbuild,
+							target: ['es2023', 'chrome124', 'node20.14.0'],
+							tsconfig: tsConfigPath,
+						},
+					},
 				},
 			],
 		},
@@ -468,7 +462,7 @@ function getUnitTestConfig(_target, mode, env) {
 		mode: mode,
 		plugins: plugins,
 		infrastructureLogging: mode === 'production' ? undefined : { level: 'log' },
-		// Surface ESLint errors/warnings from the lint plugin (esbuild handles asset output separately)
+		// Surface oxlint errors/warnings from the lint plugin (esbuild handles asset output separately)
 		stats: { preset: 'errors-warnings', colors: true, errorsCount: true, warningsCount: true },
 	};
 }
@@ -611,8 +605,9 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		filePrefix = `webviews-${Object.keys(webviews)[0]}`;
 	}
 
-	// Type checking is now handled by the Go-native tsgo compiler via OxLintWebpackPlugin,
-	// so ForkTsCheckerPlugin is removed to prevent redundant, slow Node-based type checking.
+	// Type checking is handled by the Go-native tsgo compiler via oxlint (the OxLintWebpackPlugin
+	// below during watch, or the standalone oxlint pass in build.mjs for one-shot builds), so no
+	// separate Node-based type-check plugin runs here.
 
 	if (!env.quick) {
 		plugins.push(new OxLintWebpackPlugin());
@@ -719,24 +714,15 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 					include: [path.join(__dirname, 'src'), path.join(__dirname, 'packages')],
 					test: /\.tsx?$/,
 					use: [
-						env.esbuild
-							? {
-									loader: 'esbuild-loader',
-									options: {
-										format: 'esm',
-										implementation: esbuild,
-										target: ['es2023', 'chrome124'],
-										tsconfig: tsConfigPath,
-									},
-								}
-							: {
-									loader: 'ts-loader',
-									options: {
-										configFile: tsConfigPath,
-										experimentalWatchApi: true,
-										transpileOnly: true,
-									},
-								},
+						{
+							loader: 'esbuild-loader',
+							options: {
+								format: 'esm',
+								implementation: esbuild,
+								target: ['es2023', 'chrome124'],
+								tsconfig: tsConfigPath,
+							},
+						},
 					],
 				},
 				{
@@ -1447,7 +1433,7 @@ class CompileComposerTemplatesPlugin {
 			return `  "${name}": new Hogan.Template(${code})`;
 		}
 
-		const header = `/* eslint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
+		const header = `/* oxlint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
 
 		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
 			'generic-block-header',

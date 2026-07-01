@@ -378,7 +378,7 @@ Same decorator at different log levels. Wraps methods to log entry/exit with tim
 
 - Must be called BEFORE any `await` in method body (browser uses counter-based fallback unreliable after `await`)
 - Must be inside a method decorated with `@info()`/`@debug()`/`@trace()`
-- ESLint rule `@gitlens/scoped-logger-usage` enforces both
+- oxlint rule `@gitlens/scoped-logger-usage` enforces both
 - Node.js uses `AsyncLocalStorage` for reliable cross-async scope
 
 ### `@gate()` — Concurrent Call Deduplication (`gate.ts`)

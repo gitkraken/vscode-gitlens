@@ -155,7 +155,7 @@ export function promisifyDeferred<T, U>(
 			} catch (ex) {
 				pending = false;
 
-				// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+				// oxlint-disable-next-line typescript/prefer-promise-reject-errors
 				reject(ex);
 			}
 		});

@@ -4,7 +4,6 @@
 	"recommendations": [
 		"oxc.oxc-vscode",
 		"amodio.tsl-problem-matcher",
-		"esbenp.prettier-vscode",
 		"stylelint.vscode-stylelint",
 		"runem.lit-plugin",
 		"pwrs.cem-language-server-vscode",

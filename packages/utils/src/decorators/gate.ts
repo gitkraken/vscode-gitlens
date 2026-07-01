@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* oxlint-disable typescript/no-unsafe-return */
 import { CancellationError } from '../cancellation.js';
 import type { UnifiedDisposable } from '../disposable.js';
 import { createDisposable } from '../disposable.js';
@@ -28,7 +28,7 @@ export function gate<T extends (...args: any[]) => any>(
 	timeout ??= 300000;
 
 	return (_target: any, key: string, descriptor: PropertyDescriptor): void => {
-		// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+		// oxlint-disable-next-line typescript/no-unsafe-function-type
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {
 			fn = descriptor.value;

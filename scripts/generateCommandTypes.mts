@@ -95,8 +95,8 @@ export type ContributedOrphansOrInternalCommands = ${[...internalCommands]
 
 	const file = path.join(__dirname, 'src', 'constants.commands.generated.ts');
 	writeFileSync(file, contents, 'utf8');
-	// run prettier on the generated file
-	exec(`pnpm prettier --write ${file}`);
+	// run oxfmt on the generated file
+	exec(`pnpm exec oxfmt ${file}`);
 
 	console.log("Generated 'constants.commands.generated.ts' from contributions.json");
 }

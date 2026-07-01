@@ -111,11 +111,11 @@ if (build?.includes('unit-tests')) {
 const isFullBuild = !build?.length && !target?.length && !webviews?.length;
 
 if (!quick && !watch) {
-	const prettyCmd = process.env.CI ? `pnpm run pretty:check` : `pnpm run pretty`;
-	console.log(`Running: ${prettyCmd}`);
+	const fmtCmd = process.env.CI ? `pnpm run fmt:check` : `pnpm run fmt`;
+	console.log(`Running: ${fmtCmd}`);
 
-	const prettyCode = await new Promise(resolve => {
-		const pretty = spawn(prettyCmd, [], {
+	const formatCode = await new Promise(resolve => {
+		const fmt = spawn(fmtCmd, [], {
 			shell: true,
 			stdio: 'inherit',
 			env: {
@@ -125,11 +125,11 @@ if (!quick && !watch) {
 			},
 		});
 
-		pretty.on('exit', code => resolve(code || 0));
+		fmt.on('exit', code => resolve(code || 0));
 	});
 
-	if (prettyCode !== 0) {
-		process.exit(prettyCode);
+	if (formatCode !== 0) {
+		process.exit(formatCode);
 	}
 }
 
@@ -175,7 +175,7 @@ if (isFullBuild && !watch) {
 
 // Run the bundle process(es) and, for one-shot builds, a single whole-project oxlint (lint +
 // type-check) pass concurrently. tsgo-backed type checking and Rust-native linting both run inside
-// oxlint, so it replaces the old ForkTsChecker + ESLint plugins. Watch builds lint incrementally via
+// oxlint, so a single pass covers both. Watch builds lint incrementally via
 // the inline OxLintWebpackPlugin (added whenever not in quick mode), so they skip this standalone pass.
 const tasks = bundleCmds.map(c => run(c));
 if (!quick && !watch) {

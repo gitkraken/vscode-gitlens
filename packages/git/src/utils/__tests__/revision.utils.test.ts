@@ -352,7 +352,7 @@ suite('Revision Utils Test Suite', () => {
 		});
 
 		test('returns undefined when given undefined', () => {
-			// eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+			// oxlint-disable-next-line typescript/no-confusing-void-expression
 			assert.strictEqual(stripOrigin(undefined), undefined);
 		});
 	});

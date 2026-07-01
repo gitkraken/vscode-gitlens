@@ -6,7 +6,7 @@ import type { IpcPromise } from '../webviews/ipc/models/dataTypes.js';
 
 // prettier-ignore
 export type IpcSerialized<T> =
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+	// oxlint-disable-next-line typescript/no-unsafe-function-type
 	T extends Error | Function | RegExp | Container
 	? never
 	: T extends Date

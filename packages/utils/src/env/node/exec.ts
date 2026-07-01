@@ -277,9 +277,9 @@ export function run<T extends number | string>(
 					let stderrDecoded: string;
 					if (encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer') {
 						// stdout & stderr can be `Buffer` or `string
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
+						// oxlint-disable-next-line typescript/no-unnecessary-type-conversion
 						stdoutDecoded = stdout.toString();
-						// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion
+						// oxlint-disable-next-line typescript/no-unnecessary-type-conversion
 						stderrDecoded = stderr.toString();
 					} else {
 						if (decode == null) {

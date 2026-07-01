@@ -22,7 +22,6 @@ export const DefaultTimeout = 2000;
 export const ShortTimeout = 500;
 
 /** Xvfb display number used for headless Linux testing */
-// eslint-disable-next-line @typescript-eslint/naming-convention
 const XVFB_DISPLAY = ':99';
 
 /** Xvfb process reference for cleanup */

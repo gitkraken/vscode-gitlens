@@ -4,7 +4,7 @@ export interface Disposable {
 	dispose: () => void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
+// oxlint-disable-next-line typescript/no-namespace
 export namespace DOM {
 	export function on<K extends keyof WindowEventMap>(
 		window: Window,

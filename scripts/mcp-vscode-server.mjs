@@ -1461,7 +1461,7 @@ server.tool(
 			}
 			const value = await result.frameLocator.locator('body').evaluate(
 				(body, expr) => {
-					const fn = new Function(`return (${expr})`); // eslint-disable-line no-new-func -- intentional: inspector tool for local dev
+					const fn = new Function(`return (${expr})`); // oxlint-disable-line no-new-func -- intentional: inspector tool for local dev
 					return fn();
 				},
 				args.expression,

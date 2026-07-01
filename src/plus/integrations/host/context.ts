@@ -202,6 +202,7 @@ function createIntegrationServiceHooks(container: Container): IntegrationService
 								'hostingProvider.provider': id,
 								'hostingProvider.key': key,
 								// Deprecated
+								// oxlint-disable-next-line typescript/no-deprecated
 								'remoteProviders.key': key,
 							},
 						);

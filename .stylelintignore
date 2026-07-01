@@ -7,7 +7,7 @@ node_modules
 src/**/*.ts
 !src/webviews/apps/**/*.ts
 
-# Generated files (kept in sync with .prettierignore)
+# Generated files (kept in sync with .oxfmtrc.json ignorePatterns)
 src/webviews/apps/shared/glicons.scss
 src/webviews/apps/shared/components/icons/codicons-map.ts
 src/webviews/apps/shared/components/icons/glicons-map.ts

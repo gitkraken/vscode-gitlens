@@ -66,7 +66,7 @@ export class MenuItem extends LitElement {
 	href?: string;
 
 	@property({ reflect: true })
-	// eslint-disable-next-line lit/no-native-attributes
+	// oxlint-disable-next-line lit/no-native-attributes
 	override role = 'option';
 
 	updateInteractiveState(): void {

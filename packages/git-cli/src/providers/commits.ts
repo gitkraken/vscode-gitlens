@@ -887,7 +887,7 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 						}
 						return moreLog.commits;
 					},
-					// eslint-disable-next-line no-loop-func
+					// oxlint-disable-next-line no-loop-func
 					query: (limit: number | undefined) =>
 						this.getLogCore(log.repoPath, rev, { ...options, limit: limit }),
 				};

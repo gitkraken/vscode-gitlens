@@ -3,7 +3,7 @@ import { Cache } from '@gitlens/git/cache.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import type { GitDir } from '@gitlens/git/models/repository.js';
 import { GitTag } from '@gitlens/git/models/tag.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { Uri } from '@gitlens/utils/uri.js';
@@ -282,7 +282,7 @@ suite('Cache Test Suite', () => {
 				true,
 				'sole caller cancellation must propagate to the factory aggregate even after unregister',
 			);
-			await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p, (e: unknown) => isCancellationError(e));
 
 			// Resolve to unblock dangling reference cleanup
 			d.resolve({ values: [] });
@@ -449,7 +449,7 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, false, 'aggregate must not fire while p2 still waits');
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 
 			d.resolve({
 				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
@@ -869,7 +869,7 @@ suite('Cache Test Suite', () => {
 				'aggregate must not fire while another waiter (p2) is active',
 			);
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 			const result = await p2;
@@ -899,7 +899,7 @@ suite('Cache Test Suite', () => {
 			await flush();
 
 			assert.strictEqual(factorySignal!.aborted, true, 'solo caller cancelling must fire the factory aggregate');
-			await assert.rejects(p, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p, (e: unknown) => isCancellationError(e));
 
 			// Resolve deferred to avoid dangling promise even though we've observed rejection
 			d.resolve({ values: [] });
@@ -939,8 +939,8 @@ suite('Cache Test Suite', () => {
 				'aggregate must fire once every cancellable waiter aborts',
 			);
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 		});
@@ -979,7 +979,7 @@ suite('Cache Test Suite', () => {
 
 			// Resolve factory so mapper can run.
 			d.resolve({ values: [{ name: 'main' } as unknown as GitBranch] });
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 			const result = await p2;
 			assert.strictEqual(result.values.length, 1);
 
@@ -1029,8 +1029,8 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(mapperSignal.aborted, true, 'mapper aggregate must fire once every caller aborts');
 
-			await assert.rejects(p1, (e: unknown) => e instanceof CancellationError);
-			await assert.rejects(p2, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
+			await assert.rejects(p2, (e: unknown) => isCancellationError(e));
 
 			// Unblock mapper so its promise can settle and the test cleans up
 			mapperDeferred.resolve();
@@ -1063,7 +1063,7 @@ suite('Cache Test Suite', () => {
 			await flush();
 			assert.strictEqual(factorySignal!.aborted, false, 'permanent slot must keep aggregate alive');
 
-			await assert.rejects(cancellable, (e: unknown) => e instanceof CancellationError);
+			await assert.rejects(cancellable, (e: unknown) => isCancellationError(e));
 
 			d.resolve({ values: [] });
 			const result = await permanent;

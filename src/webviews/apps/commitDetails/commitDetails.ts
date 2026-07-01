@@ -167,12 +167,12 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		// Supertalk remote proxy properties are thenable at runtime (ProxyProperty with .then()),
 		// but Remote<T> types them as synchronous values. The lint rule correctly detects the
 		// thenable; the disable is required — this is how Supertalk property access works.
-		/* eslint-disable @typescript-eslint/await-thenable */
+		/* oxlint-disable typescript/await-thenable */
 		const [orgSettingsSignal, hasAccountSignal] = await Promise.all([
 			subscription.orgSettingsState,
 			subscription.hasAccountState,
 		]);
-		/* eslint-enable @typescript-eslint/await-thenable */
+		/* oxlint-enable typescript/await-thenable */
 
 		// Connect remote signal bridges — single .get() instead of double .get().get()
 		s.orgSettings.connect(orgSettingsSignal);

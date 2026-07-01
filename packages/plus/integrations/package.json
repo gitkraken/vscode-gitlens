@@ -8,10 +8,10 @@
 	"sideEffects": false,
 	"scripts": {
 		"build": "tsc -b",
-		"clean": "pnpx rimraf --glob dist out .eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean": "pnpx rimraf --glob dist out **/tsconfig*.tsbuildinfo",
 		"clean:all": "pnpm run clean && pnpm run clean:deps",
 		"clean:deps": "pnpx rimraf --glob **/node_modules",
-		"clean:lint": "pnpx rimraf --glob **/.eslintcache* **/tsconfig*.tsbuildinfo",
+		"clean:lint": "pnpx rimraf --glob **/tsconfig*.tsbuildinfo",
 		"test": "node scripts/test.mjs"
 	},
 	"exports": {

@@ -137,7 +137,7 @@ async function connectViaGkDev(
 				return Promise.race([
 					deferred.promise,
 					new Promise<string | undefined>((_, reject) => {
-						// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+						// oxlint-disable-next-line typescript/prefer-promise-reject-errors
 						controller.signal.addEventListener('abort', () => reject('Cancelled'), { once: true });
 					}),
 					new Promise<string | undefined>((_, reject) => setTimeout(reject, 5 * 60 * 1000, 'Cancelled')),

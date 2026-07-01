@@ -1,4 +1,4 @@
-/* eslint-disable */
+/* oxlint-disable */
 // @ts-nocheck
 // Generated — DO NOT EDIT
 import type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';

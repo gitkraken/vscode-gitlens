@@ -92,7 +92,7 @@ export class VslsHostService implements Disposable {
 		requestType: RequestType<TRequest, TResponse>,
 		handler: (request: TRequest, cancellation: CancellationToken) => Promise<TResponse>,
 	) {
-		// eslint-disable-next-line prefer-arrow-callback
+		// oxlint-disable-next-line prefer-arrow-callback
 		this._service.onRequest(requestType.name, function (args: any[], cancellation: CancellationToken) {
 			let request;
 			for (const arg of args) {
@@ -172,7 +172,7 @@ export class VslsHostService implements Disposable {
 	}
 
 	@debug()
-	// eslint-disable-next-line @typescript-eslint/require-await
+	// oxlint-disable-next-line typescript/require-await
 	private async onGetRepositoriesForUriRequest(
 		request: GetRepositoriesForUriRequest,
 		_cancellation: CancellationToken,

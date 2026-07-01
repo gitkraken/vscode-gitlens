@@ -460,7 +460,7 @@ function suppressedMessage(suppressionKey: SuppressedMessages) {
 
 	for (const [key, value] of Object.entries(messages)) {
 		if (value !== true) {
-			// eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+			// oxlint-disable-next-line typescript/no-dynamic-delete
 			delete messages[key as keyof typeof messages];
 		}
 	}

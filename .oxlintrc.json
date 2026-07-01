@@ -31,7 +31,6 @@
 		"**/.codex",
 		"**/.DS_Store",
 		"**/.work/",
-		"**/.eslintcache*",
 		"**/.superpowers",
 		"**/.tasks",
 		"**/.vscode-clean/**/*",
@@ -151,6 +150,8 @@
 
 		"@gitlens/no-src-imports": "error",
 		"@gitlens/no-self-package-imports": "error",
+		"@gitlens/no-instanceof-cancellation-error": "error",
+		"@gitlens/one-var": "error",
 		"@gitlens/require-js-extension": "error",
 		"@gitlens/scoped-logger-usage": "error",
 		"@gitlens/require-block-body": "error",
@@ -194,14 +195,6 @@
 		// "import/no-unused-modules": "off",
 		// "import/no-unresolved": "off",
 		// "import/no-useless-path-segments": "error",
-		// "import/order": [
-		// 	"warn",
-		// 	{
-		// 		"alphabetize": { "order": "asc", "orderImportKind": "asc", "caseInsensitive": true },
-		// 		"groups": ["builtin", "external", "internal", "parent", "sibling", "index"],
-		// 		"newlines-between": "never"
-		// 	}
-		// ],
 
 		"typescript/await-thenable": "error",
 		"typescript/ban-ts-comment": ["error", { "minimumDescriptionLength": 10 }],

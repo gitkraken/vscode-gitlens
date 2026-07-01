@@ -1,4 +1,4 @@
-/* eslint-disable @gitlens/scoped-logger-usage */
+/* oxlint-disable @gitlens/scoped-logger-usage */
 import * as assert from 'assert';
 import type { LogChannel, LogChannelProvider } from '../logger.js';
 import { Logger } from '../logger.js';

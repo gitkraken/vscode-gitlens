@@ -29,7 +29,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 
 			// Clear split editors as though they were linked, because we can't handle the command states effectively
 			await Promise.allSettled(
-				// eslint-disable-next-line @typescript-eslint/await-thenable
+				// oxlint-disable-next-line typescript/await-thenable
 				[editor, ...getOtherVisibleTextEditors(editor)].map(e => this.container.fileAnnotations.clear(e)),
 			);
 		} catch (ex) {

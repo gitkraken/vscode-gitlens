@@ -962,7 +962,7 @@ export class Git {
 		// Ensure cleanup happens immediately when the generator is explicitly closed (e.g., via break or return)
 		// This is called by JavaScript when the generator is abandoned, ensuring logGitCommand is called
 		// synchronously rather than waiting for garbage collection.
-		// eslint-disable-next-line @typescript-eslint/no-meaningless-void-operator
+		// oxlint-disable-next-line typescript/no-meaningless-void-operator
 		return void cleanup();
 	}
 

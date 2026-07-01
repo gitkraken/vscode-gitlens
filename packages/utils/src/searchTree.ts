@@ -4,7 +4,6 @@ import { compareSubstring, compareSubstringIgnoreCase } from './string.js';
 
 const FIN = { done: true, value: undefined };
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface IKeyIterator<K> {
 	reset(key: K): this;
 	next(): this;
@@ -311,7 +310,7 @@ export class TernarySearchTree<K, V> {
 
 				node = node.mid;
 				return {
-					// eslint-disable-next-line no-loop-func
+					// oxlint-disable-next-line no-loop-func
 					[Symbol.iterator]: () => this._nodeIterator(node!, limit),
 				};
 			}

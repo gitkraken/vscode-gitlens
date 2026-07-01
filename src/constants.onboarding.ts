@@ -20,7 +20,7 @@ export const onboardingDefinitions = {
 		schema: '17.9.0',
 		scope: 'global',
 		reshowAfter: '17.9.0',
-		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+		// oxlint-disable-next-line typescript/no-unnecessary-type-assertion
 		state: undefined as unknown as { stepReached: number },
 	},
 

@@ -254,7 +254,7 @@ export class FileHistoryNode
 						flatMap(fileStatuses, f => getStatusFilePseudoCommits(f, currentUser)),
 						c => c.sha,
 						(original, c) =>
-							// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-arguments -- required for tsc to infer the correct extension GitCommit type
+							// oxlint-disable-next-line typescript/no-unnecessary-type-arguments -- required for tsc to infer the correct extension GitCommit type
 							original.with<typeof original>({
 								fileset: {
 									files: [...(original.fileset?.files ?? []), ...(c.fileset?.files ?? [])],

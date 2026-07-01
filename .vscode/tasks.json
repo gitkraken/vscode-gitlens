@@ -20,13 +20,7 @@
 			"type": "npm",
 			"script": "build",
 			"group": "build",
-			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
-		},
-		{
-			"type": "npm",
-			"script": "lint",
-			"group": "build",
-			"problemMatcher": ["$eslint-stylish"]
+			"problemMatcher": ["$ts-checker-webpack"]
 		},
 		{
 			"type": "npm",
@@ -57,33 +51,6 @@
 						},
 						{
 							"regexp": "\\s*TS(\\d+):\\s*(.*)$",
-							"code": 1,
-							"message": 2
-						}
-					],
-					"background": {
-						"activeOnStart": true,
-						"beginsPattern": "\\[build\\] Compilation starting",
-						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
-					}
-				},
-				{
-					"owner": "eslint",
-					"source": "eslint",
-					"applyTo": "closedDocuments",
-					"fileLocation": ["relative", "${cwd}"],
-					"severity": "warning",
-					"pattern": [
-						{
-							"kind": "location",
-							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
-							"severity": 1,
-							"file": 2,
-							"line": 3,
-							"column": 4
-						},
-						{
-							"regexp": "\\s*(@typescript-eslint\\/.+):\\s*(.*)$",
 							"code": 1,
 							"message": 2
 						}

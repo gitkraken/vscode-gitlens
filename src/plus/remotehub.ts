@@ -4,7 +4,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { ExtensionNotFoundError } from '../errors.js';
 
 export async function getRemoteHubApi(): Promise<RemoteHubApi>;
-// eslint-disable-next-line @typescript-eslint/unified-signatures
+// oxlint-disable-next-line typescript/unified-signatures
 export async function getRemoteHubApi(silent: false): Promise<RemoteHubApi>;
 export async function getRemoteHubApi(silent: boolean): Promise<RemoteHubApi | undefined>;
 export async function getRemoteHubApi(silent?: boolean): Promise<RemoteHubApi | undefined> {

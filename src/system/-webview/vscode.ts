@@ -21,7 +21,7 @@ export function getExtensionModeLabel(mode: ExtensionMode): string {
 		case ExtensionMode.Test:
 			return 'test';
 		default:
-			// eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+			// oxlint-disable-next-line typescript/restrict-template-expressions
 			return `unknown (${mode})`;
 	}
 }

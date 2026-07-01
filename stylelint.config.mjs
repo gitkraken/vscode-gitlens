@@ -17,7 +17,7 @@ import postcssScss from 'postcss-scss';
  * no-unsupported-browser-features plugin — kept as warnings so a new feature surfaces
  * without hard-failing the build.
  *
- * Prettier owns whitespace/formatting; stylelint owns conventions, property ordering
+ * oxfmt owns whitespace/formatting; stylelint owns conventions, property ordering
  * (recess-order, auto-fixable), and browser-support. The two don't overlap.
  */
 
@@ -33,7 +33,7 @@ const sharedRules = {
 	// Dense token blocks intentionally omit blank lines between custom properties
 	'custom-property-empty-line-before': null,
 	// Mirrors custom-property-empty-line-before: comments are written inline against the code they
-	// document, and Prettier owns whitespace — leaving this on rewrites files on every fix-on-save,
+	// document, and oxfmt owns whitespace — leaving this on rewrites files on every fix-on-save,
 	// shifting comment lines (notably in Lit `css``` templates round-tripped through postcss-lit)
 	'comment-empty-line-before': null,
 	// Intentional, hand-written prefixes required for browser support (-webkit-mask-*, -webkit-line-clamp, …)

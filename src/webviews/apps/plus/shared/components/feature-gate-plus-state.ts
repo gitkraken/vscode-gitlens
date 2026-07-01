@@ -160,7 +160,7 @@ export class GlFeatureGatePlusState extends LitElement {
 
 	override render(): unknown {
 		const hidden = this.state == null;
-		// eslint-disable-next-line lit/no-this-assign-in-render
+		// oxlint-disable-next-line lit/no-this-assign-in-render
 		this.hidden = hidden;
 		if (hidden) return undefined;
 

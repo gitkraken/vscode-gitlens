@@ -5,7 +5,7 @@ import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import type { AgentSessionProvider } from '../../agents/provider.js';
 import type { Container } from '../../container.js';
 // Force import of GitHub since dynamic imports are not supported in the WebWorker ExtensionHost
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+// oxlint-disable-next-line typescript/consistent-type-imports
 import { GlGitProvider } from '../../git/gitProvider.js';
 import type { RepositoryLocationProvider } from '../../git/location/repositorylocationProvider.js';
 import { GlGitHubGitProvider } from '../../plus/integrations/host/providers/githubGitProvider.js';

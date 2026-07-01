@@ -220,7 +220,7 @@ export class SubscriptionService implements Disposable {
 
 					// Replace the next `onAuthenticationChanged` handler to avoid our own trigger below
 					const fn = this.onAuthenticationChanged;
-					// eslint-disable-next-line @typescript-eslint/require-await
+					// oxlint-disable-next-line typescript/require-await
 					this.onAuthenticationChanged = async () => {
 						this.onAuthenticationChanged = fn;
 					};

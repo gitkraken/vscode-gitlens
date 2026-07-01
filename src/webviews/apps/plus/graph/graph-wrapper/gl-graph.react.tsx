@@ -1284,7 +1284,7 @@ function getActiveRowInfo(activeRow: string | undefined): { id: string; date: nu
 type LitElementProps<T> = React.HTMLAttributes<T> & Partial<Omit<T, keyof HTMLElement>>;
 
 declare global {
-	// eslint-disable-next-line @typescript-eslint/no-namespace
+	// oxlint-disable-next-line typescript/no-namespace
 	namespace React.JSX {
 		interface IntrinsicElements {
 			'gl-button': LitElementProps<GlButton>;
