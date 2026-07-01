@@ -44,6 +44,7 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -463,6 +464,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			// Overview/Agents panels manage their own data via reactive state, skip sidebar fetch.
 			if (this.activePanel != null && this.activePanel !== 'overview' && this.activePanel !== 'agents') {
 				this._actions.fetchPanel(this.activePanel);
+			}
+
+			if (this.activePanel === 'remotes') {
+				this.emitRemotesShownTelemetry();
 			}
 		}
 	}
@@ -1264,6 +1269,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleFilterChanged = (e: CustomEvent<string>) => {
 		this._actions.filterText = e.detail;
+
+		if (this.activePanel === 'remotes') {
+			emitTelemetrySentEvent<'graph/remotes/filtered'>(this, {
+				name: 'graph/remotes/filtered',
+				data: {
+					hasFilter: e.detail.length > 0,
+					'filter.length': e.detail.length,
+					'remotes.count': this.getRemotesCount(),
+				},
+			});
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1278,11 +1294,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {
+		if (this.activePanel === 'remotes') {
+			const action = command === 'gitlens.views.addRemote' ? 'addRemote' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+					name: 'graph/remotes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
+
+		if (this.activePanel === 'remotes') {
+			const data = this._actions?.state.panels.remotes?.value.get();
+			const newLayout = data?.layout === 'tree' ? 'list' : 'tree';
+			emitTelemetrySentEvent<'graph/remotes/layoutToggled'>(this, {
+				name: 'graph/remotes/layoutToggled',
+				data: {
+					layout: newLayout,
+					'remotes.count': this.getRemotesCount(),
+				},
+			});
+		}
 
 		this._actions?.toggleLayout(this.activePanel);
 	}
@@ -1295,6 +1333,13 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				| null;
 			overview?.refresh?.();
 			return;
+		}
+
+		if (this.activePanel === 'remotes') {
+			emitTelemetrySentEvent<'graph/remotes/headerAction'>(this, {
+				name: 'graph/remotes/headerAction',
+				data: { action: 'refresh' },
+			});
 		}
 
 		this._actions?.refresh(this.activePanel);
@@ -1315,6 +1360,11 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const useAlt = e.detail.altKey && action.altAction != null;
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
+
+		if (this.activePanel === 'remotes') {
+			this.emitRemotesTreeItemActionTelemetry(command, useAlt);
+		}
+
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
@@ -1363,6 +1413,53 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private getRemotesData(): GraphSidebarRemote[] | undefined {
+		const data = this._actions?.state.panels.remotes?.value.get();
+		if (data?.panel !== 'remotes') return undefined;
+		return data.items;
+	}
+
+	private getRemotesCount(): number {
+		return this.getRemotesData()?.length ?? 0;
+	}
+
+	private emitRemotesShownTelemetry(): void {
+		const remotes = this.getRemotesData();
+		if (remotes == null) return;
+
+		const data = this._actions?.state.panels.remotes?.value.get();
+		emitTelemetrySentEvent<'graph/remotes/shown'>(this, {
+			name: 'graph/remotes/shown',
+			data: {
+				layout: data?.layout ?? 'list',
+				'remotes.count': remotes.length,
+				'remotes.connected.count': remotes.filter(r => r.connected === true).length,
+				hasMultipleRemotes: remotes.length > 1,
+			},
+		});
+	}
+
+	private emitRemotesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const actionMap: Record<
+			string,
+			'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration'
+		> = {
+			'gitlens.fetchRemote:graph': 'fetch',
+			'gitlens.openRepoOnRemote:graph': 'openOnRemote',
+			'gitlens.copyRemoteRepositoryUrl:graph': 'copyUrl',
+			'gitlens.connectRemoteProvider:graph': 'connectIntegration',
+			'gitlens.disconnectRemoteProvider:graph': 'disconnectIntegration',
+		};
+
+		const action = actionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
+			name: 'graph/remotes/remoteAction',
+			data: { action: action, alt: alt },
+		});
+	}
 }
 
 /**
