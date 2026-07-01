@@ -44,7 +44,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 	async provideTerminalLinks(context: TerminalLinkContext, token: CancellationToken): Promise<GitTerminalLink[]> {
 		if (context.line.trim().length === 0) return [];
 
-		const repoPath = this.container.git.highlander?.path;
+		const repoPath = await this.getTerminalRepositoryPath(context);
 		if (!repoPath) return [];
 
 		const showDetailsView = configuration.get('terminalLinks.showDetailsView');
@@ -100,6 +100,25 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
+			if (shaRegex.test(ref)) {
+				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
+					startIndex: match.index,
+					length: ref.length,
+					tooltip: 'Show Commit',
+					command: showDetailsView
+						? createTerminalLinkCommand<InspectCommandArgs>('gitlens.showInDetailsView', {
+								ref: createReference(ref, repoPath, { refType: 'revision' }),
+							})
+						: createTerminalLinkCommand<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', {
+								repoPath: repoPath,
+								sha: ref,
+							}),
+				};
+				links.push(link);
+
+				continue;
+			}
+
 			const svc = this.container.git.getRepositoryService(repoPath);
 			// TODO@eamodio handle paging
 			branchResults ??= await svc.branches.getBranches(undefined, toAbortSignal(token)).catch(() => undefined);
@@ -142,45 +161,39 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 				continue;
 			}
 
-			if (!shaRegex.test(ref)) {
-				if (rangeRegex.test(ref)) {
-					const link: GitTerminalLink<GitWizardCommandArgs> = {
-						startIndex: match.index,
-						length: ref.length,
-						tooltip: 'Show Commits',
-						command: createTerminalLinkCommand<GitWizardCommandArgs>('gitlens.gitCommands', {
-							command: 'log',
-							state: {
-								repo: repoPath,
-								reference: createReference(ref, repoPath, { refType: 'revision' }),
-							},
-						}),
-					};
-					links.push(link);
-				}
-
-				continue;
-			}
-
-			if (await svc.refs.isValidReference(ref, undefined, toAbortSignal(token)).catch(() => false)) {
-				const link: GitTerminalLink<ShowQuickCommitCommandArgs | InspectCommandArgs> = {
+			if (rangeRegex.test(ref)) {
+				const link: GitTerminalLink<GitWizardCommandArgs> = {
 					startIndex: match.index,
 					length: ref.length,
-					tooltip: 'Show Commit',
-					command: showDetailsView
-						? createTerminalLinkCommand<InspectCommandArgs>('gitlens.showInDetailsView', {
-								ref: createReference(ref, repoPath, { refType: 'revision' }),
-							})
-						: createTerminalLinkCommand<ShowQuickCommitCommandArgs>('gitlens.showQuickCommitDetails', {
-								repoPath: repoPath,
-								sha: ref,
-							}),
+					tooltip: 'Show Commits',
+					command: createTerminalLinkCommand<GitWizardCommandArgs>('gitlens.gitCommands', {
+						command: 'log',
+						state: {
+							repo: repoPath,
+							reference: createReference(ref, repoPath, { refType: 'revision' }),
+						},
+					}),
 				};
 				links.push(link);
 			}
+
+			continue;
 		} while (true);
 
 		return links;
+	}
+
+	private async getTerminalRepositoryPath(context: TerminalLinkContext): Promise<string | undefined> {
+		const repo = this.container.git.highlander;
+		if (repo != null) return repo.path;
+
+		const cwd = context.terminal.shellIntegration?.cwd;
+		if (cwd != null) {
+			return (await this.container.git.getOrOpenRepository(cwd, { detectNested: true }).catch(() => undefined))
+				?.path;
+		}
+
+		return this.container.git.getBestRepositoryOrFirst()?.path;
 	}
 
 	handleTerminalLink(link: GitTerminalLink): void {
