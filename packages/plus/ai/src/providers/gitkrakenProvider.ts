@@ -47,6 +47,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 					preferred: boolean;
 					maxInputTokens: number;
 					maxOutputTokens: number;
+					consumptionRateLabel?: string;
 				}[];
 				error?: null;
 			}
@@ -65,6 +66,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 						provider: provider,
 						default: m.preferred,
 						temperature: null,
+						consumptionRateLabel: m.consumptionRateLabel,
 					}) satisfies GitKrakenModel,
 			);
 			return models;

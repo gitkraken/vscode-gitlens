@@ -13,6 +13,8 @@ export interface AIModel<Provider extends AIProviders = AIProviders, Model exten
 	readonly hidden?: boolean;
 
 	readonly temperature?: number | null;
+
+	readonly consumptionRateLabel?: string;
 }
 
 export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, Model extends string = string> {
