@@ -1,4 +1,10 @@
 import type { AIActionType, AIModel } from '../models/model.js';
+import type { AIFinishReason } from '../models/provider.js';
+
+/** Whether the model declined to fulfill the request (refused or content-filtered) */
+export function didModelDecline(finishReason: AIFinishReason | undefined): boolean {
+	return finishReason === 'refusal' || finishReason === 'content_filter';
+}
 
 export function getActionName(action: AIActionType): string {
 	switch (action) {

@@ -76,15 +76,25 @@ function parseSeverity(value: string | undefined): AIReviewSeverity {
 	return 'suggestion';
 }
 
+/** Shared range policy for the XML and JSON parse routes: no usable start → no range; a missing
+ *  or unusable end collapses to start */
+function normalizeLineRange(
+	start: number | undefined,
+	end: number | undefined,
+): { start: number; end: number } | undefined {
+	if (start == null || !Number.isFinite(start)) return undefined;
+
+	// Truncate and clamp — prompt-only providers can emit fractional or reversed bounds
+	start = Math.trunc(start);
+	const resolved = end != null && Number.isFinite(end) ? Math.trunc(end) : start;
+	return { start: start, end: Math.max(start, resolved) };
+}
+
 function parseLineRange(value: string | undefined): { start: number; end: number } | undefined {
 	if (!value) return undefined;
 
 	const parts = value.split('-');
-	const start = parseInt(parts[0], 10);
-	if (isNaN(start)) return undefined;
-
-	const end = parts.length > 1 ? parseInt(parts[1], 10) : start;
-	return { start: start, end: isNaN(end) ? start : end };
+	return normalizeLineRange(parseInt(parts[0], 10), parts.length > 1 ? parseInt(parts[1], 10) : undefined);
 }
 
 function parseFindings(content: string, idPrefix: string): AIReviewFinding[] {
@@ -141,36 +151,32 @@ export function parseReviewResult(result: string, mode: 'single-pass' | 'two-pas
 	return { overview: overview, focusAreas: focusAreas, mode: mode };
 }
 
-function serializeAttrValue(value: string): string {
-	// parseAttr's regex can't cope with embedded double-quotes
-	return value.replaceAll('"', "'");
+function serializeFindingJson(finding: AIReviewFinding): ReviewFindingJson {
+	return {
+		severity: finding.severity,
+		title: finding.title,
+		description: finding.description,
+		file: finding.filePath ?? null,
+		lines: finding.lineRange != null ? { start: finding.lineRange.start, end: finding.lineRange.end } : null,
+	};
 }
 
-function serializeFinding(finding: AIReviewFinding): string {
-	const attrs = [`severity="${finding.severity}"`];
-	if (finding.filePath) {
-		attrs.push(`file="${serializeAttrValue(finding.filePath)}"`);
-	}
-	if (finding.lineRange != null) {
-		attrs.push(`lines="${finding.lineRange.start}-${finding.lineRange.end}"`);
-	}
-	return `<finding ${attrs.join(' ')}>\n<title>${finding.title}</title>\n<description>${finding.description}</description>\n</finding>`;
-}
-
-/** Inverse of {@link parseReviewResult} — emits the same XML the review prompt templates instruct,
- *  so a prior result can be replayed as an assistant turn in a follow-up conversation. */
+/** Inverse of {@link parseReviewResultJson} — emits the same JSON shape the review prompt templates
+ *  instruct (and the schemas enforce), so a prior result can be replayed as an assistant turn in a
+ *  follow-up conversation without contradicting the format the model is being asked to produce. */
 export function serializeReviewResult(result: AIReviewResult): string {
-	const areas = result.focusAreas.map(area => {
-		const parts = [`<label>${area.label}</label>`, `<rationale>${area.rationale}</rationale>`];
-		if (area.findings != null) {
-			parts.push(`<findings>\n${area.findings.map(serializeFinding).join('\n')}\n</findings>`);
-		}
-		return `<area severity="${area.severity}" files="${serializeAttrValue(area.files.join(','))}">\n${parts.join(
-			'\n',
-		)}\n</area>`;
-	});
+	const json: ReviewResultJson = {
+		overview: result.overview,
+		focusAreas: result.focusAreas.map(area => ({
+			label: area.label,
+			rationale: area.rationale,
+			severity: area.severity,
+			files: [...area.files],
+			findings: area.findings?.map(serializeFindingJson) ?? null,
+		})),
+	};
 
-	return `<overview>\n${result.overview}\n</overview>\n<focus-areas>\n${areas.join('\n')}\n</focus-areas>`;
+	return JSON.stringify(json, undefined, 2);
 }
 
 export function parseReviewDetailResult(result: string, focusAreaId: string): AIReviewDetailResult {
@@ -180,4 +186,222 @@ export function parseReviewDetailResult(result: string, focusAreaId: string): AI
 	const findings = parseFindings(findingsBlock, focusAreaId);
 
 	return { findings: findings };
+}
+
+interface ReviewFindingJson {
+	severity?: string;
+	title?: string;
+	description?: string;
+	file?: string | null;
+	lines?: { start?: number; end?: number } | null;
+}
+
+interface ReviewResultJson {
+	overview?: string;
+	focusAreas?:
+		| {
+				label?: string;
+				rationale?: string;
+				severity?: string;
+				files?: (string | null)[] | null;
+				findings?: ReviewFindingJson[] | null;
+		  }[]
+		| null;
+}
+
+const fencedJsonBlockRegex = /```(?:json)?\s*([\s\S]*?)\s*```/;
+
+/** Returns the contents of the first fenced code block, or the trimmed input when unfenced */
+export function stripJsonCodeFence(text: string): string {
+	const fenced = fencedJsonBlockRegex.exec(text);
+	return (fenced?.[1] ?? text).trim();
+}
+
+/**
+ * Extracts the first JSON object from the text — tolerating code fences and surrounding prose,
+ * since providers without native schema enforcement often wrap the object in explanatory text.
+ * Pass `isExpectedShape` so prose braces and stray JSON fragments (including complete nested
+ * objects inside truncated output) can't be mistaken for the payload.
+ */
+export function extractJsonObject(
+	text: string,
+	isExpectedShape?: (parsed: Record<string, unknown>) => boolean,
+): Record<string, unknown> | undefined {
+	text = text.trim();
+
+	let parsed = tryParseObject(text, isExpectedShape);
+	if (parsed != null) return parsed;
+
+	parsed = tryParseObject(stripJsonCodeFence(text), isExpectedShape);
+	if (parsed != null) return parsed;
+
+	// Fall back to balanced objects embedded in surrounding prose, trying each candidate start —
+	// prose braces may be unbalanced (`render() {`) or parse to a different shape than expected
+	let index = text.indexOf('{');
+	while (index !== -1) {
+		const balanced = extractBalancedObject(text, index);
+		if (balanced != null) {
+			parsed = tryParseObject(balanced, isExpectedShape);
+			if (parsed != null) return parsed;
+		}
+
+		index = text.indexOf('{', index + 1);
+	}
+
+	return undefined;
+}
+
+function tryParseObject(
+	text: string,
+	isExpectedShape?: (parsed: Record<string, unknown>) => boolean,
+): Record<string, unknown> | undefined {
+	if (!text.startsWith('{')) return undefined;
+
+	try {
+		const parsed: unknown = JSON.parse(text);
+		if (typeof parsed !== 'object' || parsed == null || Array.isArray(parsed)) return undefined;
+
+		const obj = parsed as Record<string, unknown>;
+		return isExpectedShape == null || isExpectedShape(obj) ? obj : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function extractBalancedObject(text: string, start: number): string | undefined {
+	let depth = 0;
+	let inString = false;
+	let escaped = false;
+
+	for (let i = start; i < text.length; i++) {
+		const ch = text[i];
+		if (escaped) {
+			escaped = false;
+			continue;
+		}
+
+		if (inString) {
+			if (ch === '\\') {
+				escaped = true;
+			} else if (ch === '"') {
+				inString = false;
+			}
+			continue;
+		}
+
+		if (ch === '"') {
+			inString = true;
+		} else if (ch === '{') {
+			depth++;
+		} else if (ch === '}') {
+			depth--;
+			if (depth === 0) return text.substring(start, i + 1);
+		}
+	}
+
+	return undefined;
+}
+
+/** Guards schema-typed string fields against non-string values from prompt-only providers */
+function trimmedString(value: unknown): string | undefined {
+	return typeof value === 'string' ? value.trim() : undefined;
+}
+
+/** Line numbers are integers per the schema, but prompt-only providers can emit numeric strings */
+function coerceLineNumber(value: unknown): number | undefined {
+	if (typeof value === 'number') return value;
+	if (typeof value === 'string') return parseInt(value, 10);
+	return undefined;
+}
+
+// Normalizes schema null-unions (null → undefined) and synthesizes the same 1-based positional ids
+// as the XML parsers, so ids stay stable regardless of which parse route handled the response
+function normalizeFindingJson(finding: ReviewFindingJson, id: string): AIReviewFinding {
+	return {
+		id: id,
+		severity: parseSeverity(trimmedString(finding.severity)),
+		title: trimmedString(finding.title) || 'Untitled finding',
+		description: trimmedString(finding.description) ?? '',
+		filePath: trimmedString(finding.file) || undefined,
+		lineRange: normalizeLineRange(coerceLineNumber(finding.lines?.start), coerceLineNumber(finding.lines?.end)),
+	};
+}
+
+/** Parses a review result, preferring the JSON shape and falling back to the legacy XML format */
+export function parseReviewResultJson(result: string, mode: 'single-pass' | 'two-pass'): AIReviewResult {
+	// An empty response is never a valid review — don't render it as a clean "no issues" result
+	if (!result.trim()) throw new Error('The AI model returned an empty response');
+
+	const parsed = extractJsonObject(result, o => typeof o.overview === 'string' || Array.isArray(o.focusAreas)) as
+		| ReviewResultJson
+		| undefined;
+	const overview = typeof parsed?.overview === 'string' ? parsed.overview.trim() : undefined;
+	const areas = Array.isArray(parsed?.focusAreas) ? parsed.focusAreas : undefined;
+
+	if (overview == null && areas == null) {
+		const fallback = parseReviewResult(result, mode);
+		// A non-empty response matching neither shape is malformed (e.g. truncated JSON) — surface
+		// that rather than rendering it as a clean "no issues" review
+		if (!fallback.overview && fallback.focusAreas.length === 0 && !result.includes('<overview')) {
+			throw new Error('Unable to parse the review response from the AI model');
+		}
+		return fallback;
+	}
+
+	const focusAreas: AIReviewFocusArea[] = [];
+	let areaIndex = 0;
+
+	for (const area of areas ?? []) {
+		if (area == null || typeof area !== 'object') continue;
+
+		areaIndex++;
+		// Finding ids MUST stay namespaced by area id — dismissed findings are tracked in one flat
+		// set spanning all areas, so bare per-area indices would collide across areas
+		const id = `area-${areaIndex}`;
+
+		const findings = Array.isArray(area.findings)
+			? area.findings.filter((f): f is ReviewFindingJson => f != null && typeof f === 'object')
+			: undefined;
+
+		focusAreas.push({
+			id: id,
+			label: trimmedString(area.label) || 'Untitled area',
+			rationale: trimmedString(area.rationale) ?? '',
+			severity: parseSeverity(trimmedString(area.severity)),
+			files: Array.isArray(area.files)
+				? area.files.map(f => trimmedString(f)).filter((f): f is string => Boolean(f))
+				: [],
+			findings: findings?.map((f, i) => normalizeFindingJson(f, `${id}-f${i + 1}`)),
+		});
+	}
+
+	return { overview: overview ?? '', focusAreas: focusAreas, mode: mode };
+}
+
+/** Parses a review detail result, preferring the JSON shape and falling back to the legacy XML format */
+export function parseReviewDetailResultJson(result: string, focusAreaId: string): AIReviewDetailResult {
+	// An empty response is never a valid result — don't render it as "no findings"
+	if (!result.trim()) throw new Error('The AI model returned an empty response');
+
+	const parsed = extractJsonObject(result, o => o.findings === null || Array.isArray(o.findings)) as
+		| { findings?: ReviewFindingJson[] | null }
+		| undefined;
+	// Tolerate the sibling result schema's null-union — a null `findings` means "no findings"
+	if (parsed?.findings === null) return { findings: [] };
+
+	if (parsed == null || !Array.isArray(parsed.findings)) {
+		const fallback = parseReviewDetailResult(result, focusAreaId);
+		// Same malformed-response guard as parseReviewResultJson above; an empty legacy
+		// `<findings>` block is a legitimate "no findings" response, not a parse failure
+		if (fallback.findings.length === 0 && !result.includes('<findings')) {
+			throw new Error('Unable to parse the review response from the AI model');
+		}
+		return fallback;
+	}
+
+	return {
+		findings: parsed.findings
+			.filter((f): f is ReviewFindingJson => f != null && typeof f === 'object')
+			.map((f, i) => normalizeFindingJson(f, `${focusAreaId}-f${i + 1}`)),
+	};
 }

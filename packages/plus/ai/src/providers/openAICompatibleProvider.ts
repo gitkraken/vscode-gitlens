@@ -27,6 +27,11 @@ export class OpenAICompatibleProvider extends OpenAICompatibleProviderBase<typeo
 		return cfg.url || undefined;
 	}
 
+	// Unknown user-configured backend — fall back to prompt-described JSON
+	protected override supportsResponseFormat(_model: AIModel<typeof provider.id>): boolean {
+		return false;
+	}
+
 	private async getOrPromptBaseUrl(silent: boolean, hasApiKey: boolean): Promise<string | undefined> {
 		const orgConf = this.context.getProviderConfig(this.id);
 		if (!orgConf.enabled) return undefined;

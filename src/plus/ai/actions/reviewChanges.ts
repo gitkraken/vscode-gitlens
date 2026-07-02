@@ -5,10 +5,15 @@ import type {
 	PromptTemplateType,
 	TruncationHandler,
 } from '@gitlens/ai/models/promptTemplates.js';
-import type { AIChatMessage } from '@gitlens/ai/models/provider.js';
+import type { AIChatMessage, AIResponseFormat } from '@gitlens/ai/models/provider.js';
 import type { AIReviewDetailResult, AIReviewResult } from '@gitlens/ai/models/results.js';
-import { estimatedCharactersPerToken } from '@gitlens/ai/utils/ai.utils.js';
-import { parseReviewDetailResult, parseReviewResult, serializeReviewResult } from '@gitlens/ai/utils/results.utils.js';
+import { reviewDetailSchema, reviewOverviewSchema, reviewResultSchema } from '@gitlens/ai/prompts.js';
+import { didModelDecline, estimatedCharactersPerToken } from '@gitlens/ai/utils/ai.utils.js';
+import {
+	parseReviewDetailResultJson,
+	parseReviewResultJson,
+	serializeReviewResult,
+} from '@gitlens/ai/utils/results.utils.js';
 import { truncatePromptWithDiff } from '@gitlens/ai/utils/truncation.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { TelemetryEvents } from '../../../constants.telemetry.js';
@@ -73,6 +78,7 @@ interface RunReviewSpec<TTemplate extends PromptTemplateType, TResult> {
 	progressTitleVerb: string;
 	reviewMode: 'single-pass' | 'two-pass';
 	truncation: TruncationHandler<TTemplate> | undefined;
+	responseFormat: AIResponseFormat;
 	parse: (content: string) => TResult;
 }
 
@@ -173,22 +179,27 @@ async function runReview<TTemplate extends PromptTemplateType, TResult>(
 			}),
 		},
 		source,
-		options,
+		{ ...options, responseFormat: spec.responseFormat },
 	);
 	if (result == null || result === 'cancelled') return result;
 
-	const promise: Promise<AIResponse<TResult> | 'cancelled' | undefined> = result.promise.then(result =>
-		result === 'cancelled'
-			? result
-			: result != null
-				? {
-						...result,
-						type: 'review-changes' as const,
-						feature: `review-${context.type}`,
-						result: spec.parse(result.content),
-					}
-				: undefined,
-	);
+	const promise: Promise<AIResponse<TResult> | 'cancelled' | undefined> = result.promise.then(result => {
+		if (result === 'cancelled' || result == null) return result ?? undefined;
+
+		if (result.finishReason === 'length') {
+			throw new Error('The review response was truncated — try reviewing a smaller set of changes');
+		}
+		if (didModelDecline(result.finishReason)) {
+			throw new Error('The AI model declined to review these changes');
+		}
+
+		return {
+			...result,
+			type: 'review-changes' as const,
+			feature: `review-${context.type}`,
+			result: spec.parse(result.content),
+		};
+	});
 
 	return {
 		...result,
@@ -217,7 +228,8 @@ export function reviewChanges(
 			progressTitleVerb: 'Reviewing changes',
 			reviewMode: 'single-pass',
 			truncation: truncatePromptWithDiff,
-			parse: content => parseReviewResult(content, 'single-pass'),
+			responseFormat: reviewResultSchema,
+			parse: content => parseReviewResultJson(content, 'single-pass'),
 		},
 		followUp,
 		rest,
@@ -243,7 +255,8 @@ export function reviewOverview(
 			progressTitleVerb: 'Analyzing changes',
 			reviewMode: 'two-pass',
 			truncation: undefined,
-			parse: content => parseReviewResult(content, 'two-pass'),
+			responseFormat: reviewOverviewSchema,
+			parse: content => parseReviewResultJson(content, 'two-pass'),
 		},
 		followUp,
 		rest,
@@ -269,7 +282,8 @@ export function reviewFocusArea(
 			progressTitleVerb: 'Reviewing focus area',
 			reviewMode: 'two-pass',
 			truncation: truncatePromptWithDiff,
-			parse: content => parseReviewDetailResult(content, focusAreaId),
+			responseFormat: reviewDetailSchema,
+			parse: content => parseReviewDetailResultJson(content, focusAreaId),
 		},
 		undefined,
 		options,

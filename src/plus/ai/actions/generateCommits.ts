@@ -2,6 +2,9 @@ import type { CancellationToken, ProgressOptions } from 'vscode';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import type { AIProviderResponse } from '@gitlens/ai/models/provider.js';
+import { generateCommitsExampleJson, generateCommitsSchema } from '@gitlens/ai/prompts.js';
+import { didModelDecline } from '@gitlens/ai/utils/ai.utils.js';
+import { extractJsonObject, stripJsonCodeFence } from '@gitlens/ai/utils/results.utils.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Deferred } from '@gitlens/utils/promise.js';
@@ -154,6 +157,30 @@ export async function generateCommits(
 			},
 
 			validateResponse: (response, _attempt) => {
+				if (didModelDecline(response.finishReason)) {
+					throw new Error('The AI model declined to generate commits for these changes');
+				}
+
+				if (response.finishReason === 'length') {
+					// Don't append the (large) truncated output — retrying with it in context only
+					// shrinks the room the model has to complete the response
+					const retryPrompt = dedent(`
+						Your previous response was cut off because it exceeded the output limit.
+
+						Provide the complete JSON object again, but keep each "explanation" to 1-2 concise sentences so the entire response fits.
+					`);
+					conversation.addMessages([
+						{ role: 'assistant', content: '[response omitted — it was truncated]' },
+						{ role: 'user', content: retryPrompt },
+					]);
+
+					return {
+						isValid: false,
+						errorMessage: 'Response was truncated (output token limit exceeded)',
+						retryPrompt: retryPrompt,
+					};
+				}
+
 				const validationResult = validateCommitsResponse(response, hunks, existingCommits);
 				if (validationResult.isValid) {
 					conversation.addMessage({ role: 'assistant', content: response.content });
@@ -184,7 +211,7 @@ export async function generateCommits(
 			}),
 		},
 		source,
-		options,
+		{ ...options, responseFormat: generateCommitsSchema },
 	);
 
 	if (retryResult === 'cancelled' || retryResult == null) {
@@ -194,11 +221,47 @@ export async function generateCommits(
 	return { commits: retryResult.result, conversation: conversation };
 }
 
-function parseOutputResult(result: string): string {
-	return result.match(/<output>([\s\S]*?)(?:<\/output>|$)/)?.[1]?.trim() ?? '';
+/** Extracts the commits JSON, tolerating code fences, surrounding prose, and the legacy `<output>`/bare-array shapes */
+export function extractCommitsJson(content: string): unknown {
+	const text = content.trim();
+
+	// Parse-first: the legacy unwrap below is unanchored, so running it eagerly would mangle valid
+	// JSON whose message/explanation strings merely mention the old `<output>` tag
+	const parseCommits = (json: string): unknown => {
+		try {
+			const parsed: unknown = JSON.parse(json);
+			// Legacy shape was a bare top-level array
+			const result = Array.isArray(parsed) ? { commits: parsed } : parsed;
+			// Shape-gate every route, so a fenced or wrapped non-payload object (e.g. a preamble the
+			// model emitted first) can't short-circuit the search before the real payload is reached
+			return isCommitsShape(result) ? result : undefined;
+		} catch {
+			return undefined;
+		}
+	};
+
+	const parsed = parseCommits(stripJsonCodeFence(text));
+	if (parsed != null) return parsed;
+
+	// Legacy wrapper from the previous (v2) prompt generation
+	const legacy = /<output>([\s\S]*?)(?:<\/output>|$)/.exec(text);
+	if (legacy != null) {
+		const unwrapped = parseCommits(stripJsonCodeFence(legacy[1].trim()));
+		if (unwrapped != null) return unwrapped;
+	}
+
+	// Last resort: the first balanced JSON object embedded in surrounding prose
+	const embedded = extractJsonObject(text, o => Array.isArray(o.commits));
+	if (embedded != null) return embedded;
+
+	throw new Error('Response is not valid JSON');
 }
 
-function validateCommitsResponse(
+function isCommitsShape(value: unknown): boolean {
+	return value != null && typeof value === 'object' && Array.isArray((value as { commits?: unknown }).commits);
+}
+
+export function validateCommitsResponse(
 	rq: AIProviderResponse<void>,
 	inputHunks: {
 		index: number;
@@ -220,17 +283,17 @@ function validateCommitsResponse(
 	  }
 	| { isValid: false; errorMessage: string; retryPrompt: string } {
 	try {
-		const rqContent = parseOutputResult(rq.content);
+		const parsed = extractCommitsJson(rq.content) as {
+			commits?: {
+				readonly message: string;
+				readonly explanation: string;
+				readonly hunks: { hunk: number }[];
+			}[];
+		};
 
-		// Parse the JSON response
-		const commits: {
-			readonly message: string;
-			readonly explanation: string;
-			readonly hunks: { hunk: number }[];
-		}[] = JSON.parse(rqContent);
-
+		const commits = parsed?.commits;
 		if (!Array.isArray(commits)) {
-			throw new Error('Commits result is not an array');
+			throw new Error('Commits result is missing the "commits" array');
 		}
 
 		// Collect all hunk indices used in the commits
@@ -316,22 +379,11 @@ function validateCommitsResponse(
 	} catch {
 		// Handle any errors during hunk validation (e.g., malformed commit structure)
 		const errorMessage = 'Invalid response from the AI model';
-		const retryPrompt = dedent(`
-			Your previous response has an invalid commit structure. Ensure each commit has "message", "explanation", and "hunks" properties, where "hunks" is an array of objects with "hunk" numbers.
+		const retryPrompt = `${dedent(`
+			Your previous response has an invalid commit structure. Ensure the response is a JSON object with a "commits" array, where each commit has "message", "explanation", and "hunks" properties, and "hunks" is an array of objects with "hunk" numbers.
 
-			Please provide the valid JSON structure below inside a <output> tag and include no other text:
-			<output>
-			[
-				{
-					"message": "[commit message here]",
-					"explanation": "[detailed explanation of changes here]",
-					"hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
-				}
-			]
-			</output>
-
-			Text in [] brackets above should be replaced with your own text, not including the brackets. Return only the <output> tag and no other text.
-		`);
+			Provide the valid JSON structure below and include no other text:
+		`)}\n${generateCommitsExampleJson}\n\nText in [] brackets above should be replaced with your own text, not including the brackets. Return only the JSON object and no other text.`;
 		return { isValid: false, errorMessage: errorMessage, retryPrompt: retryPrompt };
 	}
 }

@@ -1,16 +1,12 @@
 import * as assert from 'assert';
 import { gitKrakenProviderDescriptor } from '../../constants.js';
+import { AIError, AIErrorReason } from '../../errors.js';
 import type { AIModel } from '../../models/model.js';
-import type { AIProviderContext } from '../context.js';
 import { GitKrakenProvider } from '../gitkrakenProvider.js';
 import { OpenAICompatibleProviderBase } from '../openAICompatibleProviderBase.js';
+import { createStubProviderContext } from './fixtures.js';
 
-const context: AIProviderContext = {
-	fetch: () => Promise.reject(new Error('not used by getHeaders')),
-	getApiKey: () => Promise.resolve(undefined),
-	getProviderConfig: () => ({ enabled: true }),
-	getOrPromptUrl: () => Promise.resolve(undefined),
-};
+const context = createStubProviderContext();
 
 const model: AIModel<typeof gitKrakenProviderDescriptor.id> = {
 	id: 'test-model',
@@ -64,5 +60,78 @@ suite('OpenAICompatibleProviderBase getHeaders', () => {
 		const headers = await new TestBaseProvider(context).headers('11111111-2222-3333-4444-555555555555');
 		assert.strictEqual('GK-Conversation-ID' in headers, false);
 		assert.strictEqual(headers.Authorization, 'Bearer test-token');
+	});
+});
+
+suite('GitKrakenProvider structured-output support for proxied models', () => {
+	function providerReturning(data: Record<string, unknown>[]): GitKrakenProvider {
+		return new GitKrakenProvider({
+			...context,
+			fetch: () => Promise.resolve(new Response(JSON.stringify({ data: data }))),
+		});
+	}
+
+	function entry(modelId: string, disabledAttributes?: string[]): Record<string, unknown> {
+		return {
+			providerId: modelId.split(':')[0],
+			providerName: 'Upstream',
+			modelId: modelId,
+			modelName: modelId,
+			preferred: false,
+			maxInputTokens: 200000,
+			maxOutputTokens: 8192,
+			...(disabledAttributes != null ? { disabledAttributes: disabledAttributes } : {}),
+		};
+	}
+
+	test('treats the structured_output opt-out as unsupported and its absence as supported', async () => {
+		const models = await providerReturning([
+			entry('anthropic:claude-haiku-4-5'),
+			entry('anthropic:claude-3-5-sonnet-latest', ['structured_output']),
+			entry('openai:gpt-4o', []),
+		]).getModels();
+
+		assert.strictEqual(models[0].supportsStructuredOutputs, true);
+		assert.strictEqual(models[1].supportsStructuredOutputs, false);
+		assert.strictEqual(models[2].supportsStructuredOutputs, true);
+	});
+
+	test('ignores unrelated disabled attributes', async () => {
+		const models = await providerReturning([entry('openai:gpt-4o', ['some_other_attribute'])]).getModels();
+
+		assert.strictEqual(models[0].supportsStructuredOutputs, true);
+	});
+});
+
+suite('GitKrakenProvider handleFetchFailure', () => {
+	// Widens access to the protected failure handler under test
+	interface FetchFailureHook {
+		handleFetchFailure(
+			rsp: Response,
+			action: string,
+			model: AIModel,
+			retries: number,
+			maxInputTokens: number,
+			body?: string,
+		): Promise<unknown>;
+	}
+
+	function fail(message: string): Promise<unknown> {
+		const body = JSON.stringify({ error: { code: '500.1', message: message } });
+		const rsp = { status: 500, statusText: 'Internal Server Error' } as unknown as Response;
+		const provider = new GitKrakenProvider(context) as unknown as FetchFailureHook;
+		return provider.handleFetchFailure(rsp, 'review-changes', model, 0, 1024, body);
+	}
+
+	test('maps a wrapped upstream 429 to the rate-limit error reason', async () => {
+		await assert.rejects(fail('upstream AI provider error (Gemini HTTP 429)'), (ex: unknown) => {
+			return ex instanceof AIError && ex.reason === AIErrorReason.RateLimitExceeded;
+		});
+	});
+
+	test('other wrapped upstream failures stay generic', async () => {
+		await assert.rejects(fail('upstream AI provider error (Gemini HTTP 503)'), (ex: unknown) => {
+			return ex instanceof Error && !(ex instanceof AIError) && ex.message.includes('500.1');
+		});
 	});
 });

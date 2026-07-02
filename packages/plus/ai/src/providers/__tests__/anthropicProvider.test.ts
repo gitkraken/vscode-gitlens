@@ -1,14 +1,9 @@
 import * as assert from 'assert';
 import type { AIChatMessage, AIChatMessageRole } from '../../models/provider.js';
 import { AnthropicProvider } from '../anthropicProvider.js';
-import type { AIProviderContext } from '../context.js';
+import { createStubProviderContext } from './fixtures.js';
 
-const context: AIProviderContext = {
-	fetch: () => Promise.reject(new Error('not used by extractSystemPrompt')),
-	getApiKey: () => Promise.resolve(undefined),
-	getProviderConfig: () => ({ enabled: true }),
-	getOrPromptUrl: () => Promise.resolve(undefined),
-};
+const context = createStubProviderContext();
 
 class TestAnthropicProvider extends AnthropicProvider {
 	split(messages: AIChatMessage<AIChatMessageRole>[]): {

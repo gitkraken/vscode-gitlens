@@ -111,11 +111,12 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxInputTokens: number,
+		body?: string,
 	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
-				json = (await rsp.json()) as MistralError | undefined;
+				json = (body != null ? JSON.parse(body) : await rsp.json()) as MistralError | undefined;
 			} catch {}
 
 			debugger;
@@ -140,7 +141,7 @@ export class MistralProvider extends OpenAICompatibleProviderBase<typeof provide
 			throw new Error(`(${this.name}) ${rsp.status}: ${message || rsp.statusText}`);
 		}
 
-		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens, body);
 	}
 }
 

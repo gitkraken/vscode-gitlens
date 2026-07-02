@@ -1,6 +1,8 @@
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { openRouterProviderDescriptor as provider } from '../constants.js';
 import type { AIActionType, AIModel } from '../models/model.js';
+import type { AIResponseFormat } from '../models/provider.js';
+import type { ChatCompletionRequest } from './openAICompatibleProviderBase.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type OpenRouterModel = AIModel<typeof provider.id>;
@@ -40,6 +42,7 @@ export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof prov
 				top_provider: {
 					max_completion_tokens?: number;
 				};
+				supported_parameters?: string[];
 			}[];
 		};
 
@@ -55,8 +58,21 @@ export class OpenRouterProvider extends OpenAICompatibleProviderBase<typeof prov
 					},
 					provider: provider,
 					temperature: null,
+					// OpenRouter hard-errors when `response_format` reaches a model that doesn't advertise support
+					supportsStructuredOutputs: m.supported_parameters?.includes('structured_outputs') ?? false,
 				}) satisfies OpenRouterModel,
 		);
+	}
+
+	protected override applyResponseFormat(
+		request: ChatCompletionRequest,
+		model: AIModel<typeof provider.id>,
+		responseFormat: AIResponseFormat,
+	): void {
+		super.applyResponseFormat(request, model, responseFormat);
+		// `supported_parameters` is a union across the providers serving a model — restrict routing
+		// to providers that actually support every parameter sent
+		request.provider = { require_parameters: true };
 	}
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {

@@ -33,8 +33,15 @@ import type {
 	PromptTemplateType,
 	TruncationHandler,
 } from '@gitlens/ai/models/promptTemplates.js';
-import type { AIChatMessage, AIProvider, AIProviderResponse, AIProviderResult } from '@gitlens/ai/models/provider.js';
+import type {
+	AIChatMessage,
+	AIProvider,
+	AIProviderResponse,
+	AIProviderResult,
+	AIResponseFormat,
+} from '@gitlens/ai/models/provider.js';
 import type { AIProviderContext } from '@gitlens/ai/providers/context.js';
+import { clearResponseFormatRejections } from '@gitlens/ai/providers/responseFormatCache.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
 import { filterDiffFiles } from '@gitlens/git/parsers/diffParser.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
@@ -468,6 +475,7 @@ export class AIProviderService implements AIService, Disposable {
 				if (accountChanged || planChanged) {
 					this._modelCache.clear();
 					this._providerModelsCache.clear();
+					clearResponseFormatRejections();
 
 					// Re-resolve now rather than waiting for a consumer to ask — signing in is what makes
 					// GitKraken AI resolvable, and this resolve is what fires `onDidChangeModel` so the AI
@@ -492,6 +500,8 @@ export class AIProviderService implements AIService, Disposable {
 					) {
 						this._modelCache.clear();
 						this._providerModelsCache.delete('ollama');
+						// A different server can disagree about schema support for the same model id
+						clearResponseFormatRejections();
 						this._model = undefined;
 					}
 					return;
@@ -902,6 +912,7 @@ export class AIProviderService implements AIService, Disposable {
 			// `provider.getModels()` list.
 			this._modelCache.delete(cacheKey);
 			this._providerModelsCache.clear();
+			clearResponseFormatRejections();
 		} else if (options?.silent) {
 			// Silent reads are the hot path (graph details, composer event handler, RPC chip reads).
 			// Cache hits skip the storage/config reads + `getOrUpdateModel` + `provider.getModels()`
@@ -1286,6 +1297,8 @@ export class AIProviderService implements AIService, Disposable {
 			generating?: Deferred<AIModel>;
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			progress?: ProgressOptions;
+			/** Schema for native structured output on capable provider+model combos; ignored elsewhere */
+			responseFormat?: AIResponseFormat;
 			throwAIErrors?: boolean;
 		},
 	): Promise<AIProviderResult<void> | 'cancelled' | undefined> {
@@ -1419,6 +1432,7 @@ export class AIProviderService implements AIService, Disposable {
 								signal: controller.signal,
 								modelOptions: options?.modelOptions,
 								conversationId: options?.conversationId,
+								responseFormat: options?.responseFormat,
 							},
 						);
 						if (!fulfilled) {
@@ -1880,6 +1894,8 @@ export class AIProviderService implements AIService, Disposable {
 			progress?: ProgressOptions;
 			modelOptions?: { outputTokens?: number; temperature?: number };
 			maxAttempts?: number;
+			/** Schema for native structured output on capable provider+model combos; ignored elsewhere */
+			responseFormat?: AIResponseFormat;
 		},
 	): Promise<{ response: AIProviderResponse<void>; result: TResult } | 'cancelled' | undefined> {
 		const maxAttempts = options?.maxAttempts ?? 4;
@@ -2010,7 +2026,12 @@ export class AIProviderService implements AIService, Disposable {
 		}
 
 		if ('instructions' in context && context.instructions) {
-			context.instructions = `Carefully follow these additional instructions (provided directly by the user), but do not deviate from the output structure:\n${context.instructions}`;
+			// Wrap a copy — getMessages callbacks re-invoke this on provider retries, so mutating the
+			// caller's context would stack the preamble
+			context = {
+				...context,
+				instructions: `Carefully follow these additional instructions (provided directly by the user), but do not deviate from the output structure:\n${context.instructions}`,
+			};
 		}
 
 		// Handle the two overload cases
@@ -2158,6 +2179,7 @@ export class AIProviderService implements AIService, Disposable {
 		this._promptTemplates.clear();
 		this._modelCache.clear();
 		this._providerModelsCache.clear();
+		clearResponseFormatRejections();
 	}
 
 	/**
@@ -2177,6 +2199,7 @@ export class AIProviderService implements AIService, Disposable {
 		this._model = undefined;
 		this._modelCache.clear();
 		this._providerModelsCache.clear();
+		clearResponseFormatRejections();
 
 		// Scoped consumers treat any fire as a refresh trigger, so one global-scope fire covers them all
 		this._onDidChangeModel.fire({ model: undefined, scope: undefined });

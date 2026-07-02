@@ -23,6 +23,8 @@ const models: XAIModel[] = [
 		maxTokens: { input: 131072, output: 4096 },
 		provider: provider,
 		hidden: true,
+		// Structured outputs require grok-2-1212 or newer; grok-beta predates that floor
+		supportsStructuredOutputs: false,
 	},
 ];
 

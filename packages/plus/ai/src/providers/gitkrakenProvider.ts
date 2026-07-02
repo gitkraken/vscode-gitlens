@@ -8,6 +8,10 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 
 type GitKrakenModel = AIModel<typeof provider.id>;
 
+/** Opt-out flag the models endpoint reports in `disabledAttributes` for models whose upstream
+ *  translation doesn't cover native structured outputs */
+const structuredOutputAttribute = 'structured_output';
+
 export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provider.id> {
 	readonly id = provider.id;
 	readonly name = provider.name;
@@ -47,6 +51,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 					preferred: boolean;
 					maxInputTokens: number;
 					maxOutputTokens: number;
+					disabledAttributes?: string[];
 					consumptionRateLabel?: string;
 				}[];
 				error?: null;
@@ -67,6 +72,10 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 						default: m.preferred,
 						temperature: null,
 						consumptionRateLabel: m.consumptionRateLabel,
+						// The backend owns the per-upstream `response_format` translation, so it's the
+						// authority on which models it covers. A schema an upstream's converter still
+						// rejects is recovered per-request via isResponseFormatRejection below
+						supportsStructuredOutputs: !m.disabledAttributes?.includes(structuredOutputAttribute),
 					}) satisfies GitKrakenModel,
 			);
 			return models;
@@ -82,6 +91,16 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
 		return 'chat/completions';
+	}
+
+	protected override isResponseFormatRejection(status: number, body: string): boolean {
+		if (super.isResponseFormatRejection(status, body)) return true;
+
+		// The backend wraps upstream schema rejections as its own 500.1 carrying only the upstream
+		// status (e.g. its Gemini schema converter mangles null-union types → Gemini 400s). A
+		// non-schema upstream 400 also matches — the strip-and-resend probe is cheap and rejection
+		// is only memoized when the resend succeeds, so misclassification self-corrects.
+		return status === 500 && getWrappedUpstreamStatus(body) === 400;
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
@@ -107,6 +126,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 		_model: AIModel<typeof provider.id>,
 		retries: number,
 		maxInputTokens: number,
+		body?: string,
 	): Promise<{ retry: true; maxInputTokens: number }> {
 		type ErrorResponse = {
 			error?: { code: string; message: string; data?: any };
@@ -114,7 +134,7 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 
 		let json;
 		try {
-			json = (await rsp.json()) as ErrorResponse | undefined;
+			json = (body != null ? JSON.parse(body) : await rsp.json()) as ErrorResponse | undefined;
 		} catch {}
 
 		let message = json?.error?.message || rsp.statusText;
@@ -201,9 +221,19 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 			case 499:
 				// CodeRequestCanceled    = "499.1"
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
-			case 500:
+			case 500: {
 				// CodeServerError        = "500.1"
+
+				// The backend wraps ALL upstream provider failures as 500.1, carrying only the
+				// upstream HTTP status in the message — recover the actionable ones from it
+				if (getWrappedUpstreamStatus(message) === 429) {
+					throw new AIError(
+						AIErrorReason.RateLimitExceeded,
+						new Error(`(${this.name}) ${status}.${code}: ${message}`),
+					);
+				}
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
+			}
 			case 503:
 				// CodeServiceUnavailable = "503.1"
 
@@ -221,4 +251,10 @@ export class GitKrakenProvider extends OpenAICompatibleProviderBase<typeof provi
 				throw new Error(`(${this.name}) ${status}.${code}: ${message}`);
 		}
 	}
+}
+
+/** Extracts the upstream HTTP status from the backend's 500.1 upstream-error prose wrapper */
+function getWrappedUpstreamStatus(text: string): number | undefined {
+	const status = /upstream ai provider error[\s\S]*?http (\d{3})/i.exec(text)?.[1];
+	return status != null ? parseInt(status, 10) : undefined;
 }

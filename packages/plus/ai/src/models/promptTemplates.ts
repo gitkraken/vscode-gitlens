@@ -133,7 +133,7 @@ export type PromptTemplateType =
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
 
-type PromptTemplateVersions = '' | '_v2';
+type PromptTemplateVersions = '' | '_v2' | '_v3';
 
 export type PromptTemplateId<T extends PromptTemplateType = PromptTemplateType> = `${T}${PromptTemplateVersions}`;
 

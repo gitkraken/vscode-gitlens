@@ -53,4 +53,9 @@ export class DeepSeekProvider extends OpenAICompatibleProviderBase<typeof provid
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
 		return 'https://api.deepseek.com/v1/chat/completions';
 	}
+
+	// DeepSeek's response_format only accepts text|json_object — json_schema is rejected outright
+	protected override supportsResponseFormat(_model: AIModel<typeof provider.id>): boolean {
+		return false;
+	}
 }

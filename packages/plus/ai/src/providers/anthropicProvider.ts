@@ -1,8 +1,9 @@
 import { anthropicProviderDescriptor as provider } from '../constants.js';
 import { AIError, AIErrorReason } from '../errors.js';
 import type { AIActionType, AIModel } from '../models/model.js';
-import type { AIChatMessage, AIChatMessageRole } from '../models/provider.js';
+import type { AIChatMessage, AIChatMessageRole, AIResponseFormat } from '../models/provider.js';
 import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
+import type { ChatCompletionRequest } from './openAICompatibleProviderBase.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
 type AnthropicModel = AIModel<typeof provider.id>;
@@ -88,6 +89,8 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
 		hidden: true,
+		// Structured outputs require the 4.5 generation or newer (this and every entry below)
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-opus-4-1-20250805',
@@ -95,6 +98,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-opus-4-0',
@@ -102,6 +106,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-opus-4-20250514',
@@ -109,6 +114,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-sonnet-4-0',
@@ -116,6 +122,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-sonnet-4-20250514',
@@ -123,6 +130,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-7-sonnet-latest',
@@ -130,6 +138,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-7-sonnet-20250219',
@@ -137,6 +146,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-5-sonnet-latest',
@@ -144,6 +154,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-5-sonnet-20241022',
@@ -151,6 +162,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-5-sonnet-20240620',
@@ -158,6 +170,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-5-haiku-latest',
@@ -165,6 +178,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-5-haiku-20241022',
@@ -172,6 +186,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 8192 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-opus-latest',
@@ -179,6 +194,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-opus-20240229',
@@ -186,6 +202,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-sonnet-latest',
@@ -193,6 +210,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-sonnet-20240229',
@@ -200,6 +218,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-haiku-latest',
@@ -207,6 +226,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-3-haiku-20240307',
@@ -214,6 +234,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'claude-2.1',
@@ -221,6 +242,7 @@ const models: AnthropicModel[] = [
 		maxTokens: { input: 204800, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 ];
 
@@ -239,6 +261,16 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
 		return 'https://api.anthropic.com/v1/messages';
+	}
+
+	// Anthropic uses `output_config.format` (no name/strict — enforcement is unconditional) and
+	// rejects unknown fields, so this must fully replace the base's `response_format` translation
+	protected override applyResponseFormat(
+		request: ChatCompletionRequest,
+		_model: AIModel<typeof provider.id>,
+		responseFormat: AIResponseFormat,
+	): void {
+		request.output_config = { format: { type: 'json_schema', schema: responseFormat.schema } };
 	}
 
 	protected override getHeaders<TAction extends AIActionType>(
@@ -291,13 +323,18 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		model: AIModel<typeof provider.id>,
 		retries: number,
 		maxInputTokens: number,
+		body?: string,
 	): Promise<{ retry: true; maxInputTokens: number }> {
 		if (rsp.status !== 404 && rsp.status !== 429) {
+			// Read into `body` (not the response) so `super.handleFetchFailure` below can still
+			// use it; consuming the response here would lose Anthropic's error for the fallback.
+			body ??= await rsp
+				.clone()
+				.text()
+				.catch(() => undefined);
 			let json;
 			try {
-				// Read from a clone so the body stays available for `super.handleFetchFailure` below;
-				// otherwise it re-reads the consumed body, loses Anthropic's error, and falls back to statusText.
-				json = (await rsp.clone().json()) as AnthropicError | undefined;
+				json = (body != null ? JSON.parse(body) : undefined) as AnthropicError | undefined;
 			} catch {}
 
 			debugger;
@@ -330,7 +367,7 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 			}
 		}
 
-		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens);
+		return super.handleFetchFailure(rsp, action, model, retries, maxInputTokens, body);
 	}
 }
 

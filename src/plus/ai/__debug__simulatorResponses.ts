@@ -31,8 +31,9 @@ const reviewDetailDefault = `<findings>
 
 // generate-commits has no synthesizable default — the validator demands hunk-index
 // conservation against the prompt's hunkMap, which we cannot derive without prompt parsing.
-// Returning an obviously-rejected payload makes the no-inject failure mode predictable.
-const generateCommitsRejection = `{"commits":[]}`;
+// The out-of-range hunk always fails validation (missing-hunks on a dirty tree, extra-hunks on a
+// clean one) — an empty commits array would validate successfully on a clean working tree.
+const generateCommitsRejection = `{"commits":[{"message":"simulated","explanation":"simulated","hunks":[{"hunk":-1}]}]}`;
 
 // conflict-resolution is parsed by `@gitkraken/conflict-tools`, not by results.utils.ts, so the
 // summary/body fallback below would fail every file and escalate an automatic rebase on its first
@@ -66,15 +67,16 @@ export function getDefaultResponse(action: AIActionType): string {
 	return defaults[action] ?? `<summary>Unhandled simulated action</summary><body>${action}</body>`;
 }
 
-// Used when mode === 'invalid'. Composer's validator will reject this; parser-tolerant
-// actions will simply render garbage (which is the documented behavior for that mode).
+// Used when mode === 'invalid'. Composer's validator rejects the out-of-range hunk (extra-hunks
+// retry); parser-tolerant actions will simply render garbage (the documented behavior for that mode).
 export function getInvalidResponse(action: AIActionType): string {
 	if (action === 'generate-commits') return `{"commits":[{"message":"invalid","hunks":[{"hunk":99999}]}]}`;
 	return '<<<malformed simulator output>>>';
 }
 
 // Used when the review action is invoked in two-pass detail mode. The action type stays
-// 'review-changes' but the consumer is parseReviewDetailResult, which expects findings.
+// 'review-changes' but the consumer is parseReviewDetailResultJson, which falls back to the
+// legacy XML parser for these responses — migrate them to JSON when the XML parsers are removed.
 export function getReviewDetailDefault(): string {
 	return reviewDetailDefault;
 }

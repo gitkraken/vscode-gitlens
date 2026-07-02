@@ -15,6 +15,11 @@ export interface AIModel<Provider extends AIProviders = AIProviders, Model exten
 	readonly temperature?: number | null;
 
 	readonly consumptionRateLabel?: string;
+
+	/** Whether the model supports native structured output (JSON schema); absent means capable
+	 *  (new models default on). Populated by dynamic catalogs (GitKraken, OpenRouter) and set to
+	 *  false on legacy static-registry entries; provider-wide gaps override the provider hook */
+	readonly supportsStructuredOutputs?: boolean;
 }
 
 export interface AIModelDescriptor<Provider extends AIProviders = AIProviders, Model extends string = string> {
@@ -310,6 +315,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		provider: provider,
 		temperature: null,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'o1-preview-2024-09-12',
@@ -318,6 +324,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		provider: provider,
 		temperature: null,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'o1-mini',
@@ -326,6 +333,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		provider: provider,
 		temperature: null,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'o1-mini-2024-09-12',
@@ -334,6 +342,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		provider: provider,
 		temperature: null,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4o',
@@ -362,6 +371,8 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		// json_schema needs gpt-4o-2024-08-06+ (or o1+); the flagged legacy ids reject it with a 400
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'chatgpt-4o-latest',
@@ -369,6 +380,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 16384 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4o-mini',
@@ -390,6 +402,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-turbo-2024-04-09',
@@ -397,6 +410,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-turbo-preview',
@@ -404,6 +418,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-0125-preview',
@@ -411,6 +426,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-1106-preview',
@@ -418,6 +434,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 128000, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4',
@@ -425,6 +442,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 8192, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-0613',
@@ -432,6 +450,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 8192, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-32k',
@@ -439,6 +458,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 32768, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-4-32k-0613',
@@ -446,6 +466,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 32768, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-3.5-turbo',
@@ -453,6 +474,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 16385, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-3.5-turbo-0125',
@@ -460,6 +482,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 16385, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-3.5-turbo-1106',
@@ -467,6 +490,7 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 16385, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 	{
 		id: 'gpt-3.5-turbo-16k',
@@ -474,5 +498,6 @@ export const openAIModels = <T extends OpenAIProviders>(provider: AIProviderDesc
 		maxTokens: { input: 16385, output: 4096 },
 		provider: provider,
 		hidden: true,
+		supportsStructuredOutputs: false,
 	},
 ];

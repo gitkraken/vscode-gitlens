@@ -1,4 +1,5 @@
 import type { PromptTemplate } from './models/promptTemplates.js';
+import type { AIResponseFormat, JSONSchema } from './models/provider.js';
 
 export const generateCommitMessage: PromptTemplate<'generate-commitMessage'> = {
 	id: 'generate-commitMessage_v2',
@@ -326,8 +327,19 @@ User Query: \${query}
 Convert the user's natural language query into the appropriate search operators. Return only the search query string without any explanatory text. If the query cannot be converted to search operators, return the original query as a message search. For complex temporal expressions that might be ambiguous, prefer simpler, more reliable relative date formats.`,
 };
 
+/** Example output block shared by the {@link generateCommits} template and its structural-retry prompt */
+export const generateCommitsExampleJson = `{
+   "commits": [
+      {
+         "message": "[commit message here]",
+         "explanation": "[detailed explanation of changes here]",
+         "hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
+      }
+   ]
+}`;
+
 export const generateCommits: PromptTemplate<'generate-commits'> = {
-	id: 'generate-commits_v2',
+	id: 'generate-commits_v3',
 	variables: ['hunks', 'existingCommits', 'commitMessages', 'hunkMap', 'instructions'],
 	template: `You are an advanced AI programming assistant tasked with organizing code changes into commits. Your goal is to create a complete set of commits that are related, grouped logically, atomic, and easy to review. You will be working with individual code hunks and may have some existing commits that already have hunks assigned.
 
@@ -392,22 +404,14 @@ Follow these guidelines:
 
 8. Write a detailed explanation for each commit (separate from the commit message), walking through the changes in further detail as if explaining them to a reviewer.
 
-Output your complete commit organization as a JSON array. Each commit in the array should be an object with the following properties:
+Output your complete commit organization as a single JSON object with a "commits" property. The "commits" property is an array where each commit is an object with the following properties:
 - "message": A string containing the commit message
 - "explanation": A string with a detailed explanation of the changes in the commit. Note that this is separate from the commit message and provides more detail than in the message itself.
 - "hunks": An array of objects, each representing a hunk in the commit. Each hunk object should have:
   - "hunk": The hunk index (number) from the hunk_map
 
-Write the JSON structure below inside a <output> tag and include no other text:
-<output>
-[
-   {
-      "message": "[commit message here]",
-      "explanation": "[detailed explanation of changes here]",
-      "hunks": [{"hunk": [index from hunk_map]}, {"hunk": [index from hunk_map]}]
-   }
-]
-</output>
+Example output structure:
+${generateCommitsExampleJson}
 
 Remember:
 - Text in [] brackets above should be replaced with your own text, not including the brackets
@@ -418,8 +422,41 @@ Remember:
 
 \${instructions}
 
-Now, proceed with your analysis and organization of the commits. Return only the <output> tag and no other text.
+Now, proceed with your analysis and organization of the commits. Return only the JSON object and no other text — no code fences, no XML tags, and no explanatory text.
 `,
+};
+
+/** Schema counterpart of the {@link generateCommits} template's described output shape */
+export const generateCommitsSchema: AIResponseFormat = {
+	name: 'generate_commits',
+	schema: {
+		type: 'object',
+		additionalProperties: false,
+		required: ['commits'],
+		properties: {
+			commits: {
+				type: 'array',
+				items: {
+					type: 'object',
+					additionalProperties: false,
+					required: ['message', 'explanation', 'hunks'],
+					properties: {
+						message: { type: 'string', description: 'The commit message' },
+						explanation: { type: 'string', description: 'Detailed explanation of the changes' },
+						hunks: {
+							type: 'array',
+							items: {
+								type: 'object',
+								additionalProperties: false,
+								required: ['hunk'],
+								properties: { hunk: { type: 'integer', description: 'Hunk index from the hunk_map' } },
+							},
+						},
+					},
+				},
+			},
+		},
+	},
 };
 
 export const startWorkFromIssue: PromptTemplate<'start-work-issue'> = {
@@ -479,8 +516,11 @@ You can use GitKraken MCP tools to gather additional context about the repositor
 Now, proceed with your analysis and provide a comprehensive review of the PR. Return only the relevant information without any additional text.`,
 };
 
+// Shared by the reviewChanges and reviewDetail templates so line-citation rules can't drift apart
+const lineCitationGuidance = `- For "lines", copy the "start" and "end" numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk. If a finding is not tied to specific lines, set "lines" to null; if not tied to a single file, set "file" to null`;
+
 export const reviewChanges: PromptTemplate<'review-changes'> = {
-	id: 'review-changes',
+	id: 'review-changes_v2',
 	variables: ['diff', 'message', 'context', 'instructions'],
 	template: `You are an expert code reviewer analyzing a set of code changes. Your goal is to identify meaningful issues — bugs, logic errors, security vulnerabilities, missing error handling, and potential regressions — while ignoring style preferences and linter-level concerns. Focus on problems a careful human reviewer would catch.
 
@@ -501,40 +541,117 @@ Author's description of the changes:
 Related work items (known pull requests and issues for this change set). Use these for *intent*: what the change is trying to accomplish. They are not authoritative spec — if a finding contradicts the stated intent, flag it rather than defer to it. May be empty.
 \${context}
 
-Produce a structured review in the following XML format. Include ONLY the XML tags described — no other text:
+Produce a structured review as a single JSON object with this exact structure:
 
-<overview>
-A concise 1-3 sentence summary of what these changes do and their overall quality. Note any systemic concerns.
-</overview>
-<focus-areas>
-<area severity="critical|warning|suggestion" files="comma-separated file paths">
-<label>Short title of the concern (under 60 chars)</label>
-<rationale>Why this matters — what could go wrong or what is suboptimal</rationale>
-<findings>
-<finding severity="critical|warning|suggestion" file="path/to/file.ts" lines="start-end">
-<title>Specific issue title</title>
-<description>Clear explanation of the problem and how to address it</description>
-</finding>
-</findings>
-</area>
-</focus-areas>
+{
+  "overview": "A concise 1-3 sentence summary of what these changes do and their overall quality. Note any systemic concerns.",
+  "focusAreas": [
+    {
+      "label": "Short title of the concern (under 60 chars)",
+      "rationale": "Why this matters — what could go wrong or what is suboptimal",
+      "severity": "critical|warning|suggestion",
+      "files": ["path/to/file.ts"],
+      "findings": [
+        {
+          "severity": "critical|warning|suggestion",
+          "title": "Specific issue title",
+          "description": "Clear explanation of the problem and how to address it",
+          "file": "path/to/file.ts",
+          "lines": { "start": 42, "end": 45 }
+        }
+      ]
+    }
+  ]
+}
 
 Guidelines:
 - Severity levels: "critical" = bugs, security issues, data loss risks; "warning" = logic concerns, missing error handling, potential regressions; "suggestion" = improvements, maintainability, performance
 - Group related findings into focus areas by theme, not by file
-- If changes look correct and well-structured, say so in the overview and include zero focus areas
+- If changes look correct and well-structured, say so in the overview and use an empty "focusAreas" array
 - 3-5 high-quality findings are better than 15 low-quality ones
-- For \`lines="start-end"\`, copy the numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk.
+${lineCitationGuidance}
 - Do not flag style issues, naming preferences, or things a linter would catch
 - Base conclusions only on the code shown — do not speculate about unseen code
 
 \${instructions}
 
-Review the changes and produce the structured XML output above.`,
+Review the changes and return only the JSON object above — no other text, no code fences.`,
+};
+
+// Nullable so the same schema passes OpenAI strict mode (all properties required, optionals as
+// null-unions) and Anthropic's structured outputs (which allow optionals natively)
+const reviewFindingSchema: JSONSchema = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['severity', 'title', 'description', 'file', 'lines'],
+	properties: {
+		severity: { type: 'string', enum: ['critical', 'warning', 'suggestion'] },
+		title: { type: 'string' },
+		description: { type: 'string' },
+		file: { type: ['string', 'null'] },
+		lines: {
+			type: ['object', 'null'],
+			additionalProperties: false,
+			required: ['start', 'end'],
+			properties: { start: { type: 'integer' }, end: { type: 'integer' } },
+		},
+	},
+};
+
+function buildReviewResultSchema(name: string, findings: JSONSchema): AIResponseFormat {
+	return {
+		name: name,
+		schema: {
+			type: 'object',
+			additionalProperties: false,
+			required: ['overview', 'focusAreas'],
+			properties: {
+				overview: { type: 'string' },
+				focusAreas: {
+					type: 'array',
+					items: {
+						type: 'object',
+						additionalProperties: false,
+						required: ['label', 'rationale', 'severity', 'files', 'findings'],
+						properties: {
+							label: { type: 'string' },
+							rationale: { type: 'string' },
+							severity: { type: 'string', enum: ['critical', 'warning', 'suggestion'] },
+							files: { type: 'array', items: { type: 'string' } },
+							findings: findings,
+						},
+					},
+				},
+			},
+		},
+	};
+}
+
+/** Schema counterpart of the {@link reviewChanges} template's output shape */
+export const reviewResultSchema: AIResponseFormat = buildReviewResultSchema('review_result', {
+	type: ['array', 'null'],
+	items: reviewFindingSchema,
+});
+
+/** Schema counterpart of the {@link reviewOverview} template — the manifest-only pass has no diffs,
+ *  so the grammar itself forbids findings (the template mandates `"findings": null`) */
+export const reviewOverviewSchema: AIResponseFormat = buildReviewResultSchema('review_overview', { type: 'null' });
+
+/** Schema counterpart of the {@link reviewDetail} template's output shape */
+export const reviewDetailSchema: AIResponseFormat = {
+	name: 'review_detail',
+	schema: {
+		type: 'object',
+		additionalProperties: false,
+		required: ['findings'],
+		properties: {
+			findings: { type: 'array', items: reviewFindingSchema },
+		},
+	},
 };
 
 export const reviewOverview: PromptTemplate<'review-overview'> = {
-	id: 'review-overview',
+	id: 'review-overview_v2',
 	variables: ['files', 'message', 'context', 'instructions'],
 	template: `You are an expert code reviewer performing an initial assessment of a set of code changes. You are given a file manifest (not full diffs) — use the file paths, change types, and line counts to identify which areas deserve closer inspection.
 
@@ -551,32 +668,35 @@ Author's description of the changes:
 Related work items (known pull requests and issues for this change set). Use these for *intent* — what the change is trying to accomplish — when ranking which areas deserve closer review. May be empty.
 \${context}
 
-Produce a structured assessment in the following XML format. Include ONLY the XML tags described — no other text:
+Produce a structured assessment as a single JSON object with this exact structure:
 
-<overview>
-A concise 1-3 sentence summary of the scope and nature of these changes based on the file manifest and description.
-</overview>
-<focus-areas>
-<area severity="critical|warning|suggestion" files="comma-separated file paths">
-<label>Short title of the area to inspect (under 60 chars)</label>
-<rationale>Why this area deserves closer review — based on the types of files changed, the volume of changes, and potential risk</rationale>
-</area>
-</focus-areas>
+{
+  "overview": "A concise 1-3 sentence summary of the scope and nature of these changes based on the file manifest and description.",
+  "focusAreas": [
+    {
+      "label": "Short title of the area to inspect (under 60 chars)",
+      "rationale": "Why this area deserves closer review — based on the types of files changed, the volume of changes, and potential risk",
+      "severity": "critical|warning|suggestion",
+      "files": ["path/to/file.ts"],
+      "findings": null
+    }
+  ]
+}
 
 Guidelines:
 - Severity reflects potential risk: "critical" = security-sensitive files, auth/crypto/payment paths, database migrations; "warning" = core logic changes, API changes, large modifications; "suggestion" = refactoring, config changes, documentation
 - Rank focus areas from highest to lowest risk
 - Group related files into focus areas by theme
 - Include 2-6 focus areas. If changes are very simple, fewer is fine
-- Do NOT include <findings> — those come in a later pass when full diffs are available
+- Always set "findings" to null — findings come in a later pass when full diffs are available
 
 \${instructions}
 
-Assess the changes and produce the structured XML output above.`,
+Assess the changes and return only the JSON object above — no other text, no code fences.`,
 };
 
 export const reviewRefine: PromptTemplate<'review-refine'> = {
-	id: 'review-refine',
+	id: 'review-refine_v2',
 	variables: ['instructions'],
 	template: `The user has follow-up guidance for the review you produced above. Produce an updated review that incorporates it:
 - Keep prior findings that remain valid — do not drop them just because the guidance doesn't mention them
@@ -588,7 +708,7 @@ export const reviewRefine: PromptTemplate<'review-refine'> = {
 \${instructions}
 </~~instructions~~>
 
-Produce the full updated review in the same structured XML format as your previous response (<overview> + <focus-areas>). Include ONLY the XML tags — no other text.`,
+Produce the full updated review as a single JSON object in the same structure as your previous response. Return only the JSON object — no other text, no code fences.`,
 };
 
 export const addressReviewFindings: PromptTemplate<'address-review-findings'> = {
@@ -616,7 +736,7 @@ Guidelines:
 };
 
 export const reviewDetail: PromptTemplate<'review-detail'> = {
-	id: 'review-detail',
+	id: 'review-detail_v2',
 	variables: ['diff', 'overview', 'message', 'focusArea', 'context', 'instructions'],
 	template: `You are an expert code reviewer performing a detailed inspection of specific files that were flagged for closer review. You have the context from an initial overview assessment.
 
@@ -644,23 +764,28 @@ Code changes for the files in this focus area (Git diff format). Each non-header
 \${diff}
 </~~diff~~>
 
-Produce detailed findings in the following XML format. Include ONLY the XML tags — no other text:
+Produce detailed findings as a single JSON object with this exact structure:
 
-<findings>
-<finding severity="critical|warning|suggestion" file="path/to/file.ts" lines="start-end">
-<title>Specific issue title</title>
-<description>Clear explanation of the problem and how to address it</description>
-</finding>
-</findings>
+{
+  "findings": [
+    {
+      "severity": "critical|warning|suggestion",
+      "title": "Specific issue title",
+      "description": "Clear explanation of the problem and how to address it",
+      "file": "path/to/file.ts",
+      "lines": { "start": 42, "end": 45 }
+    }
+  ]
+}
 
 Guidelines:
 - Severity: "critical" = bugs, security, data loss; "warning" = logic concerns, error handling, regressions; "suggestion" = improvements, maintainability
-- For \`lines="start-end"\`, copy the numbers from the \`[NNNNN]\` annotations of the specific lines your finding concerns. Do not count, infer, or estimate — use only the annotated numbers. Removed lines (blank brackets \`[     ]\`) cannot be cited; pick the nearest surrounding new-file line instead. Anchor the range tightly to the lines the finding actually concerns; do not span an entire hunk.
+${lineCitationGuidance}
 - Be concrete — explain what the problem is and how to fix it
-- If the code in this area looks correct, return an empty <findings></findings> block
+- If the code in this area looks correct, return {"findings": []}
 - Do not flag style issues or things a linter would catch
 
 \${instructions}
 
-Inspect the diff for this focus area and produce the structured XML findings above.`,
+Inspect the diff for this focus area and return only the JSON object above — no other text, no code fences.`,
 };

@@ -55,4 +55,10 @@ export class HuggingFaceProvider extends OpenAICompatibleProviderBase<typeof pro
 	protected getUrl(_model: AIModel<typeof provider.id>): string {
 		return 'https://router.huggingface.co/v1/chat/completions';
 	}
+
+	// Router support varies by partner provider with no capability metadata and auto-routing —
+	// the prompt-described JSON fallback is the only reliable path
+	protected override supportsResponseFormat(_model: AIModel<typeof provider.id>): boolean {
+		return false;
+	}
 }

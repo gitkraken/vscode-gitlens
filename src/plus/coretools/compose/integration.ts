@@ -1,5 +1,5 @@
 import { CancellationTokenSource, window } from 'vscode';
-import type { AIChatMessage, AIProviderResponse } from '@gitlens/ai/models/provider.js';
+import type { AIChatMessage, AIProviderResponse, AIResponseFormat } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
@@ -178,7 +178,7 @@ function createComposeGitPort(svc: GitRepositoryService): ComposeGitPort {
  * `ComposeWorkflowError('CANCELLED')` from the library, because the library catches
  * adapter errors and wraps cancellation.
  */
-function createAiModelPort(container: Container, source: Source): AiModelPort {
+export function createAiModelPort(container: Container, source: Source): AiModelPort {
 	return {
 		generate: async (params: AiGenerateParams): Promise<AiGenerateResult> => {
 			const cancellationSource = new CancellationTokenSource();
@@ -233,6 +233,9 @@ function createAiModelPort(container: Container, source: Source): AiModelPort {
 							outputTokens: params.maxTokens,
 							temperature: params.temperature,
 						},
+						// Cast until the published shared-tools port carries responseFormat (shape-compatible)
+						responseFormat: (params as AiGenerateParams & { responseFormat?: AIResponseFormat })
+							.responseFormat,
 						throwAIErrors: true,
 					},
 				);
@@ -255,6 +258,7 @@ function createAiModelPort(container: Container, source: Source): AiModelPort {
 				return {
 					text: response.content,
 					usage: mapUsage(response),
+					...(response.finishReason ? { finishReason: response.finishReason } : {}),
 				};
 			} finally {
 				params.signal?.removeEventListener('abort', abortHandler);
