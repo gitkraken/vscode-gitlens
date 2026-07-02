@@ -3437,8 +3437,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			branches: count(graph.branches?.values(), b => !b.remote),
 			remotes: graph.remotes.size,
 			stashes: graph.stashes?.size,
-			// Subtract the default worktree
-			worktrees: graph.worktrees != null ? graph.worktrees.length - 1 : undefined,
+			// Subtract the default worktree; an empty array means the fetch failed/unsupported, not "no worktrees"
+			worktrees: graph.worktrees != null && graph.worktrees.length > 0 ? graph.worktrees.length - 1 : undefined,
 			tags: tags.values.length,
 		};
 	}
