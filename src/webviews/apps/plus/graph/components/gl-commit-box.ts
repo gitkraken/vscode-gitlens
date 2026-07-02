@@ -2,12 +2,15 @@ import { html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { isMac } from '@env/platform.js';
 import type { WipSigning } from '../../../../plus/graph/detailsProtocol.js';
+import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { elementBase, scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
 import { commitBoxStyles } from './gl-commit-box.css.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/branch-name.js';
 import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
+import '../../../shared/components/gl-ai-model-chip.js';
+import '../../../shared/components/overlays/popover.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 // Register as a typed custom property so it can be animated/transitioned. @property in a
@@ -58,6 +61,9 @@ export class GlCommitBox extends LitElement {
 
 	@property({ type: Object })
 	signing?: WipSigning;
+
+	@property({ type: Object })
+	aiModel?: AiModelInfo;
 
 	override render() {
 		return html`
@@ -125,22 +131,7 @@ export class GlCommitBox extends LitElement {
 					@input=${this.onMessageInput}
 					@keydown=${this.onMessageKeydown}
 				></textarea>
-				${this.aiEnabled
-					? html`<div class="controls">
-							<gl-button
-								class="sparkle"
-								appearance="toolbar"
-								density="compact"
-								tooltip=${this.generating ? 'Cancel' : 'Generate Commit Message'}
-								aria-busy=${this.generating ? 'true' : 'false'}
-								@click=${this.onGenerateMessage}
-							>
-								${this.generating
-									? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-									: html`<code-icon icon="sparkle"></code-icon>`}
-							</gl-button>
-						</div>`
-					: nothing}
+				${this.aiEnabled ? html`<div class="controls">${this.renderGenerateButton()}</div>` : nothing}
 				<div class="controls controls-bottom">
 					${len > 50 ? html`<span class="char-count">${len}</span>` : nothing}
 					<gl-button
@@ -156,6 +147,36 @@ export class GlCommitBox extends LitElement {
 					</gl-button>
 				</div>
 			</div>
+		`;
+	}
+
+	private renderGenerateButton() {
+		const label = this.generating ? 'Cancel' : 'Generate Commit Message';
+		// `gl-tooltip` is non-interactive (pointer-events: none), so use `gl-popover` to show
+		// the current model as a clickable chip. `trigger="hover focus"` (no `click`) keeps the
+		// sparkle's own click firing generate rather than toggling the popover.
+		return html`
+			<gl-popover placement="bottom" trigger="hover focus">
+				<gl-button
+					slot="anchor"
+					class="sparkle"
+					appearance="toolbar"
+					density="compact"
+					aria-label=${label}
+					aria-busy=${this.generating ? 'true' : 'false'}
+					@click=${this.onGenerateMessage}
+				>
+					${this.generating
+						? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+						: html`<code-icon icon="sparkle"></code-icon>`}
+				</gl-button>
+				<div slot="content" class="generate-popover">
+					<span class="generate-popover__action">${label}</span>
+					${this.aiModel != null
+						? html`<gl-ai-model-chip .model=${this.aiModel}></gl-ai-model-chip>`
+						: nothing}
+				</div>
+			</gl-popover>
 		`;
 	}
 

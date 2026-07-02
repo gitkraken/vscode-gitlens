@@ -22,6 +22,7 @@ import type {
 	GraphItemRefContext,
 	GraphStashContextValue,
 } from '../../../plus/graph/protocol.js';
+import type { AiModelInfo } from '../../../rpc/services/types.js';
 import type { RunningOperationExecState } from '../../plus/graph/components/detailsState.js';
 import { renderLearnAboutAutolinks } from '../../shared/components/chips/learn-about-autolinks.js';
 import type { TreeItemAction, TreeItemBase } from '../../shared/components/tree/base.js';
@@ -32,6 +33,7 @@ import type { File } from './gl-details-base.js';
 import { GlDetailsBase } from './gl-details-base.js';
 import { detailsCommitPanelStyles } from './gl-details-commit-panel.css.js';
 import '../../shared/components/ai-input.js';
+import '../../shared/components/gl-ai-model-chip.js';
 import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '../../shared/components/chips/action-chip.js';
@@ -113,6 +115,10 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 	// Sub-panel mode support (review/compose body swap)
 	@property({ type: Boolean })
 	aiEnabled = false;
+
+	/** Currently selected AI model — shown in the Explain input's floating footer chip. */
+	@property({ type: Object })
+	aiModel?: AiModelInfo;
 
 	/** Host advertises that it supports compare mode (graph orchestrator does, standalone doesn't). */
 	@property({ type: Boolean, attribute: 'compare-enabled' })
@@ -801,9 +807,12 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 
 		return html`<gl-ai-input
 			multiline
+			floating-footer
 			.busy=${this.explainBusy}
 			@gl-explain=${this.onExplainChanges}
-		></gl-ai-input>`;
+		>
+			<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+		</gl-ai-input>`;
 	}
 
 	private onToggleReachability() {

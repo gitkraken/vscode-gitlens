@@ -1,8 +1,10 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { State } from '../../../../plus/graph/detailsProtocol.js';
+import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { elementBase } from '../../../shared/components/styles/lit/base.css.js';
 import '../../../shared/components/ai-input.js';
+import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/tooltip.js';
 
@@ -129,12 +131,17 @@ export class GlCompareAIActions extends LitElement {
 	@property({ type: Object })
 	orgSettings?: State['orgSettings'];
 
+	@property({ type: Object })
+	aiModel?: AiModelInfo;
+
 	override render(): unknown {
 		if (this.orgSettings?.ai === false) return nothing;
 
 		const busy = this.generateChangelogBusy;
 		return html`<div class="row">
-			<gl-ai-input multiline button-tooltip="Explain Changes" .busy=${this.explainBusy}></gl-ai-input>
+			<gl-ai-input multiline floating-footer button-tooltip="Explain Changes" .busy=${this.explainBusy}>
+				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+			</gl-ai-input>
 			<gl-tooltip content="Generate Changelog" placement="bottom"
 				><button
 					class=${busy ? 'changelog-btn is-busy' : 'changelog-btn'}

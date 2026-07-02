@@ -26,6 +26,7 @@ import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
 import type { Autolink } from '../../../autolinks/models/autolinks.js';
 import type { CommitDetails, CommitSignatureShape, Preferences } from '../../commitDetails/protocol.js';
+import type { AiModelInfo } from '../../rpc/services/types.js';
 import type { NavigationState } from '../shared/controllers/navigationStack.js';
 import type { HostStorage } from '../shared/host/storage.js';
 import { createRemoteSignalBridge } from '../shared/state/remoteSignal.js';
@@ -76,6 +77,9 @@ export function createCommitDetailsState(storage?: HostStorage) {
 	const searchContext = signal<GitCommitSearchContext | undefined>(undefined);
 	const preferences = signal<Preferences | undefined>(undefined);
 
+	/** Currently selected AI model — populated live from the AI service (for the Explain input chip). */
+	const aiModel = signal<AiModelInfo | undefined>(undefined);
+
 	/** Organization settings — connected to remote signal once RPC connects. Single `.get()`. */
 	const orgSettings = createRemoteSignalBridge({ ai: false, drafts: false });
 
@@ -123,6 +127,7 @@ export function createCommitDetailsState(storage?: HostStorage) {
 		currentCommit: currentCommit,
 		searchContext: searchContext,
 		preferences: preferences,
+		aiModel: aiModel,
 		orgSettings: orgSettings,
 		hasAccount: hasAccount,
 		capabilities: capabilities,

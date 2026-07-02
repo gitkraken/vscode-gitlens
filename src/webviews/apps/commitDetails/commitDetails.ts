@@ -231,7 +231,7 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 		// Set up event subscriptions FIRST (so we don't miss events during fetch)
 		this._unsubscribeEvents = await setupSubscriptions(
 			s,
-			{ inspect: inspect, repositories: repositories, config: config, integrations: integrations },
+			{ inspect: inspect, repositories: repositories, config: config, integrations: integrations, ai: ai },
 			this._actions,
 		);
 
@@ -373,6 +373,8 @@ export class GlCommitDetailsApp extends SignalWatcherWebviewApp {
 						.reachabilityState=${reachState}
 						.branchName=${commit?.stashOnRef}
 						.aiEnabled=${org?.ai !== false}
+						.aiModel=${s.aiModel.get()}
+						@switch-model=${() => actions?.executeCommand('gitlens.ai.switchProvider')}
 						@gl-pin=${() => actions?.togglePin()}
 						@gl-nav-back=${() => actions?.navigateBack()}
 						@gl-nav-forward=${() => actions?.navigateForward()}

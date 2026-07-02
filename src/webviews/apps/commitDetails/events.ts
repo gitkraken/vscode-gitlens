@@ -37,6 +37,7 @@ interface SubscriptionServices {
 	readonly repositories: Awaited<Remote<CommitDetailsServices>['repositories']>;
 	readonly config: Awaited<Remote<CommitDetailsServices>['config']>;
 	readonly integrations: Awaited<Remote<CommitDetailsServices>['integrations']>;
+	readonly ai: Awaited<Remote<CommitDetailsServices>['ai']>;
 }
 
 /**
@@ -63,6 +64,7 @@ export function setupSubscriptions(
 		// Note: onOrgSettingsChanged removed — orgSettings signal bridged from host
 		() =>
 			services.integrations.onIntegrationsChanged(data => handleIntegrationsChanged(state, data.hasAnyConnected)),
+		() => services.ai.onModelChanged(model => state.aiModel.set(model)),
 	]);
 }
 

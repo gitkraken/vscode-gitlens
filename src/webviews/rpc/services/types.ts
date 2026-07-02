@@ -146,6 +146,8 @@ export interface AiModelInfo {
 	readonly id: string;
 	readonly name: string;
 	readonly provider: { readonly id: string; readonly name: string };
+	/** Provider-supplied consumption-rate label (GitKraken AI only); undefined for other providers. */
+	readonly consumptionRateLabel?: string;
 }
 
 /**

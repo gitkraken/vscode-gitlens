@@ -1997,6 +1997,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 										.aiEnabled=${preferences?.aiEnabled ?? false}
 										.commitError=${this._state.commitError.get()}
 										.signing=${wip.signing}
+										.aiModel=${this._state.aiModel.get()}
 										@message-change=${this.handleCommitMessageChange}
 										@amend-change=${this.handleAmendChange}
 										@commit=${this.handleCommit}
@@ -2246,6 +2247,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.repoPath=${repoPath}
 			.preferences=${this._state.preferences.get()}
 			.orgSettings=${this._state.orgSettings.get()}
+			.aiModel=${this._state.aiModel.get()}
 			.explainBusy=${this._state.compareExplainBusy.get()}
 			.generateChangelogBusy=${this._state.compareGenerateChangelogBusy.get()}
 			.leftRef=${leftRef}
@@ -2397,6 +2399,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.reachabilityState=${this._state.reachabilityState.get()}
 			.branchName=${commit.stashOnRef}
 			.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+			.aiModel=${this._state.aiModel.get()}
 			.activeMode=${activeMode}
 			.modeStatus=${this.engagedModeStatus}
 			.modeStatusText=${this.computeModeStatusText()}
@@ -2455,6 +2458,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.stats=${this._state.compareStats.get()}
 			.preferences=${this._state.preferences.get()}
 			.orgSettings=${this._state.orgSettings.get()}
+			.aiModel=${this._state.aiModel.get()}
 			.autolinks=${this._state.compareAutolinks.get()}
 			.autolinksLoading=${this._state.compareAutolinksLoading.get()}
 			.autolinksEnabled=${this._state.autolinksEnabled.get()}

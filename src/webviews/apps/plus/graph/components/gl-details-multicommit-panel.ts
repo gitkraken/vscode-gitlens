@@ -19,6 +19,7 @@ import type {
 	State,
 } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
+import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import { renderLearnAboutAutolinks } from '../../../shared/components/chips/learn-about-autolinks.js';
 import { redispatch } from '../../../shared/components/element.js';
@@ -142,6 +143,9 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 
 	@property({ type: Object })
 	orgSettings?: State['orgSettings'];
+
+	@property({ type: Object })
+	aiModel?: AiModelInfo;
 
 	@property({ type: Boolean, attribute: 'file-icons' })
 	fileIcons = false;
@@ -717,6 +721,7 @@ export class GlDetailsMultiCommitPanel extends LitElement {
 			.explainBusy=${this.explainBusy}
 			.generateChangelogBusy=${this.generateChangelogBusy}
 			.orgSettings=${this.orgSettings}
+			.aiModel=${this.aiModel}
 		></gl-compare-ai-actions>`;
 	}
 

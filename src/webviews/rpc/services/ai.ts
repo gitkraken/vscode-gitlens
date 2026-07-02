@@ -142,12 +142,15 @@ export class AIService {
 }
 
 function toAiModelInfo(
-	model: { id: string; name: string; provider: { id: string; name: string } } | undefined,
+	model:
+		| { id: string; name: string; provider: { id: string; name: string }; consumptionRateLabel?: string }
+		| undefined,
 ): AiModelInfo | undefined {
 	if (model == null) return undefined;
 	return {
 		id: model.id,
 		name: model.name,
 		provider: { id: model.provider.id, name: model.provider.name },
+		consumptionRateLabel: model.consumptionRateLabel,
 	} satisfies AiModelInfo;
 }

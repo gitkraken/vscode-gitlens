@@ -364,6 +364,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 					.value=${this.basePrompt}
 					.busy=${this.status === 'loading'}
 					?disabled=${disabled}
+					disabled-reason="Include files to compose"
 					@input=${this.onAiInputType}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
@@ -607,12 +608,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const isSelected = this._selectedCommitId === commit.id;
 		const isLocked = this.lockedCommitIds.has(commit.id);
 		const isExcluded = this._excludedCommitIds.has(commit.id);
-		const lockLabel = isLocked
-			? 'Unlock these changes (let the AI reassign them when refining)'
-			: 'Lock these changes (AI leaves them unchanged when refining)';
-		const includeLabel = isExcluded
-			? 'Include these changes when committing'
-			: 'Exclude these changes when committing';
+		const lockLabel = isLocked ? 'Allow Changes when Refining' : 'Prevent Changes when Refining';
+		const includeLabel = isExcluded ? 'Include Changes when Committing' : 'Exclude Changes when Committing';
 
 		const ariaState = [isLocked ? 'locked' : '', isExcluded ? 'excluded' : ''].filter(Boolean).join(', ');
 
@@ -629,7 +626,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 				? 'AI model required to regenerate commit messages'
 				: isRegeneratingThis
 					? 'Regenerating commit message…'
-					: 'Regenerate commit message';
+					: 'Regenerate Commit Message';
 
 		return html`<div
 			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isLocked
