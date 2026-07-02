@@ -4505,9 +4505,9 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|unstaged|mixed)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "0_gitlens_open",
-						"order": 3
+						"order": 1
 					}
 				]
 			}
@@ -12774,7 +12774,7 @@
 			"menus": {
 				"webview/context": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?!.*?\\b\\+mixed\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "0_gitlens_open",
 						"order": 1
 					}
@@ -12854,7 +12854,7 @@
 			"menus": {
 				"gitlens/commit/file/changes": [
 					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed|staged|unstaged)\\b)/ && webview == gitlens.views.commitDetails",
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/ && webview == gitlens.views.commitDetails",
 						"group": "1_gitlens",
 						"order": 1
 					}
@@ -17642,19 +17642,6 @@
 				]
 			}
 		},
-		"gitlens.views.stageFile:commitDetails": {
-			"label": "Stage Changes",
-			"icon": "$(add)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && webview == gitlens.views.commitDetails",
-						"group": "1_gitlens_actions",
-						"order": 1
-					}
-				]
-			}
-		},
 		"gitlens.views.stageFile:graphDetails": {
 			"label": "Stage Changes",
 			"icon": "$(add)",
@@ -17662,19 +17649,6 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-						"group": "1_gitlens_actions",
-						"order": 1
-					}
-				]
-			}
-		},
-		"gitlens.views.stageFile.multi:commitDetails": {
-			"label": "Stage Changes",
-			"icon": "$(add)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
 						"group": "1_gitlens_actions",
 						"order": 1
 					}
@@ -18556,19 +18530,6 @@
 				]
 			}
 		},
-		"gitlens.views.unstageFile:commitDetails": {
-			"label": "Unstage Changes",
-			"icon": "$(remove)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && webview == gitlens.views.commitDetails",
-						"group": "1_gitlens_actions",
-						"order": 2
-					}
-				]
-			}
-		},
 		"gitlens.views.unstageFile:graphDetails": {
 			"label": "Unstage Changes",
 			"icon": "$(remove)",
@@ -18576,19 +18537,6 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
-						"group": "1_gitlens_actions",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.views.unstageFile.multi:commitDetails": {
-			"label": "Unstage Changes",
-			"icon": "$(remove)",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "listMultiSelection && webview == gitlens.views.commitDetails && webviewItemsUnion =~ /gitlens:file\\b(?=.*?\\b\\+(staged|mixed)\\b)(?!.*?\\b\\+(committed|stashed)\\b)/",
 						"group": "1_gitlens_actions",
 						"order": 2
 					}

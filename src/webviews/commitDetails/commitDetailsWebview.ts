@@ -1,10 +1,12 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
 import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard.js';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
@@ -508,6 +510,21 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
 		}
 
+		// The working (uncommitted) commit's `anyFiles` carries a separate staged + unstaged entry for
+		// each partially-staged ("mixed") file. The Inspect view shows working changes as a single
+		// working-tree-vs-HEAD changeset, so collapse to one row per path (keeping the first = unstaged
+		// twin). Row-click and right-click both diff HEAD↔working, so the dropped staged distinction is
+		// invisible here — this only removes the duplicate row and de-inflates the file counts.
+		const changedFiles = commit.isUncommitted
+			? [
+					...uniqueBy(
+						commit.anyFiles ?? [],
+						f => f.path,
+						original => original,
+					),
+				]
+			: commit.fileset?.files;
+
 		return {
 			repoPath: commit.repoPath,
 			sha: commit.sha,
@@ -520,7 +537,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			stashOnRef: commit.refType === 'stash' ? commit.stashOnRef : undefined,
 			// Serialize files to plain objects - GitFileChange class instances contain
 			// a Container reference which causes circular reference errors during JSON serialization
-			files: (commit.isUncommitted ? commit.anyFiles : commit.fileset?.files)?.map(f => ({
+			files: changedFiles?.map(f => ({
 				repoPath: f.repoPath,
 				path: f.path,
 				status: f.status,
@@ -528,7 +545,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 				staged: f.staged,
 				stats: f.stats,
 			})),
-			stats: commit.stats,
+			// Recompute the file counts from the deduped list so the working-changes header doesn't
+			// double-count mixed files. Line totals (`additions`/`deletions`) come from `git diff --stat
+			// HEAD` and are already counted once, so they're preserved as-is.
+			stats:
+				commit.isUncommitted && commit.stats != null
+					? { ...commit.stats, files: countFileChanges(changedFiles) }
+					: commit.stats,
 			reachableFromOtherWorktrees: (getSettledValue(worktreesResult)?.length ?? 0) > 0,
 		};
 	}
@@ -752,4 +775,22 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			},
 		} satisfies CommitDetailsServices);
 	}
+}
+
+/** Tallies added/deleted/changed counts from a file list — mirrors `GitCommit.computeFileStats` so the
+ *  deduped working-changes list reports the same buckets, minus the mixed-file double-count. */
+function countFileChanges(files: readonly GitFileChange[] | undefined): GitDiffFileStats {
+	const counts = { added: 0, deleted: 0, changed: 0 };
+	if (files != null) {
+		for (const f of files) {
+			if (f.status === 'A' || f.status === '?') {
+				counts.added++;
+			} else if (f.status === 'D') {
+				counts.deleted++;
+			} else {
+				counts.changed++;
+			}
+		}
+	}
+	return counts;
 }
