@@ -1243,9 +1243,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				<span slot="content">Create</span>
 			</gl-tooltip>
 			<div slot="content">
-				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
-					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
-				</menu-item>
 				<menu-item
 					href=${createCommandLink<BranchGitCommandArgs>('gitlens.git.branch', {
 						command: 'branch',
@@ -1254,6 +1251,9 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 					})}
 				>
 					<span class="action-menu__item"><code-icon icon="git-branch"></code-icon>Create Branch…</span>
+				</menu-item>
+				<menu-item href=${createCommandLink('gitlens.views.createWorktree')}>
+					<span class="action-menu__item"><code-icon icon="gl-worktree"></code-icon>Create Worktree…</span>
 				</menu-item>
 				<menu-divider></menu-divider>
 				<menu-item
@@ -1275,14 +1275,14 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			placement="bottom-end"
 			trigger="click focus"
 			?arrow=${false}
-			distance=${0}
+			.distance=${0}
 		>
 			<gl-tooltip slot="anchor" placement="bottom">
-				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start">
+				<button type="button" class="action-button" aria-haspopup="true" aria-label="Start New">
 					<code-icon icon="gl-start-new"></code-icon>
 					<code-icon class="action-button__more" icon="chevron-down" aria-hidden="true"></code-icon>
 				</button>
-				<span slot="content">Start</span>
+				<span slot="content">Start New</span>
 			</gl-tooltip>
 			<div slot="content">
 				<menu-item href=${createCommandLink('gitlens.startWork', { source: 'graph-header' })}>

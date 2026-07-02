@@ -92,7 +92,8 @@ export const detailsWipHeaderStyles = css`
 	}
 
 	.branch-identity,
-	.branch-ops {
+	.branch-ops,
+	.branch-actions {
 		display: flex;
 		gap: var(--gl-space-6);
 		align-items: center;
@@ -125,6 +126,13 @@ export const detailsWipHeaderStyles = css`
 		flex: 0 1 auto;
 		align-items: center;
 		min-width: 0;
+	}
+
+	/* Primary branch actions (publish/pull/push, fetch, create branch) sit inline right after the
+	   branch name, left of the kebab. The .branch-ops cluster keeps the worktree-scoped actions
+	   (cloud patch, terminal, open worktree) anchored to the row's right edge. */
+	.branch-actions {
+		flex: 0 0 auto;
 	}
 
 	.branch-ops {

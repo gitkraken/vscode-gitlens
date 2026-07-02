@@ -188,7 +188,12 @@ export class GlDetailsWipHeader extends LitElement {
 									></span>
 								</gl-tooltip>`
 						: nothing}
-					${!isModeActive ? this.renderWipActionsButton() : nothing}
+					${!isModeActive
+						? html`<div class="branch-actions">
+								${this.renderBranchStateAction()}${this.renderFetchAction()}
+							</div>`
+						: nothing}
+					${!isModeActive ? this.renderBranchActionsButton() : nothing}
 					${isModeActive
 						? html`<gl-wip-stats
 								.added=${addedCount}
@@ -210,13 +215,6 @@ export class GlDetailsWipHeader extends LitElement {
 				</div>
 				${!isModeActive
 					? html`<div class="branch-ops">
-							${this.renderBranchStateAction()}${this.renderFetchAction()}
-							<gl-action-chip
-								icon="custom-start-work"
-								label="Create Branch..."
-								overlay="tooltip"
-								@click=${() => this.emit('create-branch')}
-							></gl-action-chip>
 							${files.length > 0
 								? html`<gl-action-chip
 										icon="gl-cloud-patch-share"
@@ -248,6 +246,7 @@ export class GlDetailsWipHeader extends LitElement {
 										})}
 									></gl-action-chip>`
 								: nothing}
+							${this.renderWipActionsButton()}
 						</div>`
 					: this.modeStatusText
 						? html`<div class="mode-status">${this.modeStatusText}</div>`
@@ -255,6 +254,21 @@ export class GlDetailsWipHeader extends LitElement {
 			</div>
 			${!isModeActive ? this.renderIssuesRow() : nothing}
 		</gl-details-header>`;
+	}
+
+	private renderBranchActionsButton() {
+		// `wip.stats.branchContext` is the serialized `gitlens:branch` context built host-side, so this
+		// kebab opens the same branch actions menu as a graph branch row. Undefined on detached HEAD.
+		const context = this.wip?.stats?.branchContext;
+		if (context == null) return nothing;
+
+		return html`<gl-action-chip
+			icon="kebab-vertical"
+			label="Show Branch Actions"
+			overlay="tooltip"
+			data-vscode-context=${context}
+			@click=${this.onMoreActionsClick}
+		></gl-action-chip>`;
 	}
 
 	private renderWipActionsButton() {

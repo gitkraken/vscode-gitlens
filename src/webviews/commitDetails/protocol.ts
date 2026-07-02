@@ -118,6 +118,8 @@ export interface WipStats {
 	conflictsCount?: number;
 	pausedOpStatus?: GitPausedOperationStatus;
 	context?: string;
+	/** Serialized `gitlens:branch` context for the WIP header's left "branch actions" kebab; undefined on detached HEAD. */
+	branchContext?: string;
 }
 
 /** Repo-level commit-signing status for the WIP commit box — see {@link Wip.signing}. */

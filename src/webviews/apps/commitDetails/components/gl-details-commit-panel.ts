@@ -471,8 +471,26 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 						.sha=${isStash ? `#${commit.stashNumber}` : commit.sha}
 						.icon=${isStash ? 'gl-stashes-view' : 'git-commit'}
 					></gl-commit-sha-copy>
-					${this.isUncommitted ? nothing : this.renderMoreActionsButton()}
 					${isStash ? this.renderStashApplyButton() : nothing}
+					${when(
+						!isStash && !this.isUncommitted && this.hasRemotes && this.activeMode == null,
+						() =>
+							html`<gl-action-chip
+								class="metadata-bar__action metadata-bar__action--remote"
+								icon="globe"
+								label="Open Commit on Remote"
+								overlay="tooltip"
+								@click=${() =>
+									this.dispatchEvent(
+										new CustomEvent('open-on-remote', {
+											detail: { sha: commit.sha },
+											bubbles: true,
+											composed: true,
+										}),
+									)}
+							></gl-action-chip>`,
+					)}
+					${this.isUncommitted ? nothing : this.renderMoreActionsButton()}
 					${isStash
 						? this.branchName
 							? html`<gl-tooltip content="Stashed on ${this.branchName}">
@@ -492,23 +510,6 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 					${this.modeStatusText
 						? html`<span class="mode-status">${this.modeStatusText}</span>`
 						: this.renderCommitStats(commit.stats)}
-					${when(
-						!isStash && !this.isUncommitted && this.hasRemotes && this.activeMode == null,
-						() =>
-							html`<gl-action-chip
-								icon="globe"
-								label="Open Commit on Remote"
-								overlay="tooltip"
-								@click=${() =>
-									this.dispatchEvent(
-										new CustomEvent('open-on-remote', {
-											detail: { sha: commit.sha },
-											bubbles: true,
-											composed: true,
-										}),
-									)}
-							></gl-action-chip>`,
-					)}
 				</div>
 			</div>
 			${this._reachabilityExpanded ? html`<div class="reachability">${this.renderReachability()}</div>` : nothing}`;

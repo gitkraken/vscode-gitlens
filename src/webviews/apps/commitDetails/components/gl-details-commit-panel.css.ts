@@ -313,17 +313,12 @@ export const detailsCommitPanelStyles = css`
 	:host([variant='embedded']) .metadata-bar__right {
 		display: flex;
 		align-items: center;
-		/* Wider gap sets the trailing action(s) apart from the diff stats (info vs action). */
 		gap: var(--gl-space-8);
 		flex-shrink: 0;
 		font-size: var(--gl-font-sm);
 		font-weight: 600;
-		/* Stats-only (no trailing action): keep them inset from the right edge. */
+		/* Stats-only cluster (actions now live on the left): keep it inset from the right edge. */
 		margin-right: 0.5rem;
-	}
-	/* A trailing action present → drop the inset so the action sits at the panel's right edge. */
-	:host([variant='embedded']) .metadata-bar__right:has(gl-action-chip) {
-		margin-right: 0;
 	}
 
 	/* Reachability (below metadata bar) */

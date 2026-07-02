@@ -2062,7 +2062,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				@refresh-wip=${this.handleRefreshWip}
 				@gl-jump-to-commit=${this.handleJumpToCommit}
 				@switch-branch=${this.handleSwitchBranch}
-				@create-branch=${this.handleCreateBranch}
 				@compare-with-merge-target=${this.handleCompareWithMergeTarget}
 				@publish-branch=${this.handlePublishBranch}
 				@pull=${this.handlePull}

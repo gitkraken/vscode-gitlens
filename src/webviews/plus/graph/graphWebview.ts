@@ -8276,6 +8276,33 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// header's own `isSecondaryWorktree` check (`wip.repo.path !== currentRepoPath`).
 		const isSecondaryWorktree = this.repository != null && repo.path !== this.repository.path;
 
+		// Serialize the current branch's context so the WIP header's left kebab opens the same branch
+		// actions menu as a graph branch row. Undefined on detached HEAD (no branch) so the header hides
+		// that kebab. Mirrors the `webviewItem` suffix logic in `getSidebarBranches`.
+		const pinnedRefId = this.getFiltersByRepo(repo.path)?.pinnedRef?.id;
+		const branchContext =
+			branch != null
+				? serializeWebviewItemContext<GraphItemContext>({
+						webviewItem: `gitlens:branch${branch.current ? '+current' : ''}${
+							branch.upstream != null && !branch.upstream.missing ? '+tracking' : ''
+						}${isSecondaryWorktree ? '+worktree' : ''}${branch.current || isSecondaryWorktree ? '+checkedout' : ''}${
+							branch.upstream?.state.ahead ? '+ahead' : ''
+						}${branch.upstream?.state.behind ? '+behind' : ''}${
+							pinnedRefId != null && branch.id === pinnedRefId ? '+pinned' : ''
+						}`,
+						webviewItemValue: {
+							type: 'branch',
+							ref: createReference(branch.name, repo.path, {
+								id: branch.id,
+								refType: 'branch',
+								name: branch.name,
+								remote: false,
+								upstream: branch.upstream,
+							}),
+						},
+					})
+				: undefined;
+
 		// Build the stats once and embed it as `wip.stats`. The webview derives `workingTreeStats`
 		// from `wip.stats`, so the file list and its counts can never drift — they're one object.
 		const stats: WipStats = {
@@ -8293,6 +8320,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					worktreePath: repo.path,
 				},
 			}),
+			branchContext: branchContext,
 		};
 
 		return {
