@@ -90,6 +90,24 @@ async function selectWipDetails(webview: FrameLocator): Promise<void> {
 	await expect(webview.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
 }
 
+function resolvePanel(webview: FrameLocator) {
+	return webview.locator('gl-details-resolve-mode-panel');
+}
+
+/**
+ * Exit resolve mode if it is active. The graph webview is retained across hide/show
+ * (`retainContextWhenHidden`) and `resetUI` does not reset the in-memory active mode, so without
+ * this the resolve panel from one serial test would leak into the next and make a bare
+ * "panel is visible" assertion pass without the command having routed.
+ */
+async function exitResolveMode(webview: FrameLocator): Promise<void> {
+	const closeChip = webview.locator('gl-action-chip.mode-close').first();
+	if (await closeChip.isVisible().catch(() => false)) {
+		await closeChip.click();
+		await expect(resolvePanel(webview)).toBeHidden({ timeout: MaxTimeout });
+	}
+}
+
 /** Open the Commit Graph and wait until the conflicted WIP row has rendered. */
 async function openGraphWithConflict(vscode: VSCodeInstance): Promise<FrameLocator> {
 	await vscode.gitlens.showCommitGraphView();
@@ -110,13 +128,18 @@ const test = base.extend({
 				git = new GitFixture(repoDir);
 				await git.init();
 
-				// Diverge `main` and `feature` on the same file so a merge produces a real conflict,
-				// leaving the working tree in a conflicted merge state (WIP row → `+hasConflicts`).
+				// Diverge `main` and `feature` on two shared files so a merge produces real conflicts
+				// in both, leaving the working tree in a conflicted merge state (WIP row →
+				// `+hasConflicts`). Two conflicted files let the single- vs multi-file resolve
+				// commands route over genuinely different scopes.
 				await git.commit('Base commit', 'shared.txt', 'line1\nline2\nline3\n');
+				await git.commit('Add shared2', 'shared2.txt', 'a\nb\nc\n');
 				await git.branch('feature');
 				await git.commit('Main edit', 'shared.txt', 'line1\nMAIN CHANGE\nline3\n');
+				await git.commit('Main edit 2', 'shared2.txt', 'a\nMAIN\nc\n');
 				await git.checkout('feature');
 				await git.commit('Feature edit', 'shared.txt', 'line1\nFEATURE CHANGE\nline3\n');
+				await git.commit('Feature edit 2', 'shared2.txt', 'a\nFEATURE\nc\n');
 				await git.checkout('main');
 				try {
 					await git.merge('feature', 'Merge feature');
@@ -136,6 +159,12 @@ test.describe('Graph — Conflict Resolution', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test.afterEach(async ({ vscode }) => {
+		// Exit resolve mode before tearing down so it doesn't leak into the next serial test (the
+		// graph webview is retained). Do it while the graph is still shown — resetUI hides it.
+		const webview = await vscode.gitlens.commitGraphViewWebview;
+		if (webview != null) {
+			await exitResolveMode(webview);
+		}
 		await vscode.gitlens.resetUI();
 	});
 
@@ -160,11 +189,16 @@ test.describe('Graph — Conflict Resolution', () => {
 		// (drives the per-file "Resolve Conflicts" menu item).
 		await selectWipDetails(webview);
 
+		// Both conflicted files render a `gitlens:file…+conflict…` context; assert on the one for
+		// shared.txt specifically rather than relying on render order.
 		await expect.poll(() => conflictFileContext(webview).count(), { timeout: 15000 }).toBeGreaterThan(0);
-		const ctx = await conflictFileContext(webview).first().getAttribute('data-vscode-context');
-		expect(ctx).toContain('gitlens:file');
-		expect(ctx).toContain('+conflict');
-		expect(ctx).toContain('shared.txt');
+		const contexts = await conflictFileContext(webview).evaluateAll(els =>
+			els.map(el => el.getAttribute('data-vscode-context') ?? ''),
+		);
+		const sharedCtx = contexts.find(c => c.includes('"path":"shared.txt"'));
+		expect(sharedCtx, `expected a +conflict context for shared.txt, got: ${contexts.join(' | ')}`).toBeTruthy();
+		expect(sharedCtx).toContain('gitlens:file');
+		expect(sharedCtx).toContain('+conflict');
 	});
 
 	test('resolveAllConflicts enters resolve mode for the whole worktree', async ({ vscode }) => {
@@ -173,6 +207,11 @@ test.describe('Graph — Conflict Resolution', () => {
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
+
+		// Start outside resolve mode so the visibility change proves THIS command routed (the panel
+		// is otherwise retained across tests).
+		await exitResolveMode(webview);
+		await expect(resolvePanel(webview)).toBeHidden();
 
 		await vscode.gitlens.executeCommand('gitlens.ai.resolveAllConflicts:graph', {
 			webview: state!.webviewId,
@@ -192,7 +231,7 @@ test.describe('Graph — Conflict Resolution', () => {
 		});
 
 		// The idle resolve-mode panel renders (no AI call — that only runs on the "Resolve" click).
-		await expect(webview.locator('gl-details-resolve-mode-panel')).toBeVisible({ timeout: 15000 });
+		await expect(resolvePanel(webview)).toBeVisible({ timeout: 15000 });
 		await expect(webview.getByText('Resolving Conflicts').first()).toBeVisible({ timeout: 15000 });
 	});
 
@@ -203,6 +242,9 @@ test.describe('Graph — Conflict Resolution', () => {
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
 
+		await exitResolveMode(webview);
+		await expect(resolvePanel(webview)).toBeHidden();
+
 		await vscode.gitlens.executeCommand('gitlens.ai.resolveConflicts:graph', {
 			webview: state!.webviewId,
 			webviewInstance: state!.webviewInstanceId,
@@ -210,7 +252,7 @@ test.describe('Graph — Conflict Resolution', () => {
 			webviewItemValue: { type: 'file', path: 'shared.txt', repoPath: state!.repoPath },
 		});
 
-		await expect(webview.locator('gl-details-resolve-mode-panel')).toBeVisible({ timeout: 15000 });
+		await expect(resolvePanel(webview)).toBeVisible({ timeout: 15000 });
 	});
 
 	test('resolveConflicts.multi enters resolve mode for a multi-selection of conflicts', async ({ vscode }) => {
@@ -220,7 +262,11 @@ test.describe('Graph — Conflict Resolution', () => {
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
 
-		// The multi handler reads `webviewItemsValues` and keeps only the `+conflict` entries.
+		await exitResolveMode(webview);
+		await expect(resolvePanel(webview)).toBeHidden();
+
+		// The multi handler reads `webviewItemsValues` and keeps only the `+conflict` entries. Pass
+		// both conflicted files (plus one non-conflict entry it must filter out).
 		await vscode.gitlens.executeCommand('gitlens.ai.resolveConflicts.multi:graph', {
 			webview: state!.webviewId,
 			webviewInstance: state!.webviewInstanceId,
@@ -229,10 +275,14 @@ test.describe('Graph — Conflict Resolution', () => {
 					webviewItem: 'gitlens:file+conflict+canStageCurrent+canStageIncoming',
 					webviewItemValue: { type: 'file', path: 'shared.txt', repoPath: state!.repoPath },
 				},
+				{
+					webviewItem: 'gitlens:file+conflict+canStageCurrent+canStageIncoming',
+					webviewItemValue: { type: 'file', path: 'shared2.txt', repoPath: state!.repoPath },
+				},
 			],
 		});
 
-		await expect(webview.locator('gl-details-resolve-mode-panel')).toBeVisible({ timeout: 15000 });
+		await expect(resolvePanel(webview)).toBeVisible({ timeout: 15000 });
 	});
 
 	// Tier 2 — the views surface. The conflicted files appear in the Commits view under the
@@ -260,13 +310,16 @@ test.describe('Graph — Conflict Resolution', () => {
 		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
 
 		const webview = await openGraphWithConflict(vscode);
+		// Baseline: the conflicted merge currently advertises conflicts on the WIP row.
+		expect(await wipConflictContext(webview).count()).toBeGreaterThan(0);
 
 		await git.mergeAbort();
 		await vscode.gitlens.executeCommand('gitlens.views.graph.refresh');
 
-		// With the working tree clean, the WIP row no longer advertises conflicts and no file
-		// carries `+conflict` — so neither resolve menu item would gate on.
+		// With the working tree clean, the WIP row no longer advertises conflicts, so the
+		// "Resolve Conflicts" WIP-row menu item would not gate on. (We assert the at-rest
+		// `+hasConflicts` signal here; the per-file `+conflict` context only renders inside an
+		// opened WIP details panel and is covered by the dedicated file-context test above.)
 		await expect.poll(() => wipConflictContext(webview).count(), { timeout: 15000 }).toBe(0);
-		await expect.poll(() => conflictFileContext(webview).count(), { timeout: 5000 }).toBe(0);
 	});
 });
