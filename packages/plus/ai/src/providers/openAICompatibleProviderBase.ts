@@ -127,7 +127,7 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 		while (true) {
 			const request: ChatCompletionRequest = {
 				model: model.id,
-				messages: await messages(maxInputTokens, retries),
+				...this.extractSystemPrompt(await messages(maxInputTokens, retries)),
 				stream: false,
 				max_completion_tokens: model.maxTokens.output
 					? Math.min(modelOptions?.outputTokens ?? Infinity, model.maxTokens.output)
@@ -171,6 +171,18 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 			};
 			return result;
 		}
+	}
+
+	/**
+	 * Returns the message-related request fields. The default sends every message inline (OpenAI
+	 * Chat Completions semantics); providers whose API carries the initial system prompt separately
+	 * (e.g. Anthropic's top-level `system`) override this to extract it from the messages.
+	 */
+	protected extractSystemPrompt(messages: AIChatMessage<AIChatMessageRole>[]): {
+		messages: AIChatMessage<AIChatMessageRole>[];
+		system?: string;
+	} {
+		return { messages: messages };
 	}
 
 	protected async handleFetchFailure<TAction extends AIActionType>(
@@ -247,6 +259,9 @@ export abstract class OpenAICompatibleProviderBase<T extends AIProviders> implem
 interface ChatCompletionRequest {
 	model: string;
 	messages: AIChatMessage<AIChatMessageRole>[];
+
+	/** Anthropic carries the initial system prompt here instead of as a `system`-role message */
+	system?: string;
 
 	/** @deprecated but used by Anthropic & Gemini */
 	max_tokens?: number;

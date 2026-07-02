@@ -1,6 +1,7 @@
 import { anthropicProviderDescriptor as provider } from '../constants.js';
 import { AIError, AIErrorReason } from '../errors.js';
 import type { AIActionType, AIModel } from '../models/model.js';
+import type { AIChatMessage, AIChatMessageRole } from '../models/provider.js';
 import { getReducedMaxInputTokens } from '../utils/ai.utils.js';
 import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js';
 
@@ -269,6 +270,21 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		return super.fetchCore(action, model, apiKey, request, signal);
 	}
 
+	protected override extractSystemPrompt(messages: AIChatMessage<AIChatMessageRole>[]): {
+		messages: AIChatMessage<AIChatMessageRole>[];
+		system?: string;
+	} {
+		// Anthropic's Messages API rejects `system`-role entries in `messages` and requires the initial
+		// system prompt in the top-level `system` field, so pull any such messages out.
+		const systemMessages = messages.filter(m => m.role === 'system');
+		if (!systemMessages.length) return { messages: messages };
+
+		return {
+			system: systemMessages.map(m => m.content).join('\n\n'),
+			messages: messages.filter(m => m.role !== 'system'),
+		};
+	}
+
 	protected override async handleFetchFailure<TAction extends AIActionType>(
 		rsp: Response,
 		action: TAction,
@@ -279,7 +295,9 @@ export class AnthropicProvider extends OpenAICompatibleProviderBase<typeof provi
 		if (rsp.status !== 404 && rsp.status !== 429) {
 			let json;
 			try {
-				json = (await rsp.json()) as AnthropicError | undefined;
+				// Read from a clone so the body stays available for `super.handleFetchFailure` below;
+				// otherwise it re-reads the consumed body, loses Anthropic's error, and falls back to statusText.
+				json = (await rsp.clone().json()) as AnthropicError | undefined;
 			} catch {}
 
 			debugger;
