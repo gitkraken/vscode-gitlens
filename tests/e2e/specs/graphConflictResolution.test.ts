@@ -207,6 +207,12 @@ test.describe('Graph — Conflict Resolution', () => {
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
+		// Assert the routing contract explicitly: a webview command needs a live webview id +
+		// instance id or the WebviewCommandRegistrar throws — fail fast with a clear signal if the
+		// graph state shape ever changes.
+		expect(state!.webviewId).toBeDefined();
+		expect(state!.webviewInstanceId).toBeDefined();
+		expect(state!.repoPath).toBeDefined();
 
 		// Start outside resolve mode so the visibility change proves THIS command routed (the panel
 		// is otherwise retained across tests).
@@ -241,6 +247,12 @@ test.describe('Graph — Conflict Resolution', () => {
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
+		// Assert the routing contract explicitly: a webview command needs a live webview id +
+		// instance id or the WebviewCommandRegistrar throws — fail fast with a clear signal if the
+		// graph state shape ever changes.
+		expect(state!.webviewId).toBeDefined();
+		expect(state!.webviewInstanceId).toBeDefined();
+		expect(state!.repoPath).toBeDefined();
 
 		await exitResolveMode(webview);
 		await expect(resolvePanel(webview)).toBeHidden();
@@ -261,12 +273,19 @@ test.describe('Graph — Conflict Resolution', () => {
 		const webview = await openGraphWithConflict(vscode);
 		const state = await getGraphState(webview);
 		expect(state).not.toBeNull();
+		// Assert the routing contract explicitly: a webview command needs a live webview id +
+		// instance id or the WebviewCommandRegistrar throws — fail fast with a clear signal if the
+		// graph state shape ever changes.
+		expect(state!.webviewId).toBeDefined();
+		expect(state!.webviewInstanceId).toBeDefined();
+		expect(state!.repoPath).toBeDefined();
 
 		await exitResolveMode(webview);
 		await expect(resolvePanel(webview)).toBeHidden();
 
 		// The multi handler reads `webviewItemsValues` and keeps only the `+conflict` entries. Pass
-		// both conflicted files (plus one non-conflict entry it must filter out).
+		// both conflicted files plus a non-conflict entry to exercise the filter-out path
+		// (`items.filter(i => i.webviewItem.includes('+conflict'))` in resolveConflictsMulti).
 		await vscode.gitlens.executeCommand('gitlens.ai.resolveConflicts.multi:graph', {
 			webview: state!.webviewId,
 			webviewInstance: state!.webviewInstanceId,
@@ -278,6 +297,11 @@ test.describe('Graph — Conflict Resolution', () => {
 				{
 					webviewItem: 'gitlens:file+conflict+canStageCurrent+canStageIncoming',
 					webviewItemValue: { type: 'file', path: 'shared2.txt', repoPath: state!.repoPath },
+				},
+				{
+					// Non-conflict selection the handler must filter out.
+					webviewItem: 'gitlens:file+unstaged',
+					webviewItemValue: { type: 'file', path: 'unrelated.txt', repoPath: state!.repoPath },
 				},
 			],
 		});
