@@ -173,6 +173,13 @@ export class GitFixture {
 	}
 
 	/**
+	 * Abort an in-progress merge (e.g., to clear a conflicted merge state)
+	 */
+	async mergeAbort(): Promise<void> {
+		await this.git('merge', undefined, '--abort');
+	}
+
+	/**
 	 * Abort an in-progress rebase
 	 */
 	async rebaseAbort(): Promise<void> {
