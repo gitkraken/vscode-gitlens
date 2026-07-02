@@ -5,7 +5,6 @@ export type AIProviders =
 	| 'azure'
 	| 'deepseek'
 	| 'gemini'
-	| 'github'
 	| 'gitkraken'
 	| 'huggingface'
 	| 'mistral'
@@ -88,13 +87,6 @@ export const deepSeekProviderDescriptor: AIProviderDescriptor<'deepseek'> = {
 export const xAIProviderDescriptor: AIProviderDescriptor<'xai'> = {
 	id: 'xai',
 	name: 'xAI',
-	primary: false,
-	requiresAccount: true,
-	requiresUserKey: true,
-} as const;
-export const githubProviderDescriptor: AIProviderDescriptor<'github'> = {
-	id: 'github',
-	name: 'GitHub Models',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,

@@ -8,7 +8,6 @@ import {
 	azureProviderDescriptor,
 	deepSeekProviderDescriptor,
 	geminiProviderDescriptor,
-	githubProviderDescriptor,
 	gitKrakenProviderDescriptor,
 	huggingFaceProviderDescriptor,
 	mistralProviderDescriptor,
@@ -288,20 +287,6 @@ const supportedAIProviders = new Map<AIProviders, AIProviderDescriptorWithType>(
 							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/huggingFaceProvider.js'),
 						)
 					).HuggingFaceProvider,
-			),
-		},
-	],
-	[
-		'github',
-		{
-			...githubProviderDescriptor,
-			type: lazy(
-				async () =>
-					(
-						await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '@gitlens/ai/providers/githubModelsProvider.js'),
-						)
-					).GitHubModelsProvider,
 			),
 		},
 	],

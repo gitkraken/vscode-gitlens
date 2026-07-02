@@ -7,6 +7,20 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type AnthropicModel = AIModel<typeof provider.id>;
 const models: AnthropicModel[] = [
 	{
+		id: 'claude-opus-4-8',
+		name: 'Claude Opus 4.8',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
+		id: 'claude-sonnet-5',
+		name: 'Claude Sonnet 5',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
 		id: 'claude-haiku-4-5',
 		name: 'Claude Haiku 4.5',
 		maxTokens: { input: 204800, output: 32000 },
@@ -21,15 +35,22 @@ const models: AnthropicModel[] = [
 		hidden: true,
 	},
 	{
+		id: 'claude-opus-4-7',
+		name: 'Claude Opus 4.7',
+		maxTokens: { input: 1048576, output: 128000 },
+		provider: provider,
+		temperature: null, // Sampling params removed on Opus 4.7+/Sonnet 5 (rejected with 400)
+	},
+	{
 		id: 'claude-sonnet-4-6',
 		name: 'Claude Sonnet 4.6',
-		maxTokens: { input: 204800, output: 64000 },
+		maxTokens: { input: 1048576, output: 64000 },
 		provider: provider,
 	},
 	{
 		id: 'claude-opus-4-6',
 		name: 'Claude Opus 4.6',
-		maxTokens: { input: 204800, output: 128000 },
+		maxTokens: { input: 1048576, output: 128000 },
 		provider: provider,
 	},
 	{
@@ -37,6 +58,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Sonnet 4.5',
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-5-20250929',
@@ -50,6 +72,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Opus 4.5',
 		maxTokens: { input: 204800, output: 32000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-opus-4-5-20251101',
@@ -91,6 +114,7 @@ const models: AnthropicModel[] = [
 		name: 'Claude Sonnet 4',
 		maxTokens: { input: 204800, output: 64000 },
 		provider: provider,
+		hidden: true,
 	},
 	{
 		id: 'claude-sonnet-4-20250514',
