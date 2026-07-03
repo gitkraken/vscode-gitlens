@@ -996,6 +996,15 @@ export class IntegrationService implements Disposable {
 			// The wire `domain` is a full URL; self-managed integrations are keyed/constructed by host.
 			const host = hostFromDomain(connection.domain);
 
+			// Self-managed connections are keyed by host, so an unparseable/empty domain would store the
+			// session and descriptor under an empty host — producing ambiguous keys (`connected:<id>:`) that
+			// break later resolution and local-disconnect checks. Skip such a connection rather than corrupt
+			// state; cloud providers key off their canonical domain and are unaffected.
+			if (isGitSelfManagedHostIntegrationId(id) && !host) {
+				scope?.warn(`Skipping connection '${connection.id}' for ${id}: unresolved host from domain`);
+				continue;
+			}
+
 			// Don't resurrect a connection the user disconnected locally: a host "disconnect" only clears
 			// local state (the backend still lists the token), so without this the next non-forced sync would
 			// re-store the secret/config. A forced reconnect clears this flag (in the sync loop above) before
@@ -1029,7 +1038,9 @@ export class IntegrationService implements Disposable {
 				await this.configuredIntegrationService.storeSession(id, providerSession);
 				syncedIds.add(connection.id);
 			} catch (ex) {
-				scope?.warn(`Failed to sync connection '${connection.id}' for ${id}: ${ex.message}`);
+				scope?.warn(
+					`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
+				);
 			}
 		}
 
@@ -1104,7 +1115,7 @@ export class IntegrationService implements Disposable {
 			const account = await integration?.getProviderAccountForSession(session);
 			return account?.username ?? account?.name ?? undefined;
 		} catch (ex) {
-			scope?.warn(`Failed to resolve account name for '${id}': ${ex.message}`);
+			scope?.warn(`Failed to resolve account name for '${id}': ${ex instanceof Error ? ex.message : String(ex)}`);
 			return undefined;
 		}
 	}

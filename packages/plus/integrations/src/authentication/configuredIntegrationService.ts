@@ -63,8 +63,11 @@ export class ConfiguredIntegrationService implements Disposable {
 					...d,
 					// Backfill a stable connection id for pre-multi-account stored data: the domain for
 					// self-managed hosts, or the provider's canonical domain for cloud (which is the legacy
-					// secret-key session id), so existing secrets keep resolving with zero migration.
-					id: d.id ?? d.domain ?? providersMetadata[id]?.domain ?? '',
+					// secret-key session id), so existing secrets keep resolving with zero migration. Fall back
+					// to the integration id (never empty) when no domain is known — self-managed providers carry
+					// `domain: ''` in metadata, and an empty id would collide across connections and produce
+					// ambiguous secret keys (`...|`).
+					id: d.id || d.domain || providersMetadata[id]?.domain || id,
 					expiresAt: d.expiresAt ? new Date(d.expiresAt) : undefined,
 				}));
 				this._configured.set(id, descriptors);
