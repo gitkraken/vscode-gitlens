@@ -644,6 +644,73 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('refreshConnections fetches the backend primary when force-syncing a multi-account provider', async () => {
+		const { runtime, manager, paths } = createManager({
+			connections: [
+				{
+					tokenId: 'p1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: 'octo',
+					secondaries: [
+						{
+							tokenId: 's1',
+							provider: 'github',
+							type: 'oauth',
+							domain: 'github.com',
+							accountName: 'hubot',
+						},
+					],
+				},
+			],
+			token: (path: string) => {
+				const tokenId = path === 'v1/provider-tokens/github' ? 'p1' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `fresh-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+					domain: 'github.com',
+				};
+			},
+		});
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true },
+				{ id: 's1', cloud: true, integrationId: 'github', scopes: 'repo', primary: false },
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|p1',
+			JSON.stringify({ id: 'p1', accessToken: 'old-p1', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|s1',
+			JSON.stringify({ id: 's1', accessToken: 'old-s1', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.equal(await github.isConnected(), true, 'primary session is warm');
+		paths.splice(0);
+
+		await manager.refreshConnections();
+
+		assert.ok(
+			paths.includes('v1/provider-tokens/github'),
+			'force sync fetches the backend primary instead of falling back to a stored secondary',
+		);
+		assert.equal(manager.getConfigured(GitCloudHostIntegrationId.GitHub).find(c => c.primary)?.id, 'p1');
+		assert.match(
+			(await runtime.storage.getSecret('integration.auth.cloud:github|p1')) ?? '',
+			/fresh-p1/,
+			'primary secret refreshed from the backend primary',
+		);
+
+		manager.dispose();
+	});
+
 	test('refreshing a cloud provider does not switch a cached self-managed provider with an overlapping id prefix', async () => {
 		const { manager } = createManager({
 			connections: [

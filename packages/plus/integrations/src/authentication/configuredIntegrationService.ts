@@ -265,8 +265,9 @@ export class ConfiguredIntegrationService implements Disposable {
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		cloud?: boolean,
+		options?: { preserveConfigured?: boolean },
 	): Promise<void> {
-		await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud);
+		await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud, options);
 	}
 
 	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
@@ -312,7 +313,12 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.ctx.storage.store('integrations:configured', remaining as StoredIntegrationConfigurations);
 	}
 
-	async deleteSecrets(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
+	async deleteSecrets(
+		id: IntegrationIds,
+		connectionId: string,
+		cloud?: boolean,
+		options?: { preserveConfigured?: boolean },
+	): Promise<void> {
 		if (cloud == null || cloud === false) {
 			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
 		}
@@ -320,6 +326,8 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (cloud == null || cloud === true) {
 			await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, connectionId));
 		}
+
+		if (options?.preserveConfigured) return;
 
 		await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
 	}
@@ -330,7 +338,9 @@ export class ConfiguredIntegrationService implements Disposable {
 		// disconnect of one host), scope to that host so other hosts under the same provider id survive.
 		const descriptors = this.configured.get(id);
 		const connectionIds = [
-			...new Set((domain != null ? descriptors?.filter(c => c.domain === domain) : descriptors)?.map(c => c.id)),
+			...new Set(
+				(domain != null ? descriptors?.filter(c => c.domain === domain) : descriptors)?.map(c => c.id) ?? [],
+			),
 		];
 		if (connectionIds.length) {
 			for (const connectionId of connectionIds) {

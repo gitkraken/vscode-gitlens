@@ -68,12 +68,14 @@ abstract class IntegrationAuthenticationProviderBase<
 
 	@trace()
 	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
-			cloud: true,
-			domain: isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
+			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined);
+		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined, {
+			preserveConfigured: true,
+		});
 
 		if (configured?.length) {
 			this.fireChange();
@@ -86,7 +88,6 @@ abstract class IntegrationAuthenticationProviderBase<
 		// descriptor's host when given; for cloud providers the domain stays undefined here, clearing every account.
 		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
-			cloud: true,
 			domain: domain,
 		});
 

@@ -67,6 +67,31 @@ suite('CloudIntegrationService — multi-account wire mapping (#5430)', () => {
 		]);
 	});
 
+	test('getConnections falls back to the primary domain when a secondary domain is empty', async () => {
+		const { service } = createCloudService(() => ({
+			data: [
+				{
+					tokenId: 'primary-tok',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe.example.com',
+					secondaries: [
+						{
+							tokenId: 'secondary-tok',
+							provider: 'githubEnterprise',
+							type: 'oauth',
+							domain: '',
+						},
+					],
+				},
+			],
+		}));
+
+		const connections = await service.getConnections();
+
+		assert.equal(connections?.find(c => c.id === 'secondary-tok')?.domain, 'ghe.example.com');
+	});
+
 	test('getConnectionSession targets /tokens/{tokenId} for a specific connection and maps tokenId to id', async () => {
 		const { service, calls } = createCloudService(() => ({
 			data: {

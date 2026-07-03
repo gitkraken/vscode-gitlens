@@ -88,7 +88,7 @@ export class CloudIntegrationService {
 					id: secondary.tokenId,
 					type: secondary.type,
 					provider: secondary.provider ?? item.provider,
-					domain: secondary.domain ?? item.domain,
+					domain: secondary.domain || item.domain,
 					primary: false,
 					accountName: secondary.accountName,
 				});
