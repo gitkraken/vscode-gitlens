@@ -44,6 +44,15 @@ export class GitFixture {
 	}
 
 	/**
+	 * Set a repository-local git config value (e.g. `commit.gpgsign`, `true`).
+	 */
+	async config(key: string, value: string): Promise<void> {
+		// `--local` makes the documented repository scope explicit rather than relying on git's
+		// cwd-based default, so this never writes to global/system config if the environment shifts.
+		await this.git('config', undefined, '--local', key, value);
+	}
+
+	/**
 	 * Clean up all Git rebase state files and directories.
 	 * This is useful for ensuring a clean state between tests.
 	 */
