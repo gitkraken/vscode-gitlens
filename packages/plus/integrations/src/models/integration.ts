@@ -229,9 +229,12 @@ export abstract class IntegrationBase<
 		if (signOut) {
 			// Disconnecting a provider signs out of ALL its connected accounts (multi-account), not just the
 			// primary — otherwise secondary connections' secrets/config would be orphaned. Removing a single
-			// account is done via IntegrationService.deleteConnection instead.
+			// account is done via IntegrationService.deleteConnection instead. Pass this instance's descriptor
+			// so self-managed disconnects stay scoped to this host: those group every host under one provider
+			// id, so an unscoped clear would sign the user out of unrelated hosts. deleteAllSessions derives an
+			// undefined domain for cloud providers, so they still clear every account as intended.
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			void authProvider.deleteAllSessions();
+			void authProvider.deleteAllSessions(this.authProviderDescriptor);
 		}
 
 		this.resetRequestExceptionCount('all');

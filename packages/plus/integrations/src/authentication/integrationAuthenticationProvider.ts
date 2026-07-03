@@ -35,7 +35,7 @@ export interface IntegrationAuthenticationSessionDescriptor {
 
 export interface IntegrationAuthenticationProvider extends Disposable {
 	deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void>;
-	deleteAllSessions(): Promise<void>;
+	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?:
@@ -81,12 +81,16 @@ abstract class IntegrationAuthenticationProviderBase<
 	}
 
 	@trace()
-	async deleteAllSessions(): Promise<void> {
+	async deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		// Self-managed providers group every host under one provider id, so scope the clear to this
+		// descriptor's host when given; for cloud providers the domain stays undefined here, clearing every account.
+		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
 			cloud: true,
+			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteAllStoredSessions(this.authProviderId, undefined);
+		await this.configuredIntegrationService.deleteAllStoredSessions(this.authProviderId, undefined, domain);
 
 		if (configured?.length) {
 			this.fireChange();

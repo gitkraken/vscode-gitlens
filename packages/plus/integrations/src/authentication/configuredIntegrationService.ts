@@ -262,8 +262,8 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud);
 	}
 
-	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean): Promise<void> {
-		await this.deleteAllSecrets(id, cloud);
+	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
+		await this.deleteAllSecrets(id, cloud, domain);
 	}
 
 	/**
@@ -317,10 +317,14 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
 	}
 
-	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean): Promise<void> {
+	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
 		// Delete every connection's secret (multi-account): secrets are keyed per connection id, so a
-		// single canonical-domain delete would orphan secondary tokens.
-		const connectionIds = [...new Set(this.configured.get(id)?.map(c => c.id))];
+		// single canonical-domain delete would orphan secondary tokens. When a domain is given (self-managed
+		// disconnect of one host), scope to that host so other hosts under the same provider id survive.
+		const descriptors = this.configured.get(id);
+		const connectionIds = [
+			...new Set((domain != null ? descriptors?.filter(c => c.domain === domain) : descriptors)?.map(c => c.id)),
+		];
 		if (connectionIds.length) {
 			for (const connectionId of connectionIds) {
 				await this.deleteSecrets(id, connectionId, cloud);
@@ -328,6 +332,11 @@ export class ConfiguredIntegrationService implements Disposable {
 
 			return;
 		}
+
+		// A domain-scoped clear that matched nothing means this host has no stored connections, so it must be
+		// a no-op. The canonical-domain fallback below would target a bogus key (self-managed canonical domain
+		// is empty), so skip it.
+		if (domain != null) return;
 
 		// No configured connections (e.g. an orphaned secret with no descriptor): fall back to the
 		// provider's canonical domain, which is the legacy session id for cloud providers.
