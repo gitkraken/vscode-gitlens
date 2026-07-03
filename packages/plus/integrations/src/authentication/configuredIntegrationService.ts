@@ -441,9 +441,15 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (descriptors == null || descriptors.length === 0) return;
 		if (!descriptors.some(d => d.id === connectionId)) return;
 
+		// A connection id can have both a local (PAT) and cloud descriptor. Mark the primary on a single
+		// canonical variant (prefer cloud, since multi-account primaries are cloud-driven) so the
+		// "exactly one primary" invariant holds; readers key off the connection id, which is identical
+		// across variants, and getStoredSession keeps its own local-then-cloud precedence.
+		const primaryIsCloud = descriptors.some(d => d.id === connectionId && d.cloud);
+
 		let changed = false;
 		const updated = descriptors.map(d => {
-			const primary = d.id === connectionId;
+			const primary = d.id === connectionId && (d.cloud ?? false) === primaryIsCloud;
 			if ((d.primary ?? false) === primary) return d;
 
 			changed = true;
