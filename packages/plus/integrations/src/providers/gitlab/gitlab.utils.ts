@@ -69,3 +69,12 @@ export function selectGitLabUserForCommit(
 	// No matches, or multiple name matches we can't disambiguate by email — don't guess
 	return undefined;
 }
+
+/**
+ * Checks whether a repository's namespace belongs to the given org/group, including subgroups
+ * (e.g. namespace `parent/sub` matches org `parent`). Mirrors gkcli's `gitlabOrgMatches`, used to
+ * filter `getReposForCurrentUser` results since GitLab has no group-scoped repos endpoint.
+ */
+export function matchesGitLabOrgNamespace(namespace: string, org: string): boolean {
+	return namespace === org || namespace.startsWith(`${org}/`);
+}

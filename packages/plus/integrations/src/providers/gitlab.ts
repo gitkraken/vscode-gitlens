@@ -18,7 +18,7 @@ import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
-import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils.js';
+import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
 import type { ProviderOrganization, ProviderRepository } from './models.js';
 import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models.js';
@@ -267,7 +267,6 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
 		};
-		const matchesOrg = (namespace: string) => namespace === org || namespace.startsWith(`${org}/`);
 
 		const repos: ProviderRepository[] = [];
 		let cursor: string | undefined;
@@ -276,7 +275,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				...apiOptions,
 				cursor: cursor,
 			});
-			repos.push(...result.values.filter(r => matchesOrg(r.namespace)));
+			repos.push(...result.values.filter(r => matchesGitLabOrgNamespace(r.namespace, org)));
 			if (!result.paging?.more || result.paging.cursor === cursor) break;
 
 			cursor = result.paging.cursor;
