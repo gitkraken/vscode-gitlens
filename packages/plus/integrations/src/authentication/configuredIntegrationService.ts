@@ -434,7 +434,9 @@ export class ConfiguredIntegrationService implements Disposable {
 	 *   (pre-multi-account) reads with zero secret migration.
 	 */
 	resolveConnectionId(id: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
-		if (descriptor.connectionId != null) return descriptor.connectionId;
+		// An empty connectionId is not a real target — treat it as "no target" so it resolves the primary
+		// rather than keying a secret under an empty id.
+		if (descriptor.connectionId) return descriptor.connectionId;
 
 		const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
 		const candidates = this.configured.get(id)?.filter(c => c.domain === domain);

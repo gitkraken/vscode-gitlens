@@ -173,7 +173,9 @@ export abstract class IntegrationBase<
 			return undefined;
 		}
 
-		if (connectionId != null) {
+		// A truthy connectionId targets a specific account; an empty string is not a real target, so it falls
+		// through to the primary path below.
+		if (connectionId) {
 			// Degrade to "no results" on failure, matching the primary path (whose ensureSession/
 			// refreshSessionIfExpired swallow errors) so read methods keep their never-throws contract.
 			try {

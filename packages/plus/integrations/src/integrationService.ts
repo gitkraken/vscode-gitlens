@@ -988,6 +988,13 @@ export class IntegrationService implements Disposable {
 		const identified = connections.filter((c): c is CloudIntegrationConnection & { id: string } => c.id != null);
 		if (identified.length === 0) return;
 
+		// Capture the effective primary before any mutation (sync store, prune-driven promotion, or the
+		// backend primary selection below) so we can tell whether it actually changed. The prune step can
+		// promote a secondary to primary via removeConfigured, so sampling this after pruning would miss it.
+		const primaryBefore = this.configuredIntegrationService
+			.getConfigured(id, { cloud: true })
+			.find(c => c.primary)?.id;
+
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
 
 		// Fetch + store each connection's session so getConfigured() reflects every account.
@@ -1057,12 +1064,20 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
-		// Apply the backend's primary selection and refresh any warm model so it picks up the new primary.
+		// Apply the backend's primary selection, then refresh any warm model only when the effective primary
+		// actually changed (vs the pre-reconcile value captured above). switchConnection() drops the in-memory
+		// session and fires change events, so calling it on every check-in (when the primary is unchanged)
+		// causes needless churn for multi-account providers.
 		const primary = identified.find(c => c.primary);
 		if (primary != null) {
 			await this.configuredIntegrationService.setPrimaryConnection(id, primary.id);
 		}
-		this.findCachedById(id)?.switchConnection();
+		const primaryAfter = this.configuredIntegrationService
+			.getConfigured(id, { cloud: true })
+			.find(c => c.primary)?.id;
+		if (primaryBefore !== primaryAfter) {
+			this.findCachedById(id)?.switchConnection();
+		}
 	}
 
 	/**
