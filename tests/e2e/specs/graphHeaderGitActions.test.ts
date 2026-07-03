@@ -62,6 +62,20 @@ async function openGraphOnBranch(vscode: VSCodeInstance, branch: string): Promis
 	return webview;
 }
 
+/**
+ * Open the Fetch button's popover (auto-fetch settings) and wait for its content (the settings
+ * gear) to be visible. Uses focus rather than hover: the anchor is a focusable `<a href>` and the
+ * popover's `hover focus` trigger shows immediately on focus — avoiding the hover path's 500ms
+ * `--show-delay` and the mouseout-hide race if a late reflow shifts the anchor out from under the
+ * (stationary) hover pointer.
+ */
+async function openFetchPopover(webview: FrameLocator): Promise<void> {
+	await fetchLink(webview).focus();
+	await expect(webview.locator('gl-button[aria-label="Open Git Auto-fetch Settings"]').first()).toBeVisible({
+		timeout: MaxTimeout,
+	});
+}
+
 const test = base.extend({
 	vscodeOptions: [
 		{
@@ -179,5 +193,28 @@ test.describe('Graph — Header git-action buttons', () => {
 		const forcePush = webview.locator('gl-button[aria-label="Force Push"]').first();
 		await expect(forcePush).toBeVisible({ timeout: MaxTimeout });
 		await expect(forcePush).toHaveAttribute('href', /command:gitlens\.graph\.pushWithForce/);
+	});
+
+	test('Fetch popover exposes the auto-fetch settings gear wired to Git settings', async ({ vscode }) => {
+		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+
+		const webview = await openGraphOnBranch(vscode, 'main');
+		await openFetchPopover(webview);
+
+		const gear = webview.locator('gl-button[aria-label="Open Git Auto-fetch Settings"]').first();
+		await expect(gear).toHaveAttribute('href', /command:workbench\.action\.openSettings/);
+	});
+
+	test('Fetch popover surfaces the auto-fetch toggle', async ({ vscode }) => {
+		using _ = await vscode.gitlens.startSubscriptionSimulation({ state: 6, planId: 'pro' });
+
+		const webview = await openGraphOnBranch(vscode, 'main');
+		await openFetchPopover(webview);
+
+		// With auto-fetch off (the default), the popover offers the toggle rather than the
+		// "handled by VS Code" info row.
+		const toggle = webview.locator('gl-fetch-button gl-checkbox').first();
+		await expect(toggle).toBeVisible({ timeout: MaxTimeout });
+		await expect(toggle).toContainText('Auto-fetch');
 	});
 });
