@@ -418,8 +418,8 @@ importers:
   packages/core:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: github:gitkraken/provider-apis-package-js#gkdev-3532-provider-apis-gitlab-needs-groupnamespace-listing-getgroupsforcur
-        version: git+ssh://git@github.com/gitkraken/provider-apis-package-js.git#c893523fc9c331d06503a93b1594c8067f878a5e(encoding@0.1.13)
+        specifier: 0.49.0
+        version: 0.49.0(encoding@0.1.13)
       '@octokit/graphql':
         specifier: 9.0.3
         version: 9.0.3
@@ -592,8 +592,8 @@ importers:
   packages/plus/integrations:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: github:gitkraken/provider-apis-package-js#gkdev-3532-provider-apis-gitlab-needs-groupnamespace-listing-getgroupsforcur
-        version: git+ssh://git@github.com/gitkraken/provider-apis-package-js.git#c893523fc9c331d06503a93b1594c8067f878a5e(encoding@0.1.13)
+        specifier: 0.49.0
+        version: 0.49.0(encoding@0.1.13)
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1099,9 +1099,8 @@ packages:
     resolution: {integrity: sha512-uwENlNaJ+57cHaTU35Yn/1NcRh3syZXw0/0eRQvzO9Cu1zwXiL4ebio4i+iAr4mg27jwO3knmTVm1h3vH/Sgiw==}
     engines: {node: '>= 20'}
 
-  '@gitkraken/provider-apis@git+ssh://git@github.com/gitkraken/provider-apis-package-js.git#c893523fc9c331d06503a93b1594c8067f878a5e':
-    resolution: {commit: c893523fc9c331d06503a93b1594c8067f878a5e, repo: git@github.com:gitkraken/provider-apis-package-js.git, type: git}
-    version: 0.48.0
+  '@gitkraken/provider-apis@0.49.0':
+    resolution: {integrity: sha512-bXxQmodleHugAXnryXaoYthI+uIBSYC4ktDxpZsIkXhreuhF2jtrbWpW4bIBN4Y7IRC+MfPPK1O+V453jL9f+Q==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -7784,7 +7783,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@gitkraken/provider-apis@git+ssh://git@github.com/gitkraken/provider-apis-package-js.git#c893523fc9c331d06503a93b1594c8067f878a5e(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.49.0(encoding@0.1.13)':
     dependencies:
       '@linear/sdk': 58.1.0(encoding@0.1.13)
       diff: 8.0.4
