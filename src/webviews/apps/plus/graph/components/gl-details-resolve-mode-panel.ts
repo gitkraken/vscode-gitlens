@@ -556,6 +556,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 						class="resolve-file__feedback"
 						multiline
 						active
+						floating-footer
 						rows="1"
 						button-label="Retry"
 						busy-label="Re-resolving…"
@@ -563,7 +564,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 						placeholder='What was wrong? e.g. "keep the new import, drop the old one"'
 						.busy=${retrying}
 						@resolve-row-retry=${(e: CustomEvent<{ prompt?: string }>) => this.onRowRetry(r.filePath, e)}
-					></gl-ai-input>`
+					>
+						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+					</gl-ai-input>`
 				: nothing}
 		</li>`;
 	}

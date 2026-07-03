@@ -84,7 +84,7 @@ export interface RefinePlanForGraphDetailsInput {
 	 * and substitutes their content from the prior plan to keep id/message/hunks
 	 * byte-identical regardless of minor AI drift.
 	 */
-	lockedCommitIds?: readonly string[];
+	excludedCommitIds?: readonly string[];
 	cancellation?: CancellationToken;
 	telemetrySource: Source;
 	suppressLargePromptWarning?: boolean;
@@ -240,7 +240,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 				priorPlan: prior.plan,
 				model: model,
 				instructions: input.customInstructions,
-				lockedCommits: input.lockedCommitIds,
+				lockedCommits: input.excludedCommitIds,
 				clientContext: buildUiOrderingNote(prior.plan),
 				cancellation: signal,
 				onBeforePrompt: onBeforePrompt,

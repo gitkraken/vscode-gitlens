@@ -117,13 +117,18 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 
 		return this.cache.getWorktrees(
 			repoPath,
-			async (commonPath, _cacheable, signal) => {
+			async (commonPath, cacheable, signal) => {
 				// Prefer the aggregate signal from the cache; fall back to the caller's cancellation.
 				signal ??= cancellation;
 				const [dataResult, branchesResult] = await Promise.allSettled([
 					this.git.run({ cwd: commonPath, cancellation: signal }, 'worktree', 'list', '--porcelain'),
 					this.provider.branches.getBranches(commonPath, undefined, signal),
 				]);
+
+				if (dataResult.status === 'rejected') {
+					// Don't cache a bogus empty result for a transient command failure — retry on next access.
+					cacheable.invalidate();
+				}
 
 				const getWorkspaceFolder: WorkspaceFolderResolver | undefined = this.context.workspace
 					? uri => {

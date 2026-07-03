@@ -29423,7 +29423,7 @@
 		"zod": "4.4.3"
 	},
 	"lint-staged": {
-		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt"
+		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
 	"packageManager": "pnpm@11.9.0",
 	"postcss-lit": {

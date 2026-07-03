@@ -6,6 +6,7 @@ import { URI } from 'vscode-uri';
 import type { HierarchicalItem } from '@gitlens/utils/array.js';
 import { makeHierarchical } from '@gitlens/utils/array.js';
 import { fromNow } from '@gitlens/utils/date.js';
+import { debounce } from '@gitlens/utils/debounce.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { GlCommands } from '../../../../../constants.commands.js';
@@ -44,6 +45,7 @@ import type {
 	TreeModelFlat,
 } from '../../../shared/components/tree/base.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -185,6 +187,16 @@ function trackingDecorations(
 		},
 	];
 }
+
+const worktreeActionMap: Partial<
+	Record<GlCommands, 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow'>
+> = {
+	'gitlens.graph.pull': 'pull',
+	'gitlens.graph.push': 'push',
+	'gitlens.fetch:graph': 'fetch',
+	'gitlens.openWorktree:graph': 'openWorktree',
+	'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
+};
 
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
@@ -417,6 +429,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private readonly _contextMenuProxy = new ContextMenuProxyController(this);
 
 	private _pendingFocus = false;
+	private _agentsFilterActive = false;
+
+	/** Whether `graph/worktrees/shown` has been fired for the current worktrees activation. Reset
+	 *  on disconnect and on `activePanel` change so switching away and back emits a fresh event
+	 *  while re-renders from data mutations (e.g. WIP pushes) do not. */
+	private _worktreesShownEmitted = false;
 
 	focusFilter(): void {
 		if (this.activePanel == null || this.activePanel === 'overview') {
@@ -445,6 +463,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.shadowRoot?.addEventListener('animationend', this._handlePanelAnimationEnd);
 	}
 
+	override disconnectedCallback(): void {
+		this.emitWorktreesFilteredTelemetryDebounced.cancel();
+		this._worktreesShownEmitted = false;
+		super.disconnectedCallback?.();
+	}
+
 	private readonly _handlePanelAnimationEnd = (e: Event): void => {
 		const name = (e as AnimationEvent).animationName;
 		if (name === 'panel-enter' || name === 'sub-panel-enter') {
@@ -455,14 +479,33 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		if (changedProperties.has('activePanel') && this._actions != null) {
+			// Reset the shown guard so switching worktrees→other→worktrees emits a fresh impression
+			// while intra-activation re-renders (WIP pushes, refresh) do not.
+			this._worktreesShownEmitted = false;
+
+			// Cancel any pending filtered emit — filterText is shared across panels, so a trailing
+			// callback after a switch would report against the wrong (now-inactive) panel.
+			this.emitWorktreesFilteredTelemetryDebounced.cancel();
+
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
+
+			// `_actions.filterText` is a single string shared across panels and survives panel
+			// switches (its only write is `handleFilterChanged`), while `_agentsFilterActive` is
+			// only maintained while agents is active. Re-sync from the actual filter here, or the
+			// empty↔non-empty transition detection in `handleFilterChanged` compares against a
+			// stale value — emitting duplicate "activated" or missing "deactivated" events.
+			this._agentsFilterActive = this._actions.filterText.length > 0;
 
 			// Always fetch on panel switch — data may be stale even if non-null.
 			// The Resource's cancelPrevious handles dedup.
 			// Overview/Agents panels manage their own data via reactive state, skip sidebar fetch.
 			if (this.activePanel != null && this.activePanel !== 'overview' && this.activePanel !== 'agents') {
 				this._actions.fetchPanel(this.activePanel);
+			}
+
+			if (this.activePanel === 'agents') {
+				this.emitAgentsShownTelemetry();
 			}
 		}
 	}
@@ -471,6 +514,28 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (this._pendingFocus) {
 			this.focusFilter();
 		}
+
+		// Emit `shown` from the settled lifecycle (not render(), which Lit expects side-effect-free).
+		// The guard fires it once per worktrees activation — reset on disconnect and on `activePanel`
+		// change so a fresh impression is recorded then, but intra-activation re-renders (WIP pushes,
+		// refresh(), filter/expansion changes) do not re-emit.
+		this.emitWorktreesShownTelemetry();
+	}
+
+	private emitWorktreesShownTelemetry(): void {
+		if (this._worktreesShownEmitted || this.activePanel !== 'worktrees') return;
+
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		if (data?.panel !== 'worktrees') return;
+
+		this._worktreesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/worktrees/shown'>(this, {
+			name: 'graph/worktrees/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'worktrees.count': data.items.length,
+			},
+		});
 	}
 
 	override render(): unknown {
@@ -1264,6 +1329,25 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	private handleFilterChanged = (e: CustomEvent<string>) => {
 		this._actions.filterText = e.detail;
+
+		if (this.activePanel === 'agents') {
+			const hasFilter = e.detail.length > 0;
+			if (hasFilter !== this._agentsFilterActive) {
+				this._agentsFilterActive = hasFilter;
+				emitTelemetrySentEvent<'graph/agents/filtered'>(this, {
+					name: 'graph/agents/filtered',
+					data: {
+						hasFilter: hasFilter,
+						'filter.length': e.detail.length,
+						'sessions.count': this._state.agentSessions?.length ?? 0,
+					},
+				});
+			}
+		}
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesFilteredTelemetryDebounced();
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1278,13 +1362,64 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	};
 
 	private handleAction(command: GlCommands, args?: unknown[]) {
+		if (this.activePanel === 'agents') {
+			const action =
+				command === 'gitlens.startWork'
+					? 'startWork'
+					: command === 'gitlens.startReview'
+						? 'startReview'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/agents/headerAction'>(this, {
+					name: 'graph/agents/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'worktrees') {
+			const action = command === 'gitlens.views.title.createWorktree' ? 'createWorktree' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+					name: 'graph/worktrees/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
 
-		this._actions?.toggleLayout(this.activePanel);
+		// Compute the worktrees layout before toggling — the service update is async, so the
+		// resource value still reflects the old layout here; invert it to get the new one.
+		const worktreesData =
+			this.activePanel === 'worktrees' ? this._actions?.state.panels.worktrees?.value.get() : undefined;
+		const worktreesNewLayout = worktreesData?.layout === 'tree' ? 'list' : 'tree';
+
+		this._actions.toggleLayout(this.activePanel);
+
+		if (this.activePanel === 'agents') {
+			emitTelemetrySentEvent<'graph/agents/layoutToggled'>(this, {
+				name: 'graph/agents/layoutToggled',
+				data: {
+					layout: this._actions.agentsLayout.get(),
+					'sessions.count': this._state.agentSessions?.length ?? 0,
+				},
+			});
+		}
+
+		if (this.activePanel === 'worktrees') {
+			emitTelemetrySentEvent<'graph/worktrees/layoutToggled'>(this, {
+				name: 'graph/worktrees/layoutToggled',
+				data: {
+					layout: worktreesNewLayout,
+					'worktrees.count': worktreesData?.items.length ?? 0,
+				},
+			});
+		}
 	}
 
 	private handleRefresh() {
@@ -1295,6 +1430,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				| null;
 			overview?.refresh?.();
 			return;
+		}
+
+		if (this.activePanel === 'agents') {
+			emitTelemetrySentEvent<'graph/agents/headerAction'>(this, {
+				name: 'graph/agents/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'worktrees') {
+			emitTelemetrySentEvent<'graph/worktrees/headerAction'>(this, {
+				name: 'graph/worktrees/headerAction',
+				data: { action: 'refresh' },
+			});
 		}
 
 		this._actions?.refresh(this.activePanel);
@@ -1315,6 +1464,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const useAlt = e.detail.altKey && action.altAction != null;
 		const command = (useAlt ? action.altAction! : action.action) as GlCommands;
 		const args = useAlt ? action.altArguments : action.arguments;
+
+		if (this.activePanel === 'agents') {
+			this.emitAgentsTreeItemActionTelemetry(command, args);
+		}
+
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesTreeItemActionTelemetry(command, useAlt);
+		}
+
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
 	}
 
@@ -1326,6 +1484,17 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		const context = e.detail.context;
+		const sessionId = context?.[2];
+
+		// Selecting a session is a real user event regardless of whether the graph can navigate to
+		// it, so emit before the `sha` guard below. Cross-repo (`!sameFamily`) and worktree-less
+		// sessions resolve to a null `wipSha` (`resolveAgentAnchor`) — i.e. `sha == null` — which is
+		// exactly the `session.sameRepo: false` case this event exists to measure. Emitting after
+		// the guard would drop those clicks and skew the `sameRepo` dimension to `true`.
+		if (this.activePanel === 'agents' && sessionId != null) {
+			this.emitAgentsSessionSelectedTelemetry(sessionId);
+		}
+
 		const sha = context?.[0];
 		if (sha == null) return;
 
@@ -1343,7 +1512,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			);
 		}
 
-		const sessionId = context?.[2];
+		if (this.activePanel === 'worktrees') {
+			this.emitWorktreesSelectedTelemetry(sha);
+		}
+
 		this.dispatchEvent(
 			new CustomEvent<GraphSidebarPanelSelectEventDetail>('gl-graph-sidebar-panel-select', {
 				detail: { sha: sha, sessionId: sessionId },
@@ -1363,6 +1535,142 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			paths.delete(e.detail.path);
 		}
 	};
+
+	private emitAgentsShownTelemetry(): void {
+		// Point-in-time snapshot: fired on the `activePanel → 'agents'` transition only. Sessions
+		// arrive asynchronously on `_state.agentSessions` (see `render`), so on first open the counts
+		// below may all read 0, and later arrivals don't re-fire this event. `agentSessions` is a
+		// signal initialized to `[]`, so "not yet loaded" and "loaded but empty" are indistinguishable
+		// here — treat the counts as "what was visible at open", not a settled total. Also no re-fire
+		// when the panel is re-revealed without an `activePanel` change: display-mode round trips
+		// (graph → kanban/visualizations → graph) hide/show the split but preserve the value, and
+		// rail re-clicks that set the same panel don't transition. Close/reopen does re-fire
+		// (`hideSidebar` clears `activePanel`).
+		const sessions = this._state.agentSessions ?? [];
+		let working = 0;
+		let needsInput = 0;
+		let idle = 0;
+		for (const s of sessions) {
+			const category = agentPhaseToCategory[s.phase];
+			if (category === 'working') {
+				working++;
+			} else if (category === 'needs-input') {
+				needsInput++;
+			} else {
+				idle++;
+			}
+		}
+
+		emitTelemetrySentEvent<'graph/agents/shown'>(this, {
+			name: 'graph/agents/shown',
+			data: {
+				layout: this._actions.agentsLayout.get(),
+				'sessions.count': sessions.length,
+				'sessions.working.count': working,
+				'sessions.needsInput.count': needsInput,
+				'sessions.idle.count': idle,
+			},
+		});
+	}
+
+	private getWorktreesCount(): number {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		return data?.panel === 'worktrees' ? data.items.length : 0;
+	}
+
+	private readonly emitWorktreesFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/worktrees/filtered'>(this, {
+			name: 'graph/worktrees/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'worktrees.count': this.getWorktreesCount(),
+			},
+		});
+	}, 500);
+
+	private emitWorktreesSelectedTelemetry(wipSha: string): void {
+		const data = this._actions?.state.panels.worktrees?.value.get();
+		if (data?.panel !== 'worktrees') return;
+
+		const worktree = data.items.find(w => w.wipSha === wipSha);
+		if (worktree == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeSelected'>(this, {
+			name: 'graph/worktrees/worktreeSelected',
+			data: {
+				isActive: worktree.opened,
+				isDefault: worktree.isDefault,
+				hasChanges: worktree.hasChanges === true,
+				hasUpstream: worktree.upstream != null,
+			},
+		});
+	}
+
+	private emitAgentsSessionSelectedTelemetry(sessionId: string): void {
+		const session = this._state.agentSessions?.find(s => s.id === sessionId);
+		if (session == null) return;
+
+		const category = agentPhaseToCategory[session.phase];
+		const graphAnchor = this.resolveGraphAnchorContext();
+		const sameRepo = graphAnchor != null && session.commonPath === graphAnchor.family;
+
+		emitTelemetrySentEvent<'graph/agents/sessionSelected'>(this, {
+			name: 'graph/agents/sessionSelected',
+			data: {
+				'session.phase': session.phase,
+				'session.category': category,
+				'session.hasPendingPermission': session.pendingPermission != null,
+				'session.sameRepo': sameRepo,
+				layout: this._actions.agentsLayout.get(),
+			},
+		});
+	}
+
+	private emitAgentsTreeItemActionTelemetry(command: string, args: unknown[] | undefined): void {
+		if (command === 'gitlens.agents.resolvePermission') {
+			const arg = args?.[0] as { sessionId?: string; decision?: string; alwaysAllow?: boolean } | undefined;
+			const session =
+				arg?.sessionId != null ? this._state.agentSessions?.find(s => s.id === arg.sessionId) : undefined;
+
+			emitTelemetrySentEvent<'graph/agents/permissionResolved'>(this, {
+				name: 'graph/agents/permissionResolved',
+				data: {
+					decision: (arg?.decision as 'allow' | 'deny') ?? 'allow',
+					alwaysAllow: arg?.alwaysAllow ?? false,
+					'permission.kind': session?.pendingPermission?.kind ?? 'unknown',
+				},
+			});
+			return;
+		}
+
+		let action: 'openSession' | 'openPlanFile' | 'openTerminal' | undefined;
+		if (command === 'gitlens.agents.openSession') {
+			action = 'openSession';
+		} else if (command === 'gitlens.agents.openPlanFile') {
+			action = 'openPlanFile';
+		} else if (command === 'gitlens.openInIntegratedTerminal:graph') {
+			action = 'openTerminal';
+		}
+
+		if (action != null) {
+			emitTelemetrySentEvent<'graph/agents/sessionAction'>(this, {
+				name: 'graph/agents/sessionAction',
+				data: { action: action },
+			});
+		}
+	}
+
+	private emitWorktreesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = worktreeActionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/worktrees/worktreeAction'>(this, {
+			name: 'graph/worktrees/worktreeAction',
+			data: { action: action, alt: alt },
+		});
+	}
 }
 
 /**

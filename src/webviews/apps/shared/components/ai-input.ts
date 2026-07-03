@@ -1,6 +1,7 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { cspStyleMap } from './csp-style-map.directive.js';
+import { focusOutlineButton } from './styles/lit/a11y.css.js';
 import './code-icon.js';
 import './overlays/tooltip.js';
 
@@ -16,23 +17,19 @@ try {
 @customElement('gl-ai-input')
 export class GlAiInput extends LitElement {
 	static override styles = css`
+		/* The host is the unified panel: it owns the pill border + gradient treatment so the input
+		   row and footer read as one rounded AI surface (children round their own outer corners to
+		   match, since the tooltips can't live under an overflow:hidden ancestor). */
 		:host {
 			--gradient-start: var(--gl-ai-accent-1);
 			--gradient-mid: var(--gl-ai-accent-2);
 			--gradient-end: var(--gl-ai-accent-3);
+			--ai-action-fill: linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end));
 
 			position: relative;
 			display: flex;
 			flex: none;
 			flex-direction: column;
-		}
-
-		/* The textarea/input + action button row. Owns the pill border + gradient treatment
-	   so the footer can sit as its own "attached" band below without being wrapped by it. */
-		.ai-input__row {
-			z-index: 1;
-			display: flex;
-			align-items: stretch;
 			min-width: 0;
 			background: var(--vscode-input-background);
 			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
@@ -43,24 +40,26 @@ export class GlAiInput extends LitElement {
 				background var(--gl-duration-x-slow);
 		}
 
-		/* Footer area — only visible when the consumer slots content (e.g. the model chip).
-	   The has-footer host attribute is toggled by slotchange so an empty slot doesn't
-	   render an empty bordered band. Rendered as its own bordered pill sitting just below
-	   the input — visually attached but clearly distinct from the input pill. */
+		/* The textarea/input + action button row, sitting inside the unified panel (the host). */
+		.ai-input__row {
+			position: relative;
+			z-index: 1;
+			display: flex;
+			align-items: stretch;
+			min-width: 0;
+		}
+
+		/* Footer — only shown when the consumer slots content (e.g. the model chip). Sits inside
+		   the unified panel, set off by a hairline divider + a whisper of accent tint. The
+		   has-footer host attribute is toggled by slotchange so an empty slot renders nothing. */
 		.ai-input__footer {
 			display: none;
-			gap: var(--gl-space-4);
 			align-items: center;
-			justify-content: flex-start;
 			min-height: 0;
-			padding: 0.1rem;
-			margin-inline: 0.5rem;
+			padding: 0.2rem 0.5rem;
 			color: var(--vscode-descriptionForeground);
-			border-right: var(--gl-border-width) solid var(--vscode-input-border, transparent);
-
-			/* background: var(--vscode-input-background); */
-			border-bottom: var(--gl-border-width) solid var(--vscode-input-border, transparent);
-			border-left: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			background: color-mix(in srgb, var(--gl-ai-accent-1) 5%, transparent);
+			border-top: var(--gl-border-width) solid var(--vscode-input-border, transparent);
 			border-radius: 0 0 var(--gl-radius-md) var(--gl-radius-md);
 		}
 
@@ -68,10 +67,61 @@ export class GlAiInput extends LitElement {
 			display: flex;
 		}
 
-		/* Hover / Focus / Active: gradient border glow */
-		:host(:hover) .ai-input__row,
-		:host([focused]) .ai-input__row,
-		:host([active]) .ai-input__row {
+		/* Let the slotted chip span the footer so its trailing content (consumption rate) can
+		   sit at the far end. */
+		.ai-input__footer slot {
+			display: flex;
+			flex: 1;
+			min-width: 0;
+		}
+
+		.ai-input__footer ::slotted(*) {
+			flex: 1;
+			min-width: 0;
+		}
+
+		/* Floating footer — hangs flush off the input's bottom on focus (attached, not a detached
+		   popup), overlaying content below so it never reserves a row. For compact inputs (Explain). */
+		:host([floating-footer]) .ai-input__footer {
+			position: absolute;
+			top: calc(100% - var(--gl-border-width));
+			right: 0;
+			left: 0;
+			z-index: 2;
+			background: color-mix(in srgb, var(--gl-ai-accent-1) 5%, var(--vscode-input-background));
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-radius: 0 0 var(--gl-radius-md) var(--gl-radius-md);
+			opacity: 0;
+			transform: translateY(-0.2rem);
+			pointer-events: none;
+			transition:
+				opacity var(--gl-duration-fast),
+				transform var(--gl-duration-fast);
+		}
+
+		:host([floating-footer]:focus-within) .ai-input__footer {
+			opacity: 1;
+			transform: none;
+			pointer-events: auto;
+		}
+
+		/* While the attached footer shows, square the panel's bottom so the two read as one surface. */
+		:host([floating-footer]:focus-within) {
+			border-bottom-right-radius: 0;
+			border-bottom-left-radius: 0;
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			:host([floating-footer]) .ai-input__footer {
+				transition: none;
+				transform: none;
+			}
+		}
+
+		/* Hover / Focus / Active: gradient border glow on the unified panel */
+		:host(:hover),
+		:host([focused]),
+		:host([active]) {
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				linear-gradient(135deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end)) border-box;
@@ -79,13 +129,8 @@ export class GlAiInput extends LitElement {
 			box-shadow: 0 0 8px rgb(124 58 237 / 25%);
 		}
 
-		:host([focused]) .action-btn,
-		:host([active]) .action-btn {
-			border-right-color: var(--gradient-end);
-		}
-
 		/* Focus-in: same spinning conic gradient as busy, one rotation */
-		:host([focusing]) .ai-input__row {
+		:host([focusing]) {
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				conic-gradient(
@@ -102,7 +147,7 @@ export class GlAiInput extends LitElement {
 		}
 
 		/* Busy: spinning conic gradient border */
-		:host([busy]) .ai-input__row {
+		:host([busy]) {
 			background:
 				linear-gradient(var(--vscode-input-background), var(--vscode-input-background)) padding-box,
 				conic-gradient(
@@ -190,15 +235,17 @@ export class GlAiInput extends LitElement {
 			-webkit-mask-size: contain;
 		}
 
+		/* Inset floating pill — sits centered inside the panel with a small gap on all sides
+		   (matches the design) rather than filling the panel's right edge. */
 		.action-btn {
 			z-index: 1;
 			display: flex;
 			flex: none;
 			gap: 0.5rem;
 			align-items: center;
-			align-self: stretch;
+			align-self: center;
 			padding: 0.3rem 1rem 0.3rem 0.8rem;
-			margin-right: 0;
+			margin: 0.3rem;
 			font-family: inherit;
 			font-size: var(--vscode-font-size);
 			font-weight: 500;
@@ -207,13 +254,23 @@ export class GlAiInput extends LitElement {
 			cursor: pointer;
 			background: transparent;
 			border: none;
-			border-right: var(--gl-border-width) solid transparent;
-			border-radius: 0 var(--gl-radius-md) var(--gl-radius-md) 0;
+			border-radius: var(--gl-radius-md);
 			transition:
 				background var(--gl-duration-slow),
 				color var(--gl-duration-slow),
-				border-color var(--gl-duration-slow),
+				box-shadow var(--gl-duration-slow),
 				flex-direction var(--gl-duration-x-slow);
+		}
+
+		/* Soft accent glow under the pill whenever it's filled (active / hover / focus / text / busy). */
+		:host([active]) .action-btn,
+		:host([busy]) .action-btn,
+		.action-btn:hover:not(:disabled),
+		:host(:hover) .action-btn:not(:disabled),
+		.action-btn:focus:not(:disabled),
+		:host([focused]) .action-btn,
+		:host([has-value]) .action-btn {
+			box-shadow: 0 1px 6px color-mix(in srgb, var(--gl-ai-accent-1) 30%, transparent);
 		}
 
 		/* Hovering anywhere in the row lights up the button too, so the pill responds as
@@ -221,12 +278,17 @@ export class GlAiInput extends LitElement {
 		.action-btn:hover:not(:disabled),
 		:host(:hover) .action-btn:not(:disabled) {
 			color: var(--vscode-button-foreground);
-			background: var(--vscode-button-background);
+			background: var(--ai-action-fill);
 		}
 
 		.action-btn:hover:not(:disabled) .icon-sparkle,
 		:host(:hover) .action-btn:not(:disabled) .icon-sparkle {
 			color: var(--vscode-button-foreground);
+		}
+
+		/* Keyboard-visible focus ring on the button (fill + sparkle→send morph handled above). */
+		.action-btn:focus-visible {
+			${focusOutlineButton}
 		}
 
 		.action-btn:disabled {
@@ -235,42 +297,71 @@ export class GlAiInput extends LitElement {
 			opacity: 0.6;
 		}
 
-		.action-btn[aria-busy='true'] {
-			color: var(--vscode-button-foreground);
-			background: var(--vscode-button-background);
+		/* Unavailable state — uses aria-disabled (not native disabled) so the button stays hoverable
+		   and its reason tooltip can show; onSubmit + tabindex guard activation/focus. Flat + muted,
+		   no gradient / glow / send-morph. Higher specificity than the active / has-value / hover
+		   fills so it wins in every state. Busy is a separate natively-disabled "working" state
+		   (dimmed spinner) handled by the base rule above + the aria-busy fill. */
+		:host(:not([busy])) .action-btn[aria-disabled='true'] {
+			flex-direction: row;
+			padding: 0.3rem 1rem 0.3rem 0.8rem;
+			color: var(--vscode-disabledForeground, var(--vscode-descriptionForeground));
+			background: color-mix(in srgb, var(--vscode-foreground) 8%, transparent);
+			box-shadow: none;
+			opacity: 1;
+			cursor: default;
 		}
 
-		/* Send mode: when input is focused or has text */
-		input:focus ~ .action-btn,
-		input:not(:placeholder-shown) ~ .action-btn,
-		textarea:focus ~ .action-btn,
-		textarea:not(:placeholder-shown) ~ .action-btn {
+		:host(:not([busy])) .action-btn[aria-disabled='true'] .icon-sparkle {
+			color: inherit;
+			opacity: 1;
+			transform: translateX(0);
+		}
+
+		:host(:not([busy])) .action-btn[aria-disabled='true'] .icon-send {
+			opacity: 0;
+			transform: translateX(100%);
+		}
+
+		.action-btn[aria-busy='true'] {
+			color: var(--vscode-button-foreground);
+			background: var(--ai-action-fill);
+		}
+
+		/* Send mode: morph sparkle→send + fill when the input or the button has focus, or there's
+		   text — for every AI mode. Keyed off host attributes + button focus because the button is
+		   nested in gl-tooltip, so the input ~ .action-btn sibling combinator can't reach it. */
+		:host([focused]) .action-btn,
+		:host([has-value]) .action-btn,
+		.action-btn:focus {
 			flex-direction: row-reverse;
 			gap: 0.5rem;
 			padding-right: var(--gl-space-8);
 			padding-left: var(--gl-space-10);
 			color: var(--vscode-button-foreground);
-			background: var(--vscode-button-background);
+			background: var(--ai-action-fill);
 		}
 
 		/* Active mode: border glow + button always active (for review/compose) */
 		:host([active]) .action-btn {
 			color: var(--vscode-button-foreground);
-			background: var(--vscode-button-background);
+			background: var(--ai-action-fill);
 		}
 
-		input:focus ~ .action-btn .icon-sparkle,
-		input:not(:placeholder-shown) ~ .action-btn .icon-sparkle,
-		textarea:focus ~ .action-btn .icon-sparkle,
-		textarea:not(:placeholder-shown) ~ .action-btn .icon-sparkle {
+		:host([active]) .action-btn .icon-sparkle {
+			color: var(--vscode-button-foreground);
+		}
+
+		:host([focused]) .action-btn .icon-sparkle,
+		:host([has-value]) .action-btn .icon-sparkle,
+		.action-btn:focus .icon-sparkle {
 			opacity: 0;
 			transform: translateX(-100%);
 		}
 
-		input:focus ~ .action-btn .icon-send,
-		input:not(:placeholder-shown) ~ .action-btn .icon-send,
-		textarea:focus ~ .action-btn .icon-send,
-		textarea:not(:placeholder-shown) ~ .action-btn .icon-send {
+		:host([focused]) .action-btn .icon-send,
+		:host([has-value]) .action-btn .icon-send,
+		.action-btn:focus .icon-send {
 			opacity: 1;
 			transform: translateX(0);
 		}
@@ -309,6 +400,104 @@ export class GlAiInput extends LitElement {
 		.action-label {
 			line-height: 1;
 		}
+
+		/* ── Detached appearance ──────────────────────────────────────────────────────
+		   The submit button leaves the input and renders below (as a plain primary); the
+		   pill moves from the host to an inner .ai-input__box; the slotted footer becomes
+		   a tab clipped to the box's top-right edge. */
+		:host([appearance='detached']),
+		:host([appearance='detached']:hover),
+		:host([appearance='detached'][focused]),
+		:host([appearance='detached'][active]),
+		:host([appearance='detached'][focusing]) {
+			gap: var(--gl-space-8);
+			background: transparent;
+			border-color: transparent;
+			box-shadow: none;
+		}
+
+		.ai-input__box {
+			display: none;
+		}
+
+		:host([appearance='detached']) .ai-input__box {
+			position: relative;
+			display: block;
+			margin-top: 0.4rem;
+			background: var(--vscode-input-background);
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-radius: var(--gl-radius-md);
+		}
+
+		:host([appearance='detached']) .ai-input__box:focus-within {
+			border-color: var(--vscode-focusBorder);
+		}
+
+		/* Footer → a tab clipped to the box's top-right edge. The chip keeps its own look;
+		   only its container is re-anchored. Overlapping the border by 1px removes the seam. */
+		:host([appearance='detached']) .ai-input__footer {
+			position: absolute;
+			right: var(--gl-space-8);
+			bottom: calc(100% - var(--gl-border-width));
+			min-width: 0;
+			padding: 0.1rem 0.4rem;
+			background: color-mix(in srgb, var(--gl-ai-accent-1) 5%, var(--vscode-input-background));
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-bottom: none;
+			border-radius: var(--gl-radius-sm) var(--gl-radius-sm) 0 0;
+		}
+
+		:host([appearance='detached']) .ai-input__footer slot,
+		:host([appearance='detached']) .ai-input__footer ::slotted(*) {
+			flex: 0 1 auto;
+		}
+
+		.ai-input__actions {
+			display: none;
+		}
+
+		:host([appearance='detached']) .ai-input__actions {
+			display: flex;
+			gap: var(--gl-space-8);
+			align-items: stretch;
+		}
+
+		.detached-btn {
+			flex: 1;
+			min-width: 0;
+			display: inline-flex;
+			gap: var(--gl-space-6);
+			align-items: center;
+			justify-content: center;
+			padding: 0.4rem 1rem;
+			font-family: inherit;
+			font-size: var(--vscode-font-size);
+			font-weight: 500;
+			line-height: 1.35;
+			white-space: nowrap;
+			color: var(--vscode-button-foreground);
+			background: var(--gl-ai-submit-bg, var(--vscode-button-background));
+			border: none;
+			border-radius: var(--gl-radius-sm);
+			cursor: pointer;
+			transition: background var(--gl-duration-fast);
+		}
+
+		.detached-btn:hover:not([aria-disabled='true']) {
+			background: var(
+				--gl-ai-submit-hover-bg,
+				var(--vscode-button-hoverBackground, var(--vscode-button-background))
+			);
+		}
+
+		.detached-btn:focus-visible {
+			${focusOutlineButton}
+		}
+
+		.detached-btn[aria-disabled='true'] {
+			cursor: default;
+			opacity: 0.6;
+		}
 	`;
 
 	@property({ type: Boolean, reflect: true })
@@ -332,6 +521,10 @@ export class GlAiInput extends LitElement {
 	@property({ attribute: 'button-tooltip' })
 	buttonTooltip?: string;
 
+	/** Tooltip shown on the action button while disabled, explaining why (e.g. "Add files to compose"). */
+	@property({ attribute: 'disabled-reason' })
+	disabledReason?: string;
+
 	@property({ attribute: 'busy-label' })
 	busyLabel = 'Explaining changes\u2026';
 
@@ -343,6 +536,18 @@ export class GlAiInput extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	active = false;
+
+	/** Layout mode. 'default' keeps the inline submit button + footer inside the pill. 'detached'
+	 *  moves the submit button out below the input (a plain primary via the `button` part /
+	 *  `--gl-ai-submit-*` vars), re-anchors the slotted footer as a tab on the input's top-right,
+	 *  and exposes `slot="actions"` beside the button for adjacent actions (e.g. Discard). */
+	@property({ reflect: true })
+	appearance: 'default' | 'detached' = 'default';
+
+	/** Overlay the footer on focus instead of reserving a persistent row, so compact inputs
+	 *  (e.g. Explain) don't lose vertical space to it. Requires slotted footer content. */
+	@property({ type: Boolean, reflect: true, attribute: 'floating-footer' })
+	floatingFooter = false;
 
 	/** Default visible rows for the textarea (only honored when `multiline`). */
 	@property({ type: Number })
@@ -390,29 +595,69 @@ export class GlAiInput extends LitElement {
 					@keydown=${this.onKeydown}
 				/>`;
 
-		return html`<div class="ai-input__row">
-				${inputPart}<gl-tooltip content=${this.buttonTooltip ?? this.buttonLabel} placement="bottom"
-					><button
-						class="action-btn"
-						part="button"
-						aria-label=${this.buttonLabel}
-						aria-busy=${this.busy ? 'true' : nothing}
-						?disabled=${this.disabled || this.busy}
-						@click=${this.onSubmit}
-					>
-						${this.busy
-							? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-							: html`<span class="icon-slider"
-									><code-icon class="icon-sparkle" icon="sparkle"></code-icon
-									><code-icon class="icon-send" icon="send"></code-icon
-								></span>`}
-						<span class="action-label">${this.buttonLabel}</span>
-					</button></gl-tooltip
-				>
-			</div>
-			<div class="ai-input__footer" part="footer">
-				<slot name="footer" @slotchange=${this.onFooterSlotChange}></slot>
-			</div>`;
+		const footer = html`<div class="ai-input__footer" part="footer">
+			<slot name="footer" @slotchange=${this.onFooterSlotChange}></slot>
+		</div>`;
+
+		if (this.appearance === 'detached') {
+			return html`<div class="ai-input__box">
+					<div class="ai-input__row">${inputPart}</div>
+					${footer}
+				</div>
+				<div class="ai-input__actions">${this.renderDetachedButton()}<slot name="actions"></slot></div>`;
+		}
+
+		return html`<div class="ai-input__row">${inputPart}${this.renderActionButton()}</div>
+			${footer}`;
+	}
+
+	private renderActionButton() {
+		return html`<gl-tooltip
+			content=${this.disabled && this.disabledReason
+				? this.disabledReason
+				: (this.buttonTooltip ?? this.buttonLabel)}
+			placement="bottom"
+			><button
+				class="action-btn"
+				part="button"
+				aria-label=${this.buttonLabel}
+				aria-busy=${this.busy ? 'true' : nothing}
+				aria-disabled=${this.disabled && !this.busy ? 'true' : nothing}
+				tabindex=${this.disabled && !this.busy ? -1 : nothing}
+				?disabled=${this.busy}
+				@click=${this.onSubmit}
+			>
+				${this.busy
+					? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+					: html`<span class="icon-slider"
+							><code-icon class="icon-sparkle" icon="sparkle"></code-icon
+							><code-icon class="icon-send" icon="send"></code-icon
+						></span>`}
+				<span class="action-label">${this.buttonLabel}</span>
+			</button></gl-tooltip
+		>`;
+	}
+
+	private renderDetachedButton() {
+		return html`<gl-tooltip
+			content=${this.disabled && this.disabledReason
+				? this.disabledReason
+				: (this.buttonTooltip ?? this.buttonLabel)}
+			placement="top"
+			><button
+				class="detached-btn"
+				part="button"
+				aria-label=${this.buttonLabel}
+				aria-busy=${this.busy ? 'true' : nothing}
+				aria-disabled=${this.disabled && !this.busy ? 'true' : nothing}
+				tabindex=${this.disabled && !this.busy ? -1 : nothing}
+				?disabled=${this.busy}
+				@click=${this.onSubmit}
+			>
+				${this.busy ? html`<code-icon icon="loading" modifier="spin"></code-icon>` : nothing}
+				<span class="action-label">${this.buttonLabel}</span>
+			</button></gl-tooltip
+		>`;
 	}
 
 	private onFooterSlotChange = (e: Event): void => {

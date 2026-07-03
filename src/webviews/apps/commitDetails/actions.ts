@@ -582,6 +582,8 @@ export class CommitDetailsActions {
 			void this.services.integrations
 				.getIntegrationStates()
 				.then(s => (this.state.capabilities.hasIntegrationsConnected = s.some(i => i.connected)), noop);
+			// Fetch the selected AI model for the Explain input's model chip; refreshed live via onModelChanged.
+			void this.services.ai.getModel().then(m => this.state.aiModel.set(m), noop);
 
 			// Fetch the initial commit — the only thing worth blocking on.
 			// Use persisted commitRef as fallback when host has no initial commit.

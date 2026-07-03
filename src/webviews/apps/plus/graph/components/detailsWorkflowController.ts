@@ -1065,7 +1065,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		 *  webview state truthful. */
 		invalidateContinuation: (): void => {
 			this.actions.state.composeCurrentCacheKey.set(undefined);
-			this.actions.state.composeLockedCommitIds.set(new Set());
+			this.actions.state.composeRefineExcludedCommitIds.set(new Set());
 			// Drop any in-flight per-commit message regen handle too. The RPC's own
 			// `finally` clears it, but an anchor switch can leave the signal pointing at
 			// a commit that no longer belongs to the panel's current plan.
@@ -1283,7 +1283,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// `refinePlanForGraphDetails` when `mode === 'refine'`.
 		const priorCacheKey = this.actions.state.composeCurrentCacheKey.get();
 		const isRefine = priorCacheKey != null && currentValue != null && 'result' in currentValue;
-		const lockedCommitIds = isRefine ? this.actions.state.composeLockedCommitIds.get() : undefined;
+		const excludedCommitIds = isRefine ? this.actions.state.composeRefineExcludedCommitIds.get() : undefined;
 
 		// On refine, carry the prior entry's `basePrompt` so the original cold-start instructions
 		// keep driving the idle AI-input seed; the refine's own instructions still land on the
@@ -1309,7 +1309,7 @@ export class DetailsWorkflowController implements ReactiveController {
 						? {
 								priorCacheKey: priorCacheKey,
 								mode: 'refine' as const,
-								lockedCommitIds: lockedCommitIds?.size ? [...lockedCommitIds] : undefined,
+								excludedCommitIds: excludedCommitIds?.size ? [...excludedCommitIds] : undefined,
 							}
 						: undefined,
 				),

@@ -232,6 +232,18 @@ export const commitBoxStyles = css`
 		pointer-events: auto;
 	}
 
+	.generate-popover {
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+		align-items: flex-start;
+	}
+
+	.generate-popover__action {
+		font-size: var(--gl-font-base);
+		color: var(--vscode-foreground);
+	}
+
 	.commit-btn-wrapper {
 		display: block;
 	}

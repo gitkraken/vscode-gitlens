@@ -25,6 +25,9 @@ suite('commit details subscriptions', () => {
 			integrations: {
 				onIntegrationsChanged: () => () => {},
 			},
+			ai: {
+				onModelChanged: () => () => {},
+			},
 		} as any;
 
 		const fetches: Array<{ repoPath: string; sha: string }> = [];

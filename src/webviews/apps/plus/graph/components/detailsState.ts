@@ -426,12 +426,12 @@ function createTransientState() {
 	// routes to `refinePlanForGraphDetails` (chat-style continuation) instead of starting cold.
 	// Cleared on full-apply success, cold-start compose, cancel, and panel close.
 	const composeCurrentCacheKey = signal<string | undefined>(undefined);
-	// Commit ids the user has locked in the compose panel UI (a per-commit toggle on each
-	// proposed commit row). Passed to `refinePlan` as `lockedCommits` so the AI preserves
-	// those commits' id/message/hunks across the refinement. Lock state is intentionally
-	// engagement-local — it carries across refine rounds for the active plan but clears when
-	// the user exits compose mode or the plan is committed.
-	const composeLockedCommitIds = signal<ReadonlySet<string>>(new Set());
+	// Commit ids the user has excluded from the AI recompose (a per-commit checkbox on each
+	// proposed commit row). Passed to `refinePlan` as `lockedCommits` so the AI preserves those
+	// commits' id/message/hunks across the refinement. Intentionally engagement-local — it carries
+	// across refine rounds for the active plan but clears when the user exits compose mode or the
+	// plan is committed.
+	const composeRefineExcludedCommitIds = signal<ReadonlySet<string>>(new Set());
 	// Commit id currently regenerating its message via the per-commit sparkle button. Drives the
 	// in-row spinner in `renderProposedCommit` and gates concurrent regen / refine / commit-all
 	// in the panel. One in-flight regen at a time (matches the composer webview's convention).
@@ -522,7 +522,7 @@ function createTransientState() {
 		composeLastFailedAction: composeLastFailedAction,
 		composeLastCommitAllIncludedIds: composeLastCommitAllIncludedIds,
 		composeCurrentCacheKey: composeCurrentCacheKey,
-		composeLockedCommitIds: composeLockedCommitIds,
+		composeRefineExcludedCommitIds: composeRefineExcludedCommitIds,
 		composeRegeneratingCommitId: composeRegeneratingCommitId,
 
 		branchCompareLeftRef: branchCompareLeftRef,

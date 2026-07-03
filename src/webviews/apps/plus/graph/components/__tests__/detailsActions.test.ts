@@ -172,7 +172,7 @@ suite('DetailsActions', () => {
 		state.activeModeContext.set('wip');
 		state.composeForwardAvailable.set(true);
 		state.composeCurrentCacheKey.set('cache-key');
-		state.composeLockedCommitIds.set(new Set(['c1']));
+		state.composeRefineExcludedCommitIds.set(new Set(['c1']));
 
 		let committedPlan: unknown;
 		const resources = createResources();

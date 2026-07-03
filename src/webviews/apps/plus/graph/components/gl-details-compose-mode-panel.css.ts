@@ -42,6 +42,13 @@ export const composeModePanelStyles = css`
 		flex: 1;
 		flex-direction: column;
 		min-height: 0;
+
+		/* Commit = green, recompose = orange — authored in OKLCH at the SAME lightness (0.6) so the
+		   pair reads as one system (only the hue differs). Shared by the per-commit checkmarks and
+		   the recompose submit so the orange stays identical between them. Fixed rather than
+		   relative-from-token, which drifted the orange much darker. */
+		--gl-compose-commit-accent: oklch(0.6 0.15 150);
+		--gl-compose-recompose-accent: oklch(0.6 0.13 62);
 	}
 
 	.compose-plan__header {
@@ -123,18 +130,64 @@ export const composeModePanelStyles = css`
 		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border);
 	}
 
-	/* Commit All row is always anchored to the top of the right pane, above the file-tree-pane.
-	   Fixed-height row so the file pane fills the rest of the column. */
-	.compose-plan__commit-all {
+	/* Unified action zone pinned to the bottom of the panel: the "Recompose Changes" gate on top,
+	   then the primary action + Discard — a full-width Commit button in commit posture, or the
+	   detached refine input (its own submit + slotted Discard) in refine posture — then the hint. */
+	.compose-plan__actions {
+		container: compose-actions / inline-size;
 		display: flex;
 		flex: none;
+		flex-direction: column;
 		gap: var(--gl-space-8);
-		padding: var(--gl-space-6) var(--gl-space-12);
+		padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
 	}
 
-	.compose-plan__commit-all > gl-button[full] {
+	.compose-plan__gate {
+		align-self: flex-start;
+	}
+
+	/* gl-checkbox brings its own margin-block, leaving a roomy gap under the gate. Once the panel is
+	   wide enough that the left-aligned gate label and the right-anchored model tab can't collide,
+	   drop that bottom margin to pull the input up tight. Narrower than this, keep the margin so the
+	   tab drops clear below the gate row instead of overlapping it. */
+	@container compose-actions (min-width: 44rem) {
+		.compose-plan__gate {
+			margin-bottom: 0;
+		}
+	}
+
+	.compose-plan__action-row {
+		display: flex;
+		gap: var(--gl-space-8);
+		align-items: center;
+	}
+
+	.compose-plan__action-row > .compose-plan__commit {
 		flex: 1;
 		min-width: 0;
+	}
+
+	/* aria-disabled (not native disabled) keeps the commit button hoverable so its "why" tooltip
+	   shows; dim it ourselves since gl-button only styles the native disabled state. */
+	.compose-plan__commit[aria-disabled='true'] {
+		cursor: default;
+		opacity: 0.4;
+	}
+
+	/* Orange-tint the detached recompose submit with the SAME accent as the recompose checkmarks
+	   (green/blue is reserved for commit). Custom props pierce the shadow boundary; gl-ai-input
+	   falls back to --vscode-button-* when unset. */
+	.compose-plan__actions gl-ai-input {
+		--gl-ai-submit-bg: var(--gl-compose-recompose-accent);
+		--gl-ai-submit-hover-bg: color-mix(in srgb, #000 15%, var(--gl-compose-recompose-accent));
+	}
+
+	/* The refine input self-insets/-centres via panelActionInputStyles; inside the already-padded
+	   action zone that doubles the inset, so pin it flush to the zone's content box. */
+	.compose-plan__actions > gl-ai-input.review-action-input {
+		width: 100%;
+		max-width: none;
+		margin: 0;
 	}
 
 	.compose-commit {
@@ -164,18 +217,13 @@ export const composeModePanelStyles = css`
 		border-left-color: var(--gl-agent-working-color);
 	}
 
-	/* Locked rows get an amber accent on the leading border — visible at a glance that the
-	   AI is forbidden from changing them. Number + message stay full-opacity since locked
-	   commits ARE rendered in the plan; lock is a refine-time constraint, not visibility. */
-	.compose-commit--locked {
-		border-left-color: var(--vscode-charts-orange, #d18616);
-	}
-
-	/* Excluded rows are visually dimmed — they're still in the plan view but will NOT be
-	   applied on the next "Commit". The number + info dim together; the include toggle's
-	   own dimmed state reinforces that the commit is being skipped. */
-	.compose-commit--excluded .compose-commit__num,
-	.compose-commit--excluded .compose-commit__info {
+	/* Dim the "held back" rows so the greyed row + empty checkmark both signal the row is being
+	   skipped: commit posture dims the excluded rows, recompose posture dims the locked rows.
+	   Neither adds a left-edge accent — that's reserved for selection (.compose-commit--selected). */
+	.compose-plan:not(.compose-plan--refine) .compose-commit--excluded .compose-commit__num,
+	.compose-plan:not(.compose-plan--refine) .compose-commit--excluded .compose-commit__info,
+	.compose-plan--refine .compose-commit--refine-excluded .compose-commit__num,
+	.compose-plan--refine .compose-commit--refine-excluded .compose-commit__info {
 		opacity: 0.45;
 	}
 
@@ -262,13 +310,11 @@ export const composeModePanelStyles = css`
 		color: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
 	}
 
-	/* Two stacked toggle buttons per commit row: lock (refine-time) above, include (apply-time)
-	   below. The wrapper keeps them grouped and prevents the gl-button widths from drifting. */
+	/* Single per-commit checkmark. Top-aligned so it lines up with the row number and the inline
+	   regen icon on the message line (the row is flex-start). */
 	.compose-commit__actions {
 		display: flex;
 		flex-shrink: 0;
-		flex-direction: column;
-		gap: var(--gl-space-2);
 	}
 
 	/* Both toggles share the same chrome (size, icon scale, hover semantics) and only diverge
@@ -302,56 +348,52 @@ export const composeModePanelStyles = css`
 		opacity: 0.35;
 	}
 
-	/* Lock toggle.
-	   Default (unlocked): dimmed transparent button with an unlock icon — visible but not loud.
-	   Locked: solid amber fill with a lock icon — pinned-by-user at a glance. */
-	.compose-commit__action--lock {
-		--lock-amber: color-mix(in srgb, #000 25%, var(--vscode-charts-orange, #d18616));
+	/* Single per-commit checkmark. One shape; the checked state sets the fill and the posture sets
+	   the colour: commit uses the standard checkbox palette (matches the gate + every other
+	   checkbox), recompose fills orange. The check glyph uses --vscode-checkbox-foreground so it
+	   flips with the theme and stays legible on either fill (light & dark). */
+	.compose-commit__check {
+		--button-padding: 0.3rem;
+		--button-padding-inline: 0.3rem;
+		--button-width: 2rem;
+		--button-line-height: 1;
+		--button-gap: 0;
+		--code-icon-size: 1.2rem;
+		--code-icon-v-align: middle;
 
-		--button-foreground: var(--color-foreground--50);
+		/* Checked fill: green in commit, orange in recompose (both dark enough that the white check
+		   stays legible on the fill and the deepened hover). */
+		--check-accent: var(--gl-compose-commit-accent);
+	}
+
+	.compose-plan--refine .compose-commit__check {
+		--check-accent: var(--gl-compose-recompose-accent);
+	}
+
+	/* Always render the check glyph so the box keeps a constant size; hide it (space reserved) when
+	   unchecked instead of removing it, which collapsed the button height. */
+	.compose-commit__check--off code-icon {
+		visibility: hidden;
+	}
+
+	/* Checked — accent fill + white check; hover deepens the fill (check stays legible). */
+	.compose-commit__check--on {
+		--button-foreground: var(--vscode-button-foreground, #fff);
+		--button-background: var(--check-accent);
+		--button-border: var(--check-accent);
+		--button-hover-background: color-mix(in srgb, #000 25%, var(--check-accent));
+	}
+
+	/* Empty — dim outline; hover previews the accent fill + border. */
+	.compose-commit__check--off {
+		--button-foreground: var(--vscode-button-foreground, #fff);
 		--button-background: transparent;
 		--button-border: var(--color-foreground--50);
-		--button-hover-background: var(--lock-amber);
+		--button-hover-background: color-mix(in srgb, var(--check-accent) 22%, transparent);
 	}
 
-	.compose-commit__action--lock:hover {
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-border: var(--lock-amber);
-	}
-
-	.compose-commit__action--locked {
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-background: var(--lock-amber);
-		--button-border: var(--lock-amber);
-		--button-hover-background: color-mix(in srgb, #000 40%, var(--vscode-charts-orange, #d18616));
-	}
-
-	/* Include toggle — gl-button skinned as a checkbox.
-	   Checked (included): solid green fill, white checkmark.
-	   Unchecked (excluded): dimmed border with a dimmed checkmark, transparent fill.
-	   Hover previews the post-click state via the gl-button hover-background var. */
-	.compose-commit__action--include {
-		--check-green: color-mix(in srgb, #000 35%, var(--vscode-testing-iconPassed, #73c991));
-
-		/* --vscode-button-foreground is the contrast-paired token for --vscode-button-background
-		   and resolves to white on most themes; falling back to literal white preserves the
-		   original intent on themes that don't define the variable. */
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-background: var(--check-green);
-		--button-border: var(--check-green);
-		--button-hover-background: color-mix(in srgb, #000 50%, var(--vscode-testing-iconPassed, #73c991));
-	}
-
-	.compose-commit__action--excluded {
-		--button-foreground: var(--color-foreground--50);
-		--button-background: transparent;
-		--button-border: var(--color-foreground--50);
-		--button-hover-background: var(--check-green);
-	}
-
-	.compose-commit__action--excluded:hover {
-		--button-foreground: var(--vscode-button-foreground, #fff);
-		--button-border: var(--check-green);
+	.compose-commit__check--off:hover {
+		--button-border: var(--check-accent);
 	}
 
 	.compose-base {

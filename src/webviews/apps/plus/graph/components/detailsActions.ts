@@ -753,7 +753,7 @@ export class DetailsActions {
 		excludedFiles: string[] | undefined,
 		aiExcludedFiles: string[] | undefined,
 		signal: AbortSignal,
-		options?: { priorCacheKey?: string; mode?: 'refine'; lockedCommitIds?: readonly string[] },
+		options?: { priorCacheKey?: string; mode?: 'refine'; excludedCommitIds?: readonly string[] },
 	): Promise<ComposeResult> {
 		return this.services.graphInspect.composeChanges(
 			repoPath,
