@@ -202,8 +202,11 @@ export abstract class GitHostIntegration<
 	): Promise<ProviderOrganization[] | undefined>;
 
 	/**
-	 * Lists the repositories under a given organization (org/workspace/group). `options.project` is only
-	 * meaningful for Azure DevOps, whose repos are scoped by `org` + `project`; every other host ignores it.
+	 * Lists repositories under the given organization (org/workspace/group) one page at a time — follow
+	 * `paging.cursor` to page, or drain with `collectPagedResults` from `@gitlens/utils/paging.js`.
+	 * `options.project` is only meaningful for Azure DevOps, whose repos are scoped by `org` + `project`;
+	 * every other host ignores it. (Azure without a project can't page its cross-project merge, so it
+	 * returns all matches in a single page.)
 	 */
 	@trace()
 	async getRepositoriesForOrg(

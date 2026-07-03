@@ -49,3 +49,25 @@ export class PageableResult<T> {
 		}
 	}
 }
+
+/**
+ * Drains a paged fetcher into a single array, following `paging.cursor` until exhausted. Bounded by
+ * `maxPages` (default 20) as a backstop against a provider that never stops paging.
+ */
+export async function collectPagedResults<T>(
+	fetch: (cursor: string | undefined) => Promise<PagedResult<T> | undefined>,
+	maxPages = 20,
+): Promise<NonNullable<T>[]> {
+	const all: NonNullable<T>[] = [];
+	let cursor: string | undefined;
+	for (let page = 0; page < maxPages; page++) {
+		const result = await fetch(cursor);
+		if (result == null) break;
+
+		all.push(...result.values);
+		if (!result.paging?.more || result.paging.cursor === cursor) break;
+
+		cursor = result.paging.cursor;
+	}
+	return all;
+}

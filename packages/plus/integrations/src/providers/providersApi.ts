@@ -2,6 +2,7 @@ import ProviderApis from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { collectPagedResults } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -791,7 +792,7 @@ export class ProvidersApi {
 		);
 	}
 
-	async getGithubOrgsForCurrentUser(
+	async getGitHubOrgsForCurrentUser(
 		tokenOptInfo: TokenWithInfo<
 			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
 		>,
@@ -801,27 +802,18 @@ export class ProvidersApi {
 			tokenOptInfo,
 			'getOrgsForCurrentUserFn',
 		);
-		const token = tokenWithInfo.accessToken;
 
-		try {
-			// getOrgsForCurrentUserFn is cursor-paged; loop so a user in many orgs doesn't silently
-			// lose everything past the first page. Bounded to 20 pages as a backstop.
-			const orgs: ProviderGitHubOrganization[] = [];
-			let cursor: string | undefined;
-			for (let page = 0; page < 20; page++) {
-				const result = await provider.getOrgsForCurrentUserFn?.(
-					{ cursor: cursor },
-					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
-				);
-				orgs.push(...(result?.data ?? []));
-				if (!result?.pageInfo?.hasNextPage || result.pageInfo.endCursor === cursor) break;
-
-				cursor = result.pageInfo.endCursor ?? undefined;
-			}
-			return orgs;
-		} catch (e) {
-			return this.handleProviderError<ProviderGitHubOrganization[] | undefined>(tokenWithInfo, e);
-		}
+		// Drain all pages so a user in many orgs doesn't lose everything past the first page.
+		return collectPagedResults(cursor =>
+			this.getPagedResult<ProviderGitHubOrganization>(
+				{},
+				provider.getOrgsForCurrentUserFn,
+				tokenWithInfo,
+				cursor,
+				options?.isPAT,
+				options?.baseUrl,
+			),
+		);
 	}
 
 	async getReposForOrg(
@@ -894,27 +886,18 @@ export class ProvidersApi {
 			tokenOptInfo,
 			'getGroupsForCurrentUserFn',
 		);
-		const token = tokenWithInfo.accessToken;
 
-		try {
-			// getGroupsForCurrentUserFn is number-paged; loop so a user in many groups doesn't
-			// silently lose everything past the first page. Bounded to 20 pages as a backstop.
-			const groups: ProviderGitLabGroup[] = [];
-			let page: number | undefined;
-			for (let i = 0; i < 20; i++) {
-				const result = await provider.getGroupsForCurrentUserFn?.(
-					{ topLevelOnly: options?.topLevelOnly, page: page },
-					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
-				);
-				groups.push(...(result?.data ?? []));
-				if (!result?.pageInfo?.hasNextPage || result.pageInfo.nextPage === page) break;
-
-				page = result.pageInfo.nextPage ?? undefined;
-			}
-			return groups;
-		} catch (e) {
-			return this.handleProviderError<ProviderGitLabGroup[] | undefined>(tokenWithInfo, e);
-		}
+		// Drain all pages so a user in many groups doesn't lose everything past the first page.
+		return collectPagedResults(cursor =>
+			this.getPagedResult<ProviderGitLabGroup>(
+				{ topLevelOnly: options?.topLevelOnly },
+				provider.getGroupsForCurrentUserFn,
+				tokenWithInfo,
+				cursor,
+				options?.isPAT,
+				options?.baseUrl,
+			),
+		);
 	}
 
 	async getPullRequestsForRepos(

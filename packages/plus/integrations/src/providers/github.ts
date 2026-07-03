@@ -216,7 +216,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 	): Promise<ProviderOrganization[] | undefined> {
 		const api = await this.getProvidersApi();
-		const orgs = await api.getGithubOrgsForCurrentUser(toTokenWithInfo(this.id, session), {
+		const orgs = await api.getGitHubOrgsForCurrentUser(toTokenWithInfo(this.id, session), {
 			baseUrl: this.apiBaseUrl,
 		});
 		return orgs?.map(o => ({ id: o.id, name: o.username, url: `https://${this.domain}/${o.username}` }));

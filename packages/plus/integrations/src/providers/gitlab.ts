@@ -254,33 +254,28 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	}
 
 	/**
-	 * GitLab has no group-scoped repos endpoint, so this lists the user's repos and filters by namespace
-	 * prefix (including subgroups), mirroring gkcli's `gitlabOrgMatches`. Bounded to 20 pages (2000 repos)
-	 * as a backstop against an unbounded loop; that's well beyond what a single group realistically holds.
+	 * GitLab has no group-scoped repos endpoint, so each page is a page of the current user's member repos
+	 * across all namespaces, filtered to `org` and its subgroups (mirroring gkcli's `gitlabOrgMatches`).
+	 * Follow `paging.cursor` to page the full list; repos the user isn't a member of aren't returned.
+	 * Because the filter is applied per page, a page can come back with `values: []` while
+	 * `paging.more` is still `true` (e.g. a page full of repos outside `org`) — don't treat an empty
+	 * page as the end of pagination, only `paging.more`/`collectPagedResults` reaching exhaustion.
 	 */
 	protected override async getProviderRepositoriesForOrg(
 		session: ProviderAuthenticationSession,
 		org: string,
+		options?: { cursor?: string },
 	): Promise<PagedResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
-		const apiOptions = {
+		const result = await api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			cursor: options?.cursor,
+		});
+		return {
+			values: result.values.filter(r => matchesGitLabOrgNamespace(r.namespace, org)),
+			paging: result.paging,
 		};
-
-		const repos: ProviderRepository[] = [];
-		let cursor: string | undefined;
-		for (let page = 0; page < 20; page++) {
-			const result = await api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
-				...apiOptions,
-				cursor: cursor,
-			});
-			repos.push(...result.values.filter(r => matchesGitLabOrgNamespace(r.namespace, org)));
-			if (!result.paging?.more || result.paging.cursor === cursor) break;
-
-			cursor = result.paging.cursor;
-		}
-		return { values: repos };
 	}
 
 	protected override async searchProviderMyPullRequests(
