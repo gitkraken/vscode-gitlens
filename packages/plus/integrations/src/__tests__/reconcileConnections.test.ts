@@ -348,6 +348,129 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('refreshConnections applies self-managed primaries and refreshes cached models per host', async () => {
+		const { runtime, manager } = createManager({
+			connections: [
+				{
+					tokenId: 'ghe-b2',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe-b.example.com',
+					accountName: 'b-two',
+					secondaries: [
+						{
+							tokenId: 'ghe-b1',
+							provider: 'githubEnterprise',
+							type: 'oauth',
+							domain: 'ghe-b.example.com',
+							accountName: 'b-one',
+						},
+					],
+				},
+				{
+					tokenId: 'ghe-a1',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe-a.example.com',
+					accountName: 'a-one',
+					secondaries: [
+						{
+							tokenId: 'ghe-a2',
+							provider: 'githubEnterprise',
+							type: 'oauth',
+							domain: 'ghe-a.example.com',
+							accountName: 'a-two',
+						},
+					],
+				},
+			],
+			token: (path: string) => {
+				const tokenId = path.endsWith('/githubEnterprise') ? 'ghe-a1' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-a2',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: false,
+				},
+				{
+					id: 'ghe-b1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-b2',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: false,
+				},
+			],
+		});
+
+		const gheA = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-a.example.com');
+		const gheB = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-b.example.com');
+		assert.ok(gheA != null, 'first self-managed integration constructs');
+		assert.ok(gheB != null, 'second self-managed integration constructs');
+
+		let switchedB = false;
+		gheB.switchConnection = () => {
+			switchedB = true;
+		};
+
+		await manager.refreshConnections();
+
+		const configured = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
+		assert.equal(
+			configured.find(c => c.domain === 'ghe-a.example.com' && c.primary)?.id,
+			'ghe-a1',
+			'host A primary is unchanged',
+		);
+		assert.equal(
+			configured.find(c => c.domain === 'ghe-b.example.com' && c.primary)?.id,
+			'ghe-b2',
+			'host B primary follows the backend primary',
+		);
+		assert.equal(
+			configured.filter(c => c.domain === 'ghe-a.example.com' && c.primary).length,
+			1,
+			'host A keeps exactly one primary',
+		);
+		assert.equal(
+			configured.filter(c => c.domain === 'ghe-b.example.com' && c.primary).length,
+			1,
+			'host B keeps exactly one primary',
+		);
+		assert.equal(switchedB, true, 'changed host refreshes its cached integration');
+
+		manager.dispose();
+	});
+
 	test('refreshing a cloud provider does not switch a cached self-managed provider with an overlapping id prefix', async () => {
 		const { manager } = createManager({
 			connections: [

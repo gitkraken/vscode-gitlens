@@ -902,6 +902,38 @@ export class IntegrationService implements Disposable {
 		return undefined;
 	}
 
+	private getCachedForDomain<T extends IntegrationIds>(id: T, domain?: string): IntegrationById<T> | undefined {
+		return isGitSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
+	}
+
+	private getConfiguredConnectionDomain(id: IntegrationIds, connectionId: string): string | undefined {
+		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
+		return this.configuredIntegrationService.getConfigured(id).find(c => c.id === connectionId)?.domain;
+	}
+
+	private getCloudPrimaryConnectionIdsByDomain(id: IntegrationIds): Map<string | undefined, string> {
+		const primaryByDomain = new Map<string | undefined, string>();
+		const fallbackByDomain = new Map<string | undefined, string>();
+
+		for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
+			const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
+			if (!fallbackByDomain.has(domain)) {
+				fallbackByDomain.set(domain, descriptor.id);
+			}
+			if (descriptor.primary && !primaryByDomain.has(domain)) {
+				primaryByDomain.set(domain, descriptor.id);
+			}
+		}
+
+		for (const [domain, connectionId] of fallbackByDomain) {
+			if (!primaryByDomain.has(domain)) {
+				primaryByDomain.set(domain, connectionId);
+			}
+		}
+
+		return primaryByDomain;
+	}
+
 	@gate()
 	@trace()
 	private async syncCloudIntegrations(forceConnect: boolean) {
@@ -991,14 +1023,13 @@ export class IntegrationService implements Disposable {
 		// Capture the effective primary before any mutation (sync store, prune-driven promotion, or the
 		// backend primary selection below) so we can tell whether it actually changed. The prune step can
 		// promote a secondary to primary via removeConfigured, so sampling this after pruning would miss it.
-		const primaryBefore = this.configuredIntegrationService
-			.getConfigured(id, { cloud: true })
-			.find(c => c.primary)?.id;
+		const primaryBefore = this.getCloudPrimaryConnectionIdsByDomain(id);
 
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
 
 		// Fetch + store each connection's session so getConfigured() reflects every account.
 		const syncedIds = new Set<string>();
+		const syncedPrimaryIdsByDomain = new Map<string | undefined, string>();
 		for (const connection of identified) {
 			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
 			// Self-managed integrations are keyed/constructed by host.
@@ -1045,6 +1076,12 @@ export class IntegrationService implements Disposable {
 
 				await this.configuredIntegrationService.storeSession(id, providerSession);
 				syncedIds.add(connection.id);
+				if (connection.primary) {
+					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
+					if (!syncedPrimaryIdsByDomain.has(domain)) {
+						syncedPrimaryIdsByDomain.set(domain, connection.id);
+					}
+				}
 			} catch (ex) {
 				scope?.warn(
 					`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
@@ -1068,16 +1105,20 @@ export class IntegrationService implements Disposable {
 		// Apply the backend's primary selection, then refresh any warm model only when the effective primary
 		// actually changed (vs the pre-reconcile value captured above). switchConnection() drops the in-memory
 		// session and fires change events, so calling it on every check-in (when the primary is unchanged)
-		// causes needless churn for multi-account providers.
-		const primary = identified.find(c => c.primary);
-		if (primary != null) {
-			await this.configuredIntegrationService.setPrimaryConnection(id, primary.id);
+		// causes needless churn for multi-account providers. Self-managed providers can have one primary per
+		// host, so apply and refresh by host scope rather than by provider id alone.
+		for (const connectionId of syncedPrimaryIdsByDomain.values()) {
+			await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
 		}
-		const primaryAfter = this.configuredIntegrationService
-			.getConfigured(id, { cloud: true })
-			.find(c => c.primary)?.id;
-		if (primaryBefore !== primaryAfter) {
-			this.findCachedById(id)?.switchConnection();
+		const primaryAfter = this.getCloudPrimaryConnectionIdsByDomain(id);
+		const domains = new Set<string | undefined>(primaryBefore.keys());
+		for (const domain of primaryAfter.keys()) {
+			domains.add(domain);
+		}
+		for (const domain of domains) {
+			if (primaryBefore.get(domain) === primaryAfter.get(domain)) continue;
+
+			this.getCachedForDomain(id, domain)?.switchConnection();
 		}
 	}
 
@@ -1087,12 +1128,13 @@ export class IntegrationService implements Disposable {
 	 * if the backend switch fails so the caller can surface it (local state stays untouched).
 	 */
 	async setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+		const domain = this.getConfiguredConnectionDomain(id, connectionId);
 		if (!(await this.authenticationService.cloudIntegrations.setPrimaryConnection(id, connectionId))) {
 			throw new Error(`Failed to set primary connection '${connectionId}' for '${id}'`);
 		}
 
 		await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
-		this.findCachedById(id)?.switchConnection();
+		this.getCachedForDomain(id, domain)?.switchConnection();
 	}
 
 	/**
@@ -1104,12 +1146,13 @@ export class IntegrationService implements Disposable {
 	 * Throws if the backend delete fails so the caller can surface it (local state stays untouched).
 	 */
 	async deleteConnection(id: IntegrationIds, connectionId: string, cloud: boolean = true): Promise<void> {
+		const domain = this.getConfiguredConnectionDomain(id, connectionId);
 		if (!(await this.authenticationService.cloudIntegrations.disconnectConnection(id, connectionId))) {
 			throw new Error(`Failed to delete connection '${connectionId}' for '${id}'`);
 		}
 
 		await this.configuredIntegrationService.deleteConnection(id, connectionId, cloud);
-		this.findCachedById(id)?.switchConnection();
+		this.getCachedForDomain(id, domain)?.switchConnection();
 	}
 
 	/**
