@@ -312,9 +312,19 @@ export abstract class IntegrationBase<
 	switchConnection(): void {
 		if (this._session === undefined) return;
 
+		const wasConnected = this._session != null;
 		this._session = undefined;
 		this._onDidChange.fire();
-		this.refresh();
+		void this.refreshAfterSwitch(wasConnected);
+	}
+
+	private async refreshAfterSwitch(wasConnected: boolean): Promise<void> {
+		const session = await this.ensureSession({ createIfNeeded: false });
+		if (session != null || !wasConnected) return;
+
+		this._onDidChange.fire();
+		this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'disconnected' });
+		await this.providerOnDisconnect?.();
 	}
 
 	private skippedNonCloudReported = false;

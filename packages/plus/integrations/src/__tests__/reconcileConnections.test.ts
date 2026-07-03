@@ -94,6 +94,40 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('blank wire account names fall back to the cached account name', async () => {
+		const { runtime, manager } = createManager({
+			connections: [
+				{
+					tokenId: 'p1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: '   ',
+				},
+			],
+			token: githubToken,
+		});
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{
+					id: 'p1',
+					cloud: true,
+					integrationId: 'github',
+					scopes: 'repo',
+					primary: true,
+					accountName: 'cached-octo',
+				},
+			],
+		});
+
+		await manager.refreshConnections();
+
+		const [connection] = manager.getConfigured(GitCloudHostIntegrationId.GitHub);
+		assert.equal(connection?.accountName, 'cached-octo', 'blank backend account name ignored');
+
+		manager.dispose();
+	});
+
 	test('a transient token-fetch failure defers pruning so a still-valid connection survives', async () => {
 		const { runtime, manager } = createManager({
 			connections: [
@@ -297,39 +331,49 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
-	test('deleteConnection without an explicit cloud arg is cloud-scoped by default, preserving a shared-id local PAT', async () => {
+	test('force-refreshing a cloud session preserves a local PAT sharing the same connection id', async () => {
 		const { runtime, manager } = createManager({
 			connections: [],
-			token: () => ({}),
+			token: () => ({
+				tokenId: 'shared',
+				accessToken: 'fresh-cloud-token',
+				expiresIn: 3600,
+				scopes: 'repo',
+				type: 'oauth',
+				domain: 'github.com',
+			}),
 		});
-		// A local (PAT) and a cloud session can legitimately share a connection id (e.g. the domain).
 		await runtime.storage.store('integrations:configured', {
 			github: [
-				{ id: 'shared', cloud: false, integrationId: 'github', scopes: 'repo' },
-				{ id: 'shared', cloud: true, integrationId: 'github', scopes: 'repo', primary: true },
+				{ id: 'shared', cloud: false, integrationId: 'github', scopes: 'repo', primary: true },
+				{ id: 'shared', cloud: true, integrationId: 'github', scopes: 'repo', primary: false },
 			],
 		});
 		await runtime.storage.storeSecret(
 			'integration.auth:github|shared',
-			JSON.stringify({ id: 'shared', accessToken: 'local-pat', scopes: ['repo'], cloud: false }),
+			JSON.stringify({ id: 'shared', accessToken: 'local-pat', scopes: ['repo'], cloud: false, type: 'pat' }),
 		);
 		await runtime.storage.storeSecret(
 			'integration.auth.cloud:github|shared',
-			JSON.stringify({ id: 'shared', accessToken: 'cloud-tok', scopes: ['repo'], cloud: true, type: 'oauth' }),
+			JSON.stringify({ id: 'shared', accessToken: 'old-cloud', scopes: ['repo'], cloud: true, type: 'oauth' }),
 		);
 
-		// Public manager API call with no third argument, as an external consumer would call it.
-		await manager.deleteConnection(GitCloudHostIntegrationId.GitHub, 'shared');
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.equal(await github.isConnected(), true, 'cached session is warm before refresh');
 
-		assert.ok(
-			(await runtime.storage.getSecret('integration.auth:github|shared')) != null,
-			'local PAT secret preserved by a default (unscoped) deleteConnection call',
+		await github.syncCloudConnection('connected', true);
+
+		assert.match(
+			(await runtime.storage.getSecret('integration.auth:github|shared')) ?? '',
+			/local-pat/,
+			'local PAT secret preserved',
 		);
-		assert.equal(
-			await runtime.storage.getSecret('integration.auth.cloud:github|shared'),
-			undefined,
-			'cloud secret removed',
+		assert.match(
+			(await runtime.storage.getSecret('integration.auth.cloud:github|shared')) ?? '',
+			/fresh-cloud-token/,
+			'cloud secret refreshed',
 		);
+		assert.equal((await github.getSession('integrations'))?.accessToken, 'fresh-cloud-token');
 
 		manager.dispose();
 	});
@@ -470,6 +514,77 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 			undefined,
 			'missing backend host secret removed',
 		);
+
+		manager.dispose();
+	});
+
+	test('deleteConnection emits disconnected for a cached provider when the last connection is removed', async () => {
+		const { runtime, manager } = createManager({
+			connections: [],
+			token: () => ({}),
+		});
+		await runtime.storage.store('integrations:configured', {
+			github: [{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|p1',
+			JSON.stringify({ id: 'p1', accessToken: 'tok-p1', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+
+		const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.equal(await github.isConnected(), true, 'cached provider starts connected');
+		await flush();
+		runtime.emittedEvents.length = 0;
+
+		await manager.deleteConnection(GitCloudHostIntegrationId.GitHub, 'p1', true);
+		await flush();
+
+		assert.ok(
+			runtime.emittedEvents.some(
+				e =>
+					e.event === 'integration.connection.hosting.changed' &&
+					e.props?.key === 'github' &&
+					e.props?.connected === false,
+			),
+			'cached provider emits disconnected after deleting its last connection',
+		);
+
+	test('deleteConnection without an explicit cloud arg is cloud-scoped by default, preserving a shared-id local PAT', async () => {
+		const { runtime, manager } = createManager({
+			connections: [],
+			token: () => ({}),
+		});
+		// A local (PAT) and a cloud session can legitimately share a connection id (e.g. the domain).
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{ id: 'shared', cloud: false, integrationId: 'github', scopes: 'repo' },
+				{ id: 'shared', cloud: true, integrationId: 'github', scopes: 'repo', primary: true },
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth:github|shared',
+			JSON.stringify({ id: 'shared', accessToken: 'local-pat', scopes: ['repo'], cloud: false }),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|shared',
+			JSON.stringify({ id: 'shared', accessToken: 'cloud-tok', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+
+		// Public manager API call with no third argument, as an external consumer would call it.
+		await manager.deleteConnection(GitCloudHostIntegrationId.GitHub, 'shared');
+
+		assert.ok(
+			(await runtime.storage.getSecret('integration.auth:github|shared')) != null,
+			'local PAT secret preserved by a default (unscoped) deleteConnection call',
+		);
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:github|shared'),
+			undefined,
+			'cloud secret removed',
+		);
+
+		manager.dispose();
+	});
 
 		manager.dispose();
 	});

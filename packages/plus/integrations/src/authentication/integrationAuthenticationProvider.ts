@@ -24,6 +24,8 @@ export interface IntegrationAuthenticationProviderDescriptor {
 export interface IntegrationAuthenticationSessionDescriptor {
 	domain: string;
 	scopes: string[];
+	/** When set, reads/deletes only the matching storage variant. */
+	cloud?: boolean;
 	/**
 	 * Targets a specific connection when a provider has multiple accounts connected. When omitted,
 	 * operations resolve to the provider's primary connection (see
@@ -73,7 +75,7 @@ abstract class IntegrationAuthenticationProviderBase<
 			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined, {
+		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, true, {
 			preserveConfigured: true,
 		});
 
@@ -108,9 +110,12 @@ abstract class IntegrationAuthenticationProviderBase<
 		let session;
 		let previousToken;
 		if (options?.forceNewSession) {
-			await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined);
+			await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, true);
 		} else {
-			session = await this.configuredIntegrationService.getStoredSession(this.authProviderId, descriptor);
+			session = await this.configuredIntegrationService.getStoredSession(
+				this.authProviderId,
+				options?.sync ? { ...descriptor, cloud: true } : descriptor,
+			);
 			previousToken = session?.accessToken;
 		}
 

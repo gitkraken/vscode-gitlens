@@ -237,7 +237,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const sessionId = this.resolveConnectionId(id, descriptor);
-		let session = await this.readSecret(id, sessionId, false);
+		let session = descriptor.cloud === true ? undefined : await this.readSecret(id, sessionId, false);
 
 		let cloudIfMissing = false;
 		if (session != null) {
@@ -253,7 +253,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		}
 
 		// If no local session we try to restore a session with the cloud key
-		if (session == null) {
+		if (session == null && descriptor.cloud !== false) {
 			cloudIfMissing = true;
 			session = await this.readSecret(id, sessionId, true);
 		}

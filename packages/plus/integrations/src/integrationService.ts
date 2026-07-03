@@ -1102,8 +1102,8 @@ export class IntegrationService implements Disposable {
 					.getConfigured(id, { cloud: true })
 					.find(c => c.id === connection.id);
 				const accountName =
-					connection.accountName ??
-					existing?.accountName ??
+					normalizeAccountName(connection.accountName) ??
+					normalizeAccountName(existing?.accountName) ??
 					(await this.resolveAccountName(id, host, providerSession));
 				if (accountName != null) {
 					providerSession = {
@@ -1257,6 +1257,11 @@ function protocolFromDomain(domain: string | undefined): string | undefined {
 	} catch {
 		return undefined;
 	}
+}
+
+function normalizeAccountName(accountName: string | undefined): string | undefined {
+	const value = accountName?.trim();
+	return value ? value : undefined;
 }
 
 function toProviderSession(
