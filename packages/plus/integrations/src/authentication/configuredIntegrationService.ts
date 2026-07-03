@@ -285,7 +285,12 @@ export class ConfiguredIntegrationService implements Disposable {
 			if (!(id in stored)) continue;
 
 			for (const descriptor of stored[id] ?? []) {
-				const connectionId = descriptor.id ?? descriptor.domain ?? '';
+				// Mirror the hydration backfill so the secret keys we delete match what was written: fall back
+				// through domain, the provider's canonical domain, then the integration id (never empty). A
+				// legacy cloud descriptor stored neither id nor domain, so an empty connection id here would
+				// miss the canonical-domain secret (e.g. `integration.auth.cloud:github|github.com`) and orphan it.
+				const connectionId =
+					descriptor.id || descriptor.domain || providersMetadata[id as IntegrationIds]?.domain || id;
 				await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id as IntegrationIds, connectionId));
 				await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id as IntegrationIds, connectionId));
 				if (descriptor.domain) {
