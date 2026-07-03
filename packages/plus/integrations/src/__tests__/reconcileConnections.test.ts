@@ -151,6 +151,88 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('intentionally skipped self-managed connections do not block stale pruning', async () => {
+		const { runtime, manager } = createManager({
+			connections: [
+				{
+					tokenId: 'ent-valid',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe.example.com',
+					accountName: 'ent-user',
+				},
+				{
+					tokenId: 'ent-invalid',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'https://',
+					accountName: 'bad-host',
+				},
+			],
+			token: (path: string) => {
+				const tokenId = path.endsWith('/githubEnterprise') ? 'ent-valid' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ent-valid',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'stale',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'stale.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|stale',
+			JSON.stringify({
+				id: 'stale',
+				accessToken: 'stale-token',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'stale.example.com',
+			}),
+		);
+
+		await manager.refreshConnections();
+
+		const configured = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
+		assert.ok(
+			configured.some(c => c.id === 'ent-valid'),
+			'valid backend connection remains configured',
+		);
+		assert.ok(
+			!configured.some(c => c.id === 'stale'),
+			'stale descriptor pruned even though another backend connection was intentionally skipped',
+		);
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|stale'),
+			undefined,
+			'stale secret removed',
+		);
+
+		manager.dispose();
+	});
+
 	test('refreshConnections preserves non-expiring GitHub tokens as long-lived sessions', async () => {
 		const { manager } = createManager({
 			connections: [

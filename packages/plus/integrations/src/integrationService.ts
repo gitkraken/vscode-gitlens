@@ -1029,6 +1029,7 @@ export class IntegrationService implements Disposable {
 
 		// Fetch + store each connection's session so getConfigured() reflects every account.
 		const syncedIds = new Set<string>();
+		const syncEligibleIds = new Set<string>();
 		const syncedPrimaryIdsByDomain = new Map<string | undefined, string>();
 		for (const connection of identified) {
 			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
@@ -1050,6 +1051,7 @@ export class IntegrationService implements Disposable {
 			// reconcile runs, so it proceeds normally.
 			if (this.isLocallyDisconnected(id, host)) continue;
 
+			syncEligibleIds.add(connection.id);
 			try {
 				const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
 				if (session == null) continue;
@@ -1090,10 +1092,12 @@ export class IntegrationService implements Disposable {
 		}
 
 		// Prune stored cloud connections that no longer exist on the backend — but only when every backend
-		// connection synced this cycle. Otherwise a transient token fetch failure would delete a still-valid
-		// connection with no replacement (e.g. a legacy single connection during the backend id rollout);
-		// defer pruning to a later clean cycle. Scope deletes to cloud so a local PAT sharing the id survives.
-		if (syncedIds.size === identified.length) {
+		// connection that should sync did sync this cycle. Otherwise a transient token fetch failure would
+		// delete a still-valid connection with no replacement (e.g. a legacy single connection during the
+		// backend id rollout); defer pruning to a later clean cycle. Deliberately skipped connections (local
+		// disconnects or invalid self-managed hosts) don't block pruning of unrelated stale descriptors.
+		// Scope deletes to cloud so a local PAT sharing the id survives.
+		if ([...syncEligibleIds].every(connectionId => syncedIds.has(connectionId))) {
 			const liveIds = new Set(identified.map(c => c.id));
 			for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
 				if (!liveIds.has(descriptor.id)) {
