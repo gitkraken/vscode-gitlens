@@ -877,7 +877,7 @@ export class IntegrationService implements Disposable {
 	): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
 			if (isCloudGitSelfManagedHostIntegrationId(id)) {
-				const domains = new Set(domainsById.get(id));
+				const domains = new Set(domainsById.get(id) ?? []);
 				for (const domain of this.configuredIntegrationService
 					.getConfigured(id, { cloud: true })
 					.map(c => c.domain)
@@ -1133,10 +1133,12 @@ export class IntegrationService implements Disposable {
 		// backend id rollout); defer pruning to a later clean cycle. Deliberately skipped connections (local
 		// disconnects or invalid self-managed hosts) don't block pruning of unrelated stale descriptors.
 		// Scope deletes to cloud so a local PAT sharing the id survives.
+		const prunedDomains = new Set<string | undefined>();
 		if ([...syncEligibleIds].every(connectionId => syncedIds.has(connectionId))) {
 			const liveIds = new Set(identified.map(c => c.id));
 			for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
 				if (!liveIds.has(descriptor.id)) {
+					prunedDomains.add(isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined);
 					await this.configuredIntegrationService.deleteConnection(id, descriptor.id, true);
 				}
 			}
@@ -1155,8 +1157,11 @@ export class IntegrationService implements Disposable {
 		for (const domain of primaryAfter.keys()) {
 			domains.add(domain);
 		}
+		for (const domain of prunedDomains) {
+			domains.add(domain);
+		}
 		for (const domain of domains) {
-			if (primaryBefore.get(domain) === primaryAfter.get(domain)) continue;
+			if (primaryBefore.get(domain) === primaryAfter.get(domain) && !prunedDomains.has(domain)) continue;
 
 			this.getCachedForDomain(id, domain)?.switchConnection();
 		}
@@ -1235,10 +1240,12 @@ function hostFromDomain(domain: string | undefined): string | undefined {
 	const value = domain?.trim();
 	if (!value) return undefined;
 
-	try {
-		return new URL(value).host || undefined;
-	} catch {
-		if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
+	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
+		try {
+			return new URL(value).host || undefined;
+		} catch {
+			return undefined;
+		}
 	}
 
 	try {
@@ -1251,6 +1258,7 @@ function hostFromDomain(domain: string | undefined): string | undefined {
 function protocolFromDomain(domain: string | undefined): string | undefined {
 	const value = domain?.trim();
 	if (!value) return undefined;
+	if (!/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
 
 	try {
 		return new URL(value).protocol || undefined;

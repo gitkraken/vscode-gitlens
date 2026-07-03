@@ -656,14 +656,14 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
-	test('refreshConnections accepts a bare host domain for self-managed providers', async () => {
-		const { manager } = createManager({
+	test('refreshConnections accepts a bare host:port domain for self-managed providers', async () => {
+		const { runtime, manager } = createManager({
 			connections: [
 				{
 					tokenId: 'ent1',
 					provider: 'githubEnterprise',
 					type: 'oauth',
-					domain: 'ghe.example.com',
+					domain: 'ghe.example.com:8443',
 					accountName: 'ent-user',
 				},
 			],
@@ -683,9 +683,14 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 
 		const [connection] = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
 		assert.equal(connection?.id, 'ent1');
-		assert.equal(connection?.domain, 'ghe.example.com');
+		assert.equal(connection?.domain, 'ghe.example.com:8443');
 		assert.equal(connection?.primary, true);
 		assert.equal(connection?.accountName, 'ent-user');
+		assert.doesNotMatch(
+			(await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ent1')) ?? '',
+			/"protocol"/,
+			'bare host:port does not persist a bogus protocol',
+		);
 
 		manager.dispose();
 	});
