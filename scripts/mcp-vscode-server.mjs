@@ -41,6 +41,9 @@ let xvfbProcess = null;
 let consoleBuffer = [];
 let originalWindowSize = null;
 const MAX_CONSOLE_ENTRIES = 500;
+// Default tail applied to read_logs / read_console when no explicit last_n is given, so an
+// unfiltered read can't dump tens of KB (~10K tokens) in a single call.
+const DEFAULT_READ_LIMIT = 200;
 
 // =============================================================================
 // Load optional .vscode-agent.json config
@@ -113,8 +116,25 @@ function findVSCode(explicit, flavor = 'stable') {
 const XVFB_DISPLAY = ':99';
 
 function ensureDisplay(screenResolution = '1920x1080x24') {
-	if (process.platform !== 'linux' || process.env.DISPLAY) {
+	if (process.platform !== 'linux') {
 		return process.env.DISPLAY;
+	}
+	// A set DISPLAY (e.g. an SSH-forwarded ":10.0") can be dead — trusting it blindly makes
+	// electron.launch fail with "Missing X server" and triggers relaunch storms. Validate it
+	// with xdpyinfo and fall through to Xvfb when unreachable. If xdpyinfo isn't installed we
+	// can't validate, so trust the set display (preserves prior behavior).
+	if (process.env.DISPLAY) {
+		try {
+			execFileSync('which', ['xdpyinfo'], { stdio: 'ignore' });
+		} catch {
+			return process.env.DISPLAY;
+		}
+		try {
+			execFileSync('xdpyinfo', ['-display', process.env.DISPLAY], { stdio: 'ignore' });
+			return process.env.DISPLAY;
+		} catch {
+			// Dead display — fall through to the Xvfb fallback below.
+		}
 	}
 	try {
 		execFileSync('which', ['Xvfb'], { stdio: 'ignore' });
@@ -486,41 +506,60 @@ function textResult(text) {
 	return { content: [{ type: 'text', text }] };
 }
 
-const MAX_SCREENSHOT_DIMENSION = 1920;
-
-/**
- * Read PNG width/height from the IHDR chunk (bytes 16-23).
- */
-function pngDimensions(buf) {
-	if (buf.length < 24 || buf.readUInt32BE(0) !== 0x89504e47) return null;
-	if (buf.readUInt32BE(12) !== 0x49484452) return null; // Verify IHDR chunk
-	return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+// Soft cap on evaluate/evaluate_in_webview returns — the bridge doesn't cap output, so a stray
+// innerHTML/whole-DOM return can blow up token cost. Project only needed fields in the expression.
+const MAX_EVALUATE_RESULT_CHARS = 20000;
+function evaluateResult(value) {
+	let json = JSON.stringify(value, null, 2);
+	if (typeof json === 'string' && json.length > MAX_EVALUATE_RESULT_CHARS) {
+		const dropped = json.length - MAX_EVALUATE_RESULT_CHARS;
+		json = `${json.slice(0, MAX_EVALUATE_RESULT_CHARS)}\n… [truncated ${dropped} chars — return only the fields you need in the expression]`;
+	}
+	return textResult(`Result: ${json}`);
 }
 
+const MAX_SCREENSHOT_DIMENSION = 1920; // hard ceiling (Claude multi-image dimension limit)
+// Image *tokens* scale with pixel count (≈ w×h/750), not file size — so the real cost lever is
+// resolution. Default full-window shots (~1440×900) to a smaller longest side; raise per-call for
+// pixel-detail. Format compression (WebP default) is a secondary bytes-only win (transcript/re-ship).
+const DEFAULT_SCREENSHOT_DIMENSION = 1280;
+const DEFAULT_SCREENSHOT_FORMAT = 'webp';
+const DEFAULT_SCREENSHOT_QUALITY = 80;
+
 /**
- * Enforce the max dimension limit on screenshots. Downscales via sharp
- * (already a project dependency) so images never exceed the 2000px
- * multi-image limit in Claude conversations.
+ * Downscale (image tokens scale with resolution) and encode a screenshot via sharp (already a
+ * project dependency). Always runs so full-window shots shrink to `maxDimension`; PNG is opt-in
+ * for pixel-exact needs.
  */
-async function enforceMaxDimension(buf) {
-	const dims = pngDimensions(buf);
-	if (!dims || (dims.width <= MAX_SCREENSHOT_DIMENSION && dims.height <= MAX_SCREENSHOT_DIMENSION)) return buf;
+async function encodeScreenshot(buffer, opts = {}) {
+	const maxDimension = Math.min(opts.maxDimension || DEFAULT_SCREENSHOT_DIMENSION, MAX_SCREENSHOT_DIMENSION);
+	const format = opts.format ?? DEFAULT_SCREENSHOT_FORMAT;
+	const quality = opts.quality ?? DEFAULT_SCREENSHOT_QUALITY;
 	const sharp = (await import('sharp')).default;
-	return await sharp(buf)
-		.resize({
-			width: MAX_SCREENSHOT_DIMENSION,
-			height: MAX_SCREENSHOT_DIMENSION,
-			fit: 'inside',
-			withoutEnlargement: true,
-		})
-		.png()
-		.toBuffer();
+	let pipeline = sharp(buffer).resize({
+		width: maxDimension,
+		height: maxDimension,
+		fit: 'inside',
+		withoutEnlargement: true,
+	});
+	let mimeType;
+	if (format === 'png') {
+		pipeline = pipeline.png();
+		mimeType = 'image/png';
+	} else if (format === 'jpeg') {
+		pipeline = pipeline.jpeg({ quality });
+		mimeType = 'image/jpeg';
+	} else {
+		pipeline = pipeline.webp({ quality });
+		mimeType = 'image/webp';
+	}
+	return { data: await pipeline.toBuffer(), mimeType };
 }
 
-async function imageResult(buffer) {
-	const resized = await enforceMaxDimension(buffer);
+async function imageResult(buffer, opts) {
+	const { data, mimeType } = await encodeScreenshot(buffer, opts);
 	return {
-		content: [{ type: 'image', data: resized.toString('base64'), mimeType: 'image/png' }],
+		content: [{ type: 'image', data: data.toString('base64'), mimeType }],
 	};
 }
 
@@ -861,7 +900,7 @@ server.tool('get_status', 'Get the current session state.', async () => {
 // --- screenshot --------------------------------------------------------------
 server.tool(
 	'screenshot',
-	`Capture a screenshot of the VS Code window or a specific webview. Returns an inline image. Images are automatically capped at ${MAX_SCREENSHOT_DIMENSION}px to stay within Claude's multi-image dimension limit.`,
+	`Capture a screenshot of the VS Code window or a specific webview. Returns an inline image, downscaled to ${DEFAULT_SCREENSHOT_DIMENSION}px longest side and ${DEFAULT_SCREENSHOT_FORMAT}-compressed by default (image cost scales with resolution). Prefer target:"webview" for a scoped shot, or aria_snapshot/evaluate_in_webview for text/geometry when you don't need pixels.`,
 	{
 		target: z.enum(['full', 'webview']).optional().describe('What to capture (default: full)'),
 		webview_title: z.string().optional().describe('Title of the webview to capture (for target: webview)'),
@@ -882,11 +921,32 @@ server.tool(
 			.enum(['css', 'device'])
 			.optional()
 			.describe('Screenshot scale — "device" for full DPI, "css" for CSS pixels (default: device)'),
+		max_dimension: z
+			.number()
+			.int()
+			.optional()
+			.describe(
+				`Longest-side pixel cap; image tokens scale with resolution (default ${DEFAULT_SCREENSHOT_DIMENSION}, hard max ${MAX_SCREENSHOT_DIMENSION}). Raise toward the max only when you need fine pixel detail.`,
+			),
+		format: z
+			.enum(['webp', 'jpeg', 'png'])
+			.optional()
+			.describe(`Output format (default ${DEFAULT_SCREENSHOT_FORMAT}). Use png only for pixel-exact needs.`),
+		quality: z
+			.number()
+			.int()
+			.min(1)
+			.max(100)
+			.optional()
+			.describe(
+				`Compression quality 1-100 for webp/jpeg (default ${DEFAULT_SCREENSHOT_QUALITY}); ignored for png.`,
+			),
 	},
 	async args => {
 		requireReady();
 		const screenshotOpts = { fullPage: true };
 		if (args.scale) screenshotOpts.scale = args.scale;
+		const encodeOpts = { maxDimension: args.max_dimension, format: args.format, quality: args.quality };
 		try {
 			if (args.target === 'webview' && (args.webview_title || args.webview_url || args.webview_index != null)) {
 				// Try to find and screenshot just the webview
@@ -903,7 +963,7 @@ server.tool(
 						const opts = {};
 						if (args.scale) opts.scale = args.scale;
 						const buffer = await frameElement.screenshot(opts);
-						return await imageResult(buffer);
+						return await imageResult(buffer, encodeOpts);
 					} catch {
 						// Fall back to full page screenshot
 					}
@@ -911,7 +971,7 @@ server.tool(
 			}
 			try {
 				const buffer = await page.screenshot(screenshotOpts);
-				return await imageResult(buffer);
+				return await imageResult(buffer, encodeOpts);
 			} catch (screenshotErr) {
 				// Page may be stale after a reload — try re-acquiring.
 				// The stale `page` still has our console/pageerror listeners attached
@@ -924,7 +984,7 @@ server.tool(
 							page = windows[0];
 							attachConsoleListeners(page);
 							const buffer = await page.screenshot({ fullPage: true });
-							return await imageResult(buffer);
+							return await imageResult(buffer, encodeOpts);
 						}
 					} catch {}
 					// Try firstWindow as last resort
@@ -932,7 +992,7 @@ server.tool(
 						page = await electronApp.firstWindow();
 						attachConsoleListeners(page);
 						const buffer = await page.screenshot({ fullPage: true });
-						return await imageResult(buffer);
+						return await imageResult(buffer, encodeOpts);
 					} catch {}
 				}
 				throw new Error(`Screenshot failed after recovery attempts: ${screenshotErr.message}`);
@@ -1406,7 +1466,7 @@ server.tool(
 		try {
 			const fn = new Function('vscode', `return (${args.expression})`);
 			const result = await evaluateFn(fn);
-			return textResult(`Result: ${JSON.stringify(result, null, 2)}`);
+			return evaluateResult(result);
 		} catch (e) {
 			return errorResult(`Evaluate failed: ${e.message}`);
 		}
@@ -1467,7 +1527,7 @@ server.tool(
 				args.expression,
 				{ timeout: 5000 },
 			);
-			return textResult(`Result: ${JSON.stringify(value, null, 2)}`);
+			return evaluateResult(value);
 		} catch (e) {
 			return errorResult(`Evaluate in webview failed: ${e.message}`);
 		}
@@ -1558,10 +1618,18 @@ server.tool(
 // --- read_logs ---------------------------------------------------------------
 server.tool(
 	'read_logs',
-	'Search VS Code extension output logs for a pattern.',
+	'Search VS Code extension output logs for a pattern. The search key is `pattern` (a plain substring), NOT `filter` — an unknown key is ignored and you get the noisy default. Always pass a narrow `pattern`.',
 	{
-		pattern: z.string().optional().describe('Text pattern to search for (default: "GitLens")'),
-		last_n: z.number().optional().describe('Only return the last N matching lines'),
+		pattern: z
+			.string()
+			.optional()
+			.describe('Substring to match (default: "GitLens" — matches almost everything, so narrow it)'),
+		last_n: z
+			.number()
+			.optional()
+			.describe(
+				`Return only the last N matching lines (default: ${DEFAULT_READ_LIMIT}). Pass a larger value for more.`,
+			),
 	},
 	async args => {
 		requireReady();
@@ -1569,11 +1637,15 @@ server.tool(
 		try {
 			const pattern = args.pattern ?? 'GitLens';
 			let logs = await findLogs(userDataDir, pattern);
-			if (args.last_n && args.last_n > 0) {
-				logs = logs.slice(-args.last_n);
-			}
+			const total = logs.length;
+			const limit = args.last_n && args.last_n > 0 ? args.last_n : DEFAULT_READ_LIMIT;
+			const capped = total > limit;
+			if (capped) logs = logs.slice(-limit);
 			if (logs.length === 0) return textResult(`No log lines matching "${pattern}".`);
-			return textResult(`Found ${logs.length} matching lines:\n${logs.map(l => l.substring(0, 500)).join('\n')}`);
+			const header = capped
+				? `Showing last ${logs.length} of ${total} matching lines (pass last_n for more):`
+				: `Found ${logs.length} matching lines:`;
+			return textResult(`${header}\n${logs.map(l => l.substring(0, 500)).join('\n')}`);
 		} catch (e) {
 			return errorResult(`Log search failed: ${e.message}`);
 		}
@@ -1588,10 +1660,20 @@ server.tool(
 		level: z
 			.enum(['all', 'error', 'warning', 'log', 'info', 'debug'])
 			.optional()
-			.describe('Filter by log level (default: all)'),
+			.describe('Filter by log level (default: all). Prefer "error" to triage failures cheaply.'),
 		pattern: z.string().optional().describe('Filter messages containing this text'),
-		last_n: z.number().optional().describe('Only return the last N messages'),
-		clear: z.boolean().optional().describe('Clear the buffer after reading (default: false)'),
+		last_n: z
+			.number()
+			.optional()
+			.describe(
+				`Return only the last N messages (default: ${DEFAULT_READ_LIMIT}). Pass a larger value for more.`,
+			),
+		clear: z
+			.boolean()
+			.optional()
+			.describe(
+				'Clear the buffer after reading (default: false). Use as a cheap cursor so the next read only sees new messages.',
+			),
 	},
 	async args => {
 		requireReady();
@@ -1606,10 +1688,11 @@ server.tool(
 			const pat = args.pattern.toLowerCase();
 			entries = entries.filter(e => e.text.toLowerCase().includes(pat));
 		}
-		// Limit to last N
-		if (args.last_n && args.last_n > 0) {
-			entries = entries.slice(-args.last_n);
-		}
+		// Limit to last N (default cap so an unfiltered read can't dump the whole buffer)
+		const matched = entries.length;
+		const limit = args.last_n && args.last_n > 0 ? args.last_n : DEFAULT_READ_LIMIT;
+		const capped = matched > limit;
+		if (capped) entries = entries.slice(-limit);
 		// Clear if requested
 		if (args.clear) {
 			consoleBuffer = [];
@@ -1621,7 +1704,10 @@ server.tool(
 			const src = e.url ? ` (${e.url.substring(0, 80)})` : '';
 			return `[${time}] [${e.type}] ${e.text.substring(0, 500)}${src}`;
 		});
-		return textResult(`${entries.length} messages:\n${lines.join('\n')}`);
+		const header = capped
+			? `Showing last ${entries.length} of ${matched} messages (pass last_n for more):`
+			: `${entries.length} messages:`;
+		return textResult(`${header}\n${lines.join('\n')}`);
 	},
 );
 

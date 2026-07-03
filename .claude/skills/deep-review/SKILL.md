@@ -1,120 +1,86 @@
 ---
 name: deep-review
-description: Use when reviewing a change set before merge, when tracing code paths for correctness, or when a thorough merge-blocking review is needed rather than a surface-level checklist
+description: Use to gate a change set before merge — delegates bug-hunting to the built-in code-review skill, then layers goals.md alignment, cross-platform/consumer completeness, and validation-gap analysis into a merge verdict. For standards/checklist compliance use /review.
 ---
 
-# /deep-review - Deep Skeptical Code Review
+# /deep-review - Merge Gate Review
 
-Root-cause, merge-blocking review that traces every modified code path end-to-end. Not a surface-level diff review.
-
-**Use `/review` for checklist compliance. Use `/deep-review` for deep analysis before merge.**
+Merge-gate review. The bug hunt (correctness, regressions, design, performance) is delegated to the built-in `code-review` skill, which adversarially verifies its findings. This skill layers what code-review doesn't cover — does the change deliver what was scoped, is it complete across all affected locations, is it adequately validated — and renders a merge verdict.
 
 ## Usage
 
 ```
-/deep-review [target]
+/deep-review [target] [level] [--fix]
 /deep-review branch --scope .work/dev/5096/
+/deep-review branch max --fix --scope .work/dev/5096/
 ```
 
-- **`--scope <path>`**: When provided, read `goals.md` from the given directory to understand the original intent, success criteria, and user experience requirements. Use this to evaluate whether the implementation actually delivers what was scoped — not just whether the code is correct in isolation. When `--scope` is absent, the skill works exactly as it does today.
+- **`--scope <path>`**: When provided, read `goals.md` from the given directory to understand the original intent, success criteria, and user experience requirements. Use this to evaluate whether the implementation actually delivers what was scoped — not just whether the code is correct in isolation.
+- **`[level]`** (`low` | `medium` | `high` | `xhigh` | `max`): forwarded to the built-in `code-review` pass as its effort level. Default: `high`. If `ultra` is passed, do not launch it (user-triggered and billed) — tell the user to run `/code-review ultra` themselves, then re-run `/deep-review`, which will reuse those findings.
+- **`--fix`**: forwarded to `code-review` — it applies its confirmed findings to the working tree after its review. Gate findings (goals/completeness/validation) are reported, never auto-applied.
 - No argument: review staged changes (`git diff --cached`)
 - `all`: all uncommitted changes
 - `branch`: changes vs base branch (`git diff main...HEAD`)
 - `pr`: current PR changes (`gh pr diff`)
 - `commit:SHA`: specific commit
 
-## When to Use /deep-review vs /review
+## Positioning
 
-| Skill          | Purpose                                    | Focus                                                                     |
-| -------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
-| `/review`      | Standards compliance + completeness audit  | Does the code follow conventions? Were all locations updated?             |
-| `/deep-review` | Correctness + regression + design analysis | Is the code _right_? Will it _break_ things? Is this the _best_ approach? |
+| Skill                    | Purpose                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `code-review` (built-in) | Finds correctness bugs + simplification/efficiency cleanups; adversarially verified        |
+| `/review`                | GitLens standards compliance + impact completeness checklist                               |
+| `/deep-review`           | Merge gate: goals alignment + completeness + validation + verdict (delegates the bug hunt) |
 
-Use both together for critical changes: `/review` catches standards violations, `/deep-review` catches logical and architectural issues.
+## Step 1 — Delegate the bug hunt
 
-## How to Review
+Invoke the built-in `code-review` skill (Skill tool, `skill: "code-review"`) on the target diff, forwarding the user's arguments: the effort level (default `high`) and `--fix` if provided.
 
-Starting with the changed code, **trace every modified code path end-to-end**.
+- If the user already ran `/code-review` (or ultra) on this change set in this session, do NOT re-run it — use those findings.
+- NEVER launch `ultra` yourself — it is user-triggered and billed. For large or high-risk change sets, suggest the user run `/code-review ultra` instead of the inline pass.
+- `commit:SHA` targets don't map to code-review's diff model: review that commit's diff yourself with the same lenses (correctness, regressions, design, performance) and say you did. `--fix` doesn't apply to committed diffs — say so if it was passed.
+- With `--fix`, code-review mutates the working tree — run Steps 2-4 on the POST-fix state, and list the applied fixes in the report.
 
-### Tracing Methodology
+Carry the confirmed findings into this review: a blocking code-review finding blocks the merge verdict here (unless `--fix` already resolved it — then note it as fixed).
 
-1. **Read all modified files** in full (not just the diff hunks — understand surrounding context)
-2. **For each modified/deleted/added symbol** (function, type, class, export):
-   - Search for all import statements referencing the modified file
-   - Search for all call sites of modified functions
-   - Search for all subclass overrides or interface implementations
-3. **For decorator-wrapped methods**: check AGENTS.md's Decorator System table — `@gate()`, `@memoize()`, `@sequentialize()` alter runtime behavior significantly
-4. **For environment-dependent code**: check both desktop/node and browser/web paths per AGENTS.md
-5. **When you can't fully trace a path** (external dependency, unclear behavior): document it in "Open questions", don't silently skip it
+## Step 2 — Goals alignment (when `--scope` given)
 
-### 1. Correctness and Regression Risk
+For each success criterion and UX requirement in `goals.md`, mark it **delivered / partial / missing** with evidence (file:line or traced behavior). A missing or partial success criterion is a finding — severity per user impact. Without `--scope`, state the inferred intent of the change in one sentence and evaluate against that.
 
-- Is the behavior correct? Does it actually solve the intended problem?
-- What edge cases, failure modes, race conditions, stale-state issues, or decorator-related issues could break?
-- What regressions could this introduce in nearby flows, not just the directly changed code?
-- **Distinguish clearly** between confirmed issues, likely risks, and low-confidence concerns.
+## Step 3 — Completeness
 
-### 2. Implementation Quality
+Trace every modified/added/deleted symbol to ALL its consumers — read the modified files in full, not just the diff hunks:
 
-- Is this the simplest correct implementation?
-- Is this implemented in the best practical way for this codebase, or should it be rethought even if that causes follow-on changes elsewhere?
-- Call out unnecessary complexity, weak abstractions, hidden coupling, or places where the implementation does not match existing architectural patterns.
+- Import statements, call sites, subclass overrides, interface implementations
+- Both environments: desktop/node AND browser/web paths per AGENTS.md
+- Per-operation git providers: `packages/git/src/providers/`, `packages/git-cli/src/providers/`, host integrations (`src/plus/integrations/host/providers/`)
+- Protocol/type changes: webview IPC pairs, serialization, telemetry, logging
+- Decorator-wrapped methods: check AGENTS.md § Decorator System — `@gate()`, `@memoize()`, `@sequentialize()` alter runtime behavior significantly
+- Adjacent features not accidentally broken
 
-### 3. Performance
+If a change touches shared abstractions, **audit all consumers**. If it alters async flows, explicitly inspect **cancellation, deduplication, sequencing, and stale-state behavior**. When you can't fully trace a path, document it in "Open questions" — don't silently skip it.
 
-- Is the change efficient in both common and worst-case paths?
-- Look for: unnecessary recomputation, duplicate async work, excessive object allocation, missed caching opportunities, incorrect memoization, blocking operations, excessive async serialization, over-refreshing UI/webviews, avoidable Git/API calls.
-- Note whether the performance characteristics are acceptable even if not ideal.
+## Step 4 — Validation
 
-### 4. Completeness
-
-- Did the author update all affected locations?
-- Look for: missed call sites, subclass/provider overrides, environment-specific implementations, protocol/types changes, tests, telemetry, logging, user-visible behavior.
-- Verify adjacent features were not accidentally broken.
-
-### 5. Validation
-
-- Assess whether build, typecheck, lint, and relevant tests adequately validate the change.
-- Treat missing or weak validation as a review concern, not a neutral detail.
-- If tests are missing, name the **specific cases** that should exist.
-
-## Review Rules
-
-- If a change touches shared abstractions, **audit all consumers**.
-- If a change alters async flows, explicitly inspect **cancellation, deduplication, sequencing, and stale-state behavior**.
-- If you are not confident, **say so explicitly** rather than inferring.
-- Assume the author may have fixed the symptom but not the root cause.
-- Do not treat missing tests or missing validation as neutral.
+- Assess whether build, typecheck, lint, and relevant tests adequately validate the change. Missing or weak validation is a finding, not a neutral detail. If tests are missing, name the **specific cases** that should exist.
+- Run `pnpm run build` to confirm the change compiles, type-checks, and lints cleanly; report related failures as findings.
 
 ## Output Format
 
 ### Findings (ordered by severity)
 
-For each finding include:
-
-| Field              | Values                                                                                              |
-| ------------------ | --------------------------------------------------------------------------------------------------- |
-| **classification** | correctness / regression risk / design / performance / completeness / validation                    |
-| **severity**       | critical (blocks merge) / high (should fix before merge) / medium (fix soon) / low (note for later) |
-| **confidence**     | confirmed / likely / low-confidence                                                                 |
-| **location**       | file:line or exact code path(s)                                                                     |
+| Field              | Values                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **classification** | goals-alignment / completeness / validation / (carried from code-review: correctness / design / performance) |
+| **severity**       | critical (blocks merge) / high (should fix before merge) / medium (fix soon) / low (note for later)          |
+| **confidence**     | confirmed / likely / low-confidence                                                                          |
+| **location**       | file:line or exact code path(s)                                                                              |
 
 Then: **what is wrong**, **why it matters**, **the best fix** (not just a workaround).
 
-### Example Finding
-
-> **classification**: correctness | **severity**: high | **confidence**: likely
-> **location**: `src/git/cache.ts:45` → `GitProviderService.getRepository()`
->
-> **Issue**: `getOrCreateCache()` returns a stale cache reference after repository disposal. The `@memoize()` decorator caches the first result permanently, but the cache is invalidated on `dispose()` without clearing the memoized value.
->
-> **Impact**: Subsequent calls after repo close/reopen return the disposed cache, causing silent data staleness.
->
-> **Fix**: Call `invalidateMemoized(this, 'getOrCreateCache')` in the `dispose()` method, or switch from `@memoize()` to a manual lazy pattern that respects disposal.
-
 ### Required Sections
 
-1. **Findings** — ordered by severity, using the format above
+1. **Findings** — gate findings plus code-review's confirmed findings, rolled up and ordered by severity
 2. **What is good** — well-implemented aspects worth calling out
 3. **Open questions** — things that need validation or that you couldn't confirm
 4. **Verdict** — one of:
@@ -123,11 +89,3 @@ Then: **what is wrong**, **why it matters**, **the best fix** (not just a workar
    - **Should be reworked before merge** (explain why)
 
 If no issues found, say so explicitly, then list **residual risks** and **validation gaps**.
-
-## Verification
-
-Run these after the review to confirm the change compiles, type-checks, and lints cleanly. Report failures as findings if they relate to the reviewed changes.
-
-```bash
-pnpm run build
-```

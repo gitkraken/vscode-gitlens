@@ -94,6 +94,8 @@ Then infer exercise + baseline from the scope choice and the defaults above.
 
 Regardless of scope, every measurement pass covers these four categories. Skip only when clearly not applicable (document why if skipped).
 
+> **Default when running on Opus: delegate the raw measurement capture to the `inspector-driver` subagent (Sonnet 5)** — `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <the exact probes: performance.now() deltas, updateComplete timings, notification counts, N samples> })`. Sonnet captured a disciplined `updateComplete` measurement at parity in a smoke test. **You keep the three-tier classification (Measured/Convention/Speculation) and all fix decisions** — the driver only returns numbers. Cold-launch/startup metrics and baseline↔post-fix comparisons: have the driver reuse the instance you launched, or run those cold samples yourself, per the reset rule below.
+
 ### 1. Render / webview perf
 
 What to measure:
@@ -105,7 +107,7 @@ What to measure:
 
 Tools: `evaluate_in_webview` with `performance.now()`, `PerformanceObserver`, `performance.getEntriesByType("measure")`, `document.querySelector('...').updateComplete` for Lit.
 
-> **Multi-webview perf**: When two GitLens webviews are open at once (e.g. measuring Commit Details while the Graph is also visible), `evaluate_in_webview` without targeting silently runs in the first webview — usually the wrong one. Run `list_webviews` first, then pass `webview_url: "commitDetails"` (URL substring) or `webview_index: <n>` to scope every measurement to the right webview. Same params work on `wait_for_webview`, `inspect_dom`, `aria_snapshot`, `screenshot`, `click`.
+> **Multi-webview perf**: With 2+ webviews open, untargeted `evaluate_in_webview` silently runs in the first one — usually the wrong one. Run `list_webviews` first, then scope every measurement with `webview_url`/`webview_index` (full targeting reference in `/live-inspect`).
 
 ### 2. RPC / data transfer
 
@@ -139,7 +141,7 @@ What to measure / audit (git cost is spawn-heavy, not execution-heavy):
 - Missing cache use on repeat callers (same git result re-fetched)
 - Git-triggered refresh storms (one external change triggering N refreshes)
 
-Tools: `read_logs` with pattern matching on `git ` command logs (GitLens logs git calls with debug logging). Code audit for patterns in `src/env/node/git/sub-providers/`. `evaluate` on the extension host to count command invocations over a user-action window.
+Tools: `read_logs` with pattern matching on `git ` command logs (GitLens logs git calls with debug logging). Code audit for patterns in `packages/git-cli/src/providers/`. `evaluate` on the extension host to count command invocations over a user-action window.
 
 ## Three-tier discipline
 
@@ -245,7 +247,7 @@ Write `.tasks/<feature>-perf/findings.md`:
 
 ### I1-PC1 — Missing @memoize on getBranch
 
-- **File**: `src/env/node/git/sub-providers/branches.ts:L88`
+- **File**: `packages/git-cli/src/providers/branches.ts:L88`
 - **Convention**: pure getter called in render paths → must be @memoize'd
 - **Evidence**: grep shows 7 call sites, 3 in render paths
 - **Fix**: add `@memoize()` decorator
@@ -299,7 +301,7 @@ When agents complete:
 
 1. `pnpm run build:quick`. Fix any breakage.
 2. **`git diff`** after every agent — trust nothing blindly.
-3. **Teardown + relaunch VS Code.** Fresh state is critical for re-measurement.
+3. **Reset for re-measurement.** Cold-launch/startup metrics and every baseline↔post-fix comparison need a full **teardown + relaunch** — cached state ruins baselines. For warm-operation samples (render/RPC/git) within one build you may reuse the running instance and re-trigger, but a code change always means a fresh build + relaunch before the post-fix number counts.
 4. Re-exercise the feature and re-capture measurements for everything the agents touched.
 5. Update `findings.md`:
    - If post-fix measurement improved past target → ✅ Measured

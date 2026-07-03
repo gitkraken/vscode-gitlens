@@ -15,20 +15,19 @@ How to use the issue workflow skills to triage, investigate, prioritize, update 
 
 ### Dev Pipeline — Scope, plan, and review implementation
 
-| Skill             | Purpose                                                                                | Modifies code?   |
-| ----------------- | -------------------------------------------------------------------------------------- | ---------------- |
-| `/dev-scope`      | Define what and why — bridge from triage to planning                                   | No               |
-| `/analyze`        | Devil's-advocate design analysis — use when no plan/goals doc exists yet               | No               |
-| `/deep-planning`  | Design technical approach — trade-offs and alternatives                                | No               |
-| `/challenge-plan` | Stress-test the plan before implementation                                             | No               |
-| `/worktree`       | Create isolated git worktree for implementation (after plan is ready)                  | **Yes** (branch) |
-| `/live-exercise`  | Live UI working loop — use during implementation for any UI-bearing change             | No               |
-| `/review`         | Lightweight static code review against GitLens standards (lighter than `/deep-review`) | No               |
-| `/deep-review`    | Post-implementation code review against goals — traces code paths                      | No               |
-| `/ux-review`      | Post-implementation UX review against goals                                            | No               |
-| `/commit`         | Create well-formatted git commits                                                      | **Yes**          |
-| `/audit-commits`  | Audit commits for linked issues and CHANGELOG entries                                  | **Yes**          |
-| `/create-issue`   | Create GitHub follow-up issues from uncommitted work or commits                        | **Yes** (GitHub) |
+| Skill             | Purpose                                                                                         | Modifies code?   |
+| ----------------- | ----------------------------------------------------------------------------------------------- | ---------------- |
+| `/dev-scope`      | Define what and why — bridge from triage to planning                                            | No               |
+| `/deep-planning`  | Design technical approach — trade-offs and alternatives                                         | No               |
+| `/challenge-plan` | Stress-test the plan before implementation                                                      | No               |
+| `/worktree`       | Create isolated git worktree for implementation (after plan is ready)                           | **Yes** (branch) |
+| `/live-exercise`  | Live UI working loop — use during implementation for any UI-bearing change                      | No               |
+| `/review`         | Lightweight static code review against GitLens standards (lighter than `/deep-review`)          | No               |
+| `/deep-review`    | Post-implementation merge gate against goals — delegates bug-hunting to built-in `/code-review` | No               |
+| `/ux-review`      | Post-implementation UX review against goals                                                     | No               |
+| `/commit`         | Create well-formatted git commits                                                               | **Yes**          |
+| `/audit-commits`  | Audit commits for linked issues and CHANGELOG entries                                           | **Yes**          |
+| `/create-issue`   | Create GitHub follow-up issues from uncommitted work or commits                                 | **Yes** (GitHub) |
 
 All analysis skills are read-only. `/update-issues`, `/commit`, `/audit-commits`, `/create-issue`, and `/worktree` all have real-world side effects (GitHub, git, filesystem) — each requires confirmation before applying.
 
@@ -358,7 +357,7 @@ Same pipeline, but starting from a description instead of a GitHub issue number.
 
 After implementing the changes, run reviews against the goals document:
 
-1. `/deep-review` traces code paths for correctness, verifying the implementation matches success criteria. For smaller change sets, `/review` is the lighter static alternative.
+1. `/deep-review` runs the built-in `/code-review` for the bug hunt, then verifies the implementation matches success criteria (goals alignment, completeness, validation) and renders a merge verdict. For smaller change sets, `/review` is the lighter static alternative.
 2. `/ux-review` walks through user flows, checking discoverability, accessibility, and workflow continuity
 3. `/commit` creates a well-formatted commit following GitLens conventions
 4. `/audit-commits` verifies each user-facing commit has a linked issue and a CHANGELOG entry — use `/create-issue` to file any follow-ups it surfaces
@@ -394,13 +393,13 @@ For any change that touches visible UI (panels, webviews, editor decorations), u
 
 **Workflow F — Lightweight exploration without a plan:**
 
-When you're earlier than a formal plan — evaluating a direction, comparing approaches, or stress-testing an idea that doesn't yet have a `goals.md` — use `/analyze` instead of `/challenge-plan`:
+When you're earlier than a formal plan — evaluating a direction, comparing approaches, or stress-testing an idea that doesn't yet have a `goals.md` — `/challenge-plan` also accepts an inline idea or design decision instead of scoped artifacts:
 
 ```
-/analyze "add natural language search to the command palette"
+/challenge-plan "add natural language search to the command palette"
 ```
 
-`/analyze` performs devil's-advocate design evaluation without needing scoped artifacts. Once you're ready to commit to a direction, graduate to `/dev-scope` → `/deep-planning` → `/challenge-plan`.
+Once you're ready to commit to a direction, graduate to `/dev-scope` → `/deep-planning` → `/challenge-plan --scope`.
 
 ---
 
@@ -631,9 +630,12 @@ Every skill works standalone or chained. Here are all supported input modes:
 
 ### `/deep-review`
 
-| Input  | Example                                       |
-| ------ | --------------------------------------------- |
-| Scoped | `/deep-review branch --scope .work/dev/5096/` |
+| Input                 | Example                                                 |
+| --------------------- | ------------------------------------------------------- |
+| Scoped                | `/deep-review branch --scope .work/dev/5096/`           |
+| With level + auto-fix | `/deep-review branch max --fix --scope .work/dev/5096/` |
+
+Effort level (`low`–`max`) and `--fix` are forwarded to the built-in `/code-review` pass.
 
 **Output:** `.work/dev/{identifier}/review.md`
 
@@ -644,15 +646,6 @@ Every skill works standalone or chained. Here are all supported input modes:
 | Scoped | `/ux-review branch --scope .work/dev/5096/` |
 
 **Output:** `.work/dev/{identifier}/ux-review.md`
-
-### `/analyze`
-
-| Input           | Example                                                       |
-| --------------- | ------------------------------------------------------------- |
-| Idea / decision | `/analyze "add natural language search"`                      |
-| Proposed change | `/analyze <description of change touching core abstractions>` |
-
-**When to use vs `/challenge-plan`:** `/analyze` works without a `goals.md`/`plan.md` — use it when you're earlier in the thinking. `/challenge-plan` is the formal gate once scoped artifacts exist.
 
 ### `/review`
 
@@ -665,7 +658,7 @@ Every skill works standalone or chained. Here are all supported input modes:
 | Impact audit         | `/review impact`                        |
 | Full (code + impact) | `/review full`                          |
 
-**When to use vs `/deep-review`:** `/review` is a static checklist against GitLens standards — lighter and faster. `/deep-review` traces code paths against a `goals.md` for correctness.
+**When to use vs `/deep-review`:** `/review` is a static checklist against GitLens standards — lighter and faster. `/deep-review` is the merge gate: it delegates the bug hunt to the built-in `/code-review`, then checks goals alignment, completeness, and validation.
 
 ### `/worktree`
 
@@ -800,7 +793,7 @@ All dev artifacts are written to `.work/dev/{identifier}/` where identifier is a
 
 ## Safety Model
 
-1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/analyze`, `/deep-planning`, `/challenge-plan`, `/review`, `/deep-review`, `/ux-review`, and `/live-exercise` never modify GitHub issues or committed code
+1. **Analysis is read-only** — `/triage`, `/investigate`, `/prioritize`, `/dev-scope`, `/deep-planning`, `/challenge-plan`, `/review`, `/deep-review`, `/ux-review`, and `/live-exercise` never modify GitHub issues or committed code
 2. **Update requires confirmation** — `/update-issues` always shows a dry-run first and requires explicit approval
 3. **Pre-flight checks** — `/update-issues` verifies current issue state before each action, skipping stale or redundant changes
 4. **Close confirmation** — Closing issues requires per-issue approval

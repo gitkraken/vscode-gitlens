@@ -26,9 +26,12 @@ The `a11y-audit` skill bakes in references to external specs (WCAG, WAI-ARIA, AR
 
 ## References currently tracked
 
-- `safety-rules.md` — 11 rules; drops Rule 12 (translation-key detection) from pre-restructure skill. Self-check questions mirror the rules.
+This directory holds the CANONICAL copies of the shared a11y references — `aria-patterns.md` and `wcag-criteria.md` are also consumed by `/a11y-flow-audit` and (wcag only) `/a11y-remediate`, and `shared-discipline.md` by `/a11y-flow-audit`. Refreshing here refreshes all three skills.
+
+- `safety-rules.md` — 11 rules. Self-check questions mirror the rules.
+- `shared-discipline.md` — pre-finalize scans (unverified symbols, editing artifacts, confidence coherence) + confirmed-vs-needs-verification test, shared with `/a11y-flow-audit`.
 - `aria-patterns.md` — 9 composite patterns (grid, menu/menubar, listbox, tree, tabs, radiogroup, combobox, dialog, disclosure) with completeness requirements, APG links, plain-language blurbs, and anti-patterns to refuse.
-- `wcag-criteria.md` — criterion → URL map + plain-English user impact, covering ~25 commonly-cited criteria, with a list of criteria the audit cannot verify from code alone.
+- `wcag-criteria.md` — criterion → URL map + plain-English user impact, covering ~25 commonly-cited criteria, with flow-specific impact notes (for `/a11y-flow-audit`) and a list of criteria the audit cannot verify from code alone.
 - `verification.md` — per-product AT pair, keyboard-only checklist, automated sanity check, no-AT fallback, per-P0 reproduction recipe template, PR conventions for AT-pending.
 - `shared-component-rules.md` — Rule 8 (semantic-swap visual regression) + Rule 9 (imported wrapper analysis) in full, with examples.
 - `framework-specific.md` — React, Lit, Svelte, Vue, vanilla HTML, VS Code extension sections.

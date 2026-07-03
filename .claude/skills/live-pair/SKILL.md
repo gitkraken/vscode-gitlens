@@ -51,14 +51,7 @@ Pick something else for:
 
 ## Rebuild-scope auto-detection
 
-Infer rebuild strategy from which files got edited. Bias toward webview-only when possible — it's ~3–5× faster than extension-host rebuilds.
-
-| Files edited                                                 | Rebuild command                                                    | Refresh strategy                                                          |
-| ------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Only `src/webviews/apps/**`                                  | `pnpm run build:webviews`                                          | `execute_command gitlens.views.<name>.refresh` (no extension reload)      |
-| Extension host (most files outside `src/webviews/apps/`)     | `rebuild_and_reload { build_command: "pnpm run build:extension" }` | Extension host restart                                                    |
-| Both                                                         | `rebuild_and_reload { build_command: "pnpm run build:quick" }`     | Extension host restart + refresh view                                     |
-| `contributions.json` / commands / keybindings / package.json | `rebuild_and_reload { build_command: "pnpm run build:quick" }`     | Full reload. **Warn user**: command registrations may need fresh session. |
+Infer rebuild strategy from which files got edited — full matrix in `/live-inspect` § Rebuilding After Code Changes. Bias toward webview-only when possible (`build:webviews` + the view's `.refresh` command, no extension reload) — it's much faster than extension-host rebuilds (`rebuild_and_reload`). For `contributions.json` / commands / keybindings / package.json changes use `build:quick` + full reload and **warn the user**: command registrations may need a fresh session.
 
 ## The loop
 

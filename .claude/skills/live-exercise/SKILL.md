@@ -1,6 +1,6 @@
 ---
 name: live-exercise
-description: Use whenever any UI-bearing work touches a running instance — building or fixing a feature, ship-gating, auditing, OR debugging visible bugs (flaky behavior, intermittent rendering, "sometimes does X" reports, hover/focus/animation glitches, layout overflow). Keep a running instance in the loop and exercise it as a user would. Adaptive depth from tactical fix-loop to ship-gate audit. Not for pure-logic diff review.
+description: Use whenever any UI-bearing work touches a running instance — building or fixing a feature, ship-gating, auditing, OR debugging visible bugs (flaky behavior, intermittent rendering, "sometimes does X" reports, hover/focus/animation glitches, layout overflow). Adaptive depth from tactical fix-loop to ship-gate audit. Not for pure-logic diff review.
 ---
 
 # /live-exercise — Live functionality, intent, and quality loop
@@ -129,6 +129,8 @@ The skill never asks "what mode?" at start. Tactical by default (L1 + L2 active,
 
 ### 2. Live sweep (lens application)
 
+> **Default when running on Opus: delegate the mechanical driving to the `inspector-driver` subagent (Sonnet 5).** You launch/own the instance and apply the lenses (L1–L4 are your judgment); dispatch `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <the states + exact probes to collect> })` to gather the raw evidence (geometry, state, console/log excerpts) across many states in one batched ask, then reason over what it returns. Tell the driver not to `launch`/`teardown`. Keep pixel judgment (L3 visual polish) on yourself — take those screenshots directly. See `/live-inspect` → "Delegate the driving to a Sonnet driver" for the full pattern and caveats.
+
 `launch` VS Code, then for **every** distinct mode/state/context the feature exposes:
 
 1. Maximize real estate via `execute_command` to close sidebar/aux bar/bottom panel. Do NOT use `resize_window` to grow the window for general auditing — it resizes the actual Electron window and is clamped by the host display. Only resize when a lens explicitly requires testing a specific responsive breakpoint, and prefer sizes ≤ the launch window. For larger headless render surfaces, configure `launch({ screen_resolution })` at startup instead.
@@ -252,7 +254,9 @@ When agents complete:
 
 1. `pnpm run build:quick`. Fix any breakage before proceeding.
 2. **Always `git diff` after agents finish.** Don't trust summaries — agents have "completed successfully" while silently removing working code.
-3. **Teardown + relaunch VS Code.** Extension-host and webview state is sticky across reloads (Shoelace icon cache, Lit registrations, extension singletons).
+3. **Reset state — depth by task (hybrid).** Extension-host and webview state is sticky (Shoelace icon cache, Lit registrations, extension singletons, stacked instrumentation), so match the reset to what changed:
+   - **Read-only re-sweep / webview-only fix** → reuse the running instance: `build:webviews` + the view's `.refresh`, or `rebuild_and_reload` for ext-host code. Skips the ~10s cold launch.
+   - **Stateful fix-verify or instrumentation-heavy iteration** → full **teardown + relaunch** for a clean reset (a webview _reload_ keeps document listeners; only teardown clears them).
 4. Re-measure each fix. Evidence, not screenshots.
 5. Re-sweep all active lenses. Watch for:
    - Regressions (agent B undid agent A's fix)
@@ -300,7 +304,7 @@ Additional exit conditions:
 | Over-eager fix agent            | Prompt says "remove empty div" → agent deletes functional buttons inside                                                                                                      | Prompt MUST state template location and expected rendering outcome, not only CSS selector                                                                                       |
 | Load-order bug                  | Side-effect module runs too late; the thing it registers fires after consumers already used the default                                                                       | Register at every webview entry, or in the most-transitively-imported shared wrapper                                                                                            |
 | Per-realm registration          | One webview ≠ all webviews                                                                                                                                                    | Plan for N registrations, not 1                                                                                                                                                 |
-| Stale instance state            | Iteration N sees cached state from N−1                                                                                                                                        | **Always** teardown + relaunch between iterations                                                                                                                               |
+| Stale instance state            | Iteration N sees cached state from N−1                                                                                                                                        | Reset between iterations: reuse + `rebuild_and_reload` for read-only/webview-only work, full teardown+relaunch for stateful or instrumented iterations                          |
 | Silent agent regression         | Agent "succeeds" but reverted working code                                                                                                                                    | Always `git diff` after agents; don't trust their summaries                                                                                                                     |
 | Mimic vs reuse                  | Agent "fixes" icon-fetch by inlining third-party icons instead of using ours                                                                                                  | Specify source-of-truth in the prompt                                                                                                                                           |
 | Shadow DOM aria clipping        | `aria_snapshot` reports empty buttons that actually have labels                                                                                                               | Use `evaluate_in_webview` to read `aria-label` on the inner button directly                                                                                                     |
@@ -314,7 +318,7 @@ Additional exit conditions:
 
 - You're about to answer a "does this actually work for a user?" question without having exercised a handler end-to-end
 - You're about to apply L3/L4 before L1 is fully clean
-- You haven't teardown + relaunched between iterations
+- You changed extension-host state or added instrumentation but haven't reset the instance between iterations (reuse is fine for read-only/webview-only work; stateful/instrumented iterations need teardown+relaunch)
 - You're about to fix something without a measurable repro
 - An agent's summary says "done" but you haven't diffed the actual changes
 - You're on iteration 4+ and the same issue keeps resurfacing — stop; a design decision is likely required, ask the user

@@ -57,11 +57,10 @@ If any HTML file lags behind, re-run `pnpm run build:icons` — a stale hash lea
 
 ### 5. Use the Icon
 
-In Lit components:
+In Lit components (via the shared `<code-icon>` element, `src/webviews/apps/shared/components/code-icon.ts` — `gl-` prefix maps to the glicons font):
 
 ```typescript
-import { glIcon } from '../shared/components/icons.js';
-html`${glIcon('my-new-icon')}`;
+html`<code-icon icon="gl-my-new-icon"></code-icon>`;
 ```
 
 In CSS:

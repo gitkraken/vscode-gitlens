@@ -103,6 +103,8 @@ Full content in the referenced leaves. Compressed list:
 | Writing the proposal structure (all 10 sections)                  | `output-format.md`                          |
 | Looking up WCAG criterion details                                 | `wcag-criteria.md`                          |
 
+**Shared reference:** `wcag-criteria.md` is canonical in `.claude/skills/a11y-audit/references/` — read it from there. All other references are local to this skill's `references/`.
+
 Most proposals touch most references. Load what applies.
 
 ## Proposal outputs
@@ -269,20 +271,6 @@ Before finalizing, grep the draft for these patterns and resolve each one into c
 When a reader needs to know something is a default, use a footnote or a parenthetical note — never template-bracket syntax. When a field genuinely cannot be filled without user input AND has no reasonable default (e.g., owner names, contract clauses), emit "[not yet provided — see Section 10 for the input needed]" and list it in Section 10 with a closure path. That phrasing is readable; `[requires input]` alone is not.
 
 Section 10 (Explicit Gaps) is the right place for unresolved inputs. Bracket notation inline in the body is not.
-
-Defaults are NOT used for:
-
-- Numbers that depend on team velocity (no team context = no default).
-- Owner names (never default a person to a role; always require input).
-- Contract/legal commitments (never default; always require user confirmation).
-- WCAG pass/fail claims beyond audited scope (never default; always refuse).
-
-Defaults ARE used for:
-
-- Internal commit-or-defer return dates (default: 4 weeks out).
-- Sprint boundaries (default: team's usual cadence, if user provided it).
-- Reasonable review cadences (default: weekly status).
-- Internal meeting dates for decision-forwarding (default: schedule within 1 week).
 
 When emitting a default, name it as a default explicitly so the reader knows to accept-or-override.
 

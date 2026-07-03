@@ -207,6 +207,26 @@ Requires `xvfb` package for headless environments: `sudo apt-get install xvfb`
 
 **Prefer the MCP server** for iterative work. Call `launch` once (use `download_vscode: true` on WSL/SSH/headless Linux), then use tools in a loop. No output parsing needed — tools return structured results directly.
 
+### Token & round-trip discipline
+
+How you drive inspection decides whether it's cheap or ruinous. Internalize these defaults:
+
+- **Prefer text/measured evidence over screenshots.** A full-window screenshot costs ~1.7K image tokens (image cost scales with resolution) and is re-shipped on every later turn, so it compounds. Answer "what is the state / is it correct" with `evaluate_in_webview` (geometry via `getBoundingClientRect()`, computed styles, text, counts) or `aria_snapshot({ selector })`. Reserve `screenshot` for when the _pixels themselves_ are the question (visual polish, overlap, alignment), and scope it to a webview.
+- **Batch probes into one call.** Don't fire N `evaluate_in_webview` calls reading one field each — return a structured object in a single call: `evaluate_in_webview({ expression: "(() => { const el = document.querySelector('gl-graph-app').shadowRoot.querySelector('…'); return { top: el.getBoundingClientRect().top, color: getComputedStyle(el).color, count: … }; })()" })`. Project only the fields you need (returns are soft-capped at 20K chars); never return whole `innerHTML`.
+- **Filter every read.** `read_console({ level: "error", last_n })` and `read_logs({ pattern: "<tag>", last_n })` — the arg is `pattern`, NOT `filter` (a wrong key silently dumps everything). Both default-cap at 200 lines; use `read_console({ clear: true })` as a cursor so the next read only sees new messages.
+- **Fold setup into launch.** `launch({ commands: ["gitlens.showGraphView", …], log_level: "info" })` opens views inside the launch call (saves a round-trip each) and keeps on-disk logs small.
+- **Reuse the session.** `launch` once, then drive in a loop — it persists. For code changes use `rebuild_and_reload` (or `build:webviews` + the view's `.refresh` for webview-only edits, ~3–5× cheaper); full teardown+relaunch only when you need a clean state reset.
+
+### Delegate the driving to a Sonnet driver (default)
+
+When the session model is Opus, **default to dispatching the mechanical driving to the `inspector-driver` subagent (pinned to Sonnet 5)** — it costs ~1/5 per token and a smoke test showed quality parity on mechanical inspection (DOM reads, extension-host API reads, measurements). You stay the orchestrator: you decide the probe list, you interpret the returned evidence, you decide fixes.
+
+- **Dispatch:** `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <setup + the exact probes/steps> })`. The agent's system prompt already encodes the driving discipline above, so give it a concrete step list, not a vague goal.
+- **You own the instance lifecycle.** Launch once yourself (or in the first dispatch), keep it alive, and tell drivers **not** to `launch`/`teardown` — they reuse your running instance. Teardown yourself when done.
+- **Batch the ask.** One dispatch should collect evidence across _many_ states/probes — that's what amortizes the subagent's fixed overhead (~35K tokens). Don't dispatch a driver for a single trivial probe; run that inline.
+- **Screenshots stay with you.** A driver can't hand an image back. For pixel judgment, either take the screenshot yourself, or have the driver return the _measurable_ facts (bounding rects, computed styles, overflow booleans) and judge those.
+- **Haiku for pure evidence collection.** For a fixed probe list with no screenshots (DOM/API reads, measurements, filtered logs), drop the driver to `model: "haiku"` — validated at parity with Sonnet and ~1/3 cheaper. Keep Sonnet (the default) when the driver may hit fine on-screen text, an ambiguous probe, or any visual call; Haiku reliably makes coarse visual calls ("rendered vs empty/broken") but misreads small text.
+
 ### Choosing the right tool
 
 | I want to...                           | MCP tool                                                    | CLI flag                         |
@@ -280,7 +300,7 @@ evaluate_in_webview { webview_url: "commitDetails", expression: "performance.now
 screenshot { target: "webview", webview_title: "Home" }
 ```
 
-This captures just the webview content instead of the entire VS Code window. All screenshots are automatically capped at 1920px to stay within Claude's 2000px multi-image limit — no configuration needed.
+This captures just the webview content instead of the entire VS Code window. Screenshots are downscaled to 1280px longest side and WebP-compressed by default (image cost scales with resolution); raise `max_dimension` (up to 1920) or pass `format: "png"` only when you need fine pixel detail. **Better still, skip the screenshot** when a text/geometry answer will do — see "Token & round-trip discipline" above.
 
 Use `resize_window` only when explicitly testing a responsive breakpoint — it resizes the actual Electron window and is clamped by the host display. For larger headless render surfaces, use `launch({ screen_resolution })` instead.
 

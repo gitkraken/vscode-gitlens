@@ -7,7 +7,7 @@ description: Use when reviewing a change set for user experience quality — tra
 
 Traces user flows end-to-end against the goals doc. Validates that the implementation delivers the right experience — not just that the code is correct, but that the user gets the outcome they expect in a way that feels right.
 
-**Use `/deep-review` for code path correctness. Use `/ux-review` for user flow validation. Different lenses.**
+**Use `/deep-review` for the code-level merge gate. Use `/ux-review` for user flow validation. Different lenses.**
 
 ## Usage
 
@@ -24,10 +24,10 @@ Traces user flows end-to-end against the goals doc. Validates that the implement
 
 ## When to Use /ux-review vs /deep-review
 
-| Skill          | Traces     | Finds                                                        |
-| -------------- | ---------- | ------------------------------------------------------------ |
-| `/deep-review` | Code paths | Bugs, regressions, performance issues, design problems       |
-| `/ux-review`   | User flows | Dead ends, missing feedback, discoverability gaps, UX breaks |
+| Skill          | Traces     | Finds                                                                                    |
+| -------------- | ---------- | ---------------------------------------------------------------------------------------- |
+| `/deep-review` | Code paths | Merge gate: goals alignment, completeness, validation (bugs via built-in `/code-review`) |
+| `/ux-review`   | User flows | Dead ends, missing feedback, discoverability gaps, UX breaks                             |
 
 Use both together for user-facing changes: `/deep-review` catches code-level issues, `/ux-review` catches experience-level issues.
 
