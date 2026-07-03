@@ -36,6 +36,8 @@ import type {
 	ProviderAzureProject,
 	ProviderAzureResource,
 	ProviderBitbucketResource,
+	ProviderGitHubOrganization,
+	ProviderGitLabGroup,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -97,6 +99,8 @@ export class ProvidersApi {
 				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
 					providerApis.github,
 				) as GetIssuesForReposFn,
+				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
+				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
@@ -111,6 +115,8 @@ export class ProvidersApi {
 				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
 					providerApis.github,
 				) as GetIssuesForReposFn,
+				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
+				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
 			},
 			[GitCloudHostIntegrationId.GitLab]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitLab],
@@ -132,6 +138,8 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
+				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
+				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted],
@@ -152,6 +160,8 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
+				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
+				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
 			},
 			[GitCloudHostIntegrationId.Bitbucket]: {
 				...providersMetadata[GitCloudHostIntegrationId.Bitbucket],
@@ -167,6 +177,7 @@ export class ProvidersApi {
 				) as GetPullRequestsForReposFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(providerApis.bitbucket),
 				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(providerApis.bitbucket),
+				getReposForWorkspaceFn: providerApis.bitbucket.getReposForWorkspace.bind(providerApis.bitbucket),
 			},
 			[GitSelfManagedHostIntegrationId.BitbucketServer]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer],
@@ -778,6 +789,132 @@ export class ProvidersApi {
 			options?.isPAT,
 			options?.baseUrl,
 		);
+	}
+
+	async getGithubOrgsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+		>,
+		options?: { isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderGitHubOrganization[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getOrgsForCurrentUserFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			// getOrgsForCurrentUserFn is cursor-paged; loop so a user in many orgs doesn't silently
+			// lose everything past the first page. Bounded to 20 pages as a backstop.
+			const orgs: ProviderGitHubOrganization[] = [];
+			let cursor: string | undefined;
+			for (let page = 0; page < 20; page++) {
+				const result = await provider.getOrgsForCurrentUserFn?.(
+					{ cursor: cursor },
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				);
+				orgs.push(...(result?.data ?? []));
+				if (!result?.pageInfo?.hasNextPage || result.pageInfo.endCursor === cursor) break;
+
+				cursor = result.pageInfo.endCursor ?? undefined;
+			}
+			return orgs;
+		} catch (e) {
+			return this.handleProviderError<ProviderGitHubOrganization[] | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	async getReposForOrg(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+		>,
+		orgName: string,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getReposForOrgFn');
+
+		return this.getPagedResult<ProviderRepository>(
+			{ orgName: orgName },
+			provider.getReposForOrgFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getReposForBitbucketWorkspace(
+		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
+		workspace: string,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getReposForWorkspaceFn',
+		);
+
+		return this.getPagedResult<ProviderRepository>(
+			{ workspace: workspace },
+			provider.getReposForWorkspaceFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getReposForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+		>,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getReposForCurrentUserFn',
+		);
+
+		return this.getPagedResult<ProviderRepository>(
+			{},
+			provider.getReposForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getGitlabGroupsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+		>,
+		options?: { topLevelOnly?: boolean; isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderGitLabGroup[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getGroupsForCurrentUserFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			// getGroupsForCurrentUserFn is number-paged; loop so a user in many groups doesn't
+			// silently lose everything past the first page. Bounded to 20 pages as a backstop.
+			const groups: ProviderGitLabGroup[] = [];
+			let page: number | undefined;
+			for (let i = 0; i < 20; i++) {
+				const result = await provider.getGroupsForCurrentUserFn?.(
+					{ topLevelOnly: options?.topLevelOnly, page: page },
+					{ token: token, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+				);
+				groups.push(...(result?.data ?? []));
+				if (!result?.pageInfo?.hasNextPage || result.pageInfo.nextPage === page) break;
+
+				page = result.pageInfo.nextPage ?? undefined;
+			}
+			return groups;
+		} catch (e) {
+			return this.handleProviderError<ProviderGitLabGroup[] | undefined>(tokenWithInfo, e);
+		}
 	}
 
 	async getPullRequestsForRepos(

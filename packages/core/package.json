@@ -196,7 +196,7 @@
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "0.40.0",
+		"@gitkraken/provider-apis": "github:gitkraken/provider-apis-package-js#gkdev-3532-provider-apis-gitlab-needs-groupnamespace-listing-getgroupsforcur",
 		"@octokit/graphql": "9.0.3",
 		"@octokit/request": "10.0.10",
 		"@octokit/request-error": "7.1.0",

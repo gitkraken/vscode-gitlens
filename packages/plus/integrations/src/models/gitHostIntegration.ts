@@ -21,6 +21,7 @@ import type {
 	PagedRepoInput,
 	ProviderAccount,
 	ProviderIssue,
+	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderRepoInput,
 	ProviderReposInput,
@@ -175,6 +176,62 @@ export abstract class GitHostIntegration<
 		repo: T,
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined>;
+
+	/** Lists the organizations (orgs/workspaces/groups) the current user belongs to on this host. */
+	@trace()
+	async getOrganizationsForUser(): Promise<ProviderOrganization[] | undefined> {
+		const scope = getScopedLogger();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
+
+		try {
+			const result = await this.getProviderOrganizationsForUser?.(this._session!);
+			this.resetRequestExceptionCount('getOrganizationsForUser');
+			return result;
+		} catch (ex) {
+			this.handleProviderException('getOrganizationsForUser', ex, { scope: scope });
+			return undefined;
+		}
+	}
+
+	protected getProviderOrganizationsForUser?(
+		session: ProviderAuthenticationSession,
+	): Promise<ProviderOrganization[] | undefined>;
+
+	/**
+	 * Lists the repositories under a given organization (org/workspace/group). `options.project` is only
+	 * meaningful for Azure DevOps, whose repos are scoped by `org` + `project`; every other host ignores it.
+	 */
+	@trace()
+	async getRepositoriesForOrg(
+		org: string,
+		options?: { project?: string; cursor?: string },
+	): Promise<PagedResult<ProviderRepository> | undefined> {
+		const scope = getScopedLogger();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
+
+		try {
+			const result = await this.getProviderRepositoriesForOrg?.(this._session!, org, options);
+			this.resetRequestExceptionCount('getRepositoriesForOrg');
+			return result;
+		} catch (ex) {
+			this.handleProviderException('getRepositoriesForOrg', ex, { scope: scope });
+			return undefined;
+		}
+	}
+
+	protected getProviderRepositoriesForOrg?(
+		session: ProviderAuthenticationSession,
+		org: string,
+		options?: { project?: string; cursor?: string },
+	): Promise<PagedResult<ProviderRepository> | undefined>;
 
 	async mergePullRequest(pr: PullRequest, options?: { mergeMethod?: PullRequestMergeMethod }): Promise<boolean> {
 		const scope = getScopedLogger();

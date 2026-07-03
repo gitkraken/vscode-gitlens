@@ -8,6 +8,7 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -19,7 +20,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
-import type { ProviderRepository } from './models.js';
+import type { ProviderOrganization, ProviderRepository } from './models.js';
 import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -239,6 +240,48 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 			},
 			cancellation,
 		);
+	}
+
+	protected override async getProviderOrganizationsForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<ProviderOrganization[] | undefined> {
+		const api = await this.getProvidersApi();
+		const groups = await api.getGitlabGroupsForCurrentUser(toTokenWithInfo(this.id, session), {
+			isPAT: this.isEnterprise,
+			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+		});
+		return groups?.map(g => ({ id: g.id, name: g.fullPath, url: g.webUrl }));
+	}
+
+	/**
+	 * GitLab has no group-scoped repos endpoint, so this lists the user's repos and filters by namespace
+	 * prefix (including subgroups), mirroring gkcli's `gitlabOrgMatches`. Bounded to 20 pages (2000 repos)
+	 * as a backstop against an unbounded loop; that's well beyond what a single group realistically holds.
+	 */
+	protected override async getProviderRepositoriesForOrg(
+		session: ProviderAuthenticationSession,
+		org: string,
+	): Promise<PagedResult<ProviderRepository> | undefined> {
+		const api = await this.getProvidersApi();
+		const apiOptions = {
+			isPAT: this.isEnterprise,
+			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+		};
+		const matchesOrg = (namespace: string) => namespace === org || namespace.startsWith(`${org}/`);
+
+		const repos: ProviderRepository[] = [];
+		let cursor: string | undefined;
+		for (let page = 0; page < 20; page++) {
+			const result = await api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
+				...apiOptions,
+				cursor: cursor,
+			});
+			repos.push(...result.values.filter(r => matchesOrg(r.namespace)));
+			if (!result.paging?.more || result.paging.cursor === cursor) break;
+
+			cursor = result.paging.cursor;
+		}
+		return { values: repos };
 	}
 
 	protected override async searchProviderMyPullRequests(

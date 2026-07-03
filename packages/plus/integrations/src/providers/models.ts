@@ -9,10 +9,12 @@ import type {
 	Bitbucket,
 	BitbucketServer,
 	BitbucketWorkspaceStub,
+	CursorPageInput,
 	EnterpriseOptions,
 	GetRepoInput,
 	GitHub,
 	GitLab,
+	GitLabGroup,
 	GitMergeStrategy,
 	GitPullRequest,
 	GitRepository,
@@ -23,6 +25,7 @@ import type {
 	LinearOrganization,
 	LinearTeam,
 	NumberedPageInput,
+	Organization,
 	Issue as ProviderApiIssue,
 	PullRequestWithUniqueID,
 	RequestFunction,
@@ -89,6 +92,20 @@ export type ProviderLinearOrganization = LinearOrganization;
 export type ProviderAzureProject = AzureProject;
 export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
+export type ProviderGitHubOrganization = Organization;
+export type ProviderGitLabGroup = GitLabGroup;
+
+/**
+ * Normalized org/workspace/group shape returned by `GitHostIntegration.getOrganizationsForUser`.
+ * `name` is the identifier to pass back into `getRepositoriesForOrg` (GitHub login, Bitbucket
+ * workspace slug, Azure DevOps org name, GitLab full namespace path) — not a display name; hosts
+ * where those differ (Bitbucket, GitLab) must map to the identifier, not the human-readable label.
+ */
+export interface ProviderOrganization {
+	id: string;
+	name: string;
+	url: string;
+}
 export const ProviderPullRequestReviewState = GitPullRequestReviewState;
 export const ProviderBuildStatusState = GitBuildStatusState;
 export type ProviderRequestFunction = RequestFunction;
@@ -312,6 +329,27 @@ export type GetReposForAzureProjectFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
 
+export type GetOrgsForCurrentUserFn = (
+	input?: CursorPageInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderGitHubOrganization[]; pageInfo?: PageInfo }>;
+export type GetReposForOrgFn = (
+	input: { orgName: string } & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
+export type GetReposForWorkspaceFn = (
+	input: { workspace: string } & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
+export type GetReposForCurrentUserFn = (
+	input: PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderRepository[]; pageInfo?: PageInfo }>;
+export type GetGroupsForCurrentUserFn = (
+	input?: { topLevelOnly?: boolean } & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderGitLabGroup[]; pageInfo?: PageInfo }>;
+
 export type GetCurrentUserFn = (
 	input: Record<string, never>,
 	options?: EnterpriseOptions,
@@ -402,6 +440,11 @@ export interface ProviderInfo extends ProviderMetadata {
 	getReposForAzureProjectFn?: GetReposForAzureProjectFn;
 	getIssuesForResourceForCurrentUserFn?: GetIssuesForResourceForCurrentUserFn;
 	mergePullRequestFn?: MergePullRequestFn;
+	getOrgsForCurrentUserFn?: GetOrgsForCurrentUserFn;
+	getReposForOrgFn?: GetReposForOrgFn;
+	getReposForWorkspaceFn?: GetReposForWorkspaceFn;
+	getReposForCurrentUserFn?: GetReposForCurrentUserFn;
+	getGroupsForCurrentUserFn?: GetGroupsForCurrentUserFn;
 }
 
 export interface ProviderMetadata {

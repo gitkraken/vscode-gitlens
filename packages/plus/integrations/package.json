@@ -60,7 +60,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@gitkraken/provider-apis": "0.40.0",
+		"@gitkraken/provider-apis": "github:gitkraken/provider-apis-package-js#gkdev-3532-provider-apis-gitlab-needs-groupnamespace-listing-getgroupsforcur",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
 		"@gitlens/utils": "workspace:*"

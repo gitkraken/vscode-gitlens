@@ -6,6 +6,7 @@ import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@git
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -27,7 +28,7 @@ import type {
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
 } from './azure/models.js';
-import type { ProviderPullRequest, ProviderRepository } from './models.js';
+import type { ProviderOrganization, ProviderPullRequest, ProviderRepository } from './models.js';
 import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -201,6 +202,63 @@ export abstract class AzureDevOpsIntegrationBase<
 		);
 
 		return descriptors;
+	}
+
+	protected override async getProviderOrganizationsForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<ProviderOrganization[] | undefined> {
+		const orgs = await this.getProviderResourcesForUser(session);
+		return orgs?.map(o => ({ id: o.id, name: o.name, url: `${this.apiBaseUrl}/${o.name}` }));
+	}
+
+	/**
+	 * `options.project` is required by the underlying API; when omitted, every project under `org` is
+	 * enumerated first and their repos fanned out and merged, mirroring gkcli's `gk provider repos --org`
+	 * (no `--project`) behavior.
+	 */
+	protected override async getProviderRepositoriesForOrg(
+		session: ProviderAuthenticationSession,
+		org: string,
+		options?: { project?: string; cursor?: string },
+	): Promise<PagedResult<ProviderRepository> | undefined> {
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+
+		if (options?.project) {
+			return api.getReposForAzureProject(tokenWithInfo, org, options.project, {
+				...apiOptions,
+				cursor: options.cursor,
+			});
+		}
+
+		const orgDescriptor = (await this.getProviderResourcesForUser(session))?.find(o => o.name === org);
+		if (orgDescriptor == null) return undefined;
+
+		const projects = await this.getProviderProjectsForResources(session, [orgDescriptor]);
+		if (!projects?.length) return { values: [] };
+
+		// Every project is fully paginated and merged here (bounded to 20 pages/project as a
+		// backstop) so a large project's later pages aren't silently dropped. There's no single
+		// cursor that could resume a merge of N independent per-project paginated streams, so
+		// `options.cursor` doesn't apply in this branch — only when `options.project` is given above.
+		const results = await Promise.all(
+			projects.map(async p => {
+				const repos: ProviderRepository[] = [];
+				let cursor: string | undefined;
+				for (let page = 0; page < 20; page++) {
+					const result = await api.getReposForAzureProject(tokenWithInfo, org, p.name, {
+						...apiOptions,
+						cursor: cursor,
+					});
+					repos.push(...result.values);
+					if (!result.paging?.more || result.paging.cursor === cursor) break;
+
+					cursor = result.paging.cursor;
+				}
+				return repos;
+			}),
+		);
+		return { values: results.flat() };
 	}
 
 	protected override async mergeProviderPullRequest(
