@@ -400,6 +400,80 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('refreshConnections disconnects a cached self-managed host missing from the backend', async () => {
+		const { runtime, manager } = createManager({
+			connections: [
+				{
+					tokenId: 'ghe-a1',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe-a.example.com',
+					accountName: 'a-one',
+				},
+			],
+			token: (path: string) => {
+				const tokenId = path.endsWith('/githubEnterprise') ? 'ghe-a1' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-b1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-b1',
+			JSON.stringify({
+				id: 'ghe-b1',
+				accessToken: 'b',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-b.example.com',
+			}),
+		);
+
+		const gheB = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-b.example.com');
+		assert.ok(gheB != null, 'missing backend host integration constructs');
+		assert.equal(await gheB.isConnected(), true, 'missing backend host session is warm before sync');
+
+		await manager.refreshConnections();
+
+		assert.equal(await gheB.isConnected(), false, 'missing backend host cache is disconnected');
+		assert.ok(
+			!manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise).some(c => c.id === 'ghe-b1'),
+			'missing backend host descriptor removed',
+		);
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ghe-b1'),
+			undefined,
+			'missing backend host secret removed',
+		);
+
+		manager.dispose();
+	});
+
 	test('a non-forced sync does not resurrect a provider disconnected locally', async () => {
 		const { runtime, manager, paths } = createManager({
 			connections: [{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: '', accountName: 'octo' }],

@@ -877,14 +877,12 @@ export class IntegrationService implements Disposable {
 	): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
 			if (isCloudGitSelfManagedHostIntegrationId(id)) {
-				let domains = domainsById.get(id);
-				if (domains == null || domains.size === 0) {
-					domains = new Set(
-						this.configuredIntegrationService
-							.getConfigured(id, { cloud: true })
-							.map(c => c.domain)
-							.filter((domain): domain is string => domain != null && domain.length > 0),
-					);
+				const domains = new Set(domainsById.get(id));
+				for (const domain of this.configuredIntegrationService
+					.getConfigured(id, { cloud: true })
+					.map(c => c.domain)
+					.filter((domain): domain is string => domain != null && domain.length > 0)) {
+					domains.add(domain);
 				}
 
 				if (domains.size !== 0) {
@@ -912,6 +910,18 @@ export class IntegrationService implements Disposable {
 				yield integration;
 			}
 		}
+	}
+
+	private getCloudConnectionState(
+		integration: Integration,
+		connectedIntegrations: Set<IntegrationIds>,
+		domainsById: Map<IntegrationIds, Set<string>>,
+	): 'connected' | 'disconnected' {
+		if (isCloudGitSelfManagedHostIntegrationId(integration.id)) {
+			return domainsById.get(integration.id)?.has(integration.domain) ? 'connected' : 'disconnected';
+		}
+
+		return connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected';
 	}
 
 	private findCachedById<T extends IntegrationIds>(id: T): IntegrationById<T> | undefined {
@@ -1004,7 +1014,7 @@ export class IntegrationService implements Disposable {
 
 		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
 			await integration.syncCloudConnection(
-				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
+				this.getCloudConnectionState(integration, connectedIntegrations, domainsById),
 				forceConnect,
 			);
 		}
