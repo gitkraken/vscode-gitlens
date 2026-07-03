@@ -200,6 +200,19 @@ export class IntegrationService implements Disposable {
 		return true;
 	}
 
+	/**
+	 * Starts the cloud connect flow without skipping an already-connected provider, allowing the host/GK Dev
+	 * flow to add another account for that provider instead of treating the existing primary as sufficient.
+	 * Returns whether a new connection was actually added (measured by the connection count growing), since
+	 * {@link connectCloudIntegrations}' boolean reasons at the provider level and can't detect a newly added
+	 * secondary for an already-connected provider.
+	 */
+	async connectSecondary(id: SupportedCloudIntegrationIds, source?: Source): Promise<boolean> {
+		const before = this.getConfigured(id).length;
+		await this.connectCloudIntegrations({ integrationIds: [id], skipIfConnected: false }, source);
+		return this.getConfigured(id).length > before;
+	}
+
 	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
 	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
