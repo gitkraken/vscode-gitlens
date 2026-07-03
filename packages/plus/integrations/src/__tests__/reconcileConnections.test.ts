@@ -334,6 +334,72 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('fully disconnecting a self-managed provider clears every configured host', async () => {
+		const { runtime, manager } = createManager({ connections: [], token: githubToken });
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-b1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-a1',
+			JSON.stringify({
+				id: 'ghe-a1',
+				accessToken: 'a',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-b1',
+			JSON.stringify({
+				id: 'ghe-b1',
+				accessToken: 'b',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-b.example.com',
+			}),
+		);
+
+		await manager.refreshConnections();
+
+		assert.equal(
+			manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise).length,
+			0,
+			'all self-managed host descriptors removed on full disconnect',
+		);
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ghe-a1'),
+			undefined,
+			'first host secret cleared',
+		);
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ghe-b1'),
+			undefined,
+			'second host secret cleared',
+		);
+
+		manager.dispose();
+	});
+
 	test('a non-forced sync does not resurrect a provider disconnected locally', async () => {
 		const { runtime, manager, paths } = createManager({
 			connections: [{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: '', accountName: 'octo' }],
@@ -430,7 +496,7 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
-	test('refreshConnections applies self-managed primaries and refreshes cached models per host', async () => {
+	test('check-in sync applies self-managed primaries and refreshes cached models per host', async () => {
 		const { runtime, manager } = createManager({
 			connections: [
 				{
@@ -514,18 +580,43 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 				},
 			],
 		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-a1',
+			JSON.stringify({
+				id: 'ghe-a1',
+				accessToken: 'tok-ghe-a1',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-b1',
+			JSON.stringify({
+				id: 'ghe-b1',
+				accessToken: 'tok-ghe-b1',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-b.example.com',
+			}),
+		);
 
 		const gheA = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-a.example.com');
 		const gheB = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-b.example.com');
 		assert.ok(gheA != null, 'first self-managed integration constructs');
 		assert.ok(gheB != null, 'second self-managed integration constructs');
+		assert.equal(await gheA.isConnected(), true, 'first host session is warm');
+		assert.equal(await gheB.isConnected(), true, 'second host session is warm');
 
 		let switchedB = false;
 		gheB.switchConnection = () => {
 			switchedB = true;
 		};
 
-		await manager.refreshConnections();
+		runtime.fireSubscriptionCheckIn(false);
+		await flush();
 
 		const configured = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
 		assert.equal(

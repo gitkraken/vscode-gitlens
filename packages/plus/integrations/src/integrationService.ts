@@ -872,19 +872,44 @@ export class IntegrationService implements Disposable {
 		return isGitSelfManagedHostIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
 
-	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationIds, string>): AsyncIterable<Integration> {
+	private async *getSupportedCloudIntegrations(
+		domainsById: Map<IntegrationIds, Set<string>>,
+	): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (isCloudGitSelfManagedHostIntegrationId(id) && !domainsById.has(id)) {
-				// Try getting whatever we have now because we will need to disconnect
+			if (isCloudGitSelfManagedHostIntegrationId(id)) {
+				let domains = domainsById.get(id);
+				if (domains == null || domains.size === 0) {
+					domains = new Set(
+						this.configuredIntegrationService
+							.getConfigured(id, { cloud: true })
+							.map(c => c.domain)
+							.filter((domain): domain is string => domain != null && domain.length > 0),
+					);
+				}
+
+				if (domains.size !== 0) {
+					for (const domain of domains) {
+						const integration = await this.get(id, domain);
+						if (integration != null) {
+							yield integration;
+						}
+					}
+
+					continue;
+				}
+
+				// Try getting whatever we have now because we will need to disconnect.
 				const integration = await this.get(id, undefined);
 				if (integration != null) {
 					yield integration;
 				}
-			} else {
-				const integration = await this.get(id, domainsById.get(id));
-				if (integration != null) {
-					yield integration;
-				}
+
+				continue;
+			}
+
+			const integration = await this.get(id);
+			if (integration != null) {
+				yield integration;
 			}
 		}
 	}
@@ -939,7 +964,7 @@ export class IntegrationService implements Disposable {
 	private async syncCloudIntegrations(forceConnect: boolean) {
 		const scope = getScopedLogger();
 		const connectedIntegrations = new Set<IntegrationIds>();
-		const domainsById = new Map<IntegrationIds, string>();
+		const domainsById = new Map<IntegrationIds, Set<string>>();
 		const connectionsById = new Map<IntegrationIds, CloudIntegrationConnection[]>();
 
 		const loggedIn = (await this.ctx.account.getAccount()) != null;
@@ -964,11 +989,12 @@ export class IntegrationService implements Disposable {
 				if (p.domain?.length > 0) {
 					const host = hostFromDomain(p.domain);
 					if (host != null) {
-						// The default integration instance tracks the primary connection's domain; fall back to
-						// the first connection when the backend doesn't flag a primary.
-						if (p.primary || !domainsById.has(integrationId)) {
-							domainsById.set(integrationId, host);
+						let domains = domainsById.get(integrationId);
+						if (domains == null) {
+							domains = new Set<string>();
+							domainsById.set(integrationId, domains);
 						}
+						domains.add(host);
 					} else {
 						scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
 					}
