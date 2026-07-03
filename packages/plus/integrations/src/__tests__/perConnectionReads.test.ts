@@ -31,6 +31,17 @@ suite('per-connection reads (#5430)', () => {
 	test('searchMyIssues reads with the specified connection token, not the primary', async () => {
 		const runtime = createFakeRuntime();
 		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary');
+		await runtime.storage.storeSecret(
+			'integration.auth:github|sec-tok',
+			JSON.stringify({
+				id: 'sec-tok',
+				accessToken: 'token-local-pat',
+				scopes: ['repo'],
+				cloud: false,
+				type: 'pat',
+				domain: 'github.com',
+			}),
+		);
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 
@@ -47,7 +58,7 @@ suite('per-connection reads (#5430)', () => {
 		const result = await gh.searchMyIssues(undefined, undefined, 'sec-tok');
 
 		assert.deepEqual(result, [], 'returns the specified connection results');
-		assert.equal(capturedToken, 'token-secondary', 'read used the specified connection token');
+		assert.equal(capturedToken, 'token-secondary', 'read used the specified cloud connection token');
 
 		manager.dispose();
 	});

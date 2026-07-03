@@ -181,7 +181,7 @@ export abstract class IntegrationBase<
 			try {
 				const authProvider = await this.authenticationService.get(this.authProvider.id);
 				const session = await authProvider.getSession(
-					{ ...this.authProviderDescriptor, connectionId: connectionId },
+					{ ...this.authProviderDescriptor, connectionId: connectionId, cloud: true },
 					{ source: source },
 				);
 				return session ?? undefined;
