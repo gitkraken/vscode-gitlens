@@ -314,6 +314,40 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('refreshConnections accepts a bare host domain for self-managed providers', async () => {
+		const { manager } = createManager({
+			connections: [
+				{
+					tokenId: 'ent1',
+					provider: 'githubEnterprise',
+					type: 'oauth',
+					domain: 'ghe.example.com',
+					accountName: 'ent-user',
+				},
+			],
+			token: (path: string) => {
+				const tokenId = path.endsWith('/githubEnterprise') ? 'ent1' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+				};
+			},
+		});
+
+		await manager.refreshConnections();
+
+		const [connection] = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
+		assert.equal(connection?.id, 'ent1');
+		assert.equal(connection?.domain, 'ghe.example.com');
+		assert.equal(connection?.primary, true);
+		assert.equal(connection?.accountName, 'ent-user');
+
+		manager.dispose();
+	});
+
 	test('refreshing a cloud provider does not switch a cached self-managed provider with an overlapping id prefix', async () => {
 		const { manager } = createManager({
 			connections: [

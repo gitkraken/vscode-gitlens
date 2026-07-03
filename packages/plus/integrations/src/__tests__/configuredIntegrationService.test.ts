@@ -186,6 +186,50 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		assert.equal(configured.filter(c => c.primary).length, 1, 'still exactly one primary');
 	});
 
+	test('self-managed hosts keep independent primary connections per domain', async () => {
+		const runtime = createFakeRuntime();
+		const service = new ConfiguredIntegrationService(runtime);
+		const id = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+
+		await service.storeSession(id, cloudSession('ghe-a1', { domain: 'ghe-a.example.com' }));
+		await service.storeSession(id, cloudSession('ghe-b1', { domain: 'ghe-b.example.com' }));
+		await service.storeSession(id, cloudSession('ghe-b2', { domain: 'ghe-b.example.com' }));
+
+		let configured = service.getConfigured(id);
+		assert.equal(configured.filter(c => c.primary).length, 2, 'one primary per self-managed host');
+		assert.equal(
+			configured.find(c => c.domain === 'ghe-a.example.com' && c.primary)?.id,
+			'ghe-a1',
+			'first host has its own primary',
+		);
+		assert.equal(
+			configured.find(c => c.domain === 'ghe-b.example.com' && c.primary)?.id,
+			'ghe-b1',
+			'second host has its own primary',
+		);
+
+		await service.setPrimaryConnection(id, 'ghe-b2');
+
+		configured = service.getConfigured(id);
+		assert.equal(configured.find(c => c.domain === 'ghe-a.example.com' && c.primary)?.id, 'ghe-a1');
+		assert.equal(configured.find(c => c.domain === 'ghe-b.example.com' && c.primary)?.id, 'ghe-b2');
+
+		const firstHost = await service.getStoredSession(id, { domain: 'ghe-a.example.com', scopes: ['repo'] });
+		const secondHost = await service.getStoredSession(id, { domain: 'ghe-b.example.com', scopes: ['repo'] });
+		assert.equal(firstHost?.accessToken, 'token-ghe-a1');
+		assert.equal(secondHost?.accessToken, 'token-ghe-b2');
+
+		await service.deleteConnection(id, 'ghe-b2');
+
+		configured = service.getConfigured(id);
+		assert.equal(configured.find(c => c.domain === 'ghe-a.example.com' && c.primary)?.id, 'ghe-a1');
+		assert.equal(
+			configured.find(c => c.domain === 'ghe-b.example.com' && c.primary)?.id,
+			'ghe-b1',
+			'removing a host primary promotes a sibling from that host',
+		);
+	});
+
 	test('exposes type and accountName, preserving accountName across an empty re-store', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);

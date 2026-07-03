@@ -930,14 +930,14 @@ export class IntegrationService implements Disposable {
 				}
 
 				if (p.domain?.length > 0) {
-					try {
-						const host = new URL(p.domain).host;
+					const host = hostFromDomain(p.domain);
+					if (host != null) {
 						// The default integration instance tracks the primary connection's domain; fall back to
 						// the first connection when the backend doesn't flag a primary.
 						if (p.primary || !domainsById.has(integrationId)) {
 							domainsById.set(integrationId, host);
 						}
-					} catch {
+					} else {
 						scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
 					}
 				}
@@ -1000,7 +1000,8 @@ export class IntegrationService implements Disposable {
 		// Fetch + store each connection's session so getConfigured() reflects every account.
 		const syncedIds = new Set<string>();
 		for (const connection of identified) {
-			// The wire `domain` is a full URL; self-managed integrations are keyed/constructed by host.
+			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
+			// Self-managed integrations are keyed/constructed by host.
 			const host = hostFromDomain(connection.domain);
 
 			// Self-managed connections are keyed by host, so an unparseable/empty domain would store the
@@ -1146,12 +1147,19 @@ export class IntegrationService implements Disposable {
 	}
 }
 
-/** Extracts the host from a backend connection domain (a full URL); undefined when unparseable/empty. */
+/** Extracts the host from a backend connection domain (URL or bare host); undefined when unparseable/empty. */
 function hostFromDomain(domain: string | undefined): string | undefined {
-	if (!domain) return undefined;
+	const value = domain?.trim();
+	if (!value) return undefined;
 
 	try {
-		return new URL(domain).host;
+		return new URL(value).host || undefined;
+	} catch {
+		if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
+	}
+
+	try {
+		return new URL(`https://${value}`).host || undefined;
 	} catch {
 		return undefined;
 	}

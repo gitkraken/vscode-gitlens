@@ -133,9 +133,11 @@ export class ConfiguredIntegrationService implements Disposable {
 		// multiple accounts on the same provider+domain no longer overwrite each other.
 		const existing = descriptors.find(d => d.id === descriptor.id && d.cloud === descriptor.cloud);
 
-		// The first connection for a provider is primary by default; an explicit flag (or the existing
-		// value) always wins.
-		const primary = descriptor.primary ?? existing?.primary ?? !descriptors.some(d => d.primary);
+		// The first connection for a provider/domain is primary by default; an explicit flag (or the
+		// existing value) always wins. Self-managed providers can span multiple hosts under the same
+		// integration id, so each host needs its own primary.
+		const primaryScope = this.getPrimaryScope(descriptor.integrationId, descriptors, descriptor.domain);
+		const primary = descriptor.primary ?? existing?.primary ?? !primaryScope.some(d => d.primary);
 		// Preserve a previously-resolved type/accountName when the incoming write doesn't carry them (e.g.
 		// the model re-stores the primary session with an empty account, after reconcile enriched it).
 		const type = descriptor.type ?? existing?.type;
@@ -190,7 +192,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		const existing = this.configured.get(id);
 		if (existing == null || existing.length === 0) return;
 
-		let removedPrimary = false;
+		const removedPrimaryDomains = new Set<string | undefined>();
 		const descriptors: ConfiguredIntegrationDescriptor[] = [];
 		for (const d of existing) {
 			if (
@@ -200,7 +202,7 @@ export class ConfiguredIntegrationService implements Disposable {
 					(options?.cloud === false && d.cloud === false))
 			) {
 				if (d.primary) {
-					removedPrimary = true;
+					removedPrimaryDomains.add(d.domain);
 				}
 				continue;
 			}
@@ -210,10 +212,15 @@ export class ConfiguredIntegrationService implements Disposable {
 
 		if (descriptors.length === existing.length) return; // nothing matched
 
-		// Promote a secondary to primary when the removed connection was the primary and others remain,
-		// so the provider stays in a well-defined connected state.
-		if (removedPrimary && descriptors.length && !descriptors.some(d => d.primary)) {
-			descriptors[0] = { ...descriptors[0], primary: true };
+		// Promote a secondary to primary when the removed connection was the primary and others remain
+		// in the same primary scope, so the provider/host stays in a well-defined connected state.
+		for (const domain of removedPrimaryDomains) {
+			if (descriptors.some(d => this.isInPrimaryScope(id, d, domain) && d.primary)) continue;
+
+			const index = descriptors.findIndex(d => this.isInPrimaryScope(id, d, domain));
+			if (index !== -1) {
+				descriptors[index] = { ...descriptors[index], primary: true };
+			}
 		}
 
 		this.configured.set(id, descriptors);
@@ -425,6 +432,24 @@ export class ConfiguredIntegrationService implements Disposable {
 		return `integration.auth.cloud:${id}|${sessionId}`;
 	}
 
+	private getPrimaryScope(
+		id: IntegrationIds,
+		descriptors: ConfiguredIntegrationDescriptor[],
+		domain: string | undefined,
+	): ConfiguredIntegrationDescriptor[] {
+		return isGitSelfManagedHostIntegrationId(id)
+			? descriptors.filter(d => this.isInPrimaryScope(id, d, domain))
+			: descriptors;
+	}
+
+	private isInPrimaryScope(
+		id: IntegrationIds,
+		descriptor: ConfiguredIntegrationDescriptor,
+		domain: string | undefined,
+	): boolean {
+		return !isGitSelfManagedHostIntegrationId(id) || descriptor.domain === domain;
+	}
+
 	/**
 	 * Resolves the connection id used as the secret-key session id for an auth descriptor.
 	 * - If the descriptor targets a specific connection (`connectionId`), that wins.
@@ -452,14 +477,22 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (descriptors == null || descriptors.length === 0) return;
 		if (!descriptors.some(d => d.id === connectionId)) return;
 
+		const target =
+			descriptors.find(d => d.id === connectionId && d.cloud) ?? descriptors.find(d => d.id === connectionId);
+		if (target == null) return;
+
+		const domain = isGitSelfManagedHostIntegrationId(id) ? target.domain : undefined;
 		// A connection id can have both a local (PAT) and cloud descriptor. Mark the primary on a single
-		// canonical variant (prefer cloud, since multi-account primaries are cloud-driven) so the
-		// "exactly one primary" invariant holds; readers key off the connection id, which is identical
-		// across variants, and getStoredSession keeps its own local-then-cloud precedence.
-		const primaryIsCloud = descriptors.some(d => d.id === connectionId && d.cloud);
+		// canonical variant (prefer cloud, since multi-account primaries are cloud-driven) within the
+		// provider/host scope, so other self-managed hosts keep their own default connection.
+		const primaryIsCloud = descriptors.some(
+			d => d.id === connectionId && d.cloud && this.isInPrimaryScope(id, d, domain),
+		);
 
 		let changed = false;
 		const updated = descriptors.map(d => {
+			if (!this.isInPrimaryScope(id, d, domain)) return d;
+
 			const primary = d.id === connectionId && (d.cloud ?? false) === primaryIsCloud;
 			if ((d.primary ?? false) === primary) return d;
 
