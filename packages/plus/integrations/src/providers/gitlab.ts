@@ -283,7 +283,9 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		repos?: GitLabRepositoryDescriptor[],
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
-		const username = (await this.getCurrentAccount())?.username;
+		// Resolve the username from THIS session's token (multi-account: `session` may be a non-primary
+		// connection); `getCurrentAccount()` would use the primary `_session` and filter by the wrong user.
+		const username = (await this.getProviderCurrentAccount(session))?.username;
 		if (!username) {
 			return Promise.resolve([]);
 		}

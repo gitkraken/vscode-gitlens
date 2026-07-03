@@ -153,6 +153,49 @@ export abstract class IntegrationBase<
 		return this._session ?? undefined;
 	}
 
+	/**
+	 * Resolves the session to read as, for a per-connection (multi-account) read. When `connectionId` is
+	 * omitted this is the integration's primary session, resolved exactly like the existing read flow
+	 * (ensure-connected + refresh-if-expired). When set, it resolves THAT connection's session directly
+	 * from the auth provider — refreshing it if expired — WITHOUT disturbing the cached primary
+	 * `_session`. Returns undefined when the requested session can't be resolved (e.g. the connection is
+	 * gone or the provider isn't connected), so callers degrade to "no results".
+	 */
+	protected async resolveReadSession(
+		connectionId: string | undefined,
+		scope: ScopedLogger | undefined,
+		source?: Sources,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		if (
+			this.ctx.config.isIntegrationsEnabled?.() === false ||
+			this.ctx.storage.getWorkspace(this.connectedKey) === false
+		) {
+			return undefined;
+		}
+
+		if (connectionId != null) {
+			// Degrade to "no results" on failure, matching the primary path (whose ensureSession/
+			// refreshSessionIfExpired swallow errors) so read methods keep their never-throws contract.
+			try {
+				const authProvider = await this.authenticationService.get(this.authProvider.id);
+				const session = await authProvider.getSession(
+					{ ...this.authProviderDescriptor, connectionId: connectionId },
+					{ source: source },
+				);
+				return session ?? undefined;
+			} catch (ex) {
+				scope?.error(ex);
+				return undefined;
+			}
+		}
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		await this.refreshSessionIfExpired(scope);
+		return this._session ?? undefined;
+	}
+
 	@debug()
 	async connect(source: Sources): Promise<boolean> {
 		try {
@@ -470,25 +513,30 @@ export abstract class IntegrationBase<
 		return this.authenticationService.ignoreSSLErrors(this);
 	}
 
-	async searchMyIssues(resource?: ResourceDescriptor, cancellation?: AbortSignal): Promise<IssueShape[] | undefined>;
+	async searchMyIssues(
+		resource?: ResourceDescriptor,
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IssueShape[] | undefined>;
 	async searchMyIssues(
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
+		connectionId?: string,
 	): Promise<IssueShape[] | undefined>;
 	@trace()
 	async searchMyIssues(
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: AbortSignal,
+		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
 			const issues = await this.searchProviderMyIssues(
-				this._session!,
+				session,
 				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
 				cancellation,
 			);
