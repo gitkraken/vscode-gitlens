@@ -400,6 +400,104 @@ export class GlAiInput extends LitElement {
 		.action-label {
 			line-height: 1;
 		}
+
+		/* ── Detached appearance ──────────────────────────────────────────────────────
+		   The submit button leaves the input and renders below (as a plain primary); the
+		   pill moves from the host to an inner .ai-input__box; the slotted footer becomes
+		   a tab clipped to the box's top-right edge. */
+		:host([appearance='detached']),
+		:host([appearance='detached']:hover),
+		:host([appearance='detached'][focused]),
+		:host([appearance='detached'][active]),
+		:host([appearance='detached'][focusing]) {
+			gap: var(--gl-space-8);
+			background: transparent;
+			border-color: transparent;
+			box-shadow: none;
+		}
+
+		.ai-input__box {
+			display: none;
+		}
+
+		:host([appearance='detached']) .ai-input__box {
+			position: relative;
+			display: block;
+			margin-top: 0.4rem;
+			background: var(--vscode-input-background);
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-radius: var(--gl-radius-md);
+		}
+
+		:host([appearance='detached']) .ai-input__box:focus-within {
+			border-color: var(--vscode-focusBorder);
+		}
+
+		/* Footer → a tab clipped to the box's top-right edge. The chip keeps its own look;
+		   only its container is re-anchored. Overlapping the border by 1px removes the seam. */
+		:host([appearance='detached']) .ai-input__footer {
+			position: absolute;
+			right: var(--gl-space-8);
+			bottom: calc(100% - var(--gl-border-width));
+			min-width: 0;
+			padding: 0.1rem 0.4rem;
+			background: color-mix(in srgb, var(--gl-ai-accent-1) 5%, var(--vscode-input-background));
+			border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+			border-bottom: none;
+			border-radius: var(--gl-radius-sm) var(--gl-radius-sm) 0 0;
+		}
+
+		:host([appearance='detached']) .ai-input__footer slot,
+		:host([appearance='detached']) .ai-input__footer ::slotted(*) {
+			flex: 0 1 auto;
+		}
+
+		.ai-input__actions {
+			display: none;
+		}
+
+		:host([appearance='detached']) .ai-input__actions {
+			display: flex;
+			gap: var(--gl-space-8);
+			align-items: stretch;
+		}
+
+		.detached-btn {
+			flex: 1;
+			min-width: 0;
+			display: inline-flex;
+			gap: var(--gl-space-6);
+			align-items: center;
+			justify-content: center;
+			padding: 0.4rem 1rem;
+			font-family: inherit;
+			font-size: var(--vscode-font-size);
+			font-weight: 500;
+			line-height: 1.35;
+			white-space: nowrap;
+			color: var(--vscode-button-foreground);
+			background: var(--gl-ai-submit-bg, var(--vscode-button-background));
+			border: none;
+			border-radius: var(--gl-radius-sm);
+			cursor: pointer;
+			transition: background var(--gl-duration-fast);
+		}
+
+		.detached-btn:hover:not([aria-disabled='true']) {
+			background: var(
+				--gl-ai-submit-hover-bg,
+				var(--vscode-button-hoverBackground, var(--vscode-button-background))
+			);
+		}
+
+		.detached-btn:focus-visible {
+			${focusOutlineButton}
+		}
+
+		.detached-btn[aria-disabled='true'] {
+			cursor: default;
+			opacity: 0.6;
+		}
 	`;
 
 	@property({ type: Boolean, reflect: true })
@@ -438,6 +536,13 @@ export class GlAiInput extends LitElement {
 
 	@property({ type: Boolean, reflect: true })
 	active = false;
+
+	/** Layout mode. 'default' keeps the inline submit button + footer inside the pill. 'detached'
+	 *  moves the submit button out below the input (a plain primary via the `button` part /
+	 *  `--gl-ai-submit-*` vars), re-anchors the slotted footer as a tab on the input's top-right,
+	 *  and exposes `slot="actions"` beside the button for adjacent actions (e.g. Discard). */
+	@property({ reflect: true })
+	appearance: 'default' | 'detached' = 'default';
 
 	/** Overlay the footer on focus instead of reserving a persistent row, so compact inputs
 	 *  (e.g. Explain) don't lose vertical space to it. Requires slotted footer content. */
@@ -490,35 +595,69 @@ export class GlAiInput extends LitElement {
 					@keydown=${this.onKeydown}
 				/>`;
 
-		return html`<div class="ai-input__row">
-				${inputPart}<gl-tooltip
-					content=${this.disabled && this.disabledReason
-						? this.disabledReason
-						: (this.buttonTooltip ?? this.buttonLabel)}
-					placement="bottom"
-					><button
-						class="action-btn"
-						part="button"
-						aria-label=${this.buttonLabel}
-						aria-busy=${this.busy ? 'true' : nothing}
-						aria-disabled=${this.disabled && !this.busy ? 'true' : nothing}
-						tabindex=${this.disabled && !this.busy ? -1 : nothing}
-						?disabled=${this.busy}
-						@click=${this.onSubmit}
-					>
-						${this.busy
-							? html`<code-icon icon="loading" modifier="spin"></code-icon>`
-							: html`<span class="icon-slider"
-									><code-icon class="icon-sparkle" icon="sparkle"></code-icon
-									><code-icon class="icon-send" icon="send"></code-icon
-								></span>`}
-						<span class="action-label">${this.buttonLabel}</span>
-					</button></gl-tooltip
-				>
-			</div>
-			<div class="ai-input__footer" part="footer">
-				<slot name="footer" @slotchange=${this.onFooterSlotChange}></slot>
-			</div>`;
+		const footer = html`<div class="ai-input__footer" part="footer">
+			<slot name="footer" @slotchange=${this.onFooterSlotChange}></slot>
+		</div>`;
+
+		if (this.appearance === 'detached') {
+			return html`<div class="ai-input__box">
+					<div class="ai-input__row">${inputPart}</div>
+					${footer}
+				</div>
+				<div class="ai-input__actions">${this.renderDetachedButton()}<slot name="actions"></slot></div>`;
+		}
+
+		return html`<div class="ai-input__row">${inputPart}${this.renderActionButton()}</div>
+			${footer}`;
+	}
+
+	private renderActionButton() {
+		return html`<gl-tooltip
+			content=${this.disabled && this.disabledReason
+				? this.disabledReason
+				: (this.buttonTooltip ?? this.buttonLabel)}
+			placement="bottom"
+			><button
+				class="action-btn"
+				part="button"
+				aria-label=${this.buttonLabel}
+				aria-busy=${this.busy ? 'true' : nothing}
+				aria-disabled=${this.disabled && !this.busy ? 'true' : nothing}
+				tabindex=${this.disabled && !this.busy ? -1 : nothing}
+				?disabled=${this.busy}
+				@click=${this.onSubmit}
+			>
+				${this.busy
+					? html`<code-icon icon="loading" modifier="spin"></code-icon>`
+					: html`<span class="icon-slider"
+							><code-icon class="icon-sparkle" icon="sparkle"></code-icon
+							><code-icon class="icon-send" icon="send"></code-icon
+						></span>`}
+				<span class="action-label">${this.buttonLabel}</span>
+			</button></gl-tooltip
+		>`;
+	}
+
+	private renderDetachedButton() {
+		return html`<gl-tooltip
+			content=${this.disabled && this.disabledReason
+				? this.disabledReason
+				: (this.buttonTooltip ?? this.buttonLabel)}
+			placement="top"
+			><button
+				class="detached-btn"
+				part="button"
+				aria-label=${this.buttonLabel}
+				aria-busy=${this.busy ? 'true' : nothing}
+				aria-disabled=${this.disabled && !this.busy ? 'true' : nothing}
+				tabindex=${this.disabled && !this.busy ? -1 : nothing}
+				?disabled=${this.busy}
+				@click=${this.onSubmit}
+			>
+				${this.busy ? html`<code-icon icon="loading" modifier="spin"></code-icon>` : nothing}
+				<span class="action-label">${this.buttonLabel}</span>
+			</button></gl-tooltip
+		>`;
 	}
 
 	private onFooterSlotChange = (e: Event): void => {

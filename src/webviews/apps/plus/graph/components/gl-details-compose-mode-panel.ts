@@ -34,6 +34,7 @@ import {
 import { getScopeSplitPickerChrome, renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/ai-input.js';
+import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/button.js';
 import '../../../shared/components/markdown/markdown.js';
@@ -45,11 +46,12 @@ import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-commits-scope-pane.js';
 import './gl-categorizing-loading-animation.js';
 
-/** Event detail for the per-commit lock-toggle button. The parent panel routes this back to
- *  the workflow controller's lock state, which forwards locked ids into the next refine call. */
-export interface ComposeLockToggleDetail {
+/** Event detail for the per-commit include/exclude toggle in recompose mode. The parent panel
+ *  routes this into the refine-excluded set, forwarded to the library's `refinePlan` as
+ *  `lockedCommits` so excluded commits are preserved verbatim across the AI recompose. */
+export interface ComposeRefineExcludeToggleDetail {
 	commitId: string;
-	locked: boolean;
+	excluded: boolean;
 }
 
 /** Event detail for the per-commit "regenerate message" button. The parent routes this back to
@@ -173,10 +175,15 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@state() private _excludedFiles = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	/** Commit ids the user has excluded from the next "Commit" action. Independent of the
-	 *  lock state — locks affect what changes during refine, excludes affect what gets applied
-	 *  at commit time. Panel-local because it resets per plan (a fresh refine result starts
-	 *  with all commits included). */
+	 *  refine-excluded set — refine-exclusion affects what the AI leaves alone during recompose,
+	 *  commit-exclusion affects what gets applied at commit time. Panel-local because it resets
+	 *  per plan (a fresh recompose result starts with all commits included). */
 	@state() private _excludedCommitIds = new Set<string>();
+
+	/** Panel posture: false = commit (green checkmarks pick what will be committed), true = refine
+	 *  (orange checkmarks pick what the AI may reshape). Toggled by the "Refine with AI" checkbox.
+	 *  Panel-local; defaults to commit and persists across refine rounds within the engagement. */
+	@state() private _refineMode = false;
 
 	/** Pushed by the orchestrator from `state.composeForwardAvailable`. See review panel for the
 	 * full restore-vs-rerun rationale — bar click emits `compose-forward` for the orchestrator
@@ -189,11 +196,12 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property({ type: Object, attribute: false })
 	backPreview?: { commitCount: number; fileCount: number };
 
-	/** Commit ids the user has locked. Pushed by the orchestrator from
-	 *  `state.composeLockedCommitIds`. Each proposed commit renders a lock toggle in its row;
-	 *  toggling fires `compose-lock-toggle` which the orchestrator routes back into the signal. */
+	/** Commit ids the user has excluded from the AI recompose (checkbox unchecked in recompose
+	 *  mode). Pushed by the orchestrator from `state.composeRefineExcludedCommitIds`; toggling a
+	 *  row fires `compose-refine-exclude-toggle`, routed back into the signal, and the set is
+	 *  forwarded to `refinePlan` as `lockedCommits`. */
 	@property({ type: Object, attribute: false })
-	lockedCommitIds: ReadonlySet<string> = new Set();
+	excludedCommitIds: ReadonlySet<string> = new Set();
 
 	/** Commit id currently regenerating its message (sparkle button → spinner). Pushed by the
 	 *  orchestrator from `state.composeRegeneratingCommitId`. Drives the in-row icon swap and
@@ -364,7 +372,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 					.value=${this.basePrompt}
 					.busy=${this.status === 'loading'}
 					?disabled=${disabled}
-					disabled-reason="Include files to compose"
+					disabled-reason="Include Files to Compose"
 					@input=${this.onAiInputType}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
@@ -546,17 +554,64 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private renderPlan() {
 		if (!this.commits?.length) return nothing;
 
-		const isLoading = this.status === 'loading';
-
 		const includedCount = this.commits.length - this._excludedCommitIds.size;
 		const allIncluded = this._excludedCommitIds.size === 0;
-		const commitButtonLabel = allIncluded ? 'Commit All' : `Commit ${pluralize('Commit', includedCount)}`;
+		// "Change Sets" only appears with a count (a partial selection); the whole-set and disabled
+		// cases use the plain "Changes" (matching the gate), so the button never reads "0" or "All".
+		const commitButtonLabel =
+			allIncluded || includedCount === 0 ? 'Commit Changes' : `Commit ${pluralize('Change Set', includedCount)}`;
 
-		const commitAllRow = html`<div class="compose-plan__commit-all">
-			<gl-button full ?disabled=${includedCount === 0} @click=${this.handleCommitAll}
-				>${commitButtonLabel}</gl-button
+		// Refine posture mirrors the commit label: it counts the commits the AI is free to touch
+		// (checked = editable), i.e. everything minus the refine-excluded ones in the current plan.
+		const refineExcludedCount = this.commits.filter(c => this.excludedCommitIds.has(c.id)).length;
+		const refineCount = this.commits.length - refineExcludedCount;
+		const refineButtonLabel =
+			refineExcludedCount === 0 || refineCount === 0
+				? 'Recompose Changes'
+				: `Recompose ${pluralize('Change Set', refineCount)}`;
+
+		const actions = html`<div class="compose-plan__actions">
+			<gl-checkbox
+				class="compose-plan__gate"
+				?checked=${this._refineMode}
+				@gl-change-value=${this.handleToggleRefineMode}
 			>
-			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
+				<code-icon icon="wand"></code-icon> Recompose Changes
+			</gl-checkbox>
+			${this._refineMode
+				? html`<gl-ai-input
+						appearance="detached"
+						class="review-action-input"
+						multiline
+						rows="2"
+						button-label=${refineButtonLabel}
+						?disabled=${refineCount === 0}
+						disabled-reason="Include Changes to Recompose"
+						busy-label="Recomposing…"
+						event-name="compose-refine"
+						placeholder='Recompose — e.g. "Merge commits 1 and 2, they&apos;re related"'
+						.recall=${this.lastPrompt}
+					>
+						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+						<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
+							>Discard</gl-button
+						>
+					</gl-ai-input>`
+				: html`<div class="compose-plan__action-row">
+						<gl-button
+							class="compose-plan__commit"
+							full
+							aria-disabled=${includedCount === 0 ? 'true' : nothing}
+							tooltip=${includedCount === 0 ? 'Include a change set to commit' : nothing}
+							@click=${() => {
+								if (includedCount === 0) return;
+
+								this.handleCommitAll();
+							}}
+							>${commitButtonLabel}</gl-button
+						>
+						<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
+					</div>`}
 		</div>`;
 
 		const listEl = html`<div class="compose-plan__list scrollable">
@@ -565,29 +620,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 		</div>`;
 
 		return html`
-			<div class="compose-plan">
+			<div class="compose-plan ${this._refineMode ? 'compose-plan--refine' : ''}">
 				${this.stale ? this.renderStaleBanner() : nothing}
 				<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
 					<div slot="start" class="compose-plan__split-start">${listEl}</div>
-					<div slot="end" class="compose-plan__split-end">
-						${commitAllRow}${this.renderSelectedCommitFiles()}
-					</div>
+					<div slot="end" class="compose-plan__split-end">${this.renderSelectedCommitFiles()}</div>
 				</gl-split-panel>
+				${actions}
 			</div>
-			<gl-ai-input
-				class="review-action-input"
-				multiline
-				active
-				rows="2"
-				button-label="Refine"
-				busy-label="Recomposing…"
-				event-name="compose-refine"
-				placeholder='Refine — e.g. "Merge commits 1 and 2, they&apos;re related"'
-				.busy=${isLoading}
-				.recall=${this.lastPrompt}
-			>
-				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-			</gl-ai-input>
 		`;
 	}
 
@@ -606,12 +646,22 @@ export class GlDetailsComposeModePanel extends LitElement {
 	private renderProposedCommit(commit: ProposedCommit, index: number) {
 		const num = this.commits!.length - index;
 		const isSelected = this._selectedCommitId === commit.id;
-		const isLocked = this.lockedCommitIds.has(commit.id);
+		const isRefineExcluded = this.excludedCommitIds.has(commit.id);
 		const isExcluded = this._excludedCommitIds.has(commit.id);
-		const lockLabel = isLocked ? 'Allow Changes when Refining' : 'Prevent Changes when Refining';
-		const includeLabel = isExcluded ? 'Include Changes when Committing' : 'Exclude Changes when Committing';
+		// One checkmark per row; posture decides which axis it edits. Checked always means "let
+		// this commit flow through" (commit it / let the AI reshape it); unchecked "holds it back".
+		const isChecked = this._refineMode ? !isRefineExcluded : !isExcluded;
+		const checkLabel = this._refineMode
+			? isRefineExcluded
+				? 'Excluded when Recomposing'
+				: 'Included when Recomposing'
+			: isExcluded
+				? 'Excluded when Committing'
+				: 'Included when Committing';
 
-		const ariaState = [isLocked ? 'locked' : '', isExcluded ? 'excluded' : ''].filter(Boolean).join(', ');
+		const ariaState = [isRefineExcluded ? 'excluded from recompose' : '', isExcluded ? 'excluded from commit' : '']
+			.filter(Boolean)
+			.join(', ');
 
 		// Per-commit message regen gate. Disabled when AI isn't configured (the existing flow's
 		// model-picker entry point is on the bigger Compose/Refine input — keep this button
@@ -629,9 +679,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 					: 'Regenerate Commit Message';
 
 		return html`<div
-			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isLocked
-				? 'compose-commit--locked'
-				: ''} ${isExcluded ? 'compose-commit--excluded' : ''}"
+			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isExcluded
+				? 'compose-commit--excluded'
+				: ''} ${isRefineExcluded ? 'compose-commit--refine-excluded' : ''}"
 			role="button"
 			tabindex="0"
 			aria-current=${isSelected ? 'true' : 'false'}
@@ -683,35 +733,23 @@ export class GlDetailsComposeModePanel extends LitElement {
 			<div class="compose-commit__actions">
 				<gl-tooltip placement="left">
 					<gl-button
-						class="compose-commit__action compose-commit__action--lock ${isLocked
-							? 'compose-commit__action--locked'
-							: ''}"
-						aria-pressed=${isLocked ? 'true' : 'false'}
-						aria-label=${lockLabel}
+						class="compose-commit__check ${isChecked
+							? 'compose-commit__check--on'
+							: 'compose-commit__check--off'}"
+						aria-pressed=${isChecked ? 'true' : 'false'}
+						aria-label=${checkLabel}
 						@click=${(e: Event) => {
 							e.stopPropagation();
-							this.handleToggleCommitLocked(commit.id);
-						}}
-					>
-						<code-icon icon=${isLocked ? 'lock' : 'unlock'}></code-icon>
-					</gl-button>
-					<span slot="content">${lockLabel}</span>
-				</gl-tooltip>
-				<gl-tooltip placement="left">
-					<gl-button
-						class="compose-commit__action compose-commit__action--include ${isExcluded
-							? 'compose-commit__action--excluded'
-							: ''}"
-						aria-pressed=${isExcluded ? 'false' : 'true'}
-						aria-label=${includeLabel}
-						@click=${(e: Event) => {
-							e.stopPropagation();
-							this.handleToggleCommitIncluded(commit.id);
+							if (this._refineMode) {
+								this.handleToggleRefineExcluded(commit.id);
+							} else {
+								this.handleToggleCommitIncluded(commit.id);
+							}
 						}}
 					>
 						<code-icon icon="check"></code-icon>
 					</gl-button>
-					<span slot="content">${includeLabel}</span>
+					<span slot="content">${checkLabel}</span>
 				</gl-tooltip>
 			</div>
 		</div>`;
@@ -887,11 +925,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 		);
 	}
 
-	private handleToggleCommitLocked(commitId: string): void {
-		const locked = !this.lockedCommitIds.has(commitId);
+	private handleToggleRefineExcluded(commitId: string): void {
+		const excluded = !this.excludedCommitIds.has(commitId);
 		this.dispatchEvent(
-			new CustomEvent<ComposeLockToggleDetail>('compose-lock-toggle', {
-				detail: { commitId: commitId, locked: locked },
+			new CustomEvent<ComposeRefineExcludeToggleDetail>('compose-refine-exclude-toggle', {
+				detail: { commitId: commitId, excluded: excluded },
 				bubbles: true,
 				composed: true,
 			}),
@@ -916,5 +954,9 @@ export class GlDetailsComposeModePanel extends LitElement {
 			next.add(commitId);
 		}
 		this._excludedCommitIds = next;
+	}
+
+	private handleToggleRefineMode(e: Event): void {
+		this._refineMode = (e.target as { checked?: boolean }).checked ?? !this._refineMode;
 	}
 }

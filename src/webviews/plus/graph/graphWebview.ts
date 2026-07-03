@@ -1902,7 +1902,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 										svc: svc,
 										priorCacheKey: priorCacheKey,
 										customInstructions: instructions,
-										lockedCommitIds: options?.lockedCommitIds,
+										excludedCommitIds: options?.excludedCommitIds,
 										cancellation: cancellation,
 										telemetrySource: { source: 'graph' },
 										onProgress: event => {

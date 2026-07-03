@@ -181,7 +181,7 @@ export type ComposeChangesOptions = {
 	/** Commit ids the user has locked in the UI. Forwarded to the library's `refinePlan` as
 	 *  `lockedCommits` so the AI preserves them verbatim across the refinement. Ignored on
 	 *  cold start. */
-	lockedCommitIds?: readonly string[];
+	excludedCommitIds?: readonly string[];
 };
 
 export type ComposeResult =

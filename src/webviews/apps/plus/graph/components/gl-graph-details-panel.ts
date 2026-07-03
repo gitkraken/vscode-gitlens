@@ -616,17 +616,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow.compose.discard();
 	};
 
-	/** Toggle a commit's locked state in the compose plan. Locked commits are forwarded to
+	/** Toggle a commit's exclusion from the AI recompose. Excluded commits are forwarded to
 	 *  `refinePlan` as `lockedCommits` so the AI preserves them verbatim across refinements. */
-	private handleComposeLockToggle(commitId: string, locked: boolean): void {
-		const current = this._state.composeLockedCommitIds.get();
+	private handleComposeRefineExcludeToggle(commitId: string, excluded: boolean): void {
+		const current = this._state.composeRefineExcludedCommitIds.get();
 		const next = new Set(current);
-		if (locked) {
+		if (excluded) {
 			next.add(commitId);
 		} else {
 			next.delete(commitId);
 		}
-		this._state.composeLockedCommitIds.set(next);
+		this._state.composeRefineExcludedCommitIds.set(next);
 	}
 
 	/** External entry point — invoked when the extension requests entering compare mode with
@@ -2176,7 +2176,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			?applying=${this._state.composeApplying.get()}
 			?forward-available=${this._state.composeForwardAvailable.get()}
 			.backPreview=${this._state.composeBackPreview.get()}
-			.lockedCommitIds=${this._state.composeLockedCommitIds.get()}
+			.excludedCommitIds=${this._state.composeRefineExcludedCommitIds.get()}
 			.regeneratingCommitId=${this._state.composeRegeneratingCommitId.get()}
 			@compose-generate=${handleCompose}
 			@compose-refine=${handleCompose}
@@ -2206,8 +2206,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@compose-discard=${this.handleDiscardMode}
 			@compose-commit-all=${(e: CustomEvent<{ includedCommitIds?: readonly string[] }>) =>
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
-			@compose-lock-toggle=${(e: CustomEvent<{ commitId: string; locked: boolean }>) =>
-				this.handleComposeLockToggle(e.detail.commitId, e.detail.locked)}
+			@compose-refine-exclude-toggle=${(e: CustomEvent<{ commitId: string; excluded: boolean }>) =>
+				this.handleComposeRefineExcludeToggle(e.detail.commitId, e.detail.excluded)}
 			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
