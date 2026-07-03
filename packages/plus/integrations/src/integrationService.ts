@@ -204,8 +204,8 @@ export class IntegrationService implements Disposable {
 	 * Starts the cloud connect flow without skipping an already-connected provider, allowing the host/GK Dev
 	 * flow to add another account for that provider instead of treating the existing primary as sufficient.
 	 * Returns whether a new connection was actually added (measured by a new cloud connection id appearing),
-	 * since {@link connectCloudIntegrations}' boolean reasons at the provider level and can't detect a newly
-	 * added secondary for an already-connected provider.
+	 * since {@link connectCloudIntegrations} only reports provider-level success and can't detect a newly added
+	 * secondary for an already-connected provider.
 	 */
 	async connectSecondary(id: SupportedCloudIntegrationIds, source?: Source): Promise<boolean> {
 		const before = new Set(this.getConfigured(id, { cloud: true }).map(c => c.id));
