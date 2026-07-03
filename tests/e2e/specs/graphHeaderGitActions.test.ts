@@ -122,7 +122,9 @@ test.describe('Graph — Header git-action buttons', () => {
 
 		const webview = await openGraphOnBranch(vscode, 'main');
 
-		await expect(fetchLink(webview)).toHaveAttribute('href', /command:gitlens\.fetch/);
+		const fetch = fetchLink(webview);
+		await expect(fetch).toBeVisible({ timeout: MaxTimeout });
+		await expect(fetch).toHaveAttribute('href', /command:gitlens\.fetch/);
 	});
 
 	test('Publish Branch button is shown (and wired) for an unpublished branch', async ({ vscode }) => {
