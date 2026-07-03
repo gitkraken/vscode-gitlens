@@ -32,7 +32,7 @@ function headerButton(webview: FrameLocator, label: string): Locator {
 	return webview.locator(`button.action-button[aria-label="${label}"]`).first();
 }
 
-/** The always-present Fetch affordance — doubles as a "git-action buttons have rendered" anchor. */
+/** The always-present Fetch affordance. */
 function fetchLink(webview: FrameLocator): Locator {
 	return webview.locator('gl-fetch-button a.action-button[aria-label="Fetch"]').first();
 }
@@ -48,13 +48,17 @@ async function openGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	return webview!;
 }
 
-/** Check out a branch on the shared fixture repo, then open the graph on that branch. */
+/** Check out a branch on the shared fixture repo, then open the graph showing that branch. */
 async function openGraphOnBranch(vscode: VSCodeInstance, branch: string): Promise<FrameLocator> {
 	await git.checkout(branch);
 	const webview = await openGraph(vscode);
-	// Anchor on the fetch button so the git-action cluster has actually rendered before any
-	// presence/absence assertion runs (avoids a false-negative count-0 on the pre-render gap).
-	await expect(fetchLink(webview)).toBeVisible({ timeout: MaxTimeout });
+	// The graph can retain its webview across open/close, so an external `git checkout` may not be
+	// reflected yet. Force a fresh state push (as graphHeader.test.ts does after its git mutation),
+	// then gate readiness on the header's current-branch label showing the target branch — this binds
+	// every presence/absence assertion below to the correct branch state rather than a lagging prior
+	// one (the Fetch button is branch-independent, so it can't serve as that gate).
+	await vscode.gitlens.executeCommand('gitlens.views.graph.refresh');
+	await expect(webview.locator('gl-ref-button gl-ref-name').first()).toContainText(branch, { timeout: 30000 });
 	return webview;
 }
 
@@ -68,8 +72,10 @@ const test = base.extend({
 				await git.init(); // Initial commit
 				await git.commit('Second commit', 'a.txt', 'v2\n'); // main tip (no upstream → Publish)
 
-				// A dummy remote so the upstream config is well-formed; it is never contacted.
-				await git.addRemote('origin', repoDir);
+				// A bogus, unresolvable remote URL so the upstream config is well-formed. It must never be
+				// fetchable: a self-referential (fetchable) URL could — if autofetch were ever enabled —
+				// be pulled and silently collapse the ahead/behind/diverged states this spec builds.
+				await git.addRemote('origin', 'https://gitlens.test/never-fetched.git');
 
 				// Ahead: one local commit past the upstream ref.
 				await git.checkout('feature-ahead', true);
@@ -165,9 +171,9 @@ test.describe('Graph — Header git-action buttons', () => {
 		const webview = await openGraphOnBranch(vscode, 'feature-diverged');
 
 		// Diverged surfaces Pull as the primary action plus a dedicated Force Push button.
-		await expect(webview.locator('gl-push-pull-button a.action-button.is-behind').first()).toBeVisible({
-			timeout: MaxTimeout,
-		});
+		const pull = webview.locator('gl-push-pull-button a.action-button.is-behind').first();
+		await expect(pull).toBeVisible({ timeout: MaxTimeout });
+		await expect(pull).toHaveAttribute('href', /command:gitlens\.graph\.pull/);
 		const forcePush = webview.locator('gl-button[aria-label="Force Push"]').first();
 		await expect(forcePush).toBeVisible({ timeout: MaxTimeout });
 		await expect(forcePush).toHaveAttribute('href', /command:gitlens\.graph\.pushWithForce/);
