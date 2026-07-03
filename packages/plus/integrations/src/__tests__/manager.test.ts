@@ -95,11 +95,54 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 
 		const connected = await manager.connectSecondary(GitCloudHostIntegrationId.GitHub, { source: 'test' });
 
-		assert.equal(connected, true, 'reports true when the connection count grew');
+		assert.equal(connected, true, 'reports true when a new connection id was added');
 		assert.equal(
 			manager.getConfigured(GitCloudHostIntegrationId.GitHub).length,
 			2,
 			'both connections are now configured',
+		);
+		manager.dispose();
+	});
+
+	test('connectSecondary reports true when a new connection replaces the existing id', async () => {
+		const runtime = createFakeRuntime();
+		const configured = new ConfiguredIntegrationService(runtime);
+		await configured.storeSession(GitCloudHostIntegrationId.GitHub, cloudSession('tok1'));
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		runtime.account.connect = async () => true;
+		runtime.account.fetchGkApi = (path: string) => {
+			const body =
+				path === 'v1/provider-tokens'
+					? {
+							data: [
+								{
+									tokenId: 'tok2',
+									provider: 'github',
+									type: 'oauth',
+									domain: '',
+								},
+							],
+						}
+					: {
+							data: {
+								tokenId: path.split('/').pop(),
+								accessToken: 'a',
+								expiresIn: 3600,
+								scopes: 'repo',
+								type: 'oauth',
+							},
+						};
+			return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+		};
+		const manager = createIntegrationManager(runtime);
+
+		const connected = await manager.connectSecondary(GitCloudHostIntegrationId.GitHub, { source: 'test' });
+
+		assert.equal(connected, true, 'reports true when a new connection id replaces the old one');
+		assert.deepEqual(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub).map(c => c.id),
+			['tok2'],
+			'only the replacement connection remains configured',
 		);
 		manager.dispose();
 	});

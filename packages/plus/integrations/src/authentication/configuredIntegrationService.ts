@@ -157,11 +157,12 @@ export class ConfiguredIntegrationService implements Disposable {
 				return;
 			}
 
-			// Only fire the change event on domain/scopes/primary/accountName changes (ignore expiresAt/type churn)
+			// Only fire the change event on domain/scopes/primary/type/accountName changes (ignore expiresAt churn)
 			changed =
 				existing.domain !== normalized.domain ||
 				existing.scopes !== normalized.scopes ||
 				(existing.primary ?? false) !== (normalized.primary ?? false) ||
+				existing.type !== normalized.type ||
 				existing.accountName !== normalized.accountName;
 
 			// remove the existing descriptor from the array
