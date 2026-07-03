@@ -212,9 +212,16 @@ test.describe('Graph — Header menus', () => {
 		const webview = await openGraph(vscode);
 		await selectWipDetails(webview);
 
+		// Anchor on the commit box rendering first: the signing indicator (and its host box) render
+		// asynchronously after the WIP panel appears, so a bare count-0 poll would pass instantly on
+		// the pre-render gap — before the disabled config could ever matter. Once the box is up, the
+		// prior test's indicator is still shown from the cached (enabled) signing config until the
+		// external `.git/config` edit propagates (repo watcher: `config` → git-cache reset → WIP
+		// re-push), so poll until it actually clears. The generous timeout absorbs the watcher latency.
+		await expect(webview.locator('gl-commit-box').first()).toBeVisible({ timeout: MaxTimeout });
 		await expect
 			.poll(() => webview.locator('.signing-indicator').count(), {
-				timeout: MaxTimeout,
+				timeout: 30000,
 			})
 			.toBe(0);
 	});
