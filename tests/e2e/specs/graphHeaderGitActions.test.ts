@@ -80,6 +80,11 @@ const test = base.extend({
 	vscodeOptions: [
 		{
 			vscodeVersion: process.env.VSCODE_VERSION ?? 'stable',
+			// Pin `git.autofetch` off so the Fetch popover always renders the auto-fetch *toggle*
+			// branch, not the "handled by VS Code Git" info row. It's off by default, but pinning it
+			// makes the "Fetch popover surfaces the auto-fetch toggle" test immune to environment /
+			// VS Code-version drift in that default.
+			userSettings: { 'git.autofetch': false },
 			setup: async () => {
 				const repoDir = await createTmpDir();
 				git = new GitFixture(repoDir);
@@ -211,8 +216,8 @@ test.describe('Graph — Header git-action buttons', () => {
 		const webview = await openGraphOnBranch(vscode, 'main');
 		await openFetchPopover(webview);
 
-		// With auto-fetch off (the default), the popover offers the toggle rather than the
-		// "handled by VS Code" info row.
+		// With auto-fetch pinned off (see userSettings), the popover offers the toggle rather than
+		// the "handled by VS Code Git" info row.
 		const toggle = webview.locator('gl-fetch-button gl-checkbox').first();
 		await expect(toggle).toBeVisible({ timeout: MaxTimeout });
 		await expect(toggle).toContainText('Auto-fetch');
