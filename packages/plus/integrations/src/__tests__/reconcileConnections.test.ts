@@ -429,10 +429,10 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 	});
 
 	test('resolves account name for a self-managed provider using the parsed host (not the raw URL)', async () => {
-		const { manager } = createManager({
+		const { runtime, manager } = createManager({
 			// No `accountName` on the wire → forces the provider-API resolution tier.
 			connections: [
-				{ tokenId: 'ent1', provider: 'githubEnterprise', type: 'oauth', domain: 'https://ghe.example.com' },
+				{ tokenId: 'ent1', provider: 'githubEnterprise', type: 'oauth', domain: 'http://ghe.example.com' },
 			],
 			token: (path: string) => {
 				const tokenId = path.endsWith('/githubEnterprise') ? 'ent1' : path.split('/').pop();
@@ -447,7 +447,7 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		});
 
 		// Pre-create the self-managed integration under the PARSED host and stub its account lookup. Reconcile
-		// must resolve to THIS instance — proving it parsed 'https://ghe.example.com' → 'ghe.example.com'. A
+		// must resolve to THIS instance — proving it parsed 'http://ghe.example.com' → 'ghe.example.com'. A
 		// raw-URL key would miss this instance and fall through to a live provider call (undefined here).
 		const ghe = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com');
 		assert.ok(ghe != null, 'self-managed integration constructs');
@@ -458,6 +458,11 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		const [connection] = manager.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
 		assert.equal(connection?.accountName, 'ent-user', 'account name resolved via the host-keyed integration');
 		assert.equal(connection?.domain, 'ghe.example.com', 'self-managed descriptor keeps its host domain');
+		assert.match(
+			(await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ent1')) ?? '',
+			/"protocol":"http:"/,
+			'stored session preserves the backend URL protocol',
+		);
 
 		manager.dispose();
 	});

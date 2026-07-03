@@ -1238,6 +1238,17 @@ function hostFromDomain(domain: string | undefined): string | undefined {
 	}
 }
 
+function protocolFromDomain(domain: string | undefined): string | undefined {
+	const value = domain?.trim();
+	if (!value) return undefined;
+
+	try {
+		return new URL(value).protocol || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 function toProviderSession(
 	id: IntegrationIds,
 	connection: CloudIntegrationConnection & { id: string },
@@ -1249,6 +1260,7 @@ function toProviderSession(
 		(id === GitCloudHostIntegrationId.GitHub || isCloudGitSelfManagedHostIntegrationId(id))
 			? maxSmallIntegerV8
 			: session.expiresIn;
+	const protocol = protocolFromDomain(connection.domain);
 
 	return {
 		id: connection.id,
@@ -1260,5 +1272,6 @@ function toProviderSession(
 		expiresAt: new Date(expiresIn * 1000 + Date.now()),
 		// Self-managed connections are keyed by their host; cloud providers use the canonical domain.
 		domain: isGitSelfManagedHostIntegrationId(id) ? (host ?? '') : (providersMetadata[id]?.domain ?? ''),
+		...(protocol != null ? { protocol: protocol } : {}),
 	};
 }
