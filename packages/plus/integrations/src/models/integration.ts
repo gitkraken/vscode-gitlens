@@ -184,8 +184,11 @@ export abstract class IntegrationBase<
 		}
 
 		if (signOut) {
+			// Disconnecting a provider signs out of ALL its connected accounts (multi-account), not just the
+			// primary — otherwise secondary connections' secrets/config would be orphaned. Removing a single
+			// account is done via IntegrationService.deleteConnection instead.
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			void authProvider.deleteSession(this.authProviderDescriptor);
+			void authProvider.deleteAllSessions();
 		}
 
 		this.resetRequestExceptionCount('all');
@@ -251,6 +254,19 @@ export abstract class IntegrationBase<
 	async reset(): Promise<void> {
 		await this.disconnect({ silent: true });
 		await this.ctx.storage.deleteWorkspace(this.connectedKey);
+	}
+
+	/**
+	 * Drops the in-memory session so the next access re-resolves it from storage. Used when the primary
+	 * connection changed underneath a warm integration (e.g. after `setPrimaryConnection`/
+	 * `deleteConnection`). Unlike {@link reset}/{@link disconnect}, it deletes nothing from storage.
+	 */
+	switchConnection(): void {
+		if (this._session === undefined) return;
+
+		this._session = undefined;
+		this._onDidChange.fire();
+		this.refresh();
 	}
 
 	private skippedNonCloudReported = false;
@@ -626,6 +642,15 @@ export abstract class IntegrationBase<
 		session: ProviderAuthenticationSession,
 		options?: { avatarSize?: number },
 	): Promise<Account | undefined>;
+
+	/**
+	 * Resolves the account for a specific session/token — including connections other than the current
+	 * primary (multi-account) — using this integration's provider API base URL and auth type. Returns
+	 * undefined when the provider doesn't support account lookup. Uncached (callers cache per connection).
+	 */
+	getProviderAccountForSession(session: ProviderAuthenticationSession): Promise<Account | undefined> {
+		return this.getProviderCurrentAccount?.(session) ?? Promise.resolve(undefined);
+	}
 
 	@trace()
 	async getPullRequest(resource: T, id: string): Promise<PullRequest | undefined> {

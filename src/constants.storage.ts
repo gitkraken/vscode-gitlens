@@ -1,5 +1,6 @@
 import type { AIProviderAndModel, AIProviders } from '@gitlens/ai/constants.js';
 import type { GitRevisionRangeNotation } from '@gitlens/git/models/revision.js';
+import type { CloudIntegrationAuthType } from '@gitlens/integrations/authentication/models.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import type { IntegrationConnectedKey } from '@gitlens/integrations/models/integration.js';
 import type { GraphBranchesVisibility, ViewShowBranchComparison } from './config.js';
@@ -165,6 +166,14 @@ export type StoredIntegrationConfigurations = Record<
 >;
 
 export interface StoredConfiguredIntegrationDescriptor {
+	/** Stable per-connection identifier. Backfilled from the domain for pre-multi-account stored data. */
+	id?: string;
+	/** Whether this is the primary/default connection for the provider. */
+	primary?: boolean;
+	/** The connection's auth type (`oauth`/`pat`), when known. */
+	type?: CloudIntegrationAuthType;
+	/** Human-readable account handle for this connection (e.g. the GitHub login), when resolved. */
+	accountName?: string;
 	cloud: boolean;
 	integrationId: IntegrationIds;
 	domain?: string;

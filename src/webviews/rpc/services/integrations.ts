@@ -24,6 +24,8 @@ export function getIntegrationStates(container: Container): IntegrationStateInfo
 
 	for (const i of configured) {
 		if (!isSupportedCloudIntegrationId(i.integrationId)) continue;
+		// A provider can have multiple connections (multi-account); surface one connected state per provider.
+		if (integrations.some(s => s.id === i.integrationId)) continue;
 
 		const meta = providersMetadata[i.integrationId];
 		const descriptor = supportedCloudIntegrationDescriptors.find(d => d.id === i.integrationId);

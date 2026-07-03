@@ -992,11 +992,18 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 
 	private getIntegrationStates(force = false) {
 		if (force || this._integrationStates == null) {
+			// A provider can have multiple connections (multi-account); surface one state per provider.
+			const seenIntegrationIds = new Set<string>();
 			const integrations: IntegrationState[] = [
 				...filterMap(this.container.integrations.getConfigured(), i => {
 					if (!isSupportedCloudIntegrationId(i.integrationId)) {
 						return undefined;
 					}
+					if (seenIntegrationIds.has(i.integrationId)) {
+						return undefined;
+					}
+
+					seenIntegrationIds.add(i.integrationId);
 
 					const supportedCloudDescriptor = supportedCloudIntegrationDescriptors.find(
 						item => item.id === i.integrationId,

@@ -80,6 +80,26 @@ export type TokenOptInfo<T extends IntegrationIds = IntegrationIds> =
 	| { providerId: T; accessToken?: undefined };
 
 export interface ConfiguredIntegrationDescriptor {
+	/**
+	 * Stable per-connection identifier, distinct from the domain, so multiple accounts can be
+	 * connected to the same provider+domain simultaneously. For legacy/migrated single connections
+	 * this is the domain (self-managed) or the provider's canonical domain (cloud), which keeps the
+	 * existing secret key (`integration.auth[.cloud]:{id}|{domain}`) valid with zero migration.
+	 */
+	readonly id: string;
+	/**
+	 * Whether this is the connection used by default for the provider. Optional: when no descriptor
+	 * for a provider+domain carries an explicit flag, the first one is treated as primary. Only
+	 * {@link ConfiguredIntegrationService.setPrimaryConnection} sets the flag (and clears it on siblings).
+	 */
+	readonly primary?: boolean;
+	/** The connection's auth type (`oauth`/`pat`), when known. */
+	readonly type?: CloudIntegrationAuthType;
+	/**
+	 * Human-readable account handle for this connection (e.g. the GitHub login). Resolved from the
+	 * provider API (the token backend doesn't expose it); absent until resolved or if the lookup fails.
+	 */
+	readonly accountName?: string;
 	readonly cloud: boolean;
 	readonly integrationId: IntegrationIds;
 	readonly scopes: string;
@@ -93,6 +113,8 @@ export interface CloudIntegrationAuthenticationSession {
 	domain: string;
 	expiresIn: number;
 	scopes: string;
+	/** Backend per-connection token identifier, when the provider-tokens backend supports multi-account. */
+	id?: string;
 }
 
 export interface CloudIntegrationAuthorization {
@@ -103,6 +125,12 @@ export interface CloudIntegrationConnection {
 	type: CloudIntegrationAuthType;
 	provider: CloudIntegrationType;
 	domain: string;
+	/** Backend per-connection token identifier, when the provider-tokens backend supports multi-account. */
+	id?: string;
+	/** Whether the backend marks this connection as the primary/default for the provider. */
+	primary?: boolean;
+	/** Human-readable account handle, when the backend provides it on the connection (may be absent). */
+	accountName?: string;
 }
 
 export type CloudIntegrationType =

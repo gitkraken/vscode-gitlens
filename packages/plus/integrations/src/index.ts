@@ -99,8 +99,14 @@ export type {
 export type {
 	AuthenticationSessionLike,
 	CloudIntegrationAuthType,
+	CloudIntegrationConnection,
+	CloudIntegrationType,
+	ConfiguredIntegrationDescriptor,
 	ProviderAuthenticationSession,
 } from './authentication/models.js';
+// Provider-id mapping helpers for consumers bridging their own provider ids to `IntegrationIds`
+// (e.g. mapping multi-account connections from `getConfigured` back to a provider) and vice versa.
+export { toCloudIntegrationType, toIntegrationId } from './authentication/models.js';
 
 // Convenience: wrap a static access token (env var, CLI flag, secret manager)
 // as an `IntegrationAuthenticationProvider`. For OAuth/refresh flows, implement

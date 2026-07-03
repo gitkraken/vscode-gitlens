@@ -61,6 +61,10 @@ export class ConfiguredIntegrationService implements Disposable {
 
 				const descriptors = configured.map(d => ({
 					...d,
+					// Backfill a stable connection id for pre-multi-account stored data: the domain for
+					// self-managed hosts, or the provider's canonical domain for cloud (which is the legacy
+					// secret-key session id), so existing secrets keep resolving with zero migration.
+					id: d.id ?? d.domain ?? providersMetadata[id]?.domain ?? '',
 					expiresAt: d.expiresAt ? new Date(d.expiresAt) : undefined,
 				}));
 				this._configured.set(id, descriptors);
@@ -122,21 +126,43 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
 		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
-		const existing = descriptors.find(
-			d =>
-				d.domain === descriptor.domain &&
-				d.integrationId === descriptor.integrationId &&
-				d.cloud === descriptor.cloud,
-		);
+		// Key connections by their stable id (+ cloud, to preserve legacy local/cloud coexistence) so
+		// multiple accounts on the same provider+domain no longer overwrite each other.
+		const existing = descriptors.find(d => d.id === descriptor.id && d.cloud === descriptor.cloud);
+
+		// The first connection for a provider is primary by default; an explicit flag (or the existing
+		// value) always wins.
+		const primary = descriptor.primary ?? existing?.primary ?? !descriptors.some(d => d.primary);
+		// Preserve a previously-resolved type/accountName when the incoming write doesn't carry them (e.g.
+		// the model re-stores the primary session with an empty account, after reconcile enriched it).
+		const type = descriptor.type ?? existing?.type;
+		const accountName = descriptor.accountName ?? existing?.accountName;
+		const normalized: ConfiguredIntegrationDescriptor = {
+			...descriptor,
+			primary: primary,
+			type: type,
+			accountName: accountName,
+		};
 
 		let changed: boolean;
 		if (existing != null) {
-			if (existing.expiresAt === descriptor.expiresAt && existing.scopes === descriptor.scopes) {
+			if (
+				existing.domain === normalized.domain &&
+				existing.expiresAt === normalized.expiresAt &&
+				existing.scopes === normalized.scopes &&
+				(existing.primary ?? false) === (normalized.primary ?? false) &&
+				existing.type === normalized.type &&
+				existing.accountName === normalized.accountName
+			) {
 				return;
 			}
 
-			// Only fire the change event if the scopes changes (i.e. ignore any expiresAt changes)
-			changed = existing.scopes !== descriptor.scopes;
+			// Only fire the change event on domain/scopes/primary/accountName changes (ignore expiresAt/type churn)
+			changed =
+				existing.domain !== normalized.domain ||
+				existing.scopes !== normalized.scopes ||
+				(existing.primary ?? false) !== (normalized.primary ?? false) ||
+				existing.accountName !== normalized.accountName;
 
 			// remove the existing descriptor from the array
 			descriptors.splice(descriptors.indexOf(existing), 1);
@@ -144,7 +170,7 @@ export class ConfiguredIntegrationService implements Disposable {
 			changed = true;
 		}
 
-		descriptors.push(descriptor);
+		descriptors.push(normalized);
 		this.configured.set(descriptor.integrationId, descriptors);
 
 		if (changed) {
@@ -155,31 +181,39 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	private async removeConfigured(
 		id: IntegrationIds,
-		options: { cloud: boolean | undefined; domain: string | undefined },
+		options: { connectionId: string; cloud: boolean | undefined },
 	): Promise<void> {
-		let changed = false;
-		const descriptors = [];
+		const existing = this.configured.get(id);
+		if (existing == null || existing.length === 0) return;
 
-		for (const d of this.configured.get(id) ?? []) {
+		let removedPrimary = false;
+		const descriptors: ConfiguredIntegrationDescriptor[] = [];
+		for (const d of existing) {
 			if (
-				d.domain === options.domain &&
+				d.id === options.connectionId &&
 				(options?.cloud == null ||
 					(options?.cloud === true && d.cloud === true) ||
 					(options?.cloud === false && d.cloud === false))
 			) {
-				changed = true;
+				if (d.primary) {
+					removedPrimary = true;
+				}
 				continue;
 			}
 
 			descriptors.push(d);
 		}
 
-		this.configured.set(id, descriptors);
+		if (descriptors.length === existing.length) return; // nothing matched
 
-		if (changed) {
-			this.fireChange(undefined, id);
+		// Promote a secondary to primary when the removed connection was the primary and others remain,
+		// so the provider stays in a well-defined connected state.
+		if (removedPrimary && descriptors.length && !descriptors.some(d => d.primary)) {
+			descriptors[0] = { ...descriptors[0], primary: true };
 		}
 
+		this.configured.set(id, descriptors);
+		this.fireChange(undefined, id);
 		await this.storeConfigured();
 	}
 
@@ -191,7 +225,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		const sessionId = this.getSessionId(descriptor);
+		const sessionId = this.resolveConnectionId(id, descriptor);
 		let session = await this.readSecret(id, sessionId, false);
 
 		let cloudIfMissing = false;
@@ -221,7 +255,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		cloud?: boolean,
 	): Promise<void> {
-		await this.deleteSecrets(id, this.getSessionId(descriptor), cloud);
+		await this.deleteSecrets(id, this.resolveConnectionId(id, descriptor), cloud);
 	}
 
 	async deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean): Promise<void> {
@@ -247,9 +281,9 @@ export class ConfiguredIntegrationService implements Disposable {
 			if (!(id in stored)) continue;
 
 			for (const descriptor of stored[id] ?? []) {
-				const sessionId = descriptor.domain ?? '';
-				await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id as IntegrationIds, sessionId));
-				await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id as IntegrationIds, sessionId));
+				const connectionId = descriptor.id ?? descriptor.domain ?? '';
+				await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id as IntegrationIds, connectionId));
+				await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id as IntegrationIds, connectionId));
 				if (descriptor.domain) {
 					await this.ctx.storage.deleteWorkspace(`connected:${id}:${descriptor.domain}`);
 				}
@@ -262,34 +296,32 @@ export class ConfiguredIntegrationService implements Disposable {
 		await this.ctx.storage.store('integrations:configured', remaining as StoredIntegrationConfigurations);
 	}
 
-	async deleteSecrets(id: IntegrationIds, sessionId: string, cloud?: boolean): Promise<void> {
+	async deleteSecrets(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
 		if (cloud == null || cloud === false) {
-			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, sessionId));
+			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
 		}
 
 		if (cloud == null || cloud === true) {
-			await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, sessionId));
+			await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, connectionId));
 		}
 
-		await this.removeConfigured(id, {
-			cloud: cloud,
-			domain: isGitSelfManagedHostIntegrationId(id) ? sessionId : undefined,
-		});
+		await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
 	}
 
 	async deleteAllSecrets(id: IntegrationIds, cloud?: boolean): Promise<void> {
-		if (isGitSelfManagedHostIntegrationId(id)) {
-			// Hack because session IDs are tied to domain. Update this when session ids are different
-			const configuredDomains = this.configured.get(id)?.map(c => c.domain);
-			if (configuredDomains != null) {
-				for (const domain of configuredDomains) {
-					await this.deleteSecrets(id, domain!, cloud);
-				}
+		// Delete every connection's secret (multi-account): secrets are keyed per connection id, so a
+		// single canonical-domain delete would orphan secondary tokens.
+		const connectionIds = [...new Set(this.configured.get(id)?.map(c => c.id))];
+		if (connectionIds.length) {
+			for (const connectionId of connectionIds) {
+				await this.deleteSecrets(id, connectionId, cloud);
 			}
 
 			return;
 		}
 
+		// No configured connections (e.g. an orphaned secret with no descriptor): fall back to the
+		// provider's canonical domain, which is the legacy session id for cloud providers.
 		await this.deleteSecrets(id, providersMetadata[id].domain, cloud);
 	}
 
@@ -300,11 +332,14 @@ export class ConfiguredIntegrationService implements Disposable {
 		);
 
 		await this.addOrUpdateConfigured({
+			id: session.id,
 			integrationId: id,
 			domain: isGitSelfManagedHostIntegrationId(id) ? session.domain : undefined,
 			expiresAt: session.expiresAt,
 			scopes: session.scopes.join(','),
 			cloud: session.cloud ?? false,
+			type: session.type,
+			accountName: session.account?.label || undefined,
 		});
 	}
 
@@ -320,18 +355,27 @@ export class ConfiguredIntegrationService implements Disposable {
 				storedSession = JSON.parse(sessionJSON);
 				if (storedSession != null) {
 					const configured = this.configured.get(id);
-					const domain = isGitSelfManagedHostIntegrationId(id) ? storedSession.id : undefined;
+					const connectionId = storedSession.id ?? sessionId;
+					const sessionCloud = storedSession.cloud ?? cloud;
+					const domain = isGitSelfManagedHostIntegrationId(id)
+						? (storedSession.domain ?? storedSession.id)
+						: undefined;
 					if (
 						configured == null ||
 						configured.length === 0 ||
-						!configured.some(c => c.domain === domain && c.integrationId === id)
+						!configured.some(
+							c => c.id === connectionId && c.integrationId === id && c.cloud === sessionCloud,
+						)
 					) {
 						await this.addOrUpdateConfigured({
+							id: connectionId,
 							integrationId: id,
 							domain: domain,
 							expiresAt: storedSession.expiresAt,
 							scopes: storedSession.scopes.join(','),
-							cloud: storedSession.cloud ?? false,
+							cloud: sessionCloud,
+							type: storedSession.type,
+							accountName: storedSession.account?.label || undefined,
 						});
 					}
 				}
@@ -363,8 +407,54 @@ export class ConfiguredIntegrationService implements Disposable {
 		return `integration.auth.cloud:${id}|${sessionId}`;
 	}
 
-	getSessionId(descriptor: IntegrationAuthenticationSessionDescriptor): string {
-		return descriptor.domain;
+	/**
+	 * Resolves the connection id used as the secret-key session id for an auth descriptor.
+	 * - If the descriptor targets a specific connection (`connectionId`), that wins.
+	 * - Otherwise returns the primary connection's id for the provider (matching the descriptor's domain
+	 *   for self-managed hosts; any connection for cloud hosts, where the stored domain is undefined).
+	 * - Falls back to the descriptor domain when nothing is configured yet, preserving legacy
+	 *   (pre-multi-account) reads with zero secret migration.
+	 */
+	resolveConnectionId(id: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
+		if (descriptor.connectionId != null) return descriptor.connectionId;
+
+		const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
+		const candidates = this.configured.get(id)?.filter(c => c.domain === domain);
+		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id ?? descriptor.domain;
+	}
+
+	/**
+	 * Marks the given connection as the primary/default for the provider and clears the flag on its
+	 * siblings. Persists immediately instead of relying on a session re-store to carry the primary flag.
+	 */
+	async setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+		const descriptors = this.configured.get(id);
+		if (descriptors == null || descriptors.length === 0) return;
+		if (!descriptors.some(d => d.id === connectionId)) return;
+
+		let changed = false;
+		const updated = descriptors.map(d => {
+			const primary = d.id === connectionId;
+			if ((d.primary ?? false) === primary) return d;
+
+			changed = true;
+			return { ...d, primary: primary };
+		});
+		if (!changed) return;
+
+		this.configured.set(id, updated);
+		this.fireChange(id);
+		await this.storeConfigured();
+	}
+
+	/**
+	 * Removes a single connection (its secret + configured descriptor). If it was the primary and other
+	 * connections remain, a secondary is promoted (see {@link removeConfigured}). Unlike
+	 * {@link deleteAllStoredSessions}, this only affects the targeted connection. Pass `cloud` to scope
+	 * the removal to the cloud/local variant when a local PAT and a cloud session share a connection id.
+	 */
+	async deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
+		await this.deleteSecrets(id, connectionId, cloud);
 	}
 
 	private _addedIds = new Set<IntegrationIds>();

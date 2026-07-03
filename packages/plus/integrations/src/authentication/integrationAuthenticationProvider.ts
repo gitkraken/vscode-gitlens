@@ -24,6 +24,12 @@ export interface IntegrationAuthenticationProviderDescriptor {
 export interface IntegrationAuthenticationSessionDescriptor {
 	domain: string;
 	scopes: string[];
+	/**
+	 * Targets a specific connection when a provider has multiple accounts connected. When omitted,
+	 * operations resolve to the provider's primary connection (see
+	 * {@link ConfiguredIntegrationService.resolveConnectionId}).
+	 */
+	connectionId?: string;
 	[key: string]: unknown;
 }
 
@@ -235,7 +241,11 @@ export class CloudIntegrationAuthenticationProvider<
 		if (!loggedIn) return undefined;
 
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
-		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
+		let session = await cloudIntegrations.getConnectionSession(
+			this.authProviderId,
+			undefined,
+			descriptor.connectionId,
+		);
 
 		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
 		if (
@@ -248,7 +258,11 @@ export class CloudIntegrationAuthenticationProvider<
 		}
 
 		if (session != null && session.expiresIn < 60) {
-			session = await cloudIntegrations.getConnectionSession(this.authProviderId, session.accessToken);
+			session = await cloudIntegrations.getConnectionSession(
+				this.authProviderId,
+				session.accessToken,
+				descriptor.connectionId,
+			);
 		}
 
 		if (!session) return undefined;
@@ -263,7 +277,9 @@ export class CloudIntegrationAuthenticationProvider<
 
 		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
 		return {
-			id: this.configuredIntegrationService.getSessionId(descriptor),
+			// Prefer the backend's per-connection token id (multi-account); fall back to the resolved
+			// primary/legacy connection id so existing single-connection storage keys are preserved.
+			id: session.id ?? this.configuredIntegrationService.resolveConnectionId(this.authProviderId, descriptor),
 			accessToken: session.accessToken,
 			scopes: descriptor.scopes,
 			account: {
