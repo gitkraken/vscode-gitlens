@@ -1492,7 +1492,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				const count = value.result.resolutions.filter(r => r.strategy !== 'skipped').length;
 				if (count > 0) {
 					return html`<span class="mode-status__group"
-						><code-icon icon="git-merge"></code-icon>${count} ${count === 1 ? 'file' : 'files'}
+						><code-icon icon="gl-merge"></code-icon>${count} ${count === 1 ? 'file' : 'files'}
 						resolved</span
 					>`;
 				}

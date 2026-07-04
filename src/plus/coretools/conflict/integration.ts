@@ -130,6 +130,32 @@ export class ConflictToolsIntegration {
 				if (args.signal?.aborted) return;
 
 				const { path: filePath, reason } = entries[i];
+
+				// A both-deleted (DD) file has no content on either side to keep — the only possible
+				// resolution is to delete it, so resolve it automatically rather than asking the user to
+				// confirm the obvious. A content-less `deleted` resolution is applied via `git rm` by the
+				// library's `applyResolutions` (the same shape a manual take-side delete queues). This also
+				// collapses the redundant original-path row of a rename/rename (git records it as DD).
+				// Extraction is skipped entirely — the working-tree file is absent, so it would throw ENOENT.
+				if (reason === 'both-deleted') {
+					const description = 'Deleted on both sides — removed automatically.';
+					resolutions.push({
+						filePath: filePath,
+						content: '',
+						strategy: 'deleted',
+						confidence: 1,
+						description: description,
+					});
+					args.onProgress?.({
+						type: 'resolution:applied',
+						filePath: filePath,
+						strategy: 'deleted',
+						confidence: 1,
+						description: description,
+					});
+					continue;
+				}
+
 				try {
 					// `reason` lets delete/modify conflicts extract as resolvable `delete-modify`
 					// conflicts (matching the library's sequential batch) instead of returning null.

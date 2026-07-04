@@ -2,7 +2,9 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
-import { classifyConflictAction, getConflictKindLabel } from '@gitlens/git/utils/conflictResolution.utils.js';
+import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
+import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
+import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -13,6 +15,7 @@ import type {
 	ResolveSkippedFile,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
@@ -40,14 +43,61 @@ export interface ResolveOpenFileDetail {
 }
 
 /** Friendly label + icon for each conflict-tools resolution strategy. `skipped` is a warning —
- *  the file was intentionally left conflicted and still needs manual attention. */
+ *  the file was intentionally left conflicted and still needs manual attention. Labels are sentence
+ *  case to match the conflict-kind badges ({@link conflictKindDisplay}) — one badge vocabulary. */
 const strategyDisplay: Record<ConflictResolutionStrategy, { label: string; icon: string; warn?: boolean }> = {
-	ai: { label: 'merged', icon: 'git-merge' },
-	'take-ours': { label: 'kept current', icon: 'arrow-left' },
-	'take-theirs': { label: 'took incoming', icon: 'arrow-right' },
-	deleted: { label: 'deleted', icon: 'trash' },
-	skipped: { label: 'needs review', icon: 'warning', warn: true },
+	ai: { label: 'Merged', icon: 'gl-merge' },
+	'take-ours': { label: 'Kept current', icon: 'gl-accept-left' },
+	'take-theirs': { label: 'Took incoming', icon: 'gl-accept-right' },
+	deleted: { label: 'Deleted', icon: 'trash' },
+	skipped: { label: 'Needs review', icon: 'warning', warn: true },
 };
+
+/** Short badge label + a distinct icon per conflict kind for the "needs your input" rows. The badge
+ *  stays terse — the one-line explanation is carried by the row's message
+ *  (`getConflictKindLabel(...).description`, computed host-side). A per-kind icon replaces a uniform
+ *  warning glyph so the list is scannable; the amber tone + section already signal "needs you". */
+const conflictKindDisplay: Record<ConflictKind, { label: string; icon: string }> = {
+	text: { label: 'Text', icon: 'diff' },
+	binary: { label: 'Binary', icon: 'file-binary' },
+	symlink: { label: 'Symlink', icon: 'file-symlink-file' },
+	submodule: { label: 'Submodule', icon: 'repo' },
+	'mode-only': { label: 'File mode', icon: 'settings-gear' },
+	'add-add': { label: 'Both added', icon: 'diff-added' },
+	'delete-modify': { label: 'Modified & deleted', icon: 'diff-modified' },
+	'both-deleted': { label: 'Both deleted', icon: 'trash' },
+	'rename-rename': { label: 'Both renamed', icon: 'arrow-swap' },
+	'rename-delete': { label: 'Renamed & deleted', icon: 'diff-renamed' },
+	'rename-modify': { label: 'Renamed & modified', icon: 'diff-renamed' },
+	unknown: { label: 'Conflict', icon: 'warning' },
+};
+
+/** Badge display for a still-conflicted (skipped/errored) row; falls back to a generic warning when
+ *  the kind couldn't be determined. add/add is refined by status: git splits a real add/add into two
+ *  one-sided paths (AU/UA), so only a true AA is "Both added" — AU/UA are labelled by their side. */
+function kindDisplay(kind: ConflictKind | undefined, status?: GitFileConflictStatus): { label: string; icon: string } {
+	if (kind === 'add-add') {
+		if (status === 'AU') return { label: 'Added (current)', icon: 'diff-added' };
+		if (status === 'UA') return { label: 'Added (incoming)', icon: 'diff-added' };
+		return { label: 'Both added', icon: 'diff-added' };
+	}
+	return kind != null ? conflictKindDisplay[kind] : { label: 'Needs review', icon: 'warning' };
+}
+
+/** AI confidence bucket for a resolution (`confidence` is 0–1). Drives the confidence pips and the
+ *  low-confidence emphasis (reasoning auto-expands, badge tints to warning). */
+function confidenceLevel(confidence: number): 'high' | 'medium' | 'low' {
+	if (confidence >= 0.8) return 'high';
+	if (confidence >= 0.5) return 'medium';
+	return 'low';
+}
+
+/** Drop the trailing action hint ("… — choose a side to keep") from a conflict description — the row's
+ *  buttons already say what to do. */
+function conflictWhat(message: string): string {
+	const i = message.indexOf(' — ');
+	return i === -1 ? message : message.slice(0, i);
+}
 
 /**
  * AI conflict-resolution mode panel for the graph WIP details. A third AI mode alongside compose
@@ -92,13 +142,138 @@ export class GlDetailsResolveModePanel extends LitElement {
 				color: var(--vscode-descriptionForeground);
 			}
 
-			.resolve-files {
+			/* Scroll container for the whole ready-state result list (progress + both sections). */
+			.resolve-results {
+				display: flex;
 				flex: 1;
+				flex-direction: column;
 				min-height: 0;
-				padding: 0;
-				margin: var(--gl-space-4) 0;
 				overflow-y: auto;
+			}
+
+			.resolve-files {
+				margin: 0;
+				padding: 0;
 				list-style: none;
+			}
+
+			/* Progress summary above the sections — orientation before detail. */
+			.resolve-progress {
+				display: flex;
+				flex: none;
+				flex-direction: column;
+				gap: var(--gl-space-6);
+				padding: var(--gl-space-10) var(--gl-space-12);
+				border-bottom: var(--gl-border-width) solid var(--vscode-panel-border);
+			}
+
+			.resolve-progress__text {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: baseline;
+			}
+
+			.resolve-progress__done {
+				font-weight: 600;
+			}
+
+			.resolve-progress__sep {
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.resolve-progress__need {
+				color: var(--vscode-editorWarning-foreground, #cca700);
+				font-weight: 600;
+			}
+
+			.resolve-progress__bar {
+				display: flex;
+				height: 0.4rem;
+				overflow: hidden;
+				border-radius: 999px;
+				background: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+			}
+
+			/* Two-tone fill: green = resolved fraction, amber = still-needs-input fraction, so the bar reads
+			   as a split rather than "complete". Segments size by flex-grow = their file count. */
+			.resolve-progress__bar-seg {
+				height: 100%;
+				flex-basis: 0;
+			}
+
+			.resolve-progress__bar-seg--done {
+				background: var(--vscode-charts-green, var(--vscode-testing-iconPassed, currentColor));
+			}
+
+			.resolve-progress__bar-seg--need {
+				background: var(--vscode-editorWarning-foreground, #cca700);
+			}
+
+			/* Counted, collapsible result-group headers (Resolved / Needs your input). */
+			.resolve-section {
+				margin: 0;
+				font: inherit;
+			}
+
+			/* Sticky so the group you're scrolled into stays labelled at the top of the list. */
+			.resolve-section__head {
+				position: sticky;
+				top: 0;
+				z-index: 1;
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				width: 100%;
+				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-6);
+				color: var(--vscode-descriptionForeground);
+				font: inherit;
+				text-align: left;
+				background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				border: none;
+				cursor: pointer;
+			}
+
+			.resolve-section__chevron {
+				flex: none;
+				transition: transform 0.15s ease;
+			}
+
+			.resolve-section__head[aria-expanded='false'] .resolve-section__chevron {
+				transform: rotate(-90deg);
+			}
+
+			.resolve-section__status {
+				flex: none;
+			}
+
+			.resolve-section__head--resolved .resolve-section__status {
+				color: var(--vscode-charts-green, var(--vscode-testing-iconPassed));
+			}
+
+			.resolve-section__head--needs,
+			.resolve-section__head--needs .resolve-section__status {
+				color: var(--vscode-editorWarning-foreground, #cca700);
+			}
+
+			.resolve-section__label {
+				font-size: var(--gl-font-sm);
+				font-weight: 700;
+				letter-spacing: 0.05em;
+				text-transform: uppercase;
+			}
+
+			.resolve-section__count {
+				padding: 0.05rem 0.5rem;
+				font-size: var(--gl-font-sm);
+				font-weight: 700;
+				color: var(--vscode-badge-foreground);
+				background: var(--vscode-badge-background);
+				border-radius: 999px;
+			}
+
+			.resolve-section__head--needs .resolve-section__count {
+				color: var(--vscode-editorWarning-foreground, #cca700);
+				background: color-mix(in srgb, var(--vscode-editorWarning-foreground, #cca700) 22%, transparent);
 			}
 
 			.resolve-file {
@@ -142,16 +317,31 @@ export class GlDetailsResolveModePanel extends LitElement {
 				overflow: hidden;
 			}
 
+			/* Small-caps matches GitLens' shared <gl-badge> convention (badges.css.ts) so the resolution
+			   and conflict-kind badges read as house-style status tags rather than sentence fragments. */
 			.resolve-file__badge {
 				display: inline-flex;
 				flex: none;
 				gap: 0.3rem;
 				align-items: center;
-				padding: 0.1rem 0.5rem;
+				padding: 0.25rem 0.5rem;
 				font-size: var(--gl-font-sm);
+				font-weight: 600;
+				font-variant: all-small-caps;
+				line-height: 1;
+				letter-spacing: 0.02em;
 				color: var(--vscode-badge-foreground);
 				background: var(--vscode-badge-background);
 				border-radius: var(--gl-radius-sm);
+			}
+
+			/* all-small-caps glyphs sit low in the line box next to the centred icon — raise them a hair. */
+			.resolve-file__badge-text {
+				transform: translateY(-0.05em);
+			}
+
+			.resolve-file__badge code-icon {
+				transform: translateY(0.05em);
 			}
 
 			.resolve-file__badge--warn {
@@ -169,12 +359,106 @@ export class GlDetailsResolveModePanel extends LitElement {
 				color: var(--vscode-errorForeground);
 			}
 
-			/* Manual take-side fallback actions on a skipped/errored row. */
-			.resolve-file__actions {
+			/* Rename/rename decision: the two candidate names shown as indented side rows under the header. */
+			.resolve-file__sides {
 				display: flex;
-				flex-wrap: wrap;
+				flex-direction: column;
 				gap: var(--gl-space-4);
-				margin-top: var(--gl-space-2);
+				margin: var(--gl-space-6) 0 var(--gl-space-2) var(--gl-space-6);
+				padding-left: var(--gl-space-8);
+				border-left: var(--gl-border-width) solid var(--vscode-panel-border);
+			}
+
+			.resolve-file__side {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+			}
+
+			.resolve-file__side-tag {
+				flex: none;
+				min-width: 5rem;
+				font-size: var(--gl-font-sm);
+				font-variant: all-small-caps;
+				letter-spacing: 0.02em;
+				color: var(--vscode-descriptionForeground);
+			}
+
+			.resolve-file__side-path {
+				flex: 1;
+				min-width: 0;
+				overflow: hidden;
+				font-weight: 600;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			/* AI confidence pips — neutral; low tints to warning (the only actionable level). */
+			.resolve-file__conf {
+				display: inline-flex;
+				flex: none;
+				gap: 0.4rem;
+				align-items: center;
+				color: var(--vscode-descriptionForeground);
+				font-size: var(--gl-font-sm);
+			}
+
+			.resolve-file__pips {
+				display: inline-flex;
+				gap: 0.2rem;
+			}
+
+			.resolve-file__pip {
+				width: 0.5rem;
+				height: 0.5rem;
+				background: currentColor;
+				border-radius: 50%;
+				opacity: 0.3;
+			}
+
+			.resolve-file__pip.on {
+				opacity: 1;
+			}
+
+			.resolve-file__conf--low {
+				color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
+			}
+
+			/* Prominent "View changes" — a labelled toolbar button rather than a bare diff icon. */
+			.resolve-file__view {
+				flex: none;
+			}
+
+			.resolve-file__view-label,
+			.resolve-file__action-label {
+				margin-left: 0.3rem;
+			}
+
+			/* Collapsible "Why this resolution" disclosure for each resolution's reasoning. */
+			.resolve-file__why {
+				display: inline-flex;
+				gap: 0.3rem;
+				align-items: center;
+				align-self: flex-start;
+				padding: var(--gl-space-2) 0;
+				color: var(--vscode-descriptionForeground);
+				font: inherit;
+				font-size: var(--gl-font-sm);
+				background: transparent;
+				border: none;
+				cursor: pointer;
+			}
+
+			.resolve-file__why:hover {
+				color: var(--vscode-foreground);
+			}
+
+			.resolve-file__why-chevron {
+				transition: transform 0.15s ease;
+			}
+
+			.resolve-file__why[aria-expanded='true'] .resolve-file__why-chevron {
+				transform: rotate(90deg);
 			}
 
 			/* Ready-state action zone: the Refine gate on top, then either the Apply row (Apply posture)
@@ -285,6 +569,11 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
+	/** Rows whose "Why this resolution" reasoning is expanded. Seeded with low-confidence rows on
+	 *  ready-entry (they warrant scrutiny); user toggles override. */
+	@state() private _openReasons = new Set<string>();
+	/** Collapsed result sections (`'resolved'` | `'needs'`) — both expanded by default. */
+	@state() private _collapsedSections = new Set<string>();
 	/** Ready-state posture: false = Apply (default), true = Refine. Toggled by the "Refine Resolutions"
 	 *  gate checkbox — Apply and Refine are mutually-exclusive postures (compose's gate model), so the
 	 *  refine input never shares the zone with Apply. Reset to Apply on each ready-entry (see willUpdate). */
@@ -333,6 +622,12 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// gate hiding it. Placed before the early-returning identity block so it can't be skipped.
 		if (changedProperties.has('status') && this.status === 'ready') {
 			this._refineMode = false;
+			// Auto-expand the reasoning of low-confidence resolutions so the risky ones get scrutiny.
+			this._openReasons = new Set(
+				(this.resolutions ?? [])
+					.filter(r => r.reasoning && confidenceLevel(r.confidence) === 'low')
+					.map(r => r.filePath),
+			);
 		}
 
 		// Reset the user deltas when the anchor/focus identity changes (fresh entry, or following
@@ -365,7 +660,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	override render(): unknown {
-		return html`<div class="resolve-panel">${this.renderContent()}</div>`;
+		return html`<div class="resolve-panel" role="region" aria-label="Resolve conflicts">
+			${this.renderContent()}
+		</div>`;
 	}
 
 	private renderContent(): unknown {
@@ -515,24 +812,56 @@ export class GlDetailsResolveModePanel extends LitElement {
 		// Resolutions"); the disabled/none case reads the plain noun so it never says "0" or "all".
 		const applyLabel = applicable > 0 ? `Apply ${pluralize('Resolution', applicable)}` : 'Apply Resolutions';
 
+		const resolvedCount = resolutions.length;
+		const needCount = skipped.length + errors.length;
+		const total = resolvedCount + needCount;
+
 		return html`
-			<ul class="resolve-files scrollable" aria-label="Resolved files">
-				${repeat(
-					resolutions,
-					r => r.filePath,
-					r => this.renderResolution(r),
-				)}
-				${repeat(
-					skipped,
-					s => s.filePath,
-					s => this.renderSkipped(s),
-				)}
-				${repeat(
-					errors,
-					e => e.filePath,
-					e => this.renderError(e),
-				)}
-			</ul>
+			${total > 0
+				? html`<div class="resolve-progress">
+						<span class="resolve-progress__text">
+							<span class="resolve-progress__done">${resolvedCount} of ${total} resolved</span>
+							${needCount > 0
+								? html`<span class="resolve-progress__sep">·</span
+										><span class="resolve-progress__need">${needCount} need your input</span>`
+								: nothing}
+						</span>
+						<span class="resolve-progress__bar" aria-hidden="true">
+							<span
+								class="resolve-progress__bar-seg resolve-progress__bar-seg--done"
+								style=${cspStyleMap({ 'flex-grow': String(resolvedCount) })}
+							></span>
+							<span
+								class="resolve-progress__bar-seg resolve-progress__bar-seg--need"
+								style=${cspStyleMap({ 'flex-grow': String(needCount) })}
+							></span>
+						</span>
+					</div>`
+				: nothing}
+			<div class="resolve-results scrollable">
+				${resolvedCount > 0
+					? this.renderSection(
+							'resolved',
+							'Resolved',
+							resolvedCount,
+							'pass',
+							repeat(
+								resolutions,
+								r => r.filePath,
+								r => this.renderResolution(r),
+							),
+						)
+					: nothing}
+				${needCount > 0
+					? this.renderSection(
+							'needs',
+							'Needs your input',
+							needCount,
+							'warning',
+							this.renderNeedsBody(skipped, errors),
+						)
+					: nothing}
+			</div>
 			<div class="resolve-ready-actions">
 				<gl-checkbox
 					class="resolve-gate"
@@ -582,30 +911,95 @@ export class GlDetailsResolveModePanel extends LitElement {
 		`;
 	}
 
+	/** A collapsible, counted result group (Resolved / Needs your input). Uses an `h3` with the toggle
+	 *  as its button so assistive tech gets real section headings. */
+	private renderSection(
+		key: 'resolved' | 'needs',
+		label: string,
+		count: number,
+		icon: string,
+		body: unknown,
+	): unknown {
+		const expanded = !this._collapsedSections.has(key);
+		// Header + rows share one group so the sticky header has room to stick while its rows scroll —
+		// a header sticky inside a header-height wrapper has nowhere to travel.
+		return html`<div class="resolve-section" role="group" aria-label=${label}>
+			<button
+				class="resolve-section__head resolve-section__head--${key}"
+				aria-expanded=${expanded}
+				@click=${() => this.toggleSection(key)}
+			>
+				<code-icon class="resolve-section__chevron" icon="chevron-down"></code-icon>
+				<code-icon class="resolve-section__status" icon=${icon}></code-icon>
+				<span class="resolve-section__label">${label}</span>
+				<span class="resolve-section__count">${count}</span>
+			</button>
+			${expanded
+				? html`<ul class="resolve-files">
+						${body}
+					</ul>`
+				: nothing}
+		</div>`;
+	}
+
+	private toggleSection(key: string): void {
+		const next = new Set(this._collapsedSections);
+		if (next.has(key)) {
+			next.delete(key);
+		} else {
+			next.add(key);
+		}
+		this._collapsedSections = next;
+	}
+
+	/** Confidence pips (three dots, filled by level) + a text label. Neutral except low — the only
+	 *  actionable level (its reasoning also auto-expands) — which tints to warning. */
+	private renderConfidence(level: 'high' | 'medium' | 'low'): unknown {
+		const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+		return html`<span class="resolve-file__conf resolve-file__conf--${level}" title="AI confidence: ${level}">
+			<span class="resolve-file__pips" aria-hidden="true"
+				>${[0, 1, 2].map(i => html`<i class="resolve-file__pip ${i < filled ? 'on' : ''}"></i>`)}</span
+			><span class="resolve-file__conf-label">${level}</span>
+		</span>`;
+	}
+
+	private toggleReason(filePath: string): void {
+		const next = new Set(this._openReasons);
+		if (next.has(filePath)) {
+			next.delete(filePath);
+		} else {
+			next.add(filePath);
+		}
+		this._openReasons = next;
+	}
+
 	private renderResolution(r: ResolvedFileSummary): unknown {
 		const display = strategyDisplay[r.strategy];
 		const canViewDiff = r.virtualRef != null;
 		const retrying = this.retryingFiles?.has(r.filePath) ?? false;
 		const expanded = this._expandedRetry.has(r.filePath);
+		const reasonOpen = this._openReasons.has(r.filePath);
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<span
 					class="resolve-file__badge ${display.warn ? 'resolve-file__badge--warn' : ''}"
 					title="Resolution strategy"
 				>
-					<code-icon icon=${display.icon} size="11"></code-icon>${display.label}
+					<code-icon icon=${display.icon} size="11"></code-icon
+					><span class="resolve-file__badge-text">${display.label}</span>
 				</span>
 				<span class="resolve-file__path">${r.filePath}</span>
+				${this.renderConfidence(confidenceLevel(r.confidence))}
 				${canViewDiff
-					? html`<gl-tooltip content="View resolved changes">
-							<gl-button
-								appearance="toolbar"
-								aria-label="View diff for ${r.filePath}"
-								@click=${() => this.emit('resolve-view-diff', { filePath: r.filePath })}
-							>
-								<code-icon icon="diff"></code-icon>
-							</gl-button>
-						</gl-tooltip>`
+					? html`<gl-button
+							appearance="toolbar"
+							class="resolve-file__view"
+							aria-label="View resolved changes for ${r.filePath}"
+							@click=${() => this.emit('resolve-view-diff', { filePath: r.filePath })}
+						>
+							<code-icon icon="diff"></code-icon
+							><span class="resolve-file__view-label">View Changes</span>
+						</gl-button>`
 					: nothing}
 				<gl-tooltip content=${retrying ? 'Re-resolving…' : 'Retry with feedback'}>
 					<gl-button
@@ -622,7 +1016,17 @@ export class GlDetailsResolveModePanel extends LitElement {
 					</gl-button>
 				</gl-tooltip>
 			</div>
-			${r.reasoning ? html`<p class="resolve-file__reasoning">${r.reasoning}</p>` : nothing}
+			${r.reasoning
+				? html`<button
+							class="resolve-file__why"
+							aria-expanded=${reasonOpen}
+							@click=${() => this.toggleReason(r.filePath)}
+						>
+							<code-icon class="resolve-file__why-chevron" icon="chevron-right"></code-icon>Why this
+							resolution
+						</button>
+						${reasonOpen ? html`<p class="resolve-file__reasoning">${r.reasoning}</p>` : nothing}`
+				: nothing}
 			${expanded
 				? html`<gl-ai-input
 						class="resolve-file__feedback"
@@ -669,19 +1073,98 @@ export class GlDetailsResolveModePanel extends LitElement {
 		this.emit('resolve-retry-file', { filePath: filePath, prompt: prompt });
 	}
 
-	/** A still-conflicted file the resolver couldn't auto-resolve (no parseable markers — binary,
-	 *  symlink, mode, rename, …). Not retryable with AI, but the user can take a side manually. */
-	private renderSkipped(s: ResolveSkippedFile): unknown {
-		const badge = s.kind != null ? getConflictKindLabel(s.kind, s.renameOf).label : 'needs review';
+	/** Builds the "Needs your input" list. Each rename/rename pair (both target paths share the same
+	 *  original `renameOf`) is collapsed into a single decision row so the user sees both candidate names
+	 *  and their side together — instead of two disconnected half-rows each with one take-side button. */
+	private renderNeedsBody(skipped: readonly ResolveSkippedFile[], errors: readonly ResolveFileError[]): unknown {
+		const renameGroups = new Map<string, ResolveSkippedFile[]>();
+		const singles: ResolveSkippedFile[] = [];
+		for (const s of skipped) {
+			if (s.kind === 'rename-rename' && s.renameOf != null) {
+				const group = renameGroups.get(s.renameOf);
+				if (group != null) {
+					group.push(s);
+				} else {
+					renameGroups.set(s.renameOf, [s]);
+				}
+			} else {
+				singles.push(s);
+			}
+		}
+
+		return html`${repeat(
+			singles,
+			s => s.filePath,
+			s => this.renderSkipped(s),
+		)}${repeat(
+			[...renameGroups],
+			([renameOf]) => renameOf,
+			([renameOf, group]) => this.renderRenameGroup(renameOf, group),
+		)}${repeat(
+			errors,
+			e => e.filePath,
+			e => this.renderError(e),
+		)}`;
+	}
+
+	/** A rename/rename decision: the original file was renamed to a different name on each side. Shows
+	 *  both candidate names with their side + a take-side button, so the user can pick which name to
+	 *  keep — taking a side keeps that name and deletes the other (the host resolves the pair). */
+	private renderRenameGroup(renameOf: string, group: readonly ResolveSkippedFile[]): unknown {
+		// Current side first, then incoming, so the order is stable regardless of how git listed them.
+		const ordered = [...group].sort((a, b) => (a.canStageCurrent ? 0 : 1) - (b.canStageCurrent ? 0 : 1));
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
-					<code-icon icon="warning" size="11"></code-icon>${badge}
+					<code-icon icon="arrow-swap" size="11"></code-icon
+					><span class="resolve-file__badge-text">Both renamed</span>
+				</span>
+				<span class="resolve-file__path">${renameOf}</span>
+			</div>
+			<p class="resolve-file__reasoning">“${renameOf}” was renamed differently on each side</p>
+			<div class="resolve-file__sides">${ordered.map(entry => this.renderRenameSide(entry))}</div>
+		</li>`;
+	}
+
+	/** One side of a rename/rename decision: the candidate name + which side it came from + its take-side
+	 *  and open actions. */
+	private renderRenameSide(entry: ResolveSkippedFile): unknown {
+		const status = entry.conflictStatus;
+		const staging = this.stagingFiles?.has(entry.filePath) ?? false;
+		const side: ConflictSide = entry.canStageCurrent ? 'current' : 'incoming';
+		return html`<div class="resolve-file__side">
+			<span class="resolve-file__side-tag">${side === 'current' ? 'Current' : 'Incoming'}</span>
+			<span class="resolve-file__side-path">${entry.filePath}</span>
+			${status != null ? this.renderTakeSideButton(entry.filePath, side, status, staging) : nothing}
+			<gl-tooltip content="Open in the merge editor">
+				<gl-button
+					appearance="toolbar"
+					aria-label="Open ${entry.filePath} in the merge editor"
+					@click=${() => this.emit('resolve-open-file', { filePath: entry.filePath })}
+				>
+					<code-icon icon="go-to-file"></code-icon>
+				</gl-button>
+			</gl-tooltip>
+		</div>`;
+	}
+
+	/** A still-conflicted file the resolver couldn't auto-resolve (no parseable markers — binary,
+	 *  symlink, mode, rename, …). Not retryable with AI, but the user can take a side manually. */
+	private renderSkipped(s: ResolveSkippedFile): unknown {
+		const badge = kindDisplay(s.kind, s.conflictStatus);
+		// Keep the message interpolation flush inside the <p> — `.resolve-file__reasoning` is `pre-wrap`,
+		// so any newline/indent around it would render as literal blank space before the text.
+		const message = s.conflictStatus == null ? 'This file is no longer conflicted.' : conflictWhat(s.message);
+		return html`<li class="resolve-file">
+			<div class="resolve-file__head">
+				<span class="resolve-file__badge resolve-file__badge--warn" title="Needs manual resolution">
+					<code-icon icon=${badge.icon} size="11"></code-icon
+					><span class="resolve-file__badge-text">${badge.label}</span>
 				</span>
 				<span class="resolve-file__path">${s.filePath}</span>
+				${this.renderFallbackActions(s)}
 			</div>
-			<p class="resolve-file__reasoning">${s.message}</p>
-			${this.renderFallbackActions(s)}
+			<p class="resolve-file__reasoning">${message}</p>
 		</li>`;
 	}
 
@@ -689,65 +1172,81 @@ export class GlDetailsResolveModePanel extends LitElement {
 	 *  dead-ended — taking a side doesn't depend on the AI succeeding. When the conflict type is known
 	 *  (binary/symlink/rename/…), label it so a non-text conflict doesn't read as a generic failure. */
 	private renderError(e: ResolveFileError): unknown {
-		const kindLabel = e.kind != null ? getConflictKindLabel(e.kind, e.renameOf).label : undefined;
+		const badge = e.kind != null ? kindDisplay(e.kind, e.conflictStatus) : undefined;
 		return html`<li class="resolve-file">
 			<div class="resolve-file__head">
 				<code-icon class="resolve-file__error" icon="error"></code-icon>
-				${kindLabel != null
+				${badge != null
 					? html`<span class="resolve-file__badge resolve-file__badge--warn" title="Conflict type"
-							><code-icon icon="warning" size="11"></code-icon>${kindLabel}</span
+							><code-icon icon=${badge.icon} size="11"></code-icon
+							><span class="resolve-file__badge-text">${badge.label}</span></span
 						>`
 					: nothing}
 				<span class="resolve-file__path">${e.filePath}</span>
+				${this.renderFallbackActions(e)}
 			</div>
 			<p class="resolve-file__reasoning resolve-file__error">${e.message}</p>
-			${this.renderFallbackActions(e)}
 		</li>`;
 	}
 
-	/** Manual take-side actions for a skipped/errored row, gated by which sides have content to take.
-	 *  Renders nothing when the file is no longer conflicted (no status) or no side can be taken. */
+	/** Manual take-side actions for a skipped/errored row, rendered as right-aligned toolbar icons in the
+	 *  row head (mirroring the resolved rows). Gated by which sides have content to take; renders nothing
+	 *  when the file is no longer conflicted. */
 	private renderFallbackActions(file: ResolveSkippedFile | ResolveFileError): unknown {
 		const status = file.conflictStatus;
-		if (status == null) {
-			return html`<p class="resolve-file__reasoning">This file is no longer conflicted.</p>`;
-		}
+		if (status == null) return nothing;
 
 		const staging = this.stagingFiles?.has(file.filePath) ?? false;
-		// For delete-modify / rename-delete (UD/DU), one stageable side resolves to a delete rather than
-		// keeping content — label that button "Delete File" so the action isn't surprising.
-		const sideLabel = (side: 'current' | 'incoming') =>
-			classifyConflictAction(status, side) === 'delete'
-				? 'Delete File'
-				: side === 'current'
-					? 'Take Current'
-					: 'Take Incoming';
 
 		const buttons: unknown[] = [];
 		if (file.canStageCurrent) {
-			buttons.push(this.renderTakeSideButton(file.filePath, 'current', sideLabel('current'), staging));
+			buttons.push(this.renderTakeSideButton(file.filePath, 'current', status, staging));
 		}
 		if (file.canStageIncoming) {
-			buttons.push(this.renderTakeSideButton(file.filePath, 'incoming', sideLabel('incoming'), staging));
+			buttons.push(this.renderTakeSideButton(file.filePath, 'incoming', status, staging));
 		}
 		// both-deleted (DD): neither side has content — the only resolution is to confirm the deletion.
 		if (!file.canStageCurrent && !file.canStageIncoming && file.kind === 'both-deleted') {
-			buttons.push(this.renderTakeSideButton(file.filePath, 'delete', 'Delete File', staging));
+			buttons.push(this.renderTakeSideButton(file.filePath, 'delete', status, staging));
 		}
-		if (buttons.length === 0) return nothing;
 
-		return html`<div class="resolve-file__actions">${buttons}</div>`;
+		// Open the conflicted file in the 3-way merge editor to inspect both sides before choosing. A
+		// both-deleted file has no working-tree content to open, so skip it there.
+		if (file.kind !== 'both-deleted') {
+			buttons.push(html`<gl-tooltip content="Open in the merge editor">
+				<gl-button
+					appearance="toolbar"
+					aria-label="Open ${file.filePath} in the merge editor"
+					@click=${() => this.emit('resolve-open-file', { filePath: file.filePath })}
+				>
+					<code-icon icon="go-to-file"></code-icon>
+				</gl-button>
+			</gl-tooltip>`);
+		}
+
+		return buttons.length > 0 ? buttons : nothing;
 	}
 
-	private renderTakeSideButton(filePath: string, side: ConflictSide, label: string, staging: boolean): unknown {
+	/** A take-side action as a right-aligned toolbar button (icon + label), mirroring the resolved rows.
+	 *  Uses GitLens' accept-side glyphs — gl-accept-left = current/ours, gl-accept-right = incoming/theirs
+	 *  (the same icons the WIP conflict tree uses) — or trash when the side resolves to a deletion. */
+	private renderTakeSideButton(
+		filePath: string,
+		side: ConflictSide,
+		status: GitFileConflictStatus,
+		staging: boolean,
+	): unknown {
+		const isDelete = side === 'delete' ? true : classifyConflictAction(status, side) === 'delete';
+		const icon = isDelete ? 'trash' : side === 'current' ? 'gl-accept-left' : 'gl-accept-right';
+		const label = isDelete ? 'Delete File' : side === 'current' ? 'Take Current' : 'Take Incoming';
 		return html`<gl-button
-			appearance="secondary"
-			density="compact"
+			appearance="toolbar"
 			aria-label="${label} for ${filePath}"
 			?disabled=${staging}
 			@click=${() => this.emit('resolve-take-side', { filePath: filePath, side: side })}
 		>
-			${staging ? html`<code-icon icon="loading" modifier="spin"></code-icon>` : nothing}${label}
+			<code-icon icon=${staging ? 'loading' : icon} modifier=${staging ? 'spin' : ''}></code-icon
+			><span class="resolve-file__action-label">${label}</span>
 		</gl-button>`;
 	}
 
