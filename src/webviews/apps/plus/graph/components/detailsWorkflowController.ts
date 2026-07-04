@@ -8,6 +8,7 @@ import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	ComposeResult,
 	ConflictSide,
+	ProposedCommit,
 	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveResult,
@@ -1264,7 +1265,176 @@ export class DetailsWorkflowController implements ReactiveController {
 				}
 			}
 		},
+
+		/**
+		 * Reorder the draft commits after a drag or keyboard move. `orderedDisplayIds` is the full
+		 * set of the plan's commit ids in the new **display** order (top row first). The resource is
+		 * reordered optimistically for a snappy render, then the new order is synced to the host's
+		 * cached plan so apply and any subsequent refine honor it. A sync failure (stale plan) reverts
+		 * the optimistic order — provided a newer reorder hasn't superseded ours in the meantime.
+		 */
+		reorderCommits: async (orderedDisplayIds: string[]): Promise<void> => {
+			if (!orderedDisplayIds.length) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			const engagedKey = anchorKey(this.currentAnchor());
+
+			const currentValue = this.actions.resources.compose.value.get();
+			if (currentValue == null || !('result' in currentValue)) return;
+
+			// Resolve the new order against the current commits; bail if it isn't an exact
+			// permutation (a stale gesture racing a plan swap).
+			const byId = new Map(currentValue.result.commits.map(c => [c.id, c]));
+			if (orderedDisplayIds.length !== byId.size) return;
+
+			const reordered: ProposedCommit[] = [];
+			for (const id of orderedDisplayIds) {
+				const commit = byId.get(id);
+				if (commit == null) return;
+
+				reordered.push(commit);
+			}
+
+			const priorCommits = currentValue.result.commits;
+			// No-op if the order is unchanged.
+			if (reordered.every((c, i) => c === priorCommits[i])) return;
+
+			// Optimistically reorder the resource (drives the panel re-render) and shadow the
+			// running-operation entry, mirroring the regen patch below.
+			const patched = { ...currentValue, result: { ...currentValue.result, commits: reordered } };
+			this.actions.resources.compose.mutate(patched);
+			const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+			if (entry?.execState === 'complete') {
+				this.registerRunningOperation({ ...entry, result: patched });
+			}
+
+			const startedAt = performance.now();
+			try {
+				// The host's canonical order is tip-last; the display is reversed (newest first).
+				const libraryOrder = [...orderedDisplayIds].reverse();
+				const result = await this.actions.services.graphInspect.reorderProposedCommits(
+					repoPath,
+					cacheKey,
+					libraryOrder,
+				);
+				if (this._disconnected) return;
+
+				if ('error' in result) {
+					this.revertComposeReorder(engagedKey, reordered, priorCommits);
+					this.actions.sendTelemetryEvent('graphDetails/compose/reorder/failed', {
+						'plan.commits.count': reordered.length,
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/reorder/completed', {
+					'plan.commits.count': reordered.length,
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.revertComposeReorder(engagedKey, reordered, priorCommits);
+				this.actions.sendTelemetryEvent('graphDetails/compose/reorder/failed', {
+					'plan.commits.count': reordered.length,
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			}
+		},
+
+		/**
+		 * Move file `path` from one draft commit to another after a drag drop. Unlike reorder, this
+		 * changes the affected commits' content (and may drop an emptied commit), so the host owns the
+		 * result: it returns the re-derived plan and we replace the resource `commits` wholesale (no
+		 * optimistic step — the recomputed files/stats/patch and prune can't be predicted locally).
+		 */
+		moveFile: async (fromCommitId: string, toCommitId: string, path: string): Promise<void> => {
+			if (!fromCommitId || !toCommitId || fromCommitId === toCommitId || !path) return;
+
+			const repoPath = this.actions.state.activeModeRepoPath.get();
+			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
+			if (!repoPath || !cacheKey) return;
+
+			const engagedKey = anchorKey(this.currentAnchor());
+			const startedAt = performance.now();
+			try {
+				const result = await this.actions.services.graphInspect.moveComposeFile(
+					repoPath,
+					cacheKey,
+					fromCommitId,
+					toCommitId,
+					path,
+				);
+				if (this._disconnected) return;
+
+				const stillEngaged =
+					this.actions.state.activeMode.get() === 'compose' &&
+					this.actions.state.activeModeRepoPath.get() === repoPath &&
+					this.actions.state.composeCurrentCacheKey.get() === cacheKey;
+				if (!stillEngaged) return;
+
+				if ('error' in result) {
+					this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/failed', {
+						'failure.error.message': result.error.message,
+						duration: performance.now() - startedAt,
+					});
+					return;
+				}
+
+				const currentValue = this.actions.resources.compose.value.get();
+				if (currentValue == null || !('result' in currentValue)) return;
+
+				const patched = {
+					...currentValue,
+					result: { ...currentValue.result, commits: result.result.commits },
+				};
+				this.actions.resources.compose.mutate(patched);
+				const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+				if (entry?.execState === 'complete') {
+					this.registerRunningOperation({ ...entry, result: patched });
+				}
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/completed', {
+					'plan.commits.count': result.result.commits.length,
+					duration: performance.now() - startedAt,
+				});
+			} catch (ex) {
+				if (this._disconnected) return;
+
+				this.actions.sendTelemetryEvent('graphDetails/compose/moveFile/failed', {
+					'failure.error.message': ex instanceof Error ? ex.message : String(ex),
+					duration: performance.now() - startedAt,
+				});
+			}
+		},
 	};
+
+	/**
+	 * Restore the pre-reorder commit order after a failed host sync — but only when our optimistic
+	 * array is still the live value. A newer reorder that landed while the sync was in flight owns
+	 * the resource now, so reverting would stomp it.
+	 */
+	private revertComposeReorder(
+		engagedKey: AnchorKey,
+		optimisticCommits: readonly ProposedCommit[],
+		priorCommits: ProposedCommit[],
+	): void {
+		const latest = this.actions.resources.compose.value.get();
+		if (latest == null || !('result' in latest) || latest.result.commits !== optimisticCommits) return;
+
+		const reverted = { ...latest, result: { ...latest.result, commits: priorCommits } };
+		this.actions.resources.compose.mutate(reverted);
+		const entry = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose;
+		if (entry?.execState === 'complete') {
+			this.registerRunningOperation({ ...entry, result: reverted });
+		}
+	}
 
 	runCompose(
 		repoPath: string | undefined,

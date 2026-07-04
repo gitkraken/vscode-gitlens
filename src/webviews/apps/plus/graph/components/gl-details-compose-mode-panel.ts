@@ -1,6 +1,7 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { keyed } from 'lit/directives/keyed.js';
+import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitSearchContext } from '@gitlens/git/models/search.js';
@@ -16,6 +17,7 @@ import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
+import { treeItemFileDragDataType } from '../../../shared/components/tree/base.js';
 import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
@@ -46,6 +48,11 @@ import '../../../shared/components/tree/gl-file-tree-pane.js';
 import './gl-commits-scope-pane.js';
 import './gl-categorizing-loading-animation.js';
 
+/** Distance in px from the commit-list's top/bottom edge within which a drag auto-scrolls, and the
+ *  per-animation-frame scroll step (a smooth rAF loop, not a per-event jump). */
+const composeDragScrollZone = 48;
+const composeDragScrollSpeed = 6;
+
 /** Event detail for the per-commit include/exclude toggle in recompose mode. The parent panel
  *  routes this into the refine-excluded set, forwarded to the library's `refinePlan` as
  *  `lockedCommits` so excluded commits are preserved verbatim across the AI recompose. */
@@ -68,6 +75,23 @@ export interface ComposeRegenMessageDetail {
  *  rest become unstaged workdir changes (library leftover-patch path). */
 export interface ComposeCommitAllDetail {
 	includedCommitIds?: readonly string[];
+}
+
+/** Event detail for a drag/keyboard reorder of the draft commits. `orderedCommitIds` is the full
+ *  set of the plan's commit ids in the new **display** order (top row first). The parent routes it
+ *  to the workflow controller, which reorders the resource optimistically and syncs the new order to
+ *  the host's cached plan so apply/refine honor it. */
+export interface ComposeReorderDetail {
+	orderedCommitIds: string[];
+}
+
+/** Event detail for dragging a file from one draft commit to another. The parent routes it to the
+ *  workflow controller, which asks the host to reassign the file's hunks and returns the re-derived
+ *  plan. `fromCommitId` is the commit the file currently belongs to (the selected commit). */
+export interface ComposeMoveFileDetail {
+	path: string;
+	fromCommitId: string;
+	toCommitId: string;
 }
 
 @customElement('gl-details-compose-mode-panel')
@@ -185,6 +209,33 @@ export class GlDetailsComposeModePanel extends LitElement {
 	 *  Panel-local; defaults to commit and persists across refine rounds within the engagement. */
 	@state() private _refineMode = false;
 
+	/** Drag-reorder transient state. Deliberately NOT `@state` — mutating these must not trigger a
+	 *  re-render mid-drag (which would desync the native drag image); the drop indicator is toggled
+	 *  by direct class manipulation instead. Cleared on drop/dragend. */
+	private _draggedCommitId?: string;
+	private _dragOverCommitId?: string;
+	private _dragOverBottom = false;
+	private _autoScrollDir = 0;
+	private _autoScrollRaf?: number;
+
+	/** File-drag (file → commit move) transient state, also not `@state`. `_fileDragSourceCommitId`
+	 *  is the selected commit the file is being dragged out of; `_fileDropTargetCommitId` is the
+	 *  commit row currently highlighted as the drop target. */
+	private _fileDragSourceCommitId?: string;
+	private _fileDropTargetCommitId?: string;
+
+	/** Reorder (drag + keyboard) is offered only for a multi-commit plan that isn't mid-operation.
+	 *  Excludes/regen don't change order, but a reorder while applying/loading/regenerating could
+	 *  race the host's plan mutation, so hold it until those settle. */
+	private get reorderEnabled(): boolean {
+		return (
+			(this.commits?.length ?? 0) > 1 &&
+			!this.applying &&
+			this.status !== 'loading' &&
+			this.regeneratingCommitId == null
+		);
+	}
+
 	/** Pushed by the orchestrator from `state.composeForwardAvailable`. See review panel for the
 	 * full restore-vs-rerun rationale — bar click emits `compose-forward` for the orchestrator
 	 * to mutate the resource back to the snapshot (no AI re-run). */
@@ -238,6 +289,14 @@ export class GlDetailsComposeModePanel extends LitElement {
 			}
 		}
 
+		// A file move can prune the selected commit (its last file moved away); drop the stale
+		// selection so the file pane falls back to its empty prompt instead of a dead commit.
+		if (changedProperties.has('commits')) {
+			if (this._selectedCommitId != null && !this.commits?.some(c => c.id === this._selectedCommitId)) {
+				this._selectedCommitId = undefined;
+			}
+		}
+
 		// Locked commits are owned by the parent (signal-state). When the plan refreshes with
 		// commit ids that no longer exist in the new plan, the parent's signal is responsible
 		// for pruning them. The panel just renders the current set.
@@ -270,6 +329,32 @@ export class GlDetailsComposeModePanel extends LitElement {
 		super.connectedCallback?.();
 		this.setAttribute('role', 'region');
 		this.setAttribute('aria-label', 'Compose Changes');
+	}
+
+	override disconnectedCallback(): void {
+		this.clearAllDragState();
+		super.disconnectedCallback?.();
+	}
+
+	/** Recovery for the VS Code webview drag boundary. When a native drag leaves the webview iframe,
+	 *  VS Code delivers NO further events to the webview — so if the user releases *outside*, no
+	 *  `dragend` ever fires inside and the `.dragging`/indicator classes + drag state are stranded.
+	 *  The browser suppresses pointer moves *during* a native drag, so the first `pointermove` after a
+	 *  drag started (with no button held) means the drag has ended and we missed the `dragend` — clear
+	 *  the moment the cursor moves back over the webview. Attached only while a drag is active
+	 *  (dragstart) and removed by {@link clearAllDragState}. */
+	private readonly _onDragPointerMove = (e: PointerEvent): void => {
+		if (e.buttons !== 0) return;
+
+		this.clearAllDragState();
+	};
+
+	private attachDragBoundaryListeners(): void {
+		document.addEventListener('pointermove', this._onDragPointerMove);
+	}
+
+	private detachDragBoundaryListeners(): void {
+		document.removeEventListener('pointermove', this._onDragPointerMove);
 	}
 
 	private handleForward = (): void => {
@@ -614,13 +699,28 @@ export class GlDetailsComposeModePanel extends LitElement {
 					</div>`}
 		</div>`;
 
-		const listEl = html`<div class="compose-plan__list scrollable">
-			${this.commits.map((commit, i) => this.renderProposedCommit(commit, i))}
+		const listEl = html`<div
+			class="compose-plan__list scrollable"
+			@dragstart=${this.handleDragStart}
+			@dragend=${this.handleDragEnd}
+			@dragover=${this.handleDragOver}
+			@dragleave=${this.handleDragLeave}
+			@drop=${this.handleDrop}
+		>
+			${repeat(
+				this.commits,
+				commit => commit.id,
+				(commit, i) => this.renderProposedCommit(commit, i),
+			)}
 			${this.baseCommit ? this.renderBaseCommit() : nothing}
 		</div>`;
 
 		return html`
-			<div class="compose-plan ${this._refineMode ? 'compose-plan--refine' : ''}">
+			<div
+				class="compose-plan ${this._refineMode ? 'compose-plan--refine' : ''}"
+				@dragstart=${this.handleFileDragStart}
+				@dragend=${this.handleFileDragEnd}
+			>
 				${this.stale ? this.renderStaleBanner() : nothing}
 				<gl-split-panel class="compose-plan__split" orientation="vertical" primary="end" position="50">
 					<div slot="start" class="compose-plan__split-start">${listEl}</div>
@@ -678,23 +778,27 @@ export class GlDetailsComposeModePanel extends LitElement {
 					? 'Regenerating commit message…'
 					: 'Regenerate Commit Message';
 
+		const reorderEnabled = this.reorderEnabled;
 		return html`<div
 			class="compose-commit ${isSelected ? 'compose-commit--selected' : ''} ${isExcluded
 				? 'compose-commit--excluded'
 				: ''} ${isRefineExcluded ? 'compose-commit--refine-excluded' : ''}"
 			role="button"
 			tabindex="0"
+			data-commit-id=${commit.id}
+			draggable=${reorderEnabled ? 'true' : 'false'}
 			aria-current=${isSelected ? 'true' : 'false'}
+			aria-roledescription=${reorderEnabled ? 'Draggable commit, use Alt+Arrow keys to reorder' : nothing}
 			aria-label="Commit ${num}, ${pluralize('file', commit.files.length)}${ariaState ? `, ${ariaState}` : ''}"
 			@click=${() => this.handleSelectCommit(commit.id)}
-			@keydown=${(e: KeyboardEvent) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					this.handleSelectCommit(commit.id);
-				}
-			}}
+			@keydown=${(e: KeyboardEvent) => this.handleCommitKeydown(e, commit.id)}
 		>
-			<span class="compose-commit__num">${num}</span>
+			<span class="compose-commit__num">
+				<span class="compose-commit__grip" aria-hidden="true"
+					>${reorderEnabled ? html`<code-icon icon="gripper"></code-icon>` : nothing}</span
+				>
+				<span class="compose-commit__num-value">${num}</span>
+			</span>
 			<div class="compose-commit__info">
 				<div class="compose-commit__message-row">
 					<gl-popover class="compose-commit__message" placement="bottom-start" trigger="hover">
@@ -794,6 +898,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			header="File Changes"
 			empty-text=${emptyText}
 			?multi-selectable=${true}
+			?draggable-files=${this.reorderEnabled}
 			.fileActions=${this.fileActionsForFile}
 			.fileContext=${this.getFileContext}
 			.folderContext=${(folder: { relativePath: string }) => buildFolderContext(this.repoPath, folder)}
@@ -944,6 +1049,316 @@ export class GlDetailsComposeModePanel extends LitElement {
 				composed: true,
 			}),
 		);
+	}
+
+	/** Emit the new full display order for the parent/controller to apply + sync to the host. */
+	private handleReorder(orderedCommitIds: string[]): void {
+		this.dispatchEvent(
+			new CustomEvent<ComposeReorderDetail>('compose-reorder', {
+				detail: { orderedCommitIds: orderedCommitIds },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private handleCommitKeydown(e: KeyboardEvent, commitId: string): void {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			this.handleSelectCommit(commitId);
+			return;
+		}
+
+		// Alt+Arrow (or Alt+J/K) nudges the focused commit one row. The keyed list moves the same
+		// DOM node, so focus rides along with it — no manual focus restore needed.
+		if (!e.altKey || !this.reorderEnabled) return;
+
+		let offset = 0;
+		if (e.key === 'ArrowUp' || e.key === 'k') {
+			offset = -1;
+		} else if (e.key === 'ArrowDown' || e.key === 'j') {
+			offset = 1;
+		}
+		if (offset === 0) return;
+
+		e.preventDefault();
+		this.moveCommitByOffset(commitId, offset);
+	}
+
+	private moveCommitByOffset(commitId: string, offset: number): void {
+		const ids = this.commits?.map(c => c.id);
+		if (ids == null) return;
+
+		const from = ids.indexOf(commitId);
+		if (from === -1) return;
+
+		const to = from + offset;
+		if (to < 0 || to >= ids.length) return;
+
+		const next = [...ids];
+		next.splice(from, 1);
+		next.splice(to, 0, commitId);
+		this.handleReorder(next);
+	}
+
+	private handleDragStart(e: DragEvent): void {
+		if (!this.reorderEnabled) return;
+
+		const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.compose-commit');
+		const id = row?.dataset.commitId;
+		if (row == null || !id) return;
+
+		// Clear any state stranded by a prior drag whose end was lost at the webview boundary.
+		this.clearAllDragState();
+
+		this._draggedCommitId = id;
+		this.attachDragBoundaryListeners();
+		if (e.dataTransfer != null) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', id);
+		}
+		// Defer the class so the native drag image captures the row at full opacity.
+		requestAnimationFrame(() => row.classList.add('dragging'));
+	}
+
+	private handleDragEnd(): void {
+		this.clearAllDragState();
+	}
+
+	private handleDragOver(e: DragEvent): void {
+		// A file drag (from the file pane) targets whole commit rows; the commit-reorder logic below
+		// only runs for a commit drag. The two are told apart by the drag's data type.
+		const fileDrag = e.dataTransfer?.types.includes(treeItemFileDragDataType) ?? false;
+
+		// Auto-scroll the commit list toward off-screen rows when dragging near its edges — for both
+		// a commit reorder and a file → commit move.
+		if (fileDrag || this._draggedCommitId != null) {
+			this.updateAutoScroll(e.clientY);
+		}
+
+		if (fileDrag) {
+			this.handleFileDragOver(e);
+			return;
+		}
+
+		if (this._draggedCommitId == null) return;
+
+		const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.compose-commit');
+		const id = row?.dataset.commitId;
+		if (row == null || !id) return;
+
+		// Signal a valid drop target.
+		e.preventDefault();
+		if (e.dataTransfer != null) {
+			e.dataTransfer.dropEffect = 'move';
+		}
+
+		if (id === this._draggedCommitId) {
+			this.clearDragOverIndicator();
+			return;
+		}
+
+		const rect = row.getBoundingClientRect();
+		const isBottom = e.clientY > rect.top + rect.height / 2;
+		this.updateDragOverIndicator(id, row, isBottom);
+	}
+
+	private handleDragLeave(e: DragEvent): void {
+		// dragleave fires on every inner-element transition; only act when the drag actually leaves the
+		// list, otherwise the indicator flickers off/on between a row and its children.
+		const list = this.renderRoot.querySelector<HTMLElement>('.compose-plan__list');
+		const related = e.relatedTarget as Node | null;
+		if (list == null || related == null || !list.contains(related)) {
+			this.clearDragOverIndicator();
+			this.clearFileDropTarget();
+			this.stopAutoScroll();
+		}
+	}
+
+	private handleDrop(e: DragEvent): void {
+		if (e.dataTransfer?.types.includes(treeItemFileDragDataType)) {
+			this.handleFileDrop(e);
+			return;
+		}
+
+		const draggedId = e.dataTransfer?.getData('text/plain') || this._draggedCommitId;
+		const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.compose-commit');
+		const targetId = row?.dataset.commitId;
+		if (row == null || !draggedId || !targetId || draggedId === targetId) {
+			this.clearDragState();
+			return;
+		}
+
+		e.preventDefault();
+
+		// Recompute the insert side from the actual drop position — dragover events may have been
+		// missed or targeted a child element.
+		const rect = row.getBoundingClientRect();
+		const insertAfter = e.clientY > rect.top + rect.height / 2;
+
+		const ids = this.commits?.map(c => c.id) ?? [];
+		const from = ids.indexOf(draggedId);
+		if (from === -1 || !ids.includes(targetId)) {
+			this.clearDragState();
+			return;
+		}
+
+		const next = [...ids];
+		next.splice(from, 1);
+		const target = next.indexOf(targetId);
+		next.splice(insertAfter ? target + 1 : target, 0, draggedId);
+
+		this.clearDragState();
+
+		if (next.some((id, i) => id !== ids[i])) {
+			this.handleReorder(next);
+		}
+	}
+
+	/** Smoothly scroll the commit list while a drag hovers within the edge zone, via a rAF loop so it's
+	 *  frame-paced rather than jumping at the irregular cadence of `dragover` events. */
+	private updateAutoScroll(clientY: number): void {
+		const list = this.renderRoot.querySelector<HTMLElement>('.compose-plan__list');
+		if (list == null) {
+			this.stopAutoScroll();
+			return;
+		}
+
+		const rect = list.getBoundingClientRect();
+		if (clientY < rect.top + composeDragScrollZone) {
+			this._autoScrollDir = -1;
+		} else if (clientY > rect.bottom - composeDragScrollZone) {
+			this._autoScrollDir = 1;
+		} else {
+			this.stopAutoScroll();
+			return;
+		}
+
+		this._autoScrollRaf ??= requestAnimationFrame(this._autoScrollTick);
+	}
+
+	private readonly _autoScrollTick = (): void => {
+		const list = this.renderRoot.querySelector<HTMLElement>('.compose-plan__list');
+		if (list == null || this._autoScrollDir === 0) {
+			this.stopAutoScroll();
+			return;
+		}
+
+		list.scrollBy({ top: this._autoScrollDir * composeDragScrollSpeed, behavior: 'instant' });
+		this._autoScrollRaf = requestAnimationFrame(this._autoScrollTick);
+	};
+
+	private stopAutoScroll(): void {
+		if (this._autoScrollRaf != null) {
+			cancelAnimationFrame(this._autoScrollRaf);
+			this._autoScrollRaf = undefined;
+		}
+		this._autoScrollDir = 0;
+	}
+
+	private updateDragOverIndicator(id: string, row: HTMLElement, isBottom: boolean): void {
+		if (this._dragOverCommitId === id && this._dragOverBottom === isBottom) return;
+
+		this.clearDragOverIndicator();
+		this._dragOverCommitId = id;
+		this._dragOverBottom = isBottom;
+		row.classList.add('compose-commit--drag-over');
+		row.classList.toggle('compose-commit--drag-over-bottom', isBottom);
+	}
+
+	private clearDragOverIndicator(): void {
+		this._dragOverCommitId = undefined;
+		this._dragOverBottom = false;
+		for (const el of this.renderRoot.querySelectorAll(
+			'.compose-commit--drag-over, .compose-commit--drag-over-bottom',
+		)) {
+			el.classList.remove('compose-commit--drag-over', 'compose-commit--drag-over-bottom');
+		}
+	}
+
+	private clearDragState(): void {
+		this.clearDragOverIndicator();
+		this._draggedCommitId = undefined;
+		for (const el of this.renderRoot.querySelectorAll('.compose-commit.dragging')) {
+			el.classList.remove('dragging');
+		}
+	}
+
+	/** Clears both the commit-reorder and the file-move transient drag state and detaches the
+	 *  boundary-recovery listener. Used by the local dragend/drop handlers and each drag start. */
+	private clearAllDragState(): void {
+		this.detachDragBoundaryListeners();
+		this.stopAutoScroll();
+		this.clearDragState();
+		this.clearFileDropTarget();
+		this._fileDragSourceCommitId = undefined;
+	}
+
+	/** Capture which commit a file is being dragged out of — only the selected commit's files are
+	 *  shown, so the source is unambiguous. Ignores commit-reorder drags (no file data type). */
+	private handleFileDragStart(e: DragEvent): void {
+		if (!e.dataTransfer?.types.includes(treeItemFileDragDataType)) return;
+
+		// Clear any state stranded by a prior drag whose end was lost at the webview boundary.
+		this.clearAllDragState();
+
+		this._fileDragSourceCommitId = this._selectedCommitId;
+		this.attachDragBoundaryListeners();
+	}
+
+	private handleFileDragEnd(): void {
+		this.clearAllDragState();
+	}
+
+	private handleFileDragOver(e: DragEvent): void {
+		const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.compose-commit');
+		const id = row?.dataset.commitId;
+		// Can't drop a file back onto the commit it already belongs to.
+		if (row == null || !id || id === this._fileDragSourceCommitId) {
+			this.clearFileDropTarget();
+			return;
+		}
+
+		e.preventDefault();
+		if (e.dataTransfer != null) {
+			e.dataTransfer.dropEffect = 'move';
+		}
+		this.setFileDropTarget(row, id);
+	}
+
+	private handleFileDrop(e: DragEvent): void {
+		const path = e.dataTransfer?.getData(treeItemFileDragDataType);
+		const row = (e.target as HTMLElement | null)?.closest<HTMLElement>('.compose-commit');
+		const toCommitId = row?.dataset.commitId;
+		const fromCommitId = this._fileDragSourceCommitId;
+		this.clearFileDropTarget();
+		this._fileDragSourceCommitId = undefined;
+
+		if (!path || !toCommitId || !fromCommitId || toCommitId === fromCommitId) return;
+
+		e.preventDefault();
+		this.dispatchEvent(
+			new CustomEvent<ComposeMoveFileDetail>('compose-move-file', {
+				detail: { path: path, fromCommitId: fromCommitId, toCommitId: toCommitId },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private setFileDropTarget(row: HTMLElement, id: string): void {
+		if (this._fileDropTargetCommitId === id) return;
+
+		this.clearFileDropTarget();
+		this._fileDropTargetCommitId = id;
+		row.classList.add('compose-commit--file-drop-target');
+	}
+
+	private clearFileDropTarget(): void {
+		this._fileDropTargetCommitId = undefined;
+		for (const el of this.renderRoot.querySelectorAll('.compose-commit--file-drop-target')) {
+			el.classList.remove('compose-commit--file-drop-target');
+		}
 	}
 
 	private handleToggleCommitIncluded(commitId: string): void {

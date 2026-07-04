@@ -2182,6 +2182,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@compose-refine=${handleCompose}
 			@compose-regen-message=${(e: CustomEvent<{ commitId: string }>) =>
 				void this._workflow.compose.regenerateCommitMessage(e.detail.commitId)}
+			@compose-reorder=${(e: CustomEvent<{ orderedCommitIds: string[] }>) =>
+				void this._workflow.compose.reorderCommits(e.detail.orderedCommitIds)}
+			@compose-move-file=${(e: CustomEvent<{ path: string; fromCommitId: string; toCommitId: string }>) =>
+				void this._workflow.compose.moveFile(e.detail.fromCommitId, e.detail.toCommitId, e.detail.path)}
 			@compose-forward=${() => this._workflow.compose.forward()}
 			@compose-forward-invalidate=${() => this._workflow.compose.invalidateSnapshot()}
 			@compose-error-back=${() => this._workflow.compose.backFromError()}

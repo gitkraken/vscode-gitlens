@@ -191,6 +191,7 @@ export const composeModePanelStyles = css`
 	}
 
 	.compose-commit {
+		position: relative;
 		display: flex;
 		gap: var(--gl-space-6);
 		align-items: flex-start;
@@ -198,6 +199,64 @@ export const composeModePanelStyles = css`
 		cursor: pointer;
 		border-left: 2px solid transparent;
 		transition: background var(--gl-duration-x-fast);
+	}
+
+	/* Drag-reorder affordance: a gripper revealed in the row's left gutter on hover/focus. Absolutely
+	   positioned so it never shifts the row layout; only rendered while reorder is enabled. */
+	.compose-commit__grip {
+		position: absolute;
+		top: 0.7rem;
+		left: 0.2rem;
+		display: inline-flex;
+		align-items: center;
+		color: var(--vscode-descriptionForeground);
+		cursor: grab;
+		opacity: 0;
+		transition: opacity var(--gl-duration-x-fast);
+	}
+
+	.compose-commit__grip code-icon {
+		font-size: 1.3rem;
+	}
+
+	.compose-commit:hover .compose-commit__grip,
+	.compose-commit:focus-within .compose-commit__grip {
+		opacity: 0.6;
+	}
+
+	.compose-commit.dragging {
+		opacity: 0.4;
+	}
+
+	.compose-commit.dragging .compose-commit__grip {
+		cursor: grabbing;
+	}
+
+	/* Drop indicator: a bar at the top (insert before) or bottom (insert after) of the target row,
+	   mirroring the rebase editor's reorder cue. */
+	.compose-commit--drag-over::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		z-index: 10;
+		height: 0.2rem;
+		pointer-events: none;
+		background-color: var(--vscode-focusBorder);
+	}
+
+	.compose-commit--drag-over-bottom::before {
+		top: auto;
+		bottom: 0;
+	}
+
+	/* File→commit drop target: highlight the whole destination commit row while a file is dragged
+	   over it (distinct from the reorder edge-bar, which marks an insert position between rows). */
+	.compose-commit--file-drop-target {
+		background: var(--vscode-list-dropBackground);
+		outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+		outline-offset: -0.1rem;
 	}
 
 	.compose-commit:hover {

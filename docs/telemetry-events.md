@@ -4166,6 +4166,50 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/compose/moveFile/completed
+
+> Sent when the user drags a file from one draft commit to another and the host re-derive completes
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from the drop to host-re-derive settlement in milliseconds
+  'duration': number,
+  // Number of proposed commits in the plan after the move (an emptied source commit is dropped)
+  'plan.commits.count': number
+}
+```
+
+### graphDetails/compose/moveFile/failed
+
+> Sent when moving a file between draft commits fails (e.g. stale plan)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from the drop to failure in milliseconds
+  'duration': number,
+  // Error message text describing why the move failed
+  'failure.error.message': string
+}
+```
+
 ### graphDetails/compose/opened
 
 > Sent when the user enters compose mode in the Graph Details panel
@@ -4225,6 +4269,52 @@ background-upgraded the extension while the host kept running the old build
   'failure.error.message': string,
   // Why the run did not complete successfully
   'failure.reason': 'cancelled' | 'error'
+}
+```
+
+### graphDetails/compose/reorder/completed
+
+> Sent when the user reorders draft commits in the plan (drag-and-drop or keyboard) and the host sync completes
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from reorder gesture to host-sync settlement in milliseconds
+  'duration': number,
+  // Number of proposed commits in the plan being reordered
+  'plan.commits.count': number
+}
+```
+
+### graphDetails/compose/reorder/failed
+
+> Sent when reordering draft commits fails to sync to the host (e.g. stale plan)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Time from reorder gesture to host-sync settlement in milliseconds
+  'duration': number,
+  // Error message text describing why the host sync failed
+  'failure.error.message': string,
+  // Number of proposed commits in the plan being reordered
+  'plan.commits.count': number
 }
 ```
 

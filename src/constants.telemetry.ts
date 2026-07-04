@@ -412,6 +412,14 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/compose/regenerateMessage/completed': GraphDetailsComposeRegenerateMessageEvent;
 	/** Sent when a per-commit message regeneration fails or is cancelled */
 	'graphDetails/compose/regenerateMessage/failed': GraphDetailsComposeRegenerateMessageFailedEvent;
+	/** Sent when the user reorders draft commits in the plan (drag-and-drop or keyboard) and the host sync completes */
+	'graphDetails/compose/reorder/completed': GraphDetailsComposeReorderEvent;
+	/** Sent when reordering draft commits fails to sync to the host (e.g. stale plan) */
+	'graphDetails/compose/reorder/failed': GraphDetailsComposeReorderFailedEvent;
+	/** Sent when the user drags a file from one draft commit to another and the host re-derive completes */
+	'graphDetails/compose/moveFile/completed': GraphDetailsComposeMoveFileEvent;
+	/** Sent when moving a file between draft commits fails (e.g. stale plan) */
+	'graphDetails/compose/moveFile/failed': GraphDetailsComposeMoveFileFailedEvent;
 	/** Sent when the user switches the AI model from the compose-mode chip in the Graph Details panel */
 	'graphDetails/compose/changeAiModel': GraphDetailsChangeAiModelEvent;
 
@@ -1169,6 +1177,32 @@ interface GraphDetailsComposeRegenerateMessageFailedEvent extends GraphDetailsCo
 	'failure.reason': 'cancelled' | 'error';
 	/** Error message text — present only when `failure.reason` is `'error'` */
 	'failure.error.message'?: string;
+}
+
+interface GraphDetailsComposeReorderEvent extends GraphContextEventData {
+	/** Number of proposed commits in the plan being reordered */
+	'plan.commits.count': number;
+	/** Time from reorder gesture to host-sync settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeReorderFailedEvent extends GraphDetailsComposeReorderEvent {
+	/** Error message text describing why the host sync failed */
+	'failure.error.message'?: string;
+}
+
+interface GraphDetailsComposeMoveFileEvent extends GraphContextEventData {
+	/** Number of proposed commits in the plan after the move (an emptied source commit is dropped) */
+	'plan.commits.count': number;
+	/** Time from the drop to host-re-derive settlement in milliseconds */
+	duration: number;
+}
+
+interface GraphDetailsComposeMoveFileFailedEvent extends GraphContextEventData {
+	/** Error message text describing why the move failed */
+	'failure.error.message'?: string;
+	/** Time from the drop to failure in milliseconds */
+	duration: number;
 }
 
 interface GraphDetailsChangeAiModelEvent extends GraphContextEventData, GraphDetailsAIModelEventData {
