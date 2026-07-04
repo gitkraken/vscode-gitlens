@@ -1067,6 +1067,12 @@ export class IntegrationService implements Disposable {
 		const syncedIds = new Set<string>();
 		const syncEligibleIds = new Set<string>();
 		const syncedPrimaryIdsByDomain = new Map<string | undefined, string>();
+		// Snapshot existing cloud descriptors by id once, so the per-connection account-name lookup below is
+		// O(1) instead of re-filtering the whole configured list each iteration (O(n²) with multi-account).
+		// Each backend connection id is processed once, so reading the pre-loop snapshot is sufficient.
+		const existingById = new Map(
+			this.configuredIntegrationService.getConfigured(id, { cloud: true }).map(c => [c.id, c]),
+		);
 		for (const connection of identified) {
 			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
 			// Self-managed integrations are keyed/constructed by host.
@@ -1098,9 +1104,7 @@ export class IntegrationService implements Disposable {
 				// (1) the value the backend put on the connection, (2) a previously-resolved name cached in
 				// our configured store (keyed by connection id), (3) a live provider-API lookup. This keeps
 				// provider round-trips to the first sight of a connection; degrade to undefined on failure.
-				const existing = this.configuredIntegrationService
-					.getConfigured(id, { cloud: true })
-					.find(c => c.id === connection.id);
+				const existing = existingById.get(connection.id);
 				const accountName =
 					normalizeAccountName(connection.accountName) ??
 					normalizeAccountName(existing?.accountName) ??
