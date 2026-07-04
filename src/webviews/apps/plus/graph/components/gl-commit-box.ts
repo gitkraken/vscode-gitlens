@@ -172,7 +172,7 @@ export class GlCommitBox extends LitElement {
 				</gl-button>
 				<div slot="content" class="generate-popover">
 					<span class="generate-popover__action">${label}</span>
-					${this.aiModel != null
+					${!this.generating && this.aiModel != null
 						? html`<gl-ai-model-chip .model=${this.aiModel}></gl-ai-model-chip>`
 						: nothing}
 				</div>
