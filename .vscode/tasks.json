@@ -19,56 +19,19 @@
 		{
 			"type": "npm",
 			"script": "build",
-			"group": "build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"group": "watchers"
+			},
 			"problemMatcher": ["$ts-checker-webpack"]
 		},
 		{
 			"type": "npm",
 			"script": "watch",
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"isBackground": true,
-			"presentation": {
-				"group": "watchers"
-			},
-			"problemMatcher": [
-				{
-					"owner": "typescript",
-					"source": "ts",
-					"applyTo": "closedDocuments",
-					"fileLocation": ["relative", "${cwd}"],
-					"severity": "error",
-					"pattern": [
-						{
-							"kind": "location",
-							"regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
-							"severity": 1,
-							"file": 2,
-							"line": 3,
-							"column": 4
-						},
-						{
-							"regexp": "\\s*TS(\\d+):\\s*(.*)$",
-							"code": 1,
-							"message": 2
-						}
-					],
-					"background": {
-						"activeOnStart": true,
-						"beginsPattern": "\\[build\\] Compilation starting",
-						"endsPattern": "\\[build\\] Compiled (successfully|with problems)"
-					}
-				}
-			]
-		},
-		{
-			"type": "npm",
-			"script": "watch:quick",
-			"group": {
-				"kind": "build"
-			},
+			"group": "build",
 			"isBackground": true,
 			"presentation": {
 				"group": "watchers"
