@@ -55,6 +55,7 @@ import {
 	matchAgentSessionsForWorktree,
 } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
+import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
@@ -103,6 +104,7 @@ import './sidebar/sidebar-panel.js';
 import '../../shared/components/mcp-banner.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
@@ -421,6 +423,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.addEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.addEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
 		window.addEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
+		document.addEventListener('dragstart', this._onDocDragStart);
+		document.addEventListener('dragend', this._onDocDragEnd);
+		document.addEventListener('drop', this._onDocDragEnd);
 
 		this._graphSizeObserver = new ResizeObserver(entries => {
 			// Use `borderBoxSize` (not `contentRect`) so the snapshot matches what
@@ -477,6 +482,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		document.removeEventListener('contextmenu', this._handleSidebarOverlayContextMenu, true);
 		window.removeEventListener('webview-blur', this._handleSidebarOverlayWebviewBlur, false);
 		window.removeEventListener('webview-focus', this._handleSidebarOverlayWebviewFocus, false);
+		document.removeEventListener('dragstart', this._onDocDragStart);
+		document.removeEventListener('dragend', this._onDocDragEnd);
+		document.removeEventListener('drop', this._onDocDragEnd);
+		this._disarmDragBoundaryTracking();
 
 		this._graphSizeObserver?.disconnect();
 		this._graphSizeObserver = undefined;
@@ -632,6 +641,92 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (sidebarSplit === node) return true;
 		return false;
 	}
+
+	private _dragActive = false;
+	private _dragHintActive = false;
+	private _dragWatchdog?: ReturnType<typeof setTimeout>;
+
+	/** Toggle the app-level "Hold Shift" overlay (imperative — the overlay uses a reflected `active`
+	 *  attribute; querySelector into this light-DOM host). */
+	private _setDragHint(active: boolean): void {
+		if (this._dragHintActive === active) return;
+
+		this._dragHintActive = active;
+		const overlay = this.querySelector<GlDragShiftOverlay>('gl-drag-shift-overlay');
+		if (overlay != null) {
+			overlay.active = active;
+		}
+	}
+
+	/** During a native drag, the drag leaving the webview iframe stops all events (VS Code blocks
+	 *  them until Shift-re-entry/release). Two signals show the hint: (A) the exit `dragleave` at the
+	 *  viewport edge, and (B) a watchdog for `dragover` going silent (in case VS Code suppresses even
+	 *  the exit dragleave). */
+	private _armDragBoundaryTracking(): void {
+		document.addEventListener('dragover', this._onDocDragOver);
+		document.addEventListener('dragleave', this._onDocDragLeave);
+		document.addEventListener('pointermove', this._onDocDragPointerMove);
+		this._resetDragWatchdog();
+	}
+
+	private _disarmDragBoundaryTracking(): void {
+		document.removeEventListener('dragover', this._onDocDragOver);
+		document.removeEventListener('dragleave', this._onDocDragLeave);
+		document.removeEventListener('pointermove', this._onDocDragPointerMove);
+		if (this._dragWatchdog != null) {
+			clearTimeout(this._dragWatchdog);
+			this._dragWatchdog = undefined;
+		}
+	}
+
+	private _resetDragWatchdog(): void {
+		if (this._dragWatchdog != null) {
+			clearTimeout(this._dragWatchdog);
+		}
+		// No dragover for this long while a drag is active ⇒ the drag left the webview (fallback for
+		// when the exit dragleave itself is suppressed). 450ms > the ~350ms stationary-dragover
+		// interval, so a still cursor inside doesn't false-trigger.
+		this._dragWatchdog = setTimeout(() => {
+			if (this._dragActive) {
+				this._setDragHint(true);
+			}
+		}, 450);
+	}
+
+	private _onDocDragStart = (): void => {
+		this._dragActive = true;
+		this._armDragBoundaryTracking();
+	};
+
+	private _onDocDragEnd = (): void => {
+		this._dragActive = false;
+		this._disarmDragBoundaryTracking();
+		this._setDragHint(false);
+	};
+
+	private _onDocDragOver = (): void => {
+		this._setDragHint(false);
+		this._resetDragWatchdog();
+	};
+
+	private _onDocDragLeave = (e: DragEvent): void => {
+		const leftWebview =
+			e.relatedTarget == null &&
+			(e.clientX <= 0 || e.clientY <= 0 || e.clientX >= window.innerWidth || e.clientY >= window.innerHeight);
+		if (leftWebview) {
+			this._setDragHint(true);
+		}
+	};
+
+	private _onDocDragPointerMove = (e: PointerEvent): void => {
+		// A pointermove during a drag means the native drag ended (browser suppresses pointermoves
+		// mid-drag); if it was released outside, no dragend fired inside — recover here.
+		if (e.buttons !== 0) return;
+
+		this._dragActive = false;
+		this._disarmDragBoundaryTracking();
+		this._setDragHint(false);
+	};
 
 	onWebviewVisibilityChanged(visible: boolean): void {
 		// Freeze the layout across the hide/show cycle so the ResizeObserver cascade that
@@ -1357,6 +1452,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
 					<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
+					<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
 					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
 				</div>
 			</div>

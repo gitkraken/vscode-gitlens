@@ -332,6 +332,7 @@ import type {
 	ComposeProgressUpdate,
 	ConflictFallbackInfo,
 	GraphServices,
+	ProposedCommit,
 	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveFileError,
@@ -991,6 +992,54 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this._composeVirtual = { provider: provider, registration: registration };
 		}
 		return this._composeVirtual;
+	}
+
+	/**
+	 * Derive the graph's `ProposedCommit[]` (library order) from a compose plan snapshot: builds the
+	 * combined diffs, (re)starts the virtual content session, and stamps each commit's `virtualRef`.
+	 * Shared by the initial compose derive and post-mutation re-derives (e.g. a file move). Callers
+	 * reverse the result for display order.
+	 */
+	private async deriveComposeCommits(
+		repoPath: string,
+		planResult: Parameters<typeof libraryPlanToProposedCommits>[0] & { rewriteFromSha: string },
+	): Promise<ProposedCommit[]> {
+		const { createCombinedDiffForCommit } = await loadChunk(
+			() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
+		);
+		const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
+			planResult,
+			repoPath,
+			createCombinedDiffForCommit,
+		);
+
+		if (commits.length > 0) {
+			const { provider } = this.getOrCreateComposeVirtual();
+			const sessionId = provider.startSession(
+				{
+					repoPath: repoPath,
+					baseSha: planResult.rewriteFromSha,
+					baseLabel: shortenRevision(planResult.rewriteFromSha),
+					commits: commits.map((commit, i) => ({
+						id: commit.id,
+						message: commit.message,
+						hunks: commitHunksByIndex[i] ?? [],
+					})),
+				},
+				this._composeVirtual!.sessionId,
+			);
+			this._composeVirtual!.sessionId = sessionId;
+
+			for (const commit of commits) {
+				commit.virtualRef = {
+					namespace: GraphComposeVirtualNamespace,
+					sessionId: sessionId,
+					commitId: commit.id,
+				};
+			}
+		}
+
+		return commits;
 	}
 
 	private async getOrCreateComposeToolsForGraph(): Promise<GraphComposeIntegration | undefined> {
@@ -1984,40 +2033,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									: await svc.commits.getCommit(baseAnchorSha);
 						signal?.throwIfAborted();
 
-						const { createCombinedDiffForCommit } = await loadChunk(
-							() => import(/* webpackChunkName: "ai" */ '../composer/utils/composer.utils.js'),
-						);
-						const { commits, commitHunksByIndex } = libraryPlanToProposedCommits(
-							planResult,
-							repoPath,
-							createCombinedDiffForCommit,
-						);
-
-						if (commits.length > 0) {
-							const { provider } = this.getOrCreateComposeVirtual();
-							const sessionId = provider.startSession(
-								{
-									repoPath: repoPath,
-									baseSha: planResult.rewriteFromSha,
-									baseLabel: shortenRevision(planResult.rewriteFromSha),
-									commits: commits.map((commit, i) => ({
-										id: commit.id,
-										message: commit.message,
-										hunks: commitHunksByIndex[i] ?? [],
-									})),
-								},
-								this._composeVirtual!.sessionId,
-							);
-							this._composeVirtual!.sessionId = sessionId;
-
-							for (const commit of commits) {
-								commit.virtualRef = {
-									namespace: GraphComposeVirtualNamespace,
-									sessionId: sessionId,
-									commitId: commit.id,
-								};
-							}
-						}
+						const commits = await this.deriveComposeCommits(repoPath, planResult);
 
 						// Register the cache key NOW that the full pipeline succeeded.
 						// Anything that threw between `generatePlan...` and here lands in the
@@ -2155,6 +2171,51 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					} finally {
 						disposeCancellation();
 					}
+				},
+				reorderProposedCommits: async (repoPath, cacheKey, orderedCommitIds) => {
+					const composeTools = await this.getOrCreateComposeToolsForGraph();
+					if (composeTools == null) {
+						return { error: { message: 'Compose is not available in this environment.' } };
+					}
+
+					// Defend against a stale cacheKey (refine swaps keys, panel close discards): the
+					// panel must always send the active key from its workflow signal. A miss surfaces
+					// a recoverable error so the user can simply re-run compose.
+					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					if (activeKey !== cacheKey) {
+						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+					}
+
+					if (!composeTools.reorderCachedPlan(cacheKey, orderedCommitIds)) {
+						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+					}
+
+					return { result: true };
+				},
+				moveComposeFile: async (repoPath, cacheKey, fromCommitId, toCommitId, path) => {
+					const composeTools = await this.getOrCreateComposeToolsForGraph();
+					if (composeTools == null) {
+						return { error: { message: 'Compose is not available in this environment.' } };
+					}
+
+					const activeKey = this._activeComposeCacheKeys.get(repoPath);
+					if (activeKey !== cacheKey) {
+						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+					}
+
+					if (!composeTools.moveFileBetweenCommits(cacheKey, fromCommitId, toCommitId, path)) {
+						return { error: { message: 'Unable to move that file; please regenerate the plan.' } };
+					}
+
+					// Moving a file changes the affected commits' content (and may have dropped an
+					// emptied commit), so re-derive the plan's display commits from the mutated cache.
+					const planResult = composeTools.getCachedPlanResult(cacheKey);
+					if (planResult == null) {
+						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
+					}
+
+					const commits = await this.deriveComposeCommits(repoPath, planResult);
+					return { result: { commits: commits.toReversed() } };
 				},
 				resolveConflicts: async (repoPath, focusedFilePaths, instructions, signal) => {
 					const integration = await this.getOrCreateConflictToolsForGraph();

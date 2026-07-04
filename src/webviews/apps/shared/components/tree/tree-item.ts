@@ -5,6 +5,7 @@ import { getAltKeySymbol } from '@env/platform.js';
 import { ModifierKeysController } from '../../controllers/modifier-keys.js';
 import { GlElement } from '../element.js';
 import type { TreeItemCheckedDetail, TreeItemSelectionDetail } from './base.js';
+import { treeItemFileDragDataType } from './base.js';
 import { treeItemStyles } from './tree.css.js';
 import '../actions/action-nav.js';
 import '../code-icon.js';
@@ -78,6 +79,12 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean })
 	showIcon = true;
 
+	/** Opt-in: makes the row a native drag source that carries its file `path` on the drag (typed
+	 *  {@link treeItemFileDragDataType}). Off by default; set only by consumers that want file rows
+	 *  draggable (e.g. compose mode's file→commit move). Branch (folder) rows are never draggable. */
+	@property({ type: Boolean, attribute: 'draggable-item' })
+	draggableItem = false;
+
 	// Opts the host out of the single-line tree-row layout (fixed height, inline text, nowrap).
 	// Use when the default slot hosts a multi-line / card component; consumer drives row height
 	// via --gl-tree-item-min-height / --gl-tree-item-padding-y.
@@ -115,11 +122,13 @@ export class GlTreeItem extends GlElement {
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this.addEventListener('click', this.onComponentClick);
+		this.addEventListener('dragstart', this.onDragStart);
 	}
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
 		this.removeEventListener('click', this.onComponentClick);
+		this.removeEventListener('dragstart', this.onDragStart);
 	}
 
 	private readonly onComponentClick = (e: MouseEvent) => {
@@ -127,6 +136,14 @@ export class GlTreeItem extends GlElement {
 			dblClick: false,
 			altKey: e.altKey,
 		});
+	};
+
+	private readonly onDragStart = (e: DragEvent) => {
+		// Only file rows opt in; folders are never dragged. Payload is the file path.
+		if (!this.draggableItem || this.branch || e.dataTransfer == null) return;
+
+		e.dataTransfer.setData(treeItemFileDragDataType, this.path);
+		e.dataTransfer.effectAllowed = 'move';
 	};
 
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
@@ -157,6 +174,11 @@ export class GlTreeItem extends GlElement {
 
 		if (changedProperties.has('level') || force) {
 			this.setAttribute('aria-level', this.level.toString());
+		}
+
+		if (changedProperties.has('draggableItem') || changedProperties.has('branch') || force) {
+			// Setting the native DOM property reflects the enumerated `draggable` attribute correctly.
+			this.draggable = this.draggableItem && !this.branch;
 		}
 	}
 

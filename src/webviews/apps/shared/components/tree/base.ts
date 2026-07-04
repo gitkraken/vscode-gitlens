@@ -3,6 +3,10 @@ import type { AgentSessionPhase } from '@gitlens/agents/types.js';
 import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import type { DraftPatchFileChange } from '../../../../../plus/drafts/models/drafts.js';
 
+/** `dataTransfer` type used when a draggable file row (opt-in `draggableFiles`) is dragged; the
+ *  payload is the row's file `path`. Consumers key their drop handling off this type. */
+export const treeItemFileDragDataType = 'application/x-gitlens-file-path';
+
 export interface TreeItemBase {
 	// node properties
 	branch: boolean;

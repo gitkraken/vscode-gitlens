@@ -162,6 +162,11 @@ export class GlFileTreePane extends LitElement {
 	@property({ type: Boolean, attribute: 'multi-selectable' })
 	multiSelectable = false;
 
+	/** Opt-in: makes file rows draggable (native drag carrying the file `path`). Off by default;
+	 *  set by consumers that support dropping files elsewhere (e.g. compose file→commit move). */
+	@property({ type: Boolean, attribute: 'draggable-files' })
+	draggableFiles = false;
+
 	@state() private _selectedFiles: readonly FileItem[] = [];
 
 	/** The currently multi-selected files (empty when `multiSelectable` is off or nothing selected). */
@@ -903,6 +908,7 @@ export class GlFileTreePane extends LitElement {
 			.dimUnmatched=${dimUnmatched}
 			?filterable=${this.effectiveShowSearchBox}
 			?multi-selectable=${this.multiSelectable}
+			?draggable-files=${this.draggableFiles}
 			filter-placeholder="Filter files..."
 			search-placeholder="Search files..."
 			empty-text=${emptyText}

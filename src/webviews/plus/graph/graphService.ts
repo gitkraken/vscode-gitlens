@@ -207,6 +207,15 @@ export type RegenerateProposedCommitMessageResult =
 	| { error: { message: string } }
 	| { cancelled: true };
 
+/** Result of {@link GraphInspectService.reorderProposedCommits}. On success the host has already
+ *  reordered its cached plan to match; the webview keeps its optimistically-reordered array. */
+export type ReorderProposedCommitsResult = { result: true } | { error: { message: string } };
+
+/** Result of {@link GraphInspectService.moveComposeFile}. Unlike reorder, moving a file changes the
+ *  affected commits' content (and may drop an emptied commit), so the host returns the re-derived
+ *  `ProposedCommit[]` (display order) for the webview to swap in wholesale. */
+export type MoveComposeFileResult = { result: { commits: ProposedCommit[] } } | { error: { message: string } };
+
 export type ComposeCommitPlan = {
 	commits: ProposedCommit[];
 	base: ComposeBaseCommit;
@@ -417,6 +426,29 @@ export interface GraphInspectService {
 		commitId: string,
 		signal?: AbortSignal,
 	): Promise<RegenerateProposedCommitMessageResult>;
+	/**
+	 * Reorder the draft commits in the cached plan identified by `cacheKey`. `orderedCommitIds`
+	 * is the full set of the plan's commit ids in the new **library** order (tip last). The host
+	 * reorders `allOrderedCommits` and the per-branch id lists in place so apply and any
+	 * subsequent refine honor the new sequence. Pure in-memory reorder — no AI, no git.
+	 */
+	reorderProposedCommits(
+		repoPath: string,
+		cacheKey: string,
+		orderedCommitIds: string[],
+	): Promise<ReorderProposedCommitsResult>;
+	/**
+	 * Move file `path` from the `fromCommitId` draft commit to `toCommitId` in the cached plan
+	 * identified by `cacheKey` (reassigns that file's hunks). Emptied source commits are pruned.
+	 * The host re-derives and returns the affected plan's `ProposedCommit[]` in display order.
+	 */
+	moveComposeFile(
+		repoPath: string,
+		cacheKey: string,
+		fromCommitId: string,
+		toCommitId: string,
+		path: string,
+	): Promise<MoveComposeFileResult>;
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
 	 *  fires when no compose is in flight (entry/exit clearing). */
 	readonly onComposeProgress: RpcEventSubscription<ComposeProgressUpdate | undefined>;

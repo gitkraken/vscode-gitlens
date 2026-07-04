@@ -395,6 +395,144 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		return true;
 	}
 
+	/**
+	 * Reorder the cached plan's commits to match `orderedCommitIds` (the plan's canonical
+	 * library order — tip last). Mutates `allOrderedCommits`, each branch's `orderedCommitIds`
+	 * and `branchGroup.commits`, and `ordering.branches[*].orderedCommitIds` so every read site
+	 * (apply, a subsequent refine's priorPlan) sees the new order. Existing commit objects are
+	 * reused — never rebuilt — so the shared references documented on {@link updateCachedPlanCommitMessage}
+	 * stay intact.
+	 *
+	 * `orderedCommitIds` must be an exact permutation of the cached plan's commit ids. Returns
+	 * `false` on cache miss or an id-set mismatch (a stale/desynced request — the caller surfaces
+	 * a recoverable "regenerate" state).
+	 */
+	reorderCachedPlan(cacheKey: string, orderedCommitIds: readonly string[]): boolean {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const plan = cached.plan;
+		const byId = new Map(plan.allOrderedCommits.map(c => [c.id, c]));
+
+		// Reject anything that isn't an exact permutation of the current commit ids.
+		if (orderedCommitIds.length !== byId.size) return false;
+
+		const seen = new Set<string>();
+		for (const id of orderedCommitIds) {
+			if (!byId.has(id) || seen.has(id)) return false;
+
+			seen.add(id);
+		}
+
+		const newGlobalOrder = orderedCommitIds.map(id => byId.get(id)!);
+		plan.allOrderedCommits = newGlobalOrder;
+
+		// Reorder each branch within the new global order, preserving branch membership.
+		for (const branch of plan.branches) {
+			const members = new Set(branch.orderedCommitIds);
+			const orderedForBranch = newGlobalOrder.filter(c => members.has(c.id));
+			branch.orderedCommitIds = orderedForBranch.map(c => c.id);
+			// branchGroup.commits shares element refs with allOrderedCommits and is the same object
+			// as the matching grouping.branches entry — reorder in place to keep both consistent.
+			branch.branchGroup.commits = orderedForBranch;
+		}
+
+		// ordering.branches carries a parallel per-branch id list keyed by branchId.
+		for (const ordering of plan.ordering.branches) {
+			const branch = plan.branches.find(b => b.branchGroup.id === ordering.branchId);
+			if (branch != null) {
+				ordering.orderedCommitIds = [...branch.orderedCommitIds];
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Move every hunk belonging to `path` (matched on `fileName`/`originalFileName` over the source
+	 * hunks) from the `fromCommitId` draft commit to `toCommitId`, in place on the cached plan. If
+	 * the source commit is left empty it is pruned from `allOrderedCommits` and every shared branch
+	 * read site (empty commits hard-fail at apply). Mutates the shared `CommitSuggestion` objects so
+	 * apply / a subsequent refine see the change — see {@link reorderCachedPlan} for the
+	 * shared-reference discipline.
+	 *
+	 * Returns `false` on cache miss, unknown commit ids, `from === to`, or when the file has no hunks
+	 * in the source commit (nothing to move).
+	 */
+	moveFileBetweenCommits(cacheKey: string, fromCommitId: string, toCommitId: string, path: string): boolean {
+		if (fromCommitId === toCommitId) return false;
+
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return false;
+
+		const plan = cached.plan;
+		const from = plan.allOrderedCommits.find(c => c.id === fromCommitId);
+		const to = plan.allOrderedCommits.find(c => c.id === toCommitId);
+		if (from == null || to == null) return false;
+
+		// Hunk indices for this file (renames match either side of the move).
+		const fileIndices = new Set(
+			cached.sourceHunks.filter(h => h.fileName === path || h.originalFileName === path).map(h => h.index),
+		);
+		const movingSet = new Set(from.hunkIndices.filter(i => fileIndices.has(i)));
+		if (movingSet.size === 0) return false;
+
+		from.hunkIndices = from.hunkIndices.filter(i => !movingSet.has(i));
+		for (const i of movingSet) {
+			if (!to.hunkIndices.includes(i)) {
+				to.hunkIndices.push(i);
+			}
+		}
+
+		// Prune the source commit if it's now empty — empty commits fail at apply time.
+		if (from.hunkIndices.length === 0) {
+			this.removeCommitFromCachedPlan(plan, fromCommitId);
+		}
+
+		return true;
+	}
+
+	/** Remove a commit id from `allOrderedCommits` and every shared branch read site (branch
+	 *  `orderedCommitIds`/`branchGroup.commits` and `ordering.branches[*].orderedCommitIds`).
+	 *  `grouping.branches[i]` shares the `branchGroup` reference, so it prunes with it. */
+	private removeCommitFromCachedPlan(plan: ComposePlan, commitId: string): void {
+		plan.allOrderedCommits = plan.allOrderedCommits.filter(c => c.id !== commitId);
+		for (const branch of plan.branches) {
+			branch.orderedCommitIds = branch.orderedCommitIds.filter(id => id !== commitId);
+			branch.branchGroup.commits = branch.branchGroup.commits.filter(c => c.id !== commitId);
+		}
+		for (const ordering of plan.ordering.branches) {
+			ordering.orderedCommitIds = ordering.orderedCommitIds.filter(id => id !== commitId);
+		}
+	}
+
+	/** Snapshot the cached plan in the shape {@link libraryPlanToProposedCommits} consumes, so the
+	 *  webview can re-derive `ProposedCommit[]` after an in-place mutation (e.g. a file move).
+	 *  Returns `undefined` on cache miss. */
+	getCachedPlanResult(cacheKey: string):
+		| {
+				plan: ComposePlan;
+				sourceHunks: ComposeHunk[];
+				headSha: string;
+				rewriteFromSha: string;
+				kind: GraphCacheExtras['kind'];
+		  }
+		| undefined {
+		const cached = this._cache.get(cacheKey);
+		if (cached == null) return undefined;
+
+		const extras = cached.extras as GraphCacheExtras | undefined;
+		if (extras == null) return undefined;
+
+		return {
+			plan: cached.plan,
+			sourceHunks: cached.sourceHunks,
+			headSha: extras.headSha,
+			rewriteFromSha: extras.rewriteFromSha,
+			kind: extras.kind,
+		};
+	}
+
 	private async resolveGraphScope(
 		svc: GitRepositoryService,
 		scope: ScopeSelection,

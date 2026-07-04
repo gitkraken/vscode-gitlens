@@ -444,6 +444,10 @@ export class GlTreeView extends GlElement {
 	@property({ type: Boolean, attribute: 'multi-selectable' })
 	multiSelectable = false;
 
+	/** Opt-in: makes file (non-branch) rows draggable, forwarded to each `gl-tree-item`. */
+	@property({ type: Boolean, attribute: 'draggable-files' })
+	draggableFiles = false;
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 
@@ -866,6 +870,7 @@ export class GlTreeView extends GlElement {
 			.focusedInactive=${isFocused && !hasTreeFocus}
 			.tabIndex=${-1}
 			.vscodeContext=${model.contextData}
+			.draggableItem=${this.draggableFiles && !model.branch}
 			@gl-tree-item-select=${() => this.onBeforeTreeItemSelected(model)}
 			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
