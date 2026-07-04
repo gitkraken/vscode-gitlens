@@ -1,5 +1,11 @@
 import * as assert from 'node:assert';
-import { parseSummarizeResult, splitMessageIntoSummaryAndBody } from '../results.utils.js';
+import type { AIReviewResult } from '../../models/results.js';
+import {
+	parseReviewResult,
+	parseSummarizeResult,
+	serializeReviewResult,
+	splitMessageIntoSummaryAndBody,
+} from '../results.utils.js';
 
 suite('parseSummarizeResult', () => {
 	test('extracts both summary and body when both tags are present', () => {
@@ -60,5 +66,91 @@ suite('splitMessageIntoSummaryAndBody', () => {
 			splitMessageIntoSummaryAndBody('```\nSummary line\nBody first line\nBody second line\n```'),
 			{ summary: 'Summary line', body: 'Body first line\nBody second line' },
 		);
+	});
+});
+
+suite('serializeReviewResult', () => {
+	test('round-trips through parseReviewResult', () => {
+		// Explicit `undefined`s (and parser-scheme ids) so deepStrictEqual matches the parse output shape
+		const original: AIReviewResult = {
+			overview: 'Solid change overall with two risk areas.\nWatch the IO paths.',
+			focusAreas: [
+				{
+					id: 'area-1',
+					label: 'Error handling',
+					rationale: 'Missing guards around IO boundaries.',
+					severity: 'warning',
+					files: ['src/a.ts', 'src/b.ts'],
+					findings: [
+						{
+							id: 'area-1-f1',
+							severity: 'critical',
+							title: 'Unhandled rejection',
+							description: 'The promise can reject without a handler.\nWrap it in try/catch.',
+							filePath: 'src/a.ts',
+							lineRange: { start: 10, end: 12 },
+						},
+						{
+							id: 'area-1-f2',
+							severity: 'suggestion',
+							title: 'General cleanup',
+							description: 'No file anchor on purpose.',
+							filePath: undefined,
+							lineRange: undefined,
+						},
+					],
+				},
+				{
+					id: 'area-2',
+					label: 'Documentation',
+					rationale: 'Overview-style area without findings (two-pass pass 1).',
+					severity: 'suggestion',
+					files: [],
+					findings: undefined,
+				},
+			],
+			mode: 'single-pass',
+		};
+
+		assert.deepStrictEqual(parseReviewResult(serializeReviewResult(original), original.mode), original);
+	});
+
+	test('round-trips an empty findings block as an empty array, not undefined', () => {
+		const original: AIReviewResult = {
+			overview: 'Clean change.',
+			focusAreas: [
+				{
+					id: 'area-1',
+					label: 'Inspected area',
+					rationale: 'Looked risky, turned out fine.',
+					severity: 'suggestion',
+					files: ['src/a.ts'],
+					findings: [],
+				},
+			],
+			mode: 'two-pass',
+		};
+
+		assert.deepStrictEqual(parseReviewResult(serializeReviewResult(original), original.mode), original);
+	});
+
+	test('sanitizes double-quotes in attribute values so the parser cannot truncate them', () => {
+		const original: AIReviewResult = {
+			overview: 'Quoted path.',
+			focusAreas: [
+				{
+					id: 'area-1',
+					label: 'Quoting',
+					rationale: 'Attr safety.',
+					severity: 'warning',
+					files: ['src/we"ird.ts'],
+					findings: undefined,
+				},
+			],
+			mode: 'single-pass',
+		};
+
+		const parsed = parseReviewResult(serializeReviewResult(original), original.mode);
+		assert.deepStrictEqual(parsed.focusAreas[0].files, ["src/we'ird.ts"]);
 	});
 });

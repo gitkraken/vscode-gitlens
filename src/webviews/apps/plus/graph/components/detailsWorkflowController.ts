@@ -907,6 +907,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
+		options?: { mode?: 'refine' },
 	): void {
 		const scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
 		if (!repoPath || !scope) return;
@@ -920,15 +921,28 @@ export class DetailsWorkflowController implements ReactiveController {
 		this.actions.state.reviewPreErrorValue.set(
 			currentValue != null && 'result' in currentValue ? currentValue : undefined,
 		);
+		// Follow-up only when explicitly requested by the ready-state input AND there's a result
+		// to follow up on AND guidance to follow up with — an empty submit or a restart from idle
+		// is a fresh run, never a continuation
+		const refine =
+			options?.mode === 'refine' && instructions != null && currentValue != null && 'result' in currentValue;
 		this._reviewFetchedForSelection = this.selectionKey();
 		this.dispatchOperation(
 			'review',
 			instructions,
-			controller => this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal),
+			controller =>
+				this.actions.startReview(
+					repoPath,
+					scope,
+					instructions,
+					excludedFiles,
+					controller.signal,
+					refine ? { mode: 'refine' } : undefined,
+				),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,
-				refine: currentValue != null && 'result' in currentValue,
+				refine: refine,
 			},
 		);
 	}

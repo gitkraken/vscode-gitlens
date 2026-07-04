@@ -623,6 +623,22 @@ Guidelines:
 Assess the changes and produce the structured XML output above.`,
 };
 
+export const reviewRefine: PromptTemplate<'review-refine'> = {
+	id: 'review-refine',
+	variables: ['instructions'],
+	template: `The user has follow-up guidance for the review you produced above. Produce an updated review that incorporates it:
+- Keep prior findings that remain valid — do not drop them just because the guidance doesn't mention them
+- Update or remove findings the guidance invalidates or de-prioritizes
+- Add any new findings the guidance surfaces
+- Return the COMPLETE updated review, not just the changes
+
+<~~instructions~~>
+\${instructions}
+</~~instructions~~>
+
+Produce the full updated review in the same structured XML format as your previous response (<overview> + <focus-areas>). Include ONLY the XML tags — no other text.`,
+};
+
 export const addressReviewFindings: PromptTemplate<'address-review-findings'> = {
 	id: 'address-review-findings',
 	variables: ['reviewMarkdown', 'scopeLabel', 'granularity', 'instructions'],

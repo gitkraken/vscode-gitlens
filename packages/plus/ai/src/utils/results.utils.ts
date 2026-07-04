@@ -141,6 +141,38 @@ export function parseReviewResult(result: string, mode: 'single-pass' | 'two-pas
 	return { overview: overview, focusAreas: focusAreas, mode: mode };
 }
 
+function serializeAttrValue(value: string): string {
+	// parseAttr's regex can't cope with embedded double-quotes
+	return value.replaceAll('"', "'");
+}
+
+function serializeFinding(finding: AIReviewFinding): string {
+	const attrs = [`severity="${finding.severity}"`];
+	if (finding.filePath) {
+		attrs.push(`file="${serializeAttrValue(finding.filePath)}"`);
+	}
+	if (finding.lineRange != null) {
+		attrs.push(`lines="${finding.lineRange.start}-${finding.lineRange.end}"`);
+	}
+	return `<finding ${attrs.join(' ')}>\n<title>${finding.title}</title>\n<description>${finding.description}</description>\n</finding>`;
+}
+
+/** Inverse of {@link parseReviewResult} — emits the same XML the review prompt templates instruct,
+ *  so a prior result can be replayed as an assistant turn in a follow-up conversation. */
+export function serializeReviewResult(result: AIReviewResult): string {
+	const areas = result.focusAreas.map(area => {
+		const parts = [`<label>${area.label}</label>`, `<rationale>${area.rationale}</rationale>`];
+		if (area.findings != null) {
+			parts.push(`<findings>\n${area.findings.map(serializeFinding).join('\n')}\n</findings>`);
+		}
+		return `<area severity="${area.severity}" files="${serializeAttrValue(area.files.join(','))}">\n${parts.join(
+			'\n',
+		)}\n</area>`;
+	});
+
+	return `<overview>\n${result.overview}\n</overview>\n<focus-areas>\n${areas.join('\n')}\n</focus-areas>`;
+}
+
 export function parseReviewDetailResult(result: string, focusAreaId: string): AIReviewDetailResult {
 	result = result.trim();
 

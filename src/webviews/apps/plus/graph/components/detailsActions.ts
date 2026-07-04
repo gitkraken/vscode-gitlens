@@ -728,15 +728,19 @@ export class DetailsActions {
 	/** Direct-RPC review run. Bypasses {@link resources.review} so the run is owned by the
 	 *  caller's `AbortController` (held on the registry entry), not the single-instance
 	 *  `Resource` — letting the in-flight generation survive an anchor switch. The caller is
-	 *  responsible for updating the registry entry on resolve/reject. */
+	 *  responsible for updating the registry entry on resolve/reject.
+	 *
+	 *  `options.mode: 'refine'` makes the run a follow-up on the host-cached review conversation
+	 *  (prior exchanges replayed to the AI) instead of a fresh run. */
 	startReview(
 		repoPath: string,
 		scope: ScopeSelection,
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
 		signal: AbortSignal,
+		options?: { mode?: 'refine' },
 	): Promise<ReviewResult> {
-		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal);
+		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal, options);
 	}
 
 	/** Direct-RPC compose run. See {@link startReview} for rationale.

@@ -217,6 +217,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 	@state() private _errorAreas = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 
+	/** Explicit user toggle of the follow-up input; `undefined` = no override (see `refineOpen`). */
+	@state() private _refineExpanded?: boolean;
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
 			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this._excludedFiles);
@@ -255,6 +258,9 @@ export class GlDetailsReviewModePanel extends LitElement {
 				this._dismissedFindings = new Set();
 				this._loadingAreas = new Set();
 				this._errorAreas = new Set();
+				// Drop any explicit follow-up toggle; a fresh result falls back to the default
+				// (open when this run has a prompt to recall — see `refineOpen`).
+				this._refineExpanded = undefined;
 
 				// Auto-expand when there's only a single focus area on a freshly-set result.
 				// Runs against the just-cleared expanded set so a Forward/anchor-switch with a
@@ -310,20 +316,42 @@ export class GlDetailsReviewModePanel extends LitElement {
 			<div class="review-results scrollable">
 				${this.stale ? this.renderStaleBanner() : nothing} ${this.renderOverview()} ${this.renderFocusAreas()}
 			</div>
-			${this.renderReadyFooter()}
-			<gl-ai-input
-				class="review-action-input"
-				multiline
-				active
-				rows="2"
-				button-label="Refine"
-				busy-label="Reviewing changes…"
-				event-name="review-refine"
-				placeholder='Refine — e.g. "Also check for error handling"'
-				.recall=${this.lastPrompt}
-			>
-				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-			</gl-ai-input>`;
+			${this.renderReadyFooter()}${this.renderRefineInput()}`;
+	}
+
+	/** Disclosure state for the follow-up input: `undefined` follows the default (open once a
+	 *  refine has run — `lastPrompt` is set), `true`/`false` is an explicit user toggle that
+	 *  overrides the default until the next fresh result. */
+	get refineOpen(): boolean {
+		return this._refineExpanded ?? this.lastPrompt != null;
+	}
+
+	private renderRefineInput() {
+		if (!this.refineOpen) return nothing;
+
+		return html`<gl-ai-input
+			id="review-refine-input"
+			class="review-action-input"
+			multiline
+			active
+			rows="2"
+			button-label="Follow Up"
+			busy-label="Updating review…"
+			event-name="review-refine"
+			placeholder='Follow up — e.g. "Also check for error handling"'
+			.recall=${this.lastPrompt}
+		>
+			<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+		</gl-ai-input>`;
+	}
+
+	private async handleToggleRefine() {
+		const open = !this.refineOpen;
+		this._refineExpanded = open;
+		if (open) {
+			await this.updateComplete;
+			this.renderRoot.querySelector<HTMLElement>('#review-refine-input')?.focus();
+		}
 	}
 
 	private renderReadyFooter() {
@@ -348,6 +376,16 @@ export class GlDetailsReviewModePanel extends LitElement {
 					<code-icon icon="copy"></code-icon>
 				</gl-button>
 			</gl-copy-container>
+			<gl-button
+				class="review-footer__followup"
+				appearance="secondary"
+				aria-expanded=${this.refineOpen ? 'true' : 'false'}
+				@click=${this.handleToggleRefine}
+			>
+				<code-icon icon="sparkle" slot="prefix"></code-icon>
+				Follow-Up
+				<code-icon class="review-footer__followup-chevron" icon="chevron-down" slot="suffix"></code-icon>
+			</gl-button>
 			<gl-button appearance="secondary" @click=${this.handleDiscard}>Discard</gl-button>
 		</div>`;
 	}

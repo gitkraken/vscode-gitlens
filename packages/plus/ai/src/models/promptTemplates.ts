@@ -101,6 +101,10 @@ interface ReviewDetailPromptTemplateContext {
 	instructions?: string;
 }
 
+interface ReviewRefinePromptTemplateContext {
+	instructions: string;
+}
+
 interface AddressReviewFindingsPromptTemplateContext {
 	reviewMarkdown: string;
 	scopeLabel: string;
@@ -124,6 +128,7 @@ export type PromptTemplateType =
 	| 'review-changes'
 	| 'review-overview'
 	| 'review-detail'
+	| 'review-refine'
 	| 'address-review-findings'
 	| 'start-review-pullRequest'
 	| 'start-work-issue';
@@ -155,6 +160,8 @@ export type PromptTemplateContext<T extends PromptTemplateType> = T extends 'gen
 	? ReviewOverviewPromptTemplateContext
 	: T extends 'review-detail'
 	? ReviewDetailPromptTemplateContext
+	: T extends 'review-refine'
+	? ReviewRefinePromptTemplateContext
 	: T extends 'address-review-findings'
 	? AddressReviewFindingsPromptTemplateContext
 	: T extends 'start-review-pullRequest'

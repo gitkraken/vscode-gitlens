@@ -2658,9 +2658,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._workflow.review.discard();
 			}}
 			@review-refine=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Same model gate as the initial run. Refine re-reviews the same scope that produced
-				// the current findings — in the ready state the scope picker isn't mounted, so
-				// `panel.selectedIds` is undefined and `runReview` falls back to the stored scope.
+				// Same model gate as the initial run. A follow-up continues the conversation that
+				// produced the current findings against the same scope — in the ready state the
+				// scope picker isn't mounted, so `panel.selectedIds` is undefined and `runReview`
+				// falls back to the stored scope.
 				if (this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');
 					return;
@@ -2675,6 +2676,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.getCurrentScopeFilesCount(),
 					panel?.selectedIds,
 					scopeItems ?? undefined,
+					{ mode: 'refine' },
 				);
 			}}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>

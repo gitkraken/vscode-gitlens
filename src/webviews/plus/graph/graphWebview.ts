@@ -18,6 +18,7 @@ import {
 	workspace,
 } from 'vscode';
 import { getSquashSequenceEditor } from '@env/git/squashEditor.js';
+import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import { GitSearchError } from '@gitlens/git/errors.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
@@ -674,6 +675,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	 *  compose can be active at a time — the only legitimate concurrent keys are (review, compose,
 	 *  + a couple of variants from changing excludedFiles within a session). */
 	private readonly _graphDetailsDiffCache = new LruMap<string, { diff: string; message: string; context: string }>(
+		GraphWebviewProvider._diffCacheCap,
+	);
+	/** Completed exchanges of the active review conversation per diff-cache key (oldest first).
+	 *  Replayed on `mode: 'refine'` requests so the AI sees the prior review as a conversation to
+	 *  follow up on. Kept in lockstep with `_graphDetailsDiffCache` — same keying, same reset. */
+	private readonly _reviewHistoryCache = new LruMap<string, { instructions?: string; result: AIReviewResult }[]>(
 		GraphWebviewProvider._diffCacheCap,
 	);
 
@@ -1489,7 +1496,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
 					}
 				},
-				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal) => {
+				reviewChanges: async (repoPath, scope, prompt, excludedFiles, signal, options) => {
 					const { token: cancellation, dispose: disposeCancellation } = fromAbortSignal(
 						signal,
 						this._aiCancellations,
@@ -1499,27 +1506,45 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 						const reviewType = this.getReviewTypeForScope(scope);
 						const diffCacheKey = this.getDiffCacheKey(repoPath, scope, excludedFiles);
-						this._graphDetailsDiffCache.delete(diffCacheKey);
-						const data = await this.getDiffForScope(repoPath, scope, signal);
-						if (!data) return { error: { message: 'No changes found.' } };
 
-						// Filter out user-excluded files before review
-						const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
-						if (excluded?.size) {
-							const { filterDiffFiles } = await loadChunk(
-								() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
-							);
-							data.diff = await filterDiffFiles(data.diff, paths => paths.filter(p => !excluded.has(p)));
-							signal?.throwIfAborted();
-
-							if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
+						// A follow-up (refine) continues the cached conversation against the same
+						// diff; anything else — including a refine request whose conversation is no
+						// longer cached — starts fresh
+						const exchanges =
+							options?.mode === 'refine' ? this._reviewHistoryCache.get(diffCacheKey) : undefined;
+						const followUp = exchanges?.length ? { exchanges: exchanges } : undefined;
+						if (followUp == null) {
+							this._reviewHistoryCache.delete(diffCacheKey);
+							this._graphDetailsDiffCache.delete(diffCacheKey);
 						}
 
-						this._graphDetailsDiffCache.set(diffCacheKey, {
-							diff: data.diff,
-							message: data.message,
-							context: data.context,
-						});
+						const cachedData = followUp != null ? this._graphDetailsDiffCache.get(diffCacheKey) : undefined;
+						const data = cachedData ?? (await this.getDiffForScope(repoPath, scope, signal));
+						if (!data) return { error: { message: 'No changes found.' } };
+
+						if (cachedData == null) {
+							// Filter out user-excluded files before review (cached entries are already filtered)
+							const excluded = excludedFiles?.length ? new Set(excludedFiles) : undefined;
+							if (excluded?.size) {
+								const { filterDiffFiles } = await loadChunk(
+									() => import(/* webpackChunkName: "ai" */ '@gitlens/git/parsers/diffParser.js'),
+								);
+								data.diff = await filterDiffFiles(data.diff, paths =>
+									paths.filter(p => !excluded.has(p)),
+								);
+								signal?.throwIfAborted();
+
+								if (!data.diff?.trim()) return { error: { message: 'No changes found.' } };
+							}
+
+							this._graphDetailsDiffCache.set(diffCacheKey, {
+								diff: data.diff,
+								message: data.message,
+								context: data.context,
+							});
+						} else {
+							this._graphDetailsDiffCache.touch(diffCacheKey);
+						}
 
 						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
 						// threshold is scoped to the selected model's input-context budget — a 1M-
@@ -1528,9 +1553,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						// fetch; on an unset model the helper falls back to a conservative default.
 						// Pass `scope: 'review'` so the threshold matches the model that the
 						// downstream `reviewChanges` action will actually run.
+						// A follow-up keeps the conversation's original strategy — its replayed
+						// exchanges were produced under it — even if a model switch would now
+						// decide differently.
 						const aiModel = await this.container.ai.getModel({ silent: true, scope: 'review' });
 						signal?.throwIfAborted();
-						if (shouldUseSinglePass(data.diff, aiModel)) {
+						const useSinglePass =
+							followUp != null
+								? followUp.exchanges.at(-1)?.result.mode === 'single-pass'
+								: shouldUseSinglePass(data.diff, aiModel);
+						if (useSinglePass) {
 							const result = await this.container.ai.actions.reviewChanges(
 								{
 									diff: data.diff,
@@ -1539,7 +1571,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 									instructions: prompt || undefined,
 								},
 								{ source: 'graph', context: { type: reviewType, mode: 'single-pass' } },
-								{ cancellation: cancellation },
+								{ cancellation: cancellation, followUp: followUp },
 							);
 
 							if (result === 'cancelled' || result == null) {
@@ -1551,6 +1583,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								return { error: { message: 'Review was cancelled.' } };
 							}
 
+							this.recordReviewExchange(diffCacheKey, prompt, response.result, followUp != null);
 							return { result: response.result };
 						}
 
@@ -1574,7 +1607,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 								instructions: prompt || undefined,
 							},
 							{ source: 'graph', context: { type: reviewType, mode: 'two-pass' } },
-							{ cancellation: cancellation },
+							{ cancellation: cancellation, followUp: followUp },
 						);
 
 						if (overviewResult === 'cancelled' || overviewResult == null) {
@@ -1586,6 +1619,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'Review was cancelled.' } };
 						}
 
+						this.recordReviewExchange(diffCacheKey, prompt, overviewResponse.result, followUp != null);
 						return { result: overviewResponse.result };
 					} catch (ex) {
 						return { error: { message: ex instanceof Error ? ex.message : String(ex) } };
@@ -9150,6 +9184,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// here would strand the next repo's events below it. Monotonic growth is safe; only deltas matter.
 		this._lastFetchedHandlerDebounced?.cancel();
 		this._graphDetailsDiffCache.clear();
+		this._reviewHistoryCache.clear();
 		this.invalidateScopeAnchors();
 		if (this._stateFreshnessRetryTimer != null) {
 			clearTimeout(this._stateFreshnessRetryTimer);
@@ -11469,6 +11504,19 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			scope: scope,
 			excludedFiles: excludedFiles?.toSorted(),
 		});
+	}
+
+	/** Records a completed review exchange for follow-up (refine) replay — appending to the
+	 *  conversation on a follow-up, starting a new one otherwise. */
+	private recordReviewExchange(
+		cacheKey: string,
+		instructions: string | undefined,
+		result: AIReviewResult,
+		followUp: boolean,
+	): void {
+		const exchanges = (followUp ? this._reviewHistoryCache.get(cacheKey) : undefined) ?? [];
+		exchanges.push({ instructions: instructions || undefined, result: result });
+		this._reviewHistoryCache.set(cacheKey, exchanges);
 	}
 
 	private async getDiffForScope(

@@ -84,6 +84,29 @@ export const reviewModePanelStyles = css`
 		--button-padding-inline: 0.6rem;
 	}
 
+	/* Toggle-on treatment for the Follow-Up disclosure — VS Code's option-toggle tokens keep it
+	   legible across themes; state is driven by the same aria-expanded that screen readers hear. */
+	.review-footer__followup[aria-expanded='true'] {
+		--button-background: var(--vscode-inputOption-activeBackground);
+		--button-foreground: var(--vscode-inputOption-activeForeground);
+		--button-hover-background: var(--vscode-inputOption-activeBackground);
+		--button-border: var(--vscode-inputOption-activeBorder);
+	}
+
+	.review-footer__followup-chevron {
+		transition: transform 0.15s ease-in-out;
+	}
+
+	.review-footer__followup[aria-expanded='true'] .review-footer__followup-chevron {
+		transform: rotate(180deg);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.review-footer__followup-chevron {
+			transition: none;
+		}
+	}
+
 	/* Review results */
 
 	.review-results {

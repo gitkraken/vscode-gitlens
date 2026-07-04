@@ -110,6 +110,16 @@ export type ScopeSelection =
 
 export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
 
+/**
+ * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
+ * "follow up on the host-cached review conversation" — the prompt becomes a refine turn layered
+ * on the prior exchanges instead of a fresh run. Absent (or no cached conversation) means a
+ * fresh review.
+ */
+export type ReviewChangesOptions = {
+	mode?: 'refine';
+};
+
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
 
 export type AddressReviewFindingsResult =
@@ -348,6 +358,7 @@ export interface GraphInspectService {
 		prompt?: string,
 		excludedFiles?: string[],
 		signal?: AbortSignal,
+		options?: ReviewChangesOptions,
 	): Promise<ReviewResult>;
 	reviewFocusArea(
 		repoPath: string,
