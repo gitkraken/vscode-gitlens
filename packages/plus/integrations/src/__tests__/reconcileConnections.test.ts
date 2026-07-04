@@ -910,6 +910,83 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('force-syncing a multi-host self-managed provider scopes each host fetch to its own connection', async () => {
+		// Two GHE hosts. The provider-global endpoint (`v1/provider-tokens/githubEnterprise`) returns host B's
+		// primary; if a forced sync of host A fell back to it, host A would be hydrated with host B's token.
+		const { runtime, manager, paths } = createManager({
+			connections: [
+				{ tokenId: 'ghe-b1', provider: 'githubEnterprise', type: 'oauth', domain: 'ghe-b.example.com' },
+				{ tokenId: 'ghe-a1', provider: 'githubEnterprise', type: 'oauth', domain: 'ghe-a.example.com' },
+			],
+			token: (path: string) => {
+				// Provider-scoped endpoint yields the global primary (host B); token endpoints yield their id.
+				const tokenId = path.endsWith('/githubEnterprise') ? 'ghe-b1' : path.split('/').pop();
+				return {
+					tokenId: tokenId,
+					accessToken: `tok-${tokenId}`,
+					expiresIn: 3600,
+					scopes: 'repo',
+					type: 'oauth',
+					domain: tokenId === 'ghe-a1' ? 'ghe-a.example.com' : 'ghe-b.example.com',
+				};
+			},
+		});
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-b1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-a1',
+			JSON.stringify({
+				id: 'ghe-a1',
+				accessToken: 'old-ghe-a1',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+
+		const gheA = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-a.example.com');
+		assert.ok(gheA != null, 'host A integration constructs');
+		assert.equal(await gheA.isConnected(), true, 'host A session is warm');
+		paths.splice(0);
+
+		await manager.refreshConnections();
+
+		assert.ok(
+			paths.includes('v1/provider-tokens/tokens/ghe-a1'),
+			'host A session fetch is scoped to its own connection id',
+		);
+		assert.ok(
+			!paths.includes('v1/provider-tokens/githubEnterprise'),
+			'force sync must not fetch the provider-global primary for a configured multi-host provider',
+		);
+		assert.match(
+			(await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|ghe-a1')) ?? '',
+			/tok-ghe-a1/,
+			'host A secret refreshed from its own connection token, not host B',
+		);
+
+		manager.dispose();
+	});
+
 	test('refreshing a cloud provider does not switch a cached self-managed provider with an overlapping id prefix', async () => {
 		const { manager } = createManager({
 			connections: [

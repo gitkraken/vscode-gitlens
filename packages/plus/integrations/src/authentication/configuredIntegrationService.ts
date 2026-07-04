@@ -479,6 +479,19 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	/**
+	 * Returns the id of the configured connection an unscoped descriptor resolves to (the primary for the
+	 * descriptor's domain, matching {@link resolveConnectionId}'s selection), or `undefined` when nothing is
+	 * configured for it. Unlike {@link resolveConnectionId} this never falls back to the domain, so callers
+	 * can safely use the result as a real per-connection token id (e.g. to scope a cloud token fetch to one
+	 * host of a multi-host self-managed provider instead of the provider-global primary).
+	 */
+	getConfiguredConnectionId(id: IntegrationIds, domain: string | undefined): string | undefined {
+		const scoped = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
+		const candidates = this.configured.get(id)?.filter(c => c.domain === scoped);
+		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id;
+	}
+
+	/**
 	 * Marks the given connection as the primary/default for the provider and clears the flag on its
 	 * siblings. Persists immediately instead of relying on a session re-store to carry the primary flag.
 	 */

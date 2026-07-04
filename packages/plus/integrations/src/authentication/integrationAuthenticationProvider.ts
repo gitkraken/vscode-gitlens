@@ -251,11 +251,17 @@ export class CloudIntegrationAuthenticationProvider<
 		if (!loggedIn) return undefined;
 
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
-		let session = await cloudIntegrations.getConnectionSession(
-			this.authProviderId,
-			undefined,
-			descriptor.connectionId,
-		);
+		// An unscoped descriptor (no explicit connectionId) would fetch the provider-global primary via
+		// `v1/provider-tokens/<provider>`. For a self-managed provider spanning multiple hosts that primary
+		// can belong to a different host, so a forced sync of host A would hydrate host B's token here (before
+		// reconcile corrects storage). Scope to this host's own configured connection when we have one; fall
+		// through to the provider-scoped path only when nothing is configured yet (legacy/first sync).
+		const connectionId =
+			descriptor.connectionId ??
+			(isGitSelfManagedHostIntegrationId(this.authProviderId)
+				? this.configuredIntegrationService.getConfiguredConnectionId(this.authProviderId, descriptor.domain)
+				: undefined);
+		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 
 		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
 		if (
@@ -271,7 +277,7 @@ export class CloudIntegrationAuthenticationProvider<
 			session = await cloudIntegrations.getConnectionSession(
 				this.authProviderId,
 				session.accessToken,
-				descriptor.connectionId,
+				connectionId,
 			);
 		}
 
