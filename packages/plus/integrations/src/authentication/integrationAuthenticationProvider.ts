@@ -259,7 +259,11 @@ export class CloudIntegrationAuthenticationProvider<
 		const connectionId =
 			descriptor.connectionId ??
 			(isGitSelfManagedHostIntegrationId(this.authProviderId)
-				? this.configuredIntegrationService.getConfiguredConnectionId(this.authProviderId, descriptor.domain)
+				? this.configuredIntegrationService.getConfiguredConnectionId(
+						this.authProviderId,
+						descriptor.domain,
+						true,
+					)
 				: undefined);
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 

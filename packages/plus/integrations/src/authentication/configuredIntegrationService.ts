@@ -474,7 +474,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (descriptor.connectionId) return descriptor.connectionId;
 
 		const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
-		const candidates = this.configured.get(id)?.filter(c => c.domain === domain);
+		const candidates = this.scopeConnectionCandidates(id, domain, descriptor.cloud);
 		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id ?? descriptor.domain;
 	}
 
@@ -485,10 +485,29 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * can safely use the result as a real per-connection token id (e.g. to scope a cloud token fetch to one
 	 * host of a multi-host self-managed provider instead of the provider-global primary).
 	 */
-	getConfiguredConnectionId(id: IntegrationIds, domain: string | undefined): string | undefined {
+	getConfiguredConnectionId(id: IntegrationIds, domain: string | undefined, cloud?: boolean): string | undefined {
 		const scoped = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
-		const candidates = this.configured.get(id)?.filter(c => c.domain === scoped);
+		const candidates = this.scopeConnectionCandidates(id, scoped, cloud);
 		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id;
+	}
+
+	/**
+	 * Selects configured descriptors for a provider matching `domain`, further narrowed to the `cloud`
+	 * variant when specified. A connection id can have both a local (PAT) and cloud descriptor whose ids
+	 * differ (e.g. a legacy local descriptor keyed by domain alongside a real cloud token id); scoping by
+	 * `cloud` keeps a cloud-scoped read/delete from resolving the local id (and vice versa). Falls back to
+	 * the domain-only set when no variant matches, so legacy single-variant resolution is unchanged.
+	 */
+	private scopeConnectionCandidates(
+		id: IntegrationIds,
+		domain: string | undefined,
+		cloud: boolean | undefined,
+	): ConfiguredIntegrationDescriptor[] | undefined {
+		const candidates = this.configured.get(id)?.filter(c => c.domain === domain);
+		if (cloud == null || candidates == null) return candidates;
+
+		const scoped = candidates.filter(c => c.cloud === cloud);
+		return scoped.length ? scoped : candidates;
 	}
 
 	/**

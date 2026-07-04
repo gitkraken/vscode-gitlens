@@ -304,6 +304,37 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		);
 	});
 
+	test('a cloud-scoped read resolves the cloud connection id when local and cloud ids differ', async () => {
+		const runtime = createFakeRuntime();
+		// Same domain, but the local (PAT) and cloud descriptors carry DIFFERENT ids. A cloud-scoped read
+		// must key off the cloud id, not silently resolve the local descriptor's id and miss the cloud secret.
+		// Cloud (non-self-managed) descriptors are stored without a domain, so both variants share the same
+		// candidate set. The local descriptor is ordered first and neither is primary, so an unscoped resolve
+		// picks the local id (candidates[0]); only cloud-scoping steers it to the cloud descriptor.
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{ id: 'local-x', cloud: false, integrationId: 'github', scopes: 'repo' },
+				{ id: 'cloud-y', cloud: true, integrationId: 'github', scopes: 'repo' },
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|cloud-y',
+			JSON.stringify({ id: 'cloud-y', accessToken: 'cloud-token', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth:github|local-x',
+			JSON.stringify({ id: 'local-x', accessToken: 'local-token', scopes: ['repo'], cloud: false, type: 'pat' }),
+		);
+
+		const service = new ConfiguredIntegrationService(runtime);
+		const session = await service.getStoredSession(GitCloudHostIntegrationId.GitHub, {
+			...githubDescriptor,
+			cloud: true,
+		});
+
+		assert.equal(session?.accessToken, 'cloud-token', 'cloud-scoped read resolves the cloud connection secret');
+	});
+
 	test('deleteAllStoredSessions removes every connection secret for a multi-account provider', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);
