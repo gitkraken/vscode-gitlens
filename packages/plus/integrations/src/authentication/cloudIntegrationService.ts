@@ -69,7 +69,9 @@ export class CloudIntegrationService {
 		const data = ((await providersRsp.json()) as { data?: unknown })?.data as
 			| (GKProviderTokenData & { secondaries?: GKProviderTokenData[] })[]
 			| undefined;
-		if (data == null) return undefined;
+		// A non-array `data` (unexpected backend shape) would throw on iteration below and abort the
+		// whole cloud-sync path, so bail gracefully instead.
+		if (!Array.isArray(data)) return undefined;
 
 		// Flatten the primary + `secondaries[]` grouping into one connection per account. Primacy is
 		// positional on the wire (top-level entry = primary), so we set the `primary` flag here.

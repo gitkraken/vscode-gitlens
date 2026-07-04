@@ -278,11 +278,14 @@ export class CloudIntegrationAuthenticationProvider<
 		if (!session) return undefined;
 
 		let sessionProtocol;
-		try {
-			sessionProtocol = new URL(session.domain).protocol;
-		} catch {
-			// If the domain is invalid, we can't use it to create a session
-			sessionProtocol = undefined;
+		// Only derive a protocol from a domain carrying an explicit scheme; a bare `host:port` (e.g. a
+		// self-managed `ghe.example.com:8443`) parses the host as the protocol, corrupting the value.
+		if (/^[a-z][a-z\d+\-.]*:\/\//i.test(session.domain)) {
+			try {
+				sessionProtocol = new URL(session.domain).protocol;
+			} catch {
+				sessionProtocol = undefined;
+			}
 		}
 
 		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
