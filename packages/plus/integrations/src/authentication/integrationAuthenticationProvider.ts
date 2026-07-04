@@ -36,6 +36,13 @@ export interface IntegrationAuthenticationSessionDescriptor {
 }
 
 export interface IntegrationAuthenticationProvider extends Disposable {
+	/**
+	 * Clears the stored secret for one connection only (never the whole provider). Unlike
+	 * {@link deleteAllSessions}, this deliberately leaves the descriptor in `integrations:configured` — its
+	 * only caller today is a forced re-sync, which needs `getConfigured()` to keep reporting the connection
+	 * while a fresh session is fetched to replace the deleted secret. Implementers should not treat this as
+	 * a full disconnect.
+	 */
 	deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
@@ -75,9 +82,15 @@ abstract class IntegrationAuthenticationProviderBase<
 			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, true, {
-			preserveConfigured: true,
-		});
+		// Scope the descriptor to cloud so resolveConnectionId targets the cloud variant's id: this is a
+		// cloud-only delete, and a mixed local+cloud connection whose local descriptor is primary would
+		// otherwise resolve the local id and leave the cloud secret intact.
+		await this.configuredIntegrationService.deleteStoredSessions(
+			this.authProviderId,
+			{ ...descriptor, cloud: true },
+			true,
+			{ preserveConfigured: true },
+		);
 
 		if (configured?.length) {
 			this.fireChange();
@@ -110,7 +123,13 @@ abstract class IntegrationAuthenticationProviderBase<
 		let session;
 		let previousToken;
 		if (options?.forceNewSession) {
-			await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, true);
+			// Cloud-only delete (see deleteSession): scope to cloud so the cloud variant's id is cleared even
+			// when a mixed local+cloud connection's local descriptor is primary.
+			await this.configuredIntegrationService.deleteStoredSessions(
+				this.authProviderId,
+				{ ...descriptor, cloud: true },
+				true,
+			);
 		} else {
 			session = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,

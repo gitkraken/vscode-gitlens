@@ -335,6 +335,51 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		assert.equal(session?.accessToken, 'cloud-token', 'cloud-scoped read resolves the cloud connection secret');
 	});
 
+	test('a cloud-scoped delete clears the cloud secret when a differing local id is primary', async () => {
+		const runtime = createFakeRuntime();
+		// Mixed local+cloud with different ids; the local descriptor is primary. A cloud-scoped delete must
+		// clear the cloud secret (resolving the cloud id), not resolve the primary local id and leave it.
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{ id: 'local-x', cloud: false, integrationId: 'github', scopes: 'repo', primary: true },
+				{ id: 'cloud-y', cloud: true, integrationId: 'github', scopes: 'repo', primary: false },
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|cloud-y',
+			JSON.stringify({ id: 'cloud-y', accessToken: 'cloud-token', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth:github|local-x',
+			JSON.stringify({ id: 'local-x', accessToken: 'local-token', scopes: ['repo'], cloud: false, type: 'pat' }),
+		);
+
+		const service = new ConfiguredIntegrationService(runtime);
+		await service.deleteStoredSessions(
+			GitCloudHostIntegrationId.GitHub,
+			{ ...githubDescriptor, cloud: true },
+			true,
+			{ preserveConfigured: true },
+		);
+
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:github|cloud-y'),
+			undefined,
+			'cloud secret cleared for the cloud connection id',
+		);
+		assert.ok(
+			(await runtime.storage.getSecret('integration.auth:github|local-x')) != null,
+			'local PAT secret left intact by the cloud-scoped delete',
+		);
+		// `preserveConfigured: true` is the contract `deleteSession` relies on for a forced re-sync: the
+		// secret is gone but `getConfigured()` must still report the connection so callers don't see a
+		// spurious disconnect while a replacement session is being fetched.
+		assert.ok(
+			service.getConfigured(GitCloudHostIntegrationId.GitHub).some(d => d.id === 'cloud-y'),
+			'configured descriptor for the deleted connection survives when preserveConfigured is set',
+		);
+	});
+
 	test('deleteAllStoredSessions removes every connection secret for a multi-account provider', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);
