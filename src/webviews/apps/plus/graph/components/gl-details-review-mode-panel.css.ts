@@ -48,6 +48,11 @@ export const reviewModePanelStyles = css`
 		color: var(--vscode-foreground);
 	}
 
+	/* Quick / Deep depth selector — the shared gl-segmented-control, centered above the review input. */
+	.review-depth {
+		align-self: center;
+	}
+
 	.review-idle__desc {
 		max-width: 24rem;
 		font-size: var(--gl-font-base);

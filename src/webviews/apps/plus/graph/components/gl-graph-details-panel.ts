@@ -15,7 +15,7 @@ import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
 import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
-import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type { ConflictSide, GraphServices, ReviewDepth, VirtualRefShape } from '../../../../plus/graph/graphService.js';
 import type {
 	GetWipLineStatsResponse,
 	GraphComposeScopeSeed,
@@ -3092,9 +3092,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.lastPrompt=${reviewEntry?.prompt}
 			?forward-available=${this._state.reviewForwardAvailable.get()}
 			.backPreview=${this._state.reviewBackPreview.get()}
+			?deep-review-available=${this._state.deepReviewAvailable.get()}
+			.reviewDepth=${this._state.reviewDepth.get()}
+			@review-depth-change=${(e: CustomEvent<{ depth: ReviewDepth }>) =>
+				this._state.reviewDepth.set(e.detail.depth)}
 			@review-run=${(e: CustomEvent<{ prompt?: string }>) => {
-				// Same model gate as compose — open the picker first when no model is set.
-				if (this._state.aiModel.get() == null) {
+				// Clamp to 'quick' when Deep isn't available so a stale 'deep' selection (agent removed
+				// mid-session) can't dispatch a deep run behind the relabeled "Start Review" button.
+				const depth = this._state.deepReviewAvailable.get() ? this._state.reviewDepth.get() : 'quick';
+				// Deep review uses the agent's own model — only the Quick path needs a GitLens model.
+				if (depth !== 'deep' && this._state.aiModel.get() == null) {
 					this._actions.switchAIModel('review');
 					return;
 				}
@@ -3108,6 +3115,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					this.getCurrentScopeFilesCount(),
 					panel?.selectedIds,
 					scopeItems ?? undefined,
+					{ depth: depth },
 				);
 			}}
 			@review-analyze-area=${(e: CustomEvent<ReviewAnalyzeAreaDetail>) => this.handleReviewAnalyzeArea(e)}

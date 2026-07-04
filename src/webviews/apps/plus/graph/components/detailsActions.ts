@@ -56,6 +56,7 @@ import type {
 	GraphServices,
 	ReresolveFileResult,
 	ResolveResult,
+	ReviewChangesOptions,
 	ReviewResult,
 	ScopeSelection,
 	TakeConflictSideResult,
@@ -699,9 +700,20 @@ export class DetailsActions {
 		instructions: string | undefined,
 		excludedFiles: string[] | undefined,
 		signal: AbortSignal,
-		options?: { mode?: 'refine' },
+		options?: ReviewChangesOptions,
 	): Promise<ReviewResult> {
 		return this.services.graphInspect.reviewChanges(repoPath, scope, instructions, excludedFiles, signal, options);
+	}
+
+	/** Fetches whether a deep, agent-orchestrated review can run and updates `deepReviewAvailable`.
+	 *  Called on review-mode entry; failures leave Deep unavailable. */
+	async fetchReviewCapabilities(): Promise<void> {
+		try {
+			const caps = await this.services.graphInspect.getReviewCapabilities();
+			this.state.deepReviewAvailable.set(caps.deepAvailable);
+		} catch {
+			this.state.deepReviewAvailable.set(false);
+		}
 	}
 
 	/** Direct-RPC compose run. See {@link startReview} for rationale.

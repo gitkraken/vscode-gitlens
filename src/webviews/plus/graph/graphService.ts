@@ -108,7 +108,14 @@ export type ScopeSelection =
 			includeShas?: string[];
 	  };
 
-export type ReviewResult = { result: AIReviewResult } | { error: { message: string } };
+/** Depth of a review run: `quick` = built-in single/two-pass AI; `deep` = agent-orchestrated. */
+export type ReviewDepth = 'quick' | 'deep';
+
+/** Whether a deep, agent-orchestrated review can run in this host, and the agent that would run it. */
+export type ReviewCapabilities = { deepAvailable: boolean; agentLabel?: string };
+
+// `sessionId` (deep reviews only) identifies the captured agent session for interactive follow-up.
+export type ReviewResult = { result: AIReviewResult; sessionId?: string } | { error: { message: string } };
 
 /**
  * Continuation knobs for {@link GraphInspectService.reviewChanges}. `mode: 'refine'` means
@@ -118,6 +125,8 @@ export type ReviewResult = { result: AIReviewResult } | { error: { message: stri
  */
 export type ReviewChangesOptions = {
 	mode?: 'refine';
+	/** `deep` = agent-orchestrated review; omitted/`quick` = the built-in single/two-pass review. */
+	depth?: ReviewDepth;
 };
 
 export type ReviewDetailResult = { result: AIReviewDetailResult } | { error: { message: string } };
@@ -384,6 +393,8 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 		options?: ReviewChangesOptions,
 	): Promise<ReviewResult>;
+	/** Reports whether a deep, agent-orchestrated review can run (desktop + a capture-capable CLI agent). */
+	getReviewCapabilities(): Promise<ReviewCapabilities>;
 	reviewFocusArea(
 		repoPath: string,
 		scope: ScopeSelection,

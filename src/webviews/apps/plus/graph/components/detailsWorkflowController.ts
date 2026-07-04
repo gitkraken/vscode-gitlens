@@ -13,6 +13,7 @@ import type {
 	QueuedTakeSide,
 	ResolvedFileSummary,
 	ResolveResult,
+	ReviewDepth,
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -341,6 +342,9 @@ export class DetailsWorkflowController implements ReactiveController {
 			} else {
 				resources.review.cancel();
 			}
+
+			// Deep-review availability can change between sessions (agent installed/removed) — refresh on entry.
+			void this.actions.fetchReviewCapabilities();
 		} else if (mode === 'compose') {
 			const composeHasValue = resources.compose.value.get() != null;
 			if (composeHasValue && this._composeFetchedForSelection !== newKey) {
@@ -985,6 +989,8 @@ export class DetailsWorkflowController implements ReactiveController {
 			if (current == null || !('result' in current)) return;
 
 			const enriched: ReviewResult = {
+				// Spread `current` first so sibling fields (e.g. deep review's `sessionId`) survive enrichment.
+				...current,
 				result: {
 					...current.result,
 					focusAreas: current.result.focusAreas.map(area =>
@@ -1014,8 +1020,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		effectiveFilesCount: number,
 		selectedIds?: ReadonlySet<string>,
 		scopeItems?: ScopeItem[],
-		options?: { mode?: 'refine' },
+		options?: { mode?: 'refine'; depth?: ReviewDepth },
 	): void {
+		// Fall back to the current toggle so retry/re-run paths (which omit `depth`) keep the user's choice.
+		// Clamp to 'quick' when Deep isn't available so a stale 'deep' selection can't dispatch a deep run
+		// behind a Quick-looking UI.
+		const reviewDepth: ReviewDepth = this.actions.state.deepReviewAvailable.get()
+			? (options?.depth ?? this.actions.state.reviewDepth.get())
+			: 'quick';
 		const scope = this.actions.buildScopeFromPicker(selectedIds, scopeItems) ?? this.actions.state.scope.get();
 		if (!repoPath || !scope) return;
 
@@ -1038,14 +1050,10 @@ export class DetailsWorkflowController implements ReactiveController {
 			'review',
 			instructions,
 			controller =>
-				this.actions.startReview(
-					repoPath,
-					scope,
-					instructions,
-					excludedFiles,
-					controller.signal,
-					refine ? { mode: 'refine' } : undefined,
-				),
+				this.actions.startReview(repoPath, scope, instructions, excludedFiles, controller.signal, {
+					mode: refine ? 'refine' : undefined,
+					depth: reviewDepth,
+				}),
 			{
 				excludedFilesCount: excludedFiles?.length ?? 0,
 				effectiveFilesCount: effectiveFilesCount,

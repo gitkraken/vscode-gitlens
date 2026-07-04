@@ -115,6 +115,7 @@ function createServices(overrides?: {
 		graphInspect: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
 			composeChanges: overrides?.composeChanges ?? (async () => ({ error: { message: 'not implemented' } })),
+			getReviewCapabilities: async () => ({ deepAvailable: false }),
 		},
 		telemetry: {
 			sendEvent: () => Promise.resolve(),
@@ -1515,6 +1516,7 @@ function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
 		graphInspect: {
 			reviewChanges: async () => ({ error: { message: 'not implemented' } }),
 			composeChanges: async () => ({ error: { message: 'not implemented' } }),
+			getReviewCapabilities: async () => ({ deepAvailable: false }),
 			generateCommitMessage: (
 				repoPath: string,
 				currentMessage: string | undefined,

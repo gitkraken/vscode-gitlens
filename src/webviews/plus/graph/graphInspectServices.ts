@@ -1,5 +1,7 @@
 import type { CancellationTokenSource, Disposable } from 'vscode';
 import { env, ProgressLocation, Uri, window } from 'vscode';
+import { agentCaptureSupported, runDeepReview } from '@env/agents/agentRunner.js';
+import { isWeb } from '@env/platform.js';
 import type { AIReviewResult } from '@gitlens/ai/models/results.js';
 import type { GitGraphSession } from '@gitlens/git/models/graphSession.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
@@ -26,6 +28,7 @@ import type { GlRepository } from '../../../git/models/repository.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
 import { getConflictFileInfos } from '../../../git/utils/-webview/conflictKind.utils.js';
 import { getChangesForChangelog } from '../../../git/utils/-webview/log.utils.js';
+import { getCaptureCapableAgent } from '../../../plus/agents/agentCapture.js';
 import { getSupportedAgents } from '../../../plus/agents/agentRegistry.js';
 import type { AIGenerateChangelogChanges } from '../../../plus/ai/actions/generateChangelog.js';
 import { shouldUseSinglePass } from '../../../plus/ai/actions/reviewChanges.js';
@@ -35,6 +38,7 @@ import {
 	formatChangesContextForPrompt,
 	gatherContextForChanges,
 } from '../../../plus/ai/utils/-webview/changesContext.js';
+import { mergeUserInstructions } from '../../../plus/ai/utils/-webview/prompt.utils.js';
 import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/integration.js';
 import type {
 	ConflictProgressEvent,
@@ -42,11 +46,13 @@ import type {
 	ResolutionContext,
 	ResolutionRefs,
 } from '../../../plus/coretools/conflict/types.js';
+import { ensureFeatureAccess } from '../../../plus/gk/utils/-webview/acount.utils.js';
 import { showContributorsPicker } from '../../../quickpicks/contributorsPicker.js';
 import { showReferencePicker2 } from '../../../quickpicks/referencePicker.js';
 import { showRevisionFilesPicker } from '../../../quickpicks/revisionFilesPicker.js';
 import { cancelAndDispose, fromAbortSignal, toAbortSignal } from '../../../system/-webview/cancellation.js';
 import { executeCommand } from '../../../system/-webview/command.js';
+import { configuration } from '../../../system/-webview/configuration.js';
 import { loadChunk } from '../../../system/-webview/loadChunk.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import { getCoreCommitDetails } from '../../commitDetails/commitDetailsWebview.utils.js';
@@ -91,6 +97,7 @@ import type {
 	ResolveFileError,
 	ResolveProgressUpdate,
 	ResolveSkippedFile,
+	ReviewResult,
 	ScopeSelection,
 	TakeConflictSideResult,
 	VirtualRefShape,
@@ -706,6 +713,20 @@ export class GraphInspectServices {
 							this._graphDetailsDiffCache.touch(diffCacheKey);
 						}
 
+						// Deep review: hand the (already-filtered) changes to an external coding agent that
+						// explores the repo and returns the same structured findings the panel renders.
+						// Pass the host-registered cancellation (as a signal) — not the raw webview signal —
+						// so teardown / global "cancel all AI" also SIGTERMs the spawned subprocess.
+						if (options?.depth === 'deep') {
+							return await this.reviewChangesDeep(
+								repoPath,
+								reviewType,
+								data,
+								prompt,
+								toAbortSignal(cancellation),
+							);
+						}
+
 						// Adaptive strategy: single-pass for small diffs, two-pass for large. The
 						// threshold is scoped to the selected model's input-context budget — a 1M-
 						// token model happily single-passes a 100KB diff that an 8k-context model
@@ -786,6 +807,15 @@ export class GraphInspectServices {
 					} finally {
 						disposeCancellation();
 					}
+				},
+				getReviewCapabilities: async () => {
+					// Deep review needs a desktop host that can spawn a subprocess and a capture-capable CLI agent.
+					if (isWeb || !agentCaptureSupported) return { deepAvailable: false };
+
+					const agent = await getCaptureCapableAgent(this.container);
+					return agent != null
+						? { deepAvailable: true, agentLabel: agent.displayName }
+						: { deepAvailable: false };
 				},
 				reviewFocusArea: async (
 					repoPath,
@@ -2311,6 +2341,57 @@ export class GraphInspectServices {
 			scope: scope,
 			excludedFiles: excludedFiles?.toSorted(),
 		});
+	}
+
+	/** Runs a deep, agent-orchestrated review over the (already-gathered, already-filtered) changes
+	 *  and maps the agent's structured output to the same `ReviewResult` the built-in path returns. */
+	private async reviewChangesDeep(
+		repoPath: string,
+		_reviewType: 'wip' | 'compare' | 'commit',
+		data: { diff: string; message: string; context: string },
+		prompt: string | undefined,
+		signal: AbortSignal | undefined,
+	): Promise<ReviewResult> {
+		// Gate identically to the quick path: Deep is a Pro AI feature, so enforce the same
+		// account + subscription check (`review-changes`) the built-in review runs through —
+		// not just AI-enabled. The depth selector hides Deep on web / when no agent is present.
+		if (
+			!(await ensureFeatureAccess(
+				this.container,
+				'Deep review requires GitLens Pro or a trial.',
+				'review-changes',
+				{ source: 'graph' },
+			))
+		) {
+			return { error: { message: 'Deep review requires GitLens Pro or a trial.' } };
+		}
+
+		const agent = await getCaptureCapableAgent(this.container);
+		if (agent?.executable == null) {
+			return { error: { message: 'Deep review requires a supported coding agent (Claude Code CLI).' } };
+		}
+
+		// Reuse the built-in path's custom-instructions + per-run guidance merge so both depths honor
+		// `gitlens.ai.reviewChanges.customInstructions`.
+		const instructions = mergeUserInstructions(
+			configuration.get('ai.reviewChanges.customInstructions'),
+			prompt || undefined,
+			'The user provided the following focus areas for this review — prioritize these in your analysis:',
+		);
+
+		const result = await runDeepReview({
+			executable: agent.executable,
+			cwd: repoPath,
+			diff: data.diff,
+			message: data.message,
+			context: data.context,
+			instructions: instructions || undefined,
+			signal: signal,
+		});
+
+		if ('cancelled' in result) return { error: { message: 'Review was cancelled.' } };
+		if ('error' in result) return { error: result.error };
+		return { result: result.result, sessionId: result.sessionId };
 	}
 
 	/** Records a completed review exchange for follow-up (refine) replay — appending to the

@@ -36,6 +36,7 @@ import type {
 	BranchComparisonFile,
 	ComposeResult,
 	ResolveResult,
+	ReviewDepth,
 	ReviewResult,
 	ScopeSelection,
 } from '../../../../plus/graph/graphService.js';
@@ -267,6 +268,9 @@ function createDurableState() {
 	const hasIntegrationsConnected = capability(false);
 	const hasRemotes = repoScoped(false);
 	const aiModel = capability<AiModelInfo | undefined>(undefined);
+	// Whether a deep, agent-orchestrated review can run (desktop + a capture-capable CLI agent).
+	// Host-reported once on review-mode entry; gates the depth selector.
+	const deepReviewAvailable = capability(false);
 
 	return {
 		commit: commit,
@@ -342,6 +346,7 @@ function createDurableState() {
 		hasIntegrationsConnected: hasIntegrationsConnected,
 		hasRemotes: hasRemotes,
 		aiModel: aiModel,
+		deepReviewAvailable: deepReviewAvailable,
 
 		resetRepoScoped: resetRepoScoped,
 		resetAll: (): void => {
@@ -397,6 +402,10 @@ function createTransientState() {
 	// successful Forward.
 	const reviewForwardAvailable = signal(false);
 	const composeForwardAvailable = signal(false);
+
+	// User-chosen review depth: `quick` = built-in single/two-pass AI; `deep` = agent-orchestrated.
+	// Drives which engine `runReview` dispatches to. Persists across runs within a review session.
+	const reviewDepth = signal<ReviewDepth>('quick');
 
 	// Preview metadata for the resume bar shown above the idle panel — derived from the
 	// orchestrator's back-snapshot so the bar can show counts (commits/files, focus areas)
@@ -531,6 +540,7 @@ function createTransientState() {
 		wipStale: wipStale,
 		reviewForwardAvailable: reviewForwardAvailable,
 		composeForwardAvailable: composeForwardAvailable,
+		reviewDepth: reviewDepth,
 		composeBackPreview: composeBackPreview,
 		reviewBackPreview: reviewBackPreview,
 		composeProgressMessage: composeProgressMessage,

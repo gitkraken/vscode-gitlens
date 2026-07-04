@@ -16,7 +16,7 @@ import type { ViewFilesLayout } from '../../../../../config.js';
 import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProtocol.js';
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
-import type { ScopeSelection } from '../../../../plus/graph/graphService.js';
+import type { ReviewDepth, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
 import { redispatch } from '../../../shared/components/element.js';
 import {
@@ -49,6 +49,7 @@ import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/copy-container.js';
 import '../../../shared/components/gl-ai-model-chip.js';
+import '../../../shared/components/segmented/segmented.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/split-panel/split-panel.js';
 import '../../../shared/components/panes/pane-group.js';
@@ -170,6 +171,15 @@ export class GlDetailsReviewModePanel extends LitElement {
 
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
+
+	/** Whether a deep, agent-orchestrated review can run — gates the depth selector. Host-reported. */
+	@property({ type: Boolean, attribute: 'deep-review-available' })
+	deepReviewAvailable = false;
+
+	/** Controlled depth value (single source of truth lives in shared state). The toggle emits
+	 *  `review-depth-change`; the parent updates state and feeds the new value back here. */
+	@property({ attribute: 'review-depth' })
+	reviewDepth: ReviewDepth = 'quick';
 
 	/** Pushed by the orchestrator from the engaged review entry's `prompt` field (set when the
 	 *  run was dispatched). Seeds the AI input on every idle re-render — both on success → Restart
@@ -583,6 +593,10 @@ export class GlDetailsReviewModePanel extends LitElement {
 		// exclusions and AI-ignored exclusions). Stale exclusions are pruned in willUpdate.
 		const hasSelectedFiles = this.getEffectiveFileCount() > 0;
 
+		// Deep review runs via an external agent (its own model) — hide the GitLens model chip and
+		// relabel the action so the depth is unmistakable.
+		const isDeep = this.reviewDepth === 'deep' && this.deepReviewAvailable;
+
 		return html`
 			${
 				scope.type === 'wip'
@@ -607,6 +621,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 						</gl-split-panel>`
 					: html`<div class="scope-files">${this.renderFileCuration()}</div>`
 			}
+			${this.renderDepthToggle()}
 			<div class="review-input-row">
 				${keyed(
 					this.lastPrompt,
@@ -615,19 +630,47 @@ export class GlDetailsReviewModePanel extends LitElement {
 						multiline
 						active
 						rows="2"
-						button-label="Start Review"
-						busy-label="Reviewing changes…"
+						button-label=${isDeep ? 'Start Deep Review' : 'Start Review'}
+						busy-label=${isDeep ? 'Reviewing in depth…' : 'Reviewing changes…'}
 						event-name="review-run"
 						placeholder='Instructions — e.g. "Focus on security and error handling"'
 						.value=${this.lastPrompt}
 						?disabled=${!hasSelectedFiles}
 						@input=${this.onAiInputType}
 					>
-						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+						${
+							isDeep
+								? nothing
+								: html`<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>`
+						}
 					</gl-ai-input>`,
 				)}
 			</div>
 		`;
+	}
+
+	private renderDepthToggle() {
+		if (!this.deepReviewAvailable) return nothing;
+
+		return html`<gl-segmented-control
+			class="review-depth"
+			label="Review depth"
+			.options=${[
+				{ value: 'quick', label: 'Quick' },
+				{ value: 'deep', label: 'Deep' },
+			]}
+			.value=${this.reviewDepth}
+			@gl-change-value=${this.onDepthChange}
+		></gl-segmented-control>`;
+	}
+
+	private onDepthChange(e: Event): void {
+		const value = (e.target as { value?: string } | null)?.value;
+		if ((value !== 'quick' && value !== 'deep') || value === this.reviewDepth) return;
+
+		this.dispatchEvent(
+			new CustomEvent('review-depth-change', { detail: { depth: value }, bubbles: true, composed: true }),
+		);
 	}
 
 	private handleCancel = (): void => {
