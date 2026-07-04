@@ -380,6 +380,31 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		);
 	});
 
+	test('deleteAllStoredSessions falls back to the id (not an empty key) for a self-managed provider with no descriptors', async () => {
+		const runtime = createFakeRuntime();
+		// Orphaned cloud secret with no configured descriptor. The canonical domain for a self-managed cloud
+		// provider is '', so the fallback must key off the id, not produce `...|` (an empty connection id).
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|cloud-github-enterprise',
+			JSON.stringify({
+				id: 'cloud-github-enterprise',
+				accessToken: 'orphan',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+			}),
+		);
+
+		const service = new ConfiguredIntegrationService(runtime);
+		await service.deleteAllStoredSessions(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
+
+		assert.equal(
+			await runtime.storage.getSecret('integration.auth.cloud:cloud-github-enterprise|cloud-github-enterprise'),
+			undefined,
+			'orphaned secret cleared via the id fallback',
+		);
+	});
+
 	test('deleteAllStoredSessions removes every connection secret for a multi-account provider', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);

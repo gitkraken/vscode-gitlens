@@ -85,7 +85,9 @@ export class CloudIntegrationService {
 				primary: true,
 				accountName: item.accountName,
 			});
-			for (const secondary of item.secondaries ?? []) {
+			// `secondaries` comes from the same unknown payload as `data`; guard against a non-array shape so
+			// an unexpected value doesn't throw here and abort the whole cloud-sync path.
+			for (const secondary of Array.isArray(item.secondaries) ? item.secondaries : []) {
 				connections.push({
 					id: secondary.tokenId,
 					type: secondary.type,

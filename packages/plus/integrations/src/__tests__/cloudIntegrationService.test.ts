@@ -92,6 +92,38 @@ suite('CloudIntegrationService — multi-account wire mapping (#5430)', () => {
 		assert.equal(connections?.find(c => c.id === 'secondary-tok')?.domain, 'ghe.example.com');
 	});
 
+	test('getConnections tolerates a non-array secondaries payload without throwing', async () => {
+		const { service } = createCloudService(() => ({
+			data: [
+				{
+					tokenId: 'primary-tok',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					// Malformed backend payload: secondaries should be an array. It must not abort the sync.
+					secondaries: {},
+				},
+			],
+		}));
+
+		const connections = await service.getConnections();
+
+		assert.deepEqual(
+			connections,
+			[
+				{
+					id: 'primary-tok',
+					type: 'oauth',
+					provider: 'github',
+					domain: 'github.com',
+					primary: true,
+					accountName: undefined,
+				},
+			],
+			'primary is still mapped and the malformed secondaries is ignored',
+		);
+	});
+
 	test('getConnectionSession targets /tokens/{tokenId} for a specific connection and maps tokenId to id', async () => {
 		const { service, calls } = createCloudService(() => ({
 			data: {

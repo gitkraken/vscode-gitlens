@@ -356,8 +356,10 @@ export class ConfiguredIntegrationService implements Disposable {
 		if (domain != null) return;
 
 		// No configured connections (e.g. an orphaned secret with no descriptor): fall back to the
-		// provider's canonical domain, which is the legacy session id for cloud providers.
-		await this.deleteSecrets(id, providersMetadata[id].domain, cloud);
+		// provider's canonical domain, which is the legacy session id for cloud providers. Mirror the
+		// hydration backfill's `|| id` guard so a self-managed provider (empty canonical domain) doesn't
+		// target an ambiguous empty connection id.
+		await this.deleteSecrets(id, providersMetadata[id]?.domain || id, cloud);
 	}
 
 	async writeSecret(id: IntegrationIds, session: ProviderAuthenticationSession | StoredSession): Promise<void> {
