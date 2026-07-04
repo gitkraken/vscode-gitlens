@@ -1022,7 +1022,7 @@ export class IntegrationService implements Disposable {
 		// Persist every account when the backend advertises per-connection identity (multi-account). This
 		// is a strict no-op for backends that return a single, id-less connection per provider.
 		for (const [integrationId, connections] of connectionsById) {
-			await this.reconcileCloudConnections(integrationId, connections);
+			await this.reconcileCloudConnections(integrationId, connections, forceConnect);
 		}
 
 		this.ctx.hooks?.connection?.onConnectedChanged?.({
@@ -1050,6 +1050,7 @@ export class IntegrationService implements Disposable {
 	private async reconcileCloudConnections(
 		id: IntegrationIds,
 		connections: CloudIntegrationConnection[],
+		forceConnect: boolean,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -1094,6 +1095,24 @@ export class IntegrationService implements Disposable {
 			if (this.isLocallyDisconnected(id, host)) continue;
 
 			syncEligibleIds.add(connection.id);
+
+			// On a routine (non-forced) check-in, skip the token fetch + secret write for a connection we
+			// already have stored and that hasn't expired: nothing to refresh, so avoid the extra GK API
+			// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
+			// record its primary below. Forced syncs, new connections, and expired tokens fall through and
+			// fetch as before.
+			const cached = existingById.get(connection.id);
+			if (!forceConnect && cached != null && !isDescriptorExpired(cached)) {
+				syncedIds.add(connection.id);
+				if (connection.primary) {
+					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
+					if (!syncedPrimaryIdsByDomain.has(domain)) {
+						syncedPrimaryIdsByDomain.set(domain, connection.id);
+					}
+				}
+				continue;
+			}
+
 			try {
 				const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
 				if (session == null) continue;
@@ -1274,6 +1293,16 @@ function protocolFromDomain(domain: string | undefined): string | undefined {
 function normalizeAccountName(accountName: string | undefined): string | undefined {
 	const value = accountName?.trim();
 	return value ? value : undefined;
+}
+
+/**
+ * Whether a stored connection descriptor's token has expired. A missing `expiresAt` is treated as
+ * not-expired (non-expiring/legacy tokens, e.g. GitHub and self-managed cloud, carry no meaningful
+ * expiry), matching the session-expiry checks elsewhere.
+ */
+function isDescriptorExpired(descriptor: ConfiguredIntegrationDescriptor): boolean {
+	if (descriptor.expiresAt == null) return false;
+	return new Date(descriptor.expiresAt).getTime() < Date.now();
 }
 
 function toProviderSession(

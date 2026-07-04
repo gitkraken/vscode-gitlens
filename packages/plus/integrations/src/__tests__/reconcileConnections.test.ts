@@ -549,6 +549,9 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 			'cached provider emits disconnected after deleting its last connection',
 		);
 
+		manager.dispose();
+	});
+
 	test('deleteConnection without an explicit cloud arg is cloud-scoped by default, preserving a shared-id local PAT', async () => {
 		const { runtime, manager } = createManager({
 			connections: [],
@@ -582,9 +585,6 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 			undefined,
 			'cloud secret removed',
 		);
-
-		manager.dispose();
-	});
 
 		manager.dispose();
 	});
@@ -905,6 +905,55 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 			(await runtime.storage.getSecret('integration.auth.cloud:github|p1')) ?? '',
 			/fresh-p1/,
 			'primary secret refreshed from the backend primary',
+		);
+
+		manager.dispose();
+	});
+
+	test('a non-forced check-in does not re-fetch tokens for already-stored, non-expired connections', async () => {
+		const { runtime, manager, paths } = createManager({
+			connections: [
+				{
+					tokenId: 'p1',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					secondaries: [{ tokenId: 's1', provider: 'github', type: 'oauth', domain: 'github.com' }],
+				},
+			],
+			token: githubToken,
+		});
+		// Both connections already stored with a future expiry, so a routine check-in has nothing to refresh.
+		const future = new Date(Date.now() + 3600_000).toISOString();
+		await runtime.storage.store('integrations:configured', {
+			github: [
+				{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true, expiresAt: future },
+				{ id: 's1', cloud: true, integrationId: 'github', scopes: 'repo', primary: false, expiresAt: future },
+			],
+		});
+		for (const tok of ['p1', 's1']) {
+			await runtime.storage.storeSecret(
+				`integration.auth.cloud:github|${tok}`,
+				JSON.stringify({ id: tok, accessToken: `tok-${tok}`, scopes: ['repo'], cloud: true, type: 'oauth' }),
+			);
+		}
+		paths.splice(0);
+
+		// Non-forced check-in (force=false).
+		runtime.fireSubscriptionCheckIn(false);
+		await flush();
+
+		assert.ok(
+			!paths.some(p => p.startsWith('v1/provider-tokens/tokens/')),
+			'no per-connection token fetch on a routine check-in when nothing expired',
+		);
+		assert.deepEqual(
+			manager
+				.getConfigured(GitCloudHostIntegrationId.GitHub)
+				.map(c => c.id)
+				.sort(),
+			['p1', 's1'],
+			'both connections remain configured (not pruned) despite the skipped fetch',
 		);
 
 		manager.dispose();
