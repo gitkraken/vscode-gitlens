@@ -29,12 +29,7 @@ import {
 	worktreeTooltip,
 	worktreeTooltipWithoutChangesLine,
 } from '../../../../plus/graph/sidebarTooltips.js';
-import {
-	agentPhaseToCategory,
-	describeAgentSession,
-	formatAgentElapsed,
-	getAgentPhaseLabel,
-} from '../../../shared/agentUtils.js';
+import { agentPhaseToCategory, describeAgentSession, formatAgentElapsed } from '../../../shared/agentUtils.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type {
 	TreeItemAction,
@@ -1000,10 +995,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private toAgentLeaf(session: AgentSessionState, anchor: { wipSha?: string; scope?: SidebarItemScope }): LeafProps {
 		const category = agentPhaseToCategory[session.phase];
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		// Description = last prompt; otherwise the describeSession line for needs-input / working
 		// (`Awaiting: tool` / `Running tool`). The "Last active …" fallback is intentionally
-		// excluded — elapsed time already shows up on the phase decoration, no need to repeat it.
+		// excluded — elapsed time is already surfaced in the tooltip, no need to repeat it.
 		const description =
 			session.lastPrompt ||
 			describeAgentSession(session, category, elapsed, {
@@ -1067,22 +1061,8 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			arguments: [session.id],
 		});
 
-		// Phase decoration uses agent-* kinds so the textual phase color matches the leaf's
-		// agent icon — both pulled from the shared `--gl-agent-*` palette in theme.scss.
-		const decorations: TreeItemDecoration[] = [
-			{
-				type: 'text',
-				label: phaseLabel + (elapsed != null ? ` · ${elapsed}` : ''),
-				kind:
-					category === 'needs-input'
-						? 'agent-waiting'
-						: category === 'working'
-							? 'agent-working'
-							: 'agent-idle',
-				position: 'before',
-			},
-		];
-
+		// Phase status is conveyed by the leaf's agent icon (glyph + `--gl-agent-*` color) and the
+		// tooltip — no redundant text decoration.
 		return {
 			label: session.displayName,
 			tooltip: html`<gl-agent-tooltip .sessionId=${session.id}></gl-agent-tooltip>`,
@@ -1090,7 +1070,6 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			icon: { type: 'agent', phase: session.phase },
 			description: description,
 			context: [sha, scope, session.id] as SidebarItemContext,
-			decorations: decorations,
 			actions: actions,
 		};
 	}

@@ -146,6 +146,14 @@ export class GlTreeItem extends GlElement {
 		e.dataTransfer.effectAllowed = 'move';
 	};
 
+	private onChevronClick(e: MouseEvent) {
+		// The chevron is a dedicated expand/collapse affordance — stop the click from bubbling to the
+		// host's onComponentClick, which would fire the row's open/select action (e.g. focusing the
+		// graph to a worktree in the agents panel). Emit a toggle-only event instead.
+		e.stopPropagation();
+		this.emit('gl-tree-item-toggle');
+	}
+
 	private updateAttrs(changedProperties: Map<string, any>, force = false) {
 		// Only set aria-expanded on branch (parent) nodes, not end nodes
 		if (changedProperties.has('expanded') || changedProperties.has('branch') || force) {
@@ -205,7 +213,11 @@ export class GlTreeItem extends GlElement {
 
 		if (this.branch) {
 			branching.push(
-				html`<code-icon class="branch" icon="${this.expanded ? 'chevron-down' : 'chevron-right'}"></code-icon>`,
+				html`<code-icon
+					class="branch"
+					icon="${this.expanded ? 'chevron-down' : 'chevron-right'}"
+					@click=${this.onChevronClick}
+				></code-icon>`,
 			);
 		}
 
@@ -422,6 +434,7 @@ declare global {
 	interface GlobalEventHandlersEventMap {
 		'gl-tree-item-select': CustomEvent<undefined>;
 		'gl-tree-item-selected': CustomEvent<TreeItemSelectionDetail>;
+		'gl-tree-item-toggle': CustomEvent<undefined>;
 		'gl-tree-item-checked': CustomEvent<TreeItemCheckedDetail>;
 		'gl-tree-item-suspend-tooltip': CustomEvent<undefined>;
 		'gl-tree-item-resume-tooltip': CustomEvent<undefined>;

@@ -873,6 +873,7 @@ export class GlTreeView extends GlElement {
 			.draggableItem=${this.draggableFiles && !model.branch}
 			@gl-tree-item-select=${() => this.onBeforeTreeItemSelected(model)}
 			@gl-tree-item-selected=${(e: CustomEvent<TreeItemSelectionDetail>) => this.onTreeItemSelected(e, model)}
+			@gl-tree-item-toggle=${() => this.onTreeItemToggle(model)}
 			@gl-tree-item-checked=${(e: CustomEvent<TreeItemCheckedDetail>) => this.onTreeItemChecked(e, model)}
 			@mouseenter=${(e: MouseEvent) => this.onTreeItemHover(e, model)}
 			@mouseleave=${() => this.onTreeItemUnhover()}
@@ -1052,15 +1053,36 @@ export class GlTreeView extends GlElement {
 			this._focusedItemIndex = this.getItemIndex(id);
 		}
 		// Toggle expansion for branch nodes
-		if (model.branch) {
-			const treeNode = this.findTreeNode(id);
-			if (treeNode) {
-				treeNode.expanded = !treeNode.expanded;
-				this.rebuildFlattenedTree();
-				this.emit('gl-tree-expansion-changed', { path: model.path, key: id, expanded: treeNode.expanded });
-			}
-		}
+		this.toggleNodeExpansion(model);
 		// Trigger a re-render to update selection and tabindex state across all items
+		this.requestUpdate();
+	}
+
+	/** Toggle a branch node's expansion in the hierarchical model and re-flatten. Returns false for
+	 *  non-branch nodes or when the node can't be found. Used by the row-select path AND the
+	 *  chevron's toggle-only path. */
+	private toggleNodeExpansion(model: TreeModelFlat): boolean {
+		if (!model.branch) return false;
+
+		const id = nodeId(model);
+		const treeNode = this.findTreeNode(id);
+		if (treeNode == null) return false;
+
+		treeNode.expanded = !treeNode.expanded;
+		this.rebuildFlattenedTree();
+		this.emit('gl-tree-expansion-changed', { path: model.path, key: id, expanded: treeNode.expanded });
+		return true;
+	}
+
+	/** Chevron click: expand/collapse only. Moves keyboard focus to the row for arrow-key continuity,
+	 *  but never selects or fires the open event (so it won't, e.g., focus the graph to a worktree). */
+	private onTreeItemToggle(model: TreeModelFlat) {
+		const id = nodeId(model);
+		if (this._focusedItemPath !== id) {
+			this._focusedItemPath = id;
+			this._focusedItemIndex = this.getItemIndex(id);
+		}
+		this.toggleNodeExpansion(model);
 		this.requestUpdate();
 	}
 
@@ -1503,33 +1525,13 @@ export class GlTreeView extends GlElement {
 		e.preventDefault();
 		e.stopPropagation();
 
-		// Find and update the node in the hierarchical model
-		const id = nodeId(item);
-		const treeNode = this.findTreeNode(id);
-		if (treeNode) {
-			treeNode.expanded = !treeNode.expanded;
-			this.rebuildFlattenedTree();
-			this.emit('gl-tree-expansion-changed', { path: item.path, key: id, expanded: treeNode.expanded });
+		// Expand/collapse only — no open/select event, so arrow-key toggling won't fire the row's
+		// open action (e.g. focusing the graph to a worktree in the agents panel). The directional
+		// guard above already filtered out the already-in-target-state no-ops.
+		if (!this.toggleNodeExpansion(item)) return false;
 
-			// Trigger a re-render
-			this.requestUpdate();
-
-			// Emit selection event
-			this.onTreeItemSelected(
-				new CustomEvent('gl-tree-item-selected', {
-					detail: {
-						node: null as any,
-						dblClick: false,
-						altKey: false,
-						ctrlKey: false,
-						metaKey: false,
-					},
-				}),
-				item,
-			);
-			return true;
-		}
-		return false;
+		this.requestUpdate();
+		return true;
 	}
 
 	private focusItemAtIndex(index: number) {

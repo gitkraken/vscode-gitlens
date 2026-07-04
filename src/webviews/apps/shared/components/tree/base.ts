@@ -85,17 +85,7 @@ export interface TreeItemDecorationIcon extends TreeItemDecorationBase {
 	icon: string;
 }
 
-export type TreeItemDecorationKind =
-	| 'added'
-	| 'deleted'
-	| 'modified'
-	| 'untracked'
-	| 'renamed'
-	| 'conflict'
-	| 'muted'
-	| 'agent-working'
-	| 'agent-waiting'
-	| 'agent-idle';
+export type TreeItemDecorationKind = 'added' | 'deleted' | 'modified' | 'untracked' | 'renamed' | 'conflict' | 'muted';
 
 export interface TreeItemDecorationText extends TreeItemDecorationBase {
 	type: 'text';
