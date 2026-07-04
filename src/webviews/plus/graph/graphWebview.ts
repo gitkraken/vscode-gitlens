@@ -6545,7 +6545,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@trace()
 	private updateState(immediate: boolean = false) {
-		this.host.clearPendingIpcNotifications();
+		// A discarded pending push may have carried undelivered rows; reset so the next state push re-ships them
+		if (this.host.clearPendingIpcNotifications()) {
+			this._lastSentGraphFingerprint = undefined;
+		}
 
 		if (immediate) {
 			void this.notifyDidChangeState();

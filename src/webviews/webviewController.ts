@@ -1115,8 +1115,10 @@ export class WebviewController<
 		this._pendingIpcNotifications.set(type, { msg: msgOrFn, timestamp: Date.now() });
 	}
 
-	clearPendingIpcNotifications(): void {
+	clearPendingIpcNotifications(): boolean {
+		const hadPending = this._pendingIpcNotifications.size > 0;
 		this._pendingIpcNotifications.clear();
+		return hadPending;
 	}
 
 	sendPendingIpcNotifications(): void {
