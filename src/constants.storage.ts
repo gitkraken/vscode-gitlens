@@ -89,6 +89,7 @@ interface GlobalStorageCore {
 	avatars: [string, StoredAvatar][];
 	'ai:scope:compose:model': AIProviderAndModel;
 	'ai:scope:review:model': AIProviderAndModel;
+	'ai:scope:resolve:model': AIProviderAndModel;
 	'avatars:approvedRemoteTemplates': Record<string, 'allow' | 'deny'>;
 	'confirm:ai:generateCommits': boolean;
 	'confirm:ai:tos': boolean;

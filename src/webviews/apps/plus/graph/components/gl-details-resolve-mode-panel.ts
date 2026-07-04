@@ -21,6 +21,7 @@ import { renderErrorState, renderLoadingState } from './shared-panel-templates.j
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
 import '../../../shared/components/button.js';
+import '../../../shared/components/checkbox/checkbox.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/gl-ai-model-chip.js';
 import '../../../shared/components/overlays/tooltip.js';
@@ -53,7 +54,8 @@ const strategyDisplay: Record<ConflictResolutionStrategy, { label: string; icon:
  * and review — like compose, it curates a checkable file set (here the paused op's conflicted
  * files) rather than a commit scope, and has no Back/Resume (apply is terminal). States: `idle`
  * (a checkable tree of the conflicted files + a Resolve button), `loading` (streamed progress),
- * `ready` (per-file resolutions + Apply/Discard), `applying` (uncancellable overlay), and `error`.
+ * `ready` (per-file resolutions with an Apply / Refine posture gate), `applying` (uncancellable
+ * overlay), and `error`.
  */
 @customElement('gl-details-resolve-mode-panel')
 export class GlDetailsResolveModePanel extends LitElement {
@@ -175,18 +177,56 @@ export class GlDetailsResolveModePanel extends LitElement {
 				margin-top: var(--gl-space-2);
 			}
 
-			.resolve-footer {
+			/* Ready-state action zone: the Refine gate on top, then either the Apply row (Apply posture)
+			   or the detached refine input (Refine posture) — mirrors compose-plan__actions. The container
+			   query below keeps the gate label and the right-anchored model tab from colliding when narrow. */
+			.resolve-ready-actions {
+				container: resolve-ready / inline-size;
 				display: flex;
 				flex: none;
-				gap: var(--gl-space-6);
-				padding: var(--gl-space-6) var(--gl-space-12);
+				flex-direction: column;
+				gap: var(--gl-space-8);
+				padding: var(--gl-space-8) var(--gl-space-12) var(--gl-space-10);
 				border-top: var(--gl-border-width) solid var(--vscode-panel-border);
 			}
 
+			.resolve-gate {
+				align-self: flex-start;
+			}
+
+			/* Once wide enough that the gate label and the model tab can't collide, drop the gate's bottom
+			   margin to pull the input up tight; narrower, keep it so the tab drops clear below the gate. */
+			@container resolve-ready (min-width: 44rem) {
+				.resolve-gate {
+					margin-bottom: 0;
+				}
+			}
+
 			/* Apply fills the row (primary, full-width treatment) with Discard inline on the right. */
+			.resolve-apply-row {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+			}
+
 			.resolve-apply {
 				flex: 1;
 				min-width: 0;
+			}
+
+			/* aria-disabled (not native) keeps Apply hoverable so its "why" tooltip shows; dim it ourselves
+			   since gl-button only styles the native disabled state. */
+			.resolve-apply[aria-disabled='true'] {
+				cursor: default;
+				opacity: 0.4;
+			}
+
+			/* The detached refine input self-insets/-centres; inside the already-padded zone that doubles
+			   the inset, so pin it flush to the zone's content box (mirrors compose's override). */
+			.resolve-ready-actions > gl-ai-input.resolve-refine-input {
+				width: 100%;
+				max-width: none;
+				margin: 0;
 			}
 
 			/* The per-row "Retry with feedback" button is a toggle — show the standard active-toggle
@@ -217,16 +257,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 				display: block;
 				margin-top: var(--gl-space-4);
 			}
-
-			/* Bottom whole-run refine input — mirrors the composer's active AI-input treatment
-			   (gradient border via the active attr) plus its centered, width-constrained layout
-			   from the .review-action-input rule in shared-panel.css.ts. */
-			.review-action-input {
-				flex: none;
-				width: calc(100% - var(--gl-panel-padding-left, 1.2rem) - var(--gl-panel-padding-right, 1.2rem));
-				max-width: var(--gl-max-input);
-				margin: 0.6rem auto 0.8rem;
-			}
 		`,
 	];
 
@@ -255,6 +285,10 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
+	/** Ready-state posture: false = Apply (default), true = Refine. Toggled by the "Refine Resolutions"
+	 *  gate checkbox — Apply and Refine are mutually-exclusive postures (compose's gate model), so the
+	 *  refine input never shares the zone with Apply. Reset to Apply on each ready-entry (see willUpdate). */
+	@state() private _refineMode = false;
 	/** User check/uncheck DELTAS against the per-anchor default (resolve-all → all checked; focused
 	 *  entry → just the focused paths). The effective checked set is DERIVED from the current conflicts
 	 *  plus these deltas (see {@link includedFiles}/{@link isChecked}), so it always reflects the live
@@ -294,6 +328,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
+		// Ready always opens in Apply posture. A refine (or per-row retry) re-run returns through
+		// loading→ready, so resetting here means the refreshed resolutions show Apply — not a still-ticked
+		// gate hiding it. Placed before the early-returning identity block so it can't be skipped.
+		if (changedProperties.has('status') && this.status === 'ready') {
+			this._refineMode = false;
+		}
+
 		// Reset the user deltas when the anchor/focus identity changes (fresh entry, or following
 		// selection to another WIP). Gated to the identity inputs so the sort+join isn't recomputed on
 		// unrelated reactive updates (progressMessage, retryingFiles, …).
@@ -415,6 +456,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					event-name="resolve-run"
 					placeholder='Optional guidance — e.g. "prefer incoming for generated files"'
 					?disabled=${checkedCount === 0}
+					disabled-reason="Select Conflicts to Resolve"
 					.value=${this.lastPrompt}
 				>
 					<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
@@ -459,11 +501,19 @@ export class GlDetailsResolveModePanel extends LitElement {
 		}
 	}
 
+	/** Toggle the ready-state Apply/Refine posture from the "Refine Resolutions" gate checkbox. */
+	private handleToggleRefineMode(e: Event): void {
+		this._refineMode = (e.target as { checked?: boolean }).checked ?? !this._refineMode;
+	}
+
 	private renderReady(): unknown {
 		const resolutions = this.resolutions ?? [];
 		const errors = this.errors ?? [];
 		const skipped = this.skipped ?? [];
 		const applicable = resolutions.filter(r => r.strategy !== 'skipped').length;
+		// Always show the count when there's something to apply ("Apply 1 Resolution" / "Apply 3
+		// Resolutions"); the disabled/none case reads the plain noun so it never says "0" or "all".
+		const applyLabel = applicable > 0 ? `Apply ${pluralize('Resolution', applicable)}` : 'Apply Resolutions';
 
 		return html`
 			<ul class="resolve-files scrollable" aria-label="Resolved files">
@@ -483,30 +533,52 @@ export class GlDetailsResolveModePanel extends LitElement {
 					e => this.renderError(e),
 				)}
 			</ul>
-			<div class="resolve-footer">
-				<gl-button
-					class="resolve-apply"
-					full
-					?disabled=${applicable === 0}
-					@click=${() => this.emit('resolve-apply-all')}
+			<div class="resolve-ready-actions">
+				<gl-checkbox
+					class="resolve-gate"
+					?checked=${this._refineMode}
+					@gl-change-value=${this.handleToggleRefineMode}
 				>
-					Apply ${applicable > 0 ? pluralize('Resolution', applicable) : 'all'}
-				</gl-button>
-				<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}>Discard</gl-button>
+					<code-icon icon="wand"></code-icon> Refine Resolutions
+				</gl-checkbox>
+				${this._refineMode
+					? html`<gl-ai-input
+							appearance="detached"
+							class="resolve-refine-input"
+							multiline
+							rows="2"
+							button-label="Refine Resolutions"
+							busy-label="Re-resolving…"
+							event-name="resolve-refine"
+							placeholder='Refine all — e.g. "prefer incoming for generated files"'
+							.recall=${this.lastPrompt}
+						>
+							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+							<gl-button
+								slot="actions"
+								appearance="secondary"
+								@click=${() => this.emit('resolve-discard')}
+								>Discard</gl-button
+							>
+						</gl-ai-input>`
+					: html`<div class="resolve-apply-row">
+							<gl-button
+								class="resolve-apply"
+								full
+								aria-disabled=${applicable === 0 ? 'true' : nothing}
+								tooltip=${applicable === 0 ? 'No resolutions ready to apply' : nothing}
+								@click=${() => {
+									if (applicable === 0) return;
+
+									this.emit('resolve-apply-all');
+								}}
+								>${applyLabel}</gl-button
+							>
+							<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}
+								>Discard</gl-button
+							>
+						</div>`}
 			</div>
-			<gl-ai-input
-				class="review-action-input"
-				multiline
-				active
-				rows="2"
-				button-label="Refine"
-				busy-label="Re-resolving…"
-				event-name="resolve-refine"
-				placeholder='Refine all — e.g. "prefer incoming for generated files"'
-				.recall=${this.lastPrompt}
-			>
-				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-			</gl-ai-input>
 		`;
 	}
 
@@ -643,13 +715,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 
 		const staging = this.stagingFiles?.has(file.filePath) ?? false;
 		// For delete-modify / rename-delete (UD/DU), one stageable side resolves to a delete rather than
-		// keeping content — label that button "Delete file" so the action isn't surprising.
+		// keeping content — label that button "Delete File" so the action isn't surprising.
 		const sideLabel = (side: 'current' | 'incoming') =>
 			classifyConflictAction(status, side) === 'delete'
-				? 'Delete file'
+				? 'Delete File'
 				: side === 'current'
-					? 'Take current'
-					: 'Take incoming';
+					? 'Take Current'
+					: 'Take Incoming';
 
 		const buttons: unknown[] = [];
 		if (file.canStageCurrent) {
@@ -660,7 +732,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		}
 		// both-deleted (DD): neither side has content — the only resolution is to confirm the deletion.
 		if (!file.canStageCurrent && !file.canStageIncoming && file.kind === 'both-deleted') {
-			buttons.push(this.renderTakeSideButton(file.filePath, 'delete', 'Delete file', staging));
+			buttons.push(this.renderTakeSideButton(file.filePath, 'delete', 'Delete File', staging));
 		}
 		if (buttons.length === 0) return nothing;
 

@@ -156,9 +156,7 @@ export async function showAIModelPicker(
 		} satisfies ModelQuickPickItem | DirectiveQuickPickItem);
 	} else {
 		const scopedDefaultModelId =
-			provider === 'gitkraken' && (scope === 'compose' || scope === 'review')
-				? 'gemini:gemini-3-flash-preview'
-				: undefined;
+			provider === 'gitkraken' && scope != null ? 'gemini:gemini-3-flash-preview' : undefined;
 		const useScopedDefault = scopedDefaultModelId != null && current?.provider !== provider;
 
 		for (const m of models) {

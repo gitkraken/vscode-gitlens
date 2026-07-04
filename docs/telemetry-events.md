@@ -4363,6 +4363,36 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graphDetails/resolve/changeAiModel
+
+> Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel
+
+```typescript
+{
+  'ai.model.id': string,
+  'ai.model.name': string,
+  // Previously-selected model id (undefined when no model was set)
+  'ai.model.previous.id': string,
+  // Previously-selected model name
+  'ai.model.previous.name': string,
+  // Previously-selected model provider id
+  'ai.model.previous.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  // Previously-selected model provider name
+  'ai.model.previous.provider.name': string,
+  'ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'ai.model.provider.name': string,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graphDetails/resolve/closed
 
 > Sent when the user exits resolve mode in the Graph Details panel (toggled off or destroyed)

@@ -1009,12 +1009,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	private handleSwitchModel = (): void => {
-		// Switch-model is shared by both the review-mode and compose-mode chips in this panel
-		// — derive the scope from the active mode so each surface writes to its own scoped
+		// Switch-model is shared by the review-mode, compose-mode, and resolve-mode chips in this
+		// panel — derive the scope from the active mode so each surface writes to its own scoped
 		// Memento key. Falls back to the global default when no mode is active (e.g., when
 		// the chip is shown elsewhere).
 		const mode = this._state.activeMode.get();
-		const scope = mode === 'compose' || mode === 'review' ? mode : undefined;
+		const scope = mode === 'compose' || mode === 'review' || mode === 'resolve' ? mode : undefined;
 		this._actions?.switchAIModel(scope);
 	};
 
@@ -2734,7 +2734,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose/review — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('resolve');
 					return;
 				}
 
@@ -2766,7 +2766,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// `resolveFocusedFilePaths` by the run), with the feedback as global guidance — so refine
 				// doesn't silently widen back to all conflicts after the user resolved a subset.
 				if (this._state.aiModel.get() == null) {
-					this._actions.switchAIModel();
+					this._actions.switchAIModel('resolve');
 					return;
 				}
 

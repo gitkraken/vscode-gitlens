@@ -111,10 +111,10 @@ export type AISourceContext<T> = Source & { context: T };
 /**
  * Identifies an operation that maintains its own remembered AI model, independent of the
  * global default. Picking a model from a scoped surface (the composer chip, the graph
- * compose/review mode chip) writes only to that scope's storage — the global `ai.model`
+ * compose/review/resolve mode chip) writes only to that scope's storage — the global `ai.model`
  * config and other features (commit messages, explain, etc.) are untouched.
  */
-export type AIModelScope = 'compose' | 'review';
+export type AIModelScope = 'compose' | 'review' | 'resolve';
 
 export interface AIModelChangeEvent {
 	readonly model: AIModel | undefined;
@@ -129,6 +129,8 @@ export function scopeForAction(action: AIActionType): AIModelScope | undefined {
 			return 'compose';
 		case 'review-changes':
 			return 'review';
+		case 'conflict-resolution':
+			return 'resolve';
 		default:
 			return undefined;
 	}
@@ -771,15 +773,15 @@ export class AIProviderService implements AIService, Disposable {
 		let models: readonly AIModel[];
 
 		const orgAIConfig = getOrgAIConfig();
-		const isComposeOrReviewScope = scope === 'compose' || scope === 'review';
+		const isScopedDefault = scope != null;
 
-		// First, use the GitKraken AI scope-preferred (compose/review), default, or first model
+		// First, use the GitKraken AI scope-preferred (compose/review/resolve), default, or first model
 		if (isProviderEnabledByOrg('gitkraken', orgAIConfig)) {
 			try {
 				const subscription = await this.container.subscription.getSubscription();
 				if (subscription.account?.verified) {
 					models = await this.getModels('gitkraken');
-					const scopedDefault = isComposeOrReviewScope
+					const scopedDefault = isScopedDefault
 						? models.find(m => m.id === 'gemini:gemini-3-flash-preview')
 						: undefined;
 					model = scopedDefault ?? models.find(m => m.default) ?? models[0];
@@ -2178,7 +2180,7 @@ function isPrimaryAIProviderModel(model: AIModel): model is AIModel<AIPrimaryPro
 }
 
 function isAIModelScope(value: unknown): value is AIModelScope {
-	return value === 'compose' || value === 'review';
+	return value === 'compose' || value === 'review' || value === 'resolve';
 }
 
 function getPickerTitlesForScope(scope: AIModelScope | undefined): {
@@ -2209,6 +2211,20 @@ function getPickerTitlesForScope(scope: AIModelScope | undefined): {
 			model: {
 				title: 'Select AI Model for Reviewing',
 				placeholder: 'Choose an AI model for reviewing',
+				scope: scope,
+			},
+		};
+	}
+	if (scope === 'resolve') {
+		return {
+			provider: {
+				title: 'Select AI Provider for Resolving Conflicts',
+				placeholder: 'Choose an AI provider for resolving conflicts',
+				scope: scope,
+			},
+			model: {
+				title: 'Select AI Model for Resolving Conflicts',
+				placeholder: 'Choose an AI model for resolving conflicts',
 				scope: scope,
 			},
 		};

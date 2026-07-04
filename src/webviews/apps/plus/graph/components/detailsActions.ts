@@ -681,10 +681,10 @@ export class DetailsActions {
 		this._eventUnsubscribe = unsubscribe;
 	}
 
-	switchAIModel(scope?: 'compose' | 'review'): void {
+	switchAIModel(scope?: 'compose' | 'review' | 'resolve'): void {
 		// Reuses VS Code's native AI provider quickpick — keeps a single point of truth for
 		// model selection and avoids re-implementing the picker in the webview.
-		// `scope` (set by the caller from the active mode) lets the compose / review chips
+		// `scope` (set by the caller from the active mode) lets the compose / review / resolve chips
 		// persist to their own Memento key without mutating the global default.
 		const previous = this.state.aiModel.get();
 		void (async () => {
@@ -716,9 +716,8 @@ export class DetailsActions {
 
 	/**
 	 * Re-reads `state.aiModel` for the active mode's scope. Call after the active mode flips
-	 * so the chip displayed by the now-active panel matches its scope (compose vs review).
-	 * Falls back to the global default for the `'compose' | 'review'` scopes that don't
-	 * have a remembered model.
+	 * so the chip displayed by the now-active panel matches its scope (compose, review, or resolve).
+	 * Falls back to the global default for a scope that doesn't yet have a remembered model.
 	 */
 	async refreshScopedAiModel(): Promise<void> {
 		const model = await this.services.ai.getModel(scopeForActiveMode(this.state.activeMode.get()));
@@ -3410,12 +3409,13 @@ export class DetailsActions {
 }
 
 /**
- * Maps the active details mode to the AI model scope it owns. Compose and review each
+ * Maps the active details mode to the AI model scope it owns. Compose, review, and resolve each
  * maintain their own remembered model; compare (and `null`) read the global default.
  */
 function scopeForActiveMode(
 	mode: 'review' | 'compose' | 'resolve' | 'compare' | null | undefined,
-): 'compose' | 'review' | undefined {
-	// Resolve uses the global default AI model (no dedicated scope), so it maps to `undefined`.
-	return mode === 'compose' || mode === 'review' ? mode : undefined;
+): 'compose' | 'review' | 'resolve' | undefined {
+	// Compose, review, and resolve each maintain their own remembered model; compare (and `null`)
+	// read the global default.
+	return mode === 'compose' || mode === 'review' || mode === 'resolve' ? mode : undefined;
 }

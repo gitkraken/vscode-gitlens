@@ -456,6 +456,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'graphDetails/resolve/applyResolutions/failed': GraphDetailsResolveApplyEvent;
 	/** Sent when the user discards pending AI conflict resolutions without applying them */
 	'graphDetails/resolve/discarded': GraphDetailsResolveDiscardedEvent;
+	/** Sent when the user switches the AI model from the resolve-mode chip in the Graph Details panel */
+	'graphDetails/resolve/changeAiModel': GraphDetailsChangeAiModelEvent;
 
 	/** Sent when a Home command is executed */
 	'home/command': CommandEventData;
