@@ -289,6 +289,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 			}
 		}
 
+		// After a recompose (AI refine) completes, drop back to the commit posture so the user lands
+		// on the refined plan ready to commit rather than staying in the recompose input. Guard on the
+		// loading -> ready transition (success only) so a failed recompose keeps the posture for a
+		// retry, and on `_refineMode` so the initial compose (posture already false) is a no-op.
+		if (
+			changedProperties.has('status') &&
+			changedProperties.get('status') === 'loading' &&
+			this.status === 'ready' &&
+			this._refineMode
+		) {
+			this._refineMode = false;
+		}
+
 		// A file move can prune the selected commit (its last file moved away); drop the stale
 		// selection so the file pane falls back to its empty prompt instead of a dead commit.
 		if (changedProperties.has('commits')) {
