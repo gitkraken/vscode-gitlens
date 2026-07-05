@@ -133,8 +133,11 @@ export class StashPushGitCommand extends QuickCommand<State> {
 				using step = steps.enterStep(Steps.InputMessage);
 
 				if (state.message == null) {
-					const scmRepo = await state.repo.git.getScmRepository();
-					state.message = scmRepo?.inputBox.value;
+					// Prefer the graph's WIP commit-box draft for this repo (persisted in `graph:wipDrafts`),
+					// then fall back to the SCM commit input box. Covers stashing from the graph and everywhere else.
+					const wipMessage =
+						this.container.storage.getWorkspace('graph:wipDrafts')?.[state.repo.path]?.message;
+					state.message = wipMessage || (await state.repo.git.getScmRepository())?.inputBox.value;
 				}
 
 				const result = yield* this.inputMessageStep(state, context);
