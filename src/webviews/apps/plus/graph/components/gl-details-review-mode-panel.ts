@@ -25,6 +25,7 @@ import {
 	subPanelEnterStyles,
 } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
+import { renderOpenChangesAction } from '../../../shared/components/tree/file-tree-utils.js';
 import { countIncludedFiles, prunePathsToFiles, syncAiExcluded } from './aiExclusion.js';
 import type { GlCommitsScopePane, ScopeItem } from './gl-commits-scope-pane.js';
 import {
@@ -181,6 +182,8 @@ export class GlDetailsReviewModePanel extends LitElement {
 	lastPrompt?: string;
 
 	@state() private _excludedFiles = new Set<string>();
+	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
+	@state() private _selectedFiles: readonly { path: string }[] = [];
 
 	/**
 	 * Pushed by the orchestrator from `state.reviewForwardAvailable`. True after the user clicked
@@ -236,6 +239,7 @@ export class GlDetailsReviewModePanel extends LitElement {
 			if (pruned != null) {
 				this._excludedFiles = pruned;
 			}
+			this._selectedFiles = [];
 		}
 
 		// Per-result derived state (expand/dismiss/load/error sets) is keyed by area + finding
@@ -693,10 +697,24 @@ export class GlDetailsReviewModePanel extends LitElement {
 					@file-unstage=${this.redispatch}
 					@file-compare-working=${this.redispatch}
 					@file-open-on-remote=${this.redispatch}
+					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+						(this._selectedFiles = e.detail?.files ?? [])}
 					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
 						this.fileLayout = e.detail.layout;
 					}}
-				></gl-file-tree-pane>
+				>
+					${renderFiles.length > 0
+						? renderOpenChangesAction({
+								selectedCount: this._selectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.onOpenScopeMultiDiff(renderFiles),
+								onOpenSelected: () => {
+									const selectedPaths = new Set(this._selectedFiles.map(f => f.path));
+									this.onOpenScopeMultiDiff(renderFiles.filter(f => selectedPaths.has(f.path)));
+								},
+							})
+						: nothing}
+				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
 	}
@@ -794,6 +812,19 @@ export class GlDetailsReviewModePanel extends LitElement {
 			this.dispatchEvent(new CustomEvent('review-forward-invalidate', { bubbles: true, composed: true }));
 		}
 	}
+
+	/** Opens the idle curation scope's change set as a multi-diff (via `scope-open-multi-diff`). */
+	private onOpenScopeMultiDiff = (files: readonly GitFileChangeShape[]): void => {
+		if (!files.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('scope-open-multi-diff', {
+				detail: { files: files },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
 
 	private _scopeSplitSnap = ({ pos, size }: { pos: number; size: number }): number => {
 		const scopeEl = this.renderRoot.querySelector<GlCommitsScopePane>('gl-commits-scope-pane');

@@ -4,6 +4,7 @@ import { consume, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol } from '@env/platform.js';
+import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
@@ -2214,6 +2215,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this.handleComposeRefineExcludeToggle(e.detail.commitId, e.detail.excluded)}
 			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
+			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
@@ -2687,6 +2689,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this.handleScopeChange(scopeItems, new Set(e.detail.selectedIds))}
 			@load-more=${() => void this._actions.loadMoreBranchCommits(this.effectiveRepoPath)}
 			@file-open=${this.handleReviewFileOpen}
+			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@file-stage=${this.handleFileStage}
 			@file-unstage=${this.handleFileUnstage}
 			@file-compare-working=${this.handleFileCompareWorking}
@@ -2854,6 +2857,22 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._actions.openFileByPath(e.detail.path, this.effectiveRepoPath, {
 			lhs: endpoints.lhs,
 			rhs: endpoints.rhs,
+		});
+	};
+
+	/** Opens the idle curation tree's files as a multi-diff in the scope's reference frame. */
+	private handleScopeOpenMultiDiff = (e: CustomEvent<{ files: readonly GitFileChangeShape[] }>) => {
+		const endpoints = getReviewDiffEndpoints(this._state.scope.get());
+		const repoPath = this.effectiveRepoPath;
+		if (!endpoints || !repoPath || !e.detail.files.length) return;
+
+		// The multi-diff action resolves the working tree from `rhs === ''` (the per-file
+		// diffWith path accepts `uncommitted`, this one doesn't).
+		this._actions.openMultipleChanges({
+			files: e.detail.files,
+			repoPath: repoPath,
+			lhs: endpoints.lhs,
+			rhs: endpoints.rhs === uncommitted ? '' : endpoints.rhs,
 		});
 	};
 

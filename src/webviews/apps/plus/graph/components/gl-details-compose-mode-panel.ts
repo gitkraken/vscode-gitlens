@@ -196,6 +196,8 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@state() private _selectedCommitId?: string;
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
+	/** Mirrors the idle curation pane's multi-selection; separate from `_selectedFiles` (ready-state tree) so selection doesn't leak across states. */
+	@state() private _idleSelectedFiles: readonly { path: string }[] = [];
 	@state() private _excludedFiles = new Set<string>();
 	@state() private _aiExcludedSet: ReadonlySet<string> | undefined;
 	/** Commit ids the user has excluded from the next "Commit" action. Independent of the
@@ -287,6 +289,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			if (pruned != null) {
 				this._excludedFiles = pruned;
 			}
+			this._idleSelectedFiles = [];
 		}
 
 		// After a recompose (AI refine) completes, drop back to the commit posture so the user lands
@@ -561,10 +564,24 @@ export class GlDetailsComposeModePanel extends LitElement {
 					@file-open=${this.redispatch}
 					@file-stage=${this.redispatch}
 					@file-unstage=${this.redispatch}
+					@file-selection-changed=${(e: CustomEvent<{ files: readonly { path: string }[] }>) =>
+						(this._idleSelectedFiles = e.detail?.files ?? [])}
 					@change-files-layout=${(e: CustomEvent<{ layout: ViewFilesLayout }>) => {
 						this.fileLayout = e.detail.layout;
 					}}
-				></gl-file-tree-pane>
+				>
+					${files.length > 0
+						? renderOpenChangesAction({
+								selectedCount: this._idleSelectedFiles.length,
+								slot: 'leading-actions',
+								onOpenAll: () => this.onOpenScopeMultiDiff(files),
+								onOpenSelected: () => {
+									const selectedPaths = new Set(this._idleSelectedFiles.map(f => f.path));
+									this.onOpenScopeMultiDiff(files.filter(f => selectedPaths.has(f.path)));
+								},
+							})
+						: nothing}
+				</gl-file-tree-pane>
 			</webview-pane-group>
 		</div>`;
 	}
@@ -966,6 +983,19 @@ export class GlDetailsComposeModePanel extends LitElement {
 		this.dispatchEvent(
 			new CustomEvent('compose-open-multi-diff', {
 				detail: { virtualRef: virtualRef, files: files },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	};
+
+	/** Opens the idle curation scope's change set as a multi-diff (via `scope-open-multi-diff`). */
+	private onOpenScopeMultiDiff = (files: readonly GitFileChangeShape[]): void => {
+		if (!files.length) return;
+
+		this.dispatchEvent(
+			new CustomEvent('scope-open-multi-diff', {
+				detail: { files: files },
 				bubbles: true,
 				composed: true,
 			}),
