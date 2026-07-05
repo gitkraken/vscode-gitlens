@@ -12,6 +12,7 @@ import { webviewContext } from '../../../shared/contexts/webview.js';
 import '../../../shared/components/actions/action-item.js';
 import '../../../shared/components/actions/action-nav.js';
 import '../../../shared/components/branch-name.js';
+import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/tooltip.js';
 
