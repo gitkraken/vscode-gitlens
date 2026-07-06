@@ -1,6 +1,8 @@
 import { window } from 'vscode';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { CommandQuickPickItem } from '../quickpicks/items/common.js';
 import { showReferencePicker2 } from '../quickpicks/referencePicker.js';
 import { getBestRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
@@ -92,6 +94,24 @@ export class RecomposeBranchCommand extends GlCommandBase {
 			// Check if branch is remote-only
 			if (branch.remote && !branch.upstream) {
 				void window.showErrorMessage(`Cannot recompose remote-only branch '${branchName}'`);
+				return;
+			}
+
+			// Prefer the graph's inline compose mode when the range resolves cleanly; otherwise fall
+			// back to the standalone composer below.
+			const resolved = await resolveRecomposeScope(this.container, repo.git, {
+				branchName: branchName,
+				commitShas: args?.commitShas,
+				range: args?.range,
+				includeWip: false,
+			});
+			if (resolved.ok) {
+				void executeCommand('gitlens.showGraph', {
+					action: 'enter-compose',
+					target: { sha: uncommitted, worktreePath: repoPath },
+					composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+					source: { source: args?.source ?? 'commandPalette' },
+				});
 				return;
 			}
 

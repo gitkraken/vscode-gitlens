@@ -2751,12 +2751,6 @@ export class DetailsActions {
 		}
 	}
 
-	openComposer(repoPath: string | undefined): void {
-		if (!repoPath) return;
-
-		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
-	}
-
 	/** Emits the real-commit/compare file open/diff engagement signal. The virtual-FS opens
 	 *  (compose/resolve proposed commits) are tracked separately via {@link runVirtualFileOpen}. */
 	private trackFileOpened(action: GraphDetailsFileAction, filesCount = 1): void {

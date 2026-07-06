@@ -3,6 +3,7 @@ import { Uri, ViewColumn, window, workspace } from 'vscode';
 import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
 import type { ProcessedRebaseTodo, RebaseTodoAction } from '@gitlens/git/models/rebase.js';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import { classifyConflictAction } from '@gitlens/git/utils/conflictResolution.utils.js';
 import { getConflictIncomingRef, resolveConflictFilePaths } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -41,6 +42,7 @@ import {
 } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import { reopenRebaseTodoEditor } from '../../git/utils/-webview/rebase.utils.js';
 import { showGitErrorMessage } from '../../messages.js';
+import { resolveRecomposeScope } from '../../plus/coretools/compose/recomposeScope.js';
 import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
@@ -660,18 +662,39 @@ export class RebaseWebviewProvider implements Disposable {
 
 		const headCommitSha = commits.get(headShortSha)!.sha;
 
-		// Open the Commit Composer with the commits
-		void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-			'gitlens.showComposerPage',
-			undefined,
-			{
-				repoPath: this.repoPath,
-				source: 'rebaseEditor',
-				mode: 'preview',
-				branchName: this._branchName ?? undefined,
-				range: { base: baseCommitSha, head: headCommitSha },
-			},
-		);
+		// Prefer the graph's inline compose mode when the range resolves cleanly. During an interactive
+		// rebase HEAD is often detached, so falling back to the standalone composer is the common case.
+		const repo = this.container.git.getRepository(this.repoPath);
+		const resolved =
+			repo != null
+				? await resolveRecomposeScope(this.container, repo.git, {
+						branchName: this._branchName ?? undefined,
+						range: { base: baseCommitSha, head: headCommitSha },
+						includeWip: false,
+					})
+				: undefined;
+
+		if (resolved?.ok) {
+			void executeCommand('gitlens.showGraph', {
+				action: 'enter-compose',
+				target: { sha: uncommitted, worktreePath: this.repoPath },
+				composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+				source: { source: 'rebaseEditor' },
+			});
+		} else {
+			// Open the Commit Composer with the commits
+			void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
+				'gitlens.showComposerPage',
+				undefined,
+				{
+					repoPath: this.repoPath,
+					source: 'rebaseEditor',
+					mode: 'preview',
+					branchName: this._branchName ?? undefined,
+					range: { base: baseCommitSha, head: headCommitSha },
+				},
+			);
+		}
 
 		await this.onAbort();
 	}

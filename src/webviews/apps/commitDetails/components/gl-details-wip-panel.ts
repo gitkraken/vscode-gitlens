@@ -13,11 +13,9 @@ import { isDescendant, normalizePath, relative } from '@gitlens/utils/path.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { Draft } from '../../../../plus/drafts/models/drafts.js';
-import { createCommandLink } from '../../../../system/commands.js';
 import { serializeWebviewItemContext } from '../../../../system/webview.js';
 import type { DetailsItemTypedContext, DraftState, Wip } from '../../../commitDetails/protocol.js';
 import { buildFolderContext } from '../../../commitDetails/protocol.js';
-import type { ComposerCommandArgs } from '../../../plus/composer/registration.js';
 import type { Change } from '../../../plus/patchDetails/protocol.js';
 import type { TreeItemAction, TreeItemBase, TreeItemCheckedDetail } from '../../shared/components/tree/base.js';
 import { detailsBaseStyles } from './gl-details-base.css.js';
@@ -465,30 +463,6 @@ export class GlDetailsWipPanel extends GlDetailsBase {
 				description: this.generate?.description ?? this.patchCreateMetadata.description,
 			};
 		}
-	}
-
-	protected override renderChangedFilesSlottedContent(): TemplateResult<1> | typeof nothing {
-		if (this.variant === 'embedded' || !this.files?.length) return nothing;
-
-		return html`<div slot="before-tree" class="section section--actions">
-			<button-container>
-				<gl-button
-					full
-					.href=${createCommandLink<ComposerCommandArgs>('gitlens.composeCommits', {
-						repoPath: this.wip?.repo.path,
-						source: 'inspect',
-					})}
-					><code-icon icon="wand" slot="prefix"></code-icon>Compose Commits...<span slot="tooltip"
-						><strong>Compose Commits</strong><br /><i
-							>Automatically or interactively organize changes into meaningful commits</i
-						></span
-					></gl-button
-				>
-				<gl-button appearance="secondary" href="command:workbench.view.scm" tooltip="Commit via SCM"
-					><code-icon rotate="45" icon="arrow-up"></code-icon
-				></gl-button>
-			</button-container>
-		</div>`;
 	}
 
 	private renderSecondaryAction(hasPrimary = true) {

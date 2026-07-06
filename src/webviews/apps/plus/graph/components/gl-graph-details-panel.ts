@@ -2341,7 +2341,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
 			@compose-refine-exclude-toggle=${(e: CustomEvent<{ commitId: string; excluded: boolean }>) =>
 				this.handleComposeRefineExcludeToggle(e.detail.commitId, e.detail.excluded)}
-			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
 			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>
