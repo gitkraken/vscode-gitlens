@@ -114,16 +114,16 @@ export class GlGraphLaunchpadIndicator extends SignalWatcher(LitElement) {
 		const connected = this._state?.connected.get();
 
 		return html`<gl-popover placement="bottom" trigger="hover focus" ?arrow=${false} .distance=${0}>
-			<button
-				type="button"
+			<a
 				class="action-button"
 				slot="anchor"
+				href=${this.openLaunchpadLink}
 				aria-haspopup="dialog"
 				aria-label=${this.buttonLabel}
 			>
 				<code-icon icon="rocket"></code-icon>
 				${this.renderTrailing(connected)}
-			</button>
+			</a>
 			<div slot="content">
 				<div class="popover__header">
 					<h3 class="popover__heading">Launchpad</h3>

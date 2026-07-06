@@ -27,6 +27,7 @@ export const actionButton = css`
 		background-color: transparent;
 		border: none;
 		color: var(--vscode-foreground);
+		text-decoration: none;
 		padding: 0 0.75rem;
 		cursor: pointer;
 		border-radius: var(--gl-radius-sm);
@@ -48,7 +49,6 @@ export const actionButton = css`
 	.action-button:hover {
 		background-color: var(--color-graph-actionbar-selectedBackground);
 		color: var(--vscode-foreground);
-		text-decoration: none;
 	}
 
 	.action-button[aria-checked] {
