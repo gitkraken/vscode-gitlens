@@ -2531,6 +2531,7 @@ type WelcomeActionNames =
 	| 'open/home-view'
 	| 'open/help-center'
 	| 'open/help-center/community-vs-pro'
+	| 'open/kepler'
 	| 'open/launchpad'
 	| 'plus/login'
 	| 'plus/reactivate'

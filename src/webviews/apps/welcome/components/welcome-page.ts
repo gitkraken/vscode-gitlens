@@ -197,21 +197,6 @@ const walkthroughSteps: WalkthroughStep[] = [
 	},
 
 	{
-		id: 'home-view',
-		walkthroughKey: 'homeView',
-		title: 'Streamline Workflow with the Home View',
-		body: html`
-			<p>
-				Streamline your workflow — effortlessly track, manage, and collaborate on your branches and pull
-				requests, all in one intuitive hub.
-			</p>
-			<div class="card-part--centered">
-				<gl-button href="command:gitlens.welcome.showHomeView">Open Home View</gl-button>
-			</div>
-		`,
-	},
-
-	{
 		id: 'ai-features',
 		walkthroughKey: 'aiFeatures',
 		title: 'Commit smarter, not harder',
@@ -277,6 +262,26 @@ const walkthroughSteps: WalkthroughStep[] = [
 			<p>Stay in flow, ship faster, and never lose track of what matters.</p>
 			<div class="card-part--centered">
 				<gl-button href="command:gitlens.welcome.showLaunchpad">Open Launchpad</gl-button>
+			</div>
+		`,
+	},
+
+	{
+		id: 'kepler',
+		walkthroughKey: 'kepler',
+		title: 'Take your agent workflows further',
+		body: html`
+			<p>
+				GitLens helps you understand and review agent-generated work inside your IDE. Kepler, GitKraken's
+				Agentic Development Environment (ADE), gives you a dedicated workspace to coordinate AI agents, organize
+				Tasks, and manage complex development workflows from one place.
+			</p>
+			<p>
+				Start from an issue or pull request, and Kepler creates the environment, launches the agent, and keeps
+				related work organized in a single Task across repositories.
+			</p>
+			<div class="card-part--centered">
+				<gl-button href="command:gitlens.welcome.openKepler">Get Kepler</gl-button>
 			</div>
 		`,
 	},
