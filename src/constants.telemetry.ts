@@ -1124,6 +1124,8 @@ type GraphDetailsScopeEventData = {
 	'scope.includeUnstaged': boolean | undefined;
 	/** Number of commits included in the scope */
 	'scope.commits.count': number;
+	/** Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope). */
+	'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only' | undefined;
 	/** Effective number of files in the scope (post AI-ignore, pre user-exclusion) */
 	'scope.files.count': number;
 	/** Number of files the user has excluded from the scope */

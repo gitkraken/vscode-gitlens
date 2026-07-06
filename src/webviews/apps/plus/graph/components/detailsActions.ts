@@ -273,6 +273,14 @@ export class DetailsActions {
 			'scope.includeUnstaged': scope?.type === 'wip' ? scope.includeUnstaged : undefined,
 			'scope.commits.count':
 				scope?.type === 'wip' || scope?.type === 'compare' ? (scope.includeShas?.length ?? 0) : 0,
+			'scope.kind':
+				scope?.type === 'wip'
+					? (scope.includeShas?.length ?? 0) === 0
+						? 'wip-only'
+						: scope.includeStaged || scope.includeUnstaged
+							? 'wip+commits'
+							: 'commits-only'
+					: undefined,
 			'scope.files.count': effectiveFilesCount,
 			'scope.files.excluded.count': excludedFilesCount,
 			'customInstructions.used': promptLength > 0,

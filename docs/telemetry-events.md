@@ -4197,6 +4197,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4245,6 +4247,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4285,6 +4289,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4945,6 +4951,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4992,6 +5000,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -5030,6 +5040,8 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
+  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
+  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
