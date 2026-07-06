@@ -3,7 +3,7 @@ GitLens
 THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
 This project incorporates components from the projects listed below.
 
-1. @awesome.me/webawesome version 3.9.0 (https://github.com/shoelace-style/webawesome)
+1. @awesome.me/webawesome version 3.10.0 (https://github.com/shoelace-style/webawesome)
 2. @configcat/sdk version 1.0.2 (https://github.com/configcat/js-unified-sdk)
 3. @eamodio/supertalk-core version 0.0.6 (https://github.com/eamodio/supertalk)
 4. @eamodio/supertalk-signals version 0.0.6 (https://github.com/eamodio/supertalk)
@@ -19,7 +19,7 @@ This project incorporates components from the projects listed below.
 14. @lit/task version 1.0.3 (https://github.com/lit/lit)
 15. @octokit/graphql version 9.0.3 (https://github.com/octokit/graphql.js)
 16. @octokit/request-error version 7.1.0 (https://github.com/octokit/request-error.js)
-17. @octokit/request version 10.0.10 (https://github.com/octokit/request.js)
+17. @octokit/request version 10.0.11 (https://github.com/octokit/request.js)
 18. @octokit/types version 16.0.0 (https://github.com/octokit/types.ts)
 19. @opentelemetry/api version 1.9.1 (https://github.com/open-telemetry/opentelemetry-js)
 20. @opentelemetry/exporter-trace-otlp-http version 0.219.0 (https://github.com/open-telemetry/opentelemetry-js)
