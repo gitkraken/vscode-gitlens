@@ -1,7 +1,7 @@
 import type { GraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
 import { refZone } from '@gitkraken/gitkraken-components';
 import { SignalWatcher } from '@lit-labs/signals';
-import { consume, provide } from '@lit/context';
+import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
@@ -49,6 +49,7 @@ import {
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
+import { noop } from '../../shared/actions/rpc.js';
 import {
 	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
@@ -56,12 +57,16 @@ import {
 } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
+import { aiContext, createAIState } from '../../shared/contexts/ai.js';
+import { createIntegrationsState, integrationsContext } from '../../shared/contexts/integrations.js';
 import { ipcContext } from '../../shared/contexts/ipc.js';
+import { createDefaultSubscriptionContextState, subscriptionContext } from '../../shared/contexts/subscription.js';
 import type { TelemetryContext } from '../../shared/contexts/telemetry.js';
 import { telemetryContext } from '../../shared/contexts/telemetry.js';
 import type { NavigationState } from '../../shared/controllers/navigationStack.js';
 import { NavigationStack } from '../../shared/controllers/navigationStack.js';
 import { subscribeAll } from '../../shared/events/subscriptions.js';
+import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
@@ -352,6 +357,31 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		500,
 	);
 
+	// Account/integrations bar state (issue #5411). The `<gl-account-bar>` chips consume these
+	// shared contexts; provide them here (the common ancestor) and populate from the host once
+	// `services` resolves. `promosContext` is provided globally by the app host. NOTE: this
+	// mirrors the Home view's wiring — a follow-up should extract it into a reusable helper.
+	private readonly _integrationsState = createIntegrationsState();
+	private readonly _aiState = createAIState();
+	private readonly _subscriptionCtx = new ContextProvider(this, {
+		context: subscriptionContext,
+		initialValue: createDefaultSubscriptionContextState(),
+	});
+	// `_integrationsCtx`/`_aiCtx` are intentionally kept as fields: `ContextProvider` self-registers
+	// on construction, so they're never read again (Home provides these as bare `new ContextProvider`
+	// statements instead — same effect). `_subscriptionCtx` above is a field because it's read later.
+	private readonly _integrationsCtx = new ContextProvider(this, {
+		context: integrationsContext,
+		initialValue: this._integrationsState,
+	});
+	private readonly _aiCtx = new ContextProvider(this, {
+		context: aiContext,
+		initialValue: this._aiState,
+	});
+	/** One-shot guard mirroring `_launchpadInitialized` for the account-bar context wiring. */
+	private _accountContextsInitialized = false;
+	private _accountUnsubscribe: (() => void) | undefined;
+
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
 
@@ -497,6 +527,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this._launchpadUnsubscribe?.();
 		this._launchpadUnsubscribe = undefined;
 		this._launchpadRefreshDebounced.cancel();
+
+		this._accountUnsubscribe?.();
+		this._accountUnsubscribe = undefined;
 	}
 
 	/** Starts the shared Launchpad pipeline once `services` resolves: subscribes to host-side
@@ -514,6 +547,85 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		}
 		// Defer the initial fetch off the cold graph-load path.
 		setTimeout(() => void this.refreshLaunchpadSummary(), 0);
+	}
+
+	/** Populates the account-bar contexts once `services` resolves (issue #5411). Swaps the
+	 *  subscription context to the host-side RemoteSignals, seeds the initial integrations/AI
+	 *  state, and subscribes to change events. Mirrors the Home view (see `home.ts` / `actions.ts`
+	 *  / `events.ts`). A failed subscription must not break the graph. */
+	private async initAccountContexts(services: NonNullable<typeof this.services>): Promise<void> {
+		// Wiring the account bar must never break the graph, so guard the whole pipeline: a rejected
+		// service promise or a failed subscription just leaves the bar without live state.
+		try {
+			const [subscription, integrations, ai] = await Promise.all([
+				services.subscription,
+				services.integrations,
+				services.ai,
+			]);
+
+			// Swap the subscription context to use the host-side RemoteSignals directly (no copy),
+			// exactly as Home does. Supertalk proxy properties are thenable at runtime.
+			/* eslint-disable @typescript-eslint/await-thenable -- Supertalk proxy properties are thenable at runtime */
+			const [subscriptionSignal, orgSettingsSignal, avatarSignal, hasAccountSignal, orgCountSignal] =
+				await Promise.all([
+					subscription.subscriptionState,
+					subscription.orgSettingsState,
+					subscription.avatarState,
+					subscription.hasAccountState,
+					subscription.organizationsCountState,
+				]);
+			/* eslint-enable @typescript-eslint/await-thenable */
+			this._subscriptionCtx.setValue(
+				{
+					subscription: subscriptionSignal,
+					orgSettings: orgSettingsSignal,
+					avatar: avatarSignal,
+					hasAccount: hasAccountSignal,
+					organizationsCount: orgCountSignal,
+				},
+				true,
+			);
+
+			// Seed initial integrations + AI state (the change subscriptions below only fire on change).
+			// `.catch(noop)` also swallows any error thrown inside the success callback (not just a
+			// rejected promise), which the 2nd-arg handler wouldn't.
+			void integrations
+				.getIntegrationStates()
+				.then(s => {
+					this._integrationsState.integrations.set(s);
+					this._integrationsState.hasAnyIntegrationConnected.set(s.some(i => i.connected));
+				})
+				.catch(noop);
+			void ai
+				.getModel()
+				.then(m => this._aiState.model.set(m))
+				.catch(noop);
+			void ai
+				.getState()
+				.then(s => this._aiState.state.set(s))
+				.catch(noop);
+
+			// Subscribe to host-side change events so the bar stays live.
+			const unsubscribe = await subscribeAll([
+				async () =>
+					integrations.onIntegrationsChanged(data => {
+						this._integrationsState.hasAnyIntegrationConnected.set(data.hasAnyConnected);
+						this._integrationsState.integrations.set(data.integrations);
+					}),
+				async () => ai.onModelChanged(model => this._aiState.model.set(model)),
+				async () => ai.onStateChanged(state => this._aiState.state.set(state)),
+			]);
+			// Guard against late completion: if the element disconnected while awaiting, `disconnectedCallback`
+			// already ran with `_accountUnsubscribe` still undefined, so tear down here to avoid leaking host
+			// subscriptions on a disposed graph.
+			if (!this.isConnected) {
+				unsubscribe?.();
+				return;
+			}
+			this._accountUnsubscribe = unsubscribe;
+		} catch {
+			// The account bar is non-critical — swallow so wiring failures never break the graph.
+		}
 	}
 
 	/** Fetches the Launchpad summary into the shared store. Connection-gated: probes integration
@@ -1277,6 +1389,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.initLaunchpad(this.services);
 		}
 
+		// Start the account-bar context wiring once `services` first resolves (same one-shot
+		// pattern as the Launchpad pipeline above — `services` is a `@consume`d context value).
+		if (!this._accountContextsInitialized && this.services != null) {
+			this._accountContextsInitialized = true;
+			void this.initAccountContexts(this.services);
+		}
+
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
 		// always belongs to the repo that was active when `openTimelineScope` ran. If the user
 		// switches repos before scope-applied fires, restoring that mode on the new repo would
@@ -1434,6 +1553,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const { single, multi } = this.activeSelection;
 		return html`
 			<div class="graph">
+				<gl-account-bar class="graph__account-bar"></gl-account-bar>
 				<gl-graph-header
 					class="graph__header"
 					.selectCommits=${this.selectCommits}

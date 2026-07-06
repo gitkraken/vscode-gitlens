@@ -1576,6 +1576,17 @@ web-graph {
 	padding: 0.1rem;
 	overflow: hidden;
 
+	// Account + integrations bar (issue #5411): sits above the graph header, always visible so
+	// account/integrations state is available when the Graph is the main GitLens panel.
+	&__account-bar {
+		position: relative;
+		z-index: var(--gl-z-sticky);
+		flex: none;
+		min-width: 0;
+		padding: var(--gl-space-4) var(--gl-space-6);
+		border-bottom: var(--gl-border-width) solid var(--vscode-sideBarSectionHeader-border, transparent);
+	}
+
 	&__header {
 		position: relative;
 		z-index: var(--gl-z-sticky);

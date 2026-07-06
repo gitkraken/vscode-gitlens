@@ -2,9 +2,8 @@ import { css, html, LitElement } from 'lit';
 import { customElement, query } from 'lit/decorators.js';
 import type { GlPromoBanner } from '../../../home/components/promo-banner.js';
 import { elementBase, linkBase } from '../../../shared/components/styles/lit/base.css.js';
-import type { GlAccountChip } from './account-chip.js';
-import './account-chip.js';
-import './integrations-chip.js';
+import type { GlAccountBar } from './account-bar.js';
+import './account-bar.js';
 import '../../../home/components/onboarding.js';
 import '../../../home/components/promo-banner.js';
 import '../../../shared/components/button.js';
@@ -23,28 +22,6 @@ export class GlHomeHeader extends LitElement {
 				display: block;
 			}
 
-			.container {
-				display: flex;
-				gap: var(--gl-space-6);
-				align-items: center;
-				justify-content: space-between;
-				color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-			}
-
-			.container:focus,
-			.container:focus-within {
-				outline: none;
-			}
-
-			/* .actions {
-		flex: none;
-		display: flex;
-		gap: var(--gl-space-2);
-		flex-direction: row;
-		align-items: center;
-		justify-content: center;
-	} */
-
 			gl-promo-banner {
 				margin: 0 var(--gl-space-2) var(--gl-space-6);
 			}
@@ -52,32 +29,24 @@ export class GlHomeHeader extends LitElement {
 			gl-promo-banner:has(gl-promo:not([has-promo])) {
 				display: none;
 			}
-
-			.group {
-				display: flex;
-				gap: var(--gl-space-4);
-				align-items: center;
-			}
 		`,
 	];
 
-	@query('gl-account-chip')
-	private accountChip!: GlAccountChip;
+	@query('gl-account-bar')
+	private accountBar!: GlAccountBar;
 
 	@query('gl-promo-banner')
 	private promoBanner!: GlPromoBanner;
 
 	override render(): unknown {
 		return html`<gl-promo-banner></gl-promo-banner>
-			<div class="container" tabindex="-1">
-				<span class="group"><gl-account-chip></gl-account-chip></span>
-				<gl-integrations-chip></gl-integrations-chip>
-			</div>
+			<gl-account-bar></gl-account-bar>
 			<gl-onboarding></gl-onboarding>`;
 	}
 
 	show(): void {
-		this.accountChip.show();
+		// `show()` may be called before the first render resolves the queried bar.
+		this.accountBar?.show();
 	}
 
 	refreshPromo(): void {
