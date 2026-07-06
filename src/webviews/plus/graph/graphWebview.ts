@@ -4268,7 +4268,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			if (configuration.get('graph.showWorkingTreeBadge')) {
 				void this.notifyDidChangeWorkingTree();
 			} else if (this.host.is('view')) {
-				this.host.badge = undefined;
+				// `undefined` won't clear a Panel-container view badge (see `updateWorkingTreeBadge`) — use a zero-value badge.
+				this.host.badge = { value: 0, tooltip: '' };
 			}
 		}
 
@@ -7180,8 +7181,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (count === this._lastBadgeCount) return;
 
 		this._lastBadgeCount = count;
+		// VS Code ignores `badge = undefined` on Panel-container views (the Graph view lives in the Panel),
+		// leaving the stale count stuck; an explicit zero-value badge forces the update and renders as no badge.
 		this.host.badge =
-			count > 0 ? { value: count, tooltip: `${count} working tree change${count === 1 ? '' : 's'}` } : undefined;
+			count > 0
+				? { value: count, tooltip: `${count} working tree change${count === 1 ? '' : 's'}` }
+				: { value: 0, tooltip: '' };
 	}
 
 	private notifyDidChangeWorkingTree(): Promise<boolean> {
