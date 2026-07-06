@@ -48,6 +48,23 @@ export class WelcomeOpenHelpCenterCommand extends GlCommandBase {
 }
 
 @command()
+export class WelcomeOpenKeplerCommand extends GlCommandBase {
+	constructor(private readonly container: Container) {
+		super('gitlens.welcome.openKepler');
+	}
+
+	execute(): void {
+		const url = urls.kepler;
+		this.container.telemetry.sendEvent('welcome/action', {
+			type: 'url',
+			name: 'open/kepler',
+			url: url,
+		});
+		void openUrl(url);
+	}
+}
+
+@command()
 export class WelcomePlusSignUpCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
 		super('gitlens.welcome.plus.signUp');

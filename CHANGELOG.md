@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds manual take-side fallbacks and conflict-type labels to the AI **Resolve** mode in the _Commit Graph_ WIP details panel &mdash; conflicts the AI can't auto-merge (binary, symlink, submodule, file-mode, add/add, and rename/rename or rename/delete conflicts) are now labeled by type and offer inline _Take Current_, _Take Incoming_, and _Delete_ actions instead of dead-ending as "needs review"; resolving a rename/rename conflict also removes the other side's renamed file. Also decodes UTF-16/BOM-encoded files so their conflicts can be resolved rather than skipped ([#5393](https://github.com/gitkraken/vscode-gitlens/issues/5393))
 - Adds a commit signing indicator to the _Commit Graph_'s working changes (WIP) commit box &mdash; a key icon appears when commits will be signed (via the repo's `commit.gpgsign` Git config or VS Code's `git.enableCommitSigning` setting), with the signing format (GPG, SSH, X.509, or OpenPGP) shown on hover
 - Adds a _Start Review with an Agent_ action to _Launchpad_ pull request items &mdash; after selecting a pull request in the _Launchpad_, you can start an AI agent review that checks out the PR in a worktree and routes straight to the agent picker (or your default agent); available when AI features are enabled ([#5395](https://github.com/gitkraken/vscode-gitlens/issues/5395))
+- Adds a _Take your agent workflows further_ step to the _Welcome_ view walkthrough &mdash; introduces Kepler, GitKraken's Agentic Development Environment (ADE), with a _Get Kepler_ call-to-action ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
 
 ### Changed
 
@@ -31,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 
+- Removes the _Streamline Workflow with the Home View_ step from the _Welcome_ view walkthrough ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
 - Removes the Overview (working changes) mode from the _Inspect_ view, making it commit/stash-only &mdash; reviewing working changes is now consolidated in the _Commit Graph_. Launchpad _Switch to Branch_ and _Open Details_ actions, and PR switch deep links, now open the _Commit Graph_ at the working changes (WIP) row instead of the _Inspect_ view; the Launchpad code-suggestion entry points are retired (code suggestions remain available in the _Commit Graph_) ([#5399](https://github.com/gitkraken/vscode-gitlens/issues/5399))
 
 ### Fixed

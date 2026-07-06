@@ -135,6 +135,7 @@ type InternalWalkthroughCommands =
 type InternalWelcomeCommands =
 	| 'gitlens.welcome.openCommunityVsPro'
 	| 'gitlens.welcome.openHelpCenter'
+	| 'gitlens.welcome.openKepler'
 	| 'gitlens.welcome.plus.login'
 	| 'gitlens.welcome.plus.reactivate'
 	| 'gitlens.welcome.plus.signUp'

@@ -6967,7 +6967,7 @@ or
 
 ```typescript
 {
-  'context.key': 'homeView' | 'gettingStarted' | 'visualizeCodeHistory' | 'gitBlame' | 'prReviews' | 'mcpFeatures' | 'aiFeatures' | 'graphAgentMonitoring' | 'graphParallelWork' | 'graphAiReview' | 'graphCompose' | 'graphCompare' | 'graphNextSteps'
+  'context.key': 'gettingStarted' | 'visualizeCodeHistory' | 'gitBlame' | 'prReviews' | 'kepler' | 'mcpFeatures' | 'aiFeatures' | 'graphAgentMonitoring' | 'graphParallelWork' | 'graphAiReview' | 'graphCompose' | 'graphCompare' | 'graphNextSteps'
 }
 ```
 
@@ -6988,7 +6988,7 @@ or
 ```typescript
 {
   'command': string,
-  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view',
+  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view' | 'open/kepler',
   'type': 'command'
 }
 ```
@@ -6997,7 +6997,7 @@ or
 
 ```typescript
 {
-  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view',
+  'name': 'open/help-center/community-vs-pro' | 'open/composer' | 'open/graph' | 'open/launchpad' | 'open/help-center' | 'plus/login' | 'plus/sign-up' | 'plus/upgrade' | 'plus/reactivate' | 'shown' | 'dismiss' | 'open/home-view' | 'open/kepler',
   'type': 'url',
   'url': string
 }
