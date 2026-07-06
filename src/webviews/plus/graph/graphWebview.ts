@@ -91,6 +91,7 @@ import { lazy } from '@gitlens/utils/lazy.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, filterMap as filterMapObject, flatten, hasKeys, updateRecordValue } from '@gitlens/utils/object.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import {
 	getSettledValue,
 	pauseOnCancelOrTimeout,
@@ -360,6 +361,7 @@ import type {
 	DidRequestOpenCompareModeParams,
 	DidRequestOpenTimelineScopeParams,
 	DidRequestSearchParams,
+	GetWipLineStatsResponse,
 	GetWipStatsResponse,
 	GraphActionTarget,
 	GraphAutoFetchMode,
@@ -464,6 +466,7 @@ import {
 	GetOverviewWipRequest,
 	GetRowHoverRequest,
 	getSecondaryWipPath,
+	GetWipLineStatsRequest,
 	GetWipStatsRequest,
 	isSecondaryWipSha,
 	JumpToHeadRequest,
@@ -3713,6 +3716,41 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			Logger.error(ex, 'GraphWebviewProvider', 'onGetWipStats');
 			// Record-shaped response — partial successes are preserved; missing keys read as undefined frontend-side.
 			return response;
+		}
+	}
+
+	@ipcRequest(GetWipLineStatsRequest)
+	private async onGetWipLineStats(
+		params: IpcParams<typeof GetWipLineStatsRequest>,
+	): Promise<GetWipLineStatsResponse | undefined> {
+		// Per-file line stats aren't carried by the every-tick `wip` push (`git status` can't emit
+		// them); the webview requests them lazily only while the WIP file list is visible, so one
+		// `git diff HEAD --numstat` (incl. untracked) here is the sole extra cost.
+		// TODO(revisit): because the webview only re-requests on a `wip` change and pushes are deduped
+		// by status content, pure line edits (same status) don't refresh these until a status change /
+		// re-select / refresh — see `updateWipFileStats`. Per-save freshness would need host-driven
+		// pushes on each working-tree tick while the panel is open.
+		try {
+			const svc = this.container.git.getRepositoryService(params.repoPath);
+			const files = await svc.diff.getDiffStatus('HEAD', undefined, { includeUntracked: true });
+			if (files == null) return undefined;
+
+			// Key by normalized repo-relative path so the webview can match its `wip.changes.files`
+			// entries regardless of separator/encoding differences. Untracked files carry no numstat
+			// (`git diff` can't stat them) and are simply omitted.
+			const response: GetWipLineStatsResponse = {};
+			for (const file of files) {
+				if (file.stats == null) continue;
+
+				response[normalizePath(file.path)] = {
+					additions: file.stats.additions,
+					deletions: file.stats.deletions,
+				};
+			}
+			return response;
+		} catch (ex) {
+			Logger.error(ex, 'GraphWebviewProvider', 'onGetWipLineStats');
+			return undefined;
 		}
 	}
 

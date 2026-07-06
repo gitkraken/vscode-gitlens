@@ -7,6 +7,7 @@ import { getAltKeySymbol } from '@env/platform.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
@@ -15,8 +16,10 @@ import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type { GetWipLineStatsResponse } from '../../../../plus/graph/protocol.js';
 import {
 	getSecondaryWipPath,
+	GetWipLineStatsRequest,
 	isSecondaryWipSha,
 	isWipSha,
 	UpdateWipDraftCommand,
@@ -302,6 +305,16 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	@state()
 	private _agentStatusSplitPosition?: number;
 
+	/** Per-file working-tree line stats (keyed by normalized path) for the WIP file rows. Fetched
+	 *  lazily via {@link GetWipLineStatsRequest} — only while the WIP file list is shown — since the
+	 *  every-tick `wip` push carries file status only, never line counts. */
+	@state()
+	private _wipFileStats?: GetWipLineStatsResponse;
+	/** The `wip` snapshot the current {@link _wipFileStats} were requested for. Reference-compared so
+	 *  each fresh working-tree push (a new `wip` object) triggers exactly one refetch, and re-selecting
+	 *  the same snapshot doesn't. */
+	private _wipFileStatsFetchedFor?: Wip;
+
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
 	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
 	 *  third surface state — `partial`, only needs-input cards — is derived (not stored here):
@@ -489,6 +502,71 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private get isWip(): boolean {
 		return isWipSha(this.sha);
+	}
+
+	/** Lazily fetch the per-file WIP line stats when the WIP file list is shown, deduped per `wip`
+	 *  snapshot. Called from {@link updated} so it re-runs whenever the selection/mode/wip signals
+	 *  change.
+	 *
+	 *  TODO(revisit): refetch is driven by `wip`-reference changes, and the host dedups WIP pushes by
+	 *  `git status` content — which has no line info. So a pure line edit within an already-modified
+	 *  file (same status) won't refresh the `+N −M` until a file-set/status change, WIP re-select, or
+	 *  manual refresh. Making it update per-save means running the diff on every FS tick while the
+	 *  panel is open (host-driven); revisit if the staleness-during-editing proves annoying. */
+	private updateWipFileStats(): void {
+		// Only when the plain WIP file list is on screen (not review/compose/resolve modes) and there
+		// are files to diff — a clean tree has nothing to show and shouldn't cost a `git diff`.
+		const wip = this._state.activeMode.get() == null && this.isWip ? this._state.wip.get() : undefined;
+		const repoPath = wip?.repo?.path;
+		if (wip == null || !repoPath || (wip.changes?.files?.length ?? 0) === 0) {
+			// Left the WIP view (or nothing to show) — drop stale stats so re-entry refetches fresh.
+			if (this._wipFileStatsFetchedFor != null) {
+				this._wipFileStatsFetchedFor = undefined;
+				this._wipFileStats = undefined;
+			}
+			return;
+		}
+
+		if (this._wipFileStatsFetchedFor === wip) return;
+
+		// On a repo/worktree switch, drop the prior repo's numbers immediately so we never show them
+		// against the new tree; same-repo working-tree ticks update in place (no row flicker).
+		if (this._wipFileStatsFetchedFor?.repo?.path !== repoPath) {
+			this._wipFileStats = undefined;
+		}
+		this._wipFileStatsFetchedFor = wip;
+
+		void this._ipc?.sendRequest(GetWipLineStatsRequest, { repoPath: repoPath }).then(stats => {
+			// Ignore a response a newer snapshot (or a view change) has already superseded.
+			if (this._wipFileStatsFetchedFor === wip) {
+				this._wipFileStats = stats ?? undefined;
+			}
+		});
+	}
+
+	/** Attach the lazily-fetched per-file line stats to the WIP file rows so `gl-file-tree-pane`
+	 *  renders `+N −M` decorations. Returns the raw files unchanged until the stats arrive. */
+	private buildWipFiles(wip: Wip): Wip['changes'] {
+		const files = wip.changes?.files;
+		const stats = this._wipFileStats;
+		if (wip.changes == null || files == null || stats == null) return wip.changes;
+
+		return {
+			...wip.changes,
+			files: files.map(f => {
+				const s = stats[normalizePath(f.path)];
+				return s != null
+					? {
+							...f,
+							stats: {
+								additions: s.additions,
+								deletions: s.deletions,
+								changes: s.additions + s.deletions,
+							},
+						}
+					: f;
+			}),
+		};
 	}
 
 	/** Active mode used for telemetry — combines `activeMode` (review/compose), compare-sheet
@@ -1290,6 +1368,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	override updated(changedProperties: Map<string, unknown>): void {
+		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
+		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
+		this.updateWipFileStats();
+
 		if (changedProperties.has('_remoteServices') && this._remoteServices != null && !this._servicesResolved) {
 			this._servicesResolved = true;
 			void this.resolveServices(this._remoteServices);
@@ -1951,7 +2033,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 													?show-search-box=${this.showSearchBox}
 													?search-box-filter=${this.searchBoxFilter}
 													.wip=${wip}
-													.files=${wip.changes?.files}
+													.files=${this.buildWipFiles(wip)?.files}
 													.agentSessions=${worktreeAgentSessions}
 													.preferences=${preferences}
 													.orgSettings=${this._state.orgSettings.get()}

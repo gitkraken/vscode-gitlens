@@ -881,6 +881,18 @@ export interface WipRowStats {
 export type GetWipStatsResponse = Record<string, WipRowStats | undefined>;
 export const GetWipStatsRequest = new IpcRequest<GetWipStatsParams, GetWipStatsResponse>(scope, 'wip/stats/get');
 
+export interface GetWipLineStatsParams {
+	repoPath: string;
+}
+/** Per-file working-tree line stats keyed by repo-relative (normalized) path. Fetched lazily via a
+ *  single `git diff HEAD --numstat` (incl. untracked) only while the WIP file list is shown — the
+ *  every-tick `wip` push carries file status only, never line counts (`git status` can't emit them). */
+export type GetWipLineStatsResponse = Record<string, { additions: number; deletions: number }>;
+export const GetWipLineStatsRequest = new IpcRequest<GetWipLineStatsParams, GetWipLineStatsResponse | undefined>(
+	scope,
+	'wip/lineStats/get',
+);
+
 export interface SyncWipWatchesParams {
 	/** Full set of currently-visible secondary WIP shas. Host diffs against its subscription set. */
 	shas: string[];
