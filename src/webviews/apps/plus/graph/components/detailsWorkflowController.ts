@@ -256,7 +256,7 @@ export class DetailsWorkflowController implements ReactiveController {
 
 	// region Mode transitions
 
-	toggleMode(mode: DetailsMode, selection: DetailsSelection): void {
+	toggleMode(mode: DetailsMode, selection: DetailsSelection, scopeOverride?: ScopeSelection): void {
 		const { sha, shas, repoPath } = selection;
 		const state = this.actions.state;
 		const resources = this.actions.resources;
@@ -302,7 +302,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Initialize mode-specific state. Resolve has no commit/diff scope — it operates on the
 		// paused op's conflicted-file set read directly from `state.wip` — so skip scope building.
 		if (mode !== 'resolve') {
-			const scope = this.buildDefaultScope(sha, isWip, isMultiCommit);
+			const scope = scopeOverride ?? this.buildDefaultScope(sha, isWip, isMultiCommit);
 			if (scope) {
 				state.scope.set(scope);
 				resources.scopeFiles.cancel();
@@ -380,6 +380,46 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Project the engaged anchor's entry into the resource (or leave it idle for ENABLED /
 		// `'generating'` / `'backed'` cases — the panel reads `execState` from the entry).
 		this.projectEngagedAnchor(mode, { sha: sha, shas: shas, repoPath: repoPath });
+	}
+
+	/** Enter compose mode on the WIP anchor with a pre-seeded commit range (recompose). `shas` become
+	 *  the scope's includeShas; `includeWip` folds working/staged changes in when present. When compose
+	 *  is already open (idle) on this anchor, the scope is switched in place; an already-started plan is
+	 *  preserved rather than clobbered. */
+	enterComposeWithScope(selection: DetailsSelection, shas: readonly string[], includeWip: boolean): void {
+		const state = this.actions.state;
+		const wip = state.wip.get();
+		const files = wip?.changes?.files ?? [];
+		const scope: ScopeSelection = {
+			type: 'wip',
+			includeUnstaged: includeWip && files.some(f => !f.staged),
+			includeStaged: includeWip && files.some(f => f.staged),
+			includeShas: [...shas],
+		};
+
+		const engagedKey = anchorKey({
+			sha: state.activeModeSha.get(),
+			shas: state.activeModeShas.get(),
+			repoPath: state.activeModeRepoPath.get(),
+		});
+		const sameAnchor = state.activeMode.get() === 'compose' && engagedKey === anchorKey(selection);
+		if (sameAnchor) {
+			// A compose that already started (a run is registered) keeps its plan — don't clobber it.
+			const started = this.host.crossPaneState.runningOperations.get().get(engagedKey)?.compose != null;
+			if (started) return;
+
+			// Idle on this anchor — switch the scope to the requested range in place.
+			state.scope.set(scope);
+			this.actions.resources.scopeFiles.cancel();
+			if (selection.repoPath) {
+				void this.actions.resources.scopeFiles.fetch(selection.repoPath, scope);
+			}
+			void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
+			return;
+		}
+
+		this.toggleMode('compose', selection, scope);
+		void this.actions.ensureBranchCommitsCover(selection.repoPath, shas);
 	}
 
 	/** Opens the compare sheet, seeded from the current selection (or explicit overrides from

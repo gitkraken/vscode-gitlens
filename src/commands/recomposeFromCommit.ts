@@ -1,6 +1,8 @@
 import { window } from 'vscode';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
+import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
 import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
@@ -84,6 +86,23 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 			const baseCommitSha = commit.parents.length > 0 ? commit.parents[0] : undefined;
 			if (!baseCommitSha) {
 				void window.showErrorMessage('Unable to determine parent commit');
+				return;
+			}
+
+			// Prefer the graph's inline compose mode when the range resolves cleanly; otherwise fall
+			// back to the standalone composer below.
+			const resolved = await resolveRecomposeScope(this.container, repo.git, {
+				branchName: branchName,
+				range: { base: baseCommitSha, head: headCommitSha },
+				includeWip: false,
+			});
+			if (resolved.ok) {
+				void executeCommand('gitlens.showGraph', {
+					action: 'enter-compose',
+					target: { sha: uncommitted, worktreePath: repoPath },
+					composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+					source: { source: args.source ?? 'commandPalette' },
+				});
 				return;
 			}
 

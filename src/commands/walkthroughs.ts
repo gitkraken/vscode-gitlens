@@ -9,8 +9,6 @@ import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import { openWalkthrough as openWalkthroughCore } from '../system/-webview/vscode.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
-import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';
 import type { WorktreeGitCommandArgs } from './git/worktree.js';
 
@@ -225,15 +223,12 @@ export class WalkthroughShowComposerCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command: GlCommands = 'gitlens.showComposerPage';
 		this.container.telemetry.sendEvent('walkthrough/action', {
 			type: 'command',
 			name: 'open/composer',
-			command: command,
+			command: 'gitlens.showGraph',
 		});
-		executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(command, undefined, {
-			source: 'walkthrough',
-		});
+		executeCommand('gitlens.showGraph', { action: 'enter-compose', source: { source: 'walkthrough' } });
 	}
 }
 

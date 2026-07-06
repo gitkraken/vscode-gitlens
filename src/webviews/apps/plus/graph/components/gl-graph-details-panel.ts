@@ -16,7 +16,12 @@ import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
-import type { GetWipLineStatsResponse, GraphItemContext, State } from '../../../../plus/graph/protocol.js';
+import type {
+	GetWipLineStatsResponse,
+	GraphComposeScopeSeed,
+	GraphItemContext,
+	State,
+} from '../../../../plus/graph/protocol.js';
 import {
 	getSecondaryWipPath,
 	GetWipLineStatsRequest,
@@ -298,7 +303,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		repoPath: string;
 		sha: string;
 		focusedFilePaths?: readonly string[];
+		composeInstructions?: string;
+		composeScope?: GraphComposeScopeSeed;
 	};
+
+	/** Seed value for the compose panel's idle AI-instructions input on a fresh (cold) compose
+	 *  entry — parity with the standalone composer's `autoComposeInstructions`. Seed only; never
+	 *  triggers generation. Cleared on cancel/discard so it doesn't resurface on a later manual entry. */
+	@state()
+	private _composeSeedInstructions?: string;
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
@@ -713,6 +726,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return;
 
 		this.suppressContentOverflow();
+		this._composeSeedInstructions = undefined;
 		// Telemetry for the cancelled outcome is emitted from the workflow controller's settled
 		// path so we don't double-emit when the host's abort propagates through onRunSettled.
 		this._workflow.cancelOperation(mode);
@@ -725,6 +739,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this._state.activeMode.get() !== 'compose') return;
 
 		this.suppressContentOverflow();
+		this._composeSeedInstructions = undefined;
 		this._actions.sendTelemetryEvent('graphDetails/compose/closed');
 		this._workflow.compose.discard();
 	};
@@ -1125,11 +1140,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		repoPath: string,
 		sha: string,
 		focusedFilePaths?: readonly string[],
+		composeInstructions?: string,
+		composeScope?: GraphComposeScopeSeed,
 	): void {
 		if (this._workflow == null) {
 			// Element mounted but async init (resolveDetailsActions → controller) hasn't finished —
 			// defer and apply once `_workflow` exists. Mirrors the `_pendingCompare` path.
-			this._pendingMode = { mode: mode, repoPath: repoPath, sha: sha, focusedFilePaths: focusedFilePaths };
+			this._pendingMode = {
+				mode: mode,
+				repoPath: repoPath,
+				sha: sha,
+				focusedFilePaths: focusedFilePaths,
+				composeInstructions: composeInstructions,
+				composeScope: composeScope,
+			};
 			return;
 		}
 
@@ -1137,6 +1161,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// before `toggleMode` so the panel's idle/run picks up the focus. Other modes ignore it.
 		if (mode === 'resolve') {
 			this._state.resolveFocusedFilePaths.set(focusedFilePaths);
+		}
+
+		if (mode === 'compose') {
+			this._composeSeedInstructions = composeInstructions;
 		}
 
 		this.suppressContentOverflow();
@@ -1153,6 +1181,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			shas: this._state.activeModeShas.get(),
 			repoPath: this._state.activeModeRepoPath.get(),
 		});
+		// Recompose: a resolved commit-range seed always (re)applies the scope, so it must run
+		// before the re-click no-op guard below. enterComposeWithScope switches the scope in place
+		// when compose is still idle on this anchor, or preserves an already-started plan.
+		if (mode === 'compose' && composeScope != null) {
+			this._workflow.enterComposeWithScope(selection, composeScope.shas, composeScope.includeWip);
+			return;
+		}
+
+		// Re-clicking the same mode on the same anchor is a no-op (re-focus).
 		if (this._state.activeMode.get() === mode && engaged === anchorKey(selection)) return;
 
 		this._workflow.toggleMode(mode, selection);
@@ -1884,9 +1921,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		}
 
 		if (this._pendingMode != null) {
-			const { mode, repoPath, sha, focusedFilePaths } = this._pendingMode;
+			const { mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope } = this._pendingMode;
 			this._pendingMode = undefined;
-			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths);
+			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope);
 		}
 
 		void this._actions.fetchCapabilities();
@@ -2566,7 +2603,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${composeEntry?.prompt}
-			.basePrompt=${composeEntry?.basePrompt}
+			.basePrompt=${composeEntry?.basePrompt ?? this._composeSeedInstructions}
 			.refineMode=${composeEntry?.refineMode ?? false}
 			.refineDraft=${composeEntry?.refineDraft}
 			.progressMessage=${this._state.composeProgressMessage.get()}
@@ -2607,7 +2644,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				void this._workflow.compose.applyPlan(this.sha, this.graphReachability, e.detail?.includedCommitIds)}
 			@compose-refine-exclude-toggle=${(e: CustomEvent<{ commitId: string; excluded: boolean }>) =>
 				this.handleComposeRefineExcludeToggle(e.detail.commitId, e.detail.excluded)}
-			@compose-open-composer=${() => this._actions.openComposer(this.effectiveRepoPath)}
 			@compose-open-multi-diff=${this.handleComposeOpenMultiDiff}
 			@scope-open-multi-diff=${this.handleScopeOpenMultiDiff}
 			@scope-change=${(e: CustomEvent<{ selectedIds: string[] }>) =>

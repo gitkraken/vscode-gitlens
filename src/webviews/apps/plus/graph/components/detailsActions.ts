@@ -291,6 +291,14 @@ export class DetailsActions {
 			'scope.includeUnstaged': scope?.type === 'wip' ? scope.includeUnstaged : undefined,
 			'scope.commits.count':
 				scope?.type === 'wip' || scope?.type === 'compare' ? (scope.includeShas?.length ?? 0) : 0,
+			'scope.kind':
+				scope?.type === 'wip'
+					? (scope.includeShas?.length ?? 0) === 0
+						? 'wip-only'
+						: scope.includeStaged || scope.includeUnstaged
+							? 'wip+commits'
+							: 'commits-only'
+					: undefined,
 			'scope.files.count': effectiveFilesCount,
 			'scope.files.excluded.count': excludedFilesCount,
 			'customInstructions.used': promptLength > 0,
@@ -2437,18 +2445,31 @@ export class DetailsActions {
 		if (currentScope.includeStaged || currentScope.includeUnstaged) return;
 		if ((currentScope.includeShas?.length ?? 0) > 0) return;
 
-		// Mirror buildDefaultScope's priority: unpushed commits → most recent commit (HEAD).
-		const commits = this.state.branchCommits.get();
-		const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
-		const refreshedIncludeShas = unpushedShas.length > 0 ? unpushedShas : commits?.length ? [commits[0].sha] : [];
-		if (refreshedIncludeShas.length === 0) return;
+		// Mirror buildDefaultScope's full priority: working/staged changes → unpushed commits → HEAD.
+		// Working changes win — on a cold compose entry the WIP may load after this fires, so we can't
+		// assume buildDefaultScope already saw it.
+		const wip = this.state.wip.get();
+		const wipFiles = wip?.changes?.files ?? [];
+		const hasUnstaged = wipFiles.some(f => !f.staged);
+		const hasStaged = wipFiles.some(f => f.staged);
 
-		const refreshedScope: ScopeSelection = {
-			type: 'wip',
-			includeStaged: false,
-			includeUnstaged: false,
-			includeShas: refreshedIncludeShas,
-		};
+		let refreshedScope: ScopeSelection;
+		if (hasUnstaged || hasStaged) {
+			refreshedScope = { type: 'wip', includeUnstaged: hasUnstaged, includeStaged: hasStaged, includeShas: [] };
+		} else {
+			const commits = this.state.branchCommits.get();
+			const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
+			const refreshedIncludeShas =
+				unpushedShas.length > 0 ? unpushedShas : commits?.length ? [commits[0].sha] : [];
+			if (refreshedIncludeShas.length === 0) return;
+
+			refreshedScope = {
+				type: 'wip',
+				includeStaged: false,
+				includeUnstaged: false,
+				includeShas: refreshedIncludeShas,
+			};
+		}
 
 		this.state.scope.set(refreshedScope);
 		void this.resources.scopeFiles.fetch(repoPath, refreshedScope);
@@ -2488,6 +2509,25 @@ export class DetailsActions {
 				this._branchCommitsLoadMoreController = undefined;
 				this.state.branchCommitsLoadingMore.set(false);
 			}
+		}
+	}
+
+	/** Ensure the seeded recompose shas are all present in the loaded branch commits so the scope
+	 *  picker can display them; pages back (bounded) when they fall past the first page. */
+	async ensureBranchCommitsCover(repoPath: string | undefined, shas: readonly string[]): Promise<void> {
+		if (!repoPath || shas.length === 0) return;
+
+		if (this._branchCommitsFetchedRepoPath !== repoPath) {
+			await this.fetchBranchCommits(repoPath);
+		}
+		const covered = (): boolean => {
+			const loaded = new Set(this.state.branchCommits.get()?.map(c => c.sha) ?? []);
+			return shas.every(s => loaded.has(s));
+		};
+		let guard = 0;
+		while (!covered() && this.state.branchCommitsHasMore.get() && guard < 10) {
+			guard++;
+			await this.loadMoreBranchCommits(repoPath);
 		}
 	}
 
@@ -2725,12 +2765,6 @@ export class DetailsActions {
 		} finally {
 			this.state.composeApplying.set(false);
 		}
-	}
-
-	openComposer(repoPath: string | undefined): void {
-		if (!repoPath) return;
-
-		void this.services.commands.execute('gitlens.composeCommits', { repoPath: repoPath, source: 'graph' });
 	}
 
 	/** Emits the real-commit/compare file open/diff engagement signal. The virtual-FS opens

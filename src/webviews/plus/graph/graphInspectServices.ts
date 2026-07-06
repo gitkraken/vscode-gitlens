@@ -1032,7 +1032,12 @@ export class GraphInspectServices {
 						signal?.throwIfAborted();
 
 						if (scope.type !== 'wip') {
-							return { error: { message: 'Compose is only supported for working changes.' } };
+							return {
+								error: {
+									message:
+										'Compose supports working changes and commit ranges on the current branch.',
+								},
+							};
 						}
 
 						const svc = this.container.git.getRepositoryService(repoPath);

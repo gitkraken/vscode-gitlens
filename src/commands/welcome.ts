@@ -6,8 +6,6 @@ import type { SubscriptionUpgradeCommandArgs } from '../plus/gk/models/subscript
 import type { LaunchpadCommandArgs } from '../plus/launchpad/launchpad.js';
 import { command, executeCommand, executeCoreCommand } from '../system/-webview/command.js';
 import { openUrl } from '../system/-webview/vscode/uris.js';
-import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';
 
 // Welcome page commands - these send 'welcome/action' telemetry events
@@ -184,15 +182,12 @@ export class WelcomeShowComposerCommand extends GlCommandBase {
 	}
 
 	execute(): void {
-		const command: GlCommands = 'gitlens.showComposerPage';
 		this.container.telemetry.sendEvent('welcome/action', {
 			type: 'command',
 			name: 'open/composer',
-			command: command,
+			command: 'gitlens.showGraph',
 		});
-		executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(command, undefined, {
-			source: 'welcome',
-		});
+		executeCommand('gitlens.showGraph', { action: 'enter-compose', source: { source: 'welcome' } });
 	}
 }
 
