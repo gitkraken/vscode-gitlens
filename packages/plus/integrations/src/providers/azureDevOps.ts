@@ -6,8 +6,6 @@ import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@git
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
-import { collectPagedResults } from '@gitlens/utils/paging.js';
 import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -29,9 +27,15 @@ import type {
 	AzureRemoteRepositoryDescriptor,
 	AzureRepositoryDescriptor,
 } from './azure/models.js';
-import type { ProviderOrganization, ProviderPullRequest, ProviderRepository } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
 import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { collectProviderPagedResult } from './utils/providerPaging.js';
 
 export abstract class AzureDevOpsIntegrationBase<
 	TIntegrationId extends GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
@@ -207,22 +211,27 @@ export abstract class AzureDevOpsIntegrationBase<
 
 	protected override async getProviderOrganizationsForUser(
 		session: ProviderAuthenticationSession,
-	): Promise<ProviderOrganization[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const orgs = await this.getProviderResourcesForUser(session);
-		return orgs?.map(o => ({ id: o.id, name: o.name, url: `${this.apiBaseUrl}/${o.name}` }));
+		if (orgs == null) return undefined;
+
+		return {
+			values: orgs.map(o => ({ id: o.id, name: o.name, url: `${this.apiBaseUrl}/${o.name}` })),
+		};
 	}
 
 	/**
 	 * With `options.project`, returns one page of that project's repos (follow `paging.cursor` to page).
 	 * Without a project it fans out across every project under `org` and returns them all at once — there's
 	 * no single cursor to page a parallel merge — skipping any project that fails to list rather than
-	 * failing the whole org.
+	 * failing the whole org. If any successful project drain hits the defensive page backstop, the merged
+	 * result is marked `truncated` without exposing a synthetic cursor.
 	 */
 	protected override async getProviderRepositoriesForOrg(
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { project?: string; cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
 
@@ -239,14 +248,27 @@ export abstract class AzureDevOpsIntegrationBase<
 		const projects = await this.getProviderProjectsForResources(session, [orgDescriptor]);
 		if (!projects?.length) return { values: [] };
 
-		const values = await flatSettled(
+		const results = await Promise.allSettled(
 			projects.map(p =>
-				collectPagedResults(cursor =>
+				collectProviderPagedResult(cursor =>
 					api.getReposForAzureProject(tokenWithInfo, org, p.name, { ...apiOptions, cursor: cursor }),
 				),
 			),
 		);
-		return { values: values };
+
+		const values: ProviderRepository[] = [];
+		let truncated = false;
+		for (const result of results) {
+			if (result.status !== 'fulfilled') continue;
+
+			values.push(...result.value.values);
+			truncated ||= result.value.truncated === true;
+		}
+
+		return {
+			values: values,
+			...(truncated ? { truncated: true } : {}),
+		};
 	}
 
 	protected override async mergeProviderPullRequest(

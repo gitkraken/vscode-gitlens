@@ -7,7 +7,6 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -18,7 +17,7 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
-import type { ProviderOrganization, ProviderRepository } from './models.js';
+import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
 import { providersMetadata } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -214,19 +213,26 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 	protected override async getProviderOrganizationsForUser(
 		session: ProviderAuthenticationSession,
-	): Promise<ProviderOrganization[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const api = await this.getProvidersApi();
-		const orgs = await api.getGitHubOrgsForCurrentUser(toTokenWithInfo(this.id, session), {
+		const result = await api.getGitHubOrgsForCurrentUser(toTokenWithInfo(this.id, session), {
 			baseUrl: this.apiBaseUrl,
 		});
-		return orgs?.map(o => ({ id: o.id, name: o.username, url: `https://${this.domain}/${o.username}` }));
+		return {
+			values: result.values.map(o => ({
+				id: o.id,
+				name: o.username,
+				url: `https://${this.domain}/${o.username}`,
+			})),
+			...(result.truncated ? { truncated: true } : {}),
+		};
 	}
 
 	protected override async getProviderRepositoriesForOrg(
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
 		return api.getReposForOrg(toTokenWithInfo(this.id, session), org, {
 			baseUrl: this.apiBaseUrl,
