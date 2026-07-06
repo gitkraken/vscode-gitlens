@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import {
 	getGitLabPullRequestIdentityFromMaybeUrl,
 	isMaybeGitLabPullRequestUrl,
+	matchesGitLabOrgNamespace,
 	selectGitLabUserForCommit,
 } from '../gitlab.utils.js';
 import type { GitLabUser } from '../models.js';
@@ -174,5 +175,32 @@ suite('Test GitLab commit author resolution: selectGitLabUserForCommit()', () =>
 		const a = user(1, 'Craig Wilson');
 		const b = user(2, 'Craig Wilson', 'Craig@Example.com');
 		assert.strictEqual(selectGitLabUserForCommit([a, b], 'Craig Wilson', 'craig@example.com'), b);
+	});
+});
+
+suite('Test GitLab repo namespace matching against an org/group: matchesGitLabOrgNamespace()', () => {
+	test('matches an exact top-level org', () => {
+		assert.equal(matchesGitLabOrgNamespace('gitkraken', 'gitkraken'), true);
+	});
+
+	test('matches a one-level subgroup', () => {
+		assert.equal(matchesGitLabOrgNamespace('gitkraken/mobile', 'gitkraken'), true);
+	});
+
+	test('matches a nested subgroup', () => {
+		assert.equal(matchesGitLabOrgNamespace('gitkraken/mobile/ios', 'gitkraken'), true);
+	});
+
+	test('does not match a different org', () => {
+		assert.equal(matchesGitLabOrgNamespace('other-org', 'gitkraken'), false);
+	});
+
+	test('does not match a namespace that merely shares a prefix (not a subgroup)', () => {
+		assert.equal(matchesGitLabOrgNamespace('gitkraken2', 'gitkraken'), false);
+		assert.equal(matchesGitLabOrgNamespace('gitkraken-labs', 'gitkraken'), false);
+	});
+
+	test('does not match the org against one of its own subgroups', () => {
+		assert.equal(matchesGitLabOrgNamespace('gitkraken', 'gitkraken/mobile'), false);
 	});
 });

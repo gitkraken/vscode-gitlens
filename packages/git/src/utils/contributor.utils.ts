@@ -27,10 +27,10 @@ export function calculateContributionScore(
 	stats: GitCommitStats | undefined,
 	timestamp: number,
 	options: ContributorScoreOptions = defaultContributorScoreOptions,
+	now: number = Date.now(),
 ): number {
 	if (stats == null) return 0;
 
-	const now = Date.now();
 	const ageInDays = (now - timestamp) / (24 * 3600 * 1000);
 
 	// Time decay factor (exponential decay)

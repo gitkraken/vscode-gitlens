@@ -2,6 +2,7 @@ import ProviderApis from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { collectPagedResults } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -36,6 +37,8 @@ import type {
 	ProviderAzureProject,
 	ProviderAzureResource,
 	ProviderBitbucketResource,
+	ProviderGitHubOrganization,
+	ProviderGitLabGroup,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -97,6 +100,8 @@ export class ProvidersApi {
 				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
 					providerApis.github,
 				) as GetIssuesForReposFn,
+				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
+				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
@@ -111,6 +116,8 @@ export class ProvidersApi {
 				getIssuesForReposFn: providerApis.github.getIssuesForRepos.bind(
 					providerApis.github,
 				) as GetIssuesForReposFn,
+				getOrgsForCurrentUserFn: providerApis.github.getOrgsForCurrentUser.bind(providerApis.github),
+				getReposForOrgFn: providerApis.github.getReposForOrg.bind(providerApis.github),
 			},
 			[GitCloudHostIntegrationId.GitLab]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitLab],
@@ -132,6 +139,8 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
+				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
+				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
 			},
 			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted],
@@ -152,6 +161,8 @@ export class ProvidersApi {
 				) as GetIssuesForReposFn,
 				getIssuesForRepoFn: providerApis.gitlab.getIssuesForRepo.bind(providerApis.gitlab),
 				mergePullRequestFn: providerApis.gitlab.mergePullRequest.bind(providerApis.gitlab),
+				getGroupsForCurrentUserFn: providerApis.gitlab.getGroupsForCurrentUser.bind(providerApis.gitlab),
+				getReposForCurrentUserFn: providerApis.gitlab.getReposForCurrentUser.bind(providerApis.gitlab),
 			},
 			[GitCloudHostIntegrationId.Bitbucket]: {
 				...providersMetadata[GitCloudHostIntegrationId.Bitbucket],
@@ -167,6 +178,7 @@ export class ProvidersApi {
 				) as GetPullRequestsForReposFn,
 				getPullRequestsForRepoFn: providerApis.bitbucket.getPullRequestsForRepo.bind(providerApis.bitbucket),
 				mergePullRequestFn: providerApis.bitbucket.mergePullRequest.bind(providerApis.bitbucket),
+				getReposForWorkspaceFn: providerApis.bitbucket.getReposForWorkspace.bind(providerApis.bitbucket),
 			},
 			[GitSelfManagedHostIntegrationId.BitbucketServer]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer],
@@ -777,6 +789,114 @@ export class ProvidersApi {
 			options?.cursor,
 			options?.isPAT,
 			options?.baseUrl,
+		);
+	}
+
+	async getGitHubOrgsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+		>,
+		options?: { isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderGitHubOrganization[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getOrgsForCurrentUserFn',
+		);
+
+		// Drain all pages so a user in many orgs doesn't lose everything past the first page.
+		return collectPagedResults(cursor =>
+			this.getPagedResult<ProviderGitHubOrganization>(
+				{},
+				provider.getOrgsForCurrentUserFn,
+				tokenWithInfo,
+				cursor,
+				options?.isPAT,
+				options?.baseUrl,
+			),
+		);
+	}
+
+	async getReposForOrg(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+		>,
+		orgName: string,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(tokenOptInfo, 'getReposForOrgFn');
+
+		return this.getPagedResult<ProviderRepository>(
+			{ orgName: orgName },
+			provider.getReposForOrgFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getReposForBitbucketWorkspace(
+		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
+		workspace: string,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getReposForWorkspaceFn',
+		);
+
+		return this.getPagedResult<ProviderRepository>(
+			{ workspace: workspace },
+			provider.getReposForWorkspaceFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getReposForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+		>,
+		options?: GetReposOptions & { isPAT?: boolean; baseUrl?: string },
+	): Promise<PagedResult<ProviderRepository>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getReposForCurrentUserFn',
+		);
+
+		return this.getPagedResult<ProviderRepository>(
+			{},
+			provider.getReposForCurrentUserFn,
+			tokenWithInfo,
+			options?.cursor,
+			options?.isPAT,
+			options?.baseUrl,
+		);
+	}
+
+	async getGitlabGroupsForCurrentUser(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
+		>,
+		options?: { topLevelOnly?: boolean; isPAT?: boolean; baseUrl?: string },
+	): Promise<ProviderGitLabGroup[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getGroupsForCurrentUserFn',
+		);
+
+		// Drain all pages so a user in many groups doesn't lose everything past the first page.
+		return collectPagedResults(cursor =>
+			this.getPagedResult<ProviderGitLabGroup>(
+				{ topLevelOnly: options?.topLevelOnly },
+				provider.getGroupsForCurrentUserFn,
+				tokenWithInfo,
+				cursor,
+				options?.isPAT,
+				options?.baseUrl,
+			),
 		);
 	}
 

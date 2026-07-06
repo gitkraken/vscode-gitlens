@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import type { PagedResult, PagingOptions } from '../paging.js';
-import { emptyPagedResult, PageableResult } from '../paging.js';
+import { collectPagedResults, emptyPagedResult, PageableResult } from '../paging.js';
 
 async function collect<T>(result: PageableResult<T>): Promise<NonNullable<T>[]> {
 	const values: NonNullable<T>[] = [];
@@ -98,5 +98,86 @@ suite('PageableResult Test Suite', () => {
 		// Second pass should replay cached values with no additional fetches
 		assert.deepStrictEqual(await collect(result), ['a', 'b']);
 		assert.strictEqual(count, 2);
+	});
+});
+
+suite('collectPagedResults Test Suite', () => {
+	test('single page returns all values with one undefined-cursor fetch', async () => {
+		const cursors: (string | undefined)[] = [];
+		const values = await collectPagedResults<string>(cursor => {
+			cursors.push(cursor);
+			return Promise.resolve({ values: ['a', 'b'] });
+		});
+
+		assert.deepStrictEqual(values, ['a', 'b']);
+		assert.deepStrictEqual(cursors, [undefined]);
+	});
+
+	test('drains multiple pages, feeding each paging.cursor back', async () => {
+		const cursors: (string | undefined)[] = [];
+		const pages: PagedResult<string>[] = [
+			{ values: ['a'], paging: { cursor: 'c1', more: true } },
+			{ values: ['b'], paging: { cursor: 'c2', more: true } },
+			{ values: ['c'], paging: { cursor: 'c3', more: false } },
+		];
+		let i = 0;
+		const values = await collectPagedResults<string>(cursor => {
+			cursors.push(cursor);
+			return Promise.resolve(pages[i++]);
+		});
+
+		assert.deepStrictEqual(values, ['a', 'b', 'c']);
+		assert.deepStrictEqual(cursors, [undefined, 'c1', 'c2']);
+	});
+
+	test('stops when the cursor stops advancing (guards against an infinite loop)', async () => {
+		let count = 0;
+		const values = await collectPagedResults<string>(() => {
+			count++;
+			// `more` stays true but the cursor never changes
+			return Promise.resolve({ values: ['x'], paging: { cursor: 'stuck', more: true } });
+		});
+
+		// First page (cursor undefined) + one more (cursor 'stuck'), then the stall guard breaks
+		assert.deepStrictEqual(values, ['x', 'x']);
+		assert.strictEqual(count, 2);
+	});
+
+	test('honors the maxPages bound even when more stays true', async () => {
+		let count = 0;
+		const values = await collectPagedResults<number>(() => {
+			count++;
+			return Promise.resolve({ values: [count], paging: { cursor: `c${count}`, more: true } });
+		}, 3);
+
+		assert.deepStrictEqual(values, [1, 2, 3]);
+		assert.strictEqual(count, 3);
+	});
+
+	test('stops gracefully when a fetch returns undefined', async () => {
+		let count = 0;
+		const pages: (PagedResult<string> | undefined)[] = [
+			{ values: ['a'], paging: { cursor: 'c1', more: true } },
+			undefined,
+		];
+		const values = await collectPagedResults<string>(() => Promise.resolve(pages[count++]));
+
+		assert.deepStrictEqual(values, ['a']);
+		assert.strictEqual(count, 2);
+	});
+
+	test('keeps draining through a page with empty values while more stays true', async () => {
+		// A caller-side filter (e.g. GitLab's org-namespace filter) can leave a page empty without
+		// ending pagination — draining must follow `paging.more`, not the emptiness of `values`.
+		const pages: PagedResult<string>[] = [
+			{ values: ['a'], paging: { cursor: 'c1', more: true } },
+			{ values: [], paging: { cursor: 'c2', more: true } },
+			{ values: ['b'], paging: { cursor: 'c3', more: false } },
+		];
+		let i = 0;
+		const values = await collectPagedResults<string>(() => Promise.resolve(pages[i++]));
+
+		assert.deepStrictEqual(values, ['a', 'b']);
+		assert.strictEqual(i, 3);
 	});
 });
