@@ -615,6 +615,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				async () => ai.onModelChanged(model => this._aiState.model.set(model)),
 				async () => ai.onStateChanged(state => this._aiState.state.set(state)),
 			]);
+
 			// Guard against late completion: if the element disconnected while awaiting, `disconnectedCallback`
 			// already ran with `_accountUnsubscribe` still undefined, so tear down here to avoid leaking host
 			// subscriptions on a disposed graph.
@@ -622,6 +623,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				unsubscribe?.();
 				return;
 			}
+
 			this._accountUnsubscribe = unsubscribe;
 		} catch {
 			// The account bar is non-critical — swallow so wiring failures never break the graph.
