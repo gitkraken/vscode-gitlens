@@ -25,14 +25,26 @@ import type {
 	WebviewsController,
 	WebviewViewProxy,
 } from '../../webviewsController.js';
-import type { GraphActionTarget, GraphShowAction, GraphSidebarPanel, State } from './protocol.js';
+import type {
+	GraphActionTarget,
+	GraphComposeScopeSeed,
+	GraphShowAction,
+	GraphSidebarPanel,
+	State,
+} from './protocol.js';
 
 export type GraphWebviewShowingArgs = [
 	| GlRepository
 	| { ref: GitReference; source?: Source }
 	| { repository: GlRepository; search?: SearchQuery; source?: Source }
 	| { sidebarPanel: GraphSidebarPanel; source?: Source }
-	| { action: GraphShowAction; target?: GraphActionTarget; source?: Source }
+	| {
+			action: GraphShowAction;
+			target?: GraphActionTarget;
+			source?: Source;
+			composeInstructions?: string;
+			composeScope?: GraphComposeScopeSeed;
+	  }
 	| undefined,
 ];
 
@@ -223,11 +235,18 @@ export function registerGraphWebviewCommands<T>(
 				return;
 			}
 
+			const source =
+				arg != null && typeof arg === 'object' && 'source' in arg
+					? (arg as { source?: Source }).source
+					: undefined;
+
 			if (configuration.get('graph.layout') === 'panel') {
+				// Panel-layout source-forwarding is deferred: `container.views.graph.show({ source }, ...args)`
+				// doesn't typecheck here since `args` is `unknown[]`, not the `WebviewShowingArgs` tuple.
 				return executeCommand('gitlens.showGraphView', ...args);
 			}
 
-			return executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', undefined, ...args);
+			return executeCommand<WebviewPanelShowCommandArgs>('gitlens.showGraphPage', { source: source }, ...args);
 		}),
 		registerCommand(`${panels.id}.switchToEditorLayout`, async () => {
 			await configuration.updateEffective('graph.layout', 'editor');

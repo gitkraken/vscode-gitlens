@@ -1222,6 +1222,8 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 						target: msg.params.target,
 						commitMessage: msg.params.commitMessage,
 						scopeBranch: msg.params.scopeBranch,
+						composeInstructions: msg.params.composeInstructions,
+						composeScope: msg.params.composeScope,
 					},
 					...(msg.params.action !== 'scope-to-branch' ? { details: { ...this.details, visible: true } } : {}),
 				});

@@ -194,6 +194,14 @@ export interface GraphActionTarget {
 	filePaths?: string[];
 }
 
+/** Resolved commit-range seed for `enter-compose`: recompose these existing commits instead of
+ *  (or in addition to) working changes. `shas` are child-first (HEAD-first), a contiguous
+ *  first-parent range ending at HEAD. Absent = plain working-changes compose. */
+export interface GraphComposeScopeSeed {
+	shas: string[];
+	includeWip: boolean;
+}
+
 /** Target branch for a `scope-to-branch` action. When present, the webview focuses (scopes) the
  *  graph to this branch instead of the current branch — used by the Focus on Branch/Worktree
  *  context-menu commands. */
@@ -339,6 +347,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 		target?: GraphActionTarget;
 		commitMessage?: string;
 		scopeBranch?: GraphScopeBranch;
+		composeInstructions?: string;
+		composeScope?: GraphComposeScopeSeed;
 	};
 	/** Per-worktree commit drafts for this repo's WIP rows, keyed by worktree fsPath (== `repoPath`
 	 *  for the primary WIP, == the secondary worktree's fsPath for each secondary WIP row).
@@ -1184,6 +1194,10 @@ export interface DidRequestGraphActionParams {
 	commitMessage?: string;
 	/** For `scope-to-branch`: the branch to focus the graph on. Absent = focus the current branch. */
 	scopeBranch?: GraphScopeBranch;
+	/** For 'enter-compose': seeds the compose panel's AI-instructions input (parity with the standalone composer's autoComposeInstructions — seed only, no auto-run). */
+	composeInstructions?: string;
+	/** For 'enter-compose': resolved commit-range seed; absent = working-changes compose. */
+	composeScope?: GraphComposeScopeSeed;
 }
 export const DidRequestGraphActionNotification = new IpcNotification<DidRequestGraphActionParams>(
 	scope,

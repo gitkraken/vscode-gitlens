@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
+	BranchCommitEntry,
+	BranchCommitsResult,
 	BranchComparisonOptions,
 	BranchComparisonSummary,
 	CommitResult,
@@ -585,5 +587,76 @@ suite('DetailsActions', () => {
 		actions.resetRepoScopedState();
 		assert.strictEqual(actions['_commitEnrichmentCache'].size, 0);
 		assert.strictEqual(actions['_wipEnrichmentCache'].size, 0);
+	});
+});
+
+suite('DetailsActions.ensureBranchCommitsCover', () => {
+	const commit = (sha: string): BranchCommitEntry => ({ sha: sha, pushed: false }) as unknown as BranchCommitEntry;
+
+	/** Services stub exposing a call-counting `getBranchCommits` alongside the base graphInspect shape. */
+	function servicesWithBranchCommits(getBranchCommits: () => Promise<BranchCommitsResult>): {
+		services: ResolvedServices;
+		calls: () => number;
+	} {
+		let count = 0;
+		const services = {
+			graphInspect: {
+				commitCompose: async () => ({ success: true }),
+				getBranchCommits: () => {
+					count++;
+					return getBranchCommits();
+				},
+			},
+			telemetry: { sendEvent: () => Promise.resolve() },
+		} as unknown as ResolvedServices;
+		return { services: services, calls: () => count };
+	}
+
+	test('all seeded shas already loaded → no fetch, no load-more', async () => {
+		const state = createDetailsState();
+		const { services, calls } = servicesWithBranchCommits(async () => ({ commits: [], hasMore: false }));
+		const actions = new DetailsActions(state, services, createResources());
+
+		// Pin the fetched-repo path + preload the shas so both the fetch and the paging loop are skipped.
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('h'), commit('a')]);
+		state.branchCommitsHasMore.set(true);
+
+		await actions.ensureBranchCommitsCover('/repo', ['h', 'a']);
+
+		assert.strictEqual(calls(), 0, 'getBranchCommits should not be called when the range is already covered');
+	});
+
+	test('a seeded sha missing + hasMore → pages once via load-more until covered', async () => {
+		const state = createDetailsState();
+		const { services, calls } = servicesWithBranchCommits(async () => ({
+			commits: [commit('h'), commit('a')],
+			hasMore: false,
+		}));
+		const actions = new DetailsActions(state, services, createResources());
+
+		actions['_branchCommitsFetchedRepoPath'] = '/repo';
+		state.branchCommits.set([commit('h')]);
+		state.branchCommitsHasMore.set(true);
+
+		await actions.ensureBranchCommitsCover('/repo', ['h', 'a']);
+
+		assert.strictEqual(calls(), 1, 'exactly one load-more page fills the missing sha');
+		assert.deepStrictEqual(
+			state.branchCommits.get()?.map(c => c.sha),
+			['h', 'a'],
+			'loaded commits now cover the seeded range',
+		);
+	});
+
+	test('no-op for an empty seed or missing repo path', async () => {
+		const state = createDetailsState();
+		const { services, calls } = servicesWithBranchCommits(async () => ({ commits: [], hasMore: false }));
+		const actions = new DetailsActions(state, services, createResources());
+
+		await actions.ensureBranchCommitsCover('/repo', []);
+		await actions.ensureBranchCommitsCover(undefined, ['h']);
+
+		assert.strictEqual(calls(), 0, 'nothing to cover');
 	});
 });

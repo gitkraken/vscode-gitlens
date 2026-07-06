@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import type { ReactiveController } from 'lit';
 import { uncommitted } from '@gitlens/git/models/revision.js';
+import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
 	BranchComparisonOptions,
 	ComposeResult,
@@ -1512,5 +1513,137 @@ suite('DetailsWorkflowController.generateMessage', () => {
 		assert.strictEqual(reviewAbort.signal.aborted, true, 'review aborted');
 		assert.strictEqual(composeAbort.signal.aborted, true, 'compose aborted');
 		assert.strictEqual(genAbort.signal.aborted, true, 'generate-message aborted');
+	});
+});
+
+suite('DetailsWorkflowController.enterComposeWithScope — recompose seeding', () => {
+	/** WIP fixture whose `changes.files` carry only the `staged` flag the scope builder reads. */
+	function makeWipWithFiles(staged: readonly boolean[]): Wip {
+		return {
+			changes: { files: staged.map(s => ({ staged: s })) },
+			repositoryCount: 1,
+			repo: { uri: 'file:///A', name: 'A', path: '/A', isWorktree: false },
+		} as unknown as Wip;
+	}
+
+	/** Pin the branch-commits cache so toggleMode's WIP-side fetch gate is skipped (getBranchCommits unmocked). */
+	function pinBranchCommits(state: DetailsState, actions: DetailsActions, repoPath: string): void {
+		state.branchCommits.set([]);
+		actions['_branchCommitsFetchedRepoPath'] = repoPath;
+	}
+
+	test('seeds the scope with includeShas; includeWip=false forces both flags false even when a file exists', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a', 'b'], false);
+
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a', 'b'],
+		});
+	});
+
+	test('includeWip=true folds staged + unstaged working changes into the scope', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([true, false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a'], true);
+
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: true,
+			includeUnstaged: true,
+			includeShas: ['h', 'a'],
+		});
+	});
+
+	test('seeded includeShas survive a late branch-commits arrival (the includeShas-non-empty bail protects it)', async () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/A',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		// getBranchCommits resolves so fetchBranchCommits runs its late-re-derivation block to the guard.
+		const services = {
+			repository: {
+				onRepositoryChanged: () => () => {},
+				onRepositoryWorkingChanged: () => () => {},
+			},
+			graphInspect: {
+				getBranchCommits: async () => ({
+					commits: [{ sha: 'x', pushed: false }],
+					hasMore: false,
+				}),
+			},
+			telemetry: { sendEvent: () => Promise.resolve() },
+		} as unknown as ResolvedServices;
+		const actions = new DetailsActions(state, services, createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+
+		controller.enterComposeWithScope({ sha: uncommitted, shas: undefined, repoPath: '/A' }, ['h', 'a'], false);
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+
+		// Drive the late-arriving branch-commits path directly; the seeded (non-empty) includeShas
+		// must bail the re-derivation instead of being clobbered by the default scope.
+		await actions.fetchBranchCommits('/A');
+
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+	});
+
+	test('compose WIP gate intact — toggleMode on a non-WIP commit selection still no-ops', () => {
+		const { state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+
+		controller.toggleMode('compose', { sha: 'real-commit-sha', shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(state.activeMode.get(), null);
+	});
+
+	test('re-invoking with a new range while idle-composing switches the scope in place (no toggle-off)', () => {
+		const { state, actions, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		pinBranchCommits(state, actions, '/A');
+		state.wip.set(makeWipWithFiles([false]));
+		const sel = { sha: uncommitted, shas: undefined, repoPath: '/A' };
+
+		controller.enterComposeWithScope(sel, ['h', 'a'], false);
+		assert.strictEqual(state.activeMode.get(), 'compose');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a'],
+		});
+
+		// Still idle on the same WIP anchor (no run registered) → the new range replaces the scope
+		// rather than re-clicking a no-op or toggling compose off.
+		controller.enterComposeWithScope(sel, ['h', 'a', 'b'], false);
+		assert.strictEqual(state.activeMode.get(), 'compose', 'stays in compose mode');
+		assert.deepStrictEqual(state.scope.get(), {
+			type: 'wip',
+			includeStaged: false,
+			includeUnstaged: false,
+			includeShas: ['h', 'a', 'b'],
+		});
 	});
 });

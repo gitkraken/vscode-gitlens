@@ -403,7 +403,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 	}
 
 	override render() {
-		return html`<div class="compose-panel">${this.renderContent()}</div>`;
+		// The pushed-commit warning derives from the scope (stable across idle→ready), so render it
+		// once at the top — the user sees it while selecting a pushed range AND while reviewing the plan.
+		return html`<div class="compose-panel">
+			${this.hasPushedInScope() ? this.renderPushedCommitWarning() : nothing}${this.renderContent()}
+		</div>`;
 	}
 
 	private renderContent() {
@@ -664,6 +668,20 @@ export class GlDetailsComposeModePanel extends LitElement {
 		return html`<div class="stale-banner" role="status">
 			<code-icon icon="warning"></code-icon>
 			<span>Working changes have changed since this plan was generated.</span>
+		</div>`;
+	}
+
+	/** True when the current scope includes at least one already-pushed commit — rewriting it
+	 *  rewrites history and requires a force-push. */
+	private hasPushedInScope(): boolean {
+		const includes = new Set(this.scope?.type === 'wip' ? this.scope.includeShas : []);
+		return (this.scopeItems ?? []).some(i => i.state === 'pushed' && includes.has(i.id));
+	}
+
+	private renderPushedCommitWarning() {
+		return html`<div class="stale-banner" role="status">
+			<code-icon icon="warning"></code-icon>
+			<span>Rewriting pushed commits will rewrite history — you'll need to force-push afterward.</span>
 		</div>`;
 	}
 

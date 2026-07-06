@@ -134,6 +134,7 @@ import type { StoredGraphFilters, StoredGraphRefType, StoredGraphWipDraft } from
 import type {
 	GraphShownTelemetryContext,
 	GraphTelemetryContext,
+	Source,
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -371,6 +372,7 @@ import type {
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
+	GraphComposeScopeSeed,
 	GraphDisplayMode,
 	GraphExcludedRef,
 	GraphExcludeRefs,
@@ -531,7 +533,13 @@ function hasSidebarPanel(arg: any): arg is { sidebarPanel: GraphSidebarPanel } {
 	return typeof arg?.sidebarPanel === 'string';
 }
 
-function hasAction(arg: any): arg is { action: GraphShowAction; target?: GraphActionTarget } {
+function hasAction(arg: any): arg is {
+	action: GraphShowAction;
+	target?: GraphActionTarget;
+	source?: Source;
+	composeInstructions?: string;
+	composeScope?: GraphComposeScopeSeed;
+} {
 	return typeof arg?.action === 'string';
 }
 
@@ -1920,7 +1928,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						signal?.throwIfAborted();
 
 						if (scope.type !== 'wip') {
-							return { error: { message: 'Compose is only supported for working changes.' } };
+							return {
+								error: {
+									message:
+										'Compose supports working changes and commit ranges on the current branch.',
+								},
+							};
 						}
 
 						const svc = this.container.git.getRepositoryService(repoPath);
@@ -3134,7 +3147,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private _searchRequest: SearchQuery | undefined;
 	private _pendingSidebarPanel: GraphSidebarPanel | undefined;
-	private _pendingAction: { action: GraphShowAction; target?: GraphActionTarget } | undefined;
+	private _pendingAction:
+		| {
+				action: GraphShowAction;
+				target?: GraphActionTarget;
+				composeInstructions?: string;
+				composeScope?: GraphComposeScopeSeed;
+		  }
+		| undefined;
 
 	async onShowing(
 		loading: boolean,
@@ -3251,7 +3271,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				this.setSelectedRows(rowId);
 			}
 			if (loading) {
-				this._pendingAction = { action: arg.action, target: arg.target };
+				this._pendingAction = {
+					action: arg.action,
+					target: arg.target,
+					composeInstructions: arg.composeInstructions,
+					composeScope: arg.composeScope,
+				};
 			} else {
 				// Select the targeted row in the graph too (mirrors the ref path). The action
 				// notification only enters the mode / reveals the details panel; without this the
@@ -3268,6 +3293,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				void this.host.notify(DidRequestGraphActionNotification, {
 					action: arg.action,
 					target: arg.target,
+					composeInstructions: arg.composeInstructions,
+					composeScope: arg.composeScope,
 				});
 			}
 		} else {
