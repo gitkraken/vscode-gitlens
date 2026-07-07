@@ -20,6 +20,8 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../errors.js';
+import type { ProviderApiConfig } from '../apiConfig.js';
+import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
@@ -32,18 +34,14 @@ import {
 } from './models.js';
 
 export class BitbucketApi implements Disposable {
-	private readonly _disposable: Disposable;
+	private readonly _disposable: Disposable | undefined;
 
-	constructor(private readonly ctx: IntegrationServiceContext) {
-		this._disposable = ctx.config.onDidChange(e => {
-			if (e.httpProxy) {
-				this.resetCaches();
-			}
-		});
+	constructor(private readonly config: ProviderApiConfig) {
+		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private resetCaches(): void {}
@@ -521,7 +519,7 @@ export class BitbucketApi implements Disposable {
 					// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
 					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
 					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
-					this.ctx.hooks?.ui?.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
+					this.config.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
 					return undefined;
 				}
 			}
@@ -679,8 +677,8 @@ export class BitbucketApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(url, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
 						signal: cancellation,
 						...options,
@@ -699,7 +697,7 @@ export class BitbucketApi implements Disposable {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`Bitbucket request failed: ${ex.message}`);
+				this.config.onError?.(`Bitbucket request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -741,7 +739,7 @@ export class BitbucketApi implements Disposable {
 				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestFailed?.(
+					this.config.onRequestFailed?.(
 						`${provider?.name ?? 'Bitbucket'} failed to respond and might be experiencing issues.${
 							provider == null || provider.id === 'bitbucket'
 								? ' Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.'
@@ -766,9 +764,19 @@ export class BitbucketApi implements Disposable {
 
 		scope?.error(ex);
 		if (Logger.isDebugging) {
-			this.ctx.hooks?.ui?.onError?.(
+			this.config.onError?.(
 				`Bitbucket request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
 	}
+}
+
+/** Wires a {@link BitbucketApi} from the full runtime context, mapping `ctx` down to the narrow config. */
+export function createBitbucketApi(ctx: IntegrationServiceContext): BitbucketApi {
+	const config: ProviderApiConfig = {
+		...baseProviderApiConfig(ctx),
+		onBitbucketCommitLinksAppMissing: revLink => ctx.hooks?.ui?.onBitbucketCommitLinksAppMissing?.(revLink),
+	};
+
+	return new BitbucketApi(config);
 }

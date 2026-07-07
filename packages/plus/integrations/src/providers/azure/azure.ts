@@ -89,19 +89,15 @@ class WorkItemStates {
 }
 
 export class AzureDevOpsApi implements Disposable {
-	private readonly _disposable: Disposable;
+	private readonly _disposable: Disposable | undefined;
 	private _workItemStates: WorkItemStates = new WorkItemStates();
 
-	constructor(private readonly ctx: IntegrationServiceContext) {
-		this._disposable = ctx.config.onDidChange(e => {
-			if (e.httpProxy) {
-				this.resetCaches();
-			}
-		});
+	constructor(private readonly config: ProviderApiConfig) {
+		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private resetCaches(): void {
@@ -593,8 +589,8 @@ export class AzureDevOpsApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(url, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(url, {
 						headers: {
 							Authorization: `Basic ${base64(`PAT:${accessToken}`)}`,
 							'Content-Type': 'application/json',
@@ -616,7 +612,7 @@ export class AzureDevOpsApi implements Disposable {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`AzureDevOps request failed: ${ex.message}`);
+				this.config.onError?.(`AzureDevOps request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -658,7 +654,7 @@ export class AzureDevOpsApi implements Disposable {
 				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestFailed?.(
+					this.config.onRequestFailed?.(
 						`${provider?.name ?? 'AzureDevOps'} failed to respond and might be experiencing issues.${
 							provider == null || provider.id === 'azure'
 								? ' Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.'
@@ -683,9 +679,14 @@ export class AzureDevOpsApi implements Disposable {
 
 		scope?.error(ex);
 		if (Logger.isDebugging) {
-			this.ctx.hooks?.ui?.onError?.(
+			this.config.onError?.(
 				`AzureDevOps request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
 	}
+}
+
+/** Wires an {@link AzureDevOpsApi} from the full runtime context, mapping `ctx` down to the narrow config. */
+export function createAzureDevOpsApi(ctx: IntegrationServiceContext): AzureDevOpsApi {
+	return new AzureDevOpsApi(baseProviderApiConfig(ctx));
 }

@@ -49,23 +49,20 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 			));
 		},
 		get gitlab() {
-			return (gitlab ??= build(
-				async () =>
-					new (await import(/* webpackChunkName: "integrations" */ './gitlab/gitlab.js')).GitLabApi(ctx),
+			return (gitlab ??= build(async () =>
+				(await import(/* webpackChunkName: "integrations" */ './gitlab/gitlab.js')).createGitLabApi(ctx),
 			));
 		},
 		get bitbucket() {
-			return (bitbucket ??= build(
-				async () =>
-					new (await import(/* webpackChunkName: "integrations" */ './bitbucket/bitbucket.js')).BitbucketApi(
-						ctx,
-					),
+			return (bitbucket ??= build(async () =>
+				(await import(/* webpackChunkName: "integrations" */ './bitbucket/bitbucket.js')).createBitbucketApi(
+					ctx,
+				),
 			));
 		},
 		get azure() {
-			return (azure ??= build(
-				async () =>
-					new (await import(/* webpackChunkName: "integrations" */ './azure/azure.js')).AzureDevOpsApi(ctx),
+			return (azure ??= build(async () =>
+				(await import(/* webpackChunkName: "integrations" */ './azure/azure.js')).createAzureDevOpsApi(ctx),
 			));
 		},
 	};
