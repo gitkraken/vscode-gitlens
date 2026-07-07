@@ -236,6 +236,10 @@ export class GlCommitAuthor extends LitElement {
 	@property({ type: Object })
 	signature?: CommitSignatureShape;
 
+	/** Forwarded to the signature details so an unverified SSH signer can be added to this repo's allowed_signers. */
+	@property({ type: String })
+	repoPath?: string;
+
 	@property({ reflect: true })
 	layout?: 'stacked';
 
@@ -348,6 +352,7 @@ export class GlCommitAuthor extends LitElement {
 					? html`<gl-signature-details
 							.signature=${this.signature}
 							.committerEmail=${this.committerEmail}
+							.repoPath=${this.repoPath}
 						></gl-signature-details>`
 					: nothing}
 				${hasDates

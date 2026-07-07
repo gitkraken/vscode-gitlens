@@ -376,6 +376,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 			.showAvatar="${this.preferences?.avatars ?? true}"
 			.showSignature="${this.preferences?.showSignatureBadges ?? true}"
 			.signature="${this.signature}"
+			.repoPath="${commit.repoPath}"
 		></gl-commit-author>`;
 
 		if (!this.panelActions) {
