@@ -1,7 +1,10 @@
 // Public facade for `@gitlens/integrations`.
 //
 // External consumers should import from this entry point only, not from the
-// package's internal subpaths. The internal classes (IntegrationService,
+// package's internal subpaths, with one exception: the lightweight, token-scoped
+// read API is a supported public subpath (`./lite.js`). It's kept out of this
+// facade on purpose so importing the session-managed manager doesn't eagerly pull
+// in every provider API client. The internal classes (IntegrationService,
 // IntegrationAuthenticationService, etc.) are not part of the public API and
 // may be refactored without semver bumps.
 
