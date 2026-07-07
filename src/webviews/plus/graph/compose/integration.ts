@@ -449,18 +449,20 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 	}
 
 	/**
-	 * Move every hunk belonging to `path` (matched on `fileName`/`originalFileName` over the source
-	 * hunks) from the `fromCommitId` draft commit to `toCommitId`, in place on the cached plan. If
-	 * the source commit is left empty it is pruned from `allOrderedCommits` and every shared branch
-	 * read site (empty commits hard-fail at apply). Mutates the shared `CommitSuggestion` objects so
-	 * apply / a subsequent refine see the change — see {@link reorderCachedPlan} for the
+	 * Move every hunk belonging to any of `paths` (matched on `fileName`/`originalFileName` over the
+	 * source hunks) from the `fromCommitId` draft commit to `toCommitId`, in place on the cached plan.
+	 * All files move in a single mutation so the source commit is pruned only once it's truly empty —
+	 * looping the single-file path would prune it the moment the first file empties it and orphan the
+	 * rest. If the source commit is left empty it is pruned from `allOrderedCommits` and every shared
+	 * branch read site (empty commits hard-fail at apply). Mutates the shared `CommitSuggestion`
+	 * objects so apply / a subsequent refine see the change — see {@link reorderCachedPlan} for the
 	 * shared-reference discipline.
 	 *
-	 * Returns `false` on cache miss, unknown commit ids, `from === to`, or when the file has no hunks
-	 * in the source commit (nothing to move).
+	 * Returns `false` on cache miss, unknown commit ids, `from === to`, empty `paths`, or when none of
+	 * the files have hunks in the source commit (nothing to move).
 	 */
-	moveFileBetweenCommits(cacheKey: string, fromCommitId: string, toCommitId: string, path: string): boolean {
-		if (fromCommitId === toCommitId) return false;
+	moveFilesBetweenCommits(cacheKey: string, fromCommitId: string, toCommitId: string, paths: string[]): boolean {
+		if (fromCommitId === toCommitId || paths.length === 0) return false;
 
 		const cached = this._cache.get(cacheKey);
 		if (cached == null) return false;
@@ -470,9 +472,12 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		const to = plan.allOrderedCommits.find(c => c.id === toCommitId);
 		if (from == null || to == null) return false;
 
-		// Hunk indices for this file (renames match either side of the move).
+		// Hunk indices for these files (renames match either side of the move).
+		const pathSet = new Set(paths);
 		const fileIndices = new Set(
-			cached.sourceHunks.filter(h => h.fileName === path || h.originalFileName === path).map(h => h.index),
+			cached.sourceHunks
+				.filter(h => pathSet.has(h.fileName) || (h.originalFileName != null && pathSet.has(h.originalFileName)))
+				.map(h => h.index),
 		);
 		const movingSet = new Set(from.hunkIndices.filter(i => fileIndices.has(i)));
 		if (movingSet.size === 0) return false;

@@ -85,11 +85,12 @@ export interface ComposeReorderDetail {
 	orderedCommitIds: string[];
 }
 
-/** Event detail for dragging a file from one draft commit to another. The parent routes it to the
- *  workflow controller, which asks the host to reassign the file's hunks and returns the re-derived
- *  plan. `fromCommitId` is the commit the file currently belongs to (the selected commit). */
+/** Event detail for dragging one or more files from one draft commit to another. The parent routes it
+ *  to the workflow controller, which asks the host to reassign the files' hunks and returns the
+ *  re-derived plan. `paths` is the multi-selection when the dragged row is part of it, else just the
+ *  dragged file. `fromCommitId` is the commit the files currently belong to (the selected commit). */
 export interface ComposeMoveFileDetail {
-	path: string;
+	paths: string[];
 	fromCommitId: string;
 	toCommitId: string;
 }
@@ -1379,10 +1380,15 @@ export class GlDetailsComposeModePanel extends LitElement {
 
 		if (!path || !toCommitId || !fromCommitId || toCommitId === fromCommitId) return;
 
+		// Move the whole multi-selection when the dragged row is part of it; otherwise just the dragged
+		// file (dragging an unselected row acts on that row alone — VS Code SCM drag semantics).
+		const selected = this._selectedFiles.map(f => f.path);
+		const paths = selected.length > 1 && selected.includes(path) ? selected : [path];
+
 		e.preventDefault();
 		this.dispatchEvent(
 			new CustomEvent<ComposeMoveFileDetail>('compose-move-file', {
-				detail: { path: path, fromCommitId: fromCommitId, toCommitId: toCommitId },
+				detail: { paths: paths, fromCommitId: fromCommitId, toCommitId: toCommitId },
 				bubbles: true,
 				composed: true,
 			}),

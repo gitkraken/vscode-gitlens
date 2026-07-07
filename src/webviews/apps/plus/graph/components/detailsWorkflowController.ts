@@ -1349,13 +1349,14 @@ export class DetailsWorkflowController implements ReactiveController {
 		},
 
 		/**
-		 * Move file `path` from one draft commit to another after a drag drop. Unlike reorder, this
-		 * changes the affected commits' content (and may drop an emptied commit), so the host owns the
-		 * result: it returns the re-derived plan and we replace the resource `commits` wholesale (no
+		 * Move the files in `paths` from one draft commit to another after a drag drop. `paths` is the
+		 * multi-selection when the dragged row is part of it, else just the dragged file. Unlike reorder,
+		 * this changes the affected commits' content (and may drop an emptied commit), so the host owns
+		 * the result: it returns the re-derived plan and we replace the resource `commits` wholesale (no
 		 * optimistic step — the recomputed files/stats/patch and prune can't be predicted locally).
 		 */
-		moveFile: async (fromCommitId: string, toCommitId: string, path: string): Promise<void> => {
-			if (!fromCommitId || !toCommitId || fromCommitId === toCommitId || !path) return;
+		moveFile: async (fromCommitId: string, toCommitId: string, paths: string[]): Promise<void> => {
+			if (!fromCommitId || !toCommitId || fromCommitId === toCommitId || paths.length === 0) return;
 
 			const repoPath = this.actions.state.activeModeRepoPath.get();
 			const cacheKey = this.actions.state.composeCurrentCacheKey.get();
@@ -1369,7 +1370,7 @@ export class DetailsWorkflowController implements ReactiveController {
 					cacheKey,
 					fromCommitId,
 					toCommitId,
-					path,
+					paths,
 				);
 				if (this._disconnected) return;
 

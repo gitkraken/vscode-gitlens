@@ -157,7 +157,7 @@ suite('graph/compose/integration reorderCachedPlan', () => {
 	});
 });
 
-suite('graph/compose/integration moveFileBetweenCommits', () => {
+suite('graph/compose/integration moveFilesBetweenCommits', () => {
 	const cacheKey = 'test-key';
 
 	test("moves a file's hunks between commits, leaving both in place", () => {
@@ -172,7 +172,7 @@ suite('graph/compose/integration moveFileBetweenCommits', () => {
 		);
 		seedFull(sut, cacheKey, plan, sourceHunks);
 
-		const ok = sut.moveFileBetweenCommits(cacheKey, 'c1', 'c2', 'a.ts');
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['a.ts']);
 
 		assert.strictEqual(ok, true);
 		const c1 = plan.allOrderedCommits.find(c => c.id === 'c1')!;
@@ -183,6 +183,55 @@ suite('graph/compose/integration moveFileBetweenCommits', () => {
 			plan.allOrderedCommits.map(c => c.id),
 			['c1', 'c2'],
 		);
+	});
+
+	test('moves every hunk of multiple files in a single mutation', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [makeHunk(0, 'a.ts'), makeHunk(1, 'b.ts'), makeHunk(2, 'b.ts'), makeHunk(3, 'c.ts')];
+		const { plan } = makePlanWithHunks(
+			[
+				{ id: 'c1', hunkIndices: [0, 1, 2, 3] },
+				{ id: 'c2', hunkIndices: [] },
+			],
+			sourceHunks,
+		);
+		seedFull(sut, cacheKey, plan, sourceHunks);
+
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['a.ts', 'b.ts']);
+
+		assert.strictEqual(ok, true);
+		const c1 = plan.allOrderedCommits.find(c => c.id === 'c1')!;
+		const c2 = plan.allOrderedCommits.find(c => c.id === 'c2')!;
+		assert.deepStrictEqual(c1.hunkIndices, [3]);
+		assert.deepStrictEqual(sortedIndices(c2.hunkIndices), [0, 1, 2]);
+		assert.deepStrictEqual(
+			plan.allOrderedCommits.map(c => c.id),
+			['c1', 'c2'],
+		);
+	});
+
+	test('prunes the source once after moving every file out of it', () => {
+		const sut = new GraphComposeIntegration({} as Container);
+		const sourceHunks = [makeHunk(0, 'a.ts'), makeHunk(1, 'b.ts'), makeHunk(2, 'z.ts')];
+		const { plan } = makePlanWithHunks(
+			[
+				{ id: 'c1', hunkIndices: [0, 1] },
+				{ id: 'c2', hunkIndices: [2] },
+			],
+			sourceHunks,
+		);
+		seedFull(sut, cacheKey, plan, sourceHunks);
+
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['a.ts', 'b.ts']);
+
+		assert.strictEqual(ok, true);
+		// c1 emptied by the batch → pruned; c2 holds all three files' hunks.
+		assert.deepStrictEqual(
+			plan.allOrderedCommits.map(c => c.id),
+			['c2'],
+		);
+		assert.deepStrictEqual(plan.branches[0].orderedCommitIds, ['c2']);
+		assert.deepStrictEqual(sortedIndices(plan.allOrderedCommits[0].hunkIndices), [0, 1, 2]);
 	});
 
 	test('prunes the source commit when its last file is moved out', () => {
@@ -197,7 +246,7 @@ suite('graph/compose/integration moveFileBetweenCommits', () => {
 		);
 		seedFull(sut, cacheKey, plan, sourceHunks);
 
-		const ok = sut.moveFileBetweenCommits(cacheKey, 'c2', 'c1', 'c.ts');
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c2', 'c1', ['c.ts']);
 
 		assert.strictEqual(ok, true);
 		// c2 emptied → pruned from allOrderedCommits and every shared branch read site.
@@ -227,7 +276,7 @@ suite('graph/compose/integration moveFileBetweenCommits', () => {
 		);
 		seedFull(sut, cacheKey, plan, sourceHunks);
 
-		const ok = sut.moveFileBetweenCommits(cacheKey, 'c1', 'c2', 'old.ts');
+		const ok = sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['old.ts']);
 
 		assert.strictEqual(ok, true);
 		assert.deepStrictEqual(plan.allOrderedCommits.find(c => c.id === 'c1')!.hunkIndices, [1]);
@@ -246,10 +295,11 @@ suite('graph/compose/integration moveFileBetweenCommits', () => {
 		);
 		seedFull(sut, cacheKey, plan, sourceHunks);
 
-		assert.strictEqual(sut.moveFileBetweenCommits(cacheKey, 'c1', 'c1', 'a.ts'), false); // same commit
-		assert.strictEqual(sut.moveFileBetweenCommits(cacheKey, 'c1', 'nope', 'a.ts'), false); // unknown target
-		assert.strictEqual(sut.moveFileBetweenCommits(cacheKey, 'c1', 'c2', 'zzz.ts'), false); // file not in source
-		assert.strictEqual(sut.moveFileBetweenCommits('bad-key', 'c1', 'c2', 'a.ts'), false); // cache miss
+		assert.strictEqual(sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c1', ['a.ts']), false); // same commit
+		assert.strictEqual(sut.moveFilesBetweenCommits(cacheKey, 'c1', 'nope', ['a.ts']), false); // unknown target
+		assert.strictEqual(sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', ['zzz.ts']), false); // file not in source
+		assert.strictEqual(sut.moveFilesBetweenCommits(cacheKey, 'c1', 'c2', []), false); // no files
+		assert.strictEqual(sut.moveFilesBetweenCommits('bad-key', 'c1', 'c2', ['a.ts']), false); // cache miss
 
 		assert.deepStrictEqual(
 			plan.allOrderedCommits.map(c => c.id),

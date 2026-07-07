@@ -2195,7 +2195,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					return { result: true };
 				},
-				moveComposeFile: async (repoPath, cacheKey, fromCommitId, toCommitId, path) => {
+				moveComposeFile: async (repoPath, cacheKey, fromCommitId, toCommitId, paths) => {
 					const composeTools = await this.getOrCreateComposeToolsForGraph();
 					if (composeTools == null) {
 						return { error: { message: 'Compose is not available in this environment.' } };
@@ -2206,8 +2206,12 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 						return { error: { message: 'This compose plan is no longer active; please regenerate.' } };
 					}
 
-					if (!composeTools.moveFileBetweenCommits(cacheKey, fromCommitId, toCommitId, path)) {
-						return { error: { message: 'Unable to move that file; please regenerate the plan.' } };
+					if (!composeTools.moveFilesBetweenCommits(cacheKey, fromCommitId, toCommitId, paths)) {
+						return {
+							error: {
+								message: `Unable to move ${paths.length === 1 ? 'that file' : 'those files'}; please regenerate the plan.`,
+							},
+						};
 					}
 
 					// Moving a file changes the affected commits' content (and may have dropped an

@@ -438,16 +438,17 @@ export interface GraphInspectService {
 		orderedCommitIds: string[],
 	): Promise<ReorderProposedCommitsResult>;
 	/**
-	 * Move file `path` from the `fromCommitId` draft commit to `toCommitId` in the cached plan
-	 * identified by `cacheKey` (reassigns that file's hunks). Emptied source commits are pruned.
-	 * The host re-derives and returns the affected plan's `ProposedCommit[]` in display order.
+	 * Move the files in `paths` from the `fromCommitId` draft commit to `toCommitId` in the cached
+	 * plan identified by `cacheKey` (reassigns those files' hunks in a single mutation). Emptied
+	 * source commits are pruned. The host re-derives and returns the affected plan's `ProposedCommit[]`
+	 * in display order.
 	 */
 	moveComposeFile(
 		repoPath: string,
 		cacheKey: string,
 		fromCommitId: string,
 		toCommitId: string,
-		path: string,
+		paths: string[],
 	): Promise<MoveComposeFileResult>;
 	/** Streams human-readable progress messages while {@link composeChanges} runs. `undefined`
 	 *  fires when no compose is in flight (entry/exit clearing). */
