@@ -1318,11 +1318,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					signal?.throwIfAborted();
 					const commit =
 						this._graph?.stashes?.get(sha) ??
-						(await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha));
+						(await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha, signal));
 					if (commit == null) return undefined;
 
 					signal?.throwIfAborted();
-					return this.getCoreCommitDetails(commit);
+					return this.getCoreCommitDetails(commit, signal);
 				},
 				getSearchContext: (sha: string): Promise<GitCommitSearchContext | undefined> => {
 					return Promise.resolve(this.getSearchContext(sha));
@@ -3024,7 +3024,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
-	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
+	private async getCoreCommitDetails(commit: GitCommit, cancellation?: AbortSignal): Promise<CommitDetails> {
 		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
 		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
 			!commit.hasFullDetails()
@@ -3036,7 +3036,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				: Promise.resolve(undefined),
 			commit.refType === 'stash' || commit.isUncommitted
 				? Promise.resolve([])
-				: getReachableWorktrees(this.container, commit.repoPath, commit.sha),
+				: getReachableWorktrees(this.container, commit.repoPath, commit.sha, cancellation),
 		]);
 
 		commit = getSettledValue(commitResult, commit);

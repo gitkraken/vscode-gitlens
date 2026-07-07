@@ -1255,6 +1255,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			rev1,
 			rev2,
 		);
+		// A cancelled check has no answer — a SIGTERM/spliced abort surfaces as exitCode 0 under
+		// `errors: 'ignore'`, which is indistinguishable from a real "is an ancestor" result.
+		if (cancellation?.aborted) throw new CancellationError();
 		return result.exitCode === 0;
 	}
 

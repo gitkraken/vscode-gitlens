@@ -486,7 +486,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 	 * Get core commit details (fast path — no autolinks, no enriched data).
 	 * The message is raw-formatted (headline split) but not linkified with autolink patterns.
 	 */
-	private async getCoreCommitDetails(commit: GitCommit): Promise<CommitDetails> {
+	private async getCoreCommitDetails(commit: GitCommit, cancellation?: AbortSignal): Promise<CommitDetails> {
 		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
 		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
 			!commit.hasFullDetails()
@@ -496,7 +496,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			hasDistinctCommitter ? getCommitCommitterAvatarUri(commit, { size: 32 }) : Promise.resolve(undefined),
 			commit.refType === 'stash' || commit.isUncommitted
 				? Promise.resolve([])
-				: getReachableWorktrees(this.container, commit.repoPath, commit.sha),
+				: getReachableWorktrees(this.container, commit.repoPath, commit.sha, cancellation),
 		]);
 
 		commit = getSettledValue(commitResult, commit);
@@ -731,13 +731,13 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 						const stash = await svc.stash?.getStash();
 						commit = stash?.stashes.get(sha);
 					}
-					commit ??= await svc.commits.getCommit(sha);
+					commit ??= await svc.commits.getCommit(sha, signal);
 					if (commit == null) return undefined;
 
 					signal?.throwIfAborted();
 					// Track what the webview is showing so file actions know which commit to use
 					this._showingCommitRef = { repoPath: repoPath, sha: sha, refType: commit.refType };
-					const details = await this.getCoreCommitDetails(commit);
+					const details = await this.getCoreCommitDetails(commit, signal);
 					signal?.throwIfAborted();
 					return details;
 				},
