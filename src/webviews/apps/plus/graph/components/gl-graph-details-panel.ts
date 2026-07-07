@@ -586,6 +586,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  so the event fires only on real transitions, not on re-renders that don't change the mode. */
 	private _lastNotifiedMode: GraphDetailsMode = 'none';
 
+	/** One-shot: set before a programmatic (ambient) mode entry so `updated()` skips the AI-input
+	 *  focus — keeps focus-on-entry for deliberate toggles only. Consumed every `updated()`. */
+	private _suppressModeFocusOnce = false;
+
 	/** Returns the effective context, respecting mode lock when active. */
 	private get effectiveContext(): DetailsContext {
 		return (
@@ -1248,6 +1252,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		) {
 			const activeMode = this._state.activeMode.get();
 			if (activeMode === 'review' || activeMode === 'compose' || activeMode === 'resolve') {
+				// Ambient anchor-switch (not a deliberate toggle) - don't let a restored mode steal focus.
+				this._suppressModeFocusOnce = true;
 				this._workflow.switchAnchorWithinMode(this.currentSelection());
 			} else if (activeMode == null && this.isWip) {
 				// Auto-restore is gated to WIP rows: WIP has a stable identity (the branch's
@@ -1256,6 +1262,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				// review just because the user reviewed it earlier in the session.
 				const remembered = this._workflow.getRememberedMode(this.currentSelection());
 				if (remembered != null) {
+					// Ambient restore (WIP reselect), not a deliberate toggle - suppress the focus steal.
+					this._suppressModeFocusOnce = true;
 					this._workflow.toggleMode(remembered, this.currentSelection());
 				}
 			}
@@ -1523,13 +1531,19 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				}),
 			);
 
-			// Land caret in the AI input when the user enters compose/review/resolve. Defer one frame
-			// so the mode panel has rendered. Only fires on a fresh transition INTO the mode (not on
-			// re-renders within the mode), so it doesn't fight the user's own focus moves.
-			if (currentMode === 'compose' || currentMode === 'review' || currentMode === 'resolve') {
+			// Land caret in the AI input only on a DELIBERATE entry (a mode toggle). Programmatic entries
+			// — remembered-mode auto-restore on WIP reselect, anchor-switch — set the suppress flag so
+			// merely showing the panel never steals keyboard focus. Deferred one frame in focusModeAiInput.
+			if (
+				!this._suppressModeFocusOnce &&
+				(currentMode === 'compose' || currentMode === 'review' || currentMode === 'resolve')
+			) {
 				this.focusModeAiInput();
 			}
 		}
+		// One-shot: consume the suppression each cycle (switchAnchorWithinMode can net to the same mode
+		// with no transition) so it never leaks into a later deliberate entry.
+		this._suppressModeFocusOnce = false;
 
 		// Reflect `activeMode` to `data-mode` so descendants can pick up the per-mode accent
 		// color token (compose → purple, review → green) from `mode.css.ts`. The attribute is
