@@ -109,11 +109,11 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	focused = false;
 
-	@property({ type: Boolean, reflect: true, attribute: 'focused-inactive' })
-	focusedInactive = false;
-
 	@query('#button')
 	buttonEl!: HTMLButtonElement;
+
+	@query('#checkbox')
+	private checkboxEl?: HTMLInputElement;
 
 	get isHidden(): boolean {
 		return this.parentExpanded === false || (!this.branch && !this.expanded);
@@ -237,6 +237,7 @@ export class GlTreeItem extends GlElement {
 				class="checkbox__input"
 				id="checkbox"
 				type="checkbox"
+				tabindex="-1"
 				.checked=${this.checked === true}
 				.indeterminate=${this.checked === 'indeterminate'}
 				?disabled=${this.disableCheck}
@@ -334,6 +335,17 @@ export class GlTreeItem extends GlElement {
 
 	override focus(): void {
 		this.buttonEl.focus();
+	}
+
+	/** Move DOM focus onto this row's checkbox, if it has an enabled one; returns whether it did.
+	 *  The checkbox is `tabindex="-1"` so Tab can't walk it row-to-row — gl-tree-view drives it into
+	 *  its managed within-row Tab cycle via this method instead. */
+	focusCheckbox(): boolean {
+		const el = this.checkboxEl;
+		if (el == null || el.disabled) return false;
+
+		el.focus();
+		return true;
 	}
 
 	private onButtonClick(e: MouseEvent) {

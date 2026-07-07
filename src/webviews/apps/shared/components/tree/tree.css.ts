@@ -96,55 +96,47 @@ export const treeItemStyles = [
 			background-color: transparent;
 		}
 
-		/* A selected row defaults to the inactive selection colors. When the tree has focus, EVERY
-	   selected row brightens to the active colors (not just the cursor row) — matching VS Code
-	   multi-select. The signal is the --gl-tree-focus-within var (0/1), set by gl-tree-view's
-	   :host(:focus-within) and inherited across the shadow boundary: clicking a row focuses its
-	   inner button, so the container's own focus event never fires and focusin doesn't cross the
-	   nested shadow roots — a CSS-only signal is the reliable one. */
-		:host([aria-selected='true']) {
-			--gl-tree-selection-bg: color-mix(
+		/* Selection AND the focused-cursor highlight get identical treatment: both brighten from the
+	   inactive to the active selection colors via the --gl-tree-focus-within var (0/1), set by
+	   gl-tree-view's :host(:focus-within) and inherited across the shadow boundary. It must be a
+	   CSS-only signal because DOM focus routinely lands *inside* a row — clicking focuses the row's
+	   inner button and Tab focuses its checkbox — so the container's own focus/blur can't be trusted,
+	   but :focus-within still holds while focus is anywhere in the tree. Folders are never selection
+	   members, so a folder cursor only hits the second selector; giving it the same colors means a
+	   focused folder reads like a selected file — active while the tree (or a checkbox in it) has
+	   focus, and keeping the inactive highlight when the tree loses focus. */
+		:host([aria-selected='true']),
+		:host([focused]:not([aria-selected='true'])) {
+			color: color-mix(
+				in srgb,
+				var(--vscode-list-activeSelectionForeground) calc(var(--gl-tree-focus-within, 0) * 100%),
+				var(--vscode-list-inactiveSelectionForeground)
+			);
+			background-color: color-mix(
 				in srgb,
 				var(--vscode-list-activeSelectionBackground) calc(var(--gl-tree-focus-within, 0) * 100%),
 				var(--vscode-list-inactiveSelectionBackground)
 			);
-
-			color: var(--vscode-list-inactiveSelectionForeground);
-			background-color: var(--gl-tree-selection-bg);
 		}
 
-		/* Focused state - when the item is the active descendant in the tree */
+		/* Focus outline on the cursor row; fades out with the var when focus leaves the tree. */
 		:host([focused]) {
 			z-index: 1;
-			outline: var(--gl-border-width) solid var(--vscode-list-focusOutline);
+			outline: var(--gl-border-width) solid
+				color-mix(
+					in srgb,
+					var(--vscode-list-focusOutline) calc(var(--gl-tree-focus-within, 0) * 100%),
+					transparent
+				);
 			outline-offset: -0.1rem;
 		}
 
-		/* The cursor row (and any row with real DOM focus within it) always uses the active colors. */
-		:host([aria-selected='true'][focused]),
-		:host([aria-selected='true']:focus-within) {
-			color: var(--vscode-list-activeSelectionForeground);
-			background-color: var(--vscode-list-activeSelectionBackground);
-		}
-
-		/* Inactive focus state - when the item would be focused but container doesn't have focus */
-
-		/* In VS Code, inactive focus shows the selection background without the outline */
-		:host([focused-inactive]) {
-			color: var(--vscode-list-inactiveSelectionForeground);
-			background-color: var(--vscode-list-inactiveSelectionBackground);
-		}
-
-		/* TODO: these should be :has(.input:focus) instead of :focus-within */
+		/* A row that physically contains DOM focus (its button or checkbox) is unambiguously in the
+	   focused tree — show a solid outline regardless of the var. */
 		:host(:focus-within) {
 			z-index: 1;
 			outline: var(--gl-border-width) solid var(--vscode-list-focusOutline);
 			outline-offset: -0.1rem;
-		}
-
-		:host([aria-selected='true']:focus-within) {
-			color: var(--vscode-list-activeSelectionForeground);
-			background-color: var(--vscode-list-activeSelectionBackground);
 		}
 
 		.item {
@@ -227,7 +219,6 @@ export const treeItemStyles = [
 		:host-context([guides='always']) .node--connector::before,
 		:host-context([guides='onHover']:focus-within) .node--connector::before,
 		:host-context([guides='onHover'][focused]) .node--connector::before,
-		:host-context([guides='onHover'][focused-inactive]) .node--connector::before,
 		:host-context([guides='onHover']:hover) .node--connector::before {
 			border-color: var(--vscode-tree-indentGuidesStroke);
 		}
@@ -273,11 +264,7 @@ export const treeItemStyles = [
 			color: var(--vscode-list-activeSelectionIconForeground);
 		}
 
-		:host([focused-inactive]) .actions {
-			color: var(--vscode-list-inactiveSelectionIconForeground, var(--vscode-icon-foreground));
-		}
-
-		:host(:not(:hover, :focus-within, [focused], [focused-inactive])) .actions {
+		:host(:not(:hover, :focus-within, [focused])) .actions {
 			display: none;
 		}
 
@@ -319,6 +306,14 @@ export const treeItemStyles = [
 			opacity: 0.4;
 		}
 
+		/* Theme-aware keyboard focus ring — the appearance:none input would otherwise show the browser
+	   default outline. Drawn on the wrapper so it frames the whole 1.6rem box; the input's own outline
+	   stays off (see .checkbox__input). :focus-visible keeps it keyboard-only, matching VS Code. */
+		.checkbox:has(.checkbox__input:focus-visible) {
+			outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+			outline-offset: 0.1rem;
+		}
+
 		.checkbox__input {
 			position: absolute;
 			top: 0;
@@ -328,6 +323,7 @@ export const treeItemStyles = [
 			margin: 0;
 			appearance: none;
 			cursor: pointer;
+			outline: none;
 			border-radius: var(--gl-radius-sm);
 		}
 

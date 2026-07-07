@@ -25,6 +25,7 @@ import type {
 	TreeModelFlat,
 	TreeSelectionChangedDetail,
 } from './base.js';
+import type { GlTreeItem } from './tree-item.js';
 import '@lit-labs/virtualizer';
 import '../chips/action-chip.js';
 import '../branch-icon.js';
@@ -361,12 +362,6 @@ export class GlTreeView extends GlElement {
 		HTMLElement & { scrollToIndex?: (index: number, position?: string) => unknown; layoutComplete?: Promise<void> }
 	> = createRef();
 	private scrollableRef: Ref<HTMLElement> = createRef();
-
-	@state()
-	private _containerHasFocus = false;
-
-	@state()
-	private _filterHasFocus = false;
 
 	@state()
 	private _actionButtonHasFocus = false;
@@ -838,9 +833,6 @@ export class GlTreeView extends GlElement {
 		const id = nodeId(model);
 		const isSelected = this.multiSelectable ? this._selection.has(id) : this._lastSelectedPath === id;
 		const isFocused = this._focusedItemPath === id;
-		// Either the list itself or the filter-as-combobox counts as "the tree is focused" for
-		// visual highlight purposes; the filter input drives the virtual active-descendant.
-		const hasTreeFocus = (this._containerHasFocus || this._filterHasFocus) && !this._actionButtonHasFocus;
 
 		// All items get tabindex="-1" (not focusable via Tab, only programmatically)
 		// Add ID for aria-activedescendant
@@ -866,8 +858,7 @@ export class GlTreeView extends GlElement {
 			.matched=${model.matched ?? false}
 			.selected=${isSelected}
 			.controlledSelection=${true}
-			.focused=${isFocused && hasTreeFocus}
-			.focusedInactive=${isFocused && !hasTreeFocus}
+			.focused=${isFocused}
 			.tabIndex=${-1}
 			.vscodeContext=${model.contextData}
 			.draggableItem=${this.draggableFiles && !model.branch}
@@ -910,7 +901,6 @@ export class GlTreeView extends GlElement {
 					@input=${this.handleFilterInput}
 					@keydown=${this.handleFilterKeydown}
 					@focus=${this.handleFilterFocus}
-					@blur=${this.handleFilterBlur}
 				/>
 				<div class="filter-controls">
 					<gl-button
@@ -955,7 +945,6 @@ export class GlTreeView extends GlElement {
 						aria-activedescendant=${activeDescendant || nothing}
 						@keydown=${this.handleContainerKeydown}
 						@focus=${this.handleContainerFocus}
-						@blur=${this.handleContainerBlur}
 					>
 						<lit-virtualizer
 							class="scrollable"
@@ -1272,10 +1261,9 @@ export class GlTreeView extends GlElement {
 	}
 
 	private handleContainerFocus = () => {
-		// Mark that the container has focus
-		this._containerHasFocus = true;
-
-		// When the container receives focus, if we don't have a focused item, default to first or selected
+		// When the container receives focus, if we don't have a focused item, default to first or selected.
+		// (Active-vs-inactive highlighting is CSS-driven via --gl-tree-focus-within, so no focus flag is
+		// tracked here — see renderTreeItem / tree.css.ts.)
 		if (!this._focusedItemPath) {
 			if (this._lastSelectedPath) {
 				this._focusedItemPath = this._lastSelectedPath;
@@ -1286,12 +1274,6 @@ export class GlTreeView extends GlElement {
 			}
 			this.requestUpdate();
 		}
-	};
-
-	private handleContainerBlur = () => {
-		// Mark that the container lost focus
-		// This will trigger a re-render to update the focused item's visual state
-		this._containerHasFocus = false;
 	};
 
 	private handleFocusIn = (e: FocusEvent) => {
@@ -1317,39 +1299,72 @@ export class GlTreeView extends GlElement {
 		}
 	};
 
+	// Capture-phase Tab handler that keeps the tree a single tab stop: once focus is on one of the
+	// cursor row's inner controls (checkbox / action chip), Tab cycles them and then leaves the tree —
+	// it must never walk natively from one row's control to the next. handleContainerKeydown handles
+	// Tab while focus is still on the container itself.
 	private handleKeydown = (e: KeyboardEvent) => {
 		if (e.key !== 'Tab') return;
 
-		// In capture phase, e.target is the element with the listener, not the focused element
-		// We need to use composedPath to find the action chip in the event path
+		// In capture phase, e.target is the element with the listener, not the focused element — use
+		// composedPath to find which of the row's controls (if any) currently has focus.
 		const composedPath = e.composedPath();
+		const onActionChip = composedPath.some((el: any) => el.tagName === 'GL-ACTION-CHIP');
+		const onCheckbox = composedPath.some(
+			(el: any) => el.tagName === 'INPUT' && el.classList?.contains('checkbox__input'),
+		);
+		// Not on a row control → let handleContainerKeydown (container-focused) drive the Tab.
+		if (!onActionChip && !onCheckbox) return;
 
-		// Find the action chip in the composed path
-		const actionItem = composedPath.find((el: any) => el.tagName === 'GL-ACTION-CHIP') as HTMLElement;
-		if (!actionItem) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const row = composedPath.find((el: any) => el.tagName === 'GL-TREE-ITEM') as GlTreeItem | undefined;
+
+		if (onCheckbox) {
+			if (e.shiftKey) {
+				this.scrollableRef.value?.focus();
+			} else {
+				// Forward: checkbox → the row's actions if any, else leave the tree.
+				const firstAction = row?.querySelector<HTMLElement>('gl-action-chip');
+				if (firstAction) {
+					firstAction.focus();
+				} else {
+					this.exitTreeForward();
+				}
+			}
 			return;
 		}
 
+		// On an action chip.
 		if (e.shiftKey) {
-			// Shift+Tab - always move back to container
-			e.preventDefault();
-			const container = this.scrollableRef.value;
-			if (container) {
-				container.focus();
+			// Back: actions → the row's checkbox if it has one, else the container.
+			if (!row?.focusCheckbox()) {
+				this.scrollableRef.value?.focus();
 			}
 		} else {
-			// Tab forward - blur the action button and let VS Code handle focus
-			e.preventDefault();
-
-			// Blur the currently focused element to let VS Code's focus management take over
-			const activeElement = document.activeElement as HTMLElement;
-			setTimeout(() => {
-				if (activeElement && typeof activeElement.blur === 'function') {
-					activeElement.blur();
-				}
-			}, 0);
+			this.exitTreeForward();
 		}
 	};
+
+	/** Resolve the currently-rendered gl-tree-item element for the cursor row (virtualized). */
+	private getFocusedTreeItemElement(): GlTreeItem | undefined {
+		if (!this._focusedItemPath) return undefined;
+
+		const virtualizer = this.virtualizerRef.value;
+		if (!virtualizer) return undefined;
+
+		// The virtualizer renders gl-tree-items as direct children; find the cursor row by id.
+		return [...virtualizer.querySelectorAll('gl-tree-item')].find(
+			item => item.id === `tree-item-${this._focusedItemPath}`,
+		);
+	}
+
+	/** Leave the tree forward: blur the focused control so VS Code's focus management advances past it. */
+	private exitTreeForward(): void {
+		const activeElement = document.activeElement as HTMLElement | null;
+		setTimeout(() => activeElement?.blur?.(), 0);
+	}
 
 	private getCurrentFocusedIndex(): number {
 		if (!this.treeItems?.length) return -1;
@@ -1382,30 +1397,30 @@ export class GlTreeView extends GlElement {
 		// This allows action-nav to handle left/right arrow navigation between action buttons
 		if (this._actionButtonHasFocus) return;
 
-		// Tab → move focus to the first action button in the focused row (tree-specific).
+		// Tab → step into the focused row's controls (tree-specific). The tree is a single tab stop, so
+		// Tab cycles the cursor row's controls — checkbox first, then actions (handleKeydown continues
+		// the cycle once focus is on the checkbox) — then leaves the tree; it never walks to the next row.
 		if (e.key === 'Tab' && !e.shiftKey) {
-			if (this._focusedItemPath) {
-				const virtualizer = this.virtualizerRef.value;
-				if (virtualizer) {
-					// Virtualizer renders gl-tree-items as direct children; find the focused one by id.
-					const allTreeItems = [...virtualizer.querySelectorAll('gl-tree-item')];
-					const focusedTreeItem = allTreeItems.find(
-						item => item.id === `tree-item-${this._focusedItemPath}`,
-					) as HTMLElement;
-					if (focusedTreeItem) {
-						// Action chips are light DOM children of the tree item.
-						const firstAction = focusedTreeItem.querySelector('gl-action-chip') as HTMLElement;
-						if (firstAction) {
-							// Prevent default BEFORE focusing to stop Tab from moving focus out.
-							e.preventDefault();
-							e.stopPropagation();
-							firstAction.focus();
-							return;
-						}
-					}
+			const focusedTreeItem = this.getFocusedTreeItemElement();
+			if (focusedTreeItem) {
+				// Checkbox first (it's tabindex="-1", so only this managed path reaches it).
+				if (focusedTreeItem.focusCheckbox()) {
+					e.preventDefault();
+					e.stopPropagation();
+					return;
+				}
+
+				// Otherwise the first action chip (light DOM child of the tree item).
+				const firstAction = focusedTreeItem.querySelector<HTMLElement>('gl-action-chip');
+				if (firstAction) {
+					// Prevent default BEFORE focusing to stop Tab from moving focus out.
+					e.preventDefault();
+					e.stopPropagation();
+					firstAction.focus();
+					return;
 				}
 			}
-			// If no action buttons, let Tab move focus out naturally.
+			// No controls in the row → let Tab move focus out naturally.
 			return;
 		}
 
@@ -1424,6 +1439,14 @@ export class GlTreeView extends GlElement {
 
 		// Space on a branch row → activate (expand/collapse) rather than multi-toggle.
 		if (e.key === ' ') {
+			// A focused checkbox toggles itself natively on Space — bail so we don't ALSO toggle the
+			// multi-selection (the event bubbles here from the checkbox). Let the native toggle run.
+			if (
+				e.composedPath().some((el: any) => el.tagName === 'INPUT' && el.classList?.contains('checkbox__input'))
+			) {
+				return;
+			}
+
 			const focused = this.treeItems[this.getCurrentFocusedIndex()];
 			if (focused?.branch) {
 				e.preventDefault();
@@ -1648,17 +1671,12 @@ export class GlTreeView extends GlElement {
 	};
 
 	private handleFilterFocus = () => {
-		this._filterHasFocus = true;
 		// Seed the virtual active-descendant so the first ArrowDown/Enter targets something
 		// visible even if the user hasn't interacted yet.
 		if (!this._focusedItemPath && this.treeItems?.length) {
 			this._focusedItemPath = nodeId(this.treeItems[0]);
 			this._focusedItemIndex = 0;
 		}
-	};
-
-	private handleFilterBlur = () => {
-		this._filterHasFocus = false;
 	};
 
 	private handleFilterKeydown = (e: KeyboardEvent) => {
