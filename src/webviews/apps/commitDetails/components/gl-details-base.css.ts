@@ -145,8 +145,7 @@ export const detailsBaseStyles = [
 		}
 
 		.message-block-row--actions gl-action-chip::part(icon),
-		.message-block-row--actions gl-autolink-chip::part(icon),
-		.message-block-row--actions gl-commit-date {
+		.message-block-row--actions gl-autolink-chip::part(icon) {
 			--code-icon-size: 1.3rem;
 		}
 
@@ -177,10 +176,6 @@ export const detailsBaseStyles = [
 		.message-block-row--actions .reachability-summary code-icon,
 		.message-block-row--actions .reachability-summary gl-action-chip::part(icon) {
 			--code-icon-size: 12px;
-		}
-
-		.message-block-row--actions gl-commit-date {
-			margin-inline-end: var(--gl-space-2);
 		}
 
 		.message-block-row--actions gl-action-chip.error {
