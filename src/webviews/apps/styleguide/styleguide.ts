@@ -492,44 +492,52 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		return html`
 			<span class="probe" aria-hidden="true"></span>
 			<div class="page">
-				<div class="controlbar">
-					<span class="scheme-chip ${this.isHc ? 'scheme-chip--hc' : ''}">
-						<code-icon icon="${this.isHc ? 'color-mode' : 'symbol-color'}"></code-icon> ${this.scheme}
-					</span>
-					${this.tab === 'tokens'
-						? html`<label class="toggle">
-								Accessibility audit
-								<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
-							</label>`
-						: nothing}
-				</div>
+				<header class="page__header">
+					<hgroup>
+						<h1>GitLens styleguide</h1>
+						<p class="subtitle">
+							Live reference for the --gl-color-* system and the shared components that consume it. Switch
+							VS Code themes to verify all four schemes.
+						</p>
+					</hgroup>
+					<div class="page__controlbar">
+						<div class="controlbar">
+							${this.tab === 'tokens'
+								? html`<label class="toggle">
+										Accessibility audit
+										<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
+									</label>`
+								: nothing}
+							<span class="scheme-chip ${this.isHc ? 'scheme-chip--hc' : ''}">
+								<code-icon icon="${this.isHc ? 'color-mode' : 'symbol-color'}"></code-icon> ${this
+									.scheme}
+							</span>
+						</div>
+					</div>
 
-				<h1>GitLens styleguide</h1>
-				<p class="subtitle">
-					Live reference for the --gl-color-* system and the shared components that consume it. Switch VS Code
-					themes to verify all four schemes.
-				</p>
+					<div class="tabs" role="tablist">
+						<button
+							class="tab ${this.tab === 'tokens' ? 'tab--active' : ''}"
+							role="tab"
+							aria-selected=${this.tab === 'tokens'}
+							@click=${() => this.selectTab('tokens')}
+						>
+							Colors &amp; tokens
+						</button>
+						<button
+							class="tab ${this.tab === 'components' ? 'tab--active' : ''}"
+							role="tab"
+							aria-selected=${this.tab === 'components'}
+							@click=${() => this.selectTab('components')}
+						>
+							Components
+						</button>
+					</div>
+				</header>
 
-				<div class="tabs" role="tablist">
-					<button
-						class="tab ${this.tab === 'tokens' ? 'tab--active' : ''}"
-						role="tab"
-						aria-selected=${this.tab === 'tokens'}
-						@click=${() => this.selectTab('tokens')}
-					>
-						Colors &amp; tokens
-					</button>
-					<button
-						class="tab ${this.tab === 'components' ? 'tab--active' : ''}"
-						role="tab"
-						aria-selected=${this.tab === 'components'}
-						@click=${() => this.selectTab('components')}
-					>
-						Components
-					</button>
-				</div>
-
-				${this.tab === 'tokens' ? this.renderTokensTab() : this.renderComponentsTab()}
+				<main class="page__content">
+					${this.tab === 'tokens' ? this.renderTokensTab() : this.renderComponentsTab()}
+				</main>
 			</div>
 		`;
 	}

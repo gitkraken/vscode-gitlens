@@ -10,7 +10,7 @@ export const styleguideStyles = css`
 		background: var(--gl-color-surface);
 	}
 
-	* {
+	:where(*, *::before, *::after) {
 		box-sizing: border-box;
 	}
 
@@ -22,21 +22,31 @@ export const styleguideStyles = css`
 	}
 
 	.page {
+		display: flex;
+		flex-direction: column;
+		max-height: 100svh;
+	}
+
+	.page__region {
 		max-width: 1080px;
-		padding: var(--gl-space-24) var(--gl-space-20) var(--gl-space-40);
-		margin: 0 auto;
+		margin-inline: auto;
+	}
+
+	.page__header {
+		display: grid;
+		flex: none;
+		grid-template-columns: 1fr auto;
+		gap: var(--gl-space-20);
+		padding: var(--gl-space-20) var(--gl-space-20) 0;
+		background-color: var(--gl-color-surface);
 	}
 
 	.controlbar {
-		position: sticky;
-		top: 0;
-		z-index: var(--gl-z-sticky);
 		display: flex;
 		gap: var(--gl-space-12);
 		align-items: center;
 		justify-content: space-between;
 		padding: var(--gl-space-10) var(--gl-space-12);
-		margin-bottom: var(--gl-space-20);
 		background: var(--gl-color-surface-raised);
 		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-md);
@@ -79,8 +89,14 @@ export const styleguideStyles = css`
 	}
 
 	.subtitle {
-		margin: 0 0 var(--gl-space-24);
+		margin: 0;
 		color: var(--gl-color-fg-muted);
+	}
+
+	.page__content {
+		flex: 1;
+		padding: var(--gl-space-24) var(--gl-space-20) var(--gl-space-40);
+		overflow: hidden auto;
 	}
 
 	section {
@@ -246,8 +262,8 @@ export const styleguideStyles = css`
 
 	.tabs {
 		display: flex;
+		grid-column: 1 / -1;
 		gap: var(--gl-space-4);
-		margin-bottom: var(--gl-space-24);
 		border-bottom: var(--gl-border-width) solid var(--gl-color-border);
 	}
 
