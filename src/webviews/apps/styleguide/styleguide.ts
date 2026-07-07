@@ -140,7 +140,7 @@ const CONTRAST_PAIRS: Pairing[] = [
 interface Scale {
 	title: string;
 	tokens: string[];
-	kind: 'radius' | 'space' | 'font' | 'shadow' | 'plain';
+	kind: 'radius' | 'space' | 'font' | 'shadow' | 'zindex' | 'duration';
 }
 const SCALES: Scale[] = [
 	{
@@ -173,12 +173,12 @@ const SCALES: Scale[] = [
 	},
 	{
 		title: 'Z-index',
-		kind: 'plain',
+		kind: 'zindex',
 		tokens: ['--gl-z-sticky', '--gl-z-cover', '--gl-z-sheet', '--gl-z-popover', '--gl-z-tooltip'],
 	},
 	{
 		title: 'Duration',
-		kind: 'plain',
+		kind: 'duration',
 		tokens: [
 			'--gl-duration-x-fast',
 			'--gl-duration-fast',
@@ -383,6 +383,15 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		root.querySelectorAll<HTMLElement>('[data-shadow]').forEach(el => {
 			el.style.setProperty('box-shadow', `var(${el.dataset.shadow})`);
 		});
+		root.querySelectorAll<HTMLElement>('[data-z]').forEach(el => {
+			el.style.setProperty('z-index', `var(${el.dataset.z})`);
+		});
+		root.querySelectorAll<HTMLElement>('[data-i]').forEach(el => {
+			el.style.setProperty('--gl-stack-i', el.dataset.i ?? '0');
+		});
+		root.querySelectorAll<HTMLElement>('[data-duration]').forEach(el => {
+			el.style.setProperty('animation-duration', `calc(var(${el.dataset.duration}) * 1.5)`);
+		});
 		root.querySelectorAll<HTMLElement>('[data-avatar-size]').forEach(el => {
 			el.style.setProperty('--gl-avatar-size', el.dataset.avatarSize ?? '');
 		});
@@ -411,6 +420,10 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 
 		this.probe.style.color = `var(${token})`;
 		return getComputedStyle(this.probe).color;
+	}
+
+	private resolveRaw(token: string): string {
+		return this.probe != null ? getComputedStyle(this.probe).getPropertyValue(token).trim() : '';
 	}
 
 	private static luminance({ r, g, b }: Rgba): number {
@@ -543,7 +556,15 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 					scale => html`
 						<div class="gallery-group">
 							<h3 class="gallery-group-title">${scale.title}</h3>
-							<div class="scale-grid">${scale.tokens.map(t => this.renderScaleItem(scale.kind, t))}</div>
+							${scale.kind === 'zindex'
+								? this.renderZStack(scale.tokens)
+								: scale.kind === 'duration'
+									? this.renderDurationScale(scale.tokens)
+									: scale.kind === 'font'
+										? this.renderFontScale(scale.tokens)
+										: html`<div class="scale-grid">
+												${scale.tokens.map(t => this.renderScaleItem(scale.kind, t))}
+											</div>`}
 						</div>
 					`,
 				)}
@@ -559,12 +580,59 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 			sample = html`<div class="scale-box scale-radius" data-radius=${token}></div>`;
 		} else if (kind === 'space') {
 			sample = html`<div class="scale-box scale-space" data-w=${token}></div>`;
-		} else if (kind === 'font') {
-			sample = html`<span class="scale-font" data-fs=${token}>Aa</span>`;
 		} else if (kind === 'shadow') {
 			sample = html`<div class="scale-shadow" data-shadow=${token}></div>`;
 		}
 		return html`<div class="scale-item">${sample}<span>${token}</span></div>`;
+	}
+
+	private renderZStack(tokens: string[]): unknown {
+		// Each box is positioned absolutely, offset by its index, and raised to its actual z-index token.
+		// isolation: isolate on the container dogfoods the system's own "prefer isolation" rule.
+		return html`
+			<div class="zstack">
+				${tokens.map(
+					(t, i) => html`
+						<div class="zstack-box" data-z=${t} data-i=${i}>
+							<span class="zstack-name">${t.replace('--gl-z-', '')}</span>
+							<span class="token-value">${this.resolveRaw(t)}</span>
+						</div>
+					`,
+				)}
+			</div>
+		`;
+	}
+
+	private renderDurationScale(tokens: string[]): unknown {
+		return html`
+			<div class="duration-scale">
+				${tokens.map(
+					t => html`
+						<div class="duration-row">
+							<span class="duration-label token-value">${t} · ${this.resolveRaw(t)}</span>
+							<div class="duration-track">
+								<div class="duration-fill" data-duration=${t}></div>
+							</div>
+						</div>
+					`,
+				)}
+			</div>
+		`;
+	}
+
+	private renderFontScale(tokens: string[]): unknown {
+		return html`
+			<div class="font-samples">
+				${tokens.map(
+					t => html`
+						<div class="font-sample">
+							<span class="font-aa" data-fs=${t}>Aa</span>
+							<span class="token-value">${t}</span>
+						</div>
+					`,
+				)}
+			</div>
+		`;
 	}
 
 	override render(): unknown {

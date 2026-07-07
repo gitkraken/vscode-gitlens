@@ -323,4 +323,116 @@ export const styleguideStyles = css`
 		background: var(--gl-color-neutral-bg);
 		border-radius: var(--gl-radius-sm);
 	}
+
+	/* ── Z-index diagonal stack ───────────────────────────────────────────── */
+
+	.zstack {
+		position: relative;
+		height: 12rem;
+		isolation: isolate;
+	}
+
+	.zstack-box {
+		position: absolute;
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-4);
+		width: 9rem;
+		height: 4.4rem;
+		padding: var(--gl-space-8) var(--gl-space-10);
+		background: var(--gl-color-surface-raised);
+		border: var(--gl-border-width) solid var(--gl-color-border);
+		border-radius: var(--gl-radius-md);
+		box-shadow: var(--gl-shadow-raised);
+		/* translate applied via CSSOM: calc(var(--gl-stack-i) * 2.4rem) calc(var(--gl-stack-i) * 1.5rem) */
+		translate: calc(var(--gl-stack-i, 0) * 2.4rem) calc(var(--gl-stack-i, 0) * 1.5rem);
+	}
+
+	.zstack-name {
+		font-size: var(--gl-font-md);
+		font-weight: 600;
+		color: var(--gl-color-fg);
+	}
+
+	/* ── Duration bars ────────────────────────────────────────────────────── */
+
+	@keyframes gl-duration-demo {
+		0% {
+			transform: scaleX(0);
+		}
+
+		66% {
+			transform: scaleX(1);
+		}
+
+		100% {
+			transform: scaleX(1);
+		}
+	}
+
+	.duration-scale {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-8);
+	}
+
+	.duration-row {
+		display: flex;
+		gap: var(--gl-space-12);
+		align-items: center;
+	}
+
+	.duration-label {
+		flex-shrink: 0;
+		width: 22rem;
+	}
+
+	.duration-track {
+		flex: 1;
+		height: 0.8rem;
+		overflow: hidden;
+		background: var(--gl-color-surface-sunken);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.duration-fill {
+		width: 100%;
+		height: 100%;
+		background: var(--gl-color-accent);
+		transform: scaleX(0);
+		transform-origin: left center;
+		/* animation-duration applied via CSSOM in updated() */
+		animation-name: gl-duration-demo;
+		animation-timing-function: var(--gl-ease-out);
+		animation-iteration-count: infinite;
+		animation-fill-mode: both;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.duration-fill {
+			transform: scaleX(1);
+			animation: none;
+		}
+	}
+
+	/* ── Font baseline row ────────────────────────────────────────────────── */
+
+	.font-samples {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gl-space-16);
+		align-items: baseline;
+	}
+
+	.font-sample {
+		display: inline-flex;
+		flex-direction: column;
+		gap: var(--gl-space-4);
+		align-items: center;
+	}
+
+	.font-aa {
+		line-height: 1;
+		/* font-size applied via CSSOM in updated() via [data-fs] */
+	}
 `;
