@@ -120,6 +120,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		to: string,
 		from?: string,
 		options?: {
+			binary?: boolean;
 			context?: number;
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;
@@ -129,6 +130,10 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 	): Promise<GitDiff | undefined> {
 		const scope = getScopedLogger();
 		const args = [`-U${options?.context ?? 3}`];
+
+		if (options?.binary) {
+			args.push('--binary');
+		}
 
 		if (to != null && isRevisionRange(to)) {
 			const parts = getRevisionRangeParts(to);

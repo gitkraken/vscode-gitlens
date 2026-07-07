@@ -92,6 +92,7 @@ import {
 	getAuthorAndCoAuthorsForCombinedDiffHunk,
 	getBranchCommits,
 	getComposerDiffs,
+	redactBinaryHunkContent,
 	validateResultingDiff,
 	validateSafetyState,
 } from './utils/composer.utils.js';
@@ -383,7 +384,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 		return {
 			...this.initialState,
-			hunks: hunks,
+			hunks: redactBinaryHunkContent(hunks),
 			baseCommit: baseCommit ?? null,
 			commits: commits,
 			aiEnabled: aiEnabled,
@@ -878,7 +879,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 
 			// Notify the state provider with fresh data to completely reload the state
 			await this.host.notify(DidReloadComposerNotification, {
-				hunks: composerData.hunks,
+				hunks: redactBinaryHunkContent(composerData.hunks),
 				commits: composerData.commits,
 				baseCommit: composerData.baseCommit,
 				loadingError: composerData.loadingError,
@@ -1338,11 +1339,12 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 					}
 				}
 			} else {
+				const aiHunks = redactBinaryHunkContent(hunks);
 				result = await this.container.ai.actions.generateCommits(
-					hunks,
+					aiHunks,
 					existingCommits,
 					this._recompose?.enabled ? (this._recompose.messages ?? []) : [],
-					hunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
+					aiHunks.map(m => ({ index: m.index, hunkHeader: m.hunkHeader })),
 					{ source: 'composer', correlationId: this.host.instanceId },
 					{
 						cancellation: this._generateCommitsCancellation.token,
@@ -1418,7 +1420,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 				const shouldSendHunks = useLibraryRoute || this._recompose?.enabled === true;
 				await this.host.notify(DidGenerateCommitsNotification, {
 					commits: newCommits,
-					hunks: shouldSendHunks ? this._hunks : undefined,
+					hunks: shouldSendHunks ? redactBinaryHunkContent(this._hunks) : undefined,
 					replacedCommitIds: params.commitsToReplace?.commits.map(c => c.id),
 				});
 			} else if (result === 'cancelled') {
@@ -1501,9 +1503,8 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			// Notify webview that commit message generation is starting
 			await this.host.notify(DidStartGeneratingCommitMessageNotification, { commitId: params.commitId });
 
-			// Create combined diff for the commit
 			const { patch } = createCombinedDiffForCommit(
-				this._hunks.filter(h => params.commitHunkIndices.includes(h.index)),
+				redactBinaryHunkContent(this._hunks.filter(h => params.commitHunkIndices.includes(h.index))),
 			);
 			if (!patch) {
 				this._context.operations.generateCommitMessage.errorCount++;
@@ -1806,8 +1807,13 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 
 			const baseRef = params.baseCommit?.sha ?? ((await repo.git.commits.getCommit('HEAD')) ? 'HEAD' : rootSha);
+			// `binary: true` must match the flag used when the safety-state hashes were captured
+			// (see getComposerDiffs / calculateCombinedDiffBetweenCommits); otherwise binary files
+			// hash differently here (abbreviated "Binary files … differ" vs. the full `GIT binary
+			// patch`) and validateResultingDiff false-fails with "Output diff does not match input".
 			const resultingDiff = (
 				await repo.git.diff.getDiff?.(shas.at(-1)!, baseRef, {
+					binary: true,
 					notation: params.baseCommit?.sha ? '...' : undefined,
 				})
 			)?.contents;
