@@ -699,28 +699,30 @@ export abstract class GitHostIntegration<
 		repo?: T,
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		connectionId?: string,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		connectionId?: string,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@trace()
 	async searchMyPullRequests(
 		repos?: T | T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		connectionId?: string,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		const start = performance.now();
 		try {
 			const pullRequests = await this.searchProviderMyPullRequests(
-				this._session!,
+				session,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
 				silent,
@@ -750,27 +752,29 @@ export abstract class GitHostIntegration<
 		searchQuery: string,
 		repo?: T,
 		cancellation?: AbortSignal,
+		connectionId?: string,
 	): Promise<PullRequest[] | undefined>;
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
+		connectionId?: string,
 	): Promise<PullRequest[] | undefined>;
 	@trace()
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T | T[],
 		cancellation?: AbortSignal,
+		connectionId?: string,
 	): Promise<PullRequest[] | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
 			const prs = await this.searchProviderPullRequests?.(
-				this._session!,
+				session,
 				searchQuery,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,

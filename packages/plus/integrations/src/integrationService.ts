@@ -17,7 +17,11 @@ import type {
 	ConfiguredIntegrationService,
 } from './authentication/configuredIntegrationService.js';
 import type { IntegrationAuthenticationService } from './authentication/integrationAuthenticationService.js';
-import type { ConfiguredIntegrationDescriptor } from './authentication/models.js';
+import type {
+	CloudIntegrationConnection,
+	ConfiguredIntegrationDescriptor,
+	ProviderAuthenticationSession,
+} from './authentication/models.js';
 import {
 	getSupportedCloudIntegrationIds,
 	isSupportedCloudIntegrationId,
@@ -46,6 +50,7 @@ import type { IssuesIntegration } from './models/issuesIntegration.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { GitHubApi } from './providers/github/github.js';
+import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import type { Source } from './telemetry.js';
 import {
@@ -65,6 +70,8 @@ export interface ConnectionStateChangeEvent {
 export interface IntegrationConnectionChangeEvent extends ConnectionStateChangeEvent {
 	integration: IntegrationBase;
 }
+
+const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's smis (small integers)
 
 export class IntegrationService implements Disposable {
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
@@ -193,6 +200,19 @@ export class IntegrationService implements Disposable {
 		return true;
 	}
 
+	/**
+	 * Starts the cloud connect flow without skipping an already-connected provider, allowing the host/GK Dev
+	 * flow to add another account for that provider instead of treating the existing primary as sufficient.
+	 * Returns whether a new connection was actually added (measured by a new cloud connection id appearing),
+	 * since {@link connectCloudIntegrations} only reports provider-level success and can't detect a newly added
+	 * secondary for an already-connected provider.
+	 */
+	async connectSecondary(id: SupportedCloudIntegrationIds, source?: Source): Promise<boolean> {
+		const before = new Set(this.getConfigured(id, { cloud: true }).map(c => c.id));
+		await this.connectCloudIntegrations({ integrationIds: [id], skipIfConnected: false }, source);
+		return this.getConfigured(id, { cloud: true }).some(c => !before.has(c.id));
+	}
+
 	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
 	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
@@ -224,7 +244,7 @@ export class IntegrationService implements Disposable {
 
 						const configured = this.getConfigured(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise);
 						if (configured.length) {
-							const { domain: configuredDomain } = configured[0];
+							const { domain: configuredDomain } = configured.find(c => c.primary) ?? configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 
 							integration = new (
@@ -275,7 +295,7 @@ export class IntegrationService implements Disposable {
 
 						const configured = this.getConfigured(GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted);
 						if (configured.length) {
-							const { domain: configuredDomain } = configured[0];
+							const { domain: configuredDomain } = configured.find(c => c.primary) ?? configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 
 							integration = new (
@@ -326,7 +346,7 @@ export class IntegrationService implements Disposable {
 
 						const configured = this.getConfigured(GitSelfManagedHostIntegrationId.BitbucketServer);
 						if (configured.length) {
-							const { domain: configuredDomain } = configured[0];
+							const { domain: configuredDomain } = configured.find(c => c.primary) ?? configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 
 							integration = new (
@@ -377,7 +397,7 @@ export class IntegrationService implements Disposable {
 
 						const configured = this.getConfigured(GitSelfManagedHostIntegrationId.AzureDevOpsServer);
 						if (configured.length) {
-							const { domain: configuredDomain } = configured[0];
+							const { domain: configuredDomain } = configured.find(c => c.primary) ?? configured[0];
 							if (configuredDomain == null) throw new Error(`Domain is required for '${id}' integration`);
 
 							integration = new (
@@ -852,25 +872,63 @@ export class IntegrationService implements Disposable {
 		return isGitSelfManagedHostIntegrationId(id) ? (`${id}:${domain}` as const) : id;
 	}
 
-	private async *getSupportedCloudIntegrations(domainsById: Map<IntegrationIds, string>): AsyncIterable<Integration> {
+	private async *getSupportedCloudIntegrations(
+		domainsById: Map<IntegrationIds, Set<string>>,
+	): AsyncIterable<Integration> {
 		for (const id of getSupportedCloudIntegrationIds()) {
-			if (isCloudGitSelfManagedHostIntegrationId(id) && !domainsById.has(id)) {
-				// Try getting whatever we have now because we will need to disconnect
+			if (isCloudGitSelfManagedHostIntegrationId(id)) {
+				const domains = new Set(domainsById.get(id) ?? []);
+				for (const domain of this.configuredIntegrationService
+					.getConfigured(id, { cloud: true })
+					.map(c => c.domain)
+					.filter((domain): domain is string => domain != null && domain.length > 0)) {
+					domains.add(domain);
+				}
+
+				if (domains.size !== 0) {
+					for (const domain of domains) {
+						const integration = await this.get(id, domain);
+						if (integration != null) {
+							yield integration;
+						}
+					}
+
+					continue;
+				}
+
+				// Try getting whatever we have now because we will need to disconnect.
 				const integration = await this.get(id, undefined);
 				if (integration != null) {
 					yield integration;
 				}
-			} else {
-				const integration = await this.get(id, domainsById.get(id));
-				if (integration != null) {
-					yield integration;
-				}
+
+				continue;
+			}
+
+			const integration = await this.get(id);
+			if (integration != null) {
+				yield integration;
 			}
 		}
 	}
 
+	private getCloudConnectionState(
+		integration: Integration,
+		connectedIntegrations: Set<IntegrationIds>,
+		domainsById: Map<IntegrationIds, Set<string>>,
+	): 'connected' | 'disconnected' {
+		if (isCloudGitSelfManagedHostIntegrationId(integration.id)) {
+			return domainsById.get(integration.id)?.has(integration.domain) ? 'connected' : 'disconnected';
+		}
+
+		return connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected';
+	}
+
 	private findCachedById<T extends IntegrationIds>(id: T): IntegrationById<T> | undefined {
-		const key = this.getCacheKey(id, '');
+		const cached = this._integrations.get(id as IntegrationKey);
+		if (cached != null) return cached as IntegrationById<T>;
+
+		const key = `${id}:`;
 		for (const [k, integration] of this._integrations) {
 			if (k.startsWith(key)) {
 				return integration as IntegrationById<T>;
@@ -879,40 +937,92 @@ export class IntegrationService implements Disposable {
 		return undefined;
 	}
 
+	private getCachedForDomain<T extends IntegrationIds>(id: T, domain?: string): IntegrationById<T> | undefined {
+		return isGitSelfManagedHostIntegrationId(id) ? this.getCached(id, domain) : this.findCachedById(id);
+	}
+
+	private getConfiguredConnectionDomain(id: IntegrationIds, connectionId: string): string | undefined {
+		if (!isGitSelfManagedHostIntegrationId(id)) return undefined;
+		return this.configuredIntegrationService.getConfigured(id).find(c => c.id === connectionId)?.domain;
+	}
+
+	private getCloudPrimaryConnectionIdsByDomain(id: IntegrationIds): Map<string | undefined, string> {
+		const primaryByDomain = new Map<string | undefined, string>();
+		const fallbackByDomain = new Map<string | undefined, string>();
+
+		for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
+			const domain = isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined;
+			if (!fallbackByDomain.has(domain)) {
+				fallbackByDomain.set(domain, descriptor.id);
+			}
+			if (descriptor.primary && !primaryByDomain.has(domain)) {
+				primaryByDomain.set(domain, descriptor.id);
+			}
+		}
+
+		for (const [domain, connectionId] of fallbackByDomain) {
+			if (!primaryByDomain.has(domain)) {
+				primaryByDomain.set(domain, connectionId);
+			}
+		}
+
+		return primaryByDomain;
+	}
+
 	@gate()
 	@trace()
 	private async syncCloudIntegrations(forceConnect: boolean) {
 		const scope = getScopedLogger();
 		const connectedIntegrations = new Set<IntegrationIds>();
-		const domainsById = new Map<IntegrationIds, string>();
+		const domainsById = new Map<IntegrationIds, Set<string>>();
+		const connectionsById = new Map<IntegrationIds, CloudIntegrationConnection[]>();
 
 		const loggedIn = (await this.ctx.account.getAccount()) != null;
 		if (loggedIn) {
 			const connections = await this.authenticationService.cloudIntegrations.getConnections();
 			if (connections == null) return;
 
-			connections.map(p => {
+			for (const p of connections) {
 				const integrationId = toIntegrationId[p.provider];
 				// GKDev includes some integrations like "google" that we don't support
-				if (integrationId == null) return;
+				if (integrationId == null) continue;
 
-				connectedIntegrations.add(toIntegrationId[p.provider]);
+				connectedIntegrations.add(integrationId);
+
+				const list = connectionsById.get(integrationId);
+				if (list != null) {
+					list.push(p);
+				} else {
+					connectionsById.set(integrationId, [p]);
+				}
+
 				if (p.domain?.length > 0) {
-					try {
-						const host = new URL(p.domain).host;
-						domainsById.set(integrationId, host);
-					} catch {
+					const host = hostFromDomain(p.domain);
+					if (host != null) {
+						let domains = domainsById.get(integrationId);
+						if (domains == null) {
+							domains = new Set<string>();
+							domainsById.set(integrationId, domains);
+						}
+						domains.add(host);
+					} else {
 						scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
 					}
 				}
-			});
+			}
 		}
 
 		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
 			await integration.syncCloudConnection(
-				connectedIntegrations.has(integration.id) ? 'connected' : 'disconnected',
+				this.getCloudConnectionState(integration, connectedIntegrations, domainsById),
 				forceConnect,
 			);
+		}
+
+		// Persist every account when the backend advertises per-connection identity (multi-account). This
+		// is a strict no-op for backends that return a single, id-less connection per provider.
+		for (const [integrationId, connections] of connectionsById) {
+			await this.reconcileCloudConnections(integrationId, connections, forceConnect);
 		}
 
 		this.ctx.hooks?.connection?.onConnectedChanged?.({
@@ -921,4 +1031,303 @@ export class IntegrationService implements Disposable {
 
 		return connectedIntegrations;
 	}
+
+	/**
+	 * Whether the user has locally disconnected this provider/host. Mirrors the integration model's
+	 * `connected:${key}` workspace flag (key = id for cloud, `${id}:${domain}` for self-managed), which is
+	 * set to `false` on a local disconnect and cleared on (re)connect.
+	 */
+	private isLocallyDisconnected(id: IntegrationIds, host: string | undefined): boolean {
+		const key = isGitSelfManagedHostIntegrationId(id) ? `connected:${id}:${host ?? ''}` : `connected:${id}`;
+		return this.ctx.storage.getWorkspace<boolean>(key) === false;
+	}
+
+	/**
+	 * Reconciles the locally stored connections for a provider with what the backend reports, so that
+	 * multiple accounts on the same provider coexist. Only engages when the backend provides
+	 * per-connection ids; otherwise the single-connection flow above already handled the primary.
+	 */
+	private async reconcileCloudConnections(
+		id: IntegrationIds,
+		connections: CloudIntegrationConnection[],
+		forceConnect: boolean,
+	): Promise<void> {
+		const scope = getScopedLogger();
+
+		const identified = connections.filter((c): c is CloudIntegrationConnection & { id: string } => c.id != null);
+		if (identified.length === 0) return;
+
+		// Capture the effective primary before any mutation (sync store, prune-driven promotion, or the
+		// backend primary selection below) so we can tell whether it actually changed. The prune step can
+		// promote a secondary to primary via removeConfigured, so sampling this after pruning would miss it.
+		const primaryBefore = this.getCloudPrimaryConnectionIdsByDomain(id);
+
+		const cloudIntegrations = this.authenticationService.cloudIntegrations;
+
+		// Fetch + store each connection's session so getConfigured() reflects every account.
+		const syncedIds = new Set<string>();
+		const syncEligibleIds = new Set<string>();
+		const syncedPrimaryIdsByDomain = new Map<string | undefined, string>();
+		// Snapshot existing cloud descriptors by id once, so the per-connection account-name lookup below is
+		// O(1) instead of re-filtering the whole configured list each iteration (O(n²) with multi-account).
+		// Each backend connection id is processed once, so reading the pre-loop snapshot is sufficient.
+		const existingById = new Map(
+			this.configuredIntegrationService.getConfigured(id, { cloud: true }).map(c => [c.id, c]),
+		);
+		for (const connection of identified) {
+			// The wire `domain` is usually a full URL, though cloud providers can return a bare host.
+			// Self-managed integrations are keyed/constructed by host.
+			const host = hostFromDomain(connection.domain);
+
+			// Self-managed connections are keyed by host, so an unparseable/empty domain would store the
+			// session and descriptor under an empty host — producing ambiguous keys (`connected:<id>:`) that
+			// break later resolution and local-disconnect checks. Skip such a connection rather than corrupt
+			// state; cloud providers key off their canonical domain and are unaffected.
+			if (isGitSelfManagedHostIntegrationId(id) && !host) {
+				scope?.warn(`Skipping connection '${connection.id}' for ${id}: unresolved host from domain`);
+				continue;
+			}
+
+			// Don't resurrect a connection the user disconnected locally: a host "disconnect" only clears
+			// local state (the backend still lists the token), so without this the next non-forced sync would
+			// re-store the secret/config. A forced reconnect clears this flag (in the sync loop above) before
+			// reconcile runs, so it proceeds normally.
+			if (this.isLocallyDisconnected(id, host)) continue;
+
+			syncEligibleIds.add(connection.id);
+
+			// On a routine (non-forced) check-in, skip the token fetch + secret write for a connection we
+			// already have stored and that hasn't expired: nothing to refresh, so avoid the extra GK API
+			// traffic and secret churn. Still treat it as synced (so it doesn't trip the prune guard) and
+			// record its primary below. Forced syncs, new connections, and expired tokens fall through and
+			// fetch as before.
+			const cached = existingById.get(connection.id);
+			if (!forceConnect && cached != null && !isDescriptorExpired(cached)) {
+				syncedIds.add(connection.id);
+				if (connection.primary) {
+					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
+					if (!syncedPrimaryIdsByDomain.has(domain)) {
+						syncedPrimaryIdsByDomain.set(domain, connection.id);
+					}
+				}
+				continue;
+			}
+
+			try {
+				const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
+				if (session == null) continue;
+
+				let providerSession = toProviderSession(id, connection, session, host);
+
+				// Resolve a human-readable account handle with the same precedence as the gk CLI:
+				// (1) the value the backend put on the connection, (2) a previously-resolved name cached in
+				// our configured store (keyed by connection id), (3) a live provider-API lookup. This keeps
+				// provider round-trips to the first sight of a connection; degrade to undefined on failure.
+				const existing = existingById.get(connection.id);
+				const accountName =
+					normalizeAccountName(connection.accountName) ??
+					normalizeAccountName(existing?.accountName) ??
+					(await this.resolveAccountName(id, host, providerSession));
+				if (accountName != null) {
+					providerSession = {
+						...providerSession,
+						account: { ...providerSession.account, label: accountName },
+					};
+				}
+
+				await this.configuredIntegrationService.storeSession(id, providerSession);
+				syncedIds.add(connection.id);
+				if (connection.primary) {
+					const domain = isGitSelfManagedHostIntegrationId(id) ? host : undefined;
+					if (!syncedPrimaryIdsByDomain.has(domain)) {
+						syncedPrimaryIdsByDomain.set(domain, connection.id);
+					}
+				}
+			} catch (ex) {
+				scope?.warn(
+					`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
+				);
+			}
+		}
+
+		// Prune stored cloud connections that no longer exist on the backend — but only when every backend
+		// connection that should sync did sync this cycle. Otherwise a transient token fetch failure would
+		// delete a still-valid connection with no replacement (e.g. a legacy single connection during the
+		// backend id rollout); defer pruning to a later clean cycle. Deliberately skipped connections (local
+		// disconnects or invalid self-managed hosts) don't block pruning of unrelated stale descriptors.
+		// Scope deletes to cloud so a local PAT sharing the id survives.
+		const prunedDomains = new Set<string | undefined>();
+		if ([...syncEligibleIds].every(connectionId => syncedIds.has(connectionId))) {
+			const liveIds = new Set(identified.map(c => c.id));
+			for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
+				if (!liveIds.has(descriptor.id)) {
+					prunedDomains.add(isGitSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined);
+					await this.configuredIntegrationService.deleteConnection(id, descriptor.id, true);
+				}
+			}
+		}
+
+		// Apply the backend's primary selection, then refresh any warm model only when the effective primary
+		// actually changed (vs the pre-reconcile value captured above). switchConnection() drops the in-memory
+		// session and fires change events, so calling it on every check-in (when the primary is unchanged)
+		// causes needless churn for multi-account providers. Self-managed providers can have one primary per
+		// host, so apply and refresh by host scope rather than by provider id alone.
+		for (const connectionId of syncedPrimaryIdsByDomain.values()) {
+			await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
+		}
+		const primaryAfter = this.getCloudPrimaryConnectionIdsByDomain(id);
+		const domains = new Set<string | undefined>(primaryBefore.keys());
+		for (const domain of primaryAfter.keys()) {
+			domains.add(domain);
+		}
+		for (const domain of prunedDomains) {
+			domains.add(domain);
+		}
+		for (const domain of domains) {
+			if (primaryBefore.get(domain) === primaryAfter.get(domain) && !prunedDomains.has(domain)) continue;
+
+			this.getCachedForDomain(id, domain)?.switchConnection();
+		}
+	}
+
+	/**
+	 * Switches the default connection for a provider to `connectionId` (its backend token id). Performs
+	 * the server-side primary switch first, then mirrors it locally and refreshes any warm model. Throws
+	 * if the backend switch fails so the caller can surface it (local state stays untouched).
+	 */
+	async setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
+		const domain = this.getConfiguredConnectionDomain(id, connectionId);
+		if (!(await this.authenticationService.cloudIntegrations.setPrimaryConnection(id, connectionId))) {
+			throw new Error(`Failed to set primary connection '${connectionId}' for '${id}'`);
+		}
+
+		await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
+		this.getCachedForDomain(id, domain)?.switchConnection();
+	}
+
+	/**
+	 * Removes a single connection for a provider by its backend token id. The backend removes the
+	 * connection (auto-promoting a secondary to primary when the removed one was primary); we then mirror
+	 * that locally and refresh any warm model. Unlike {@link IntegrationBase.disconnect}, this targets one
+	 * account. This always talks to the cloud backend, so the local mirror defaults to cloud-scoped too —
+	 * pass `cloud: false` only if a caller genuinely needs to also drop a local PAT sharing the same id.
+	 * Throws if the backend delete fails so the caller can surface it (local state stays untouched).
+	 */
+	async deleteConnection(id: IntegrationIds, connectionId: string, cloud: boolean = true): Promise<void> {
+		const domain = this.getConfiguredConnectionDomain(id, connectionId);
+		if (!(await this.authenticationService.cloudIntegrations.disconnectConnection(id, connectionId))) {
+			throw new Error(`Failed to delete connection '${connectionId}' for '${id}'`);
+		}
+
+		await this.configuredIntegrationService.deleteConnection(id, connectionId, cloud);
+		this.getCachedForDomain(id, domain)?.switchConnection();
+	}
+
+	/**
+	 * Resolves a human-readable account handle (e.g. the GitHub login) for a connection by asking the
+	 * provider API with that connection's token. The token backend doesn't expose it. Routes through the
+	 * integration model so the correct provider API base URL (incl. self-managed domains) and auth type
+	 * are used. Best-effort: returns undefined on any failure so callers degrade gracefully.
+	 */
+	private async resolveAccountName(
+		id: IntegrationIds,
+		host: string | undefined,
+		session: ProviderAuthenticationSession,
+	): Promise<string | undefined> {
+		const scope = getScopedLogger();
+		try {
+			// Route through the integration so the correct provider API base URL (incl. the self-managed
+			// host) and auth type are used. Cloud providers ignore the host.
+			const integration = await this.get(id, host);
+			const account = await integration?.getProviderAccountForSession(session);
+			return account?.username ?? account?.name ?? undefined;
+		} catch (ex) {
+			scope?.warn(`Failed to resolve account name for '${id}': ${ex instanceof Error ? ex.message : String(ex)}`);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Forces a refresh of connected cloud integrations from the backend (equivalent to a "--sync" list),
+	 * reconciling local state (multi-account connections, primary flags, account names) so a subsequent
+	 * {@link getConfigured} reflects the latest server-side connections. Intended for consumers that need
+	 * an up-to-date connection list on demand.
+	 */
+	async refreshConnections(): Promise<void> {
+		await this.syncCloudIntegrations(true);
+	}
+}
+
+/** Extracts the host from a backend connection domain (URL or bare host); undefined when unparseable/empty. */
+function hostFromDomain(domain: string | undefined): string | undefined {
+	const value = domain?.trim();
+	if (!value) return undefined;
+
+	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
+		try {
+			return new URL(value).host || undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
+	try {
+		return new URL(`https://${value}`).host || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function protocolFromDomain(domain: string | undefined): string | undefined {
+	const value = domain?.trim();
+	if (!value) return undefined;
+	if (!/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
+
+	try {
+		return new URL(value).protocol || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function normalizeAccountName(accountName: string | undefined): string | undefined {
+	const value = accountName?.trim();
+	return value ? value : undefined;
+}
+
+/**
+ * Whether a stored connection descriptor's token has expired. A missing `expiresAt` is treated as
+ * not-expired (non-expiring/legacy tokens, e.g. GitHub and self-managed cloud, carry no meaningful
+ * expiry), matching the session-expiry checks elsewhere.
+ */
+function isDescriptorExpired(descriptor: ConfiguredIntegrationDescriptor): boolean {
+	if (descriptor.expiresAt == null) return false;
+	return new Date(descriptor.expiresAt).getTime() < Date.now();
+}
+
+function toProviderSession(
+	id: IntegrationIds,
+	connection: CloudIntegrationConnection & { id: string },
+	session: { accessToken: string; expiresIn: number; scopes: string; type: CloudIntegrationConnection['type'] },
+	host: string | undefined,
+): ProviderAuthenticationSession {
+	const expiresIn =
+		session.expiresIn === 0 &&
+		(id === GitCloudHostIntegrationId.GitHub || isCloudGitSelfManagedHostIntegrationId(id))
+			? maxSmallIntegerV8
+			: session.expiresIn;
+	const protocol = protocolFromDomain(connection.domain);
+
+	return {
+		id: connection.id,
+		accessToken: session.accessToken,
+		account: { id: '', label: '' },
+		scopes: session.scopes ? session.scopes.split(',') : [],
+		cloud: true,
+		type: session.type,
+		expiresAt: new Date(expiresIn * 1000 + Date.now()),
+		// Self-managed connections are keyed by their host; cloud providers use the canonical domain.
+		domain: isGitSelfManagedHostIntegrationId(id) ? (host ?? '') : (providersMetadata[id]?.domain ?? ''),
+		...(protocol != null ? { protocol: protocol } : {}),
+	};
 }

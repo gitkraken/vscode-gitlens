@@ -22,15 +22,14 @@ export abstract class IssuesIntegration<
 
 	@gate()
 	@trace()
-	async getAccountForResource(resource: T): Promise<Account | undefined> {
+	async getAccountForResource(resource: T, connectionId?: string): Promise<Account | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
-			const account = await this.getProviderAccountForResource(this._session!, resource);
+			const account = await this.getProviderAccountForResource(session, resource);
 			this.resetRequestExceptionCount('getAccountForResource');
 			return account;
 		} catch (ex) {
@@ -46,15 +45,14 @@ export abstract class IssuesIntegration<
 
 	@gate()
 	@trace()
-	async getResourcesForUser(): Promise<T[] | undefined> {
+	async getResourcesForUser(connectionId?: string): Promise<T[] | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
-			const resources = await this.getProviderResourcesForUser(this._session!);
+			const resources = await this.getProviderResourcesForUser(session);
 			this.resetRequestExceptionCount('getResourcesForUser');
 			return resources;
 		} catch (ex) {
@@ -66,15 +64,14 @@ export abstract class IssuesIntegration<
 	protected abstract getProviderResourcesForUser(session: ProviderAuthenticationSession): Promise<T[] | undefined>;
 
 	@trace()
-	async getProjectsForResources(resources: T[]): Promise<T[] | undefined> {
+	async getProjectsForResources(resources: T[], connectionId?: string): Promise<T[] | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
-			const projects = await this.getProviderProjectsForResources(this._session!, resources);
+			const projects = await this.getProviderProjectsForResources(session, resources);
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return projects;
 		} catch (ex) {
@@ -83,11 +80,11 @@ export abstract class IssuesIntegration<
 		}
 	}
 
-	async getProjectsForUser(): Promise<T[] | undefined> {
-		const resources = await this.getResourcesForUser();
+	async getProjectsForUser(connectionId?: string): Promise<T[] | undefined> {
+		const resources = await this.getResourcesForUser(connectionId);
 		if (resources == null) return undefined;
 
-		return this.getProjectsForResources(resources);
+		return this.getProjectsForResources(resources, connectionId);
 	}
 
 	protected abstract getProviderProjectsForResources(
@@ -99,15 +96,15 @@ export abstract class IssuesIntegration<
 	async getIssuesForProject(
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
+		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
 		const scope = getScopedLogger();
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		try {
-			const issues = await this.getProviderIssuesForProject(this._session!, project, options);
+			const issues = await this.getProviderIssuesForProject(session, project, options);
 			this.resetRequestExceptionCount('getIssuesForProject');
 			return issues;
 		} catch (ex) {

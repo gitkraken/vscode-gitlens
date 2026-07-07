@@ -24,12 +24,27 @@ export interface IntegrationAuthenticationProviderDescriptor {
 export interface IntegrationAuthenticationSessionDescriptor {
 	domain: string;
 	scopes: string[];
+	/** When set, reads/deletes only the matching storage variant. */
+	cloud?: boolean;
+	/**
+	 * Targets a specific connection when a provider has multiple accounts connected. When omitted,
+	 * operations resolve to the provider's primary connection (see
+	 * {@link ConfiguredIntegrationService.resolveConnectionId}).
+	 */
+	connectionId?: string;
 	[key: string]: unknown;
 }
 
 export interface IntegrationAuthenticationProvider extends Disposable {
+	/**
+	 * Clears the stored secret for one connection only (never the whole provider). Unlike
+	 * {@link deleteAllSessions}, this deliberately leaves the descriptor in `integrations:configured` — its
+	 * only caller today is a forced re-sync, which needs `getConfigured()` to keep reporting the connection
+	 * while a fresh session is fetched to replace the deleted secret. Implementers should not treat this as
+	 * a full disconnect.
+	 */
 	deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void>;
-	deleteAllSessions(): Promise<void>;
+	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	getSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?:
@@ -62,12 +77,20 @@ abstract class IntegrationAuthenticationProviderBase<
 
 	@trace()
 	async deleteSession(descriptor: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
-			cloud: true,
-			domain: isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined,
+			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined);
+		// Scope the descriptor to cloud so resolveConnectionId targets the cloud variant's id: this is a
+		// cloud-only delete, and a mixed local+cloud connection whose local descriptor is primary would
+		// otherwise resolve the local id and leave the cloud secret intact.
+		await this.configuredIntegrationService.deleteStoredSessions(
+			this.authProviderId,
+			{ ...descriptor, cloud: true },
+			true,
+			{ preserveConfigured: true },
+		);
 
 		if (configured?.length) {
 			this.fireChange();
@@ -75,12 +98,15 @@ abstract class IntegrationAuthenticationProviderBase<
 	}
 
 	@trace()
-	async deleteAllSessions(): Promise<void> {
+	async deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
+		// Self-managed providers group every host under one provider id, so scope the clear to this
+		// descriptor's host when given; for cloud providers the domain stays undefined here, clearing every account.
+		const domain = isGitSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
-			cloud: true,
+			domain: domain,
 		});
 
-		await this.configuredIntegrationService.deleteAllStoredSessions(this.authProviderId, undefined);
+		await this.configuredIntegrationService.deleteAllStoredSessions(this.authProviderId, undefined, domain);
 
 		if (configured?.length) {
 			this.fireChange();
@@ -97,9 +123,18 @@ abstract class IntegrationAuthenticationProviderBase<
 		let session;
 		let previousToken;
 		if (options?.forceNewSession) {
-			await this.configuredIntegrationService.deleteStoredSessions(this.authProviderId, descriptor, undefined);
+			// Cloud-only delete (see deleteSession): scope to cloud so the cloud variant's id is cleared even
+			// when a mixed local+cloud connection's local descriptor is primary.
+			await this.configuredIntegrationService.deleteStoredSessions(
+				this.authProviderId,
+				{ ...descriptor, cloud: true },
+				true,
+			);
 		} else {
-			session = await this.configuredIntegrationService.getStoredSession(this.authProviderId, descriptor);
+			session = await this.configuredIntegrationService.getStoredSession(
+				this.authProviderId,
+				options?.sync ? { ...descriptor, cloud: true } : descriptor,
+			);
 			previousToken = session?.accessToken;
 		}
 
@@ -235,7 +270,21 @@ export class CloudIntegrationAuthenticationProvider<
 		if (!loggedIn) return undefined;
 
 		const cloudIntegrations = this.authenticationService.cloudIntegrations;
-		let session = await cloudIntegrations.getConnectionSession(this.authProviderId);
+		// An unscoped descriptor (no explicit connectionId) would fetch the provider-global primary via
+		// `v1/provider-tokens/<provider>`. For a self-managed provider spanning multiple hosts that primary
+		// can belong to a different host, so a forced sync of host A would hydrate host B's token here (before
+		// reconcile corrects storage). Scope to this host's own configured connection when we have one; fall
+		// through to the provider-scoped path only when nothing is configured yet (legacy/first sync).
+		const connectionId =
+			descriptor.connectionId ??
+			(isGitSelfManagedHostIntegrationId(this.authProviderId)
+				? this.configuredIntegrationService.getConfiguredConnectionId(
+						this.authProviderId,
+						descriptor.domain,
+						true,
+					)
+				: undefined);
+		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 
 		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
 		if (
@@ -248,22 +297,31 @@ export class CloudIntegrationAuthenticationProvider<
 		}
 
 		if (session != null && session.expiresIn < 60) {
-			session = await cloudIntegrations.getConnectionSession(this.authProviderId, session.accessToken);
+			session = await cloudIntegrations.getConnectionSession(
+				this.authProviderId,
+				session.accessToken,
+				connectionId,
+			);
 		}
 
 		if (!session) return undefined;
 
 		let sessionProtocol;
-		try {
-			sessionProtocol = new URL(session.domain).protocol;
-		} catch {
-			// If the domain is invalid, we can't use it to create a session
-			sessionProtocol = undefined;
+		// Only derive a protocol from a domain carrying an explicit scheme; a bare `host:port` (e.g. a
+		// self-managed `ghe.example.com:8443`) parses the host as the protocol, corrupting the value.
+		if (/^[a-z][a-z\d+\-.]*:\/\//i.test(session.domain)) {
+			try {
+				sessionProtocol = new URL(session.domain).protocol;
+			} catch {
+				sessionProtocol = undefined;
+			}
 		}
 
 		// TODO: Once we care about domains, we should try to match the domain here against ours, and if it fails, return undefined
 		return {
-			id: this.configuredIntegrationService.getSessionId(descriptor),
+			// Prefer the backend's per-connection token id (multi-account); fall back to the resolved
+			// primary/legacy connection id so existing single-connection storage keys are preserved.
+			id: session.id ?? this.configuredIntegrationService.resolveConnectionId(this.authProviderId, descriptor),
 			accessToken: session.accessToken,
 			scopes: descriptor.scopes,
 			account: {

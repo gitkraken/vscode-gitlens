@@ -1,9 +1,22 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
 import { createFakeRuntime } from './fakeRuntime.js';
+
+function cloudSession(id: string): ProviderAuthenticationSession {
+	return {
+		id: id,
+		accessToken: `token-${id}`,
+		account: { id: `acct-${id}`, label: id },
+		scopes: ['repo'],
+		cloud: true,
+		type: 'oauth',
+		domain: 'github.com',
+	};
+}
 
 suite('createIntegrationManager — vertical-slice smoke', () => {
 	test('constructs and disposes cleanly with a fake runtime', () => {
@@ -14,8 +27,123 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 		assert.ok(typeof manager.get === 'function', 'manager.get exists');
 		assert.ok(typeof manager.dispose === 'function', 'manager.dispose exists');
 		assert.ok(typeof manager.connectCloudIntegrations === 'function');
+		assert.ok(typeof manager.connectSecondary === 'function');
 
 		// Disposing should not throw
+		manager.dispose();
+	});
+
+	test('connectSecondary opens the connect flow even when the provider is already connected', async () => {
+		const runtime = createFakeRuntime();
+		await new ConfiguredIntegrationService(runtime).storeSession(
+			GitCloudHostIntegrationId.GitHub,
+			cloudSession('tok1'),
+		);
+		let connectOptions: Parameters<typeof runtime.account.connect>[0] | undefined;
+		runtime.account.connect = async options => {
+			connectOptions = options;
+			return false;
+		};
+		const manager = createIntegrationManager(runtime);
+
+		const connected = await manager.connectSecondary(GitCloudHostIntegrationId.GitHub, { source: 'test' });
+
+		// The host connect flow was opened (not short-circuited by the already-connected provider)…
+		assert.deepEqual(connectOptions, {
+			integrationIds: [GitCloudHostIntegrationId.GitHub],
+			source: { source: 'test' },
+		});
+		// …but no new connection was added, so it reports false.
+		assert.equal(connected, false, 'reports false when no new connection was added');
+		manager.dispose();
+	});
+
+	test('connectSecondary reports true when a new connection is actually added', async () => {
+		const runtime = createFakeRuntime();
+		const configured = new ConfiguredIntegrationService(runtime);
+		// GitHub already has a primary connection.
+		await configured.storeSession(GitCloudHostIntegrationId.GitHub, cloudSession('tok1'));
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		// The host connect flow succeeds and the backend now reports a second connection.
+		runtime.account.connect = async () => true;
+		runtime.account.fetchGkApi = (path: string) => {
+			const body =
+				path === 'v1/provider-tokens'
+					? {
+							data: [
+								{
+									tokenId: 'tok1',
+									provider: 'github',
+									type: 'oauth',
+									domain: '',
+									secondaries: [{ tokenId: 'tok2', provider: 'github', type: 'oauth', domain: '' }],
+								},
+							],
+						}
+					: {
+							data: {
+								tokenId: path.split('/').pop(),
+								accessToken: 'a',
+								expiresIn: 3600,
+								scopes: 'repo',
+								type: 'oauth',
+							},
+						};
+			return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+		};
+		const manager = createIntegrationManager(runtime);
+
+		const connected = await manager.connectSecondary(GitCloudHostIntegrationId.GitHub, { source: 'test' });
+
+		assert.equal(connected, true, 'reports true when a new connection id was added');
+		assert.equal(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub).length,
+			2,
+			'both connections are now configured',
+		);
+		manager.dispose();
+	});
+
+	test('connectSecondary reports true when a new connection replaces the existing id', async () => {
+		const runtime = createFakeRuntime();
+		const configured = new ConfiguredIntegrationService(runtime);
+		await configured.storeSession(GitCloudHostIntegrationId.GitHub, cloudSession('tok1'));
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		runtime.account.connect = async () => true;
+		runtime.account.fetchGkApi = (path: string) => {
+			const body =
+				path === 'v1/provider-tokens'
+					? {
+							data: [
+								{
+									tokenId: 'tok2',
+									provider: 'github',
+									type: 'oauth',
+									domain: '',
+								},
+							],
+						}
+					: {
+							data: {
+								tokenId: path.split('/').pop(),
+								accessToken: 'a',
+								expiresIn: 3600,
+								scopes: 'repo',
+								type: 'oauth',
+							},
+						};
+			return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+		};
+		const manager = createIntegrationManager(runtime);
+
+		const connected = await manager.connectSecondary(GitCloudHostIntegrationId.GitHub, { source: 'test' });
+
+		assert.equal(connected, true, 'reports true when a new connection id replaces the old one');
+		assert.deepEqual(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub).map(c => c.id),
+			['tok2'],
+			'only the replacement connection remains configured',
+		);
 		manager.dispose();
 	});
 
