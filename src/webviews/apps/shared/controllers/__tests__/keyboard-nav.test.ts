@@ -158,13 +158,15 @@ suite('KeyboardNavController', () => {
 		return { focus: focus, selection: selection, keyboard: keyboard };
 	}
 
-	test('multi-mode plain arrow onto a non-selectable row keeps the selection (folder guard)', () => {
+	test('multi-mode plain arrow onto a non-selectable row clears the selection (follows focus)', () => {
 		const { focus, selection, keyboard } = setupWithUnselectable('multi');
 		selection.setSingle('b');
 		focus.focusIndex(1); // 'b'
 		keyboard.handleKeydown(key('ArrowDown')); // -> 'folder' (non-selectable)
 		assert.strictEqual(focus.focusedId, 'folder'); // cursor still moves
-		assert.deepStrictEqual([...selection.selectedIds], ['b']); // selection NOT collapsed onto the folder
+		// Plain arrow is selection-follows-focus: the folder can't be a member, so the set collapses to
+		// empty rather than leaving 'b' highlighted behind the folder cursor.
+		assert.deepStrictEqual([...selection.selectedIds], []);
 	});
 
 	test('single-mode arrow onto a non-selectable row still highlights it (no guard in single)', () => {
