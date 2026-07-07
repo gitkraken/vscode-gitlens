@@ -435,4 +435,93 @@ export const styleguideStyles = css`
 		line-height: 1;
 		/* font-size applied via CSSOM in updated() via [data-fs] */
 	}
+
+	/* ── Components tab: jump-nav ─────────────────────────────────────────── */
+
+	section[id] {
+		scroll-margin-block-start: 5.6rem;
+	}
+
+	.jumpnav {
+		position: sticky;
+		top: 0;
+		z-index: var(--gl-z-sticky);
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-8);
+		margin-bottom: var(--gl-space-24);
+	}
+
+	.jumpnav__link {
+		padding: var(--gl-space-4) var(--gl-space-12);
+		font-family: inherit;
+		font-size: var(--gl-font-sm);
+		color: var(--gl-color-fg-muted);
+		cursor: pointer;
+		background: var(--gl-color-neutral-bg);
+		border: none;
+		border-radius: var(--gl-radius-circle);
+	}
+
+	.jumpnav__link:hover {
+		color: var(--gl-color-fg);
+		background: var(--gl-color-surface-hover);
+	}
+
+	.jumpnav__link:focus-visible {
+		outline: var(--gl-border-width) solid var(--gl-color-border-focus);
+		outline-offset: 2px;
+	}
+
+	/* ── Components tab: demo cell layout variants ───────────────────────── */
+
+	.demo--wide {
+		grid-column: span 2;
+	}
+
+	/* Matches .demo--block .demo__stage's specificity (2 classes) so stack/tall demos — which also
+	   carry demo--block for the full-width grid span — aren't overridden back to display:block. */
+	.demo__stage.demo__stage--stack {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-8);
+		align-items: stretch;
+	}
+
+	.demo__stage.demo__stage--tall {
+		display: block;
+		block-size: 28rem;
+	}
+
+	.demo__note {
+		font-size: var(--gl-font-sm);
+		color: var(--gl-color-fg-faint);
+	}
+
+	/* Bounded-width wrapper so truncation demos actually ellipsize (and can't overflow the page) */
+	.demo-narrow {
+		display: flex;
+		inline-size: 20rem;
+		max-inline-size: 100%;
+	}
+
+	.demo-narrow > * {
+		min-inline-size: 0;
+		max-inline-size: 100%;
+	}
+
+	.components {
+		display: flex;
+		flex-direction: row;
+		gap: var(--gl-space-20);
+	}
+
+	.components__nav {
+		flex: none;
+		max-width: 16rem;
+	}
+
+	.components__content {
+		flex: 1;
+	}
 `;

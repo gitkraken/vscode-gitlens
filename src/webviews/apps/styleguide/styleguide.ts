@@ -8,25 +8,7 @@ import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
 import '../shared/components/code-icon.js';
-// Real shared components, imported so the Components tab can render them live.
-import '../shared/components/accordion/accordion.js';
-import '../shared/components/avatar/avatar.js';
-import '../shared/components/badges/badge.js';
-import '../shared/components/banner/banner.js';
-import '../shared/components/button.js';
-import '../shared/components/card/card.js';
-import '../shared/components/checkbox/checkbox.js';
-import '../shared/components/chips/action-chip.js';
-import '../shared/components/commit-sha.js';
-import '../shared/components/indicators/indicator.js';
-import '../shared/components/overlays/popover.js';
-import '../shared/components/overlays/tooltip.js';
-import '../shared/components/progress.js';
-import '../shared/components/radio/radio.js';
-import '../shared/components/radio/radio-group.js';
-import '../shared/components/search/search-input.js';
-import '../shared/components/skeleton-loader.js';
-import '../shared/components/switch/switch.js';
+import { componentGroups, nonElements, undemoed } from './demos/index.js';
 import { StyleguideStateProvider } from './stateProvider.js';
 import { styleguideStyles } from './styleguide.css.js';
 
@@ -189,147 +171,6 @@ const SCALES: Scale[] = [
 	},
 ];
 
-interface ComponentDemo {
-	label: string;
-	render: () => unknown;
-	block?: boolean; // full-width block component — stage uses display:block instead of flex
-}
-interface ComponentGroup {
-	family: string;
-	demos: ComponentDemo[];
-}
-
-// Real shared components rendered live in the Components tab, so you can see them consuming the tokens.
-const COMPONENT_GROUPS: ComponentGroup[] = [
-	{
-		family: 'Buttons & actions',
-		demos: [
-			{ label: 'gl-button', render: () => html`<gl-button>Primary</gl-button>` },
-			{
-				label: 'gl-button (secondary)',
-				render: () => html`<gl-button appearance="secondary">Secondary</gl-button>`,
-			},
-			{
-				label: 'gl-button (icon)',
-				render: () => html`<gl-button><code-icon icon="git-commit"></code-icon> Commit</gl-button>`,
-			},
-			{ label: 'gl-action-chip', render: () => html`<gl-action-chip icon="add" label="Add"></gl-action-chip>` },
-		],
-	},
-	{
-		family: 'Badges & pills',
-		demos: [
-			{ label: 'gl-badge', render: () => html`<gl-badge>New</gl-badge>` },
-			{ label: 'gl-badge (filled)', render: () => html`<gl-badge appearance="filled">3</gl-badge>` },
-		],
-	},
-	{
-		family: 'Cards & surfaces',
-		demos: [{ label: 'gl-card', render: () => html`<gl-card>Card content</gl-card>` }],
-	},
-	{
-		family: 'Banners & alerts',
-		demos: [
-			{
-				label: 'gl-banner',
-				block: true,
-				render: () =>
-					html`<gl-banner
-						banner-title="Heads up"
-						body="A short message about something."
-						primary-button="Got it"
-					></gl-banner>`,
-			},
-		],
-	},
-	{
-		family: 'Form controls',
-		demos: [
-			{ label: 'gl-checkbox', render: () => html`<gl-checkbox checked>Enabled</gl-checkbox>` },
-			{
-				label: 'gl-radio-group',
-				render: () =>
-					html`<gl-radio-group>
-						<gl-radio value="a" checked>Option A</gl-radio>
-						<gl-radio value="b">Option B</gl-radio>
-					</gl-radio-group>`,
-			},
-			{ label: 'gl-switch', render: () => html`<gl-switch>Toggle feature</gl-switch>` },
-			{ label: 'gl-search-input', render: () => html`<gl-search-input placeholder="Search…"></gl-search-input>` },
-		],
-	},
-	{
-		family: 'Overlays',
-		demos: [
-			{
-				label: 'gl-tooltip',
-				render: () => html`<gl-tooltip content="Tooltip text"><gl-button>Hover me</gl-button></gl-tooltip>`,
-			},
-			{
-				label: 'gl-popover',
-				render: () =>
-					html`<gl-popover>
-						<gl-button slot="anchor">Open popover</gl-button>
-						<div slot="content">Popover content</div>
-					</gl-popover>`,
-			},
-		],
-	},
-	{
-		family: 'Indicators',
-		demos: [
-			{ label: 'gl-indicator', render: () => html`<gl-indicator></gl-indicator>` },
-			{
-				label: 'progress-indicator',
-				block: true,
-				render: () => html`<progress-indicator active mode="infinite"></progress-indicator>`,
-			},
-			{
-				label: 'skeleton-loader',
-				block: true,
-				render: () => html`<skeleton-loader lines="3"></skeleton-loader>`,
-			},
-		],
-	},
-	{
-		family: 'Avatars',
-		demos: [
-			{
-				label: 'gl-avatar',
-				render: () => html`<gl-avatar name="Alice" data-avatar-size="3.2rem">AL</gl-avatar>`,
-			},
-		],
-	},
-	{
-		family: 'Content',
-		demos: [
-			{
-				label: 'gl-accordion',
-				render: () => html`<gl-accordion><span slot="header">Section</span>Body content</gl-accordion>`,
-			},
-			{ label: 'gl-commit-sha', render: () => html`<gl-commit-sha sha="a1b2c3d4e5f6"></gl-commit-sha>` },
-			{ label: 'code-icon', render: () => html`<code-icon icon="git-branch"></code-icon>` },
-		],
-	},
-];
-
-// Shared components that depend on extension context/data (subscription, integrations, IPC, git models)
-// and can't render standalone — listed for completeness, not demoed.
-const UNDEMOED = [
-	'gl-error-banner',
-	'gl-account-chip',
-	'gl-integrations-chip',
-	'gl-feature-badge',
-	'gl-ai-input',
-	'gl-ai-model-chip',
-	'gl-dialog',
-	'gl-detail-sheet',
-	'gl-git-status',
-	'gl-merge-rebase-status',
-	'gl-mcp-banner',
-	'gl-hooks-banner',
-];
-
 interface Rgba {
 	r: number;
 	g: number;
@@ -394,6 +235,9 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		});
 		root.querySelectorAll<HTMLElement>('[data-avatar-size]').forEach(el => {
 			el.style.setProperty('--gl-avatar-size', el.dataset.avatarSize ?? '');
+		});
+		root.querySelectorAll<HTMLElement>('[data-tree-frame-height]').forEach(el => {
+			el.style.setProperty('height', el.dataset.treeFrameHeight ?? '');
 		});
 	}
 
@@ -489,6 +333,15 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 
 	private selectTab(tab: 'tokens' | 'components'): void {
 		this.tab = tab;
+	}
+
+	private static slugify(family: string): string {
+		return family.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+	}
+
+	private jumpToFamily(family: string): void {
+		const id = `family-${GlStyleguideApp.slugify(family)}`;
+		this.renderRoot.querySelector(`#${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
 	private renderBadge(label: string): unknown {
@@ -687,33 +540,64 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 
 	private renderComponentsTab(): unknown {
 		return html`
-			<p class="section-note">
-				Real shared components rendered live, consuming the tokens. Switch themes to see them adapt.
-			</p>
-			${COMPONENT_GROUPS.map(
-				group => html`
+			<div class="components">
+				<div class="components__nav">
+					<nav class="jumpnav">
+						${componentGroups.map(
+							group => html`
+								<button class="jumpnav__link" @click=${() => this.jumpToFamily(group.family)}>
+									${group.family}
+								</button>
+							`,
+						)}
+					</nav>
+				</div>
+				<div class="components__content">
+					<p class="section-note">
+						Real shared components rendered live, consuming the tokens. Switch themes to see them adapt.
+					</p>
+					${componentGroups.map(
+						group => html`
+							<section id="family-${GlStyleguideApp.slugify(group.family)}">
+								<h2 class="section-title">${group.family}</h2>
+								${group.description ? html`<p class="section-note">${group.description}</p>` : nothing}
+								<div class="demo-grid">
+									${group.demos.map(
+										d => html`
+											<div
+												class="demo ${d.layout === 'block' ||
+												d.layout === 'stack' ||
+												d.layout === 'tall'
+													? 'demo--block'
+													: ''} ${d.wide ? 'demo--wide' : ''}"
+											>
+												<div class="demo__stage demo__stage--${d.layout ?? 'inline'}">
+													${d.render()}
+												</div>
+												<div class="demo__label">${d.label}</div>
+												${d.note ? html`<div class="demo__note">${d.note}</div>` : nothing}
+											</div>
+										`,
+									)}
+								</div>
+							</section>
+						`,
+					)}
 					<section>
-						<h2 class="section-title">${group.family}</h2>
-						<div class="demo-grid">
-							${group.demos.map(
-								d => html`
-									<div class="demo ${d.block ? 'demo--block' : ''}">
-										<div class="demo__stage">${d.render()}</div>
-										<div class="demo__label">${d.label}</div>
-									</div>
-								`,
+						<h2 class="section-title">Not standalone</h2>
+						<p class="section-note">
+							Function-only modules with no standalone element, and components that depend on
+							subscription/integration/IPC/git state and aren't rendered here.
+						</p>
+						<div class="undemoed">
+							${nonElements.map(
+								n => html`<span class="undemoed__item" title=${n.reason}>${n.name}</span>`,
 							)}
+							${undemoed.map(name => html`<span class="undemoed__item">${name}</span>`)}
 						</div>
 					</section>
-				`,
-			)}
-			<section>
-				<h2 class="section-title">Needs extension context</h2>
-				<p class="section-note">
-					These depend on subscription/integration/IPC/git state and aren't rendered here.
-				</p>
-				<div class="undemoed">${UNDEMOED.map(name => html`<span class="undemoed__item">${name}</span>`)}</div>
-			</section>
+				</div>
+			</div>
 		`;
 	}
 }
