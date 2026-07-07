@@ -506,11 +506,16 @@ export class GlDetailsResolveModePanel extends LitElement {
 			}
 
 			/* The detached refine input self-insets/-centres; inside the already-padded zone that doubles
-			   the inset, so pin it flush to the zone's content box (mirrors compose's override). */
+			   the inset, so pin it flush to the zone's content box (mirrors compose's override). Orange-tint
+			   the Refine submit with the SAME recompose accent compose uses (blue stays reserved for Apply);
+			   the custom props pierce gl-ai-input's shadow boundary. */
 			.resolve-ready-actions > gl-ai-input.resolve-refine-input {
 				width: 100%;
 				max-width: none;
 				margin: 0;
+				--gl-resolve-refine-accent: oklch(0.6 0.13 62);
+				--gl-ai-submit-bg: var(--gl-resolve-refine-accent);
+				--gl-ai-submit-hover-bg: color-mix(in srgb, #000 15%, var(--gl-resolve-refine-accent));
 			}
 
 			/* The per-row "Retry with feedback" button is a toggle — show the standard active-toggle
