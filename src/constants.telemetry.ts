@@ -358,6 +358,19 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar worktrees panel */
 	'graph/worktrees/filtered': GraphSidebarWorktreesFilteredEvent;
 
+	/** Sent when the Branches sidebar panel becomes visible */
+	'graph/branches/shown': GraphSidebarBranchesShownEvent;
+	/** Sent when the user clicks a branch leaf in the sidebar branches panel */
+	'graph/branches/branchSelected': GraphSidebarBranchesBranchSelectedEvent;
+	/** Sent when the user clicks an inline action (switch/fetch/pull/push/compare/open) on a branch item */
+	'graph/branches/branchAction': GraphSidebarBranchesBranchActionEvent;
+	/** Sent when the user clicks a header action (Switch to Branch, Create Branch, Refresh) in the sidebar branches panel */
+	'graph/branches/headerAction': GraphSidebarBranchesHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar branches panel */
+	'graph/branches/layoutToggled': GraphSidebarBranchesLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar branches panel */
+	'graph/branches/filtered': GraphSidebarBranchesFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1832,6 +1845,54 @@ interface GraphSidebarWorktreesFilteredEvent extends GraphContextEventData {
 	hasFilter: boolean;
 	'filter.length': number;
 	'worktrees.count': number;
+}
+
+/** Fired when the branches panel becomes the active sidebar panel and its data has loaded.
+ *  Note: "shown" means mounted-active — in kanban/visualizations display modes the sidebar
+ *  split stays mounted but hidden, so a panel activation there still counts. The panel is
+ *  local-only (remote branches are filtered out host-side), so the count covers local branches. */
+interface GraphSidebarBranchesShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesBranchSelectedEvent extends GraphContextEventData {
+	isCurrent: boolean;
+	hasUpstream: boolean;
+	hasWorktree: boolean;
+	isStarred: boolean;
+}
+
+export type GraphSidebarBranchesActionName =
+	| 'switch'
+	| 'fetch'
+	| 'pull'
+	| 'push'
+	| 'compareWithHead'
+	| 'compareWithWorking'
+	| 'openWorktree'
+	| 'openWorktreeInNewWindow';
+
+interface GraphSidebarBranchesBranchActionEvent extends GraphContextEventData {
+	action: GraphSidebarBranchesActionName;
+	alt: boolean;
+}
+
+interface GraphSidebarBranchesHeaderActionEvent extends GraphContextEventData {
+	action: 'switchToBranch' | 'createBranch' | 'refresh';
+}
+
+interface GraphSidebarBranchesLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'branches.count': number;
+}
+
+interface GraphSidebarBranchesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	/** Total branches in the panel (the filter corpus), NOT the number of matches — matching
+	 *  happens inside the tree component and the match count isn't surfaced. */
+	'branches.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;

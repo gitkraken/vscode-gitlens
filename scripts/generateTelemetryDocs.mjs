@@ -137,7 +137,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 
 					const propDocs = prop.getDocumentationComment(typeChecker);
 					if (propDocs.length > 0) {
-						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+						// Collapse newlines from multi-line doc comments — the text follows a single
+						// `//`, so embedded newlines would leave continuation lines unprefixed
+						const text = propDocs
+							.map(doc => doc.text)
+							.join(' ')
+							.replace(/\s*\n\s*/g, ' ');
+						propString += `${indent}  // ${text}\n`;
 					}
 
 					const jsDocTags = getJSDocTags(prop);
@@ -238,7 +244,13 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 
 					const propDocs = prop.getDocumentationComment(typeChecker);
 					if (propDocs.length > 0) {
-						propString += `${indent}  // ${propDocs.map(doc => doc.text).join(' ')}\n`;
+						// Collapse newlines from multi-line doc comments — the text follows a single
+						// `//`, so embedded newlines would leave continuation lines unprefixed
+						const text = propDocs
+							.map(doc => doc.text)
+							.join(' ')
+							.replace(/\s*\n\s*/g, ' ');
+						propString += `${indent}  // ${text}\n`;
 					}
 
 					const jsDocTags = getJSDocTags(prop);
