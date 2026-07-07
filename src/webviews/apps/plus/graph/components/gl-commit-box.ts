@@ -153,10 +153,11 @@ export class GlCommitBox extends LitElement {
 	private renderGenerateButton() {
 		const label = this.generating ? 'Cancel' : 'Generate Commit Message';
 		// `gl-tooltip` is non-interactive (pointer-events: none), so use `gl-popover` to show
-		// the current model as a clickable chip. `trigger="hover focus"` (no `click`) keeps the
-		// sparkle's own click firing generate rather than toggling the popover.
+		// the current model as a clickable chip. `trigger="hover focus-visible"` (no `click`, and
+		// `focus-visible` rather than `focus`) keeps the sparkle's own click firing generate without
+		// showing the popover — the popover only opens on hover or keyboard focus, not click-induced focus.
 		return html`
-			<gl-popover placement="bottom" trigger="hover focus">
+			<gl-popover placement="bottom" trigger="hover focus-visible">
 				<gl-button
 					slot="anchor"
 					class="sparkle"
