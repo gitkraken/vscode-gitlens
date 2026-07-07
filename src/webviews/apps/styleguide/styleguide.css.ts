@@ -128,9 +128,36 @@ export const styleguideStyles = css`
 	}
 
 	.swatch {
+		--swatch-color: transparent;
+		--swatch-checker-1: #fff;
+		--swatch-checker-2: #000;
+		--swatch-checker-size: 0.64rem;
+
+		position: relative;
 		width: 2.8rem;
 		height: 2.8rem;
+		overflow: hidden;
+		background-image:
+			linear-gradient(45deg, var(--swatch-checker-2) 25%, transparent 25%),
+			linear-gradient(-45deg, var(--swatch-checker-2) 25%, transparent 25%),
+			linear-gradient(45deg, transparent 75%, var(--swatch-checker-2) 75%),
+			linear-gradient(-45deg, transparent 75%, var(--swatch-checker-2) 75%);
+		background-position:
+			0 0,
+			0 var(--swatch-checker-size),
+			var(--swatch-checker-size) calc(-1 * var(--swatch-checker-size)),
+			calc(-1 * var(--swatch-checker-size)) 0;
+		background-size: calc(var(--swatch-checker-size) * 2) calc(var(--swatch-checker-size) * 2);
 		border: var(--gl-border-width) solid var(--gl-color-border);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.swatch::after {
+		position: absolute;
+		inset: 0;
+		display: block;
+		content: '';
+		background: var(--swatch-color);
 		border-radius: var(--gl-radius-sm);
 	}
 
@@ -254,9 +281,6 @@ export const styleguideStyles = css`
 	.demo {
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
-		border: var(--gl-border-width) solid var(--gl-color-border);
-		border-radius: var(--gl-radius-md);
 	}
 
 	.demo__stage {
@@ -266,16 +290,14 @@ export const styleguideStyles = css`
 		gap: var(--gl-space-8);
 		align-items: center;
 		min-height: 5.6rem;
-		padding: var(--gl-space-16);
-		background: var(--gl-color-surface-raised);
+		padding-block: var(--gl-space-16);
 	}
 
 	.demo__label {
-		padding: var(--gl-space-4) var(--gl-space-12);
+		padding-block: var(--gl-space-4);
 		font-family: var(--vscode-editor-font-family, monospace);
 		font-size: var(--gl-font-sm);
 		color: var(--gl-color-fg-muted);
-		border-top: var(--gl-border-width) solid var(--gl-color-border);
 	}
 	/* Full-width block components (banner, progress, skeleton) — span the grid + don't flex-squish */
 	.demo--block {

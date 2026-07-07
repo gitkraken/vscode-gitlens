@@ -369,7 +369,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		// permits CSSOM mutations. data-* attrs carry the token; we resolve them to var() refs here.
 		const root = this.renderRoot as ParentNode;
 		root.querySelectorAll<HTMLElement>('.swatch[data-bg]').forEach(el => {
-			el.style.setProperty('background', `var(${el.dataset.bg})`);
+			el.style.setProperty('--swatch-color', `var(${el.dataset.bg})`);
 		});
 		root.querySelectorAll<HTMLElement>('[data-radius]').forEach(el => {
 			el.style.setProperty('border-radius', `var(${el.dataset.radius})`);
