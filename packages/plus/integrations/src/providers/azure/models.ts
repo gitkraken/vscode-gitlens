@@ -202,6 +202,18 @@ export interface AzureRepository {
 	isInMaintenance: boolean;
 }
 
+/** The `GET .../_apis/git/repositories/{repositoryId or name}` response, adding fork/default-branch fields to {@link AzureRepository}. */
+export interface AzureRepositoryWithMetadata extends AzureRepository {
+	/** Fully-qualified ref, e.g. `refs/heads/main`. */
+	defaultBranch?: string;
+	isFork?: boolean;
+	parentRepository?: {
+		id: string;
+		name: string;
+		project?: { id: string; name: string };
+	};
+}
+
 export interface AzureGitUser {
 	date?: string;
 	email?: string;
@@ -496,7 +508,7 @@ export function fromAzureReviewerToPullRequestMember(reviewer: AzureUser): PullR
 	};
 }
 
-function normalizeAzureBranchName(branchName: string): string {
+export function normalizeAzureBranchName(branchName: string): string {
 	return branchName.startsWith('refs/heads/') ? branchName.replace('refs/heads/', '') : branchName;
 }
 

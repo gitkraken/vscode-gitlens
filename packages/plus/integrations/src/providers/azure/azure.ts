@@ -1,8 +1,10 @@
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
@@ -20,11 +22,14 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../errors.js';
+import type { ProviderApiConfig } from '../apiConfig.js';
+import { baseProviderApiConfig } from '../apiConfig.js';
 import type {
 	AzureGitCommit,
 	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
+	AzureRepositoryWithMetadata,
 	AzureWorkItemState,
 	AzureWorkItemStateCategory,
 	WorkItem,
@@ -37,6 +42,7 @@ import {
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
+	normalizeAzureBranchName,
 } from './models.js';
 
 class WorkItemStates {
@@ -568,6 +574,128 @@ export class AzureDevOpsApi implements Disposable {
 			scope?.error(ex);
 			return [];
 		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryMetadata(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response == null) return undefined;
+
+			// Azure's `parentRepository` only reliably carries the repo name and its project; a fork's parent
+			// lives in the same organization, so the org (`owner`) is the parent owner. Only report `parent`
+			// when the parent's name is actually present — never fall back to the fork's own name.
+			return {
+				provider: provider,
+				owner: owner,
+				// Prefer the API's canonical name over parsing the composite `repo` descriptor string.
+				name: response.name,
+				isFork: response.isFork ?? false,
+				parent:
+					response.isFork && response.parentRepository?.name != null
+						? { owner: owner, name: response.parentRepository.name }
+						: undefined,
+			} satisfies RepositoryMetadata;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getDefaultBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<DefaultBranch | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response?.defaultBranch == null) return undefined;
+
+			return {
+				provider: provider,
+				name: normalizeAzureBranchName(response.defaultBranch),
+			} satisfies DefaultBranch;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	private getRepository(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<AzureRepositoryWithMetadata | undefined> {
+		const parts = repo.split('/');
+		const [projectName, segment, repoName] = parts;
+		// The descriptor must be exactly `"{project}/_git/{repoName}"`; bail before issuing a bogus request.
+		if (parts.length !== 3 || segment !== '_git' || !projectName || !repoName) {
+			throw new Error(`Invalid Azure repository descriptor '${repo}'; expected '{project}/_git/{repoName}'.`);
+		}
+		return this.request<AzureRepositoryWithMetadata>(
+			provider,
+			token,
+			baseUrl,
+			`${owner}/${projectName}/_apis/git/repositories/${repoName}?api-version=7.1`,
+			{ method: 'GET' },
+			scope,
+			cancellation,
+		);
 	}
 
 	private async request<T>(

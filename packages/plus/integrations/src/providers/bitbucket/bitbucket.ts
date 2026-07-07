@@ -1,4 +1,5 @@
 import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -407,6 +408,122 @@ export class BitbucketApi implements Disposable {
 			scope?.error(ex);
 			return undefined;
 		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryMetadata(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response == null) return undefined;
+
+			let parent: RepositoryMetadata['parent'];
+			if (response.parent != null) {
+				// Derive the parent from `full_name` ("owner/repo") rather than `parent.workspace`, which is a
+				// requested field expansion Bitbucket doesn't always honor (an unexpanded parent would otherwise
+				// throw and null out the whole result).
+				const [parentOwner, parentName] = response.parent.full_name.split('/');
+				parent = { owner: parentOwner, name: parentName };
+			}
+
+			return {
+				provider: provider,
+				owner: response.workspace.slug,
+				name: response.slug,
+				isFork: response.parent != null,
+				parent: parent,
+			} satisfies RepositoryMetadata;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getDefaultBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<DefaultBranch | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			const name = response?.mainbranch?.name;
+			if (name == null) return undefined;
+
+			return { provider: provider, name: name } satisfies DefaultBranch;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			return undefined;
+		}
+	}
+
+	private getRepository(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<BitbucketRepository | undefined> {
+		return this.request<BitbucketRepository>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}`,
+			{ method: 'GET' },
+			scope,
+			cancellation,
+		);
 	}
 
 	@trace({

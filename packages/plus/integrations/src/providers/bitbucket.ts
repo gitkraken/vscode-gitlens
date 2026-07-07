@@ -86,10 +86,18 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderDefaultBranch(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		cancellation?: AbortSignal,
 	): Promise<DefaultBranch | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.authenticationService.apis.bitbucket)?.getDefaultBranch(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(
@@ -161,11 +169,18 @@ export class BitbucketIntegration extends GitHostIntegration<
 	}
 
 	protected override async getProviderRepositoryMetadata(
-		_session: AuthenticationSession,
-		_repo: BitbucketRepositoryDescriptor,
-		_cancellation?: AbortSignal,
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.authenticationService.apis.bitbucket)?.getRepositoryMetadata(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
 	}
 
 	private _accounts: Map<string, Account | undefined> | undefined;
