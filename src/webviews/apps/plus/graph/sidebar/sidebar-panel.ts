@@ -554,7 +554,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	private emitWorktreesShownTelemetry(): void {
 		if (this._worktreesShownEmitted || this.activePanel !== 'worktrees') return;
 
-		const data = this._actions?.state.panels.worktrees?.value.get();
+		const resource = this._actions?.state.panels.worktrees;
+		// Wait for a successful fetch (mirrors maybeEmitBranchesShownTelemetry): on reactivation
+		// the resource still holds the previous visit's value while the switch-triggered fetch is
+		// in flight — emitting off that would report stale counts. 'idle' (webview boot, before
+		// the RPC service exists) and 'error' (a later retry may still succeed) also hold; the
+		// guard is only latched on emit, so this just delays until fresh data lands.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
 		if (data?.panel !== 'worktrees') return;
 
 		this._worktreesShownEmitted = true;
