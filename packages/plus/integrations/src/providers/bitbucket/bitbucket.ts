@@ -447,8 +447,12 @@ export class BitbucketApi implements Disposable {
 				// Derive the parent from `full_name` ("owner/repo") rather than `parent.workspace`, which is a
 				// requested field expansion Bitbucket doesn't always honor (an unexpanded parent would otherwise
 				// throw and null out the whole result).
+				// `full_name` is "owner/repo"; only report a parent when both parts are present so a malformed
+				// value doesn't produce a parent with an undefined owner/name while `isFork` stays true.
 				const [parentOwner, parentName] = response.parent.full_name.split('/');
-				parent = { owner: parentOwner, name: parentName };
+				if (parentOwner && parentName) {
+					parent = { owner: parentOwner, name: parentName };
+				}
 			}
 
 			return {

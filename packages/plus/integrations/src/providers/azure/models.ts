@@ -209,7 +209,7 @@ export interface AzureRepositoryWithMetadata extends AzureRepository {
 	isFork?: boolean;
 	parentRepository?: {
 		id: string;
-		name: string;
+		name?: string;
 		project?: { id: string; name: string };
 	};
 }

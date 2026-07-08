@@ -46,7 +46,7 @@ suite('createTokenScopedGitHostIntegration — token-scoped reads', () => {
 		assert.deepEqual(metadata.parent, { owner: 'upstream', name: 'hello-world' });
 		assert.equal(metadata.provider.id, 'github');
 		assert.ok(
-			fetch.calls[0].startsWith('https://api.github.com'),
+			new URL(fetch.calls[0]).origin === 'https://api.github.com',
 			`GitHub cloud should hit api.github.com, got ${fetch.calls[0]}`,
 		);
 	});
