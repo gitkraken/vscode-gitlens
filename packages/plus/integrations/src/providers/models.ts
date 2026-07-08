@@ -64,6 +64,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+import type { ProviderScope } from '@gitlens/git/models/resourceDescriptor.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
@@ -944,6 +945,28 @@ export function toProviderIssueStates(state: IssueStateFilter | undefined): GitI
 		default:
 			return undefined;
 	}
+}
+
+/**
+ * Resolves a normalized {@link ProviderScope} to the provider-appropriate read inputs, dispatching on the
+ * provider's {@link PagingMode} (the authoritative per-provider scoping selector). Project-mode providers
+ * (Azure issues, Jira) produce `projectInputs` from `org` + `project`; repo/repos-mode providers produce a
+ * repo `GetRepoInput[]` from `scope.repos` (carrying `project` where relevant, e.g. Azure). This is the
+ * single public entry point consumers can use instead of hand-building the three underlying representations.
+ */
+export function resolveProviderScope(
+	scope: ProviderScope,
+	pagingMode: PagingMode | undefined,
+): { reposInput?: GetRepoInput[]; projectInputs?: { namespace: string; project: string }[] } {
+	if (pagingMode === PagingMode.Project) {
+		if (scope.org != null && scope.project != null) {
+			return { projectInputs: [{ namespace: scope.org, project: scope.project }] };
+		}
+		return {};
+	}
+
+	const reposInput = scope.repos?.map(r => ({ namespace: r.owner, name: r.name, project: scope.project }));
+	return { reposInput: reposInput };
 }
 
 function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {
