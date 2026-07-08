@@ -49,6 +49,7 @@ export const actionButton = css`
 	.action-button:hover {
 		background-color: var(--color-graph-actionbar-selectedBackground);
 		color: var(--vscode-foreground);
+		text-decoration: none;
 	}
 
 	.action-button[aria-checked] {
