@@ -10294,7 +10294,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const type = pausedOpArgs?.type ?? (await svc.pausedOps?.getPausedOperationStatus?.())?.type;
 		if (type == null || type === 'revert') return;
 
-		await continuePausedOperation(svc);
+		await continuePausedOperation(this.container, svc);
 	}
 
 	@command('gitlens.pausedOperation.open:')
@@ -10323,15 +10323,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (repoPath == null) return;
 
 		const svc = this.container.git.getRepositoryService(repoPath);
-		await skipPausedOperation(svc);
+		await skipPausedOperation(this.container, svc);
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug()
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
-			openRebaseEditor: pausedOpArgs.type === 'rebase',
-		});
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath);
 	}
 
 	@command('gitlens.graph.stageConflictCurrentChanges:')

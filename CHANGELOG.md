@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Cloud Integrations_ and _AI_ categories &mdash; view and connect hosting and issue service integrations, and manage the AI provider and model, GitKraken MCP, default coding agent, and Claude Code hooks
   - Shows connection-aware cues in the category rail &mdash; a connected/total count for _Cloud Integrations_ and a rule count for _Autolinks_
 - Changes commits created from the _Commit Graph_'s working changes (WIP) commit box to honor VS Code's `git.enableCommitSigning` setting &mdash; matching the built-in Source Control commit behavior; previously only the repo's `commit.gpgsign` Git config was respected
+- Changes how paused merge, rebase, cherry-pick, and revert operations with conflicts are surfaced &mdash; a single surface now opens: the _Commit Graph_'s working changes (WIP) details with the conflict banner, or the _Interactive Rebase Editor_ for rebases when the _Commit Graph_ is unavailable. Previously a rebase conflict could simultaneously open the rebase editor, force-focus the _Commits_ view, and show a toast offering to open the already-opening editor. The _Commits_ view is no longer force-focused by any paused operation, the rebase conflict toasts no longer offer _Open Rebase Editor_, and _Show Conflicts_ now consistently opens the _Commit Graph_ from all locations, including inside the rebase editor; interactive rebase pauses (todo editing, `edit`, `reword`, `break`) still open the rebase editor
 
 ### Removed
 

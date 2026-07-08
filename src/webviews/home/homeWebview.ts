@@ -623,13 +623,13 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	private async continuePausedOperation(pausedOpArgs: GitPausedOperationStatus) {
 		if (pausedOpArgs.type === 'revert') return;
 
-		await continuePausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
+		await continuePausedOperation(this.container, this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.skip:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async skipPausedOperation(pausedOpArgs: GitPausedOperationStatus) {
-		await skipPausedOperation(this.container.git.getRepositoryService(pausedOpArgs.repoPath));
+		await skipPausedOperation(this.container, this.container.git.getRepositoryService(pausedOpArgs.repoPath));
 	}
 
 	@command('gitlens.pausedOperation.open:')
@@ -649,9 +649,7 @@ export class HomeWebviewProvider implements WebviewProvider<State, State, HomeWe
 	@command('gitlens.pausedOperation.showConflicts:')
 	@debug({ args: pausedOpArgs => ({ pausedOpArgs: pausedOpArgs.type }) })
 	private async showConflicts(pausedOpArgs: GitPausedOperationStatus) {
-		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath, {
-			openRebaseEditor: pausedOpArgs.type === 'rebase',
-		});
+		await showPausedOperationStatus(this.container, pausedOpArgs.repoPath);
 	}
 
 	@command('gitlens.createCloudPatch:')

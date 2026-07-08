@@ -11,7 +11,7 @@ import { ensureArray } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import type { Container } from '../../container.js';
-import { skipPausedOperation } from '../../git/actions/pausedOperation.js';
+import { showPausedOperationStatus, skipPausedOperation } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
@@ -20,7 +20,6 @@ import type { DirectiveQuickPickItem } from '../../quickpicks/items/directive.js
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { executeCommand } from '../../system/-webview/command.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	AsyncStepResultGenerator,
@@ -98,7 +97,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to cherry-pick due to conflicts. Resolve the conflicts before continuing, or abort the cherry-pick.',
 				);
-				void executeCommand('gitlens.showCommitsView');
+				void showPausedOperationStatus(this.container, state.repo.path);
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the cherry-pick
@@ -120,7 +119,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to cherry-pick. A cherry-pick is already in progress. Continue or abort the current cherry-pick first.',
 				);
-				void executeCommand('gitlens.showCommitsView');
+				void showPausedOperationStatus(this.container, state.repo.path);
 				return;
 			}
 
@@ -146,10 +145,10 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					cancel,
 				);
 				if (result === skip) {
-					return void skipPausedOperation(state.repo.git);
+					return void skipPausedOperation(this.container, state.repo.git);
 				}
 
-				void executeCommand('gitlens.showCommitsView');
+				void showPausedOperationStatus(this.container, state.repo.path);
 				return;
 			}
 
