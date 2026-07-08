@@ -1399,12 +1399,14 @@ export abstract class GitHostIntegration<
 		repo?: T,
 		cancellation?: AbortSignal,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
 	@trace()
 	async searchPullRequests(
@@ -1412,6 +1414,7 @@ export abstract class GitHostIntegration<
 		repos?: T | T[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -1424,6 +1427,7 @@ export abstract class GitHostIntegration<
 				searchQuery,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
+				state,
 			);
 			this.resetRequestExceptionCount('searchPullRequests');
 			return prs;
@@ -1438,6 +1442,7 @@ export abstract class GitHostIntegration<
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
 
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {
