@@ -8108,6 +8108,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			detailsLocation: configuration.get('graph.details.location') ?? 'auto',
 			enabledRefMetadataTypes: this.getEnabledRefMetadataTypes(),
 			dimMergeCommits: configuration.get('graph.dimMergeCommits'),
+			experimentalHomeHeaderEnabled: configuration.get('graph.experimental.homeHeader.enabled') ?? false,
 			experimentalKanbanEnabled: configuration.get('graph.experimental.kanban.enabled') ?? false,
 			experimentalVisualizationsEnabled: configuration.get('graph.experimental.visualizations.enabled') ?? false,
 			activityDecay: configuration.get('graph.experimental.visualizations.activityDecay') ?? '5m',

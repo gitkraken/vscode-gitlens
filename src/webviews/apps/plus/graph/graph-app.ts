@@ -378,9 +378,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		context: aiContext,
 		initialValue: this._aiState,
 	});
-	/** One-shot guard mirroring `_launchpadInitialized` for the account-bar context wiring. */
+	/** Guards the account-bar context wiring. Set true while wired (see `updated()`); reset by the
+	 *  disarm branch when the home-header flag flips off so it can re-arm. */
 	private _accountContextsInitialized = false;
 	private _accountUnsubscribe: (() => void) | undefined;
+	/** Bumped on every `initAccountContexts` entry. Because the flag can flip off→on faster than the
+	 *  service promises resolve, two inits can be in flight at once; a completing init only stores its
+	 *  subscriptions if it's still the latest generation, so an interleaved stale init tears itself down
+	 *  instead of overwriting (and leaking) the live one. */
+	private _accountInitGeneration = 0;
 
 	@consume({ context: ipcContext })
 	private readonly _ipc!: typeof ipcContext.__context__;
@@ -554,6 +560,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  state, and subscribes to change events. Mirrors the Home view (see `home.ts` / `actions.ts`
 	 *  / `events.ts`). A failed subscription must not break the graph. */
 	private async initAccountContexts(services: NonNullable<typeof this.services>): Promise<void> {
+		// Claim this generation up front; a later init (from an off→on re-arm mid-await) supersedes us.
+		const generation = ++this._accountInitGeneration;
 		// Wiring the account bar must never break the graph, so guard the whole pipeline: a rejected
 		// service promise or a failed subscription just leaves the bar without live state.
 		try {
@@ -616,10 +624,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				async () => ai.onStateChanged(state => this._aiState.state.set(state)),
 			]);
 
-			// Guard against late completion: if the element disconnected while awaiting, `disconnectedCallback`
-			// already ran with `_accountUnsubscribe` still undefined, so tear down here to avoid leaking host
-			// subscriptions on a disposed graph.
-			if (!this.isConnected) {
+			// Guard against late completion: tear down (rather than store) if, while we were awaiting, the
+			// element disconnected (`disconnectedCallback`), the home-header flag was toggled back off (the
+			// disarm branch resets `_accountContextsInitialized`), or a newer init superseded us (off→on
+			// re-arm — `generation` is stale). Otherwise a stale init would overwrite and orphan the live
+			// subscription, leaking its host change-event traffic until graph disconnect.
+			if (!this.isConnected || !this._accountContextsInitialized || generation !== this._accountInitGeneration) {
 				unsubscribe?.();
 				return;
 			}
@@ -1391,11 +1401,20 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			void this.initLaunchpad(this.services);
 		}
 
-		// Start the account-bar context wiring once `services` first resolves (same one-shot
+		// Account-bar context wiring, gated on the experimental home-header flag: the bar only renders
+		// when the flag is on, so there's nothing to wire when it's off. `updated()` re-runs when the
+		// config pushes, so this arms/disarms symmetrically as the flag flips (same `services` one-shot
 		// pattern as the Launchpad pipeline above — `services` is a `@consume`d context value).
-		if (!this._accountContextsInitialized && this.services != null) {
+		const homeHeaderEnabled = this.graphState.config?.experimentalHomeHeaderEnabled ?? false;
+		if (homeHeaderEnabled && !this._accountContextsInitialized && this.services != null) {
 			this._accountContextsInitialized = true;
 			void this.initAccountContexts(this.services);
+		} else if (!homeHeaderEnabled && this._accountContextsInitialized) {
+			// Flag turned off mid-session: tear down the host subscriptions so a hidden bar doesn't keep
+			// consuming change traffic, and re-arm cleanly if it's turned back on.
+			this._accountUnsubscribe?.();
+			this._accountUnsubscribe = undefined;
+			this._accountContextsInitialized = false;
 		}
 
 		// Invalidate any captured scope-restore mode on repo switch: a captured `_modeBeforeScope`
@@ -1555,7 +1574,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const { single, multi } = this.activeSelection;
 		return html`
 			<div class="graph">
-				<gl-account-bar class="graph__account-bar"></gl-account-bar>
+				${when(
+					this.graphState.config?.experimentalHomeHeaderEnabled ?? false,
+					() => html`<gl-account-bar class="graph__account-bar"></gl-account-bar>`,
+				)}
 				<gl-graph-header
 					class="graph__header"
 					.selectCommits=${this.selectCommits}
