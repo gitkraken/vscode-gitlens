@@ -92,6 +92,32 @@ suite('provider hierarchy results', () => {
 		});
 	});
 
+	test('GitLab organization listing propagates truncation', async () => {
+		const api: {
+			getGitlabGroupsForCurrentUser: () => Promise<{
+				values: { id: string; fullPath: string; webUrl: string }[];
+				truncated?: boolean;
+			}>;
+		} = {
+			getGitlabGroupsForCurrentUser: async () => ({
+				values: [{ id: '1', fullPath: 'acme/platform', webUrl: 'https://gitlab.com/acme/platform' }],
+				truncated: true,
+			}),
+		};
+		const integration = new GitLabIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('gitlab.com'));
+
+		const result = await integration.getOrganizationsForUser();
+
+		assert.equal(result?.truncated, true);
+		assert.equal(result?.values.length, 1);
+	});
+
 	test('Azure cross-project repo listing reports truncation without exposing paging', async () => {
 		const api: {
 			getReposForAzureProject: (
