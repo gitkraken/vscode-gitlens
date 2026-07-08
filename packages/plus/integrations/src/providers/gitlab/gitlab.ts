@@ -2,6 +2,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
@@ -751,7 +752,14 @@ export class GitLabApi implements Disposable {
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			state?: PullRequestStateFilter;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
@@ -762,7 +770,7 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
-			const restPRs = await this.request<GitLabMergeRequestREST[]>(
+			const allPRs = await this.request<GitLabMergeRequestREST[]>(
 				provider,
 				token,
 				options?.baseUrl,
@@ -773,6 +781,15 @@ export class GitLabApi implements Disposable {
 				cancellation,
 				scope,
 			);
+			// GitLab's search endpoint has no state qualifier. Preserve its historical all-state default,
+			// and filter the normalized REST results only when a specific state is requested.
+			const state = options?.state;
+			const restPRs =
+				state == null || state === 'all'
+					? allPRs
+					: allPRs.filter(
+							pr => fromGitLabMergeRequestState(pr.state) === (state === 'open' ? 'opened' : state),
+						);
 			if (restPRs.length === 0) {
 				return [];
 			}
