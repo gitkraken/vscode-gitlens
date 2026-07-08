@@ -13,6 +13,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../../container.js';
+import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import { getActionablePauseAction, readAndParseRebaseDoneFile } from '../../git/utils/-webview/rebase.parsing.utils.js';
 import {
 	getRepoUriFromRebaseTodo,
@@ -139,7 +140,16 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		// `.git/rebase-merge/` is being torn down at the end of a successful rebase, producing
 		// false positives that flicker the editor open with an empty/stale state. Confirm there
 		// is actually user-actionable work to display before opening.
-		if (!(await hasActionableRebaseState(svc))) return;
+		const { actionable, hasConflicts } = await getActionableRebaseState(svc);
+		if (!actionable) return;
+
+		// A conflict pause follows the unified paused-operation surfacing rule (Graph WIP details
+		// when accessible, rebase editor otherwise); only interactive pauses (todo editing /
+		// edit / reword / break) always open the rebase editor below.
+		if (hasConflicts) {
+			await showPausedOperationStatus(this.container, repoPath);
+			return;
+		}
 
 		// `openBehavior` controls the viewColumn:
 		//   - 'auto': reuse an existing non-active editor group if one exists; otherwise open in the
@@ -264,17 +274,19 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 }
 
 /**
- * Returns true when the rebase has user-actionable state to display:
- *  - active conflicts in the index, or
+ * Determines whether the rebase has user-actionable state to display:
+ *  - active conflicts in the index (also reported via `hasConflicts`), or
  *  - remaining entries in the rebase-todo file, or
  *  - the last completed action was `edit`/`reword`/`break`/`exec` (a deliberate stop point).
  *
  * Used by the auto-open path to filter out the transient teardown window where REBASE_HEAD
  * still exists but the rebase has effectively finished.
  */
-async function hasActionableRebaseState(svc: ReturnType<Container['git']['getRepositoryService']>): Promise<boolean> {
+async function getActionableRebaseState(
+	svc: ReturnType<Container['git']['getRepositoryService']>,
+): Promise<{ actionable: boolean; hasConflicts: boolean }> {
 	const gitDir = await svc.config.getGitDir?.();
-	if (gitDir == null) return false;
+	if (gitDir == null) return { actionable: false, hasConflicts: false };
 
 	const todoUri = Uri.joinPath(gitDir.uri, 'rebase-merge', 'git-rebase-todo');
 
@@ -284,11 +296,13 @@ async function hasActionableRebaseState(svc: ReturnType<Container['git']['getRep
 		readAndParseRebaseDoneFile(todoUri),
 	]);
 
-	if ((getSettledValue(conflictsResult)?.length ?? 0) > 0) return true;
+	if ((getSettledValue(conflictsResult)?.length ?? 0) > 0) return { actionable: true, hasConflicts: true };
 
 	const todoContent = getSettledValue(todoContentResult);
-	if (todoContent != null && parseRebaseTodo(todoContent).entries.length > 0) return true;
+	if (todoContent != null && parseRebaseTodo(todoContent).entries.length > 0) {
+		return { actionable: true, hasConflicts: false };
+	}
 
 	const lastAction = getSettledValue(doneResult)?.entries.at(-1)?.action;
-	return getActionablePauseAction(lastAction) != null;
+	return { actionable: getActionablePauseAction(lastAction) != null, hasConflicts: false };
 }
