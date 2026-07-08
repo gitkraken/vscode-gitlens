@@ -12440,7 +12440,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			return worktreesByBranch?.get(ref.id);
 		}
 		if (isGraphItemRefContext(item, 'revision')) {
-			const { ref } = item.webviewItemValue;
+			const { ref, worktreePath } = item.webviewItemValue;
 			// Secondary WIP row: ref.ref is `uncommitted` AND ref.repoPath is the worktree's own
 			// path (different from the main repo path). Resolve by path. Primary WIP also has
 			// ref.ref === uncommitted but ref.repoPath === main repo path — keep the original
@@ -12448,6 +12448,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// change their existing behavior.
 			if (ref.ref === uncommitted && ref.repoPath !== this._graph?.repoPath) {
 				return this._graph?.worktrees?.find(w => w.path === ref.repoPath);
+			}
+			// Worktree sidebar row for a detached worktree: the context carries the exact worktree
+			// path. Prefer it over SHA matching, which is ambiguous when two worktrees share a HEAD
+			// sha (e.g. a detached worktree created at the current tip). Excludes `uncommitted` so
+			// primary WIP (whose `worktreePath` is the main repo path) still falls through to the
+			// `undefined` return below that protects `explainWip`.
+			if (ref.ref !== uncommitted && worktreePath != null) {
+				const worktree = this._graph?.worktrees?.find(
+					w => w.uri.fsPath === worktreePath || w.path === worktreePath,
+				);
+				if (worktree != null) return worktree;
 			}
 			return this._graph?.worktrees?.find(w => w.sha === ref.ref);
 		}
