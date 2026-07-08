@@ -17,6 +17,7 @@ import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri, getAvatarUriFromGravatarEmail } from '../../avatars.js';
 import type { DiffWithCommandArgs } from '../../commands/diffWith.js';
+import type { ResolveConflictsCommandArgs } from '../../commands/resolveConflicts.js';
 import type { GlWebviewCommandsOrCommandsWithSuffix } from '../../constants.commands.js';
 import type { RebaseEditorTelemetryContext } from '../../constants.telemetry.js';
 import type { Container } from '../../container.js';
@@ -45,6 +46,7 @@ import type { Subscription } from '../../plus/gk/models/subscription.js';
 import { isSubscriptionTrialOrPaidFromState } from '../../plus/gk/utils/subscription.utils.js';
 import { executeCommand, executeCoreCommand } from '../../system/-webview/command.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { getContext, onDidChangeContext } from '../../system/-webview/context.js';
 import { closeTab } from '../../system/-webview/vscode/tabs.js';
 import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
@@ -86,6 +88,7 @@ import {
 	ReorderCommand,
 	ResolveAllConflictsCommand,
 	ResolveConflictCommand,
+	ResolveConflictsInGraphCommand,
 	RevealRefCommand,
 	SearchCommand,
 	ShiftEntriesCommand,
@@ -185,6 +188,11 @@ export class RebaseWebviewProvider implements Disposable {
 			}),
 			this.container.onboarding.onDidChange(e => {
 				if (e.key === 'rebaseEditor:closeWarning') {
+					this.updateState();
+				}
+			}),
+			onDidChangeContext(key => {
+				if (key === 'gitlens:ai:allowed') {
 					this.updateState();
 				}
 			}),
@@ -574,6 +582,19 @@ export class RebaseWebviewProvider implements Disposable {
 				}
 			}
 		}
+	}
+
+	@ipcCommand(ResolveConflictsInGraphCommand)
+	@debug()
+	private async onResolveConflictsInGraph(): Promise<void> {
+		if (!this.container.ai.allowed) return;
+
+		this.host.sendTelemetryEvent('rebaseEditor/action/resolveConflictsInGraph');
+
+		await executeCommand<ResolveConflictsCommandArgs>('gitlens.ai.resolveConflicts', {
+			repoPath: this.repoPath,
+			source: 'rebaseEditor',
+		});
 	}
 
 	private async applyConflictResolution(
@@ -1113,6 +1134,7 @@ export class RebaseWebviewProvider implements Disposable {
 			subscription: subscription,
 			conflictFiles: conflictFiles,
 			closeWarningDismissed: this.container.onboarding.isDismissed('rebaseEditor:closeWarning'),
+			aiAllowed: getContext('gitlens:ai:allowed', false),
 		};
 	}
 

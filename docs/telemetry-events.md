@@ -6015,6 +6015,27 @@ void
 }
 ```
 
+### rebaseEditor/action/resolveConflictsInGraph
+
+> Sent when the user opens the Commit Graph resolve mode from the conflict panel
+
+```typescript
+{
+  'context.ascending': boolean,
+  'context.done.count': number,
+  'context.hasConflicts': boolean,
+  'context.isPaused': boolean,
+  'context.isRebasing': boolean,
+  'context.preservesMerges': boolean,
+  'context.session.start': string,
+  'context.todo.count': number,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### rebaseEditor/action/revealRef
 
 > Sent when the user reveals a ref (commit/branch) in graph or commit details

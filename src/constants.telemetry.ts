@@ -575,6 +575,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/stageConflict': RebaseEditorStageConflictEvent;
 	/** Sent when the user resolves all conflict files by taking one side */
 	'rebaseEditor/action/resolveAllConflicts': RebaseEditorResolveAllConflictsEvent;
+	/** Sent when the user opens the Commit Graph resolve mode from the conflict panel */
+	'rebaseEditor/action/resolveConflictsInGraph': RebaseEditorContextEventData;
 	/** Sent when the user reveals a ref (commit/branch) in graph or commit details */
 	'rebaseEditor/action/revealRef': RebaseEditorRevealRefEvent;
 
@@ -2307,6 +2309,7 @@ export type RebaseEditorTelemetryEvent =
 	| 'rebaseEditor/action/resolveConflict'
 	| 'rebaseEditor/action/stageConflict'
 	| 'rebaseEditor/action/resolveAllConflicts'
+	| 'rebaseEditor/action/resolveConflictsInGraph'
 	| 'rebaseEditor/action/revealRef'
 	| 'rebaseEditor/entries/changed'
 	| 'rebaseEditor/entries/moved'
