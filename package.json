@@ -1348,6 +1348,16 @@
 						"scope": "window",
 						"order": 1000
 					},
+					"gitlens.graph.experimental.homeHeader.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "(Experimental) Specifies whether to show the home header (account and integrations status) at the top of the _Commit Graph_",
+						"scope": "window",
+						"order": 1090,
+						"tags": [
+							"experimental"
+						]
+					},
 					"gitlens.graph.experimental.kanban.enabled": {
 						"type": "boolean",
 						"default": true,

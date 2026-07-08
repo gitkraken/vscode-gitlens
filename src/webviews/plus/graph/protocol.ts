@@ -484,6 +484,7 @@ export interface GraphComponentConfig {
 	detailsLocation?: 'auto' | 'right' | 'bottom';
 	dimMergeCommits?: boolean;
 	enabledRefMetadataTypes?: GraphRefMetadataType[];
+	experimentalHomeHeaderEnabled?: boolean;
 	experimentalKanbanEnabled?: boolean;
 	experimentalVisualizationsEnabled?: boolean;
 	/** Raw setting value for the Activity-mode treemap decay window — drives the picker selection. */
