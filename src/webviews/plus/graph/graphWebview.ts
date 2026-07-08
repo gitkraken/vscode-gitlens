@@ -218,6 +218,8 @@ import type { ConflictToolsIntegration } from '../../../plus/coretools/conflict/
 import type {
 	ConflictProgressEvent,
 	Resolution as ConflictToolsResolution,
+	ResolutionContext,
+	ResolutionRefs,
 } from '../../../plus/coretools/conflict/types.js';
 import { showPatchesView } from '../../../plus/drafts/actions.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
@@ -2231,19 +2233,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 
 					const svc = this.container.git.getRepositoryService(repoPath);
-					const status = await svc.pausedOps?.getPausedOperationStatus?.();
-					if (status == null) {
-						return { error: { message: 'No active merge, rebase, or cherry-pick conflicts to resolve.' } };
-					}
+					// Conflicts can exist WITHOUT a paused operation (stash pop/apply, a `pull --rebase --autostash`
+					// re-apply, or `merge --quit`) — refs are optional enrichment, so a missing status must not block
+					// the run. The `targets.length === 0` check below handles the truly-nothing-to-resolve case.
+					const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
 
-					const refs = {
-						ours: status.HEAD?.ref ?? 'HEAD',
-						theirs: status.incoming?.ref ?? 'MERGE_HEAD',
-						...(status.mergeBase != null ? { base: status.mergeBase } : {}),
-					};
 					// `instructions` (whole-run "Refine" feedback) rides conflict-tools' first-class
 					// `ResolutionContext.userGuidance`, which 0.2.0 renders into the prompt.
-					const context = { refs: refs, ...(instructions ? { userGuidance: instructions } : {}) };
+					const context: ResolutionContext = {
+						...(refs != null ? { refs: refs } : {}),
+						...(instructions ? { userGuidance: instructions } : {}),
+					};
 
 					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
 					const resolveSignal = toAbortSignal(token);
@@ -2447,16 +2447,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					}
 
 					const svc = this.container.git.getRepositoryService(repoPath);
-					const status = await svc.pausedOps?.getPausedOperationStatus?.();
-					if (status == null) {
-						return { error: { message: 'The merge, rebase, or cherry-pick is no longer in progress.' } };
-					}
-
-					const refs = {
-						ours: status.HEAD?.ref ?? 'HEAD',
-						theirs: status.incoming?.ref ?? 'MERGE_HEAD',
-						...(status.mergeBase != null ? { base: status.mergeBase } : {}),
-					};
+					// No paused-op requirement — see `resolveConflicts` above. Staleness is covered by the
+					// session check above and the `entry == null` check below.
+					const refs = getResolutionRefs(await svc.pausedOps?.getPausedOperationStatus?.());
 
 					const { token, dispose: disposeCancellation } = fromAbortSignal(signal, this._aiCancellations);
 					const resolveSignal = toAbortSignal(token);
@@ -2486,7 +2479,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							{
 								svc: svc,
 								conflict: conflict,
-								context: { refs: refs, userGuidance: feedback },
+								context: { ...(refs != null ? { refs: refs } : {}), userGuidance: feedback },
 								signal: resolveSignal,
 								// Same conversation as the run being retried (an active session implies
 								// the ID exists; minting here is just a defensive fallback).
@@ -2561,20 +2554,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 					const svc = this.container.git.getRepositoryService(repoPath);
 					try {
-						// Stale guard: if the paused op ended externally (merge aborted/committed) between
-						// generation and apply, the cached resolutions are stale — refuse rather than write
-						// AI content over a working tree the user has since changed.
-						const pausedOp = await svc.pausedOps?.getPausedOperationStatus?.();
-						if (pausedOp == null) {
-							this.discardResolveSession(repoPath);
-							return {
-								error: {
-									message:
-										'The merge, rebase, or cherry-pick is no longer in progress — resolutions were not applied.',
-								},
-							};
-						}
-
 						const included = includedFilePaths != null ? new Set(includedFilePaths) : undefined;
 						// Never apply 'skipped' files — they were intentionally left conflicted.
 						const selected = session.resolutions.filter(
@@ -2584,9 +2563,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 							return { error: { message: 'No applicable resolutions were selected.' } };
 						}
 
-						// Per-file stale guard: only apply files still unmerged. A file resolved externally
-						// (manually or via another tool) since generation must not be clobbered with stale
-						// AI content. Skipped files are surfaced in the result.
+						// Per-file stale guard — the sole staleness defense: only apply files still unmerged.
+						// A file resolved externally (manually, via another tool, or by an op ending — abort/
+						// continue/reset all clear unmerged entries) since generation must not be clobbered
+						// with stale AI content. Deliberately NOT gated on a paused operation existing:
+						// op-less conflicts (stash pop, autostash) never have one, and `merge --quit` removes
+						// the op while the files remain genuinely conflicted. Skipped files are surfaced in
+						// the result.
 						const stillConflicted = await integration.listUnmergedPaths(svc);
 						const toApply = selected.filter(r => stillConflicted.has(r.filePath));
 						const skipped = selected.length - toApply.length;
@@ -12539,6 +12522,21 @@ type GraphItemRefs<T> = {
 	active: T | undefined;
 	selection: T[];
 };
+
+/** Derives the AI conflict resolver's ours/theirs/base refs from a paused operation's status.
+ *  Returns `undefined` when no operation is active — conflicts can exist without one (stash
+ *  pop/apply, `pull --rebase --autostash` re-apply, `merge --quit`), and there is no reliable
+ *  ref to name for `theirs` (e.g. `stash@{0}` may be the wrong stash). Guessing would feed the
+ *  resolver a misleading three-way diff; without refs, conflict-tools skips that diff and
+ *  resolves from the conflict markers, which is the safe degradation. */
+function getResolutionRefs(status: GitPausedOperationStatus | undefined): ResolutionRefs | undefined {
+	if (status == null) return undefined;
+	return {
+		ours: status.HEAD?.ref ?? 'HEAD',
+		theirs: status.incoming?.ref ?? 'MERGE_HEAD',
+		...(status.mergeBase != null ? { base: status.mergeBase } : {}),
+	};
+}
 
 /** Logs each resolution's AI token usage (when the provider reported it) plus a run total to the
  *  debug logs — usage is diagnostic detail, so it stays out of the resolve results UI. */
