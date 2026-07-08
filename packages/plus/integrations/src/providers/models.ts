@@ -1004,6 +1004,15 @@ export function toProviderPullRequestState(state: PullRequestState): GitPullRequ
 			: GitPullRequestState.Merged;
 }
 
+// Normalizes a requested-states list into the provider-apis `states` filter. An empty `include` is
+// treated as "no explicit filter" (`undefined`) rather than `[]`, so providers fall back to their
+// default (open-only) behavior instead of relying on each provider coercing an empty array.
+export function toProviderPullRequestStates(
+	include: PullRequestState[] | undefined,
+): GitPullRequestState[] | undefined {
+	return include?.length ? include.map(toProviderPullRequestState) : undefined;
+}
+
 export function fromProviderPullRequestState(state: GitPullRequestState): PullRequestState {
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
@@ -1071,10 +1080,10 @@ export function resolveProviderScope(
 }
 
 export function providerPullRequestMatchesSearch(pr: ProviderPullRequest, search: string): boolean {
-	const term = search.trim().toLocaleLowerCase();
+	const term = search.trim().toLowerCase();
 	if (term.length === 0) return true;
 
-	return pr.title.toLocaleLowerCase().includes(term) || (pr.description?.toLocaleLowerCase().includes(term) ?? false);
+	return pr.title.toLowerCase().includes(term) || (pr.description?.toLowerCase().includes(term) ?? false);
 }
 
 function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {

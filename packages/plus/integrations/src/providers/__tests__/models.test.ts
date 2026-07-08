@@ -28,18 +28,25 @@ suite('toProviderPullRequestStates', () => {
 		assert.equal(toProviderPullRequestStates(undefined), undefined);
 	});
 
-	test('returns undefined when an empty state list is provided', () => {
+	test('returns undefined when an empty include/state list is provided', () => {
 		assert.equal(toProviderPullRequestStates([]), undefined);
 	});
 
-	test('maps a specific requested state', () => {
+	test('maps a specific requested state filter', () => {
 		assert.deepEqual(toProviderPullRequestStates('open'), [toProviderPullRequestState('opened')]);
 	});
 
-	test('maps all requested states', () => {
+	test('maps all requested state filters', () => {
 		assert.deepEqual(toProviderPullRequestStates('all'), [
 			toProviderPullRequestState('opened'),
 			toProviderPullRequestState('closed'),
+			toProviderPullRequestState('merged'),
+		]);
+	});
+
+	test('maps include arrays', () => {
+		assert.deepEqual(toProviderPullRequestStates(['opened', 'merged']), [
+			toProviderPullRequestState('opened'),
 			toProviderPullRequestState('merged'),
 		]);
 	});

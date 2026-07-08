@@ -47,4 +47,8 @@ suite('filterPullRequestsBySearchState', () => {
 		assert.deepStrictEqual(ids(['opened', 'merged']), ['1', '3']);
 		assert.deepStrictEqual(ids(['opened', 'closed', 'merged']), ['1', '2', '3']);
 	});
+
+	test('ignores duplicate states when deciding to skip filtering', () => {
+		assert.deepStrictEqual(ids(['opened', 'opened', 'closed']), ['1', '2']);
+	});
 });

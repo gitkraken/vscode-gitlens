@@ -1158,6 +1158,7 @@ export class ProvidersApi {
 					assigneeLogins: options?.assigneeLogins,
 					reviewerId: options?.reviewerId,
 					states: options?.states,
+					repo: options?.repo,
 				},
 				// `azureToken` is always a PAT here (the raw token when `isPAT`, otherwise a PAT derived from
 				// the OAuth token), so it must be sent as a PAT regardless of the incoming `options?.isPAT`.
