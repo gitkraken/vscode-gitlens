@@ -321,9 +321,14 @@ export class ProvidersApi {
 
 	private async getProviderToken<T extends IntegrationIds>(
 		provider: ProviderInfo & { id: T },
-		options?: { createSessionIfNeeded?: boolean },
+		options?: { createSessionIfNeeded?: boolean; connectionId?: string },
 	): Promise<TokenWithInfo<T> | undefined> {
-		const providerDescriptor = { domain: provider.domain, scopes: provider.scopes };
+		// When a specific connection is requested, resolve that connection's cloud session (mirroring
+		// `Integration.resolveReadSession`); otherwise keep the plain descriptor so the primary is resolved.
+		const providerDescriptor =
+			options?.connectionId != null
+				? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
+				: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
 			const session = await authProvider.getSession(providerDescriptor, {
@@ -356,9 +361,12 @@ export class ProvidersApi {
 			throw new Error(`Provider id mismatch: expected ${providerId} but got ${provider.id}`);
 		}
 
+		const connectionId = 'connectionId' in tokenOptInfo ? tokenOptInfo.connectionId : undefined;
 		const tokenWithInfo = tokenOptInfo?.accessToken
 			? tokenOptInfo
-			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T });
+			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T }, {
+					connectionId: connectionId,
+				});
 		if (tokenWithInfo == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}

@@ -352,13 +352,14 @@ export abstract class GitHostIntegration<
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
 		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string },
+		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
+		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		if (
@@ -398,7 +399,10 @@ export abstract class GitHostIntegration<
 
 				let userAccount: ProviderAccount | undefined;
 				try {
-					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
+					userAccount = await api.getCurrentUserForInstance(
+						{ providerId: providerId, connectionId: connectionId },
+						organization,
+					);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
 					return undefined;
@@ -441,7 +445,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
-							{ providerId: providerId },
+							{ providerId: providerId, connectionId: connectionId },
 							projectInput.namespace,
 							projectInput.project,
 							{
@@ -476,7 +480,7 @@ export abstract class GitHostIntegration<
 		if (options?.filters != null) {
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser({ providerId: providerId });
+				userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return undefined;
@@ -514,11 +518,15 @@ export abstract class GitHostIntegration<
 				const data: ProviderIssue[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getIssuesForRepo({ providerId: providerId }, repoInput.repo, {
-							...getIssuesOptions,
-							cursor: repoInput.cursor,
-							baseUrl: options?.customUrl,
-						});
+						const results = await api.getIssuesForRepo(
+							{ providerId: providerId, connectionId: connectionId },
+							repoInput.repo,
+							{
+								...getIssuesOptions,
+								cursor: repoInput.cursor,
+								baseUrl: options?.customUrl,
+							},
+						);
 						data.push(...results.values);
 						if (results.paging?.more) {
 							hasMore = true;
@@ -541,7 +549,7 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getIssuesForRepos({ providerId: providerId }, reposOrRepoIds, {
+			return await api.getIssuesForRepos({ providerId: providerId, connectionId: connectionId }, reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
@@ -555,13 +563,14 @@ export abstract class GitHostIntegration<
 	async getMyPullRequestsForRepos(
 		reposOrRepoIds: ProviderReposInput,
 		options?: { filters?: PullRequestFilter[]; cursor?: string; customUrl?: string },
+		connectionId?: string,
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
+		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		if (
@@ -601,14 +610,17 @@ export abstract class GitHostIntegration<
 
 				const organization: string = first(organizations.values())!;
 				try {
-					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
+					userAccount = await api.getCurrentUserForInstance(
+						{ providerId: providerId, connectionId: connectionId },
+						organization,
+					);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser({ providerId: providerId });
+					userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
@@ -663,11 +675,15 @@ export abstract class GitHostIntegration<
 				const data: ProviderPullRequest[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getPullRequestsForRepo({ providerId: providerId }, repoInput.repo, {
-							...getPullRequestsOptions,
-							cursor: repoInput.cursor,
-							baseUrl: options?.customUrl,
-						});
+						const results = await api.getPullRequestsForRepo(
+							{ providerId: providerId, connectionId: connectionId },
+							repoInput.repo,
+							{
+								...getPullRequestsOptions,
+								cursor: repoInput.cursor,
+								baseUrl: options?.customUrl,
+							},
+						);
 						data.push(...results.values);
 						if (results.paging?.more) {
 							hasMore = true;
@@ -690,11 +706,15 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getPullRequestsForRepos({ providerId: providerId }, reposOrRepoIds, {
-				...getPullRequestsOptions,
-				cursor: options?.cursor,
-				baseUrl: options?.customUrl,
-			});
+			return await api.getPullRequestsForRepos(
+				{ providerId: providerId, connectionId: connectionId },
+				reposOrRepoIds,
+				{
+					...getPullRequestsOptions,
+					cursor: options?.cursor,
+					baseUrl: options?.customUrl,
+				},
+			);
 		} catch (ex) {
 			Logger.error(ex, 'getPullRequestsForRepos');
 			return undefined;
