@@ -132,10 +132,12 @@ baseRefOid
 headRefName
 headRefOid
 headRepository {
+	isFork
 	name
 	owner {
 		login
 	}
+	sshUrl
 	url
 }
 isCrossRepository
@@ -148,6 +150,7 @@ repository {
 	owner {
 		login
 	}
+	sshUrl
 	url
 	viewerPermission
 }

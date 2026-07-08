@@ -682,6 +682,9 @@ export abstract class GitHostIntegration<
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
 								baseUrl: options?.customUrl,
+								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+								includeRemoteInfo:
+									providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
 							},
 						);
 						data.push(...results.values);
@@ -713,6 +716,8 @@ export abstract class GitHostIntegration<
 					...getPullRequestsOptions,
 					cursor: options?.cursor,
 					baseUrl: options?.customUrl,
+					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+					includeRemoteInfo: providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
 				},
 			);
 		} catch (ex) {

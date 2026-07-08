@@ -18,6 +18,7 @@ import type {
 	GitMergeStrategy,
 	GitPullRequest,
 	GitRepository,
+	GitRepositoryRemoteInfo,
 	Jira,
 	JiraProject,
 	JiraResource,
@@ -47,6 +48,7 @@ import type { IssueMember, IssueProject, IssueShape } from '@gitlens/git/models/
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestMember,
+	PullRequestRef,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
@@ -159,6 +161,9 @@ export interface GetPullRequestsOptions {
 	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// Opt in to repository remote metadata (clone URLs) when the PR payload lacks it. Only Azure DevOps
+	// acts on this today (extra API call); it is a no-op for the other providers.
+	includeRemoteInfo?: boolean;
 }
 
 export interface GetPullRequestsForUserOptions {
@@ -876,6 +881,11 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
 
+function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {
+	// Match the SDK convention: only populate remoteInfo when both clone URLs are known.
+	return ref?.cloneHttps && ref?.cloneSsh ? { cloneUrlHTTPS: ref.cloneHttps, cloneUrlSSH: ref.cloneSsh } : null;
+}
+
 export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
 	return {
@@ -924,7 +934,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						owner: {
 							login: pr.repository.owner,
 						},
-						remoteInfo: null, // TODO: Add the urls to our model
+						remoteInfo: toProviderRemoteInfo(pr.refs?.base),
 					}
 				: {
 						id: '',
@@ -942,7 +952,8 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						owner: {
 							login: pr.refs.head.owner,
 						},
-						remoteInfo: null,
+						remoteInfo: toProviderRemoteInfo(pr.refs.head),
+						isFork: pr.refs.head.isFork,
 					}
 				: null,
 		headCommit:
@@ -1016,6 +1027,8 @@ export function fromProviderPullRequest(
 				url: pr.repository.remoteInfo?.cloneUrlHTTPS
 					? pr.repository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
+				cloneHttps: pr.repository.remoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: pr.repository.remoteInfo?.cloneUrlSSH || undefined,
 			},
 			head: {
 				branch: pr.headRef?.name ?? '',
@@ -1026,8 +1039,11 @@ export function fromProviderPullRequest(
 				url: pr.headRepository?.remoteInfo?.cloneUrlHTTPS
 					? pr.headRepository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
+				cloneHttps: pr.headRepository?.remoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: pr.headRepository?.remoteInfo?.cloneUrlSSH || undefined,
+				isFork: pr.headRepository?.isFork,
 			},
-			isCrossRepository: pr.headRepository?.id !== pr.repository.id,
+			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
 		pr.additions ?? undefined,
