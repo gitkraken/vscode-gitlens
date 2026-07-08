@@ -129,7 +129,7 @@ The skill never asks "what mode?" at start. Tactical by default (L1 + L2 active,
 
 ### 2. Live sweep (lens application)
 
-> **Default when running on Opus: delegate the mechanical driving to the `inspector-driver` subagent (Sonnet 5).** You launch/own the instance and apply the lenses (L1–L4 are your judgment); dispatch `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <the states + exact probes to collect> })` to gather the raw evidence (geometry, state, console/log excerpts) across many states in one batched ask, then reason over what it returns. Tell the driver not to `launch`/`teardown`. Keep pixel judgment (L3 visual polish) on yourself — take those screenshots directly. See `/live-inspect` → "Delegate the driving to a Sonnet driver" for the full pattern and caveats.
+> **Default when running on Opus or Fable: delegate the mechanical driving to the `inspector-driver` subagent (Sonnet 5).** You launch/own the instance and apply the lenses (L1–L4 are your judgment); dispatch `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <the states + exact probes to collect> })` to gather the raw evidence (geometry, state, console/log excerpts) across many states in one batched ask, then reason over what it returns. Tell the driver not to `launch`/`teardown`. Keep pixel judgment (L3 visual polish) on yourself — take those screenshots directly. See `/live-inspect` → "Delegate the driving to a Sonnet driver" for the full pattern and caveats.
 
 `launch` VS Code, then for **every** distinct mode/state/context the feature exposes:
 

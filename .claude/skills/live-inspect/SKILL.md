@@ -219,7 +219,7 @@ How you drive inspection decides whether it's cheap or ruinous. Internalize thes
 
 ### Delegate the driving to a Sonnet driver (default)
 
-When the session model is Opus, **default to dispatching the mechanical driving to the `inspector-driver` subagent (pinned to Sonnet 5)** — it costs ~1/5 per token and a smoke test showed quality parity on mechanical inspection (DOM reads, extension-host API reads, measurements). You stay the orchestrator: you decide the probe list, you interpret the returned evidence, you decide fixes.
+When the session model is Opus or Fable, **default to dispatching the mechanical driving to the `inspector-driver` subagent (pinned to Sonnet 5)** — it costs ~1/5 per token and a smoke test showed quality parity on mechanical inspection (DOM reads, extension-host API reads, measurements). You stay the orchestrator: you decide the probe list, you interpret the returned evidence, you decide fixes.
 
 - **Dispatch:** `Agent({ subagent_type: "inspector-driver", model: "sonnet", prompt: <setup + the exact probes/steps> })`. The agent's system prompt already encodes the driving discipline above, so give it a concrete step list, not a vague goal.
 - **You own the instance lifecycle.** Launch once yourself (or in the first dispatch), keep it alive, and tell drivers **not** to `launch`/`teardown` — they reuse your running instance. Teardown yourself when done.
