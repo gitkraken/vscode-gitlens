@@ -48,6 +48,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes copying changes to a worktree to no longer prompt to open that worktree afterward
 - Changes stashing to use the _Commit Graph_ working changes (WIP) commit-box draft message when one is present
 - Renames the _Open Worktree File_ action to _Open File (Worktree)_ for consistency with the new _Open Changes with Working File (Worktree)_ action
+- Changes how paused merge, rebase, cherry-pick, and revert operations with conflicts are surfaced &mdash; a single surface now opens: the _Commit Graph_'s working changes (WIP) details with the conflict banner, or the _Interactive Rebase Editor_ for rebases when the _Commit Graph_ is unavailable. Previously a rebase conflict could simultaneously open the rebase editor, force-focus the _Commits_ view, and show a toast offering to open the already-opening editor. The _Commits_ view is no longer force-focused by any paused operation, the rebase conflict toasts no longer offer _Open Rebase Editor_, and _Show Conflicts_ now consistently opens the _Commit Graph_ from all locations, including inside the rebase editor; interactive rebase pauses (todo editing, `edit`, `reword`, `break`) still open the rebase editor
 
 ### Removed
 
