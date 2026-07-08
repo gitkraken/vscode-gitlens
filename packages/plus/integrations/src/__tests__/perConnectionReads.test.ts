@@ -296,6 +296,72 @@ suite('per-connection reads (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('getMyIssuesForRepos treats an empty-string connectionId as the primary when refreshing', async () => {
+		const runtime = createFakeRuntime();
+		runtime.account.getAccount = async () => ({ id: 'me' });
+		await runtime.storage.store('integrations:configured', {
+			github: [{ id: 'primary-tok', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|primary-tok',
+			JSON.stringify({
+				id: 'primary-tok',
+				accessToken: 'stale-primary',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'github.com',
+				expiresAt: new Date(Date.now() - 60_000).toISOString(),
+			}),
+		);
+
+		const fetches: string[] = [];
+		runtime.account.fetchGkApi = (path: string) => {
+			fetches.push(path);
+			if (path === 'v1/provider-tokens/github') {
+				return Promise.resolve(
+					new Response(
+						JSON.stringify({
+							data: {
+								tokenId: 'primary-tok',
+								accessToken: 'fresh-primary',
+								expiresIn: 3600,
+								scopes: 'repo',
+								type: 'oauth',
+								domain: 'github.com',
+							},
+						}),
+						{ status: 200 },
+					),
+				);
+			}
+
+			return Promise.resolve(new Response(JSON.stringify({ error: 'unexpected path' }), { status: 404 }));
+		};
+
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		const captured = { token: undefined as string | undefined, called: false };
+		await captureReposApiToken(gh, ['getIssuesForReposFn', 'getIssuesForRepoFn'], captured);
+
+		await (
+			gh as unknown as {
+				getMyIssuesForRepos: (
+					repos: { namespace: string; name: string }[],
+					options: undefined,
+					connectionId: string,
+				) => Promise<unknown>;
+			}
+		).getMyIssuesForRepos([{ namespace: 'octo', name: 'repo' }], undefined, '');
+
+		assert.equal(captured.called, true, 'the paginated issue read reached the provider');
+		assert.equal(captured.token, 'fresh-primary', 'empty-string connectionId falls back to the primary token');
+		assert.deepEqual(fetches, ['v1/provider-tokens/github'], 'refresh stayed on the provider-primary path');
+
+		manager.dispose();
+	});
+
 	test('GitLab PR search resolves the username from the read session, not the primary account', async () => {
 		const runtime = createFakeRuntime();
 		// A secondary GitLab connection whose token differs from the (absent) primary.

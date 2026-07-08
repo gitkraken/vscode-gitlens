@@ -326,10 +326,10 @@ export class ProvidersApi {
 	): Promise<TokenWithInfo<T> | undefined> {
 		// When a specific connection is requested, resolve that connection's cloud session (mirroring
 		// `Integration.resolveReadSession`); otherwise keep the plain descriptor so the primary is resolved.
-		const providerDescriptor =
-			options?.connectionId != null
-				? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
-				: { domain: provider.domain, scopes: provider.scopes };
+		// An empty string is not a real target, so it must also fall through to the primary path.
+		const providerDescriptor = options?.connectionId
+			? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
+			: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
 			const session = await authProvider.getSession(providerDescriptor, {
