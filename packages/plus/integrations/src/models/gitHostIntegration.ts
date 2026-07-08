@@ -472,7 +472,9 @@ export abstract class GitHostIntegration<
 							{
 								...getIssuesOptions,
 								cursor: projectInput.cursor,
-								page: options?.page,
+								// Continuation is driven by the per-project cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: projectInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
 							},
@@ -552,7 +554,9 @@ export abstract class GitHostIntegration<
 								...getIssuesOptions,
 								cursor: repoInput.cursor,
 								baseUrl: options?.customUrl,
-								page: options?.page,
+								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: repoInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
 							},
@@ -746,7 +750,9 @@ export abstract class GitHostIntegration<
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
 								baseUrl: options?.customUrl,
-								page: options?.page,
+								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: repoInput.cursor == null ? options?.page : undefined,
 								pageSize: options?.pageSize,
 								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.

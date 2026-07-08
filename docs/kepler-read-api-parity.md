@@ -38,6 +38,13 @@ existing `cursor` / `more`. Reads accept `page` / `pageSize`.
 carry the opaque `cursor` forward. For numbered providers, `currentPage` + `totalPages`/`totalCount` map
 directly to Kepler's `{ currentPage, itemsPerPage }`.
 
+**Multi-repo caveat:** the repo-mode providers (GitLab, Bitbucket, Bitbucket Server, Azure) fan a
+`getMy*ForRepos` call out across repos and aggregate the results under a single composite cursor. There the
+numbered metadata (`currentPage`/`totalPages`/`totalCount`) is not aggregated — pagination continues via
+that composite cursor plus `hasMore`. An explicit `page` applies only to the first request per repo; on
+continuation the per-repo cursor takes over (it is not clobbered). The numbered metadata is surfaced on the
+direct single-call read path.
+
 ## 3. PR state selector (open / closed / merged)
 
 `getMyPullRequestsForRepos` and `searchMyPullRequests` accept a `PullRequestStateFilter`
