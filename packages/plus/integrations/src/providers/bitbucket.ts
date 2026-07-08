@@ -325,14 +325,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			return undefined;
 		}
 
-		const remotes = await this.ctx.repositories.getOpenRemotes();
-		const workspaceRepos = await nonnullSettled(
-			remotes.map(async (r: GitRemote) => {
-				const integration = await this.authenticationService.getByRemote(r);
-				const [namespace, name] = r.path.split('/');
-				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
-			}),
-		);
+		const workspaceRepos = await this.getWorkspaceRepoInputs();
 
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
@@ -541,6 +534,40 @@ export class BitbucketIntegration extends GitHostIntegration<
 	/** Classifies a caught repository-scope error into a structured {@link CollectionScopeFailure}. */
 	private toRepositoryFailure(repositoryId: string, ex: unknown): CollectionScopeFailure {
 		return toCollectionScopeFailure({ providerId: this.id, repositoryId: repositoryId }, ex);
+	}
+
+	protected override async searchProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: BitbucketRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
+	): Promise<PullRequest[] | undefined> {
+		const api = await this.getProvidersApi();
+		if (!api) return undefined;
+
+		const workspaceRepos =
+			repos != null
+				? repos.map(r => ({ name: r.name, namespace: r.owner }))
+				: await this.getWorkspaceRepoInputs();
+		if (workspaceRepos.length === 0) return undefined;
+
+		const result = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
+			query: searchQuery,
+			states: toProviderPullRequestStates(state),
+		});
+		return result.values?.map(pr => fromProviderPullRequest(pr, this));
+	}
+
+	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
+		const remotes = await this.ctx.repositories.getOpenRemotes();
+		return nonnullSettled(
+			remotes.map(async (r: GitRemote) => {
+				const integration = await this.authenticationService.getByRemote(r);
+				const [namespace, name] = r.path.split('/');
+				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
+			}),
+		);
 	}
 
 	protected override async searchProviderMyIssues(

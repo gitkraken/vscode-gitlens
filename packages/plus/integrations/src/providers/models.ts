@@ -1000,6 +1000,13 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
 
+export function providerPullRequestMatchesSearch(pr: ProviderPullRequest, search: string): boolean {
+	const term = search.trim().toLocaleLowerCase();
+	if (term.length === 0) return true;
+
+	return pr.title.toLocaleLowerCase().includes(term) || (pr.description?.toLocaleLowerCase().includes(term) ?? false);
+}
+
 /** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
 export function toProviderPullRequestStates(
 	state: PullRequestStateFilter | PullRequestStateFilter[] | undefined,

@@ -45,6 +45,7 @@ import type {
 import {
 	fromProviderIssue,
 	fromProviderPullRequest,
+	providerPullRequestMatchesSearch,
 	providersMetadata,
 	toProviderPullRequestStates,
 } from './models.js';
@@ -778,6 +779,56 @@ export abstract class AzureDevOpsIntegrationBase<
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 			metadata: metadata,
 		};
+	}
+
+	protected override async searchProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: AzureRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
+	): Promise<PullRequest[] | undefined> {
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		// `getProviderProjectsForResources` returns a collection result ({ values, metadata }); this search
+		// path only needs the resolved projects, so read `.values`.
+		const projects = (await this.getProviderProjectsForResources(session, orgs)).values;
+		if (projects.length === 0) return undefined;
+
+		const repoDescriptorsByProject = await this.getRepoDescriptorsForProjects(session, projects);
+		const repoDescriptors = [...repoDescriptorsByProject.values()].filter(r => r != null).flat();
+		const repoInputs =
+			repos == null
+				? undefined
+				: repoDescriptors.filter(r =>
+						repos.some(repo => repo.owner === r.resourceName && repo.name === r.name),
+					);
+		if (repoInputs?.length === 0) return [];
+
+		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
+
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options } = this.getApiOptions(session);
+		const result = await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
+			...options,
+			repo:
+				repoInputs?.length === 1
+					? {
+							id: repoInputs[0].id,
+							name: repoInputs[0].name,
+							namespace: repoInputs[0].resourceName,
+							project: repoInputs[0].projectName,
+						}
+					: undefined,
+			states: toProviderPullRequestStates(state),
+		});
+
+		const allowedRepoIds = repoInputs == null ? undefined : new Set(repoInputs.map(r => r.id));
+		return result.values
+			.filter(pr => allowedRepoIds == null || allowedRepoIds.has(pr.repository.id))
+			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
+			.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 	}
 
 	protected override async searchProviderMyIssues(

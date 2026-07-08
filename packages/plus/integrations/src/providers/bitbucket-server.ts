@@ -8,10 +8,12 @@ import type {
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -26,7 +28,12 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type { ProviderPullRequest, ProviderRepository } from './models.js';
-import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
+import {
+	fromProviderPullRequest,
+	providerPullRequestMatchesSearch,
+	providersMetadata,
+	toProviderPullRequestStates,
+} from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 import { parsePageCursor, toPageCursor } from './utils/providerPaging.js';
 
@@ -280,6 +287,45 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				cursor: result.hasMore && result.nextPage != null ? toPageCursor(result.nextPage) : '{}',
 			},
 		};
+	}
+
+	protected override async searchProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: BitbucketRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
+	): Promise<PullRequest[] | undefined> {
+		const api = await this.getProvidersApi();
+		if (!api) return undefined;
+
+		const repoInputs =
+			repos != null
+				? repos.map(r => ({ name: r.name, namespace: r.owner }))
+				: await this.getWorkspaceRepoInputs();
+		if (repoInputs.length === 0) return undefined;
+
+		const result = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), repoInputs, {
+			baseUrl: this.apiBaseUrl,
+			states: toProviderPullRequestStates(state),
+		});
+		return result.values
+			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
+			.map(pr => fromProviderPullRequest(pr, this));
+	}
+
+	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
+		const remotes = await this.ctx.repositories.getOpenRemotes();
+		return nonnullSettled(
+			remotes.map(async (r: GitRemote) => {
+				const integration = await this.authenticationService.getByRemote(r);
+				if (integration?.id !== this.id) return undefined;
+
+				const namespace = r.provider?.owner;
+				const name = r.provider?.repoName;
+				return namespace != null && name != null ? { name: name, namespace: namespace } : undefined;
+			}),
+		);
 	}
 
 	protected override async searchProviderMyIssues(
