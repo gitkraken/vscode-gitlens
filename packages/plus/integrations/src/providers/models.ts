@@ -157,6 +157,10 @@ export interface GetPullRequestsOptions {
 	authorLogin?: string;
 	assigneeLogins?: string[];
 	reviewRequestedLogin?: string;
+	// Reviewer filters keyed differently per provider: GitHub/GitLab use reviewRequestedLogin (login),
+	// Bitbucket/Azure DevOps use reviewerId (account id), Bitbucket Server uses reviewerLogin (login).
+	reviewerId?: string;
+	reviewerLogin?: string;
 	mentionLogin?: string;
 	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
@@ -568,8 +572,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'git',
 		iconKey: GitCloudHostIntegrationId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: {
@@ -589,8 +593,12 @@ export const providersMetadata: ProvidersMetadata = {
 		iconKey: GitCloudHostIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
@@ -603,8 +611,12 @@ export const providersMetadata: ProvidersMetadata = {
 		iconKey: GitCloudHostIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],

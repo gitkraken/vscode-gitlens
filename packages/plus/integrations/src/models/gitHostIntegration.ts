@@ -13,7 +13,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -351,7 +351,15 @@ export abstract class GitHostIntegration<
 
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string; page?: number; pageSize?: number },
+		options?: {
+			filters?: IssueFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			/** When true, don't constrain to the current user's assigned issues even if the Assignee filter is set. */
+			includeAllAssignees?: boolean;
+		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		const scope = getScopedLogger();
@@ -422,7 +430,10 @@ export abstract class GitHostIntegration<
 
 				getIssuesOptions = {
 					authorLogin: options.filters.includes(IssueFilter.Author) ? userFilterProperty : undefined,
-					assigneeLogins: options.filters.includes(IssueFilter.Assignee) ? [userFilterProperty] : undefined,
+					assigneeLogins:
+						!options.includeAllAssignees && options.filters.includes(IssueFilter.Assignee)
+							? [userFilterProperty]
+							: undefined,
 					mentionLogin: options.filters.includes(IssueFilter.Mention) ? userFilterProperty : undefined,
 				};
 			}
@@ -501,7 +512,10 @@ export abstract class GitHostIntegration<
 
 			getIssuesOptions = {
 				authorLogin: options.filters.includes(IssueFilter.Author) ? userFilterProperty : undefined,
-				assigneeLogins: options.filters.includes(IssueFilter.Assignee) ? [userFilterProperty] : undefined,
+				assigneeLogins:
+					!options.includeAllAssignees && options.filters.includes(IssueFilter.Assignee)
+						? [userFilterProperty]
+						: undefined,
 				mentionLogin: options.filters.includes(IssueFilter.Mention) ? userFilterProperty : undefined,
 			};
 		}
@@ -660,12 +674,34 @@ export abstract class GitHostIntegration<
 				return undefined;
 			}
 
+			// Route the "review requested from me" filter to the field each provider actually reads:
+			// GitHub/GitLab expect a login (reviewRequestedLogin), Bitbucket/Azure an account id (reviewerId),
+			// and Bitbucket Server a login (reviewerLogin). `userFilterProperty` is already the account id for
+			// Bitbucket/Azure and the username for the rest.
+			let reviewRequestedLogin: string | undefined;
+			let reviewerId: string | undefined;
+			let reviewerLogin: string | undefined;
+			if (options.filters.includes(PullRequestFilter.ReviewRequested)) {
+				switch (providerId) {
+					case GitCloudHostIntegrationId.Bitbucket:
+					case GitCloudHostIntegrationId.AzureDevOps:
+						reviewerId = userFilterProperty;
+						break;
+					case GitSelfManagedHostIntegrationId.BitbucketServer:
+						reviewerLogin = userFilterProperty;
+						break;
+					default:
+						reviewRequestedLogin = userFilterProperty;
+						break;
+				}
+			}
+
 			getPullRequestsOptions = {
 				authorLogin: options.filters.includes(PullRequestFilter.Author) ? userFilterProperty : undefined,
 				assigneeLogins: options.filters.includes(PullRequestFilter.Assignee) ? [userFilterProperty] : undefined,
-				reviewRequestedLogin: options.filters.includes(PullRequestFilter.ReviewRequested)
-					? userFilterProperty
-					: undefined,
+				reviewRequestedLogin: reviewRequestedLogin,
+				reviewerId: reviewerId,
+				reviewerLogin: reviewerLogin,
 				mentionLogin: options.filters.includes(PullRequestFilter.Mention) ? userFilterProperty : undefined,
 			};
 		}
