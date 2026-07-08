@@ -651,7 +651,7 @@ export class RebaseWebviewProvider implements Disposable {
 		await this._todoDocument.save();
 
 		const svc = this.container.git.getRepositoryService(this.repoPath);
-		await continuePausedOperation(svc);
+		await continuePausedOperation(this.container, svc);
 	}
 
 	@ipcCommand(RecomposeCommand)
@@ -701,7 +701,7 @@ export class RebaseWebviewProvider implements Disposable {
 	@debug()
 	private async onShowConflicts(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/showConflicts');
-		await showPausedOperationStatus(this.container, this.repoPath);
+		await showPausedOperationStatus(this.container, this.repoPath, { fromRebaseEditor: true });
 	}
 
 	@ipcCommand(SearchCommand)
@@ -714,7 +714,7 @@ export class RebaseWebviewProvider implements Disposable {
 	private async onSkip(): Promise<void> {
 		this.host.sendTelemetryEvent('rebaseEditor/action/skip');
 		const svc = this.container.git.getRepositoryService(this.repoPath);
-		await skipPausedOperation(svc);
+		await skipPausedOperation(this.container, svc);
 	}
 
 	@ipcCommand(StartCommand)

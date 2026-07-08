@@ -6,12 +6,12 @@ import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { getReferenceLabel } from '@gitlens/git/utils/reference.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../container.js';
+import { showPausedOperationStatus } from '../../git/actions/pausedOperation.js';
 import type { GlRepository } from '../../git/models/repository.js';
 import { showGitErrorMessage } from '../../messages.js';
 import { createDirectiveQuickPickItem, Directive } from '../../quickpicks/items/directive.js';
 import type { FlagsQuickPickItem } from '../../quickpicks/items/flags.js';
 import { createFlagsQuickPickItem } from '../../quickpicks/items/flags.js';
-import { executeCommand } from '../../system/-webview/command.js';
 import type { ViewsWithRepositoryFolders } from '../../views/viewBase.js';
 import type {
 	PartialStepState,
@@ -88,7 +88,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to revert due to conflicts. Resolve the conflicts before continuing, or abort the revert.',
 				);
-				void executeCommand('gitlens.showCommitsView');
+				void showPausedOperationStatus(this.container, state.repo.path);
 			}
 		} catch (ex) {
 			// Don't show an error message if the user intentionally aborted the revert
@@ -110,7 +110,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 				void window.showWarningMessage(
 					'Unable to revert. A revert is already in progress. Continue or abort the current revert first.',
 				);
-				void executeCommand('gitlens.showCommitsView');
+				void showPausedOperationStatus(this.container, state.repo.path);
 				return;
 			}
 
