@@ -1,8 +1,11 @@
 import * as assert from 'assert';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
+import { CacheController } from '@gitlens/utils/promiseCache.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import { run, runSpawn } from '../exec.js';
+import type { GitResultCache } from '../exec.types.js';
+import { Git } from '../git.js';
 
 function nodeArgs(script: string): string[] {
 	return ['-e', script];
@@ -203,6 +206,62 @@ suite('Shell Test Suite', () => {
 				assert.ok(error instanceof CancelledRunError);
 				return true;
 			});
+		});
+	});
+
+	suite('Git.run() caching + cancellation', () => {
+		// A superseded caller's abort must not reject a concurrent same-command rider. `git.run`'s caching
+		// branch must (a) forward the caller's cancellation into `getOrCreate`'s options — so each caller's
+		// own wait is raced independently — (b) bind the underlying run to the AGGREGATE signal the cache
+		// passes to the factory (fires only when all callers abort), NOT this caller's signal, and (c) NOT
+		// cache the empty result an aborted run produces.
+		test('forwards caller cancellation, binds the run to the aggregate signal, and invalidates aborted results', async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			// A non-aborted caller signal — if the factory (incorrectly) bound the run to this instead of the
+			// aggregate, the command would proceed to spawn rather than cancel.
+			const caller = new AbortController();
+
+			// The aggregate the cache hands the factory once every caller has aborted. Abort it exactly as the
+			// real `AbortAggregate` does — bare, no reason — so `GitQueue.run` rejects the still-queued command
+			// with a plain `Error` (not a `CancelledRunError`), which under `errors: 'ignore'` resolves to
+			// `{ exitCode: 0, cancelled: false }`. That empty, not-flagged result is exactly what must NOT be
+			// cached, so the factory has to invalidate on the aborted aggregate signal (not just on `cancelled`).
+			const aggregate = new AbortController();
+			aggregate.abort();
+
+			const cacheable = new CacheController();
+			let seenOptions: { cancellation?: AbortSignal; accessTTL?: number } | undefined;
+			const fakeCache: GitResultCache = {
+				getOrCreate: (_repoPath, _key, factory, options) => {
+					seenOptions = options;
+					return factory(cacheable, aggregate.signal);
+				},
+			};
+
+			const result = await git.run(
+				{
+					cwd: '/repo',
+					cancellation: caller.signal,
+					errors: 'ignore',
+					caching: { cache: fakeCache, options: { accessTTL: 1234 } },
+				},
+				'merge-base',
+				'--is-ancestor',
+				'a',
+				'b',
+			);
+
+			assert.strictEqual(
+				seenOptions?.cancellation,
+				caller.signal,
+				'caller cancellation forwarded to getOrCreate',
+			);
+			assert.strictEqual(seenOptions?.accessTTL, 1234, 'existing caching options preserved');
+			assert.strictEqual(caller.signal.aborted, false, 'caller signal never aborted');
+			// A bare-abort queue splice is NOT flagged cancelled — proving `cancelled` alone can't gate caching.
+			assert.strictEqual(result.cancelled, false, 'queue-spliced bare abort resolves cancelled:false');
+			assert.strictEqual(cacheable.invalidated, true, 'aborted result invalidated so it is never cached');
 		});
 	});
 });

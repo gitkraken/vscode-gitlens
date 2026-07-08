@@ -653,14 +653,29 @@ export class Git {
 			return options.caching.cache.getOrCreate(
 				options.caching.commonPath ?? options.cwd!,
 				gitCommand,
-				async cacheable => {
-					const result = await this.runCore<T>({ ...options, caching: undefined }, runArgs, gitCommand);
-					if (result.exitCode !== 0) {
+				async (cacheable, signal) => {
+					// Bind the shared spawn to the aggregate `signal` (fires only when ALL current callers
+					// abort), not this-caller's `options.cancellation` — otherwise a superseded caller's
+					// abort would kill the shared command and reject concurrent riders that never cancelled.
+					const result = await this.runCore<T>(
+						{ ...options, caching: undefined, cancellation: signal ?? options.cancellation },
+						runArgs,
+						gitCommand,
+					);
+					// Never cache a result that isn't a genuine command outcome. Under `errors: 'ignore'` a
+					// cancelled/aborted run RESOLVES an empty `{ exitCode: 0 }` (via SIGTERM kill it also
+					// carries `cancelled: true`; via a bare-abort queue splice it's `cancelled: false`), which
+					// — left cached — would be served as a real empty result for the full TTL (e.g. a valid
+					// merge-base read back as "none"). Invalidate on error, on cancellation, or whenever the
+					// aggregate signal aborted so the entry self-evicts instead of poisoning later callers.
+					if (result.exitCode !== 0 || result.cancelled || signal?.aborted) {
 						cacheable.invalidate();
 					}
 					return result;
 				},
-				options.caching.options,
+				// Forward this caller's cancellation so `getOrCreate` races each caller's own wait — an
+				// aborting caller rejects only itself, leaving the shared work (and its riders) intact.
+				{ ...options.caching.options, cancellation: options.cancellation },
 			);
 		}
 
