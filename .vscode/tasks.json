@@ -24,7 +24,8 @@
 				"isDefault": true
 			},
 			"presentation": {
-				"group": "watchers"
+				"group": "watchers",
+				"reveal": "silent"
 			},
 			"problemMatcher": ["$ts-checker-webpack"]
 		},
