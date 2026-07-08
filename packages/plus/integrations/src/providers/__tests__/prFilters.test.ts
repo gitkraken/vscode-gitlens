@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { createFakeRuntime } from '../../__tests__/fakeRuntime.js';
-import { GitCloudHostIntegrationId } from '../../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../../constants.js';
 import { createIntegrationManager } from '../../index.js';
 import { IssueFilter, PullRequestFilter } from '../models.js';
 
@@ -44,6 +44,7 @@ async function stubProvider(
 	).getProvidersApi();
 	const provider = api.providers[providerKey] as CapturingProvider;
 	provider.getCurrentUserFn = () => Promise.resolve({ data: account });
+	provider.getCurrentUserForInstanceFn = () => Promise.resolve({ data: account });
 	for (const fnName of listFnNames) {
 		provider[fnName] = input => {
 			captured.input = input as Record<string, unknown>;
@@ -84,6 +85,49 @@ suite('PR/issue filter routing (#5435)', () => {
 
 		assert.equal(captured.input?.reviewerId, 'acc-uuid', 'reviewer filter keyed by account id');
 		assert.equal(captured.input?.reviewRequestedLogin, undefined, 'login field not used for Bitbucket');
+
+		manager.dispose();
+	});
+
+	test('Azure DevOps Server review-requested filter is keyed by account id and includes remote info', async () => {
+		const runtime = createFakeRuntime();
+		await seedConnection(
+			runtime,
+			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			'ado.example.com',
+			'ado-sec',
+			'token-secondary',
+		);
+		const manager = createIntegrationManager(runtime);
+		const ado = await manager.get(GitSelfManagedHostIntegrationId.AzureDevOpsServer, 'ado.example.com');
+		assert.ok(ado != null, 'Azure DevOps Server integration resolves');
+
+		const captured: { input?: Record<string, unknown> } = {};
+		await stubProvider(
+			ado,
+			GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			{ id: 'ado-account-id', username: 'octo' },
+			['getPullRequestsForRepoFn'],
+			captured,
+		);
+
+		await (
+			ado as unknown as {
+				getMyPullRequestsForRepos: (
+					repos: { namespace: string; project: string; name: string }[],
+					options: { filters: PullRequestFilter[] },
+					connectionId: string,
+				) => Promise<unknown>;
+			}
+		).getMyPullRequestsForRepos(
+			[{ namespace: 'collection', project: 'project', name: 'repo' }],
+			{ filters: [PullRequestFilter.ReviewRequested] },
+			'ado-sec',
+		);
+
+		assert.equal(captured.input?.reviewerId, 'ado-account-id', 'reviewer filter keyed by account id');
+		assert.equal(captured.input?.reviewRequestedLogin, undefined, 'login field not used for Azure DevOps Server');
+		assert.equal(captured.input?.includeRemoteInfo, true, 'remote info requested for PR clone URL enrichment');
 
 		manager.dispose();
 	});

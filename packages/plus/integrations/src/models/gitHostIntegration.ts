@@ -39,6 +39,15 @@ import {
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
+function isAzureDevOpsProvider(
+	providerId: IntegrationIds,
+): providerId is GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer {
+	return (
+		providerId === GitCloudHostIntegrationId.AzureDevOps ||
+		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
+	);
+}
+
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -383,7 +392,7 @@ export abstract class GitHostIntegration<
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === GitCloudHostIntegrationId.AzureDevOps &&
+				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
@@ -391,7 +400,7 @@ export abstract class GitHostIntegration<
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
-		if (providerId === GitCloudHostIntegrationId.AzureDevOps) {
+		if (isAzureDevOpsProvider(providerId)) {
 			const organizations = new Set<string>();
 			const projects = new Set<string>();
 			for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
@@ -622,7 +631,7 @@ export abstract class GitHostIntegration<
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === GitCloudHostIntegrationId.AzureDevOps &&
+				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`);
@@ -637,7 +646,7 @@ export abstract class GitHostIntegration<
 			}
 
 			let userAccount: ProviderAccount | undefined;
-			if (providerId === GitCloudHostIntegrationId.AzureDevOps) {
+			if (isAzureDevOpsProvider(providerId)) {
 				const organizations = new Set<string>();
 				for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
 					organizations.add(repo.namespace);
@@ -682,6 +691,7 @@ export abstract class GitHostIntegration<
 			switch (providerId) {
 				case GitCloudHostIntegrationId.Bitbucket:
 				case GitCloudHostIntegrationId.AzureDevOps:
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 					userFilterProperty = userAccount.id;
 					break;
 				default:
@@ -705,6 +715,7 @@ export abstract class GitHostIntegration<
 				switch (providerId) {
 					case GitCloudHostIntegrationId.Bitbucket:
 					case GitCloudHostIntegrationId.AzureDevOps:
+					case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 						reviewerId = userFilterProperty;
 						break;
 					case GitSelfManagedHostIntegrationId.BitbucketServer:
@@ -756,8 +767,7 @@ export abstract class GitHostIntegration<
 								pageSize: options?.pageSize,
 								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-								includeRemoteInfo:
-									providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
+								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 							},
 						);
 						data.push(...results.values);
@@ -793,7 +803,7 @@ export abstract class GitHostIntegration<
 					pageSize: options?.pageSize,
 					states: states,
 					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-					includeRemoteInfo: providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
+					includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 				},
 			);
 		} catch (ex) {
