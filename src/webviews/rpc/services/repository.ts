@@ -149,6 +149,39 @@ export class RepositoryService {
 		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
 	}
 
+	/**
+	 * Like {@link onRepositoryChanged} + {@link onRepositoryWorkingChanged} combined into a
+	 * single signal, but works for a path that ISN'T a registered/opened `Repository` — e.g. a
+	 * secondary worktree GitLens hasn't surfaced, where no `GlRepository` instance exists so
+	 * `getRepository` returns `undefined` and both of the above silently no-op. Routes through
+	 * `GitRepositoryService.watch()`, which watches by path + git dir directly rather than
+	 * depending on a `GlRepository` model's watch lease (see that method's doc comment).
+	 * @param repoPath - Repository or worktree path to watch
+	 * @param callback - Called on index/head/heads structural changes or working-tree file edits
+	 * @returns Unsubscribe function that stops watching
+	 */
+	async onRepositoryOrWorktreeChanged(repoPath: string, callback: () => void): Promise<Unsubscribe> {
+		const watcher = await this.container.git.getRepositoryService(repoPath).watch();
+		if (watcher == null) return () => {};
+
+		const pendingKey = Symbol(`repositoryOrWorktreeChanged:${repoPath}`);
+		const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
+		const disposable = Disposable.from(
+			watcher,
+			watcher.onDidChange(e => {
+				if (e.changed('index', 'head', 'heads')) {
+					buffered(undefined);
+				}
+			}),
+			watcher.onDidChangeWorkingTree(() => buffered(undefined)),
+		);
+		const unsubscribe = () => {
+			this.buffer?.removePending(pendingKey);
+			disposable.dispose();
+		};
+		return this.tracker != null ? this.tracker.track(unsubscribe) : unsubscribe;
+	}
+
 	// ============================================================
 	// Commit & Branch Queries
 	// ============================================================

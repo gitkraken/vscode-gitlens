@@ -27,12 +27,21 @@ export type EventVisibilityKey = string | symbol;
  */
 export class SubscriptionTracker implements Disposable {
 	private _unsubscribes = new Set<Unsubscribe>();
+	private _disposed = false;
 
 	/**
 	 * Register an unsubscribe function for tracking.
 	 * @returns A wrapped unsubscribe that also removes itself from the tracker.
 	 */
 	track(unsubscribe: Unsubscribe): () => void {
+		// Already torn down — e.g. the webview was disposed while an async subscription method
+		// (the only ones with an await between resource-acquisition and track) was in flight.
+		// `dispose()` won't run again, so track-then-forget would leak; dispose the resource now.
+		if (this._disposed) {
+			(unsubscribe as () => void)();
+			return () => {};
+		}
+
 		this._unsubscribes.add(unsubscribe);
 		return () => {
 			this._unsubscribes.delete(unsubscribe);
@@ -47,6 +56,7 @@ export class SubscriptionTracker implements Disposable {
 	 * Called on reconnection (before fresh Connection is created) and on teardown.
 	 */
 	dispose(): void {
+		this._disposed = true;
 		for (const unsub of this._unsubscribes) {
 			// Cast is safe: `Unsubscribe` is `(() => void) | Promise<() => void>` because the webview-client side
 			// receives it async over RPC, but host-side callers always produce a synchronous `() => void`.

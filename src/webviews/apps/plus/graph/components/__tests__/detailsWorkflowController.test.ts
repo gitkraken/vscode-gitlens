@@ -108,6 +108,7 @@ function createServices(overrides?: {
 		repository: {
 			onRepositoryChanged: () => noopUnsubscribe,
 			onRepositoryWorkingChanged: () => noopUnsubscribe,
+			onRepositoryOrWorktreeChanged: () => noopUnsubscribe,
 		},
 		graphInspect: {
 			reviewChanges: overrides?.reviewChanges ?? (async () => ({ error: { message: 'not implemented' } })),
@@ -1341,6 +1342,7 @@ function createGenerateServices(calls: GenerateCall[]): ResolvedServices {
 		repository: {
 			onRepositoryChanged: () => noopUnsubscribe,
 			onRepositoryWorkingChanged: () => noopUnsubscribe,
+			onRepositoryOrWorktreeChanged: () => noopUnsubscribe,
 		},
 		graphInspect: {
 			reviewChanges: async () => ({ error: { message: 'not implemented' } }),

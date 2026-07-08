@@ -117,6 +117,13 @@ export class DetailsWorkflowController implements ReactiveController {
 	private _subscribedRepoPath: string | undefined;
 	private readonly _subscriptionGen = getScopedCounter();
 	private _subscriptionUnsubscribe: (() => void) | undefined;
+	/** `markBranchCompareStale` watch — keyed on the Compare side's effective path (the
+	 *  checked-out worktree when distinct from the graph's repo), not `host.repoPath`. Separate
+	 *  lifecycle from the fields above because this path can change independently of
+	 *  `host.repoPath` (Compare ref change, IWT toggle). See {@link ensureCompareWatchSubscription}. */
+	private _subscribedCompareWatchPath: string | undefined;
+	private readonly _compareWatchSubscriptionGen = getScopedCounter();
+	private _compareWatchSubscriptionUnsubscribe: (() => void) | undefined;
 	/** Tracks the graph's user-perceived repo so we can detect repo-selector switches that
 	 *  haven't yet propagated to `host.repoPath` (selection from the prior repo can mask the
 	 *  change until the user clicks a row in the new repo). `undefined` until the first
@@ -166,6 +173,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// against being reused without a refresh of its disposed-state flag.)
 		this._disconnected = false;
 		this.ensureSubscription(this.host.repoPath);
+		this.ensureCompareWatchSubscription(this.compareWatchPath());
 	}
 
 	hostDisconnected(): void {
@@ -177,6 +185,7 @@ export class DetailsWorkflowController implements ReactiveController {
 		// runs on teardown is owned by `gl-graph-app` (the registry owner), not the panel.
 		this._disconnected = true;
 		this.tearDownSubscription();
+		this.tearDownCompareWatchSubscription();
 	}
 
 	hostUpdate(): void {
@@ -235,6 +244,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			}
 			this.ensureSubscription(this.host.repoPath);
 		}
+
+		// Trigger 2b — compare-side worktree-aware staleness watch. Its effective path can change
+		// independently of `host.repoPath` (Compare ref change, IWT toggle), so it's re-evaluated
+		// on every render; `ensureCompareWatchSubscription` no-ops when the path hasn't changed.
+		this.ensureCompareWatchSubscription(this.compareWatchPath());
 
 		// (Trigger 3 — compose `{cancelled:true}` sentinel — removed. The sentinel now arrives via
 		// the operation's resolution and is handled by `onRunSettled`, which removes the entry +
@@ -2658,24 +2672,15 @@ export class DetailsWorkflowController implements ReactiveController {
 			const unsubscribe = await subscribeAll([
 				() =>
 					this.actions.services.repository.onRepositoryChanged(repoPath, data => {
-						if (this.host.isWipSelection()) {
-							const relevant = data.changes.some(
-								c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
-							);
-							if (relevant) {
-								this.actions.refreshWipBranchEnrichment();
-							}
-						}
+						if (!this.host.isWipSelection()) return;
 
-						const compareRelevant = data.changes.some(c => c === 'index' || c === 'head' || c === 'heads');
-						if (compareRelevant) {
-							this.actions.markBranchCompareStale();
+						const relevant = data.changes.some(
+							c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
+						);
+						if (relevant) {
+							this.actions.refreshWipBranchEnrichment();
 						}
 					}),
-				() =>
-					this.actions.services.repository.onRepositoryWorkingChanged(repoPath, () =>
-						this.actions.markBranchCompareStale(),
-					),
 			]);
 			if (typeof unsubscribe !== 'function') return;
 			if (gen !== this._subscriptionGen.current || this._subscribedRepoPath !== repoPath) {
@@ -2695,6 +2700,64 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Reset so a future reconnect treats the first hostUpdate as a fresh observation
 		// (no spurious mode exit on re-attach).
 		this._lastSeenGraphRepoPath = undefined;
+	}
+
+	/** The effective staleness-watch path: the Compare side's worktree when the comparison's
+	 *  rightRef is checked out in a worktree distinct from the graph's repo, else `host.repoPath`
+	 *  (already correct in that case — same repo the graph is showing). */
+	private compareWatchPath(): string | undefined {
+		// Only watch while a working-tree comparison is open — `markBranchCompareStale` drops every
+		// event unless the compare sheet/panel is open AND include-working-tree is on, so an
+		// always-on watch would hold an FS-watch lease (and shorten the shared working-tree debounce
+		// for other subscribers of the repo) for a callback that can't fire.
+		const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
+		if (!compareOpen || !this.actions.state.branchCompareIncludeWorkingTree.get()) return undefined;
+
+		return this.actions.state.branchCompareRightRefWorktreePath.get() ?? this.host.repoPath;
+	}
+
+	/**
+	 * Keeps `markBranchCompareStale` wired to the Compare side's effective path rather than
+	 * `host.repoPath` — when the Compare ref is checked out in a secondary worktree, edits there
+	 * (not in the graph's current repo) are what should stale the comparison. Secondary worktrees
+	 * are typically not surfaced/registered `Repository` instances, so this goes through
+	 * `onRepositoryOrWorktreeChanged` (works by path + git dir directly) rather than
+	 * `onRepositoryChanged`/`onRepositoryWorkingChanged` (which require a registered `Repository`
+	 * and silently no-op otherwise). Separate lifecycle from {@link ensureSubscription} — this
+	 * path can change (Compare ref switch, IWT toggle) without `host.repoPath` changing.
+	 */
+	private ensureCompareWatchSubscription(path: string | undefined): void {
+		if (path === this._subscribedCompareWatchPath) return;
+
+		this._compareWatchSubscriptionUnsubscribe?.();
+		this._compareWatchSubscriptionUnsubscribe = undefined;
+		this._subscribedCompareWatchPath = path;
+
+		if (path == null) return;
+
+		const gen = this._compareWatchSubscriptionGen.next();
+		void (async () => {
+			const unsubscribe = await subscribeAll([
+				() =>
+					this.actions.services.repository.onRepositoryOrWorktreeChanged(path, () =>
+						this.actions.markBranchCompareStale(),
+					),
+			]);
+			if (typeof unsubscribe !== 'function') return;
+			if (gen !== this._compareWatchSubscriptionGen.current || this._subscribedCompareWatchPath !== path) {
+				unsubscribe();
+				return;
+			}
+
+			this._compareWatchSubscriptionUnsubscribe = unsubscribe;
+		})();
+	}
+
+	private tearDownCompareWatchSubscription(): void {
+		this._compareWatchSubscriptionGen.next();
+		this._compareWatchSubscriptionUnsubscribe?.();
+		this._compareWatchSubscriptionUnsubscribe = undefined;
+		this._subscribedCompareWatchPath = undefined;
 	}
 
 	// endregion

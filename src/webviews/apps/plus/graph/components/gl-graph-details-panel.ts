@@ -54,6 +54,7 @@ import { DetailsWorkflowController } from './detailsWorkflowController.js';
 import type { ExpandState, GlDetailsAgentStatus } from './gl-details-agent-status.js';
 import { expandVisibleCategories } from './gl-details-agent-status.js';
 import type { FileCompareBetweenDetail } from './gl-details-compare-mode-panel.js';
+import { hasOnlyWip } from './gl-details-compare-mode-panel.js';
 import type { GlDetailsResolveModePanel } from './gl-details-resolve-mode-panel.js';
 import type {
 	ReviewAnalyzeAreaDetail,
@@ -77,7 +78,6 @@ import './gl-details-compose-mode-panel.js';
 import './gl-details-review-mode-panel.js';
 import './gl-details-resolve-mode-panel.js';
 import './gl-commit-box.js';
-import './gl-details-compare-mode-panel.js';
 import './gl-details-wip-empty-pane.js';
 import './gl-details-wip-header.js';
 
@@ -2441,7 +2441,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		leftRef: string | undefined,
 		rightRef: string | undefined,
 	): { ref: string } | undefined {
-		const fallback = activeTab === 'behind' ? leftRef : rightRef;
+		// When the Ahead side shows only working files (no commits), unscoped inline row actions
+		// (Open File, Open Changes with Working File) must target the working tree — matching the
+		// single-click and right-click paths — not the committed rightRef.
+		let fallback: string | undefined;
+		if (activeTab === 'behind') {
+			fallback = leftRef;
+		} else if (activeTab === 'ahead' && hasOnlyWip(this._state.branchCompareAheadCommits.get())) {
+			fallback = uncommitted;
+		} else {
+			fallback = rightRef;
+		}
 		const ref = this._state.branchCompareSelectedCommitSha.get() ?? fallback;
 		return ref != null ? { ref: ref } : undefined;
 	}

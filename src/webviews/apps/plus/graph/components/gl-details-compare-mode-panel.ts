@@ -64,6 +64,13 @@ export interface FileCompareBetweenDetail extends FileChangeListItemDetail {
 	rhsRef: string;
 }
 
+/** True when a comparison side's commit list holds only the Working Changes pseudo-commit (no real
+ *  commits) — the side then surfaces its working files as the unscoped aggregate. Exported so the
+ *  surrounding details panel's `compareFileRef` shares the exact same recognition. */
+export function hasOnlyWip(commits: readonly BranchComparisonCommit[]): boolean {
+	return commits.length === 1 && commits[0]?.sha === uncommitted;
+}
+
 @customElement('gl-details-compare-mode-panel')
 export class GlDetailsCompareModePanel extends LitElement {
 	static override styles = [
@@ -423,7 +430,15 @@ export class GlDetailsCompareModePanel extends LitElement {
 		overallFiles: BranchComparisonFile[],
 	): BranchComparisonFile[] {
 		const sel = this.selectedCommitSha;
-		if (sel) return commits.find(c => c.sha === sel)?.files ?? [];
+		if (sel) {
+			const selected = commits.find(c => c.sha === sel);
+			if (selected != null) return selected.files ?? [];
+			// Selection points at a commit no longer present (e.g. it became WIP via a reset) — fall
+			// through to the unscoped aggregate rather than showing an empty, mislabeled pane.
+		}
+
+		// No real commits but a WIP pseudo-commit present → show its working files as the aggregate.
+		if (hasOnlyWip(commits)) return commits[0].files ?? [];
 
 		return overallFiles;
 	}
@@ -567,6 +582,12 @@ export class GlDetailsCompareModePanel extends LitElement {
 		return this.aheadCommits[0]?.sha === uncommitted;
 	}
 
+	/** True when the Ahead side's only entry is the Working Changes pseudo-commit (no real
+	 *  commits) — the aggregate then shows the working files as `mergeBase → working`. */
+	private get aheadOnlyWip(): boolean {
+		return hasOnlyWip(this.aheadCommits);
+	}
+
 	private renderTab(tab: 'all' | 'ahead' | 'behind', label: string, count: number, tooltip: string) {
 		const isActive = this.activeTab === tab;
 		const isEmpty = count === 0 && !(tab === 'ahead' && this.aheadHasWip);
@@ -601,7 +622,9 @@ export class GlDetailsCompareModePanel extends LitElement {
 	}
 
 	private renderCommitList(commits: BranchComparisonCommit[]) {
-		if (commits.length === 0) {
+		// With no real commits, a lone Working Changes pseudo-commit is redundant with the aggregate
+		// (which shows its files directly) and is dropped from the list via the empty-state branch.
+		if (commits.length === 0 || hasOnlyWip(commits)) {
 			// Suppress "Up to date" / "No commits" while the comparison itself is changing — the
 			// panel-level progress strip + spinning tab badges already convey "calculating".
 			// Once the new comparison settles, the real empty message takes over. We don't suppress
@@ -634,8 +657,14 @@ export class GlDetailsCompareModePanel extends LitElement {
 			// Empty-side phrasing from the Compare side's perspective: "ahead of [base]" /
 			// "behind [base]" reads naturally and matches the natural git mental model. Only
 			// Ahead/Behind reach `renderCommitList`; the All Files tab uses `renderAllFilesTab`.
+			// Ahead + working changes present: the aggregate is showing those working files
+			// directly (see `filesForSelection`/`getActiveTabRefs`), so the message calls that out.
 			const emptyText =
-				this.activeTab === 'behind' ? `No commits behind ${baseLabel}` : `No commits ahead of ${baseLabel}`;
+				this.activeTab === 'behind'
+					? `No commits behind ${baseLabel}`
+					: this.aheadHasWip
+						? `No commits ahead of ${baseLabel}, showing working tree changes`
+						: `No commits ahead of ${baseLabel}`;
 			return html`<div
 				id="compare-tabpanel-${this.activeTab}"
 				class="compare-empty compare-empty--no-commits"
@@ -766,6 +795,27 @@ export class GlDetailsCompareModePanel extends LitElement {
 		const rightRef = this.rightRef;
 		const repoPath = this.repoPath;
 		if (!leftRef || !rightRef || !repoPath) return undefined;
+
+		// Working-tree rows (WIP scope, or the no-commits aggregate that shows working files) get the
+		// WIP file context so their right-click menu is the working-file menu (Stage/Unstage/Discard/
+		// working-diff Open Changes) instead of committed-comparison actions that could clobber the
+		// working changes. Guarded to the Ahead tab: `aheadOnlyWip` reads `aheadCommits` and is
+		// tab-agnostic, but the All tab's aggregate is `leftRef → working`, NOT `HEAD → working`, so a
+		// WIP context (sha: uncommitted → HEAD↔working) would be wrong there.
+		if (this.selectedCommitSha === uncommitted || (this.activeTab === 'ahead' && this.aheadOnlyWip)) {
+			const context: DetailsItemTypedContext = {
+				webviewItem: file.staged ? 'gitlens:file+staged' : 'gitlens:file+unstaged',
+				webviewItemValue: {
+					type: 'file',
+					path: file.path,
+					repoPath: file.repoPath || this.rightRefWorktreePath || repoPath,
+					sha: uncommitted,
+					staged: file.staged,
+					status: file.status,
+				},
+			};
+			return serializeWebviewItemContext(context);
+		}
 
 		// Per the file-context convention shared with multicommit/review-compare panels:
 		//   `sha` = rhs (newer / "to" side of the diff)
@@ -1216,6 +1266,10 @@ export class GlDetailsCompareModePanel extends LitElement {
 	 *  - **All tab + IWT on, unscoped**: `lhs = leftRef, rhs = ''` (S&C-style cumulative
 	 *    `base → working tree`). Gated to the All tab because Ahead/Behind file lists stay
 	 *    committed-only when IWT is on, so their direction must match their stat pills.
+	 *  - **Ahead tab, no real commits + IWT on** (`aheadOnlyWip`): `lhs = mergeBase, rhs = ''`.
+	 *    The aggregate is showing the working files directly (see `filesForSelection`); since
+	 *    ahead-count is 0 here, `mergeBase === rightRef === HEAD`, so this is the same diff as
+	 *    the WIP-scope case above, just unscoped.
 	 *  - **Ahead tab**: `lhs = mergeBase, rhs = rightRef` (what Compare added since divergence).
 	 *    Falls back to `lhs = leftRef` when no merge base exists (disjoint refs).
 	 *  - **Behind tab**: `lhs = mergeBase, rhs = leftRef` (what Base added since divergence).
@@ -1238,7 +1292,7 @@ export class GlDetailsCompareModePanel extends LitElement {
 		}
 
 		if (this.activeTab === 'ahead') {
-			return { lhs: this.mergeBase ?? leftRef, rhs: rightRef };
+			return { lhs: this.mergeBase ?? leftRef, rhs: this.aheadOnlyWip ? '' : rightRef };
 		}
 		if (this.activeTab === 'behind') {
 			return { lhs: this.mergeBase ?? rightRef, rhs: leftRef };
