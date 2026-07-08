@@ -161,6 +161,10 @@ export interface GetPullRequestsOptions {
 	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// 1-based page to request from numbered-page providers; takes precedence over a page-typed cursor.
+	page?: number;
+	// Items to request per page (numbered-page providers, plus GitHub's maxPageSize).
+	pageSize?: number;
 	// Opt in to repository remote metadata (clone URLs) when the PR payload lacks it. Only Azure DevOps
 	// acts on this today (extra API call); it is a no-op for the other providers.
 	includeRemoteInfo?: boolean;
@@ -198,6 +202,10 @@ export interface GetIssuesOptions {
 	mentionLogin?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// 1-based page to request from numbered-page providers; takes precedence over a page-typed cursor.
+	page?: number;
+	// Items to request per page (numbered-page providers, plus GitHub's maxPageSize).
+	pageSize?: number;
 }
 
 export interface GetIssuesForRepoInput extends GetIssuesOptions {
@@ -235,6 +243,10 @@ export interface PageInfo {
 	hasNextPage: boolean;
 	endCursor?: string | null;
 	nextPage?: number | null;
+	// Numbered-page providers (Bitbucket, Bitbucket Server, Azure DevOps) additionally report these.
+	currentPage?: number | null;
+	totalPages?: number | null;
+	totalCount?: number | null;
 }
 
 export type GetRepoFn = (

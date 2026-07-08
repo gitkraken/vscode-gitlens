@@ -454,16 +454,29 @@ export class ProvidersApi {
 		}
 		const cursorValue = cursorInfo.value;
 		const cursorType = cursorInfo.type;
+		// An explicit numbered `page` request wins over a page-typed cursor; otherwise follow the cursor. A
+		// live cursor-typed cursor still takes precedence so an in-flight continuation is never clobbered.
+		const requestedPage: number | undefined = typeof args?.page === 'number' ? args.page : undefined;
+		const requestedPageSize: number | undefined = typeof args?.pageSize === 'number' ? args.pageSize : undefined;
 		let cursorOrPage = {};
-		if (cursorType === 'page') {
+		if (requestedPage != null && cursorType !== 'cursor') {
+			cursorOrPage = { page: requestedPage };
+		} else if (cursorType === 'page') {
 			cursorOrPage = { page: cursorValue };
 		} else if (cursorType === 'cursor') {
 			cursorOrPage = { cursor: cursorValue };
 		}
 
+		// Strip the caller's paging keys so `getPagedResult` fully controls them; otherwise `args.page` could
+		// survive alongside a resolved `cursor` (or the raw serialized wrapper `args.cursor` could leak in when
+		// following a page), letting the provider clobber the continuation we intended.
+		const { page: _page, pageSize: _pageSize, cursor: _cursor, ...restArgs } = args ?? {};
 		const input = {
-			...args,
+			...restArgs,
 			...cursorOrPage,
+			// `pageSize` is honored by numbered providers; GitHub reads `maxPageSize`. Set both so whichever
+			// the resolved provider understands takes effect; the other is ignored.
+			...(requestedPageSize != null ? { pageSize: requestedPageSize, maxPageSize: requestedPageSize } : {}),
 		};
 
 		try {
@@ -476,13 +489,14 @@ export class ProvidersApi {
 				return { values: [] };
 			}
 
-			const hasMore = result.pageInfo?.hasNextPage ?? false;
+			const pageInfo = result.pageInfo;
+			const hasMore = pageInfo?.hasNextPage ?? false;
 
 			let nextCursor = '{}';
-			if (result.pageInfo?.endCursor != null) {
-				nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
-			} else if (result.pageInfo?.nextPage != null) {
-				nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
+			if (pageInfo?.endCursor != null) {
+				nextCursor = JSON.stringify({ value: pageInfo.endCursor, type: 'cursor' });
+			} else if (pageInfo?.nextPage != null) {
+				nextCursor = JSON.stringify({ value: pageInfo.nextPage, type: 'page' });
 			}
 
 			return {
@@ -490,6 +504,13 @@ export class ProvidersApi {
 				paging: {
 					cursor: nextCursor,
 					more: hasMore,
+					// Numbered-page metadata; left undefined by cursor-based providers (which don't report a
+					// currentPage), so we never echo the requested page for a provider that ignored it.
+					page: pageInfo?.currentPage ?? undefined,
+					pageSize: requestedPageSize,
+					nextPage: pageInfo?.nextPage ?? undefined,
+					totalPages: pageInfo?.totalPages ?? undefined,
+					totalCount: pageInfo?.totalCount ?? undefined,
 				},
 			};
 		} catch (e) {

@@ -351,7 +351,7 @@ export abstract class GitHostIntegration<
 
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string },
+		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string; page?: number; pageSize?: number },
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		const scope = getScopedLogger();
@@ -451,6 +451,8 @@ export abstract class GitHostIntegration<
 							{
 								...getIssuesOptions,
 								cursor: projectInput.cursor,
+								page: options?.page,
+								pageSize: options?.pageSize,
 							},
 						);
 						data.push(...results.values);
@@ -525,6 +527,8 @@ export abstract class GitHostIntegration<
 								...getIssuesOptions,
 								cursor: repoInput.cursor,
 								baseUrl: options?.customUrl,
+								page: options?.page,
+								pageSize: options?.pageSize,
 							},
 						);
 						data.push(...results.values);
@@ -553,6 +557,8 @@ export abstract class GitHostIntegration<
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
+				page: options?.page,
+				pageSize: options?.pageSize,
 			});
 		} catch (ex) {
 			Logger.error(ex, 'getIssuesForRepos');
@@ -562,7 +568,13 @@ export abstract class GitHostIntegration<
 
 	async getMyPullRequestsForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: { filters?: PullRequestFilter[]; cursor?: string; customUrl?: string },
+		options?: {
+			filters?: PullRequestFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const scope = getScopedLogger();
@@ -682,6 +694,8 @@ export abstract class GitHostIntegration<
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
 								baseUrl: options?.customUrl,
+								page: options?.page,
+								pageSize: options?.pageSize,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 								includeRemoteInfo:
 									providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
@@ -716,6 +730,8 @@ export abstract class GitHostIntegration<
 					...getPullRequestsOptions,
 					cursor: options?.cursor,
 					baseUrl: options?.customUrl,
+					page: options?.page,
+					pageSize: options?.pageSize,
 					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 					includeRemoteInfo: providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
 				},
