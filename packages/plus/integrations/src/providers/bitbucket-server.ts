@@ -300,7 +300,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 
@@ -317,7 +317,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		if (repoInputs.length === 0) return repos != null ? [] : undefined;
 
 		const token = toTokenWithInfo(this.id, session);
-		const states = toProviderPullRequestStates(state);
+		const states = toProviderPullRequestStates(options?.include);
 		const providerPullRequests = await flatSettledOrThrow(
 			repoInputs.map(async repo => {
 				const result = await collectProviderPagedResult(cursor => {
@@ -346,6 +346,8 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				const integration = await this.authenticationService.getByRemote(r);
 				if (integration !== this) return undefined;
 
+				// Use the remote provider's parsing so the Bitbucket Server `scm/<project>/<repo>` prefix is
+				// stripped; a raw `path.split('/')` would yield namespace=`scm`, name=`<project>`.
 				const namespace = r.provider?.owner;
 				const name = r.provider?.repoName;
 				return namespace != null && name != null ? { name: name, namespace: namespace } : undefined;

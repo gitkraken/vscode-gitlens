@@ -1136,6 +1136,7 @@ export class ProvidersApi {
 			assigneeLogins?: string[];
 			reviewerId?: string;
 			states?: GitPullRequestState[];
+			repo?: ProviderRepoInput;
 			isPAT?: boolean;
 			baseUrl?: string;
 		},

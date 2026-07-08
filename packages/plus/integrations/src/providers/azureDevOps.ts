@@ -801,7 +801,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		searchQuery: string,
 		repos?: AzureRepositoryDescriptor[],
 		cancellation?: AbortSignal,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined> {
 		if (cancellation?.aborted) throw new CancellationError();
 
@@ -835,7 +835,7 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		const api = await this.getProvidersApi();
 		const { tokenWithInfo, options } = this.getApiOptions(session);
-		const states = toProviderPullRequestStates(state);
+		const states = toProviderPullRequestStates(options?.include);
 		const searchScopes: { project: { namespace: string; project: string }; repo?: ProviderRepoInput }[] =
 			repoInputs != null
 				? repoInputs.flatMap(repo =>
