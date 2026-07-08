@@ -29343,7 +29343,7 @@
 		"@gitkraken/compose-tools": "0.4.0",
 		"@gitkraken/conflict-tools": "0.2.3",
 		"@gitkraken/gitkraken-components": "13.0.0-vnext.38",
-		"@gitkraken/provider-apis": "0.49.0",
+		"@gitkraken/provider-apis": "0.50.0",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",

@@ -886,6 +886,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		description: null,
 		url: pr.url,
 		state: toProviderPullRequestState(pr.state),
+		isCrossRepository: pr.refs?.isCrossRepository ?? false,
 		isDraft: pr.isDraft ?? false,
 		createdDate: pr.createdDate,
 		updatedDate: pr.updatedDate,
