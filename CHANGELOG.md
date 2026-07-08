@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Copy Changes (Patch)_ action to commits and stashes in the _Inspect_ and _Commit Graph_ details &mdash; copies a patch of the entire commit or stash to the clipboard ([#5455](https://github.com/gitkraken/vscode-gitlens/issues/5455))
 - Adds per-file added/removed line counts to the working changes (WIP) file list in the _Commit Graph_ details, loaded lazily when the list is visible ([#5456](https://github.com/gitkraken/vscode-gitlens/issues/5456))
 - Adds a `gitlens.sortWorkingChangesBy` setting to sort working changes (WIP) by their Git staged/unstaged state in the _Commit Graph_ details ([#5454](https://github.com/gitkraken/vscode-gitlens/issues/5454))
+- Adds a _Resolve Conflicts in Commit Graph_ action to the interactive rebase editor's conflicted files panel &mdash; opens the _Commit Graph_ in AI **Resolve** mode for the rebase's conflicts; available when AI features are enabled ([#5413](https://github.com/gitkraken/vscode-gitlens/issues/5413))
 
 ### Changed
 

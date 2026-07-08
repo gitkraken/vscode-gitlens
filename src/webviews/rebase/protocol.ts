@@ -57,6 +57,9 @@ export interface State extends WebviewState<'gitlens.rebase'> {
 
 	/** Whether the close-warning banner has been dismissed */
 	closeWarningDismissed?: boolean;
+
+	/** Whether AI features are allowed (user-enabled and org-permitted) — gates the Resolve Conflicts action */
+	aiAllowed?: boolean;
 }
 
 export interface ConflictFileInfo {
@@ -229,6 +232,8 @@ export interface ResolveAllConflictsParams {
 	resolution: 'current' | 'incoming';
 }
 export const ResolveAllConflictsCommand = new IpcCommand<ResolveAllConflictsParams>(scope, 'conflicts/resolveAll');
+
+export const ResolveConflictsInGraphCommand = new IpcCommand(scope, 'conflicts/resolveInGraph');
 
 // REQUESTS
 
