@@ -185,7 +185,7 @@ suite('createTokenScopedGitHostIntegration — token-scoped reads', () => {
 		assert.equal(
 			fetch.calls.length,
 			0,
-			`no request should be issued for a malformed descriptor, got ${fetch.calls}`,
+			`no request should be issued for a malformed descriptor, got ${JSON.stringify(fetch.calls)}`,
 		);
 	});
 

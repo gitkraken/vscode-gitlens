@@ -102,6 +102,7 @@ export function createTokenScopedGitHostIntegration(
 	if (selfManaged && !token.domain) {
 		throw new Error(`A token-scoped integration for the self-managed host '${id}' requires 'token.domain'.`);
 	}
+
 	const rawDomain = (selfManaged && token.domain) || providersMetadata[id].domain;
 	// The provider/DTO domain drops the scheme (a subpath/collection is preserved for Azure Server and subpath
 	// installs); only Azure DevOps Server's base URL honors an explicit scheme (per its doc). Stripping keeps a

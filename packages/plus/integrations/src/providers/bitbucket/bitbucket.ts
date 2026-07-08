@@ -5,7 +5,7 @@ import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/mo
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -460,7 +460,9 @@ export class BitbucketApi implements Disposable {
 			} satisfies RepositoryMetadata;
 		} catch (ex) {
 			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
-			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
 			return undefined;
 		}
 	}
@@ -501,7 +503,9 @@ export class BitbucketApi implements Disposable {
 			return { provider: provider, name: name } satisfies DefaultBranch;
 		} catch (ex) {
 			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
-			if (!(ex instanceof CancellationError) && !(ex instanceof RequestNotFoundError)) scope?.error(ex);
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
 			return undefined;
 		}
 	}
