@@ -71,6 +71,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Commit Graph_ showing an incorrect worktree count when a worktree fetch fails or is unsupported
 - Fixes the commit-message headline occasionally rendering at the wrong size before autolinks finish loading in the commit details
 - Fixes stray menu-popover styling leaking onto nested tooltips
+- Fixes AI conflict resolution (**Resolve** mode in the _Commit Graph_ WIP details panel) failing with _No active merge, rebase, or cherry-pick conflicts to resolve_ when conflicts exist without an in-progress Git operation &mdash; conflicts from a `git stash pop`/`apply`, a `git pull` with autostash, or after `git merge --quit` can now be resolved, re-resolved with feedback, and applied ([#5487](https://github.com/gitkraken/vscode-gitlens/issues/5487))
 
 ## [18.2.0] - 2026-06-15
 
