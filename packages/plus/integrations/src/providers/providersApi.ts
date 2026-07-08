@@ -1,4 +1,5 @@
 import ProviderApis from '@gitkraken/provider-apis';
+import type { GitPullRequestState } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -714,6 +715,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
 		workspaceSlug: string,
+		options?: { states?: GitPullRequestState[] },
 	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -724,7 +726,7 @@ export class ProvidersApi {
 		try {
 			return (
 				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
-					{ userId: userId, workspaceSlug: workspaceSlug },
+					{ userId: userId, workspaceSlug: workspaceSlug, states: options?.states },
 					{ token: token },
 				)
 			)?.data;
@@ -736,6 +738,7 @@ export class ProvidersApi {
 	async getBitbucketServerPullRequestsForCurrentUser(
 		tokenOptInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
 		baseUrl: string,
+		options?: { states?: GitPullRequestState[] },
 	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -744,7 +747,10 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 		try {
 			return (
-				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.(
+					{ states: options?.states },
+					{ token: token, baseUrl: baseUrl },
+				)
 			)?.data;
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
@@ -1024,6 +1030,7 @@ export class ProvidersApi {
 		options?: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
+			states?: GitPullRequestState[];
 			isPAT?: boolean;
 			baseUrl?: string;
 		},

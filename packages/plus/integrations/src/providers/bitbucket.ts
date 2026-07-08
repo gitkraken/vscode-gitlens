@@ -2,7 +2,12 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
@@ -18,7 +23,7 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
-import { fromProviderPullRequest, providersMetadata } from './models.js';
+import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -258,11 +263,25 @@ export class BitbucketIntegration extends GitHostIntegration<
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		_silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		if (repos != null) {
 			// TODO: implement repos version
 			return undefined;
 		}
+
+		const states = toProviderPullRequestStates(state);
+		// Bitbucket's reviewing PRs use a raw BBQL query; map the requested state to its state clause.
+		const stateClause =
+			state === 'closed'
+				? '(state="DECLINED" OR state="SUPERSEDED")'
+				: state === 'merged'
+					? 'state="MERGED"'
+					: state === 'all'
+						? undefined
+						: 'state="OPEN"';
 
 		const api = await this.getProvidersApi();
 		if (!api) {
@@ -289,13 +308,15 @@ export class BitbucketIntegration extends GitHostIntegration<
 				toTokenWithInfo(this.id, session),
 				user.id,
 				ws.slug,
+				{ states: states },
 			);
 			return prs?.map(pr => fromProviderPullRequest(pr, this));
 		});
 
+		const reviewerClause = `reviewers.uuid="${user.id}"`;
 		const reviewingPrs = api
 			.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
-				query: `state="OPEN" AND reviewers.uuid="${user.id}"`,
+				query: stateClause ? `${stateClause} AND ${reviewerClause}` : reviewerClause,
 			})
 			.then(r => r.values?.map(pr => fromProviderPullRequest(pr, this)));
 

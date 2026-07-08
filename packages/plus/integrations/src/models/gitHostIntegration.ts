@@ -1,7 +1,8 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -28,7 +29,13 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 } from '../providers/models.js';
-import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
+import {
+	IssueFilter,
+	PagingMode,
+	PullRequestFilter,
+	toProviderIssueStates,
+	toProviderPullRequestStates,
+} from '../providers/models.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
@@ -359,11 +366,14 @@ export abstract class GitHostIntegration<
 			pageSize?: number;
 			/** When true, don't constrain to the current user's assigned issues even if the Assignee filter is set. */
 			includeAllAssignees?: boolean;
+			/** Issue states to include; when omitted the provider returns its default (open only). */
+			state?: IssueStateFilter;
 		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
+		const states = toProviderIssueStates(options?.state);
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -464,6 +474,7 @@ export abstract class GitHostIntegration<
 								cursor: projectInput.cursor,
 								page: options?.page,
 								pageSize: options?.pageSize,
+								states: states,
 							},
 						);
 						data.push(...results.values);
@@ -543,6 +554,7 @@ export abstract class GitHostIntegration<
 								baseUrl: options?.customUrl,
 								page: options?.page,
 								pageSize: options?.pageSize,
+								states: states,
 							},
 						);
 						data.push(...results.values);
@@ -573,6 +585,7 @@ export abstract class GitHostIntegration<
 				baseUrl: options?.customUrl,
 				page: options?.page,
 				pageSize: options?.pageSize,
+				states: states,
 			});
 		} catch (ex) {
 			Logger.error(ex, 'getIssuesForRepos');
@@ -588,11 +601,14 @@ export abstract class GitHostIntegration<
 			customUrl?: string;
 			page?: number;
 			pageSize?: number;
+			/** PR states to include; when omitted the provider returns its default (open only). */
+			state?: PullRequestStateFilter;
 		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
+		const states = toProviderPullRequestStates(options?.state);
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -732,6 +748,7 @@ export abstract class GitHostIntegration<
 								baseUrl: options?.customUrl,
 								page: options?.page,
 								pageSize: options?.pageSize,
+								states: states,
 								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 								includeRemoteInfo:
 									providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
@@ -768,6 +785,7 @@ export abstract class GitHostIntegration<
 					baseUrl: options?.customUrl,
 					page: options?.page,
 					pageSize: options?.pageSize,
+					states: states,
 					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
 					includeRemoteInfo: providerId === GitCloudHostIntegrationId.AzureDevOps ? true : undefined,
 				},
@@ -783,12 +801,14 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@trace()
 	async searchMyPullRequests(
@@ -796,6 +816,7 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -809,6 +830,7 @@ export abstract class GitHostIntegration<
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
 				silent,
+				state,
 			);
 			this.resetRequestExceptionCount('searchMyPullRequests');
 			return { value: pullRequests, duration: performance.now() - start };
@@ -824,11 +846,14 @@ export abstract class GitHostIntegration<
 		}
 	}
 
+	// `state` selects which PR states to include (open/closed/merged/all). Providers that cannot express it
+	// in a single query filter the normalized results; omitted preserves the historical open-only behavior.
 	protected abstract searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
 
 	async searchPullRequests(

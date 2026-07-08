@@ -37,6 +37,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import {
 	GitBuildStatusState,
+	GitIssueState,
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
@@ -44,7 +45,7 @@ import {
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
-import type { IssueMember, IssueProject, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestMember,
@@ -53,6 +54,7 @@ import type {
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
 	PullRequestState,
+	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
@@ -162,6 +164,8 @@ export interface GetPullRequestsOptions {
 	reviewerId?: string;
 	reviewerLogin?: string;
 	mentionLogin?: string;
+	// PR states to include; when omitted the provider returns its default (open only).
+	states?: GitPullRequestState[];
 	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
@@ -178,6 +182,8 @@ export interface GetPullRequestsForUserOptions {
 	includeFromArchivedRepos?: boolean;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// PR states to include; when omitted the provider returns its default (open only).
+	states?: GitPullRequestState[];
 }
 
 export interface GetPullRequestsForUserInput extends GetPullRequestsForUserOptions {
@@ -204,6 +210,8 @@ export interface GetIssuesOptions {
 	authorLogin?: string;
 	assigneeLogins?: string[];
 	mentionLogin?: string;
+	// Issue states to include; when omitted the provider returns its default (open only).
+	states?: GitIssueState[];
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
 	// 1-based page to request from numbered-page providers; takes precedence over a page-typed cursor.
@@ -411,6 +419,7 @@ export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	input: {
 		userId: string;
 		workspaceSlug: string;
+		states?: GitPullRequestState[];
 	} & NumberedPageInput,
 	options?: EnterpriseOptions,
 ) => Promise<{
@@ -421,7 +430,7 @@ export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	data: GitPullRequest[];
 }>;
 export type GetBitbucketServerPullRequestsForCurrentUserFn = (
-	input: NumberedPageInput,
+	input: { states?: GitPullRequestState[] } & NumberedPageInput,
 	options?: EnterpriseOptions,
 ) => Promise<{
 	pageInfo: {
@@ -903,6 +912,38 @@ export function toProviderPullRequestState(state: PullRequestState): GitPullRequ
 
 export function fromProviderPullRequestState(state: GitPullRequestState): PullRequestState {
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
+}
+
+/** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderPullRequestStates(
+	state: PullRequestStateFilter | undefined,
+): GitPullRequestState[] | undefined {
+	switch (state) {
+		case 'open':
+			return [GitPullRequestState.Open];
+		case 'closed':
+			return [GitPullRequestState.Closed];
+		case 'merged':
+			return [GitPullRequestState.Merged];
+		case 'all':
+			return [GitPullRequestState.Open, GitPullRequestState.Closed, GitPullRequestState.Merged];
+		default:
+			return undefined;
+	}
+}
+
+/** Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderIssueStates(state: IssueStateFilter | undefined): GitIssueState[] | undefined {
+	switch (state) {
+		case 'open':
+			return [GitIssueState.Open];
+		case 'closed':
+			return [GitIssueState.Closed];
+		case 'all':
+			return [GitIssueState.Open, GitIssueState.Closed];
+		default:
+			return undefined;
+	}
 }
 
 function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {

@@ -132,6 +132,9 @@ export interface PullRequestMember {
 	url?: string;
 }
 
+/** Selects which pull request states a read should include. `all` covers open + closed + merged. */
+export type PullRequestStateFilter = 'open' | 'closed' | 'merged' | 'all';
+
 export interface PullRequestRef {
 	owner: string;
 	repo: string;

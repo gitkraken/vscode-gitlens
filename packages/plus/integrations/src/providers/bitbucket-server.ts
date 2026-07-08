@@ -2,7 +2,12 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
@@ -20,7 +25,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type { ProviderRepository } from './models.js';
-import { fromProviderPullRequest, providersMetadata } from './models.js';
+import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
@@ -219,6 +224,9 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: BitbucketRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		_silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		if (repos != null) {
 			// TODO: implement repos version
@@ -233,6 +241,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
 			this.apiBaseUrl,
+			{ states: toProviderPullRequestStates(state) },
 		);
 		return prs?.map(pr => fromProviderPullRequest(pr, this));
 	}
