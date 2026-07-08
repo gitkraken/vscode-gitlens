@@ -195,6 +195,7 @@ export const normalizeBitbucketServerPullRequest = (pr: BitbucketServerPullReque
 		state: bitbucketStateToGitState[pr.state],
 		isCrossRepository: pr.toRef.repository.id !== pr.fromRef.repository.id,
 		isDraft: false,
+		isCrossRepository: pr.toRef.repository.id !== pr.fromRef.repository.id,
 		createdDate: new Date(pr.createdDate),
 		updatedDate: new Date(pr.updatedDate),
 		closedDate: pr.closedDate ? new Date(pr.closedDate) : null,
