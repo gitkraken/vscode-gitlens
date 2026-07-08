@@ -46,7 +46,7 @@ export const styleguideStyles = css`
 		gap: var(--gl-space-12);
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--gl-space-10) var(--gl-space-12);
+		padding: var(--gl-space-4) var(--gl-space-8);
 		background: var(--gl-color-surface-raised);
 		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-md);
@@ -66,6 +66,11 @@ export const styleguideStyles = css`
 	.scheme-chip--hc {
 		color: var(--gl-color-warning);
 		background: var(--gl-color-warning-bg);
+	}
+
+	/* Snug the theme-picker action against the scheme-chip so they read as one control */
+	.scheme-action {
+		margin-inline-start: calc(-1 * var(--gl-space-6));
 	}
 
 	.toggle {

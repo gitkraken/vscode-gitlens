@@ -7,6 +7,7 @@ import { GlAppHost } from '../shared/appHost.js';
 import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
+import '../shared/components/button.js';
 import '../shared/components/code-icon.js';
 import { componentGroups, nonElements, undemoed } from './demos/index.js';
 import { StyleguideStateProvider } from './stateProvider.js';
@@ -512,6 +513,14 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 								<code-icon icon="${this.isHc ? 'color-mode' : 'symbol-color'}"></code-icon> ${this
 									.scheme}
 							</span>
+							<gl-button
+								class="scheme-action"
+								appearance="toolbar"
+								href="command:workbench.action.selectTheme"
+								tooltip="Change Color Theme"
+								aria-label="Change Color Theme"
+								><code-icon icon="paintcan"></code-icon
+							></gl-button>
 						</div>
 					</div>
 
