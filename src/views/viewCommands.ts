@@ -638,7 +638,10 @@ export class ViewCommands implements Disposable {
 	private async continuePausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await continuePausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
+		await continuePausedOperation(
+			this.container,
+			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+		);
 	}
 
 	@command('gitlens.views.pausedOperation.skip')
@@ -646,7 +649,10 @@ export class ViewCommands implements Disposable {
 	private async skipPausedOperation(node: PausedOperationStatusNode) {
 		if (!node.is('paused-operation-status')) return;
 
-		await skipPausedOperation(this.container.git.getRepositoryService(node.pausedOpStatus.repoPath));
+		await skipPausedOperation(
+			this.container,
+			this.container.git.getRepositoryService(node.pausedOpStatus.repoPath),
+		);
 	}
 
 	@command('gitlens.views.pausedOperation.open')
