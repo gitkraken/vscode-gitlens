@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a commit signing indicator to the _Commit Graph_'s working changes (WIP) commit box &mdash; a key icon appears when commits will be signed (via the repo's `commit.gpgsign` Git config or VS Code's `git.enableCommitSigning` setting), with the signing format (GPG, SSH, X.509, or OpenPGP) shown on hover
 - Adds a _Start Review with an Agent_ action to _Launchpad_ pull request items &mdash; after selecting a pull request in the _Launchpad_, you can start an AI agent review that checks out the PR in a worktree and routes straight to the agent picker (or your default agent); available when AI features are enabled ([#5395](https://github.com/gitkraken/vscode-gitlens/issues/5395))
 - Adds a _Take your agent workflows further_ step to the _Welcome_ view walkthrough &mdash; introduces Kepler, GitKraken's Agentic Development Environment (ADE), with a _Get Kepler_ call-to-action ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
+- Adds an _auto_ layout for the _Commit Graph_ details panel that positions it to the right or bottom based on the graph's width, with Alt+Click to temporarily pin a location ([#5402](https://github.com/gitkraken/vscode-gitlens/issues/5402), [#5403](https://github.com/gitkraken/vscode-gitlens/issues/5403))
+- Adds a _Copy Changes (Patch)_ action to commits and stashes in the _Inspect_ and _Commit Graph_ details &mdash; copies a patch of the entire commit or stash to the clipboard ([#5455](https://github.com/gitkraken/vscode-gitlens/issues/5455))
+- Adds per-file added/removed line counts to the working changes (WIP) file list in the _Commit Graph_ details, loaded lazily when the list is visible ([#5456](https://github.com/gitkraken/vscode-gitlens/issues/5456))
+- Adds a `gitlens.sortWorkingChangesBy` setting to sort working changes (WIP) by their Git staged/unstaged state in the _Commit Graph_ details ([#5454](https://github.com/gitkraken/vscode-gitlens/issues/5454))
 
 ### Changed
 
@@ -29,11 +33,24 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds _Cloud Integrations_ and _AI_ categories &mdash; view and connect hosting and issue service integrations, and manage the AI provider and model, GitKraken MCP, default coding agent, and Claude Code hooks
   - Shows connection-aware cues in the category rail &mdash; a connected/total count for _Cloud Integrations_ and a rule count for _Autolinks_
 - Changes commits created from the _Commit Graph_'s working changes (WIP) commit box to honor VS Code's `git.enableCommitSigning` setting &mdash; matching the built-in Source Control commit behavior; previously only the repo's `commit.gpgsign` Git config was respected
+- Changes GitLens AI features (_Generate Commits_, _Explain_, _Generate Pull Request_/_Changelog_, and AI-powered search) to no longer be labeled _(Preview)_, and consolidates their commands under the `gitlens.ai.*` namespace ([#5463](https://github.com/gitkraken/vscode-gitlens/issues/5463))
+- Improves the _Commit Composer_ &mdash; adds a dual commit/recompose posture, drag to reorder draft commits, drag to move one or more files between draft commits, and multi-diff _Open Changes_ actions in the curation file trees ([#5460](https://github.com/gitkraken/vscode-gitlens/issues/5460))
+- Improves AI-powered conflict resolution _(Preview)_ in the _Commit Graph_ working changes (WIP) details &mdash; adds a split-panel _Conflict Details_ sheet (current vs incoming history), resolution scoped to selected files, automatic handling of both-deleted and rename conflicts, per-file confidence indicators, collapsible resolved/pending sections with progress, and a dedicated merge icon ([#5306](https://github.com/gitkraken/vscode-gitlens/issues/5306))
+- Improves the AI _Review_ mode with follow-up conversations, plus _Discard_ and _Refine_ actions in _Compose_ and _Review_ ([#5461](https://github.com/gitkraken/vscode-gitlens/issues/5461))
+- Improves AI model display and selection across AI inputs &mdash; shows the active model as a selectable chip and surfaces consumption-rate and recommendation badges for GitKraken AI models ([#5425](https://github.com/gitkraken/vscode-gitlens/issues/5425))
+- Updates AI provider and model support &mdash; migrates Hugging Face to its OpenAI-compatible router and refreshes the model registries, adding newer models (OpenAI GPT-5.x, Anthropic Claude 5/4.x, DeepSeek V4, Gemini 3.x, and Grok 4.3) and hiding retired ones ([#5462](https://github.com/gitkraken/vscode-gitlens/issues/5462))
+- Changes the _Commit Graph_ side bar icons to switch back to the graph and open the details panel when clicked from the visualization/kanban modes, instead of being disabled ([#5401](https://github.com/gitkraken/vscode-gitlens/issues/5401))
+- Improves the working changes (WIP) bar in the _Commit Graph_ &mdash; scrolls horizontally with the mouse wheel, keeps the primary repository anchored, and hides unless a secondary worktree has changes ([#5457](https://github.com/gitkraken/vscode-gitlens/issues/5457))
+- Reorganizes the details and working changes (WIP) panel headers in the _Commit Graph_ and _Inspect_ views &mdash; groups navigation and actions into clearer clusters, folds the _Inspect_ view's separate navigation bar into the details action row, and adds branch and create context menus ([#5459](https://github.com/gitkraken/vscode-gitlens/issues/5459))
+- Improves keyboard focus and navigation in the webview tree views &mdash; each row is a single tab stop that cycles its inner controls, Space no longer double-toggles checkboxes, multi-select keyboard navigation is fixed, and checkbox focus rings are visible ([#5458](https://github.com/gitkraken/vscode-gitlens/issues/5458))
+- Changes copying changes to a worktree to no longer prompt to open that worktree afterward
+- Changes stashing to use the _Commit Graph_ working changes (WIP) commit-box draft message when one is present
 
 ### Removed
 
 - Removes the _Streamline Workflow with the Home View_ step from the _Welcome_ view walkthrough ([#5378](https://github.com/gitkraken/vscode-gitlens/issues/5378))
 - Removes the Overview (working changes) mode from the _Inspect_ view, making it commit/stash-only &mdash; reviewing working changes is now consolidated in the _Commit Graph_. Launchpad _Switch to Branch_ and _Open Details_ actions, and PR switch deep links, now open the _Commit Graph_ at the working changes (WIP) row instead of the _Inspect_ view; the Launchpad code-suggestion entry points are retired (code suggestions remain available in the _Commit Graph_) ([#5399](https://github.com/gitkraken/vscode-gitlens/issues/5399))
+- Removes the GitHub Models AI provider ([#5462](https://github.com/gitkraken/vscode-gitlens/issues/5462))
 
 ### Fixed
 
@@ -46,6 +63,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the working changes (WIP) stats tooltip in the details header duplicating the visible stats pill instead of describing the change breakdown &mdash; the tooltip now reads e.g. _1 file added, 2 files changed in the working tree_
 - Fixes a stray gap in the _Commit Graph_ header next to the fetch and sync actions when the current branch is already published &mdash; the publish action no longer reserves empty space once the branch has an upstream
 - Fixes the design of the paused-operation banner (shown during a merge, rebase, cherry-pick, or revert in the _Commit Graph_/_Inspect_ details and _Home_) &mdash; the _Continue_ action now uses a start icon, and the action buttons' hover and active states blend into the banner instead of showing a clashing grey toolbar highlight ([#5394](https://github.com/gitkraken/vscode-gitlens/issues/5394))
+- Fixes selection and folder expand/collapse state not persisting across refreshes in grouped webview tree views when identical paths appear in different groups
+- Fixes the AI input in the _Commit Graph_ details stealing keyboard focus when the panel switched modes automatically
+- Fixes the _Commit Graph_ showing an incorrect worktree count when a worktree fetch fails or is unsupported
+- Fixes the commit-message headline occasionally rendering at the wrong size before autolinks finish loading in the commit details
+- Fixes stray menu-popover styling leaking onto nested tooltips
 
 ## [18.2.0] - 2026-06-15
 
