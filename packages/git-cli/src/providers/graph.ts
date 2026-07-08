@@ -745,8 +745,37 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			let stdin: string | undefined;
 			let remappedIds: Map<string, string>;
 
+			let resolvedShas: Set<string> | undefined;
 			if (shas?.size) {
-				stdin = join(shas, '\n');
+				resolvedShas = await this.provider.revision.resolveShas(repoPath, shas, cancellation);
+				// Never throw on cancellation here: the outer catch wraps non-GitSearchError into
+				// GitSearchError, which surfaces as a false "Invalid search pattern". Return instead.
+				if (cancellation?.aborted) {
+					return {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: existingResults ?? new Map<string, GitGraphSearchResultData>(),
+						hasMore: true,
+					};
+				}
+				// Short SHA(s) matched no commit: return empty (empty stdin to `--no-walk --stdin`
+				// would return HEAD, so we must not fall through to git).
+				if (!resolvedShas.size) {
+					return {
+						repoPath: repoPath,
+						query: search,
+						queryFilters: filters,
+						comparisonKey: comparisonKey,
+						results: existingResults ?? new Map<string, GitGraphSearchResultData>(),
+						hasMore: false,
+					};
+				}
+			}
+
+			if (resolvedShas?.size) {
+				stdin = join(resolvedShas, '\n');
 				args.push('--no-walk');
 
 				remappedIds = new Map();

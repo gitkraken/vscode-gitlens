@@ -213,6 +213,48 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		}
 	}
 
+	@debug({ args: (repoPath, shas) => ({ repoPath: repoPath, shas: `${shas.size} value(s)` }) })
+	async resolveShas(repoPath: string, shas: ReadonlySet<string>, cancellation?: AbortSignal): Promise<Set<string>> {
+		const resolved = new Set<string>();
+		const prefixes: string[] = [];
+
+		for (const value of shas) {
+			// Pure hex 4-40 chars: resolve to full commit SHA(s) via disambiguation. Everything else
+			// (refs, suffixed SHAs like `^`/`~1`/`:path`, non-hex, <4 hex) passes through unchanged.
+			if (/^[0-9a-f]{4,40}$/i.test(value)) {
+				prefixes.push(value);
+			} else {
+				resolved.add(value);
+			}
+		}
+
+		if (prefixes.length) {
+			// List every object (any type) whose id starts with any prefix (empty + exit 0 if none)
+			const rp = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+				'rev-parse',
+				...prefixes.map(p => `--disambiguate=${p}`),
+			);
+			const oids = rp.stdout.split('\n').filter(Boolean);
+			if (oids.length) {
+				// `--disambiguate` has no type filter, so keep only commit objects
+				const cf = await this.git.run(
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore', stdin: `${oids.join('\n')}\n` },
+					'cat-file',
+					'--batch-check=%(objectname) %(objecttype)',
+				);
+				for (const line of cf.stdout.split('\n')) {
+					const [oid, type] = line.split(' ');
+					if (type === 'commit') {
+						resolved.add(oid);
+					}
+				}
+			}
+		}
+
+		return resolved;
+	}
+
 	@debug()
 	async resolveRevision(repoPath: string, ref: string, pathOrUri?: string | Uri): Promise<ResolvedRevision> {
 		const path = pathOrUri != null ? toFsPath(pathOrUri) : undefined;

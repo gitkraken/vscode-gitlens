@@ -1307,8 +1307,30 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 			let stashes: Map<string, GitStashCommit> | undefined;
 			let stdin: string | undefined;
 
+			let resolvedShas: Set<string> | undefined;
 			if (shas?.size) {
-				stdin = join(shas, '\n');
+				resolvedShas = await this.provider.revision.resolveShas(repoPath, shas, cancellation);
+				if (cancellation?.aborted) throw new CancellationError();
+				// Short SHA(s) matched no commit: return empty (empty stdin to `--no-walk --stdin`
+				// would return HEAD, so we must not fall through to git).
+				if (!resolvedShas.size) {
+					return {
+						search: search,
+						log: {
+							repoPath: repoPath,
+							commits: new Map(),
+							sha: undefined,
+							searchFilters: filters,
+							count: 0,
+							limit: options?.limit ?? cfg?.search?.maxItems ?? 0,
+							hasMore: false,
+						},
+					};
+				}
+			}
+
+			if (resolvedShas?.size) {
+				stdin = join(resolvedShas, '\n');
 				args.push('--no-walk');
 			} else if (!filters.refs) {
 				// Don't include stashes when using ref: filter, as they would add unrelated commits
