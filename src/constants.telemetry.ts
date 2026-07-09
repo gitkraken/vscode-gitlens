@@ -406,6 +406,44 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar tags panel */
 	'graph/tags/filtered': GraphSidebarTagsFilteredEvent;
 
+	/** Sent when the user switches the active visualization via the switcher, or when a virtual repo forces a fallback from the Commits Treemap to the Files Treemap */
+	'graph/visualizations/modeChanged': GraphVisualizationsModeChangedEvent;
+	/** Sent when the Graph leaves Visualizations display mode (close button, sidebar rail, external search request, etc.) */
+	'graph/visualizations/closed': GraphVisualizationsClosedEvent;
+
+	/** Sent when the embedded Visual History (timeline) visualization becomes visible */
+	'graph/timeline/shown': GraphTimelineShownEvent;
+	/** Sent when the user selects a commit in the embedded Visual History chart (first-paint auto-selections excluded) */
+	'graph/timeline/commitSelected': GraphTimelineCommitSelectedEvent;
+	/** Sent when the user changes the period in the embedded Visual History header */
+	'graph/timeline/periodChanged': GraphTimelinePeriodChangedEvent;
+	/** Sent when the user changes the slice-by axis in the embedded Visual History header */
+	'graph/timeline/sliceByChanged': GraphTimelineSliceByChangedEvent;
+	/** Sent when the user changes the file/folder scope of the embedded Visual History (path picker, clear, or breadcrumb) */
+	'graph/timeline/scopeChanged': GraphTimelineScopeChangedEvent;
+
+	/** Sent when a treemap visualization becomes visible for a repo + mode and its data has loaded */
+	'graph/treemap/shown': GraphTreemapShownEvent;
+	/** Sent when the user zooms the treemap in or out (folder drill-down or breadcrumb) */
+	'graph/treemap/zoomed': GraphTreemapZoomedEvent;
+	/** Sent when the user clicks a file leaf in the treemap */
+	'graph/treemap/fileClicked': GraphTreemapFileClickedEvent;
+	/** Sent when the user changes the period in the Commits Treemap */
+	'graph/treemap/periodChanged': GraphTreemapPeriodChangedEvent;
+	/** Sent when the user changes the activity decay window in the Agent Activity Treemap */
+	'graph/treemap/decayChanged': GraphTreemapDecayChangedEvent;
+
+	/** Sent when the Agent Kanban becomes visible */
+	'graph/kanban/shown': GraphKanbanShownEvent;
+	/** Sent when the Graph leaves Kanban display mode (close button, sidebar rail, etc.) */
+	'graph/kanban/closed': GraphContextEventData;
+	/** Sent when the user clicks a session card in the Agent Kanban to open its worktree WIP */
+	'graph/kanban/sessionSelected': GraphKanbanSessionSelectedEvent;
+	/** Sent when the user clicks Open Session or View Plan on a kanban session card */
+	'graph/kanban/sessionAction': GraphKanbanSessionActionEvent;
+	/** Sent when the user resolves a permission (Allow/Deny or Approve/Reject) from a kanban session card */
+	'graph/kanban/permissionResolved': GraphKanbanPermissionResolvedEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -2018,6 +2056,105 @@ interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
 	hasFilter: boolean;
 	'filter.length': number;
 	'tags.count': number;
+}
+
+/** Flat key identifying a Graph visualization — collapses the two-axis
+ *  (visualizationMode × treemapMode) state so one field names the active visualization,
+ *  matching the switcher's tab model. */
+type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+
+interface GraphVisualizationsModeChangedEvent extends GraphContextEventData {
+	'mode.old': GraphVisualizationKey;
+	'mode.new': GraphVisualizationKey;
+	/** `fallback` when a virtual repo forced Commits → Files on mount (not a user action) */
+	reason: 'user' | 'fallback';
+}
+
+interface GraphVisualizationsClosedEvent extends GraphContextEventData {
+	mode: GraphVisualizationKey;
+}
+
+interface GraphTimelineShownEvent extends GraphContextEventData {
+	period: string;
+	sliceBy: 'author' | 'branch';
+	scoped: boolean;
+}
+
+interface GraphTimelineCommitSelectedEvent extends GraphContextEventData {
+	shift: boolean;
+}
+
+interface GraphTimelinePeriodChangedEvent extends GraphContextEventData {
+	'period.old': string;
+	'period.new': string;
+}
+
+interface GraphTimelineSliceByChangedEvent extends GraphContextEventData {
+	'sliceBy.old': 'author' | 'branch';
+	'sliceBy.new': 'author' | 'branch';
+}
+
+interface GraphTimelineScopeChangedEvent extends GraphContextEventData {
+	action: 'choose' | 'clear' | 'breadcrumb';
+	'scope.type'?: 'file' | 'folder';
+	/** Whether a file/folder scope is active AFTER this change */
+	scoped: boolean;
+}
+
+interface GraphTreemapShownEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	'files.count': number;
+	/** Only set in `commits` mode — the other modes have no period axis */
+	period?: string;
+}
+
+interface GraphTreemapZoomedEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	direction: 'in' | 'out';
+	/** Folder depth of the zoom target; 0 = back at the root */
+	depth: number;
+}
+
+interface GraphTreemapFileClickedEvent extends GraphContextEventData {
+	mode: 'files' | 'commits' | 'activity';
+	action: 'open' | 'history';
+	/** Only set in `activity` mode — whether the click also focused an agent session that touched the file */
+	'session.focused'?: boolean;
+}
+
+interface GraphTreemapPeriodChangedEvent extends GraphContextEventData {
+	'period.old': string;
+	'period.new': string;
+}
+
+interface GraphTreemapDecayChangedEvent extends GraphContextEventData {
+	'decay.old': string;
+	'decay.new': string;
+}
+
+interface GraphKanbanShownEvent extends GraphContextEventData {
+	'sessions.count': number;
+	'sessions.working.count': number;
+	'sessions.needsInput.count': number;
+	'sessions.idle.count': number;
+	'sessions.inactive.count': number;
+}
+
+interface GraphKanbanSessionSelectedEvent extends GraphContextEventData {
+	'session.phase': string;
+	'session.category': 'working' | 'needs-input' | 'idle';
+	'session.hasPendingPermission': boolean;
+	'session.sameRepo': boolean;
+	column: 'needs-input' | 'working' | 'idle' | 'inactive';
+}
+
+interface GraphKanbanSessionActionEvent extends GraphContextEventData {
+	action: 'openSession' | 'openPlanFile';
+}
+
+interface GraphKanbanPermissionResolvedEvent extends GraphContextEventData {
+	decision: 'allow' | 'deny';
+	'permission.kind': string;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;

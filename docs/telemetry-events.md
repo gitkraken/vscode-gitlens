@@ -2895,6 +2895,109 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/kanban/closed
+
+> Sent when the Graph leaves Kanban display mode (close button, sidebar rail, etc.)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/kanban/permissionResolved
+
+> Sent when the user resolves a permission (Allow/Deny or Approve/Reject) from a kanban session card
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'decision': 'allow' | 'deny',
+  'permission.kind': string
+}
+```
+
+### graph/kanban/sessionAction
+
+> Sent when the user clicks Open Session or View Plan on a kanban session card
+
+```typescript
+{
+  'action': 'openSession' | 'openPlanFile',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/kanban/sessionSelected
+
+> Sent when the user clicks a session card in the Agent Kanban to open its worktree WIP
+
+```typescript
+{
+  'column': 'working' | 'needs-input' | 'idle' | 'inactive',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'session.category': 'working' | 'needs-input' | 'idle',
+  'session.hasPendingPermission': boolean,
+  'session.phase': string,
+  'session.sameRepo': boolean
+}
+```
+
+### graph/kanban/shown
+
+> Sent when the Agent Kanban becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'sessions.count': number,
+  'sessions.idle.count': number,
+  'sessions.inactive.count': number,
+  'sessions.needsInput.count': number,
+  'sessions.working.count': number
+}
+```
+
 ### graph/minimap/day/selected
 
 > Sent when the user selects (clicks on) a day on the minimap on the Commit Graph
@@ -3610,6 +3713,214 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/timeline/commitSelected
+
+> Sent when the user selects a commit in the embedded Visual History chart (first-paint auto-selections excluded)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'shift': boolean
+}
+```
+
+### graph/timeline/periodChanged
+
+> Sent when the user changes the period in the embedded Visual History header
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'period.new': string,
+  'period.old': string
+}
+```
+
+### graph/timeline/scopeChanged
+
+> Sent when the user changes the file/folder scope of the embedded Visual History (path picker, clear, or breadcrumb)
+
+```typescript
+{
+  'action': 'choose' | 'clear' | 'breadcrumb',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'scope.type': 'file' | 'folder',
+  // Whether a file/folder scope is active AFTER this change
+  'scoped': boolean
+}
+```
+
+### graph/timeline/shown
+
+> Sent when the embedded Visual History (timeline) visualization becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'period': string,
+  'scoped': boolean,
+  'sliceBy': 'branch' | 'author'
+}
+```
+
+### graph/timeline/sliceByChanged
+
+> Sent when the user changes the slice-by axis in the embedded Visual History header
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'sliceBy.new': 'branch' | 'author',
+  'sliceBy.old': 'branch' | 'author'
+}
+```
+
+### graph/treemap/decayChanged
+
+> Sent when the user changes the activity decay window in the Agent Activity Treemap
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'decay.new': string,
+  'decay.old': string
+}
+```
+
+### graph/treemap/fileClicked
+
+> Sent when the user clicks a file leaf in the treemap
+
+```typescript
+{
+  'action': 'open' | 'history',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'mode': 'commits' | 'files' | 'activity',
+  // Only set in `activity` mode — whether the click also focused an agent session that touched the file
+  'session.focused': boolean
+}
+```
+
+### graph/treemap/periodChanged
+
+> Sent when the user changes the period in the Commits Treemap
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'period.new': string,
+  'period.old': string
+}
+```
+
+### graph/treemap/shown
+
+> Sent when a treemap visualization becomes visible for a repo + mode and its data has loaded
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'files.count': number,
+  'mode': 'commits' | 'files' | 'activity',
+  // Only set in `commits` mode — the other modes have no period axis
+  'period': string
+}
+```
+
+### graph/treemap/zoomed
+
+> Sent when the user zooms the treemap in or out (folder drill-down or breadcrumb)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Folder depth of the zoom target; 0 = back at the root
+  'depth': number,
+  'direction': 'in' | 'out',
+  'mode': 'commits' | 'files' | 'activity'
+}
+```
+
 ### graph/virtualFile/failed
 
 > Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered)
@@ -3652,6 +3963,47 @@ background-upgraded the extension while the host kept running the old build
   'files.count': number,
   // Which open operation the user triggered
   'mode': 'diff' | 'comparePrevious' | 'multiDiff'
+}
+```
+
+### graph/visualizations/closed
+
+> Sent when the Graph leaves Visualizations display mode (close button, sidebar rail, external search request, etc.)
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'mode': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity'
+}
+```
+
+### graph/visualizations/modeChanged
+
+> Sent when the user switches the active visualization via the switcher, or when a virtual repo forces a fallback from the Commits Treemap to the Files Treemap
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'mode.new': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity',
+  'mode.old': 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity',
+  // `fallback` when a virtual repo forced Commits → Files on mount (not a user action)
+  'reason': 'user' | 'fallback'
 }
 ```
 
@@ -4794,7 +5146,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   // Which file open/diff operation was triggered
-  'action': 'openOnRemote' | 'comparePrevious' | 'multiDiff' | 'open' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
+  'action': 'openOnRemote' | 'open' | 'comparePrevious' | 'multiDiff' | 'compareWorking' | 'compareWip' | 'compareBetween' | 'defaultAction',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
