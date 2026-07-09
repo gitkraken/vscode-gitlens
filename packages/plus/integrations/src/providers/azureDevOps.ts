@@ -2,7 +2,12 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
@@ -33,7 +38,12 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { fromProviderIssue, fromProviderPullRequest, providersMetadata } from './models.js';
+import {
+	fromProviderIssue,
+	fromProviderPullRequest,
+	providersMetadata,
+	toProviderPullRequestStates,
+} from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 import { collectProviderPagedResult } from './utils/providerPaging.js';
 
@@ -459,12 +469,17 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: AzureRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		_silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		if (repos != null) {
 			// TODO: implement repos version
 			return undefined;
 		}
+
+		const states = toProviderPullRequestStates(state);
 
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
@@ -487,12 +502,14 @@ export abstract class AzureDevOpsIntegrationBase<
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
 				assigneeLogins: [user.username],
+				states: states,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
 				authorLogin: user.username,
+				states: states,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const prsById = new Map<string, PullRequest>();

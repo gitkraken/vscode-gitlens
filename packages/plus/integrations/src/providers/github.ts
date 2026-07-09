@@ -2,7 +2,12 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -245,6 +250,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		return (await this.authenticationService.apis.github)?.searchMyPullRequests(
 			this,
@@ -253,6 +259,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
 				silent: silent,
+				state: state,
 			},
 			cancellation,
 		);

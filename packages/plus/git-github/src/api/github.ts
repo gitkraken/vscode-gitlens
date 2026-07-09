@@ -13,7 +13,7 @@ import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js'
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import { PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -132,10 +132,12 @@ baseRefOid
 headRefName
 headRefOid
 headRepository {
+	isFork
 	name
 	owner {
 		login
 	}
+	sshUrl
 	url
 }
 isCrossRepository
@@ -148,6 +150,7 @@ repository {
 	owner {
 		login
 	}
+	sshUrl
 	url
 	viewerPermission
 }
@@ -3317,6 +3320,7 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			silent?: boolean;
+			state?: PullRequestStateFilter;
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
@@ -3380,12 +3384,27 @@ export class GitHubApi {
 				}
 			}
 
+			// Map the requested state to a GitHub search qualifier; `all` omits it, default stays open-only.
+			// `is:closed` alone also matches merged PRs, so pair it with `is:unmerged` to keep `closed` and
+			// `merged` disjoint (mirroring the paginated path's states=[Closed], which excludes merged).
+			const stateQualifier =
+				options?.state === 'closed'
+					? 'is:closed is:unmerged'
+					: options?.state === 'merged'
+						? 'is:merged'
+						: options?.state === 'all'
+							? ''
+							: 'is:open';
+
 			const rsp = await this.graphql<SearchResult>(
 				provider,
 				token,
 				query,
 				{
-					search: `is:open is:pr involves:@me archived:false ${search}`.trim(),
+					search: [stateQualifier, 'is:pr involves:@me archived:false', search]
+						.filter(Boolean)
+						.join(' ')
+						.trim(),
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},

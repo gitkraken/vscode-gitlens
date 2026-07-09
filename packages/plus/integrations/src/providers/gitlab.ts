@@ -2,7 +2,12 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod, PullRequestState } from '@gitlens/git/models/pullRequest.js';
+import type {
+	PullRequest,
+	PullRequestMergeMethod,
+	PullRequestState,
+	PullRequestStateFilter,
+} from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -20,7 +25,12 @@ import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
 import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
-import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models.js';
+import {
+	ProviderPullRequestReviewState,
+	providersMetadata,
+	toIssueShape,
+	toProviderPullRequestStates,
+} from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitLab];
@@ -283,6 +293,9 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: GitLabRepositoryDescriptor[],
+		_cancellation?: AbortSignal,
+		_silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.getProvidersApi();
 		// Resolve the username from THIS session's token (multi-account: `session` may be a non-primary
@@ -295,6 +308,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const apiResult = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			states: toProviderPullRequestStates(state),
 		});
 
 		if (apiResult == null) {

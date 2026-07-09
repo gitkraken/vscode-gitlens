@@ -4,6 +4,16 @@ export interface PagedResult<T> {
 	readonly paging?: {
 		readonly cursor: string;
 		readonly more: boolean;
+		/** 1-based page that produced this result. Populated by numbered-page providers only. */
+		readonly page?: number;
+		/** Items requested per page, when known. */
+		readonly pageSize?: number;
+		/** Next page number, when the provider pages by number. */
+		readonly nextPage?: number;
+		/** Total number of pages, when the provider reports totals. */
+		readonly totalPages?: number;
+		/** Total number of items across all pages, when the provider reports totals. */
+		readonly totalCount?: number;
 	};
 	readonly values: NonNullable<T>[];
 }
@@ -13,6 +23,10 @@ export const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
 
 export interface PagingOptions {
 	cursor?: string;
+	/** 1-based page to request from numbered-page providers. */
+	page?: number;
+	/** Items to request per page (numbered-page providers, and GitHub's cursor pages). */
+	pageSize?: number;
 }
 
 export class PageableResult<T> {

@@ -18,6 +18,7 @@ import type {
 	GitMergeStrategy,
 	GitPullRequest,
 	GitRepository,
+	GitRepositoryRemoteInfo,
 	Jira,
 	JiraProject,
 	JiraResource,
@@ -36,6 +37,7 @@ import type {
 } from '@gitkraken/provider-apis';
 import {
 	GitBuildStatusState,
+	GitIssueState,
 	GitPullRequestMergeableState,
 	GitPullRequestReviewState,
 	GitPullRequestState,
@@ -43,14 +45,16 @@ import {
 import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
 import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
-import type { IssueMember, IssueProject, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type {
 	PullRequestMember,
+	PullRequestRef,
 	PullRequestRefs,
 	PullRequestRepositoryIdentityDescriptor,
 	PullRequestReviewer,
 	PullRequestState,
+	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import {
 	PullRequest,
@@ -60,6 +64,7 @@ import {
 	PullRequestStatusCheckRollupState,
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
+import type { ProviderScope } from '@gitlens/git/models/resourceDescriptor.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
@@ -155,16 +160,31 @@ export interface GetPullRequestsOptions {
 	authorLogin?: string;
 	assigneeLogins?: string[];
 	reviewRequestedLogin?: string;
+	// Reviewer filters keyed differently per provider: GitHub/GitLab use reviewRequestedLogin (login),
+	// Bitbucket/Azure DevOps use reviewerId (account id), Bitbucket Server uses reviewerLogin (login).
+	reviewerId?: string;
+	reviewerLogin?: string;
 	mentionLogin?: string;
+	// PR states to include; when omitted the provider returns its default (open only).
+	states?: GitPullRequestState[];
 	query?: string;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// 1-based page to request from numbered-page providers; takes precedence over a page-typed cursor.
+	page?: number;
+	// Items to request per page (numbered-page providers, plus GitHub's maxPageSize).
+	pageSize?: number;
+	// Opt in to repository remote metadata (clone URLs) when the PR payload lacks it. Only Azure DevOps
+	// acts on this today (extra API call); it is a no-op for the other providers.
+	includeRemoteInfo?: boolean;
 }
 
 export interface GetPullRequestsForUserOptions {
 	includeFromArchivedRepos?: boolean;
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// PR states to include; when omitted the provider returns its default (open only).
+	states?: GitPullRequestState[];
 }
 
 export interface GetPullRequestsForUserInput extends GetPullRequestsForUserOptions {
@@ -191,8 +211,14 @@ export interface GetIssuesOptions {
 	authorLogin?: string;
 	assigneeLogins?: string[];
 	mentionLogin?: string;
+	// Issue states to include; when omitted the provider returns its default (open only).
+	states?: GitIssueState[];
 	cursor?: string; // stringified JSON object of type { type: 'cursor' | 'page'; value: string | number } | {}
 	baseUrl?: string;
+	// 1-based page to request from numbered-page providers; takes precedence over a page-typed cursor.
+	page?: number;
+	// Items to request per page (numbered-page providers, plus GitHub's maxPageSize).
+	pageSize?: number;
 }
 
 export interface GetIssuesForRepoInput extends GetIssuesOptions {
@@ -230,6 +256,10 @@ export interface PageInfo {
 	hasNextPage: boolean;
 	endCursor?: string | null;
 	nextPage?: number | null;
+	// Numbered-page providers (Bitbucket, Bitbucket Server, Azure DevOps) additionally report these.
+	currentPage?: number | null;
+	totalPages?: number | null;
+	totalCount?: number | null;
 }
 
 export type GetRepoFn = (
@@ -390,6 +420,7 @@ export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	input: {
 		userId: string;
 		workspaceSlug: string;
+		states?: GitPullRequestState[];
 	} & NumberedPageInput,
 	options?: EnterpriseOptions,
 ) => Promise<{
@@ -400,7 +431,7 @@ export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	data: GitPullRequest[];
 }>;
 export type GetBitbucketServerPullRequestsForCurrentUserFn = (
-	input: NumberedPageInput,
+	input: { states?: GitPullRequestState[] } & NumberedPageInput,
 	options?: EnterpriseOptions,
 ) => Promise<{
 	pageInfo: {
@@ -551,8 +582,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'git',
 		iconKey: GitCloudHostIntegrationId.Bitbucket,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.ReviewRequested],
 		scopes: ['account:read', 'repository:read', 'pullrequest:read', 'issue:read'],
 	},
 	[GitSelfManagedHostIntegrationId.BitbucketServer]: {
@@ -572,8 +603,12 @@ export const providersMetadata: ProvidersMetadata = {
 		iconKey: GitCloudHostIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
@@ -586,8 +621,12 @@ export const providersMetadata: ProvidersMetadata = {
 		iconKey: GitCloudHostIntegrationId.AzureDevOps,
 		issuesPagingMode: PagingMode.Project,
 		pullRequestsPagingMode: PagingMode.Repo,
-		// Use 'id' property on account for PR filters
-		supportedPullRequestFilters: [PullRequestFilter.Author, PullRequestFilter.Assignee],
+		// Use 'id' property on account for PR filters (reviewer filter keyed by account id / reviewerId)
+		supportedPullRequestFilters: [
+			PullRequestFilter.Author,
+			PullRequestFilter.Assignee,
+			PullRequestFilter.ReviewRequested,
+		],
 		// Use 'name' property on account for issue filters
 		supportedIssueFilters: [IssueFilter.Author, IssueFilter.Assignee, IssueFilter.Mention],
 		scopes: ['vso.code', 'vso.identity', 'vso.project', 'vso.profile', 'vso.work'],
@@ -876,6 +915,65 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
 
+/** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderPullRequestStates(
+	state: PullRequestStateFilter | undefined,
+): GitPullRequestState[] | undefined {
+	switch (state) {
+		case 'open':
+			return [GitPullRequestState.Open];
+		case 'closed':
+			return [GitPullRequestState.Closed];
+		case 'merged':
+			return [GitPullRequestState.Merged];
+		case 'all':
+			return [GitPullRequestState.Open, GitPullRequestState.Closed, GitPullRequestState.Merged];
+		default:
+			return undefined;
+	}
+}
+
+/** Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderIssueStates(state: IssueStateFilter | undefined): GitIssueState[] | undefined {
+	switch (state) {
+		case 'open':
+			return [GitIssueState.Open];
+		case 'closed':
+			return [GitIssueState.Closed];
+		case 'all':
+			return [GitIssueState.Open, GitIssueState.Closed];
+		default:
+			return undefined;
+	}
+}
+
+/**
+ * Resolves a normalized {@link ProviderScope} to the provider-appropriate read inputs, dispatching on the
+ * provider's {@link PagingMode} (the authoritative per-provider scoping selector). Project-mode providers
+ * (Azure issues, Jira) produce `projectInputs` from `org` + `project`; repo/repos-mode providers produce a
+ * repo `GetRepoInput[]` from `scope.repos` (carrying `project` where relevant, e.g. Azure). This is the
+ * single public entry point consumers can use instead of hand-building the three underlying representations.
+ */
+export function resolveProviderScope(
+	scope: ProviderScope,
+	pagingMode: PagingMode | undefined,
+): { reposInput?: GetRepoInput[]; projectInputs?: { namespace: string; project: string }[] } {
+	if (pagingMode === PagingMode.Project) {
+		if (scope.org != null && scope.project != null) {
+			return { projectInputs: [{ namespace: scope.org, project: scope.project }] };
+		}
+		return {};
+	}
+
+	const reposInput = scope.repos?.map(r => ({ namespace: r.owner, name: r.name, project: scope.project }));
+	return { reposInput: reposInput };
+}
+
+function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRemoteInfo | null {
+	// Match the SDK convention: only populate remoteInfo when both clone URLs are known.
+	return ref?.cloneHttps && ref?.cloneSsh ? { cloneUrlHTTPS: ref.cloneHttps, cloneUrlSSH: ref.cloneSsh } : null;
+}
+
 export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
 	return {
@@ -886,6 +984,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 		description: null,
 		url: pr.url,
 		state: toProviderPullRequestState(pr.state),
+		isCrossRepository: pr.refs?.isCrossRepository ?? false,
 		isDraft: pr.isDraft ?? false,
 		createdDate: pr.createdDate,
 		updatedDate: pr.updatedDate,
@@ -923,7 +1022,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						owner: {
 							login: pr.repository.owner,
 						},
-						remoteInfo: null, // TODO: Add the urls to our model
+						remoteInfo: toProviderRemoteInfo(pr.refs?.base),
 					}
 				: {
 						id: '',
@@ -941,7 +1040,8 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 						owner: {
 							login: pr.refs.head.owner,
 						},
-						remoteInfo: null,
+						remoteInfo: toProviderRemoteInfo(pr.refs.head),
+						isFork: pr.refs.head.isFork,
 					}
 				: null,
 		headCommit:
@@ -1015,6 +1115,8 @@ export function fromProviderPullRequest(
 				url: pr.repository.remoteInfo?.cloneUrlHTTPS
 					? pr.repository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
+				cloneHttps: pr.repository.remoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: pr.repository.remoteInfo?.cloneUrlSSH || undefined,
 			},
 			head: {
 				branch: pr.headRef?.name ?? '',
@@ -1025,8 +1127,11 @@ export function fromProviderPullRequest(
 				url: pr.headRepository?.remoteInfo?.cloneUrlHTTPS
 					? pr.headRepository.remoteInfo.cloneUrlHTTPS.replace(gitSuffixRegex, '')
 					: '',
+				cloneHttps: pr.headRepository?.remoteInfo?.cloneUrlHTTPS || undefined,
+				cloneSsh: pr.headRepository?.remoteInfo?.cloneUrlSSH || undefined,
+				isFork: pr.headRepository?.isFork,
 			},
-			isCrossRepository: pr.headRepository?.id !== pr.repository.id,
+			isCrossRepository: pr.isCrossRepository,
 		},
 		pr.isDraft,
 		pr.additions ?? undefined,

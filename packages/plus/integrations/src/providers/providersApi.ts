@@ -1,4 +1,5 @@
 import ProviderApis from '@gitkraken/provider-apis';
+import type { GitPullRequestState } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -321,9 +322,14 @@ export class ProvidersApi {
 
 	private async getProviderToken<T extends IntegrationIds>(
 		provider: ProviderInfo & { id: T },
-		options?: { createSessionIfNeeded?: boolean },
+		options?: { createSessionIfNeeded?: boolean; connectionId?: string },
 	): Promise<TokenWithInfo<T> | undefined> {
-		const providerDescriptor = { domain: provider.domain, scopes: provider.scopes };
+		// When a specific connection is requested, resolve that connection's cloud session (mirroring
+		// `Integration.resolveReadSession`); otherwise keep the plain descriptor so the primary is resolved.
+		// An empty string is not a real target, so it must also fall through to the primary path.
+		const providerDescriptor = options?.connectionId
+			? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
+			: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
 			const session = await authProvider.getSession(providerDescriptor, {
@@ -356,9 +362,12 @@ export class ProvidersApi {
 			throw new Error(`Provider id mismatch: expected ${providerId} but got ${provider.id}`);
 		}
 
+		const connectionId = 'connectionId' in tokenOptInfo ? tokenOptInfo.connectionId : undefined;
 		const tokenWithInfo = tokenOptInfo?.accessToken
 			? tokenOptInfo
-			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T });
+			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T }, {
+					connectionId: connectionId,
+				});
 		if (tokenWithInfo == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}
@@ -446,16 +455,29 @@ export class ProvidersApi {
 		}
 		const cursorValue = cursorInfo.value;
 		const cursorType = cursorInfo.type;
+		// An explicit numbered `page` request wins over a page-typed cursor; otherwise follow the cursor. A
+		// live cursor-typed cursor still takes precedence so an in-flight continuation is never clobbered.
+		const requestedPage: number | undefined = typeof args?.page === 'number' ? args.page : undefined;
+		const requestedPageSize: number | undefined = typeof args?.pageSize === 'number' ? args.pageSize : undefined;
 		let cursorOrPage = {};
-		if (cursorType === 'page') {
+		if (requestedPage != null && cursorType !== 'cursor') {
+			cursorOrPage = { page: requestedPage };
+		} else if (cursorType === 'page') {
 			cursorOrPage = { page: cursorValue };
 		} else if (cursorType === 'cursor') {
 			cursorOrPage = { cursor: cursorValue };
 		}
 
+		// Strip the caller's paging keys so `getPagedResult` fully controls them; otherwise `args.page` could
+		// survive alongside a resolved `cursor` (or the raw serialized wrapper `args.cursor` could leak in when
+		// following a page), letting the provider clobber the continuation we intended.
+		const { page: _page, pageSize: _pageSize, cursor: _cursor, ...restArgs } = args ?? {};
 		const input = {
-			...args,
+			...restArgs,
 			...cursorOrPage,
+			// `pageSize` is honored by numbered providers; GitHub reads `maxPageSize`. Set both so whichever
+			// the resolved provider understands takes effect; the other is ignored.
+			...(requestedPageSize != null ? { pageSize: requestedPageSize, maxPageSize: requestedPageSize } : {}),
 		};
 
 		try {
@@ -468,13 +490,14 @@ export class ProvidersApi {
 				return { values: [] };
 			}
 
-			const hasMore = result.pageInfo?.hasNextPage ?? false;
+			const pageInfo = result.pageInfo;
+			const hasMore = pageInfo?.hasNextPage ?? false;
 
 			let nextCursor = '{}';
-			if (result.pageInfo?.endCursor != null) {
-				nextCursor = JSON.stringify({ value: result.pageInfo?.endCursor, type: 'cursor' });
-			} else if (result.pageInfo?.nextPage != null) {
-				nextCursor = JSON.stringify({ value: result.pageInfo?.nextPage, type: 'page' });
+			if (pageInfo?.endCursor != null) {
+				nextCursor = JSON.stringify({ value: pageInfo.endCursor, type: 'cursor' });
+			} else if (pageInfo?.nextPage != null) {
+				nextCursor = JSON.stringify({ value: pageInfo.nextPage, type: 'page' });
 			}
 
 			return {
@@ -482,6 +505,13 @@ export class ProvidersApi {
 				paging: {
 					cursor: nextCursor,
 					more: hasMore,
+					// Numbered-page metadata; left undefined by cursor-based providers (which don't report a
+					// currentPage), so we never echo the requested page for a provider that ignored it.
+					page: pageInfo?.currentPage ?? undefined,
+					pageSize: requestedPageSize,
+					nextPage: pageInfo?.nextPage ?? undefined,
+					totalPages: pageInfo?.totalPages ?? undefined,
+					totalCount: pageInfo?.totalCount ?? undefined,
 				},
 			};
 		} catch (e) {
@@ -685,6 +715,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
 		workspaceSlug: string,
+		options?: { states?: GitPullRequestState[] },
 	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -695,7 +726,7 @@ export class ProvidersApi {
 		try {
 			return (
 				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
-					{ userId: userId, workspaceSlug: workspaceSlug },
+					{ userId: userId, workspaceSlug: workspaceSlug, states: options?.states },
 					{ token: token },
 				)
 			)?.data;
@@ -707,6 +738,7 @@ export class ProvidersApi {
 	async getBitbucketServerPullRequestsForCurrentUser(
 		tokenOptInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
 		baseUrl: string,
+		options?: { states?: GitPullRequestState[] },
 	): Promise<ProviderPullRequest[] | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
@@ -715,7 +747,10 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 		try {
 			return (
-				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.({}, { token: token, baseUrl: baseUrl })
+				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.(
+					{ states: options?.states },
+					{ token: token, baseUrl: baseUrl },
+				)
 			)?.data;
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
@@ -995,6 +1030,7 @@ export class ProvidersApi {
 		options?: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
+			states?: GitPullRequestState[];
 			isPAT?: boolean;
 			baseUrl?: string;
 		},

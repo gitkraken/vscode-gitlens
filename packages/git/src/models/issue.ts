@@ -4,6 +4,9 @@ import type { IssueOrPullRequest, IssueOrPullRequestState } from './issueOrPullR
 import type { ProviderReference } from './remoteProvider.js';
 import type { RepositoryIdentityDescriptor } from './repositoryIdentities.js';
 
+/** Selects which issue states a read should include. `all` covers open + closed. */
+export type IssueStateFilter = 'open' | 'closed' | 'all';
+
 export interface IssueShape extends IssueOrPullRequest {
 	author: IssueMember;
 	assignees: IssueMember[];

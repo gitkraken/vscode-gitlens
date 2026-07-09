@@ -77,7 +77,9 @@ export function toTokenWithInfo<T extends IntegrationIds>(
 
 export type TokenOptInfo<T extends IntegrationIds = IntegrationIds> =
 	| TokenWithInfo<T>
-	| { providerId: T; accessToken?: undefined };
+	// `connectionId` targets a specific connection (multi-account) when the token still has to be resolved.
+	// Omitted resolves the provider's primary connection, preserving the pre-multi-account behavior.
+	| { providerId: T; accessToken?: undefined; connectionId?: string };
 
 export interface ConfiguredIntegrationDescriptor {
 	/**

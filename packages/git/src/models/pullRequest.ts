@@ -132,6 +132,9 @@ export interface PullRequestMember {
 	url?: string;
 }
 
+/** Selects which pull request states a read should include. `all` covers open + closed + merged. */
+export type PullRequestStateFilter = 'open' | 'closed' | 'merged' | 'all';
+
 export interface PullRequestRef {
 	owner: string;
 	repo: string;
@@ -139,6 +142,12 @@ export interface PullRequestRef {
 	sha: string;
 	exists: boolean;
 	url: string;
+	/** HTTPS clone URL of the ref's repository, when the provider exposes it. */
+	cloneHttps?: string;
+	/** SSH clone URL of the ref's repository, when the provider exposes it. */
+	cloneSsh?: string;
+	/** Best-effort flag: whether the ref's repository is a fork. `undefined` when the provider can't tell. */
+	isFork?: boolean;
 }
 
 export interface PullRequestRefs {

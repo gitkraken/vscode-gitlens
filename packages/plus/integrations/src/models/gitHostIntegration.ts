@@ -1,7 +1,8 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
+import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
-import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestMergeMethod, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
@@ -13,7 +14,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -28,9 +29,24 @@ import type {
 	ProviderReposInput,
 	ProviderRepository,
 } from '../providers/models.js';
-import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
+import {
+	IssueFilter,
+	PagingMode,
+	PullRequestFilter,
+	toProviderIssueStates,
+	toProviderPullRequestStates,
+} from '../providers/models.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
+
+function isAzureDevOpsProvider(
+	providerId: IntegrationIds,
+): providerId is GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer {
+	return (
+		providerId === GitCloudHostIntegrationId.AzureDevOps ||
+		providerId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
+	);
+}
 
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
@@ -351,20 +367,32 @@ export abstract class GitHostIntegration<
 
 	async getMyIssuesForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: { filters?: IssueFilter[]; cursor?: string; customUrl?: string },
+		options?: {
+			filters?: IssueFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			/** When true, don't constrain to the current user's assigned issues even if the Assignee filter is set. */
+			includeAllAssignees?: boolean;
+			/** Issue states to include; when omitted the provider returns its default (open only). */
+			state?: IssueStateFilter;
+		},
+		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		const states = toProviderIssueStates(options?.state);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
+		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === GitCloudHostIntegrationId.AzureDevOps &&
+				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
@@ -372,7 +400,7 @@ export abstract class GitHostIntegration<
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
-		if (providerId === GitCloudHostIntegrationId.AzureDevOps) {
+		if (isAzureDevOpsProvider(providerId)) {
 			const organizations = new Set<string>();
 			const projects = new Set<string>();
 			for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
@@ -398,7 +426,10 @@ export abstract class GitHostIntegration<
 
 				let userAccount: ProviderAccount | undefined;
 				try {
-					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
+					userAccount = await api.getCurrentUserForInstance(
+						{ providerId: providerId, connectionId: connectionId },
+						organization,
+					);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
 					return undefined;
@@ -418,7 +449,10 @@ export abstract class GitHostIntegration<
 
 				getIssuesOptions = {
 					authorLogin: options.filters.includes(IssueFilter.Author) ? userFilterProperty : undefined,
-					assigneeLogins: options.filters.includes(IssueFilter.Assignee) ? [userFilterProperty] : undefined,
+					assigneeLogins:
+						!options.includeAllAssignees && options.filters.includes(IssueFilter.Assignee)
+							? [userFilterProperty]
+							: undefined,
 					mentionLogin: options.filters.includes(IssueFilter.Mention) ? userFilterProperty : undefined,
 				};
 			}
@@ -441,12 +475,17 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
-							{ providerId: providerId },
+							{ providerId: providerId, connectionId: connectionId },
 							projectInput.namespace,
 							projectInput.project,
 							{
 								...getIssuesOptions,
 								cursor: projectInput.cursor,
+								// Continuation is driven by the per-project cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: projectInput.cursor == null ? options?.page : undefined,
+								pageSize: options?.pageSize,
+								states: states,
 							},
 						);
 						data.push(...results.values);
@@ -476,7 +515,7 @@ export abstract class GitHostIntegration<
 		if (options?.filters != null) {
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser({ providerId: providerId });
+				userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return undefined;
@@ -495,7 +534,10 @@ export abstract class GitHostIntegration<
 
 			getIssuesOptions = {
 				authorLogin: options.filters.includes(IssueFilter.Author) ? userFilterProperty : undefined,
-				assigneeLogins: options.filters.includes(IssueFilter.Assignee) ? [userFilterProperty] : undefined,
+				assigneeLogins:
+					!options.includeAllAssignees && options.filters.includes(IssueFilter.Assignee)
+						? [userFilterProperty]
+						: undefined,
 				mentionLogin: options.filters.includes(IssueFilter.Mention) ? userFilterProperty : undefined,
 			};
 		}
@@ -514,11 +556,20 @@ export abstract class GitHostIntegration<
 				const data: ProviderIssue[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getIssuesForRepo({ providerId: providerId }, repoInput.repo, {
-							...getIssuesOptions,
-							cursor: repoInput.cursor,
-							baseUrl: options?.customUrl,
-						});
+						const results = await api.getIssuesForRepo(
+							{ providerId: providerId, connectionId: connectionId },
+							repoInput.repo,
+							{
+								...getIssuesOptions,
+								cursor: repoInput.cursor,
+								baseUrl: options?.customUrl,
+								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: repoInput.cursor == null ? options?.page : undefined,
+								pageSize: options?.pageSize,
+								states: states,
+							},
+						);
 						data.push(...results.values);
 						if (results.paging?.more) {
 							hasMore = true;
@@ -541,10 +592,13 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getIssuesForRepos({ providerId: providerId }, reposOrRepoIds, {
+			return await api.getIssuesForRepos({ providerId: providerId, connectionId: connectionId }, reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
+				page: options?.page,
+				pageSize: options?.pageSize,
+				states: states,
 			});
 		} catch (ex) {
 			Logger.error(ex, 'getIssuesForRepos');
@@ -554,20 +608,30 @@ export abstract class GitHostIntegration<
 
 	async getMyPullRequestsForRepos(
 		reposOrRepoIds: ProviderReposInput,
-		options?: { filters?: PullRequestFilter[]; cursor?: string; customUrl?: string },
+		options?: {
+			filters?: PullRequestFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			/** PR states to include; when omitted the provider returns its default (open only). */
+			state?: PullRequestStateFilter;
+		},
+		connectionId?: string,
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
+		const states = toProviderPullRequestStates(options?.state);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary. The session
+		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
 		const api = await this.getProvidersApi();
 		if (
 			providerId !== GitCloudHostIntegrationId.GitLab &&
 			(api.isRepoIdsInput(reposOrRepoIds) ||
-				(providerId === GitCloudHostIntegrationId.AzureDevOps &&
+				(isAzureDevOpsProvider(providerId) &&
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`);
@@ -582,7 +646,7 @@ export abstract class GitHostIntegration<
 			}
 
 			let userAccount: ProviderAccount | undefined;
-			if (providerId === GitCloudHostIntegrationId.AzureDevOps) {
+			if (isAzureDevOpsProvider(providerId)) {
 				const organizations = new Set<string>();
 				for (const repo of reposOrRepoIds as ProviderRepoInput[]) {
 					organizations.add(repo.namespace);
@@ -601,14 +665,17 @@ export abstract class GitHostIntegration<
 
 				const organization: string = first(organizations.values())!;
 				try {
-					userAccount = await api.getCurrentUserForInstance({ providerId: providerId }, organization);
+					userAccount = await api.getCurrentUserForInstance(
+						{ providerId: providerId, connectionId: connectionId },
+						organization,
+					);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser({ providerId: providerId });
+					userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return undefined;
@@ -624,6 +691,7 @@ export abstract class GitHostIntegration<
 			switch (providerId) {
 				case GitCloudHostIntegrationId.Bitbucket:
 				case GitCloudHostIntegrationId.AzureDevOps:
+				case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 					userFilterProperty = userAccount.id;
 					break;
 				default:
@@ -636,12 +704,35 @@ export abstract class GitHostIntegration<
 				return undefined;
 			}
 
+			// Route the "review requested from me" filter to the field each provider actually reads:
+			// GitHub/GitLab expect a login (reviewRequestedLogin), Bitbucket/Azure an account id (reviewerId),
+			// and Bitbucket Server a login (reviewerLogin). `userFilterProperty` is already the account id for
+			// Bitbucket/Azure and the username for the rest.
+			let reviewRequestedLogin: string | undefined;
+			let reviewerId: string | undefined;
+			let reviewerLogin: string | undefined;
+			if (options.filters.includes(PullRequestFilter.ReviewRequested)) {
+				switch (providerId) {
+					case GitCloudHostIntegrationId.Bitbucket:
+					case GitCloudHostIntegrationId.AzureDevOps:
+					case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+						reviewerId = userFilterProperty;
+						break;
+					case GitSelfManagedHostIntegrationId.BitbucketServer:
+						reviewerLogin = userFilterProperty;
+						break;
+					default:
+						reviewRequestedLogin = userFilterProperty;
+						break;
+				}
+			}
+
 			getPullRequestsOptions = {
 				authorLogin: options.filters.includes(PullRequestFilter.Author) ? userFilterProperty : undefined,
 				assigneeLogins: options.filters.includes(PullRequestFilter.Assignee) ? [userFilterProperty] : undefined,
-				reviewRequestedLogin: options.filters.includes(PullRequestFilter.ReviewRequested)
-					? userFilterProperty
-					: undefined,
+				reviewRequestedLogin: reviewRequestedLogin,
+				reviewerId: reviewerId,
+				reviewerLogin: reviewerLogin,
 				mentionLogin: options.filters.includes(PullRequestFilter.Mention) ? userFilterProperty : undefined,
 			};
 		}
@@ -663,11 +754,22 @@ export abstract class GitHostIntegration<
 				const data: ProviderPullRequest[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
-						const results = await api.getPullRequestsForRepo({ providerId: providerId }, repoInput.repo, {
-							...getPullRequestsOptions,
-							cursor: repoInput.cursor,
-							baseUrl: options?.customUrl,
-						});
+						const results = await api.getPullRequestsForRepo(
+							{ providerId: providerId, connectionId: connectionId },
+							repoInput.repo,
+							{
+								...getPullRequestsOptions,
+								cursor: repoInput.cursor,
+								baseUrl: options?.customUrl,
+								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
+								// first request so it can't clobber a continuation cursor on later pages.
+								page: repoInput.cursor == null ? options?.page : undefined,
+								pageSize: options?.pageSize,
+								states: states,
+								// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+							},
+						);
 						data.push(...results.values);
 						if (results.paging?.more) {
 							hasMore = true;
@@ -690,11 +792,20 @@ export abstract class GitHostIntegration<
 		}
 
 		try {
-			return await api.getPullRequestsForRepos({ providerId: providerId }, reposOrRepoIds, {
-				...getPullRequestsOptions,
-				cursor: options?.cursor,
-				baseUrl: options?.customUrl,
-			});
+			return await api.getPullRequestsForRepos(
+				{ providerId: providerId, connectionId: connectionId },
+				reposOrRepoIds,
+				{
+					...getPullRequestsOptions,
+					cursor: options?.cursor,
+					baseUrl: options?.customUrl,
+					page: options?.page,
+					pageSize: options?.pageSize,
+					states: states,
+					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+					includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+				},
+			);
 		} catch (ex) {
 			Logger.error(ex, 'getPullRequestsForRepos');
 			return undefined;
@@ -706,12 +817,14 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@trace()
 	async searchMyPullRequests(
@@ -719,6 +832,7 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		connectionId?: string,
+		state?: PullRequestStateFilter,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -732,6 +846,7 @@ export abstract class GitHostIntegration<
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
 				silent,
+				state,
 			);
 			this.resetRequestExceptionCount('searchMyPullRequests');
 			return { value: pullRequests, duration: performance.now() - start };
@@ -747,11 +862,14 @@ export abstract class GitHostIntegration<
 		}
 	}
 
+	// `state` selects which PR states to include (open/closed/merged/all). Providers that cannot express it
+	// in a single query filter the normalized results; omitted preserves the historical open-only behavior.
 	protected abstract searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: T[],
 		cancellation?: AbortSignal,
 		silent?: boolean,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
 
 	async searchPullRequests(
