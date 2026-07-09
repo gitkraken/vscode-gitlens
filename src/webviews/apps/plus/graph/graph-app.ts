@@ -77,6 +77,7 @@ import type {
 import type { GraphTreemapModeChangeDetail } from './components/gl-graph-treemap.js';
 import type { GraphVisualizationModeChangeDetail } from './components/gl-graph-visualizations.js';
 import type { WipBarItem, WipBarSelectDetail, WipBarStatsNeededDetail } from './components/gl-graph-wip-bar.js';
+import { getEffectiveVisualizationKey } from './components/visualizations.utils.js';
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
 import { graphServicesContext, graphStateContext } from './context.js';
@@ -1484,6 +1485,29 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		if (displayMode !== this._wasDisplayMode) {
 			if (this._wasDisplayMode != null && this._wasDisplayMode !== 'graph') {
 				this._altModeSelectedCommit = undefined;
+			}
+			// `closed` lifecycle telemetry for the alternate display modes. Entry impressions are
+			// emitted by the mounted components themselves (`graph/timeline|treemap|kanban/shown`);
+			// only the exit is recorded here, since this transition check is the single place every
+			// `displayMode` writer (sidebar rail, close buttons, search-request path) funnels through.
+			if (this._wasDisplayMode === 'visualizations') {
+				// Resolve through the shared gate (NOT raw `visualizationMode`) so the reported mode
+				// matches what was actually shown: with the experimental flag off, the wrapper
+				// force-routes to the timeline regardless of a persisted `treemap*` choice, so reading
+				// the raw value here would emit `treemap-*` for a session where only the timeline was
+				// shown — an inconsistent `timeline shown → treemap closed` funnel.
+				emitTelemetrySentEvent<'graph/visualizations/closed'>(this, {
+					name: 'graph/visualizations/closed',
+					data: {
+						mode: getEffectiveVisualizationKey(
+							this.graphState.visualizationMode,
+							this.graphState.treemapMode,
+							this.graphState.config?.experimentalVisualizationsEnabled === true,
+						),
+					},
+				});
+			} else if (this._wasDisplayMode === 'kanban') {
+				emitTelemetrySentEvent<'graph/kanban/closed'>(this, { name: 'graph/kanban/closed', data: {} });
 			}
 			this._wasDisplayMode = displayMode;
 			// Notify the host so it can fetch row stats when entering Visualizations mode (stats are

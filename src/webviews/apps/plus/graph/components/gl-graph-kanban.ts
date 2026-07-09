@@ -18,6 +18,7 @@ import {
 	sortAgentSessions,
 } from '../../../shared/agentUtils.js';
 import { scrollableBase } from '../../../shared/components/styles/lit/base.css.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import '../../../shared/components/badges/badge.js';
 import '../../../shared/components/button.js';
@@ -552,6 +553,29 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		this._lastFingerprint = this.computeFingerprint(this.graphState.agentSessions ?? []);
 	}
 
+	/** Impression telemetry — point-in-time snapshot, fired once per mount (the component mounts
+	 *  only while Kanban is the active display mode and remounts per activation, so first-render is
+	 *  one impression). `agentSessions` is a signal initialized to `[]` and populated asynchronously,
+	 *  so on a fast toggle before the first push the counts below may all read 0 and later arrivals
+	 *  do NOT re-fire — treat them as "what was visible at open", not a settled total. Mirrors the
+	 *  agents sidebar's `emitAgentsShownTelemetry` semantics (the same signal makes "not loaded" and
+	 *  "loaded but empty" indistinguishable, so deferring — as the treemap does on `data.root` — isn't
+	 *  possible here). */
+	protected override firstUpdated(): void {
+		const sessions = this.graphState.agentSessions ?? [];
+		const { buckets } = this.buildBuckets(sessions);
+		emitTelemetrySentEvent<'graph/kanban/shown'>(this, {
+			name: 'graph/kanban/shown',
+			data: {
+				'sessions.count': sessions.length,
+				'sessions.working.count': buckets.get('working')?.length ?? 0,
+				'sessions.needsInput.count': buckets.get('needs-input')?.length ?? 0,
+				'sessions.idle.count': buckets.get('idle')?.length ?? 0,
+				'sessions.inactive.count': buckets.get('inactive')?.length ?? 0,
+			},
+		});
+	}
+
 	override connectedCallback(): void {
 		super.connectedCallback?.();
 		this._liveTickHandle = setInterval(() => {
@@ -591,11 +615,34 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 		// catches Open Session (in `.card__sub-row`) AND the permission actions (`.card__actions`),
 		// regardless of which subtree they live in — so layout changes can't silently regress the
 		// guard the way `closest('.card__actions')` did when Open Session moved to the sub-row.
+		// The buttons handle their own activation (command links); this delegated listener only
+		// observes the composed click for telemetry — one listener instead of per-render closures.
 		const target = event.target as HTMLElement | null;
-		if (target?.closest('gl-button') != null) return;
+		const actionButton = target?.closest<HTMLElement>('gl-button');
+		if (actionButton != null) {
+			this.emitCardActionTelemetry(actionButton, sessionId);
+			return;
+		}
 
 		const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
 		if (session == null) return;
+
+		const repo = this.effectiveRepo;
+		const family = repo == null ? undefined : (repo.commonPath ?? repo.path);
+		emitTelemetrySentEvent<'graph/kanban/sessionSelected'>(this, {
+			name: 'graph/kanban/sessionSelected',
+			data: {
+				'session.phase': session.phase,
+				'session.category': agentPhaseToCategory[session.phase],
+				'session.hasPendingPermission': session.pendingPermission != null,
+				// Same repo-family comparison the open-session gate in graph-app applies — a
+				// cross-repo card click is a no-op there, so this flag explains "dead" clicks.
+				'session.sameRepo': family != null && session.commonPath === family,
+				// Prefer the rendered card's column — recomputing via `columnIdForSession` could
+				// disagree with what the user actually saw (idle → inactive is a time threshold).
+				column: (card?.dataset.column as KanbanColumnId | undefined) ?? columnIdForSession(session),
+			},
+		});
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-kanban-open-session', {
@@ -609,6 +656,49 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			}),
 		);
 	};
+
+	/** Telemetry for the card's inner action buttons, identified by `data-telemetry-action` —
+	 *  static attributes instead of per-button click closures (see `onCardClick`'s perf note). */
+	private emitCardActionTelemetry(button: HTMLElement, sessionId: string): void {
+		switch (button.dataset.telemetryAction) {
+			case 'open-session':
+				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
+					name: 'graph/kanban/sessionAction',
+					data: { action: 'openSession' },
+				});
+				break;
+
+			case 'open-plan':
+				emitTelemetrySentEvent<'graph/kanban/sessionAction'>(this, {
+					name: 'graph/kanban/sessionAction',
+					data: { action: 'openPlanFile' },
+				});
+				break;
+
+			case 'permission-allow':
+			case 'permission-deny': {
+				const session = (this.graphState.agentSessions ?? []).find(s => s.id === sessionId);
+				emitTelemetrySentEvent<'graph/kanban/permissionResolved'>(this, {
+					name: 'graph/kanban/permissionResolved',
+					data: {
+						decision: button.dataset.telemetryAction === 'permission-allow' ? 'allow' : 'deny',
+						'permission.kind': session?.pendingPermission?.kind ?? 'unknown',
+					},
+				});
+				break;
+			}
+		}
+	}
+
+	/** Resolves the graph's selected repo exactly as the open-session gate does
+	 *  (`GraphApp.fallbackRepoFamily`): a stale/unmatched `selectedRepository` resolves to
+	 *  `undefined` (NO `?? repos[0]` fallback), so `session.sameRepo` can't report `true` for a
+	 *  click the gate would reject — the flag exists to explain those dead clicks. */
+	private get effectiveRepo() {
+		const repoId = this.graphState.selectedRepository;
+		const repos = this.graphState.repositories;
+		return repoId != null ? repos?.find(r => r.id === repoId) : repos?.[0];
+	}
 
 	private onCardKeydown = (event: KeyboardEvent): void => {
 		// Enter and Space activate the card as an "open WIP details" affordance, matching the
@@ -750,6 +840,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					class="card__open"
 					appearance="toolbar"
 					tooltip="Open Session"
+					data-telemetry-action="open-session"
 					href=${createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id))}
 				>
 					<code-icon icon="link-external"></code-icon>
@@ -813,6 +904,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					appearance="secondary"
 					density="compact"
 					tooltip=${isPlan ? 'Approve Plan' : 'Allow'}
+					data-telemetry-action="permission-allow"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'allow' as const,
@@ -825,6 +917,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					appearance="secondary"
 					density="compact"
 					tooltip=${isPlan ? 'Reject Plan' : 'Deny'}
+					data-telemetry-action="permission-deny"
 					href=${createCommandLink('gitlens.agents.resolvePermission', {
 						sessionId: session.id,
 						decision: 'deny' as const,
@@ -837,6 +930,7 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 					? html`<gl-button
 							appearance="toolbar"
 							tooltip="View Plan"
+							data-telemetry-action="open-plan"
 							href=${createCommandLink(
 								'gitlens.agents.openPlanFile',
 								JSON.stringify(permission.planFilePath),

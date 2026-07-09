@@ -4,6 +4,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
 import { graphStateContext } from '../context.js';
+import { getEffectiveVisualizationKey } from './visualizations.utils.js';
 import './gl-graph-timeline.js';
 import './gl-graph-treemap.js';
 
@@ -46,11 +47,17 @@ export class GlGraphVisualizations extends SignalWatcher(LitElement) {
 	private graphState!: typeof graphStateContext.__context__;
 
 	private get mode(): VisualizationMode {
-		// Gate non-timeline modes behind the experimental flag — when it's off, force-route to the
-		// timeline regardless of persisted `visualizationMode`. We don't mutate the stored value here
-		// so re-enabling the flag restores the user's prior choice without an extra round-trip.
-		if (this.graphState.config?.experimentalVisualizationsEnabled !== true) return 'timeline';
-		return this.graphState.visualizationMode ?? 'timeline';
+		// Route through the shared resolver so this render decision, the switcher's active tab, and
+		// the `graph/visualizations/closed` telemetry all gate identically: when the experimental
+		// flag is off it force-routes to the timeline regardless of persisted `visualizationMode`
+		// (the stored value is left untouched so re-enabling restores the user's prior choice).
+		return getEffectiveVisualizationKey(
+			this.graphState.visualizationMode,
+			this.graphState.treemapMode,
+			this.graphState.config?.experimentalVisualizationsEnabled === true,
+		) === 'timeline'
+			? 'timeline'
+			: 'treemap';
 	}
 
 	override render(): unknown {

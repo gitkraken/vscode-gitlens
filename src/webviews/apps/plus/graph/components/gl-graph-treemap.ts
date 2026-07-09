@@ -21,6 +21,7 @@ import type {
 } from '../../../../plus/treemap/protocol.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { Disposable } from '../../../shared/events.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { periodLabels } from '../../timeline/components/header.js';
 import type {
 	GlTreemapChart,
@@ -29,6 +30,7 @@ import type {
 } from '../../treemap/components/treemap-chart.js';
 import type { AppState } from '../context.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
+import { classifyTreemapZoom, countFileLeaves } from './visualizations.utils.js';
 import './gl-details-agent-status.js';
 import './gl-graph-visualizations-switcher.js';
 import '../../treemap/components/treemap-chart.js';
@@ -367,6 +369,10 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	@state()
 	private _zoomPath: TreemapNode[] = [];
 
+	/** `repoPath::mode` key of the last emitted `graph/treemap/shown` — dedups the impression
+	 *  against same-activation refetches (period/scope changes) while disconnect re-arms it. */
+	private _shownEmittedKey: string | undefined;
+
 	@query('gl-treemap-chart')
 	private _chart?: GlTreemapChart;
 
@@ -483,6 +489,8 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		this._virtualFallbackEmittedForRepo = undefined;
 		this._activeFilesCache = undefined;
 		this._repoFamilySessionsCache = undefined;
+		// Re-arm the impression telemetry so the next mount records a fresh `shown`.
+		this._shownEmittedKey = undefined;
 	}
 
 	override willUpdate(): void {
@@ -536,6 +544,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				composed: true,
 			}),
 		);
+		// The switcher emits `reason: 'user'` for its clicks; this forced flip is the only
+		// programmatic writer, so label it distinctly to keep user-action counts honest.
+		emitTelemetrySentEvent<'graph/visualizations/modeChanged'>(this, {
+			name: 'graph/visualizations/modeChanged',
+			data: { 'mode.old': 'treemap-commits', 'mode.new': 'treemap-files', reason: 'fallback' },
+		});
 	}
 
 	private readonly handleRetry = (): void => {
@@ -681,6 +695,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			this._dataRepoPath = repo.path;
 			this._lastFingerprint = fingerprint;
 			this._lastErrorFingerprint = undefined;
+			this.maybeEmitShownTelemetry(repo.path, result);
 		} catch {
 			if (this._abortController !== controller) return;
 
@@ -698,6 +713,31 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				this._loading = false;
 			}
 		}
+	}
+
+	/** Impression telemetry per (repo, mode) activation — deferred to data resolution so
+	 *  `files.count` is accurate (mirrors the branches sidebar panel's deferred `shown`).
+	 *  Same-activation refetches (period/scope changes) don't re-emit; a remount re-arms via
+	 *  `disconnectedCallback` so every fresh activation records an impression. */
+	private maybeEmitShownTelemetry(repoPath: string, data: TreemapData): void {
+		// The host returns a non-null wrapper `{ root: undefined }` when the repo isn't resolvable
+		// yet (same case the refresh dedup guards with `_data?.root != null`). Skip WITHOUT arming
+		// `_shownEmittedKey` so we don't record a phantom `files.count: 0` impression and then
+		// suppress the real one when actual data lands for this repo/mode.
+		if (data.root == null) return;
+
+		const key = `${repoPath}::${this.mode}`;
+		if (key === this._shownEmittedKey) return;
+
+		this._shownEmittedKey = key;
+		emitTelemetrySentEvent<'graph/treemap/shown'>(this, {
+			name: 'graph/treemap/shown',
+			data: {
+				mode: this.mode,
+				'files.count': countFileLeaves(data.root),
+				period: this.mode === 'commits' ? (this.graphState.timeline?.period ?? '1|Y') : undefined,
+			},
+		});
 	}
 
 	/** Per-file activity snapshot for files in the active repo family, surfaced from
@@ -963,8 +1003,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  timeline share `graphState.timelinePeriod` so changing it in either viz keeps both in sync. */
 	private readonly onPeriodMenuSelect = (e: CustomEvent<{ value: string }>): void => {
 		const period = e.detail.value as TimelinePeriod;
-		if ((this.graphState.timeline?.period ?? '1|Y') === period) return;
+		const previous = this.graphState.timeline?.period ?? '1|Y';
+		if (previous === period) return;
 
+		emitTelemetrySentEvent<'graph/treemap/periodChanged'>(this, {
+			name: 'graph/treemap/periodChanged',
+			data: { 'period.old': previous, 'period.new': period },
+		});
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-timeline-config-change', {
 				detail: { period: period },
@@ -981,8 +1026,16 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	 *  round-trip rather than maintaining a parallel signal. */
 	private readonly onDecayMenuSelect = (e: CustomEvent<{ value: string }>): void => {
 		const decay = e.detail.value as GraphActivityDecay;
-		if (this.graphState.config?.activityDecay === decay) return;
+		// Default to '5m' to match the picker's own default (see render()), so `decay.old` reports
+		// the value the user actually saw selected and re-picking that default is caught as a no-op
+		// rather than emitting a phantom change from `undefined`.
+		const previous = this.graphState.config?.activityDecay ?? '5m';
+		if (previous === decay) return;
 
+		emitTelemetrySentEvent<'graph/treemap/decayChanged'>(this, {
+			name: 'graph/treemap/decayChanged',
+			data: { 'decay.old': previous, 'decay.new': decay },
+		});
 		this._ipc?.sendCommand(UpdateGraphConfigurationCommand, { changes: { activityDecay: decay } });
 	};
 
@@ -1121,7 +1174,19 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 	}
 
 	private readonly onChartZoomChange = (e: CustomEvent<TreemapZoomChangeDetail>): void => {
-		this._zoomPath = e.detail.path;
+		const previous = this._zoomPath;
+		const next = e.detail.path;
+		this._zoomPath = next;
+
+		// The chart re-emits zoom-change when it rehydrates the preserved zoom by name after an
+		// error → retry cycle; `classifyTreemapZoom` reports `changed:false` for that identical path.
+		const zoom = classifyTreemapZoom(previous, next);
+		if (!zoom.changed) return;
+
+		emitTelemetrySentEvent<'graph/treemap/zoomed'>(this, {
+			name: 'graph/treemap/zoomed',
+			data: { mode: this.mode, direction: zoom.direction, depth: zoom.depth },
+		});
 	};
 
 	/** Per-mode primary action for a file-leaf click. Folder clicks zoom (handled in the chart);
@@ -1134,10 +1199,12 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 
 		switch (this.mode) {
 			case 'files':
+				this.emitFileClickTelemetry('files', 'open');
 				this.sendFileAction('open', absPath);
 				return;
 
 			case 'commits':
+				this.emitFileClickTelemetry('commits', 'history');
 				this.sendFileAction('history', absPath);
 				return;
 
@@ -1146,6 +1213,7 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 				// last surface change the user sees — landing on the file matches the click intent
 				// while the kanban session detail quietly slides in beside it.
 				const session = this.findSessionForFile(absPath);
+				this.emitFileClickTelemetry('activity', 'open', session != null);
 				if (session != null) {
 					this.dispatchEvent(
 						new CustomEvent('gl-graph-kanban-open-session', {
@@ -1172,6 +1240,13 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 			}
 		}
 	};
+
+	private emitFileClickTelemetry(mode: TreemapMode, action: 'open' | 'history', sessionFocused?: boolean): void {
+		emitTelemetrySentEvent<'graph/treemap/fileClicked'>(this, {
+			name: 'graph/treemap/fileClicked',
+			data: { mode: mode, action: action, 'session.focused': sessionFocused },
+		});
+	}
 
 	private sendFileAction(action: TreemapFileActionParams['action'], absPath: string): void {
 		// Send the repo-relative path + the repo it belongs to, so the host can scheme-preserve
