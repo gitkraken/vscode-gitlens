@@ -80,6 +80,8 @@ export class TagsGitSubProvider implements GitTagsSubProvider {
 									tag.target.message ?? tag.target.target?.message ?? '',
 									authoredDate != null ? new Date(authoredDate) : undefined,
 									committedDate != null ? new Date(committedDate) : undefined,
+									// Annotated tags carry a tagger (and a nested target commit); lightweight tags don't.
+									tag.target.tagger != null || tag.target.target != null,
 								),
 							);
 						}

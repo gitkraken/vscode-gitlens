@@ -3966,7 +3966,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			name: t.name,
 			sha: t.sha,
 			message: t.message || undefined,
-			annotated: t.message != null && t.message.length > 0,
+			annotated: t.annotated,
 			date: t.date?.getTime(),
 			context: {
 				webview: this.host.id,

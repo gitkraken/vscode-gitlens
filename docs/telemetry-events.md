@@ -3387,6 +3387,229 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/stashes/filtered
+
+> Sent when the user types in the filter box in the sidebar stashes panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  'stashes.count': number
+}
+```
+
+### graph/stashes/headerAction
+
+> Sent when the user clicks a header action (Stash All, Apply/Pop Stash, Refresh) in the sidebar stashes panel
+
+```typescript
+{
+  'action': 'refresh' | 'stashAll' | 'applyStash',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/stashes/shown
+
+> Sent when the Stashes sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'stashes.count': number
+}
+```
+
+### graph/stashes/stashAction
+
+> Sent when the user clicks an inline action (apply/pop, delete) on a stash item
+
+```typescript
+{
+  'action': 'apply' | 'delete',
+  // Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/stashes/stashSelected
+
+> Sent when the user clicks a stash leaf in the sidebar stashes panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  // Whether the stash carries the branch ref it was created on
+  'hasStashOnRef': boolean
+}
+```
+
+### graph/tags/filtered
+
+> Sent when the user types in the filter box in the sidebar tags panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'filter.length': number,
+  'hasFilter': boolean,
+  'tags.count': number
+}
+```
+
+### graph/tags/headerAction
+
+> Sent when the user clicks a header action (Create Tag, Refresh) in the sidebar tags panel
+
+```typescript
+{
+  'action': 'refresh' | 'createTag',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/tags/layoutToggled
+
+> Sent when the user toggles the tree/list layout in the sidebar tags panel
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  'tags.count': number
+}
+```
+
+### graph/tags/shown
+
+> Sent when the Tags sidebar panel becomes visible
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'layout': 'list' | 'tree',
+  // Number of annotated tags (tag objects with their own metadata) vs lightweight refs
+  'tags.annotated.count': number,
+  'tags.count': number
+}
+```
+
+### graph/tags/tagAction
+
+> Sent when the user clicks an inline action (switch to tag) on a tag item
+
+```typescript
+{
+  'action': 'switchTo',
+  // Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today
+  'alt': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/tags/tagSelected
+
+> Sent when the user clicks a tag leaf in the sidebar tags panel
+
+```typescript
+{
+  // Whether the selected tag is annotated (a tag object) vs a lightweight ref
+  'annotated': boolean,
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graph/virtualFile/failed
 
 > Sent when opening a virtual-FS-backed file fails (e.g. the compose session is no longer registered)
@@ -3439,7 +3662,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   // Which action was triggered
-  'action': 'createPullRequest' | 'startReview' | 'startWork' | 'fetch' | 'pull' | 'push' | 'createBranch' | 'publishBranch' | 'forcePush' | 'switchBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'applyStash' | 'createWorktree',
+  'action': 'createPullRequest' | 'startReview' | 'startWork' | 'fetch' | 'pull' | 'push' | 'createBranch' | 'publishBranch' | 'applyStash' | 'forcePush' | 'switchBranch' | 'createPullRequestWithAI' | 'rebaseOntoMergeTarget' | 'mergeMergeTarget' | 'shareAsCloudPatch' | 'copyPatch' | 'stashSave' | 'stashSaveStaged' | 'stashSaveFiles' | 'createWorktree',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

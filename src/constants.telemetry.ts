@@ -382,6 +382,30 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar remotes panel (debounced, not on every keystroke) */
 	'graph/remotes/filtered': GraphSidebarRemotesFilteredEvent;
 
+	/** Sent when the Stashes sidebar panel becomes visible */
+	'graph/stashes/shown': GraphSidebarStashesShownEvent;
+	/** Sent when the user clicks a stash leaf in the sidebar stashes panel */
+	'graph/stashes/stashSelected': GraphSidebarStashesStashSelectedEvent;
+	/** Sent when the user clicks an inline action (apply/pop, delete) on a stash item */
+	'graph/stashes/stashAction': GraphSidebarStashesStashActionEvent;
+	/** Sent when the user clicks a header action (Stash All, Apply/Pop Stash, Refresh) in the sidebar stashes panel */
+	'graph/stashes/headerAction': GraphSidebarStashesHeaderActionEvent;
+	/** Sent when the user types in the filter box in the sidebar stashes panel */
+	'graph/stashes/filtered': GraphSidebarStashesFilteredEvent;
+
+	/** Sent when the Tags sidebar panel becomes visible */
+	'graph/tags/shown': GraphSidebarTagsShownEvent;
+	/** Sent when the user clicks a tag leaf in the sidebar tags panel */
+	'graph/tags/tagSelected': GraphSidebarTagsTagSelectedEvent;
+	/** Sent when the user clicks an inline action (switch to tag) on a tag item */
+	'graph/tags/tagAction': GraphSidebarTagsTagActionEvent;
+	/** Sent when the user clicks a header action (Create Tag, Refresh) in the sidebar tags panel */
+	'graph/tags/headerAction': GraphSidebarTagsHeaderActionEvent;
+	/** Sent when the user toggles the tree/list layout in the sidebar tags panel */
+	'graph/tags/layoutToggled': GraphSidebarTagsLayoutToggledEvent;
+	/** Sent when the user types in the filter box in the sidebar tags panel */
+	'graph/tags/filtered': GraphSidebarTagsFilteredEvent;
+
 	/** Sent when the integrated graph details panel is expanded */
 	'graphDetails/shown': GraphDetailsShownEvent;
 	/** Sent when the integrated graph details panel is collapsed */
@@ -1936,6 +1960,64 @@ interface GraphSidebarRemotesFilteredEvent extends GraphContextEventData {
 	/** Total remotes in the panel (the filter corpus), NOT the number of matches — matching
 	 *  happens inside the tree component and the match count isn't surfaced. */
 	'remotes.count': number;
+}
+
+interface GraphSidebarStashesShownEvent extends GraphContextEventData {
+	'stashes.count': number;
+}
+
+interface GraphSidebarStashesStashSelectedEvent extends GraphContextEventData {
+	/** Whether the stash carries the branch ref it was created on */
+	hasStashOnRef: boolean;
+}
+
+interface GraphSidebarStashesStashActionEvent extends GraphContextEventData {
+	action: 'apply' | 'delete';
+	/** Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today */
+	alt: boolean;
+}
+
+interface GraphSidebarStashesHeaderActionEvent extends GraphContextEventData {
+	action: 'stashAll' | 'applyStash' | 'refresh';
+}
+
+interface GraphSidebarStashesFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'stashes.count': number;
+}
+
+interface GraphSidebarTagsShownEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'tags.count': number;
+	/** Number of annotated tags (tag objects with their own metadata) vs lightweight refs */
+	'tags.annotated.count': number;
+}
+
+interface GraphSidebarTagsTagSelectedEvent extends GraphContextEventData {
+	/** Whether the selected tag is annotated (a tag object) vs a lightweight ref */
+	annotated: boolean;
+}
+
+interface GraphSidebarTagsTagActionEvent extends GraphContextEventData {
+	action: 'switchTo';
+	/** Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today */
+	alt: boolean;
+}
+
+interface GraphSidebarTagsHeaderActionEvent extends GraphContextEventData {
+	action: 'createTag' | 'refresh';
+}
+
+interface GraphSidebarTagsLayoutToggledEvent extends GraphContextEventData {
+	layout: 'list' | 'tree';
+	'tags.count': number;
+}
+
+interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
+	hasFilter: boolean;
+	'filter.length': number;
+	'tags.count': number;
 }
 
 export type HomeTelemetryContext = WebviewTelemetryContext;
