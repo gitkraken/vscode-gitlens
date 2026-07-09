@@ -1191,8 +1191,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// (the row is injected by `getDecoratedRows` only after Lit+React catch up), which surfaces as
 		// review/compose updating the details but leaving the row unselected. `ensureAndSelectCommit`
 		// normalizes `uncommitted`→the WIP row and retries across frames until it's injected. Skip for
-		// compare (it drives its own range selection).
-		if (action !== 'open-compare') {
+		// compare (it drives its own range selection) and the rebase summary (selection-decoupled sheet).
+		if (action !== 'open-compare' && action !== 'show-rebase-summary') {
 			// The row sha, not the raw target sha — the host no longer switches repositories for a
 			// worktree of the shown repo, so a WIP target on another worktree is that worktree's
 			// SECONDARY row. `ensureAndSelectCommit` only normalizes `uncommitted` to the PRIMARY row,
@@ -1208,6 +1208,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'request-mode');
 			this.ensureDetailsPosition();
 		};
+
+		if (action === 'show-rebase-summary') {
+			showDetails();
+			// Same cold-open mounting caveat as the enter-*-mode actions below — poll for the panel.
+			const panel = await this.waitForDetailsPanel();
+			void panel?.openRebaseSummary(repoPath);
+			return;
+		}
 
 		if (action === 'open-compare') {
 			await this.updateComplete;
@@ -2026,6 +2034,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					.navigation=${this._navState}
 					@select-commit=${this.handleSelectCommit}
 					@gl-toggle-details-maximized=${this.handleToggleDetailsMaximized}
+					@gl-graph-rebase-summary-open-change=${this.handleRebaseSummaryOpenChange}
 					@gl-nav-back=${this.handleNavBack}
 					@gl-nav-forward=${this.handleNavForward}
 					@gl-graph-details-mode-changed=${this.handleDetailsModeChanged}
@@ -2625,6 +2634,38 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const gs = this.graphState;
 		gs.details = { maximized: !(gs.details?.maximized ?? false) };
 		this.persistState();
+	};
+
+	/** `details.maximized` as it stood before the rebase summary sheet maximized the pane — so closing
+	 *  the sheet restores what the user (or an active mode) had, instead of always un-maximizing.
+	 *  `undefined` means we haven't maximized for a sheet. */
+	private _maximizedBeforeRebaseSummary?: boolean;
+
+	/** The end-of-run summary is a full review surface but renders `position: absolute` inside the
+	 *  details pane, so at the default split almost none of it is visible. Reuse the same bottom-only
+	 *  maximize the modes use — it drives the split to 0 with the divider disabled, so the persisted
+	 *  `bottomPosition` is never overwritten and restoring is just re-binding it. The side dock has no
+	 *  maximize, so its split is left alone. */
+	private handleRebaseSummaryOpenChange = (e: CustomEvent<{ open: boolean }>): void => {
+		const gs = this.graphState;
+		if (!e.detail.open) {
+			const restore = this._maximizedBeforeRebaseSummary;
+			this._maximizedBeforeRebaseSummary = undefined;
+			// Only undo OUR maximize — if it was already maximized when the sheet opened, leave it.
+			if (restore === false && (gs.details?.maximized ?? false)) {
+				gs.details = { maximized: false };
+				this.persistState();
+			}
+			return;
+		}
+
+		if (this.effectiveDetailsLocation !== 'bottom' || this._maximizedBeforeRebaseSummary != null) return;
+
+		this._maximizedBeforeRebaseSummary = gs.details?.maximized ?? false;
+		if (!this._maximizedBeforeRebaseSummary) {
+			gs.details = { maximized: true };
+			this.persistState();
+		}
 	};
 
 	private emitDetailsVisibilityTelemetry(
