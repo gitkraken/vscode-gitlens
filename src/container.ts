@@ -42,6 +42,7 @@ import { OnboardingService } from './onboarding/onboardingService.js';
 import { UsageTracker } from './onboarding/usageTracker.js';
 import { WalkthroughStateProvider } from './onboarding/walkthroughStateProvider.js';
 import { AIProviderService } from './plus/ai/aiProviderService.js';
+import { AutoRebaseService } from './plus/coretools/conflict/autoRebaseService.js';
 import { DraftService } from './plus/drafts/draftsService.js';
 import { AccountAuthenticationProvider } from './plus/gk/authenticationProvider.js';
 import { OrganizationService } from './plus/gk/organizationService.js';
@@ -504,6 +505,14 @@ export class Container {
 			this._disposables.push((this._drafts = new DraftService(this, this._connection)));
 		}
 		return this._drafts;
+	}
+
+	private _autoRebase: AutoRebaseService | undefined;
+	get autoRebase(): AutoRebaseService {
+		if (this._autoRebase == null) {
+			this._disposables.push((this._autoRebase = new AutoRebaseService(this)));
+		}
+		return this._autoRebase;
 	}
 
 	private readonly _codeLensController: GitCodeLensController;

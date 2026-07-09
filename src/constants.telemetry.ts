@@ -104,6 +104,25 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when user opts in to AI All Access */
 	'aiAllAccess/optedIn': void;
 
+	/** Sent when an automatic (AI conflict resolution) rebase run starts — fresh or as a takeover of a paused rebase */
+	'autoRebase/started': AutoRebaseStartedEvent;
+	/** Sent each time the automatic rebase resolves, applies, and stages a conflicted step */
+	'autoRebase/step/resolved': AutoRebaseStepResolvedEvent;
+	/** Sent when an automatic rebase runs to completion */
+	'autoRebase/completed': AutoRebaseCompletedEvent;
+	/** Sent when automation stops and hands off to the Resolve panel (low confidence, non-conflict pause, etc.) */
+	'autoRebase/escalated': AutoRebaseEscalatedEvent;
+	/** Sent when the user cancels an automatic rebase (the rebase is aborted) */
+	'autoRebase/cancelled': AutoRebaseLifecycleEvent;
+	/** Sent when an automatic rebase fails unexpectedly */
+	'autoRebase/failed': AutoRebaseLifecycleEvent;
+	/** Sent when the end-of-run summary is fetched for display */
+	'autoRebase/summary/shown': AutoRebaseLifecycleEvent;
+	/** Sent when a completed automatic rebase is rolled back */
+	'autoRebase/undo/completed': AutoRebaseUndoEvent;
+	/** Sent when an undo is refused (branch moved, dirty working tree, etc.) */
+	'autoRebase/undo/refused': AutoRebaseUndoEvent;
+
 	/** Sent when an agent hook is installed */
 	'agents/hookInstalled': AgentProviderEvent;
 	/** Sent when an agent hook is uninstalled */
@@ -946,6 +965,65 @@ export interface AIFeedbackEvent extends AIEventDataBase {
 
 interface AICreditsNotificationEvent {
 	'organization.role': OrganizationRole | undefined;
+}
+
+interface AutoRebaseLifecycleEvent {
+	/** `true` when the run took over an already-paused rebase */
+	takeover: boolean;
+	/** Conflicted steps recorded so far */
+	'steps.count': number;
+	/** Time from run start in milliseconds */
+	duration: number;
+}
+
+interface AutoRebaseStartedEvent {
+	takeover: boolean;
+}
+
+interface AutoRebaseStepResolvedEvent {
+	/** The rebase step (msgnum) that was resolved */
+	step: number;
+	'steps.total': number;
+	'files.count': number;
+	/** Resolutions using the AI-merged strategy */
+	'result.strategy.ai.count': number;
+	/** Resolutions resolved by taking the current/ours side */
+	'result.strategy.takeOurs.count': number;
+	/** Resolutions resolved by taking the incoming/theirs side */
+	'result.strategy.takeTheirs.count': number;
+	/** Resolutions resolved as a deletion */
+	'result.strategy.deleted.count': number;
+	/** Lowest AI confidence among the step's resolutions */
+	'confidence.min': number;
+}
+
+interface AutoRebaseCompletedEvent extends AutoRebaseLifecycleEvent {
+	/** Total conflicted files resolved across the run */
+	'files.count': number;
+	/** What happened to the autostash at the end of the run */
+	autostash: 'none' | 'reapplied' | 'left-in-stash';
+}
+
+interface AutoRebaseEscalatedEvent extends AutoRebaseLifecycleEvent {
+	reason:
+		| 'low-confidence'
+		| 'resolve-errors'
+		| 'skipped-files'
+		| 'non-conflict-pause'
+		| 'external-modification'
+		| 'step-cap'
+		| 'continue-error'
+		| 'stopped'
+		| 'unexpected-error';
+	/** The configured minimum confidence for auto-applying */
+	'confidence.threshold': number;
+	/** The step automation stopped at, when known */
+	step: number | undefined;
+}
+
+interface AutoRebaseUndoEvent {
+	/** Why the undo was refused; absent on success */
+	reason?: 'no-record' | 'operation-in-progress' | 'branch-changed' | 'branch-moved' | 'dirty';
 }
 
 export interface CLIInstallStartedEvent {
@@ -2847,6 +2925,7 @@ export type Sources =
 	| 'ai:markdown-editor'
 	| 'ai:picker'
 	| 'associateIssueWithBranch'
+	| 'auto-rebase'
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
