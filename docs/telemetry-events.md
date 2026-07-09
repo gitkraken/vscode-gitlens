@@ -880,6 +880,145 @@ void
 }
 ```
 
+### autoRebase/cancelled
+
+> Sent when the user cancels an automatic rebase (the rebase is aborted)
+
+```typescript
+{
+  // Time from run start in milliseconds
+  'duration': number,
+  // Conflicted steps recorded so far
+  'steps.count': number,
+  // `true` when the run took over an already-paused rebase
+  'takeover': boolean
+}
+```
+
+### autoRebase/completed
+
+> Sent when an automatic rebase runs to completion
+
+```typescript
+{
+  // What happened to the autostash at the end of the run
+  'autostash': 'none' | 'reapplied' | 'left-in-stash',
+  // Time from run start in milliseconds
+  'duration': number,
+  // Total conflicted files resolved across the run
+  'files.count': number,
+  // Conflicted steps recorded so far
+  'steps.count': number,
+  // `true` when the run took over an already-paused rebase
+  'takeover': boolean
+}
+```
+
+### autoRebase/escalated
+
+> Sent when automation stops and hands off to the Resolve panel (low confidence, non-conflict pause, etc.)
+
+```typescript
+{
+  // The configured minimum confidence for auto-applying
+  'confidence.threshold': number,
+  // Time from run start in milliseconds
+  'duration': number,
+  'reason': 'low-confidence' | 'resolve-errors' | 'skipped-files' | 'non-conflict-pause' | 'external-modification' | 'step-cap' | 'continue-error' | 'stopped' | 'unexpected-error',
+  // The step automation stopped at, when known
+  'step': number,
+  // Conflicted steps recorded so far
+  'steps.count': number,
+  // `true` when the run took over an already-paused rebase
+  'takeover': boolean
+}
+```
+
+### autoRebase/failed
+
+> Sent when an automatic rebase fails unexpectedly
+
+```typescript
+{
+  // Time from run start in milliseconds
+  'duration': number,
+  // Conflicted steps recorded so far
+  'steps.count': number,
+  // `true` when the run took over an already-paused rebase
+  'takeover': boolean
+}
+```
+
+### autoRebase/started
+
+> Sent when an automatic (AI conflict resolution) rebase run starts — fresh or as a takeover of a paused rebase
+
+```typescript
+{
+  'takeover': boolean
+}
+```
+
+### autoRebase/step/resolved
+
+> Sent each time the automatic rebase resolves, applies, and stages a conflicted step
+
+```typescript
+{
+  // Lowest AI confidence among the step's resolutions
+  'confidence.min': number,
+  'files.count': number,
+  // Resolutions using the AI-merged strategy
+  'result.strategy.ai.count': number,
+  // Resolutions resolved as a deletion
+  'result.strategy.deleted.count': number,
+  // Resolutions resolved by taking the current/ours side
+  'result.strategy.takeOurs.count': number,
+  // Resolutions resolved by taking the incoming/theirs side
+  'result.strategy.takeTheirs.count': number,
+  // The rebase step (msgnum) that was resolved
+  'step': number,
+  'steps.total': number
+}
+```
+
+### autoRebase/summary/shown
+
+> Sent when the end-of-run summary is fetched for display
+
+```typescript
+{
+  // Time from run start in milliseconds
+  'duration': number,
+  // Conflicted steps recorded so far
+  'steps.count': number,
+  // `true` when the run took over an already-paused rebase
+  'takeover': boolean
+}
+```
+
+### autoRebase/undo/completed
+
+> Sent when a completed automatic rebase is rolled back
+
+```typescript
+{
+  // Why the undo was refused; absent on success
+  'reason': 'no-record' | 'operation-in-progress' | 'branch-changed' | 'branch-moved' | 'dirty'
+}
+```
+
+### autoRebase/undo/refused
+
+> Sent when an undo is refused (branch moved, dirty working tree, etc.)
+
+```typescript
+{
+  // Why the undo was refused; absent on success
+  'reason': 'no-record' | 'operation-in-progress' | 'branch-changed' | 'branch-moved' | 'dirty'
+}
+```
+
 ### cli/discoveryFile/failed
 
 > Sent when the CLI integration discovery file fails to be created
@@ -900,7 +1039,7 @@ void
   'autoInstall': boolean,
   'error.message': string,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -913,7 +1052,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -926,7 +1065,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'version': string
 }
 ```
@@ -1301,6 +1440,1169 @@ or
 }
 ```
 
+### composer/action/changeAiModel
+
+> Sent when the user changes the AI model in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/compose
+
+> Sent when the user uses auto-compose in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean
+}
+```
+
+### composer/action/compose/failed
+
+> Sent when the user fails an auto-compose operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'failure.reason': 'cancelled'
+}
+```
+
+or
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'failure.error.message': string,
+  'failure.reason': 'error'
+}
+```
+
+### composer/action/finishAndCommit
+
+> Sent when the user finishes and commits in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/finishAndCommit/failed
+
+> Sent when the user fails to finish and commit in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'failure.error.message': string,
+  'failure.reason': 'error'
+}
+```
+
+### composer/action/generateCommitMessage
+
+> Sent when the user uses generate commit message in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'overwriteExistingMessage': boolean
+}
+```
+
+### composer/action/generateCommitMessage/failed
+
+> Sent when the user fails a generate commit message operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'failure.reason': 'cancelled',
+  'overwriteExistingMessage': boolean
+}
+```
+
+or
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'failure.error.message': string,
+  'failure.reason': 'error',
+  'overwriteExistingMessage': boolean
+}
+```
+
+### composer/action/includedUnstagedChanges
+
+> Sent when the user adds unstaged changes to draft commits in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/recompose
+
+> Sent when the user uses recompose in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean
+}
+```
+
+### composer/action/recompose/failed
+
+> Sent when the user fails a recompose operation in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'failure.reason': 'cancelled'
+}
+```
+
+or
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'customInstructions.commitMessage.setting.length': number,
+  'customInstructions.commitMessage.setting.used': boolean,
+  'customInstructions.hash': string,
+  'customInstructions.length': number,
+  'customInstructions.setting.length': number,
+  'customInstructions.setting.used': boolean,
+  'customInstructions.used': boolean,
+  'failure.error.message': string,
+  'failure.reason': 'error'
+}
+```
+
+### composer/action/reset
+
+> Sent when the user uses the reset button in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/action/undo
+
+> Sent when the user uses the undo button in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/closed
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/loaded
+
+> Sent when the Commit Composer is first loaded with repo data
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'failure.error.message': string,
+  'failure.reason': 'error'
+}
+```
+
+### composer/reloaded
+
+> Sent when the Commit Composer is reloaded
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'failure.error.message': string,
+  'failure.reason': 'error'
+}
+```
+
+### composer/showAborted
+
+```typescript
+{
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### composer/shown
+
+```typescript
+{
+  [`context.${string}`]: string | number | boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string,
+  'duration': number,
+  'loading': boolean
+}
+```
+
+### composer/warning/indexChanged
+
+> Sent when the user is warned that the index has changed in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### composer/warning/workingDirectoryChanged
+
+> Sent when the user is warned that the working directory has changed in the Commit Composer
+
+```typescript
+{
+  'context.ai.enabled.config': boolean,
+  'context.ai.enabled.org': boolean,
+  'context.ai.model.default': boolean,
+  'context.ai.model.hidden': boolean,
+  'context.ai.model.id': string,
+  'context.ai.model.maxTokens.input': number,
+  'context.ai.model.maxTokens.output': number,
+  'context.ai.model.name': string,
+  'context.ai.model.provider.id': 'anthropic' | 'azure' | 'deepseek' | 'gemini' | 'gitkraken' | 'huggingface' | 'mistral' | 'ollama' | 'openai' | 'openaicompatible' | 'openrouter' | 'simulator' | 'vscode' | 'xai',
+  'context.ai.model.temperature': number,
+  'context.commits.autoComposedCount': number,
+  'context.commits.composedCount': number,
+  'context.commits.finalCount': number,
+  'context.commits.initialCount': number,
+  'context.diff.files.count': number,
+  'context.diff.hash': string,
+  'context.diff.hunks.count': number,
+  'context.diff.lines.count': number,
+  'context.diff.staged.exists': boolean,
+  'context.diff.unstaged.exists': boolean,
+  'context.diff.unstaged.included': boolean,
+  'context.errors.operation.count': number,
+  'context.errors.safety.count': number,
+  'context.mode': 'experimental' | 'preview',
+  'context.onboarding.dismissed': boolean,
+  'context.onboarding.stepReached': number,
+  'context.operations.finishAndCommit.error.count': number,
+  'context.operations.generateCommitMessage.cancelled.count': number,
+  'context.operations.generateCommitMessage.count': number,
+  'context.operations.generateCommitMessage.error.count': number,
+  'context.operations.generateCommits.cancelled.count': number,
+  'context.operations.generateCommits.count': number,
+  'context.operations.generateCommits.error.count': number,
+  'context.operations.generateCommits.feedback.downvote.count': number,
+  'context.operations.generateCommits.feedback.upvote.count': number,
+  'context.operations.redo.count': number,
+  'context.operations.reset.count': number,
+  'context.operations.undo.count': number,
+  'context.session.duration': number,
+  'context.session.start': string,
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.warnings.indexChanged': boolean,
+  'context.warnings.workingDirectoryChanged': boolean,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### extension/chunkLoad/failed
 
 > Sent when a lazily-loaded webpack chunk fails to load — typically because VS Code
@@ -1335,11 +2637,10 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/action/jumpTo
 
-> Sent when the user clicks the Focus Branch header button on the Commit Graph (plain-click focuses the current branch; alt-click opens the branch picker)
+> Sent when the user clicks on the Jump to HEAD/Reference (alt) header button on the Commit Graph
 
 ```typescript
 {
-  'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -1348,7 +2649,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  'target': 'HEAD' | 'choose'
 }
 ```
 
@@ -1891,44 +3193,6 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
-### graph/layoutPrompt/choice
-
-> Sent when the user answers (or closes) the one-time layout-choice prompt
-
-```typescript
-{
-  // `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks)
-  'choice': 'panel' | 'sidebar' | 'dismissed',
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string
-}
-```
-
-### graph/layoutPrompt/shown
-
-> Sent when the one-time layout-choice prompt is shown on first entry to the Graph view
-
-```typescript
-{
-  'context.repository.closed': boolean,
-  'context.repository.folder.scheme': string,
-  'context.repository.id': string,
-  'context.repository.provider.id': string,
-  'context.repository.scheme': string,
-  'context.webview.host': 'editor' | 'view' | 'panel',
-  'context.webview.id': string,
-  'context.webview.instanceId': string,
-  'context.webview.type': string
-}
-```
-
 ### graph/minimap/day/selected
 
 > Sent when the user selects (clicks on) a day on the minimap on the Commit Graph
@@ -2385,7 +3649,6 @@ background-upgraded the extension while the host kept running the old build
   'context.config.dateStyle': 'absolute' | 'relative',
   'context.config.defaultItemLimit': number,
   'context.config.details.location': 'auto' | 'right' | 'bottom',
-  'context.config.details.maximizeOnMode': boolean,
   'context.config.dimMergeCommits': boolean,
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.homeHeader.enabled': boolean,
@@ -2398,7 +3661,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,
   'context.config.lanes.density': 'compact' | 'expanded',
-  'context.config.lanes.folding.default': 'auto' | 'all' | 'none',
+  'context.config.lanes.folding.default': 'none' | 'auto' | 'all',
   'context.config.lanes.folding.enabled': boolean,
   'context.config.lanes.grouped.max': number,
   'context.config.lanes.grouped.min': number,
@@ -3833,8 +5096,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -3883,8 +5144,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -3925,8 +5184,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4587,8 +5844,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4636,8 +5891,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -4676,8 +5929,6 @@ background-upgraded the extension while the host kept running the old build
   'scope.includeStaged': boolean,
   // Whether unstaged changes were included (wip scope only)
   'scope.includeUnstaged': boolean,
-  // Compose/review scope shape: working-changes only, mixed, or existing-commits only (wip scope).
-  'scope.kind': 'wip-only' | 'wip+commits' | 'commits-only',
   // Scope type at the time of the event
   'scope.type': 'wip' | 'commit' | 'compare'
 }
@@ -5270,7 +6521,7 @@ void
 {
   'agents.count': number,
   'agents.ids': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -5284,7 +6535,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -5299,7 +6550,7 @@ void
   'agents.userAction': string,
   'cli.version': string,
   'requiresUserCompletion': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -5313,7 +6564,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -5323,7 +6574,7 @@ void
 
 ```typescript
 {
-  'source': 'account' | 'subscription' | 'graph' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'auto-rebase' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -5585,7 +6836,7 @@ void
 
 ### rebaseEditor/action/recompose
 
-> Sent when the user aborts the rebase to recompose its commits inline in the Commit Graph
+> Sent when the user opens the Commit Composer from the rebase editor
 
 ```typescript
 {
