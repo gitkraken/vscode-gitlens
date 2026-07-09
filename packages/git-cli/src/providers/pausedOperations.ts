@@ -509,7 +509,10 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 	}
 
 	@debug()
-	async continuePausedOperation(repoPath: string, options?: { skip?: boolean }): Promise<void> {
+	async continuePausedOperation(
+		repoPath: string,
+		options?: { skip?: boolean; messageEditor?: string },
+	): Promise<void> {
 		const scope = getScopedLogger();
 
 		const status = await this.getPausedOperationStatus(repoPath);
@@ -521,8 +524,32 @@ export class PausedOperationsGitSubProvider implements GitPausedOperationsSubPro
 
 		const args = [status.type, options?.skip ? '--skip' : '--continue'];
 
+		// Continuing after a conflicted step can open the commit-message editor (merge-backend rebases,
+		// cherry-picks, and reverts). `GIT_EDITOR` is what git honors for that step, so set it on the
+		// environment; also set `core.editor` config as a fallback.
+		const configs: string[] = [];
+		let env: Record<string, string | undefined> | undefined;
+		if (options?.messageEditor) {
+			configs.push('-c', `core.editor=${options.messageEditor}`);
+			env = { GIT_EDITOR: options.messageEditor };
+		}
+
 		try {
-			await this.git.run({ cwd: repoPath, errors: 'throw' }, ...args);
+			await this.git.run(
+				{
+					cwd: repoPath,
+					errors: 'throw',
+					configs: configs,
+					env: env,
+					// The runner dedups in-flight commands by args only — it ignores per-call `configs`/`env`.
+					// A headless continue (with `GIT_EDITOR`) and a plain `--continue` would therefore collapse
+					// into one execution, so the plain one could silently run headless (auto-accepting a commit
+					// message) or the headless one could ride a plain continue and open an editor that hangs the
+					// loop. Tag the headless variant so it can't share a pending command with the plain one.
+					correlationKey: options?.messageEditor ? 'paused-op-continue-headless' : undefined,
+				},
+				...args,
+			);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches', 'status');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['head', 'heads', 'index']);
 		} catch (ex) {
