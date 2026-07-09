@@ -207,6 +207,15 @@ const remoteActionMap: Partial<
 	'gitlens.disconnectRemoteProvider:graph': 'disconnectIntegration',
 };
 
+const stashActionMap: Partial<Record<GlCommands, 'apply' | 'delete'>> = {
+	'gitlens.stashApply:graph': 'apply',
+	'gitlens.stashDelete:graph': 'delete',
+};
+
+const tagActionMap: Partial<Record<GlCommands, 'switchTo'>> = {
+	'gitlens.graph.switchToTag': 'switchTo',
+};
+
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
 	return `\u21C6 ${w.upstream}`;
@@ -444,6 +453,10 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	 *  on disconnect and on `activePanel` change so switching away and back emits a fresh event
 	 *  while re-renders from data mutations (e.g. WIP pushes) do not. */
 	private _worktreesShownEmitted = false;
+	/** Same guard as `_worktreesShownEmitted`, for `graph/stashes/shown`. */
+	private _stashesShownEmitted = false;
+	/** Same guard as `_worktreesShownEmitted`, for `graph/tags/shown`. */
+	private _tagsShownEmitted = false;
 
 	/** Same as `_worktreesShownEmitted`, for the remotes panel. */
 	private _remotesShownEmitted = false;
@@ -499,8 +512,12 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		this.emitWorktreesFilteredTelemetryDebounced.cancel();
 		this.emitBranchesFilteredTelemetryDebounced.cancel();
 		this.emitRemotesFilteredTelemetryDebounced.cancel();
+		this.emitStashesFilteredTelemetryDebounced.cancel();
+		this.emitTagsFilteredTelemetryDebounced.cancel();
 		this._worktreesShownEmitted = false;
 		this._remotesShownEmitted = false;
+		this._stashesShownEmitted = false;
+		this._tagsShownEmitted = false;
 		super.disconnectedCallback?.();
 	}
 
@@ -514,16 +531,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 	override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
 		if (changedProperties.has('activePanel') && this._actions != null) {
-			// Reset the shown guard so switching worktrees→other→worktrees emits a fresh impression
+			// Reset the shown guards so switching away and back emits a fresh impression
 			// while intra-activation re-renders (WIP pushes, refresh) do not.
 			this._worktreesShownEmitted = false;
 			this._remotesShownEmitted = false;
+			this._stashesShownEmitted = false;
+			this._tagsShownEmitted = false;
 
 			// Cancel any pending filtered emits — filterText is shared across panels, so a trailing
 			// callback after a switch would report against the wrong (now-inactive) panel.
 			this.emitWorktreesFilteredTelemetryDebounced.cancel();
 			this.emitBranchesFilteredTelemetryDebounced.cancel();
 			this.emitRemotesFilteredTelemetryDebounced.cancel();
+			this.emitStashesFilteredTelemetryDebounced.cancel();
+			this.emitTagsFilteredTelemetryDebounced.cancel();
 
 			// Keep the actions module in sync so invalidateAll can refetch
 			this._actions.activePanel = this.activePanel;
@@ -560,13 +581,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		}
 
 		// Emit `shown` from the settled lifecycle (not render(), which Lit expects side-effect-free).
-		// The guard fires it once per worktrees activation — reset on disconnect and on `activePanel`
+		// The guards fire it once per panel activation — reset on disconnect and on `activePanel`
 		// change so a fresh impression is recorded then, but intra-activation re-renders (WIP pushes,
 		// refresh(), filter/expansion changes) do not re-emit.
 		this.emitWorktreesShownTelemetry();
 		this.emitRemotesShownTelemetry();
-
 		this.maybeEmitBranchesShownTelemetry();
+		this.emitStashesShownTelemetry();
+		this.emitTagsShownTelemetry();
 	}
 
 	private emitWorktreesShownTelemetry(): void {
@@ -589,6 +611,50 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			data: {
 				layout: data.layout ?? 'list',
 				'worktrees.count': data.items.length,
+			},
+		});
+	}
+
+	private emitStashesShownTelemetry(): void {
+		if (this._stashesShownEmitted || this.activePanel !== 'stashes') return;
+
+		const resource = this._actions?.state.panels.stashes;
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'stashes') return;
+
+		this._stashesShownEmitted = true;
+		emitTelemetrySentEvent<'graph/stashes/shown'>(this, {
+			name: 'graph/stashes/shown',
+			data: {
+				'stashes.count': data.items.length,
+			},
+		});
+	}
+
+	private emitTagsShownTelemetry(): void {
+		if (this._tagsShownEmitted || this.activePanel !== 'tags') return;
+
+		const resource = this._actions?.state.panels.tags;
+		// Wait for a successful fetch (mirrors emitWorktreesShownTelemetry): on reactivation the
+		// resource still holds the previous visit's value while the switch-triggered fetch is in
+		// flight — emitting off that would report stale counts.
+		if (resource?.status.get() !== 'success') return;
+
+		const data = resource.value.get();
+		if (data?.panel !== 'tags') return;
+
+		this._tagsShownEmitted = true;
+		emitTelemetrySentEvent<'graph/tags/shown'>(this, {
+			name: 'graph/tags/shown',
+			data: {
+				layout: data.layout ?? 'list',
+				'tags.count': data.items.length,
+				'tags.annotated.count': data.items.filter(t => t.annotated).length,
 			},
 		});
 	}
@@ -1337,6 +1403,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		if (this.activePanel === 'remotes') {
 			this.emitRemotesFilteredTelemetryDebounced();
 		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesFilteredTelemetryDebounced();
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsFilteredTelemetryDebounced();
+		}
 	};
 
 	private handleSearchBoxFilterChanged = (e: CustomEvent<boolean>) => {
@@ -1401,17 +1475,44 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			}
 		}
 
+		if (this.activePanel === 'stashes') {
+			const action =
+				command === 'gitlens.stashSave:views'
+					? 'stashAll'
+					: command === 'gitlens.stashesApply:views'
+						? 'applyStash'
+						: undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/stashes/headerAction'>(this, {
+					name: 'graph/stashes/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
+		if (this.activePanel === 'tags') {
+			const action = command === 'gitlens.views.title.createTag' ? 'createTag' : undefined;
+			if (action != null) {
+				emitTelemetrySentEvent<'graph/tags/headerAction'>(this, {
+					name: 'graph/tags/headerAction',
+					data: { action: action },
+				});
+			}
+		}
+
 		this._actions?.executeAction(command, undefined, args);
 	}
 
 	private handleToggleLayout() {
 		if (this.activePanel == null) return;
 
-		// Compute the worktrees/branches/remotes layout before toggling — the service update is async,
-		// so the resource value still reflects the old layout here; invert it to get the new one.
+		// Compute the panel layout before toggling — the service update is async, so the
+		// resource value still reflects the old layout here; invert it to get the new one.
 		const worktreesData =
 			this.activePanel === 'worktrees' ? this._actions?.state.panels.worktrees?.value.get() : undefined;
 		const worktreesNewLayout = worktreesData?.layout === 'tree' ? 'list' : 'tree';
+		const tagsData = this.activePanel === 'tags' ? this._actions?.state.panels.tags?.value.get() : undefined;
+		const tagsNewLayout = tagsData?.layout === 'tree' ? 'list' : 'tree';
 
 		const branchesData =
 			this.activePanel === 'branches' ? this._actions?.state.panels.branches?.value.get() : undefined;
@@ -1463,6 +1564,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				},
 			});
 		}
+
+		if (this.activePanel === 'tags') {
+			emitTelemetrySentEvent<'graph/tags/layoutToggled'>(this, {
+				name: 'graph/tags/layoutToggled',
+				data: {
+					layout: tagsNewLayout,
+					'tags.count': tagsData?.items.length ?? 0,
+				},
+			});
+		}
 	}
 
 	private handleRefresh() {
@@ -1503,6 +1614,20 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			});
 		}
 
+		if (this.activePanel === 'stashes') {
+			emitTelemetrySentEvent<'graph/stashes/headerAction'>(this, {
+				name: 'graph/stashes/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
+		if (this.activePanel === 'tags') {
+			emitTelemetrySentEvent<'graph/tags/headerAction'>(this, {
+				name: 'graph/tags/headerAction',
+				data: { action: 'refresh' },
+			});
+		}
+
 		this._actions?.refresh(this.activePanel);
 	}
 
@@ -1536,6 +1661,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'remotes') {
 			this.emitRemotesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesTreeItemActionTelemetry(command, useAlt);
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsTreeItemActionTelemetry(command, useAlt);
 		}
 
 		this._actions?.executeAction(command, node.contextData as string | undefined, args);
@@ -1585,6 +1718,14 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		if (this.activePanel === 'worktrees') {
 			this.emitWorktreesSelectedTelemetry(sha);
+		}
+
+		if (this.activePanel === 'stashes') {
+			this.emitStashesSelectedTelemetry(sha);
+		}
+
+		if (this.activePanel === 'tags') {
+			this.emitTagsSelectedTelemetry(sha, e.detail.node?.path);
 		}
 
 		this.dispatchEvent(
@@ -1751,6 +1892,40 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		});
 	}, 500);
 
+	private getStashesCount(): number {
+		const data = this._actions?.state.panels.stashes?.value.get();
+		return data?.panel === 'stashes' ? data.items.length : 0;
+	}
+
+	private readonly emitStashesFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/stashes/filtered'>(this, {
+			name: 'graph/stashes/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'stashes.count': this.getStashesCount(),
+			},
+		});
+	}, 500);
+
+	private getTagsCount(): number {
+		const data = this._actions?.state.panels.tags?.value.get();
+		return data?.panel === 'tags' ? data.items.length : 0;
+	}
+
+	private readonly emitTagsFilteredTelemetryDebounced = debounce(() => {
+		const filterText = this._actions.filterText;
+		emitTelemetrySentEvent<'graph/tags/filtered'>(this, {
+			name: 'graph/tags/filtered',
+			data: {
+				hasFilter: filterText.length > 0,
+				'filter.length': filterText.length,
+				'tags.count': this.getTagsCount(),
+			},
+		});
+	}, 500);
+
 	private emitWorktreesSelectedTelemetry(wipSha: string): void {
 		const data = this._actions?.state.panels.worktrees?.value.get();
 		if (data?.panel !== 'worktrees') return;
@@ -1868,6 +2043,62 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
 			name: 'graph/remotes/remoteAction',
+			data: { action: action, alt: alt },
+		});
+	}
+
+	private emitStashesSelectedTelemetry(sha: string): void {
+		const data = this._actions?.state.panels.stashes?.value.get();
+		if (data?.panel !== 'stashes') return;
+
+		const stash = data.items.find(s => s.sha === sha);
+		if (stash == null) return;
+
+		emitTelemetrySentEvent<'graph/stashes/stashSelected'>(this, {
+			name: 'graph/stashes/stashSelected',
+			data: {
+				hasStashOnRef: stash.stashOnRef != null,
+			},
+		});
+	}
+
+	private emitTagsSelectedTelemetry(sha: string, path: string | undefined): void {
+		const data = this._actions?.state.panels.tags?.value.get();
+		if (data?.panel !== 'tags') return;
+
+		// Multiple tags can point at the same commit (`sha` is the peeled commit sha), so a sha
+		// match can resolve to the wrong tag and mis-report `annotated`. Prefer the clicked node's
+		// path, which uniquely identifies the tag — `flat:<sha>:<name>` in list mode; in tree mode
+		// `makeHierarchical`'s `relativePath`, which is the tag name with a leading slash (the
+		// join fold seeds from '') — and fall back to the first sha match.
+		const name = path?.startsWith('flat:') ? path.substring(path.indexOf(':', 5) + 1) : path?.replace(/^\//, '');
+		const tag = data.items.find(t => t.name === name) ?? data.items.find(t => t.sha === sha);
+		if (tag == null) return;
+
+		emitTelemetrySentEvent<'graph/tags/tagSelected'>(this, {
+			name: 'graph/tags/tagSelected',
+			data: {
+				annotated: tag.annotated,
+			},
+		});
+	}
+
+	private emitStashesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = stashActionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/stashes/stashAction'>(this, {
+			name: 'graph/stashes/stashAction',
+			data: { action: action, alt: alt },
+		});
+	}
+
+	private emitTagsTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
+		const action = tagActionMap[command];
+		if (action == null) return;
+
+		emitTelemetrySentEvent<'graph/tags/tagAction'>(this, {
+			name: 'graph/tags/tagAction',
 			data: { action: action, alt: alt },
 		});
 	}

@@ -26,6 +26,10 @@ export class GitTag implements GitTagReference {
 		public readonly message: string,
 		public readonly date: Date | undefined,
 		public readonly commitDate: Date | undefined,
+		/** Whether this is an annotated tag (a tag object with its own metadata) vs a lightweight
+		 *  tag (a plain ref to a commit). Note `message` is the commit subject for lightweight tags,
+		 *  so it can't be used to infer this. */
+		public readonly annotated: boolean = false,
 	) {
 		({ name: this._name } = parseRefName(refName));
 
@@ -46,7 +50,7 @@ export class GitTag implements GitTagReference {
 	withRepoPath(repoPath: string): GitTag {
 		if (repoPath === this.repoPath) return this;
 
-		return new GitTag(repoPath, this.refName, this.sha, this.message, this.date, this.commitDate);
+		return new GitTag(repoPath, this.refName, this.sha, this.message, this.date, this.commitDate, this.annotated);
 	}
 
 	static is(tag: unknown): tag is GitTag {
