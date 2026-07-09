@@ -228,7 +228,20 @@ export type RepositoryFilterValue = 'all' | 'exclude-worktrees' | string[] | und
 
 type WorkspaceStorageDynamic = Record<IntegrationConnectedKey, boolean> &
 	Record<`views:${TreeViewTypes}:repositoryFilter`, RepositoryFilterValue> &
-	Record<`graph:searchHistory:${string}`, StoredGraphSearchHistory[]>;
+	Record<`graph:searchHistory:${string}`, StoredGraphSearchHistory[]> &
+	/** Rollback record for a completed automatic rebase. Key suffix is the repo path. */
+	Record<`autoRebase:undo:${string}`, Stored<StoredAutoRebaseUndo>>;
+
+export interface StoredAutoRebaseUndo {
+	/** The branch that was rebased */
+	branch: string | undefined;
+	/** The branch tip before the rebase (orig-head) */
+	preRebaseSha: string;
+	/** The branch tip when the automatic rebase completed — undo refuses if the branch has moved since */
+	postRebaseSha: string;
+	/** What happened to the autostash at the end of the run */
+	autostash: 'none' | 'reapplied' | 'left-in-stash';
+}
 
 export type WorkspaceStorage = WorkspaceStorageCore & WorkspaceStorageDynamic;
 
