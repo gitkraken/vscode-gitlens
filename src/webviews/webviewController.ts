@@ -384,6 +384,9 @@ export class WebviewController<
 
 		this._rpcExposed = true;
 		try {
+			// Sync current visibility before exposing — the controller may expose while hidden (e.g.
+			// webview created in the background), and setVisible is otherwise only called reactively.
+			this._rpcHost.setVisible(this.visible);
 			this._rpcHost.expose();
 		} catch (ex) {
 			Logger.error(ex, `WebviewController(${this.id}): Failed to expose RPC services`);

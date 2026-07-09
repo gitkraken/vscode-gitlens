@@ -109,6 +109,8 @@ export class RpcHost<TServices extends object> implements Disposable {
 	private readonly tracker: SubscriptionTracker | undefined;
 	private readonly logPrefix: string;
 	private _exposed = false;
+	/** Last visibility passed to {@link setVisible}; reseeded into fresh endpoints on reconnect. */
+	private _visible = true;
 	private endpoint: ReturnType<typeof createHostEndpoint>;
 	private connection: Connection;
 
@@ -155,12 +157,17 @@ export class RpcHost<TServices extends object> implements Disposable {
 			// Reconnection: clean up outstanding event subscriptions from the
 			// previous webview session, then tear down the old connection.
 			Logger.debug(
-				`${this.logPrefix}: Reconnecting — disposing tracked subscriptions and creating fresh connection`,
+				`${this.logPrefix}: Reconnecting — resetting tracked subscriptions and creating fresh connection`,
 			);
-			this.tracker?.dispose();
+			// `reset()`, not `dispose()` — permanently disposing would poison the tracker so every
+			// later generation's `track()` calls get torn down immediately at registration.
+			this.tracker?.reset();
 			this.connection.close();
 			this.endpoint.dispose();
 			this.endpoint = createHostEndpoint(this.webview);
+			// Fresh endpoints default to visible=true; reseed with the last known visibility so
+			// messages sent before the next visibility event aren't dropped by VS Code while hidden.
+			this.endpoint.setVisible(this._visible);
 			this.connection = new Connection(this.endpoint, this.buildConnectionOptions());
 		}
 		this._exposed = true;
@@ -176,6 +183,7 @@ export class RpcHost<TServices extends object> implements Disposable {
 	 * restore, buffered messages are flushed with dedup.
 	 */
 	setVisible(visible: boolean): void {
+		this._visible = visible;
 		this.endpoint.setVisible(visible);
 	}
 

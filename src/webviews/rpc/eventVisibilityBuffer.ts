@@ -18,8 +18,8 @@ import type { RpcEventSubscription, Unsubscribe } from './services/types.js';
 export type EventVisibilityKey = string | symbol;
 
 /**
- * Tracks outstanding RPC event subscriptions so they can be disposed on
- * reconnection or controller teardown.
+ * Tracks outstanding RPC event subscriptions so they can be cleaned up on
+ * reconnection (`reset`) or controller teardown (`dispose`).
  *
  * Without this, VS Code event listeners created by `createRpcEventSubscription`
  * leak when a webview refreshes — the old Supertalk Connection closes but
@@ -28,6 +28,18 @@ export type EventVisibilityKey = string | symbol;
 export class SubscriptionTracker implements Disposable {
 	private _unsubscribes = new Set<Unsubscribe>();
 	private _disposed = false;
+	private _epoch = 0;
+
+	/**
+	 * Monotonic generation counter, bumped by every {@link reset}/{@link dispose}. An ASYNC subscription
+	 * method (one that awaits resource acquisition before `track()`) captures this before its await and
+	 * compares after — a mismatch means a reconnect reset the tracker mid-acquisition, so the resource
+	 * belongs to a superseded generation and must be disposed instead of tracked (tracking it would leak
+	 * it until the NEXT reset and double-deliver alongside the new generation's subscription).
+	 */
+	get epoch(): number {
+		return this._epoch;
+	}
 
 	/**
 	 * Register an unsubscribe function for tracking.
@@ -52,17 +64,24 @@ export class SubscriptionTracker implements Disposable {
 	}
 
 	/**
-	 * Dispose all tracked subscriptions.
-	 * Called on reconnection (before fresh Connection is created) and on teardown.
+	 * Disposes tracked subscriptions but stays usable — used on RPC reconnection so the next
+	 * generation's `track()` calls register normally instead of being torn down immediately by
+	 * a permanently-disposed tracker.
 	 */
-	dispose(): void {
-		this._disposed = true;
+	reset(): void {
+		this._epoch++;
 		for (const unsub of this._unsubscribes) {
 			// Cast is safe: `Unsubscribe` is `(() => void) | Promise<() => void>` because the webview-client side
 			// receives it async over RPC, but host-side callers always produce a synchronous `() => void`.
 			(unsub as () => void)();
 		}
 		this._unsubscribes.clear();
+	}
+
+	/** Disposes tracked subscriptions and permanently disables the tracker. Called on final teardown. */
+	dispose(): void {
+		this._disposed = true;
+		this.reset();
 	}
 }
 

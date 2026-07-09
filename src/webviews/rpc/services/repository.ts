@@ -168,8 +168,17 @@ export class RepositoryService {
 	 * @returns Unsubscribe function that stops watching
 	 */
 	async onRepositoryOrWorktreeChanged(repoPath: string, callback: () => void): Promise<Unsubscribe> {
+		const epoch = this.tracker?.epoch;
 		const watcher = await this.container.git.getRepositoryService(repoPath).watch();
 		if (watcher == null) return () => {};
+
+		// The tracker was reset (RPC reconnect) while the watch acquisition was in flight — this
+		// subscription belongs to the superseded generation. Tracking it now would leak the watcher until
+		// the NEXT reset and double-deliver alongside the new generation's re-subscription; dispose instead.
+		if (this.tracker != null && this.tracker.epoch !== epoch) {
+			watcher.dispose();
+			return () => {};
+		}
 
 		const pendingKey = Symbol(`repositoryOrWorktreeChanged:${repoPath}`);
 		const buffered = bufferEventHandler<undefined>(this.buffer, pendingKey, callback, 'signal', undefined);
