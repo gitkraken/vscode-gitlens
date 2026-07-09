@@ -15,6 +15,7 @@ import type {
 } from '../../../../plus/timeline/protocol.js';
 import { periodToMs } from '../../../../plus/timeline/utils/period.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { CommitEventDetail, LoadMoreEventDetail } from '../../timeline/components/chart.js';
 import { isPseudoCommitDatum } from '../../timeline/components/chart/timelineData.js';
 import { graphServicesContext, graphStateContext } from '../context.js';
@@ -740,6 +741,21 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		return this._datumByShaCache.get(sha);
 	}
 
+	/** Impression telemetry — fires once per mount. The component only mounts while the embedded
+	 *  Visual History is the active visualization, and remounts on every activation (mode switch
+	 *  or display-mode entry), so first-render is exactly one impression. The externally-pushed
+	 *  `scope` is adopted into `_localScope` in `willUpdate`, so `scoped` is accurate here. */
+	protected override firstUpdated(): void {
+		emitTelemetrySentEvent<'graph/timeline/shown'>(this, {
+			name: 'graph/timeline/shown',
+			data: {
+				period: this.period,
+				sliceBy: this.effectiveSliceBy,
+				scoped: this._localScope != null,
+			},
+		});
+	}
+
 	private onChartCommitSelected = (e: CustomEvent<CommitEventDetail>): void => {
 		// Skip interim slider scrubs — only commit on release. Mirrors the standalone Visual History
 		// debounce behavior so transient hovers don't churn the details panel.
@@ -747,6 +763,14 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 
 		const sha = e.detail.id;
 		if (sha == null) return;
+
+		// First-paint auto-selections are forwarded to the details panel but are not user actions.
+		if (e.detail.auto !== true) {
+			emitTelemetrySentEvent<'graph/timeline/commitSelected'>(this, {
+				name: 'graph/timeline/commitSelected',
+				data: { shift: e.detail.shift },
+			});
+		}
 
 		const repoPath = this.effectiveRepo?.path ?? '';
 		const datum = this.datumBySha(sha);
@@ -774,10 +798,26 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 	}
 
 	private onHeaderPeriodChange = (e: CustomEvent<{ period: TimelinePeriod }>): void => {
+		const previous = this.period;
+		if (e.detail.period !== previous) {
+			emitTelemetrySentEvent<'graph/timeline/periodChanged'>(this, {
+				name: 'graph/timeline/periodChanged',
+				data: { 'period.old': previous, 'period.new': e.detail.period },
+			});
+		}
 		this.dispatchConfigChange({ period: e.detail.period });
 	};
 
 	private onHeaderSliceByChange = (e: CustomEvent<{ sliceBy: TimelineSliceBy }>): void => {
+		// Compare against the EFFECTIVE slice-by (what the chart actually renders) so a pick that
+		// changes nothing visible isn't counted as a change.
+		const previous = this.effectiveSliceBy;
+		if (e.detail.sliceBy !== previous) {
+			emitTelemetrySentEvent<'graph/timeline/sliceByChanged'>(this, {
+				name: 'graph/timeline/sliceByChanged',
+				data: { 'sliceBy.old': previous, 'sliceBy.new': e.detail.sliceBy },
+			});
+		}
 		this.dispatchConfigChange({ sliceBy: e.detail.sliceBy });
 	};
 
@@ -800,13 +840,26 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		});
 		if (result?.picked == null) return;
 
-		this._localScope = { type: result.picked.type, relativePath: result.picked.relativePath };
+		const next = { type: result.picked.type, relativePath: result.picked.relativePath };
+		// Guard no-op re-picks (same path chosen again) so telemetry only records real changes —
+		// matches onHeaderChangeScope / period / sliceBy, which all bail on identical values.
+		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
+
+		this._localScope = next;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'choose', 'scope.type': next.type, scoped: true },
+		});
 	};
 
 	private onHeaderClearScope = (): void => {
 		if (this._localScope == null) return;
 
 		this._localScope = undefined;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'clear', scoped: false },
+		});
 	};
 
 	/** Folder-crumb click in the path. Standalone Visual History routes this to `actions.changeScope`;
@@ -820,6 +873,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (type === 'repo' || !value) {
 			if (this._localScope != null) {
 				this._localScope = undefined;
+				emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+					name: 'graph/timeline/scopeChanged',
+					data: { action: 'breadcrumb', scoped: false },
+				});
 			}
 			return;
 		}
@@ -828,6 +885,10 @@ export class GlGraphTimeline extends SignalWatcher(LitElement) {
 		if (this._localScope?.type === next.type && this._localScope.relativePath === next.relativePath) return;
 
 		this._localScope = next;
+		emitTelemetrySentEvent<'graph/timeline/scopeChanged'>(this, {
+			name: 'graph/timeline/scopeChanged',
+			data: { action: 'breadcrumb', 'scope.type': type, scoped: true },
+		});
 	};
 
 	override render(): unknown {
