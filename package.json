@@ -29389,7 +29389,7 @@
 		"@custom-elements-manifest/analyzer": "0.11.0",
 		"@e18e/eslint-plugin": "0.5.1",
 		"@modelcontextprotocol/sdk": "1.29.0",
-		"@oxlint/plugins": "1.72.0",
+		"@oxlint/plugins": "1.73.0",
 		"@playwright/test": "1.61.1",
 		"@profoundlogic/hogan": "3.0.4",
 		"@swc/core": "1.15.43",
@@ -29431,8 +29431,8 @@
 		"lz-string": "1.5.0",
 		"mini-css-extract-plugin": "2.10.2",
 		"ovsx": "1.0.2",
-		"oxfmt": "0.57.0",
-		"oxlint": "1.72.0",
+		"oxfmt": "0.58.0",
+		"oxlint": "1.73.0",
 		"oxlint-tsgolint": "0.24.0",
 		"playwright": "1.61.1",
 		"postcss": "8.5.16",
@@ -29463,7 +29463,7 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
-	"packageManager": "pnpm@11.9.0",
+	"packageManager": "pnpm@11.10.0",
 	"postcss-lit": {
 		"babelOptions": {
 			"sourceType": "unambiguous",
