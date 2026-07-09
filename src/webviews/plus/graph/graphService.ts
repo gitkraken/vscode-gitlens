@@ -93,6 +93,43 @@ export type ReresolveFileResult =
 	| { error: { message: string } }
 	| { cancelled: true };
 
+/** One paused step of an automatic rebase run — the commit it stopped on and how each conflicted
+ *  file was resolved. `empty-skipped`: the resolution made the commit empty and it was skipped. */
+export type AutoRebaseSummaryStep = {
+	step: number;
+	totalSteps: number;
+	commit: { sha?: string; message?: string };
+	kind: 'conflicts' | 'empty-skipped';
+	files: ResolvedFileSummary[];
+};
+
+/** Serializable summary of an automatic rebase session for the summary sheet. The per-file
+ *  before/after contents stay host-side; each file's `virtualRef` points at its step's virtual
+ *  diff session (namespace `auto-rebase`). */
+export type AutoRebaseSummary = {
+	sessionId: string;
+	branch?: string;
+	upstream?: string;
+	preRebaseSha: string;
+	postRebaseSha?: string;
+	totalSteps: number;
+	outcome: 'completed' | 'escalated' | 'aborted' | 'failed' | 'undone';
+	/** Undo passes validation right now (branch tip still at `postRebaseSha`, tree clean enough, …) */
+	undoable: boolean;
+	/** Why undo is unavailable — tooltip for the disabled Undo button */
+	undoRefusal?: string;
+	/** `left-in-stash` must be surfaced before offering undo: the autostash re-apply conflicted
+	 *  and the user's changes remain in the stash */
+	autostash?: 'none' | 'reapplied' | 'left-in-stash';
+	steps: AutoRebaseSummaryStep[];
+};
+
+export type AutoRebaseSummaryResult = { summary: AutoRebaseSummary } | { error: { message: string } };
+
+export type UndoAutoRebaseResult =
+	| { result: { restoredTo: string; warning?: string } }
+	| { error: { message: string } };
+
 export type ScopeSelection =
 	| { type: 'commit'; sha: string }
 	| {
@@ -501,6 +538,22 @@ export interface GraphInspectService {
 	/** Streams human-readable progress messages while {@link resolveConflicts} runs. `undefined`
 	 *  fires when no resolve is in flight (entry/exit clearing). */
 	readonly onResolveProgress: RpcEventSubscription<ResolveProgressUpdate | undefined>;
+	/**
+	 * One-shot pickup of an automatic rebase's escalation handoff: when automation stopped
+	 * mid-step, this seeds the repo's resolve session with the step's already-computed resolutions
+	 * (adopting the run's AI conversation) and returns them so the panel opens in its ready state.
+	 * `undefined` when there's nothing to hand off.
+	 */
+	getSeededResolveSession(repoPath: string): Promise<ResolveResult | undefined>;
+	/**
+	 * Builds the automatic rebase summary for the repo's session (validating undo eligibility at
+	 * fetch time) and lazily registers the per-step virtual diff sessions backing each file's
+	 * `virtualRef`. `undefined` when the repo has no session.
+	 */
+	getAutoRebaseSummary(repoPath: string): Promise<AutoRebaseSummaryResult | undefined>;
+	/** Rolls the branch back to its pre-rebase tip — validated (refuses if the branch has moved).
+	 *  `sessionId` guards against acting on a different run than the summary being shown. */
+	undoAutoRebase(repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(
