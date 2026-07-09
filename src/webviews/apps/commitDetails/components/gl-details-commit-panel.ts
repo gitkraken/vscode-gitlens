@@ -1251,7 +1251,7 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		const commit = this.commit;
 		const isStash = commit.stashNumber != null;
 		const submodule = file.submodule != null ? '+submodule' : '';
-		// Reachable from a sibling worktree → offer "Open Worktree File" (committed files only)
+		// Reachable from a sibling worktree → offer the "(Worktree)" file actions (committed files only)
 		const worktree = !isStash && commit.reachableFromOtherWorktrees ? '+worktree' : '';
 
 		// The uncommitted pseudo-commit isn't a real commit — give its files working-tree context so the

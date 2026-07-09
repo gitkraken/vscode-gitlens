@@ -261,6 +261,8 @@ export type ContributedCommands =
 	| 'gitlens.openBranchesOnRemote:graph'
 	| 'gitlens.openBranchesOnRemote:views'
 	| 'gitlens.openChangedFiles'
+	| 'gitlens.openChangesWithWorktreeFile:commitDetails'
+	| 'gitlens.openChangesWithWorktreeFile:graphDetails'
 	| 'gitlens.openCommitOnRemote'
 	| 'gitlens.openComparisonOnRemote'
 	| 'gitlens.openFileHistory'

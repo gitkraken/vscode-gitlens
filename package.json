@@ -8280,6 +8280,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.openChangesWithWorktreeFile:commitDetails",
+				"title": "Open Changes with Working File (Worktree)",
+				"icon": "$(gitlens-compare-ref-working)"
+			},
+			{
+				"command": "gitlens.openChangesWithWorktreeFile:graphDetails",
+				"title": "Open Changes with Working File (Worktree)",
+				"icon": "$(gitlens-compare-ref-working)"
+			},
+			{
 				"command": "gitlens.openCommitOnRemote",
 				"title": "Open Commit on Remote",
 				"category": "GitLens",
@@ -8589,12 +8599,12 @@
 			},
 			{
 				"command": "gitlens.openWorktreeFile:commitDetails",
-				"title": "Open Worktree File",
+				"title": "Open File (Worktree)",
 				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "gitlens.openWorktreeFile:graphDetails",
-				"title": "Open Worktree File",
+				"title": "Open File (Worktree)",
 				"icon": "$(go-to-file)"
 			},
 			{
@@ -13895,6 +13905,14 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.openChangesWithWorktreeFile:commitDetails",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openChangesWithWorktreeFile:graphDetails",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openCommitOnRemote",
 					"when": "gitlens:repos:withRemotes"
 				},
@@ -17349,6 +17367,16 @@
 					"command": "gitlens.views.openChangesWithMergeBase",
 					"when": "viewItem =~ /gitlens:file:results\\b/",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.openChangesWithWorktreeFile:commitDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && webview == gitlens.views.commitDetails",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.openChangesWithWorktreeFile:graphDetails",
+					"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.openChangesWithWorking:commitDetails",

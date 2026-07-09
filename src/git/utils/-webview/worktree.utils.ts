@@ -77,7 +77,7 @@ export async function getWorktreeForBranch(
 /**
  * Returns the worktrees — other than the one at `repoPath` — whose HEAD reaches `sha`, i.e. the
  * worktrees that hold a working copy of the commit's files on a branch that contains the commit.
- * Used to surface "Open Worktree File" for commits whose branch lives in a sibling worktree.
+ * Used to surface the "(Worktree)" file actions for commits whose branch lives in a sibling worktree.
  */
 export async function getReachableWorktrees(
 	container: Container,

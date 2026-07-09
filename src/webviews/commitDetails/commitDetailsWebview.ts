@@ -58,8 +58,10 @@ import type { CommitDetailsWebviewShowingArgs } from './registration.js';
 const lineTrackerCommands = new Set([
 	'gitlens.views.openChanges:',
 	'gitlens.views.openChangesWithWorking:',
+	'gitlens.openChangesWithWorktreeFile:',
 	'gitlens.views.openPreviousChangesWithWorking:',
 	'gitlens.views.openFile:',
+	'gitlens.openWorktreeFile:',
 	'gitlens.views.openFileRevision:',
 	'gitlens.externalDiff:',
 	'gitlens.views.highlightChanges:',

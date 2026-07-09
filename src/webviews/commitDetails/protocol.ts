@@ -43,7 +43,7 @@ export interface CommitDetails extends CommitSummary {
 	stats?: GitCommitStats;
 	/**
 	 * `true` when the commit is reachable from a worktree other than the one this panel is scoped to,
-	 * so its files have a working copy elsewhere. Drives the file context-menu's "Open Worktree File".
+	 * so its files have a working copy elsewhere. Drives the file context-menu's "(Worktree)" file actions.
 	 */
 	reachableFromOtherWorktrees?: boolean;
 }

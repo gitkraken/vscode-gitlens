@@ -4590,6 +4590,32 @@
 				]
 			}
 		},
+		"gitlens.openChangesWithWorktreeFile:commitDetails": {
+			"label": "Open Changes with Working File (Worktree)",
+			"icon": "$(gitlens-compare-ref-working)",
+			"menus": {
+				"gitlens/commit/file/changes": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && webview == gitlens.views.commitDetails",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.openChangesWithWorktreeFile:graphDetails": {
+			"label": "Open Changes with Working File (Worktree)",
+			"icon": "$(gitlens-compare-ref-working)",
+			"menus": {
+				"gitlens/commit/file/changes": [
+					{
+						"when": "webviewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+worktree\\b)/ && (webview == gitlens.graph || webview == gitlens.views.graph)",
+						"group": "1_gitlens",
+						"order": 1
+					}
+				]
+			}
+		},
 		"gitlens.openCommitOnRemote": {
 			"label": "Open Commit on Remote",
 			"icon": "$(globe)",
@@ -5492,7 +5518,7 @@
 			}
 		},
 		"gitlens.openWorktreeFile:commitDetails": {
-			"label": "Open Worktree File",
+			"label": "Open File (Worktree)",
 			"icon": "$(go-to-file)",
 			"menus": {
 				"webview/context": [
@@ -5505,7 +5531,7 @@
 			}
 		},
 		"gitlens.openWorktreeFile:graphDetails": {
-			"label": "Open Worktree File",
+			"label": "Open File (Worktree)",
 			"icon": "$(go-to-file)",
 			"menus": {
 				"webview/context": [

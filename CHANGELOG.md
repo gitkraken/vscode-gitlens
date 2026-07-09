@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds per-file added/removed line counts to the working changes (WIP) file list in the _Commit Graph_ details, loaded lazily when the list is visible ([#5456](https://github.com/gitkraken/vscode-gitlens/issues/5456))
 - Adds a `gitlens.sortWorkingChangesBy` setting to sort working changes (WIP) by their Git staged/unstaged state in the _Commit Graph_ details ([#5454](https://github.com/gitkraken/vscode-gitlens/issues/5454))
 - Adds a _Resolve Conflicts in Commit Graph_ action to the interactive rebase editor's conflicted files panel &mdash; opens the _Commit Graph_ in AI **Resolve** mode for the rebase's conflicts; available when AI features are enabled ([#5413](https://github.com/gitkraken/vscode-gitlens/issues/5413))
+- Adds an _Open Changes with Working File (Worktree)_ action to the commit file menu in the _Commit Graph_ details and _Inspect_ view &mdash; compares a committed file against its working copy in the sibling worktree whose branch contains the commit (rather than the currently-scoped worktree), with a worktree picker when more than one applies
 
 ### Changed
 
@@ -46,6 +47,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves keyboard focus and navigation in the webview tree views &mdash; each row is a single tab stop that cycles its inner controls, Space no longer double-toggles checkboxes, multi-select keyboard navigation is fixed, and checkbox focus rings are visible ([#5458](https://github.com/gitkraken/vscode-gitlens/issues/5458))
 - Changes copying changes to a worktree to no longer prompt to open that worktree afterward
 - Changes stashing to use the _Commit Graph_ working changes (WIP) commit-box draft message when one is present
+- Renames the _Open Worktree File_ action to _Open File (Worktree)_ for consistency with the new _Open Changes with Working File (Worktree)_ action
 
 ### Removed
 

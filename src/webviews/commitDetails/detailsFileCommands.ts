@@ -5,6 +5,7 @@ import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
 import { uncommitted, uncommittedStaged } from '@gitlens/git/models/revision.js';
+import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
@@ -230,20 +231,12 @@ export class DetailsFileCommands {
 		file: GitFileChange,
 		showOptions?: TextDocumentShowOptions,
 	): Promise<void> {
-		const worktrees = await getReachableWorktrees(this.container, commit.repoPath, commit.sha);
-		if (!worktrees.length) return;
-
-		let worktree = worktrees[0];
-		if (worktrees.length > 1) {
-			const picked = await showWorktreePicker(
-				'Open Worktree File',
-				`Choose which worktree to open ${basename(file.path)} from`,
-				worktrees,
-			);
-			if (picked == null) return;
-
-			worktree = picked;
-		}
+		const worktree = await this.pickReachableWorktree(
+			commit,
+			'Open File (Worktree)',
+			`Choose which worktree to open ${basename(file.path)} from`,
+		);
+		if (worktree == null) return;
 
 		// Reuse "Open File", but root the working-file lookup at the worktree path: passing the sha
 		// makes `gitlens.openWorkingFile` resolve the working copy inside the worktree's folder.
@@ -256,6 +249,47 @@ export class DetailsFileCommands {
 				...showOptions,
 			},
 		);
+	}
+
+	@command('gitlens.openChangesWithWorktreeFile:')
+	@debug()
+	async openChangesWithWorktreeFile(
+		commit: GitCommit,
+		file: GitFileChange,
+		showOptions?: TextDocumentShowOptions,
+	): Promise<void> {
+		const worktree = await this.pickReachableWorktree(
+			commit,
+			'Open Changes with Working File (Worktree)',
+			`Choose which worktree to compare ${basename(file.path)} against`,
+		);
+		if (worktree == null) return;
+
+		// Diff the committed file against its working copy in the sibling worktree that holds the branch:
+		// a Ref rooted at the worktree makes the whole diff resolve there (shared object db resolves the blob).
+		void openChangesWithWorking(
+			file,
+			{ repoPath: worktree.path, ref: commit.sha },
+			{
+				preserveFocus: true,
+				preview: true,
+				...showOptions,
+			},
+		);
+	}
+
+	// Resolves the sibling worktree to act on for a commit: the lone reachable worktree, else a picker;
+	// undefined if none reach the commit or the user cancels.
+	private async pickReachableWorktree(
+		commit: GitCommit,
+		title: string,
+		placeholder: string,
+	): Promise<GitWorktree | undefined> {
+		const worktrees = await getReachableWorktrees(this.container, commit.repoPath, commit.sha);
+		if (!worktrees.length) return undefined;
+		if (worktrees.length === 1) return worktrees[0];
+
+		return showWorktreePicker(title, placeholder, worktrees);
 	}
 
 	@command('gitlens.views.openFileRevision:')
