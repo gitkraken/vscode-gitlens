@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [18.3.0] - 2026-07-09
+
 ### Added
 
 - Adds ConfigCat-based feature flag service for A/B testing and experimentation support ([#5092](https://github.com/gitkraken/vscode-gitlens/issues/5092))
@@ -7063,7 +7065,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v18.3.0...HEAD
+[18.3.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.2.0...gitkraken:v18.3.0
 [18.2.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.1.0...gitkraken:v18.2.0
 [18.1.0]: https://github.com/gitkraken/vscode-gitlens/compare/v18.0.0...gitkraken:v18.1.0
 [18.0.0]: https://github.com/gitkraken/vscode-gitlens/compare/v17.12.2...gitkraken:v18.0.0
