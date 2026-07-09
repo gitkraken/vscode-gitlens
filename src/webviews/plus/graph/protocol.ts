@@ -312,7 +312,9 @@ export type GraphShowAction =
 	| 'scope-to-branch'
 	// Opens the account modal over the graph; takes no target. Any other show action closes
 	// an open account modal (it targets graph content the modal would cover).
-	| 'show-account';
+	| 'show-account'
+	/** Opens the automatic rebase summary sheet for the target repo's session */
+	| 'show-rebase-summary';
 
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the
