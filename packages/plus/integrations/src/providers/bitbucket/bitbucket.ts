@@ -1,10 +1,11 @@
 import type { Account, CommitAuthor, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -20,6 +21,8 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../errors.js';
+import type { ProviderApiConfig } from '../apiConfig.js';
+import { baseProviderApiConfig } from '../apiConfig.js';
 import type { BitbucketServerCommit, BitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { normalizeBitbucketServerPullRequest } from '../bitbucket-server/models.js';
 import { fromProviderPullRequest } from '../models.js';
@@ -32,18 +35,14 @@ import {
 } from './models.js';
 
 export class BitbucketApi implements Disposable {
-	private readonly _disposable: Disposable;
+	private readonly _disposable: Disposable | undefined;
 
-	constructor(private readonly ctx: IntegrationServiceContext) {
-		this._disposable = ctx.config.onDidChange(e => {
-			if (e.httpProxy) {
-				this.resetCaches();
-			}
-		});
+	constructor(private readonly config: ProviderApiConfig) {
+		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private resetCaches(): void {}
@@ -412,6 +411,130 @@ export class BitbucketApi implements Disposable {
 	}
 
 	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryMetadata(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response == null) return undefined;
+
+			let parent: RepositoryMetadata['parent'];
+			if (response.parent != null) {
+				// Derive the parent from `full_name` ("owner/repo") rather than `parent.workspace`, which is a
+				// requested field expansion Bitbucket doesn't always honor (an unexpanded parent would otherwise
+				// throw and null out the whole result).
+				// `full_name` is "owner/repo"; only report a parent when both parts are present so a malformed
+				// value doesn't produce a parent with an undefined owner/name while `isFork` stays true.
+				const [parentOwner, parentName] = response.parent.full_name.split('/');
+				if (parentOwner && parentName) {
+					parent = { owner: parentOwner, name: parentName };
+				}
+			}
+
+			return {
+				provider: provider,
+				owner: response.workspace.slug,
+				name: response.slug,
+				isFork: response.parent != null,
+				parent: parent,
+			} satisfies RepositoryMetadata;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getDefaultBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<DefaultBranch | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			const name = response?.mainbranch?.name;
+			if (name == null) return undefined;
+
+			return { provider: provider, name: name } satisfies DefaultBranch;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
+			return undefined;
+		}
+	}
+
+	private getRepository(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<BitbucketRepository | undefined> {
+		return this.request<BitbucketRepository>(
+			provider,
+			token,
+			baseUrl,
+			`repositories/${owner}/${repo}`,
+			{ method: 'GET' },
+			scope,
+			cancellation,
+		);
+	}
+
+	@trace({
 		args: (provider, token, owner, repo, rev, baseUrl) => ({
 			provider: provider.name,
 			token: `<token:${token.microHash}>`,
@@ -521,7 +644,7 @@ export class BitbucketApi implements Disposable {
 					// TODO: In future get it on to home as an warning on the integration itself "this integration has issues"
 					// even user suppresses the message it's still visible with some capacity. It's a broader thing to get other errors.
 					const commitWebUrl = `https://bitbucket.org/${owner}/${repo}/commits/${rev}`;
-					this.ctx.hooks?.ui?.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
+					this.config.onBitbucketCommitLinksAppMissing?.(commitWebUrl);
 					return undefined;
 				}
 			}
@@ -679,8 +802,8 @@ export class BitbucketApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(url, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
 						signal: cancellation,
 						...options,
@@ -699,7 +822,7 @@ export class BitbucketApi implements Disposable {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`Bitbucket request failed: ${ex.message}`);
+				this.config.onError?.(`Bitbucket request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -741,7 +864,7 @@ export class BitbucketApi implements Disposable {
 				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestFailed?.(
+					this.config.onRequestFailed?.(
 						`${provider?.name ?? 'Bitbucket'} failed to respond and might be experiencing issues.${
 							provider == null || provider.id === 'bitbucket'
 								? ' Please visit the [Bitbucket status page](https://bitbucket.status.atlassian.com/) for more information.'
@@ -766,9 +889,19 @@ export class BitbucketApi implements Disposable {
 
 		scope?.error(ex);
 		if (Logger.isDebugging) {
-			this.ctx.hooks?.ui?.onError?.(
+			this.config.onError?.(
 				`Bitbucket request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
 	}
+}
+
+/** Wires a {@link BitbucketApi} from the full runtime context, mapping `ctx` down to the narrow config. */
+export function createBitbucketApi(ctx: IntegrationServiceContext): BitbucketApi {
+	const config: ProviderApiConfig = {
+		...baseProviderApiConfig(ctx),
+		onBitbucketCommitLinksAppMissing: revLink => ctx.hooks?.ui?.onBitbucketCommitLinksAppMissing?.(revLink),
+	};
+
+	return new BitbucketApi(config);
 }

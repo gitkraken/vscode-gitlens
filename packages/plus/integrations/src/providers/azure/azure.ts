@@ -1,10 +1,12 @@
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
+import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
+import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
-import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
@@ -20,11 +22,14 @@ import {
 	RequestClientError,
 	RequestNotFoundError,
 } from '../../errors.js';
+import type { ProviderApiConfig } from '../apiConfig.js';
+import { baseProviderApiConfig } from '../apiConfig.js';
 import type {
 	AzureGitCommit,
 	AzureProjectDescriptor,
 	AzurePullRequest,
 	AzurePullRequestWithLinks,
+	AzureRepositoryWithMetadata,
 	AzureWorkItemState,
 	AzureWorkItemStateCategory,
 	WorkItem,
@@ -37,6 +42,7 @@ import {
 	getAzurePullRequestWebUrl,
 	isClosedAzurePullRequestStatus,
 	isClosedAzureWorkItemStateCategory,
+	normalizeAzureBranchName,
 } from './models.js';
 
 class WorkItemStates {
@@ -89,19 +95,15 @@ class WorkItemStates {
 }
 
 export class AzureDevOpsApi implements Disposable {
-	private readonly _disposable: Disposable;
+	private readonly _disposable: Disposable | undefined;
 	private _workItemStates: WorkItemStates = new WorkItemStates();
 
-	constructor(private readonly ctx: IntegrationServiceContext) {
-		this._disposable = ctx.config.onDidChange(e => {
-			if (e.httpProxy) {
-				this.resetCaches();
-			}
-		});
+	constructor(private readonly config: ProviderApiConfig) {
+		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private resetCaches(): void {
@@ -574,6 +576,132 @@ export class AzureDevOpsApi implements Disposable {
 		}
 	}
 
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getRepositoryMetadata(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<RepositoryMetadata | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response == null) return undefined;
+
+			// Azure's `parentRepository` only reliably carries the repo name and its project; a fork's parent
+			// lives in the same organization, so the org (`owner`) is the parent owner. Only report `parent`
+			// when the parent's name is actually present — never fall back to the fork's own name.
+			return {
+				provider: provider,
+				owner: owner,
+				// Prefer the API's canonical name over parsing the composite `repo` descriptor string.
+				name: response.name,
+				isFork: response.isFork ?? false,
+				parent:
+					response.isFork && response.parentRepository?.name != null
+						? { owner: owner, name: response.parentRepository.name }
+						: undefined,
+			} satisfies RepositoryMetadata;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
+			return undefined;
+		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+		}),
+	})
+	async getDefaultBranch(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		options: {
+			baseUrl: string;
+		},
+		cancellation?: AbortSignal,
+	): Promise<DefaultBranch | undefined> {
+		const scope = getScopedLogger();
+
+		try {
+			const response = await this.getRepository(
+				provider,
+				token,
+				owner,
+				repo,
+				options.baseUrl,
+				scope,
+				cancellation,
+			);
+			if (response?.defaultBranch == null) return undefined;
+
+			return {
+				provider: provider,
+				name: normalizeAzureBranchName(response.defaultBranch),
+			} satisfies DefaultBranch;
+		} catch (ex) {
+			// Cancellations and 404s are expected outcomes for a probe; don't log them as errors.
+			if (!isCancellationError(ex) && !(ex instanceof RequestNotFoundError)) {
+				scope?.error(ex);
+			}
+			return undefined;
+		}
+	}
+
+	private getRepository(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		baseUrl: string,
+		scope: ScopedLogger | undefined,
+		cancellation?: AbortSignal,
+	): Promise<AzureRepositoryWithMetadata | undefined> {
+		const parts = repo.split('/');
+		const [projectName, segment, repoName] = parts;
+		// The descriptor must be exactly `"{project}/_git/{repoName}"`; bail before issuing a bogus request.
+		if (parts.length !== 3 || segment !== '_git' || !projectName || !repoName) {
+			throw new Error(`Invalid Azure repository descriptor '${repo}'; expected '{project}/_git/{repoName}'.`);
+		}
+		return this.request<AzureRepositoryWithMetadata>(
+			provider,
+			token,
+			baseUrl,
+			`${owner}/${projectName}/_apis/git/repositories/${repoName}?api-version=7.1`,
+			{ method: 'GET' },
+			scope,
+			cancellation,
+		);
+	}
+
 	private async request<T>(
 		provider: Provider,
 		token: TokenWithInfo,
@@ -593,8 +721,8 @@ export class AzureDevOpsApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(url, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(url, {
 						headers: {
 							Authorization: `Basic ${base64(`PAT:${accessToken}`)}`,
 							'Content-Type': 'application/json',
@@ -616,7 +744,7 @@ export class AzureDevOpsApi implements Disposable {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, tokenInfo, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`AzureDevOps request failed: ${ex.message}`);
+				this.config.onError?.(`AzureDevOps request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -658,7 +786,7 @@ export class AzureDevOpsApi implements Disposable {
 				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestFailed?.(
+					this.config.onRequestFailed?.(
 						`${provider?.name ?? 'AzureDevOps'} failed to respond and might be experiencing issues.${
 							provider == null || provider.id === 'azure'
 								? ' Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.'
@@ -683,9 +811,14 @@ export class AzureDevOpsApi implements Disposable {
 
 		scope?.error(ex);
 		if (Logger.isDebugging) {
-			this.ctx.hooks?.ui?.onError?.(
+			this.config.onError?.(
 				`AzureDevOps request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
 			);
 		}
 	}
+}
+
+/** Wires an {@link AzureDevOpsApi} from the full runtime context, mapping `ctx` down to the narrow config. */
+export function createAzureDevOpsApi(ctx: IntegrationServiceContext): AzureDevOpsApi {
+	return new AzureDevOpsApi(baseProviderApiConfig(ctx));
 }

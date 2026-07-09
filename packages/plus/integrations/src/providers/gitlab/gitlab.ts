@@ -23,6 +23,8 @@ import {
 	RequestNotFoundError,
 	RequestRateLimitError,
 } from '../../errors.js';
+import type { ProviderApiConfig } from '../apiConfig.js';
+import { baseProviderApiConfig } from '../apiConfig.js';
 import { selectGitLabUserForCommit } from './gitlab.utils.js';
 import type {
 	GitLabCommit,
@@ -47,19 +49,15 @@ function buildGitLabUserId(id: string | number | undefined): string | undefined 
 }
 
 export class GitLabApi implements Disposable {
-	private readonly _disposable: Disposable;
+	private readonly _disposable: Disposable | undefined;
 	private _projectIds = new Map<string, Promise<string | undefined>>();
 
-	constructor(private readonly ctx: IntegrationServiceContext) {
-		this._disposable = ctx.config.onDidChange(e => {
-			if (e.httpProxy || e.remotes) {
-				this.resetCaches();
-			}
-		});
+	constructor(private readonly config: ProviderApiConfig) {
+		this._disposable = config.onConfigChanged?.(() => this.resetCaches());
 	}
 
 	dispose(): void {
-		this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private resetCaches(): void {
@@ -1034,8 +1032,8 @@ $search: String!
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(`${baseUrl ?? 'https://gitlab.com/api'}/graphql`, {
 						method: 'POST',
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
 						signal: cancellation,
@@ -1061,7 +1059,7 @@ $search: String!
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`GitLab request failed: ${ex.message}`);
+				this.config.onError?.(`GitLab request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -1087,8 +1085,8 @@ $search: String!
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
-				rsp = await this.ctx.http.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.ctx.http.fetch(url, {
+				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+					this.config.fetch(url, {
 						headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
 						signal: cancellation,
 						...options,
@@ -1107,7 +1105,7 @@ $search: String!
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
 				this.handleRequestError(provider, token, ex, scope);
 			} else if (Logger.isDebugging) {
-				this.ctx.hooks?.ui?.onError?.(`GitLab request failed: ${ex.message}`);
+				this.config.onError?.(`GitLab request failed: ${ex.message}`);
 			}
 
 			throw ex;
@@ -1150,7 +1148,7 @@ $search: String!
 				scope?.error(ex);
 				if (ex.response != null) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestFailed?.(
+					this.config.onRequestFailed?.(
 						`${provider?.name ?? 'GitLab'} failed to respond and might be experiencing issues.${
 							provider == null || provider.id === 'gitlab'
 								? ' Please visit the [GitLab status page](https://status.gitlab.com) for more information.'
@@ -1164,7 +1162,7 @@ $search: String!
 				// GitHub seems to return this status code for timeouts
 				if (ex.message.includes('timeout')) {
 					provider?.trackRequestException();
-					this.ctx.hooks?.ui?.onRequestTimedOut?.(provider?.name ?? 'GitLab');
+					this.config.onRequestTimedOut?.(provider?.name ?? 'GitLab');
 					return;
 				}
 				break;
@@ -1175,9 +1173,7 @@ $search: String!
 
 		scope?.error(ex);
 		if (Logger.isDebugging) {
-			this.ctx.hooks?.ui?.onError?.(
-				`GitLab request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`,
-			);
+			this.config.onError?.(`GitLab request failed: ${(ex.response as any)?.errors?.[0]?.message ?? ex.message}`);
 		}
 	}
 
@@ -1193,7 +1189,7 @@ $search: String!
 
 	private async showAuthenticationErrorMessage(ex: AuthenticationError, provider: Provider) {
 		if (ex.reason === AuthenticationErrorReason.Unauthorized || ex.reason === AuthenticationErrorReason.Forbidden) {
-			const reauthenticate = await this.ctx.hooks?.onReauthenticationRequired?.(
+			const reauthenticate = await this.config.onReauthenticationRequired?.(
 				`${ex.message}. Would you like to try reauthenticating${
 					ex.reason === AuthenticationErrorReason.Forbidden ? ' to provide additional access' : ''
 				}?`,
@@ -1204,7 +1200,26 @@ $search: String!
 				this.resetCaches();
 			}
 		} else {
-			this.ctx.hooks?.ui?.onError?.(ex.message);
+			this.config.onError?.(ex.message);
 		}
 	}
+}
+
+/** Wires a {@link GitLabApi} from the full runtime context, mapping `ctx` down to the narrow config. */
+export function createGitLabApi(ctx: IntegrationServiceContext): GitLabApi {
+	const config: ProviderApiConfig = {
+		...baseProviderApiConfig(ctx),
+		// Self-hosted GitLab keys its API base off `remotes`, so reset on both HTTP proxy and remotes changes.
+		onConfigChanged: listener =>
+			ctx.config.onDidChange(e => {
+				if (e.httpProxy || e.remotes) {
+					listener();
+				}
+			}),
+		onReauthenticationRequired: message =>
+			ctx.hooks?.onReauthenticationRequired?.(message) ?? Promise.resolve(false),
+		onRequestTimedOut: providerName => ctx.hooks?.ui?.onRequestTimedOut?.(providerName),
+	};
+
+	return new GitLabApi(config);
 }

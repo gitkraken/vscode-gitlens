@@ -332,10 +332,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	protected override async getProviderDefaultBranch(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
+		session: ProviderAuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		cancellation?: AbortSignal,
 	): Promise<DefaultBranch | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.authenticationService.apis.azure)?.getDefaultBranch(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
 	}
 
 	protected override async getProviderLinkedIssueOrPullRequest(
@@ -434,11 +442,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	protected override async getProviderRepositoryMetadata(
-		_session: AuthenticationSession,
-		_repo: AzureRepositoryDescriptor,
-		_cancellation?: AbortSignal,
+		session: ProviderAuthenticationSession,
+		repo: AzureRepositoryDescriptor,
+		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined> {
-		return Promise.resolve(undefined);
+		return (await this.authenticationService.apis.azure)?.getRepositoryMetadata(
+			this,
+			toTokenWithInfo(this.id, session),
+			repo.owner,
+			repo.name,
+			{ baseUrl: this.apiBaseUrl },
+			cancellation,
+		);
 	}
 
 	protected override async searchProviderMyPullRequests(
