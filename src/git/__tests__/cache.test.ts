@@ -307,7 +307,7 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -339,7 +339,7 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -369,7 +369,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -399,7 +401,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -433,7 +437,9 @@ suite('Cache Test Suite', () => {
 				factoryCallCount++;
 				factorySignal = signal;
 				return d.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			};
 
@@ -452,7 +458,9 @@ suite('Cache Test Suite', () => {
 			await assert.rejects(p1, (e: unknown) => isCancellationError(e));
 
 			d.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+				values: [
+					new GitTag('/code/project', 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+				],
 			});
 			const result = await p2;
 			assert.strictEqual(result.values.length, 1);
@@ -472,7 +480,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -498,7 +508,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): Promise<PagedResult<GitTag>> => {
 				factoryCallCount++;
 				return d.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			};
 
@@ -517,7 +529,7 @@ suite('Cache Test Suite', () => {
 
 			// Existing waiter still resolves with the in-flight value
 			d.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 			});
 			await p1;
 			await p2;
@@ -528,12 +540,14 @@ suite('Cache Test Suite', () => {
 			const p3 = cache.getTags('/code/project', (commonPath: string) => {
 				factoryCallCount++;
 				return d2.promise.then(r => ({
-					values: r.values.map(t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate)),
+					values: r.values.map(
+						t => new GitTag(commonPath, t.name, t.sha, t.message, t.date, t.commitDate, t.annotated),
+					),
 				}));
 			});
 			assert.strictEqual(factoryCallCount, 2);
 			d2.resolve({
-				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+				values: [new GitTag('/code/project', 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 			});
 			await p3;
 		});
@@ -556,7 +570,9 @@ suite('Cache Test Suite', () => {
 			const factory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined)],
+					values: [
+						new GitTag(commonPath, 'refs/tags/v1.0', 'abc123', 'Release', undefined, undefined, false),
+					],
 				};
 			};
 
@@ -651,7 +667,7 @@ suite('Cache Test Suite', () => {
 			const factory2 = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v1.0', 'abc', 'Release', undefined, undefined, false)],
 				};
 			};
 
@@ -686,7 +702,7 @@ suite('Cache Test Suite', () => {
 			const seedFactory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v0.1', 'aaa', 'Seed', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v0.1', 'aaa', 'Seed', undefined, undefined, false)],
 				};
 			};
 			await cache.getTags('/code/project-feature-a', seedFactory);
@@ -718,7 +734,7 @@ suite('Cache Test Suite', () => {
 			const freshFactory = (commonPath: string): PagedResult<GitTag> => {
 				factoryCallCount++;
 				return {
-					values: [new GitTag(commonPath, 'refs/tags/v2.0', 'ccc', 'Fresh', undefined, undefined)],
+					values: [new GitTag(commonPath, 'refs/tags/v2.0', 'ccc', 'Fresh', undefined, undefined, false)],
 				};
 			};
 			const resultB = await cache.getTags('/code/project-feature-b', freshFactory);

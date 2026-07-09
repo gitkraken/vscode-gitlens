@@ -46,6 +46,7 @@ import { graphStateContext } from '../context.js';
 import { branchActionsToTelemetryNames, getBranchLeafActions } from './branchActions.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
+import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
 import '../overview/graph-overview.js';
 import '../../../shared/components/commit/commit-stats.js';
 import '../../../shared/components/commit/wip-stats.js';
@@ -2066,13 +2067,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		const data = this._actions?.state.panels.tags?.value.get();
 		if (data?.panel !== 'tags') return;
 
-		// Multiple tags can point at the same commit (`sha` is the peeled commit sha), so a sha
-		// match can resolve to the wrong tag and mis-report `annotated`. Prefer the clicked node's
-		// path, which uniquely identifies the tag — `flat:<sha>:<name>` in list mode; in tree mode
-		// `makeHierarchical`'s `relativePath`, which is the tag name with a leading slash (the
-		// join fold seeds from '') — and fall back to the first sha match.
-		const name = path?.startsWith('flat:') ? path.substring(path.indexOf(':', 5) + 1) : path?.replace(/^\//, '');
-		const tag = data.items.find(t => t.name === name) ?? data.items.find(t => t.sha === sha);
+		// Resolve by the clicked node's path (unique per tag) rather than sha, since tags can share
+		// a commit — see resolveSelectedTag for the path formats and sha fallback.
+		const tag = resolveSelectedTag(data.items, sha, path);
 		if (tag == null) return;
 
 		emitTelemetrySentEvent<'graph/tags/tagSelected'>(this, {
