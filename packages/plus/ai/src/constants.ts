@@ -86,7 +86,7 @@ export const deepSeekProviderDescriptor: AIProviderDescriptor<'deepseek'> = {
 } as const;
 export const xAIProviderDescriptor: AIProviderDescriptor<'xai'> = {
 	id: 'xai',
-	name: 'xAI',
+	name: 'SpaceXAI',
 	primary: false,
 	requiresAccount: true,
 	requiresUserKey: true,

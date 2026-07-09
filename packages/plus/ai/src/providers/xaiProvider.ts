@@ -5,6 +5,12 @@ import { OpenAICompatibleProviderBase } from './openAICompatibleProviderBase.js'
 type XAIModel = AIModel<typeof provider.id>;
 const models: XAIModel[] = [
 	{
+		id: 'grok-4.5',
+		name: 'Grok 4.5',
+		maxTokens: { input: 500000, output: 65536 },
+		provider: provider,
+	},
+	{
 		id: 'grok-4.3',
 		name: 'Grok 4.3',
 		maxTokens: { input: 1048576, output: 65536 },
