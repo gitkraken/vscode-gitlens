@@ -221,6 +221,10 @@ interface AIConfig {
 	readonly enabled: boolean;
 	readonly openInAgent: 'ask' | 'manual' | 'agent';
 	readonly defaultAgent: string | null;
+	readonly autoRebase: {
+		/** Minimum AI confidence (0–1) required to auto-apply a conflict resolution during an automatic rebase */
+		readonly confidenceThreshold: number;
+	};
 	readonly exclude: {
 		/** Glob patterns for files to exclude from AI prompts (like files.exclude). May be undefined on extension upgrade due to VS Code bug. */
 		readonly files: Record<string, boolean> | undefined;
