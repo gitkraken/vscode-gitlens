@@ -61,6 +61,7 @@ import {
 } from '@gitlens/git/models/pullRequest.js';
 import type { Provider, ProviderReference } from '@gitlens/git/models/remoteProvider.js';
 import { gitSuffixRegex } from '@gitlens/git/utils/remote.utils.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { equalsIgnoreCase } from '@gitlens/utils/string.js';
 import type { IntegrationIds } from '../constants.js';
 import {
@@ -94,6 +95,9 @@ export type ProviderAzureResource = AzureOrganization;
 export type ProviderBitbucketResource = BitbucketWorkspaceStub;
 export type ProviderGitHubOrganization = Organization;
 export type ProviderGitLabGroup = GitLabGroup;
+export type ProviderHierarchyResult<T> = PagedResult<T> & {
+	readonly truncated?: boolean;
+};
 
 /**
  * Normalized org/workspace/group shape returned by `GitHostIntegration.getOrganizationsForUser`.

@@ -20,6 +20,7 @@ import type {
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
+	ProviderHierarchyResult,
 	ProviderIssue,
 	ProviderOrganization,
 	ProviderPullRequest,
@@ -177,9 +178,13 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 	): Promise<RepositoryMetadata | undefined>;
 
-	/** Lists the organizations (orgs/workspaces/groups) the current user belongs to on this host. */
+	/**
+	 * Lists the organizations (orgs/workspaces/groups) the current user belongs to on this host.
+	 * `truncated === true` means the defensive page-drain backstop stopped before the upstream listing
+	 * was exhausted.
+	 */
 	@trace()
-	async getOrganizationsForUser(): Promise<ProviderOrganization[] | undefined> {
+	async getOrganizationsForUser(): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -199,20 +204,21 @@ export abstract class GitHostIntegration<
 
 	protected getProviderOrganizationsForUser?(
 		session: ProviderAuthenticationSession,
-	): Promise<ProviderOrganization[] | undefined>;
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined>;
 
 	/**
 	 * Lists repositories under the given organization (org/workspace/group) one page at a time — follow
-	 * `paging.cursor` to page, or drain with `collectPagedResults` from `@gitlens/utils/paging.js`.
+	 * `paging.cursor` to page, or drain with the integrations provider paging helper.
 	 * `options.project` is only meaningful for Azure DevOps, whose repos are scoped by `org` + `project`;
 	 * every other host ignores it. (Azure without a project can't page its cross-project merge, so it
-	 * returns all matches in a single page.)
+	 * returns all matches in a single page.) `truncated === true` means the defensive page-drain
+	 * backstop stopped before the upstream listing was exhausted.
 	 */
 	@trace()
 	async getRepositoriesForOrg(
 		org: string,
 		options?: { project?: string; cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const scope = getScopedLogger();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -234,7 +240,7 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { project?: string; cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined>;
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined>;
 
 	async mergePullRequest(pr: PullRequest, options?: { mergeMethod?: PullRequestMergeMethod }): Promise<boolean> {
 		const scope = getScopedLogger();

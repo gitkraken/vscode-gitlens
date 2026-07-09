@@ -2,7 +2,6 @@ import ProviderApis from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { collectPagedResults } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
@@ -39,6 +38,7 @@ import type {
 	ProviderBitbucketResource,
 	ProviderGitHubOrganization,
 	ProviderGitLabGroup,
+	ProviderHierarchyResult,
 	ProviderInfo,
 	ProviderIssue,
 	ProviderJiraProject,
@@ -56,6 +56,7 @@ import type {
 	PullRequestFilter,
 } from './models.js';
 import { providersMetadata } from './models.js';
+import { collectProviderPagedResult } from './utils/providerPaging.js';
 
 // `@gitkraken/provider-apis` is published as CommonJS with its factory on the `default` export.
 // How that surfaces depends on the consuming bundler's CJS->ESM interop: esbuild yields the
@@ -797,14 +798,15 @@ export class ProvidersApi {
 			GitCloudHostIntegrationId.GitHub | GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
 		>,
 		options?: { isPAT?: boolean; baseUrl?: string },
-	): Promise<ProviderGitHubOrganization[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderGitHubOrganization>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getOrgsForCurrentUserFn',
 		);
 
-		// Drain all pages so a user in many orgs doesn't lose everything past the first page.
-		return collectPagedResults(cursor =>
+		// Drain all pages so a user in many orgs doesn't lose everything past the first page, while
+		// surfacing `truncated` when the defensive backstop stops before the listing is exhausted.
+		const result = await collectProviderPagedResult(cursor =>
 			this.getPagedResult<ProviderGitHubOrganization>(
 				{},
 				provider.getOrgsForCurrentUserFn,
@@ -814,6 +816,9 @@ export class ProvidersApi {
 				options?.baseUrl,
 			),
 		);
+		// This method drains internally and takes no cursor, so a backstop cursor isn't resumable by
+		// callers — keep only the truncation signal rather than exposing a misleading `paging`.
+		return { values: result.values, ...(result.truncated ? { truncated: true } : {}) };
 	}
 
 	async getReposForOrg(
@@ -881,14 +886,15 @@ export class ProvidersApi {
 			GitCloudHostIntegrationId.GitLab | GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted
 		>,
 		options?: { topLevelOnly?: boolean; isPAT?: boolean; baseUrl?: string },
-	): Promise<ProviderGitLabGroup[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderGitLabGroup>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getGroupsForCurrentUserFn',
 		);
 
-		// Drain all pages so a user in many groups doesn't lose everything past the first page.
-		return collectPagedResults(cursor =>
+		// Drain all pages so a user in many groups doesn't lose everything past the first page, while
+		// surfacing `truncated` when the defensive backstop stops before the listing is exhausted.
+		const result = await collectProviderPagedResult(cursor =>
 			this.getPagedResult<ProviderGitLabGroup>(
 				{ topLevelOnly: options?.topLevelOnly },
 				provider.getGroupsForCurrentUserFn,
@@ -898,6 +904,9 @@ export class ProvidersApi {
 				options?.baseUrl,
 			),
 		);
+		// This method drains internally and takes no cursor, so a backstop cursor isn't resumable by
+		// callers — keep only the truncation signal rather than exposing a misleading `paging`.
+		return { values: result.values, ...(result.truncated ? { truncated: true } : {}) };
 	}
 
 	async getPullRequestsForRepos(

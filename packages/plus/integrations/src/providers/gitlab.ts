@@ -8,7 +8,6 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -20,7 +19,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
-import type { ProviderOrganization, ProviderRepository } from './models.js';
+import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
 import { ProviderPullRequestReviewState, providersMetadata, toIssueShape } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -244,13 +243,16 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 
 	protected override async getProviderOrganizationsForUser(
 		session: ProviderAuthenticationSession,
-	): Promise<ProviderOrganization[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const api = await this.getProvidersApi();
-		const groups = await api.getGitlabGroupsForCurrentUser(toTokenWithInfo(this.id, session), {
+		const result = await api.getGitlabGroupsForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
 		});
-		return groups?.map(g => ({ id: g.id, name: g.fullPath, url: g.webUrl }));
+		return {
+			values: result.values.map(g => ({ id: g.id, name: g.fullPath, url: g.webUrl })),
+			...(result.truncated ? { truncated: true } : {}),
+		};
 	}
 
 	/**
@@ -265,7 +267,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
 		const result = await api.getReposForCurrentUser(toTokenWithInfo(this.id, session), {
 			isPAT: this.isEnterprise,
@@ -274,7 +276,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		});
 		return {
 			values: result.values.filter(r => matchesGitLabOrgNamespace(r.namespace, org)),
-			paging: result.paging,
+			...(result.paging != null ? { paging: result.paging } : {}),
 		};
 	}
 

@@ -7,7 +7,6 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
@@ -18,7 +17,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
-import type { ProviderOrganization, ProviderRepository } from './models.js';
+import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
 import { fromProviderPullRequest, providersMetadata } from './models.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
@@ -221,16 +220,20 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 	protected override async getProviderOrganizationsForUser(
 		session: ProviderAuthenticationSession,
-	): Promise<ProviderOrganization[] | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
 		const workspaces = await this.getProviderResourcesForCurrentUser(session);
-		return workspaces?.map(w => ({ id: w.id, name: w.slug, url: `https://bitbucket.org/${w.slug}` }));
+		if (workspaces == null) return undefined;
+
+		return {
+			values: workspaces.map(w => ({ id: w.id, name: w.slug, url: `https://bitbucket.org/${w.slug}` })),
+		};
 	}
 
 	protected override async getProviderRepositoriesForOrg(
 		session: ProviderAuthenticationSession,
 		org: string,
 		options?: { cursor?: string },
-	): Promise<PagedResult<ProviderRepository> | undefined> {
+	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
 		const api = await this.getProvidersApi();
 		return api.getReposForBitbucketWorkspace(toTokenWithInfo(this.id, session), org, {
 			cursor: options?.cursor,
