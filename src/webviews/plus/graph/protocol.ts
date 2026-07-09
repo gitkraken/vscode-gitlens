@@ -306,7 +306,9 @@ export type GraphShowAction =
 	| 'enter-compose'
 	| 'enter-resolve'
 	| 'open-compare'
-	| 'scope-to-branch';
+	| 'scope-to-branch'
+	/** Opens the automatic rebase summary sheet for the target repo's session */
+	| 'show-rebase-summary';
 
 /** Optional target row for a `GraphShowAction`. When provided, the webview routes the action
  *  to this specific row (used by context-menu invocations on secondary WIP rows where the

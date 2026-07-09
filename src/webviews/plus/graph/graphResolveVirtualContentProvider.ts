@@ -9,6 +9,10 @@ import type {
 /** Namespace key for registration with {@link VirtualFileSystemService}. */
 export const GraphResolveVirtualNamespace = 'graph-resolve';
 
+/** Namespace for the automatic rebase summary's per-step before/after diffs — a second provider
+ *  instance, so summary sessions never collide with (or get superseded by) live resolve sessions. */
+export const AutoRebaseVirtualNamespace = 'auto-rebase';
+
 /** The two virtual "sides" of a resolved file. `resolved`'s parent is `conflicted`, so the existing
  *  compare-previous plumbing renders an AI-resolved-vs-conflicted diff with no write to disk. */
 export const ResolveVirtualSide = {
@@ -42,7 +46,7 @@ interface Session {
  * conflicted diff — purely in-editor, nothing touches the working tree until the user applies.
  */
 export class GraphResolveVirtualContentProvider implements VirtualContentProvider {
-	readonly namespace = GraphResolveVirtualNamespace;
+	constructor(readonly namespace: string = GraphResolveVirtualNamespace) {}
 
 	private readonly _sessions = new Map<string, Session>();
 	private readonly _onDidChangeContent = new EventEmitter<VirtualContentChangeEvent>();
@@ -57,16 +61,21 @@ export class GraphResolveVirtualContentProvider implements VirtualContentProvide
 		this._onDidChangeContent.dispose();
 	}
 
-	/** Start a new resolve session and return its id, superseding any prior session for this webview. */
+	/** Start a new resolve session and return its id, superseding any prior session for this webview.
+	 *  An explicit `input.sessionId` makes the session id deterministic (superseding any prior
+	 *  session with the same id) — used by the auto-rebase summary so a re-fetch reuses its refs. */
 	startSession(
-		input: { repoPath: string; files: readonly GraphResolveVirtualFileInput[] },
+		input: { repoPath: string; files: readonly GraphResolveVirtualFileInput[]; sessionId?: string },
 		supersedeSessionId?: string,
 	): string {
 		if (supersedeSessionId != null) {
 			this.endSession(supersedeSessionId);
 		}
 
-		const sessionId = `resolve-${String(this._nextSessionSeq++)}`;
+		const sessionId = input.sessionId ?? `resolve-${String(this._nextSessionSeq++)}`;
+		if (input.sessionId != null) {
+			this.endSession(sessionId);
+		}
 		this._sessions.set(sessionId, {
 			sessionId: sessionId,
 			repoPath: input.repoPath,
@@ -95,6 +104,14 @@ export class GraphResolveVirtualContentProvider implements VirtualContentProvide
 		const paths = [...session.files.keys()];
 		if (paths.length > 0) {
 			this._onDidChangeContent.fire({ sessionId: sessionId, paths: paths });
+		}
+	}
+
+	/** Ends every open session — releases their retained file contents without disposing the provider
+	 *  (e.g. when switching to a different auto-rebase run's summary, whose steps use different ids). */
+	endAllSessions(): void {
+		for (const sessionId of [...this._sessions.keys()]) {
+			this.endSession(sessionId);
 		}
 	}
 

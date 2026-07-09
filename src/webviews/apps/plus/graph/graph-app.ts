@@ -1087,8 +1087,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// (the row is injected by `getDecoratedRows` only after Lit+React catch up), which surfaces as
 		// review/compose updating the details but leaving the row unselected. `ensureAndSelectCommit`
 		// normalizes `uncommitted`→the WIP row and retries across frames until it's injected. Skip for
-		// compare (it drives its own range selection).
-		if (action !== 'open-compare') {
+		// compare (it drives its own range selection) and the rebase summary (selection-decoupled sheet).
+		if (action !== 'open-compare' && action !== 'show-rebase-summary') {
 			this.graph?.ensureAndSelectCommit(sha);
 		}
 
@@ -1096,6 +1096,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'request-mode');
 			this.ensureDetailsPosition();
 		};
+
+		if (action === 'show-rebase-summary') {
+			showDetails();
+			// Same cold-open mounting caveat as the enter-*-mode actions below — poll for the panel.
+			const panel = await this.waitForDetailsPanel();
+			void panel?.openRebaseSummary(repoPath);
+			return;
+		}
 
 		if (action === 'open-compare') {
 			await this.updateComplete;

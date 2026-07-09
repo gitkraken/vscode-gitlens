@@ -15,7 +15,12 @@ import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
 import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
-import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
+import type {
+	AutoRebaseSummary,
+	ConflictSide,
+	GraphServices,
+	VirtualRefShape,
+} from '../../../../plus/graph/graphService.js';
 import type {
 	GetWipLineStatsResponse,
 	GraphComposeScopeSeed,
@@ -72,6 +77,7 @@ import type {
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
 import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
+import type { RebaseSummaryViewDiffDetail } from './gl-rebase-summary-sheet.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
@@ -82,6 +88,7 @@ import '../../../shared/components/overlays/detail-sheet.js';
 import '../../../shared/components/overlays/tooltip.js';
 import '../../../shared/components/progress.js';
 import '../../../shared/components/split-panel/split-panel.js';
+import './gl-rebase-summary-sheet.js';
 import './gl-wip-conflict-sheet.js';
 import './gl-details-multicommit-panel.js';
 import './gl-details-compose-mode-panel.js';
@@ -1198,6 +1205,40 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		this._workflow.toggleMode(mode, selection);
 	}
 
+	/** Deferred openRebaseSummary target for a cold open — the pending action can land before
+	 *  async service resolution finishes. Mirrors {@link _pendingMode}. */
+	private _pendingRebaseSummary?: string;
+
+	/** Opens the Automatic Rebase summary sheet for `repoPath`'s session — selection-decoupled,
+	 *  like the compare sheet. Fetching also (re)registers the host-side virtual diff sessions
+	 *  backing each file's View Changes. */
+	async openRebaseSummary(repoPath: string): Promise<void> {
+		if (this._actions == null) {
+			// Element mounted but async init (resolveDetailsActions) hasn't finished — defer and
+			// apply once services resolve. Mirrors the `_pendingMode` path.
+			this._pendingRebaseSummary = repoPath;
+			return;
+		}
+
+		this._rebaseSummarySheet = { repoPath: repoPath, loading: true };
+		let next: NonNullable<typeof this._rebaseSummarySheet>;
+		try {
+			const result = await this._actions.fetchAutoRebaseSummary(repoPath);
+			next =
+				result == null
+					? { repoPath: repoPath, loading: false, error: 'No automatic rebase summary is available.' }
+					: 'error' in result
+						? { repoPath: repoPath, loading: false, error: result.error.message }
+						: { repoPath: repoPath, loading: false, summary: result.summary };
+		} catch {
+			next = { repoPath: repoPath, loading: false, error: 'Unable to load the rebase summary.' };
+		}
+		// The sheet may have been closed (or re-targeted) while fetching
+		if (this._rebaseSummarySheet?.repoPath === repoPath && this._rebaseSummarySheet.loading) {
+			this._rebaseSummarySheet = next;
+		}
+	}
+
 	private get isLoading(): boolean {
 		if (!this._actions) {
 			return this.sha != null || (this.shas != null && this.shas.length > 0);
@@ -1222,6 +1263,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		loading: boolean;
 		error: boolean;
 		details?: ConflictDetails;
+	};
+
+	/** Open state + lazily-fetched data for the Automatic Rebase summary sheet (undefined = closed). */
+	@state()
+	private _rebaseSummarySheet?: {
+		repoPath: string;
+		loading: boolean;
+		error?: string;
+		summary?: AutoRebaseSummary;
+		undoing?: boolean;
+		undoError?: string;
 	};
 
 	override connectedCallback(): void {
@@ -1937,6 +1989,12 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this.enterModeForWip(mode, repoPath, sha, focusedFilePaths, composeInstructions, composeScope);
 		}
 
+		if (this._pendingRebaseSummary != null) {
+			const repoPath = this._pendingRebaseSummary;
+			this._pendingRebaseSummary = undefined;
+			void this.openRebaseSummary(repoPath);
+		}
+
 		void this._actions.fetchCapabilities();
 		if (this.isMultiCommit) {
 			void this._actions.fetchCompareDetails(this.shas, this.repoPath, this.commitLites);
@@ -2030,7 +2088,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
-			?inert=${compareSheetOpen || this._conflictSheet != null || branchSheetRef != null}
+			?inert=${compareSheetOpen ||
+			this._conflictSheet != null ||
+			branchSheetRef != null ||
+			this._rebaseSummarySheet != null}
 		>
 			${resolved != null
 				? resolved.content
@@ -2231,8 +2292,24 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					</gl-detail-sheet>`
 				: nothing;
 
+		const rebaseSummarySheet =
+			this._rebaseSummarySheet != null
+				? html`<gl-rebase-summary-sheet
+						.summary=${this._rebaseSummarySheet.summary}
+						?loading=${this._rebaseSummarySheet.loading}
+						.error=${this._rebaseSummarySheet.error}
+						?undoing=${this._rebaseSummarySheet.undoing ?? false}
+						.undoError=${this._rebaseSummarySheet.undoError}
+						@gl-detail-sheet-close=${this.handleCloseRebaseSummary}
+						@rebase-summary-view-diff=${this.handleRebaseSummaryViewDiff}
+						@rebase-summary-undo=${this.handleRebaseSummaryUndo}
+					></gl-rebase-summary-sheet>`
+				: nothing;
+
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${compareSheet}${conflictSheet}${branchSheet}</div>`;
+			return html`<div class="details-host">
+				${detailsContent}${compareSheet}${conflictSheet}${branchSheet}${rebaseSummarySheet}
+			</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -3759,6 +3836,46 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	private handleCloseConflictDetails = () => {
 		this._conflictSheet = undefined;
+	};
+
+	private handleCloseRebaseSummary = () => {
+		this._rebaseSummarySheet = undefined;
+	};
+
+	private handleRebaseSummaryViewDiff = (e: CustomEvent<RebaseSummaryViewDiffDetail>) => {
+		const sheet = this._rebaseSummarySheet;
+		const summary = sheet?.summary;
+		if (sheet == null || summary == null) return;
+
+		const step = summary.steps.find(s => s.step === e.detail.step);
+		const file = step?.files.find(f => f.filePath === e.detail.filePath);
+		if (file?.virtualRef == null) return;
+
+		// The rebase is over, so the file has no WIP entry — a minimal shape suffices for the
+		// virtual compare (it only reads repoPath + path).
+		this._actions.openResolutionDiff(
+			{ repoPath: sheet.repoPath, path: file.filePath, status: 'M' },
+			file.virtualRef,
+		);
+	};
+
+	private handleRebaseSummaryUndo = async () => {
+		const sheet = this._rebaseSummarySheet;
+		const summary = sheet?.summary;
+		if (sheet == null || summary == null || sheet.undoing) return;
+
+		this._rebaseSummarySheet = { ...sheet, undoing: true, undoError: undefined };
+		let next: NonNullable<typeof this._rebaseSummarySheet> | undefined;
+		try {
+			const result = await this._actions.undoAutoRebase(sheet.repoPath, summary.sessionId);
+			// Success closes the sheet — the graph refreshes via the repo change the reset fires
+			next = 'error' in result ? { ...sheet, undoing: false, undoError: result.error.message } : undefined;
+		} catch {
+			next = { ...sheet, undoing: false, undoError: 'Unable to undo the rebase.' };
+		}
+		if (this._rebaseSummarySheet?.repoPath === sheet.repoPath) {
+			this._rebaseSummarySheet = next;
+		}
 	};
 
 	private handleConflictOpenChanges = (e: CustomEvent<ConflictSheetSideEventDetail>) => {

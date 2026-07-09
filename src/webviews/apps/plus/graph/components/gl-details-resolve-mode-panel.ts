@@ -9,7 +9,6 @@ import type { ConflictKind } from '@gitlens/git/utils/conflictResolution.utils.j
 import { pluralize } from '@gitlens/utils/string.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
-	ConflictResolutionStrategy,
 	ConflictSide,
 	ResolvedFileSummary,
 	ResolveFileError,
@@ -22,6 +21,7 @@ import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
 import type { FileChangeListItemDetail } from '../../../shared/components/tree/gl-file-tree-pane.js';
 import { prunePathsToFiles } from './aiExclusion.js';
+import { confidenceLevel, renderConfidence, resolveDisplayStyles, strategyDisplay } from './resolveDisplay.js';
 import { renderErrorState, renderLoadingState } from './shared-panel-templates.js';
 import { panelErrorStyles, panelHostStyles, panelLoadingStageStyles, panelLoadingStyles } from './shared-panel.css.js';
 import '../../../shared/components/ai-input.js';
@@ -43,17 +43,6 @@ export interface ResolveViewDiffDetail {
 export interface ResolveOpenFileDetail {
 	filePath: string;
 }
-
-/** Friendly label + icon for each conflict-tools resolution strategy. `skipped` is a warning —
- *  the file was intentionally left conflicted and still needs manual attention. Labels are sentence
- *  case to match the conflict-kind badges ({@link conflictKindDisplay}) — one badge vocabulary. */
-const strategyDisplay: Record<ConflictResolutionStrategy, { label: string; icon: string; warn?: boolean }> = {
-	ai: { label: 'Merged', icon: 'gl-merge' },
-	'take-ours': { label: 'Kept current', icon: 'gl-accept-left' },
-	'take-theirs': { label: 'Took incoming', icon: 'gl-accept-right' },
-	deleted: { label: 'Deleted', icon: 'trash' },
-	skipped: { label: 'Needs review', icon: 'warning', warn: true },
-};
 
 /** Short badge label + a distinct icon per conflict kind for the "needs your input" rows. The badge
  *  stays terse — the one-line explanation is carried by the row's message
@@ -86,14 +75,6 @@ function kindDisplay(kind: ConflictKind | undefined, status?: GitFileConflictSta
 	return kind != null ? conflictKindDisplay[kind] : { label: 'Needs review', icon: 'warning' };
 }
 
-/** AI confidence bucket for a resolution (`confidence` is 0–1). Drives the confidence pips and the
- *  low-confidence emphasis (reasoning auto-expands, badge tints to warning). */
-function confidenceLevel(confidence: number): 'high' | 'medium' | 'low' {
-	if (confidence >= 0.8) return 'high';
-	if (confidence >= 0.5) return 'medium';
-	return 'low';
-}
-
 /** Drop the trailing action hint ("… — choose a side to keep") from a conflict description — the row's
  *  buttons already say what to do. */
 function conflictWhat(message: string): string {
@@ -118,6 +99,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 		panelErrorStyles,
 		scrollableBase,
 		subPanelEnterStyles,
+		resolveDisplayStyles,
 		css`
 			/* Matches the fade+slide-up entrance used by compose/review so resolve mode animates in
 			   instead of popping. The @keyframes comes from subPanelEnterStyles; overflow is gated to
@@ -319,37 +301,8 @@ export class GlDetailsResolveModePanel extends LitElement {
 				overflow: hidden;
 			}
 
-			/* Small-caps matches GitLens' shared <gl-badge> convention (badges.css.ts) so the resolution
-			   and conflict-kind badges read as house-style status tags rather than sentence fragments. */
-			.resolve-file__badge {
-				display: inline-flex;
-				flex: none;
-				gap: 0.3rem;
-				align-items: center;
-				padding: 0.25rem 0.5rem;
-				font-size: var(--gl-font-sm);
-				font-weight: 600;
-				font-variant: all-small-caps;
-				line-height: 1;
-				letter-spacing: 0.02em;
-				color: var(--vscode-badge-foreground);
-				background: var(--vscode-badge-background);
-				border-radius: var(--gl-radius-sm);
-			}
-
-			/* all-small-caps glyphs sit low in the line box next to the centred icon — raise them a hair. */
-			.resolve-file__badge-text {
-				transform: translateY(-0.05em);
-			}
-
-			.resolve-file__badge code-icon {
-				transform: translateY(0.05em);
-			}
-
-			.resolve-file__badge--warn {
-				color: var(--vscode-inputValidation-warningForeground, var(--vscode-badge-foreground));
-				background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background));
-			}
+			/* Badge + confidence-pip styles are shared with the auto-rebase summary sheet — see
+			   resolveDisplayStyles (resolveDisplay.ts) in the styles array above. */
 
 			.resolve-file__reasoning {
 				margin: 0;
@@ -393,37 +346,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 				font-weight: 600;
 				text-overflow: ellipsis;
 				white-space: nowrap;
-			}
-
-			/* AI confidence pips — neutral; low tints to warning (the only actionable level). */
-			.resolve-file__conf {
-				display: inline-flex;
-				flex: none;
-				gap: 0.4rem;
-				align-items: center;
-				color: var(--vscode-descriptionForeground);
-				font-size: var(--gl-font-sm);
-			}
-
-			.resolve-file__pips {
-				display: inline-flex;
-				gap: 0.2rem;
-			}
-
-			.resolve-file__pip {
-				width: 0.5rem;
-				height: 0.5rem;
-				background: currentColor;
-				border-radius: 50%;
-				opacity: 0.3;
-			}
-
-			.resolve-file__pip.on {
-				opacity: 1;
-			}
-
-			.resolve-file__conf--low {
-				color: var(--vscode-inputValidation-warningForeground, var(--vscode-descriptionForeground));
 			}
 
 			/* Prominent "View changes" — a labelled toolbar button rather than a bare diff icon. */
@@ -994,17 +916,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 		this._collapsedSections = next;
 	}
 
-	/** Confidence pips (three dots, filled by level) + a text label. Neutral except low — the only
-	 *  actionable level (its reasoning also auto-expands) — which tints to warning. */
-	private renderConfidence(level: 'high' | 'medium' | 'low'): unknown {
-		const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
-		return html`<span class="resolve-file__conf resolve-file__conf--${level}" title="AI confidence: ${level}">
-			<span class="resolve-file__pips" aria-hidden="true"
-				>${[0, 1, 2].map(i => html`<i class="resolve-file__pip ${i < filled ? 'on' : ''}"></i>`)}</span
-			><span class="resolve-file__conf-label">${level}</span>
-		</span>`;
-	}
-
 	private toggleReason(filePath: string): void {
 		const next = new Set(this._openReasons);
 		if (next.has(filePath)) {
@@ -1031,7 +942,7 @@ export class GlDetailsResolveModePanel extends LitElement {
 					><span class="resolve-file__badge-text">${display.label}</span>
 				</span>
 				<span class="resolve-file__path">${r.filePath}</span>
-				${this.renderConfidence(confidenceLevel(r.confidence))}
+				${renderConfidence(confidenceLevel(r.confidence))}
 				${canViewDiff
 					? html`<gl-button
 							appearance="toolbar"
