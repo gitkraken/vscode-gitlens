@@ -1,4 +1,5 @@
 import { css } from 'lit';
+import { elevatedSurface } from '../shared/components/styles/lit/elevation.css.js';
 
 // The styleguide dogfoods the new system: every value here is a --gl-* token.
 export const styleguideStyles = css`
@@ -8,10 +9,6 @@ export const styleguideStyles = css`
 		font-size: var(--gl-font-base);
 		color: var(--gl-color-fg);
 		background: var(--gl-color-surface);
-	}
-
-	:where(*, *::before, *::after) {
-		box-sizing: border-box;
 	}
 
 	.probe {
@@ -87,7 +84,7 @@ export const styleguideStyles = css`
 		accent-color: var(--gl-color-accent);
 	}
 
-	h1 {
+	.page__header h1 {
 		margin: 0 0 var(--gl-space-4);
 		font-size: 2rem;
 		font-weight: 600;
@@ -168,6 +165,7 @@ export const styleguideStyles = css`
 			0 var(--swatch-checker-size),
 			var(--swatch-checker-size) calc(-1 * var(--swatch-checker-size)),
 			calc(-1 * var(--swatch-checker-size)) 0;
+		background-clip: padding-box;
 		background-size: calc(var(--swatch-checker-size) * 2) calc(var(--swatch-checker-size) * 2);
 		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-sm);
@@ -180,6 +178,35 @@ export const styleguideStyles = css`
 		content: '';
 		background: var(--swatch-color);
 		border-radius: var(--gl-radius-sm);
+	}
+
+	/* ── Ramp strip ───────────────────────────────────────────────────────── */
+	/* Contiguous chips inside one bordered wrapper — the low stops are near-invisible against the
+	   page surface without it. Labels are a parallel flex row so columns stay aligned. */
+	.ramp-strip {
+		display: flex;
+		overflow: hidden;
+		border: var(--gl-border-width) solid var(--gl-color-border);
+		border-radius: var(--gl-radius-sm);
+	}
+
+	.ramp-chip {
+		flex: 1;
+		height: 2.8rem;
+		background: var(--swatch-color, transparent);
+	}
+
+	.ramp-labels {
+		display: flex;
+		margin-top: var(--gl-space-4);
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: var(--gl-font-sm);
+		color: var(--gl-color-fg-muted);
+	}
+
+	.ramp-labels span {
+		flex: 1;
+		text-align: center;
 	}
 
 	.token-name {
@@ -354,6 +381,9 @@ export const styleguideStyles = css`
 	}
 
 	.zstack-box {
+		--gl-elevation: var(--gl-shadow-raised);
+		--gl-elevation-border-color: var(--gl-color-border);
+
 		position: absolute;
 		display: flex;
 		flex-direction: column;
@@ -362,9 +392,8 @@ export const styleguideStyles = css`
 		height: 4.4rem;
 		padding: var(--gl-space-8) var(--gl-space-10);
 		background: var(--gl-color-surface-raised);
-		border: var(--gl-border-width) solid var(--gl-color-border);
 		border-radius: var(--gl-radius-md);
-		box-shadow: var(--gl-shadow-raised);
+		${elevatedSurface}
 		/* translate applied via CSSOM: calc(var(--gl-stack-i) * 2.4rem) calc(var(--gl-stack-i) * 1.5rem) */
 		translate: calc(var(--gl-stack-i, 0) * 2.4rem) calc(var(--gl-stack-i, 0) * 1.5rem);
 	}
@@ -545,4 +574,134 @@ export const styleguideStyles = css`
 	.components__content {
 		flex: 1;
 	}
+
+	/* ── Elements tab ─────────────────────────────────────────────────────── */
+	/* Faithful mirror of VS Code's webview default stylesheet (@layer vscode-default, injected
+	   by vscode/src/vs/workbench/contrib/webview/browser/pre/index.html). Those rules are
+	   document-level and don't pierce this app's shadow root, so without this mirror the raw
+	   elements below would render with bare browser defaults. Scoped to .elements; keep in
+	   sync with upstream. */
+
+	.elements {
+		max-width: 72rem;
+	}
+
+	.elements :is(img, video) {
+		max-width: 100%;
+		max-height: 100%;
+	}
+
+	/* Demo scaffolding (not part of the VS Code mirror) */
+
+	.element-stack {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gl-space-12);
+		align-items: flex-start;
+	}
+
+	.scroll-demo {
+		max-block-size: 12rem;
+		padding-inline: var(--gl-space-12);
+		overflow: auto;
+		scrollbar-color: var(--vscode-scrollbarSlider-background) var(--vscode-editor-background);
+		border: var(--gl-border-width) solid var(--gl-color-border-subtle);
+	}
+
+	.scroll-demo::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+
+	.scroll-demo::-webkit-scrollbar-corner {
+		background-color: var(--vscode-editor-background);
+	}
+
+	.scroll-demo::-webkit-scrollbar-thumb {
+		background-color: var(--vscode-scrollbarSlider-background);
+	}
+
+	.scroll-demo::-webkit-scrollbar-thumb:hover {
+		background-color: var(--vscode-scrollbarSlider-hoverBackground);
+	}
+
+	.scroll-demo::-webkit-scrollbar-thumb:active {
+		background-color: var(--vscode-scrollbarSlider-activeBackground);
+	}
 `;
+
+export const elementBoxStyles = css`
+	:where(*, *::before, *::after) {
+		box-sizing: border-box;
+	}
+`;
+
+export const elementLinkStyles = css`
+	/* Links */
+
+	:where(a, a code) {
+		color: var(--vscode-textLink-foreground);
+	}
+
+	:where(p > a) {
+		text-decoration: var(--text-link-decoration, underline);
+	}
+
+	:where(a:hover) {
+		color: var(--vscode-textLink-activeForeground);
+	}
+
+	:where(a:focus-visible) {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+`;
+
+export const elementCodeKeyboardStyles = css`
+	:where(code) {
+		padding: 1px 3px;
+		font-family: var(--monaco-monospace-font, var(--vscode-editor-font-family, monospace));
+		color: var(--vscode-textPreformat-foreground);
+		background-color: var(--vscode-textPreformat-background);
+		border-radius: 4px;
+	}
+
+	:where(pre code) {
+		padding: 0;
+	}
+
+	:where(kbd) {
+		padding: 1px 3px;
+		vertical-align: middle;
+		color: var(--vscode-keybindingLabel-foreground);
+		background-color: var(--vscode-keybindingLabel-background);
+		border-color: var(--vscode-keybindingLabel-border);
+		border-style: solid;
+		border-width: 1px;
+		border-bottom-color: var(--vscode-keybindingLabel-bottomBorder);
+		border-radius: 3px;
+		box-shadow: inset 0 -1px 0 var(--vscode-widget-shadow);
+	}
+`;
+
+export const elementQuoteStyles = css`
+	:where(blockquote) {
+		background: var(--vscode-textBlockQuote-background);
+		border-color: var(--vscode-textBlockQuote-border);
+	}
+`;
+
+export const elementFormStyles = css`
+	:where(input:focus, select:focus, textarea:focus) {
+		outline: 1px solid var(--vscode-focusBorder);
+		outline-offset: -1px;
+	}
+`;
+
+export const elementStyles = [
+	elementBoxStyles,
+	elementLinkStyles,
+	elementCodeKeyboardStyles,
+	elementQuoteStyles,
+	elementFormStyles,
+];

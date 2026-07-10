@@ -1,9 +1,7 @@
 // GitLens semantic color tokens (--gl-color-*). The layer webview code consumes.
-//
 //   L0    --vscode-*              VS Code's palette — the basis for all functional color
 //   L0.5  --gl-color-*-base       the few hues VS Code lacks; assigned per scheme below
 //   L1    --gl-color-{role}-…     semantic tokens, derived from L0/L0.5 via color-mix()
-//
 // Four schemes are assigned via the :root:has(...) selectors VS Code's root classes enable
 // (scheme-* mixins in utils.scss). Meaning-bearing color stays vivid in high-contrast; decorative
 // color drops to border-defined (the elevated-surface contract handles that, untouched here).
@@ -79,7 +77,7 @@
 	--gl-color-fg-on-emphasis: var(--gl-color-on-emphasis-base);
 
 	// Surface — base matches current --color-background; placement repointing preserved below.
-	--gl-color-surface: var(--vscode-editor-background);
+	--gl-color-surface: var(--vscode-editor-background, transparent);
 	--gl-color-surface-raised: color-mix(in oklch, var(--gl-color-surface), var(--gl-tint-toward) 6%);
 	--gl-color-surface-sunken: color-mix(in oklch, var(--gl-color-surface), var(--gl-tint-toward) 3%);
 	--gl-color-surface-hover: var(--vscode-list-hoverBackground);
@@ -88,8 +86,21 @@
 	--gl-color-surface-code: var(--vscode-textCodeBlock-background);
 	--gl-color-scrim: color-mix(in srgb, var(--gl-color-scrim-base) 50%, transparent);
 
+	// Ramp - flexible tints/shades for surfaces, borders, and text.
+	--gl-color-ramp-05: color-mix(in srgb, var(--gl-color-surface) 95%, var(--gl-color-fg));
+	--gl-color-ramp-10: color-mix(in srgb, var(--gl-color-surface) 90%, var(--gl-color-fg));
+	--gl-color-ramp-20: color-mix(in srgb, var(--gl-color-surface) 80%, var(--gl-color-fg));
+	--gl-color-ramp-30: color-mix(in srgb, var(--gl-color-surface) 70%, var(--gl-color-fg));
+	--gl-color-ramp-40: color-mix(in srgb, var(--gl-color-surface) 60%, var(--gl-color-fg));
+	--gl-color-ramp-50: color-mix(in srgb, var(--gl-color-surface) 50%, var(--gl-color-fg));
+	--gl-color-ramp-60: color-mix(in srgb, var(--gl-color-surface) 40%, var(--gl-color-fg));
+	--gl-color-ramp-70: color-mix(in srgb, var(--gl-color-surface) 30%, var(--gl-color-fg));
+	--gl-color-ramp-80: color-mix(in srgb, var(--gl-color-surface) 20%, var(--gl-color-fg));
+	--gl-color-ramp-90: color-mix(in srgb, var(--gl-color-surface) 10%, var(--gl-color-fg));
+	--gl-color-ramp-95: color-mix(in srgb, var(--gl-color-surface) 5%, var(--gl-color-fg));
+
 	// Border
-	--gl-color-border: var(--vscode-widget-border, color-mix(in srgb, transparent 75%, var(--gl-color-fg)));
+	--gl-color-border: var(--vscode-widget-border, color-mix(in srgb, var(--gl-color-surface) 75%, var(--gl-color-fg)));
 	--gl-color-border-subtle: var(--vscode-panel-border, var(--gl-color-border));
 	--gl-color-border-focus: var(--vscode-focusBorder);
 
@@ -139,11 +150,11 @@
 }
 
 // Placement repointing — matches current --color-background behavior (theme.scss).
-body[data-placement='view'] {
+:root:has(body[data-placement='view']) {
 	--gl-color-surface: var(--vscode-sideBar-background, var(--vscode-editor-background));
 }
 
-body[data-placement='panel'] {
+:root:has(body[data-placement='panel']) {
 	--gl-color-surface: var(--vscode-panel-background, var(--vscode-editor-background));
 }
 

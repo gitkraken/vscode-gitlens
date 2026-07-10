@@ -9382,6 +9382,11 @@
 				"enablement": "!operationInProgress"
 			},
 			{
+				"command": "gitlens.styleguide.refresh",
+				"title": "Refresh",
+				"icon": "$(refresh)"
+			},
+			{
 				"command": "gitlens.switchMode",
 				"title": "Switch Mode",
 				"category": "GitLens"
@@ -14702,6 +14707,10 @@
 					"when": "gitlens:enabled && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders"
 				},
 				{
+					"command": "gitlens.styleguide.refresh",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.switchMode",
 					"when": "gitlens:enabled"
 				},
@@ -16943,6 +16952,11 @@
 					"group": "navigation@-99"
 				},
 				{
+					"command": "gitlens.styleguide.refresh",
+					"when": "activeWebviewPanelId === gitlens.styleguide",
+					"group": "navigation@-99"
+				},
+				{
 					"command": "gitlens.timeline.refresh",
 					"when": "activeWebviewPanelId === gitlens.timeline",
 					"group": "navigation@-99"
@@ -16950,6 +16964,11 @@
 				{
 					"command": "gitlens.composer.maximize",
 					"when": "activeWebviewPanelId === gitlens.composer",
+					"group": "navigation@-98"
+				},
+				{
+					"submenu": "gitlens/graph/configuration",
+					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
 				},
 				{
@@ -16966,12 +16985,6 @@
 					"command": "gitlens.computingFileAnnotations",
 					"when": "resource in gitlens:tabs:blameable && (gitlens:window:annotated =~ /computed\\b/ || resource in gitlens:tabs:annotated:computing) && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmap:editor/title",
-					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
-					"group": "navigation@100",
-					"alt": "gitlens.toggleFileBlame"
 				},
 				{
 					"command": "gitlens.diffWithPrevious:editor/title",
@@ -17012,6 +17025,12 @@
 					"alt": "gitlens.toggleFileBlame:editor/title"
 				},
 				{
+					"command": "gitlens.toggleFileHeatmap:editor/title",
+					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap",
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame"
+				},
+				{
 					"submenu": "gitlens/editor/annotations",
 					"when": "resource in gitlens:tabs:blameable && resource not in gitlens:tabs:annotated && !gitlens:window:annotated && config.gitlens.menus.editorGroup.blame && !config.gitlens.fileAnnotations.command",
 					"group": "navigation@100"
@@ -17024,11 +17043,6 @@
 				{
 					"command": "gitlens.openWorkingFile:editor/title",
 					"when": "resourceScheme =~ /^(gitlens|pr)$/ && gitlens:enabled",
-					"group": "navigation@-98"
-				},
-				{
-					"submenu": "gitlens/graph/configuration",
-					"when": "activeWebviewPanelId === gitlens.graph",
 					"group": "navigation@-98"
 				},
 				{

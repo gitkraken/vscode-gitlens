@@ -88,7 +88,10 @@ import {
 } from './webviews/plus/timeline/registration.js';
 import { RebaseEditorProvider } from './webviews/rebase/rebaseEditor.js';
 import { registerSettingsWebviewCommands, registerSettingsWebviewPanel } from './webviews/settings/registration.js';
-import { registerStyleguideWebviewPanel } from './webviews/styleguide/registration.js';
+import {
+	registerStyleguideWebviewCommands,
+	registerStyleguideWebviewPanel,
+} from './webviews/styleguide/registration.js';
 import { WebviewCommandRegistrar } from './webviews/webviewCommandRegistrar.js';
 import { WebviewsController } from './webviews/webviewsController.js';
 
@@ -315,7 +318,9 @@ export class Container {
 
 		// Dev-only color/token styleguide (never registered in production builds).
 		if (DEBUG) {
-			this._disposables.push(registerStyleguideWebviewPanel(webviews));
+			const styleguidePanels = registerStyleguideWebviewPanel(webviews);
+			this._disposables.push(styleguidePanels);
+			this._disposables.push(registerStyleguideWebviewCommands(styleguidePanels));
 		}
 
 		this._disposables.push(new ViewFileDecorationProvider());

@@ -406,6 +406,7 @@ export type ContributedCommands =
 	| 'gitlens.stashSave:scm'
 	| 'gitlens.stashSave:views'
 	| 'gitlens.stashesApply:views'
+	| 'gitlens.styleguide.refresh'
 	| 'gitlens.switchToAnotherBranch:graph'
 	| 'gitlens.switchToAnotherBranch:views'
 	| 'gitlens.switchToBranch:graph'

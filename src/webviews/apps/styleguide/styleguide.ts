@@ -7,11 +7,11 @@ import { GlAppHost } from '../shared/appHost.js';
 import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
-import '../shared/components/button.js';
-import '../shared/components/code-icon.js';
 import { componentGroups, nonElements, undemoed } from './demos/index.js';
 import { StyleguideStateProvider } from './stateProvider.js';
-import { styleguideStyles } from './styleguide.css.js';
+import { elementStyles, styleguideStyles } from './styleguide.css.js';
+import '../shared/components/button.js';
+import '../shared/components/code-icon.js';
 
 interface TokenDef {
 	name: string;
@@ -107,6 +107,22 @@ const PALETTE: TokenGroup[] = [
 	},
 ];
 
+// Rendered as a contiguous strip (not swatch rows) — the stops only mean anything relative to
+// their neighbors. Sits after the Surface group to mirror the colors.scss ordering.
+const RAMP: string[] = [
+	'--gl-color-ramp-05',
+	'--gl-color-ramp-10',
+	'--gl-color-ramp-20',
+	'--gl-color-ramp-30',
+	'--gl-color-ramp-40',
+	'--gl-color-ramp-50',
+	'--gl-color-ramp-60',
+	'--gl-color-ramp-70',
+	'--gl-color-ramp-80',
+	'--gl-color-ramp-90',
+	'--gl-color-ramp-95',
+];
+
 const CONTRAST_PAIRS: Pairing[] = [
 	{ fg: '--gl-color-fg', bg: '--gl-color-surface', label: 'fg on surface' },
 	{ fg: '--gl-color-fg-muted', bg: '--gl-color-surface', label: 'fg-muted on surface' },
@@ -181,10 +197,10 @@ interface Rgba {
 
 @customElement('gl-styleguide-app')
 export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
-	static override styles = styleguideStyles;
+	static override styles = [elementStyles, styleguideStyles];
 
 	@query('.probe') private probe!: HTMLElement;
-	@state() private tab: 'tokens' | 'components' = 'tokens';
+	@state() private tab: 'tokens' | 'components' | 'elements' = 'tokens';
 	@state() private auditOn = localStorage.getItem('gl-styleguide-audit') === 'on';
 	@state() private resolved = new Map<string, string>();
 	@state() private contrast = new Map<string, number>();
@@ -210,7 +226,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		// attributes — the webview CSP blocks inline style attributes (incl. Lit styleMap output) but
 		// permits CSSOM mutations. data-* attrs carry the token; we resolve them to var() refs here.
 		const root = this.renderRoot as ParentNode;
-		root.querySelectorAll<HTMLElement>('.swatch[data-bg]').forEach(el => {
+		root.querySelectorAll<HTMLElement>('[data-bg]').forEach(el => {
 			el.style.setProperty('--swatch-color', `var(${el.dataset.bg})`);
 		});
 		root.querySelectorAll<HTMLElement>('[data-radius]').forEach(el => {
@@ -306,6 +322,9 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 				resolved.set(t.name, this.resolveToken(t.name));
 			}
 		}
+		for (const t of RAMP) {
+			resolved.set(t, this.resolveToken(t));
+		}
 		const contrast = new Map<string, number>();
 		for (const p of CONTRAST_PAIRS) {
 			contrast.set(p.label, this.ratio(p.fg, p.bg));
@@ -332,7 +351,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		localStorage.setItem('gl-styleguide-audit', this.auditOn ? 'on' : 'off');
 	}
 
-	private selectTab(tab: 'tokens' | 'components'): void {
+	private selectTab(tab: 'tokens' | 'components' | 'elements'): void {
 		this.tab = tab;
 	}
 
@@ -391,8 +410,33 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 						`,
 					)}
 				</section>
+				${group.title === 'Surface' ? this.renderRamp() : nothing}
 			`,
 		);
+	}
+
+	private renderRamp(): unknown {
+		return html`
+			<section>
+				<h2 class="section-title">Ramp</h2>
+				<p class="section-note">
+					--gl-color-ramp-<em>n</em> · flexible surface→fg tint scale — mix(surface (100−n)%, fg). Hover a
+					stop for its resolved value.
+				</p>
+				<div class="ramp">
+					<div class="ramp-strip">
+						${RAMP.map(
+							t => html`
+								<div class="ramp-chip" data-bg=${t} title="${t} · ${this.resolved.get(t) ?? ''}"></div>
+							`,
+						)}
+					</div>
+					<div class="ramp-labels">
+						${RAMP.map(t => html`<span>${t.replace('--gl-color-ramp-', '')}</span>`)}
+					</div>
+				</div>
+			</section>
+		`;
 	}
 
 	private renderContrastFor(token: string): unknown {
@@ -541,11 +585,23 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 						>
 							Components
 						</button>
+						<button
+							class="tab ${this.tab === 'elements' ? 'tab--active' : ''}"
+							role="tab"
+							aria-selected=${this.tab === 'elements'}
+							@click=${() => this.selectTab('elements')}
+						>
+							HTML Elements
+						</button>
 					</div>
 				</header>
 
 				<main class="page__content">
-					${this.tab === 'tokens' ? this.renderTokensTab() : this.renderComponentsTab()}
+					${this.tab === 'tokens'
+						? this.renderTokensTab()
+						: this.tab === 'components'
+							? this.renderComponentsTab()
+							: this.renderElementsTab()}
 				</main>
 			</div>
 		`;
@@ -614,6 +670,206 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 						</div>
 					</section>
 				</div>
+			</div>
+		`;
+	}
+
+	private renderElementsTab(): unknown {
+		return html`
+			<div class="elements">
+				<p class="section-note">
+					Raw HTML as it renders inside a GitLens webview. VS Code injects a small default stylesheet into
+					every webview document, but those document-level rules don't pierce this app's shadow root — so
+					they're mirrored here, scoped to this tab. Each section notes where its styling comes from.
+				</p>
+
+				<section>
+					<h2 class="section-title">Typography</h2>
+					<p class="section-note">
+						Browser defaults — VS Code adds nothing element-specific here; everything inherits the editor
+						font (--vscode-font-family/-size/-weight) and foreground from body.
+					</p>
+					<h1>Heading 1</h1>
+					<h2>Heading 2</h2>
+					<h3>Heading 3</h3>
+					<h4>Heading 4</h4>
+					<h5>Heading 5</h5>
+					<h6>Heading 6</h6>
+					<p>
+						GitLens started as a simple blame annotation extension and grew into a full Git workbench inside
+						<strong>VS Code</strong>. This sentence demonstrates <em>emphasis</em>,
+						<small>fine print</small>, H<sub>2</sub>O, 2<sup>10</sup>, a <mark>highlighted phrase</mark>,
+						<del>deleted text</del>, and <ins>inserted text</ins>, plus an abbreviation like
+						<abbr title="Cascading Style Sheets">CSS</abbr>.
+					</p>
+					<hr />
+				</section>
+
+				<section>
+					<h2 class="section-title">Links</h2>
+					<p class="section-note">
+						VS Code colors links (--vscode-textLink-foreground; -activeForeground on hover), applies the
+						user's link-underline preference to links inside paragraphs (--text-link-decoration), and
+						outlines focused links — Tab through to see.
+					</p>
+					<p>Read more about GitLens in the <a href="#">official documentation</a>.</p>
+					<div><a href="#">A bare link outside a paragraph</a></div>
+					<p>
+						<a href="#">a link around <code>code</code></a>
+					</p>
+				</section>
+
+				<section>
+					<h2 class="section-title">Code &amp; keyboard</h2>
+					<p class="section-note">
+						VS Code styles inline code (--vscode-textPreformat-*), zeroes its padding inside pre, and
+						dresses kbd as a keybinding label. pre itself is unstyled — block code backgrounds are an app
+						concern (--gl-color-surface-code).
+					</p>
+					<p>Call <code>getComputedStyle(element)</code> to resolve a token to its live value.</p>
+					<pre><code>const shas = await git.log({ maxCount: 10 });
+const [latest] = shas;
+console.log(latest.message);</code></pre>
+					<p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> to open the Command Palette.</p>
+				</section>
+
+				<section>
+					<h2 class="section-title">Blockquote</h2>
+					<p class="section-note">
+						VS Code sets only background and border-color on blockquote — no border width or style — so raw
+						webviews show just the tinted background. The familiar left border comes from the Markdown
+						preview's own stylesheet, not the webview defaults.
+					</p>
+					<blockquote>
+						<p>
+							Blame annotations show who last changed each line and why — hover one to see the full commit
+							message without leaving your editor.
+						</p>
+					</blockquote>
+				</section>
+
+				<section>
+					<h2 class="section-title">Lists</h2>
+					<p class="section-note">Browser defaults — markers, indentation, and spacing are stock.</p>
+					<ul>
+						<li>Unordered list item 1</li>
+						<li>
+							Unordered list item 2
+							<ul>
+								<li>Nested item 1</li>
+								<li>Nested item 2</li>
+							</ul>
+						</li>
+						<li>Unordered list item 3</li>
+					</ul>
+					<ol>
+						<li>Ordered list item 1</li>
+						<li>Ordered list item 2</li>
+						<li>Ordered list item 3</li>
+					</ol>
+					<dl>
+						<dt>Blame</dt>
+						<dd>Attributes each line to the commit and author that last changed it.</dd>
+						<dt>Worktree</dt>
+						<dd>A linked working copy of a repository checked out to a different branch.</dd>
+					</dl>
+				</section>
+
+				<section>
+					<h2 class="section-title">Table</h2>
+					<p class="section-note">
+						Browser defaults — no borders, spacing, or striping. Webview tables need app styles or a
+						component.
+					</p>
+					<table>
+						<thead>
+							<tr>
+								<th>Header 1</th>
+								<th>Header 2</th>
+								<th>Header 3</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Row 1, Cell 1</td>
+								<td>Row 1, Cell 2</td>
+								<td>Row 1, Cell 3</td>
+							</tr>
+							<tr>
+								<td>Row 2, Cell 1</td>
+								<td>Row 2, Cell 2</td>
+								<td>Row 2, Cell 3</td>
+							</tr>
+						</tbody>
+					</table>
+				</section>
+
+				<section>
+					<h2 class="section-title">Forms &amp; controls</h2>
+					<p class="section-note">
+						VS Code adds only a focus outline to input, select, and textarea — Tab through to see.
+						Everything else is stock Chromium; use the GitLens components (Components tab) for real UI.
+					</p>
+					<div class="element-stack">
+						<input type="text" placeholder="Text input" />
+						<textarea rows="3" placeholder="Textarea"></textarea>
+						<select>
+							<option>Option 1</option>
+							<option>Option 2</option>
+							<option>Option 3</option>
+						</select>
+						<label><input type="checkbox" /> Checkbox</label>
+						<label><input type="radio" name="sg-radio" /> Radio 1</label>
+						<label><input type="radio" name="sg-radio" /> Radio 2</label>
+						<button type="button">Button</button>
+					</div>
+				</section>
+
+				<section>
+					<h2 class="section-title">Media</h2>
+					<p class="section-note">
+						VS Code caps img and video at max-width/max-height 100% so media never overflows the webview.
+						The image below is 800px wide, constrained by its container.
+					</p>
+					<img
+						alt="800×120 sample image"
+						src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='120'%3E%3Crect width='800' height='120' fill='%23885fd3'/%3E%3Ctext x='400' y='68' fill='white' font-family='sans-serif' font-size='24' text-anchor='middle'%3E800 × 120%3C/text%3E%3C/svg%3E"
+					/>
+				</section>
+
+				<section>
+					<h2 class="section-title">Scrollbars</h2>
+					<p class="section-note">
+						VS Code themes webview scrollbars (::-webkit-scrollbar-* and scrollbar-color) — mirrored here
+						since pseudo-element rules don't pierce the shadow root either.
+					</p>
+					<div class="scroll-demo">
+						<p>
+							GitLens surfaces Git history directly in the editor gutter, so you rarely need to leave the
+							file you're working in to understand how it got that way.
+						</p>
+						<p>
+							The commit graph visualizes branches, merges, and tags across the whole repository, making
+							it easy to see how work has flowed over time.
+						</p>
+						<p>
+							Interactive rebase lets you reorder, squash, and reword commits before they ever leave your
+							machine.
+						</p>
+						<p>
+							Worktrees let you check out multiple branches at once, each in its own folder, without
+							stashing or juggling a single working copy.
+						</p>
+						<p>
+							Autolinks turn issue and PR references in commit messages into clickable links back to the
+							tracker they came from.
+						</p>
+						<p>
+							Launchpad groups your open pull requests by what they need from you next, so review work
+							doesn't get lost in a flat list.
+						</p>
+					</div>
+				</section>
 			</div>
 		`;
 	}

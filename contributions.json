@@ -7863,6 +7863,19 @@
 				]
 			}
 		},
+		"gitlens.styleguide.refresh": {
+			"label": "Refresh",
+			"icon": "$(refresh)",
+			"menus": {
+				"editor/title": [
+					{
+						"when": "activeWebviewPanelId === gitlens.styleguide",
+						"group": "navigation",
+						"order": -99
+					}
+				]
+			}
+		},
 		"gitlens.switchMode": {
 			"label": "Switch Mode",
 			"commandPalette": "gitlens:enabled"

@@ -1,4 +1,6 @@
+import type { Disposable } from 'vscode';
 import { ViewColumn } from 'vscode';
+import { registerCommand } from '../../system/-webview/command.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
 import type { State } from './protocol.js';
@@ -33,4 +35,10 @@ export function registerStyleguideWebviewPanel(
 			return new StyleguideWebviewProvider(host);
 		},
 	);
+}
+
+export function registerStyleguideWebviewCommands<T>(
+	panels: WebviewPanelsProxy<'gitlens.styleguide', StyleguideWebviewShowingArgs, T>,
+): Disposable {
+	return registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true));
 }
