@@ -146,7 +146,7 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type { GraphServices } from './graphService.js';
-import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarContextMenuTelemetry.js';
+import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarActionTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
@@ -192,7 +192,6 @@ import type {
 	GraphSelectedRows,
 	GraphSelection,
 	GraphShowAction,
-	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
 	GraphWalkthroughBannerState,
 	SidebarWorktreeChange,
@@ -1210,8 +1209,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			commands.push(
 				this.host.registerWebviewCommand(id, (...args: unknown[]) => {
 					// Context-menu actions dispatch straight here; emit sidebar action telemetry for the
-					// right-click path (inline invocations are marked and already emitted by the webview).
-					this.emitSidebarContextMenuActionTelemetry(id, args[0]);
+					// right-click path (inline invocations are re-stamped and already emitted by the
+					// webview). Guarded: a telemetry failure must never gate command execution.
+					try {
+						this.emitSidebarContextMenuActionTelemetry(id, args[0]);
+					} catch (ex) {
+						Logger.error(ex, 'GraphWebviewProvider.sidebarContextMenuActionTelemetry');
+					}
 					return handler(...args);
 				}),
 			);

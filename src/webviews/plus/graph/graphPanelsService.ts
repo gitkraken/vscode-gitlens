@@ -36,6 +36,7 @@ import type {
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
 import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
+import { markSidebarInlineInvocation } from './graphSidebarActionTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewEnrichmentRequest,
@@ -53,7 +54,7 @@ import type {
 	GraphStashContextValue,
 	GraphTagContextValue,
 } from './protocol.js';
-import { createWipSha, DidChangeOverviewNotification, sidebarInlineItemOrigin, sidebarItemOrigin } from './protocol.js';
+import { createWipSha, DidChangeOverviewNotification, sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
@@ -643,11 +644,14 @@ export class GraphPanelsService {
 				const ctx = JSON.parse(params.context);
 				ctx.webview = this.host.id;
 				ctx.webviewInstance = this.host.instanceId;
-				// Rewrite the origin to mark this as an inline (hover-icon) invocation so the
-				// context-menu telemetry gate skips it — the webview already emitted the action with
-				// `location: 'inline'`. Only this host-side parsed copy is mutated; serialized sidebar
-				// contexts (and thus native context-menu invocations) always carry 'sidebar'.
-				ctx.webviewItemOrigin = sidebarInlineItemOrigin;
+				// Mark this as an inline (hover-icon) invocation so the context-menu telemetry gate
+				// skips it — the webview already emitted the action with `location: 'inline'`. Only
+				// this host-side parsed copy is mutated; serialized sidebar contexts (and thus native
+				// context-menu invocations) always carry 'sidebar'. INVARIANT: the no-double-count
+				// guarantee depends on this executeCommand routing through the registered command
+				// wrapper (registerCommands) with THIS marked ctx as args[0] — dispatching inline
+				// commands any other way would reintroduce double-counting for dual-surface commands.
+				markSidebarInlineInvocation(ctx);
 				void executeCommand(params.command, ctx);
 				return;
 			} catch {}
