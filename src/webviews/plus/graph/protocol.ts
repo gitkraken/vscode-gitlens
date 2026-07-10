@@ -1169,13 +1169,13 @@ export interface GraphSidebarBranch {
 	date?: number;
 	providerName?: string;
 	starred?: boolean;
-	context?: GraphItemRefContext<GraphBranchContextValue>;
+	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarRemoteBranch {
 	name: string;
 	sha?: string;
-	context?: GraphItemRefContext<GraphBranchContextValue>;
+	context?: GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarRemote {
@@ -1187,7 +1187,7 @@ export interface GraphSidebarRemote {
 	/** Whether the remote's integration is connected (`true`), disconnected (`false`), or not applicable (`undefined`). */
 	connected?: boolean;
 	branches: GraphSidebarRemoteBranch[];
-	context?: GraphItemTypedContext<GraphRemoteContextValue>;
+	context?: GraphItemTypedContext<GraphRemoteContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarStash {
@@ -1197,7 +1197,7 @@ export interface GraphSidebarStash {
 	date?: number;
 	stashNumber: string;
 	stashOnRef?: string;
-	context?: GraphItemRefContext<GraphStashContextValue>;
+	context?: GraphItemRefContext<GraphStashContextValue> & GraphSidebarItemOrigin;
 }
 
 export interface GraphSidebarTag {
@@ -1206,7 +1206,7 @@ export interface GraphSidebarTag {
 	message?: string;
 	annotated: boolean;
 	date?: number;
-	context?: GraphItemRefContext<GraphTagContextValue>;
+	context?: GraphItemRefContext<GraphTagContextValue> & GraphSidebarItemOrigin;
 }
 
 /**
@@ -1242,7 +1242,9 @@ export interface GraphSidebarWorktree {
 	upstream?: string;
 	tracking?: { ahead: number; behind: number };
 	providerName?: string;
-	context?: GraphItemRefContext<GraphBranchContextValue> | GraphItemRefContext<GraphCommitContextValue>;
+	context?:
+		| (GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin)
+		| (GraphItemRefContext<GraphCommitContextValue> & GraphSidebarItemOrigin);
 }
 
 export type GetSidebarDataParams = { panel: GraphSidebarPanel };
@@ -1627,6 +1629,19 @@ export const DidStartFeaturePreviewNotification = new IpcNotification<DidStartFe
 
 export type GraphItemContext = WebviewItemContext<GraphItemContextValue>;
 export type GraphItemContextValue = GraphColumnsContextValue | GraphItemTypedContextValue | GraphItemRefContextValue;
+
+/** Origin stamp carried by every graph SIDEBAR item context. The host's sidebar-action telemetry
+ *  gate keys on it — the same `webviewItem` types (and commands) are also produced by graph-canvas
+ *  ref pills and the WIP header kebab, which must NOT count as sidebar actions. */
+export const sidebarItemOrigin = 'sidebar';
+/** Runtime rewrite applied by the host (`onSidebarAction`) to INLINE (hover-icon) invocations so
+ *  the context-menu telemetry gate skips them (the webview already emitted `location: 'inline'`).
+ *  Never present in serialized protocol data — sidebar contexts always serialize with
+ *  {@link sidebarItemOrigin}; this value exists only on the host-side parsed copy. */
+export const sidebarInlineItemOrigin = 'sidebar-inline';
+/** Makes the origin stamp REQUIRED on sidebar item context types, so a new sidebar builder that
+ *  forgets to stamp fails to compile instead of silently dropping out of sidebar telemetry. */
+export type GraphSidebarItemOrigin = { webviewItemOrigin: typeof sidebarItemOrigin };
 
 export type GraphItemGroupContext = WebviewItemGroupContext<GraphItemGroupContextValue>;
 export type GraphItemGroupContextValue = GraphItemRefGroupContextValue;

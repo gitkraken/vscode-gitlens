@@ -146,11 +146,7 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type { GraphServices } from './graphService.js';
-import {
-	isSidebarOriginContext,
-	resolveSidebarContextMenuAction,
-	sidebarInlineActionMarker,
-} from './graphSidebarContextMenuTelemetry.js';
+import { isSidebarOriginContext, resolveSidebarContextMenuAction } from './graphSidebarContextMenuTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
@@ -196,6 +192,7 @@ import type {
 	GraphSelectedRows,
 	GraphSelection,
 	GraphShowAction,
+	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
 	GraphWalkthroughBannerState,
 	SidebarWorktreeChange,
@@ -1532,16 +1529,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	/**
 	 * Emits `graph/{panel}/{item}Action` with `location: 'contextMenu'` for a sidebar right-click
-	 * command. Skips inline (hover-icon) invocations — those are marked in `onSidebarAction` and
-	 * already emitted by the webview with `location: 'inline'`, so emitting here too would
-	 * double-count dual-surface commands (e.g. fetch). The panel is resolved from the item's
+	 * command. The origin gate covers both exclusions: inline (hover-icon) invocations are
+	 * re-stamped 'sidebar-inline' in `onSidebarAction` (the webview already emitted
+	 * `location: 'inline'`, so emitting here too would double-count dual-surface commands like
+	 * fetch), and graph-canvas ref pills / the WIP header kebab produce the same `webviewItem`
+	 * types but never carry the sidebar origin at all. The panel is resolved from the item's
 	 * `webviewItem` context, so shared command ids attribute to the right panel.
 	 */
 	private emitSidebarContextMenuActionTelemetry(command: string, context: unknown): void {
-		if (context == null || typeof context !== 'object') return;
-		if ((context as Record<PropertyKey, unknown>)[sidebarInlineActionMarker] === true) return;
-		// Only SIDEBAR contexts qualify — graph-canvas ref pills and the WIP header kebab produce
-		// the same `webviewItem` types and dispatch the same commands (see isSidebarOriginContext).
 		if (!isSidebarOriginContext(context)) return;
 
 		const webviewItem = (context as { webviewItem?: string }).webviewItem;

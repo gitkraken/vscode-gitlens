@@ -97,6 +97,20 @@ suite('isSidebarOriginContext', () => {
 		assert.strictEqual(isSidebarOriginContext({ webviewItem: 'gitlens:stash' }), false);
 	});
 
+	test('rejects inline invocations (origin re-stamped by onSidebarAction)', () => {
+		// The inline (hover-icon) path re-stamps the parsed context to 'sidebar-inline' — the
+		// webview already emitted that action with location:'inline', so the context-menu emit
+		// must not fire for it (dual-surface commands like fetch would double-count).
+		assert.strictEqual(
+			isSidebarOriginContext({
+				webview: 'gitlens.views.graph',
+				webviewItemOrigin: 'sidebar-inline',
+				webviewItem: 'gitlens:branch',
+			}),
+			false,
+		);
+	});
+
 	test('rejects non-object and mismatched-origin contexts', () => {
 		assert.strictEqual(isSidebarOriginContext(undefined), false);
 		assert.strictEqual(isSidebarOriginContext(null), false);
