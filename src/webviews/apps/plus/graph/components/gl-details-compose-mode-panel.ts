@@ -14,6 +14,7 @@ import type { DetailsItemTypedContext } from '../../../../plus/graph/detailsProt
 import { buildFolderContext } from '../../../../plus/graph/detailsProtocol.js';
 import type { ProposedCommit, ProposedCommitFile, ScopeSelection } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import { redispatch } from '../../../shared/components/element.js';
 import { elementBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemAction, TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
@@ -194,6 +195,20 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property()
 	basePrompt?: string;
 
+	/** Seed source for the ready-state Refine ("Recompose Changes") posture. Pushed by the
+	 *  orchestrator from the engaged compose entry's `refineMode` — captured on mode-leave, so
+	 *  toggling the compose chip off/on or switching rows restores the posture. Seeds
+	 *  {@link _refineMode} once per mount / anchor switch (see `willUpdate`); the live posture is
+	 *  {@link _refineMode}. */
+	@property({ type: Boolean })
+	refineMode = false;
+
+	/** Seed source for the ready-state Refine input's unsubmitted text. Pushed from the engaged
+	 *  compose entry's `refineDraft` (captured on mode-leave). Seeds the refine `gl-ai-input`'s
+	 *  one-shot `.value` — the input is remounted via `keyed(repoPath)` so an anchor switch reseeds. */
+	@property()
+	refineDraft?: string;
+
 	@state() private _selectedCommitId?: string;
 	/** Mirrors the pane's multi-selection so the "Open Changes" chip can swap to "Open Selected". */
 	@state() private _selectedFiles: readonly { path: string }[] = [];
@@ -274,6 +289,20 @@ export class GlDetailsComposeModePanel extends LitElement {
 		return new Set(picker.selectedIds);
 	}
 
+	/** Live Refine posture, read by the host on mode-leave to persist onto the engaged entry. Only
+	 *  meaningful in the ready state (the gate/refine input only exist there); other states report the
+	 *  default so a non-ready leave can't clobber a captured posture. */
+	get refineModeLive(): boolean {
+		return this.status === 'ready' ? this._refineMode : false;
+	}
+
+	/** Live unsubmitted Refine text, read by the host on mode-leave. Empty unless the refine input is
+	 *  actually mounted (ready + refine posture). */
+	get refineDraftLive(): string {
+		if (this.status !== 'ready' || !this._refineMode) return '';
+		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.compose-plan__refine-input')?.currentValue ?? '';
+	}
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		if (changedProperties.has('aiExcludedFiles')) {
 			const result = syncAiExcluded(this.aiExcludedFiles, this._aiExcludedSet, this._excludedFiles);
@@ -304,6 +333,16 @@ export class GlDetailsComposeModePanel extends LitElement {
 			this._refineMode
 		) {
 			this._refineMode = false;
+		}
+
+		// Seed the live posture from the persisted `refineMode` on mount and on an anchor switch
+		// (the panel element is reused across WIP-row switches). Gated on the property actually
+		// changing — the entry only writes `refineMode` on mode-leave, so during a session (incl. a
+		// same-mount refine round-trip) the property is stable and this never fights the user's local
+		// toggle. Placed AFTER the loading→ready reset so a completed recompose still lands in Commit
+		// posture (that transition doesn't change `refineMode`, so this branch stays dormant there).
+		if (changedProperties.has('refineMode')) {
+			this._refineMode = this.refineMode;
 		}
 
 		// A file move can prune the selected commit (its last file moved away); drop the stale
@@ -695,24 +734,28 @@ export class GlDetailsComposeModePanel extends LitElement {
 				<code-icon icon="wand"></code-icon> Recompose Changes
 			</gl-checkbox>
 			${this._refineMode
-				? html`<gl-ai-input
-						appearance="detached"
-						class="review-action-input"
-						multiline
-						rows="2"
-						button-label=${refineButtonLabel}
-						?disabled=${refineCount === 0}
-						disabled-reason="Include Changes to Recompose"
-						busy-label="Recomposing…"
-						event-name="compose-refine"
-						placeholder='Recompose — e.g. "Merge commits 1 and 2, they&apos;re related"'
-						.recall=${this.lastPrompt}
-					>
-						<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-						<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
-							>Discard</gl-button
+				? keyed(
+						this.repoPath,
+						html`<gl-ai-input
+							appearance="detached"
+							class="review-action-input compose-plan__refine-input"
+							multiline
+							rows="2"
+							button-label=${refineButtonLabel}
+							?disabled=${refineCount === 0}
+							disabled-reason="Include Changes to Recompose"
+							busy-label="Recomposing…"
+							event-name="compose-refine"
+							placeholder='Recompose — e.g. "Merge commits 1 and 2, they&apos;re related"'
+							.recall=${this.lastPrompt}
+							.value=${this.refineDraft}
 						>
-					</gl-ai-input>`
+							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+							<gl-button slot="actions" appearance="secondary" @click=${this.handleDiscard}
+								>Discard</gl-button
+							>
+						</gl-ai-input>`,
+					)
 				: html`<div class="compose-plan__action-row">
 						<gl-button
 							class="compose-plan__commit"

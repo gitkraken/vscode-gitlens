@@ -670,6 +670,12 @@ export class GlAiInput extends LitElement {
 		return this.shadowRoot?.querySelector<HTMLInputElement | HTMLTextAreaElement>('input, textarea');
 	}
 
+	/** The live typed value, read from the inner input. Distinct from the one-shot `value` seed
+	 *  property (only applied in `firstUpdated`), so consumers can snapshot what the user has typed. */
+	get currentValue(): string {
+		return this.inputEl?.value ?? '';
+	}
+
 	override firstUpdated(): void {
 		const input = this.inputEl;
 		if (input == null || this.value == null) return;

@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { GitFileConflictStatus } from '@gitlens/git/models/fileStatus.js';
@@ -15,6 +16,7 @@ import type {
 	ResolveSkippedFile,
 } from '../../../../plus/graph/graphService.js';
 import type { AiModelInfo } from '../../../../rpc/services/types.js';
+import type { GlAiInput } from '../../../shared/components/ai-input.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
 import { scrollableBase, subPanelEnterStyles } from '../../../shared/components/styles/lit/base.css.js';
 import type { TreeItemCheckedDetail } from '../../../shared/components/tree/base.js';
@@ -571,6 +573,14 @@ export class GlDetailsResolveModePanel extends LitElement {
 	@property({ type: Object }) stagingFiles?: ReadonlySet<string>;
 	/** The whole-run prompt, recalled into the "Refine" input (ArrowUp). */
 	@property() lastPrompt?: string;
+	/** Seed source for the ready-state "Refine Resolutions" posture. Pushed from the engaged resolve
+	 *  entry's `refineMode` (captured on mode-leave), so toggling the resolve chip off/on or switching
+	 *  rows restores the posture. Seeds {@link _refineMode} once per mount / anchor switch. */
+	@property({ type: Boolean }) refineMode = false;
+	/** Seed source for the ready-state Refine input's unsubmitted text. Pushed from the engaged resolve
+	 *  entry's `refineDraft`. Seeds the refine `gl-ai-input`'s one-shot `.value`, remounted via
+	 *  `keyed(repoPath)` so an anchor switch reseeds. */
+	@property() refineDraft?: string;
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
@@ -608,6 +618,20 @@ export class GlDetailsResolveModePanel extends LitElement {
 		return checked;
 	}
 
+	/** Live Refine posture, read by the host on mode-leave to persist onto the engaged entry. Only
+	 *  meaningful in the ready state (the gate/refine input only exist there); other states report the
+	 *  default so a non-ready leave can't clobber a captured posture. */
+	get refineModeLive(): boolean {
+		return this.status === 'ready' ? this._refineMode : false;
+	}
+
+	/** Live unsubmitted Refine text, read by the host on mode-leave. Empty unless the refine input is
+	 *  actually mounted (ready + refine posture). */
+	get refineDraftLive(): string {
+		if (this.status !== 'ready' || !this._refineMode) return '';
+		return this.renderRoot.querySelector<GlAiInput>('gl-ai-input.resolve-refine-input')?.currentValue ?? '';
+	}
+
 	/** Default-checked state for a conflict: resolve-all entry checks everything; a focused entry
 	 *  (single/multi-file) checks only its paths. */
 	private isCheckedByDefault(path: string): boolean {
@@ -633,6 +657,15 @@ export class GlDetailsResolveModePanel extends LitElement {
 					.filter(r => r.reasoning && confidenceLevel(r.confidence) === 'low')
 					.map(r => r.filePath),
 			);
+		}
+
+		// Seed the live posture from the persisted `refineMode` on mount and on an anchor switch (the
+		// element is reused across WIP-row switches). Gated on the property changing — the entry only
+		// writes it on mode-leave, so it's stable during a session and never fights the local toggle.
+		// Placed AFTER the status→ready reset so a completed refine still lands in Apply posture (that
+		// transition doesn't change `refineMode`) and BEFORE the early-returning identity block below.
+		if (changedProperties.has('refineMode')) {
+			this._refineMode = this.refineMode;
 		}
 
 		// Reset the user deltas when the anchor/focus identity changes (fresh entry, or following
@@ -876,25 +909,29 @@ export class GlDetailsResolveModePanel extends LitElement {
 					<code-icon icon="wand"></code-icon> Refine Resolutions
 				</gl-checkbox>
 				${this._refineMode
-					? html`<gl-ai-input
-							appearance="detached"
-							class="resolve-refine-input"
-							multiline
-							rows="2"
-							button-label="Refine Resolutions"
-							busy-label="Re-resolving…"
-							event-name="resolve-refine"
-							placeholder='Refine all — e.g. "prefer incoming for generated files"'
-							.recall=${this.lastPrompt}
-						>
-							<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
-							<gl-button
-								slot="actions"
-								appearance="secondary"
-								@click=${() => this.emit('resolve-discard')}
-								>Discard</gl-button
+					? keyed(
+							this.repoPath,
+							html`<gl-ai-input
+								appearance="detached"
+								class="resolve-refine-input"
+								multiline
+								rows="2"
+								button-label="Refine Resolutions"
+								busy-label="Re-resolving…"
+								event-name="resolve-refine"
+								placeholder='Refine all — e.g. "prefer incoming for generated files"'
+								.recall=${this.lastPrompt}
+								.value=${this.refineDraft}
 							>
-						</gl-ai-input>`
+								<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+								<gl-button
+									slot="actions"
+									appearance="secondary"
+									@click=${() => this.emit('resolve-discard')}
+									>Discard</gl-button
+								>
+							</gl-ai-input>`,
+						)
 					: html`<div class="resolve-apply-row">
 							<gl-button
 								class="resolve-apply"

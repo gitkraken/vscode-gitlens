@@ -91,6 +91,10 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	 *  worktree's persisted draft slot. Called by the controller from `onRunSettled` (and on
 	 *  re-engage after a disconnected settle) — never while the panel is disconnected. */
 	applyGeneratedCommitMessage(repoPath: string, message: string): void;
+	/** Reads the live compose/resolve panel's ready-state Refine posture + unsubmitted draft text, so
+	 *  the controller can persist them onto the engaged entry on mode-leave (see `hideMode`). Returns
+	 *  `undefined` when no refine-capable panel is mounted (e.g. review mode, or no active mode). */
+	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined;
 }
 
 /**
@@ -648,6 +652,16 @@ export class DetailsWorkflowController implements ReactiveController {
 		// recovery on a hide that only ends one of them would silently erase the other's state.
 		const exitingMode = this.actions.state.activeMode.get();
 
+		// Capture the compose/resolve panel's Refine posture + unsubmitted draft onto the outgoing
+		// anchor's entry BEFORE the signals + panel are torn down, so toggling the chip off/on or
+		// switching rows restores them. `currentAnchor()` + the panel DOM still reflect the outgoing
+		// anchor here. `hideMode` is the single choke point for every preserve-leave (toggle-out,
+		// mode-switch, row-switch), so one capture here covers all of them. Fresh-result / discard /
+		// destroy / repo-switch paths remove the entry, so the `entry != null` guard no-ops there.
+		if (exitingMode === 'compose' || exitingMode === 'resolve') {
+			this.captureEngagedRefineState(exitingMode);
+		}
+
 		this.actions.state.activeMode.set(null);
 		this.actions.state.activeModeContext.set(null);
 		this.actions.state.activeModeRepoPath.set(undefined);
@@ -685,6 +699,25 @@ export class DetailsWorkflowController implements ReactiveController {
 		if (!options?.skipRefetch) {
 			this.refetchForSelection(selection);
 		}
+	}
+
+	/** Persist the outgoing compose/resolve panel's live Refine posture + unsubmitted draft onto its
+	 *  registry entry, so a later return to this anchor restores them. Reads the live panel through the
+	 *  host; no-ops when there's no entry (fresh result / discarded / destroyed / repo-switched away).
+	 *  Routed through {@link registerRunningOperation} — whose dedup guard compares the refine fields —
+	 *  so an unchanged snapshot (e.g. leaving with the gate closed) doesn't churn the registry. */
+	private captureEngagedRefineState(kind: 'compose' | 'resolve'): void {
+		const snapshot = this.host.readEngagedRefineState();
+		if (snapshot == null) return;
+
+		const entry = this.host.crossPaneState.runningOperations.get().get(anchorKey(this.currentAnchor()))?.[kind];
+		if (entry == null) return;
+
+		this.registerRunningOperation({
+			...entry,
+			refineMode: snapshot.refineMode || undefined,
+			refineDraft: snapshot.refineDraft.trim() ? snapshot.refineDraft : undefined,
+		});
 	}
 
 	/** The workflow object for a mode — exposes the common `invalidateSnapshot`/`invalidateErrorRecovery`
@@ -2455,7 +2488,11 @@ export class DetailsWorkflowController implements ReactiveController {
 			// cast so the dedup is uniform across kinds (undefined === undefined for generate-message).
 			(existing as { result?: unknown }).result === (op as { result?: unknown }).result &&
 			existing.abortController === op.abortController &&
-			existing.promise === op.promise
+			existing.promise === op.promise &&
+			// Include the captured Refine posture/draft so a refine-only update (same execState + result,
+			// written by `captureEngagedRefineState` on mode-leave) isn't dropped as a no-op.
+			existing.refineMode === op.refineMode &&
+			existing.refineDraft === op.refineDraft
 		) {
 			return;
 		}

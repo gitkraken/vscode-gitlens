@@ -163,6 +163,13 @@ class FakeHost implements DetailsWorkflowHost {
 		this.generatedMessages.push({ repoPath: repoPath, message: message });
 	}
 
+	/** Test-controlled snapshot returned by `readEngagedRefineState` — set by the capture-on-leave
+	 *  tests to simulate the live compose/resolve panel's posture + draft. */
+	engagedRefineState: { refineMode: boolean; refineDraft: string } | undefined = undefined;
+	readEngagedRefineState(): { refineMode: boolean; refineDraft: string } | undefined {
+		return this.engagedRefineState;
+	}
+
 	addController(c: ReactiveController): void {
 		this._controllers.push(c);
 	}
@@ -916,6 +923,161 @@ suite('DetailsWorkflowController — running-operations registry', () => {
 
 		assert.strictEqual(host.crossPaneState.runningOperations.get().size, 1, 'registry survives panel disconnect');
 		assert.strictEqual(generatingCtl.signal.aborted, false, 'in-flight run keeps going across disconnect');
+	});
+
+	test('toggle-out captures the compose Refine posture + unsubmitted draft onto the preserved entry', () => {
+		// User has a ready compose plan, toggled Recompose on and typed a draft, then toggles the
+		// compose chip off. The entry survives (hideMode) and now carries the posture + draft so a
+		// return restores them. Also exercises the dedup guard: execState/result are unchanged, so
+		// without the refine-field comparison the write would be dropped.
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		const result = makeComposeResult('capture-on-leave');
+		host.crossPaneState.runningOperations.set(new Map([[wipKey('/A'), makeComposeBucket('/A', result)]]));
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'merge commits 1 and 2' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(state.activeMode.get(), null, 'panel hidden');
+		const surviving = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.ok(surviving, 'entry persists through toggle-out');
+		assert.strictEqual(surviving.result, result, 'result preserved');
+		assert.strictEqual(surviving.refineMode, true, 'refine posture captured despite unchanged execState/result');
+		assert.strictEqual(surviving.refineDraft, 'merge commits 1 and 2', 'refine draft captured');
+	});
+
+	test('capture-on-leave stores undefined for a closed gate / whitespace-only draft', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('x'))]]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: false, refineDraft: '   ' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(entry?.refineMode, undefined, 'closed gate stored as undefined');
+		assert.strictEqual(entry?.refineDraft, undefined, 'whitespace-only draft stored as undefined');
+	});
+
+	test('capture-on-leave no-ops when the live panel reports nothing (readEngagedRefineState undefined)', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		host.crossPaneState.runningOperations.set(
+			new Map([[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('x'))]]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = undefined;
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		const entry = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.ok(entry, 'entry preserved');
+		assert.strictEqual(entry.refineMode, undefined);
+		assert.strictEqual(entry.refineDraft, undefined);
+	});
+
+	test('capture-on-leave no-ops when the engaged anchor has no registry entry', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		// No entry planted — the gate/draft belong to no persisted plan.
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'orphan' };
+
+		controller.toggleMode('compose', { sha: uncommitted, shas: undefined, repoPath: '/A' });
+
+		assert.strictEqual(
+			host.crossPaneState.runningOperations.get().get(wipKey('/A')),
+			undefined,
+			'no phantom entry created by capture',
+		);
+	});
+
+	test('switchAnchorWithinMode captures the OUTGOING anchor Refine state, leaves the incoming untouched', () => {
+		const host = new FakeHost({
+			repoPath: '/A',
+			graphRepoPath: '/parent',
+			selection: { sha: uncommitted, shas: undefined, repoPath: '/A' },
+		});
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const controller = new DetailsWorkflowController(host, actions);
+		host.connectAll();
+		host.tickHostUpdate();
+		state.branchCommits.set([]);
+
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[wipKey('/A'), makeComposeBucket('/A', makeComposeResult('A-plan'))],
+				[wipKey('/B'), makeComposeBucket('/B', makeComposeResult('B-plan'))],
+			]),
+		);
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		host.engagedRefineState = { refineMode: true, refineDraft: 'A draft' };
+
+		controller.switchAnchorWithinMode({ sha: uncommitted, shas: undefined, repoPath: '/B' });
+
+		const a = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(a?.refineMode, true, 'outgoing /A captured its posture');
+		assert.strictEqual(a?.refineDraft, 'A draft', 'outgoing /A captured its draft');
+		const b = host.crossPaneState.runningOperations.get().get(wipKey('/B'))?.compose;
+		assert.strictEqual(b?.refineMode, undefined, 'incoming /B posture untouched');
+		assert.strictEqual(b?.refineDraft, undefined, 'incoming /B draft untouched');
+	});
+
+	test('a fresh compose run drops any captured Refine posture + draft from the entry', () => {
+		const { host, state, controller } = setup({ repoPath: '/A', graphRepoPath: '/A' });
+		// Prior plan carries captured refine state.
+		host.crossPaneState.runningOperations.set(
+			new Map([
+				[
+					wipKey('/A'),
+					{
+						compose: {
+							kind: 'compose' as const,
+							anchor: { kind: 'wip' as const, repoPath: '/A', sha: uncommitted },
+							execState: 'complete' as const,
+							result: makeComposeResult('prior'),
+							refineMode: true,
+							refineDraft: 'stale draft',
+						},
+					},
+				],
+			]),
+		);
+		state.scope.set({ type: 'wip', includeUnstaged: true, includeStaged: false, includeShas: [] });
+		state.activeMode.set('compose');
+		state.activeModeContext.set('wip');
+		state.activeModeRepoPath.set('/A');
+		state.activeModeSha.set(uncommitted);
+
+		controller.runCompose('/A', 'new instructions', undefined, undefined, 0);
+
+		// The fresh generating entry (registered synchronously by dispatchOperation) drops the stale
+		// refine fields — a new run starts in the default posture with an empty box.
+		const generating = host.crossPaneState.runningOperations.get().get(wipKey('/A'))?.compose;
+		assert.strictEqual(generating?.execState, 'generating');
+		assert.strictEqual(generating?.refineMode, undefined, 'refine posture dropped on fresh dispatch');
+		assert.strictEqual(generating?.refineDraft, undefined, 'refine draft dropped on fresh dispatch');
 	});
 });
 

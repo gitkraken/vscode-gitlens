@@ -99,6 +99,15 @@ interface RunningOperationBase {
 	 *  widening to every conflict when the engagement-scoped `resolveFocusedFilePaths` signal is cleared
 	 *  on hide. Undefined for non-resolve kinds. */
 	focusedFilePaths?: readonly string[];
+	/** Compose/resolve-only: the ready-state Refine gate posture (the "Recompose Changes" /
+	 *  "Refine Resolutions" checkbox), captured on mode-leave so toggling the mode chip off/on or
+	 *  switching rows restores it. Undefined = default (Commit / Apply). Dropped when a fresh run
+	 *  rebuilds the entry, so a completed recompose/refine lands back in the default posture. */
+	refineMode?: boolean;
+	/** Compose/resolve-only: the unsubmitted Refine-input text, captured on mode-leave alongside
+	 *  {@link refineMode}. Undefined/empty = nothing to restore. Cleared on a fresh run (the
+	 *  submitted text becomes the run's {@link prompt}). */
+	refineDraft?: string;
 }
 
 /** Generate-commit-message result — just the composed message; the panel routes it to the WIP input/draft
