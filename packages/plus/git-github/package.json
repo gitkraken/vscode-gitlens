@@ -7,9 +7,13 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./context.js": {
+			"types": "./dist/context.d.ts",
+			"default": "./dist/context.js"
+		},
+		"./models.js": {
+			"types": "./dist/models.d.ts",
+			"default": "./dist/models.js"
 		},
 		"./api/*.js": {
 			"types": "./dist/api/*.d.ts",
@@ -38,10 +42,10 @@
 	"dependencies": {
 		"@gitlens/git": "workspace:*",
 		"@gitlens/utils": "workspace:*",
-		"@octokit/graphql": "9.0.3",
-		"@octokit/request": "10.0.10",
-		"@octokit/request-error": "7.1.0",
-		"@octokit/types": "16.0.0"
+		"@octokit/graphql": "catalog:",
+		"@octokit/request": "catalog:",
+		"@octokit/request-error": "catalog:",
+		"@octokit/types": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",

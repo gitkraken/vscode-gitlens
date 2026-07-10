@@ -7,9 +7,33 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./cache.js": {
+			"types": "./dist/cache.d.ts",
+			"default": "./dist/cache.js"
+		},
+		"./context.js": {
+			"types": "./dist/context.d.ts",
+			"default": "./dist/context.js"
+		},
+		"./errors.js": {
+			"types": "./dist/errors.d.ts",
+			"default": "./dist/errors.js"
+		},
+		"./features.js": {
+			"types": "./dist/features.d.ts",
+			"default": "./dist/features.js"
+		},
+		"./repositoryService.js": {
+			"types": "./dist/repositoryService.d.ts",
+			"default": "./dist/repositoryService.js"
+		},
+		"./run.types.js": {
+			"types": "./dist/run.types.d.ts",
+			"default": "./dist/run.types.js"
+		},
+		"./service.js": {
+			"types": "./dist/service.d.ts",
+			"default": "./dist/service.js"
 		},
 		"./models/*.js": {
 			"types": "./dist/models/*.d.ts",
@@ -53,12 +77,13 @@
 	},
 	"dependencies": {
 		"@gitlens/utils": "workspace:*",
-		"ignore": "7.0.5"
+		"ignore": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",
 		"mocha": "catalog:",
 		"tsx": "catalog:",
-		"typescript": "catalog:"
+		"typescript": "catalog:",
+		"vscode-uri": "catalog:"
 	}
 }

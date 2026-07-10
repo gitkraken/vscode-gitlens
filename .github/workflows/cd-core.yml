@@ -7,7 +7,7 @@ on:
     workflow_dispatch:
         inputs:
             dry_run:
-                description: 'Dry-run (runs npm publish --dry-run instead of actually publishing)'
+                description: 'Dry-run (runs pnpm publish --dry-run instead of actually publishing)'
                 type: boolean
                 default: true
 
@@ -27,10 +27,12 @@ jobs:
                   node-version: '22'
                   registry-url: 'https://registry.npmjs.org'
 
+            # Publishing relies on pnpm resolving this package's `catalog:` dependencies when packing,
+            # so pin the major we verify against locally (`packageManager` in the root manifest).
             - name: Setup pnpm
               uses: pnpm/action-setup@v3
               with:
-                  version: 10
+                  version: 11
 
             - name: Verify tag matches package version
               if: github.event_name == 'push'
@@ -46,6 +48,11 @@ jobs:
 
             - name: Install
               run: pnpm install --frozen-lockfile
+
+            # One version per dependency, and packages/core's generated manifest in step with the
+            # packages it bundles. A release is the last place to discover otherwise.
+            - name: Check dependency hygiene
+              run: pnpm run check:deps
 
             - name: Build sub-packages
               run: pnpm run build:packages
@@ -63,16 +70,20 @@ jobs:
                   path: packages/core/*.tgz
                   retention-days: 30
 
+            # pnpm, not npm: the manifest's `catalog:` specifiers are only rewritten to concrete
+            # versions by pnpm at pack time — `npm publish` would ship them verbatim and every
+            # consumer would fail with EUNSUPPORTEDPROTOCOL. `--no-git-checks` because releases
+            # publish from a tag (detached HEAD) and `prepack` regenerates the manifest.
             - name: Publish (dry-run)
               if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
               working-directory: packages/core
-              run: npm publish --access public --dry-run
+              run: pnpm publish --access public --no-git-checks --dry-run
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}
 
             - name: Publish
               if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
               working-directory: packages/core
-              run: npm publish --access public
+              run: pnpm publish --access public --no-git-checks
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}

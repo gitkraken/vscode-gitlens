@@ -7,6 +7,7 @@ import oneVar from './eslint-rules/one-var.mjs';
 import requireBlockBody from './eslint-rules/require-block-body.mjs';
 import requireJsExtension from './eslint-rules/require-js-extension.mjs';
 import logScopeUsage from './eslint-rules/scoped-logger-usage.mjs';
+import validPackageImports from './eslint-rules/valid-package-imports.mjs';
 
 // Rules are authored with oxlint's `createOnce` API; `eslintCompatPlugin` synthesizes a `create`
 // for each so the same plugin runs under both oxlint (native) and ESLint.
@@ -21,5 +22,6 @@ export default eslintCompatPlugin({
 		'scoped-logger-usage': logScopeUsage,
 		'require-block-body': requireBlockBody,
 		'newline-after-control-flow': newlineAfterControlFlow,
+		'valid-package-imports': validPackageImports,
 	},
 });

@@ -46,9 +46,9 @@
 	},
 	"exports": {
 		"./package.json": "./package.json",
-		"./git-cli/*.js": {
-			"types": "./dist/git-cli/*.d.ts",
-			"default": "./dist/git-cli/*.js"
+		"./git-cli/cliGitProvider.js": {
+			"types": "./dist/git-cli/cliGitProvider.d.ts",
+			"default": "./dist/git-cli/cliGitProvider.js"
 		},
 		"./git-cli/exec/*.js": {
 			"types": "./dist/git-cli/exec/*.d.ts",
@@ -62,9 +62,25 @@
 			"types": "./dist/git-cli/providers/*.d.ts",
 			"default": "./dist/git-cli/providers/*.js"
 		},
-		"./git/*.js": {
-			"types": "./dist/git/*.d.ts",
-			"default": "./dist/git/*.js"
+		"./git-cli/service.js": {
+			"types": "./dist/git-cli/service.d.ts",
+			"default": "./dist/git-cli/service.js"
+		},
+		"./git/cache.js": {
+			"types": "./dist/git/cache.d.ts",
+			"default": "./dist/git/cache.js"
+		},
+		"./git/context.js": {
+			"types": "./dist/git/context.d.ts",
+			"default": "./dist/git/context.js"
+		},
+		"./git/errors.js": {
+			"types": "./dist/git/errors.d.ts",
+			"default": "./dist/git/errors.js"
+		},
+		"./git/features.js": {
+			"types": "./dist/git/features.d.ts",
+			"default": "./dist/git/features.js"
 		},
 		"./git/models/*.js": {
 			"types": "./dist/git/models/*.d.ts",
@@ -86,6 +102,18 @@
 			"types": "./dist/git/remotes/*.d.ts",
 			"default": "./dist/git/remotes/*.js"
 		},
+		"./git/repositoryService.js": {
+			"types": "./dist/git/repositoryService.d.ts",
+			"default": "./dist/git/repositoryService.js"
+		},
+		"./git/run.types.js": {
+			"types": "./dist/git/run.types.d.ts",
+			"default": "./dist/git/run.types.js"
+		},
+		"./git/service.js": {
+			"types": "./dist/git/service.d.ts",
+			"default": "./dist/git/service.js"
+		},
 		"./git/utils/*.js": {
 			"types": "./dist/git/utils/*.d.ts",
 			"default": "./dist/git/utils/*.js"
@@ -94,25 +122,45 @@
 			"types": "./dist/git/watching/*.d.ts",
 			"default": "./dist/git/watching/*.js"
 		},
-		"./ipc/*.js": {
-			"types": "./dist/ipc/*.d.ts",
-			"default": "./dist/ipc/*.js"
+		"./ipc/discovery.js": {
+			"types": "./dist/ipc/discovery.d.ts",
+			"default": "./dist/ipc/discovery.js"
 		},
-		"./plus/agents/*.js": {
-			"types": "./dist/plus/agents/*.d.ts",
-			"default": "./dist/plus/agents/*.js"
+		"./ipc/ipcServer.js": {
+			"types": "./dist/ipc/ipcServer.d.ts",
+			"default": "./dist/ipc/ipcServer.js"
 		},
 		"./plus/agents/providers/*.js": {
 			"types": "./dist/plus/agents/providers/*.d.ts",
 			"default": "./dist/plus/agents/providers/*.js"
 		},
-		"./plus/ai/*.js": {
-			"types": "./dist/plus/ai/*.d.ts",
-			"default": "./dist/plus/ai/*.js"
+		"./plus/agents/sanitizePrompt.js": {
+			"types": "./dist/plus/agents/sanitizePrompt.d.ts",
+			"default": "./dist/plus/agents/sanitizePrompt.js"
+		},
+		"./plus/agents/stateMachine.js": {
+			"types": "./dist/plus/agents/stateMachine.d.ts",
+			"default": "./dist/plus/agents/stateMachine.js"
+		},
+		"./plus/agents/types.js": {
+			"types": "./dist/plus/agents/types.d.ts",
+			"default": "./dist/plus/agents/types.js"
+		},
+		"./plus/ai/constants.js": {
+			"types": "./dist/plus/ai/constants.d.ts",
+			"default": "./dist/plus/ai/constants.js"
+		},
+		"./plus/ai/errors.js": {
+			"types": "./dist/plus/ai/errors.d.ts",
+			"default": "./dist/plus/ai/errors.js"
 		},
 		"./plus/ai/models/*.js": {
 			"types": "./dist/plus/ai/models/*.d.ts",
 			"default": "./dist/plus/ai/models/*.js"
+		},
+		"./plus/ai/prompts.js": {
+			"types": "./dist/plus/ai/prompts.d.ts",
+			"default": "./dist/plus/ai/prompts.js"
 		},
 		"./plus/ai/providers/*.js": {
 			"types": "./dist/plus/ai/providers/*.d.ts",
@@ -122,13 +170,17 @@
 			"types": "./dist/plus/ai/utils/*.d.ts",
 			"default": "./dist/plus/ai/utils/*.js"
 		},
-		"./plus/git-github/*.js": {
-			"types": "./dist/plus/git-github/*.d.ts",
-			"default": "./dist/plus/git-github/*.js"
-		},
 		"./plus/git-github/api/*.js": {
 			"types": "./dist/plus/git-github/api/*.d.ts",
 			"default": "./dist/plus/git-github/api/*.js"
+		},
+		"./plus/git-github/context.js": {
+			"types": "./dist/plus/git-github/context.d.ts",
+			"default": "./dist/plus/git-github/context.js"
+		},
+		"./plus/git-github/models.js": {
+			"types": "./dist/plus/git-github/models.d.ts",
+			"default": "./dist/plus/git-github/models.js"
 		},
 		"./plus/git-github/providers/*.js": {
 			"types": "./dist/plus/git-github/providers/*.d.ts",
@@ -138,13 +190,33 @@
 			"types": "./dist/plus/git-github/providers/github/*.d.ts",
 			"default": "./dist/plus/git-github/providers/github/*.js"
 		},
-		"./plus/integrations/*.js": {
-			"types": "./dist/plus/integrations/*.d.ts",
-			"default": "./dist/plus/integrations/*.js"
-		},
 		"./plus/integrations/authentication/*.js": {
 			"types": "./dist/plus/integrations/authentication/*.d.ts",
 			"default": "./dist/plus/integrations/authentication/*.js"
+		},
+		"./plus/integrations/constants.js": {
+			"types": "./dist/plus/integrations/constants.d.ts",
+			"default": "./dist/plus/integrations/constants.js"
+		},
+		"./plus/integrations/context.js": {
+			"types": "./dist/plus/integrations/context.d.ts",
+			"default": "./dist/plus/integrations/context.js"
+		},
+		"./plus/integrations/errors.js": {
+			"types": "./dist/plus/integrations/errors.d.ts",
+			"default": "./dist/plus/integrations/errors.js"
+		},
+		"./plus/integrations/index.js": {
+			"types": "./dist/plus/integrations/index.d.ts",
+			"default": "./dist/plus/integrations/index.js"
+		},
+		"./plus/integrations/integrationService.js": {
+			"types": "./dist/plus/integrations/integrationService.d.ts",
+			"default": "./dist/plus/integrations/integrationService.js"
+		},
+		"./plus/integrations/lite.js": {
+			"types": "./dist/plus/integrations/lite.d.ts",
+			"default": "./dist/plus/integrations/lite.js"
 		},
 		"./plus/integrations/models/*.js": {
 			"types": "./dist/plus/integrations/models/*.d.ts",
@@ -174,10 +246,15 @@
 			"types": "./dist/plus/integrations/providers/gitlab/*.d.ts",
 			"default": "./dist/plus/integrations/providers/gitlab/*.js"
 		},
+		"./plus/integrations/telemetry.js": {
+			"types": "./dist/plus/integrations/telemetry.d.ts",
+			"default": "./dist/plus/integrations/telemetry.js"
+		},
 		"./plus/integrations/utils/*.js": {
 			"types": "./dist/plus/integrations/utils/*.d.ts",
 			"default": "./dist/plus/integrations/utils/*.js"
 		},
+		"./utils/__tests__/*.js": null,
 		"./utils/*.js": {
 			"types": "./dist/utils/*.d.ts",
 			"default": "./dist/utils/*.js"
@@ -186,24 +263,26 @@
 			"types": "./dist/utils/decorators/*.d.ts",
 			"default": "./dist/utils/decorators/*.js"
 		},
+		"./utils/env/browser/*.js": null,
+		"./utils/env/node/*.js": null,
 		"./utils/env/node/exec.js": {
 			"types": "./dist/utils/env/node/exec.d.ts",
 			"default": "./dist/utils/env/node/exec.js"
 		},
-		"./utils/function/*.js": {
-			"types": "./dist/utils/function/*.d.ts",
-			"default": "./dist/utils/function/*.js"
+		"./utils/env/node/platform.js": {
+			"types": "./dist/utils/env/node/platform.d.ts",
+			"default": "./dist/utils/env/node/platform.js"
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "0.50.0",
-		"@octokit/graphql": "9.0.3",
-		"@octokit/request": "10.0.10",
-		"@octokit/request-error": "7.1.0",
-		"@octokit/types": "16.0.0",
-		"fast-string-truncated-width": "3.0.3",
-		"ignore": "7.0.5",
-		"vscode-uri": "3.1.0"
+		"@gitkraken/provider-apis": "catalog:",
+		"@octokit/graphql": "catalog:",
+		"@octokit/request": "catalog:",
+		"@octokit/request-error": "catalog:",
+		"@octokit/types": "catalog:",
+		"fast-string-truncated-width": "catalog:",
+		"ignore": "catalog:",
+		"vscode-uri": "catalog:"
 	},
 	"scripts": {
 		"build": "node scripts/bundle.mjs",

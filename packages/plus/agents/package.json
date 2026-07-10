@@ -7,9 +7,17 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./sanitizePrompt.js": {
+			"types": "./dist/sanitizePrompt.d.ts",
+			"default": "./dist/sanitizePrompt.js"
+		},
+		"./stateMachine.js": {
+			"types": "./dist/stateMachine.d.ts",
+			"default": "./dist/stateMachine.js"
+		},
+		"./types.js": {
+			"types": "./dist/types.d.ts",
+			"default": "./dist/types.js"
 		},
 		"./providers/*.js": {
 			"types": "./dist/providers/*.d.ts",

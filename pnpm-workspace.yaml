@@ -20,13 +20,27 @@ allowBuilds:
 blockExoticSubdeps: true
 
 catalog:
+    '@gitkraken/provider-apis': 0.50.0
+    # The @octokit/* packages depend on each other; version them as a family so a lone bump can't
+    # split them. @octokit/graphql wants `@octokit/request: ^10.0.6` — see the overrides entry.
+    '@octokit/graphql': 9.0.3
+    '@octokit/request': 10.0.11
+    '@octokit/request-error': 7.1.0
+    '@octokit/types': 16.0.0
     '@types/mocha': 10.0.10
-    '@types/sinon': 21.0.1
+    '@types/sinon': 22.0.0
+    esbuild: 0.28.1
+    # Only @gitlens/utils depends on this, but it flows into the published @gitkraken/core-gitlens
+    # manifest, which must never carry a version of its own to drift from.
+    fast-string-truncated-width: 3.0.3
+    ignore: 7.0.5
     mocha: 11.7.6
     sinon: 22.0.0
     tinybench: 6.0.2
     tsx: 4.22.4
     typescript: 6.0.3
+    vscode-uri: 3.1.0
+    yaml: 2.9.0
 
 enableGlobalVirtualStore: true
 
@@ -81,10 +95,13 @@ minimumReleaseAgeExclude:
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0
+    # @octokit/graphql's own `^10.0.6` range otherwise resolves to a second copy alongside
+    # @gitlens/git-github's direct pin, and github.ts imports both.
+    '@octokit/request': 'catalog:'
     '@types/vscode': '1.101.0'
     '@xmldom/xmldom@<0.8.13': ^0.8.13
     diff@>=6.0.0 <8.0.3: ^8.0.3
-    esbuild: '0.28.1'
+    esbuild: 'catalog:'
     handlebars: '4.7.9'
     ip-address@<=10.1.0: ^10.1.1
     'serialize-javascript@<7.0.5': '^7.0.5'

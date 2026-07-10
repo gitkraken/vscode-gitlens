@@ -24,7 +24,7 @@ import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import type { RemoteResourceType } from '@gitlens/git/models/remoteResource.js';
-import type { GitCommitReachability } from '@gitlens/git/providers/commits.ts';
+import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';

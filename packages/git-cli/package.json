@@ -7,9 +7,13 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./cliGitProvider.js": {
+			"types": "./dist/cliGitProvider.d.ts",
+			"default": "./dist/cliGitProvider.js"
+		},
+		"./service.js": {
+			"types": "./dist/service.d.ts",
+			"default": "./dist/service.js"
 		},
 		"./exec/*.js": {
 			"types": "./dist/exec/*.d.ts",

@@ -15,9 +15,33 @@
 		"test": "node scripts/test.mjs"
 	},
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./constants.js": {
+			"types": "./dist/constants.d.ts",
+			"default": "./dist/constants.js"
+		},
+		"./context.js": {
+			"types": "./dist/context.d.ts",
+			"default": "./dist/context.js"
+		},
+		"./errors.js": {
+			"types": "./dist/errors.d.ts",
+			"default": "./dist/errors.js"
+		},
+		"./index.js": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./integrationService.js": {
+			"types": "./dist/integrationService.d.ts",
+			"default": "./dist/integrationService.js"
+		},
+		"./lite.js": {
+			"types": "./dist/lite.d.ts",
+			"default": "./dist/lite.js"
+		},
+		"./telemetry.js": {
+			"types": "./dist/telemetry.d.ts",
+			"default": "./dist/telemetry.js"
 		},
 		"./models/*.js": {
 			"types": "./dist/models/*.d.ts",
@@ -60,14 +84,14 @@
 		"dist"
 	],
 	"dependencies": {
-		"@gitkraken/provider-apis": "0.50.0",
+		"@gitkraken/provider-apis": "catalog:",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
 		"@gitlens/utils": "workspace:*"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",
-		"esbuild": "0.28.0",
+		"esbuild": "catalog:",
 		"mocha": "catalog:",
 		"typescript": "catalog:"
 	}

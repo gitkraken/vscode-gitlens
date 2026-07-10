@@ -180,6 +180,7 @@ if (isFullBuild && !watch) {
 const tasks = bundleCmds.map(c => run(c));
 if (!quick && !watch) {
 	tasks.push(run(`oxlint --type-aware --type-check`));
+	tasks.push(run(`node ./scripts/check-deps.mjs`));
 }
 
 // allSettled (not all) so a failure in one process never abandons the others mid-flight — every

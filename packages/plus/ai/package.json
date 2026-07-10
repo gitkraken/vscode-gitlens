@@ -7,9 +7,17 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./constants.js": {
+			"types": "./dist/constants.d.ts",
+			"default": "./dist/constants.js"
+		},
+		"./errors.js": {
+			"types": "./dist/errors.d.ts",
+			"default": "./dist/errors.js"
+		},
+		"./prompts.js": {
+			"types": "./dist/prompts.d.ts",
+			"default": "./dist/prompts.js"
 		},
 		"./models/*.js": {
 			"types": "./dist/models/*.d.ts",

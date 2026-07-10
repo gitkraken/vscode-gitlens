@@ -22,6 +22,7 @@ import webpack from 'webpack';
 import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
 import WebpackRequireFromPlugin from 'webpack-require-from';
 import { OxLintWebpackPlugin } from './scripts/webpack-oxlint-plugin.mjs';
+import { getBundledManifestPaths } from './scripts/workspace.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1116,7 +1117,8 @@ class LicensesPlugin extends FileGeneratorPlugin {
 	constructor() {
 		super({
 			pluginName: 'licenses',
-			pathsToWatch: [path.join(__dirname, 'package.json')],
+			// The generator reads the bundled packages' manifests too, so their deps must invalidate the cache.
+			pathsToWatch: getBundledManifestPaths(),
 			outputs: [path.join(__dirname, 'ThirdPartyNotices.txt')],
 			command: {
 				name: 'licenses',

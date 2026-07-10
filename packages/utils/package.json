@@ -17,21 +17,24 @@
 		}
 	},
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
-		},
+		"./__tests__/*.js": null,
 		"./decorators/*.js": {
 			"types": "./dist/decorators/*.d.ts",
 			"default": "./dist/decorators/*.js"
 		},
+		"./env/browser/*.js": null,
 		"./env/node/exec.js": {
 			"types": "./dist/env/node/exec.d.ts",
 			"default": "./dist/env/node/exec.js"
 		},
-		"./function/*.js": {
-			"types": "./dist/function/*.d.ts",
-			"default": "./dist/function/*.js"
+		"./env/node/platform.js": {
+			"types": "./dist/env/node/platform.d.ts",
+			"default": "./dist/env/node/platform.js"
+		},
+		"./env/node/*.js": null,
+		"./*.js": {
+			"types": "./dist/*.d.ts",
+			"default": "./dist/*.js"
 		}
 	},
 	"files": [
@@ -46,12 +49,14 @@
 		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
 	},
 	"dependencies": {
-		"fast-string-truncated-width": "3.0.3",
-		"vscode-uri": "3.1.0"
+		"fast-string-truncated-width": "catalog:",
+		"vscode-uri": "catalog:"
 	},
 	"devDependencies": {
 		"@types/mocha": "catalog:",
+		"@types/sinon": "catalog:",
 		"mocha": "catalog:",
+		"sinon": "catalog:",
 		"tinybench": "catalog:",
 		"tsx": "catalog:",
 		"typescript": "catalog:"

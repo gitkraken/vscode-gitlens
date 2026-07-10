@@ -156,6 +156,7 @@
 		"@gitlens/scoped-logger-usage": "error",
 		"@gitlens/require-block-body": "error",
 		"@gitlens/newline-after-control-flow": "warn",
+		"@gitlens/valid-package-imports": "error",
 
 		// "e18e/ban-dependencies": "error", // too slow
 		"e18e/prefer-array-at": "error",

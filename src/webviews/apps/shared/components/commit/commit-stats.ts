@@ -2,7 +2,7 @@ import type { TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { GitCommitStats } from '@gitlens/git/models/commit.js';
-import { pluralize } from '@gitlens/utils/string';
+import { pluralize } from '@gitlens/utils/string.js';
 import '../code-icon.js';
 import '../overlays/tooltip.js';
 

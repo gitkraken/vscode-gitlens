@@ -5,7 +5,8 @@
 //   2. Copy each sub-package's dist/ and src/ into packages/core/{dist,src}/<dest>/
 //   3. Rewrite cross-package @gitlens/<pkg>/<path> specifiers in .js/.d.ts to relative paths
 //   4. Rewrite source map `sources` entries to point into packages/core/src/<dest>/
-//   5. Merge runtime dependencies from the five package.json files (stripping workspace refs)
+//   5. Merge runtime dependencies from the sub-package.json files (stripping workspace refs; `catalog:`
+//      specifiers are kept as-is, since `pnpm publish` rewrites them to concrete versions at pack time)
 //   6. Generate the `exports` map from each sub-package's `exports` patterns
 //   7. Copy root LICENSE and LICENSE.plus into the package for shipping
 //   8. Write the updated package.json back in place
@@ -17,6 +18,7 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getBundledPackageDirs, mergeBundledDependencies } from '../../../scripts/workspace.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const coreRoot = dirname(scriptDir);
@@ -35,12 +37,32 @@ const packages = [
 ];
 
 const nameToDest = Object.fromEntries(packages.map(p => [p.name, p.dest]));
-const internalPackageNames = new Set(packages.map(p => p.name));
 
 const distName = 'dist';
 const srcName = 'src';
 
+// The array above drives what gets copied and exported; `mergeBundledDependencies()` derives its own
+// list from the root manifest to decide what gets *declared*. If the two ever disagree, core ships
+// modules whose dependencies aren't declared, or declares dependencies for code it doesn't ship —
+// and nothing downstream notices, because both sides of the check-deps comparison use the same half.
+function assertPackagesMatchWorkspace() {
+	const derived = getBundledPackageDirs().map(dir => relative(repoRoot, dir).split(sep).join('/'));
+	const declared = packages.map(p => p.srcDir);
+
+	const missing = derived.filter(dir => !declared.includes(dir));
+	const extra = declared.filter(dir => !derived.includes(dir));
+	if (missing.length || extra.length) {
+		throw new Error(
+			`The \`packages\` array in this script is out of step with the root manifest's @gitlens/* dependencies.${
+				missing.length ? ` Missing: ${missing.join(', ')}.` : ''
+			}${extra.length ? ` Unknown: ${extra.join(', ')}.` : ''}`,
+		);
+	}
+}
+
 async function main() {
+	assertPackagesMatchWorkspace();
+
 	log('Cleaning previous bundle output');
 	await clean();
 
@@ -226,23 +248,6 @@ function packageDestForFile(distRoot, file) {
 	return first;
 }
 
-async function mergeDependencies() {
-	const merged = {};
-	for (const pkg of packages) {
-		const manifest = await readSubPackageJson(pkg);
-		for (const [name, version] of Object.entries(manifest.dependencies ?? {})) {
-			if (internalPackageNames.has(name)) continue;
-			if (name in merged && merged[name] !== version) {
-				throw new Error(
-					`Dependency version conflict on ${name}: ${merged[name]} vs ${version} (from ${pkg.name})`,
-				);
-			}
-			merged[name] = version;
-		}
-	}
-	return sortObjectKeys(merged);
-}
-
 async function readSubPackageJson(pkg) {
 	return JSON.parse(await readFile(join(repoRoot, pkg.srcDir, 'package.json'), 'utf8'));
 }
@@ -292,14 +297,10 @@ async function writeUpdatedPackageJson() {
 	const pkgJsonPath = join(coreRoot, 'package.json');
 	const pkgJson = JSON.parse(await readFile(pkgJsonPath, 'utf8'));
 
-	pkgJson.dependencies = await mergeDependencies();
+	pkgJson.dependencies = await mergeBundledDependencies();
 	pkgJson.exports = await generateExports();
 
 	await writeFile(pkgJsonPath, JSON.stringify(pkgJson, null, '\t') + '\n');
-}
-
-function sortObjectKeys(obj) {
-	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
 }
 
 // `exports` has an ordering convention: specific patterns come before globs, and

@@ -7,9 +7,13 @@
 	"type": "module",
 	"sideEffects": false,
 	"exports": {
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./discovery.js": {
+			"types": "./dist/discovery.d.ts",
+			"default": "./dist/discovery.js"
+		},
+		"./ipcServer.js": {
+			"types": "./dist/ipcServer.d.ts",
+			"default": "./dist/ipcServer.js"
 		}
 	},
 	"files": [
