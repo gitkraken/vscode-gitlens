@@ -834,16 +834,19 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 		}
 
 		// Actionable (`needs-input`) sessions never aggregate — each one needs its own Allow/Deny
-		// popover. Working and idle sessions collapse into one summary pill per category.
+		// popover. Working, idle, and completed sessions collapse into one summary pill per category.
 		const needsInput: AgentSessionState[] = [];
 		const working: AgentSessionState[] = [];
 		const idle: AgentSessionState[] = [];
+		const completed: AgentSessionState[] = [];
 		for (const s of sessions) {
 			const cat = agentPhaseToCategory[s.phase];
 			if (cat === 'needs-input') {
 				needsInput.push(s);
 			} else if (cat === 'working') {
 				working.push(s);
+			} else if (cat === 'completed') {
+				completed.push(s);
 			} else {
 				idle.push(s);
 			}
@@ -864,6 +867,16 @@ export abstract class GlBranchCardBase extends SignalWatcherGlElement {
 					idle.length > 0
 						? html`<gl-agent-status-pill
 								.summary=${{ category: 'idle', sessions: idle }}
+							></gl-agent-status-pill>`
+						: nothing
+				}
+				${
+					completed.length > 0
+						? // Completed sessions attach here at any age: worktreePath comes straight from the CLI's
+							// durable record, no git probe needed. The 24h cutoff is specific to the graph WIP-row
+							// indicator, which limits itself to recent activity.
+							html`<gl-agent-status-pill
+								.summary=${{ category: 'completed', sessions: completed }}
 							></gl-agent-status-pill>`
 						: nothing
 				}

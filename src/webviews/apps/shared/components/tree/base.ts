@@ -163,6 +163,9 @@ interface TreeModelBase<Context = any[]> extends TreeItemBase {
 	matched?: boolean;
 	/** Lower sorts first within its parent; treated as `0` when unset. */
 	priority?: number;
+	/** Dims the whole row (label, icon, description) to de-emphasize it while keeping it legible and
+	 *  its actions clickable — e.g. a completed agent session shown as done history. */
+	muted?: boolean;
 }
 
 export interface TreeModel<Context = any[]> extends TreeModelBase<Context> {

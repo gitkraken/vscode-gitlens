@@ -10,7 +10,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import type { AgentSessionState } from '../../../../../agents/models/agentSessionState.js';
+import type { AgentSessionState, PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { StashApplyCommandArgs } from '../../../../../commands/stashApply.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type { StoredGraphWipDraft } from '../../../../../constants.storage.js';
@@ -45,8 +45,12 @@ import type {
 	CopyWipPatchEventDetail,
 	OpenMultipleChangesArgs,
 } from '../../../shared/actions/file.js';
-import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
-import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import type { AgentSessionCategory, PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
+import {
+	agentPhaseToCategory,
+	createPastAgentSessionsResolver,
+	matchAgentSessionsForWorktree,
+} from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -386,6 +390,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  of `_graphState.agentSessions` could leave partial-mode flipped on with no needs-input
 	 *  cards to render — a chevron rotated to 45deg above an empty section. */
 	private _cycleAgentSessions: AgentSessionState[] | undefined;
+
+	/** Cycle-stable past sessions, resolved alongside {@link _cycleAgentSessions} so the visibility
+	 *  gate and the rendered rows can't disagree — see {@link createPastAgentSessionsResolver}. */
+	private _cyclePastSessions: PastAgentSessionsResult | undefined;
+	private readonly _pastSessionsResolver: PastAgentSessionsResolver = createPastAgentSessionsResolver();
 
 	/** Clamps drag to the [10%, {@link agentStatusMaxPct}%] envelope. The visual "shrink to
 	 *  content when too small" behavior is handled by CSS `fit-content(<max>%)` — the snap
@@ -1850,6 +1859,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this.applyAgentAutoSurface(sessions);
 		}
 
+		// Resolve past sessions in the same step, for the same reason: `renderWip` gates the agents
+		// section (and its split sizing) on the past count, and `gl-details-agent-status` renders the
+		// rows — both must see one list, or an archive can leave a section that renders empty.
+		// Past sessions are keyed by worktree path (see `updateWipPastSessions`), so only trust the
+		// resource's value when it was fetched for THIS wip's worktree; otherwise a fetch for a
+		// just-left worktree is still in flight and its stale value must not paint here.
+		const pastForPath =
+			wip?.repo?.path != null && this._lastPastSessionsPath === wip.repo.path
+				? this._actions?.resources.pastAgentSessions.value.get()
+				: undefined;
+		this._cyclePastSessions = this._pastSessionsResolver.resolve(pastForPath, this._graphState?.agentSessions);
+
 		// Derive the generate-message spinner; the registry read inside keeps it in sync on start/settle
 		// and selection change (see the method).
 		this.refreshGeneratingForCurrentSelection();
@@ -2560,15 +2581,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
 		const worktreeAgentSessions = this._cycleAgentSessions;
-		// Past sessions are keyed by worktree path (see `updateWipPastSessions`) — only trust the
-		// resource's current value when it was fetched for THIS wip's worktree; otherwise a fetch
-		// for a just-left worktree is still in flight and its stale value must not paint here.
-		const wipWorktreePath = wip.repo?.path;
-		const pastAgentSessions =
-			this._lastPastSessionsPath === wipWorktreePath
-				? this._actions?.resources.pastAgentSessions.value.get()
-				: undefined;
+		// Likewise resolved in `willUpdate` (path-guarded + reconciled against the live set there),
+		// so this gate counts exactly the rows `gl-details-agent-status` will render.
+		const pastAgentSessions = this._cyclePastSessions;
 		const hasPastSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
+		const wipWorktreePath = wip.repo?.path;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
 		const showAgentStatus = (worktreeAgentSessions != null || hasPastSessions) && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:

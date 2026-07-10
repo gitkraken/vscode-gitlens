@@ -324,6 +324,10 @@ export class GlDetailsAgentStatus extends LitElement {
 				background-color: var(--gl-agent-idle-color);
 			}
 
+			.section__cluster-dot--completed {
+				background-color: var(--vscode-descriptionForeground);
+			}
+
 			.section__cluster-dot--overflow {
 				color: var(--vscode-descriptionForeground);
 				background-color: var(--vscode-editor-background);
@@ -484,6 +488,10 @@ export class GlDetailsAgentStatus extends LitElement {
 				background-color: var(--gl-agent-idle-color);
 			}
 
+			.section__hover-dot--completed {
+				background-color: var(--vscode-descriptionForeground);
+			}
+
 			.section__hover-name {
 				min-width: 0;
 				overflow: hidden;
@@ -566,6 +574,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				--card-accent: var(--gl-agent-idle-color);
 
 				opacity: 0.85;
+			}
+
+			/* Terminal sessions read as done — muted accent + stronger dim than idle so live rows lead. */
+			.card--completed {
+				--card-accent: var(--vscode-descriptionForeground);
+
+				opacity: 0.7;
 			}
 
 			/* Highlighted by an external trigger (e.g., sidebar agent leaf click). A subtle 1px
@@ -865,6 +880,8 @@ export class GlDetailsAgentStatus extends LitElement {
 		const live = sessions ?? [];
 		// De-dup against live at render time: the host excludes live ids at fetch time, but after a
 		// resume the cached past list goes stale until the next fetch, and would otherwise paint twice.
+		// Consumers that also gate their own layout on the past count reconcile further upstream
+		// (`createPastAgentSessionsResolver`) so their gate and these rows can't disagree.
 		const liveIds = new Set(live.map(s => s.id));
 		const past = this.pastSessions?.sessions.filter(p => !liveIds.has(p.id));
 		if (live.length === 0 && (past?.length ?? 0) === 0) return nothing;
@@ -1223,6 +1240,20 @@ export class GlDetailsAgentStatus extends LitElement {
 							overlay="tooltip"
 							href=${openHref}
 						></gl-action-chip>
+						${
+							category === 'completed'
+								? html`<gl-action-chip
+										class="card__archive"
+										icon="archive"
+										label="Archive Session"
+										overlay="tooltip"
+										href=${createCommandLink(
+											'gitlens.agents.archiveSession',
+											JSON.stringify(session.id),
+										)}
+									></gl-action-chip>`
+								: nothing
+						}
 					</div>
 					${this.renderCardDetail(session, category, elapsed)}
 					${

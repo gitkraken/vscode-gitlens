@@ -368,7 +368,8 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 				white-space: nowrap;
 			}
 
-			.card__open {
+			.card__open,
+			.card__archive {
 				flex: none;
 			}
 
@@ -848,10 +849,24 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 						? html`<span class="card__subtitle">${subtitle}</span>`
 						: html`<span class="card__subtitle"></span>`
 				}
+				${
+					session.phase === 'completed'
+						? html`<gl-button
+								class="card__archive"
+								appearance="toolbar"
+								tooltip="Archive Session"
+								aria-label="Archive Session"
+								href=${createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))}
+							>
+								<code-icon icon="archive"></code-icon>
+							</gl-button>`
+						: nothing
+				}
 				<gl-button
 					class="card__open"
 					appearance="toolbar"
 					tooltip="Open Session"
+					aria-label="Open Session"
 					data-telemetry-action="open-session"
 					href=${createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id))}
 				>

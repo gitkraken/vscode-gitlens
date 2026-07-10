@@ -771,7 +771,34 @@ export class AgentStatusService implements Disposable {
 					this.resolvePermission(args.sessionId, args.decision, updatedPermissions);
 				},
 			),
+			registerCommand('gitlens.agents.archiveSession', (sessionId?: string) => this.archiveSession(sessionId)),
 		];
+	}
+
+	private async archiveSession(sessionId?: string): Promise<void> {
+		if (!sessionId) return;
+
+		for (const provider of this._providers) {
+			if (provider.sessions.find(s => s.id === sessionId) == null) continue;
+
+			try {
+				// The CLI archive is keyed by session id and machine-global, so archiving succeeds
+				// regardless of which window discovered the (completed) session. Only record the
+				// telemetry when the provider actually archived — it returns `false` when it refused a
+				// row that resumed out of `completed` since the click.
+				const archived = await provider.archiveSession?.(sessionId);
+				if (archived) {
+					this.container.telemetry.sendEvent('agents/session/archived', { 'agent.provider': provider.id });
+				}
+			} catch (ex) {
+				Logger.error(ex, 'AgentStatusService.archiveSession');
+				void window.showErrorMessage(
+					`Failed to archive session: ${ex instanceof Error ? ex.message : String(ex)}`,
+				);
+			}
+
+			return;
+		}
 	}
 
 	private async openSession(sessionId?: string): Promise<void> {

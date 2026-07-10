@@ -20,7 +20,8 @@ import type {
 	OverviewBranchRemote,
 } from '../../../../shared/overviewBranches.js';
 import { isAbortError, noopUnlessReal } from '../../../shared/actions/rpc.js';
-import { matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
+import type { PastAgentSessionsResolver } from '../../../shared/agentUtils.js';
+import { createPastAgentSessionsResolver, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { elementBase, metadataBarVarsBase } from '../../../shared/components/styles/lit/base.css.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
@@ -142,6 +143,11 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	@state() private _pullRequestLoading = false;
 	@state() private _remote?: OverviewBranchRemote;
 	@state() private _pastAgentSessions?: PastAgentSessionsResult;
+
+	/** Cycle-stable projection of {@link _pastAgentSessions} reconciled against the live set, so the
+	 *  section's visibility gate and the rendered rows agree — see the resolver's doc. */
+	private _cyclePastSessions?: PastAgentSessionsResult;
+	private readonly _pastSessionsResolver: PastAgentSessionsResolver = createPastAgentSessionsResolver();
 	/** Agents section expand state — collapsed by default (matters at hundreds of past sessions).
 	 *  Consumer-owned by `gl-details-agent-status`'s contract; reset on ref identity change. */
 	@state() private _agentExpand: ExpandState = 'collapsed';
@@ -169,6 +175,22 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 	}
 
 	protected override willUpdate(changed: PropertyValues): void {
+		this.updateIdentity(changed);
+
+		// Resolved AFTER the identity transition, and on every path through it (hence the extracted
+		// method — that one has early returns). `loadEnrichment` hydrates `_pastAgentSessions` from
+		// cache — or `resetEnrichmentState` clears it — SYNCHRONOUSLY, before its first await, and Lit
+		// folds a reactive write made during `willUpdate` into this same update without scheduling
+		// another. Projecting first would therefore paint the previous ref's past rows against the new
+		// branch. Runs unconditionally because it also tracks the live set, which changes on every
+		// session push, not just on a ref change.
+		this._cyclePastSessions = this._pastSessionsResolver.resolve(
+			this._pastAgentSessions,
+			this.graphState?.agentSessions,
+		);
+	}
+
+	private updateIdentity(changed: PropertyValues): void {
 		const identityChanged = changed.has('ref') || changed.has('repoPath') || changed.has('services');
 		if (!identityChanged) {
 			if (changed.has('changeStamp')) {
@@ -773,13 +795,14 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 			repoPath: branch.repoPath,
 			worktreePath: worktreePath,
 		});
-		if ((sessions?.length ?? 0) === 0 && (this._pastAgentSessions?.sessions.length ?? 0) === 0) return nothing;
+		// Gate on the resolved list, not the raw cache — see `_cyclePastSessions`.
+		if ((sessions?.length ?? 0) === 0 && (this._cyclePastSessions?.sessions.length ?? 0) === 0) return nothing;
 
 		return html`<section class="section">
 			<gl-details-agent-status
 				flat
 				.sessions=${sessions}
-				.pastSessions=${this._pastAgentSessions}
+				.pastSessions=${this._cyclePastSessions}
 				.worktreePath=${worktreePath}
 				.expand=${this._agentExpand}
 				@gl-agent-status-expand-request=${this._onAgentExpandRequest}

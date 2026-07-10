@@ -95,6 +95,16 @@ export class GlAgentStatusPill extends LitElement {
 				--gl-agent-pill-idle-color: var(--gl-agent-idle-color);
 				--gl-agent-pill-idle-bg: color-mix(in srgb, var(--gl-agent-pill-idle-color) 10%, transparent);
 				--gl-agent-pill-idle-border: color-mix(in srgb, var(--gl-agent-pill-idle-color) 35%, transparent);
+
+				/* Completed (terminal) — neutral descriptionForeground, matching the details panel's
+		   completed accent, so done reads as history rather than another live state. */
+				--gl-agent-pill-completed-color: var(--vscode-descriptionForeground);
+				--gl-agent-pill-completed-bg: color-mix(in srgb, var(--gl-agent-pill-completed-color) 10%, transparent);
+				--gl-agent-pill-completed-border: color-mix(
+					in srgb,
+					var(--gl-agent-pill-completed-color) 35%,
+					transparent
+				);
 			}
 
 			/* Pill badge */
@@ -242,6 +252,17 @@ export class GlAgentStatusPill extends LitElement {
 				background-color: var(--gl-agent-pill-idle-color);
 			}
 
+			/* Completed */
+			.pill--completed {
+				color: var(--gl-agent-pill-completed-color);
+				background-color: var(--gl-agent-pill-completed-bg);
+				border-color: var(--gl-agent-pill-completed-border);
+			}
+
+			.pill--completed .pill__dot {
+				background-color: var(--gl-agent-pill-completed-color);
+			}
+
 			@media (prefers-reduced-motion: reduce) {
 				.pill,
 				.pill__dot {
@@ -286,6 +307,10 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-header__dot--idle {
 				background-color: var(--gl-agent-pill-idle-color);
+			}
+
+			.hover-header__dot--completed {
+				background-color: var(--gl-agent-pill-completed-color);
 			}
 
 			.hover-header__text {
@@ -423,6 +448,10 @@ export class GlAgentStatusPill extends LitElement {
 
 			.hover-summary-row__dot--idle {
 				background-color: var(--gl-agent-pill-idle-color);
+			}
+
+			.hover-summary-row__dot--completed {
+				background-color: var(--gl-agent-pill-completed-color);
 			}
 
 			.hover-summary-row__name {
@@ -683,9 +712,19 @@ export class GlAgentStatusPill extends LitElement {
 			`;
 		}
 
+		const archiveHref =
+			category === 'completed'
+				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
+				: undefined;
+
 		return html`
 			<action-nav class="pill__actions" @mousedown=${this.onActionMouseDown}>
 				<action-item label="Open Session" icon="link-external" href=${openHref}></action-item>
+				${
+					archiveHref != null
+						? html`<action-item label="Archive Session" icon="archive" href=${archiveHref}></action-item>`
+						: nothing
+				}
 			</action-nav>
 		`;
 	}
@@ -863,10 +902,18 @@ export class GlAgentStatusPill extends LitElement {
 
 	private renderIdleHover(session: AgentSessionState, omitActions: boolean): unknown {
 		const openHref = createCommandLink('gitlens.agents.openSession', JSON.stringify(session.id));
+		// Archive is offered only on terminal (completed) sessions — a live idle one would have to be
+		// killed first, so it's not surfaced here.
+		const archiveHref =
+			session.phase === 'completed'
+				? createCommandLink('gitlens.agents.archiveSession', JSON.stringify(session.id))
+				: undefined;
+
+		const dotModifier = session.phase === 'completed' ? 'completed' : 'idle';
 
 		return html`
 			<div class="hover-header">
-				<span class="hover-header__dot hover-header__dot--idle"></span>
+				<span class="hover-header__dot hover-header__dot--${dotModifier}"></span>
 				<span class="hover-header__text">${session.displayName}</span>
 			</div>
 			${
@@ -884,10 +931,25 @@ export class GlAgentStatusPill extends LitElement {
 					? nothing
 					: html`
 							<div class="hover-actions" @mousedown=${this.onActionMouseDown}>
-								<gl-button appearance="secondary" full density="compact" href=${openHref}>
-									<code-icon icon="link-external" slot="prefix"></code-icon>
-									Open Session
-								</gl-button>
+								<div class="hover-actions__row">
+									<gl-button appearance="secondary" full density="compact" href=${openHref}>
+										<code-icon icon="link-external" slot="prefix"></code-icon>
+										Open Session
+									</gl-button>
+									${
+										archiveHref != null
+											? html`<gl-button
+													appearance="secondary"
+													full
+													density="compact"
+													href=${archiveHref}
+												>
+													<code-icon icon="archive" slot="prefix"></code-icon>
+													Archive
+												</gl-button>`
+											: nothing
+									}
+								</div>
 							</div>
 						`
 			}

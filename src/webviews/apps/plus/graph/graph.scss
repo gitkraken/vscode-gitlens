@@ -1138,6 +1138,9 @@ gl-lit-graph {
 	.gl-graph__row-action.agent-indicator--idle {
 		color: var(--gl-agent-idle-color);
 	}
+	.gl-graph__row-action.agent-indicator--completed {
+		color: var(--vscode-descriptionForeground);
+	}
 	.gl-graph__row-action {
 		position: relative;
 		display: inline-flex;

@@ -94,6 +94,11 @@ export class GlTreeItem extends GlElement {
 	@property({ type: Boolean, reflect: true })
 	matched = false;
 
+	// De-emphasizes the row (dims label/icon/description) while keeping it selectable and its actions
+	// clickable. Reflected so styling is a pure `:host([muted])` rule.
+	@property({ type: Boolean, reflect: true })
+	muted = false;
+
 	@property({ type: Number })
 	override tabIndex = -1;
 

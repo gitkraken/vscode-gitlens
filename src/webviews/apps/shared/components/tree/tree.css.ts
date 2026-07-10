@@ -96,6 +96,15 @@ export const treeItemStyles = [
 			background-color: transparent;
 		}
 
+		/* Muted — de-emphasized but still fully interactive (e.g. a completed agent session shown as
+	   done history). Dims the label/icon/description only; actions stay at full strength so the
+	   row's affordances (Open, Archive) remain prominent on hover. */
+		:host([muted]) .item,
+		:host([muted]) slot[name='decorations-before'],
+		:host([muted]) slot[name='decorations-after'] {
+			opacity: 0.6;
+		}
+
 		/* Selection AND the focused-cursor highlight get identical treatment: both brighten from the
 	   inactive to the active selection colors via the --gl-tree-focus-within var (0/1), set by
 	   gl-tree-view's :host(:focus-within) and inherited across the shadow boundary. It must be a

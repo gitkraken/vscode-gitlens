@@ -238,6 +238,10 @@ export class GlTreeView extends GlElement {
 				color: var(--gl-agent-waiting-color);
 			}
 
+			code-icon.tree-icon-agent--completed {
+				color: var(--vscode-descriptionForeground);
+			}
+
 			/* Positioning context for the robot + its overlaid phase badge, which together read as
 	   one identity marker. The decoration slot's gap applies between this wrapper and any
 	   sibling decoration, never inside it. */
@@ -704,9 +708,16 @@ export class GlTreeView extends GlElement {
 			// Phase-driven glyph AND color so the leaf telegraphs state at a glance — color alone
 			// is a single-axis signal and fails for color-blind scanning. Idle keeps the Claude
 			// brand asterisk (default state retains provider identity); working spins a `sync`
-			// glyph as an activity cue; waiting flips to `warning` as a call-to-action. Colors
-			// come from the shared --gl-agent-* palette via this component's static styles.
-			const phaseIcon = icon.phase === 'working' ? 'sync' : icon.phase === 'waiting' ? 'warning' : 'claude';
+			// glyph as an activity cue; waiting flips to `warning` as a call-to-action; completed
+			// settles on a neutral `pass` check. Colors come from the shared palette via static styles.
+			const phaseIcon =
+				icon.phase === 'working'
+					? 'sync'
+					: icon.phase === 'waiting'
+						? 'warning'
+						: icon.phase === 'completed'
+							? 'pass'
+							: 'claude';
 			const modifier = icon.phase === 'working' ? 'spin' : undefined;
 			return html`<code-icon
 				slot="icon"
@@ -943,6 +954,7 @@ export class GlTreeView extends GlElement {
 			.checkableAltTooltip=${model.checkableAltTooltip}
 			.showIcon=${model.icon != null}
 			.matched=${model.matched ?? false}
+			.muted=${model.muted ?? false}
 			.selected=${isSelected}
 			.controlledSelection=${true}
 			.focused=${isFocused}

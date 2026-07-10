@@ -202,6 +202,7 @@ interface LeafProps {
 	tooltip?: TreeModel<SidebarItemContext>['tooltip'];
 	icon: TreeModel<SidebarItemContext>['icon'];
 	description?: string;
+	muted?: boolean;
 	context: SidebarItemContext;
 	decorations?: TreeModel<SidebarItemContext>['decorations'];
 	actions?: TreeModel<SidebarItemContext>['actions'];
@@ -269,6 +270,7 @@ function leafToTreeModel(leaf: LeafProps, path: string, level: number): TreeMode
 		filterText: leaf.filterText,
 		icon: leaf.icon,
 		description: leaf.description,
+		muted: leaf.muted,
 		checkable: false,
 		context: leaf.context,
 		decorations: leaf.decorations,
@@ -1598,6 +1600,16 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			action: 'gitlens.agents.openSession',
 			arguments: [session.id],
 		});
+		// Archive is offered only on terminal (completed) sessions — a live one would have to be
+		// killed first, so it stays out of the action row for anything still running.
+		if (category === 'completed') {
+			actions.push({
+				icon: 'archive',
+				label: 'Archive Session',
+				action: 'gitlens.agents.archiveSession',
+				arguments: [session.id],
+			});
+		}
 
 		// Phase status is conveyed by the leaf's agent icon (glyph + `--gl-agent-*` color) and the
 		// tooltip — no redundant text decoration.
@@ -1607,6 +1619,9 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 			filterText: `${session.displayName} ${session.lastPrompt ?? ''}`.trim(),
 			icon: { type: 'agent', phase: session.phase },
 			description: description,
+			// Completed sessions are done history — dim the whole row so they read as distinct from
+			// the still-live idle/stale sessions they share the Inactive grouping with.
+			muted: category === 'completed',
 			context: [sha, scope, session.id] as SidebarItemContext,
 			actions: actions,
 		};
@@ -2361,12 +2376,15 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 		let working = 0;
 		let needsInput = 0;
 		let idle = 0;
+		let completed = 0;
 		for (const s of sessions) {
 			const category = agentPhaseToCategory[s.phase];
 			if (category === 'working') {
 				working++;
 			} else if (category === 'needs-input') {
 				needsInput++;
+			} else if (category === 'completed') {
+				completed++;
 			} else {
 				idle++;
 			}
@@ -2380,6 +2398,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				'sessions.working.count': working,
 				'sessions.needsInput.count': needsInput,
 				'sessions.idle.count': idle,
+				'sessions.completed.count': completed,
 			},
 		});
 	}

@@ -87,6 +87,10 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 			color: var(--gl-agent-waiting-color);
 		}
 
+		.header__phase--completed {
+			color: var(--vscode-descriptionForeground);
+		}
+
 		.identity-line {
 			display: flex;
 			gap: var(--gl-space-4);
@@ -167,7 +171,15 @@ export class GlAgentTooltip extends SignalWatcher(LitElement) {
 		const category = agentPhaseToCategory[session.phase];
 		const phaseLabel = getAgentPhaseLabel(category, session.pendingPermission);
 		const elapsed = formatAgentElapsed(session.phaseSince);
-		const phaseIcon = category === 'needs-input' ? 'warning' : category === 'working' ? 'sync' : 'circle-filled';
+		// Mirrors the leaf's glyph mapping in `gl-tree-view` so hovering a row doesn't swap icons.
+		const phaseIcon =
+			category === 'needs-input'
+				? 'warning'
+				: category === 'working'
+					? 'sync'
+					: category === 'completed'
+						? 'pass'
+						: 'circle-filled';
 
 		const wt = session.worktree;
 		const folderPath = wt?.path ?? session.workspacePath;

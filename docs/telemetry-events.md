@@ -141,6 +141,16 @@
 }
 ```
 
+### agents/session/archived
+
+> Sent when a completed agent session is archived (dismissed) via the CLI
+
+```typescript
+{
+  'agent.provider': string
+}
+```
+
 ### agents/session/ended
 
 > Sent when an agent session ends
@@ -1703,6 +1713,7 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.instanceId': string,
   'context.webview.type': string,
   'layout': 'list' | 'tree',
+  'sessions.completed.count': number,
   'sessions.count': number,
   'sessions.idle.count': number,
   'sessions.needsInput.count': number,

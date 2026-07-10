@@ -136,6 +136,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/session/ended': AgentProviderEvent;
 	/** Sent when a past agent session is resumed from its transcript */
 	'agents/sessionResumed': AgentSessionResumedEvent;
+	/** Sent when a completed agent session is archived (dismissed) via the CLI */
+	'agents/session/archived': AgentProviderEvent;
 	/** Sent when a permission request is resolved */
 	'agents/permission/resolved': AgentPermissionResolvedEvent;
 	/** Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
@@ -1965,6 +1967,7 @@ interface GraphSidebarAgentsShownEvent extends GraphContextEventData {
 	'sessions.working.count': number;
 	'sessions.needsInput.count': number;
 	'sessions.idle.count': number;
+	'sessions.completed.count': number;
 }
 
 interface GraphSidebarAgentsSessionSelectedEvent extends GraphContextEventData {

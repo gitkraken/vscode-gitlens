@@ -87,7 +87,8 @@ type InternalAgentCommands =
 	| 'gitlens.agents.resolvePermission'
 	| 'gitlens.agents.openPlanFile'
 	| 'gitlens.agents.resumeSession'
-	| 'gitlens.agents.showResumeSessionPicker';
+	| 'gitlens.agents.showResumeSessionPicker'
+	| 'gitlens.agents.archiveSession';
 
 type InternalLaunchPadCommands = 'gitlens.launchpad.indicator.action';
 
