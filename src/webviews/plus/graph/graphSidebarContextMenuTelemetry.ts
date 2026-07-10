@@ -20,6 +20,23 @@ import type {
 export const sidebarInlineActionMarker: unique symbol = Symbol('gl.graph.sidebar.inlineAction');
 
 /**
+ * Returns whether an invocation context originated from a graph SIDEBAR item. Required because
+ * `gitlens:branch`/`gitlens:tag`/`gitlens:stash` contexts are not sidebar-exclusive — the main
+ * graph's ref pills (graphRowProcessor.ts) and the WIP details-header kebab (graphWebview.ts)
+ * produce the same `webviewItem` types and dispatch the same commands through the same registered
+ * handlers. Without this gate, sidebar `*Action{location:'contextMenu'}` events would be dominated
+ * by graph-canvas ref-pill right-clicks. The sidebar builders (`getSidebar*` in graphWebview.ts)
+ * stamp `webviewItemOrigin: 'sidebar'` on their item contexts; other surfaces don't.
+ */
+export function isSidebarOriginContext(context: unknown): boolean {
+	return (
+		context != null &&
+		typeof context === 'object' &&
+		(context as { webviewItemOrigin?: unknown }).webviewItemOrigin === 'sidebar'
+	);
+}
+
+/**
  * Resolved context-menu action, discriminated by panel so callers can emit the matching
  * `graph/{panel}/{item}Action` event with a correctly-typed `action`.
  */

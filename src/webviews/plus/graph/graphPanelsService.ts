@@ -339,6 +339,7 @@ export class GraphPanelsService {
 				starred: b.starred || undefined,
 				context: {
 					webview: this.host.id,
+					webviewItemOrigin: 'sidebar',
 					webviewItem: `gitlens:branch${b.current ? '+current' : ''}${
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
@@ -389,6 +390,7 @@ export class GraphPanelsService {
 					sha: b.sha,
 					context: {
 						webview: this.host.id,
+						webviewItemOrigin: 'sidebar',
 						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
@@ -426,6 +428,7 @@ export class GraphPanelsService {
 					branches: branches,
 					context: {
 						webview: this.host.id,
+						webviewItemOrigin: 'sidebar',
 						webviewItem: webviewItem,
 						webviewItemValue: {
 							type: 'remote',
@@ -452,6 +455,7 @@ export class GraphPanelsService {
 						stashOnRef: s.stashOnRef,
 						context: {
 							webview: this.host.id,
+							webviewItemOrigin: 'sidebar',
 							webviewItem: 'gitlens:stash',
 							webviewItemValue: {
 								type: 'stash',
@@ -480,6 +484,7 @@ export class GraphPanelsService {
 			date: t.date?.getTime(),
 			context: {
 				webview: this.host.id,
+				webviewItemOrigin: 'sidebar',
 				webviewItem: 'gitlens:tag',
 				webviewItemValue: {
 					type: 'tag',
@@ -546,6 +551,7 @@ export class GraphPanelsService {
 				w.branch != null
 					? {
 							webview: this.host.id,
+							webviewItemOrigin: 'sidebar',
 							webviewItem: webviewItem,
 							webviewItemValue: {
 								type: 'branch',
@@ -562,6 +568,7 @@ export class GraphPanelsService {
 					: w.sha != null
 						? {
 								webview: this.host.id,
+								webviewItemOrigin: 'sidebar',
 								webviewItem: webviewItem,
 								webviewItemValue: {
 									type: 'commit',

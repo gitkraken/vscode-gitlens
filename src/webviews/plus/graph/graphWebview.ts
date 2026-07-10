@@ -146,7 +146,11 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type { GraphServices } from './graphService.js';
-import { resolveSidebarContextMenuAction, sidebarInlineActionMarker } from './graphSidebarContextMenuTelemetry.js';
+import {
+	isSidebarOriginContext,
+	resolveSidebarContextMenuAction,
+	sidebarInlineActionMarker,
+} from './graphSidebarContextMenuTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
@@ -1536,6 +1540,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private emitSidebarContextMenuActionTelemetry(command: string, context: unknown): void {
 		if (context == null || typeof context !== 'object') return;
 		if ((context as Record<PropertyKey, unknown>)[sidebarInlineActionMarker] === true) return;
+		// Only SIDEBAR contexts qualify — graph-canvas ref pills and the WIP header kebab produce
+		// the same `webviewItem` types and dispatch the same commands (see isSidebarOriginContext).
+		if (!isSidebarOriginContext(context)) return;
 
 		const webviewItem = (context as { webviewItem?: string }).webviewItem;
 		const resolved = resolveSidebarContextMenuAction(command, webviewItem);
