@@ -1178,8 +1178,14 @@ export class GlGraphTreemap extends SignalWatcher(LitElement) {
 		const next = e.detail.path;
 		this._zoomPath = next;
 
-		// The chart re-emits zoom-change when it rehydrates the preserved zoom by name after an
-		// error → retry cycle; `classifyTreemapZoom` reports `changed:false` for that identical path.
+		// `auto` marks a chart-driven re-tie of the zoom path against refreshed data (rehydrate or
+		// reset), not a user gesture — skip telemetry for it, but still update `_zoomPath` above so the
+		// breadcrumbs and the next user zoom classify correctly. Without this, a refetch that drops the
+		// zoomed folder resets the path to root and would otherwise be counted as a user zoom-out.
+		if (e.detail.auto === true) return;
+
+		// The chart also re-emits an identical path when it rehydrates the preserved zoom by name after
+		// an error → retry cycle; `classifyTreemapZoom` reports `changed:false` for that.
 		const zoom = classifyTreemapZoom(previous, next);
 		if (!zoom.changed) return;
 

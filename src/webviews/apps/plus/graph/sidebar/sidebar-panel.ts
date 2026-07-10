@@ -480,7 +480,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 				'branches.count': this.getBranchesCount(),
 			},
 		});
-	}, 250);
+	}, 500);
 
 	focusFilter(): void {
 		if (this.activePanel == null || this.activePanel === 'overview') {
@@ -2024,7 +2024,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/worktrees/worktreeAction'>(this, {
 			name: 'graph/worktrees/worktreeAction',
-			data: { action: action, alt: alt },
+			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}
 
@@ -2034,7 +2034,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/branches/branchAction'>(this, {
 			name: 'graph/branches/branchAction',
-			data: { action: action, alt: alt },
+			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}
 
@@ -2044,7 +2044,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
 			name: 'graph/remotes/remoteAction',
-			data: { action: action, alt: alt },
+			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}
 
@@ -2086,7 +2086,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/stashes/stashAction'>(this, {
 			name: 'graph/stashes/stashAction',
-			data: { action: action, alt: alt },
+			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}
 
@@ -2096,7 +2096,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 
 		emitTelemetrySentEvent<'graph/tags/tagAction'>(this, {
 			name: 'graph/tags/tagAction',
-			data: { action: action, alt: alt },
+			data: { action: action, alt: alt, location: 'inline' },
 		});
 	}
 }

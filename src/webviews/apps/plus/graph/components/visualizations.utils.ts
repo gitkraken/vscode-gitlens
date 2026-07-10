@@ -1,9 +1,11 @@
+import type { GraphVisualizationKey } from '../../../../../constants.telemetry.js';
 import type { VisualizationMode } from '../../../../plus/graph/protocol.js';
 import type { TreemapMode, TreemapNode } from '../../../../plus/treemap/protocol.js';
 
-/** Flat key naming the visualization the user is actually looking at — collapses the two-axis
- *  (`visualizationMode` × `treemapMode`) state into one value, matching the switcher's tab model. */
-export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+// Re-exported from the telemetry contract (the single source of truth for the visualization
+// vocabulary) so the switcher, the wrapper's render routing, and the `closed` telemetry all name
+// visualizations identically and can't drift.
+export type { GraphVisualizationKey };
 
 /** Resolves the effective visualization key, gating non-timeline modes behind the experimental
  *  flag exactly as `gl-graph-visualizations` routes: when the flag is off, force `timeline`
