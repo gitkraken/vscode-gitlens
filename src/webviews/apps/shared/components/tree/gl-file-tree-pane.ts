@@ -877,6 +877,9 @@ export class GlFileTreePane extends LitElement {
 			controlledCheck: conflicted,
 			icon: icon,
 			label: fileName,
+			// `label` is only the basename, so make the full repo-relative path searchable (exact-substring)
+			// — otherwise a query with a folder separator (e.g. `src/webviews/foo.ts`) matches nothing.
+			filterText: file.path,
 			description: `${flat === true ? filePath : ''}${file.status === 'R' ? ` ← ${file.originalPath}` : ''}`,
 			tooltip: tooltip,
 			priority: conflicted ? -1 : undefined,

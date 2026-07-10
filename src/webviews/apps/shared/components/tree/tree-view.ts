@@ -797,12 +797,11 @@ export class GlTreeView extends GlElement {
 		});
 	}
 
-	private highlightText(text: string): unknown {
-		if (!this.filtered || this._filter.terms.length === 0) return text;
-
+	/** Sorted, de-duplicated character indices in `text` matched by any active term (exact substring
+	 *  first, then fuzzy). Shared by {@link highlightText} and {@link highlightPathAware}. */
+	private matchIndices(text: string): number[] {
 		const lowerText = text.toLowerCase();
 
-		// Collect all matched character indices across all filter terms
 		const allIndices = new Set<number>();
 		for (const term of this._filter.terms) {
 			// Try exact substring first
@@ -823,10 +822,45 @@ export class GlTreeView extends GlElement {
 			}
 		}
 
-		if (allIndices.size === 0) return text;
+		return [...allIndices].sort((a, b) => a - b);
+	}
 
-		const sorted = [...allIndices].sort((a, b) => a - b);
+	private highlightText(text: string): unknown {
+		if (!this.filtered || this._filter.terms.length === 0) return text;
+
+		const sorted = this.matchIndices(text);
+		if (sorted.length === 0) return text;
+
 		return renderFuzzyHighlight(text, sorted);
+	}
+
+	/** Highlight a node's visible `text` (its basename label or directory description) by matching
+	 *  against the node's full `path`, so a query that spans folder boundaries (e.g. `webviews/foo`)
+	 *  still highlights the characters that fall inside `text` — the per-`text` match can't, since the
+	 *  whole term isn't a substring of the basename or of any single folder segment. `offset` is where
+	 *  `text` begins within `path` (0 for the leading directory, `path.length - label.length` for the
+	 *  trailing basename). Falls back to matching `text` directly when it isn't a clean slice of `path`
+	 *  (e.g. a rename's `← original` description tail, or a non-path group header). */
+	private highlightPathAware(text: string, path: string, offset: number): unknown {
+		if (!this.filtered || this._filter.terms.length === 0) return text;
+
+		if (offset < 0 || path.slice(offset, offset + text.length).toLowerCase() !== text.toLowerCase()) {
+			return this.highlightText(text);
+		}
+
+		const end = offset + text.length;
+		const local: number[] = [];
+		for (const i of this.matchIndices(path)) {
+			if (i >= offset && i < end) {
+				local.push(i - offset);
+			}
+		}
+
+		// Nothing from the path landed in this slice — fall back so a plain basename/description match
+		// still highlights (e.g. `foo` typed against `foo.ts`, matched via the label, not a path span).
+		if (local.length === 0) return this.highlightText(text);
+
+		return renderFuzzyHighlight(text, local);
 	}
 
 	private renderTreeItem(model: TreeModelFlat) {
@@ -872,9 +906,10 @@ export class GlTreeView extends GlElement {
 			@gl-tree-item-resume-tooltip=${() => this.onResumeRowTooltip()}
 		>
 			${this.renderIcon(model.icon)}
-			${this.highlightText(model.label)}${when(
+			${this.highlightPathAware(model.label, model.path, model.path.length - model.label.length)}${when(
 				model.description != null,
-				() => html`<span slot="description">${this.highlightText(model.description!)}</span>`,
+				() =>
+					html`<span slot="description">${this.highlightPathAware(model.description!, model.path, 0)}</span>`,
 			)}
 			${this.renderActions(model)} ${this.renderDecorations(model)}
 		</gl-tree-item>`;
