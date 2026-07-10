@@ -2117,9 +2117,17 @@ web-graph {
 }
 
 .details-stale {
-	pointer-events: none;
+	// Passive "refreshing" dim while the current selection's own data streams in — the panel stays
+	// interactive (Explain input, file-tree search, file rows) so a background load never locks it.
 	opacity: 0.85;
 	transition: opacity 0.5s var(--gl-ease-out) 0.5s;
+}
+
+// Interaction guard, only while the shown content belongs to the OUTGOING selection (a different one
+// is loading) — block input so a click can't act on the wrong commit/worktree. Always co-occurs with
+// `.details-stale` (set together in gl-graph-details-panel render).
+.details-replacing {
+	pointer-events: none;
 }
 
 .graph-row-actions {

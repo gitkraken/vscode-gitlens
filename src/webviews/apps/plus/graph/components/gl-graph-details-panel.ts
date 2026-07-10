@@ -1812,6 +1812,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// "Stale" covers both: cached content shown while loading, and current content shown while
 		// a background refresh is running.
 		const stale = resolved != null && (this.isLoading || current == null);
+		// Interaction guard: block pointer input ONLY while the shown content belongs to the
+		// *outgoing* selection (a different one is loading) — a click then would act on the wrong
+		// commit/worktree. When the current selection is merely refreshing (its own files/enrichment
+		// still streaming in), the content is correct, so it stays interactive. Implies `stale`.
+		const blockPointer = resolved != null && current == null;
 		const compareSheetOpen = this._state.compareSheetOpen.get();
 		const compareAsPanel = this._state.compareAsPanel.get();
 
@@ -1827,7 +1832,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-label=${resolved?.ariaLabel ?? 'Commit details'}
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
-			class=${stale ? 'details-content details-stale' : 'details-content'}
+			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
 			?inert=${compareSheetOpen || this._conflictSheet != null}
 		>
 			${resolved != null
