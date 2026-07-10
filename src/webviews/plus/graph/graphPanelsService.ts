@@ -36,6 +36,7 @@ import type {
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
 import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
+import { sidebarInlineActionMarker } from './graphSidebarContextMenuTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewEnrichmentRequest,
@@ -635,6 +636,9 @@ export class GraphPanelsService {
 				const ctx = JSON.parse(params.context);
 				ctx.webview = this.host.id;
 				ctx.webviewInstance = this.host.instanceId;
+				// Mark this as an inline (hover-icon) invocation so the context-menu telemetry wrapper
+				// skips it — the webview already emitted the action with `location: 'inline'`.
+				ctx[sidebarInlineActionMarker] = true;
 				void executeCommand(params.command, ctx);
 				return;
 			} catch {}

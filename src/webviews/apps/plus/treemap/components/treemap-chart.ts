@@ -205,6 +205,9 @@ function getExtensionHue(name: string): number {
 
 export interface TreemapZoomChangeDetail {
 	path: TreemapNode[];
+	/** Set when the chart re-ties the zoom path against refreshed data (rehydrate or reset) rather
+	 *  than a user gesture, so consumers can distinguish a data-driven change from a real zoom. */
+	auto?: boolean;
 }
 
 export interface TreemapFileClickDetail {
@@ -628,7 +631,7 @@ export class GlTreemapChart extends LitElement {
 						this._zoomPath = refreshed;
 						this.dispatchEvent(
 							new CustomEvent<TreemapZoomChangeDetail>('gl-treemap-zoom-change', {
-								detail: { path: refreshed },
+								detail: { path: refreshed, auto: true },
 								bubbles: true,
 								composed: true,
 							}),
@@ -637,7 +640,7 @@ export class GlTreemapChart extends LitElement {
 						this._zoomPath = [];
 						this.dispatchEvent(
 							new CustomEvent<TreemapZoomChangeDetail>('gl-treemap-zoom-change', {
-								detail: { path: [] },
+								detail: { path: [], auto: true },
 								bubbles: true,
 								composed: true,
 							}),

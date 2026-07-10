@@ -146,6 +146,7 @@ import { GraphProducersService } from './graphProducersService.js';
 import type { GraphSearchServiceContext } from './graphSearchService.js';
 import { GraphSearchService } from './graphSearchService.js';
 import type { GraphServices } from './graphService.js';
+import { resolveSidebarContextMenuAction, sidebarInlineActionMarker } from './graphSidebarContextMenuTelemetry.js';
 import { GraphSyncPublisher } from './graphSyncPublisher.js';
 import type { GraphSyncDataSource, GraphSyncHost } from './graphSyncPublisher.js';
 import {
@@ -1203,11 +1204,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		// Register commands from the extracted `GraphCommands` @command decorators, bound to that instance.
 		for (const c of getGraphCommands()) {
+			const id = getWebviewCommand(c.command, this.host.type);
+			const handler = c.handler.bind(this._commands) as (...args: unknown[]) => unknown;
 			commands.push(
-				this.host.registerWebviewCommand(
-					getWebviewCommand(c.command, this.host.type),
-					c.handler.bind(this._commands),
-				),
+				this.host.registerWebviewCommand(id, (...args: unknown[]) => {
+					// Context-menu actions dispatch straight here; emit sidebar action telemetry for the
+					// right-click path (inline invocations are marked and already emitted by the webview).
+					this.emitSidebarContextMenuActionTelemetry(id, args[0]);
+					return handler(...args);
+				}),
 			);
 		}
 
@@ -1519,6 +1524,60 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	private onSidebarAction(params: { command: GlCommands; context?: string; args?: unknown[] }): void {
 		this._panels.onSidebarAction(params);
+	}
+
+	/**
+	 * Emits `graph/{panel}/{item}Action` with `location: 'contextMenu'` for a sidebar right-click
+	 * command. Skips inline (hover-icon) invocations — those are marked in `onSidebarAction` and
+	 * already emitted by the webview with `location: 'inline'`, so emitting here too would
+	 * double-count dual-surface commands (e.g. fetch). The panel is resolved from the item's
+	 * `webviewItem` context, so shared command ids attribute to the right panel.
+	 */
+	private emitSidebarContextMenuActionTelemetry(command: string, context: unknown): void {
+		if (context == null || typeof context !== 'object') return;
+		if ((context as Record<PropertyKey, unknown>)[sidebarInlineActionMarker] === true) return;
+
+		const webviewItem = (context as { webviewItem?: string }).webviewItem;
+		const resolved = resolveSidebarContextMenuAction(command, webviewItem);
+		if (resolved == null) return;
+
+		switch (resolved.type) {
+			case 'branch':
+				this.host.sendTelemetryEvent('graph/branches/branchAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'remote':
+				this.host.sendTelemetryEvent('graph/remotes/remoteAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'worktree':
+				this.host.sendTelemetryEvent('graph/worktrees/worktreeAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'tag':
+				this.host.sendTelemetryEvent('graph/tags/tagAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+			case 'stash':
+				this.host.sendTelemetryEvent('graph/stashes/stashAction', {
+					action: resolved.action,
+					alt: false,
+					location: 'contextMenu',
+				});
+				break;
+		}
 	}
 
 	@ipcCommand(UpdateGraphConfigurationCommand)

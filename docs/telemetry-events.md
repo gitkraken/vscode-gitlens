@@ -886,7 +886,7 @@ void
   'autoInstall': boolean,
   'error.message': string,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -899,7 +899,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -912,7 +912,7 @@ void
   'attempts': number,
   'autoInstall': boolean,
   'insiders': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'version': string
 }
 ```
@@ -1216,7 +1216,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1250,7 +1250,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1278,7 +1278,7 @@ or
   'context.pinned': boolean,
   'context.type': 'stash' | 'commit',
   'context.uncommitted': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1333,10 +1333,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1389,10 +1389,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1452,10 +1452,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1514,10 +1514,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1579,10 +1579,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1635,10 +1635,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1693,10 +1693,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1752,10 +1752,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1810,10 +1810,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1871,10 +1871,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -1927,10 +1927,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -1990,10 +1990,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2052,10 +2052,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2117,10 +2117,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2173,10 +2173,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2188,7 +2188,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2241,10 +2241,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2299,10 +2299,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2315,7 +2315,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2329,7 +2329,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2384,10 +2384,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2440,10 +2440,10 @@ or
   'context.operations.undo.count': number,
   'context.session.duration': number,
   'context.session.start': string,
-  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
+  'context.source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees',
   'context.warnings.indexChanged': boolean,
   'context.warnings.workingDirectoryChanged': boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2493,7 +2493,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2512,7 +2512,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2531,7 +2531,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2549,7 +2549,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2571,7 +2571,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2589,7 +2589,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2610,7 +2610,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2631,7 +2631,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2649,7 +2649,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2672,7 +2672,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2695,7 +2695,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2706,21 +2706,23 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/branches/branchAction
 
-> Sent when the user clicks an inline action (switch/fetch/pull/push/compare/open) on a branch item
+> Sent when the user invokes an action on a branch item, via inline hover-icon or right-click context menu (see `location`)
 
 ```typescript
 {
-  'action': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'openWorktreeInNewWindow',
+  'action': 'merge' | 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoBranch' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
 }
 ```
 
@@ -2735,7 +2737,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2759,7 +2761,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2780,7 +2782,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2799,7 +2801,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2819,7 +2821,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2840,7 +2842,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2852,7 +2854,7 @@ background-upgraded the extension while the host kept running the old build
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2875,7 +2877,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2904,7 +2906,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2928,7 +2930,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2946,7 +2948,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -2964,7 +2966,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -2985,7 +2987,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3004,7 +3006,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3026,7 +3028,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3049,7 +3051,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3069,7 +3071,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3090,7 +3092,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3118,7 +3120,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3148,7 +3150,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3168,7 +3170,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3192,7 +3194,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3212,7 +3214,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3235,7 +3237,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3253,7 +3255,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3264,21 +3266,23 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/remotes/remoteAction
 
-> Sent when the user clicks an inline action (fetch/open/copy/connect/disconnect) on a remote item
+> Sent when the user invokes an action on a remote item, via inline hover-icon or right-click context menu (see `location`)
 
 ```typescript
 {
-  'action': 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration',
+  'action': 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration' | 'openBranchesOnRemote' | 'copyBranchesUrl' | 'prune' | 'remove' | 'setDefault' | 'unsetDefault',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
 }
 ```
 
@@ -3293,7 +3297,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3316,7 +3320,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3339,7 +3343,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3358,7 +3362,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3378,7 +3382,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3398,7 +3402,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3422,7 +3426,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3440,7 +3444,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3458,7 +3462,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3529,7 +3533,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3549,7 +3553,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3571,7 +3575,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3589,7 +3593,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3599,11 +3603,11 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/stashes/stashAction
 
-> Sent when the user clicks an inline action (apply/pop, delete) on a stash item
+> Sent when the user invokes an action on a stash item, via inline hover-icon or right-click context menu (see `location`)
 
 ```typescript
 {
-  'action': 'apply' | 'delete',
+  'action': 'delete' | 'rename' | 'apply',
   // Reserved for parity with other panels' item actions — no stash inline action defines an alt variant yet, so always false today
   'alt': boolean,
   'context.repository.closed': boolean,
@@ -3611,10 +3615,12 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
 }
 ```
 
@@ -3629,7 +3635,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3649,7 +3655,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3671,7 +3677,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3689,7 +3695,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3709,7 +3715,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3722,11 +3728,11 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/tags/tagAction
 
-> Sent when the user clicks an inline action (switch to tag) on a tag item
+> Sent when the user invokes an action on a tag item, via inline hover-icon or right-click context menu (see `location`)
 
 ```typescript
 {
-  'action': 'switchTo',
+  'action': 'delete' | 'reset' | 'createBranch' | 'switchTo',
   // Reserved for parity with other panels' item actions — no tag inline action defines an alt variant yet, so always false today
   'alt': boolean,
   'context.repository.closed': boolean,
@@ -3734,10 +3740,12 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
 }
 ```
 
@@ -3754,7 +3762,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -3772,7 +3780,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3791,7 +3799,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3812,7 +3820,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3833,7 +3841,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3854,7 +3862,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3874,7 +3882,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3895,7 +3903,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3916,7 +3924,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3936,7 +3944,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3958,7 +3966,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -3980,7 +3988,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4003,7 +4011,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4025,7 +4033,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4044,7 +4052,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4068,7 +4076,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4086,7 +4094,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4108,7 +4116,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4132,7 +4140,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4167,7 +4175,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4195,7 +4203,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4217,7 +4225,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4243,7 +4251,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4273,7 +4281,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4297,7 +4305,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4319,7 +4327,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4341,7 +4349,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4363,7 +4371,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4387,7 +4395,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4409,7 +4417,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4431,7 +4439,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4453,7 +4461,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4471,7 +4479,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4491,7 +4499,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4502,21 +4510,23 @@ background-upgraded the extension while the host kept running the old build
 
 ### graph/worktrees/worktreeAction
 
-> Sent when the user clicks an inline action (pull/push/fetch/open) on a worktree item
+> Sent when the user invokes an action on a worktree item, via inline hover-icon or right-click context menu (see `location`)
 
 ```typescript
 {
-  'action': 'fetch' | 'pull' | 'push' | 'openWorktree' | 'openWorktreeInNewWindow',
+  'action': 'fetch' | 'pull' | 'push' | 'openWorktree' | 'openWorktreeInNewWindow' | 'delete' | 'rename' | 'rebaseOntoUpstream' | 'reset' | 'publish' | 'setUpstream' | 'changeUpstream' | 'revealInExplorer' | 'openInTerminal' | 'copyWorkingChanges',
   'alt': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
-  'context.webview.type': string
+  'context.webview.type': string,
+  // Where the action was invoked from — hover-icon (inline) vs the right-click context menu
+  'location': 'inline' | 'contextMenu'
 }
 ```
 
@@ -4531,7 +4541,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4566,7 +4576,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4588,7 +4598,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4610,7 +4620,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4632,7 +4642,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4657,7 +4667,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4682,7 +4692,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4707,7 +4717,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4728,7 +4738,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4750,7 +4760,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4776,7 +4786,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4800,7 +4810,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4828,7 +4838,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4864,7 +4874,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4882,7 +4892,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -4904,7 +4914,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4944,7 +4954,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -4992,7 +5002,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5028,7 +5038,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5050,7 +5060,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5072,7 +5082,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5090,7 +5100,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5110,7 +5120,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5134,7 +5144,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5156,7 +5166,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5180,7 +5190,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5200,7 +5210,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5220,7 +5230,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5265,7 +5275,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5291,7 +5301,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5327,7 +5337,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5345,7 +5355,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5363,7 +5373,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5387,7 +5397,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5419,7 +5429,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5467,7 +5477,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5495,7 +5505,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5525,7 +5535,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5543,7 +5553,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5561,7 +5571,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5581,7 +5591,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5603,7 +5613,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5631,7 +5641,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5654,7 +5664,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5692,7 +5702,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5739,7 +5749,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5773,7 +5783,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5791,7 +5801,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5809,7 +5819,7 @@ background-upgraded the extension while the host kept running the old build
   'context.repository.id': string,
   'context.repository.provider.id': string,
   'context.repository.scheme': string,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5854,7 +5864,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -5896,7 +5906,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -5910,7 +5920,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6349,7 +6359,7 @@ void
 {
   'agents.count': number,
   'agents.ids': string,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6363,7 +6373,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6378,7 +6388,7 @@ void
   'agents.userAction': string,
   'cli.version': string,
   'requiresUserCompletion': boolean,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6392,7 +6402,7 @@ void
   'cli.version': string,
   'error.message': string,
   'reason': string,
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6402,7 +6412,7 @@ void
 
 ```typescript
 {
-  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
+  'source': 'account' | 'subscription' | 'graph' | 'composer' | 'patchDetails' | 'settings' | 'timeline' | 'home' | 'welcome' | 'rebaseEditor' | 'view' | 'ai' | 'ai:markdown-preview' | 'ai:markdown-editor' | 'ai:picker' | 'associateIssueWithBranch' | 'cloud-patches' | 'code-suggest' | 'commandPalette' | 'deeplink' | 'editor:hover' | 'feature-badge' | 'feature-gate' | 'gk-cli-integration' | 'gk-mcp-provider' | 'graph-details' | 'graph-header' | 'graph-kanban' | 'graph-sidebar' | 'graph-treemap' | 'inspect' | 'inspect-overview' | 'integrations' | 'launchpad' | 'launchpad-indicator' | 'launchpad-view' | 'mcp' | 'mcp-welcome-message' | 'merge-target' | 'notification' | 'prompt' | 'quick-wizard' | 'remoteProvider' | 'scm' | 'scm-input' | 'startReview' | 'startWork' | 'statusbar:hover' | 'trial-indicator' | 'view:hover' | 'walkthrough' | 'whatsnew' | 'worktrees'
 }
 ```
 
@@ -6469,7 +6479,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6480,7 +6490,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6494,7 +6504,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6539,7 +6549,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6550,7 +6560,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6564,7 +6574,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6588,7 +6598,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6609,7 +6619,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6630,7 +6640,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6655,7 +6665,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6677,7 +6687,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6708,7 +6718,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6735,7 +6745,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6756,7 +6766,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6777,7 +6787,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6802,7 +6812,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6823,7 +6833,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6848,7 +6858,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6870,7 +6880,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6892,7 +6902,7 @@ void
   'context.session.duration': number,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6913,7 +6923,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6940,7 +6950,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -6967,7 +6977,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -6990,7 +7000,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7017,7 +7027,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7040,7 +7050,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7071,7 +7081,7 @@ void
   'context.preservesMerges': boolean,
   'context.session.start': string,
   'context.todo.count': number,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7174,7 +7184,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7185,7 +7195,7 @@ void
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7199,7 +7209,7 @@ void
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7651,7 +7661,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7666,7 +7676,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7685,7 +7695,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7704,7 +7714,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7726,7 +7736,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7745,7 +7755,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7756,7 +7766,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7780,7 +7790,7 @@ or
   'context.scope.type': 'file' | 'folder' | 'repo',
   'context.showAllBranches': boolean,
   'context.sliceBy': 'branch' | 'author',
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7880,7 +7890,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string
@@ -7891,7 +7901,7 @@ or
 
 ```typescript
 {
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
@@ -7905,7 +7915,7 @@ or
 ```typescript
 {
   [`context.${string}`]: string | number | boolean,
-  'context.webview.host': 'view' | 'editor' | 'panel',
+  'context.webview.host': 'editor' | 'view' | 'panel',
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
