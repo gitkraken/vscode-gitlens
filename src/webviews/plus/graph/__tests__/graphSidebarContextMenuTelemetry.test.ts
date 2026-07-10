@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { resolveSidebarContextMenuAction } from '../graphSidebarContextMenuTelemetry.js';
+import { isSidebarOriginContext, resolveSidebarContextMenuAction } from '../graphSidebarContextMenuTelemetry.js';
 
 suite('resolveSidebarContextMenuAction', () => {
 	test('resolves a context-menu-only remote command', () => {
@@ -72,5 +72,35 @@ suite('resolveSidebarContextMenuAction', () => {
 
 	test('returns undefined when the command is not in the item type map', () => {
 		assert.strictEqual(resolveSidebarContextMenuAction('gitlens.stashRename:graph', 'gitlens:remote'), undefined);
+	});
+});
+
+suite('isSidebarOriginContext', () => {
+	test('accepts a sidebar-stamped context', () => {
+		assert.strictEqual(
+			isSidebarOriginContext({
+				webview: 'gitlens.views.graph',
+				webviewItemOrigin: 'sidebar',
+				webviewItem: 'gitlens:branch',
+			}),
+			true,
+		);
+	});
+
+	test('rejects contexts from other graph surfaces (canvas ref pills, WIP kebab) that lack the origin stamp', () => {
+		// graphRowProcessor.ts and the WIP details-header kebab produce the same webviewItem types
+		// but never stamp webviewItemOrigin — those must not count as sidebar actions.
+		assert.strictEqual(
+			isSidebarOriginContext({ webview: 'gitlens.views.graph', webviewItem: 'gitlens:branch+current' }),
+			false,
+		);
+		assert.strictEqual(isSidebarOriginContext({ webviewItem: 'gitlens:stash' }), false);
+	});
+
+	test('rejects non-object and mismatched-origin contexts', () => {
+		assert.strictEqual(isSidebarOriginContext(undefined), false);
+		assert.strictEqual(isSidebarOriginContext(null), false);
+		assert.strictEqual(isSidebarOriginContext('sidebar'), false);
+		assert.strictEqual(isSidebarOriginContext({ webviewItemOrigin: 'graph-row' }), false);
 	});
 });
