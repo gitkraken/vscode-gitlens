@@ -12,6 +12,7 @@ import type { AgentSessionState } from '../../../../../agents/models/agentSessio
 import type { GlCommands } from '../../../../../constants.commands.js';
 import type { WebviewItemContext } from '../../../../../system/webview.js';
 import { serializeWebviewItemContext, withWebviewItemFlag } from '../../../../../system/webview.js';
+import { sidebarItemActions } from '../../../../plus/graph/graphSidebarActionTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
 	GraphSidebarBranch,
@@ -43,7 +44,7 @@ import { ContextMenuProxyController } from '../../../shared/controllers/context-
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import type { AppState } from '../context.js';
 import { graphStateContext } from '../context.js';
-import { branchActionsToTelemetryNames, getBranchLeafActions } from './branchActions.utils.js';
+import { getBranchLeafActions } from './branchActions.utils.js';
 import { sidebarActionsContext } from './sidebarContext.js';
 import type { SidebarActions } from './sidebarState.js';
 import { resolveSelectedTag } from './sidebarTelemetry.utils.js';
@@ -187,35 +188,6 @@ function trackingDecorations(
 		},
 	];
 }
-
-const worktreeActionMap: Partial<
-	Record<GlCommands, 'pull' | 'push' | 'fetch' | 'openWorktree' | 'openWorktreeInNewWindow'>
-> = {
-	'gitlens.graph.pull': 'pull',
-	'gitlens.graph.push': 'push',
-	'gitlens.fetch:graph': 'fetch',
-	'gitlens.openWorktree:graph': 'openWorktree',
-	'gitlens.openWorktreeInNewWindow:graph': 'openWorktreeInNewWindow',
-};
-
-const remoteActionMap: Partial<
-	Record<GlCommands, 'fetch' | 'openOnRemote' | 'copyUrl' | 'connectIntegration' | 'disconnectIntegration'>
-> = {
-	'gitlens.fetchRemote:graph': 'fetch',
-	'gitlens.openRepoOnRemote:graph': 'openOnRemote',
-	'gitlens.copyRemoteRepositoryUrl:graph': 'copyUrl',
-	'gitlens.connectRemoteProvider:graph': 'connectIntegration',
-	'gitlens.disconnectRemoteProvider:graph': 'disconnectIntegration',
-};
-
-const stashActionMap: Partial<Record<GlCommands, 'apply' | 'delete'>> = {
-	'gitlens.stashApply:graph': 'apply',
-	'gitlens.stashDelete:graph': 'delete',
-};
-
-const tagActionMap: Partial<Record<GlCommands, 'switchTo'>> = {
-	'gitlens.graph.switchToTag': 'switchTo',
-};
 
 function formatWorktreeDescription(w: GraphSidebarWorktree): string | undefined {
 	if (w.upstream == null) return undefined;
@@ -2019,7 +1991,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private emitWorktreesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
-		const action = worktreeActionMap[command];
+		const action = sidebarItemActions.worktree[command];
 		if (action == null) return;
 
 		emitTelemetrySentEvent<'graph/worktrees/worktreeAction'>(this, {
@@ -2029,7 +2001,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private emitBranchesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
-		const action = branchActionsToTelemetryNames[command];
+		const action = sidebarItemActions.branch[command];
 		if (action == null) return;
 
 		emitTelemetrySentEvent<'graph/branches/branchAction'>(this, {
@@ -2039,7 +2011,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private emitRemotesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
-		const action = remoteActionMap[command];
+		const action = sidebarItemActions.remote[command];
 		if (action == null) return;
 
 		emitTelemetrySentEvent<'graph/remotes/remoteAction'>(this, {
@@ -2081,7 +2053,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private emitStashesTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
-		const action = stashActionMap[command];
+		const action = sidebarItemActions.stash[command];
 		if (action == null) return;
 
 		emitTelemetrySentEvent<'graph/stashes/stashAction'>(this, {
@@ -2091,7 +2063,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private emitTagsTreeItemActionTelemetry(command: GlCommands, alt: boolean): void {
-		const action = tagActionMap[command];
+		const action = sidebarItemActions.tag[command];
 		if (action == null) return;
 
 		emitTelemetrySentEvent<'graph/tags/tagAction'>(this, {

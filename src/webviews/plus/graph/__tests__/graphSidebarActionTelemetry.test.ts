@@ -1,5 +1,9 @@
 import * as assert from 'assert';
-import { isSidebarOriginContext, resolveSidebarContextMenuAction } from '../graphSidebarContextMenuTelemetry.js';
+import {
+	isSidebarOriginContext,
+	markSidebarInlineInvocation,
+	resolveSidebarContextMenuAction,
+} from '../graphSidebarActionTelemetry.js';
 
 suite('resolveSidebarContextMenuAction', () => {
 	test('resolves a context-menu-only remote command', () => {
@@ -72,6 +76,44 @@ suite('resolveSidebarContextMenuAction', () => {
 
 	test('returns undefined when the command is not in the item type map', () => {
 		assert.strictEqual(resolveSidebarContextMenuAction('gitlens.stashRename:graph', 'gitlens:remote'), undefined);
+	});
+
+	test('remote branches (branch+remote) are excluded — both surfaces leave them to graph/command', () => {
+		// The Branches panel (and its branchAction metric) is local-only, and the inline path emits
+		// nothing for the remote-branch leaves nested under the Remotes panel — so the context-menu
+		// side must not attribute their actions to branchAction either.
+		assert.strictEqual(
+			resolveSidebarContextMenuAction('gitlens.graph.mergeBranchInto', 'gitlens:branch+remote'),
+			undefined,
+		);
+		assert.strictEqual(
+			resolveSidebarContextMenuAction('gitlens.switchToBranch:graph', 'gitlens:branch+remote+pinned'),
+			undefined,
+		);
+	});
+
+	test('inline-tracked compare actions resolve for context-menu parity', () => {
+		// These two are tracked by the inline branch chips, so they must resolve here too or the
+		// action×location slice would wrongly show compares as inline-only.
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.graph.compareBranchWithHead', 'gitlens:branch'),
+			{ type: 'branch', action: 'compareWithHead' },
+		);
+		assert.deepStrictEqual(
+			resolveSidebarContextMenuAction('gitlens.graph.compareWithWorking', 'gitlens:branch+current'),
+			{ type: 'branch', action: 'compareWithWorking' },
+		);
+	});
+});
+
+suite('markSidebarInlineInvocation', () => {
+	test('a marked sidebar context is rejected by the context-menu gate', () => {
+		// The no-double-count invariant: onSidebarAction marks the parsed context before
+		// executeCommand, so the wrapped handler's context-menu emit must skip it.
+		const ctx = { webview: 'gitlens.views.graph', webviewItemOrigin: 'sidebar', webviewItem: 'gitlens:branch' };
+		assert.strictEqual(isSidebarOriginContext(ctx), true);
+		markSidebarInlineInvocation(ctx);
+		assert.strictEqual(isSidebarOriginContext(ctx), false);
 	});
 });
 
