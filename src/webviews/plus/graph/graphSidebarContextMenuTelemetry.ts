@@ -6,33 +6,28 @@ import type {
 	GraphSidebarTagsActionName,
 	GraphSidebarWorktreesActionName,
 } from '../../../constants.telemetry.js';
+import { sidebarItemOrigin } from './protocol.js';
 
 /**
- * Marker set on a webview-item context by the inline (webview→RPC) action path (see
- * `onSidebarAction` in graphWebview.ts) so the context-menu telemetry wrapper can skip it — the
- * webview already emitted that action with `location: 'inline'`. Native right-click menu
- * invocations dispatch straight to the command via VS Code and never pass through that path, so
- * their context lacks the marker and the wrapper emits `location: 'contextMenu'`.
+ * Returns whether an invocation context is eligible for sidebar CONTEXT-MENU action telemetry —
+ * i.e. it originated from a graph sidebar item and wasn't an inline (hover-icon) invocation.
  *
- * A Symbol keeps it off enumeration/JSON and away from the `WebviewItemContext` fields handlers read.
- * It survives the in-process `vscode.commands.executeCommand` hop (args pass by reference).
- */
-export const sidebarInlineActionMarker: unique symbol = Symbol('gl.graph.sidebar.inlineAction');
-
-/**
- * Returns whether an invocation context originated from a graph SIDEBAR item. Required because
- * `gitlens:branch`/`gitlens:tag`/`gitlens:stash` contexts are not sidebar-exclusive — the main
- * graph's ref pills (graphRowProcessor.ts) and the WIP details-header kebab (graphWebview.ts)
- * produce the same `webviewItem` types and dispatch the same commands through the same registered
- * handlers. Without this gate, sidebar `*Action{location:'contextMenu'}` events would be dominated
- * by graph-canvas ref-pill right-clicks. The sidebar builders (`getSidebar*` in graphWebview.ts)
- * stamp `webviewItemOrigin: 'sidebar'` on their item contexts; other surfaces don't.
+ * Required because `gitlens:branch`/`gitlens:tag`/`gitlens:stash` contexts are not
+ * sidebar-exclusive — the main graph's ref pills (graphRowProcessor.ts) and the WIP details-header
+ * kebab (graphWebview.ts) produce the same `webviewItem` types and dispatch the same commands
+ * through the same registered handlers. Without this gate, sidebar
+ * `*Action{location:'contextMenu'}` events would be dominated by graph-canvas ref-pill
+ * right-clicks. The sidebar builders (`getSidebar*` in graphWebview.ts) are REQUIRED (by
+ * `GraphSidebarItemOrigin` on the protocol context types) to stamp
+ * `webviewItemOrigin: 'sidebar'`; other surfaces never carry it, and inline invocations are
+ * re-stamped 'sidebar-inline' by `onSidebarAction` (the webview already emitted those with
+ * `location: 'inline'`).
  */
 export function isSidebarOriginContext(context: unknown): boolean {
 	return (
 		context != null &&
 		typeof context === 'object' &&
-		(context as { webviewItemOrigin?: unknown }).webviewItemOrigin === 'sidebar'
+		(context as { webviewItemOrigin?: unknown }).webviewItemOrigin === sidebarItemOrigin
 	);
 }
 

@@ -36,7 +36,6 @@ import type {
 import { getBranchOverviewType, toOverviewBranch } from '../../shared/overviewBranches.js';
 import { getOverviewEnrichment, getOverviewWip } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
-import { sidebarInlineActionMarker } from './graphSidebarContextMenuTelemetry.js';
 import type {
 	DidGetSidebarDataParams,
 	GetOverviewEnrichmentRequest,
@@ -48,12 +47,13 @@ import type {
 	GraphItemTypedContext,
 	GraphOverviewData,
 	GraphRemoteContextValue,
+	GraphSidebarItemOrigin,
 	GraphSidebarPanel,
 	GraphSidebarWorktree,
 	GraphStashContextValue,
 	GraphTagContextValue,
 } from './protocol.js';
-import { createWipSha, DidChangeOverviewNotification } from './protocol.js';
+import { createWipSha, DidChangeOverviewNotification, sidebarInlineItemOrigin, sidebarItemOrigin } from './protocol.js';
 
 /** Collaborators the panels cluster reaches for on the host provider, assembled by
  *  `GraphWebviewProvider.createGraphPanelsContext()`. `getRepository`/`getSession`/`getLoading` read
@@ -339,7 +339,7 @@ export class GraphPanelsService {
 				starred: b.starred || undefined,
 				context: {
 					webview: this.host.id,
-					webviewItemOrigin: 'sidebar',
+					webviewItemOrigin: sidebarItemOrigin,
 					webviewItem: `gitlens:branch${b.current ? '+current' : ''}${
 						b.upstream != null && !b.upstream.missing ? '+tracking' : ''
 					}${hasWorktree ? '+worktree' : ''}${
@@ -357,7 +357,7 @@ export class GraphPanelsService {
 							upstream: b.upstream,
 						}),
 					},
-				} satisfies GraphItemRefContext<GraphBranchContextValue>,
+				} satisfies GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin,
 			};
 		});
 		return { panel: 'branches' as const, items: items, layout: branchCfg.layout, compact: branchCfg.compact };
@@ -390,7 +390,7 @@ export class GraphPanelsService {
 					sha: b.sha,
 					context: {
 						webview: this.host.id,
-						webviewItemOrigin: 'sidebar',
+						webviewItemOrigin: sidebarItemOrigin,
 						webviewItem: `gitlens:branch+remote${pinnedRefId != null && b.id === pinnedRefId ? '+pinned' : ''}`,
 						webviewItemValue: {
 							type: 'branch',
@@ -401,7 +401,7 @@ export class GraphPanelsService {
 								remote: true,
 							}),
 						},
-					} satisfies GraphItemRefContext<GraphBranchContextValue>,
+					} satisfies GraphItemRefContext<GraphBranchContextValue> & GraphSidebarItemOrigin,
 				}));
 
 				let connected: boolean | undefined;
@@ -428,14 +428,14 @@ export class GraphPanelsService {
 					branches: branches,
 					context: {
 						webview: this.host.id,
-						webviewItemOrigin: 'sidebar',
+						webviewItemOrigin: sidebarItemOrigin,
 						webviewItem: webviewItem,
 						webviewItemValue: {
 							type: 'remote',
 							name: r.name,
 							repoPath: graph.repoPath,
 						},
-					} satisfies GraphItemTypedContext<GraphRemoteContextValue>,
+					} satisfies GraphItemTypedContext<GraphRemoteContextValue> & GraphSidebarItemOrigin,
 				};
 			}),
 		);
@@ -455,7 +455,7 @@ export class GraphPanelsService {
 						stashOnRef: s.stashOnRef,
 						context: {
 							webview: this.host.id,
-							webviewItemOrigin: 'sidebar',
+							webviewItemOrigin: sidebarItemOrigin,
 							webviewItem: 'gitlens:stash',
 							webviewItemValue: {
 								type: 'stash',
@@ -466,7 +466,7 @@ export class GraphPanelsService {
 									number: s.stashNumber,
 								}),
 							},
-						} satisfies GraphItemRefContext<GraphStashContextValue>,
+						} satisfies GraphItemRefContext<GraphStashContextValue> & GraphSidebarItemOrigin,
 					}))
 				: [];
 		return { panel: 'stashes' as const, items: items };
@@ -484,7 +484,7 @@ export class GraphPanelsService {
 			date: t.date?.getTime(),
 			context: {
 				webview: this.host.id,
-				webviewItemOrigin: 'sidebar',
+				webviewItemOrigin: sidebarItemOrigin,
 				webviewItem: 'gitlens:tag',
 				webviewItemValue: {
 					type: 'tag',
@@ -494,7 +494,7 @@ export class GraphPanelsService {
 						name: t.name,
 					}),
 				},
-			} satisfies GraphItemRefContext<GraphTagContextValue>,
+			} satisfies GraphItemRefContext<GraphTagContextValue> & GraphSidebarItemOrigin,
 		}));
 		return { panel: 'tags' as const, items: items, layout: tagCfg.layout, compact: tagCfg.compact };
 	}
@@ -551,7 +551,7 @@ export class GraphPanelsService {
 				w.branch != null
 					? {
 							webview: this.host.id,
-							webviewItemOrigin: 'sidebar',
+							webviewItemOrigin: sidebarItemOrigin,
 							webviewItem: webviewItem,
 							webviewItemValue: {
 								type: 'branch',
@@ -568,7 +568,7 @@ export class GraphPanelsService {
 					: w.sha != null
 						? {
 								webview: this.host.id,
-								webviewItemOrigin: 'sidebar',
+								webviewItemOrigin: sidebarItemOrigin,
 								webviewItem: webviewItem,
 								webviewItemValue: {
 									type: 'commit',
@@ -643,9 +643,11 @@ export class GraphPanelsService {
 				const ctx = JSON.parse(params.context);
 				ctx.webview = this.host.id;
 				ctx.webviewInstance = this.host.instanceId;
-				// Mark this as an inline (hover-icon) invocation so the context-menu telemetry wrapper
-				// skips it — the webview already emitted the action with `location: 'inline'`.
-				ctx[sidebarInlineActionMarker] = true;
+				// Rewrite the origin to mark this as an inline (hover-icon) invocation so the
+				// context-menu telemetry gate skips it — the webview already emitted the action with
+				// `location: 'inline'`. Only this host-side parsed copy is mutated; serialized sidebar
+				// contexts (and thus native context-menu invocations) always carry 'sidebar'.
+				ctx.webviewItemOrigin = sidebarInlineItemOrigin;
 				void executeCommand(params.command, ctx);
 				return;
 			} catch {}
