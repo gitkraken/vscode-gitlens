@@ -39,7 +39,6 @@
 		"editor.defaultFormatter": "oxc.oxc-vscode"
 	},
 	"js/ts.preferences.importModuleSpecifier": "project-relative",
-	"js/ts.tsdk.path": "node_modules/typescript/lib",
 	"oxc.enable.oxlint": true,
 	"oxc.enable.oxfmt": true,
 	"search.exclude": {
