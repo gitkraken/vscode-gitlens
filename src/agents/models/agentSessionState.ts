@@ -112,14 +112,20 @@ export interface AgentSessionNameSource {
 }
 
 /**
- * Resolves the user-facing name for a session. Prefers the harness-supplied `name`, then
- * transcript-discovered titles (user-set `customTitle`, then AI-generated `aiTitle`), then a
- * heuristic derived from `firstPrompt`, then the same heuristic on `lastPrompt` (so resumed/
- * headless sessions with no first prompt still get a content-derived label), then the
- * transcript-discovered `agentName` slug as a low-priority content name (it's a slug-twin of
- * `customTitle`, often auto-derived and less readable than a prompt-derived label). If no content
- * name resolves, falls back to a location anchor (`On <X>`) built from worktree/cwd basename.
- * Always returns a non-empty string so consumers don't need to repeat fallback logic.
+ * Resolves the user-facing name for a session. Prefers transcript-discovered titles (user-set
+ * `customTitle`, then AI-generated `aiTitle`), then a heuristic derived from `firstPrompt`, then the
+ * same heuristic on `lastPrompt` (so resumed/headless sessions with no first prompt still get a
+ * content-derived label), then the harness-supplied `name`, then the transcript-discovered
+ * `agentName` slug. If no content name resolves, falls back to a location anchor (`On <X>`) built
+ * from worktree/cwd basename. Always returns a non-empty string so consumers don't need to repeat
+ * fallback logic.
+ *
+ * `session.name` sits *below* the transcript titles + prompt-derived names because for Claude Code
+ * it's an auto-generated repo slug (`vscode-gitlens-9f`) — a low-quality label that a real title or
+ * prompt should always beat. (The newer CLI always stamps it, so ranking it first would mask every
+ * good title.) It stays *above* the location anchor because for a subagent `name` is the meaningful
+ * `agentType` (`Explore`, `reviewer-agent`), which a subagent — having no titles or prompts — would
+ * otherwise lose to `On <cwd>`.
  *
  * Takes a structural shape rather than an `AgentSession` so past sessions read out of a transcript
  * store — which have no process, status, or phase — resolve through this same cascade instead of a
@@ -128,11 +134,11 @@ export interface AgentSessionNameSource {
 export function getSessionDisplayName(session: AgentSessionNameSource, worktreeName: string | undefined): string {
 	const titles = session.transcriptTitles;
 	const name =
-		session.name ||
 		titles?.custom ||
 		titles?.ai ||
 		deriveNameFromPrompt(session.firstPrompt) ||
 		deriveNameFromPrompt(session.lastPrompt) ||
+		session.name ||
 		titles?.agent;
 	if (name) return name;
 

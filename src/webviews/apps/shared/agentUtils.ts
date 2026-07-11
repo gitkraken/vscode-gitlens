@@ -68,10 +68,12 @@ export function getAgentPhaseLabel(
 
 /** "Last active …" granularity helper used by the graph details panel and the graph agents
  *  sidebar panel — short-and-stable formatting (no seconds past 1 minute). Accepts either a
- *  `Date` (the wire-shape's `phaseSince`/`lastActivity` fields) or a numeric timestamp. The
- *  agent-status pill has its own slightly more granular variant inline. `now` defaults to
- *  `Date.now()`; pass it to pin the instant (a caller deriving `value` from its own clock read
- *  otherwise sits one unpredictable tick away from the bucket it expects). */
+ *  `Date` (the wire-shape's `phaseSince`/`lastActivity` fields) or a numeric timestamp. Rolls the
+ *  top unit over as it crosses each boundary (`m → h → d → w`) so an hours-old completed session
+ *  reads `2d 3h` rather than `51h`. The agent-status pill has its own slightly more granular
+ *  variant inline. `now` defaults to `Date.now()`; pass it to pin the instant (a caller deriving
+ *  `value` from its own clock read otherwise sits one unpredictable tick away from the bucket it
+ *  expects). */
 export function formatAgentElapsed(value: Date | number | undefined, now: number = Date.now()): string | undefined {
 	if (value == null) return undefined;
 

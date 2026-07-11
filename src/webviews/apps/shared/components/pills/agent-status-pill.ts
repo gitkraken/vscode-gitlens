@@ -36,12 +36,16 @@ function formatElapsed(value: Date | number | undefined): string | undefined {
 	if (seconds < 60) return `${seconds}s`;
 
 	const minutes = Math.floor(seconds / 60);
-	const remainingSeconds = seconds % 60;
-	if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+	if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
 
 	const hours = Math.floor(minutes / 60);
-	const remainingMinutes = minutes % 60;
-	return `${hours}h ${remainingMinutes}m`;
+	if (hours < 24) return `${hours}h ${minutes % 60}m`;
+
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days}d ${hours % 24}h`;
+
+	const weeks = Math.floor(days / 7);
+	return `${weeks}w ${days % 7}d`;
 }
 
 declare global {
