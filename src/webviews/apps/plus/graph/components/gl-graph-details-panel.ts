@@ -1921,7 +1921,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.position=${position}
 			@gl-split-panel-change=${this.handleCompareSplitChange}
 		>
-			<div slot="start" class="compare-pinned-split__start">${detailsContent}</div>
+			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}</div>
 			<div slot="end" class="compare-pinned-split__end">
 				<div class="compare-pinned-host">
 					<header class="compare-pinned-host__header">

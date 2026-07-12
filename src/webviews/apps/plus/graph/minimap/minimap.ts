@@ -23,8 +23,12 @@ import {
 	xToDay,
 	xToTimestamp,
 } from './minimapRenderer.js';
+import '../../../shared/components/code-icon.js';
 
-const brushThresholdPx = 3;
+// Click-vs-brush slop. At 3px, normal clicks (which carry a few px of incidental pointer movement)
+// crossed into "brush" and zoomed instead of selecting the day's commit. 6px lets clicks through while
+// still starting a brush on a deliberate horizontal drag.
+const brushThresholdPx = 6;
 const scrollbarHeightPx = 8;
 const scrollbarFadeStep = 0.18; // ~6 frames from 0→1 at 60fps
 
@@ -1074,11 +1078,18 @@ export class GlGraphMinimap extends GlElement {
 		}
 
 		if (this._brushing && this._pointerDownX != null && this._brushCurrentX != null) {
-			this.commitBrush(this._pointerDownX, this._brushCurrentX);
-			this._pointerDownX = undefined;
-			this._brushCurrentX = undefined;
+			const downX = this._pointerDownX;
+			const currentX = this._brushCurrentX;
 			this._brushing = false;
-			return;
+			this._brushCurrentX = undefined;
+			// A real brush (meaningful horizontal span) zooms; a degenerate one — pointer crossed the
+			// threshold then returned near the start — falls through to the bare-click path below so it
+			// still selects the day's commit instead of silently doing nothing.
+			if (Math.abs(currentX - downX) >= brushThresholdPx) {
+				this.commitBrush(downX, currentX);
+				this._pointerDownX = undefined;
+				return;
+			}
 		}
 
 		// Bare click — map against the active (possibly zoomed) view model.
@@ -1299,6 +1310,8 @@ export class GlGraphMinimap extends GlElement {
 		return html`
 			<canvas
 				id="canvas"
+				role="img"
+				aria-label="Repository activity minimap. Click or drag to navigate the graph."
 				@pointerdown=${this.onPointerDown}
 				@pointermove=${this.onPointerMove}
 				@pointerup=${this.onPointerUp}

@@ -1,4 +1,5 @@
 import { createContext } from '@lit/context';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import type { AgentSessionState } from '../../../../agents/models/agentSessionState.js';
 import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
@@ -43,9 +44,20 @@ export interface AppState extends State {
 	searchResultsResponse: GraphSearchResults | GraphSearchResultsError | undefined;
 	searchResults: GraphSearchResults | undefined;
 	searchResultsError: GraphSearchResultsError | undefined;
+	/** The active search's query, carried from the host so a rebooted/reconnected app can restore its
+	 *  search box (results ride their own channel; without this the box is blank after a reconnect). */
+	searchQuery: SearchQuery | undefined;
 	currentSearchId: number | undefined;
 	selectedRows: GraphSelectedRows | undefined;
 	visibleDays: { top: number; bottom: number } | undefined;
+	/**
+	 * Webview-only monotonic counter bumped whenever the host ships an authoritative refsMetadata REPLACE
+	 * (`refsMetadataReset`). An integration-flip STRIP preserves a non-empty upstream map, so the graph
+	 * component can't detect the reset by emptiness — it watches this token instead to re-arm its per-id
+	 * request dedup and re-request the dropped (PR/issue) types for visible rows. Not part of the host wire
+	 * contract (`State`); lives purely in the reducer→component signal path.
+	 */
+	refsMetadataResetToken: number;
 
 	/**
 	 * Publish a lazily-fetched merge target into `overviewEnrichment` for the given branchId. The graph

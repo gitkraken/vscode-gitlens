@@ -829,7 +829,9 @@ export class GlGraphKanban extends SignalWatcher(LitElement) {
 			@keydown=${this.onCardKeydown}
 		>
 			<div class="card__head">
-				<span class="card__title" title=${session.displayName}>${session.displayName}</span>
+				<gl-tooltip content=${session.displayName}
+					><span class="card__title">${session.displayName}</span></gl-tooltip
+				>
 				<span class="card__phase">${phaseLabel}${elapsed != null ? ` · ${elapsed}` : ''}</span>
 			</div>
 			<div class="card__sub-row">

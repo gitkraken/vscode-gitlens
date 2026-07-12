@@ -16,6 +16,7 @@ import { RpcController } from '../../shared/rpc/rpcController.js';
 import type { ThemeChangeEvent } from '../../shared/theme.js';
 import { graphServicesContext } from './context.js';
 import type { GraphApp } from './graph-app.js';
+import { applyGraphThemeVariables } from './graph-wrapper/graph-theme-bridge.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import { createSidebarActions } from './sidebar/sidebarState.js';
 import { GraphStateProvider } from './stateProvider.js';
@@ -132,6 +133,17 @@ export class GraphAppHost extends GlAppHost<State, GraphStateProvider> {
 	}
 
 	protected override onThemeUpdated(e: ThemeChangeEvent) {
+		// Refresh the commit-graph graph engine's HSL token vars so the experimental engine picks up
+		// theme switches. Cheap (~7 getComputedStyle reads + Color.from conversions) and idempotent
+		// when the experimental engine isn't selected — the vars just remain unused.
+		// `onThemeUpdated` is invoked once at startup (before the initial render) AND on every later
+		// theme change (see appBase.ts) — so the lane palette is already correct before `gl-lit-graph`
+		// ever renders; the event below only matters for a THEME CHANGE while the graph is open, to
+		// invalidate its cached (lane-colored) adornments.
+		if (applyGraphThemeVariables()) {
+			window.dispatchEvent(new CustomEvent('gl-graph-lane-palette-changed'));
+		}
+
 		const rootStyle = document.documentElement.style;
 
 		const backgroundColor = Color.from(e.colors.background);

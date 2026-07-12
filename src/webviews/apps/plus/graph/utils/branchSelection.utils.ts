@@ -1,4 +1,4 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
@@ -7,7 +7,7 @@ import { createSecondaryWipSha } from '../../../../plus/graph/protocol.js';
 
 export interface SelectionContext {
 	wipMetadataBySha: GraphWipMetadataBySha | undefined;
-	rows: readonly GraphRow[] | undefined;
+	rows: readonly GitGraphRow[] | undefined;
 	branchesVisibility: GraphBranchesVisibility | undefined;
 	includeOnlyRefs: GraphIncludeOnlyRefs | undefined;
 }

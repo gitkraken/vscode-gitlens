@@ -1,4 +1,4 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
 	GraphDownstreams,
 	GraphMinimapMarkerTypes,
@@ -18,7 +18,7 @@ import type {
 } from './minimap.js';
 
 export interface MinimapAggregateInput {
-	readonly rows: readonly GraphRow[];
+	readonly rows: readonly GitGraphRow[];
 	readonly rowsStats: Record<string, GraphRowStats> | undefined;
 	readonly refMetadata: GraphRefsMetadata | null | undefined;
 	readonly downstreams: GraphDownstreams | undefined;

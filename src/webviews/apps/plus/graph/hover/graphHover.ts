@@ -1,7 +1,7 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
 import { css, html } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { until } from 'lit/directives/until.js';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { getSettledValue, isPromise } from '@gitlens/utils/promise.js';
@@ -62,7 +62,7 @@ export class GlGraphHover extends GlElement {
 	skidding?: number | undefined;
 
 	@property({ type: Function })
-	requestMarkdown: ((row: GraphRow) => Promise<DidGetRowHoverParams>) | undefined;
+	requestMarkdown: ((row: GitGraphRow) => Promise<DidGetRowHoverParams>) | undefined;
 
 	@query('gl-popover')
 	popup!: GlPopover;
@@ -160,7 +160,7 @@ export class GlGraphHover extends GlElement {
 
 	private _showCoreDebounced: Deferrable<GlGraphHover['showCore']> | undefined = undefined;
 
-	onRowHovered(row: GraphRow, anchor: Anchor): void {
+	onRowHovered(row: GitGraphRow, anchor: Anchor): void {
 		const showQuickly = performance.now() - this._lastUnhoveredTimestamp <= 750;
 		this.resetUnhoverTimer();
 
@@ -198,14 +198,14 @@ export class GlGraphHover extends GlElement {
 		}
 	}
 
-	onRowChanged(row: GraphRow): void {
+	onRowChanged(row: GitGraphRow): void {
 		if (!this.open || row.sha === this.shaHovering) return;
 
 		this._showCoreDebounced?.cancel();
 		this.hide();
 	}
 
-	onRowUnhovered(_row: GraphRow, relatedTarget: EventTarget | null): void {
+	onRowUnhovered(_row: GitGraphRow, relatedTarget: EventTarget | null): void {
 		this.recalculated = false;
 		this.resetUnhoverTimer();
 		this._showCoreDebounced?.cancel();

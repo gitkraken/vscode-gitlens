@@ -1,5 +1,4 @@
-import type { GraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
-import { refZone } from '@gitkraken/gitkraken-components';
+import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -7,7 +6,7 @@ import { customElement, query, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { when } from 'lit/directives/when.js';
-import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
@@ -28,6 +27,7 @@ import type {
 	GraphShowAction,
 	GraphSidebarPanel,
 	OverviewRecentThreshold,
+	SelectCommitsOptions,
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
@@ -1379,7 +1379,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleWipRowOpen = async (
-		e: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GraphRow }>,
+		e: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GitGraphRow }>,
 	): Promise<void> => {
 		const { target, row } = e.detail;
 		const fallbackRepoPath = this.fallbackRepoPath ?? '';
@@ -1606,6 +1606,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					class="graph__header"
 					.selectCommits=${this.selectCommits}
 					.getCommits=${this.getCommits}
+					.ensureGraphRendered=${this.ensureGraphRendered}
 					.detailsVisible=${detailsVisible}
 					.detailsEffectiveLocation=${this.effectiveDetailsLocation}
 					.minimapVisible=${minimapVisible}
@@ -1677,6 +1678,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-show-search-box-change=${this.handleDetailsShowSearchBoxChange}
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
+					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 				></gl-graph-details-panel>
 			</div>
 		</gl-split-panel>`;
@@ -1726,7 +1728,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// handler. These two subtrees are mutually exclusive sibling render branches — without
 		// hoisting, a bubbled event from the treemap would never reach a listener.
 		return html`
-			<div class="graph__graph-pane-body" @gl-graph-kanban-open-session=${this.handleKanbanOpenSession}>
+			<div
+				class="graph__graph-pane-body"
+				@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
+				@gl-graph-style-change=${this.handleStyleChange}
+			>
 				${when(
 					this.graphState.config?.sidebar,
 					() =>
@@ -1739,7 +1745,9 @@ export class GraphApp extends SignalWatcher(LitElement) {
 									.handleVisualizationsCalloutDismiss}
 								@gl-graph-sidebar-show-shortcuts=${this.handleShowShortcuts}
 							></gl-graph-sidebar>
-							<gl-graph-keyboard-shortcuts></gl-graph-keyboard-shortcuts>`,
+							<gl-graph-keyboard-shortcuts
+								.useNewEngine=${this.graphState.config?.useNewEngine === true}
+							></gl-graph-keyboard-shortcuts>`,
 				)}
 				${this.graphState.config?.sidebar
 					? this.renderSidebarSplit(!isGraphMode)
@@ -1968,6 +1976,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
+					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
@@ -2337,6 +2346,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
+	}
+
+	// The graph-style toggle (in gl-lit-graph's header) bubbles its next mode up; persist it to
+	// `gitlens.graph.style`, which flows back through config → the component's `effectiveStyle`.
+	private handleStyleChange(e: CustomEvent<{ style: GraphStyle }>) {
+		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { style: e.detail.style } });
 	}
 
 	private handleToggleMinimap() {
@@ -2757,7 +2772,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private _cachedScopeWindow:
 		| {
 				scope: AppState['scope'];
-				rows: GraphRow[] | undefined;
+				rows: GitGraphRow[] | undefined;
 				result: { start: number; end: number } | undefined;
 		  }
 		| undefined;
@@ -2790,7 +2805,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private computeScopeWindow(
 		scope: NonNullable<AppState['scope']>,
-		rows: GraphRow[] | undefined,
+		rows: GitGraphRow[] | undefined,
 	): { start: number; end: number } | undefined {
 		if (scope.mergeBase == null) return undefined;
 
@@ -2833,6 +2848,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return this.graph.getCommits(shas);
 	};
 
+	private ensureGraphRendered = (): Promise<void> => this.graph.ensureRendered();
+
 	private handleMinimapWheel(e: GraphMinimapWheelEvent) {
 		this.graph?.scrollGraphBy(e.detail.deltaY);
 	}
@@ -2845,9 +2862,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			const date = e.detail.date?.getTime();
 			if (date == null) return;
 
-			// Find closest row to the date
+			// Find the closest row to the date. Compare against COMMITTER date (what the minimap buckets
+			// by) — `row.date` follows the user's ordering setting (author date when so configured), which
+			// for rebased commits can be far off and would land on the wrong row.
 			const closest = this.graphState.rows.reduce((prev, curr) => {
-				return Math.abs(curr.date - date) < Math.abs(prev.date - date) ? curr : prev;
+				return Math.abs(getCommitDateFromRow(curr) - date) < Math.abs(getCommitDateFromRow(prev) - date)
+					? curr
+					: prev;
 			});
 			sha = closest.sha;
 		}
@@ -3100,7 +3121,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private handleGraphRowHover({
 		detail: { graphZoneType, graphRow, clientX, currentTarget },
 	}: CustomEventType<'gl-graph-row-hover'>) {
-		if (graphZoneType === refZone) return;
+		if (graphZoneType === 'ref') return;
 
 		const hover = this.graphHover;
 		if (hover == null) return;
@@ -3130,10 +3151,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleGraphRowHoverTrack({ detail: { graphZoneType, graphRow } }: CustomEventType<'rowhovertrack'>) {
-		if (graphZoneType === refZone) return;
+		if (graphZoneType === 'ref') return;
 
 		this.minimapEl?.select(graphRow.date, true);
-		this.graphHover?.onRowChanged(graphRow);
+		// Old-engine event detail is typed with the GKC row shape; the runtime object is the native row.
+		this.graphHover?.onRowChanged(graphRow as unknown as GitGraphRow);
 	}
 
 	private handleGraphRowUnhover({
@@ -3150,7 +3172,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphHover.hide();
 	}
 
-	private async getRowHoverPromise(row: GraphRow) {
+	private async getRowHoverPromise(row: GitGraphRow) {
 		try {
 			const request = await this._ipc.sendRequest(GetRowHoverRequest, {
 				type: row.type,

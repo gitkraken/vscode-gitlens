@@ -1233,7 +1233,7 @@ export const GlGraphReact = memo((initProps: GraphWrapperInitProps) => {
 			onShowMoreCommits={handleMoreCommits}
 			onGraphVisibleRowsChanged={handleOnGraphVisibleRowsChanged}
 			platform={clientPlatform}
-			refMetadataById={props.refsMetadata}
+			refMetadataById={props.refsMetadata as unknown as GraphContainerProps['refMetadataById']}
 			rowsStats={props.rowsStats}
 			rowsStatsLoading={props.rowsStatsLoading}
 			searchMode={props.searchMode ?? 'normal'}

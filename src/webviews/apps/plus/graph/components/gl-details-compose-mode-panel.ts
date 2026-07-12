@@ -939,24 +939,26 @@ export class GlDetailsComposeModePanel extends LitElement {
 		const headline = base.message?.split('\n')[0]?.trim() || '(no message)';
 		const dateLabel = base.date ? fromNow(new Date(base.date)) : undefined;
 
-		return html`<div class="compose-base" title="Anchored at ${shortSha}">
-			<span class="compose-base__marker" aria-hidden="true">&#9675;</span>
-			<div class="compose-base__body">
-				<span class="compose-base__headline">${headline}</span>
-				<span class="compose-base__meta">
-					<span class="compose-base__sha">${shortSha}</span>
-					${base.author
-						? html`<span class="compose-base__dot" aria-hidden="true">·</span>
-								<span class="compose-base__author">${base.author}</span>`
-						: nothing}
-					${dateLabel
-						? html`<span class="compose-base__dot" aria-hidden="true">·</span>
-								<span class="compose-base__date">${dateLabel}</span>`
-						: nothing}
-				</span>
-			</div>
-			<span class="compose-base__tag">base</span>
-		</div>`;
+		return html`<gl-tooltip content="Anchored at ${shortSha}"
+			><div class="compose-base">
+				<span class="compose-base__marker" aria-hidden="true">&#9675;</span>
+				<div class="compose-base__body">
+					<span class="compose-base__headline">${headline}</span>
+					<span class="compose-base__meta">
+						<span class="compose-base__sha">${shortSha}</span>
+						${base.author
+							? html`<span class="compose-base__dot" aria-hidden="true">·</span>
+									<span class="compose-base__author">${base.author}</span>`
+							: nothing}
+						${dateLabel
+							? html`<span class="compose-base__dot" aria-hidden="true">·</span>
+									<span class="compose-base__date">${dateLabel}</span>`
+							: nothing}
+					</span>
+				</div>
+				<span class="compose-base__tag">base</span>
+			</div></gl-tooltip
+		>`;
 	}
 
 	private renderSelectedCommitFiles() {

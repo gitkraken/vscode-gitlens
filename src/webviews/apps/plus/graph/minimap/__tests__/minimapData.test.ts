@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import type { GraphRow } from '@gitkraken/gitkraken-components';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type { GraphMinimapMarkerTypes, GraphSearchResults } from '../../../../../plus/graph/protocol.js';
 import { aggregate, aggregateSearchResults, getDay } from '../minimapData.js';
 
@@ -8,8 +8,8 @@ const day1Midnight = new Date(2024, 5, 10, 0, 0, 0, 0).getTime();
 const day2 = new Date(2024, 5, 11, 9, 0).getTime();
 const day2Midnight = new Date(2024, 5, 11, 0, 0, 0, 0).getTime();
 
-function row(overrides: Partial<GraphRow> & { sha: string; date: number }): GraphRow {
-	const r: GraphRow = {
+function row(overrides: Partial<GitGraphRow> & { sha: string; date: number }): GitGraphRow {
+	const r: GitGraphRow = {
 		sha: overrides.sha,
 		date: overrides.date,
 		parents: [],
@@ -240,7 +240,16 @@ suite('minimapData Test Suite', () => {
 
 	test('emits tag markers when tags enabled', () => {
 		const result = aggregate({
-			rows: [row({ sha: 'a', date: day1, tags: [{ name: 'v1.0.0' }, { name: 'stable' }] })],
+			rows: [
+				row({
+					sha: 'a',
+					date: day1,
+					tags: [
+						{ name: 'v1.0.0', annotated: false },
+						{ name: 'stable', annotated: false },
+					],
+				}),
+			],
 			rowsStats: undefined,
 			refMetadata: undefined,
 			downstreams: undefined,

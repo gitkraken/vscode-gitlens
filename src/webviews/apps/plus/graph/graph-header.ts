@@ -1,5 +1,3 @@
-import type { GraphRefOptData, ReadonlyGraphRow, SelectCommitsOptions } from '@gitkraken/gitkraken-components';
-import { refTypes } from '@gitkraken/gitkraken-components';
 import { computed, SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
@@ -24,7 +22,11 @@ import type {
 	GraphColumnName,
 	GraphExcludedRef,
 	GraphExcludeRefs,
+	GraphRefOptData,
 	GraphSearchResults,
+	GraphSelectedRows,
+	ReadonlyGraphRow,
+	SelectCommitsOptions,
 	State,
 } from '../../../plus/graph/protocol.js';
 import {
@@ -57,7 +59,7 @@ import { graphStateContext } from './context.js';
 import { getEffectiveDisplayMode } from './displayMode.js';
 import { sidebarActionsContext } from './sidebar/sidebarContext.js';
 import type { SidebarActions } from './sidebar/sidebarState.js';
-import { isGraphSearchResultsError } from './stateProvider.js';
+import { isGraphSearchResultsError, shouldRestoreSearchQuery } from './stateProvider.js';
 import { actionButton, linkBase } from './styles/graph.css.js';
 import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js';
 import '../../shared/components/branch-name.js';
@@ -238,6 +240,8 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	getCommits?: (shas: string[]) => ReadonlyGraphRow[];
 	// Function to select commits on the graph, passed from graph-app
 	selectCommits?: (shas: string[], options?: SelectCommitsOptions) => ReadonlyGraphRow[];
+	// Awaits the graph flushing pending renders (so post-load visibility reads are accurate), from graph-app
+	ensureGraphRendered?: () => Promise<void>;
 
 	@property({ type: Boolean, attribute: 'details-visible' })
 	detailsVisible = false;
@@ -283,6 +287,25 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 			this._lastRepoPath = currentRepo;
 			this.ensuredIds.clear();
 			this.pendingEnsureRequests.clear();
+		}
+
+		// Restore the search box after a reboot/reconnect where an active search's query didn't reach the
+		// box (the host carries it on `graphState.searchQuery`). Set the box display via the element's own
+		// `setExternalSearchQuery` — NOT the header's same-named method, which also RE-RUNS the search. The
+		// guard fires only when the local box is empty and the search is live (results present OR still
+		// searching), so it never clobbers an in-progress user query nor revives a just-cancelled search.
+		if (
+			shouldRestoreSearchQuery(
+				this._searchQuery?.query,
+				this.graphState.searchQuery,
+				this.graphState.searchResults != null,
+				this.graphState.searching,
+			)
+		) {
+			const restored = this.graphState.searchQuery!;
+			this._searchQuery = restored;
+			this.searchEl?.setExternalSearchQuery(restored);
+			this.updateActiveFilterColumns();
 		}
 
 		super.updated(changedProperties);
@@ -563,6 +586,15 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 		}
 	}
 
+	// Auto-reveal the first search match (new-search entry point only — next/prev navigation already
+	// reveals its own target via executeNavigation, so calling this there would double-reveal).
+	private revealFirstSearchMatch(selectedRows: GraphSelectedRows | undefined): void {
+		const firstSha = selectedRows != null ? Object.keys(selectedRows)[0] : undefined;
+		if (firstSha != null) {
+			this.selectCommits?.([firstSha], { ensureVisible: true });
+		}
+	}
+
 	private async startSearch() {
 		if (!this.searchValid) {
 			this.cancelSearch(false);
@@ -590,6 +622,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.graphState.searchMode = this._searchQuery.filter ? 'filter' : 'normal';
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
+					this.revealFirstSearchMatch(rsp.selectedRows);
 				}
 			}
 		} catch {
@@ -673,6 +706,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				this.graphState.searchResultsResponse = rsp.results;
 				if (rsp.selectedRows != null) {
 					this.graphState.selectedRows = rsp.selectedRows;
+					this.revealFirstSearchMatch(rsp.selectedRows);
 				}
 			}
 
@@ -966,7 +1000,12 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 
 		while (performance.now() - startTime < maxWaitMs) {
 			const rows = this.getCommits?.([id]);
-			if (rows != null) return rows;
+			if (rows != null && rows.length > 0) {
+				// Flush the graph's pending render before returning, so a follow-up visibility read
+				// (getCommits/selectCommits → isRowDisplayed) sees the just-paged row, not a stale displayRows.
+				await this.ensureGraphRendered?.();
+				return rows;
+			}
 
 			await wait(50);
 		}
@@ -1491,12 +1530,11 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	}
 }
 
-// TODO: this should be exported by the graph library
 export function compareGraphRefOpts(a: GraphRefOptData, b: GraphRefOptData): number {
 	const comparationResult = a.name.localeCompare(b.name);
 	if (comparationResult === 0) {
 		// If names are equals
-		if (a.type === refTypes.REMOTE) {
+		if (a.type === 'remote') {
 			return -1;
 		}
 	}

@@ -225,8 +225,11 @@ export function xToDay(x: number, viewModel: MinimapViewModel, lo: MinimapLayout
 	if (lo.barWidth === 0) return undefined;
 
 	const xLocal = lo.reversed ? lo.chartWidth - x : x;
-	const index = Math.floor(xLocal / lo.barWidth);
-	if (index < 0 || index >= viewModel.days.length) return undefined;
+	if (xLocal < 0 || xLocal > lo.chartWidth) return undefined;
+
+	// Clamp (don't reject) the last bar so a click on the far edge (xLocal === chartWidth → index ===
+	// dayCount) still maps to the outermost day instead of silently selecting nothing.
+	const index = Math.min(Math.floor(xLocal / lo.barWidth), viewModel.days.length - 1);
 	return viewModel.days[index];
 }
 

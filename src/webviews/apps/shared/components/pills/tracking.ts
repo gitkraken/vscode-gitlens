@@ -21,6 +21,10 @@ export class GlTrackingPill extends LitElement {
 				align-items: center;
 				-webkit-font-smoothing: antialiased;
 				-moz-osx-font-smoothing: grayscale;
+				/* Off by default; a consumer (e.g. the graph ref pill) sets the duration so the ahead/behind
+				   colors fade IN SYNC with the surrounding pill's hover/selection transition instead of
+				   snapping back early. */
+				transition: color var(--gl-tracking-color-transition, 0s) ease-out;
 			}
 
 			.state--missing code-icon {
@@ -43,6 +47,7 @@ export class GlTrackingPill extends LitElement {
 				font-size: inherit !important;
 				font-weight: inherit !important;
 				line-height: inherit !important;
+				transition: color var(--gl-tracking-color-transition, 0s) ease-out;
 			}
 
 			.working {

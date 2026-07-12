@@ -404,7 +404,10 @@ export class GlPopover extends GlElement {
 			[slot='anchor'] {
 				width: var(--gl-popover-anchor-width, fit-content);
 				max-width: 100%;
-				overflow: hidden;
+				/* Default clips the anchor to its width; consumers whose anchor has an absolutely-
+				   positioned overflow affordance (e.g. the graph ref pill's hover-expand overlay) set
+				   --gl-popover-anchor-overflow: visible so it can escape this shadow-DOM wrapper. */
+				overflow: var(--gl-popover-anchor-overflow, hidden);
 			}
 		`,
 	];

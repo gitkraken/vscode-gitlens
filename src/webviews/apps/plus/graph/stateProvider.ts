@@ -1,11 +1,13 @@
-import type { WorkDirStats } from '@gitkraken/gitkraken-components';
 import { ContextProvider } from '@lit/context';
-import type { GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type { SearchQuery } from '@gitlens/git/models/search.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { getBranchId } from '@gitlens/git/utils/branch.utils.js';
+import { appendRowsAtCursor } from '@gitlens/git/utils/graph.utils.js';
 import { decodeReachabilitySet } from '@gitlens/git/utils/reachability.utils.js';
 import { compareReachableRefs } from '@gitlens/git/utils/sorting.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { areEqual, hasKeys } from '@gitlens/utils/object.js';
@@ -13,17 +15,18 @@ import type { StoredGraphWipDraft } from '../../../../constants.storage.js';
 import type { IpcMessage } from '../../../ipc/models/ipc.js';
 import type {
 	DidSearchParams,
+	GraphRowsSplice,
 	GraphScope,
 	GraphSearchResults,
 	GraphSearchResultsError,
 	GraphWorkingTreeStats,
 	State,
 	Wip,
+	WorkDirStats,
 } from '../../../plus/graph/protocol.js';
 import {
 	createSecondaryWipSha,
 	DidChangeAgentSessionsNotification,
-	DidChangeAvatarsNotification,
 	DidChangeBranchStateNotification,
 	DidChangeCanInstallClaudeHook,
 	DidChangeColumnsNotification,
@@ -37,11 +40,9 @@ import {
 	DidChangeOrgSettings,
 	DidChangeOverviewNotification,
 	DidChangePinnedRefNotification,
-	DidChangeRefsMetadataNotification,
 	DidChangeRefsVisibilityNotification,
 	DidChangeRepoConnectionNotification,
 	DidChangeRowsNotification,
-	DidChangeRowsStatsNotification,
 	DidChangeScrollMarkersNotification,
 	DidChangeSelectionNotification,
 	DidChangeSubscriptionNotification,
@@ -60,6 +61,7 @@ import {
 	DidStartFeaturePreviewNotification,
 	GetAgentSessionsRequest,
 	GetOverviewEnrichmentRequest,
+	GraphSyncResyncCommand,
 	ResolveGraphScopeRequest,
 } from '../../../plus/graph/protocol.js';
 import type { WebviewState } from '../../../protocol.js';
@@ -74,6 +76,7 @@ import { StateProviderBase } from '../../shared/stateProviderBase.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { AppState } from './context.js';
 import { graphStateContext } from './context.js';
+import { GraphRowsSyncReceiver } from './graphRowsSyncReceiver.js';
 
 const BaseWebviewStateKeys = [
 	'timestamp',
@@ -85,6 +88,106 @@ export function isGraphSearchResultsError(
 	results: GraphSearchResults | GraphSearchResultsError,
 ): results is GraphSearchResultsError {
 	return 'error' in results;
+}
+
+/** The search CONTROL substate (everything a `DidSearchParams` decides EXCEPT the results object). */
+export interface GraphSearchControlState {
+	currentSearchId: number | undefined;
+	searching: boolean;
+	searchMode: 'filter' | 'normal';
+	searchQuery: SearchQuery | undefined;
+}
+
+/**
+ * Pure reduction of the search control substate for an incoming {@link DidSearchParams}. Kept separate
+ * from (and unit-tested independently of) the results-accumulation in `handleSearchNotification` because
+ * these are the decisions that were historically under-tested and repeatedly mis-set:
+ * - the spinner gate: a rows-plane RIDER (a results/coverage refresh) must NEVER raise or lower
+ *   `searching`; a real new search raises it; a final/error result lowers it; a partial keeps it on;
+ * - query propagation: the query rides every non-cancel notification so a rebooted/reconnected app can
+ *   restore its search box (results travel their own channel) — cleared on cancellation.
+ * `ignore` marks a stale (superseded) notification the caller must drop entirely.
+ */
+export function reduceGraphSearchControlState(
+	prev: GraphSearchControlState,
+	params: Pick<DidSearchParams, 'searchId' | 'search' | 'results' | 'partial' | 'rider'>,
+): { ignore: boolean; next: GraphSearchControlState } {
+	const { searchId } = params;
+
+	// Stale notification from a superseded search.
+	if (prev.currentSearchId != null && searchId < prev.currentSearchId) {
+		return { ignore: true, next: prev };
+	}
+
+	const cancelled = params.results == null && params.search == null;
+	const isRider = params.rider === true;
+	const isNewId = searchId !== prev.currentSearchId;
+
+	let { currentSearchId, searching, searchMode, searchQuery } = prev;
+
+	if (isNewId) {
+		currentSearchId = searchId;
+		// A rider re-delivers an already-complete search to a rebooted app (its `currentSearchId` is
+		// unseeded, so this trips the new-id branch) — it must NOT raise the spinner; neither does cancel.
+		if (!cancelled && !isRider) {
+			searching = true;
+		}
+		if (params.search != null) {
+			searchMode = params.search.filter ? 'filter' : 'normal';
+		}
+	}
+
+	if (cancelled) {
+		return {
+			ignore: false,
+			next: {
+				currentSearchId: currentSearchId,
+				searching: false,
+				searchMode: searchMode,
+				searchQuery: undefined,
+			},
+		};
+	}
+
+	// Query rides every non-cancel notification (start/progressive/final/rider) for box restoration.
+	if (params.search != null) {
+		searchQuery = params.search;
+	}
+
+	if (params.results != null) {
+		if (isGraphSearchResultsError(params.results)) {
+			searching = false;
+		} else if (!isRider) {
+			// Final (non-partial) result stops the spinner; a partial keeps it on. A rider never drives it.
+			searching = params.partial === true;
+		}
+	}
+
+	return {
+		ignore: false,
+		next: {
+			currentSearchId: currentSearchId,
+			searching: searching,
+			searchMode: searchMode,
+			searchQuery: searchQuery,
+		},
+	};
+}
+
+/**
+ * Pure: whether a host-restored search query should hydrate the (empty) local search box. Fires after a
+ * reboot/reconnect where an active search's query didn't reach the box; never clobbers an in-progress
+ * user query (non-empty local). Gated on the search being live — results present OR still `searching` —
+ * so it never revives a just-cancelled search (cancel clears both) yet still restores the box mid-
+ * progressive-search before the first result lands (else a rebooted iframe shows a spinner + blank box).
+ */
+export function shouldRestoreSearchQuery(
+	localQuery: string | undefined,
+	restored: SearchQuery | undefined,
+	hasResults: boolean,
+	isSearching: boolean,
+): boolean {
+	return (localQuery ?? '') === '' && (restored?.query ?? '') !== '' && (hasResults || isSearching);
 }
 
 /** Lightweight scope anchor returned by `ResolveGraphScopeRequest` and cached webview-side. */
@@ -176,6 +279,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		return this._currentSearchId;
 	}
 
+	// Rows-plane sync sequencer (R1c): holds the `{generation, seq}` baseline the webview mirrors from
+	// the publisher's `DidChangeRows` channel plus the resync dedup flag. Seeded ONCE from the bootstrap
+	// `State.sync` stamp in `initializeState`; thereafter advanced ONLY by contiguous deltas / rebased by
+	// snapshots. A mid-session full-State push also carries `sync`, but MUST NOT move the baseline — the
+	// rows channel is the single writer.
+	private readonly _rowsSync = new GraphRowsSyncReceiver();
+
 	// App state members moved from GraphAppState
 	@signalState()
 	accessor activeDay: AppState['activeDay'];
@@ -256,6 +366,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor searchResultsError: AppState['searchResultsError'];
 
 	@signalState()
+	accessor searchQuery: AppState['searchQuery'];
+
+	@signalState()
 	accessor selectedRows: AppState['selectedRows'];
 
 	@signalObjectState()
@@ -309,6 +422,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 	@signalState()
 	accessor refsMetadata: State['refsMetadata'];
+
+	// Bumped on every authoritative refsMetadata REPLACE (`refsMetadataReset`) so the graph component can
+	// re-arm its per-id request dedup even when the strip preserves a non-empty (upstream) map.
+	@signalState(0)
+	accessor refsMetadataResetToken: AppState['refsMetadataResetToken'] = 0;
 
 	@signalState()
 	accessor rows: State['rows'];
@@ -433,6 +551,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	override dispose(): void {
 		// Cancel any pending debounced provider update to prevent post-dispose updates
 		this.fireProviderUpdate.cancel?.();
+		if (this._resyncRetryTimer != null) {
+			clearTimeout(this._resyncRetryTimer);
+			this._resyncRetryTimer = undefined;
+		}
 		super.dispose();
 	}
 
@@ -454,6 +576,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		// selection time (see `graph-wrapper`), so nothing to rebuild here. Reachability is likewise
 		// decoded on demand from `_state.reachabilityTable` via `getRowReachability`.
 		this.updateState(this._state, true);
+
+		// Seed the rows-plane sync baseline from the bootstrap stamp — ONLY here (single-writer:
+		// mid-session full-State pushes also carry `sync` but must not move the baseline).
+		this._rowsSync.initFromBootstrap(this._state.sync);
+		// Sync-hello: announce the held baseline so the host catches us up when we're behind (its
+		// `onResyncRequest` no-ops when in sync, snapshots when not). This closes the silent-staleness
+		// reconnect window where a mid-session State reset pruned rows-plane messages out of the
+		// replay buffer. `initializeState` runs once per fresh iframe — initial boot, soft-reconnect
+		// replay, and hard-refresh all re-run it — so this fires exactly once per (re)connect.
+		this.sendSyncHello();
+
 		// Enrichment is fetched lazily when a consumer needs it (the overview sidebar mounting or
 		// the scope popover opening) rather than eagerly at bootstrap, where it competes with the
 		// graph render itself.
@@ -461,6 +594,46 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		void this.ipc.sendRequest(GetAgentSessionsRequest, undefined).then(sessions => {
 			this.agentSessions = sortAgentSessions(sessions);
 		});
+	}
+
+	/** Announce the held rows-plane baseline to the host on (re)connect. Best-effort — deliberately
+	 *  NOT gated by the resync dedup: the host may legitimately no-op it (in sync), which would never
+	 *  clear an outstanding flag and would then wedge genuine mid-session gap recovery. */
+	private sendSyncHello(): void {
+		this.ipc.sendCommand(GraphSyncResyncCommand, {
+			generation: this._rowsSync.generation,
+			seq: this._rowsSync.lastApplied,
+		});
+	}
+
+	private _resyncRetryTimer: ReturnType<typeof setTimeout> | undefined;
+
+	/** Request a rows-plane snapshot after a detected gap / splice-guard mismatch. Deduped by the
+	 *  receiver (a second gap while one request is in flight is dropped; the flag clears when a
+	 *  snapshot lands), with a LIVENESS timer for the loss cases: if the request itself — or the
+	 *  snapshot the host trusted in place of answering it — went missing, no further rows message may
+	 *  ever arrive on an idle repo to re-trigger this, so the timer re-sends past the receiver's retry
+	 *  threshold (where the host treats the identical repeat as proof of non-delivery and snapshots). */
+	private requestResync(): void {
+		if (!this._rowsSync.beginResync()) return;
+
+		this.ipc.sendCommand(GraphSyncResyncCommand, {
+			generation: this._rowsSync.generation,
+			seq: this._rowsSync.lastApplied,
+		});
+
+		// Slightly past the receiver's 10s re-arm threshold so the retry's beginResync() passes. Each
+		// retry arms the next check; the chain ends when a snapshot commit clears the outstanding flag
+		// (or on dispose). One live timer at most — a gap-storm re-entering here just re-schedules it.
+		if (this._resyncRetryTimer != null) {
+			clearTimeout(this._resyncRetryTimer);
+		}
+		this._resyncRetryTimer = setTimeout(() => {
+			this._resyncRetryTimer = undefined;
+			if (this._rowsSync.resyncOutstanding) {
+				this.requestResync();
+			}
+		}, 11_000);
 	}
 
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void {
@@ -796,7 +969,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		const table = this._state.reachabilityTable;
 		if (table == null) return undefined;
 
-		const index = (row.contexts as { reachabilityIndex?: number } | undefined)?.reachabilityIndex;
+		const index = row.contexts?.reachabilityIndex;
 		if (index == null) return undefined;
 
 		let reachability = this._reachabilityCache.get(index);
@@ -828,11 +1001,22 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * shipped (deduped/no reachability) → keep what we have. Owns `_state.reachabilityTable` directly,
 	 * so callers must NOT also route the table through `updateState`.
 	 */
-	private applyReachabilityTable(incoming: GraphReachabilityTable | undefined): void {
-		if (incoming == null) return;
+	private applyReachabilityTable(incoming: GraphReachabilityTable | undefined, snapshot?: boolean): void {
+		if (incoming == null) {
+			// A SNAPSHOT is an authoritative replace even with no table (the new graph has no reachability):
+			// reclaim the stale table + decode cache — the snapshot's rows carry no indices, so the old table
+			// would never be read again, just retained.
+			if (snapshot && this._state.reachabilityTable != null) {
+				this._state.reachabilityTable = undefined;
+				this.resetReachabilityCache();
+			}
+			return;
+		}
 
 		const current = this._state.reachabilityTable;
-		if (current?.id !== incoming.id) {
+		// A publisher snapshot ships the FULL table (reset-anchor) — replace even on a same-`id` push,
+		// or a same-generation recovery snapshot would double the table via the append branch below.
+		if (snapshot || current?.id !== incoming.id) {
 			this._state.reachabilityTable = incoming;
 			this.resetReachabilityCache();
 			return;
@@ -843,6 +1027,55 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			dictionary: [...current.dictionary, ...incoming.dictionary],
 			sets: [...current.sets, ...incoming.sets],
 		};
+	}
+
+	/**
+	 * Reconstructs the full row set from a splice-delta (changed head + a reused span of the rows we
+	 * already hold + optional grown tail), applying the flags/reachabilityIndex patch in place —
+	 * reused rows keep their identity (consumers read both lazily), only the two patchable ints move
+	 * (`null` = unchanged, `-1` = now absent). The host only sends a splice against a
+	 * delivery-confirmed base, so a guard failure means the mirror diverged — returns undefined
+	 * (caller keeps its rows) after requesting a full resend.
+	 */
+	private applyRowsSplice(splice: GraphRowsSplice, scope: ScopedLogger | undefined): GitGraphRow[] | undefined {
+		const current = this._state.rows;
+		const spanEnd = splice.reusedStart + splice.reusedCount;
+		if (
+			current == null ||
+			current.length !== splice.expectedPriorRows ||
+			current[splice.reusedStart]?.sha !== splice.firstReusedSha ||
+			current[spanEnd - 1]?.sha !== splice.lastReusedSha
+		) {
+			this.logger.info(
+				scope,
+				`rows splice guards FAILED (have ${current?.length ?? 0} rows, expected ${splice.expectedPriorRows}); requesting a resync snapshot`,
+			);
+			this.requestResync();
+			return undefined;
+		}
+
+		const span = current.slice(splice.reusedStart, spanEnd);
+		if (splice.patch != null) {
+			const { flags, reachability } = splice.patch;
+			for (let i = 0; i < span.length; i++) {
+				const f = flags[i];
+				const r = reachability[i];
+				if (f == null && r == null) continue;
+
+				const contexts = (span[i].contexts ??= {});
+				if (f != null) {
+					contexts.flags = f === -1 ? undefined : f;
+				}
+				if (r != null) {
+					contexts.reachabilityIndex = r === -1 ? undefined : r;
+				}
+			}
+		}
+		this.logger.debug(
+			scope,
+			`spliced rows: head=${splice.head.length} reused=${splice.reusedCount} tail=${splice.tail?.length ?? 0} patched=${splice.patch != null}`,
+		);
+		return [...splice.head, ...span, ...(splice.tail ?? [])];
 	}
 
 	/** True when `sha` is present in the graph's loaded rows. Used to decide whether a resolved
@@ -918,6 +1151,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 								),
 							}
 						: { ...incoming };
+				// Rows-plane fields (rows/avatars/downstreams/paging/reachabilityTable/rowsStats*) travel on
+				// the publisher's `DidChangeRows` channel and arrive ABSENT here. Two exceptions ride this
+				// push: `refsMetadata` (a full-map/`null` reset-anchor REPLACE, applied via `updateState`) and
+				// `sync` (bootstrap-only baseline stamp — consumed by `initializeState`, must not move the live baseline).
 				// Drop `branchState` and `lastFetched` when the full-state push carries values
 				// structurally equal to what's already applied. The fast paths (`DidChangeBranchState`,
 				// `DidFetch`) land these ~20-30ms before the heavier full-state rebuild; without this
@@ -929,11 +1166,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
 					delete next.lastFetched;
 				}
-				// Adopt the reachability table by generation id (replace+reset on a new `id`, append on the
-				// same one). `applyReachabilityTable` owns `_state.reachabilityTable`, so delete the key
-				// from `next` to keep `updateState` from clobbering it.
-				this.applyReachabilityTable(next.reachabilityTable);
-				delete next.reachabilityTable;
 				this.updateState(next);
 				break;
 			}
@@ -993,9 +1225,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				break;
 			}
 
-			case DidChangeAvatarsNotification.is(msg):
-				this.updateState({ avatars: msg.params.avatars });
-				break;
 			case DidStartFeaturePreviewNotification.is(msg):
 				this._state.featurePreview = msg.params.featurePreview;
 				this._state.allowed = msg.params.allowed;
@@ -1044,100 +1273,101 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				this.updateState({ pinnedRef: msg.params.pinnedRef });
 				break;
 
-			case DidChangeRefsMetadataNotification.is(msg):
-				// The host ships only changed/new entries (a value-reference delta) — spread-merge them.
-				// `null`/`undefined` are authoritative resets (integration connect/disconnect): replace
-				// wholesale so the component re-detects missing metadata and re-requests it.
-				this.updateState({
-					refsMetadata:
-						msg.params.metadata != null
-							? { ...this._state.refsMetadata, ...msg.params.metadata }
-							: msg.params.metadata,
-				});
-				break;
-
 			case DidChangeRowsNotification.is(msg): {
+				// Rows-plane sequencing (R1c). The publisher stamps every emission `{generation, seq, snapshot?}`.
+				// Snapshots are authoritative resets that rebase the baseline; deltas apply iff strictly
+				// contiguous within the current generation. Anything else drops (stale replay) or triggers one
+				// deduped resync (gap / future generation). The baseline advances only AFTER a successful apply
+				// (`_rowsSync.commit` below), so a splice-guard failure leaves it behind and the resync snapshots.
+				const sync = msg.params.sync;
+				const outcome = this._rowsSync.classify(sync);
+				if (outcome.action === 'drop') break;
+
+				if (outcome.action === 'resync') {
+					this.requestResync();
+					break;
+				}
+
+				const snapshot = outcome.snapshot;
+
 				// Lean commit contexts are reconstructed on demand at right-click / selection time (see
 				// `graph-wrapper`); reachability is decoded on demand from the accumulated
 				// `reachabilityTable` (adopted into `updates` below). Nothing to rebuild per-row here.
 				let rows;
-				if (msg.params.rows.length && msg.params.paging?.startingCursor != null && this._state.rows != null) {
-					const previousRows = this._state.rows;
-					const lastId = previousRows.at(-1)?.sha;
+				if (snapshot) {
+					// Authoritative full REPLACE — always adopt the snapshot's rows (even an empty set, which
+					// clears a stale prior graph on repo swap / recovery). Snapshots never ship a splice.
+					rows = msg.params.rows;
+				} else if (msg.params.rowsSplice != null) {
+					// Cursor-less replace shipped as a splice-delta — reconstruct from the rows we hold. A guard
+					// mismatch (`applyRowsSplice` returns undefined + requests a resync) means the mirror diverged:
+					// drop the whole message (rows AND enrichment) WITHOUT advancing the baseline — the resync
+					// snapshot re-seeds everything.
+					const spliced = this.applyRowsSplice(msg.params.rowsSplice, scope);
+					if (spliced == null) break;
 
-					let previousRowsLength = previousRows.length;
-					const newRowsLength = msg.params.rows.length;
+					rows = spliced;
+				} else if (
+					msg.params.rows.length &&
+					msg.params.paging?.startingCursor != null &&
+					this._state.rows != null
+				) {
+					const previousRows = this._state.rows;
+					const startingCursor = msg.params.paging.startingCursor;
 
 					this.logger.debug(
 						scope,
-						`paging in ${newRowsLength} rows into existing ${previousRowsLength} rows at ${msg.params.paging.startingCursor} (last existing row: ${lastId})`,
+						`paging in ${msg.params.rows.length} rows into existing ${previousRows.length} rows at ${startingCursor}`,
 					);
 
-					// Preallocate the array to avoid reallocations
-					rows = new Array(previousRowsLength + newRowsLength);
-
-					if (msg.params.paging.startingCursor !== lastId) {
-						this.logger.debug(scope, `searching for ${msg.params.paging.startingCursor} in existing rows`);
-
-						let i = 0;
-						let row;
-						for (row of previousRows) {
-							rows[i++] = row;
-							if (row.sha === msg.params.paging.startingCursor) {
-								this.logger.debug(scope, `found ${msg.params.paging.startingCursor} in existing rows`);
-
-								previousRowsLength = i;
-
-								if (previousRowsLength !== previousRows.length) {
-									// If we stopped before the end of the array, we need to trim it
-									rows.length = previousRowsLength + newRowsLength;
-								}
-
-								break;
-							}
-						}
-					} else {
-						for (let i = 0; i < previousRowsLength; i++) {
-							rows[i] = previousRows[i];
-						}
-					}
-
-					for (let i = 0; i < newRowsLength; i++) {
-						rows[previousRowsLength + i] = msg.params.rows[i];
-					}
+					rows = appendRowsAtCursor(previousRows, startingCursor, msg.params.rows);
+				} else if (msg.params.rows.length === 0) {
+					// A carrier delta (avatars/riders/etc. with no rows change) — retain what we hold.
+					this.logger.debug(scope, 'rows unchanged (carrier delta)');
+					rows = this._state.rows;
 				} else {
 					this.logger.debug(scope, `setting to ${msg.params.rows.length} rows`);
-
-					if (msg.params.rows.length === 0) {
-						rows = this._state.rows;
-					} else {
-						rows = msg.params.rows;
-					}
+					rows = msg.params.rows;
 				}
 
-				// `avatars` is sent as `undefined` when its backing Map size hasn't changed since
-				// the last notification (host-side dedupe). Keep our existing state in that case
-				// instead of replacing with undefined and losing it. `downstreams` is always
-				// present — the provider mutates existing arrays in place, so size-based dedupe
-				// is unsafe and the host always ships the full Record.
+				// `avatars`/`downstreams` are sent ABSENT (undefined) when unchanged — the host dedupes avatars
+				// by Map size and ships `downstreams` only when its channel is marked (a refresh that changed the
+				// upstream→branches map, a page/initial walk, or a snapshot). Keep our existing state when absent
+				// instead of replacing with undefined and losing it.
 				if (msg.params.avatars != null) {
 					updates.avatars = msg.params.avatars;
 				}
-				updates.downstreams = msg.params.downstreams;
-				// `refsMetadata` rides along as a value-reference delta: spread-merge an object, replace on
-				// an explicit `null` reset (no integrations), and keep our state on `undefined` (no change).
+				if (msg.params.downstreams != null) {
+					updates.downstreams = msg.params.downstreams;
+				}
+				// `refsMetadata`: a snapshot OR an explicit `refsMetadataReset` carries the authoritative full
+				// map / `null` (reset-anchor REPLACE); a plain delta carries a value-reference delta (spread-merge
+				// an object, replace on an explicit `null` reset, keep our state on `undefined` = no change).
 				if (msg.params.refsMetadata === null) {
 					updates.refsMetadata = null;
 				} else if (msg.params.refsMetadata !== undefined) {
-					updates.refsMetadata = { ...this._state.refsMetadata, ...msg.params.refsMetadata };
+					updates.refsMetadata =
+						snapshot || msg.params.refsMetadataReset
+							? { ...msg.params.refsMetadata }
+							: { ...this._state.refsMetadata, ...msg.params.refsMetadata };
+				}
+				// An explicit `refsMetadataReset` REPLACE (integration flip / feature toggle) may preserve a
+				// non-empty upstream map, so the component can't detect it by emptiness — bump a token it
+				// watches to re-arm its per-id request dedup (a snapshot re-seeds the component wholesale, so
+				// it needs no token). Assigned directly (webview-only signal, not routed through `updateState`).
+				if (msg.params.refsMetadataReset) {
+					this.refsMetadataResetToken = (this.refsMetadataResetToken ?? 0) + 1;
 				}
 				updates.rows = rows;
-				// Adopt the reachability table by generation id: append the delta on same-generation
-				// pagination (cache preserved), replace + reset the decode cache on a new generation.
-				this.applyReachabilityTable(msg.params.reachabilityTable);
+				// Adopt the reachability table by generation id: a snapshot REPLACEs (reset-anchor), else append
+				// the delta on same-generation pagination (cache preserved) / replace + reset on a new generation.
+				this.applyReachabilityTable(msg.params.reachabilityTable, snapshot);
 				updates.paging = msg.params.paging;
+				// `rowsStats`: a snapshot REPLACEs wholesale (authoritative), a delta spread-merges the new keys.
 				if (msg.params.rowsStats != null) {
-					updates.rowsStats = { ...this._state.rowsStats, ...msg.params.rowsStats };
+					updates.rowsStats = snapshot
+						? { ...msg.params.rowsStats }
+						: { ...this._state.rowsStats, ...msg.params.rowsStats };
 				}
 				updates.rowsStatsLoading = msg.params.rowsStatsLoading;
 				if (msg.params.rowsStatsIncluded !== undefined) {
@@ -1153,16 +1383,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				}
 
 				this.updateState(updates);
+
+				// Advance the baseline now that application succeeded. A snapshot rebases BOTH values (its
+				// generation may be new) and clears any outstanding resync; a contiguous delta advances the seq;
+				// a legacy (no-sync) push is a no-op (no baseline movement).
+				this._rowsSync.commit(sync);
 				scope?.addExitInfo(`rows=${this._state.rows?.length ?? 0}`);
 				break;
 			}
-			case DidChangeRowsStatsNotification.is(msg):
-				this.updateState({
-					rowsStats: { ...this._state.rowsStats, ...msg.params.rowsStats },
-					rowsStatsLoading: msg.params.rowsStatsLoading,
-				});
-				break;
-
 			case DidChangeScrollMarkersNotification.is(msg):
 				this.updateState({ context: { ...this._state.context, settings: msg.params.context } });
 				break;
@@ -1396,69 +1624,68 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	}
 
 	private handleSearchNotification(params: DidSearchParams, updates: Partial<State>): void {
-		const { searchId } = params;
+		const prevSearchId = this._currentSearchId;
 
-		// Ignore stale notifications from old searches
-		if (this._currentSearchId != null && searchId < this._currentSearchId) {
-			return;
-		}
+		// Control substate (id / spinner / mode / query-for-restore) is decided by the pure, unit-tested
+		// `reduceGraphSearchControlState`; the results object is accumulated inline below (it needs the
+		// prior results and isn't part of that decision). Apply the control substate immediately, exactly
+		// as before (these were direct `this.x =` assignments), plus the new `searchQuery` propagation.
+		const { ignore, next } = reduceGraphSearchControlState(
+			{
+				currentSearchId: prevSearchId,
+				searching: this.searching,
+				searchMode: this.searchMode,
+				searchQuery: this.searchQuery,
+			},
+			params,
+		);
+		if (ignore) return;
 
-		// Check if this is a cancellation/clear notification
+		this._currentSearchId = next.currentSearchId;
+		this.searching = next.searching;
+		this.searchMode = next.searchMode;
+		this.searchQuery = next.searchQuery;
+
 		const cancelled = params.results == null && params.search == null;
 
-		// Starting a new search - clear previous results
-		if (searchId !== this._currentSearchId) {
-			this._currentSearchId = searchId;
-			// Only set searching=true if this is an actual new search (not a cancellation)
-			if (!cancelled) {
-				this.searching = true;
-			}
+		// Starting a new search clears the prior results (the merge below reads the pre-update accessor,
+		// so this reset only affects the shipped `updates`, matching the original ordering).
+		if (params.searchId !== prevSearchId) {
 			updates.searchResults = undefined;
-
-			// Only update search mode when starting a NEW search
-			// Don't update on progressive updates (user may have toggled mode during search)
-			if (params.search != null) {
-				this.searchMode = params.search.filter ? 'filter' : 'normal';
-			}
 		}
 
 		// Early exit for cancellation - just clear state
 		if (cancelled) {
 			updates.searchResults = params.results;
-			this.searching = false;
 			return;
 		}
 
 		if (params.selectedRows != null) {
 			updates.selectedRows = params.selectedRows;
+			// No auto-reveal here: this notification also fires for progressive (partial) result batches,
+			// and revealing on every tick would fight the user's scrolling. graph-header's request-response
+			// paths (startSearch/onSearchPromise) own the new-search reveal.
 		}
 
-		// Process search results
+		// Process search results (control substate — incl. `searching` — was already applied above).
 		if (params.results != null) {
 			if (isGraphSearchResultsError(params.results)) {
 				updates.searchResults = params.results;
-				this.searching = false;
+			} else if (params.partial && this.searchResults != null && !isGraphSearchResultsError(this.searchResults)) {
+				// For progressive updates, accumulate the incremental batches (backend sends only new
+				// results in each batch to save IPC bandwidth) — merge new IDs with existing ones.
+				const { ids, count, hasMore, commitsLoaded } = params.results;
+				updates.searchResults = {
+					ids: { ...this.searchResults.ids, ...ids },
+					count: this.searchResults.count + count,
+					hasMore: hasMore,
+					commitsLoaded: {
+						count: this.searchResults.commitsLoaded.count + commitsLoaded.count,
+					},
+				};
 			} else {
-				// For progressive updates, accumulate the incremental batches
-				// Backend sends only new results in each batch to save IPC bandwidth
-				if (params.partial && this.searchResults != null && !isGraphSearchResultsError(this.searchResults)) {
-					const { ids, count, hasMore, commitsLoaded } = params.results;
-					// Merge new IDs with existing ones
-					updates.searchResults = {
-						ids: { ...this.searchResults.ids, ...ids },
-						count: this.searchResults.count + count,
-						hasMore: hasMore,
-						commitsLoaded: {
-							count: this.searchResults.commitsLoaded.count + commitsLoaded.count,
-						},
-					};
-				} else {
-					// For final results or first partial update, replace
-					updates.searchResults = params.results;
-				}
-
-				// Set searching state based on whether this is partial or final
-				this.searching = params.partial === true;
+				// For final results or first partial update, replace
+				updates.searchResults = params.results;
 			}
 		}
 	}

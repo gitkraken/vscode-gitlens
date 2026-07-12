@@ -1,4 +1,3 @@
-import type { GraphRefOptData } from '@gitkraken/gitkraken-components';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import type { PropertyValues } from 'lit';
@@ -12,6 +11,7 @@ import type { RepositoryShape } from '../../../../../git/models/repositoryShape.
 import type {
 	DidGetSidebarDataParams,
 	GraphExcludeTypes,
+	GraphRefOptData,
 	GraphSidebarBranch,
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol.js';

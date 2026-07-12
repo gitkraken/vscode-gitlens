@@ -1,6 +1,6 @@
-import type { GraphRow } from '@gitkraken/gitkraken-components';
 import { css, html, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import type {
 	GraphDownstreams,
 	GraphMinimapMarkerTypes,
@@ -226,7 +226,7 @@ export class GlGraphMinimapContainer extends GlElement {
 	refMetadata?: GraphRefsMetadata | null;
 
 	@property({ type: Array })
-	rows: GraphRow[] = [];
+	rows: GitGraphRow[] = [];
 
 	@property({ type: Object })
 	rowsStats?: Record<string, GraphRowStats>;

@@ -1,20 +1,11 @@
 /*global document window*/
 import type GraphContainer from '@gitkraken/gitkraken-components';
-import type {
-	ColumnNumberBySha,
-	CssVariables,
-	GraphRow,
-	GraphZoneType,
-	ReadonlyGraphRow,
-	SelectCommitsOptions,
-} from '@gitkraken/gitkraken-components';
-import { refZone } from '@gitkraken/gitkraken-components';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { html, LitElement } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import type { GitGraphRowType } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual, filterMap } from '@gitlens/utils/array.js';
@@ -24,12 +15,21 @@ import { areEqual, hasKeys } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
+	ColumnNumberBySha,
+	CssVariables,
 	GraphAvatars,
+	GraphMissingRefsMetadata,
+	GraphRef,
+	GraphRefMetadataItem,
 	GraphScope,
 	GraphSelectedRows,
 	GraphSelection,
 	GraphWipMetadataBySha,
+	GraphZoneType,
+	ProxyAvatarsParams,
+	ReadonlyGraphRow,
 	RowAction,
+	SelectCommitsOptions,
 } from '../../../../plus/graph/protocol.js';
 import {
 	createSecondaryWipSha,
@@ -62,13 +62,16 @@ import { pickWipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
+import { isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { getSelectedRepoPath } from '../utils/repository.utils.js';
 import {
+	computeSelectionContexts,
 	isUnpublishedRow,
 	needsDynamicRowContext,
 	serializeRowAvatarContext,
 	serializeRowCommitContext,
+	serializeSelectionContext,
 	serializeWipContext,
 } from '../utils/rowContext.utils.js';
 import { pickScopePageTarget } from '../utils/scopePaging.utils.js';
@@ -77,7 +80,100 @@ import type { GlGraph } from './gl-graph.js';
 import type { GraphWrapperTheming } from './gl-graph.react.jsx';
 import type { WipCandidate } from './nearestWip.js';
 import { findNearestWipByAncestry, findWipInColumn } from './nearestWip.js';
-import './gl-graph.js';
+import './gl-lit-graph.js';
+
+// The legacy GK renderer drags in a huge dependency subtree (react, react-dom,
+// @gitkraken/gitkraken-components) — defer its module EXECUTION until the legacy engine actually
+// renders, so new-engine sessions never pay its init cost at boot. `webpackMode: 'eager'` keeps
+// the code in this same bundle file (no extra chunk — the web build requires a single file) while
+// still deferring evaluation to the first call. Lit's ReactiveElement upgrades the late-defined
+// `<gl-graph>` element safely (instance properties are re-applied on upgrade).
+let legacyGraphRequested = false;
+function ensureLegacyGraphDefined(): void {
+	if (legacyGraphRequested) return;
+
+	legacyGraphRequested = true;
+	void import(/* webpackMode: 'eager' */ './gl-graph.js');
+}
+
+/**
+ * Walk first-parent ancestry through a row array to produce the inclusive range from
+ * `fromSha` to `toSha`. Direction-agnostic — figures out which sha is the ancestor and
+ * walks the other way. Returns an empty array when neither sha can be reached from the
+ * other via first-parent within the loaded rows.
+ *
+ * Mirrors the legacy `shiftSelectMode='topological'` semantics: the resulting selection
+ * is the first-parent chain segment between the two anchors, not the visible-row slice.
+ */
+function walkTopologicalRange(rows: readonly GitGraphRow[], fromSha: string, toSha: string): string[] {
+	const indexBySha = new Map<string, number>();
+	for (let i = 0; i < rows.length; i++) {
+		indexBySha.set(rows[i].sha, i);
+	}
+	const fromIdx = indexBySha.get(fromSha);
+	const toIdx = indexBySha.get(toSha);
+	if (fromIdx == null || toIdx == null) return [];
+
+	// Newer-to-older walk by index — the rows array is already in topo/date-descending
+	// order, so the ancestor of two shas has the larger index.
+	const startSha = fromIdx < toIdx ? fromSha : toSha;
+	const endSha = fromIdx < toIdx ? toSha : fromSha;
+
+	const out: string[] = [];
+	let cursor: string | undefined = startSha;
+	const seen = new Set<string>();
+	while (cursor != null && !seen.has(cursor)) {
+		seen.add(cursor);
+		out.push(cursor);
+		if (cursor === endSha) return out;
+
+		const idx = indexBySha.get(cursor);
+		if (idx == null) break;
+
+		cursor = rows[idx].parents[0];
+	}
+	// `endSha` wasn't an ancestor of `startSha` along the first-parent chain — fall back to
+	// just the two endpoints so the user still gets a 2-row selection rather than nothing.
+	return [startSha, endSha];
+}
+
+/**
+ * Resolves a multi-selection's shas to their rows in display order, plus whether their indexes in
+ * that order form an unbroken run. A sha that isn't present in `decoratedRows` (e.g. paged/filtered
+ * out) is dropped from `rows` and forces `contiguous` false — a conservative default matching "we
+ * can't prove it's contiguous". Computed at right-click time; the selection is small.
+ */
+function resolveSelectedRowsForContextMenu(
+	decoratedRows: readonly GitGraphRow[],
+	selectedShas: readonly string[],
+): { rows: GitGraphRow[]; contiguous: boolean } {
+	const indexBySha = new Map<string, number>();
+	for (let i = 0; i < decoratedRows.length; i++) {
+		indexBySha.set(decoratedRows[i].sha, i);
+	}
+
+	const rows: GitGraphRow[] = [];
+	const indexes: number[] = [];
+	for (const sha of selectedShas) {
+		const index = indexBySha.get(sha);
+		if (index == null) continue;
+
+		rows.push(decoratedRows[index]);
+		indexes.push(index);
+	}
+
+	let contiguous = indexes.length === selectedShas.length;
+	if (contiguous) {
+		indexes.sort((a, b) => a - b);
+		for (let i = 1; i < indexes.length; i++) {
+			if (indexes[i] !== indexes[i - 1] + 1) {
+				contiguous = false;
+				break;
+			}
+		}
+	}
+	return { rows: rows, contiguous: contiguous };
+}
 
 // Builds the display message for a WIP row. The label (worktree name) is appended in parens for
 // secondary WIP rows; the primary row passes `undefined` and gets the bare base string.
@@ -112,16 +208,16 @@ function buildCommitLite(
 
 // These properties in the DOM are auto-generated by VS Code from our `contributes.colors` in package.json
 const graphLaneThemeColors = new Map([
-	['--vscode-gitlens-graphLane1Color', '#15a0bf'],
-	['--vscode-gitlens-graphLane2Color', '#0669f7'],
-	['--vscode-gitlens-graphLane3Color', '#8e00c2'],
-	['--vscode-gitlens-graphLane4Color', '#c517b6'],
-	['--vscode-gitlens-graphLane5Color', '#d90171'],
-	['--vscode-gitlens-graphLane6Color', '#cd0101'],
-	['--vscode-gitlens-graphLane7Color', '#f25d2e'],
-	['--vscode-gitlens-graphLane8Color', '#f2ca33'],
-	['--vscode-gitlens-graphLane9Color', '#7bd938'],
-	['--vscode-gitlens-graphLane10Color', '#2ece9d'],
+	['--vscode-gitlens-graphLane1Color', '#18D1D1'],
+	['--vscode-gitlens-graphLane2Color', '#45C6FE'],
+	['--vscode-gitlens-graphLane3Color', '#98B5FE'],
+	['--vscode-gitlens-graphLane4Color', '#C9A1FE'],
+	['--vscode-gitlens-graphLane5Color', '#F58FD7'],
+	['--vscode-gitlens-graphLane6Color', '#FE949D'],
+	['--vscode-gitlens-graphLane7Color', '#FE9B5E'],
+	['--vscode-gitlens-graphLane8Color', '#E0B027'],
+	['--vscode-gitlens-graphLane9Color', '#A6C750'],
+	['--vscode-gitlens-graphLane10Color', '#4DD494'],
 ]);
 
 declare global {
@@ -140,17 +236,17 @@ declare global {
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
 		'gl-graph-filter-column': CustomEvent<{ zone: GraphZoneType }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
-		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GraphRow }>;
-		'gl-graph-row-double-click': CustomEvent<{ graphRow: GraphRow; preserveFocus?: boolean }>;
+		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GitGraphRow }>;
+		'gl-graph-row-double-click': CustomEvent<{ graphRow: GitGraphRow; preserveFocus?: boolean }>;
 		'gl-graph-row-hover': CustomEvent<{
 			graphZoneType: GraphZoneType;
-			graphRow: GraphRow;
+			graphRow: GitGraphRow;
 			clientX: number;
 			currentTarget: HTMLElement;
 		}>;
 		'gl-graph-row-unhover': CustomEvent<{
 			graphZoneType: GraphZoneType;
-			graphRow: GraphRow;
+			graphRow: GitGraphRow;
 			relatedTarget: EventTarget | null;
 		}>;
 	}
@@ -186,6 +282,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	};
 
 	scrollGraphBy(deltaY: number): void {
+		if (this.graphState.config?.useNewEngine) {
+			// The pure-Lit engine renders <gl-lit-graph>, whose virtualizer (not the role="tree"
+			// container) owns the scroll. Use its imperative scroll method.
+			this.querySelector('gl-lit-graph')?.scrollByDelta(deltaY);
+			return;
+		}
 		if (this.ref == null) return;
 
 		this.ref.setScrollTop((this.ref.scrollTop ?? 0) + deltaY);
@@ -216,22 +318,26 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private _pendingHostSelectedRows?: GraphSelectedRows;
 	private _derivedHighlightCache?: {
 		anchorShas: readonly string[] | undefined;
-		decoratedRows: GraphRow[] | undefined;
+		decoratedRows: GitGraphRow[] | undefined;
 		showPrimary: boolean;
 		result: GraphSelectedRows | undefined;
 	};
 	// The set of rendered row shas, cached on the (identity-stable) `decoratedRows` reference so it's
 	// rebuilt only when the rows change (paging/filter) — NOT on every selection. Selecting a row must
 	// stay O(anchorShas), never O(rows), or it janks badly with lots of commits loaded.
-	private _presentShaCache?: { decoratedRows: GraphRow[] | undefined; set: ReadonlySet<string> };
-	// sha→row index for `onSelectionChanged`'s commit-shell build, cached on `graphState.rows` so it's
-	// built once per page, not rebuilt over all rows on every selection (the dominant per-selection cost).
-	private _sourceRowByShaCache?: { rows: GraphRow[]; map: ReadonlyMap<string, GraphRow> };
+	private _presentShaCache?: { decoratedRows: GitGraphRow[] | undefined; set: ReadonlySet<string> };
+	// sha→HOST row index (see `getSourceRowByShaMap`), cached on `graphState.rows` so it's built once per
+	// page, not rebuilt over all rows on every selection/context-menu (the dominant per-call cost).
+	private _sourceRowByShaCache?: { rows: GitGraphRow[]; map: ReadonlyMap<string, GitGraphRow> };
+	// sha→DECORATED row index (see `getDecoratedRowByShaMap`), cached on the decorated `rows` reference —
+	// same rationale as `_sourceRowByShaCache`, but over the decorated set (incl. synthetic WIP rows) that
+	// range/toggle selection resolves against.
+	private _decoratedRowByShaCache?: { rows: GitGraphRow[]; map: ReadonlyMap<string, GitGraphRow> };
 	// The defensive copy of the rows passed to <gl-graph>, cached on the (identity-stable) `decoratedRows`
 	// reference. Without this, render() re-`.slice()`s on EVERY render (incl. selection-only ones), handing
 	// the GK GraphContainer a fresh array each time → it re-indexes all rows. Re-slicing only when
 	// `decoratedRows` changes keeps the prop identity stable across selection renders (GK skips the re-index).
-	private _rowsForGraphCache?: { source: GraphRow[] | undefined; sliced: GraphRow[] | undefined };
+	private _rowsForGraphCache?: { source: GitGraphRow[] | undefined; sliced: GitGraphRow[] | undefined };
 
 	// Tracks the last observed `branchesVisibility` + repo so a genuine in-repo TOGGLE into `'current'`
 	// (not the initial paint, not a repo switch) can refocus a hidden anchor.
@@ -294,17 +400,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
 		const primaryAnchor = this.graphState.branch?.sha;
 
+		// `_columnsBySha` is only fed by the legacy engine's `onColumnsCalculated` — the new engine
+		// never emits it, so pull the lane map straight from gl-lit-graph instead (it derives its own
+		// columns from `processedRows`). Falls through to `_columnsBySha` (undefined) otherwise, which
+		// keeps the BFS-ancestry fallback below as the safety net.
+		const columnsBySha = this.graphState.config?.useNewEngine
+			? (this.querySelector('gl-lit-graph')?.getColumnsBySha() ?? this._columnsBySha)
+			: this._columnsBySha;
+
 		// Primary strategy: pick the WIP in the same column as the clicked commit (the
 		// "visual lane" the user sees). Exact-anchor match (clicked commit IS a branch tip
 		// with a WIP) overrides — jumps directly to that branch's WIP regardless of column.
-		let target = findWipInColumn(e.detail.fromSha, rows, primaryAnchor, wipMetadataBySha, this._columnsBySha);
+		let target = findWipInColumn(e.detail.fromSha, rows, primaryAnchor, wipMetadataBySha, columnsBySha);
 
 		// Defensive fallback when column data for the clicked commit is unavailable — either
 		// the cold-start window before any `onColumnsCalculated`, OR the brief partial-load
 		// gap after scope change / paging where the clicked row is in `rows` but not yet in
 		// the column map. Without this, clicks during the gap blindly snap to primary.
 		// Once the column for the clicked commit lands, the column rule dominates.
-		if (target == null && this._columnsBySha?.[e.detail.fromSha] == null) {
+		if (target == null && columnsBySha?.[e.detail.fromSha] == null) {
 			const wips: WipCandidate[] = [];
 			if (primaryAnchor != null) {
 				wips.push({ sha: uncommitted, anchor: primaryAnchor });
@@ -323,49 +437,65 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.ensureAndSelectCommit(target ?? uncommitted);
 	};
 
-	// Cache keyed by (rows, wipMetadataBySha, workingTreeStats, scope, branchesVisibility,
-	// includeOnlyRefs, branch.id) — any reference change invalidates. Scope must be in the key
+	// Cache keyed by (rows, wipMetadataBySha, scope, branchesVisibility,
+	// includeOnlyRefs, branch.id, useNewEngine) — any reference change invalidates. Scope must be in the key
 	// because `filterSecondariesForScopeAndVisibility` reads `scope.branchRef`/`upstreamRef`/
 	// `additionalBranchRefs` AND switches off the visibility filter entirely when scope is active,
 	// AND `shouldShowPrimaryWipRow` reads `scope.branchRef` to enforce the "primary WIP belongs
 	// only to the focal branch when focal === current" convention; `branchesVisibility` +
 	// `includeOnlyRefs` + `currentBranchId` must also be in the key because the WIP-visibility
 	// helpers read them when the scope picker is in a non-`all` mode (current/smart/favorited/agents)
-	// AND when no scope is active.
+	// AND when no scope is active. `useNewEngine` must also be in the key because it gates whether
+	// the primary WIP row is synthesized here at all (see `getDecoratedRows` below).
 	private _decoratedRowsCache?: {
-		rows: GraphRow[] | undefined;
+		rows: GitGraphRow[] | undefined;
 		wipMetadataBySha: GraphWipMetadataBySha | undefined;
-		workingTreeStats: typeof graphStateContext.__context__.workingTreeStats;
 		scope: GraphScope | undefined;
 		branchesVisibility: typeof graphStateContext.__context__.branchesVisibility;
 		includeOnlyRefs: typeof graphStateContext.__context__.includeOnlyRefs;
 		currentBranchId: string | undefined;
-		result: { rows: GraphRow[] | undefined; showPrimary: boolean };
+		useNewEngine: boolean;
+		result: { rows: GitGraphRow[] | undefined; showPrimary: boolean };
 	};
+
+	// Stable `date` stamps for the synthesized WIP rows, keyed by row sha. `date` is an ENGINE input
+	// (topology): re-stamping `Date.now()` on every interleave made every host push look like a
+	// topology change to the new engine's rows-delta classifier, defeating its append/payload fast
+	// paths. Keep the stamp from when the WIP row first appeared at its current anchor; re-stamp only
+	// when the anchor moves (checkout/commit — a real topology change anyway).
+	private readonly _wipRowDates = new Map<string, { parentSha: string | undefined; date: number }>();
+	private stableWipRowDate(sha: string, parentSha: string | undefined): number {
+		const entry = this._wipRowDates.get(sha);
+		if (entry != null && entry.parentSha === parentSha) return entry.date;
+
+		const date = Date.now();
+		this._wipRowDates.set(sha, { parentSha: parentSha, date: date });
+		return date;
+	}
 
 	// Injects a synthetic primary WIP row at [0] and per-worktree secondary WIP rows
 	// immediately after, so the GK component renders one row per worktree. The component's
 	// own auto-inject is skipped because rows[0] already has type `work-dir-changes`.
-	private getDecoratedRows(): { rows: GraphRow[] | undefined; showPrimary: boolean } {
+	private getDecoratedRows(): { rows: GitGraphRow[] | undefined; showPrimary: boolean } {
 		const { graphState } = this;
 		const rows = graphState.rows;
 		const wipMetadataBySha = graphState.wipMetadataBySha;
-		const workingTreeStats = graphState.workingTreeStats;
 		const scope = graphState.scope;
 		const branchesVisibility = graphState.branchesVisibility;
 		const includeOnlyRefs = graphState.includeOnlyRefs;
 		const currentBranchId = graphState.branch?.id;
+		const useNewEngine = graphState.config?.useNewEngine === true;
 
 		const cached = this._decoratedRowsCache;
 		if (
 			cached != null &&
 			cached.rows === rows &&
 			cached.wipMetadataBySha === wipMetadataBySha &&
-			cached.workingTreeStats === workingTreeStats &&
 			cached.scope === scope &&
 			cached.branchesVisibility === branchesVisibility &&
 			cached.includeOnlyRefs === includeOnlyRefs &&
-			cached.currentBranchId === currentBranchId
+			cached.currentBranchId === currentBranchId &&
+			cached.useNewEngine === useNewEngine
 		) {
 			// Return the cached `result` object identity-stable. The render boundary still
 			// slices `.rows` defensively (the GK component mutates the array it receives), so
@@ -386,21 +516,25 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			includeOnlyRefs,
 		);
 
-		let resultRows: GraphRow[] | undefined;
-		if (rows != null && filteredMetadata != null && Object.keys(filteredMetadata).length > 0) {
+		// The new (Lit) engine never auto-injects a primary WIP row, so whenever one should show we must
+		// synthesize it here — not only when secondaries force the interleave path. The GK engine still
+		// auto-injects its own primary, so for it we take this path only when there are secondary
+		// (worktree) WIP rows to interleave; the single-worktree primary stays GK's job there.
+		const hasSecondaryWips = filteredMetadata != null && Object.keys(filteredMetadata).length > 0;
+		let resultRows: GitGraphRow[] | undefined;
+		if (rows != null && (hasSecondaryWips || (useNewEngine && showPrimary))) {
 			// The GK component mutates the passed array via unshift on each render, so rows[0] may
 			// already be a primary work-dir row from a previous pass. Strip it to avoid duplicates —
 			// we inject our own primary below with the same role.
 			const realRows = rows[0]?.type === 'work-dir-changes' ? rows.slice(1) : rows;
 			const headRefSha = realRows.find(r => r.heads?.some(h => h.isCurrentHead))?.sha ?? realRows[0]?.sha;
 
-			const now = Date.now();
-			const primary: GraphRow = {
+			const primary: GitGraphRow = {
 				sha: 'work-dir-changes',
 				parents: headRefSha ? [headRefSha] : [],
 				author: '',
 				email: '',
-				date: now,
+				date: this.stableWipRowDate('work-dir-changes', headRefSha),
 				message: wipRowMessage(undefined),
 				type: 'work-dir-changes',
 				heads: [],
@@ -419,17 +553,17 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				realRowIndexBySha.set(realRows[i].sha, i);
 			}
 
-			const secondariesByParentIdx = new Map<number, GraphRow[]>();
-			for (const [sha, meta] of Object.entries(filteredMetadata)) {
+			const secondariesByParentIdx = new Map<number, GitGraphRow[]>();
+			for (const [sha, meta] of Object.entries(filteredMetadata ?? {})) {
 				const idx = realRowIndexBySha.get(meta.parentSha);
 				if (idx == null) continue;
 
-				const row: GraphRow = {
+				const row: GitGraphRow = {
 					sha: sha,
 					parents: [meta.parentSha],
 					author: '',
 					email: '',
-					date: now,
+					date: this.stableWipRowDate(sha, meta.parentSha),
 					message: wipRowMessage(meta.label),
 					type: 'work-dir-changes',
 					heads: [],
@@ -445,7 +579,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				}
 			}
 
-			const interleaved: GraphRow[] = showPrimary ? [primary] : [];
+			const interleaved: GitGraphRow[] = showPrimary ? [primary] : [];
 			for (let i = 0; i < realRows.length; i++) {
 				const atThisIdx = secondariesByParentIdx.get(i);
 				if (atThisIdx != null) {
@@ -473,11 +607,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._decoratedRowsCache = {
 			rows: rows,
 			wipMetadataBySha: wipMetadataBySha,
-			workingTreeStats: workingTreeStats,
 			scope: scope,
 			branchesVisibility: branchesVisibility,
 			includeOnlyRefs: includeOnlyRefs,
 			currentBranchId: currentBranchId,
+			useNewEngine: useNewEngine,
 			result: result,
 		};
 		return result;
@@ -648,7 +782,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// callsite mutates a row's flags in place, so identity equality on `rows` is a sufficient cache
 	// key. If that invariant ever changes, switch to a content fingerprint.
 	private _unpublishedShasCache?: {
-		rows: readonly GraphRow[] | undefined;
+		rows: readonly GitGraphRow[] | undefined;
 		shas: ReadonlySet<string> | undefined;
 	};
 
@@ -681,7 +815,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  the same array reference so the GraphContainer doesn't re-index all rows. A WIP-injection toggle
 	 *  changes `decoratedRows`' reference (a different getDecoratedRows cache result), which forces a
 	 *  re-slice — so the index-0 mutation concern stays covered while the GK's no-op stays idempotent. */
-	private getRowsForGraph(decoratedRows: GraphRow[] | undefined): GraphRow[] | undefined {
+	private getRowsForGraph(decoratedRows: GitGraphRow[] | undefined): GitGraphRow[] | undefined {
 		const cache = this._rowsForGraphCache;
 		if (cache != null && cache.source === decoratedRows) return cache.sliced;
 
@@ -691,7 +825,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private getSelectedRowsProp(
-		decoratedRows: GraphRow[] | undefined,
+		decoratedRows: GitGraphRow[] | undefined,
 		showPrimary: boolean,
 	): GraphSelectedRows | undefined {
 		// A host-initiated select-request arrives as a `graphState.selectedRows` whose CONTENT differs
@@ -759,6 +893,61 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
+
+		if (graphState.config?.useNewEngine) {
+			// Pure-Lit renderer (React-free). Emits the same `gl-graph-*` events + takes the same
+			// props as the React `<gl-lit-graph>`, so it's a drop-in within this branch.
+			return html`<gl-lit-graph
+				.rows=${decoratedRows}
+				.avatars=${graphState.avatars}
+				.rowsStats=${graphState.rowsStats}
+				.selectedRows=${this.getSelectedRowsProp(decoratedRows, showPrimary)}
+				.refsMetadata=${graphState.refsMetadata}
+				.refsMetadataResetToken=${graphState.refsMetadataResetToken}
+				.enabledRefMetadataTypes=${graphState.config?.enabledRefMetadataTypes}
+				.searchResults=${graphState.searchResults}
+				.searching=${graphState.searching}
+				.searchMode=${graphState.searchMode}
+				.config=${graphState.config}
+				.downstreams=${graphState.downstreams}
+				.columns=${graphState.columns}
+				.repoPath=${this.getRepoPath()}
+				.columnsContext=${graphState.context?.header}
+				.settingsContext=${graphState.context?.settings}
+				.excludeRefs=${graphState.excludeRefs}
+				.excludeTypes=${graphState.excludeTypes}
+				.includeOnlyRefs=${graphState.includeOnlyRefs}
+				.pinnedRef=${graphState.pinnedRef}
+				.scope=${graphState.scope}
+				.wipMetadataBySha=${graphState.wipMetadataBySha}
+				.workingTreeStats=${showPrimary ? graphState.workingTreeStats : undefined}
+				.runningOperationByRowSha=${this.getRunningOperationByRowSha()}
+				.agentStatusByRowSha=${this.getAgentStatusByRowSha()}
+				?loading=${graphState.loading || graphState.scopeLoading}
+				?windowFocused=${graphState.windowFocused}
+				@gl-graph-changeselection=${this.onGraphSelectionChanged}
+				@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
+				@gl-graph-refdoubleclick=${this.onGraphRefDoubleClick}
+				@gl-graph-contextmenu=${this.onGraphContextMenu}
+				@gl-graph-morerows=${this.onGraphMoreRows}
+				@gl-graph-changevisibledays=${this.onGraphVisibleDaysChanged}
+				@gl-graph-visiblewipshaschanged=${this.onVisibleWipShasChanged}
+				@gl-graph-wipshasmissingstats=${this.onWipShasMissingStats}
+				@gl-graph-missingavatars=${this.onGraphMissingAvatars}
+				@gl-graph-avatarloaderror=${this.onGraphAvatarLoadError}
+				@gl-graph-missingrefsmetadata=${this.onGraphMissingRefsMetadata}
+				@gl-graph-scopeanchorsunreachable=${this.onScopeAnchorsUnreachable}
+				@gl-graph-changecolumns=${this.onColumnsChanged}
+				@gl-graph-rowhoverstart=${this.onGraphRowHoverStart}
+				@gl-graph-rowhovertrack=${this.onGraphRowHoverTrack}
+				@gl-graph-rowhover=${this.onGraphRowHover}
+				@gl-graph-rowunhover=${this.onGraphRowUnhover}
+				@gl-graph-rowaction=${this.onGraphRowAction}
+				@gl-graph-wiprowopen=${this.onGraphWipRowOpen}
+			></gl-lit-graph>`;
+		}
+
+		ensureLegacyGraphDefined();
 
 		// The GK component runs this on every render against `rows[0]`:
 		//   if (shouldShowWip(stats, wipVisibility) && rows.length && !isWipType(rows[0].type)) rows.unshift(autoPrimary)
@@ -890,15 +1079,57 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	override focus(): void {
+		// The old path exposes an imperative ref via `.setRef`; the new engine has none, so query the
+		// `<gl-lit-graph>` element (light DOM) and focus its keyboard-nav viewport directly. Without this
+		// every graph-app `focus()` no-ops under the new engine and arrows/Enter do nothing until a click.
+		if (this.graphState.config?.useNewEngine) {
+			this.querySelector<HTMLElement>('gl-lit-graph')?.focus();
+			return;
+		}
+
 		this.ref?.focus();
 	}
 
 	getCommits(shas: string[]): ReadonlyGraphRow[] {
-		return this.ref?.getCommits(shas) ?? [];
+		if (this.graphState.config?.useNewEngine) {
+			const { rows } = this.getDecoratedRows();
+			if (rows == null) return [];
+
+			const set = new Set(shas);
+			// A returned row is loaded; report `hidden` from the graph's displayed set so the consumer can
+			// tell loaded-&-visible (fast select) from loaded-but-hidden — a collapsed lane, an active search
+			// filter, or a scope drop (→ the "result hidden" warning). When the element isn't mounted, assume
+			// visible (the row is loaded — never report `undefined`, which the consumer reads as "not loaded").
+			const lit = this.querySelector('gl-lit-graph');
+			return rows
+				.filter(r => set.has(r.sha))
+				.map(r => ({ ...r, hidden: lit != null ? !lit.isRowDisplayed(r.sha) : false }));
+		}
+		// Old engine: GraphContainer returns its own (GKC) row shape; the runtime objects are the same
+		// host-built rows, so re-type them to the native shape the API surface now exposes.
+		return (this.ref?.getCommits(shas) ?? []) as unknown as ReadonlyGraphRow[];
+	}
+
+	/** Resolve once this wrapper AND the underlying `<gl-lit-graph>` have flushed any pending render, so a
+	 *  caller that then reads post-render state (row visibility via getCommits/selectCommits →
+	 *  isRowDisplayed) sees the up-to-date displayRows after newly-paged rows land. */
+	async ensureRendered(): Promise<void> {
+		await this.updateComplete;
+		await this.querySelector('gl-lit-graph')?.updateComplete;
 	}
 
 	selectCommits(shas: string[], options?: SelectCommitsOptions): ReadonlyGraphRow[] {
-		return this.ref?.selectCommits(shas, options) ?? [];
+		if (this.graphState.config?.useNewEngine) {
+			const rows = this.selectCommitsLit(shas);
+			// Honor the same `ensureVisible` opt-in the legacy engine did: scroll the (first) selected
+			// row into view ONLY when the caller asks (search-result nav, etc.) — a plain selection
+			// never auto-scrolls. The reveal is no-op if the row is already on screen.
+			if (options?.ensureVisible && shas.length > 0) {
+				this.querySelector('gl-lit-graph')?.scrollToSha(shas[0]);
+			}
+			return rows;
+		}
+		return (this.ref?.selectCommits(shas, options) ?? []) as unknown as ReadonlyGraphRow[];
 	}
 
 	/** Monotonic counter bumped on every `ensureAndSelectCommit` entry. The synthetic-WIP retry
@@ -908,6 +1139,84 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  older `work-dir-changes` retry would overwrite the newer focal-tip selection). Mirrors
 	 *  the `_anchorGenerations` pattern in `stateProvider`. */
 	private _selectGeneration = 0;
+
+	/**
+	 * Select rows in the commit-graph engine. The commit-graph React component derives `focusedSha`
+	 * from `selectedHashes`, which itself comes from `graphState.selectedRows` — so
+	 * pushing a new selectedRows map is enough to (a) highlight the row, (b) move the
+	 * focus index, and (c) trigger the internal scroll-to-focus effect. We also fire the
+	 * standard `gl-graph-change-selection` host event + IPC update so the details panel,
+	 * minimap, and host-side selection cache stay consistent — same as if the user had
+	 * clicked the row themselves.
+	 */
+	private selectCommitsLit(shas: string[]): ReadonlyGraphRow[] {
+		const { rows: decorated } = this.getDecoratedRows();
+		if (decorated == null) return [];
+
+		const shaSet = new Set(shas);
+		const matched = decorated.filter(r => shaSet.has(r.sha));
+		if (matched.length === 0) return [];
+
+		const next: GraphSelectedRows = {};
+		for (const sha of shas) {
+			next[sha] = true;
+		}
+		this.graphState.selectedRows = next;
+
+		// Surface the same selection event a real click would. This is what wires the
+		// minimap-day-selected → details-panel and selection-state-cache flows.
+		const wipMetadataBySha = this.graphState.wipMetadataBySha;
+		const sha = shas[0];
+		const focusedRow = matched[0];
+		const selection: GraphSelection[] = [
+			{
+				id: sha,
+				type: focusedRow.type,
+				active: true,
+				hidden: false,
+				repoPath: wipMetadataBySha?.[sha]?.repoPath,
+			},
+		];
+
+		this.graphState.activeRow = `${focusedRow.sha}|${focusedRow.date}`;
+		this.graphState.activeDay = focusedRow.date;
+
+		let commits: Record<string, CommitDetails> | undefined;
+		if (focusedRow.type !== 'work-dir-changes') {
+			const repositories = this.graphState.repositories;
+			const selectedRepoId = this.graphState.selectedRepository;
+			const fallbackRepoPath =
+				(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
+				repositories?.[0]?.path;
+			if (fallbackRepoPath != null) {
+				commits = { [focusedRow.sha]: buildCommitLite(focusedRow, fallbackRepoPath, this.graphState.avatars) };
+			}
+		}
+
+		// Decode the focused row's reachability from the graph's shared table — via the HOST row (the
+		// synthetic WIP shas `getDecoratedRows` injects aren't in `graphState.rows`, so this naturally
+		// stays undefined for them, matching the legacy path's WIP handling).
+		const sourceFocusedRow = this.getSourceRowByShaMap()?.get(focusedRow.sha);
+		const reachability =
+			sourceFocusedRow != null ? this.graphState.getRowReachability(sourceFocusedRow) : undefined;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-change-selection', {
+				detail: { selection: selection, reachability: reachability, commits: commits },
+			}),
+		);
+
+		this._lastSentSelectionKey = selection.map(s => `${s.id}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`).join(',');
+		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
+
+		// Matched rows are loaded; report `hidden` from the displayed set (see getCommits) so the search-nav
+		// "result hidden" warning fires for a loaded-but-not-displayed match.
+		const lit = this.querySelector('gl-lit-graph');
+		return matched.map(r => ({
+			...r,
+			hidden: lit != null ? !lit.isRowDisplayed(r.sha) : false,
+		}));
+	}
 
 	/**
 	 * Select a row by SHA, loading it into the graph first if necessary.
@@ -923,6 +1232,29 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// can use either form.
 		if (sha === uncommitted) {
 			sha = 'work-dir-changes';
+		}
+
+		// commit-graph engine has its own selection path — check it first, before the gitkraken-
+		// components fast path below.
+		if (this.graphState.config?.useNewEngine) {
+			const litGraph = this.querySelector('gl-lit-graph');
+			const { rows: decorated } = this.getDecoratedRows();
+			if (decorated?.some(r => r.sha === sha)) {
+				this.selectCommitsLit([sha]);
+				// ensureAndSelect implies "reveal" (parity with the legacy `ensureVisible` fast path).
+				litGraph?.scrollToSha(sha);
+				return;
+			}
+
+			this.graphState.loading = true;
+			// Clear the spinner off the request's own settlement — the host answers via a
+			// selection-only notification, so nothing else clears `loading` (mirrors graph-header).
+			void this._ipc.sendRequest(EnsureRowRequest, { id: sha, select: true }).finally(() => {
+				this.graphState.loading = false;
+			});
+			// Row isn't loaded yet — queue the reveal so it fires once the host's rows land.
+			litGraph?.scrollToSha(sha);
+			return;
 		}
 
 		const generation = ++this._selectGeneration;
@@ -960,7 +1292,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Ask the host to load and select the row; the rows notification
 		// will carry the selection so the graph picks it up on render.
 		this.graphState.loading = true;
-		void this._ipc.sendRequest(EnsureRowRequest, { id: sha, select: true });
+		// Clear the spinner off the request's own settlement — the host answers via a
+		// selection-only notification, so nothing else clears `loading` (mirrors graph-header).
+		void this._ipc.sendRequest(EnsureRowRequest, { id: sha, select: true }).finally(() => {
+			this.graphState.loading = false;
+		});
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
@@ -1002,7 +1338,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private onRowAction({
 		detail: { action, row, worktreePath },
-	}: CustomEvent<{ action: RowAction; row: GraphRow; worktreePath?: string }>) {
+	}: CustomEvent<{ action: RowAction; row: GitGraphRow; worktreePath?: string }>) {
 		const rowRef = { id: row.sha, type: row.type };
 		// Narrow per-action so the discriminated `RowActionParams` only carries the fields its
 		// case allows — keeps stash/open-changes payloads from accidentally inheriting worktreePath.
@@ -1013,9 +1349,45 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this._ipc.sendCommand(RowActionCommand, params);
 	}
 
+	// New-engine row-action button → same host command as the React graph's onRowAction (the new
+	// graph emits a flat {action, sha, type, worktreePath?} detail from its click delegation).
+	private onGraphRowAction({
+		detail: { action, sha, type, worktreePath },
+	}: CustomEvent<{ action: RowAction; sha: string; type: GitGraphRowType; worktreePath?: string }>) {
+		const rowRef = { id: sha, type: type };
+		// Narrow per-action so the discriminated `RowActionParams` only carries the fields its case
+		// allows — keeps stash/open-changes payloads from accidentally inheriting worktreePath (mirrors
+		// the React graph's onRowAction).
+		const params =
+			action === 'undo-commit'
+				? { action: action, row: rowRef, worktreePath: worktreePath }
+				: { action: action, row: rowRef };
+		this._ipc.sendCommand(RowActionCommand, params);
+	}
+
+	// New-engine WIP row-open button (resolve/compose/review/agents) → look the full row up by sha and
+	// re-dispatch the webview-internal event graph-app already handles (select + open details).
+	private onGraphWipRowOpen({
+		detail: { target, sha },
+	}: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; sha: string }>) {
+		// WIP rows (primary `work-dir-changes` + per-worktree `worktree-wip::<path>`) are synthesized
+		// in `getDecoratedRows()` and never exist in `graphState.rows`, so look the row up there —
+		// otherwise the lookup misses and the compose/review/agents open is silently dropped.
+		const row = this.getDecoratedRows().rows?.find(r => r.sha === sha);
+		if (row == null) return;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-wip-row-open', {
+				detail: { target: target, row: row },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
 	private onWipRowOpen({
 		detail: { target, row },
-	}: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GraphRow }>) {
+	}: CustomEvent<{ target: 'compose' | 'review' | 'resolve' | 'agents'; row: GitGraphRow }>) {
 		// Webview-internal event — bubbles up to graph-app which selects the row, opens the
 		// details panel, and routes to the requested target (compose/review/resolve enter the matching
 		// workflow mode; `agents` expands the agents section). No IPC round-trip needed.
@@ -1036,7 +1408,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// row + region here and write it onto this host element's `data-vscode-context`. VS Code's webview
 		// integration walks UP the (light) DOM at contextmenu time, so a single ancestor write is what it
 		// reads — no per-row attributes needed. Cleared shortly after, like `ContextMenuProxyController`.
-		this.injectRowContextMenuContext(graphRow, graphZoneType, isAvatar);
+		// Old-engine event detail is typed with the GKC row shape; the runtime object is the native row.
+		this.injectRowContextMenuContext(graphRow as unknown as GitGraphRow, graphZoneType, isAvatar);
 
 		this.dispatchEvent(
 			new CustomEvent('gl-graph-row-context-menu', {
@@ -1047,7 +1420,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	/** Builds the serialized `data-vscode-context` for a right-clicked row on demand, or `undefined`
 	 *  when the row carries its own host-built context (stash) or none is needed. */
-	private buildRowContextMenuContext(graphRow: GraphRow, isAvatar: boolean): string | undefined {
+	private buildRowContextMenuContext(graphRow: GitGraphRow, isAvatar: boolean): string | undefined {
 		const repoPath = this.getRepoPath();
 		if (repoPath == null) return undefined;
 
@@ -1085,16 +1458,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	private _clearRowContextTimer: ReturnType<typeof setTimeout> | undefined;
 
-	private injectRowContextMenuContext(graphRow: GraphRow, graphZoneType: GraphZoneType, isAvatar: boolean): void {
-		// Ref zones keep their host-serialized branch/tag/remote contexts (GK renders those per element).
-		if (graphZoneType === refZone) return;
-
-		const context = this.buildRowContextMenuContext(graphRow, isAvatar);
+	/** Writes a wrapper-level `data-vscode-context` synchronously (VS Code reads it synchronously on
+	 *  contextmenu) and clears it shortly after; mirrors the 100ms cleanup in `ContextMenuProxyController`
+	 *  / the tree-view so the attribute can't leak across menus. Shared by both engines' injection paths. */
+	private writeVscodeContext(context: string | undefined): void {
 		if (context == null) return;
 
 		this.dataset.vscodeContext = context;
-		// Clear after VS Code has read it (it reads synchronously on contextmenu); mirrors the 100ms
-		// cleanup in `ContextMenuProxyController` / the tree-view so the attribute can't leak across menus.
 		if (this._clearRowContextTimer != null) {
 			clearTimeout(this._clearRowContextTimer);
 		}
@@ -1102,6 +1472,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			delete this.dataset.vscodeContext;
 			this._clearRowContextTimer = undefined;
 		}, 100);
+	}
+
+	private injectRowContextMenuContext(graphRow: GitGraphRow, graphZoneType: GraphZoneType, isAvatar: boolean): void {
+		// Ref zones keep their host-serialized branch/tag/remote contexts (GK renders those per element).
+		if (graphZoneType === 'ref') return;
+
+		this.writeVscodeContext(this.buildRowContextMenuContext(graphRow, isAvatar));
 	}
 
 	private onRowDoubleClick({ detail: { row, preserveFocus } }: CustomEventType<'graph-doubleclickrow'>) {
@@ -1126,6 +1503,108 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private _lastSelectionKey: string | undefined;
+
+	// Bridge the new Lit graph's decoupled `gl-graph-rowhover*` events into the same hover pipeline the
+	// legacy graph uses (rowhoverstart/track + gl-graph-row-hover/unhover → GraphHover/GetRowHover).
+	// The Lit graph excludes refs from the row hover, so the zone is always a non-`ref` value.
+	// The last row we resolved for a hover, kept so an unhover can still emit a `graphRow` even if
+	// the rows array churned (scope change / paging) between hover-start and hover-end — otherwise
+	// the consumer never gets the unhover and the rich card stays stuck open.
+	private _lastHoverRow: GitGraphRow | undefined;
+
+	private rowBySha(sha: string): GitGraphRow | undefined {
+		return this.getDecoratedRows().rows?.find(r => r.sha === sha);
+	}
+
+	/** sha→HOST row map (`graphState.rows` — never the synthetic WIP rows `getDecoratedRows` injects),
+	 *  cached on `graphState.rows` identity. Used to recover GitLens-only row fields (reachability,
+	 *  `isCurrentUser`, etc.) that the GK-processed row doesn't preserve; a synthetic WIP sha naturally
+	 *  misses (it's absent from `graphState.rows`), which callers rely on to skip WIP rows. */
+	private getSourceRowByShaMap(): ReadonlyMap<string, GitGraphRow> | undefined {
+		const rows = this.graphState.rows;
+		if (rows == null) return undefined;
+
+		if (this._sourceRowByShaCache?.rows === rows) return this._sourceRowByShaCache.map;
+
+		const map = new Map(rows.map(r => [r.sha, r]));
+		this._sourceRowByShaCache = { rows: rows, map: map };
+		return map;
+	}
+
+	/** sha→DECORATED row map (includes synthetic primary + per-worktree WIP rows `getDecoratedRows`
+	 *  injects), cached on the decorated `rows` identity. Range/toggle selection resolves many shas per
+	 *  event — a Map lookup keeps that O(selection), not O(selection × rows). */
+	private getDecoratedRowByShaMap(): ReadonlyMap<string, GitGraphRow> | undefined {
+		const { rows } = this.getDecoratedRows();
+		if (rows == null) return undefined;
+
+		if (this._decoratedRowByShaCache?.rows === rows) return this._decoratedRowByShaCache.map;
+
+		const map = new Map(rows.map(r => [r.sha, r]));
+		this._decoratedRowByShaCache = { rows: rows, map: map };
+		return map;
+	}
+
+	private resolveHoverRow(sha: string): GitGraphRow | undefined {
+		const row = this.rowBySha(sha);
+		if (row != null) {
+			this._lastHoverRow = row;
+			return row;
+		}
+
+		return this._lastHoverRow?.sha === sha ? this._lastHoverRow : undefined;
+	}
+
+	private onGraphRowHoverStart() {
+		this.dispatchEvent(new CustomEvent('rowhoverstart', { bubbles: true, composed: true }));
+	}
+
+	private onGraphRowHoverTrack({ detail }: CustomEvent<{ sha: string }>) {
+		const graphRow = this.resolveHoverRow(detail.sha);
+		if (graphRow == null) return;
+
+		const graphZoneType: GraphZoneType = 'graph';
+		this.dispatchEvent(
+			new CustomEvent('rowhovertrack', {
+				detail: { graphZoneType: graphZoneType, graphRow: graphRow },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	private onGraphRowHover({ detail }: CustomEvent<{ sha: string; clientX: number; currentTarget: HTMLElement }>) {
+		const graphRow = this.resolveHoverRow(detail.sha);
+		if (graphRow == null) return;
+
+		const graphZoneType: GraphZoneType = 'graph';
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-row-hover', {
+				detail: {
+					graphZoneType: graphZoneType,
+					graphRow: graphRow,
+					clientX: detail.clientX,
+					currentTarget: detail.currentTarget,
+				},
+			}),
+		);
+	}
+
+	private onGraphRowUnhover({ detail }: CustomEvent<{ sha: string; relatedTarget: EventTarget | null }>) {
+		const graphRow = this.resolveHoverRow(detail.sha);
+		if (graphRow == null) return;
+
+		const graphZoneType: GraphZoneType = 'graph';
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-row-unhover', {
+				detail: { graphZoneType: graphZoneType, graphRow: graphRow, relatedTarget: detail.relatedTarget },
+			}),
+		);
+		this._lastHoverRow = undefined;
+	}
+
+	private _lastSentSelectionKey: string | undefined;
+
 	private onSelectionChanged({ detail: { rows, focusedRow } }: CustomEventType<'graph-changeselection'>) {
 		const wipMetadataBySha = this.graphState.wipMetadataBySha;
 		const selection: GraphSelection[] = filterMap(rows, r =>
@@ -1180,17 +1659,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// Build per-sha commit shells from the underlying row data so the details panel can
 		// paint the commit metadata synchronously (no IPC roundtrip) on cold-cache selections.
 		// Skip WIP / work-dir-changes rows — they don't map to a commit shell.
-		const sourceRows = this.graphState.rows;
 		const fallbackRepoPath = this.getRepoPath();
-		let sourceRowBySha: ReadonlyMap<string, GraphRow> | undefined;
-		if (sourceRows != null) {
-			if (this._sourceRowByShaCache?.rows === sourceRows) {
-				sourceRowBySha = this._sourceRowByShaCache.map;
-			} else {
-				sourceRowBySha = new Map(sourceRows.map(r => [r.sha, r]));
-				this._sourceRowByShaCache = { rows: sourceRows, map: sourceRowBySha };
-			}
-		}
+		const sourceRowBySha = this.getSourceRowByShaMap();
 		let commits: Record<string, CommitDetails> | undefined;
 		if (sourceRowBySha != null) {
 			for (const sel of selection) {
@@ -1239,6 +1709,309 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 */
 	private _unreachableAnchorRequests = new Map<string, number>();
 	private _unreachableAnchorScope: typeof graphStateContext.__context__.scope = undefined;
+
+	// ─── Experimental commit-graph engine handlers ────────────────────────────────────────────
+	// The commit-graph `<gl-lit-graph>` element emits a smaller set of events. We translate them
+	// into the same IPC commands and host events the legacy `<gl-graph>` flow uses so the
+	// rest of the app (details panel, selection sync, paging) sees no behavior change.
+
+	private onGraphSelectionChanged(
+		event: CustomEvent<{
+			sha: string | null;
+			mode?: 'replace' | 'toggle' | 'range';
+			rangeShas?: readonly string[];
+		}>,
+	) {
+		const { sha, mode, rangeShas: graphRangeShas } = event.detail;
+		const wipMetadataBySha = this.graphState.wipMetadataBySha;
+
+		// If the user has `gitlens.graph.multiselect: 'topological'`, replace commit-graph's
+		// visible-row range with the first-parent chain from the previously-focused row
+		// down through the clicked row. This matches the legacy GraphContainer's
+		// `shiftSelectMode='topological'` behavior — the user's mental model of "select all
+		// commits between A and B" follows commit ancestry, not visible position.
+		let rangeShas = graphRangeShas;
+		if (mode === 'range' && this.graphState.config?.multiSelectionMode === 'topological' && sha != null) {
+			const { rows: decoratedRowsForRange } = this.getDecoratedRows();
+			const prior = this.graphState.activeRow?.split('|')[0];
+			if (decoratedRowsForRange != null && prior != null && prior !== sha) {
+				rangeShas = walkTopologicalRange(decoratedRowsForRange, prior, sha);
+			}
+		}
+
+		// Look up rows in the DECORATED set (which includes synthetic primary + per-worktree
+		// secondary WIP rows) — `graphState.rows` doesn't carry those, so a secondary-WIP
+		// click would otherwise miss. Map lookup (not `.find()`) keeps range/toggle selection
+		// O(selection), not O(selection × rows) — a shift-click range can span many shas.
+		const decoratedRowBySha = this.getDecoratedRowByShaMap();
+		const focusedRow = sha != null ? decoratedRowBySha?.get(sha) : undefined;
+
+		// Build the full GraphSelection[] for the legacy event so the details panel + host
+		// see the same shape regardless of mode:
+		//   - `replace` (no mod) → just the focused sha
+		//   - `toggle` (cmd/ctrl+click) → existing selection ⊕ this sha
+		//   - `range`  (shift+click)   → host-supplied range, with `topological` mode resolved
+		//                                 in the React adapter against the visible rows
+		// For toggle, build off the *previously stored* selection in graphState.
+		let selection: GraphSelection[];
+		if (sha != null && focusedRow != null) {
+			const focusedSel: GraphSelection = {
+				id: sha,
+				type: focusedRow.type,
+				active: true,
+				hidden: false,
+				repoPath: wipMetadataBySha?.[sha]?.repoPath,
+			};
+
+			if (mode === 'range' && rangeShas != null && rangeShas.length > 0) {
+				selection = rangeShas.flatMap<GraphSelection>(rs => {
+					const r = decoratedRowBySha?.get(rs);
+					if (r == null) return [];
+					return [
+						{
+							id: rs,
+							type: r.type,
+							active: rs === sha,
+							hidden: false,
+							repoPath: wipMetadataBySha?.[rs]?.repoPath,
+						},
+					];
+				});
+				if (selection.length === 0) {
+					selection = [focusedSel];
+				}
+			} else if (mode === 'toggle') {
+				const prior = this.graphState.selectedRows ?? {};
+				const next: GraphSelection[] = [];
+				for (const otherSha of Object.keys(prior)) {
+					if (otherSha === sha) continue;
+
+					const r = decoratedRowBySha?.get(otherSha);
+					if (r == null) continue;
+
+					next.push({
+						id: otherSha,
+						type: r.type,
+						active: false,
+						hidden: false,
+						repoPath: wipMetadataBySha?.[otherSha]?.repoPath,
+					});
+				}
+				// Only add the clicked sha when it wasn't already in the selection (toggle off).
+				if (prior[sha] !== true) {
+					next.push(focusedSel);
+				}
+				selection = next.length > 0 ? next : [focusedSel];
+			} else {
+				selection = [focusedSel];
+			}
+		} else {
+			selection = [];
+		}
+
+		// Keep `graphState.selectedRows` in sync so commit-graph's `selectedHashes` derivation
+		// reflects the same set we just sent to the host.
+		const nextSelectedRows: GraphSelectedRows = {};
+		for (const s of selection) {
+			nextSelectedRows[s.id] = true;
+		}
+		this.graphState.selectedRows = nextSelectedRows;
+
+		this.graphState.activeRow = focusedRow != null ? `${focusedRow.sha}|${focusedRow.date}` : undefined;
+		this.graphState.activeDay = focusedRow?.date;
+
+		// Build commit-lite shells for every commit in the selection so the details panel
+		// paints synchronously without an IPC round-trip. WIP rows are skipped — they have
+		// no commit shell; the details panel branches on `type === 'work-dir-changes'`.
+		const sourceRowBySha = this.getSourceRowByShaMap();
+		let commits: Record<string, CommitDetails> | undefined;
+		if (sourceRowBySha != null && selection.length > 0) {
+			const repositories = this.graphState.repositories;
+			const selectedRepoId = this.graphState.selectedRepository;
+			const fallbackRepoPath =
+				(selectedRepoId != null ? repositories?.find(r => r.id === selectedRepoId)?.path : undefined) ??
+				repositories?.[0]?.path;
+			if (fallbackRepoPath != null) {
+				for (const sel of selection) {
+					if (sel.type === 'work-dir-changes') continue;
+
+					const sourceRow = sourceRowBySha.get(sel.id);
+					if (sourceRow == null) continue;
+
+					commits ??= {};
+					commits[sel.id] = buildCommitLite(
+						sourceRow,
+						sel.repoPath ?? fallbackRepoPath,
+						this.graphState.avatars,
+					);
+				}
+			}
+		}
+
+		// Decode the focused row's reachability from the graph's shared table — via the HOST row (the
+		// synthetic WIP shas `getDecoratedRows` injects aren't in `graphState.rows`, so this naturally
+		// stays undefined for them, matching the legacy path's WIP handling).
+		const sourceFocusedRow = focusedRow != null ? this.getSourceRowByShaMap()?.get(focusedRow.sha) : undefined;
+		const reachability =
+			sourceFocusedRow != null ? this.graphState.getRowReachability(sourceFocusedRow) : undefined;
+
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-change-selection', {
+				detail: { selection: selection, reachability: reachability, commits: commits },
+			}),
+		);
+
+		const selectionKey = selection.map(s => `${s.id}|${s.active ? 1 : 0}|${s.hidden ? 1 : 0}`).join(',');
+		if (selectionKey === this._lastSentSelectionKey) return;
+
+		this._lastSentSelectionKey = selectionKey;
+
+		this._ipc.sendCommand(UpdateSelectionCommand, { selection: selection });
+	}
+
+	private onGraphRowDoubleClick(event: CustomEvent<{ sha: string; type: GitGraphRow['type'] }>) {
+		const { sha, type } = event.detail;
+		// Resolve against the decorated rows (Seam B) so synthetic WIP shas — injected in
+		// `getDecoratedRows` and absent from `graphState.rows` — still resolve to a row.
+		const row = this.rowBySha(sha);
+		if (row != null) {
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-row-double-click', {
+					detail: { graphRow: row, preserveFocus: false },
+				}),
+			);
+		}
+		this._ipc.sendCommand(DoubleClickedCommand, {
+			type: 'row',
+			row: { id: sha, type: type },
+			preserveFocus: false,
+		});
+	}
+
+	private onGraphMoreRows() {
+		if (this.graphState.loading || !this.graphState.paging?.hasMore) return;
+
+		// Filter mode: once the search result set is fully loaded there's nothing more for row paging
+		// to surface — mirrors the legacy engine's `hasMoreCommits` gate (gl-graph.react.tsx) so it
+		// doesn't keep paging through history trying to "fill" the viewport with non-matches.
+		const searchResults = this.graphState.searchResults;
+		if (
+			this.graphState.searchMode === 'filter' &&
+			searchResults != null &&
+			!isGraphSearchResultsError(searchResults) &&
+			!searchResults.hasMore &&
+			searchResults.commitsLoaded.count === searchResults.count
+		) {
+			return;
+		}
+
+		this.graphState.loading = true;
+		this._ipc.sendCommand(GetMoreRowsCommand, { id: undefined });
+	}
+
+	private onGraphContextMenu(event: CustomEvent<{ sha: string; type: GitGraphRow['type']; zone: 'ref' | 'row' }>) {
+		const { sha, zone } = event.detail;
+		// Resolve against the decorated rows (Seam B) so a right-click on a synthetic WIP row
+		// (absent from `graphState.rows`) still finds its row and emits the context event.
+		const row = this.rowBySha(sha);
+		if (row == null) return;
+
+		// Ref zones keep their host-serialized branch/tag/remote contexts (rendered per ref pill) —
+		// don't pollute them with row/selection/WIP keys. Every other row's own commit context is
+		// already stamped declaratively (graph-row.ts `data-vscode-context`), so only WIP rows (which
+		// carry no row-level context at all) and multi-selected commit rows (selection keys are
+		// ADDITIVE — VS Code merges them with the nearer row-level `webviewItem`) need a wrapper-level
+		// write here.
+		if (zone !== 'ref') {
+			this.injectGraphContextMenuContext(row);
+		}
+
+		// Mirror the legacy `gl-graph-row-context-menu` event shape so consumers (hover
+		// dismissal, selection sync) don't need an engine-aware code path. The legacy
+		// gitkraken-components zone names are `'ref'` for chips and `'graph'` for the row body.
+		const graphZoneType: GraphZoneType = zone === 'ref' ? 'ref' : 'graph';
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-row-context-menu', {
+				detail: { graphZoneType: graphZoneType, graphRow: row },
+			}),
+		);
+	}
+
+	private injectGraphContextMenuContext(row: GitGraphRow): void {
+		// WIP rows carry NO row-level context at all (graph-commit.ts never builds one for them), so
+		// the wrapper-level write is authoritative — build the `gitlens:wip…` context unconditionally.
+		if (row.type === ('work-dir-changes' satisfies GitGraphRowType)) {
+			this.writeVscodeContext(this.buildRowContextMenuContext(row, false));
+			return;
+		}
+
+		// A plain (non-multi-selected) commit row's own `data-vscode-context` already serves its menu —
+		// nothing to add at the wrapper level (avoid double work).
+		const selectedRows = this.graphState.selectedRows;
+		if (selectedRows?.[row.sha] !== true) return;
+
+		const selectedShas = Object.keys(selectedRows);
+		if (selectedShas.length <= 1) return;
+
+		const repoPath = this.getRepoPath();
+		const { rows: decoratedRows } = this.getDecoratedRows();
+		if (repoPath == null || decoratedRows == null) return;
+
+		const { rows: selectedSourceRows, contiguous } = resolveSelectedRowsForContextMenu(decoratedRows, selectedShas);
+		const contexts = computeSelectionContexts(selectedSourceRows, repoPath, contiguous);
+		const context = contexts?.get(row.type);
+		if (context == null) return;
+
+		this.writeVscodeContext(serializeSelectionContext(context));
+	}
+
+	private onGraphMissingAvatars(event: CustomEvent<Record<string, string>>) {
+		// Same IPC the legacy `<gl-graph>` `missingavatars` event triggers — host resolves
+		// the URLs and pushes them back through the `avatars` prop.
+		this._ipc.sendCommand(GetMissingAvatarsCommand, { emails: event.detail });
+	}
+
+	private onGraphAvatarLoadError(event: CustomEvent<ProxyAvatarsParams>) {
+		// Same IPC the legacy `<gl-graph>` `avatarloaderror` event triggers (see `onAvatarLoadError`
+		// above) — host re-serves the broken remote avatar URLs through its proxy.
+		this._ipc.sendCommand(ProxyAvatarsCommand, event.detail);
+	}
+
+	private onGraphMissingRefsMetadata(event: CustomEvent<GraphMissingRefsMetadata>) {
+		// The Lit graph requests upstream (ahead/behind) metadata for tracked refs lazily; host resolves
+		// it and pushes it back through the `refsMetadata` prop (same IPC as the legacy `<gl-graph>`).
+		this._ipc.sendCommand(GetMissingRefsMetadataCommand, { metadata: event.detail });
+	}
+
+	private onGraphVisibleDaysChanged(event: CustomEvent<{ top: number; bottom: number }>) {
+		// Forward to the same custom event the legacy graph emits — the minimap and graph-app
+		// already listen for `gl-graph-change-visible-days` and don't care which engine fired.
+		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: event.detail }));
+	}
+
+	private onGraphRefDoubleClick(
+		event: CustomEvent<{
+			name: string;
+			kind: string;
+			remote: string | null;
+			context?: string;
+			current: boolean;
+			metadata?: GraphRefMetadataItem;
+		}>,
+	) {
+		const { name, kind, remote, context, current, metadata } = event.detail;
+		// The host expects a GraphRef shape with a refType. Map commit-graph's parsed ref kind to it.
+		// `head` = local branch, `tag` = annotated/lightweight tag, `remote` = remote branch.
+		const refType = kind === 'tag' ? 'tag' : kind === 'remote' ? 'remote' : 'head';
+		const ref = {
+			refType: refType as GraphRef['refType'],
+			name: name,
+			context: context,
+			...(refType === 'head' ? { isCurrentHead: current } : {}),
+			...(remote != null ? { owner: remote } : {}),
+		} satisfies Partial<GraphRef> as GraphRef;
+		this._ipc.sendCommand(DoubleClickedCommand, { type: 'ref', ref: ref, metadata: metadata });
+	}
 
 	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
 		// The component flagged that one or more scope anchors can't reach a visible ancestor

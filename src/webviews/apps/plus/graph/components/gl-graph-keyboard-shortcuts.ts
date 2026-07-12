@@ -1,5 +1,5 @@
 import { css, html, LitElement } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { getAltKeySymbol, getCmdKeySymbol, getShiftKeySymbol, isMac } from '@env/platform.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/dialog.js';
@@ -17,76 +17,118 @@ type Chord = string[];
 type Shortcut = { chords: Chord[]; description: string };
 type ShortcutGroup = { title: string; shortcuts: Shortcut[] };
 
-// Mirrors the verified handlers: gitkraken-components GraphContainer keydown (navigation),
-// gl-graph.react (open), search-box/search-input (search), gl-commit-box (commit), hover/minimap (Esc).
-const groups: ShortcutGroup[] = [
-	{
-		title: 'Navigation',
-		shortcuts: [
-			{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
-			{ chords: [['←'], ['→']], description: 'Select next / previous commit (non-topological)' },
-			{
-				chords: [
-					[shift, '↑'],
-					[shift, '↓'],
-				],
-				description: 'Extend selection up / down',
-			},
-			{
-				chords: [
-					[ctrlOrCmd, '↑'],
-					[ctrlOrCmd, '↓'],
-				],
-				description: 'Select topologically (follow branch lineage)',
-			},
-			{
-				chords: [
-					[alt, '↑'],
-					[alt, '↓'],
-				],
-				description: 'Select previous / next branching point',
-			},
-			{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
-			{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
-			{
-				chords: [
-					[alt, 'PgUp'],
-					[alt, 'PgDn'],
-				],
-				description: 'Select previous / next ref',
-			},
-			{ chords: [['H']], description: 'Select HEAD commit' },
-		],
-	},
-	{
-		title: 'Open',
-		shortcuts: [
-			{ chords: [['Enter']], description: 'Open the selected commit' },
-			{ chords: [['Space']], description: 'Open commit, keep focus in graph' },
-		],
-	},
-	{
-		title: 'Search',
-		shortcuts: [
-			{ chords: [[ctrlOrCmd, 'F']], description: 'Focus the search box' },
-			{
-				chords: isMac ? [['F3'], [ctrlOrCmd, 'G']] : [['F3']],
-				description: 'Go to next match (hold Shift for previous)',
-			},
-			{ chords: [['Enter'], [shift, 'Enter']], description: 'Next / previous match (in search box)' },
-			{ chords: [['↑'], ['↓']], description: 'Search history & autocomplete (in search box)' },
-			{ chords: [['Esc']], description: 'Cancel the search' },
-		],
-	},
-	{
-		title: 'Commit',
-		shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
-	},
-	{
-		title: 'Other',
-		shortcuts: [{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' }],
-	},
-];
+// Chrome shared by both graph engines — search-box/search-input, gl-commit-box, and the
+// hover/minimap Escape handlers all live outside the swapped renderer, so their bindings don't vary.
+const openGroup: ShortcutGroup = {
+	title: 'Open',
+	shortcuts: [
+		{ chords: [['Enter']], description: 'Open the selected commit' },
+		{ chords: [['Space']], description: 'Open commit, keep focus in graph' },
+	],
+};
+const searchGroup: ShortcutGroup = {
+	title: 'Search',
+	shortcuts: [
+		{ chords: [[ctrlOrCmd, 'F']], description: 'Focus the search box' },
+		{
+			chords: isMac ? [['F3'], [ctrlOrCmd, 'G']] : [['F3']],
+			description: 'Go to next match (hold Shift for previous)',
+		},
+		{ chords: [['Enter'], [shift, 'Enter']], description: 'Next / previous match (in search box)' },
+		{ chords: [['↑'], ['↓']], description: 'Search history & autocomplete (in search box)' },
+		{ chords: [['Esc']], description: 'Cancel the search' },
+	],
+};
+const commitGroup: ShortcutGroup = {
+	title: 'Commit',
+	shortcuts: [{ chords: [[ctrlOrCmd, 'Enter']], description: 'Commit staged changes (in commit box)' }],
+};
+const otherGroup: ShortcutGroup = {
+	title: 'Other',
+	shortcuts: [{ chords: [['Esc']], description: 'Close hover, dismiss error, or exit minimap zoom' }],
+};
+
+// New engine — mirrors the Lit graph's `onKeydown` (navigation + open + fold).
+const litNavigationGroup: ShortcutGroup = {
+	title: 'Navigation',
+	shortcuts: [
+		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
+		{ chords: [['←'], ['→']], description: 'Collapse / expand the focused branch lane' },
+		{
+			chords: [
+				[shift, '↑'],
+				[shift, '↓'],
+			],
+			description: 'Extend selection up / down',
+		},
+		{
+			chords: [
+				[ctrlOrCmd, '↑'],
+				[ctrlOrCmd, '↓'],
+			],
+			description: 'Select topologically (follow branch lineage)',
+		},
+		{
+			chords: [
+				[alt, '↑'],
+				[alt, '↓'],
+			],
+			description: 'Select previous / next branching point',
+		},
+		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
+		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
+		{
+			chords: [
+				[alt, 'PgUp'],
+				[alt, 'PgDn'],
+			],
+			description: 'Select previous / next ref',
+		},
+		{ chords: [['H']], description: 'Select HEAD commit' },
+	],
+};
+const litGroups: ShortcutGroup[] = [litNavigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
+
+// Old engine — mirrors gitkraken-components GraphContainer's keydown handler.
+const legacyNavigationGroup: ShortcutGroup = {
+	title: 'Navigation',
+	shortcuts: [
+		{ chords: [['↑'], ['↓']], description: 'Select previous / next commit' },
+		{ chords: [['←'], ['→']], description: 'Select next / previous commit (non-topological)' },
+		{
+			chords: [
+				[shift, '↑'],
+				[shift, '↓'],
+			],
+			description: 'Extend selection up / down',
+		},
+		{
+			chords: [
+				[ctrlOrCmd, '↑'],
+				[ctrlOrCmd, '↓'],
+			],
+			description: 'Select topologically (follow branch lineage)',
+		},
+		{
+			chords: [
+				[alt, '↑'],
+				[alt, '↓'],
+			],
+			description: 'Select previous / next branching point',
+		},
+		{ chords: [['Home'], ['End']], description: 'Select first / last commit' },
+		{ chords: [['PgUp'], ['PgDn']], description: 'Move selection up / down a page' },
+		{
+			chords: [
+				[alt, 'PgUp'],
+				[alt, 'PgDn'],
+			],
+			description: 'Select previous / next ref',
+		},
+		{ chords: [['H']], description: 'Select HEAD commit' },
+	],
+};
+const legacyGroups: ShortcutGroup[] = [legacyNavigationGroup, openGroup, searchGroup, commitGroup, otherGroup];
 
 @customElement('gl-graph-keyboard-shortcuts')
 export class GlGraphKeyboardShortcuts extends LitElement {
@@ -204,6 +246,10 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 		}
 	`;
 
+	/** Which engine's bindings to document — the dialog is shared chrome, the graph renderer isn't. */
+	@property({ type: Boolean })
+	useNewEngine = false;
+
 	@state()
 	private open = false;
 
@@ -216,6 +262,7 @@ export class GlGraphKeyboardShortcuts extends LitElement {
 	}
 
 	override render(): unknown {
+		const groups = this.useNewEngine ? litGroups : legacyGroups;
 		return html`<gl-dialog
 			class="shortcuts-dialog"
 			modal

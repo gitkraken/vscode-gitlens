@@ -1,4 +1,4 @@
-import type { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
+import type { GitGraphRow, GitGraphRowContextFlags, GitGraphRowType } from '@gitlens/git/models/graph.js';
 import { GitGraphRowContextFlags as ContextFlags } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
@@ -6,6 +6,7 @@ import { serializeWebviewItemContext } from '../../../../../system/webview.js';
 import type {
 	GraphCommitContextValue,
 	GraphContributorContextValue,
+	GraphItemContext,
 	GraphItemRefContext,
 	GraphItemTypedContext,
 } from '../../../../plus/graph/protocol.js';
@@ -191,4 +192,98 @@ function buildWipContext(
 /** Serializes the WIP-row context to the string the `data-vscode-context` DOM attribute carries. */
 export function serializeWipContext(worktreePath: string, secondary: boolean, hasConflicts: boolean): string {
 	return serializeWebviewItemContext(buildWipContext(worktreePath, secondary, hasConflicts));
+}
+
+/** True when every row is reachable from exactly one local branch AND they all agree on that same
+ *  branch — mirrors the React adapter's `checkUniqueBranchSelection`. Any row missing the flag (e.g. a
+ *  WIP row, which carries no flags at all) fails the whole selection, matching the original early-exit. */
+function isUniqueToBranchSelection(rows: readonly GitGraphRow[]): boolean {
+	if (rows.length === 0) return false;
+
+	const branchNames = new Set<string>();
+	for (const row of rows) {
+		if (!isUniqueToBranchRow(row)) return false;
+
+		for (const head of row.heads ?? []) {
+			branchNames.add(head.name);
+		}
+	}
+	return branchNames.size <= 1;
+}
+
+/** Resolves a selected row's own webview-item context, mirroring the on-demand row-context build: a
+ *  host-shipped `contexts.row` wins as-is; otherwise a lean row reconstructs it from its flags. `undefined`
+ *  for rows with neither (e.g. WIP rows) — they're excluded from the type-group below. */
+function parsedSelectionItem(row: GitGraphRow, repoPath: string): GraphItemContext | undefined {
+	const raw = row.contexts?.row;
+	if (raw != null) {
+		return (typeof raw === 'string' ? JSON.parse(raw) : raw) as GraphItemContext;
+	}
+	return needsDynamicRowContext(row) ? buildRowCommitContext(row, repoPath) : undefined;
+}
+
+/** Per-row-type multi-selection context — mirrors the React adapter's `computeSelectionContext`.
+ *  `webviewItems`/`webviewItemsValues` boil the type-group's own contexts down to a least-common-
+ *  denominator string + the full per-row value list (multi-commit commands read the latter for every
+ *  selected ref). The `list*Selection` flags gate `.multi` menu entries; `listContiguousSelection` and
+ *  `listUniqueBranchSelection` are whole-selection properties (same value for every type-group). */
+export interface GraphSelectionContext {
+	webviewItems?: string;
+	webviewItemsValues?: GraphItemContext[];
+	listMultiSelection: boolean;
+	listDoubleSelection: boolean;
+	listContiguousSelection: boolean;
+	listUniqueBranchSelection: boolean;
+}
+
+/**
+ * Builds the per-row-type selection contexts for a multi-row right-click. `contiguous` is the caller-
+ * computed display-order contiguity of `selectedRows` (this function is topology-agnostic — the caller
+ * knows the render order). Returns `undefined` for a selection of 0 or 1 rows, matching the React
+ * adapter's early exit (no multi-select context applies to a single selection).
+ */
+export function computeSelectionContexts(
+	selectedRows: readonly GitGraphRow[],
+	repoPath: string,
+	contiguous: boolean,
+): Map<GitGraphRowType, GraphSelectionContext> | undefined {
+	if (selectedRows.length <= 1) return undefined;
+
+	const isUniqueBranch = isUniqueToBranchSelection(selectedRows);
+
+	const grouped = new Map<GitGraphRowType, GraphItemContext[]>();
+	for (const row of selectedRows) {
+		const item = parsedSelectionItem(row, repoPath);
+		if (item == null) continue;
+
+		const items = grouped.get(row.type);
+		if (items != null) {
+			items.push(item);
+		} else {
+			grouped.set(row.type, [item]);
+		}
+	}
+	if (grouped.size === 0) return undefined;
+
+	const contexts = new Map<GitGraphRowType, GraphSelectionContext>();
+	for (const [type, items] of grouped) {
+		const webviewItems = reduceCommonWebviewItemsContext(items.map(i => i.webviewItem));
+		const count = webviewItems != null ? items.length : 0;
+		contexts.set(type, {
+			webviewItems: webviewItems,
+			webviewItemsValues: count > 1 ? items : undefined,
+			listMultiSelection: count > 1,
+			listDoubleSelection: count === 2,
+			listContiguousSelection: contiguous,
+			listUniqueBranchSelection: isUniqueBranch,
+		});
+	}
+	return contexts;
+}
+
+/** Serializes a {@link GraphSelectionContext} to the string the `data-vscode-context` DOM attribute
+ *  carries. Additive keys only — no `webviewItem`/`webviewItemValue` — those come from the nearer
+ *  row-level attribute, which VS Code's context-menu DOM walk merges with these wrapper-level keys. */
+export function serializeSelectionContext(context: GraphSelectionContext): string {
+	return JSON.stringify(context);
 }
