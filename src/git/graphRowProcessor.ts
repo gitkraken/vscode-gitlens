@@ -1,7 +1,7 @@
 import type { Uri } from 'vscode';
 import type { GitGraphRow, GitGraphRowContexts, GraphContext, GraphRowProcessor } from '@gitlens/git/models/graph.js';
-import { GitGraphRowContextFlags } from '@gitlens/git/models/graph.js';
 import type { GitBranchReference } from '@gitlens/git/models/reference.js';
+import { computeGraphRowContextFlags } from '@gitlens/git/utils/reachability.utils.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { getCachedAvatarUri } from '../avatars.js';
 import type { Container } from '../container.js';
@@ -25,10 +25,10 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 
 	processRow(row: GitGraphRow, context: GraphContext): void {
 		const pinnedRefId = this.getPinnedRefId();
-		const groupedRefs = new Map<
-			string,
-			{ head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }
-		>();
+		// Lazy — the overwhelming majority of rows carry no refs, and this runs once per row.
+		let groupedRefs:
+			| Map<string, { head?: boolean; local?: GitBranchReference; remotes?: GitBranchReference[] }>
+			| undefined;
 
 		// Enrich tags with serialized webview contexts
 		if (row.tags) {
@@ -77,6 +77,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 
 				head.context = serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(ctx);
 
+				groupedRefs ??= new Map();
 				let group = groupedRefs.get(head.name);
 				if (group == null) {
 					group = {};
@@ -119,6 +120,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 
 				remoteHead.context = serializeWebviewItemContext<GraphItemRefContext<GraphBranchContextValue>>(ctx);
 
+				groupedRefs ??= new Map();
 				let group = groupedRefs.get(remoteHead.name);
 				if (group == null) {
 					group = { remotes: [] };
@@ -133,19 +135,21 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 		const contexts: GitGraphRowContexts = {};
 
 		// Build ref group contexts from grouped local + remote refs
-		for (const [groupName, group] of groupedRefs) {
-			if (
-				group.remotes != null &&
-				((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
-			) {
-				contexts.refGroups ??= {};
-				contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
-					webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
-					webviewItemGroupValue: {
-						type: 'refGroup',
-						refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
-					},
-				});
+		if (groupedRefs != null) {
+			for (const [groupName, group] of groupedRefs) {
+				if (
+					group.remotes != null &&
+					((group.local != null && group.remotes.length > 0) || group.remotes.length > 1)
+				) {
+					contexts.refGroups ??= {};
+					contexts.refGroups[groupName] = serializeWebviewItemContext<GraphItemRefGroupContext>({
+						webviewItemGroup: `gitlens:refGroup${group.head ? '+current' : ''}`,
+						webviewItemGroupValue: {
+							type: 'refGroup',
+							refs: group.local != null ? [group.local, ...group.remotes] : group.remotes,
+						},
+					});
+				}
 			}
 		}
 
@@ -174,19 +178,7 @@ export class GlGraphRowProcessor implements GraphRowProcessor {
 			// row fields + repoPath + these flags (see `rowContext.utils` + `graph-wrapper`'s
 			// `injectRowContextMenuContext`). `+HEAD`/`+worktreeHEAD` and contributor `+current` are
 			// derived webview-side from `row.heads`/`row.isCurrentUser` and need no flag.
-			const localBranches = row.reachability?.refs.filter(r => r.refType === 'branch' && !r.remote);
-			// Unpublished = reachable from HEAD but not from HEAD's upstream tip. `reachableFromHeadUpstream`
-			// is undefined when HEAD has no upstream, so nothing is ever flagged in that case.
-			const isUnpublished =
-				context.reachableFromHeadUpstream != null &&
-				context.reachableFromHEAD.has(row.sha) &&
-				!context.reachableFromHeadUpstream.has(row.sha);
-			contexts.flags =
-				(context.reachableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
-				(context.rewriteableFromHEAD.has(row.sha) ? GitGraphRowContextFlags.RewriteableFromHead : 0) |
-				(localBranches?.length === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
-				(context.tipShasWithChildren.has(row.sha) ? GitGraphRowContextFlags.HasChildren : 0) |
-				(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0);
+			contexts.flags = computeGraphRowContextFlags(row.sha, row.reachability?.refs, context);
 
 			// Populate avatar cache
 			if (!context.avatars.has(row.email)) {

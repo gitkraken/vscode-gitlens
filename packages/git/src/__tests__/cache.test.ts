@@ -97,6 +97,44 @@ suite('Cache.deleteGkConfig — branchOverviews invalidation', () => {
 	});
 });
 
+suite('Cache.clearCaches — branchMergedStatus', () => {
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test("clearCaches(repo, 'branches') preserves branchMergedStatus but still clears branchOverviews", async () => {
+		const repoPath = '/test/repo';
+		let mergedStatusCount = 0;
+		let overviewCount = 0;
+		const mergedStatusFactory = () => {
+			mergedStatusCount++;
+			return Promise.resolve({ merged: false } as const);
+		};
+		const overviewFactory = () => {
+			overviewCount++;
+			return Promise.resolve(undefined);
+		};
+
+		await cache.getBranchMergedStatus(repoPath, 'l:feature@sha1|l:main@sha2', mergedStatusFactory);
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(mergedStatusCount, 1);
+		assert.strictEqual(overviewCount, 1);
+
+		cache.clearCaches(repoPath, 'branches');
+
+		await cache.getBranchMergedStatus(repoPath, 'l:feature@sha1|l:main@sha2', mergedStatusFactory);
+		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
+		assert.strictEqual(mergedStatusCount, 1, 'branchMergedStatus is content-keyed, so it should be preserved');
+		assert.strictEqual(overviewCount, 2, 'branchOverviews should still be cleared on a branches event');
+	});
+});
+
 suite('Cache.deleteGkConfig — baseBranchName invalidation', () => {
 	let cache: Cache;
 

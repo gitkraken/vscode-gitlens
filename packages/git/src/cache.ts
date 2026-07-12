@@ -257,7 +257,9 @@ export class Cache implements Disposable {
 
 	get branchMergedStatus(): RepoPromiseCacheMap<string, GitBranchMergedStatus> {
 		return (this._caches.branchMergedStatus ??= new RepoPromiseCacheMap<string, GitBranchMergedStatus>({
-			createTTL: 1000 * 60 * 5, // 5 minutes
+			createTTL: 1000 * 60 * 30, // 30 minutes — content-keyed on tip shas, so this is just a backstop
+			accessTTL: 1000 * 60 * 60, // 60 minutes
+			capacity: 100, // Limit to 100 branch-pairs per repo
 		}));
 	}
 
@@ -502,13 +504,11 @@ export class Cache implements Disposable {
 				keysToClear.add('fileLog');
 			}
 
-			// Branch caches affected by HEAD/heads changes — `branchMergedStatus` is shared
-			// (the answer is invariant across worktrees of the same common repo) but is invalidated
-			// here because branch-tip movement in any worktree can change the merge status; the
-			// shared-clear logic below routes shared keys via commonPath.
+			// Branch caches affected by HEAD/heads changes. `branchMergedStatus` is deliberately NOT
+			// cleared here — it's content-keyed on the involved tip shas, so tip movement already
+			// self-invalidates (a new key); evicting it here would only discard still-valid answers.
 			if (types.includes('branch') || types.includes('branches')) {
 				keysToClear.add('branch');
-				keysToClear.add('branchMergedStatus');
 				keysToClear.add('branchOverviews');
 				// `commit`/`commitCount` are keyed by symbolic ref or SHA — symbolic-ref entries
 				// can drift when branches move; cascade-clear conservatively.

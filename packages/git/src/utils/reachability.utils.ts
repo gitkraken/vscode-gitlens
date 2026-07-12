@@ -1,17 +1,58 @@
 import { base64, fromBase64 } from '@gitlens/utils/base64.js';
-import type { GraphReachabilityTable } from '../models/graph.js';
+import type { GraphContext, GraphReachabilityTable } from '../models/graph.js';
+import { GitGraphRowContextFlags } from '../models/graph.js';
 import type { GitCommitReachability } from '../providers/commits.js';
 
 type ReachableRef = GitCommitReachability['refs'][number];
 
 /**
+ * Computes the compact {@link GitGraphRowContextFlags} bitfield for a commit row from its reachable-ref
+ * set and the walk's HEAD-derived sets. Single-sourced so the host row processor
+ * (`GlGraphRowProcessor`), the R6b incremental fast path, and the equivalence harness all compute
+ * byte-identical flags (no manual mirrors that can drift). Stash rows carry no flags — callers skip this
+ * for `stash-node` rows. See {@link GitGraphRowContextFlags} for the per-bit semantics.
+ */
+export function computeGraphRowContextFlags(
+	sha: string,
+	reachableRefs: Iterable<ReachableRef> | undefined,
+	ctx: Pick<
+		GraphContext,
+		'reachableFromHEAD' | 'rewriteableFromHEAD' | 'tipShasWithChildren' | 'reachableFromHeadUpstream'
+	>,
+): GitGraphRowContextFlags {
+	// Allocation-free "exactly one local branch reachable" check → `+unique`.
+	let localBranches = 0;
+	if (reachableRefs != null) {
+		for (const r of reachableRefs) {
+			if (r.refType === 'branch' && !r.remote && ++localBranches > 1) break;
+		}
+	}
+	// Unpublished = reachable from HEAD but not from HEAD's upstream tip. `reachableFromHeadUpstream` is
+	// undefined when HEAD has no upstream, so nothing is ever flagged in that case.
+	const isUnpublished =
+		ctx.reachableFromHeadUpstream != null &&
+		ctx.reachableFromHEAD.has(sha) &&
+		!ctx.reachableFromHeadUpstream.has(sha);
+	return (
+		(ctx.reachableFromHEAD.has(sha) ? GitGraphRowContextFlags.ReachableFromHead : 0) |
+		(ctx.rewriteableFromHEAD.has(sha) ? GitGraphRowContextFlags.RewriteableFromHead : 0) |
+		(localBranches === 1 ? GitGraphRowContextFlags.UniqueToBranch : 0) |
+		(ctx.tipShasWithChildren.has(sha) ? GitGraphRowContextFlags.HasChildren : 0) |
+		(isUnpublished ? GitGraphRowContextFlags.Unpublished : 0)
+	);
+}
+
+/**
  * Canonical dictionary key for a reachable ref. The `r`/`l` discriminator keeps a remote branch from
  * colliding with a local branch of the same name; the `refType` prefix separates tags from branches.
+ * `current` is part of the key so a builder SEEDED from a prior generation's table can't hand back a
+ * stale dictionary entry after the checked-out branch changes — the updated ref interns as a new
+ * entry instead (within a single walk `current` can't change, so the wider key is behavior-neutral).
  * Single-sourced here so the encoder ({@link createReachabilityTableBuilder}) and any future consumer
  * can't drift on the convention.
  */
 export function reachableRefKey(ref: ReachableRef): string {
-	return `${ref.refType}:${ref.refType === 'branch' && ref.remote ? 'r' : 'l'}:${ref.name}`;
+	return `${ref.refType}:${ref.refType === 'branch' && ref.remote ? 'r' : 'l'}:${ref.current ? 'c' : 'n'}:${ref.name}`;
 }
 
 // Monotonic generation counter — each builder (i.e. each fresh graph walk) gets a distinct id, while a
@@ -28,16 +69,29 @@ let nextReachabilityTableId = 0;
  *
  * Append-only by construction: an index, once assigned, is never reused — so a builder kept alive
  * across paginated loads accumulates a table whose existing indices stay valid as it grows.
+ *
+ * Pass a prior generation's table as `seed` to CONTINUE it: identical ref sets re-intern to their
+ * seeded indices and the table keeps the seed's `id`, so rows retained across a rebuild keep valid
+ * `reachabilityIndex` values and the host's same-id delta shipping applies (only appended entries go
+ * over the wire). Entries the new walk never re-interns stay in the table unreferenced — harmless,
+ * and bounded by per-session ref churn.
  */
-export function createReachabilityTableBuilder(): {
+export function createReachabilityTableBuilder(seed?: GraphReachabilityTable): {
 	intern: (refs: Iterable<ReachableRef> | undefined) => number | undefined;
 	build: () => GraphReachabilityTable | undefined;
 } {
-	const id = ++nextReachabilityTableId;
-	const dictionary: GitCommitReachability['refs'] = [];
-	const refKeyToIndex = new Map<string, number>();
-	const sets: string[] = [];
-	const setKeyToIndex = new Map<string, number>();
+	const id = seed?.id ?? ++nextReachabilityTableId;
+	const dictionary: GitCommitReachability['refs'] = seed != null ? [...seed.dictionary] : [];
+	const refKeyToIndex = new Map<string, number>(dictionary.map((ref, i) => [reachableRefKey(ref), i]));
+	const sets: string[] = seed != null ? [...seed.sets] : [];
+	const setKeyToIndex = new Map<string, number>(sets.map((encoded, i) => [encoded, i]));
+
+	// Reachability is monotone, so a graph walk interns long runs of IDENTICAL sets (thousands of
+	// consecutive trunk rows share one set). Remembering the previous call's indices skips the
+	// bitmap-pack + base64 for those runs; a same-membership-different-order call just falls through
+	// to the (still correct) slow path.
+	let lastIndices: number[] | undefined;
+	let lastSetIndex: number | undefined;
 
 	return {
 		/** Interns a ref set, returning its index into `sets`, or undefined when the set is empty. */
@@ -61,6 +115,17 @@ export function createReachabilityTableBuilder(): {
 			}
 			if (indices.length === 0) return undefined;
 
+			if (lastIndices != null && indices.length === lastIndices.length) {
+				let same = true;
+				for (let i = 0; i < indices.length; i++) {
+					if (indices[i] !== lastIndices[i]) {
+						same = false;
+						break;
+					}
+				}
+				if (same) return lastSetIndex;
+			}
+
 			// Pack into a bitset sized to this set's high-water dictionary index, then intern by base64.
 			const bytes = new Uint8Array((maxIndex >> 3) + 1);
 			for (const index of indices) {
@@ -73,6 +138,8 @@ export function createReachabilityTableBuilder(): {
 				setKeyToIndex.set(encoded, setIndex);
 				sets.push(encoded);
 			}
+			lastIndices = indices;
+			lastSetIndex = setIndex;
 			return setIndex;
 		},
 

@@ -727,7 +727,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	async getDefaultBranchName(
 		repoPath: string | undefined,
 		remote?: string,
-		options?: { priority?: GitCommandPriority },
+		options?: { priority?: GitCommandPriority; local?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		if (repoPath == null) return undefined;
@@ -735,6 +735,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		remote ??= 'origin';
 		const priority = options?.priority;
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
+
+		// Local-only: read just the existing local symref, never contacting the remote. Bypass the shared
+		// cache entirely — it's keyed by repoPath+remote, so caching a local miss (or sharing this in-flight
+		// promise) would starve a concurrent networked caller of the real default branch. The local read is
+		// a cheap ref lookup, fine to repeat per call.
+		if (options?.local) {
+			try {
+				const result = await this.git.run(
+					{ cwd: this.cache.getCommonPath(repoPath), cancellation: cancellation, ...priorityOpts },
+					'symbolic-ref',
+					'--short',
+					`refs/remotes/${remote}/HEAD`,
+				);
+				return result.stdout.trim() || undefined;
+			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+				return undefined;
+			}
+		}
 
 		return this.cache.getDefaultBranchName(repoPath, remote, async commonPath => {
 			let retried = false;
@@ -868,20 +887,32 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	@debug()
-	getBranchMergedStatus(
+	async getBranchMergedStatus(
 		repoPath: string,
 		branch: GitBranchReference,
 		into: GitBranchReference,
 		cancellation?: AbortSignal,
 	): Promise<GitBranchMergedStatus> {
 		if (branch.name === into.name || branch.upstream?.name === into.name) {
-			return Promise.resolve({ merged: false });
+			return { merged: false };
 		}
 
+		// Hoisted so it can feed the cache key below (its tip is a 3rd key input) and the mapper
+		// below reuses it instead of resolving it a second time.
+		const localInto = into.remote
+			? await this.getLocalBranchByUpstream(repoPath, into.name, cancellation)
+			: undefined;
+
 		// Cache key omits repoPath so worktrees of the same common repo share the cached answer.
-		// Branch refs (`refs/heads/*` / `refs/remotes/*`) are unique within a common repo, so
-		// `name` + `remote` flag is the minimal stable identity.
-		const cacheKey = `${branch.remote ? 'r' : 'l'}:${branch.name}|${into.remote ? 'r' : 'l'}:${into.name}`;
+		// Content-keyed on the involved tip shas (the result is a pure function of them), so tip
+		// movement mints a new key instead of relying on eviction; falls back to the name-only
+		// identity when a sha is missing (defensive — the sole caller always supplies both tips).
+		const cacheKey =
+			branch.sha != null && into.sha != null
+				? `${branch.remote ? 'r' : 'l'}:${branch.name}@${branch.sha}|${into.remote ? 'r' : 'l'}:${into.name}@${into.sha}${
+						localInto?.sha != null ? `|L:${localInto.name}@${localInto.sha}` : ''
+					}`
+				: `${branch.remote ? 'r' : 'l'}:${branch.name}|${into.remote ? 'r' : 'l'}:${into.name}`;
 
 		return this.cache.getBranchMergedStatus(
 			repoPath,
@@ -890,38 +921,29 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				const result = await this.getBranchMergedStatusCore(commonPath, branch, into, signal);
 				if (result.merged) return result;
 
-				// If the branch we are checking is a remote branch, check if it has been merged into its local branch (if there is one)
-				if (into.remote) {
-					const localIntoBranch = await this.getLocalBranchByUpstream(commonPath, into.name, signal);
-					// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
-					if (localIntoBranch != null && localIntoBranch.name !== branch.name) {
-						// Skip the second full merge-check cycle when the local branch points at the same commit as the remote —
-						// the merge-base/cherry/diff/apply pipeline would produce the same answer we already got for `into` above
-						if (localIntoBranch.sha != null && localIntoBranch.sha === into.sha) {
-							return { merged: false };
-						}
+				// If there is a local branch and it is not the branch we are checking, check if it has been merged into it
+				if (localInto != null && localInto.name !== branch.name) {
+					// Skip the second full merge-check cycle when the local branch points at the same commit as the remote —
+					// the merge-base/cherry/diff/apply pipeline would produce the same answer we already got for `into` above
+					if (localInto.sha != null && localInto.sha === into.sha) {
+						return { merged: false };
+					}
 
-						const result = await this.getBranchMergedStatusCore(
-							commonPath,
-							branch,
-							localIntoBranch,
-							signal,
-						);
-						if (result.merged) {
-							// `localBranchOnly` is built against `commonPath` here; the cache mapper rewrites
-							// `repoPath`/`id` to the requesting worktree on retrieval.
-							return {
-								...result,
-								localBranchOnly: createReference(localIntoBranch.ref, localIntoBranch.repoPath, {
-									id: localIntoBranch.id,
-									refType: 'branch',
-									name: localIntoBranch.name,
-									remote: localIntoBranch.remote,
-									upstream: localIntoBranch.upstream,
-									sha: localIntoBranch.sha,
-								}),
-							};
-						}
+					const result = await this.getBranchMergedStatusCore(commonPath, branch, localInto, signal);
+					if (result.merged) {
+						// `localBranchOnly` is built against `commonPath` here; the cache mapper rewrites
+						// `repoPath`/`id` to the requesting worktree on retrieval.
+						return {
+							...result,
+							localBranchOnly: createReference(localInto.ref, commonPath, {
+								id: getBranchId(commonPath, localInto.remote, localInto.name),
+								refType: 'branch',
+								name: localInto.name,
+								remote: localInto.remote,
+								upstream: localInto.upstream,
+								sha: localInto.sha,
+							}),
+						};
 					}
 				}
 

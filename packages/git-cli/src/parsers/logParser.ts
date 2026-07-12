@@ -76,7 +76,7 @@ const graphMapping = {
 	message: '%B',
 };
 
-type GraphLogParser = LogParser<typeof graphMapping>;
+export type GraphLogParser = LogParser<typeof graphMapping>;
 let _graphParser: GraphLogParser | undefined;
 type GraphWithStatsLogParser = LogParserWithStats<typeof graphMapping>;
 let _graphWithStatsParser: GraphWithStatsLogParser | undefined;
@@ -223,6 +223,14 @@ export type AsyncParser<T> = {
 	separators: { record: string; field: string };
 	parse: (data: string | Iterable<string> | undefined) => Generator<T> | Iterable<T>;
 	parseAsync: (stream: AsyncGenerator<string>) => AsyncGenerator<T>;
+	/**
+	 * Like `parseAsync` but yields one ARRAY of entries per stream chunk, scanning each chunk
+	 * synchronously with plain `indexOf` (no per-field iterator machinery). Bulk consumers (the
+	 * graph walk) avoid two promise hops per record — thousands of awaited yields collapse to one
+	 * per chunk. Only the plain parser implements it; per-record `parseAsync` remains the
+	 * general-purpose path.
+	 */
+	parseAsyncBatched?: (stream: AsyncGenerator<string>) => AsyncGenerator<T[]>;
 };
 
 export type LogParser<T> = AsyncParser<LogParsedEntry<T>>;
@@ -279,6 +287,20 @@ const recordSep = '\x1E'; // ASCII Record Separator character
 const recordFormatSep = '%x1E';
 const fieldSep = '\x1D'; // ASCII Group Separator character
 const fieldFormatSep = '%x1D';
+
+// A complete record terminates every mapped field with a field separator — a cancelled/early-closed
+// stream resolves cleanly with a truncated tail missing at least the final terminator.
+function isCompleteRecord(record: string, requiredFields: number): boolean {
+	let count = 0;
+	let index = -1;
+	while (count < requiredFields) {
+		index = record.indexOf(fieldSep, index + 1);
+		if (index === -1) return false;
+
+		count++;
+	}
+	return true;
+}
 
 export function createLogParser<T extends Record<string, string>>(mapping: ExtractAll<T, string>): LogParser<T> {
 	let format = recordFormatSep;
@@ -339,6 +361,8 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 
 		for await (const record of records) {
 			if (!record.length) continue;
+			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			entry = {} as unknown as LogParsedEntry<T>;
 			fields = iterateByDelimiter(record, fieldSep);
@@ -361,11 +385,65 @@ export function createLogParser<T extends Record<string, string>>(mapping: Extra
 		sw?.stop({ suffix: ` parsed ${count} records` });
 	}
 
+	// Builds one entry from a complete record with a plain `indexOf` walk. Matches `parseAsync`'s
+	// semantics exactly: fields beyond the mapping are ignored, and every mapped field is
+	// terminated by a field separator (the format string appends one after each field).
+	function parseRecord(record: string): LogParsedEntry<T> {
+		const entry = {} as unknown as LogParsedEntry<T>;
+		let start = 0;
+		for (const key of keys) {
+			const end = record.indexOf(fieldSep, start);
+			if (end === -1) break;
+
+			entry[key] = record.substring(start, end) as T[keyof T];
+			start = end + 1;
+		}
+		return entry;
+	}
+
+	async function* parseAsyncBatched(stream: AsyncGenerator<string>): AsyncGenerator<LogParsedEntry<T>[]> {
+		using sw = maybeStopWatch('Git.LogParser.parseAsyncBatched', { log: { onlyExit: true, level: 'debug' } });
+
+		let count = 0;
+		let buffer = '';
+		for await (const chunk of stream) {
+			buffer += chunk;
+
+			let batch: LogParsedEntry<T>[] | undefined;
+			let start = 0;
+			while (true) {
+				const end = buffer.indexOf(recordSep, start);
+				if (end === -1) break;
+
+				if (end > start) {
+					(batch ??= []).push(parseRecord(buffer.substring(start, end)));
+					count++;
+				}
+				start = end + 1;
+			}
+			if (start > 0) {
+				buffer = buffer.substring(start);
+			}
+			if (batch != null) {
+				yield batch;
+			}
+		}
+		// Trailing record (the stream doesn't end with a record separator); a truncated tail from a
+		// cancelled/early-closed stream is missing a field terminator and must be dropped, not parsed.
+		if (buffer.length > 0 && isCompleteRecord(buffer, keys.length)) {
+			count++;
+			yield [parseRecord(buffer)];
+		}
+
+		sw?.stop({ suffix: ` parsed ${count} records` });
+	}
+
 	return {
 		arguments: args,
 		separators: { record: recordSep, field: fieldSep },
 		parse: parse,
 		parseAsync: parseAsync,
+		parseAsyncBatched: parseAsyncBatched,
 	};
 }
 
@@ -605,6 +683,8 @@ function createLogParserWithFilesAndStats<T extends Record<string, string> | voi
 
 		for await (const record of records) {
 			if (!record.length) continue;
+			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFilesAndStats<T>;
@@ -955,6 +1035,8 @@ function createLogParserWithPatch<T extends Record<string, string>>(
 
 		for await (const record of records) {
 			if (!record.length) continue;
+			// Drop a truncated tail (cancelled/early-closed stream) instead of yielding undefined/partial fields.
+			if (!isCompleteRecord(record, keys.length)) continue;
 
 			count++;
 			entry = {} as unknown as LogParsedEntryWithFiles<T>;
