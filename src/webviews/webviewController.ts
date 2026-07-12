@@ -1033,7 +1033,11 @@ export class WebviewController<
 			}
 		} else if (notificationType === IpcPromiseSettled) {
 			this._pendingIpcPromiseNotifications.add({ msg: msg, timestamp: Date.now() });
-		} else {
+		} else if (notificationType.queueable !== false) {
+			// `queueable: false` (e.g. the rows-plane channel): the sender owns its own recovery (a failed
+			// send forces its next flush to a snapshot). Type-keyed requeueing here would double-apply — the
+			// controller's replaced notification AND the publisher's snapshot both re-deliver — so skip the
+			// pending queue for these sends. They still enter the replay buffer above on success.
 			this.addPendingIpcNotificationCore(notificationType, msg);
 		}
 		return success;

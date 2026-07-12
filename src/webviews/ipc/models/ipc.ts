@@ -58,4 +58,19 @@ export class IpcRequest<Params = void, ResponseParams = void> extends IpcCall<Pa
 }
 
 /** Notifications are sent from the extension to the webview */
-export class IpcNotification<Params = void> extends IpcCall<Params> {}
+export class IpcNotification<Params = void> extends IpcCall<Params> {
+	/**
+	 * When explicitly `false`, a failed send is NOT re-queued into the controller's pending-notification
+	 * map — the sender owns its own failure recovery (e.g. the rows-plane publisher re-ships a snapshot),
+	 * so a type-keyed requeue would double-apply against that recovery. Omitted (the default) requeues on
+	 * failure. Kept optional so `IpcCommand` stays structurally assignable where `notify` is loosely typed.
+	 */
+	constructor(
+		scope: IpcScope,
+		method: string,
+		reset?: boolean,
+		public readonly queueable?: boolean,
+	) {
+		super(scope, method, reset);
+	}
+}
