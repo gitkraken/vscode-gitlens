@@ -63,7 +63,12 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { ConflictDetails } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
-import { fetchCommitEnrichment, withCachedEnrichment } from '../../../shared/actions/commitEnrichment.js';
+import {
+	applyAvatars,
+	applyReachableFromOtherWorktrees,
+	fetchCommitEnrichment,
+	withCachedEnrichment,
+} from '../../../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
 import * as prActions from '../../../shared/actions/pr.js';
@@ -1056,7 +1061,7 @@ export class DetailsActions {
 					this.state.commit.set(next);
 					if (next != null) {
 						this._commitEnrichmentCache.update(`${sha}:${repoPath}`, { commit: next });
-						this.fetchEnrichment(repoPath, sha, enrichSignal, knownReachable);
+						this.fetchEnrichment(repoPath, sha, enrichSignal);
 					}
 				}
 			}
@@ -1069,10 +1074,9 @@ export class DetailsActions {
 		}
 	}
 
-	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal, knownReachable?: true): void {
+	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
 		const cacheKey = `${sha}:${repoPath}`;
-		const commit = this.state.commit.get();
-		const isStash = commit?.stashNumber != null;
+		const isStash = this.state.commit.get()?.stashNumber != null;
 
 		fetchCommitEnrichment(
 			this.services,
@@ -1085,9 +1089,6 @@ export class DetailsActions {
 				isUncommitted: this.isWip(sha),
 				autolinksEnabled: this.state.autolinksEnabled.get(),
 				avatarsEnabled: this.state.preferences.get()?.avatars ?? true,
-				authorEmail: commit?.author.email,
-				committerEmail: commit?.committer.email,
-				knownReachableFromOtherWorktrees: knownReachable,
 			},
 			{
 				setBasicAutolinks: (autolinks, formattedMessage) => {
@@ -1114,25 +1115,9 @@ export class DetailsActions {
 					this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
 					this.state.signature.set(sig);
 				},
-				setAvatars: avatars => {
-					this.patchCommit(cacheKey, sha, repoPath, c =>
-						(avatars.author ?? c.author.avatar) === c.author.avatar &&
-						(avatars.committer ?? c.committer.avatar) === c.committer.avatar
-							? c
-							: {
-									...c,
-									author: { ...c.author, avatar: avatars.author ?? c.author.avatar },
-									committer: { ...c.committer, avatar: avatars.committer ?? c.committer.avatar },
-								},
-					);
-				},
-				setReachableFromOtherWorktrees: reachable => {
-					this.patchCommit(cacheKey, sha, repoPath, c =>
-						c.reachableFromOtherWorktrees === reachable
-							? c
-							: { ...c, reachableFromOtherWorktrees: reachable },
-					);
-				},
+				setAvatars: avatars => this.patchCommit(cacheKey, sha, repoPath, c => applyAvatars(c, avatars)),
+				setReachableFromOtherWorktrees: reachable =>
+					this.patchCommit(cacheKey, sha, repoPath, c => applyReachableFromOtherWorktrees(c, reachable)),
 			},
 		);
 	}

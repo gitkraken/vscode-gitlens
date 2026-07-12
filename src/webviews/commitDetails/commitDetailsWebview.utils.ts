@@ -6,7 +6,7 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
-import { getAvatarUri } from '../../avatars.js';
+import { getAvatarUri, getCachedAvatarUri } from '../../avatars.js';
 import type { Container } from '../../container.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { findCommitFile, getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
@@ -98,7 +98,13 @@ export async function getCoreCommitDetails(
 	options?: { knownAvatars?: ReadonlyMap<string, string> },
 ): Promise<CommitDetails> {
 	if (!commit.hasFullDetails()) {
-		await GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } });
+		try {
+			await GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } });
+		} catch {
+			// Degrade to a file-less payload rather than failing the whole fetch — the header, message, and
+			// stats still render. (The pre-extraction copies got this from `Promise.allSettled`; a bare await
+			// would instead blank the panel on a transient `git status`/`git log` failure.)
+		}
 	}
 
 	// Raw message with headline split — no autolink linkification (that's deferred)
@@ -159,18 +165,21 @@ export async function getCoreCommitDetails(
 	};
 }
 
-/** Best avatar obtainable with zero async work: an integration-supplied URL, else the Graph's resolved
- *  map, else the synchronous cached-or-gravatar lookup (the `undefined` repo overload never fetches). */
+/** Best avatar obtainable with zero async work, in descending order of fidelity: an integration-supplied
+ *  URL, an already-resolved avatar at OUR size, the Graph's resolved map (the right face, but resolved at
+ *  the rows' smaller size — better than a gravatar, and the deferred avatar leg upgrades it), else the
+ *  synchronous cached-or-gravatar lookup (the `undefined` repo overload never fetches). */
 function resolveCoreAvatar(
 	identity: { email: string | undefined; avatarUrl?: string },
 	knownAvatars: ReadonlyMap<string, string> | undefined,
 ): string | undefined {
 	if (identity.avatarUrl != null) return identity.avatarUrl;
+	if (!identity.email) return getAvatarUri(identity.email, undefined, { size: 32 }).toString(true);
 
-	const known = identity.email ? knownAvatars?.get(identity.email) : undefined;
-	if (known != null) return known;
+	const cached = getCachedAvatarUri(identity.email, { size: 32 });
+	if (cached != null) return cached.toString(true);
 
-	return getAvatarUri(identity.email, undefined, { size: 32 }).toString(true);
+	return knownAvatars?.get(identity.email) ?? getAvatarUri(identity.email, undefined, { size: 32 }).toString(true);
 }
 
 /** Tallies added/deleted/changed counts from a file list — mirrors `GitCommit.computeFileStats` so the

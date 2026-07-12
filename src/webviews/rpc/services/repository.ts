@@ -42,7 +42,11 @@ import * as BranchActions from '../../../git/actions/branch.js';
 import * as RepoActions from '../../../git/actions/repository.js';
 import * as StashActions from '../../../git/actions/stash.js';
 import { GitUri } from '../../../git/gitUri.js';
-import { getCommitSignature } from '../../../git/utils/-webview/commit.utils.js';
+import {
+	getCommitAuthorAvatarUri,
+	getCommitCommitterAvatarUri,
+	getCommitSignature,
+} from '../../../git/utils/-webview/commit.utils.js';
 import {
 	resolveAllConflicts as resolveAllConflictsHelper,
 	stageConflictResolution as stageConflictResolutionHelper,
@@ -237,24 +241,27 @@ export class RepositoryService {
 	 * Resolves a commit's provider avatars. Deliberately off the critical path: on a cold cache in a repo
 	 * with remotes this hits the remote provider (a network fetch), so the core commit payload ships a
 	 * synchronous cached-or-gravatar avatar and the details panels upgrade to this when it lands.
-	 * Emails come from that payload — no commit re-fetch needed.
+	 *
+	 * Resolves from the commit rather than from bare emails so the integration-supplied `avatarUrl` still
+	 * wins (`getCommitAuthorAvatarUri` short-circuits on it) — resolving by email alone would downgrade a
+	 * GitHub-provider avatar to a gravatar, since `getAvatarUri` always falls back rather than returning
+	 * nothing.
 	 */
 	async getCommitAvatars(
 		repoPath: string,
 		sha: string,
-		authorEmail: string | undefined,
-		committerEmail: string | undefined,
 		signal?: AbortSignal,
 	): Promise<CommitAvatarsShape | undefined> {
 		signal?.throwIfAborted();
-		if (!authorEmail) return undefined;
 
-		const hasDistinctCommitter = committerEmail != null && committerEmail !== authorEmail;
+		const commit = await this.container.git.getRepositoryService(repoPath).commits.getCommit(sha, signal);
+		signal?.throwIfAborted();
+		if (commit == null) return undefined;
+
+		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
 		const [authorResult, committerResult] = await Promise.allSettled([
-			getAvatarUri(authorEmail, { ref: sha, repoPath: repoPath }, { size: 32 }),
-			hasDistinctCommitter
-				? getAvatarUri(committerEmail, { ref: sha, repoPath: repoPath }, { size: 32 })
-				: Promise.resolve(undefined),
+			getCommitAuthorAvatarUri(commit, { size: 32 }),
+			hasDistinctCommitter ? getCommitCommitterAvatarUri(commit, { size: 32 }) : Promise.resolve(undefined),
 		]);
 		signal?.throwIfAborted();
 
@@ -275,16 +282,20 @@ export class RepositoryService {
 		signal?.throwIfAborted();
 		if (worktrees == null || worktrees.length <= 1) return false;
 
-		// The underlying reachability lookup is cached in the git layer, but the detached-worktree checks
-		// and the intersection aren't, and this runs on every commit selection — its answer can only
-		// change when a worktree's HEAD moves, so memoize on exactly that.
-		const key = `${sha}:${worktrees.map(w => w.sha ?? '').join(',')}`;
+		// `repoPath` MUST be part of the key: `getWorktrees` is family-wide, so every worktree in a family
+		// sees the same list, but the answer excludes the worktree AT `repoPath` — two repos in one family
+		// would otherwise collide on one key and be served each other's answer. Beyond that the answer can
+		// only change when a worktree's HEAD moves, so key on those too.
+		const key = `${repoPath}:${sha}:${worktrees.map(w => w.sha ?? '').join(',')}`;
 		const cached = this._reachableFromOtherWorktreesCache.get(key);
 		if (cached != null) return cached;
 
 		const reachable = (await getReachableWorktrees(this.container, repoPath, sha, signal)).length > 0;
-		this._reachableFromOtherWorktreesCache.set(key, reachable);
+		// Check for abort BEFORE caching: an aborted run resolves to an empty list (the per-worktree checks
+		// are `allSettled`, so a cancelled check is indistinguishable from "not an ancestor"), and caching
+		// that would persist a phantom `false` for the rest of the session.
 		signal?.throwIfAborted();
+		this._reachableFromOtherWorktreesCache.set(key, reachable);
 		return reachable;
 	}
 

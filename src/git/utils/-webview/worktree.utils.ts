@@ -101,8 +101,13 @@ export async function getReachableWorktrees(
 	// --is-ancestor` subprocess per worktree, which doesn't scale (a repo with ~100 worktrees spent
 	// longer spawning those than the rest of the details fetch took). Detached worktrees carry no branch,
 	// so they still need the per-worktree check — there are rarely any.
+	// Trust the ref set only when it's non-empty: `for-each-ref` runs with `errors: 'ignore'`, so a FAILED
+	// command resolves with empty stdout instead of throwing — an empty set is indistinguishable from a git
+	// failure, and reporting a reachable commit as unreachable would silently drop the "(Worktree)" actions.
+	// Falling back costs nothing in practice: a commit contained by no ref at all is rare (dangling or
+	// stash-only), whereas every commit in the graph is contained by at least its own branch.
 	const reachability = await svc.commits.getCommitReachability?.(sha, cancellation);
-	if (reachability != null) {
+	if (reachability?.refs.length) {
 		const reachableBranches = new Set(
 			reachability.refs.filter(r => r.refType === 'branch' && !r.remote).map(r => r.name),
 		);
@@ -125,7 +130,7 @@ export async function getReachableWorktrees(
 		);
 	}
 
-	// No reachability support (e.g. virtual/browser providers) — fall back to the per-worktree check.
+	// No usable ref set (unsupported provider, failed lookup, or a commit no ref contains) — fall back.
 	const results = await Promise.allSettled(
 		candidates.map(wt => svc.commits.isAncestorOf(sha, wt.sha!, cancellation)),
 	);
@@ -148,7 +153,9 @@ export function getSiblingWorktreeBranches(
 
 	const branches: string[] = [];
 	for (const wt of worktrees) {
-		if (wt.type !== 'branch' || wt.branch == null) continue;
+		// Mirror `getReachableWorktrees`' candidate filter (incl. `sha != null`, which drops prunable
+		// worktrees) — otherwise the two can disagree about which worktrees are even eligible.
+		if (wt.type !== 'branch' || wt.branch == null || wt.sha == null) continue;
 		if (normalizePath(wt.path) === normalizedRepoPath) continue;
 
 		branches.push(wt.branch.name);

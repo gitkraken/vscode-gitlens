@@ -70,8 +70,6 @@ export interface CommitEnrichmentServices {
 		getCommitAvatars: (
 			repoPath: string,
 			sha: string,
-			authorEmail: string | undefined,
-			committerEmail: string | undefined,
 			signal?: AbortSignal,
 		) => Promise<CommitAvatarsShape | undefined>;
 		getReachableFromOtherWorktrees: (repoPath: string, sha: string, signal?: AbortSignal) => Promise<boolean>;
@@ -114,6 +112,13 @@ export function withCachedEnrichment(
 	cached: CommitDetails | undefined,
 	knownReachable?: true,
 ): CommitDetails {
+	// Only merge a shell for the SAME commit: a cancelled fetch leaves the resource holding the PRIOR
+	// selection's payload (`cancel()` clears `loading` but not `value`), so without this a stale payload
+	// could be grafted with another commit's avatars.
+	if (cached != null && (cached.sha !== commit.sha || cached.repoPath !== commit.repoPath)) {
+		cached = undefined;
+	}
+
 	const reachable = knownReachable ?? cached?.reachableFromOtherWorktrees;
 	const authorAvatar = cached?.author.avatar ?? commit.author.avatar;
 	const committerAvatar = cached?.committer.avatar ?? commit.committer.avatar;
@@ -145,6 +150,34 @@ export function withCachedEnrichment(
  * Autolinks calls (basic + enriched) are gated on `args.autolinksEnabled`. PR and signature
  * always fire. Avatars and worktree reachability skip when they can't apply (see `args`).
  */
+/**
+ * Merges resolved avatars into a commit. Returns the SAME object when nothing changed — without an
+ * integration the deferred avatar usually equals the synchronous one, and a needless write re-renders
+ * the panel for nothing. Spreading preserves the `files` array identity, so the file tree never rebuilds.
+ */
+export function applyAvatars(commit: CommitDetails, avatars: CommitAvatarsShape): CommitDetails {
+	const author = avatars.author ?? commit.author.avatar;
+	const committer = avatars.committer ?? commit.committer.avatar;
+	if (author === commit.author.avatar && committer === commit.committer.avatar) return commit;
+
+	return {
+		...commit,
+		author: { ...commit.author, avatar: author },
+		committer: { ...commit.committer, avatar: committer },
+	};
+}
+
+/**
+ * Merges the worktree-reachability flag into a commit. The core payload omits the field, so `undefined`
+ * already means `false` — treat them as equal, or the common `false` result patches (and re-renders) on
+ * every single selection.
+ */
+export function applyReachableFromOtherWorktrees(commit: CommitDetails, reachable: boolean): CommitDetails {
+	if ((commit.reachableFromOtherWorktrees ?? false) === reachable) return commit;
+
+	return { ...commit, reachableFromOtherWorktrees: reachable };
+}
+
 export function fetchCommitEnrichment(
 	services: CommitEnrichmentServices,
 	resource: Pick<Resource<unknown>, 'generationId'>,
@@ -156,18 +189,12 @@ export function fetchCommitEnrichment(
 		isUncommitted: boolean;
 		autolinksEnabled: boolean;
 		avatarsEnabled: boolean;
-		authorEmail: string | undefined;
-		committerEmail: string | undefined;
-		/** Set when the caller already knows the commit is reachable from a sibling worktree (the Graph
-		 *  derives it for free from its reachability table), so the git-backed check can be skipped. */
-		knownReachableFromOtherWorktrees?: boolean;
 		/** Defaults to `messageHeadlineSplitterToken` from `commitDetails/protocol.ts`. */
 		headlineSplitterToken?: string;
 	},
 	sink: CommitEnrichmentSink,
 ): void {
 	const { repoPath, sha, isStash, isUncommitted, autolinksEnabled, avatarsEnabled } = args;
-	const { authorEmail, committerEmail, knownReachableFromOtherWorktrees } = args;
 	const headlineSplitterToken = args.headlineSplitterToken ?? messageHeadlineSplitterToken;
 	const skipWhenAutolinksDisabled = () => !autolinksEnabled;
 
@@ -212,7 +239,7 @@ export function fetchCommitEnrichment(
 	guardedEnrich(
 		resource,
 		signal,
-		() => services.repository.getCommitAvatars(repoPath, sha, authorEmail, committerEmail, signal),
+		() => services.repository.getCommitAvatars(repoPath, sha, signal),
 		avatars => {
 			if (avatars == null) return;
 
@@ -220,14 +247,17 @@ export function fetchCommitEnrichment(
 		},
 		// The uncommitted pseudo-commit's sha can't exist on a provider, so a lookup only burns retries
 		// against the avatar cache entry — the core payload's synchronous avatar is what we'd end up with.
-		{ skipIf: () => !avatarsEnabled || isUncommitted || !authorEmail },
+		{ skipIf: () => !avatarsEnabled || isUncommitted },
 	);
 
+	// Always verify against git, even when the caller seeded an optimistic value: the Graph derives its
+	// seed from a `getState()` snapshot of the worktree branches, which goes stale the moment a sibling
+	// worktree switches branches — and a seed that suppressed this call could never be corrected.
 	guardedEnrich(
 		resource,
 		signal,
 		() => services.repository.getReachableFromOtherWorktrees(repoPath, sha, signal),
 		reachable => sink.setReachableFromOtherWorktrees(reachable),
-		{ skipIf: () => isStash || isUncommitted || knownReachableFromOtherWorktrees === true },
+		{ skipIf: () => isStash || isUncommitted },
 	);
 }
