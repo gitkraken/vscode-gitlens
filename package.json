@@ -6201,8 +6201,8 @@
 				"description": "Specifies the color for the first commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#15a0bf",
-					"dark": "#15a0bf",
-					"highContrast": "#15a0bf"
+					"dark": "#18D1D1",
+					"highContrast": "#18D1D1"
 				}
 			},
 			{
@@ -6210,8 +6210,8 @@
 				"description": "Specifies the color for the second commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#0669f7",
-					"dark": "#0669f7",
-					"highContrast": "#0669f7"
+					"dark": "#45C6FE",
+					"highContrast": "#45C6FE"
 				}
 			},
 			{
@@ -6219,8 +6219,8 @@
 				"description": "Specifies the color for the third commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#8e00c2",
-					"dark": "#8e00c2",
-					"highContrast": "#8e00c2"
+					"dark": "#98B5FE",
+					"highContrast": "#98B5FE"
 				}
 			},
 			{
@@ -6228,8 +6228,8 @@
 				"description": "Specifies the color for the fourth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#c517b6",
-					"dark": "#c517b6",
-					"highContrast": "#c517b6"
+					"dark": "#C9A1FE",
+					"highContrast": "#C9A1FE"
 				}
 			},
 			{
@@ -6237,8 +6237,8 @@
 				"description": "Specifies the color for the fifth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#d90171",
-					"dark": "#d90171",
-					"highContrast": "#d90171"
+					"dark": "#F58FD7",
+					"highContrast": "#F58FD7"
 				}
 			},
 			{
@@ -6246,8 +6246,8 @@
 				"description": "Specifies the color for the sixth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#cd0101",
-					"dark": "#cd0101",
-					"highContrast": "#cd0101"
+					"dark": "#FE949D",
+					"highContrast": "#FE949D"
 				}
 			},
 			{
@@ -6255,8 +6255,8 @@
 				"description": "Specifies the color for the seventh commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#f25d2e",
-					"dark": "#f25d2e",
-					"highContrast": "#f25d2e"
+					"dark": "#FE9B5E",
+					"highContrast": "#FE9B5E"
 				}
 			},
 			{
@@ -6264,8 +6264,8 @@
 				"description": "Specifies the color for the eighth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#f2ca33",
-					"dark": "#f2ca33",
-					"highContrast": "#f2ca33"
+					"dark": "#E0B027",
+					"highContrast": "#E0B027"
 				}
 			},
 			{
@@ -6273,8 +6273,8 @@
 				"description": "Specifies the color for the ninth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#7bd938",
-					"dark": "#7bd938",
-					"highContrast": "#7bd938"
+					"dark": "#A6C750",
+					"highContrast": "#A6C750"
 				}
 			},
 			{
@@ -6282,8 +6282,8 @@
 				"description": "Specifies the color for the tenth commit lane of the _Commit Graph_ visualization",
 				"defaults": {
 					"light": "#2ece9d",
-					"dark": "#2ece9d",
-					"highContrast": "#2ece9d"
+					"dark": "#4DD494",
+					"highContrast": "#4DD494"
 				}
 			},
 			{
