@@ -3881,6 +3881,45 @@ web-graph {
 			margin-top: 7rem;
 		}
 
+		// Branch sheet header identity — icon + (remote-qualified) name + a ref-kind badge, slotted
+		// into gl-detail-sheet's title slot in place of the plain sheet-title string.
+		.branch-sheet-title {
+			display: flex;
+			gap: 0.6rem;
+			align-items: center;
+			min-width: 0;
+
+			&--head {
+				color: var(--gl-branch-color, var(--vscode-gitlens-graphScrollMarkerLocalBranchesColor, inherit));
+			}
+
+			&--remote {
+				color: var(--vscode-gitlens-graphScrollMarkerRemoteBranchesColor, inherit);
+			}
+
+			&--tag {
+				color: var(--vscode-gitlens-graphScrollMarkerTagsColor, inherit);
+			}
+
+			// The tooltip host is display: contents, so the name span itself is the flex item —
+			// shrinkable but not growing, keeping the kebab directly after the name's end.
+			&__name-tooltip {
+				min-width: 0;
+			}
+
+			&__name {
+				flex: 0 1 auto;
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			&__kebab {
+				flex: none;
+			}
+		}
+
 		.details-content {
 			position: relative;
 			display: flex;

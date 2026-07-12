@@ -16,7 +16,7 @@ import type { GraphDetailsMode, GraphWipAction } from '../../../../../constants.
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type { Wip } from '../../../../plus/graph/detailsProtocol.js';
 import type { ConflictSide, GraphServices, VirtualRefShape } from '../../../../plus/graph/graphService.js';
-import type { GetWipLineStatsResponse } from '../../../../plus/graph/protocol.js';
+import type { GetWipLineStatsResponse, GraphItemContext, State } from '../../../../plus/graph/protocol.js';
 import {
 	getSecondaryWipPath,
 	GetWipLineStatsRequest,
@@ -34,6 +34,8 @@ import type {
 import type { AgentSessionCategory } from '../../../shared/agentUtils.js';
 import { agentPhaseToCategory, matchAgentSessionsForWorktree } from '../../../shared/agentUtils.js';
 import { ipcContext } from '../../../shared/contexts/ipc.js';
+import type { WebviewContext } from '../../../shared/contexts/webview.js';
+import { webviewContext } from '../../../shared/contexts/webview.js';
 import { ContextMenuProxyController } from '../../../shared/controllers/context-menu-proxy.js';
 import { ModifierKeysController } from '../../../shared/controllers/modifier-keys.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
@@ -63,6 +65,7 @@ import type {
 	ReviewOpenFileDetail,
 	ReviewSendToChatDetail,
 } from './gl-details-review-mode-panel.js';
+import type { BranchSheetRef } from './gl-graph-branch-sheet-pane.js';
 import type { ConflictSheetCommitEventDetail, ConflictSheetSideEventDetail } from './gl-wip-conflict-sheet.js';
 import '../../../commitDetails/components/gl-details-commit-panel.js';
 import '../../../commitDetails/components/gl-details-wip-panel.js';
@@ -81,6 +84,7 @@ import './gl-details-resolve-mode-panel.js';
 import './gl-commit-box.js';
 import './gl-details-wip-empty-pane.js';
 import './gl-details-wip-header.js';
+import './gl-graph-branch-sheet-pane.js';
 
 interface ResolvedContent {
 	content: ReturnType<typeof html> | typeof nothing;
@@ -169,6 +173,9 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 	@consume({ context: ipcContext })
 	private _ipc?: typeof ipcContext.__context__;
+
+	@consume({ context: webviewContext })
+	private _webview!: WebviewContext;
 
 	/** Provider lives on `gl-graph-app`. The workflow controller writes the running-modes
 	 *  registry through this; other panes (graph row component) read it for adornments. */
@@ -750,6 +757,81 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return true;
 	}
 
+	// ─── Branch/tag sheet (prototype) ───────────────────────────────────────────────────────────
+	// A click on a branch/tag ref pill toggles a sheet over the details content (mirrors the compare
+	// sheet's gl-detail-sheet treatment), scoped to the clicked ref. Content lives in
+	// `gl-graph-branch-sheet-pane`; this panel owns the open/close state + the Focus chrome action.
+	@state() private _branchSheet?: BranchSheetRef;
+
+	/** The `_graphState.rows` reference last seen by {@link willUpdate} — compared by identity to
+	 *  detect a host row push (repo/branch data changed) and bump {@link _branchSheetChangeStamp}. */
+	private _lastGraphRows?: State['rows'];
+	/** Monotonic stamp threaded down to `gl-graph-branch-sheet-pane` so an open sheet can refresh
+	 *  its enrichment in place when the graph's row/branch data changes underneath it. */
+	private _branchSheetChangeStamp = 0;
+
+	/** Optimistic pin-to-edge state for the open sheet's branch — seeded from the ref context's
+	 *  `+pinned` flag and flipped locally on toggle (the snapshot context can't refresh mid-open). */
+	@state() private _branchSheetPinned?: boolean;
+
+	/** Open the branch/tag sheet for `ref` (the graph owns the pinned/focus state + decides when to
+	 *  open vs close, so this just sets). */
+	openBranchSheet(ref: BranchSheetRef): void {
+		this._branchSheet = ref;
+		this._branchSheetPinned = undefined;
+	}
+
+	/** Close the branch/tag sheet. */
+	closeBranchSheet(): void {
+		this._branchSheet = undefined;
+	}
+
+	private handleCloseBranchSheet = (): void => {
+		this._branchSheet = undefined;
+	};
+
+	/** ⋮ in the sheet title → the same VS Code context menu as the graph row: synthesize a
+	 *  `contextmenu` at the chip so the host resolves its `data-vscode-context`. */
+	private handleBranchSheetKebabClick = (e: MouseEvent): void => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		const target = e.currentTarget as HTMLElement | null;
+		if (target == null) return;
+
+		const rect = target.getBoundingClientRect();
+		target.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				composed: true,
+				cancelable: true,
+				clientX: rect.left,
+				clientY: rect.bottom,
+				button: 2,
+			}),
+		);
+	};
+
+	private handleBranchSheetAction(action: string, ref: BranchSheetRef): void {
+		// Focus is a chrome action that reuses the existing scope pipeline; the sheet's content
+		// actions (switch/publish/sync/PR/merge-target) are self-contained in gl-graph-branch-sheet-pane.
+		if (action === 'focus') {
+			// Scope-to-branch resolves a LOCAL branch by name; a tag or remote ref name would resolve to a
+			// synthesized/non-existent local branch, so only focus local heads. (Remote-branch focus needs
+			// proper ref resolution — a follow-up.)
+			if (ref.refType !== 'head') return;
+
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-scope-to-branch', {
+					detail: { branchName: ref.name },
+					bubbles: true,
+					composed: true,
+				}),
+			);
+			this._branchSheet = undefined;
+		}
+	}
+
 	/** Entry point for the WIP-row agent indicator. Expands the agents section.
 	 *
 	 *  Sets the user mode to `expanded` explicitly and clears any transient auto-partial so the
@@ -1213,6 +1295,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	}
 
 	override willUpdate(changedProperties: Map<string, unknown>): void {
+		// `_graphState` is a plain `@consume`d context value (no `@state()`), so its own changes
+		// don't show up in `changedProperties` — piggyback on whatever else triggered this cycle and
+		// reference-compare `rows` directly. Bumping ahead of `render()` (rather than in `updated()`)
+		// means the branch sheet pane sees the fresh stamp in the SAME cycle the rows changed.
+		if (this._graphState?.rows !== this._lastGraphRows) {
+			this._lastGraphRows = this._graphState?.rows;
+			this._branchSheetChangeStamp++;
+		}
+
 		const selectionChanged =
 			changedProperties.has('sha') || changedProperties.has('shas') || changedProperties.has('repoPath');
 
@@ -1226,6 +1317,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// gets repopulated the next time we land on a WIP row with sessions.
 		if (selectionChanged && this._prevAgentSnapshot.size > 0) {
 			this._prevAgentSnapshot = new Map();
+		}
+
+		// A selection change moves the panel to a different commit; a stale sheet from the PRIOR ref
+		// would overlay and `?inert`-block the new content, so close it. BUT the pill click that opens
+		// the sheet ALSO selects the pill's own tip row in the same cycle — so close only when the new
+		// selection is a DIFFERENT row than the sheet ref's tip (else the sheet would never open unless
+		// the tip was already selected).
+		if (selectionChanged && this._branchSheet != null) {
+			const sheetSha = this._branchSheet.sha;
+			if (sheetSha == null || this.sha !== sheetSha) {
+				this._branchSheet = undefined;
+			}
 		}
 
 		// Locked-panel case: a commit/multi-commit running session keeps the details panel
@@ -1380,6 +1483,18 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
+
+		// The branch sheet just closed (any path: Esc/X/scrim, the Focus action, the sheet's own
+		// close-request on a deleted branch, the selection-change auto-close above, OR a graph-
+		// initiated close like click-outside-dismiss round-tripping back through `closeBranchSheet`).
+		// Notify the graph so its click-pinned ref focus never outlives the sheet — see
+		// `GlLitGraph.clearRefFocus`, which is itself idempotent, so a graph-initiated close doesn't loop.
+		if (changedProperties.has('_branchSheet')) {
+			const wasOpen = (changedProperties.get('_branchSheet') as BranchSheetRef | undefined) != null;
+			if (wasOpen && this._branchSheet == null) {
+				this.dispatchEvent(new CustomEvent('gl-graph-branch-sheet-closed', { bubbles: true, composed: true }));
+			}
+		}
 
 		if (changedProperties.has('_remoteServices') && this._remoteServices != null && !this._servicesResolved) {
 			this._servicesResolved = true;
@@ -1820,6 +1935,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const blockPointer = resolved != null && current == null;
 		const compareSheetOpen = this._state.compareSheetOpen.get();
 		const compareAsPanel = this._state.compareAsPanel.get();
+		const branchSheetRef = this._branchSheet;
 
 		// `.details-content` is the SCROLLING container — its content overflows and the user
 		// scrolls inside it. If we rendered the sheet as a child of `.details-content`, the
@@ -1834,7 +1950,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			aria-busy=${resolved == null || stale}
 			aria-live="polite"
 			class=${`details-content${stale ? ' details-stale' : ''}${blockPointer ? ' details-replacing' : ''}`}
-			?inert=${compareSheetOpen || this._conflictSheet != null}
+			?inert=${compareSheetOpen || this._conflictSheet != null || branchSheetRef != null}
 		>
 			${resolved != null
 				? resolved.content
@@ -1906,8 +2022,137 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 					></gl-wip-conflict-sheet>`
 				: nothing;
 
+		// Remote-qualify the title the same way the pane does ("origin/main", not "main") — `ref.name`
+		// alone is the bare branch name shared with its local tracking counterpart.
+		const branchSheetTitle =
+			branchSheetRef == null
+				? undefined
+				: branchSheetRef.refType === 'remote' && branchSheetRef.remote != null
+					? `${branchSheetRef.remote}/${branchSheetRef.name}`
+					: branchSheetRef.name;
+		const branchSheetKind =
+			branchSheetRef == null
+				? undefined
+				: branchSheetRef.refType === 'tag'
+					? 'Tag'
+					: branchSheetRef.refType === 'remote'
+						? 'Remote Branch'
+						: 'Branch';
+		const branchSheetIcon = branchSheetRef?.refType === 'tag' ? 'tag' : 'git-branch';
+		// The ref's typed graph context — payload for the chrome's Pin/Hide command links.
+		let branchSheetContext: GraphItemContext | undefined;
+		if (branchSheetRef?.context != null) {
+			try {
+				branchSheetContext = JSON.parse(branchSheetRef.context) as GraphItemContext;
+			} catch {
+				branchSheetContext = undefined;
+			}
+		}
+		const branchSheetIsPinned = this._branchSheetPinned ?? branchSheetRef?.context?.includes('+pinned') ?? false;
+		// "head" (local, incl. current/worktree) reuses the WIP header's static-branch color hook;
+		// remote/tag have no such hook yet (single consumer so far) — go straight to their own
+		// scroll-marker tokens.
+		const branchSheetTitleModifier =
+			branchSheetRef == null
+				? ''
+				: branchSheetRef.refType === 'tag'
+					? 'tag'
+					: branchSheetRef.refType === 'remote'
+						? 'remote'
+						: 'head';
+
+		// Compare and conflict sheets take precedence: never stack the branch sheet on top of either (two
+		// absolutely-positioned gl-detail-sheets would render two dimming scrims over the same host).
+		const branchSheet =
+			branchSheetRef != null && !compareSheetOpen && this._conflictSheet == null
+				? html`<gl-detail-sheet
+						class="branch-detail-sheet"
+						aria-label=${branchSheetKind}
+						sheet-title=${branchSheetTitle}
+						close-label="Close"
+						@gl-detail-sheet-close=${this.handleCloseBranchSheet}
+					>
+						<span slot="title" class="branch-sheet-title branch-sheet-title--${branchSheetTitleModifier}">
+							<code-icon class="branch-sheet-title__icon" icon=${branchSheetIcon}></code-icon>
+							<gl-tooltip content=${branchSheetTitle} class="branch-sheet-title__name-tooltip">
+								<span class="branch-sheet-title__name">${branchSheetTitle}</span>
+							</gl-tooltip>
+							${branchSheetRef.context != null
+								? html`<gl-action-chip
+										class="branch-sheet-title__kebab"
+										icon="kebab-vertical"
+										label=${branchSheetRef.refType === 'tag'
+											? 'Show Tag Actions'
+											: 'Show Branch Actions'}
+										overlay="tooltip"
+										data-vscode-context=${branchSheetRef.context}
+										@click=${this.handleBranchSheetKebabClick}
+									></gl-action-chip>`
+								: nothing}
+						</span>
+						${branchSheetRef.refType === 'head'
+							? html`<gl-action-chip
+									slot="actions"
+									icon="target"
+									label="Focus on Branch"
+									overlay="tooltip"
+									@click=${() => this.handleBranchSheetAction('focus', branchSheetRef)}
+								></gl-action-chip>`
+							: nothing}
+						${branchSheetContext != null && branchSheetRef.refType !== 'tag'
+							? html`<gl-action-chip
+									slot="actions"
+									icon=${branchSheetIsPinned ? 'pinned' : 'pin'}
+									label=${branchSheetIsPinned ? 'Unpin Branch from Edge' : 'Pin Branch to Edge'}
+									overlay="tooltip"
+									href=${this._webview.createCommandLink<GraphItemContext>(
+										branchSheetIsPinned
+											? 'gitlens.graph.unpinBranchFromEdge'
+											: 'gitlens.graph.pinBranchToEdge',
+										branchSheetContext,
+									)}
+									@click=${() => {
+										// oxlint-disable-next-line lit/no-this-assign-in-render
+										this._branchSheetPinned = !branchSheetIsPinned;
+									}}
+								></gl-action-chip>`
+							: nothing}
+						${branchSheetContext != null
+							? html`<gl-action-chip
+									slot="actions"
+									icon="eye-closed"
+									label=${branchSheetRef.refType === 'tag' ? 'Hide Tag' : 'Hide Branch'}
+									overlay="tooltip"
+									href=${this._webview.createCommandLink<GraphItemContext>(
+										branchSheetRef.refType === 'tag'
+											? 'gitlens.graph.hideTag'
+											: branchSheetRef.refType === 'remote'
+												? 'gitlens.graph.hideRemoteBranch'
+												: 'gitlens.graph.hideLocalBranch',
+										branchSheetContext,
+									)}
+									@click=${this.handleCloseBranchSheet}
+								></gl-action-chip>`
+							: nothing}
+						<gl-graph-branch-sheet-pane
+							.ref=${branchSheetRef}
+							.services=${this._servicesResolved && this._actions != null
+								? this._actions.services
+								: undefined}
+							.repoPath=${this.effectiveRepoPath}
+							.dateFormat=${this._state.preferences.get()?.dateFormat}
+							.dateStyle=${this._state.preferences.get()?.dateStyle}
+							.aiEnabled=${this._state.preferences.get()?.aiEnabled ?? false}
+							.aiModel=${this._state.aiModel.get()}
+							.orgSettings=${this._state.orgSettings.get()}
+							.changeStamp=${this._branchSheetChangeStamp}
+							@gl-graph-branch-sheet-close-request=${this.handleCloseBranchSheet}
+						></gl-graph-branch-sheet-pane>
+					</gl-detail-sheet>`
+				: nothing;
+
 		if (!compareAsPanel) {
-			return html`<div class="details-host">${detailsContent}${compareSheet}${conflictSheet}</div>`;
+			return html`<div class="details-host">${detailsContent}${compareSheet}${conflictSheet}${branchSheet}</div>`;
 		}
 
 		// Pinned compare: nested split panel inside the details host. Details on the start side,
@@ -1921,7 +2166,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.position=${position}
 			@gl-split-panel-change=${this.handleCompareSplitChange}
 		>
-			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}</div>
+			<div slot="start" class="compare-pinned-split__start">${detailsContent}${conflictSheet}${branchSheet}</div>
 			<div slot="end" class="compare-pinned-split__end">
 				<div class="compare-pinned-host">
 					<header class="compare-pinned-host__header">

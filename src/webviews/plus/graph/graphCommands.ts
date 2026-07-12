@@ -202,6 +202,12 @@ export class GraphCommands {
 		branchRefCommands.changeBranchMergeTarget(ref);
 	}
 
+	@command('gitlens.git.branch.setUpstream:')
+	@debug()
+	private async changeBranchUpstream(ref: BranchRef) {
+		await branchRefCommands.changeBranchUpstream(this.container, ref);
+	}
+
 	@command('gitlens.mergeIntoCurrent:')
 	@debug()
 	private async mergeIntoCurrent(ref: BranchRef) {

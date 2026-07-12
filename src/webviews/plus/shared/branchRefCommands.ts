@@ -7,7 +7,7 @@
  * the logic stays in one place and the per-webview class just wires the ID.
  */
 
-import { env, window } from 'vscode';
+import { env, Uri, window } from 'vscode';
 import { PushError } from '@gitlens/git/errors.js';
 import { getBranchNameWithoutRemote } from '@gitlens/git/utils/branch.utils.js';
 import type { BranchGitCommandArgs } from '../../../commands/git/branch.js';
@@ -25,7 +25,13 @@ import { DeepLinkServiceState, DeepLinkType } from '../../../uris/deepLinks/deep
 import type { BranchAndTargetRefs, BranchRef } from '../../shared/branchRefs.js';
 
 async function resolveRepoAndBranch(container: Container, ref: BranchRef | { repoPath: string; branchName?: string }) {
-	const repo: GlRepository | undefined = container.git.getRepository(ref.repoPath);
+	// A branch checked out in a worktree other than the primary one isn't necessarily surfaced as
+	// a known Repository (e.g. it was never opened in this window) — getRepository() only finds
+	// already-surfaced repos. Fall back to getOrAddRepository (opened: false, so it doesn't inflate
+	// openRepositoryCount or surface the worktree in multi-repo UI), mirroring the pattern used for
+	// secondary-worktree lookups elsewhere in the webview RPC layer.
+	let repo: GlRepository | undefined = container.git.getRepository(ref.repoPath);
+	repo ??= await container.git.getOrAddRepository(Uri.file(ref.repoPath), { opened: false, detectNested: true });
 	if (repo == null) return { repo: undefined, branch: undefined } as const;
 	if (!('branchName' in ref) || !ref.branchName) return { repo: repo, branch: undefined } as const;
 
@@ -42,6 +48,18 @@ export function changeBranchMergeTarget(ref: BranchAndTargetRefs): void {
 			reference: ref.branchName,
 			suggestedMergeTarget: ref.mergeTargetName,
 		},
+	});
+}
+
+export async function changeBranchUpstream(container: Container, ref: BranchRef): Promise<void> {
+	// Unlike `changeBranchMergeTarget`, the upstream wizard's `reference` field only accepts a
+	// resolved `GitBranchReference` (no plain-name shorthand), so the branch needs resolving first.
+	const { branch } = await resolveRepoAndBranch(container, ref);
+	if (branch == null) return;
+
+	void executeCommand<BranchGitCommandArgs>('gitlens.git.branch.setUpstream', {
+		command: 'branch',
+		state: { subcommand: 'upstream', repo: ref.repoPath, reference: getReferenceFromBranch(branch) },
 	});
 }
 

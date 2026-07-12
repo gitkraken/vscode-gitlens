@@ -55,6 +55,10 @@ export interface GraphCommitRef {
 	hostingServiceType?: GkProviderId;
 	/** JSON-stringified `data-vscode-context` for this ref's pill (right-click menu). */
 	context?: string;
+	/** The ref's INDIVIDUAL serialized context — never the refGROUP one `context` may carry for
+	 *  grouped refs. The branch sheet's kebab + action links need row-menu parity for THIS ref
+	 *  (a group context yields the "Hide All" menu and no-ops the ref-scoped command links). */
+	refContext?: string;
 }
 
 export interface GraphCommitView extends GraphCommit {
@@ -147,6 +151,7 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			worktreeId: h.worktreeId,
 			isDefault: h.isDefault,
 			context: contextFor('head', h.name),
+			refContext: serializeContext(h.context),
 		});
 	}
 	for (const r of row.remotes ?? []) {
@@ -160,11 +165,18 @@ export function toGraphCommit(row: GitGraphRow, idLength = 7, repoPath?: string)
 			isDefault: r.isDefault,
 			hostingServiceType: r.hostingServiceType,
 			context: contextFor('remote', r.name),
+			refContext: serializeContext(r.context),
 		});
 	}
 	for (const t of row.tags ?? []) {
 		addContext('tag', t.name, t);
-		commitRefs.push({ kind: 'tag', name: t.name, id: t.id, context: contextFor('tag', t.name) });
+		commitRefs.push({
+			kind: 'tag',
+			name: t.name,
+			id: t.id,
+			context: contextFor('tag', t.name),
+			refContext: serializeContext(t.context),
+		});
 	}
 
 	const kind: 'commit' | 'merge' | 'stash' | 'workdir' =

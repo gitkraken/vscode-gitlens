@@ -35,6 +35,7 @@ export type GlCommandsDeprecated =
 type InternalGraphWebviewCommands =
 	| 'gitlens.deleteBranchOrWorktree:graph'
 	| 'gitlens.git.branch.setMergeTarget:graph'
+	| 'gitlens.git.branch.setUpstream:graph'
 	| 'gitlens.mergeIntoCurrent:graph'
 	| 'gitlens.openMergeTargetComparison:graph'
 	| 'gitlens.pausedOperation.abort:graph'

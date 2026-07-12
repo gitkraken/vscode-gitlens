@@ -2809,6 +2809,10 @@ export class GlLitGraph extends LitElement {
 				if (t instanceof Element && t.closest('[data-ref-name], gl-detail-sheet') != null) return;
 
 				this.clearPinnedRef();
+				// Close the branch sheet too, so the focus state stays in sync.
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-open-branch', { detail: { open: false }, bubbles: true, composed: true }),
+				);
 			};
 			document.addEventListener('pointerdown', this.pinnedRefDismiss, true);
 		}
@@ -2834,6 +2838,17 @@ export class GlLitGraph extends LitElement {
 		// Reconcile after the rows settle so `.is-pinned` is stripped from the reverted pill (same
 		// virtualizer-timing reason as in `togglePinnedRef`).
 		this.scheduleReconcilePinnedRefPill();
+	}
+
+	// Public entry point for the details panel: clears the click-pinned ref focus when the branch
+	// sheet closes via a sheet-native path (Esc / X / scrim / Focus action) that doesn't itself touch
+	// the pin. No-op when nothing is pinned — also reached by graph-initiated closes (click-outside
+	// dismiss, same-pill toggle-off) round-tripping back through the panel, which must stay side-
+	// effect-free here to avoid a dispatch loop.
+	clearRefFocus(): void {
+		if (this._pinnedRefKey == null) return;
+
+		this.clearPinnedRef();
 	}
 
 	// The first-parent chain seeds for a pinned ref: the ref's own sha plus — for a tracked ref whose
@@ -4178,7 +4193,32 @@ export class GlLitGraph extends LitElement {
 		const refPill = this.resolveRef(event);
 		if (refPill != null && (refPill.kind === 'head' || refPill.kind === 'tag' || refPill.kind === 'remote')) {
 			const pillSha = this.resolveSha(event);
-			this.togglePinnedRef(refPill.key, pillSha);
+			const pinned = this.togglePinnedRef(refPill.key, pillSha);
+			// The pill's own `data-vscode-context` is the refGROUP context ("Hide All") when this ref is
+			// grouped with its remote(s), which the sheet's kebab + action links can't use. Prefer the
+			// ref's INDIVIDUAL context from the row model, falling back to the pill context.
+			const refContext =
+				(pillSha != null
+					? this.getCommitBySha(pillSha)?.commitRefs.find(
+							r => r.kind === refPill.kind && r.name === refPill.name,
+						)?.refContext
+					: undefined) ?? refPill.context;
+			this.dispatchEvent(
+				new CustomEvent('gl-graph-open-branch', {
+					detail: {
+						name: refPill.name,
+						refType: refPill.kind,
+						remote: refPill.remote,
+						sha: pillSha,
+						// Serialized `data-vscode-context` for this ref — powers the sheet's kebab menu
+						// (row-menu parity) and its remote/tag action links.
+						context: refContext,
+						open: pinned,
+					},
+					bubbles: true,
+					composed: true,
+				}),
+			);
 			// stopPropagation keeps the raw click from bubbling past the graph (defensive; it does NOT
 			// affect the CustomEvents above nor the selection dispatch below, which are separate events).
 			event.stopPropagation();

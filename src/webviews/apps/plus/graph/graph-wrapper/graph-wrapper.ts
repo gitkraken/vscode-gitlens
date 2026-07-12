@@ -293,6 +293,15 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.ref.setScrollTop((this.ref.scrollTop ?? 0) + deltaY);
 	}
 
+	/** Clears the graph's click-pinned ref focus, if any — called when the details panel's branch
+	 *  sheet closes via any path so the pin never outlives the sheet. No-op under the legacy engine
+	 *  (which has no pin/focus concept). */
+	clearRefFocus(): void {
+		if (!this.graphState.config?.useNewEngine) return;
+
+		this.querySelector('gl-lit-graph')?.clearRefFocus();
+	}
+
 	@state()
 	private theming?: GraphWrapperTheming;
 

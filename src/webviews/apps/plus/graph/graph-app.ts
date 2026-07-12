@@ -1679,6 +1679,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					@gl-search-box-filter-change=${this.handleDetailsSearchBoxFilterChange}
 					@next-steps-shown=${this.handleNextStepsShown}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+					@gl-graph-branch-sheet-closed=${this.handleBranchSheetClosed}
 				></gl-graph-details-panel>
 			</div>
 		</gl-split-panel>`;
@@ -1731,6 +1732,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			<div
 				class="graph__graph-pane-body"
 				@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
+				@gl-graph-open-branch=${this.handleOpenBranchSheet}
 				@gl-graph-style-change=${this.handleStyleChange}
 			>
 				${when(
@@ -1768,6 +1770,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	private handleShowShortcuts = (): void => {
 		this.keyboardShortcutsEl?.show();
+	};
+
+	/** Branch/tag pill focus → open/close the branch sheet in the details panel, mirroring the pill's
+	 *  pinned state (`detail.open`). Opening ensures the pane is visible. */
+	private handleOpenBranchSheet = (
+		e: CustomEvent<{
+			name?: string;
+			refType?: string;
+			remote?: string | null;
+			sha?: string | null;
+			context?: string;
+			open?: boolean;
+		}>,
+	): void => {
+		if (e.detail.open === false) {
+			this.detailsPanelEl?.closeBranchSheet();
+			return;
+		}
+		if (e.detail.name == null) return;
+
+		this.detailsPanelEl?.openBranchSheet({
+			name: e.detail.name,
+			refType: e.detail.refType ?? 'head',
+			remote: e.detail.remote ?? null,
+			sha: e.detail.sha ?? null,
+			context: e.detail.context,
+		});
+		this.setDetailsVisible(true, 'request-mode');
+		this.ensureDetailsPosition();
+	};
+
+	/** The branch sheet closed (any path — see `GlGraphDetailsPanel.updated`'s `_branchSheet`
+	 *  transition check). Clear the graph's click-pinned ref focus so it never outlives the sheet;
+	 *  `clearRefFocus` is idempotent, so a graph-initiated close round-tripping back here is a no-op. */
+	private handleBranchSheetClosed = (): void => {
+		this.graph?.clearRefFocus();
 	};
 
 	private handleAlternateModeClose = (): void => {

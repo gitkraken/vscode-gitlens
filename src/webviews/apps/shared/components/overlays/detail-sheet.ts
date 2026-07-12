@@ -108,6 +108,17 @@ export class GlDetailSheet extends LitElement {
 				animation: gl-sheet-slide-down var(--gl-duration-medium) var(--gl-ease-in) forwards;
 			}
 
+			/* The sheet is programmatically focused on open — suppress the ring for pointer-driven
+		   opens and show a themed one only for true keyboard focus. */
+			.sheet:focus {
+				outline: none;
+			}
+
+			.sheet:focus-visible {
+				outline: var(--gl-border-width) solid var(--vscode-focusBorder);
+				outline-offset: -0.2rem;
+			}
+
 			.sheet__header {
 				box-sizing: border-box;
 				display: flex;
@@ -258,9 +269,13 @@ export class GlDetailSheet extends LitElement {
 
 				this.requestClose();
 			};
-		} else {
-			document.addEventListener('keydown', this.handleDocumentKeyDown, true);
 		}
+		// ALWAYS listen at document capture too (not just as a CloseWatcher polyfill): the sheet
+		// doesn't trap focus, so Esc must close it even when focus never entered it (e.g. still on
+		// the graph after the opening pill click) or when the focused component consumes Escape
+		// before the CloseWatcher sees it. `requestClose` is re-entrancy-guarded, so the two paths
+		// can't double-fire.
+		document.addEventListener('keydown', this.handleDocumentKeyDown, true);
 
 		// Focus the sheet itself so keyboard users land here on open. We do NOT trap focus —
 		// sibling elements outside the host parent (e.g. the graph beside the details panel)
