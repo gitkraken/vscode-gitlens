@@ -3091,7 +3091,9 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.type': string,
   // Where on the card the action was invoked
   'location': 'inline' | 'hover',
-  'name': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'publishBranch' | 'compareWithPr' | 'openPrChanges' | 'openChanges' | 'other'
+  'name': 'switch' | 'fetch' | 'pull' | 'push' | 'compareWithHead' | 'compareWithWorking' | 'openWorktree' | 'publishBranch' | 'compareWithPr' | 'openPrChanges' | 'openChanges' | 'other',
+  // Which surface the hover was anchored on (always `overview` for `location: 'inline'`)
+  'surface': 'overview' | 'wip-bar'
 }
 ```
 
@@ -3149,7 +3151,9 @@ background-upgraded the extension while the host kept running the old build
   // Whether the branch is the currently opened (active) branch
   'isActive': boolean,
   // Whether the branch is checked out in a worktree
-  'isWorktree': boolean
+  'isWorktree': boolean,
+  // Which surface the hover was anchored on
+  'surface': 'overview' | 'wip-bar'
 }
 ```
 
@@ -3168,6 +3172,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
+  // Which surface the hover was anchored on
+  'surface': 'overview' | 'wip-bar',
   // Type of external link clicked
   'type': 'pullrequest' | 'issue' | 'autolink'
 }
@@ -3544,6 +3550,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.statusBar.enabled': boolean,
   'context.config.stickyTimeline': boolean,
   'context.config.style': 'auto' | 'list' | 'table',
+  'context.config.timelineSeparators': boolean,
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,

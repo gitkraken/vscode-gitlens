@@ -37,6 +37,7 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { serializeWebviewItemContext } from '../../../system/webview.js';
 import type { IpcParams } from '../../ipc/handlerRegistry.js';
 import type { IpcNotification } from '../../ipc/models/ipc.js';
+import { toOverviewBranch } from '../../shared/overviewBranches.js';
 import type { WebviewHost } from '../../webviewProvider.js';
 import type { GitBranchShape, Wip, WipStats } from './detailsProtocol.js';
 import type {
@@ -795,6 +796,11 @@ export class GraphWipService {
 			hasUnpushedByPath = unpushedMap;
 		}
 
+		// Branch-id → worktree for `toOverviewBranch` below (it looks the worktree up by `branch.id` to
+		// fill the branch's `worktree` field). Built once for the whole loop rather than a throwaway
+		// single-entry Map per iteration.
+		const worktreesByBranch = new Map(worktrees.filter(wt => wt.branch != null).map(wt => [wt.branch!.id, wt]));
+
 		// All known worktrees other than the primary (which is already covered by workingTreeStats).
 		// Emit row-anchor metadata only; workDirStats are fetched on-demand via GetWipStatsRequest
 		// when the GK component fires onWipShasMissingStats for visible rows.
@@ -821,6 +827,19 @@ export class GraphWipService {
 			} else if (hasUnpushedByPath != null) {
 				hasUnpushed = hasUnpushedByPath.get(wt.path);
 			}
+			const branchRef = branchName != null ? getBranchId(repo.path, false, branchName) : undefined;
+			// Overview projection of the worktree's branch, so the WIP bar's hover has full branch data even
+			// when the branch missed the overview's active/recent cut. Pure sync — `wt.branch` is already
+			// loaded. `id`/`repoPath` are re-stamped from the MAIN repo path so they match `branchRef` (and
+			// therefore the ids `state.overview` and `overviewEnrichment` are keyed by).
+			const branch =
+				wt.branch != null && branchRef != null
+					? {
+							...toOverviewBranch(wt.branch, worktreesByBranch, wt.opened),
+							id: branchRef,
+							repoPath: repo.path,
+						}
+					: undefined;
 			result[createSecondaryWipSha(wt.path)] = {
 				repoPath: wt.path,
 				parentSha: wt.sha,
@@ -836,7 +855,8 @@ export class GraphWipService {
 				// preserved client-side by `mergeWipMetadata`.
 				...(hasUnpushed != null ? { hasUnpushed: hasUnpushed } : {}),
 				label: wt.name,
-				branchRef: branchName != null ? getBranchId(repo.path, false, branchName) : undefined,
+				branchRef: branchRef,
+				...(branch != null ? { branch: branch } : {}),
 			};
 		}
 

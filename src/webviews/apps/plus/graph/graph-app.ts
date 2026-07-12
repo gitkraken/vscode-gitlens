@@ -14,6 +14,7 @@ import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphDetailsMode } from '../../../../constants.telemetry.js';
 import type { CommitDetails } from '../../../commitDetails/protocol.js';
@@ -50,11 +51,7 @@ import {
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
 import { noop } from '../../shared/actions/rpc.js';
-import {
-	formatAgentElapsed,
-	indexAgentSessionsByRepoAndWorktree,
-	matchAgentSessionsForWorktree,
-} from '../../shared/agentUtils.js';
+import { indexAgentSessionsByRepoAndWorktree, matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import type { CustomEventType } from '../../shared/components/element.js';
 import type { GlDragShiftOverlay } from '../../shared/components/overlays/drag-shift-overlay.js';
 import { aiContext, createAIState } from '../../shared/contexts/ai.js';
@@ -1267,12 +1264,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		void this.fetchSelectedWorktreeWipStats(id).finally(() => this._wipStatsInFlight.delete(id));
 	};
 
+	/** Last array handed to the bar. `wipBarItems` re-runs on every GraphApp render (selection, scroll,
+	 *  search, resize, agent ticks — none of which touch the WIP bar), and a fresh array each time fails
+	 *  Lit's `Object.is` check, re-rendering every pill. Returning the previous array when the content is
+	 *  unchanged makes those renders free. */
+	private _wipBarItemsCache: readonly WipBarItem[] = [];
+
+	private get wipBarItems(): readonly WipBarItem[] {
+		const next = this.buildWipBarItems();
+		const prev = this._wipBarItemsCache;
+
+		// Preserve identity PER ITEM, not just for the whole array: reuse each prior item object whose
+		// content is unchanged. Without this, one pill changing (e.g. another worktree's agent tick)
+		// reallocates the whole array, handing every OTHER pill's already-open hover a fresh `.wip`
+		// reference — which churns that hover's settle timer every unrelated tick. Content-compared, not
+		// identity-compared: nothing in a WipBarItem is derived from the clock, so equal content really
+		// means "nothing changed" (an earlier cut carried a sub-minute `lastActivity` string that would
+		// have defeated this on every tick while an agent worked — precisely when the bar is busiest).
+		const prevById = new Map(prev.map(item => [item.id, item]));
+		const merged = next.map(item => {
+			const prior = prevById.get(item.id);
+			return prior != null && areEqual(item, prior) ? prior : item;
+		});
+		// Everything reused in the same order → hand back the exact prior array so the bar itself skips
+		// re-rendering on unrelated GraphApp renders (selection, scroll, search, resize).
+		if (merged.length === prev.length && merged.every((item, i) => item === prev[i])) return prev;
+
+		this._wipBarItemsCache = merged;
+		return merged;
+	}
+
 	/** Computes the bar's WIP entries. The bar exists to surface OTHER worktrees' working changes, so it
 	 *  returns an empty array — hiding the bar — unless at least one secondary worktree qualifies. When it
 	 *  does, the primary worktree is the first entry (always, even when clean) as a stable anchor, followed
 	 *  by one entry per secondary, most-recent first. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. */
-	private get wipBarItems(): readonly WipBarItem[] {
+	private buildWipBarItems(): readonly WipBarItem[] {
 		const gs = this.graphState;
 		const fallbackRepoPath = this.fallbackRepoPath;
 		if (fallbackRepoPath == null) return [];
@@ -1312,17 +1339,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// lookup) instead of re-scanning every session per worktree — mirrors `getAgentStatusByRowSha`
 		// in graph-wrapper so the bar and the in-graph WIP rows surface the same indicator.
 		const sessionIndex = indexAgentSessionsByRepoAndWorktree(gs.agentSessions);
-		const pickAgent = (repoPath: string): Pick<WipBarItem, 'agent' | 'lastActivity'> => {
+		const pickAgent = (repoPath: string): Pick<WipBarItem, 'agent' | 'agentCount'> => {
 			const status = pickWipRowAgentStatus(
 				matchAgentSessionsForWorktree(sessionIndex, { repoPath: repoPath, worktreePath: repoPath }),
 				now,
 			);
 			if (status == null) return {};
 
-			// The row collapses the worktree's sessions to one indicator; surface their most-recent
-			// activity as the "Updated … ago" hint.
-			const latest = status.sessions.reduce((max, s) => Math.max(max, s.lastActivity.getTime()), 0);
-			return { agent: status.category, lastActivity: formatAgentElapsed(latest) };
+			return { agent: status.category, agentCount: status.sessions.length };
 		};
 
 		const items: WipBarItem[] = [];
@@ -1342,15 +1366,24 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
 			repoPath: fallbackRepoPath,
 			hasWorkingChanges: primaryDirty,
-			...(primary != null && primaryDirty
-				? {
-						files: primary.added + primary.modified + primary.deleted,
-						added: primary.added,
-						modified: primary.modified,
-						deleted: primary.deleted,
-					}
-				: {}),
-			...(primaryAhead > 0 ? { hasUnpushed: true, ahead: primaryAhead } : {}),
+			// The current branch is always `active` in the overview, so the hover resolves it from there and
+			// needs no `branchModel` fallback.
+			branchId: gs.branch?.id,
+			wip: {
+				hasChanges: primaryDirty,
+				...(primary != null && primaryDirty
+					? {
+							workingTreeState: {
+								added: primary.added,
+								changed: primary.modified,
+								deleted: primary.deleted,
+							},
+						}
+					: {}),
+				...(primary?.pausedOpStatus != null ? { pausedOpStatus: primary.pausedOpStatus } : {}),
+				...(primary?.hasConflicts === true ? { hasConflicts: true } : {}),
+			},
+			...(primaryAhead > 0 ? { hasUnpushed: true } : {}),
 			...pickAgent(fallbackRepoPath),
 			isPrimary: true,
 			context: serializeWipContext(fallbackRepoPath, false, primary?.hasConflicts ?? false),
@@ -1358,28 +1391,42 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 		for (const { sha, meta, dirty } of secondaries) {
 			const stats = meta.workDirStats;
+			const unpushed = meta.hasUnpushed === true;
 			items.push({
 				id: sha,
 				branch: branchNameFromRef(meta.branchRef) ?? meta.label,
 				repoPath: meta.repoPath,
 				hasWorkingChanges: dirty,
-				// Stats omitted until hover fetches them — the pill renders from the dirty signal.
-				// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled
-				// without a breakdown (failed/cancelled), so flag it for the hover's terminal state
-				// instead of leaving the tooltip stuck on "Loading changes…".
-				...(stats != null
-					? {
-							files: stats.added + stats.modified + stats.deleted,
-							added: stats.added,
-							modified: stats.modified,
-							deleted: stats.deleted,
-						}
-					: meta.workDirStatsStale === false
-						? { statsUnavailable: true }
-						: {}),
-				...(meta.hasUnpushed === true
-					? { hasUnpushed: true, ...(meta.ahead != null && meta.ahead > 0 ? { ahead: meta.ahead } : {}) }
-					: {}),
+				hasUnpushed: unpushed,
+				branchId: meta.branchRef,
+				// The host's projection of this worktree's branch. Needed because a worktree branch only
+				// lands in `state.overview` when the worktree is open or its last commit is recent — without
+				// it, a dirty worktree on an older branch would hover with nothing to show.
+				branchModel: meta.branch,
+				wip: {
+					hasChanges: dirty,
+					// Absent until the breakdown is fetched on hover — the pill renders from the dirty bit.
+					// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled without
+					// one (failed/cancelled), so flag it for the hover's terminal "Couldn't load changes"
+					// instead of leaving it stuck on "Loading changes…".
+					...(stats != null
+						? {
+								workingTreeState: {
+									added: stats.added,
+									changed: stats.modified,
+									deleted: stats.deleted,
+								},
+							}
+						: meta.workDirStatsStale === false
+							? { statsUnavailable: true }
+							: {}),
+					// A local-only branch has no upstream, so `gl-tracking-status` renders nothing and the
+					// hover would silently drop the fact that there's work to push. `ahead` is undefined for
+					// these (there's nothing to count against) — it's a presence bit only.
+					...(unpushed && meta.ahead == null ? { hasUnpublishedCommits: true } : {}),
+					...(meta.pausedOpStatus != null ? { pausedOpStatus: meta.pausedOpStatus } : {}),
+					...(meta.hasConflicts === true ? { hasConflicts: true } : {}),
+				},
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
 				context: serializeWipContext(meta.repoPath, true, meta.hasConflicts ?? false),

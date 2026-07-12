@@ -231,7 +231,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		this._wipData = {};
 		this._enrichmentData = {};
 		this._pendingWipDetails.clear();
-		this._state.overviewEnrichment = undefined;
+		this._state.resetOverviewEnrichment();
 		void this._ipc.sendRequest(GetOverviewRequest, { recentThreshold: this._state.overviewRecentThreshold });
 	}
 
@@ -491,8 +491,10 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 		if (enrichmentResult != null) {
 			this._enrichmentData = filterToKeys(enrichmentResult, keep);
 			// Expose enrichment via shared state so other consumers (e.g. the scope popover path
-			// in graph-app) can resolve merge-target refs for the selected branch.
-			this._state.overviewEnrichment = this._enrichmentData;
+			// in graph-app) can resolve merge-target refs for the selected branch. Published through
+			// the state provider rather than assigned directly so entries fetched additively for
+			// branches outside the overview (WIP-bar pills) survive this rebuild.
+			this._state.publishOverviewEnrichment(this._enrichmentData);
 		}
 	}
 
@@ -625,7 +627,7 @@ export class GlGraphOverview extends SignalWatcher(LitElement) {
 							<gl-graph-overview-card
 								.branch=${b}
 								.wip=${this._wipData[b.id]}
-								.enrichment=${this._enrichmentData[b.id]}
+								.enrichment=${this._state.overviewEnrichment?.[b.id]}
 								.agentSessions=${agentSessions}
 								.containsSelection=${containsByRepo.get(b.repoPath)?.has(b.name) ?? false}
 								.scoped=${scopedBranchId != null && b.id === scopedBranchId}

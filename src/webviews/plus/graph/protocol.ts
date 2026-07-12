@@ -576,6 +576,16 @@ export interface GraphWipNodeMetadata {
 	 */
 	branchRef?: string;
 	/**
+	 * Host-only: the worktree's branch in overview form, keyed by `branchRef`. Pure sync projection of
+	 * the `GitBranch` the worktree enumeration already loaded — no extra git work.
+	 *
+	 * Exists because a worktree branch only lands in `state.overview` when the worktree is `opened` or
+	 * its last commit is recent (see `getBranchOverviewType`), so a dirty worktree on an older branch
+	 * has no `OverviewBranch` to hover. The WIP bar passes this to `<gl-branch-hover>` as a fallback.
+	 * Undefined for detached worktrees (no `wt.branch`) — those get a degraded hover.
+	 */
+	branch?: OverviewBranch;
+	/**
 	 * Host-only: paused operation (rebase/merge/cherry-pick) running in this worktree, when any.
 	 * Mirrors the primary's `workingTreeStats.pausedOpStatus` so the secondary WIP row can render
 	 * the same indicator the action bar does. Not consumed by the GK component.

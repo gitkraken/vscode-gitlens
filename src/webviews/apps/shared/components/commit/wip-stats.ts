@@ -147,22 +147,29 @@ export class GlWipStats extends LitElement {
 		}
 
 		if (this.badge) {
-			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No changes">
+			const pill = html`<span class="indicator-pill pill pill--outlined" aria-label="No working changes">
 				<code-icon class="wip-clean-check" icon="check"></code-icon>
 			</span>`;
 
 			if (this.noTooltip) return pill;
 
-			return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No changes</span></gl-tooltip>`;
+			return html`<gl-tooltip placement="bottom"
+				>${pill}<span slot="content">No working changes</span></gl-tooltip
+			>`;
 		}
 
-		const pill = html`<commit-stats class="indicator-pill" appearance="pill" no-tooltip aria-label="No changes">
+		const pill = html`<commit-stats
+			class="indicator-pill"
+			appearance="pill"
+			no-tooltip
+			aria-label="No working changes"
+		>
 			<code-icon class="wip-clean-check" icon="check"></code-icon>
 		</commit-stats>`;
 
 		if (this.noTooltip) return pill;
 
-		return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No changes</span></gl-tooltip>`;
+		return html`<gl-tooltip placement="bottom">${pill}<span slot="content">No working changes</span></gl-tooltip>`;
 	}
 
 	private renderPausedOp(pausedOp: GitPausedOperationStatus) {

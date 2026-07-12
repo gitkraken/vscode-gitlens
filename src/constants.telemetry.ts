@@ -1813,10 +1813,16 @@ export type GraphSidebarOverviewActionName =
 	| 'openChanges'
 	| 'other';
 
+/** Which surface the shared branch hover was anchored on. The overview card and the Graph's WIP bar
+ *  pills render the same hover, so every hover-sourced event carries this to keep the two segmentable. */
+export type GraphBranchHoverSurface = 'overview' | 'wip-bar';
+
 interface GraphSidebarOverviewActionEvent extends GraphContextEventData {
 	name: GraphSidebarOverviewActionName;
 	/** Where on the card the action was invoked */
 	location: 'inline' | 'hover';
+	/** Which surface the hover was anchored on (always `overview` for `location: 'inline'`) */
+	surface: GraphBranchHoverSurface;
 	/** Whether the user held Alt/Shift to swap to the alt action */
 	alt: boolean;
 }
@@ -1840,6 +1846,8 @@ interface GraphSidebarOverviewBranchSelectedEvent extends GraphContextEventData 
 }
 
 interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
 	/** Whether the branch is the currently opened (active) branch */
 	isActive: boolean;
 	/** Whether the branch is checked out in a worktree */
@@ -1855,6 +1863,8 @@ interface GraphSidebarOverviewHoverShownEvent extends GraphContextEventData {
 }
 
 interface GraphSidebarOverviewLinkClickedEvent extends GraphContextEventData {
+	/** Which surface the hover was anchored on */
+	surface: GraphBranchHoverSurface;
 	/** Type of external link clicked */
 	type: 'pullrequest' | 'issue' | 'autolink';
 }

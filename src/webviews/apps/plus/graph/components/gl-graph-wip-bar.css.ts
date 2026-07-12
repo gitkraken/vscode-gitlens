@@ -36,9 +36,14 @@ export const wipBarStyles = css`
 		padding: var(--gl-space-6) var(--gl-space-8);
 	}
 
+	/* The popover wraps each pill in an anchor box, so the pill is no longer the flex item — restore
+	   its sizing there. (gl-popover's own [slot='anchor'] is width: fit-content.) */
+	gl-popover {
+		flex: 0 0 auto;
+	}
+
 	.pill {
 		display: inline-flex;
-		flex: 0 0 auto;
 		gap: 0.35rem;
 		align-items: center;
 		padding: 0.15rem 0.55rem;
@@ -51,6 +56,13 @@ export const wipBarStyles = css`
 		border-radius: var(--gl-radius-sm);
 	}
 
+	/* Give icons the same line box as the text so flex centering is exact — must inherit BOTH (a unitless
+	   line-height alone recomputes against each icon's own font-size). Same recipe as wip-stats. */
+	.pill code-icon {
+		font-size: inherit;
+		line-height: inherit;
+	}
+
 	.pill:hover {
 		background: color-mix(in srgb, var(--vscode-focusBorder) 12%, transparent);
 		border-color: color-mix(in srgb, var(--vscode-focusBorder) 70%, transparent);
@@ -61,9 +73,11 @@ export const wipBarStyles = css`
 		border-color: var(--vscode-focusBorder);
 	}
 
+	/* Fully inset: the popover's anchor wrapper is overflow: hidden, so an outline drawn even 1px
+	   outside the pill's border box would be clipped to a hairline on one side. */
 	.pill--selected {
 		outline: 2px solid var(--vscode-focusBorder);
-		outline-offset: -1px;
+		outline-offset: -2px;
 	}
 
 	.pill__dot {
@@ -73,86 +87,36 @@ export const wipBarStyles = css`
 		border-radius: 50%;
 	}
 
-	.pill__agent-icon {
-		font-size: var(--gl-font-sm);
+	/* Icon + count read as one unit, so they stay tight against each other while the pill's own gap
+	   separates them from the branch name. */
+	.pill__agent {
+		display: inline-flex;
+		gap: 0.2rem;
+		align-items: center;
+	}
+
+	.pill__agent-count {
+		font-variant-numeric: tabular-nums;
+		opacity: 0.8;
 	}
 
 	/* Unpushed indicator — shares the canonical ahead/unpublished color (theme.scss :root token), the
 	   same one the scope pane uses for unpushed commits. */
 	.pill__unpushed-icon {
-		font-size: var(--gl-font-sm);
 		color: var(--gl-tracking-ahead, #4ec9b0);
 	}
 
-	/* Pill icon + hover icon share the canonical agent palette (theme.scss :root tokens, always
-	   present in webviews — referenced bare, matching tree-view / agent-tooltip). */
-	.pill--agent-idle .pill__agent-icon,
-	.pill-hover__agent--idle code-icon {
+	/* Pill icon shares the canonical agent palette (theme.scss :root tokens, always present in webviews —
+	   referenced bare, matching tree-view / agent-tooltip). */
+	.pill--agent-idle .pill__agent {
 		color: var(--gl-agent-idle-color);
 	}
 
-	.pill--agent-working .pill__agent-icon,
-	.pill-hover__agent--working code-icon {
+	.pill--agent-working .pill__agent {
 		color: var(--gl-agent-working-color);
 	}
 
-	.pill--agent-needs-input .pill__agent-icon,
-	.pill-hover__agent--needs-input code-icon {
+	.pill--agent-needs-input .pill__agent {
 		color: var(--gl-agent-waiting-color);
-	}
-
-	.pill-hover {
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-		min-width: 22rem;
-		font-size: 1.15rem;
-		line-height: 1.4;
-	}
-
-	.pill-hover__branch {
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-		font-weight: 600;
-	}
-
-	.pill-hover__branch code-icon {
-		opacity: 0.85;
-	}
-
-	.pill-hover__row {
-		display: flex;
-		gap: var(--gl-space-8);
-		font-size: var(--gl-font-sm);
-		opacity: 0.9;
-	}
-
-	.pill-hover__files {
-		opacity: 0.65;
-	}
-
-	.pill-hover__time {
-		opacity: 0.6;
-	}
-
-	.pill-hover__agent {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
-		font-size: 1.05rem;
-		opacity: 0.85;
-	}
-
-	.pill-hover__unpushed {
-		display: inline-flex;
-		gap: 0.3rem;
-		align-items: center;
-		font-size: var(--gl-font-sm);
-		opacity: 0.9;
-	}
-
-	.pill-hover__unpushed code-icon {
-		color: var(--gl-tracking-ahead, #4ec9b0);
 	}
 `;

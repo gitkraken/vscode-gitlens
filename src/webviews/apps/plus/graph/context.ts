@@ -75,6 +75,24 @@ export interface AppState extends State {
 	ensureOverviewEnrichmentFetched(overview: State['overview']): void;
 
 	/**
+	 * Additively fetch enrichment for branch ids that may sit outside the overview's active/recent set —
+	 * a WIP-bar pill on a worktree whose branch missed the recency cut. Merges; never drops. Deduped
+	 * against what's already resolved or in flight, so re-hovering a pill is a no-op.
+	 */
+	ensureEnrichmentFetchedForBranches(branchIds: string[]): void;
+
+	/**
+	 * Publish an authoritative overview enrichment result. Drop-stale applies only within the overview's
+	 * own id set: entries fetched via `ensureEnrichmentFetchedForBranches` and locally-merged merge-targets
+	 * are carried forward.
+	 */
+	publishOverviewEnrichment(enrichment: NonNullable<AppState['overviewEnrichment']>): void;
+
+	/** Clear all enrichment state (shared record + overview fingerprint + additive WIP-bar tracking) as
+	 *  one unit. Both reset paths (scope-anchor invalidation, overview `refresh`) route through here. */
+	resetOverviewEnrichment(): void;
+
+	/**
 	 * Publish a freshly-picked scope to the `scope` signal — synchronously in its bare form
 	 * (without `mergeBase` / `mergeTargetTipSha`) so the graph component's scope filter activates
 	 * before any concurrent scroll-to-commit / select-row work. The anchor is resolved
