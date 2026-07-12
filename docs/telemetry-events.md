@@ -2826,6 +2826,7 @@ background-upgraded the extension while the host kept running the old build
 
 ```typescript
 {
+  [`column.${string}.grouped`]: string | boolean,
   [`column.${string}.isHidden`]: boolean,
   [`column.${string}.mode`]: string,
   [`column.${string}.order`]: number,
@@ -3448,11 +3449,17 @@ background-upgraded the extension while the host kept running the old build
   'context.config.editorOpeningBehavior': 'active' | 'auto',
   'context.config.experimental.homeHeader.enabled': boolean,
   'context.config.experimental.kanban.enabled': boolean,
+  'context.config.experimental.persistSession': boolean,
+  'context.config.experimental.useNewEngine': boolean,
   'context.config.experimental.visualizations.activityDecay': '30s' | '1m' | '2m' | '5m' | '10m' | '30m',
   'context.config.experimental.visualizations.enabled': boolean,
   'context.config.highlightRowsOnRefHover': boolean,
   'context.config.initialRowSelection': 'wip' | 'head',
   'context.config.issues.enabled': boolean,
+  'context.config.lanes.collapseDefault': 'auto' | 'all' | 'none',
+  'context.config.lanes.density': 'compact' | 'comfortable',
+  'context.config.lanes.grouped.max': number,
+  'context.config.lanes.grouped.min': number,
   'context.config.layout': 'editor' | 'panel',
   'context.config.minimap.additionalTypes': string,
   'context.config.minimap.dataType': 'commits' | 'lines',
@@ -3476,6 +3483,7 @@ background-upgraded the extension while the host kept running the old build
   'context.config.sidebar.pinned': boolean,
   'context.config.statusBar.enabled': boolean,
   'context.config.stickyTimeline': boolean,
+  'context.config.style': 'auto' | 'list' | 'table',
   'context.repository.closed': boolean,
   'context.repository.folder.scheme': string,
   'context.repository.id': string,
@@ -4503,7 +4511,7 @@ background-upgraded the extension while the host kept running the old build
   // How long the panel was open in milliseconds
   'duration': number,
   // Active panel mode at time of close
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none'
+  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve'
 }
 ```
 
@@ -5176,8 +5184,8 @@ background-upgraded the extension while the host kept running the old build
   'context.webview.id': string,
   'context.webview.instanceId': string,
   'context.webview.type': string,
-  'mode.new': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none',
-  'mode.old': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none'
+  'mode.new': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve',
+  'mode.old': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve'
 }
 ```
 
@@ -5781,7 +5789,7 @@ background-upgraded the extension while the host kept running the old build
   // Where the details panel is anchored relative to the graph
   'location': 'right' | 'bottom',
   // Active panel mode at time of show
-  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'multicommit' | 'compose' | 'resolve' | 'none',
+  'mode': 'wip' | 'commit' | 'compare' | 'review' | 'none' | 'multicommit' | 'compose' | 'resolve',
   // Split-pane position percentage from the closed edge (0–100)
   'position': number,
   // Number of rows currently selected in the graph (0, 1, or N)

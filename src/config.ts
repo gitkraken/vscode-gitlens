@@ -440,11 +440,21 @@ export interface GraphConfig {
 			readonly enabled: boolean;
 			readonly activityDecay: GraphActivityDecay;
 		};
+		readonly useNewEngine: boolean;
+		readonly persistSession: boolean;
 	};
 	readonly highlightRowsOnRefHover: boolean;
 	readonly initialRowSelection: 'head' | 'wip';
 	readonly issues: {
 		readonly enabled: boolean;
+	};
+	readonly lanes: {
+		readonly collapseDefault: 'none' | 'all' | 'auto';
+		readonly density: 'comfortable' | 'compact';
+		readonly grouped: {
+			readonly min: number;
+			readonly max: number;
+		};
 	};
 	readonly layout: 'editor' | 'panel';
 	readonly minimap: {
@@ -479,6 +489,7 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 	};
 	readonly stickyTimeline: boolean;
+	readonly style: 'auto' | 'table' | 'list';
 }
 
 interface HeatmapConfig {

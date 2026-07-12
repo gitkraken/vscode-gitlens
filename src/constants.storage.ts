@@ -392,6 +392,8 @@ export interface StoredGraphColumn {
 	isHidden?: boolean;
 	mode?: string;
 	width?: number;
+	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	grouped?: boolean | string;
 }
 
 export interface StoredGraphState {

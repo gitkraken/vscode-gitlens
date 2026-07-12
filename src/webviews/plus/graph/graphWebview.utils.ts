@@ -16,6 +16,7 @@ import { toRepositoryShape, toRepositoryShapeWithProvider } from '../../../git/u
 import { isWebviewItemContext, isWebviewItemGroupContext } from '../../../system/webview.js';
 import type {
 	GraphBranchContextValue,
+	GraphColumnsSettings,
 	GraphCommitContextValue,
 	GraphContributorContextValue,
 	GraphHostingServiceType,
@@ -28,12 +29,85 @@ import type {
 	GraphItemTypedContext,
 	GraphItemTypedContextValue,
 	GraphPullRequestContextValue,
+	GraphRefMetadata,
+	GraphRefMetadataType,
 	GraphRemoteContextValue,
 	GraphRepository,
 	GraphStashContextValue,
 	GraphTagContextValue,
 	GraphUpstreamStatusContextValue,
 } from './protocol.js';
+
+/** Hard ceiling on an adaptively-grown page size — keeps the wire payload per page bounded. */
+export const maxAdaptivePageLimit = 1000;
+
+// Column layouts applied by the "Reset Columns" commands; shared by the host provider (column-settings
+// seed) and the extracted graph commands module.
+export const defaultGraphColumnsSettings: GraphColumnsSettings = {
+	ref: { width: 130, isHidden: false, order: 0, isFilterable: true },
+	graph: { width: 150, mode: undefined, isHidden: false, order: 1 },
+	message: { width: 300, isHidden: false, order: 2, isFilterable: true },
+	author: { width: 130, isHidden: false, order: 3, isFilterable: true },
+	changes: { width: 200, isHidden: false, order: 4, isFilterable: true },
+	datetime: { width: 130, isHidden: false, order: 5, isFilterable: true },
+	sha: { width: 130, isHidden: false, order: 6, isFilterable: true },
+};
+
+export const compactGraphColumnsSettings: GraphColumnsSettings = {
+	ref: { width: 32, isHidden: false, isFilterable: true },
+	graph: { width: 150, mode: 'compact', isHidden: false },
+	author: { width: 32, isHidden: false, order: 2, isFilterable: true },
+	message: { width: 500, isHidden: false, order: 3, isFilterable: true },
+	changes: { width: 200, isHidden: false, order: 4, isFilterable: true },
+	datetime: { width: 130, isHidden: true, order: 5, isFilterable: true },
+	sha: { width: 130, isHidden: false, order: 6, isFilterable: true },
+};
+
+/**
+ * Scale the per-page row limit with how deep the graph is already loaded. `git log --skip=N` re-walks
+ * N commits for each page, so page cost grows with depth; fetching larger pages deeper in history
+ * amortizes that re-walk (fewer, slightly-larger requests — the deflated wire cost per page stays
+ * modest). The configured `pageItemLimit` is the base; the multiple grows in bands and is capped.
+ *
+ * @param loadedRows Rows already loaded (paging depth).
+ * @param baseLimit Configured `pageItemLimit` (0 means the user opted into an uncapped walk).
+ */
+export function computeAdaptivePageLimit(loadedRows: number, baseLimit: number): number {
+	// 0 = "no limit" (uncapped walk) — never scale or cap it.
+	if (baseLimit <= 0) return baseLimit;
+
+	let multiplier;
+	if (loadedRows < 2000) {
+		multiplier = 1;
+	} else if (loadedRows < 5000) {
+		multiplier = 2;
+	} else if (loadedRows < 10000) {
+		multiplier = 4;
+	} else {
+		multiplier = 5;
+	}
+	// Cap the scaled size, but never below the configured base (a large custom base keeps its size).
+	return Math.max(baseLimit, Math.min(maxAdaptivePageLimit, baseLimit * multiplier));
+}
+
+/**
+ * Whether `repoPath` is in the `gitlens:repos:withHostingIntegrationsConnected` context set (which
+ * carries both a repo's `uri.toString()` and its `path`). The context is re-published with a FRESHLY
+ * allocated array on every `updateContext()` (repo add/remove/open/close, integration connection
+ * changes), and `setContext` dedupes by reference identity — so its change event fires even when the
+ * connected-repo set is UNCHANGED. Callers compare this boolean against the last observed value and
+ * only react to a real flip; blindly resetting refsMetadata on every fire wipes the pills' upstream
+ * ahead/behind (integration-independent local git data) until it re-fetches — the "upstream stats
+ * flicker in and out" bug.
+ */
+export function isRepoHostingIntegrationConnected(
+	connectedRepos: readonly string[] | undefined,
+	repoPath: string | undefined,
+): boolean {
+	if (connectedRepos == null || repoPath == null) return false;
+
+	return connectedRepos.includes(repoPath);
+}
 
 export async function formatRepositories(repositories: GlRepository[]): Promise<GraphRepository[]> {
 	if (!repositories.length) return [];
@@ -140,7 +214,11 @@ export function hasGitReference(o: unknown): o is { ref: GitReference } {
 	return isGitReference(o.ref);
 }
 
-export function toGraphHostingServiceType(id: string): GraphHostingServiceType | undefined {
+/** Maps the ids common to BOTH hosting-service and issue-tracker contexts. Shared by
+ *  `toGraphHostingServiceType` and `toGraphIssueTrackerType` so the alias lists can't drift apart —
+ *  each function still owns any cases specific to its own union (e.g. `bitbucketServer` is
+ *  hosting-only; `jiraCloud`/`linear` are issue-tracker-only). */
+function toGraphCommonServiceType(id: string): GraphHostingServiceType | undefined {
 	switch (id) {
 		case 'github' satisfies RemoteProviderId:
 		case 'github' satisfies Unbrand<GkProviderId>:
@@ -174,64 +252,40 @@ export function toGraphHostingServiceType(id: string): GraphHostingServiceType |
 		case GitCloudHostIntegrationId.Bitbucket:
 			return 'bitbucket';
 
+		default:
+			return undefined;
+	}
+}
+
+export function toGraphHostingServiceType(id: string): GraphHostingServiceType | undefined {
+	switch (id) {
 		case 'bitbucket-server' satisfies RemoteProviderId:
 		case 'bitbucketServer' satisfies Unbrand<GkProviderId>:
 		case GitSelfManagedHostIntegrationId.BitbucketServer:
 			return 'bitbucketServer';
 
 		default:
-			return undefined;
+			return toGraphCommonServiceType(id);
 	}
 }
 
 export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | undefined {
 	switch (id) {
-		case 'github' satisfies RemoteProviderId:
-		case 'github' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitHub:
-			return 'github';
-
-		case 'cloud-github-enterprise' satisfies RemoteProviderId:
-		case 'githubEnterprise' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return 'githubEnterprise';
-
-		case 'gitlab' satisfies RemoteProviderId:
-		case 'gitlab' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.GitLab:
-			return 'gitlab';
-
-		case 'cloud-gitlab-self-hosted' satisfies RemoteProviderId:
-		case 'gitlabSelfHosted' satisfies Unbrand<GkProviderId>:
-		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return 'gitlabSelfHosted';
-
-		case 'azure-devops' satisfies RemoteProviderId:
-		case 'azureDevops' satisfies Unbrand<GkProviderId>:
-		case 'azure':
-		case GitCloudHostIntegrationId.AzureDevOps:
-			return 'azureDevops';
-
-		case 'bitbucket' satisfies RemoteProviderId:
-		case 'bitbucket' satisfies Unbrand<GkProviderId>:
-		case GitCloudHostIntegrationId.Bitbucket:
-			return 'bitbucket';
+		case IssuesCloudHostIntegrationId.Jira:
+			return 'jiraCloud';
+		case IssuesCloudHostIntegrationId.Linear:
+			return 'linear';
 
 		// case 'bitbucket-server' satisfies RemoteProviderId:
 		// case 'bitbucketServer' satisfies Unbrand<GkProviderId>:
 		// case SelfHostedIntegrationId.BitbucketServer:
 		// 	return 'bitbucketServer';
 
-		case IssuesCloudHostIntegrationId.Jira:
-			return 'jiraCloud';
-		case IssuesCloudHostIntegrationId.Linear:
-			return 'linear';
-
 		// case IssueIntegrationId.JiraServer:
 		// 	return 'jiraServer';
 
 		default:
-			return undefined;
+			return toGraphCommonServiceType(id);
 	}
 }
 
@@ -255,4 +309,35 @@ export function activityDecayToMs(decay: GraphActivityDecay): number {
 		default:
 			return 5 * 60 * 1000;
 	}
+}
+
+/**
+ * Copy-on-write strip of integration-derived enrichment from a refsMetadata map: returns a fresh map where
+ * each entry drops ONLY the `drop` types (e.g. `pullRequest`/`issue`) while preserving everything else —
+ * notably `upstream` (local-git ahead/behind, integration-independent). Used on a hosting/issue integration
+ * connect/disconnect so pills keep their tracking counts instead of blanking; the dropped keys' ABSENCE is
+ * what lets the webview re-request just those types for visible rows.
+ *
+ * An entry is re-created (fresh object) only when it actually carried a dropped type — untouched entries and
+ * `null` entries keep their reference. Dropping is keyed on key PRESENCE (`type in value`), so an already-null
+ * enrichment (`pullRequest: null`) is removed too, forcing a re-resolve after the flip.
+ */
+export function stripRefsMetadataTypes(
+	metadata: ReadonlyMap<string, GraphRefMetadata>,
+	drop: readonly GraphRefMetadataType[],
+): Map<string, GraphRefMetadata> {
+	const dropSet = new Set<string>(drop);
+	const result = new Map<string, GraphRefMetadata>();
+	for (const [id, value] of metadata) {
+		if (value == null) {
+			result.set(id, value);
+			continue;
+		}
+
+		// Copy-on-write: rebuild the entry keeping every key EXCEPT the dropped integration-owned types, so an
+		// UNCHANGED entry keeps its reference (nothing dropped) and a changed one is a fresh object.
+		const kept = Object.entries(value).filter(([key]) => !dropSet.has(key));
+		result.set(id, kept.length === Object.keys(value).length ? value : Object.fromEntries(kept));
+	}
+	return result;
 }

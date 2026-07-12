@@ -3139,7 +3139,7 @@
 			}
 		},
 		"gitlens.graph.columnRefOff": {
-			"label": "Hide Branch / Tag Column",
+			"label": "Hide Branches / Tags Column",
 			"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/",
 			"menus": {
 				"webview/context": [
@@ -3152,7 +3152,7 @@
 			}
 		},
 		"gitlens.graph.columnRefOn": {
-			"label": "Show Branch / Tag Column",
+			"label": "Show Branches / Tags Column",
 			"menus": {
 				"webview/context": [
 					{
@@ -4229,6 +4229,72 @@
 						"when": "webviewItem =~ /gitlens:graph:settings\\b/ && webviewItemValue =~ /\\bscrollMarker:wip:disabled\\b/",
 						"group": "4_settings",
 						"order": 6
+					}
+				]
+			}
+		},
+		"gitlens.graph.setLanesComfortable": {
+			"label": "Use Comfortable Graph Column Lanes",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
+						"group": "2_columns",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.setLanesCompact": {
+			"label": "Use Compact Graph Column Lanes",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:comfortable\\b/",
+						"group": "2_columns",
+						"order": 2
+					}
+				]
+			}
+		},
+		"gitlens.graph.setStyleAuto": {
+			"label": "View Graph as Auto",
+			"icon": "$(gitlens-list-auto)",
+			"enablement": "config.gitlens.graph.style != auto",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"group": "2_columns",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.setStyleList": {
+			"label": "View Graph as List",
+			"icon": "$(list-flat)",
+			"enablement": "config.gitlens.graph.style != list",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"group": "2_columns",
+						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.graph.setStyleTable": {
+			"label": "View Graph as Table",
+			"icon": "$(table)",
+			"enablement": "config.gitlens.graph.style != table",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
+						"group": "2_columns",
+						"order": 1
 					}
 				]
 			}

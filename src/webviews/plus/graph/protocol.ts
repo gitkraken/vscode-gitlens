@@ -1,31 +1,15 @@
-import type {
-	ExcludeByType,
-	ExcludeRefsById,
-	GraphColumnSetting,
-	GraphContexts,
-	GraphRef,
-	GraphRefOptData,
-	GraphRefType,
-	GraphRow,
-	GraphZoneType,
-	Head,
-	HostingServiceType,
-	IncludeOnlyRefsById,
-	IssueTrackerType,
-	PullRequestMetadata,
-	RefMetadata,
-	RefMetadataItem,
-	RefMetadataType,
-	Remote,
-	RowStats,
-	GraphItemContext as SerializedGraphItemContext,
-	Tag,
-	UpstreamMetadata,
-	WorkDirStats,
-} from '@gitkraken/gitkraken-components';
+import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
 import type { GitTrackingState } from '@gitlens/git/models/branch.js';
 import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
-import type { GitGraphRowType, GraphReachabilityTable } from '@gitlens/git/models/graph.js';
+import type {
+	GitGraphRow,
+	GitGraphRowHead,
+	GitGraphRowRemoteHead,
+	GitGraphRowStats,
+	GitGraphRowTag,
+	GitGraphRowType,
+	GraphReachabilityTable,
+} from '@gitlens/git/models/graph.js';
 import type { GitGraphSearchResultData } from '@gitlens/git/models/graphSearch.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { PullRequestRefs, PullRequestShape } from '@gitlens/git/models/pullRequest.js';
@@ -93,7 +77,156 @@ export function isWipSha(sha: string | undefined): boolean {
 	return sha === uncommitted || isSecondaryWipSha(sha);
 }
 
-export type { GraphRefType } from '@gitkraken/gitkraken-components';
+// Graph wire types — native replacements for the shapes formerly imported from
+// `@gitkraken/gitkraken-components`. The host produces these and ships them over IPC; both the new
+// (`@gitkraken/commit-graph`) and old engines consume structurally-compatible data.
+
+/** A serialized `data-vscode-context` payload (JSON string) or its pre-serialization object form. */
+export type SerializedGraphItemContext = string | object;
+
+/** Ref kinds the graph recognizes (mirrors the old engine's `refTypes` values). */
+export type GraphRefType = 'head' | 'remote' | 'tag' | 'worktree';
+
+/** The old engine's column/zone identifiers (kept for event-payload compatibility). */
+export type GraphZoneType = 'ref' | 'graph' | 'message' | 'author' | 'datetime' | 'sha' | 'changes';
+
+/** Compact ref descriptor used by the include/exclude ref filters. */
+export interface GraphRefOptData {
+	id: string;
+	name: string;
+	type: GraphRefType;
+	owner?: string;
+	avatarUrl?: string;
+}
+
+export interface ExcludeByType {
+	heads?: boolean;
+	remotes?: boolean;
+	stashes?: boolean;
+	tags?: boolean;
+}
+export type ExcludeRefsById = Record<string, GraphRefOptData>;
+export type IncludeOnlyRefsById = Record<string, GraphRefOptData>;
+
+export interface GraphColumnSetting {
+	width: number;
+	isFilterable?: boolean;
+	isFilterActive?: boolean;
+	isHidden: boolean;
+	mode?: string;
+	order?: number;
+	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	grouped?: boolean | string;
+}
+
+export interface GraphContexts {
+	graph?: SerializedGraphItemContext;
+	header?: SerializedGraphItemContext;
+	settings?: SerializedGraphItemContext;
+}
+
+/** Working-tree change counts for the WIP row. */
+export interface WorkDirStats {
+	added: number;
+	deleted: number;
+	modified: number;
+	renamed?: number;
+	context?: SerializedGraphItemContext;
+}
+
+// Ref enrichment metadata (ahead/behind, PRs, issues) attached to refs.
+export type GraphHostingServiceType =
+	| 'github'
+	| 'githubEnterprise'
+	| 'gitlab'
+	| 'gitlabSelfHosted'
+	| 'azureDevops'
+	| 'bitbucket'
+	| 'bitbucketServer';
+export type GraphIssueTrackerType = GraphHostingServiceType | 'jiraCloud' | 'jiraServer' | 'trello' | 'linear';
+
+interface BaseRefMetadata {
+	context?: SerializedGraphItemContext;
+}
+export interface PullRequestMetadata extends BaseRefMetadata {
+	hostingServiceType: GraphHostingServiceType;
+	id: number;
+	title: string;
+	author?: string;
+	date?: number;
+	state?: string;
+	url?: string;
+}
+export interface UpstreamMetadata extends BaseRefMetadata {
+	name: string;
+	owner: string;
+	ahead: number;
+	behind: number;
+	sha?: string;
+}
+export interface IssueMetadata extends BaseRefMetadata {
+	displayId: string;
+	id: string;
+	issueTrackerType: GraphIssueTrackerType;
+	title: string;
+}
+export interface RefMetadata {
+	pullRequest?: PullRequestMetadata[] | null;
+	upstream?: UpstreamMetadata | null;
+	issue?: IssueMetadata[] | null;
+}
+export type RefMetadataType = keyof RefMetadata;
+export type RefMetadataItem =
+	| { refId: string; type: 'pullRequest'; data: PullRequestMetadata }
+	| { refId: string; type: 'upstream'; data: UpstreamMetadata }
+	| { refId: string; type: 'issue'; data: IssueMetadata };
+
+/** A ref carried on a double-click payload — the union of head/remote/tag fields. */
+export interface GraphRef {
+	id?: string;
+	name: string;
+	refType: GraphRefType;
+	context?: SerializedGraphItemContext;
+	contextGroup?: SerializedGraphItemContext;
+	fullName?: string;
+	isCurrentHead?: boolean;
+	upstream?: { name: string; id: string };
+	worktreeId?: string;
+	owner?: string;
+	avatarUrl?: string;
+	url?: string;
+	current?: boolean;
+	hostingServiceType?: GraphHostingServiceType;
+	annotated?: boolean;
+	message?: string;
+}
+
+/** Filter-state sentinel: `{ [emptySetMarker]: true }` means "filtering applied, zero matches". */
+export const emptySetMarker = 'gk.empty-set-marker' as const;
+export type EmptySetMarker = typeof emptySetMarker;
+
+/** Options for the graph component's `selectCommits`. */
+export interface SelectCommitsOptions {
+	/** If true, toggle selection; if false, replace selection. */
+	toggle?: boolean;
+	/** If true, scroll to ensure the focused commit is visible. */
+	ensureVisible?: boolean;
+}
+
+/** A read-only graph row as surfaced by the graph component's selection APIs. */
+export interface ReadonlyGraphRow extends Readonly<GitGraphRow> {
+	readonly rowIndex?: number;
+	readonly hasRefs?: boolean;
+	/** Old-engine output field (row filtered out); absent on the new engine. */
+	readonly hidden?: boolean;
+}
+
+/** Map of commit sha → its column (lane) index. */
+export type ColumnNumberBySha = Record<string, number>;
+
+/** Map of CSS custom-property name → value, used to theme the graph component. */
+export type CssVariables = Record<string, string>;
+
 export type {
 	GetOverviewEnrichmentResponse,
 	GetOverviewWipResponse,
@@ -119,7 +252,6 @@ export type GraphDownstreams = Record</*upstreamName*/ string, /*downstreamNames
 export type GraphRefMetadata = RefMetadata | null;
 export type GraphUpstreamMetadata = UpstreamMetadata | null;
 export type GraphRefsMetadata = Record</* id */ string, GraphRefMetadata>;
-export type GraphHostingServiceType = HostingServiceType;
 export type GraphRefMetadataItem = RefMetadataItem;
 export type GraphRefMetadataType = RefMetadataType;
 export type GraphMissingRefsMetadataType = RefMetadataType;
@@ -271,7 +403,7 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	avatars?: GraphAvatars;
 	loading?: boolean;
 	refsMetadata?: GraphRefsMetadata | null;
-	rows?: GraphRow[];
+	rows?: GitGraphRow[];
 	rowsStats?: Record<string, GraphRowStats>;
 	rowsStatsLoading?: boolean;
 	/** Mirrors the host's `_graph.includes.stats` — true when the current graph build requested stats.
@@ -284,6 +416,13 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	reachabilityTable?: GraphReachabilityTable;
 	downstreams?: GraphDownstreams;
 	paging?: GraphPaging;
+	/**
+	 * Rows-plane sync baseline stamp from the publisher (R1). Carried on the bootstrap/full-state push
+	 * so the webview can initialize its `{generation, seq}` baseline for subsequent
+	 * {@link DidChangeRowsNotification} deltas. The rows themselves always travel via the publisher's
+	 * channel, not this `State`. Consumed by R1c; ignored by the current reducer.
+	 */
+	sync?: GraphRowsSyncStamp;
 	columns?: GraphColumnsSettings;
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
@@ -454,6 +593,28 @@ export interface GraphPaging {
 	hasMore: boolean;
 }
 
+/** Rows splice-delta for a rebuild push — see {@link DidChangeRowsParams.rowsSplice}. */
+export interface GraphRowsSplice {
+	/** Rows above the reused span (the changed region; may be empty). */
+	head: GitGraphRow[];
+	/** Index into the webview's CURRENT rows where the reused span starts. */
+	reusedStart: number;
+	reusedCount: number;
+	/** Rows below the reused span (a grown bottom; usually absent). */
+	tail?: GitGraphRow[];
+	/**
+	 * Per-row patch aligned with the reused span: new `contexts.flags` / `contexts.reachabilityIndex`
+	 * values — `null` = unchanged, `-1` = now absent. Excluded from the reuse fingerprint because
+	 * they flip graph-wide on branch create/delete/checkout; patching keeps those events on the
+	 * splice path instead of re-shipping every row.
+	 */
+	patch?: { flags: (number | null)[]; reachability: (number | null)[] };
+	/** Guards — the webview verifies all three before splicing. */
+	expectedPriorRows: number;
+	firstReusedSha: string;
+	lastReusedSha: string;
+}
+
 export type GraphRepository = RepositoryShape;
 
 export interface GraphCommitIdentity {
@@ -471,9 +632,9 @@ export interface GraphCommit {
 
 	avatarUrl: string | undefined;
 }
-export type GraphRemote = Remote;
-export type GraphTag = Tag;
-export type GraphBranch = Head;
+export type GraphRemote = GitGraphRowRemoteHead;
+export type GraphTag = GitGraphRowTag;
+export type GraphBranch = GitGraphRowHead;
 
 export type GraphAutoFetchMode = 'off' | 'vscode' | 'gitlens';
 
@@ -497,8 +658,48 @@ export interface GraphComponentConfig {
 	 *  read/edit heat fades after the last tool call. Resolved host-side from `activityDecay` so
 	 *  the renderer doesn't need its own string→ms helper. */
 	activityDecayMs?: number;
+	/**
+	 * When true, the graph webview renders using the experimental `@gitkraken/commit-graph`
+	 * engine (vendored from commit-graph) instead of `@gitkraken/gitkraken-components`.
+	 *
+	 * Backed by the user setting `gitlens.graph.experimental.useNewEngine`.
+	 */
+	useNewEngine?: boolean;
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
+	/**
+	 * Default lane-collapse mode for the new (commit-graph) graph engine. `'none'` keeps every
+	 * lane expanded (current behaviour); `'all'` collapses every eligible lane segment
+	 * to a chip; `'auto'` collapses lanes whose tip is reachable from HEAD via first-
+	 * parent only ("merged & done"). The segment containing HEAD is never auto-collapsed.
+	 *
+	 * Backed by the user setting `gitlens.graph.lanes.collapseDefault`. Manual collapses
+	 * during a session override this default per-segment until the webview is reloaded.
+	 */
+	lanesCollapseDefault?: 'none' | 'all' | 'auto';
+	/**
+	 * Lane spacing density in the new (commit-graph) graph engine. `'comfortable'` leaves a clear
+	 * gap between lanes; `'compact'` packs them tightly together.
+	 *
+	 * Backed by the user setting `gitlens.graph.lanes.density`.
+	 */
+	lanesDensity?: 'comfortable' | 'compact';
+	/**
+	 * Minimum number of lanes shown inline when the graph is grouped into another column (new engine) —
+	 * always shown when the graph has that many, however narrow the view.
+	 *
+	 * Backed by the user setting `gitlens.graph.lanes.grouped.min`.
+	 */
+	lanesGroupedMin?: number;
+	/**
+	 * Maximum share of the row's width (percent) the inline lanes may take when the graph is grouped into
+	 * another column (new engine) — wider views show more lanes automatically; a row that fans out past
+	 * the resulting cap clips to it (extra lanes collapse to the edge). `lanesGroupedMin` wins when it
+	 * needs more room than this allows.
+	 *
+	 * Backed by the user setting `gitlens.graph.lanes.grouped.max`.
+	 */
+	lanesGroupedMax?: number;
 	minimap?: boolean;
 	minimapDataType?: Config['graph']['minimap']['dataType'];
 	minimapMarkerTypes?: GraphMinimapMarkerTypes[];
@@ -514,6 +715,14 @@ export interface GraphComponentConfig {
 	sidebar: boolean;
 	sidebarPinned?: boolean;
 	stickyTimeline?: boolean;
+	/**
+	 * Graph style (row layout) in the new (commit-graph) graph engine. `'table'` uses the single-line
+	 * column layout; `'list'` uses the stacked 2-line layout; `'auto'` (default) switches to `'list'`
+	 * automatically when the panel is too narrow for the columns.
+	 *
+	 * Backed by the user setting `gitlens.graph.style`.
+	 */
+	style?: GraphStyle;
 }
 
 export interface GraphColumnConfig {
@@ -521,6 +730,8 @@ export interface GraphColumnConfig {
 	mode?: string;
 	width?: number;
 	order?: number;
+	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	grouped?: boolean | string;
 }
 
 export type GraphColumnsConfig = Record<string, GraphColumnConfig>;
@@ -533,7 +744,7 @@ export type GraphIncludeOnlyRef = GraphRefOptData;
 export type GraphPinnedRef = GraphRefOptData & { sha?: string };
 
 export type GraphColumnName = GraphZoneType;
-export type GraphRowStats = RowStats;
+export type GraphRowStats = GitGraphRowStats;
 
 export type InternalNotificationType = 'didChangeTheme';
 
@@ -573,6 +784,17 @@ export interface GetMoreRowsParams {
 	limit?: number;
 }
 export const GetMoreRowsCommand = new IpcCommand<GetMoreRowsParams>(scope, 'rows/get');
+
+export interface GraphSyncResyncParams {
+	/** The generation the webview currently holds (for logging/diagnostics). */
+	generation: number;
+	/** The last seq the webview applied (for logging/diagnostics). */
+	seq: number;
+}
+/** The rows-plane publisher's single recovery request (R1): on a seq gap, guard mismatch, dropped
+ *  message, or reconnect (sync-hello), the webview reports its held baseline and the host answers with
+ *  a fresh snapshot when the webview is behind (no-ops when already in sync). */
+export const GraphSyncResyncCommand = new IpcCommand<GraphSyncResyncParams>(scope, 'sync/resync');
 
 export interface OpenPullRequestDetailsParams {
 	id?: string;
@@ -1057,6 +1279,10 @@ export interface DidSearchParams {
 	selectedRows?: GraphSelectedRows;
 	/** Indicates this is a partial result (more results coming) */
 	partial?: boolean;
+	/** A results/coverage REFRESH riding a rows-plane emission — NOT search progress. The app must not
+	 *  derive `searching` from it (an active progressive search's spinner would flicker off, and
+	 *  jump-to-last could skip its wait-for-complete on a partial result set). */
+	rider?: boolean;
 	/** Search ID to track which search these results belong to */
 	searchId: number;
 }
@@ -1122,11 +1348,6 @@ export interface DidChangeOrgSettingsParams {
 	orgSettings: State['orgSettings'];
 }
 export const DidChangeOrgSettings = new IpcNotification<DidChangeOrgSettingsParams>(scope, 'org/settings/didChange');
-
-export interface DidChangeAvatarsParams {
-	avatars: GraphAvatars;
-}
-export const DidChangeAvatarsNotification = new IpcNotification<DidChangeAvatarsParams>(scope, 'avatars/didChange');
 
 export const DidChangeMcpBanner = new IpcNotification<boolean>(scope, 'mcp/didChange');
 
@@ -1210,14 +1431,6 @@ export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBra
 	'branchState/didChange',
 );
 
-export interface DidChangeRefsMetadataParams {
-	metadata: GraphRefsMetadata | null | undefined;
-}
-export const DidChangeRefsMetadataNotification = new IpcNotification<DidChangeRefsMetadataParams>(
-	scope,
-	'refs/didChangeMetadata',
-);
-
 export interface DidChangeColumnsParams {
 	columns: GraphColumnsSettings | undefined;
 	context?: string;
@@ -1253,17 +1466,28 @@ export const DidChangePinnedRefNotification = new IpcNotification<DidChangePinne
 );
 
 export interface DidChangeRowsParams {
-	rows: GraphRow[];
+	rows: GitGraphRow[];
+	/**
+	 * Splice-delta alternative for a cursor-less (wholesale REPLACE) push. When present, `rows` is empty
+	 * and the webview reconstructs from the rows it already holds (falling back to a
+	 * {@link GraphSyncResyncCommand} on a guard mismatch). See {@link GraphRowsSplice}.
+	 */
+	rowsSplice?: GraphRowsSplice;
 	/** Undefined when the backing `avatars` Map's size hasn't changed since the last notification —
 	 *  the host skips the `Object.fromEntries` cost and the frontend reducer keeps its existing
 	 *  state. Present (full Map) when new avatar entries were added. */
 	avatars: Record<string, string> | undefined;
-	/** Always present — the graph provider mutates downstream arrays in place
-	 *  (`downstreams.push(tip)` for existing upstream keys), so size-based dedupe would miss
-	 *  array-mutation cases. Frontend wholesale-replaces. */
-	downstreams: Record<string, string[]>;
+	/** Shipped on rows-bearing pushes (rebuild / page-append) and snapshots; ABSENT on enrichment-only
+	 *  ticks (the provider mutates downstream arrays in place, so size-based dedupe would miss
+	 *  array-mutation cases — re-shipping the full map every tick is pure waste). Absent = keep prior;
+	 *  present = wholesale-replace. */
+	downstreams?: Record<string, string[]>;
 	paging?: GraphPaging;
 	refsMetadata?: GraphRefsMetadata | null;
+	/** When true, the payload's `refsMetadata` is an authoritative REPLACE (full map / `null` when off),
+	 *  not a spread-merge delta — a repo-level enable/disable the delta channel can't express. Set by
+	 *  {@link GraphSyncPublisher.markRefsMetadataReset}. */
+	refsMetadataReset?: boolean;
 	/** Delta of `rowsStats` entries added since the last notification. The frontend reducer
 	 *  spread-merges into its existing state, so shipping only new keys is sufficient and avoids
 	 *  the N² IPC payload on pagination of big repos. Undefined when no new entries. */
@@ -1274,16 +1498,28 @@ export interface DidChangeRowsParams {
 	reachabilityTable?: GraphReachabilityTable;
 	search?: DidSearchParams;
 	selectedRows?: GraphSelectedRows;
+	/**
+	 * Sequencing stamp from the rows-plane publisher (R1). Present once the publisher owns this channel:
+	 * the webview applies a delta iff `generation === current && seq === lastApplied + 1`, drops
+	 * stale-generation messages, and rebases both on a `snapshot`. Optional during the migration.
+	 */
+	sync?: GraphRowsSyncStamp;
 }
-export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(scope, 'rows/didChange');
-
-export interface DidChangeRowsStatsParams {
-	rowsStats: Record<string, GraphRowStats>;
-	rowsStatsLoading: boolean;
+export interface GraphRowsSyncStamp {
+	/** Bumps on graph identity change (repo swap / graph clear); stale-generation messages are dropped. */
+	generation: number;
+	/** Monotone per generation; a snapshot rebases the webview's baseline to this value. */
+	seq: number;
+	/** When true this payload is a full authoritative snapshot (rows-plane reset), not a delta. */
+	snapshot?: boolean;
 }
-export const DidChangeRowsStatsNotification = new IpcNotification<DidChangeRowsStatsParams>(
+// `queueable: false` — the rows-plane publisher owns its own recovery (a failed send forces its next
+// flush to a snapshot), so controller requeue would double-apply against that snapshot.
+export const DidChangeRowsNotification = new IpcNotification<DidChangeRowsParams>(
 	scope,
-	'rows/stats/didChange',
+	'rows/didChange',
+	false,
+	false,
 );
 
 export interface DidChangeSelectionParams {
@@ -1466,5 +1702,3 @@ export interface GraphUpstreamStatusContextValue {
 	ahead: number;
 	behind: number;
 }
-
-export type GraphIssueTrackerType = IssueTrackerType;
