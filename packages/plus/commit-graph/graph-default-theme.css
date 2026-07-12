@@ -1,0 +1,32 @@
+/*
+ * Default theme tokens for @gitkraken/commit-graph.
+ *
+ * Generic design tokens the renderer's CSS references. Consumers with their own design
+ * system should set matching tokens on an ancestor element; otherwise import this
+ * stylesheet once and the graph will render with the defaults below.
+ *
+ * Values are `<hue> <sat>% <lightness>%` triplets so they can be consumed via
+ * `hsl(var(--token))` / `hsl(var(--token) / <alpha>)`.
+ */
+
+:root {
+	--brand: 217 91% 60%;
+	--border: 240 5% 26%;
+	--secondary: 240 4% 16%;
+	--background: 240 6% 10%;
+	--foreground: 0 0% 95%;
+	--muted-foreground: 240 5% 65%;
+	--status-warning: 45 93% 47%;
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--brand: 217 91% 50%;
+		--border: 240 6% 85%;
+		--secondary: 240 5% 94%;
+		--background: 0 0% 100%;
+		--foreground: 240 10% 10%;
+		--muted-foreground: 240 5% 40%;
+		--status-warning: 32 95% 44%;
+	}
+}

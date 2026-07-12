@@ -1,0 +1,77 @@
+{
+	"name": "@gitkraken/commit-graph",
+	"version": "0.0.0",
+	"private": true,
+	"description": "High-performance, themable commit-graph engine — vendored into GitLens for the experimental new-graph (Lit) renderer.",
+	"author": "GitKraken",
+	"license": "SEE LICENSE IN LICENSE",
+	"type": "module",
+	"sideEffects": [
+		"*.css"
+	],
+	"exports": {
+		"./a11y.js": {
+			"types": "./src/a11y.ts",
+			"default": "./src/a11y.ts"
+		},
+		"./colors.js": {
+			"types": "./src/colors.ts",
+			"default": "./src/colors.ts"
+		},
+		"./laneClamp.js": {
+			"types": "./src/laneClamp.ts",
+			"default": "./src/laneClamp.ts"
+		},
+		"./paging.js": {
+			"types": "./src/paging.ts",
+			"default": "./src/paging.ts"
+		},
+		"./view.js": {
+			"types": "./src/view.ts",
+			"default": "./src/view.ts"
+		},
+		"./engine/adornments.js": {
+			"types": "./src/engine/adornments.ts",
+			"default": "./src/engine/adornments.ts"
+		},
+		"./engine/delta.js": {
+			"types": "./src/engine/delta.ts",
+			"default": "./src/engine/delta.ts"
+		},
+		"./engine/edges.js": {
+			"types": "./src/engine/edges.ts",
+			"default": "./src/engine/edges.ts"
+		},
+		"./engine/layout.js": {
+			"types": "./src/engine/layout.ts",
+			"default": "./src/engine/layout.ts"
+		},
+		"./engine/process.js": {
+			"types": "./src/engine/process.ts",
+			"default": "./src/engine/process.ts"
+		},
+		"./engine/reconcile.js": {
+			"types": "./src/engine/reconcile.ts",
+			"default": "./src/engine/reconcile.ts"
+		},
+		"./engine/types.js": {
+			"types": "./src/engine/types.ts",
+			"default": "./src/engine/types.ts"
+		},
+		"./theme.css": "./graph-default-theme.css"
+	},
+	"files": [
+		"src",
+		"graph-default-theme.css",
+		"README.md"
+	],
+	"scripts": {
+		"test": "mocha --require tsx --ui tdd --timeout 30000 'src/**/__tests__/**/*.test.ts'"
+	},
+	"devDependencies": {
+		"@types/mocha": "catalog:",
+		"mocha": "catalog:",
+		"tsx": "catalog:",
+		"typescript": "catalog:"
+	}
+}

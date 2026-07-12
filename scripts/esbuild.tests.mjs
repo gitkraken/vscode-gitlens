@@ -41,7 +41,10 @@ async function buildTests(target) {
 		// `@gitkraken/provider-apis` (getter-based exports) — which Node's ESM loader can't resolve,
 		// so loading the dist in the test host throws "does not provide an export named ...". Bundling
 		// from source lets esbuild resolve the CJS interop, matching the package's own test runner.
-		plugins: [nodeExternalsPlugin({ allowList: [/^@gitlens\//] })],
+		// `@gitkraken/commit-graph` is a vendored source-only package (extension-less internal
+		// imports), so it must bundle from source too — externalized, Node's ESM loader can't
+		// resolve it in the test host.
+		plugins: [nodeExternalsPlugin({ allowList: [/^@gitlens\//, /^@gitkraken\/commit-graph/] })],
 		sourcemap: true,
 		target: ['es2023', 'chrome124', 'node20.14.0'],
 		tsconfig: target === 'webworker' ? 'tsconfig.test.browser.json' : 'tsconfig.test.json',
@@ -57,6 +60,7 @@ async function buildTests(target) {
 		'@gitlens/integrations': path.resolve(__dirname, 'packages', 'plus', 'integrations', 'src'),
 		'@gitlens/ai': path.resolve(__dirname, 'packages', 'plus', 'ai', 'src'),
 		'@gitlens/agents': path.resolve(__dirname, 'packages', 'plus', 'agents', 'src'),
+		'@gitkraken/commit-graph': path.resolve(__dirname, 'packages', 'plus', 'commit-graph', 'src'),
 
 		// Stupid dependency that is used by `http[s]-proxy-agent` (via @gitkraken/provider-apis)
 		debug: path.resolve(__dirname, 'patches', 'debug.js'),

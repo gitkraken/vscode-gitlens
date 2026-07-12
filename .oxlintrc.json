@@ -314,7 +314,8 @@
 				"packages/plus/git-github/src/**/*",
 				"packages/plus/integrations/src/**/*",
 				"packages/plus/ai/src/**/*",
-				"packages/plus/agents/src/**/*"
+				"packages/plus/agents/src/**/*",
+				"packages/plus/commit-graph/src/**/*"
 			],
 			"rules": {
 				"curly": ["error", "multi-line", "consistent"],
@@ -607,7 +608,8 @@
 				"packages/plus/git-github/src/**/*",
 				"packages/plus/integrations/src/**/*",
 				"packages/plus/ai/src/**/*",
-				"packages/plus/agents/src/**/*"
+				"packages/plus/agents/src/**/*",
+				"packages/plus/commit-graph/src/**/*"
 			],
 			"rules": {
 				"no-restricted-imports": [
