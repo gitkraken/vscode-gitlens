@@ -1,19 +1,25 @@
 import type { Uri } from 'vscode';
-import type { GitCommit } from '@gitlens/git/models/commit.js';
+import { GitCommit } from '@gitlens/git/models/commit.js';
+import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
 import { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
+import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import { getAvatarUri } from '../../avatars.js';
 import type { Container } from '../../container.js';
+import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import { findCommitFile, getCommitForFile } from '../../git/utils/-webview/commit.utils.js';
 import { isWebviewItemContext } from '../../system/webview.js';
 import type {
+	CommitDetails,
 	DetailsFileContextValue,
 	DetailsFolderContextValue,
 	DetailsItemContext,
 	DetailsItemTypedContext,
 	DetailsItemTypedContextValue,
 } from './protocol.js';
+import { messageHeadlineSplitterToken } from './protocol.js';
 
 export function isDetailsItemContext(item: unknown): item is DetailsItemContext {
 	if (item == null) return false;
@@ -74,6 +80,115 @@ export function getUriFromContext(container: Container, context: DetailsFileCont
 
 export function getFolderUriFromContext(container: Container, context: DetailsFolderContextValue): Uri {
 	return container.git.getAbsoluteUri(context.path, context.repoPath);
+}
+
+/**
+ * Builds the core commit details payload — identity, message, files, stats — for both the Inspect view
+ * and the Graph's details panel. Deliberately awaits ONLY `ensureFullDetails`: the file list must not
+ * wait on anything else. Avatars resolve synchronously (never a network fetch) and worktree reachability
+ * is omitted entirely; both are upgraded afterwards by the webview's deferred enrichment fan-out
+ * (`fetchCommitEnrichment`).
+ *
+ * `knownAvatars` is the Graph's already-resolved email→URL map. Without it the Graph's core payload would
+ * fall back to gravatar for faces its own rows already show — the rows resolve avatars at size 16 and the
+ * details at size 32, and the avatar cache is keyed by size, so a warm row does NOT warm this lookup.
+ */
+export async function getCoreCommitDetails(
+	commit: GitCommit,
+	options?: { knownAvatars?: ReadonlyMap<string, string> },
+): Promise<CommitDetails> {
+	if (!commit.hasFullDetails()) {
+		await GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } });
+	}
+
+	// Raw message with headline split — no autolink linkification (that's deferred)
+	let message = CommitFormatter.fromTemplate(`\${message}`, commit);
+	const index = message.indexOf('\n');
+	if (index !== -1) {
+		message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
+	}
+
+	// The working (uncommitted) commit's `anyFiles` carries a separate staged + unstaged entry for
+	// each partially-staged ("mixed") file. The details panels show working changes as a single
+	// working-tree-vs-HEAD changeset, so collapse to one row per path (keeping the first = unstaged
+	// twin). Row-click and right-click both diff HEAD↔working, so the dropped staged distinction is
+	// invisible here — this only removes the duplicate row and de-inflates the file counts.
+	const changedFiles = commit.isUncommitted
+		? [
+				...uniqueBy(
+					commit.anyFiles ?? [],
+					f => f.path,
+					original => original,
+				),
+			]
+		: commit.fileset?.files;
+
+	const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
+	const knownAvatars = options?.knownAvatars;
+
+	return {
+		repoPath: commit.repoPath,
+		sha: commit.sha,
+		shortSha: commit.shortSha,
+		author: { ...commit.author, avatar: resolveCoreAvatar(commit.author, knownAvatars) },
+		committer: {
+			...commit.committer,
+			avatar: hasDistinctCommitter ? resolveCoreAvatar(commit.committer, knownAvatars) : undefined,
+		},
+		message: message,
+		parents: commit.parents,
+		stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
+		stashOnRef: commit.refType === 'stash' ? commit.stashOnRef : undefined,
+		// Serialize files to plain objects - GitFileChange class instances contain
+		// a Container reference which causes circular reference errors during JSON serialization
+		files: changedFiles?.map(f => ({
+			repoPath: f.repoPath,
+			path: f.path,
+			status: f.status,
+			originalPath: f.originalPath,
+			staged: f.staged,
+			stats: f.stats,
+		})),
+		// Recompute the file counts from the deduped list so the working-changes header doesn't
+		// double-count mixed files. Line totals (`additions`/`deletions`) come from `git diff --stat
+		// HEAD` and are already counted once, so they're preserved as-is.
+		stats:
+			commit.isUncommitted && commit.stats != null
+				? { ...commit.stats, files: countFileChanges(changedFiles) }
+				: commit.stats,
+	};
+}
+
+/** Best avatar obtainable with zero async work: an integration-supplied URL, else the Graph's resolved
+ *  map, else the synchronous cached-or-gravatar lookup (the `undefined` repo overload never fetches). */
+function resolveCoreAvatar(
+	identity: { email: string | undefined; avatarUrl?: string },
+	knownAvatars: ReadonlyMap<string, string> | undefined,
+): string | undefined {
+	if (identity.avatarUrl != null) return identity.avatarUrl;
+
+	const known = identity.email ? knownAvatars?.get(identity.email) : undefined;
+	if (known != null) return known;
+
+	return getAvatarUri(identity.email, undefined, { size: 32 }).toString(true);
+}
+
+/** Tallies added/deleted/changed counts from a file list — mirrors `GitCommit.computeFileStats` so the
+ *  deduped working-changes list reports the same buckets, minus the mixed-file double-count. */
+function countFileChanges(files: readonly GitFileChange[] | undefined): GitDiffFileStats {
+	const counts = { added: 0, deleted: 0, changed: 0 };
+	if (files != null) {
+		for (const f of files) {
+			if (f.status === 'A' || f.status === '?') {
+				counts.added++;
+			} else if (f.status === 'D') {
+				counts.deleted++;
+			} else {
+				counts.changed++;
+			}
+		}
+	}
+	return counts;
 }
 
 export type ComparisonContext = { sha: string };

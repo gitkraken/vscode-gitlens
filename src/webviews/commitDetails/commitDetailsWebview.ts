@@ -1,13 +1,10 @@
 import type { TextDocumentShowOptions } from 'vscode';
 import { Disposable, EventEmitter, window } from 'vscode';
-import { GitCommit } from '@gitlens/git/models/commit.js';
-import type { GitDiffFileStats } from '@gitlens/git/models/diff.js';
+import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitFileChange } from '@gitlens/git/models/fileChange.js';
 import type { GitRevisionReference } from '@gitlens/git/models/reference.js';
 import { createReference } from '@gitlens/git/utils/reference.utils.js';
 import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
-import { uniqueBy } from '@gitlens/utils/iterable.js';
-import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { CopyMessageToClipboardCommandArgs } from '../../commands/copyMessageToClipboard.js';
 import type { CopyShaToClipboardCommandArgs } from '../../commands/copyShaToClipboard.js';
 import type { ExplainCommitCommandArgs } from '../../commands/explainCommit.js';
@@ -17,14 +14,8 @@ import type { Container } from '../../container.js';
 import type { CommitSelectedEvent } from '../../eventBus.js';
 import { executeGitCommand } from '../../git/actions.js';
 import { showDetailsQuickPick } from '../../git/actions/commit.js';
-import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
-import {
-	getCommitAndFileByPath,
-	getCommitAuthorAvatarUri,
-	getCommitCommitterAvatarUri,
-} from '../../git/utils/-webview/commit.utils.js';
+import { getCommitAndFileByPath } from '../../git/utils/-webview/commit.utils.js';
 import { getReferenceFromRevision } from '../../git/utils/-webview/reference.utils.js';
-import { getReachableWorktrees } from '../../git/utils/-webview/worktree.utils.js';
 import { executeCommand, executeCoreCommand, registerWebviewCommand } from '../../system/-webview/command.js';
 import { getWebviewCommand } from '../../system/decorators/command.js';
 import type { LinesChangeEvent } from '../../trackers/lineTracker.js';
@@ -38,6 +29,7 @@ import { isSerializedState } from '../webviewsController.js';
 import type { CommitDetailsServices, CommitSelectionEvent, ExplainResult } from './commitDetailsService.js';
 import type { ComparisonContext } from './commitDetailsWebview.utils.js';
 import {
+	getCoreCommitDetails,
 	getFileCommitFromContext,
 	isDetailsFileContext,
 	isDetailsFolderContext,
@@ -50,8 +42,7 @@ import {
 	getDetailsFolderCommands,
 	sharedDetailsFolderCommandRoutes,
 } from './detailsFolderCommands.js';
-import type { CommitDetails, DetailsItemContext, ExecuteFileActionParams, State } from './protocol.js';
-import { messageHeadlineSplitterToken } from './protocol.js';
+import type { DetailsItemContext, ExecuteFileActionParams, State } from './protocol.js';
 import type { CommitDetailsWebviewShowingArgs } from './registration.js';
 
 // Commands that open or modify editor content and need the line tracker suspended
@@ -484,80 +475,6 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 		// Webview already knows the new pin state - no notification needed
 	}
 
-	/**
-	 * Get core commit details (fast path — no autolinks, no enriched data).
-	 * The message is raw-formatted (headline split) but not linkified with autolink patterns.
-	 */
-	private async getCoreCommitDetails(commit: GitCommit, cancellation?: AbortSignal): Promise<CommitDetails> {
-		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
-		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
-			!commit.hasFullDetails()
-				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
-				: commit,
-			getCommitAuthorAvatarUri(commit, { size: 32 }),
-			hasDistinctCommitter ? getCommitCommitterAvatarUri(commit, { size: 32 }) : Promise.resolve(undefined),
-			commit.refType === 'stash' || commit.isUncommitted
-				? Promise.resolve([])
-				: getReachableWorktrees(this.container, commit.repoPath, commit.sha, cancellation),
-		]);
-
-		commit = getSettledValue(commitResult, commit);
-		const avatarUri = getSettledValue(avatarUriResult);
-		const committerAvatarUri = hasDistinctCommitter ? getSettledValue(committerAvatarUriResult) : undefined;
-
-		// Raw message with headline split — no autolink linkification (that's deferred)
-		let message = CommitFormatter.fromTemplate(`\${message}`, commit);
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
-		}
-
-		// The working (uncommitted) commit's `anyFiles` carries a separate staged + unstaged entry for
-		// each partially-staged ("mixed") file. The Inspect view shows working changes as a single
-		// working-tree-vs-HEAD changeset, so collapse to one row per path (keeping the first = unstaged
-		// twin). Row-click and right-click both diff HEAD↔working, so the dropped staged distinction is
-		// invisible here — this only removes the duplicate row and de-inflates the file counts.
-		const changedFiles = commit.isUncommitted
-			? [
-					...uniqueBy(
-						commit.anyFiles ?? [],
-						f => f.path,
-						original => original,
-					),
-				]
-			: commit.fileset?.files;
-
-		return {
-			repoPath: commit.repoPath,
-			sha: commit.sha,
-			shortSha: commit.shortSha,
-			author: { ...commit.author, avatar: avatarUri?.toString(true) },
-			committer: { ...commit.committer, avatar: committerAvatarUri?.toString(true) },
-			message: message,
-			parents: commit.parents,
-			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
-			stashOnRef: commit.refType === 'stash' ? commit.stashOnRef : undefined,
-			// Serialize files to plain objects - GitFileChange class instances contain
-			// a Container reference which causes circular reference errors during JSON serialization
-			files: changedFiles?.map(f => ({
-				repoPath: f.repoPath,
-				path: f.path,
-				status: f.status,
-				originalPath: f.originalPath,
-				staged: f.staged,
-				stats: f.stats,
-			})),
-			// Recompute the file counts from the deduped list so the working-changes header doesn't
-			// double-count mixed files. Line totals (`additions`/`deletions`) come from `git diff --stat
-			// HEAD` and are already counted once, so they're preserved as-is.
-			stats:
-				commit.isUncommitted && commit.stats != null
-					? { ...commit.stats, files: countFileChanges(changedFiles) }
-					: commit.stats,
-			reachableFromOtherWorktrees: (getSettledValue(worktreesResult)?.length ?? 0) > 0,
-		};
-	}
-
 	private async getFileCommitFromContextOrParams(
 		item: DetailsItemContext | ExecuteFileActionParams | undefined,
 	): Promise<
@@ -739,7 +656,7 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 					signal?.throwIfAborted();
 					// Track what the webview is showing so file actions know which commit to use
 					this._showingCommitRef = { repoPath: repoPath, sha: sha, refType: commit.refType };
-					const details = await this.getCoreCommitDetails(commit, signal);
+					const details = await getCoreCommitDetails(commit);
 					signal?.throwIfAborted();
 					return details;
 				},
@@ -777,22 +694,4 @@ export class CommitDetailsWebviewProvider implements WebviewProvider<State, Stat
 			},
 		} satisfies CommitDetailsServices);
 	}
-}
-
-/** Tallies added/deleted/changed counts from a file list — mirrors `GitCommit.computeFileStats` so the
- *  deduped working-changes list reports the same buckets, minus the mixed-file double-count. */
-function countFileChanges(files: readonly GitFileChange[] | undefined): GitDiffFileStats {
-	const counts = { added: 0, deleted: 0, changed: 0 };
-	if (files != null) {
-		for (const f of files) {
-			if (f.status === 'A' || f.status === '?') {
-				counts.added++;
-			} else if (f.status === 'D') {
-				counts.deleted++;
-			} else {
-				counts.changed++;
-			}
-		}
-	}
-	return counts;
 }

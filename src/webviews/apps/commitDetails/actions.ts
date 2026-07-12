@@ -36,7 +36,7 @@ import type { InspectWebviewTelemetryContext, TelemetryEvents } from '../../../c
 import type { CommitDetailsServices, InitialContext } from '../../commitDetails/commitDetailsService.js';
 import type { CommitDetails, CommitSignatureShape, FileShowOptions } from '../../commitDetails/protocol.js';
 import { defaultViewFilesConfig } from '../../commitDetails/protocol.js';
-import { fetchCommitEnrichment } from '../shared/actions/commitEnrichment.js';
+import { fetchCommitEnrichment, withCachedEnrichment } from '../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../shared/actions/file.js';
 import * as fileActions from '../shared/actions/file.js';
 import * as prActions from '../shared/actions/pr.js';
@@ -658,7 +658,11 @@ export class CommitDetailsActions {
 
 		// Write result to state for derived signals and events
 		if (this.resources.commit.status.get() === 'success') {
-			const commit = this.resources.commit.value.get();
+			const fetched = this.resources.commit.value.get();
+			// The core payload is un-enriched by design, so carry the already-resolved avatars + worktree
+			// reachability forward from the cached shell — otherwise a revisit visibly downgrades them
+			// (gravatar avatar, no "(Worktree)" file actions) for as long as the legs take to re-resolve.
+			const commit = fetched != null ? withCachedEnrichment(fetched, cached?.commit) : fetched;
 			this.state.currentCommit.set(commit);
 			this.state.commitRef.set(commit ? { sha: commit.sha, repoPath: commit.repoPath } : undefined);
 
@@ -679,7 +683,11 @@ export class CommitDetailsActions {
 						repoPath: repoPath,
 						sha: sha,
 						isStash: commit.stashNumber != null,
+						isUncommitted: isUncommitted(sha),
 						autolinksEnabled: this.state.capabilities.autolinksEnabled,
+						avatarsEnabled: this.state.preferences.get()?.avatars ?? true,
+						authorEmail: commit.author.email,
+						committerEmail: commit.committer.email,
 					},
 					{
 						setBasicAutolinks: (autolinks, formattedMessage) => {
@@ -707,6 +715,28 @@ export class CommitDetailsActions {
 							this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
 							this.state.signature.set(sig);
 						},
+						setAvatars: avatars => {
+							this.patchCommit(cacheKey, sha, repoPath, c =>
+								(avatars.author ?? c.author.avatar) === c.author.avatar &&
+								(avatars.committer ?? c.committer.avatar) === c.committer.avatar
+									? c
+									: {
+											...c,
+											author: { ...c.author, avatar: avatars.author ?? c.author.avatar },
+											committer: {
+												...c.committer,
+												avatar: avatars.committer ?? c.committer.avatar,
+											},
+										},
+							);
+						},
+						setReachableFromOtherWorktrees: reachable => {
+							this.patchCommit(cacheKey, sha, repoPath, c =>
+								c.reachableFromOtherWorktrees === reachable
+									? c
+									: { ...c, reachableFromOtherWorktrees: reachable },
+							);
+						},
 					},
 				);
 
@@ -724,6 +754,30 @@ export class CommitDetailsActions {
 		} else if (this.resources.commit.error.get() != null) {
 			this.state.error.set(this.resources.commit.error.get());
 		}
+	}
+
+	/**
+	 * Applies a late-arriving enrichment onto the commit already in state (and its cache shell), so every
+	 * consumer of `CommitDetails` — header, popover, file contexts — upgrades at once. Returning the same
+	 * object from `patch` is a no-op: the identical-value case (the common one) must not write, or it
+	 * re-renders for nothing. Spreading preserves the `files` array identity, so the file tree never
+	 * rebuilds off an avatar patch.
+	 */
+	private patchCommit(
+		cacheKey: string,
+		sha: string,
+		repoPath: string,
+		patch: (commit: CommitDetails) => CommitDetails,
+	): void {
+		const current = this.state.currentCommit.get();
+		// A newer selection already replaced the commit — drop the stale enrichment.
+		if (current == null || current.sha !== sha || current.repoPath !== repoPath) return;
+
+		const next = patch(current);
+		if (next === current) return;
+
+		this.state.currentCommit.set(next);
+		this._commitEnrichmentCache.update(cacheKey, { commit: next });
 	}
 
 	/**

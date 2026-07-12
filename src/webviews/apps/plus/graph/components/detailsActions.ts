@@ -63,7 +63,7 @@ import type { BranchMergeTargetStatus } from '../../../../rpc/services/branches.
 import type { ConflictDetails } from '../../../../rpc/services/types.js';
 import type { OverviewBranchIssue, OverviewBranchPullRequest } from '../../../../shared/overviewBranches.js';
 import type { FileChangeListItemDetail } from '../../../commitDetails/components/gl-details-base.js';
-import { fetchCommitEnrichment } from '../../../shared/actions/commitEnrichment.js';
+import { fetchCommitEnrichment, withCachedEnrichment } from '../../../shared/actions/commitEnrichment.js';
 import type { OpenMultipleChangesArgs } from '../../../shared/actions/file.js';
 import * as fileActions from '../../../shared/actions/file.js';
 import * as prActions from '../../../shared/actions/pr.js';
@@ -1047,10 +1047,16 @@ export class DetailsActions {
 
 				if (this.resources.commit.status.get() === 'success') {
 					const commit = this.resources.commit.value.get();
-					this.state.commit.set(commit);
-					if (commit != null) {
-						this._commitEnrichmentCache.update(`${sha}:${repoPath}`, { commit: commit });
-						this.fetchEnrichment(repoPath, sha, enrichSignal);
+					// The graph already knows which refs reach this row and which branches live in sibling
+					// worktrees, so a hit answers worktree-reachability with no git at all. A miss proves
+					// nothing (the row's ref set is a lower bound), so it falls through to the deferred RPC.
+					const knownReachable = this.isReachableFromSiblingWorktree(graphReachability);
+					const next =
+						commit != null ? withCachedEnrichment(commit, commitCacheHit?.commit, knownReachable) : commit;
+					this.state.commit.set(next);
+					if (next != null) {
+						this._commitEnrichmentCache.update(`${sha}:${repoPath}`, { commit: next });
+						this.fetchEnrichment(repoPath, sha, enrichSignal, knownReachable);
 					}
 				}
 			}
@@ -1063,15 +1069,26 @@ export class DetailsActions {
 		}
 	}
 
-	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal): void {
+	private fetchEnrichment(repoPath: string, sha: string, signal: AbortSignal, knownReachable?: true): void {
 		const cacheKey = `${sha}:${repoPath}`;
-		const isStash = this.state.commit.get()?.stashNumber != null;
+		const commit = this.state.commit.get();
+		const isStash = commit?.stashNumber != null;
 
 		fetchCommitEnrichment(
 			this.services,
 			this.resources.commit,
 			signal,
-			{ repoPath: repoPath, sha: sha, isStash: isStash, autolinksEnabled: this.state.autolinksEnabled.get() },
+			{
+				repoPath: repoPath,
+				sha: sha,
+				isStash: isStash,
+				isUncommitted: this.isWip(sha),
+				autolinksEnabled: this.state.autolinksEnabled.get(),
+				avatarsEnabled: this.state.preferences.get()?.avatars ?? true,
+				authorEmail: commit?.author.email,
+				committerEmail: commit?.committer.email,
+				knownReachableFromOtherWorktrees: knownReachable,
+			},
 			{
 				setBasicAutolinks: (autolinks, formattedMessage) => {
 					this._commitEnrichmentCache.update(cacheKey, {
@@ -1097,8 +1114,66 @@ export class DetailsActions {
 					this._commitEnrichmentCache.update(cacheKey, { signature: sig, hasSignature: true });
 					this.state.signature.set(sig);
 				},
+				setAvatars: avatars => {
+					this.patchCommit(cacheKey, sha, repoPath, c =>
+						(avatars.author ?? c.author.avatar) === c.author.avatar &&
+						(avatars.committer ?? c.committer.avatar) === c.committer.avatar
+							? c
+							: {
+									...c,
+									author: { ...c.author, avatar: avatars.author ?? c.author.avatar },
+									committer: { ...c.committer, avatar: avatars.committer ?? c.committer.avatar },
+								},
+					);
+				},
+				setReachableFromOtherWorktrees: reachable => {
+					this.patchCommit(cacheKey, sha, repoPath, c =>
+						c.reachableFromOtherWorktrees === reachable
+							? c
+							: { ...c, reachableFromOtherWorktrees: reachable },
+					);
+				},
 			},
 		);
+	}
+
+	/**
+	 * Applies a late-arriving enrichment onto the commit already in state (and its cache shell), so every
+	 * consumer of `CommitDetails` — header, popover, compare pole cards, file contexts — upgrades at once.
+	 * Returning the same object from `patch` is a no-op: the identical-value case (the common one) must
+	 * not write, or it re-renders for nothing. Spreading preserves the `files` array identity, so the file
+	 * tree never rebuilds off an avatar patch.
+	 */
+	private patchCommit(
+		cacheKey: string,
+		sha: string,
+		repoPath: string,
+		patch: (commit: CommitDetails) => CommitDetails,
+	): void {
+		const current = this.state.commit.get();
+		// A newer selection already replaced the commit — drop the stale enrichment.
+		if (current == null || current.sha !== sha || current.repoPath !== repoPath) return;
+
+		const next = patch(current);
+		if (next === current) return;
+
+		this.state.commit.set(next);
+		this._commitEnrichmentCache.update(cacheKey, { commit: next });
+	}
+
+	/**
+	 * True when the row's reachable refs include a branch that's checked out in a sibling worktree — which
+	 * means the commit is an ancestor of that worktree's HEAD, since a checked-out branch's tip IS its HEAD.
+	 * Only a positive is sound: the graph's ref set is a documented lower bound (`partial`), and detached
+	 * worktrees contribute no branch at all, so `undefined` means "ask git", not "no".
+	 */
+	private isReachableFromSiblingWorktree(reachability: GitCommitReachability | undefined): true | undefined {
+		const branches = this.graphState?.worktreeBranches;
+		if (!branches?.length || !reachability?.refs.length) return undefined;
+
+		const siblings = new Set(branches);
+		const reachable = reachability.refs.some(r => r.refType === 'branch' && !r.remote && siblings.has(r.name));
+		return reachable ? true : undefined;
 	}
 
 	private fetchWipBranchEnrichment(repoPath: string, branchName: string, signal: AbortSignal): void {

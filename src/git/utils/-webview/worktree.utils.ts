@@ -95,10 +95,65 @@ export async function getReachableWorktrees(
 	if (!candidates.length) return [];
 
 	const svc = container.git.getRepositoryService(repoPath);
+
+	// A worktree's checked-out branch tip IS its HEAD, so the set of refs containing the commit answers
+	// every branch worktree at once — one cached `for-each-ref --contains` instead of a `merge-base
+	// --is-ancestor` subprocess per worktree, which doesn't scale (a repo with ~100 worktrees spent
+	// longer spawning those than the rest of the details fetch took). Detached worktrees carry no branch,
+	// so they still need the per-worktree check — there are rarely any.
+	const reachability = await svc.commits.getCommitReachability?.(sha, cancellation);
+	if (reachability != null) {
+		const reachableBranches = new Set(
+			reachability.refs.filter(r => r.refType === 'branch' && !r.remote).map(r => r.name),
+		);
+
+		const detached = candidates.filter(wt => wt.branch == null);
+		const reachableDetached = new Set<GitWorktree>();
+		if (detached.length) {
+			const results = await Promise.allSettled(
+				detached.map(wt => svc.commits.isAncestorOf(sha, wt.sha!, cancellation)),
+			);
+			for (const [i, wt] of detached.entries()) {
+				if (getSettledValue(results[i]) === true) {
+					reachableDetached.add(wt);
+				}
+			}
+		}
+
+		return candidates.filter(wt =>
+			wt.branch != null ? reachableBranches.has(wt.branch.name) : reachableDetached.has(wt),
+		);
+	}
+
+	// No reachability support (e.g. virtual/browser providers) — fall back to the per-worktree check.
 	const results = await Promise.allSettled(
 		candidates.map(wt => svc.commits.isAncestorOf(sha, wt.sha!, cancellation)),
 	);
 	return candidates.filter((_wt, i) => getSettledValue(results[i]) === true);
+}
+
+/**
+ * Names of the branches checked out in worktrees other than `repoPath` — the git-free counterpart to
+ * {@link getReachableWorktrees}. A checked-out branch's tip IS that worktree's HEAD, so a commit whose
+ * reachable refs include one of these branches is necessarily an ancestor of that worktree's HEAD.
+ * Detached worktrees have no branch and so can't be answered this way (they need the git check).
+ */
+export function getSiblingWorktreeBranches(
+	worktrees: GitWorktree[] | undefined,
+	repoPath: string,
+): string[] | undefined {
+	if (worktrees == null || worktrees.length <= 1) return undefined;
+
+	const normalizedRepoPath = normalizePath(repoPath);
+
+	const branches: string[] = [];
+	for (const wt of worktrees) {
+		if (wt.type !== 'branch' || wt.branch == null) continue;
+		if (normalizePath(wt.path) === normalizedRepoPath) continue;
+
+		branches.push(wt.branch.name);
+	}
+	return branches.length ? branches : undefined;
 }
 
 export async function getWorktreesByBranch(

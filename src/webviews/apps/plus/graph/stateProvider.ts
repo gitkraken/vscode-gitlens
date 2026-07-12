@@ -275,6 +275,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor worktreePaths: State['worktreePaths'];
 
 	@signalState()
+	accessor worktreeBranches: State['worktreeBranches'];
+
+	@signalState()
 	accessor selectedRepository: State['selectedRepository'];
 
 	@signalState()

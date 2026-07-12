@@ -1243,6 +1243,12 @@ export class GlDetailsCommitPanel extends GlDetailsBase {
 		return buildFolderContext(this.commit?.repoPath, folder);
 	}
 
+	/** Worktree reachability is fetched off the critical path, so it can land after the files do — without
+	 *  this the rows' baked contexts would keep the pre-enrichment answer and never offer "(Worktree)". */
+	protected override get fileContextRevision(): unknown {
+		return this.commit?.reachableFromOtherWorktrees === true;
+	}
+
 	override getFileContext(file: File): string | undefined {
 		if (!this.commit) return undefined;
 

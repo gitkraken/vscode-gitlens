@@ -91,6 +91,15 @@ export class GlDetailsBase extends LitElement {
 		this.getFolderContext(folder);
 	protected _onFileChecked = (e: CustomEvent) => this.onFileChecked(e);
 
+	/**
+	 * Token for whatever {@link getFileContext} / {@link getFolderContext} read beyond the file itself —
+	 * see `gl-file-tree-pane`'s `contextRevision`. Subclasses override when their context depends on state
+	 * that can arrive after the files do; otherwise the baked contexts never see it.
+	 */
+	protected get fileContextRevision(): unknown {
+		return undefined;
+	}
+
 	protected renderChangedFiles(
 		_mode: Mode,
 		options?: {
@@ -117,6 +126,7 @@ export class GlDetailsBase extends LitElement {
 				.fileActions=${this._getFileActions}
 				.fileContext=${this._getFileContext}
 				.folderContext=${this._getFolderContext}
+				.contextRevision=${this.fileContextRevision}
 				.searchContext=${this.searchContext}
 				?multi-selectable=${this.multiSelectable}
 				.showSearchBox=${this.showSearchBox}

@@ -252,6 +252,10 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 *  webview consumer that needs to map an absolute path to its worktree root — e.g. the Agent
 	 *  Activity treemap resolves agent file activity to repo-relative keys against these. */
 	worktreePaths?: string[];
+	/** Names of the branches checked out in sibling worktrees (every worktree in this repo's family except
+	 *  the one the graph is scoped to). Intersecting these with a row's reachability refs answers "is this
+	 *  commit reachable from another worktree" with no git at all — see `DetailsActions.fetchDetails`. */
+	worktreeBranches?: string[];
 	selectedRepository?: string;
 	selectedRepositoryVisibility?: RepositoryVisibility;
 	branchesVisibility?: GraphBranchesVisibility;

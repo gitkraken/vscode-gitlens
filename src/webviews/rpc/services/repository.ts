@@ -28,6 +28,7 @@ import {
 } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { LruMap } from '@gitlens/utils/lruMap.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -48,6 +49,7 @@ import {
 } from '../../../git/utils/-webview/conflictResolution.utils.js';
 import { countConflictMarkers } from '../../../git/utils/-webview/mergeConflicts.utils.js';
 import { getReferenceFromBranch } from '../../../git/utils/-webview/reference.utils.js';
+import { getReachableWorktrees } from '../../../git/utils/-webview/worktree.utils.js';
 import { executeCommand, executeCoreCommand } from '../../../system/-webview/command.js';
 import { serialize } from '../../../system/serialize.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
@@ -56,6 +58,7 @@ import type { ClassifiedCommitFailure, CommitResult } from './commitFailure.js';
 import { buildCommitOutputPreview, classifyCommitFailure } from './commitFailure.js';
 import { discardOneWith } from './discard.utils.js';
 import type {
+	CommitAvatarsShape,
 	CommitSignatureShape,
 	ConflictDetails,
 	ConflictDetailsCommit,
@@ -229,6 +232,63 @@ export class RepositoryService {
 		signal?.throwIfAborted();
 		return signature != null ? serializeSignature(signature) : undefined;
 	}
+
+	/**
+	 * Resolves a commit's provider avatars. Deliberately off the critical path: on a cold cache in a repo
+	 * with remotes this hits the remote provider (a network fetch), so the core commit payload ships a
+	 * synchronous cached-or-gravatar avatar and the details panels upgrade to this when it lands.
+	 * Emails come from that payload — no commit re-fetch needed.
+	 */
+	async getCommitAvatars(
+		repoPath: string,
+		sha: string,
+		authorEmail: string | undefined,
+		committerEmail: string | undefined,
+		signal?: AbortSignal,
+	): Promise<CommitAvatarsShape | undefined> {
+		signal?.throwIfAborted();
+		if (!authorEmail) return undefined;
+
+		const hasDistinctCommitter = committerEmail != null && committerEmail !== authorEmail;
+		const [authorResult, committerResult] = await Promise.allSettled([
+			getAvatarUri(authorEmail, { ref: sha, repoPath: repoPath }, { size: 32 }),
+			hasDistinctCommitter
+				? getAvatarUri(committerEmail, { ref: sha, repoPath: repoPath }, { size: 32 })
+				: Promise.resolve(undefined),
+		]);
+		signal?.throwIfAborted();
+
+		return {
+			author: getSettledValue(authorResult)?.toString(true),
+			committer: hasDistinctCommitter ? getSettledValue(committerResult)?.toString(true) : undefined,
+		};
+	}
+
+	/**
+	 * Whether the commit is reachable from a sibling worktree (i.e. its files have a working copy
+	 * elsewhere). Gates the "(Worktree)" file actions in the details panels.
+	 */
+	async getReachableFromOtherWorktrees(repoPath: string, sha: string, signal?: AbortSignal): Promise<boolean> {
+		signal?.throwIfAborted();
+
+		const worktrees = await this.container.git.getRepository(repoPath)?.git.worktrees?.getWorktrees(signal);
+		signal?.throwIfAborted();
+		if (worktrees == null || worktrees.length <= 1) return false;
+
+		// The underlying reachability lookup is cached in the git layer, but the detached-worktree checks
+		// and the intersection aren't, and this runs on every commit selection — its answer can only
+		// change when a worktree's HEAD moves, so memoize on exactly that.
+		const key = `${sha}:${worktrees.map(w => w.sha ?? '').join(',')}`;
+		const cached = this._reachableFromOtherWorktreesCache.get(key);
+		if (cached != null) return cached;
+
+		const reachable = (await getReachableWorktrees(this.container, repoPath, sha, signal)).length > 0;
+		this._reachableFromOtherWorktreesCache.set(key, reachable);
+		signal?.throwIfAborted();
+		return reachable;
+	}
+
+	private readonly _reachableFromOtherWorktreesCache = new LruMap<string, boolean>(100);
 
 	async getFeatureAccess(feature: PlusFeatures, repoUri?: string): Promise<FeatureAccess> {
 		const access =

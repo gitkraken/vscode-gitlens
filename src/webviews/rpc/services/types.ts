@@ -207,6 +207,16 @@ export interface CommitSignatureShape {
 	errorMessage?: string;
 }
 
+/**
+ * Provider-resolved avatars for a commit, as serialized URI strings. Fetched off the critical path —
+ * the core commit payload carries a synchronous cached-or-gravatar avatar, and this upgrades it.
+ * `committer` is only set when the committer differs from the author.
+ */
+export interface CommitAvatarsShape {
+	author?: string;
+	committer?: string;
+}
+
 // ============================================================
 // Git Model DTOs (serialized shapes for base RPC methods)
 // ============================================================

@@ -197,7 +197,7 @@ import {
 } from '../../../git/utils/-webview/remote.utils.js';
 import {
 	getOpenedWorktreesByBranch,
-	getReachableWorktrees,
+	getSiblingWorktreeBranches,
 	getWorktreeHasUnpublishedCommits,
 	getWorktreeHasWorkingChanges,
 	getWorktreesByBranch,
@@ -259,6 +259,7 @@ import { DeepLinkActionType } from '../../../uris/deepLinks/deepLink.js';
 import { RepositoryFolderNode } from '../../../views/nodes/abstract/repositoryFolderNode.js';
 import type { ExplainResult } from '../../commitDetails/commitDetailsService.js';
 import {
+	getCoreCommitDetails,
 	getFileCommitFromContext,
 	isDetailsFileContext,
 	isDetailsFolderContext,
@@ -314,7 +315,6 @@ import type {
 	Wip,
 	WipStats,
 } from './detailsProtocol.js';
-import { messageHeadlineSplitterToken } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
 	GraphComposeVirtualNamespace,
@@ -1324,7 +1324,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					if (commit == null) return undefined;
 
 					signal?.throwIfAborted();
-					return this.getCoreCommitDetails(commit, signal);
+					return getCoreCommitDetails(commit, { knownAvatars: this._graph?.avatars });
 				},
 				getSearchContext: (sha: string): Promise<GitCommitSearchContext | undefined> => {
 					return Promise.resolve(this.getSearchContext(sha));
@@ -3004,54 +3004,6 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				picked != null
 					? { type: picked.type, relativePath: this.container.git.getRelativePath(picked.uri, repo.uri) }
 					: undefined,
-		};
-	}
-
-	private async getCoreCommitDetails(commit: GitCommit, cancellation?: AbortSignal): Promise<CommitDetails> {
-		const hasDistinctCommitter = commit.committer.email != null && commit.committer.email !== commit.author.email;
-		const [commitResult, avatarUriResult, committerAvatarUriResult, worktreesResult] = await Promise.allSettled([
-			!commit.hasFullDetails()
-				? GitCommit.ensureFullDetails(commit, { include: { uncommittedFiles: true } }).then(() => commit)
-				: commit,
-			getAvatarUri(commit.author.email, { ref: commit.sha, repoPath: commit.repoPath }, { size: 32 }),
-			hasDistinctCommitter
-				? getAvatarUri(commit.committer.email, { ref: commit.sha, repoPath: commit.repoPath }, { size: 32 })
-				: Promise.resolve(undefined),
-			commit.refType === 'stash' || commit.isUncommitted
-				? Promise.resolve([])
-				: getReachableWorktrees(this.container, commit.repoPath, commit.sha, cancellation),
-		]);
-
-		commit = getSettledValue(commitResult, commit);
-		const avatarUri = getSettledValue(avatarUriResult);
-		const committerAvatarUri = hasDistinctCommitter ? getSettledValue(committerAvatarUriResult) : undefined;
-
-		let message = CommitFormatter.fromTemplate(`\${message}`, commit);
-		const index = message.indexOf('\n');
-		if (index !== -1) {
-			message = `${message.substring(0, index)}${messageHeadlineSplitterToken}${message.substring(index + 1)}`;
-		}
-
-		return {
-			repoPath: commit.repoPath,
-			sha: commit.sha,
-			shortSha: commit.shortSha,
-			author: { ...commit.author, avatar: avatarUri?.toString(true) },
-			committer: { ...commit.committer, avatar: committerAvatarUri?.toString(true) },
-			message: message,
-			parents: commit.parents,
-			stashNumber: commit.refType === 'stash' ? commit.stashNumber : undefined,
-			stashOnRef: commit.refType === 'stash' ? commit.stashOnRef : undefined,
-			files: (commit.isUncommitted ? commit.anyFiles : commit.fileset?.files)?.map(f => ({
-				repoPath: f.repoPath,
-				path: f.path,
-				status: f.status,
-				originalPath: f.originalPath,
-				staged: f.staged,
-				stats: f.stats,
-			})),
-			stats: commit.stats,
-			reachableFromOtherWorktrees: (getSettledValue(worktreesResult)?.length ?? 0) > 0,
 		};
 	}
 
@@ -8801,6 +8753,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			windowFocused: this.isWindowFocused,
 			repositories: await formatRepositories(this.container.git.openRepositories),
 			worktreePaths: getSettledValue(worktreesResult)?.map(w => w.path),
+			worktreeBranches: getSiblingWorktreeBranches(getSettledValue(worktreesResult), this.repository.path),
 			selectedRepository: this.repository.id,
 			selectedRepositoryVisibility: visibility,
 			branchesVisibility: refsVisibility.branchesVisibility,

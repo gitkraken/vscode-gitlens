@@ -112,6 +112,16 @@ export class GlFileTreePane extends LitElement {
 	@property({ attribute: false })
 	folderContext?: (folder: { name: string; relativePath: string; repoPath?: string }) => string | undefined;
 
+	/**
+	 * Opaque token for the *inputs* of {@link fileContext} / {@link folderContext}. The callbacks
+	 * themselves can't trigger a rebuild (they're stable-bound and re-created per render — see the note
+	 * in `willUpdate`), but their results are baked into the cached tree model as `contextData`. Change
+	 * this whenever something the callbacks read changes, so the baked contexts are recomputed —
+	 * otherwise a late-arriving input (e.g. worktree reachability) never reaches the rows' menus.
+	 */
+	@property({ attribute: false })
+	contextRevision?: unknown;
+
 	// --- Generic grouping (replaces isUncommitted / staged-unstaged logic) ---
 
 	@property({ attribute: false })
@@ -361,9 +371,11 @@ export class GlFileTreePane extends LitElement {
 		// Note: fileActions, fileContext, and folderContext are excluded — they're
 		// callbacks/arrays consumed during model creation but don't affect tree structure.
 		// Including them causes unnecessary rebuilds (losing expansion state) because
-		// callers often pass new references on every render.
+		// callers often pass new references on every render. When what those callbacks
+		// *read* changes, bump `contextRevision` instead.
 		if (
 			changedProperties.has('files') ||
+			changedProperties.has('contextRevision') ||
 			changedProperties.has('filesLayout') ||
 			changedProperties.has('orderBy') ||
 			changedProperties.has('sortByStage') ||
