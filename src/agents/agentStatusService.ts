@@ -198,7 +198,18 @@ export class AgentStatusService implements Disposable {
 
 	private maybeFireSessionsChanged(): void {
 		const serialized = this.getSerializedSessions();
-		const stringified = JSON.stringify(serialized);
+		// Change-detect on a key with the volatile timestamps coarsened to minute buckets —
+		// `lastActivity` moves on every provider tick, so comparing it raw defeats this gate and
+		// storms every webview with a full push every few seconds for as long as any session is
+		// live. Consumers render elapsed against local `now`, so minute-granularity refreshes are
+		// enough for drift; real changes (phase/status/membership/permission/worktree) still
+		// differ in the key and push immediately. The timestamps stay full-precision in the
+		// payload itself.
+		const stringified = JSON.stringify(serialized, (key, value: unknown) =>
+			(key === 'lastActivity' || key === 'phaseSince') && typeof value === 'string'
+				? `${Math.floor(Date.parse(value) / 60000)}`
+				: value,
+		);
 		if (stringified === this._lastSerialized) return;
 
 		this._lastSerialized = stringified;
