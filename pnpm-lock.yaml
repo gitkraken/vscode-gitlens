@@ -67,6 +67,7 @@ packageExtensionsChecksum: sha256-9vbX1SyBevR33D0TKDBFX7oWZ208wUEROIF0H2ZNUB4=
 
 patchedDependencies:
   fantasticon@4.1.0: 305553b0f6e028d1e95761a804e3da3f8a572bbe21681ad7b18166ec77c017c7
+  lit-html: e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d
 
 importers:
 
@@ -8172,7 +8173,7 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.2
       lit: 3.3.3
-      lit-html: 3.3.3
+      lit-html: 3.3.3(patch_hash=e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d)
 
   '@lit-labs/ssr-dom-shim@1.6.0': {}
 
@@ -8185,7 +8186,7 @@ snapshots:
       enhanced-resolve: 5.24.1
       lit: 3.3.3
       lit-element: 4.2.2
-      lit-html: 3.3.3
+      lit-html: 3.3.3(patch_hash=e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d)
       node-fetch: 3.3.2
       parse5: 7.3.0
     optionalDependencies:
@@ -11661,9 +11662,9 @@ snapshots:
     dependencies:
       '@lit-labs/ssr-dom-shim': 1.6.0
       '@lit/reactive-element': 2.1.2
-      lit-html: 3.3.3
+      lit-html: 3.3.3(patch_hash=e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d)
 
-  lit-html@3.3.3:
+  lit-html@3.3.3(patch_hash=e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d):
     dependencies:
       '@types/trusted-types': 2.0.7
 
@@ -11671,7 +11672,7 @@ snapshots:
     dependencies:
       '@lit/reactive-element': 2.1.2
       lit-element: 4.2.2
-      lit-html: 3.3.3
+      lit-html: 3.3.3(patch_hash=e5bb07d8a8c00b33913c85e5416801289da83da962b5be5d2f74ce7afe133c7d)
 
   loader-runner@4.3.2: {}
 

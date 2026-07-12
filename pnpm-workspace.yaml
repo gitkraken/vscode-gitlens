@@ -142,3 +142,4 @@ packageExtensions:
 
 patchedDependencies:
     fantasticon@4.1.0: patches/fantasticon@4.1.0.patch
+    lit-html: patches/lit-html.patch
