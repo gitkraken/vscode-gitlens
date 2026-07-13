@@ -707,7 +707,7 @@ export class GlGraphSidebarPanel extends SignalWatcher(LitElement) {
 	}
 
 	private renderHeader(config: PanelConfig, isLoading: boolean) {
-		const pinned = this._state.config?.sidebarPinned ?? true;
+		const pinned = this._state.config?.sidebarPinned ?? false;
 		const pinTooltip = pinned ? 'Unpin Side Bar' : 'Pin Side Bar';
 		const pinIcon = pinned ? 'pinned' : 'pin';
 		return html`<div class="header">

@@ -748,7 +748,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private shouldAutoCollapseOverlay(): boolean {
-		if (this.graphState.config?.sidebarPinned !== false) return false;
+		if (this.graphState.config?.sidebarPinned ?? false) return false;
 		if (!this.graphState.sidebar?.visible) return false;
 		return true;
 	}
@@ -1902,7 +1902,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	private renderSidebarSplit(hidden = false) {
 		const isOpen = (this.graphState.sidebar?.visible ?? false) && this.graphState.sidebar?.activePanel != null;
 		const sidebarPosition = this.graphState.sidebar?.position ?? sidebarDefaultPct;
-		const sidebarPinned = this.graphState.config?.sidebarPinned ?? true;
+		const sidebarPinned = this.graphState.config?.sidebarPinned ?? false;
 		return html`<gl-split-panel
 			class="graph__sidebar-split"
 			?hidden=${hidden}
@@ -2440,7 +2440,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	private handleSidebarTogglePinned = (): void => {
-		const next = !(this.graphState.config?.sidebarPinned ?? true);
+		const next = !(this.graphState.config?.sidebarPinned ?? false);
 		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { sidebarPinned: next } });
 	};
 
