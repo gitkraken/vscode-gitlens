@@ -15,7 +15,6 @@ import { wait } from '@gitlens/utils/promise.js';
 import type { BranchGitCommandArgs } from '../../../../commands/git/branch.js';
 import { GlyphChars } from '../../../../constants.js';
 import type { RepositoryShape } from '../../../../git/models/repositoryShape.js';
-import { isSubscriptionPaid } from '../../../../plus/gk/utils/subscription.utils.js';
 import { createCommandLink } from '../../../../system/commands.js';
 import type {
 	DidChooseRefParams,
@@ -65,7 +64,6 @@ import { graphHeaderControlStyles, titlebarStyles } from './styles/header.css.js
 import '../../shared/components/branch-name.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
-import '../../shared/components/feature-badge.js';
 import '../../shared/components/menu/menu-divider.js';
 import '../../shared/components/menu/menu-item.js';
 import '../../shared/components/menu/menu-label.js';
@@ -1064,7 +1062,7 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 	private renderTitlebarHeaderRow(repo: RepositoryShape | undefined) {
 		const hasMultipleRepositories = (this.graphState.repositories?.length ?? 0) > 1;
 
-		const { allowed, branch, branchState, config, lastFetched, loading, state, subscription } = this.graphState;
+		const { allowed, branch, branchState, config, lastFetched, loading, state } = this.graphState;
 
 		return html`<div class="titlebar__row titlebar__row--wrap">
 			<div class="titlebar__group">
@@ -1215,15 +1213,6 @@ export class GlGraphHeader extends SignalWatcher(LitElement) {
 				)}
 				${this.renderGraphWalkthroughBanner(state)} ${this.renderStartMenu()}
 				<gl-graph-launchpad-indicator></gl-graph-launchpad-indicator>
-				${when(
-					subscription == null || !isSubscriptionPaid(subscription),
-					() => html`
-						<gl-feature-badge
-							.source=${{ source: 'graph', detail: 'badge' } as const}
-							.subscription=${subscription}
-						></gl-feature-badge>
-					`,
-				)}
 			</div>
 		</div>`;
 	}

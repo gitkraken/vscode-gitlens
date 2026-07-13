@@ -7,7 +7,8 @@
  *  - Launchpad indicator: the rocket button, its not-connected state, and the "Open Launchpad"
  *    action.
  *  - Commit-signing indicator in the WIP details (gated on repo commit.gpgsign).
- *  - Pro feature badge visibility gating (shown to non-paid, hidden when paid).
+ *  - Pro feature badge absence — the badge was removed from the header (the Start New menu
+ *    occupies that area), so it must never render regardless of subscription state.
  *
  * These assert on the header→command WIRING (the command: links the menu items carry) rather than
  * invoking the commands, which would open quick-pick wizards — those flows are covered separately
@@ -162,27 +163,20 @@ test.describe('Graph — Header menus', () => {
 		});
 	});
 
-	test('Pro feature badge is hidden for a paid subscription', async ({ vscode }) => {
-		using _ = await vscode.gitlens.startSubscriptionSimulation({
-			state: 6,
-			planId: 'pro',
-		});
-
-		const webview = await openGraph(vscode);
-
-		await expect(webview.locator('gl-feature-badge')).toHaveCount(0);
-	});
-
-	test('Pro feature badge is shown for a non-paid (trial) subscription', async ({ vscode }) => {
+	test('Pro feature badge is not shown in the header, even for a non-paid (trial) subscription', async ({
+		vscode,
+	}) => {
 		using _ = await vscode.gitlens.startSubscriptionSimulation({
 			state: 3 /* Trial */,
 		});
 
 		const webview = await openGraph(vscode);
 
-		await expect(webview.locator('gl-feature-badge').first()).toBeVisible({
+		// The Start New menu takes the badge's place in the header
+		await expect(webview.locator('button[aria-label="Start New"]').first()).toBeVisible({
 			timeout: MaxTimeout,
 		});
+		await expect(webview.locator('.titlebar gl-feature-badge')).toHaveCount(0);
 	});
 
 	test('WIP details show the commit-signing indicator when signing is enabled', async ({ vscode }) => {
