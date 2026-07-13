@@ -3608,7 +3608,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			showRemoteNamesOnRefs: configuration.get('graph.showRemoteNames'),
 			showWorktreeWipStats: configuration.get('graph.showWorktreeWipStats'),
 			sidebar: configuration.get('graph.sidebar.enabled') ?? true,
-			sidebarPinned: configuration.get('graph.sidebar.pinned') ?? true,
+			sidebarPinned: configuration.get('graph.sidebar.pinned') ?? false,
 			stickyTimeline: configuration.get('graph.stickyTimeline'),
 			style: configuration.get('graph.style'),
 		};
