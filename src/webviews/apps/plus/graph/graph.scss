@@ -4123,16 +4123,20 @@ web-graph {
 				overflow-y: auto;
 			}
 
-			// Bottom slot is a non-scrolling flex column: the file panel (.commit-panel__files)
-			// fills the available height and scrolls internally via webview-pane's `.content`,
-			// while `gl-commit-box` sits flex-pinned at the bottom — outside the scroll. This is
-			// why files don't disappear "behind" the commit box: they never share a scroll
-			// region with it.
+			// Bottom slot scrolls only as a fallback. With changes, the file panel
+			// (.commit-panel__files) fills the available height and scrolls internally via
+			// webview-pane's `.content`, while `gl-commit-box` sits flex-pinned at the bottom —
+			// outside that scroll — so files never disappear "behind" the commit box. Without
+			// changes, `gl-details-wip-empty-pane` has no internal scroller of its own, and the
+			// split panel fills `.details-content` exactly (so its scrollbar never engages), so
+			// `overflow-y: auto` here is the only thing keeping the empty hub reachable. Keep
+			// `overflow-x: hidden` — leaving it `visible` computes to `auto` and yields a phantom
+			// horizontal scrollbar.
 			&__bottom {
 				display: flex;
 				flex-direction: column;
 				min-height: 0;
-				overflow: hidden;
+				overflow: hidden auto;
 			}
 
 			&__bottom .commit-panel__files {
