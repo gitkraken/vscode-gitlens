@@ -9,6 +9,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the default _Commit Graph_ lane colors for dark and high-contrast themes to a new vibrant, perceptually-uniform palette &mdash; every lane shares the same perceived brightness so no lane visually dominates; light themes keep the previous colors, and any `gitlens.graphLane1Color`&ndash;`gitlens.graphLane10Color` customizations in `workbench.colorCustomizations` are still honored
+- Changes the _Commit Graph_ sidebar to be unpinned by default &mdash; the sidebar now floats over the graph and auto-collapses when it loses focus; pin it (or set `gitlens.graph.sidebar.pinned` to `true`) to restore the previous shared-space layout ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
+
+### Removed
+
+- Removes the _Pro_ feature badge from the _Commit Graph_ header &mdash; the _Start New_ menu now occupies that area ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
 
 ## [18.3.0] - 2026-07-09
 
