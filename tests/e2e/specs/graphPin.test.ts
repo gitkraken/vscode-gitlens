@@ -76,6 +76,24 @@ async function getPinnedWebviewItem(webview: FrameLocator): Promise<string | nul
 	return JSON.parse(json) as string | null;
 }
 
+/**
+ * Collapse the details panel if it is open. The panel auto-opens at the bottom of the graph
+ * (WIP initial selection + vertical layout), and in the short E2E panel it squeezes the row
+ * grid to near-zero height — the virtualizer then paints no branch rows, so ref-pill
+ * `data-vscode-context` assertions can never match. Closing it gives the grid the height to
+ * actually render the rows.
+ */
+async function ensureDetailsPanelClosed(webview: FrameLocator): Promise<void> {
+	const toggle = webview.locator('gl-button[aria-label$="Details Panel"]').first();
+	await expect(toggle).toBeVisible({ timeout: 15000 });
+	if ((await toggle.getAttribute('aria-label')) === 'Hide Details Panel') {
+		await toggle.click();
+		await expect(webview.locator('gl-button[aria-label="Show Details Panel"]').first()).toBeVisible({
+			timeout: 15000,
+		});
+	}
+}
+
 const test = base.extend({
 	vscodeOptions: [
 		{
@@ -168,6 +186,8 @@ test.describe('Graph — Pin Branch to Edge', () => {
 		// Verify the webviewItem context includes +pinned (rows re-processed after pin).
 		// The row re-send (updateState) arrives separately from — and later than — the
 		// pinnedRef state update above, so poll until the row context picks up +pinned.
+		// The branch rows must actually be painted for the context to exist in the DOM.
+		await ensureDetailsPanelClosed(graphWebview!);
 		await expect.poll(() => getPinnedWebviewItem(graphWebview!), { timeout: 15000 }).toContain('+pinned');
 	});
 

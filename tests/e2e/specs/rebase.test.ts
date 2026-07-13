@@ -240,7 +240,7 @@ test.describe('Editor — Core', () => {
 
 			// Test bulk action change: multi-select with Ctrl+Click then drop with 'd'
 			await entries.nth(2).click();
-			await entries.nth(3).click({ modifiers: ['Control'] });
+			await entries.nth(3).click({ modifiers: ['ControlOrMeta'] });
 			await page.keyboard.press('d');
 			await page.waitForTimeout(ShortTimeout / 2);
 			await expect(entries.nth(2).locator('.action-select')).toHaveAttribute('value', 'drop');
@@ -287,7 +287,7 @@ test.describe('Editor — Core', () => {
 
 			// Select oldest then newest (so newest is focused)
 			await oldestEntry.click();
-			await newestEntry.click({ modifiers: ['Control'] });
+			await newestEntry.click({ modifiers: ['ControlOrMeta'] });
 
 			// Press 's' to squash selection
 			await page.keyboard.press('s');
@@ -374,7 +374,7 @@ test.describe('Editor — Core', () => {
 
 			// Test moving commits down: Select 2nd and 3rd entries (Commit C and Commit B)
 			await entries.nth(1).click();
-			await entries.nth(2).click({ modifiers: ['Control'] });
+			await entries.nth(2).click({ modifiers: ['ControlOrMeta'] });
 			await page.keyboard.press('Alt+ArrowDown');
 			await page.waitForTimeout(ShortTimeout / 2);
 
@@ -395,7 +395,7 @@ test.describe('Editor — Core', () => {
 
 			// Test moving commits up: Select repositioned Commit C and Commit B (now at indices 2 and 3)
 			await entries.nth(2).click();
-			await entries.nth(3).click({ modifiers: ['Control'] });
+			await entries.nth(3).click({ modifiers: ['ControlOrMeta'] });
 			await page.keyboard.press('Alt+ArrowUp');
 			await page.waitForTimeout(ShortTimeout / 2);
 
