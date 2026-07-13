@@ -246,10 +246,10 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			<h3 class="section__heading">AI workflows</h3>
 			<div class="ai-grid">
 				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-draft-pr')}>
-					<code-icon icon="sparkle"></code-icon>Draft PR description
+					<code-icon icon="sparkle"></code-icon>Draft PR Description
 				</gl-button>
 				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-summarize-branch')}>
-					<code-icon icon="sparkle"></code-icon>Summarize branch
+					<code-icon icon="sparkle"></code-icon>Summarize Branch
 				</gl-button>
 				${ahead > 0
 					? html`<gl-button
@@ -257,11 +257,11 @@ export class GlDetailsWipEmptyPane extends LitElement {
 							appearance="secondary"
 							@click=${() => this.emit('ai-review-unpushed')}
 						>
-							<code-icon icon="sparkle"></code-icon>Review ${pluralize('unpushed commit', ahead)}
+							<code-icon icon="sparkle"></code-icon>Review ${pluralize('Unpushed Commit', ahead)}
 						</gl-button>`
 					: nothing}
 				<gl-button class="ai-button" appearance="secondary" @click=${() => this.emit('ai-changelog')}>
-					<code-icon icon="sparkle"></code-icon>Generate changelog entry
+					<code-icon icon="sparkle"></code-icon>Generate Changelog Entry
 				</gl-button>
 			</div>
 		</section>`;

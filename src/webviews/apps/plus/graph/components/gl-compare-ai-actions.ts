@@ -119,6 +119,40 @@ export class GlCompareAIActions extends LitElement {
 					animation: none;
 				}
 			}
+
+			/* Scope chip — informational (or switchable) pill in the Explain input's footer, ahead of
+	   the model chip. flex: none keeps it compact against gl-ai-input's footer slot, which
+	   otherwise stretches its (single, historically) slotted child to fill the row. */
+			.scope-chip {
+				display: inline-flex;
+				flex: none;
+				gap: var(--gl-space-4);
+				align-items: center;
+				max-width: 16rem;
+				padding: 0 var(--gl-space-8);
+				font: inherit;
+				font-size: var(--gl-font-sm);
+				color: var(--color-foreground--65);
+				background: none;
+				border: var(--gl-border-width) solid var(--vscode-input-border, transparent);
+				border-radius: var(--gl-radius-lg);
+			}
+
+			button.scope-chip {
+				cursor: pointer;
+			}
+
+			button.scope-chip:hover,
+			button.scope-chip:focus-visible {
+				color: var(--vscode-foreground);
+			}
+
+			.scope-chip__label {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
 		`,
 	];
 
@@ -134,6 +168,15 @@ export class GlCompareAIActions extends LitElement {
 	@property({ type: Object })
 	aiModel?: AiModelInfo;
 
+	/** Optional scope label shown as a chip in the Explain input's footer (e.g. "12 unpushed
+	 *  commits"). Omitted entirely when unset — compare/multicommit consumers are unaffected. */
+	@property({ type: String })
+	scopeLabel?: string;
+
+	/** Whether the scope chip is clickable — dispatches `gl-ai-scope-switch` on click when true. */
+	@property({ type: Boolean })
+	scopeSwitchable = false;
+
 	override render(): unknown {
 		if (this.orgSettings?.ai === false) return nothing;
 
@@ -141,6 +184,7 @@ export class GlCompareAIActions extends LitElement {
 		return html`<div class="row">
 			<gl-ai-input multiline floating-footer button-tooltip="Explain Changes" .busy=${this.explainBusy}>
 				<gl-ai-model-chip slot="footer" .model=${this.aiModel}></gl-ai-model-chip>
+				${this.renderScopeChip()}
 			</gl-ai-input>
 			<gl-tooltip content="Generate Changelog" placement="bottom"
 				><button
@@ -158,6 +202,29 @@ export class GlCompareAIActions extends LitElement {
 		</div>`;
 	}
 
+	private renderScopeChip(): unknown {
+		if (!this.scopeLabel) return nothing;
+
+		const inner = html`<code-icon icon="target" size="12"></code-icon
+			><span class="scope-chip__label">${this.scopeLabel}</span>${this.scopeSwitchable
+				? html`<code-icon icon="chevron-down" size="12"></code-icon>`
+				: nothing}`;
+
+		if (this.scopeSwitchable) {
+			return html`<gl-tooltip content="Switch what the AI reads" placement="bottom" slot="footer">
+				<button type="button" class="scope-chip" @click=${this.onScopeSwitch}>${inner}</button>
+			</gl-tooltip>`;
+		}
+
+		return html`<gl-tooltip content="What the AI reads" placement="bottom" slot="footer">
+			<span class="scope-chip">${inner}</span>
+		</gl-tooltip>`;
+	}
+
+	private onScopeSwitch(): void {
+		this.dispatchEvent(new CustomEvent('gl-ai-scope-switch', { bubbles: true, composed: true }));
+	}
+
 	private onGenerateChangelog(): void {
 		if (this.generateChangelogBusy) return;
 
@@ -172,5 +239,6 @@ declare global {
 
 	interface HTMLElementEventMap {
 		'gl-generate-changelog': CustomEvent<void>;
+		'gl-ai-scope-switch': CustomEvent<void>;
 	}
 }

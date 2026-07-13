@@ -7,8 +7,8 @@ import './overlays/tooltip.js';
 /**
  * Compact chip that surfaces the currently selected AI model and lets the user open the
  * native VS Code AI provider quickpick to switch. Designed to be slotted into
- * `<gl-ai-input slot="footer">`, spanning the footer so the consumption rate can sit at the
- * far end.
+ * `<gl-ai-input slot="footer">`; the consumption rate sits directly after the model so the
+ * two read as one fact.
  *
  * The chip is intentionally read-only display + click-to-switch — no in-webview popover.
  * Reusing the native quickpick keeps a single source of truth for model selection across
@@ -92,14 +92,13 @@ export class GlAiModelChip extends LitElement {
 			opacity: 0.7;
 		}
 
-		/* Consumption rate — GitKraken AI models only. Quiet, right-aligned, non-interactive info. */
+		/* Consumption rate — GitKraken AI models only. Quiet, non-interactive info sitting directly
+		   after the model it describes (not floated to the footer's far edge). */
 		.chip__rate {
 			display: inline-flex;
 			flex: none;
 			gap: 0.2rem;
 			align-items: center;
-			margin-left: auto;
-			padding-left: 0.4rem;
 			font-size: var(--gl-font-micro);
 			color: var(--vscode-descriptionForeground);
 			white-space: nowrap;
