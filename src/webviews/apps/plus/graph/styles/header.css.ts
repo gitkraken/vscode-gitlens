@@ -164,10 +164,6 @@ export const titlebarStyles = css`
 	.titlebar__debugging > * {
 		display: inline-block;
 	}
-
-	.titlebar gl-feature-badge {
-		color: var(--color-foreground);
-	}
 `;
 
 export const graphHeaderControlStyles = css`
