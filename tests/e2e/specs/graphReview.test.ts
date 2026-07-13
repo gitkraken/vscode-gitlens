@@ -276,9 +276,12 @@ test.describe('Review & Compose Sub-Panels', () => {
 		const branchRow = graphWebview.locator('.graph-details-header__branch-row');
 		await expect(branchRow).toBeVisible({ timeout: 30000 });
 
-		// Create branch icon should be in branch row
-		const createBranchChip = branchRow.locator('gl-action-chip[icon="custom-start-work"]');
-		await expect(createBranchChip).toBeVisible();
+		// Branch actions kebab (hosts the Create Branch... context menu, replacing the old
+		// standalone create-branch chip) should be in branch row
+		const branchActionsChip = branchRow.locator(
+			'gl-action-chip[icon="kebab-vertical"][label="Show Branch Actions"]',
+		);
+		await expect(branchActionsChip).toBeVisible();
 
 		// Review/compose chips should NOT be in branch row
 		const reviewInBranch = branchRow.locator('gl-action-chip[icon="checklist"]');

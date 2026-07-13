@@ -150,7 +150,8 @@ test.describe('Graph — Header menus', () => {
 		const webview = await openGraph(vscode);
 
 		// No integration is connected in the test environment, so the indicator advertises that.
-		const launchpadButton = webview.locator('button[aria-label^="Launchpad"]').first();
+		// The indicator's anchor is an <a href> (click opens Launchpad directly), not a <button>.
+		const launchpadButton = webview.locator('.action-button[aria-label^="Launchpad"]').first();
 		await expect(launchpadButton).toBeVisible({ timeout: MaxTimeout });
 		await expect(launchpadButton).toHaveAttribute('aria-label', /connect an integration/i);
 
