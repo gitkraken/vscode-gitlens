@@ -349,6 +349,7 @@ export abstract class IntegrationBase<
 		switch (state) {
 			case 'connected': {
 				const oldSession = this._session;
+				let resyncing = false;
 				if (forceSync) {
 					// Reset our stored session so that we get a new one from the cloud
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
@@ -356,6 +357,7 @@ export abstract class IntegrationBase<
 					// Reset the session and clear our "stay disconnected" flag
 					this._session = undefined;
 					await this.ctx.storage.deleteWorkspace(this.connectedKey);
+					resyncing = true;
 				} else {
 					// Only sync if we're not connected and not disabled and don't have pending errors
 					if (
@@ -375,6 +377,15 @@ export abstract class IntegrationBase<
 
 				if (oldSession && newSession && newSession.accessToken !== oldSession.accessToken) {
 					this.resetRequestExceptionCount('all');
+				}
+
+				// The forced re-sync above deleted the cloud secret but preserved the descriptor to avoid UI
+				// churn while a fresh token is fetched. If that fetch failed, drop the now token-less descriptor
+				// so the connection isn't reported connected without a backing token (matches the pre-multi-account
+				// clean-disconnect-on-failure behavior). The success path leaves the descriptor untouched.
+				if (resyncing && newSession == null) {
+					const authProvider = await this.authenticationService.get(this.authProvider.id);
+					await authProvider.deleteSession(this.authProviderDescriptor, { preserveConfigured: false });
 				}
 
 				break;

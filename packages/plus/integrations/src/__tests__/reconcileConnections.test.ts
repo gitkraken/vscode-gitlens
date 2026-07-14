@@ -910,6 +910,37 @@ suite('cloud sync — multi-account reconcile (#5430)', () => {
 		manager.dispose();
 	});
 
+	test('a failed forced re-sync drops the connection instead of leaving it token-less (#5497)', async () => {
+		// The backend still lists the connection (state = 'connected'), but every token fetch fails (500). A
+		// forced re-sync deletes the cloud secret up front while preserving the descriptor; the replacement
+		// fetch then fails. The descriptor (and its secret) must not be left behind reported as connected.
+		const { runtime, manager } = createManager({
+			connections: [{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: 'github.com' }],
+			token: () => null, // every token fetch fails
+		});
+		await runtime.storage.store('integrations:configured', {
+			github: [{ id: 'p1', cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:github|p1',
+			JSON.stringify({ id: 'p1', accessToken: 'old-p1', scopes: ['repo'], cloud: true, type: 'oauth' }),
+		);
+
+		await manager.refreshConnections();
+
+		assert.deepEqual(
+			manager.getConfigured(GitCloudHostIntegrationId.GitHub),
+			[],
+			'the token-less descriptor is removed after the failed forced re-sync',
+		);
+		assert.ok(
+			(await runtime.storage.getSecret('integration.auth.cloud:github|p1')) == null,
+			'the deleted cloud secret is not restored',
+		);
+
+		manager.dispose();
+	});
+
 	test('a non-forced check-in does not re-fetch tokens for already-stored, non-expired connections', async () => {
 		const { runtime, manager, paths } = createManager({
 			connections: [

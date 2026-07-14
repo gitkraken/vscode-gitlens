@@ -85,6 +85,103 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 		assert.equal(session.accessToken, 'ent');
 	});
 
+	test('getConfiguredConnectionId returns undefined for a legacy self-managed connection keyed by domain', async () => {
+		const runtime = createFakeRuntime();
+		// Legacy/migrated single connection: hydration backfills the descriptor id from the domain, so
+		// `id === domain` (see ConfiguredIntegrationDescriptor.id). That is NOT a real backend token id, and
+		// returning it would target `v1/provider-tokens/tokens/{domain}` (rejected by the backend as a non-uuid).
+		await runtime.storage.store('integrations:configured', {
+			'cloud-github-enterprise': [
+				{ cloud: true, integrationId: 'cloud-github-enterprise', domain: 'gh.example.com', scopes: 'repo' },
+			],
+		});
+
+		const service = new ConfiguredIntegrationService(runtime);
+
+		assert.equal(
+			service.getConfiguredConnectionId(
+				GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				'gh.example.com',
+				true,
+			),
+			undefined,
+			'a domain-keyed legacy id must not be returned as a token id',
+		);
+	});
+
+	test('getConfiguredConnectionId returns the token id for a real multi-account self-managed connection', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			'cloud-github-enterprise': [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: 'cloud-github-enterprise',
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+
+		const service = new ConfiguredIntegrationService(runtime);
+
+		assert.equal(
+			service.getConfiguredConnectionId(
+				GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				'ghe-a.example.com',
+				true,
+			),
+			'ghe-a1',
+		);
+	});
+
+	test('getConfiguredConnectionId returns undefined for a legacy cloud connection keyed by the canonical domain', async () => {
+		const runtime = createFakeRuntime();
+		// Legacy cloud descriptor: hydration backfills the id from the canonical domain (`github.com`) while
+		// the descriptor has no domain, so `id !== domain` alone would return `github.com` as a token id.
+		await runtime.storage.store('integrations:configured', {
+			github: [{ cloud: true, integrationId: 'github', scopes: 'repo' }],
+		});
+
+		const service = new ConfiguredIntegrationService(runtime);
+
+		assert.equal(
+			service.getConfiguredConnectionId(GitCloudHostIntegrationId.GitHub, undefined, true),
+			undefined,
+			'a canonical-domain-keyed legacy id must not be returned as a token id',
+		);
+	});
+
+	test('getConfiguredConnectionId returns undefined when only a local (PAT) connection matches the cloud scope', async () => {
+		const runtime = createFakeRuntime();
+		// Only a local (PAT) descriptor (id !== domain) matches this host. scopeConnectionCandidates falls back
+		// to the non-cloud set, so `id !== domain` alone would return the local id as a cloud token id.
+		await runtime.storage.store('integrations:configured', {
+			'cloud-github-enterprise': [
+				{
+					id: 'ghe-x',
+					cloud: false,
+					integrationId: 'cloud-github-enterprise',
+					domain: 'gh.example.com',
+					scopes: 'repo',
+				},
+			],
+		});
+
+		const service = new ConfiguredIntegrationService(runtime);
+
+		assert.equal(
+			service.getConfiguredConnectionId(
+				GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				'gh.example.com',
+				true,
+			),
+			undefined,
+			'a local (PAT) connection id must not be returned as a cloud token id',
+		);
+	});
+
 	test('two accounts on the same provider coexist; first is primary', async () => {
 		const runtime = createFakeRuntime();
 		const service = new ConfiguredIntegrationService(runtime);

@@ -483,14 +483,29 @@ export class ConfiguredIntegrationService implements Disposable {
 	/**
 	 * Returns the id of the configured connection an unscoped descriptor resolves to (the primary for the
 	 * descriptor's domain, matching {@link resolveConnectionId}'s selection), or `undefined` when nothing is
-	 * configured for it. Unlike {@link resolveConnectionId} this never falls back to the domain, so callers
-	 * can safely use the result as a real per-connection token id (e.g. to scope a cloud token fetch to one
-	 * host of a multi-host self-managed provider instead of the provider-global primary).
+	 * configured for it. Unlike {@link resolveConnectionId} this only returns a genuine per-connection cloud
+	 * token id (never a local/PAT or domain-derived legacy id), so callers can safely use it to scope a cloud
+	 * token fetch to one host of a multi-host self-managed provider, or fall through to the provider-global
+	 * primary endpoint on `undefined`.
 	 */
 	getConfiguredConnectionId(id: IntegrationIds, domain: string | undefined, cloud?: boolean): string | undefined {
 		const scoped = isGitSelfManagedHostIntegrationId(id) ? domain : undefined;
 		const candidates = this.scopeConnectionCandidates(id, scoped, cloud);
-		return (candidates?.find(c => c.primary) ?? candidates?.[0])?.id;
+		const connection = candidates?.find(c => c.primary) ?? candidates?.[0];
+		if (connection == null) return undefined;
+
+		// Only return a real per-connection cloud token id. Reject a local (PAT) descriptor (surfaced by
+		// scopeConnectionCandidates' non-cloud fallback) and a domain-derived legacy id (the descriptor's own
+		// domain or the provider's canonical domain — see ConfiguredIntegrationDescriptor.id), either of which
+		// would target `v1/provider-tokens/tokens/{domain}` (rejected as a non-uuid). Callers then fall through
+		// to the provider-scoped primary endpoint.
+		if (!connection.cloud) return undefined;
+
+		const canonicalDomain = providersMetadata[id]?.domain;
+		if (connection.id === connection.domain || (canonicalDomain && connection.id === canonicalDomain)) {
+			return undefined;
+		}
+		return connection.id;
 	}
 
 	/**
