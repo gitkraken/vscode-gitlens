@@ -141,6 +141,12 @@ export abstract class GlWebviewApp extends GlElement {
 			this._ipc,
 			(this._promos = new PromosContext(this._ipc)),
 			(this._telemetry = new TelemetryContext(this._ipc)),
+			// Forward `emitTelemetrySentEvent` DOM events to the host over IPC. Without this bridge
+			// (present in the legacy `App` base below, but previously missing here) every
+			// `gl-telemetry-fired` event from a `GlWebviewApp`-based webview was silently dropped.
+			DOM.on(window, telemetryEventName, e => {
+				this._telemetry.sendEvent(e.detail);
+			}),
 		);
 
 		// Focus tracking (sends debounced focus state to host for context keys)
