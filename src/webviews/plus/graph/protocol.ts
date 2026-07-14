@@ -668,22 +668,31 @@ export interface GraphComponentConfig {
 	highlightRowsOnRefHover?: boolean;
 	idLength?: number;
 	/**
-	 * Default lane-collapse mode for the new (commit-graph) graph engine. `'none'` keeps every
-	 * lane expanded (current behaviour); `'all'` collapses every eligible lane segment
-	 * to a chip; `'auto'` collapses lanes whose tip is reachable from HEAD via first-
-	 * parent only ("merged & done"). The segment containing HEAD is never auto-collapsed.
+	 * Whether lane folding is available at all in the new (commit-graph) graph engine. When off there is
+	 * no fold strip and no chevrons, every lane stays expanded, and both {@link lanesFoldingDefault} and
+	 * manual folds are ignored.
 	 *
-	 * Backed by the user setting `gitlens.graph.lanes.collapseDefault`. Manual collapses
-	 * during a session override this default per-segment until the webview is reloaded.
+	 * Backed by the user setting `gitlens.graph.lanes.folding.enabled`.
 	 */
-	lanesCollapseDefault?: 'none' | 'all' | 'auto';
+	lanesFoldingEnabled?: boolean;
 	/**
-	 * Lane spacing density in the new (commit-graph) graph engine. `'comfortable'` leaves a clear
+	 * Which lanes are folded by default in the new (commit-graph) graph engine. `'none'` keeps every
+	 * lane expanded on load; `'all'` folds every foldable lane segment into a chip; `'auto'` folds lanes
+	 * whose tip is reachable from HEAD via first-parent only ("merged & done"). The segment containing
+	 * HEAD is never auto-folded.
+	 *
+	 * Backed by the user setting `gitlens.graph.lanes.folding.default`. Manual folds during a session
+	 * override this default per-segment until the webview is reloaded. Ignored when
+	 * {@link lanesFoldingEnabled} is off.
+	 */
+	lanesFoldingDefault?: 'none' | 'all' | 'auto';
+	/**
+	 * Lane spacing density in the new (commit-graph) graph engine. `'expanded'` leaves a clear
 	 * gap between lanes; `'compact'` packs them tightly together.
 	 *
 	 * Backed by the user setting `gitlens.graph.lanes.density`.
 	 */
-	lanesDensity?: 'comfortable' | 'compact';
+	lanesDensity?: 'expanded' | 'compact';
 	/**
 	 * Minimum number of lanes shown inline when the graph is grouped into another column (new engine) —
 	 * always shown when the graph has that many, however narrow the view.

@@ -79,7 +79,7 @@ export interface RowRenderContext {
 	/** Visible-column slot the graph occupies in column mode (interleaved among the zone cells). */
 	graphColumnPos: number;
 	/** Where refs render: `grouped` = pills at the head of the first content column (default); `column`
-	 *  = a dedicated Refs column (comfortable density only). Drives whether refs prepend inline. */
+	 *  = a dedicated Refs column (expanded density only). Drives whether refs prepend inline. */
 	refsPlacement: RefsPlacement;
 	/** When refs are grouped (inline), the host zone id they render on — BY ID, not position — so the
 	 *  [refs + host] group travels together through reorders instead of jumping to whatever lands
@@ -311,7 +311,7 @@ function renderAvatar(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateRe
 			>`;
 }
 
-/** The author avatar + name (comfortable author cell). No per-cell tooltip — the full-row rich
+/** The author avatar + name (expanded author cell). No per-cell tooltip — the full-row rich
  *  hover covers author/email/date/sha/message details. */
 function renderAuthor(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult {
 	return html`${renderAvatar(row, ctx)}<span class="gl-graph__author">${ctx.commit.author}</span>`;
@@ -383,7 +383,7 @@ function renderMessageContent(message: string): TemplateResult {
 }
 
 /**
- * Inner content of a comfortable zone cell (no leading gutter/refs — those go on the first zone).
+ * Inner content of a expanded zone cell (no leading gutter/refs — those go on the first zone).
  * Plain function (not a per-row closure factory) so it allocates nothing extra per visible row.
  */
 /** Teleport-scroll skeleton gutter: the row's pass-through lanes as STRAIGHT verticals (a `row.edges`
@@ -812,7 +812,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					</div>`
 			: nothing;
 	// Refs render inline at the head of their host column UNLESS the dedicated Branches/Tags column is on
-	// (comfortable density) — then they render in that zone via renderZoneContent — or the column is
+	// (expanded density) — then they render in that zone via renderZoneContent — or the column is
 	// hidden entirely (`refsPlacement === 'hidden'`), in which case no inline pills either.
 	const refsInColumn = ctx.refsPlacement === 'column' && ctx.style === 'table';
 	// Ghost pills only ever render in the dedicated Refs column (`renderZoneContent` case 'ref') — inline
@@ -921,13 +921,13 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	}
 
 	let body: TemplateResult | (TemplateResult | typeof nothing)[];
-	// The graph column cell. In comfortable mode it's interleaved into `body` at `graphColumnPos`
+	// The graph column cell. In expanded mode it's interleaved into `body` at `graphColumnPos`
 	// (movable); in compact it renders as a fixed leading cell. `nothing` when not in column mode.
 	let leadingGraph: TemplateResult | typeof nothing = graphColumn;
 	if (ctx.style === 'list') {
 		body = renderListBody(row, ctx, inlineGutter, inlineRefs, relativeDate);
 	} else {
-		// Comfortable: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx`
+		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx`
 		// — the graph's right-neighbor) so inlining combines into the column to its right; inline refs sit
 		// at the head of the first content zone. The cell holding the gutter is flush (no left padding).
 		const cells: (TemplateResult | typeof nothing)[] = ctx.zones.map((zone, zoneIndex) => {

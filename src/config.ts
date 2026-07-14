@@ -449,8 +449,11 @@ export interface GraphConfig {
 		readonly enabled: boolean;
 	};
 	readonly lanes: {
-		readonly collapseDefault: 'none' | 'all' | 'auto';
-		readonly density: 'comfortable' | 'compact';
+		readonly folding: {
+			readonly enabled: boolean;
+			readonly default: 'none' | 'all' | 'auto';
+		};
+		readonly density: 'expanded' | 'compact';
 		readonly grouped: {
 			readonly min: number;
 			readonly max: number;

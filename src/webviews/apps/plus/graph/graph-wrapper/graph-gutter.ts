@@ -47,7 +47,7 @@ const stashGlyph = String.fromCharCode(0xea98);
 // Node size is FIXED per mode (NOT coupled to lane spacing). Density changes the GAP between lanes,
 // not the node size: DOTS render at 10px (radius 5); AVATAR/letter identity nodes at 20px (radius 10 —
 // capped so that even WITH the hover/select grow, see `.commit-dot-identity` in graph.scss, the node
-// stays inside the 24px comfortable row with a ~1px gap).
+// stays inside the 24px expanded row with a ~1px gap).
 const dotNodeRadius = 5;
 const avatarNodeRadius = 10;
 
@@ -56,21 +56,21 @@ export function nodeRadiusFor(mode: NodeStyle['mode']): number {
 	return mode === 'avatar' ? avatarNodeRadius : dotNodeRadius;
 }
 
-// Extra gap (px) past the node diameter for COMFORTABLE lane spacing — leaves clear air between a node
+// Extra gap (px) past the node diameter for EXPANDED lane spacing — leaves clear air between a node
 // and the neighboring lane.
-const laneGapComfortable = 6;
+const laneGapExpanded = 6;
 
 // Lane spacing (= columnWidth) for a density + node mode. Fixed — the graph no longer respaces on
-// resize; the density toggle picks compact vs comfortable.
+// resize; the density toggle picks compact vs expanded.
 //
 // A row only ever holds ONE node (two dots never share a row), so the binding constraint isn't
 // node-to-node, it's node-to-adjacent-lane-LINE. Compact packs to that — node radius plus a small,
 // visually-tuned gap that clears the node's 1px bg-mask and the lane line's 1px half-stroke with a
 // little breath. Dots get `r + laneGap + 4` (10px); the larger avatar/letter identity node gets 1px
-// more air (16px). Comfortable stays diameter-based for an airier fan.
-export function laneSpacing(density: 'compact' | 'comfortable', mode: NodeStyle['mode']): number {
+// more air (16px). Expanded stays diameter-based for an airier fan.
+export function laneSpacing(density: 'compact' | 'expanded', mode: NodeStyle['mode']): number {
 	const r = nodeRadiusFor(mode);
-	if (density === 'comfortable') return 2 * r + laneGapComfortable;
+	if (density === 'expanded') return 2 * r + laneGapExpanded;
 	return r + laneGap + (mode === 'avatar' ? 5 : 4);
 }
 

@@ -22,7 +22,7 @@ export type FixedSizeLayoutSpecifier = {
 
 /**
  * A constant-item-size vertical layout for `<lit-virtualizer>`. Graph rows are UNIFORM height per
- * density (comfortable / compact), so `flow()`'s measurement is pure overhead: it reads every child's
+ * density (expanded / compact), so `flow()`'s measurement is pure overhead: it reads every child's
  * `getBoundingClientRect` on each range change and derives positions from averaged/estimated sizes,
  * which drift onto sub-pixel boundaries. This layout instead positions row `idx` at exactly
  * `idx * itemSize` and never measures — precisely the `idx * rowHeight` math the graph already assumes

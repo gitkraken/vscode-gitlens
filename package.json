@@ -1264,28 +1264,35 @@
 						"scope": "window",
 						"order": 704
 					},
-					"gitlens.graph.lanes.collapseDefault": {
+					"gitlens.graph.lanes.folding.enabled": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "Specifies whether lane folding is enabled in the _Commit Graph_. When enabled, collapsible lane segments show expand/collapse chevrons in a fold strip alongside the graph. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"scope": "window",
+						"order": 705
+					},
+					"gitlens.graph.lanes.folding.default": {
 						"type": "string",
-						"default": "auto",
+						"default": "none",
 						"enum": [
 							"none",
 							"all",
 							"auto"
 						],
 						"enumDescriptions": [
-							"Keep every lane expanded (current behavior)",
-							"Collapse every eligible lane segment to a chip on graph load",
-							"Collapse lane segments whose tip is reachable from HEAD via first-parent (\"merged & done\"); the segment containing HEAD is never auto-collapsed"
+							"Keep every lane expanded on graph load",
+							"Fold every foldable lane segment into a chip on graph load",
+							"Fold lane segments whose tip is reachable from HEAD via first-parent (\"merged & done\") on graph load; the segment containing HEAD is never auto-folded"
 						],
-						"markdownDescription": "Specifies the default lane-collapse mode in the _Commit Graph_. Manual collapses during a session override this default per-segment until the webview is reloaded. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
+						"markdownDescription": "Specifies which lanes are folded by default in the _Commit Graph_. Manual folds during a session override this default per-segment until the webview is reloaded. Requires `#gitlens.graph.lanes.folding.enabled#`. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
 						"scope": "window",
-						"order": 705
+						"order": 706
 					},
 					"gitlens.graph.lanes.density": {
 						"type": "string",
-						"default": "comfortable",
+						"default": "expanded",
 						"enum": [
-							"comfortable",
+							"expanded",
 							"compact"
 						],
 						"enumDescriptions": [
@@ -1294,7 +1301,7 @@
 						],
 						"markdownDescription": "Specifies the horizontal spacing of lanes in the graph column of the _Commit Graph_. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
 						"scope": "window",
-						"order": 706
+						"order": 707
 					},
 					"gitlens.graph.lanes.grouped.min": {
 						"type": "number",
@@ -1302,7 +1309,7 @@
 						"minimum": 1,
 						"markdownDescription": "Specifies the minimum number of lanes the _Commit Graph_ shows inline when the graph is grouped into another column (when the graph has that many). Each row's lanes hug their own branch lines; a row that fans out past the lane cap clips to it, with the extra lanes collapsed to the edge. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
 						"scope": "window",
-						"order": 707
+						"order": 708
 					},
 					"gitlens.graph.lanes.grouped.max": {
 						"type": "number",
@@ -1311,7 +1318,7 @@
 						"maximum": 100,
 						"markdownDescription": "Specifies the maximum share of the row's width (as a percentage) the inline lanes may take in the _Commit Graph_ when the graph is grouped into another column — wider views show more lanes automatically. `#gitlens.graph.lanes.grouped.min#` wins when it needs more room than this allows. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
 						"scope": "window",
-						"order": 708
+						"order": 709
 					},
 					"gitlens.graph.style": {
 						"type": "string",
@@ -1328,7 +1335,7 @@
 						],
 						"markdownDescription": "Specifies the style (row layout) of the _Commit Graph_ — `table` (single-line rows with columns) or `list` (stacked two-line rows). `auto` switches to `list` when the panel is too narrow for the columns. Only applies to the experimental new graph engine (`gitlens.graph.experimental.useNewEngine`)",
 						"scope": "window",
-						"order": 709
+						"order": 710
 					},
 					"gitlens.graph.avatars": {
 						"type": "boolean",
@@ -8221,12 +8228,12 @@
 				"title": "Show Working Tree Markers"
 			},
 			{
-				"command": "gitlens.graph.setLanesComfortable",
-				"title": "Use Comfortable Graph Column Lanes"
+				"command": "gitlens.graph.setLaneDensityToCompact",
+				"title": "Use Compact Density Graph Column Lanes"
 			},
 			{
-				"command": "gitlens.graph.setLanesCompact",
-				"title": "Use Compact Graph Column Lanes"
+				"command": "gitlens.graph.setLaneDensityToExpanded",
+				"title": "Use Expanded Density Graph Column Lanes"
 			},
 			{
 				"command": "gitlens.graph.setStyleAuto",
@@ -13909,11 +13916,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.setLanesComfortable",
+					"command": "gitlens.graph.setLaneDensityToCompact",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.graph.setLanesCompact",
+					"command": "gitlens.graph.setLaneDensityToExpanded",
 					"when": "false"
 				},
 				{
@@ -27559,12 +27566,12 @@
 				{
 					"command": "gitlens.graph.columnGraphCompact",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
-					"group": "2_columns@1"
+					"group": "2_columns@2"
 				},
 				{
 					"command": "gitlens.graph.columnGraphDefault",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
-					"group": "2_columns@1"
+					"group": "2_columns@2"
 				},
 				{
 					"command": "gitlens.fetchRemote:graph",
@@ -27617,14 +27624,14 @@
 					"group": "2_columns@1"
 				},
 				{
-					"command": "gitlens.graph.setLanesComfortable",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
-					"group": "2_columns@2"
+					"command": "gitlens.graph.setLaneDensityToCompact",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:expanded\\b/",
+					"group": "2_columns@3"
 				},
 				{
-					"command": "gitlens.graph.setLanesCompact",
-					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:comfortable\\b/",
-					"group": "2_columns@2"
+					"command": "gitlens.graph.setLaneDensityToExpanded",
+					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
+					"group": "2_columns@3"
 				},
 				{
 					"command": "gitlens.graph.resetColumnsDefault",

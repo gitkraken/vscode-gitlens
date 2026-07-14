@@ -63,7 +63,7 @@ function assertCollapseAppendMatchesFull(commits: readonly GraphCommit[]): void 
 		// Freeze the default set as of the PREFIX run — exactly what the renderer does on appends.
 		const trunkPrefix = computeTrunkSegmentTip(prefix.segments, prefix.rows, undefined);
 		const frozen = computeDefaultCollapsedSet({
-			lanesCollapseDefault: 'all',
+			lanesFoldingDefault: 'all',
 			segments: prefix.segments,
 			searchActive: false,
 			trunkSegmentTip: trunkPrefix,
@@ -201,7 +201,7 @@ function assertCollapseSpliceMatchesFull(
 	// Freeze the collapsed set as of the PRIOR run ('all' mode) — what the renderer carries over.
 	const trunkPrior = computeTrunkSegmentTip(prior.segments, prior.rows, undefined);
 	const frozen = computeDefaultCollapsedSet({
-		lanesCollapseDefault: 'all',
+		lanesFoldingDefault: 'all',
 		segments: prior.segments,
 		searchActive: false,
 		trunkSegmentTip: trunkPrior,

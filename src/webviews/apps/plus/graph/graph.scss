@@ -501,6 +501,13 @@ gl-lit-graph {
 		flex: 1 1 auto;
 		min-height: 0 !important;
 		contain: layout;
+		// Always reserve the scrollbar lane, even when the rows don't overflow — the scroll-marker rail
+		// and the "Scroll to HEAD" pill are positioned against `--gl-graph-scrollbar-width` (measured as
+		// `offsetWidth - clientWidth`), so without this a short list gives the lane back to the rows and
+		// the rail draws over them. It also pins that measurement to a constant, so a list that crosses
+		// the overflow threshold without a resize (scoping, filtering, paging in) can't leave a stale
+		// width behind and misalign the header from the rows.
+		scrollbar-gutter: stable;
 	}
 
 	// While scrolling, rows slide under a stationary cursor, so each row the pointer crosses would flash its
@@ -1104,7 +1111,7 @@ gl-lit-graph {
 		margin: 0 0.4rem;
 	}
 	// Inline `code` chip — mirrors GlMarkdown's code styling but in light DOM so it inherits the row's
-	// truncation. No vertical padding so the chip never grows the comfortable row height.
+	// truncation. No vertical padding so the chip never grows the expanded row height.
 	.gl-graph__message-code {
 		padding: 0 0.3rem;
 		border-radius: 0.3rem;

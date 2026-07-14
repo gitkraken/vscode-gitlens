@@ -54,7 +54,7 @@ export function computeTrunkSegmentTip(
  *               finished side history folds away while active work + the trunk stay in view.
  */
 export function computeDefaultCollapsedSet(args: {
-	lanesCollapseDefault: 'none' | 'all' | 'auto';
+	lanesFoldingDefault: 'none' | 'all' | 'auto';
 	segments: readonly LaneSegment[];
 	/** True while a search is active — suppresses default collapse so matches inside auto-collapsed lanes stay visible. */
 	searchActive: boolean;
@@ -62,9 +62,9 @@ export function computeDefaultCollapsedSet(args: {
 	/** Segment tips that are WIP/working-changes rows — never auto-collapsed (kept expanded). */
 	wipTipShas: ReadonlySet<Sha>;
 }): ReadonlySet<Sha> {
-	const { lanesCollapseDefault, segments, searchActive, trunkSegmentTip, wipTipShas } = args;
+	const { lanesFoldingDefault, segments, searchActive, trunkSegmentTip, wipTipShas } = args;
 
-	if (lanesCollapseDefault === 'none' || segments.length === 0) return new Set();
+	if (lanesFoldingDefault === 'none' || segments.length === 0) return new Set();
 	if (searchActive) return new Set();
 
 	const out = new Set<Sha>();
@@ -74,7 +74,7 @@ export function computeDefaultCollapsedSet(args: {
 		// 'all' collapses every non-trunk lane; 'auto' collapses completed side branches — those that
 		// rejoin the graph (forkSha set) and aren't active WIP lanes.
 		const auto = segment.forkSha != null && !wipTipShas.has(segment.tipSha);
-		if (lanesCollapseDefault === 'all' || auto) {
+		if (lanesFoldingDefault === 'all' || auto) {
 			out.add(segment.tipSha);
 		}
 	}

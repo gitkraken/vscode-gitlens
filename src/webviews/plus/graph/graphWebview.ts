@@ -1611,7 +1611,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		// `graph.lanes.density` drives BOTH the lane spacing (via the config re-send in the `graph`
-		// catch-all below) AND the column-menu context (`lanes:density:*`, which the Comfortable/Compact
+		// catch-all below) AND the column-menu context (`lanes:density:*`, which the Expanded/Compact
 		// menu items toggle on). Refresh the column context too — otherwise the menu item is one-way: the
 		// spacing changes but the item's `when` clause never flips to offer the opposite.
 		if (configuration.changed(e, 'graph.lanes.density')) {
@@ -3511,7 +3511,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 
 		// Surface the current lane-spacing density so the context-menu `when` clauses can toggle it
-		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'comfortable'}`);
+		contextItems.push(`lanes:density:${configuration.get('graph.lanes.density') ?? 'expanded'}`);
 
 		return contextItems;
 	}
@@ -3590,7 +3590,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			useNewEngine: configuration.get('graph.experimental.useNewEngine'),
 			highlightRowsOnRefHover: configuration.get('graph.highlightRowsOnRefHover'),
 			idLength: configuration.get('advanced.abbreviatedShaLength'),
-			lanesCollapseDefault: configuration.get('graph.lanes.collapseDefault'),
+			lanesFoldingEnabled: configuration.get('graph.lanes.folding.enabled'),
+			lanesFoldingDefault: configuration.get('graph.lanes.folding.default'),
 			lanesDensity: configuration.get('graph.lanes.density'),
 			lanesGroupedMin: configuration.get('graph.lanes.grouped.min'),
 			lanesGroupedMax: configuration.get('graph.lanes.grouped.max'),

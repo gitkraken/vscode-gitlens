@@ -3071,7 +3071,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible(?![^,]*\\+compact\\b)/",
 						"group": "2_columns",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -3083,7 +3083,7 @@
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:graph:visible[^,]*\\+compact\\b/",
 						"group": "2_columns",
-						"order": 1
+						"order": 2
 					}
 				]
 			}
@@ -4233,26 +4233,26 @@
 				]
 			}
 		},
-		"gitlens.graph.setLanesComfortable": {
-			"label": "Use Comfortable Graph Column Lanes",
+		"gitlens.graph.setLaneDensityToCompact": {
+			"label": "Use Compact Density Graph Column Lanes",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:expanded\\b/",
+						"group": "2_columns",
+						"order": 3
+					}
+				]
+			}
+		},
+		"gitlens.graph.setLaneDensityToExpanded": {
+			"label": "Use Expanded Density Graph Column Lanes",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:compact\\b/",
 						"group": "2_columns",
-						"order": 2
-					}
-				]
-			}
-		},
-		"gitlens.graph.setLanesCompact": {
-			"label": "Use Compact Graph Column Lanes",
-			"menus": {
-				"webview/context": [
-					{
-						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine && webviewItemValue =~ /lanes:density:comfortable\\b/",
-						"group": "2_columns",
-						"order": 2
+						"order": 3
 					}
 				]
 			}

@@ -112,7 +112,7 @@ type LitVirtualizer = HTMLElement & {
 	updateComplete: Promise<boolean>;
 };
 
-// Comfortable-density column header height in px (matches `.gl-graph__header` height: 2.4rem @ 1rem=10px).
+// Expanded-density column header height in px (matches `.gl-graph__header` height: 2.4rem @ 1rem=10px).
 const headerHeightPx = 24;
 // How close (px) the cursor must be to a scroll-marker row for it to highlight/tooltip — a "magnet"
 // so dense, merged markers are each reachable by sweeping, without false hits over empty rail.
@@ -379,7 +379,7 @@ export class GlLitGraph extends LitElement {
 	// Where refs (branches/tags/remotes) render: 'grouped' = pills at the head of their host column —
 	// the zone adjacent to Refs at group-time (`refsHostZoneId`), falling back to Message — anchored BY
 	// ID via `refsHostIdFor` so the group travels with it through reorders (default); 'column' = a
-	// dedicated Refs column (comfortable density only, where columns exist). Session-scoped, matching
+	// dedicated Refs column (expanded density only, where columns exist). Session-scoped, matching
 	// `graphPlacement`.
 	@state() private refsPlacement: RefsPlacement = 'grouped';
 	// Adjacent zone id captured at group-time by `toggleRefsPlacement` (undefined = use the Message
@@ -388,8 +388,14 @@ export class GlLitGraph extends LitElement {
 	// Lane folding (collapse/expand of mergeable lane segments). On → a dedicated fold strip on the
 	// left edge of the lanes shows expand/collapse chevrons on collapsible segment-tip rows. Off → no
 	// fold strip, no chevrons, and all lanes stay expanded (default-collapse + manual folds ignored).
-	// Session-scoped, matching `graphPlacement`.
-	@state() private foldingEnabled = true;
+	// Backed by `gitlens.graph.lanes.folding.enabled` (via the reactive `config` property).
+	private get foldingEnabled(): boolean {
+		return this.config?.lanesFoldingEnabled ?? true;
+	}
+	// Which lanes start folded, once folding is on — `gitlens.graph.lanes.folding.default`.
+	private get foldingDefault(): 'none' | 'all' | 'auto' {
+		return this.config?.lanesFoldingDefault ?? 'none';
+	}
 	// First-parent ancestry chain of the currently PINNED (clicked) ref pill → those rows get
 	// `.is-inRefChain` (others dim). Driven by a pill CLICK now (not hover), so it persists across
 	// hover-out + scroll; cleared when the pill is clicked again (unpinned).
@@ -705,9 +711,9 @@ export class GlLitGraph extends LitElement {
 	// rows/config/search-driven recompute.
 	private manuallyCollapsed: ReadonlySet<Sha> = new Set();
 	private manuallyExpanded: ReadonlySet<Sha> = new Set();
-	private lastLanesCollapseDefault?: 'none' | 'all' | 'auto';
-	// Tracks the prior `foldingEnabled` so willUpdate can detect toggles (private @state can't go
-	// through `changed.has`). Init matches the @state default so the first pass sees no change.
+	private lastFoldingDefault?: 'none' | 'all' | 'auto';
+	// Tracks the prior `foldingEnabled` so willUpdate can detect toggles (a config-derived getter can't
+	// go through `changed.has`). Init matches the getter's fallback so the first pass sees no change.
 	private lastFoldingEnabled = true;
 
 	// Rows-only derivations (recomputed by recomputeRows, not on search/config/toggle).
@@ -1175,10 +1181,10 @@ export class GlLitGraph extends LitElement {
 		// Lane derivations depend on processedRows/segments, the default-mode config, whether a search
 		// is active (an active search suppresses default lane-collapse so matches inside auto-collapsed
 		// lanes stay visible — see computeDefaultCollapsedSet), and the manual override sets.
-		const configCollapseChanged = (this.config?.lanesCollapseDefault ?? 'auto') !== this.lastLanesCollapseDefault;
+		const configCollapseChanged = this.foldingDefault !== this.lastFoldingDefault;
 		// Toggling folding flips effectiveCollapsed (off → empty) and the provider set, so it re-derives
 		// lanes + rebuilds providers + adornments through the same paths a collapse-config change does.
-		// Tracked via a last-value ref (private @state isn't a `keyof this` for `changed.has`).
+		// Tracked via a last-value ref (a config-derived getter isn't a `keyof this` for `changed.has`).
 		const foldingChanged = this.foldingEnabled !== this.lastFoldingEnabled;
 		this.lastFoldingEnabled = this.foldingEnabled;
 		// scopeChanged rebuilds processedRows/segments above, so lane derivations + displayRows
@@ -1197,7 +1203,7 @@ export class GlLitGraph extends LitElement {
 			foldingChanged ||
 			changed.has('searching');
 		if (laneInputsChanged) {
-			this.lastLanesCollapseDefault = this.config?.lanesCollapseDefault ?? 'auto';
+			this.lastFoldingDefault = this.foldingDefault;
 			// Refresh the DEFAULT-collapse set only when its real inputs change. A paging append keeps
 			// the frozen set: auto-folding a segment the moment its fork pages in would yank rows the
 			// user is scrolling through out from under them, and a stable set is what lets the display
@@ -1418,7 +1424,7 @@ export class GlLitGraph extends LitElement {
 		// Keep the fixed-size virtualizer layout's row height in sync with the density (guarded no-op
 		// unless it changed; a real change reflows the layout to the new idx*rowHeight positions).
 		this.fixedRowLayout.itemSize = this.rowHeight;
-		// Zero-scroll column solve (comfortable only — compact rows don't render zone columns): the
+		// Zero-scroll column solve (expanded only — compact rows don't render zone columns): the
 		// visible content zones get exact `currentWidth`s that sum to the available width. Mid-drag we
 		// render the preserve-based preview instead. `width` is overwritten with the solved px so all
 		// downstream render/geometry reads the rendered width (persistence still uses `this.zones`).
@@ -1928,7 +1934,7 @@ export class GlLitGraph extends LitElement {
 
 		const defaultCollapsedSet = refreshDefaultCollapse
 			? computeDefaultCollapsedSet({
-					lanesCollapseDefault: this.config?.lanesCollapseDefault ?? 'auto',
+					lanesFoldingDefault: this.foldingDefault,
 					segments: segments,
 					searchActive: this.searching || this._searchMatchedShas != null,
 					trunkSegmentTip: this.trunkSegmentTip,
@@ -3261,13 +3267,13 @@ export class GlLitGraph extends LitElement {
 		return this.effectiveNodeStyle === 'dots' ? 'compact' : 'avatar';
 	}
 	// Lane-spacing density, driven by the `gitlens.graph.lanes.density` setting (via the `config`
-	// prop): 'compact' packs lanes as close as possible; 'comfortable' leaves a clear gap so two
+	// prop): 'compact' packs lanes as close as possible; 'expanded' leaves a clear gap so two
 	// dots on the same row don't touch. Fixed spacing per mode (not a freeform drag). A config
 	// change flows through willUpdate → updateRenderState, which re-reads columnWidth below.
-	private get laneDensity(): 'comfortable' | 'compact' {
-		return this.config?.lanesDensity ?? 'comfortable';
+	private get laneDensity(): 'expanded' | 'compact' {
+		return this.config?.lanesDensity ?? 'expanded';
 	}
-	// Fixed lane spacing per density mode (compact = lanes nearly touch; comfortable = a clear gap so
+	// Fixed lane spacing per density mode (compact = lanes nearly touch; expanded = a clear gap so
 	// two dots on a row don't touch) + node mode. The graph no longer respaces on resize — the density
 	// toggle picks the spacing; node size is fixed (see graph-gutter `laneSpacing` / `nodeRadiusFor`).
 	private get columnWidth(): number {
@@ -3650,7 +3656,7 @@ export class GlLitGraph extends LitElement {
 		// dimming/adornments). Cheap: one closure alloc; the body reads the cached _renderCtx + the
 		// C-group-lean renderRow. Keeping it stable would freeze those updates on screen.
 		const renderItem = (row: ProcessedGraphRow, index: number): TemplateResult => this.renderRowItem(row, index);
-		// Header is always present: the full column header in comfortable density; a reduced compact header
+		// Header is always present: the full column header in expanded density; a reduced compact header
 		// (graph controls + a single details cell + the settings gear) in compact, where the stacked rows
 		// have no per-zone columns. In `column` placement the header reserves the graph column so it aligns.
 		const header =
@@ -5378,7 +5384,7 @@ export class GlLitGraph extends LitElement {
 	// Group/detach toggle for the Refs column. When refs is a column it lives at the RIGHT edge of the
 	// Refs header (`atEnd` → outline `map` → group with Message), mirroring the graph column's toggle;
 	// when grouped it migrates to the LEFT of the Message host header (filled `map-filled` → separate
-	// back out). Rendered from the zone-header loop. Comfortable density only (the header).
+	// back out). Rendered from the zone-header loop. Expanded density only (the header).
 	private renderRefsPlacementControl(atEnd: boolean, visibleZones: readonly ZoneSpec[]): TemplateResult {
 		const isColumn = this.refsPlacement === 'column';
 		const icon = isColumn ? 'map' : 'map-filled';

@@ -2523,14 +2523,14 @@ export class GraphCommands {
 	}
 
 	// Lane density wrappers — these toggle the `gitlens.graph.lanes.density` setting (not column state)
-	@command('gitlens.graph.setLanesCompact')
-	private setLanesCompact() {
+	@command('gitlens.graph.setLaneDensityToCompact')
+	private setLaneDensityToCompact() {
 		void configuration.updateEffective('graph.lanes.density', 'compact');
 	}
 
-	@command('gitlens.graph.setLanesComfortable')
-	private setLanesComfortable() {
-		void configuration.updateEffective('graph.lanes.density', 'comfortable');
+	@command('gitlens.graph.setLaneDensityToExpanded')
+	private setLaneDensityToExpanded() {
+		void configuration.updateEffective('graph.lanes.density', 'expanded');
 	}
 
 	// Graph-style wrappers — toggle the `gitlens.graph.style` setting (whole-graph row layout, not column state)
