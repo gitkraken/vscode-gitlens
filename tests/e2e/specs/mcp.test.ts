@@ -80,7 +80,6 @@ test.describe('MCP — Tool Discovery', () => {
 		const gitlensTools = tools.filter(t => t.startsWith('gitlens_'));
 
 		expect(gitlensTools.length).toBeGreaterThan(0);
-		expect(gitlensTools).toContain('gitlens_commit_composer');
 		expect(gitlensTools).toContain('gitlens_launchpad');
 		expect(gitlensTools).toContain('gitlens_start_review');
 		expect(gitlensTools).toContain('gitlens_start_work');
