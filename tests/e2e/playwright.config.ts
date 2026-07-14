@@ -10,7 +10,7 @@ export default defineConfig<CustomOptions>({
 	use: {
 		headless: true, // Ensure headless mode is enabled
 		viewport: { width: 1920, height: 1080 },
-		trace: 'on-first-retry',
+		trace: 'on', // TEMP (testing/e2e-ci-extend): full traces for debugging; revert to 'on-first-retry' before merge
 		video: 'on-first-retry',
 		screenshot: 'only-on-failure',
 	},

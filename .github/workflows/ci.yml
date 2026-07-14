@@ -159,7 +159,8 @@ jobs:
               run: pnpm run bundle:e2e
 
             - name: Run E2E tests
-              run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16" pnpm run test:e2e
+              # TEMP (testing/e2e-ci-extend): --workers=1 to stabilize flakes while debugging
+              run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16" pnpm run test:e2e -- --workers=1
 
             - name: Upload test results
               if: failure()
