@@ -182,15 +182,42 @@ suite('engine/layout sticky columns', () => {
 		);
 	});
 
-	test('a displaced claim skips a column a known tip still needs', () => {
-		// N inherits BASE's lane (column 0) and displaces T1. T1 must not then grab column 1 — T2 claims it
-		// via its own preference further down, and taking it would cascade a renumber through the tail.
+	test('a new tip takes a fresh lane instead of evicting the lanes already on its parent', () => {
+		// BASE's lane is already continued by T1 (which OWNS column 0), so the brand-new tip N must not
+		// inherit — and thereby claim — that column. N sorts newest, so it claims FIRST: inheriting would let
+		// it win column 0 and evict T1, which then has to step over T2 and renumber the tail behind it.
 		const prior = [row('T1', ['BASE']), row('T2', ['BASE']), row('BASE', [])];
 		const { before, after } = relayout(prior, [row('N', ['BASE']), ...prior]);
 
+		assert.strictEqual(before.get('T1'), 0, 'fixture: T1 owns column 0');
 		assert.strictEqual(before.get('T2'), 1, 'fixture: T2 owns column 1');
+
+		assert.strictEqual(after.get('T1'), 0, 'T1 kept its lane');
 		assert.strictEqual(after.get('T2'), 1, 'T2 kept its lane');
-		assert.strictEqual(after.get('T1'), 2, 'the displaced tip stepped over T2s lane rather than stealing it');
+		assert.strictEqual(after.get('N'), 2, 'the NEW tip is the one that takes a fresh lane');
+	});
+
+	test('a fetched branch tip does not evict the trunk onto a far-right lane', () => {
+		// THE FETCH BUG: `feat` forks off the trunk, so it inherits the trunk's column — and being newest it
+		// claims first, winning that column. The trunk's own new commit is then displaced, and (worse) its
+		// first-parent reservation used to drag the trunk's chain out with it, splitting the mainline across
+		// lanes. The trunk owns its lane; a tip hanging off it must take a new one.
+		const prior = [
+			row('main', ['T1']),
+			row('T1', ['T2', 'S1'], 'merge'),
+			row('T2', ['BASE']),
+			row('S1', ['BASE']),
+			row('BASE', []),
+		];
+		const next = [row('feat', ['T2']), row('newmain', ['main']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		const trunk = ['main', 'T1', 'T2', 'BASE'];
+		for (const sha of trunk) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+		assert.strictEqual(after.get('newmain'), before.get('main'), 'the new trunk commit continues the trunk lane');
+		assert.notStrictEqual(after.get('feat'), before.get('T2'), 'the fetched tip must not sit on the trunk lane');
 	});
 });
 

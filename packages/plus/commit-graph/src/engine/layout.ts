@@ -194,6 +194,23 @@ function makeScratchFactory(
 	};
 }
 
+/**
+ * Parents whose lane is already continued by a child that OWNS a prior column — so it is not up for grabs
+ * by a brand-new row hanging off the same parent. Only ever built when some row lacks a preference (i.e. the
+ * graph actually changed), so a steady-state relayout skips it.
+ */
+function computeSpokenForLanes(rows: readonly GraphRow[], preferredColumns: ReadonlyMap<Sha, number>): Set<Sha> {
+	const spokenFor = new Set<Sha>();
+	for (const row of rows) {
+		const firstParent = row.parents[0];
+		if (firstParent != null && preferredColumns.has(row.sha)) {
+			spokenFor.add(firstParent);
+		}
+	}
+
+	return spokenFor;
+}
+
 /** The scratch, built on first use. `undefined` when the run has no preferences to protect. */
 function getScratch(state: LayoutState): LayoutScratch | undefined {
 	if (state.scratch === undefined && state.scratchFactory !== undefined) {
@@ -496,7 +513,10 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 		column = ownReservation.column;
 		state.reserverInfoBySha.delete(row.sha);
 	} else {
-		// An already-reserved first parent bounds this lane: it dies at that parent's row. See `claimNextColumn`.
+		// This lane dies at its first parent whenever that parent's column is already settled — either it
+		// holds a RESERVATION, or (sticky only) it OWNS a prior column, in which case the parents loop below
+		// refuses to drag it here and the lane ends there instead. Knowing that, the claim can pack into a
+		// column that other lanes only need further down. See `claimNextColumn`.
 		let bound: LaneBound | undefined;
 		const firstParent = row.parents[0];
 		if (firstParent !== undefined) {
@@ -508,6 +528,9 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 						: undefined,
 					firstParent: firstParent,
 				};
+			} else if (state.preferredColumns?.get(firstParent) !== undefined) {
+				// No reservation to drag, so no drag guard — just the release row.
+				bound = { minColumn: undefined, firstParent: firstParent };
 			}
 		}
 		column = claimNextColumn(state, row.sha, bound);
@@ -554,7 +577,17 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 				row.kind !== 'stash' &&
 				ownReservation.newestDate > parentReservation.newestDate;
 
-			if ((parentReservation.column > column || stashReserved) && canReplaceReservation(state, row, parentSha)) {
+			// A parent already sitting on the lane it OWNS is not up for grabs — the same ownership rule the
+			// no-reservation path enforces below. Without it that path stops a lane owner being dragged while
+			// THIS one still yanks it off, so a fetch that displaces anything shifts lanes again on the next
+			// relayout instead of settling: the layout stops being a fixpoint.
+			const parentOwnsItsColumn = state.preferredColumns?.get(parentSha) === parentReservation.column;
+
+			if (
+				!parentOwnsItsColumn &&
+				(parentReservation.column > column || stashReserved) &&
+				canReplaceReservation(state, row, parentSha)
+			) {
 				state.reserverInfoBySha.set(parentSha, {
 					kind: row.kind,
 					newestDate: ownReservation?.newestDate ?? rowDate,
@@ -567,6 +600,22 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 			state.columnsToFreeWhenFound.set(parentSha, pendingFrees);
 		} else if (parentReservation?.column === undefined) {
 			const isParentPinned = state.pinnedColumns.has(parentSha);
+
+			// A first parent that OWNS a prior lane, on a row that is NOT on that lane, must not be dragged
+			// here: handing it this row's column pulls its whole first-parent chain — usually the trunk — onto
+			// a displaced lane, and the conflict branch above cannot undo it (it refuses to move a
+			// merge-flagged parent, and trunk commits are merge parents constantly). Reserve nothing: this
+			// lane simply ends at the parent, and the parent's own chain reclaims its column further down.
+			if (index === 0 && !isParentPinned && state.preferredColumns !== undefined) {
+				const parentPreferred = state.preferredColumns.get(parentSha);
+				if (parentPreferred !== undefined && parentPreferred !== column) {
+					const pendingFrees = state.columnsToFreeWhenFound.get(parentSha) ?? [];
+					pendingFrees.push(column);
+					state.columnsToFreeWhenFound.set(parentSha, pendingFrees);
+					continue;
+				}
+			}
+
 			const parentColumn = pickParentColumn(state, parentSha, index, column);
 			state.reserverInfoBySha.set(parentSha, {
 				kind: row.kind,
@@ -774,8 +823,10 @@ export function computeColumnsAndSegments(
 	if (preferredColumns != null && preferredColumns.size > 0) {
 		// Copy-on-first-write: a relayout of an unchanged graph has a preference for every row already, so
 		// eagerly copying the map (n string-keyed entries — a third of the whole pass at 100k rows) buys
-		// nothing. Take the copy only when a brand-new sha actually inherits something.
+		// nothing. Take the copy only when a brand-new sha actually inherits something. `spokenFor` is built
+		// on the same terms — a steady-state relayout never reaches it.
 		let effective: Map<Sha, number> | undefined;
+		let spokenFor: ReadonlySet<Sha> | undefined;
 		let current: ReadonlyMap<Sha, number> = preferredColumns;
 		for (let i = rows.length - 1; i >= 0; i--) {
 			const row = rows[i];
@@ -783,6 +834,13 @@ export function computeColumnsAndSegments(
 
 			const firstParent = row.parents[0];
 			if (firstParent == null) continue;
+
+			// Only ONE row can continue a lane. If a child that already OWNS a prior column continues this
+			// parent, the lane is spoken for and a brand-new row hanging off the same parent must NOT inherit
+			// it — a fetched branch tip forking off the trunk would otherwise "prefer" the trunk's own column,
+			// win it (it sorts newest, so it claims first), and evict the trunk onto a far-right lane.
+			spokenFor ??= computeSpokenForLanes(rows, preferredColumns);
+			if (spokenFor.has(firstParent)) continue;
 
 			const inherited = current.get(firstParent);
 			if (inherited === undefined) continue;
