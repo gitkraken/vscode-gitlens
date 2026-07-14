@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes the _Pro_ feature badge from the _Commit Graph_ header &mdash; the _Start New_ menu now occupies that area ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
 
+### Fixed
+
+- Fixes self-managed cloud integrations (e.g. GitHub Enterprise, GitLab Self-Hosted) repeatedly issuing a token request that the server rejects on every session refresh, and legacy connections getting stuck reported as connected with no usable token &mdash; the per-connection token fetch no longer uses the host domain as the token id, and a connection whose token can no longer be fetched is now cleanly disconnected instead of left token-less ([#5497](https://github.com/gitkraken/vscode-gitlens/issues/5497))
+
 ## [18.3.0] - 2026-07-09
 
 ### Added
