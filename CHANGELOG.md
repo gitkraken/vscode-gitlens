@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the default _Commit Graph_ lane colors for dark and high-contrast themes to a new vibrant, perceptually-uniform palette &mdash; every lane shares the same perceived brightness so no lane visually dominates; light themes keep the previous colors, and any `gitlens.graphLane1Color`&ndash;`gitlens.graphLane10Color` customizations in `workbench.colorCustomizations` are still honored
 - Changes the _Commit Graph_ sidebar to be unpinned by default &mdash; the sidebar now floats over the graph and auto-collapses when it loses focus; pin it (or set `gitlens.graph.sidebar.pinned` to `true`) to restore the previous shared-space layout ([#5447](https://github.com/gitkraken/vscode-gitlens/issues/5447))
+- Changes the _Commit Graph_ to automatically use a compact graph column and hide the SHA and Changes columns when the graph is narrow &mdash; based on the graph's actual width rather than where the details panel is pinned, so your column layout for a wide graph is preserved and restored once it's wide again; while narrow, the corresponding column menu items are disabled with a note that they return when the graph is wider ([#5500](https://github.com/gitkraken/vscode-gitlens/issues/5500), [#5391](https://github.com/gitkraken/vscode-gitlens/issues/5391))
 
 ### Removed
 
