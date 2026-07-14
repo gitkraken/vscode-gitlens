@@ -45,6 +45,9 @@ catalogs:
     typescript:
       specifier: 7.0.2
       version: 7.0.2
+    typescript-6:
+      specifier: npm:typescript@6.0.3
+      version: 6.0.3
     vscode-uri:
       specifier: 3.1.0
       version: 3.1.0
@@ -413,6 +416,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      typescript-6:
+        specifier: 'catalog:'
+        version: typescript@6.0.3
       webpack:
         specifier: 5.108.4
         version: 5.108.4(@swc/core@1.15.43(@swc/helpers@0.5.23))(esbuild@0.28.1)(postcss@8.5.16)(webpack-cli@7.2.1)
@@ -7151,6 +7157,11 @@ packages:
 
   typescript@5.4.5:
     resolution: {integrity: sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -14100,6 +14111,8 @@ snapshots:
       underscore: 1.13.8
 
   typescript@5.4.5: {}
+
+  typescript@6.0.3: {}
 
   typescript@7.0.2:
     optionalDependencies:

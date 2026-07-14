@@ -4,7 +4,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import * as ts from 'typescript';
+// `typescript-6` is an alias for the 6.x JS compiler; 7.x is the native port and exposes no compiler API
+import * as ts from 'typescript-6';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.join(path.dirname(__filename), '..');
@@ -328,7 +329,7 @@ function expandType(file, type, indent = '', isRoot = true, prefix = '') {
 	return result;
 }
 
-function getJSDocTags(/** @type {import('typescript').Symbol } */ symbol) {
+function getJSDocTags(/** @type {ts.Symbol } */ symbol) {
 	const tags = {};
 	const jsDocTags = symbol.getJsDocTags();
 	for (const tag of jsDocTags) {

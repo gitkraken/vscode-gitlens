@@ -43,6 +43,11 @@ catalog:
     # .vscode/settings.json), and @custom-elements-manifest/analyzer keeps its own 5.4.x for the
     # compiler API it needs.
     typescript: 7.0.2
+    # scripts/generateTelemetryDocs.mjs drives the compiler API (createProgram/getTypeChecker) to expand
+    # the telemetry types into docs/telemetry-events.md, so it needs the JS compiler that 7.x dropped.
+    # Pinned to 6.0.3 — the last version the generator ran under — so its output stays byte-identical.
+    # Aliased rather than catalogued as `typescript` so the extension's own compiler is unaffected.
+    typescript-6: npm:typescript@6.0.3
     vscode-uri: 3.1.0
     yaml: 2.9.0
 
