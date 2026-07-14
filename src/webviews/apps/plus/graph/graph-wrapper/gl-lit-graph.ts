@@ -596,9 +596,6 @@ export class GlLitGraph extends LitElement {
 	private _engineResume?: GraphProcessResume;
 	private _priorEngineSourceRows?: readonly GitGraphRow[];
 	private _priorEngineIdLength?: number;
-	// Parked-lane floor of the last full engine run — columns ≥ this are excluded from the next
-	// run's sticky preferences so the lane space can't ratchet upward (see recomputeRows).
-	private _priorPreferredFloor = 0;
 	// True when the LAST recomputeRows took the payload-only path (engine + topology derivations
 	// skipped). willUpdate reads it (same synchronous update) to route a payload change to the light
 	// displayRows refresh (ref indexes + upstream requests) instead of the full lane re-derivation.
@@ -1791,23 +1788,17 @@ export class GlLitGraph extends LitElement {
 			// the suffix reconciliation below.
 			let preferredColumns: Map<Sha, number> | undefined;
 			if (delta.kind === 'replace' && this.processedRows.length > 0) {
-				// PARKED lanes (column ≥ the prior run's floor) are excluded: feeding them back as
-				// preferences ratchets the lane space upward on every update. They re-park
-				// deterministically instead (same conflicts, same claim order).
-				const parkedFloor = this._priorPreferredFloor;
 				preferredColumns = new Map();
-				for (const r of this.processedRows) {
-					if (parkedFloor > 0 && r.column >= parkedFloor) continue;
-
-					preferredColumns.set(r.sha, r.column);
-				}
 				// Below-window parents keep their reserved lanes too — their dangling stubs thread
 				// through every row beneath their merge, so a shifted reservation column would break
-				// the suffix convergence just as a shifted row column would.
+				// the suffix convergence just as a shifted row column would. Seeded FIRST so that a real
+				// row always wins the tie: the two are disjoint for well-formed (children-first) rows, but
+				// a stray stub for a sha that IS loaded must never clobber that row's true column.
 				for (const [sha, column] of this.unloadedColumns) {
-					if (parkedFloor > 0 && column >= parkedFloor) continue;
-
 					preferredColumns.set(sha, column);
+				}
+				for (const r of this.processedRows) {
+					preferredColumns.set(r.sha, r.column);
 				}
 			}
 			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
@@ -1834,7 +1825,6 @@ export class GlLitGraph extends LitElement {
 			// carries synthetic/pinned state that can't seed a later plain append.
 			this._engineResume = resumable ? result.resume : undefined;
 			this.lastRowsDeltaReconciled = result.reconciled;
-			this._priorPreferredFloor = result.preferredColumnFloor;
 		}
 		this._priorEngineSourceRows = sourceRows;
 		this._priorEngineIdLength = idLength;

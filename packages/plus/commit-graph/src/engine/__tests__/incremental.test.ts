@@ -107,6 +107,21 @@ suite('engine/incremental append equivalence', () => {
 		]);
 	});
 
+	test('worktree WIP row above an already-reserved anchor (release-bounded lane)', () => {
+		// W's anchor F is reserved (S is F's child), so W's lane is BOUNDED — it frees one row later at F.
+		// The bound must be derived identically whether F pages in with W or on a later append.
+		assertIncrementalMatchesFull([
+			commit('T', ['M']),
+			commit('S', ['F']),
+			commit('W', ['F'], 'workdir'),
+			commit('F', ['M']),
+			commit('M', ['A', 'B'], 'merge'),
+			commit('A', ['BASE']),
+			commit('B', ['BASE']),
+			commit('BASE', []),
+		]);
+	});
+
 	test('resume returns a token equal in effect to a fresh full run', () => {
 		const commits = [commit('A', ['B']), commit('B', ['C']), commit('C', [])];
 		const full = processCommitsAndSegments(commits);

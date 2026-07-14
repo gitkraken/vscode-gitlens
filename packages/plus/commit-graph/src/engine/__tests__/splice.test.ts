@@ -2,14 +2,14 @@ import * as assert from 'assert';
 import { processCommitsAndSegments } from '../process.js';
 import type { CommitKind, GraphCommit } from '../types.js';
 
-function commit(hash: string, parents: string[], kind?: CommitKind): GraphCommit {
+function commit(hash: string, parents: string[], kind?: CommitKind, date = 0): GraphCommit {
 	return {
 		hash: hash,
 		shortHash: hash.slice(0, 7),
 		message: hash,
 		author: 'Tester',
 		authorEmail: 'test@example.com',
-		date: 0,
+		date: date,
 		parents: parents,
 		refs: [],
 		kind: kind,
@@ -104,7 +104,7 @@ suite('engine/process prefix-change splice equivalence', () => {
 		assertSpliceMatchesFull(base, [commit('T', ['M', 'ZZ'], 'merge'), ...base]);
 	});
 
-	test('second tip on the same parent (sibling) parks high and splices', () => {
+	test('second tip on the same parent (sibling) steps over the used lanes and splices', () => {
 		// The displaced sibling must NOT ripple through low lanes — that renumbers every lane below
 		// and zeroes the reuse (seen live: stacked probe branches shifted a column at depth 12k).
 		const prior = [commit('P1', ['M']), ...base];
@@ -112,40 +112,77 @@ suite('engine/process prefix-change splice equivalence', () => {
 		assert.ok(r.spliced, 'expected the splice to fire below the sibling tips');
 	});
 
+	test('a worktree WIP row appearing above an interior anchor splices the tail below it', () => {
+		// The renderer's real update: a worktree goes dirty, so its WIP row is injected mid-graph. Its lane
+		// is release-bounded (freed at its anchor one row down), so nothing below the anchor may move.
+		const next = [...base.slice(0, 3), commit('W', ['A'], 'workdir'), ...base.slice(3)];
+		const r = assertSpliceMatchesFull(base, next);
+		assert.ok(r.spliced, 'expected the splice to fire below the WIP row');
+	});
+
+	test('a stub for a LOADED sha never ratchets the lane space', () => {
+		// Out-of-contract input (a parent emitted above its own loaded child) makes the child reserve a lane
+		// for an already-placed commit, which `finalizeLayout` then reports as an "unloaded" column for a sha
+		// that IS loaded. Feeding that phantom back as a preference used to add a lane on EVERY update
+		// (reproduced: maxColumn 2→13 over 12 cycles). The renderer's feedback order — stubs first, rows last,
+		// so a real row's column always wins — is what contains it, and this pins that contract.
+		const skewed = [
+			commit('P', ['Z'], undefined, 100),
+			commit('C', ['P'], undefined, 50),
+			commit('Z', [], undefined, 10),
+		];
+		let prior = processCommitsAndSegments(skewed);
+		const baseline = Math.max(...prior.rows.map(r => r.column));
+		for (let i = 1; i <= 12; i++) {
+			const preferred = new Map<string, number>();
+			for (const [sha, column] of prior.unloadedColumns) {
+				preferred.set(sha, column);
+			}
+			for (const r of prior.rows) {
+				preferred.set(r.sha, r.column);
+			}
+			prior = processCommitsAndSegments(skewed, {
+				preferredColumns: preferred,
+				reconcile: { priorRows: prior.rows },
+			});
+			const maxCol = Math.max(...prior.rows.map(r => r.column));
+			assert.strictEqual(maxCol, baseline, `run ${i}: lane space ratcheted to ${maxCol}`);
+		}
+	});
+
 	test('identical rows (no change) splice everything', () => {
 		const r = assertSpliceMatchesFull(base, [...base]);
 		assert.ok(r.spliced, 'expected a full splice');
 	});
 
-	test('successive sibling updates do not ratchet the lane space (parked columns excluded from prefs)', () => {
-		// Mirrors the renderer's update loop: each run rebuilds preferences from the prior output,
-		// EXCLUDING parked columns (≥ the prior run's floor). Without the exclusion each update
-		// feeds parked lanes back as preferences, raising the floor — seen live at column 187.
+	test('successive sibling updates do not ratchet the lane space', () => {
+		// Mirrors the renderer's update loop: each run rebuilds preferences from the ENTIRE prior output.
+		// Lanes used to park past the deepest preferred column, so feeding them back raised the park floor
+		// on every update and the lane space ran away (seen live at column 187). Claims are release-bounded
+		// now, so a displaced tip takes the lowest genuinely-free column and the width tracks only the
+		// lanes that are really live — 10 concurrent sibling tips means 10 lanes, and nothing beyond.
 		let commits = [...base];
 		let prior = processCommitsAndSegments(commits);
-		let priorFloor = prior.preferredColumnFloor;
 		const naturalMax = Math.max(...prior.rows.map(r => r.column));
-		for (let i = 1; i <= 5; i++) {
+		for (let i = 1; i <= 10; i++) {
 			commits = [commit(`SIB${i}`, ['M']), ...commits];
 			const preferred = new Map<string, number>();
-			for (const r of prior.rows) {
-				if (priorFloor > 0 && r.column >= priorFloor) continue;
-
-				preferred.set(r.sha, r.column);
-			}
+			// Renderer's exact feedback order: stubs first, real rows last, so a row always wins the tie.
 			for (const [sha, column] of prior.unloadedColumns) {
-				if (priorFloor > 0 && column >= priorFloor) continue;
-
 				preferred.set(sha, column);
+			}
+			for (const r of prior.rows) {
+				preferred.set(r.sha, r.column);
 			}
 			prior = processCommitsAndSegments(commits, {
 				preferredColumns: preferred,
 				reconcile: { priorRows: prior.rows },
 			});
-			priorFloor = prior.preferredColumnFloor;
 			const maxCol = Math.max(...prior.rows.map(r => r.column));
-			// Bounded: natural lanes + one parked lane per still-live sibling tip, no compounding.
-			assert.ok(maxCol <= naturalMax + 1 + i, `run ${i}: maxCol ${maxCol} ratcheted past ${naturalMax + 1 + i}`);
+			// Every sibling is a live lane between its row and M, so `i` of them genuinely need `i` lanes.
+			// Anything past that is the engine inventing width — the exact failure this guards.
+			const live = Math.max(naturalMax, i - 1);
+			assert.ok(maxCol <= live, `run ${i}: maxCol ${maxCol} exceeds the ${live} genuinely-live lanes`);
 			assert.ok(prior.reconciled != null && prior.reconciled.reused > 0, `run ${i}: splice did not fire`);
 		}
 	});

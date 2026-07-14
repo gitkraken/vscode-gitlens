@@ -25,6 +25,38 @@ interface SegmentBuilder {
 	commitShas: Sha[];
 }
 
+/** A column some not-yet-placed sha will claim via its sticky preference, and the row it claims at. */
+interface PendingNeed {
+	column: number;
+	row: number;
+	consumed: boolean;
+}
+
+/** One column's pending claims, ascending by row, with a lazily-advanced head that drops spent entries. */
+interface NeedQueue {
+	needs: PendingNeed[];
+	head: number;
+}
+
+/** The pending preference claims a fallback lane must not steal — see {@link makeScratchFactory}. */
+interface PendingNeeds {
+	/** Live (unspent) need count — once it hits 0 both readers short-circuit for the rest of the pass. */
+	pending: number;
+	bySha: Map<Sha, PendingNeed>;
+	/** Indexed by column. A dense ARRAY, not a Map: `nextNeedRow` runs inside the column-scan loop of every
+	 *  fallback claim, and columns are small dense ints, so an indexed load beats hashing on the hot path. */
+	byColumn: (NeedQueue | undefined)[];
+}
+
+/** A fresh lane whose first parent is ALREADY reserved: it provably dies at that parent's row. */
+interface LaneBound {
+	/** `undefined` unless the parent's reservation is REPLACEABLE — see {@link claimNextColumn}. */
+	minColumn: number | undefined;
+	/** The first parent — its row is where this lane's column is released. Resolved to an index only on the
+	 *  fallback path, so a claim that lands on its preference never touches the scratch. */
+	firstParent: Sha;
+}
+
 interface LayoutState {
 	columnsUsed: Set<number>;
 	/** Columns to release from `columnsUsed` when a specific sha is reached. */
@@ -47,10 +79,12 @@ interface LayoutState {
 	 *  lane colors stable on updates and lets consumers splice the unchanged suffix by identity.
 	 *  Purely an allocation preference: any internally-consistent assignment is a valid layout. */
 	preferredColumns?: ReadonlyMap<Sha, number>;
-	/** First column ABOVE every preferred one. Fresh claims for shas WITHOUT a preference (brand-new
-	 *  tips) start here so they never steal a lane a known sha will claim further down — a single
-	 *  early steal would cascade fallback re-assignments through the whole unchanged region. */
-	preferredColumnFloor: number;
+	/** Builds {@link scratch} on first use; undefined on preference-less runs (nothing to protect). */
+	scratchFactory?: (state: LayoutState) => LayoutScratch;
+	/** Memoized sticky scratch. Read ONLY on the fallback-scan path — see {@link getScratch}. */
+	scratch?: LayoutScratch;
+	/** Index of the row being assigned — needs at earlier rows are already consumed or stale. */
+	currentRow: number;
 }
 
 function createState(
@@ -58,14 +92,6 @@ function createState(
 	pinnedColumnCount: number,
 	preferredColumns?: ReadonlyMap<Sha, number>,
 ): LayoutState {
-	let preferredColumnFloor = 0;
-	if (preferredColumns != null) {
-		for (const column of preferredColumns.values()) {
-			if (column + 1 > preferredColumnFloor) {
-				preferredColumnFloor = column + 1;
-			}
-		}
-	}
 	return {
 		columnsUsed: new Set(),
 		columnsToFreeWhenFound: new Map(),
@@ -76,8 +102,138 @@ function createState(
 		segmentByColumn: new Map(),
 		finalizedSegments: [],
 		preferredColumns: preferredColumns,
-		preferredColumnFloor: preferredColumnFloor,
+		currentRow: 0,
 	};
+}
+
+/** Sticky-run scratch — see {@link makeScratchFactory}. */
+interface LayoutScratch {
+	rowIndexBySha: Map<Sha, number>;
+	pendingNeeds: PendingNeeds;
+}
+
+/**
+ * Build the sticky scratch LAZILY — this is the engine's hot path, and the work is pure insurance that a
+ * steady-state relayout never needs.
+ *
+ * Two structures, both O(rows) to build and both string-keyed (the expensive kind):
+ *
+ *  • `rowIndexBySha` — resolves a bounded lane's RELEASE ROW (where its column frees).
+ *  • `pendingNeeds` — the preference claims still ahead of the pass, so a fallback claim can take a low free
+ *    column without stealing one a known sha is going to want. Only two kinds of sha ever consult a
+ *    preference (i.e. reach {@link claimNextColumn}): a window TIP — nothing above it named it as a parent,
+ *    so no child reserved its column — and an ADDITIONAL (index > 0) parent of a merge, which claims at the
+ *    MERGE's row. Every other column comes from a reservation or a pinned column, and every reservation's
+ *    column originates in an earlier claim, so those two sets are complete.
+ *
+ * Neither is read unless a claim FALLS THROUGH to the column scan, and on a relayout of a mostly-unchanged
+ * graph almost every claim lands on its preference instead. So we hand the state a factory and build on
+ * first miss: the common update pays nothing, and a run with no preferences at all never even gets a factory.
+ */
+function makeScratchFactory(
+	rows: readonly GraphRow[],
+	preferredColumns: ReadonlyMap<Sha, number>,
+	pinnedColumns: ReadonlyMap<Sha, number>,
+	pinnedColumnCount: number,
+): (state: LayoutState) => LayoutScratch {
+	return (state: LayoutState): LayoutScratch => {
+		// One walk for both: the row index, plus the set of shas some row names as a parent — those get a
+		// RESERVATION rather than a claim, so they never consult a preference.
+		const rowIndexBySha = new Map<Sha, number>();
+		const hasChild = new Set<Sha>();
+		for (let i = 0; i < rows.length; i++) {
+			const row = rows[i];
+			rowIndexBySha.set(row.sha, i);
+			for (const parent of row.parents) {
+				hasChild.add(parent);
+			}
+		}
+
+		const bySha = new Map<Sha, PendingNeed>();
+		const byColumn: (NeedQueue | undefined)[] = [];
+		let pending = 0;
+		const add = (sha: Sha, atRow: number): void => {
+			if (bySha.has(sha) || pinnedColumns.has(sha)) return;
+
+			// A preference below the pinned range is unusable (a claim never lands there) — no guard needed.
+			const column = preferredColumns.get(sha);
+			if (column === undefined || column < pinnedColumnCount) return;
+
+			// Building MID-PASS: a sha already holding a reservation has had its column decided and will never
+			// consult its preference, so its need is born spent. (A tip already placed is covered by the row
+			// check in `nextNeedRow` — its need row is behind us.)
+			const consumed = state.reserverInfoBySha.has(sha);
+			const need: PendingNeed = { column: column, row: atRow, consumed: consumed };
+			bySha.set(sha, need);
+			if (!consumed) {
+				pending++;
+			}
+
+			const queue = byColumn[column];
+			if (queue !== undefined) {
+				queue.needs.push(need);
+			} else {
+				byColumn[column] = { needs: [need], head: 0 };
+			}
+		};
+
+		// Separate walk — `hasChild` is only final once the first one finishes. Row order in, so each column's
+		// queue comes out ascending by row: no sort needed.
+		for (let i = 0; i < rows.length; i++) {
+			const row = rows[i];
+			if (!hasChild.has(row.sha)) {
+				add(row.sha, i);
+			}
+
+			for (let index = 1; index < row.parents.length; index++) {
+				add(row.parents[index], i);
+			}
+		}
+
+		return { rowIndexBySha: rowIndexBySha, pendingNeeds: { pending: pending, bySha: bySha, byColumn: byColumn } };
+	};
+}
+
+/** The scratch, built on first use. `undefined` when the run has no preferences to protect. */
+function getScratch(state: LayoutState): LayoutScratch | undefined {
+	if (state.scratch === undefined && state.scratchFactory !== undefined) {
+		state.scratch = state.scratchFactory(state);
+	}
+	return state.scratch;
+}
+
+/** Mark a sha's pending preference claim satisfied — it can never consult its preference again. */
+function consumeNeed(state: LayoutState, sha: Sha): void {
+	// Runs once per reservation (i.e. per parent edge) — reads the scratch ONLY if something already built it,
+	// so it never forces the build, and bails before hashing the sha once every need is spent. A sha reserved
+	// BEFORE a mid-pass build is marked spent by the factory itself.
+	const needs = state.scratch?.pendingNeeds;
+	if (needs === undefined || needs.pending === 0) return;
+
+	const need = needs.bySha.get(sha);
+	if (need !== undefined && !need.consumed) {
+		need.consumed = true;
+		needs.pending--;
+	}
+}
+
+/** Row at which the next still-pending preference claim on `column` lands (`Infinity` when there is none). */
+function nextNeedRow(needs: PendingNeeds | undefined, currentRow: number, column: number): number {
+	if (needs === undefined || needs.pending === 0) return Infinity;
+
+	const bucket = needs.byColumn[column];
+	if (bucket === undefined) return Infinity;
+
+	while (bucket.head < bucket.needs.length) {
+		const need = bucket.needs[bucket.head];
+		// A need whose row is behind us belongs to a sha that has already claimed — drop it, or it would
+		// block its column for the rest of the pass.
+		if (!need.consumed && need.row >= currentRow) return need.row;
+
+		bucket.head++;
+	}
+
+	return Infinity;
 }
 
 /**
@@ -103,26 +259,76 @@ function finalizeSegment(builder: SegmentBuilder, forkSha: Sha | null): LaneSegm
  * Pick the next unused column for a non-pinned commit. Scanning starts ABOVE the reserved pinned
  * columns (`pinnedColumnCount`) so a fresh lane never collides with a pinned-branch lane. (Same as
  * GKC's `getAvailableColumnAndUseIt`, generalized from a single reserved column to N.)
+ *
+ * A claim with no usable preference can't just grab the lowest free column — two hazards bound it:
+ *   • the STEAL — taking a column a known sha will claim via ITS preference displaces that sha and
+ *     cascades a lane renumber through the otherwise-unchanged region (`pendingNeeds` guards it);
+ *   • the DRAG — landing BELOW a REPLACEABLE first-parent reservation trips the reservation-replace
+ *     path in `assignColumnForRow`, pulling the parent's whole first-parent chain (e.g. the trunk)
+ *     onto this lane (`bound.minColumn` / the unbounded preference floor guard it).
+ * Both are bounded per-claim rather than globally, so a lane that dies quickly — a WIP row, whose
+ * column is freed one row later at its anchor — still packs in next to its parent instead of parking
+ * out past every other lane in the window.
  */
-function claimNextColumn(state: LayoutState, forSha?: Sha): number {
-	// Sticky preference: reproduce the sha's prior-run column when it's free (and not a pinned lane)
-	// so an unchanged region lays out identically across a top insertion.
+function claimNextColumn(state: LayoutState, forSha?: Sha, bound?: LaneBound): number {
+	if (forSha !== undefined) {
+		consumeNeed(state, forSha);
+	}
+
+	const base = state.pinnedColumnCount;
+
+	// Fast path: the sha's prior-run column, when free. This REPRODUCES the prior layout — including any
+	// reservation-replace that layout triggered — so it is a fixpoint and needs no guarding.
 	const preferred = forSha !== undefined ? state.preferredColumns?.get(forSha) : undefined;
-	if (preferred !== undefined && preferred >= state.pinnedColumnCount && !state.columnsUsed.has(preferred)) {
+	if (preferred !== undefined && preferred >= base && !state.columnsUsed.has(preferred)) {
 		state.columnsUsed.add(preferred);
 		return preferred;
 	}
 
-	// No usable preference (none, or taken): park ABOVE the preferred range so this lane can't steal
-	// a column a known sha claims further down (see `preferredColumnFloor`). Displaced preferred rows
-	// park high too — falling back to a low scan would cascade a lane renumber through the whole graph
-	// (e.g. a second tip on the same parent bumping its sibling, which bumps the next lane, and so on).
-	let column = Math.max(state.pinnedColumnCount, state.preferredColumnFloor);
-	while (state.columnsUsed.has(column)) {
+	// Fallback — the only path on which a claim can perturb a layout someone else is relying on, so the only
+	// one that gets guarded, and the first point at which the scratch is worth building. A preference-less
+	// run (cold open, paging append) has no prior layout to cascade into, so it stays a plain lowest-free
+	// scan — which is what lets a claim pull its first parent's chain down onto a lower lane and lay the
+	// graph out more compactly. Guarding that would only widen a cold graph for nothing.
+	const scratch = getScratch(state);
+	let floor = base;
+	let releaseRow = Infinity;
+	if (scratch !== undefined) {
+		if (bound !== undefined) {
+			// Sit above a REPLACEABLE parent reservation, or the replace path drags the parent's chain here.
+			floor = Math.max(base, bound.minColumn ?? 0);
+			releaseRow = scratch.rowIndexBySha.get(bound.firstParent) ?? Infinity;
+		} else if (preferred !== undefined) {
+			// An inherited preference is where this lane's first-parent chain rejoins the graph — landing
+			// below it would drag that chain here just the same.
+			floor = Math.max(base, preferred + 1);
+		}
+	}
+
+	let column = floor;
+	// Skip a column some known sha will claim via ITS preference BEFORE this lane frees — taking it would
+	// displace that sha and cascade a renumber. Frees run ahead of claims in `assignColumnForRow`, so a need
+	// landing exactly ON the release row is safe: hence the strict `<`.
+	while (state.columnsUsed.has(column) || nextNeedRow(scratch?.pendingNeeds, state.currentRow, column) < releaseRow) {
 		column += 1;
 	}
 	state.columnsUsed.add(column);
 	return column;
+}
+
+/**
+ * Whether the conflict branch in {@link assignColumnForRow} could move `parentSha`'s reservation onto this
+ * row's lane — dragging the parent's whole first-parent chain with it. SINGLE SOURCE OF TRUTH: the branch
+ * itself gates on this, and {@link claimNextColumn}'s drag guard reads it one phase EARLIER (before the
+ * parents loop) to decide whether a fresh claim must sit above the parent's column. Keeping one predicate
+ * is what stops the guard and the guarded path from silently drifting apart.
+ *
+ * A merge row is excluded because it flags every parent as merge-owned at the top of the parents loop, so
+ * by the time the branch runs it can never move its own first parent — but at claim time that flag isn't
+ * set yet, and reading it there would needlessly widen a merge tip's lane.
+ */
+function canReplaceReservation(state: LayoutState, row: GraphRow, parentSha: Sha): boolean {
+	return row.kind !== 'merge' && !state.hasMergeNodeChildBySha.has(parentSha) && !state.pinnedColumns.has(parentSha);
 }
 
 /**
@@ -290,7 +496,21 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 		column = ownReservation.column;
 		state.reserverInfoBySha.delete(row.sha);
 	} else {
-		column = claimNextColumn(state, row.sha);
+		// An already-reserved first parent bounds this lane: it dies at that parent's row. See `claimNextColumn`.
+		let bound: LaneBound | undefined;
+		const firstParent = row.parents[0];
+		if (firstParent !== undefined) {
+			const parentReservation = state.reserverInfoBySha.get(firstParent);
+			if (parentReservation !== undefined) {
+				bound = {
+					minColumn: canReplaceReservation(state, row, firstParent)
+						? parentReservation.column + 1
+						: undefined,
+					firstParent: firstParent,
+				};
+			}
+		}
+		column = claimNextColumn(state, row.sha, bound);
 		isOwnRowFreshClaim = true;
 	}
 
@@ -323,19 +543,18 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 			// Conflict: first-parent already reserved a different column. Either replace the
 			// reservation (if this row has a "stronger" claim) or schedule the other column to
 			// be freed when the parent is reached.
-			// Never replace a pinned parent's reservation — adoption lands it on its pinned column
-			// regardless, and the displaced reservation's column would leak in `columnsUsed`.
 			const pendingFrees = state.columnsToFreeWhenFound.get(parentSha) ?? [];
+			// Needs an own reservation: the test is "MY lane is newer than the stash holding my parent's
+			// column". A fresh claim has none, and the old `?? 0` default made that vacuous case fire on any
+			// negative (pre-1970) stash date — replacing the reservation out from under a bounded claim and
+			// voiding its release row.
 			const stashReserved =
+				ownReservation !== undefined &&
 				parentReservation.kind === 'stash' &&
 				row.kind !== 'stash' &&
-				(ownReservation?.newestDate ?? 0) > parentReservation.newestDate;
+				ownReservation.newestDate > parentReservation.newestDate;
 
-			if (
-				(parentReservation.column > column || stashReserved) &&
-				!state.hasMergeNodeChildBySha.has(parentSha) &&
-				!state.pinnedColumns.has(parentSha)
-			) {
+			if ((parentReservation.column > column || stashReserved) && canReplaceReservation(state, row, parentSha)) {
 				state.reserverInfoBySha.set(parentSha, {
 					kind: row.kind,
 					newestDate: ownReservation?.newestDate ?? rowDate,
@@ -354,6 +573,10 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 				newestDate: ownReservation?.column === column ? (ownReservation?.newestDate ?? rowDate) : rowDate,
 				column: parentColumn,
 			});
+			// Reserved now, so it will never reach `claimNextColumn` — release its column guard. (A
+			// first-parent inherit doesn't go through `claimNextColumn`, so this is the only consume site
+			// for it; an additional parent consumed its own need inside `pickParentColumn`'s claim.)
+			consumeNeed(state, parentSha);
 
 			// An additional parent (index > 0) on a non-pinned column is a genuine branch-off
 			// event: this row is the merge-back point and `parentColumn` is the lane the branch
@@ -415,8 +638,14 @@ function cloneLayoutState(s: LayoutState): LayoutState {
 		// across appends is load-bearing — consumers diff segments by reference to re-index only the
 		// changed ones — and it drops an O(total) deep copy per page-in.
 		finalizedSegments: s.finalizedSegments.slice(),
-		preferredColumns: s.preferredColumns,
-		preferredColumnFloor: s.preferredColumnFloor,
+		// Pass-local scratch is NEVER carried across the snapshot: it is row-index-based (an append restarts
+		// indexes at 0) and its `consumed` flags / bucket heads are mutable, so sharing it would let two
+		// clones of one snapshot corrupt each other. Dropping it here rather than at the call sites makes the
+		// deep-copy contract self-enforcing — and keeps the O(n) maps off the per-page-in copy entirely.
+		preferredColumns: undefined,
+		scratchFactory: undefined,
+		scratch: undefined,
+		currentRow: 0,
 	};
 }
 
@@ -442,6 +671,7 @@ function finalizeLayout(state: LayoutState): { segments: LaneSegment[]; unloaded
 // full pass and an incremental append).
 function assignColumnsInto(state: LayoutState, rows: readonly GraphRow[], output: ProcessedGraphRow[]): void {
 	for (let i = 0; i < rows.length; i++) {
+		state.currentRow = i;
 		const column = assignColumnForRow(state, rows[i]);
 		output[i] = { ...rows[i], column: column, edges: {}, edgeColumnMax: 0 };
 	}
@@ -464,11 +694,10 @@ export function appendColumnsAndSegments(
 	snapshot: GraphLayoutSnapshot;
 } {
 	const prior = snapshot as unknown as InternalLayoutSnapshot;
+	// The clone drops all pass-local scratch, so appended (older) rows carry no preferences and simply claim
+	// the lowest free column. The bound/min rules read only cloned reservation state, so a full recompute and
+	// an append still agree — see the append-equivalence tests.
 	const state = cloneLayoutState(prior.state);
-	// Appended (older) rows can't displace anything above — drop the sticky-preference state so new
-	// deep lanes claim compactly instead of parking above the preferred range.
-	state.preferredColumns = undefined;
-	state.preferredColumnFloor = 0;
 	const output: ProcessedGraphRow[] = new Array(newRows.length);
 	assignColumnsInto(state, newRows, output);
 	const nextSnapshot: InternalLayoutSnapshot = {
@@ -489,8 +718,13 @@ export function appendColumnsAndSegments(
  * `ProcessedGraphRow` with `column` set (and empty `edges`/`edgeColumnMax` placeholders
  * that the edge pass will fill in).
  *
- * Rows MUST be in topological / date-descending order — newest first. This matches
- * `git log`'s default order and is what GKC's GraphContainer assumes.
+ * Rows MUST be newest-first AND every child MUST precede its parents — `--date-order`, `--topo-order` and
+ * `--author-date-order` all guarantee this (the GitLens provider passes `--date-order`), and it is what GKC's
+ * GraphContainer assumes. Feeding a parent above its own loaded child breaks the pass: the child mints a
+ * reservation for an already-placed commit that nothing ever consumes, and it surfaces in `unloadedColumns`
+ * as a dangling lane for a commit that is very much loaded. Consumers that feed those columns back as
+ * `preferredColumns` must let a real row's column win the tie (see `gl-lit-graph`'s `recomputeRows`), or that
+ * phantom ratchets the lane space by one on every update.
  */
 export function computeColumns(
 	rows: readonly GraphRow[],
@@ -522,13 +756,6 @@ export function computeColumnsAndSegments(
 	// Resume token to continue this pass over freshly-paged rows via `appendColumnsAndSegments`. Valid
 	// only for the unpinned case (an append can't retro-extend pinned chains); ignore it when pinned.
 	snapshot: GraphLayoutSnapshot;
-	/**
-	 * First column at/above which lanes were PARKED rather than preference-placed (0 = no preferences,
-	 * nothing parked). Callers building next-run preferences from this run's output must exclude
-	 * columns ≥ this floor — feeding parked columns back as preferences ratchets the floor upward on
-	 * every run. Parked lanes re-park deterministically instead (same conflicts, same claim order).
-	 */
-	preferredColumnFloor: number;
 } {
 	// `pinnedShas` is the ORDERED list of branch heads to pin to successive columns (0, 1, 2, …); expand
 	// it to a per-commit column map (each head's first-parent chain; shared ancestors keep the lower lane).
@@ -545,24 +772,48 @@ export function computeColumnsAndSegments(
 	// drag the entire chain (e.g. the trunk) there, shifting every row below.
 	let preferredColumns = options?.preferredColumns;
 	if (preferredColumns != null && preferredColumns.size > 0) {
-		const effective = new Map(preferredColumns);
+		// Copy-on-first-write: a relayout of an unchanged graph has a preference for every row already, so
+		// eagerly copying the map (n string-keyed entries — a third of the whole pass at 100k rows) buys
+		// nothing. Take the copy only when a brand-new sha actually inherits something.
+		let effective: Map<Sha, number> | undefined;
+		let current: ReadonlyMap<Sha, number> = preferredColumns;
 		for (let i = rows.length - 1; i >= 0; i--) {
 			const row = rows[i];
-			if (effective.has(row.sha)) continue;
+			if (current.has(row.sha)) continue;
 
 			const firstParent = row.parents[0];
 			if (firstParent == null) continue;
 
-			const inherited = effective.get(firstParent);
-			if (inherited !== undefined) {
-				effective.set(row.sha, inherited);
+			const inherited = current.get(firstParent);
+			if (inherited === undefined) continue;
+
+			if (effective === undefined) {
+				effective = new Map(preferredColumns);
+				current = effective;
 			}
+			effective.set(row.sha, inherited);
 		}
-		preferredColumns = effective;
+		if (effective !== undefined) {
+			preferredColumns = effective;
+		}
 	}
 	const state = createState(pinnedColumns, pinnedColumnCount, preferredColumns);
+
+	// Preference-less runs (a cold open, every paging append) get no factory at all: with nothing to
+	// reproduce, their claims already take the lowest free column, so the scratch could not change an outcome.
+	if (preferredColumns != null && preferredColumns.size > 0) {
+		state.scratchFactory = makeScratchFactory(rows, preferredColumns, pinnedColumns, pinnedColumnCount);
+	}
+
 	const output: ProcessedGraphRow[] = new Array(rows.length);
 	assignColumnsInto(state, rows, output);
+	// Pass-local state — dropped before the snapshot below retains THIS state object (it is not cloned), or
+	// the resume token would pin the n-entry maps (and the factory's closure over `rows`) for the lifetime of
+	// the loaded graph.
+	state.preferredColumns = undefined;
+	state.scratchFactory = undefined;
+	state.scratch = undefined;
+	state.currentRow = 0;
 
 	// Snapshot the state BEFORE finalization (which is a pure derivation, so the shared state stays a
 	// valid pre-drain resume point). See the append-equivalence tests for the correctness guarantee.
@@ -578,6 +829,5 @@ export function computeColumnsAndSegments(
 		segments: segments,
 		unloadedColumns: unloadedColumns,
 		snapshot: snapshot as unknown as GraphLayoutSnapshot,
-		preferredColumnFloor: state.preferredColumnFloor,
 	};
 }

@@ -28,9 +28,6 @@ interface InternalProcessResume {
 	lastEdges: RowEdges;
 	priorRows: ProcessedGraphRow[];
 	commitCount: number;
-	// Parked-lane floor of the last FULL run — appends never park, but the prefix still holds that
-	// run's parked rows, so the floor must survive append cycles for the caller's pref filtering.
-	preferredColumnFloor: number;
 }
 
 function commitToGraphRow(commit: GraphCommit): GraphRow {
@@ -106,12 +103,6 @@ export function processCommitsAndSegments(
 	resume: GraphProcessResume;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
 	reconciled?: ReconciledSuffix;
-	/**
-	 * First column at/above which this run PARKED lanes (0 = none). Exclude columns ≥ this floor
-	 * when building the next run's `preferredColumns` from this run's output — feeding parked
-	 * columns back ratchets the lane space upward on every update (see `computeColumnsAndSegments`).
-	 */
-	preferredColumnFloor: number;
 } {
 	// Incremental append: continue from the prior snapshot when this call is a pure APPEND of the SAME
 	// prefix (older commits added at the bottom), with no pinned lanes and no scope (synthetic edges) —
@@ -144,14 +135,12 @@ export function processCommitsAndSegments(
 			lastEdges: lastEdges,
 			priorRows: allRows,
 			commitCount: commits.length,
-			preferredColumnFloor: resume.preferredColumnFloor ?? 0,
 		};
 		return {
 			rows: allRows,
 			segments: segments,
 			unloadedColumns: unloadedColumns,
 			resume: nextResume as unknown as GraphProcessResume,
-			preferredColumnFloor: resume.preferredColumnFloor ?? 0,
 		};
 	}
 
@@ -161,7 +150,6 @@ export function processCommitsAndSegments(
 		segments,
 		unloadedColumns,
 		snapshot,
-		preferredColumnFloor,
 	} = computeColumnsAndSegments(rows, {
 		pinnedShas: options?.pinnedShas,
 		preferredColumns: options?.preferredColumns,
@@ -204,7 +192,6 @@ export function processCommitsAndSegments(
 		lastEdges: processed.at(-1)?.edges ?? {},
 		priorRows: processed,
 		commitCount: commits.length,
-		preferredColumnFloor: preferredColumnFloor,
 	};
 	// Surface `unloadedColumns` so the lane-collapse / scope re-pass (which re-runs `computeEdges` over the
 	// filtered rows) can re-thread it — otherwise the dangling stub vanishes the moment any lane folds.
@@ -214,6 +201,5 @@ export function processCommitsAndSegments(
 		unloadedColumns: unloadedColumns,
 		resume: nextResume as unknown as GraphProcessResume,
 		reconciled: reconciled,
-		preferredColumnFloor: preferredColumnFloor,
 	};
 }
