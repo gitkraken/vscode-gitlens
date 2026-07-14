@@ -18,6 +18,8 @@ import type {
 	ColumnNumberBySha,
 	CssVariables,
 	GraphAvatars,
+	GraphColumnsSettings,
+	GraphContexts,
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
@@ -30,6 +32,7 @@ import type {
 	ReadonlyGraphRow,
 	RowAction,
 	SelectCommitsOptions,
+	SerializedGraphItemContext,
 } from '../../../../plus/graph/protocol.js';
 import {
 	createSecondaryWipSha,
@@ -311,6 +314,12 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  when the anchor row isn't renderable (scope/visibility filter-out), and the details persist. */
 	@property({ attribute: false })
 	anchorShas?: readonly string[];
+
+	/** Whether the graph view is narrow, driven by graph-app's width-based detection (independent of
+	 *  where the details panel is pinned). When true, the wrapper overrides columns to use compact
+	 *  graph nodes and hide the SHA column so the limited horizontal space is used effectively. */
+	@property({ attribute: false, type: Boolean })
+	narrow = false;
 
 	// Derived-highlight bookkeeping (see `getSelectedRowsProp`):
 	// - `_lastDerivedHighlight`: the anchor's projected highlight from the last render — the basis the
@@ -899,6 +908,96 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return projectShasToSelectedRows(Object.keys(pending), present, showPrimary) ?? derived;
 	}
 
+	/** Whether the graph view is narrow (width-driven, set by graph-app; independent of details-panel placement). */
+	private get isNarrowLayout(): boolean {
+		return this.narrow;
+	}
+
+	// Identity-stable cache — avoids creating a new columns object every render when the inputs
+	// (narrow flag + host columns) haven't changed, which would otherwise churn the graph
+	// component's prop diff and trigger unnecessary column ↔ zone recomputation.
+	private _effectiveColumnsCache?: {
+		narrow: boolean;
+		source: GraphColumnsSettings | undefined;
+		result: GraphColumnsSettings | undefined;
+	};
+
+	/** Returns the columns to pass to the graph component. In narrow layout, overrides the graph
+	 *  column to compact mode and hides the SHA and Changes columns so the limited horizontal space
+	 *  is used effectively. Returns the original columns unchanged in wide layout. */
+	private get effectiveColumns(): GraphColumnsSettings | undefined {
+		const columns = this.graphState.columns;
+		const narrow = this.isNarrowLayout;
+
+		// Fast-path: return the cached result when inputs haven't changed.
+		const cache = this._effectiveColumnsCache;
+		if (cache?.narrow === narrow && cache.source === columns) {
+			return cache.result;
+		}
+
+		let result = columns;
+		if (narrow && columns != null) {
+			const graphCol = columns.graph;
+			const shaCol = columns.sha;
+			const changesCol = columns.changes;
+			// Only allocate a new object when an override actually changes something.
+			const needsGraphCompact = graphCol != null && graphCol.mode !== 'compact';
+			const needsShaHidden = shaCol != null && !shaCol.isHidden;
+			const needsChangesHidden = changesCol != null && !changesCol.isHidden;
+			if (needsGraphCompact || needsShaHidden || needsChangesHidden) {
+				result = { ...columns };
+				if (needsGraphCompact) {
+					result.graph = { ...graphCol, mode: 'compact' };
+				}
+				if (needsShaHidden) {
+					result.sha = { ...shaCol, isHidden: true };
+				}
+				if (needsChangesHidden) {
+					result.changes = { ...changesCol, isHidden: true };
+				}
+			}
+		}
+
+		this._effectiveColumnsCache = { narrow: narrow, source: columns, result: result };
+		return result;
+	}
+
+	// Identity-stable cache for the narrow-transformed context (see `effectiveGraphContext`) — the
+	// React engine ingests `context` by reference (`props.context !== context`), so returning a fresh
+	// object every render would churn its state.
+	private _effectiveContextCache?: {
+		narrow: boolean;
+		source: GraphContexts | undefined;
+		result: GraphContexts | undefined;
+	};
+
+	/** Returns the `data-vscode-context` payloads to stamp on the column header and settings gear.
+	 *  When narrow, rewrites the host-computed tokens so the column context menus reflect the
+	 *  effective (overridden) state and get disabled: managed columns read as hidden/compact, and a
+	 *  `columns:narrow` token is appended, which the managed commands' `enablement` clauses key off
+	 *  (see `contributions.json`) to gray them and surface the "auto-managed" info line. */
+	private get effectiveGraphContext(): GraphContexts | undefined {
+		const context = this.graphState.context;
+		const narrow = this.isNarrowLayout;
+
+		const cache = this._effectiveContextCache;
+		if (cache?.narrow === narrow && cache.source === context) {
+			return cache.result;
+		}
+
+		let result = context;
+		if (narrow && context != null) {
+			result = {
+				...context,
+				header: transformColumnContextForNarrow(context.header),
+				settings: transformColumnContextForNarrow(context.settings),
+			};
+		}
+
+		this._effectiveContextCache = { narrow: narrow, source: context, result: result };
+		return result;
+	}
+
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary } = this.getDecoratedRows();
@@ -919,10 +1018,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.searchMode=${graphState.searchMode}
 				.config=${graphState.config}
 				.downstreams=${graphState.downstreams}
-				.columns=${graphState.columns}
+				.columns=${this.effectiveColumns}
 				.repoPath=${this.getRepoPath()}
-				.columnsContext=${graphState.context?.header}
-				.settingsContext=${graphState.context?.settings}
+				.columnsContext=${this.effectiveGraphContext?.header}
+				.settingsContext=${this.effectiveGraphContext?.settings}
 				.excludeRefs=${graphState.excludeRefs}
 				.excludeTypes=${graphState.excludeTypes}
 				.includeOnlyRefs=${graphState.includeOnlyRefs}
@@ -984,9 +1083,9 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.activeFilterColumns=${graphState.activeFilterColumns}
 			.activeRow=${graphState.activeRow}
 			.avatars=${graphState.avatars}
-			.columns=${graphState.columns}
+			.columns=${this.effectiveColumns}
 			.config=${graphState.config}
-			.context=${graphState.context}
+			.context=${this.effectiveGraphContext}
 			.downstreams=${graphState.downstreams}
 			.excludeRefs=${graphState.excludeRefs}
 			.excludeTypes=${graphState.excludeTypes}
@@ -1309,7 +1408,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
-		this._ipc.sendCommand(UpdateColumnsCommand, { config: event.detail.settings });
+		let config = event.detail.settings;
+		// When narrow, the wrapper overrides graph.mode → 'compact' and sha/changes.isHidden → true.
+		// Strip those overrides before persisting so the user's wide-mode preferences are preserved.
+		if (this.isNarrowLayout) {
+			const columns = this.graphState.columns;
+			config = { ...config };
+			if (columns?.graph?.mode !== 'compact' && config.graph != null) {
+				config.graph = { ...config.graph, mode: columns?.graph?.mode };
+			}
+			if (columns?.sha?.isHidden !== true && config.sha != null) {
+				config.sha = { ...config.sha, isHidden: columns?.sha?.isHidden };
+			}
+			if (columns?.changes?.isHidden !== true && config.changes != null) {
+				config.changes = { ...config.changes, isHidden: columns?.changes?.isHidden };
+			}
+		}
+		this._ipc.sendCommand(UpdateColumnsCommand, { config: config });
 	}
 
 	private onGetMoreRows({ detail: sha }: CustomEventType<'graph-morerows'>) {
@@ -2290,6 +2405,34 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 /** Builds a `{ sha: true }` highlight record from `shas`, keeping only those that render: a sha present
  *  in the decorated rows (`present`), or the primary WIP row when `showPrimary` (the GK auto-injects it,
  *  so it's not always in `present`). Returns `undefined` when nothing survives — the empty-highlight case. */
+/** Rewrites a serialized column-context payload (see the host's `getColumnHeaderContext`) for the
+ *  narrow layout: the managed columns' tokens are rewritten to their effective overridden state
+ *  (SHA/Changes read as hidden, the graph column as compact) so the context menu mirrors what's on
+ *  screen, and a `columns:narrow` token is appended, which the managed toggle commands' `enablement`
+ *  clauses use to disable themselves (and the "auto-managed" info line uses to appear). */
+function transformColumnContextForNarrow(
+	serialized: SerializedGraphItemContext | undefined,
+): SerializedGraphItemContext | undefined {
+	// The host always serializes these to a JSON string (`serializeWebviewItemContext`); pass any
+	// other shape through untouched.
+	if (!serialized || typeof serialized !== 'string') return serialized;
+
+	try {
+		const context = JSON.parse(serialized) as { webviewItemValue?: unknown };
+		if (typeof context.webviewItemValue !== 'string') return serialized;
+
+		context.webviewItemValue = `${context.webviewItemValue
+			.replace(/\bcolumn:sha:visible\b/, 'column:sha:hidden')
+			.replace(/\bcolumn:changes:visible\b/, 'column:changes:hidden')
+			.replace(/\bcolumn:graph:visible(\+[^,]*)?/, 'column:graph:visible+compact')},columns:narrow`;
+		return JSON.stringify(context);
+	} catch {
+		// A malformed payload just keeps the host-provided context — worst case the menu shows the
+		// stored (unmanaged) state, which is the pre-existing behavior.
+		return serialized;
+	}
+}
+
 function projectShasToSelectedRows(
 	shas: readonly string[] | undefined,
 	present: ReadonlySet<string> | undefined,

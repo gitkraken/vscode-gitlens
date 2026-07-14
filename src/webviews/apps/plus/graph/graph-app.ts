@@ -2010,6 +2010,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					: nothing}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
+					.narrow=${this.isGraphViewNarrow}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
@@ -2172,6 +2173,15 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	get effectiveDetailsLocation(): 'right' | 'bottom' {
 		const configured = this.graphState.config?.detailsLocation ?? 'auto';
 		return configured === 'auto' ? this._autoEffectiveLocation : configured;
+	}
+
+	/** Whether the graph view is horizontally narrow — drives the graph-wrapper's compact-column /
+	 *  hidden-SHA overrides. Keyed off the width-driven `_autoEffectiveLocation`, which is tracked from
+	 *  the overall graph-view width (with hysteresis) regardless of where the details panel is pinned —
+	 *  so an explicit details-on-bottom pin on a wide editor is NOT treated as narrow, and a genuinely
+	 *  narrow view IS, whatever the pin. Reuses the same width breakpoint as the `auto` details decision. */
+	private get isGraphViewNarrow(): boolean {
+		return this._autoEffectiveLocation === 'bottom';
 	}
 
 	private get detailsPositionKey(): 'position' | 'bottomPosition' {

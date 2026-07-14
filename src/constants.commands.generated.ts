@@ -164,6 +164,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.columnRefOn'
 	| 'gitlens.graph.columnShaOff'
 	| 'gitlens.graph.columnShaOn'
+	| 'gitlens.graph.columnsNarrowInfo'
 	| 'gitlens.graph.compareAncestryWithWorking'
 	| 'gitlens.graph.compareBranchWithHead'
 	| 'gitlens.graph.compareSelectedCommits.multi'

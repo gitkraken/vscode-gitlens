@@ -3016,7 +3016,7 @@
 		},
 		"gitlens.graph.columnChangesOff": {
 			"label": "Hide Changes Column",
-			"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/",
+			"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/ && !(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
@@ -3029,6 +3029,7 @@
 		},
 		"gitlens.graph.columnChangesOn": {
 			"label": "Show Changes Column",
+			"enablement": "!(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
@@ -3066,6 +3067,7 @@
 		},
 		"gitlens.graph.columnGraphCompact": {
 			"label": "Use Compact Graph Column",
+			"enablement": "!(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
@@ -3078,6 +3080,7 @@
 		},
 		"gitlens.graph.columnGraphDefault": {
 			"label": "Use Expanded Graph Column",
+			"enablement": "!(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
@@ -3165,7 +3168,7 @@
 		},
 		"gitlens.graph.columnShaOff": {
 			"label": "Hide SHA Column",
-			"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/",
+			"enablement": "webviewItemValue =~ /\\bcolumns:canHide\\b/ && !(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
@@ -3178,12 +3181,26 @@
 		},
 		"gitlens.graph.columnShaOn": {
 			"label": "Show SHA Column",
+			"enablement": "!(webviewItemValue =~ /\\bcolumns:narrow\\b/)",
 			"menus": {
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumn:sha:hidden\\b/",
 						"group": "1_columns",
 						"order": 7
+					}
+				]
+			}
+		},
+		"gitlens.graph.columnsNarrowInfo": {
+			"label": "Some Options Return When the Graph Is Wider",
+			"enablement": "false",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && webviewItemValue =~ /\\bcolumns:narrow\\b/",
+						"group": "1_columns",
+						"order": 0
 					}
 				]
 			}
