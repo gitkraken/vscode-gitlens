@@ -459,6 +459,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
+	/** Show the one-time layout-choice prompt (view host only, until `graph:layoutPrompt` is dismissed) */
+	layoutPromptNeeded?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
@@ -1429,6 +1431,16 @@ export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
 	scope,
 	'graphWalkthrough/started/didChange',
 );
+
+/** The user's answer to the one-time layout prompt: move the Graph view to the side bar
+ *  (vertical), keep/move it to the bottom panel (full width), or close without choosing. */
+export interface ChooseGraphLayoutParams {
+	choice: 'sidebar' | 'panel' | 'dismissed';
+}
+export const ChooseGraphLayoutCommand = new IpcCommand<ChooseGraphLayoutParams>(scope, 'layoutPrompt/choose');
+
+/** Pushed when the `graph:layoutPrompt` onboarding state changes (e.g. dismissed in another window) */
+export const DidChangeLayoutPromptNotification = new IpcNotification<boolean>(scope, 'layoutPrompt/didChange');
 
 export interface DidRequestActiveSidebarPanelParams {
 	panel: GraphSidebarPanel;

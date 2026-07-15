@@ -31,6 +31,7 @@ import type {
 	VisualizationMode,
 } from '../../../plus/graph/protocol.js';
 import {
+	ChooseGraphLayoutCommand,
 	createSecondaryWipSha,
 	createWipSha,
 	EnableChangesColumnCommand,
@@ -67,6 +68,7 @@ import '../shared/components/account-bar.js';
 import { emitTelemetrySentEvent } from '../../shared/telemetry.js';
 import type { GlGraphDetailsPanel } from './components/gl-graph-details-panel.js';
 import type { GlGraphKeyboardShortcuts } from './components/gl-graph-keyboard-shortcuts.js';
+import type { GraphLayoutPromptChoiceEventDetail } from './components/gl-graph-layout-prompt.js';
 import type {
 	GlGraphTimelineCommitSelectDetail,
 	GlGraphTimelineConfigChangeDetail,
@@ -113,6 +115,7 @@ import '../../shared/components/overlays/drag-shift-overlay.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
+import './components/gl-graph-layout-prompt.js';
 import './components/gl-graph-wip-bar.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
@@ -1497,6 +1500,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// fire again after sign-in.
 		this.ensureGraphObserved();
 
+		if (this.shouldShowLayoutPrompt && !this._layoutPromptShownReported) {
+			this._layoutPromptShownReported = true;
+			emitTelemetrySentEvent<'graph/layoutPrompt/shown'>(this, { name: 'graph/layoutPrompt/shown', data: {} });
+		}
+
 		// Start the Launchpad pipeline once `services` first resolves. `services` is a `@consume`d
 		// context value (not a reactive property), so it won't appear in `changedProperties` — guard
 		// with a one-shot flag instead.
@@ -1899,6 +1907,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				${displayMode === 'kanban'
 					? html`<div class="graph__graph-content">${this.renderKanbanMain()}</div>`
 					: nothing}
+				${when(
+					this.shouldShowLayoutPrompt,
+					// Living inside the graph subtree means the no-repo empty state skips the prompt —
+					// deliberate: asking where the Graph should live is noise without a repo to show,
+					// and the prompt is one-shot on ANSWER (not on show), so it simply defers until a
+					// repository is open.
+					() =>
+						html`<gl-graph-layout-prompt
+							@gl-graph-layout-choice=${this.handleLayoutPromptChoice}
+						></gl-graph-layout-prompt>`,
+				)}
 			</div>
 		`;
 	}
@@ -2625,6 +2644,34 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		// `renderGraphPaneContent` short-circuits the sidebar split when `displayMode !== 'graph'`, so
 		// the user's `sidebarVisible` setting is preserved automatically and restored on return.
 		this.persistState();
+	};
+
+	/** One-shot guard: `shown` telemetry per webview session, not per mount — the `when()` gate
+	 *  can unmount/remount the prompt (e.g. an onboarding reset re-shows the walkthrough banner
+	 *  mid-prompt), and a remount must not mint a second impression. */
+	private _layoutPromptShownReported = false;
+
+	private get shouldShowLayoutPrompt(): boolean {
+		return (
+			(this.graphState.layoutPromptNeeded ?? false) &&
+			// Don't compete with the graph walkthrough popover on first entry — hold the layout
+			// prompt until that banner is dismissed, completed, or STARTED ("See what's new" tracks
+			// started without dismissing the banner, and the header only force-opens the popover
+			// while not started — so a started walkthrough isn't visually competing). Re-renders
+			// reactively as the walkthrough notifications land.
+			((this.graphState.graphWalkthroughBannerCollapsed ?? true) ||
+				(this.graphState.graphWalkthroughComplete ?? false) ||
+				(this.graphState.graphWalkthroughStarted ?? false))
+		);
+	}
+
+	private handleLayoutPromptChoice = (e: CustomEvent<GraphLayoutPromptChoiceEventDetail>): void => {
+		// Optimistic unmount — the prompt has already closed its native dialog, but without this
+		// it would stay mounted until the host echoes `DidChangeLayoutPromptNotification`.
+		// `layoutPromptNeeded` is a plain (non-signal) property, so trigger the re-render manually.
+		this.graphState.layoutPromptNeeded = false;
+		this.requestUpdate();
+		this._ipc.sendCommand(ChooseGraphLayoutCommand, { choice: e.detail.choice });
 	};
 
 	private handleTimelineCommitSelect = (e: CustomEvent<GlGraphTimelineCommitSelectDetail>): void => {
