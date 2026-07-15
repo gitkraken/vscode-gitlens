@@ -68,12 +68,17 @@ suite('engine/layout computeColumns', () => {
 });
 
 suite('engine/layout sticky columns', () => {
-	// Re-run `rows` seeded with the prior run's columns, exactly as the renderer does on a rows update.
+	// Re-run `rows` seeded with the prior run's columns, exactly as the renderer does on a rows update:
+	// below-window stubs first, then real rows — so a row's own column always wins the tie (see
+	// `gl-lit-graph`'s `recomputeRows`).
 	function relayout(prior: readonly GraphRow[], next: readonly GraphRow[]) {
 		const first = computeColumnsAndSegments(prior);
-		const preferred = new Map<Sha, number>(first.rows.map(r => [r.sha, r.column]));
+		const preferred = new Map<Sha, number>();
 		for (const [sha, column] of first.unloadedColumns) {
 			preferred.set(sha, column);
+		}
+		for (const r of first.rows) {
+			preferred.set(r.sha, r.column);
 		}
 
 		const second = computeColumnsAndSegments(next, { preferredColumns: preferred });
@@ -140,6 +145,63 @@ suite('engine/layout sticky columns', () => {
 		]);
 		const by = new Map(rows.map(r => [r.sha, r.column]));
 		assert.strictEqual(by.get('W'), by.get('B'), 'the WIP row and its anchor share one lane');
+	});
+
+	// INHERITANCE SANITY. Nothing asserted this, and that blind spot let a candidate fix that bent the trunk
+	// onto a fresh lane on EVERY new commit pass the entire suite. A layout that simply never inherits scores
+	// perfectly on eviction, width and fixpoint — these are the tests that tell those two apart. The
+	// "uncontended" qualifier is load-bearing: declining to inherit is CORRECT when something already owns
+	// the lane across the span the new row would occupy.
+	test('a new commit on an uncontended trunk lands on the trunk lane', () => {
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', [])];
+		const { before, after } = relayout(prior, [row('N', ['T0']), ...prior]);
+
+		assert.strictEqual(before.get('T0'), 0, 'fixture: the trunk owns column 0');
+		assert.strictEqual(after.get('N'), 0, 'the new commit must continue the trunk lane, not bend off it');
+		for (const sha of ['T0', 'T1', 'T2']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+	});
+
+	test('every commit of an uncontended fetched branch lands on the branch lane', () => {
+		// Multi-commit branch: the whole chain inherits, so a single-parent release row is not enough to
+		// reason about it. All three must end up on one lane, and the trunk must not move.
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', [])];
+		const next = [row('F1', ['F2']), row('F2', ['F3']), row('F3', ['T1']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		assert.strictEqual(after.get('F1'), after.get('F2'), 'the branch must occupy ONE lane');
+		assert.strictEqual(after.get('F2'), after.get('F3'), 'the branch must occupy ONE lane');
+		for (const sha of ['T0', 'T1', 'T2']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} left the trunk lane`);
+		}
+	});
+
+	test('a new tip does not inherit a lane that is occupied where it would sit', () => {
+		// C9 is a childless stash tip, so FEAT may legitimately continue its lane — EXCEPT that C7 also owns
+		// that column and sits inside the span FEAT's lane would cover. Inheriting is only a guess that the
+		// parent's lane is still free where the new row lands; here it isn't, and taking it anyway evicted C7.
+		const prior = [row('T0', ['C8']), row('C7', ['C8', 'U0'], 'merge'), row('C8', ['U0']), row('C9', [], 'stash')];
+		const { before, after } = relayout(prior, [row('FEAT', ['C9']), ...prior]);
+
+		assert.strictEqual(before.get('C7'), 1, 'fixture: C7 owns column 1');
+		assert.strictEqual(before.get('C9'), 1, 'fixture: C9 owns column 1 too — its lane is disjoint from C7s');
+
+		assert.strictEqual(after.get('C7'), 1, 'C7 kept its lane');
+		assert.notStrictEqual(after.get('FEAT'), 1, 'FEAT must take a fresh lane, not camp on C7s');
+	});
+
+	test('a force-pushed tip does not evict the lane it lands beside', () => {
+		// A row whose children ALL decline to reserve it (the no-drag rule) gets no reservation and
+		// fresh-claims after all — so it consults its preference. `makeScratchFactory` must register it as a
+		// need, or a fallback claim camps on its column and evicts everything below it.
+		const prior = [row('T', ['M']), row('S', ['M']), row('M', ['A']), row('A', ['B']), row('B', [])];
+		const next = [row('FP', ['A']), ...prior.filter(r => r.sha !== 'T')];
+		const { before, after } = relayout(prior, next);
+
+		for (const sha of ['S', 'M', 'A', 'B']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} was evicted from its lane`);
+		}
 	});
 
 	test('a cold run still lets a claim pull its parent chain onto a lower lane', () => {

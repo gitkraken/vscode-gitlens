@@ -120,11 +120,12 @@ interface LayoutScratch {
  *
  *  • `rowIndexBySha` — resolves a bounded lane's RELEASE ROW (where its column frees).
  *  • `pendingNeeds` — the preference claims still ahead of the pass, so a fallback claim can take a low free
- *    column without stealing one a known sha is going to want. Only two kinds of sha ever consult a
- *    preference (i.e. reach {@link claimNextColumn}): a window TIP — nothing above it named it as a parent,
- *    so no child reserved its column — and an ADDITIONAL (index > 0) parent of a merge, which claims at the
- *    MERGE's row. Every other column comes from a reservation or a pinned column, and every reservation's
- *    column originates in an earlier claim, so those two sets are complete.
+ *    column without stealing one a known sha is going to want. EVERY owned row is registered, plus every
+ *    additional (index > 0) merge parent. It is tempting to register only window tips instead — a row with a
+ *    child gets its column from that child's RESERVATION, so it never consults its preference — but the
+ *    no-drag rule in `assignColumnForRow` breaks that: a row whose children ALL decline to reserve it ends
+ *    up with no reservation and fresh-claims after all. Registering every row is simply correct, and it only
+ *    TIGHTENS the guard: a row that does get reserved has its need consumed at reservation time.
  *
  * Neither is read unless a claim FALLS THROUGH to the column scan, and on a relayout of a mostly-unchanged
  * graph almost every claim lands on its preference instead. So we hand the state a factory and build on
@@ -132,23 +133,13 @@ interface LayoutScratch {
  */
 function makeScratchFactory(
 	rows: readonly GraphRow[],
+	getRowIndex: () => Map<Sha, number>,
 	preferredColumns: ReadonlyMap<Sha, number>,
 	pinnedColumns: ReadonlyMap<Sha, number>,
 	pinnedColumnCount: number,
 ): (state: LayoutState) => LayoutScratch {
 	return (state: LayoutState): LayoutScratch => {
-		// One walk for both: the row index, plus the set of shas some row names as a parent — those get a
-		// RESERVATION rather than a claim, so they never consult a preference.
-		const rowIndexBySha = new Map<Sha, number>();
-		const hasChild = new Set<Sha>();
-		for (let i = 0; i < rows.length; i++) {
-			const row = rows[i];
-			rowIndexBySha.set(row.sha, i);
-			for (const parent of row.parents) {
-				hasChild.add(parent);
-			}
-		}
-
+		const rowIndexBySha = getRowIndex();
 		const bySha = new Map<Sha, PendingNeed>();
 		const byColumn: (NeedQueue | undefined)[] = [];
 		let pending = 0;
@@ -177,13 +168,10 @@ function makeScratchFactory(
 			}
 		};
 
-		// Separate walk — `hasChild` is only final once the first one finishes. Row order in, so each column's
-		// queue comes out ascending by row: no sort needed.
+		// Row order in, so each column's queue comes out ascending by row: no sort needed.
 		for (let i = 0; i < rows.length; i++) {
 			const row = rows[i];
-			if (!hasChild.has(row.sha)) {
-				add(row.sha, i);
-			}
+			add(row.sha, i);
 
 			for (let index = 1; index < row.parents.length; index++) {
 				add(row.parents[index], i);
@@ -195,20 +183,57 @@ function makeScratchFactory(
 }
 
 /**
- * Parents whose lane is already continued by a child that OWNS a prior column — so it is not up for grabs
- * by a brand-new row hanging off the same parent. Only ever built when some row lacks a preference (i.e. the
- * graph actually changed), so a steady-state relayout skips it.
+ * Which rows OWN each column — per column, the ascending row indexes of rows that sat on it in the prior
+ * layout. Lets the inheritance pass ask "is this lane already taken where the new row would sit?".
+ *
+ * Deliberately owner-ROWS, not true lane occupancy: pass-through lanes can't be derived from prior columns
+ * alone. That is enough — inheritance only hands out a PREFERENCE, so a grant that turns out to overlap a
+ * pass-through is caught by `columnsUsed` at claim time and degrades to a plain fallback. Built only when
+ * some row lacks a preference (i.e. the graph changed), so a steady-state relayout never pays for it.
  */
-function computeSpokenForLanes(rows: readonly GraphRow[], preferredColumns: ReadonlyMap<Sha, number>): Set<Sha> {
-	const spokenFor = new Set<Sha>();
-	for (const row of rows) {
-		const firstParent = row.parents[0];
-		if (firstParent != null && preferredColumns.has(row.sha)) {
-			spokenFor.add(firstParent);
+class OwnedLanes {
+	private readonly byColumn: number[][] = [];
+
+	constructor(rows: readonly GraphRow[], ownedColumns: ReadonlyMap<Sha, number>) {
+		// Ascending by construction — rows are walked in order.
+		for (let i = 0; i < rows.length; i++) {
+			const column = ownedColumns.get(rows[i].sha);
+			if (column === undefined) continue;
+
+			(this.byColumn[column] ??= []).push(i);
 		}
 	}
 
-	return spokenFor;
+	/** True when a row owning `column` sits in `[from, to)`. */
+	occupied(column: number, from: number, to: number): boolean {
+		const owners = this.byColumn[column];
+		if (owners === undefined) return false;
+
+		const at = lowerBound(owners, from);
+		return at < owners.length && owners[at] < to;
+	}
+
+	/** Record a freshly-granted row, so the next link of a new chain sees the lane it just took. */
+	add(column: number, index: number): void {
+		const owners = (this.byColumn[column] ??= []);
+		owners.splice(lowerBound(owners, index), 0, index);
+	}
+}
+
+/** Index of the first entry `>= value` in an ascending array. */
+function lowerBound(values: readonly number[], value: number): number {
+	let low = 0;
+	let high = values.length;
+	while (low < high) {
+		const mid = (low + high) >> 1;
+		if (values[mid] < value) {
+			low = mid + 1;
+		} else {
+			high = mid;
+		}
+	}
+
+	return low;
 }
 
 /** The scratch, built on first use. `undefined` when the run has no preferences to protect. */
@@ -819,14 +844,32 @@ export function computeColumnsAndSegments(
 	// first): a brand-new tip has no preference of its own, but its chain continues an existing
 	// lane — without inheritance the tip parks on a fresh lane and its first-parent RESERVATIONS
 	// drag the entire chain (e.g. the trunk) there, shifting every row below.
+	// Memoized and SHARED with the scratch factory below — a relayout of an unchanged graph needs neither,
+	// so neither is built.
+	let rowIndexBySha: Map<Sha, number> | undefined;
+	const getRowIndex = (): Map<Sha, number> => {
+		if (rowIndexBySha === undefined) {
+			rowIndexBySha = new Map<Sha, number>();
+			for (let i = 0; i < rows.length; i++) {
+				rowIndexBySha.set(rows[i].sha, i);
+			}
+		}
+
+		return rowIndexBySha;
+	};
+
 	let preferredColumns = options?.preferredColumns;
 	if (preferredColumns != null && preferredColumns.size > 0) {
+		const owned = preferredColumns;
+		let lanes: OwnedLanes | undefined;
+
 		// Copy-on-first-write: a relayout of an unchanged graph has a preference for every row already, so
 		// eagerly copying the map (n string-keyed entries — a third of the whole pass at 100k rows) buys
-		// nothing. Take the copy only when a brand-new sha actually inherits something. `spokenFor` is built
-		// on the same terms — a steady-state relayout never reaches it.
+		// nothing. Take the copy only when a brand-new sha actually inherits something.
+		//
+		// Bottom-up (parents resolve first), so a chain of brand-new commits inherits link by link and each
+		// link sees the lane its predecessor just took — no chain walk needed here.
 		let effective: Map<Sha, number> | undefined;
-		let spokenFor: ReadonlySet<Sha> | undefined;
 		let current: ReadonlyMap<Sha, number> = preferredColumns;
 		for (let i = rows.length - 1; i >= 0; i--) {
 			const row = rows[i];
@@ -835,21 +878,24 @@ export function computeColumnsAndSegments(
 			const firstParent = row.parents[0];
 			if (firstParent == null) continue;
 
-			// Only ONE row can continue a lane. If a child that already OWNS a prior column continues this
-			// parent, the lane is spoken for and a brand-new row hanging off the same parent must NOT inherit
-			// it — a fetched branch tip forking off the trunk would otherwise "prefer" the trunk's own column,
-			// win it (it sorts newest, so it claims first), and evict the trunk onto a far-right lane.
-			spokenFor ??= computeSpokenForLanes(rows, preferredColumns);
-			if (spokenFor.has(firstParent)) continue;
-
 			const inherited = current.get(firstParent);
 			if (inherited === undefined) continue;
+
+			// Inheriting is only a GUESS that the parent's lane is still free where this row would sit. The
+			// lane it would occupy spans its own row down to its first parent's, so grant the column only if
+			// no row that OWNS it already sits inside that span. Otherwise the new row lands on a live lane
+			// and evicts it: a fetched branch tip forking off the trunk "prefers" the trunk's own column, and
+			// (sorting newest) claims it first — which is exactly how the trunk ended up split across lanes.
+			lanes ??= new OwnedLanes(rows, owned);
+			const parentIndex = getRowIndex().get(firstParent) ?? rows.length;
+			if (lanes.occupied(inherited, i, parentIndex)) continue;
 
 			if (effective === undefined) {
 				effective = new Map(preferredColumns);
 				current = effective;
 			}
 			effective.set(row.sha, inherited);
+			lanes.add(inherited, i);
 		}
 		if (effective !== undefined) {
 			preferredColumns = effective;
@@ -860,7 +906,13 @@ export function computeColumnsAndSegments(
 	// Preference-less runs (a cold open, every paging append) get no factory at all: with nothing to
 	// reproduce, their claims already take the lowest free column, so the scratch could not change an outcome.
 	if (preferredColumns != null && preferredColumns.size > 0) {
-		state.scratchFactory = makeScratchFactory(rows, preferredColumns, pinnedColumns, pinnedColumnCount);
+		state.scratchFactory = makeScratchFactory(
+			rows,
+			getRowIndex,
+			preferredColumns,
+			pinnedColumns,
+			pinnedColumnCount,
+		);
 	}
 
 	const output: ProcessedGraphRow[] = new Array(rows.length);
