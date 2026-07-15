@@ -66,6 +66,24 @@ export class VSCodePage {
 		return this.evaluate(vscode => vscode.env.uriScheme);
 	}
 
+	/**
+	 * Whether the editor renders a standard VS Code activity bar. Some forks replace it with a
+	 * bespoke UI (e.g. Cursor's unified sidebar), which activity-bar-driven tests can't target.
+	 */
+	async hasActivityBar(): Promise<boolean> {
+		return (await this.page.locator('[id="workbench.parts.activitybar"]').count()) > 0;
+	}
+
+	/**
+	 * Execute a command only if it is registered. No-ops on editors that don't provide it
+	 * (some VS Code forks omit or rename built-in commands, e.g. Cursor lacks
+	 * `workbench.action.closeAuxiliaryBar`).
+	 */
+	async executeCommandIfAvailable<T>(command: string, ...args: any[]): Promise<T | undefined> {
+		if (!(await this.hasCommand(command))) return undefined;
+		return this.executeCommand<T>(command, ...args);
+	}
+
 	/** Check if a command is registered */
 	async hasCommand(command: string): Promise<boolean> {
 		return this.evaluate(async (vscode, command) => {

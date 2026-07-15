@@ -50,6 +50,50 @@ async function waitForGitLensActivation(evaluate: VSCodeEvaluator['evaluate'], t
 	);
 }
 
+/**
+ * Dismisses editor-specific onboarding overlays that intercept pointer events on the workbench.
+ * Kiro renders a `<kiro-sign-in-page>` shadow-DOM overlay on first launch that sits above the
+ * workbench and swallows clicks (the extension host still runs beneath it); clicking its "Skip All"
+ * button removes it. Best-effort and a no-op on editors without such an overlay (e.g. VS Code).
+ */
+async function dismissOnboardingOverlays(page: Page): Promise<void> {
+	// The overlay can appear a beat after activation, so poll briefly.
+	for (let attempt = 0; attempt < 20; attempt++) {
+		const result = await page
+			.evaluate(() => {
+				const host = document.querySelector('kiro-sign-in-page');
+				if (host == null) return 'absent';
+
+				const roots: (Element | ShadowRoot)[] = [host.shadowRoot ?? host];
+				while (roots.length) {
+					const root = roots.pop()!;
+					for (const el of Array.from(root.querySelectorAll('*'))) {
+						if (
+							(el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') &&
+							/^skip all$/i.test((el.textContent ?? '').trim())
+						) {
+							(el as HTMLElement).click();
+							return 'dismissed';
+						}
+						if (el.shadowRoot != null) roots.push(el.shadowRoot);
+					}
+				}
+				return 'pending';
+			})
+			.catch(() => 'absent' as const);
+
+		if (result === 'absent') return;
+		if (result === 'dismissed') {
+			await page
+				.locator('kiro-sign-in-page')
+				.waitFor({ state: 'detached', timeout: 5000 })
+				.catch(() => {});
+			return;
+		}
+		await new Promise(resolve => setTimeout(resolve, 250));
+	}
+}
+
 /** Xvfb display number used for headless Linux testing */
 const XVFB_DISPLAY = ':99';
 
@@ -290,6 +334,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Gate on the extension host (editor-agnostic) so this works on VS Code as well as
 			// forks like Cursor whose customized UI has no standard activity bar to key off of.
 			await waitForGitLensActivation(evaluate);
+
+			// Clear any editor onboarding overlay (e.g. Kiro's sign-in page) that would block UI clicks.
+			await dismissOnboardingOverlays(page);
 
 			// On editors with a standard activity bar, also wait for the GitLens tab to paint so
 			// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor).

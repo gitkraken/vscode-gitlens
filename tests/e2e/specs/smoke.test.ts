@@ -57,6 +57,12 @@ const test = base.extend({
 // and ensures consistent teardown/setup across the describe groups.
 test.describe.configure({ mode: 'serial' });
 
+// These smoke tests drive GitLens through the activity bar. Some VS Code forks (e.g. Cursor)
+// replace it with a bespoke UI that has no activity bar to target, so skip there.
+test.beforeEach(async ({ vscode }) => {
+	test.skip(!(await vscode.gitlens.hasActivityBar()), 'Editor has no standard activity bar (e.g. Cursor)');
+});
+
 test.describe('Smoke Tests — Core', () => {
 	test.describe.configure({ mode: 'serial' });
 	test.afterEach(async ({ vscode }) => {
