@@ -221,22 +221,27 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 	/**
 	 * Current ref tips (canonical refname → PEELED commit sha), for the R6b fast path's gate. Peeled so an
 	 * annotated tag maps to the commit its badge sits on — the same convention {@link GraphIncrementalSeed.tips}
-	 * uses — and so the seed↔current diff is by commit identity. Skips nothing; the caller filters to the
-	 * moveable ref classes it cares about.
+	 * uses — and so the seed↔current diff is by commit identity. Covers heads/remotes/tags/replace (all the
+	 * namespaces the gate consumers read); the caller filters to the ref classes it cares about.
 	 */
 	private async getCurrentRefTips(repoPath: string, cancellation?: AbortSignal): Promise<Map<string, string>> {
-		const result = await this.git.run(
-			{ cwd: repoPath, configs: gitConfigsLog, cancellation: cancellation, errors: 'ignore' },
-			'for-each-ref',
-			'--format=%(objectname) %(*objectname) %(refname)',
-		);
 		const tips = new Map<string, string>();
-		for (const line of result.stdout.split('\n')) {
-			// `<objectname> <peeled-objectname-or-empty> <refname>`; peeled is set only for annotated tags.
-			const match = /^(\S+) (\S*) (.+)$/.exec(line);
-			if (match == null) continue;
+		try {
+			// `force: true` invalidates the shared refs cache so this spawns fresh (this gate needs a
+			// point-in-time read, not a possibly-stale cached one) while ALSO repopulating that cache —
+			// one `for-each-ref` serves both this gate and any sibling `getRefs`/`getBranches`/`getTags`
+			// call racing it (they attach to the same in-flight spawn).
+			const records = await this.provider.refs.getRefs(repoPath, cancellation, { force: true });
+			for (const record of records) {
+				if (!record.name) continue;
 
-			tips.set(match[3], match[2] || match[1]);
+				// Peeled objectname is set only for annotated tags; everything else uses objectname.
+				tips.set(record.name, record.peeledObjectname || record.objectname);
+			}
+		} catch {
+			// Preserve the prelude's "never rejects" contract (see the bare `await` at the call site):
+			// a per-caller cancellation race through the shared cache (or any other failure) degrades
+			// to no tips, same as the direct `errors: 'ignore'` spawn this replaced.
 		}
 		return tips;
 	}
@@ -388,6 +393,14 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 		// single `for-each-ref`, off the rows-walk critical path). Attached to the returned graph as `refTips`
 		// so the host can seed the NEXT rebuild's tip diff; the R6b fast path also reuses this same map for its
 		// own tip-diff gate (so there's exactly one `for-each-ref` per call whether it goes fast or full).
+		// ALWAYS forced, including on a cold build. It's tempting to skip the force when there's no seed to
+		// diff against — the cold build only records these tips for the NEXT build — but the tips it records
+		// must describe the same repo state the rows walk observed, and the rows walk always reads live git.
+		// A cached (stale) enumeration breaks that pairing in a way a later build can't detect: if a ref moves
+		// A→B before the cold load and is then reverted B→A, the seed says A, the next forced read says A, the
+		// tip diff sees no change and takes the fast path — while the cached rows were built at B and still
+		// carry the discarded commit. Staleness here is not "more work, never wrong"; only the seed side can
+		// be stale, so a move-and-revert admits a genuinely wrong fast path.
 		const refTipsPromise = this.getCurrentRefTips(repoPath, cancellation);
 
 		// Shallow state (peeled off the same prelude, off the rows-walk critical path) — stamped on the returned

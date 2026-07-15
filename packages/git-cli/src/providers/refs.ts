@@ -42,16 +42,29 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	}
 
 	/**
-	 * Raw `git for-each-ref` records covering branches, remotes, and tags in a single pass.
-	 * CLI-internal — siblings call via `this.provider.refs.getRefs(...)`. The `RefRecord` shape
+	 * Raw `git for-each-ref` records covering branches, remotes, tags, and replace-refs in a single
+	 * pass. CLI-internal — siblings call via `this.provider.refs.getRefs(...)`. The `RefRecord` shape
 	 * is `for-each-ref`-specific and intentionally absent from the public `GitRefsSubProvider`
 	 * interface.
 	 */
 	@debug()
-	async getRefs(repoPath: string, cancellation?: AbortSignal): Promise<RefRecord[]> {
+	async getRefs(repoPath: string, cancellation?: AbortSignal, options?: { force?: boolean }): Promise<RefRecord[]> {
 		if (!repoPath) return [];
 
 		const scope = getScopedLogger();
+
+		// Forces a fresh enumeration: evicts the shared cache entry (and the derived `refTips` projection,
+		// which would otherwise still answer from the old records) so the factory below re-runs and
+		// repopulates both from one spawn. Deliberately `delete`, not `invalidate` — soft-invalidation
+		// leaves an in-flight entry rideable, so a caller needing a point-in-time read (the graph's tip
+		// gate) could join an enumeration that started before the change it's trying to detect. Evicting
+		// is safe mid-flight: the in-flight factory's settle is ownership-guarded and won't evict the
+		// successor installed here.
+		if (options?.force) {
+			const commonPath = this.cache.getCommonPath(repoPath);
+			this.cache.refs.delete(commonPath);
+			this.cache.refTips.delete(commonPath);
+		}
 
 		return this.cache.getRefs(
 			repoPath,
@@ -66,7 +79,19 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 						'refs/heads/',
 						'refs/remotes/',
 						'refs/tags/',
+						// `git replace`/grafts — not surfaced to branch/tag/refTip consumers (filtered by
+						// refname prefix), but needed by the graph's replace-ref change gate (graph.ts).
+						'refs/replace/',
 					);
+					// Under `errors: 'ignore'` a cancelled run RESOLVES empty rather than throwing, so the
+					// catch below never sees it and an empty enumeration would be cached as a real answer —
+					// permanently, since this map has no TTL. Same guard `git.run`'s own caching path uses.
+					// The graph's tip gate calls this with `force: true` and supersedes itself freely, so it
+					// is routinely the sole registrant on the aggregate whose abort kills the spawn.
+					if (result.completion.status === 'cancelled' || signal?.aborted) {
+						cacheable?.invalidate();
+						return [];
+					}
 					if (!result?.stdout) return [];
 
 					using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
