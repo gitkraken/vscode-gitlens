@@ -3054,6 +3054,44 @@ background-upgraded the extension while the host kept running the old build
 }
 ```
 
+### graph/layoutPrompt/choice
+
+> Sent when the user answers (or closes) the one-time layout-choice prompt
+
+```typescript
+{
+  // `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks)
+  'choice': 'panel' | 'sidebar' | 'dismissed',
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
+### graph/layoutPrompt/shown
+
+> Sent when the one-time layout-choice prompt is shown on first entry to the Graph view
+
+```typescript
+{
+  'context.repository.closed': boolean,
+  'context.repository.folder.scheme': string,
+  'context.repository.id': string,
+  'context.repository.provider.id': string,
+  'context.repository.scheme': string,
+  'context.webview.host': 'editor' | 'view' | 'panel',
+  'context.webview.id': string,
+  'context.webview.instanceId': string,
+  'context.webview.type': string
+}
+```
+
 ### graph/minimap/day/selected
 
 > Sent when the user selects (clicks on) a day on the minimap on the Commit Graph

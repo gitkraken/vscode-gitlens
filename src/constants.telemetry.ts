@@ -408,6 +408,11 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the user types in the filter box in the sidebar tags panel */
 	'graph/tags/filtered': GraphSidebarTagsFilteredEvent;
 
+	/** Sent when the one-time layout-choice prompt is shown on first entry to the Graph view */
+	'graph/layoutPrompt/shown': GraphLayoutPromptShownEvent;
+	/** Sent when the user answers (or closes) the one-time layout-choice prompt */
+	'graph/layoutPrompt/choice': GraphLayoutPromptChoiceEvent;
+
 	/** Sent when the user switches the active visualization via the switcher, or when a virtual repo forces a fallback from the Commits Treemap to the Files Treemap */
 	'graph/visualizations/modeChanged': GraphVisualizationsModeChangedEvent;
 	/** Sent when the Graph leaves Visualizations display mode (close button, sidebar rail, external search request, etc.) */
@@ -2125,6 +2130,14 @@ interface GraphSidebarTagsFilteredEvent extends GraphContextEventData {
  *  (visualizationMode × treemapMode) state so one field names the active visualization,
  *  matching the switcher's tab model. */
 export type GraphVisualizationKey = 'timeline' | 'treemap-files' | 'treemap-commits' | 'treemap-activity';
+
+/** No dimensions beyond the shared graph context */
+type GraphLayoutPromptShownEvent = GraphContextEventData;
+
+interface GraphLayoutPromptChoiceEvent extends GraphContextEventData {
+	/** `dismissed` = closed the prompt without choosing (keeps the current layout, never re-asks) */
+	choice: 'sidebar' | 'panel' | 'dismissed';
+}
 
 interface GraphVisualizationsModeChangedEvent extends GraphContextEventData {
 	'mode.old': GraphVisualizationKey;
