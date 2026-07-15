@@ -8,5 +8,9 @@ export default async (): Promise<void> => {
 	const rootDir = path.resolve(__dirname, '../..');
 	execSync('pnpm run build:e2e-runner', { cwd: rootDir, stdio: 'inherit' });
 
-	await downloadAndUnzipVSCode('stable');
+	// Skip the VS Code download when tests are pointed at a specific editor binary
+	// (e.g. Cursor, Windsurf, Trae) via VSCODE_E2E_EXECUTABLE_PATH.
+	if (!process.env.VSCODE_E2E_EXECUTABLE_PATH) {
+		await downloadAndUnzipVSCode('stable');
+	}
 };

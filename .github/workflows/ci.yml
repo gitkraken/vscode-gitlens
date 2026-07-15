@@ -113,10 +113,21 @@ jobs:
               run: xvfb-run -a pnpm run test
 
     e2e-tests:
-        name: E2E Tests
+        name: E2E Tests (${{ matrix.editor.name }})
         runs-on: ubuntu-latest
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        timeout-minutes: 20
+        timeout-minutes: 25
+        # Forks (Cursor, Kiro) have known editor-specific UI gaps; keep them informational so they
+        # don't block CI, while VS Code and Windsurf remain required.
+        continue-on-error: ${{ matrix.editor.experimental }}
+        strategy:
+            fail-fast: false
+            matrix:
+                editor:
+                    - { name: 'VS Code', id: 'vscode', experimental: false }
+                    - { name: 'Windsurf', id: 'windsurf', experimental: false }
+                    - { name: 'Kiro', id: 'kiro', experimental: true }
+                    - { name: 'Cursor', id: 'cursor', experimental: true }
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -158,14 +169,59 @@ jobs:
             - name: Build (production with DEBUG for simulator)
               run: pnpm run bundle:e2e
 
+            # Provisions a VS Code-compatible editor binary for forks and exposes its path.
+            # VS Code itself is downloaded by the test harness, so no path is emitted for it.
+            - name: Provision editor
+              id: provision
+              run: |
+                  set -euo pipefail
+                  id="${{ matrix.editor.id }}"
+                  exe=""
+                  case "$id" in
+                    vscode)
+                      : # Harness downloads VS Code via @vscode/test-electron
+                      ;;
+                    windsurf)
+                      url=$(curl -fsSL "https://windsurf-stable.codeium.com/api/update/linux-x64/stable/latest" | jq -r '.url')
+                      echo "Downloading Windsurf: $url"
+                      curl -fsSL "$url" -o /tmp/windsurf.tar.gz
+                      mkdir -p /tmp/windsurf && tar -xzf /tmp/windsurf.tar.gz -C /tmp/windsurf
+                      exe=$(find /tmp/windsurf -maxdepth 2 -type f -name windsurf | head -n1)
+                      ;;
+                    kiro)
+                      url=$(curl -fsSL "https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json" | jq -r '.releases[].updateTo.url | select(endswith(".tar.gz"))' | head -n1)
+                      echo "Downloading Kiro: $url"
+                      curl -fsSL "$url" -o /tmp/kiro.tar.gz
+                      mkdir -p /tmp/kiro && tar -xzf /tmp/kiro.tar.gz -C /tmp/kiro
+                      exe=$(find /tmp/kiro -maxdepth 2 -type f -name kiro | head -n1)
+                      ;;
+                    cursor)
+                      curl -fsSL "https://downloader.cursor.sh/linux/appImage/x64" -o /tmp/cursor.AppImage
+                      chmod +x /tmp/cursor.AppImage
+                      ( cd /tmp && ./cursor.AppImage --appimage-extract >/dev/null )
+                      exe=$(find /tmp/squashfs-root -type f -path '*/usr/share/cursor/cursor' | head -n1)
+                      [ -z "$exe" ] && exe=$(find /tmp/squashfs-root -maxdepth 2 -type f -name cursor | head -n1)
+                      ;;
+                  esac
+                  if [ "$id" != "vscode" ]; then
+                    if [ -z "$exe" ] || [ ! -f "$exe" ]; then
+                      echo "::error::Could not resolve $id executable"; exit 1
+                    fi
+                    chmod +x "$exe"
+                    echo "Resolved $id executable: $exe"
+                  fi
+                  echo "exe=$exe" >> "$GITHUB_OUTPUT"
+
             - name: Run E2E tests
+              env:
+                  VSCODE_E2E_EXECUTABLE_PATH: ${{ steps.provision.outputs.exe }}
               run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16" pnpm run test:e2e
 
             - name: Upload test results
               if: failure()
               uses: actions/upload-artifact@v4
               with:
-                  name: playwright-results
+                  name: playwright-results-${{ matrix.editor.id }}
                   path: out/test-results/
                   retention-days: 7
 
@@ -173,6 +229,6 @@ jobs:
               if: failure()
               uses: actions/upload-artifact@v4
               with:
-                  name: playwright-report
+                  name: playwright-report-${{ matrix.editor.id }}
                   path: playwright-report/
                   retention-days: 7

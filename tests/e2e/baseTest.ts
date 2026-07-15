@@ -21,6 +21,35 @@ export const MaxTimeout = 10000;
 export const DefaultTimeout = 2000;
 export const ShortTimeout = 500;
 
+/** GitLens extension identifier (publisher.name) */
+const gitlensExtensionId = 'eamodio.gitlens';
+
+/**
+ * Waits for the GitLens extension host to activate, polling `extensions.getExtension().isActive`.
+ * This is editor-agnostic (works on VS Code and forks like Cursor) since it doesn't depend on any
+ * workbench UI chrome, unlike the activity-bar-based {@link GitLensPage.waitForActivation}.
+ */
+async function waitForGitLensActivation(evaluate: VSCodeEvaluator['evaluate'], timeout = 30000): Promise<void> {
+	const start = Date.now();
+	let lastError: unknown;
+	while (Date.now() - start < timeout) {
+		try {
+			const active = await evaluate(
+				(vscode, id) => vscode.extensions.getExtension(id)?.isActive === true,
+				gitlensExtensionId,
+			);
+			if (active) return;
+		} catch (ex) {
+			// Extension host / test server may not be ready yet; keep polling
+			lastError = ex;
+		}
+		await new Promise(resolve => setTimeout(resolve, 250));
+	}
+	throw new Error(
+		`GitLens did not activate within ${timeout}ms${lastError ? `: ${(lastError as Error).message}` : ''}`,
+	);
+}
+
 /** Xvfb display number used for headless Linux testing */
 const XVFB_DISPLAY = ':99';
 
@@ -138,6 +167,12 @@ const defaultUserSettings: Record<string, unknown> = {
 export interface LaunchOptions {
 	vscodeVersion?: string;
 	/**
+	 * Absolute path to a VS Code-compatible editor binary (e.g. Cursor, Windsurf, Trae).
+	 * When set, the harness launches this binary instead of downloading VS Code.
+	 * Overridable per-project or globally via the `VSCODE_E2E_EXECUTABLE_PATH` env var.
+	 */
+	executablePath?: string;
+	/**
 	 * User settings to apply to VS Code.
 	 * These are merged with (and override) the default test settings.
 	 */
@@ -192,7 +227,12 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			ensureRunnerBuilt();
 
 			const tempDir = await createTmpDir();
-			const vscodePath = await downloadAndUnzipVSCode(vscodeOptions.vscodeVersion ?? 'stable');
+			// Allow pointing tests at a VS Code-compatible editor binary (Cursor, Windsurf, Kiro, etc.)
+			// instead of downloading VS Code. When unset (or empty), downloads the requested VS Code version.
+			// `||` (not `??`) so an empty env var — e.g. the VS Code leg of a CI editor matrix — falls through.
+			const executableOverride = vscodeOptions.executablePath || process.env.VSCODE_E2E_EXECUTABLE_PATH;
+			const vscodePath =
+				executableOverride || (await downloadAndUnzipVSCode(vscodeOptions.vscodeVersion ?? 'stable'));
 			// Patch product.json to prevent installer-mutex false positive on Windows
 			patchTestVSCodeProductJson(vscodePath);
 			const extensionPath = path.join(__dirname, '..', '..');
@@ -246,8 +286,16 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			const page = await electronApp.firstWindow();
 			const gitlens = new GitLensPage(page, evaluate);
 
-			// Wait for GitLens to activate before providing to tests
-			await gitlens.waitForActivation();
+			// Wait for GitLens to activate before providing to tests.
+			// Gate on the extension host (editor-agnostic) so this works on VS Code as well as
+			// forks like Cursor whose customized UI has no standard activity bar to key off of.
+			await waitForGitLensActivation(evaluate);
+
+			// On editors with a standard activity bar, also wait for the GitLens tab to paint so
+			// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor).
+			if ((await page.locator('[id="workbench.parts.activitybar"]').count()) > 0) {
+				await gitlens.waitForActivation();
+			}
 
 			await use({
 				electron: { app: electronApp, ...options, workspacePath: workspacePath },
