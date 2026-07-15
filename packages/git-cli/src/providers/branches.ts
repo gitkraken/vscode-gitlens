@@ -736,74 +736,106 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const priority = options?.priority;
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
 
-		// Local-only: read just the existing local symref, never contacting the remote. Bypass the shared
-		// cache entirely — it's keyed by repoPath+remote, so caching a local miss (or sharing this in-flight
-		// promise) would starve a concurrent networked caller of the real default branch. The local read is
-		// a cheap ref lookup, fine to repeat per call.
+		// Local-only: read just the existing local symref, never contacting the remote. Cached under a
+		// `${remote}:local` key — a colon can't appear in a refname component, so it can never collide
+		// with a real remote name used by the networked variant below. Invalidated by the same
+		// remotes/branches cache cascades as the networked lookup.
 		if (options?.local) {
-			try {
-				const result = await this.git.run(
-					{ cwd: this.cache.getCommonPath(repoPath), cancellation: cancellation, ...priorityOpts },
-					'symbolic-ref',
-					'--short',
-					`refs/remotes/${remote}/HEAD`,
-				);
-				return result.stdout.trim() || undefined;
-			} catch (ex) {
-				if (isCancellationError(ex)) throw ex;
-				return undefined;
-			}
+			return this.cache.getDefaultBranchName(
+				repoPath,
+				`${remote}:local`,
+				async (commonPath, cacheable, signal) => {
+					try {
+						// Bind to the aggregate `signal` (fires only when ALL current callers abort), not
+						// this-caller's `cancellation` — otherwise a superseded caller's abort would kill the
+						// shared command and reject concurrent riders that never cancelled.
+						const result = await this.git.run(
+							{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+							'symbolic-ref',
+							'--short',
+							`refs/remotes/${remote}/HEAD`,
+						);
+						return result.stdout.trim() || undefined;
+					} catch (ex) {
+						if (isCancellationError(ex)) throw ex;
+
+						// `symbolic-ref` on an absent `refs/remotes/<remote>/HEAD` exits fatal rather than
+						// empty, and that message matches no `GitWarnings` entry, so it arrives here as a
+						// throw. It is still an ANSWER — the ref genuinely isn't set — and the overwhelmingly
+						// common one, so cache it. Invalidating instead means every caller re-probes and the
+						// whole point of caching this lookup is lost.
+						const stderr = (ex as { stderr?: string }).stderr ?? '';
+						if (stderr.includes('is not a symbolic ref')) return undefined;
+
+						// Anything else never produced an answer (spawn failure, queue rejection). This entry
+						// has no TTL, so caching that would pin "no default branch" for the session.
+						cacheable.invalidate();
+						return undefined;
+					}
+				},
+				cancellation,
+			);
 		}
 
-		return this.cache.getDefaultBranchName(repoPath, remote, async commonPath => {
-			let retried = false;
-			while (true) {
-				try {
-					const result = await this.git.run(
-						{ cwd: commonPath, cancellation: cancellation, ...priorityOpts },
-						'symbolic-ref',
-						'--short',
-						`refs/remotes/${remote}/HEAD`,
-					);
-					return result.stdout.trim() || undefined;
-				} catch (ex) {
-					if (/is not a symbolic ref/.test(ex.stderr)) {
-						try {
-							if (!retried) {
-								retried = true;
-								await this.git.run(
-									{ cwd: commonPath, cancellation: cancellation, ...priorityOpts },
-									'remote',
-									'set-head',
-									'-a',
-									remote,
-								);
-								continue;
-							}
-
-							const result = await this.git.run(
-								{ cwd: commonPath, cancellation: cancellation, ...priorityOpts },
-								'ls-remote',
-								'--symref',
-								remote,
-								'HEAD',
-							);
-							if (result.stdout) {
-								const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
-								if (match != null) {
-									const [, branch] = match;
-									return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
+		return this.cache.getDefaultBranchName(
+			repoPath,
+			remote,
+			async (commonPath, _cacheable, signal) => {
+				let retried = false;
+				while (true) {
+					try {
+						const result = await this.git.run(
+							{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+							'symbolic-ref',
+							'--short',
+							`refs/remotes/${remote}/HEAD`,
+						);
+						return result.stdout.trim() || undefined;
+					} catch (ex) {
+						if (/is not a symbolic ref/.test(ex.stderr)) {
+							try {
+								if (!retried) {
+									retried = true;
+									await this.git.run(
+										{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+										'remote',
+										'set-head',
+										'-a',
+										remote,
+									);
+									// This just created `refs/remotes/<remote>/HEAD`, which the `local` variant
+									// may already have cached a miss for. The watcher would also catch the new
+									// ref, but evict directly so consumers of this package that don't wire up a
+									// watcher aren't stuck with that miss.
+									this.cache.deleteDefaultBranchName(commonPath, `${remote}:local`);
+									continue;
 								}
-							}
-						} catch {
-							if (isCancellationError(ex)) throw ex;
-						}
-					}
 
-					return undefined;
+								const result = await this.git.run(
+									{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+									'ls-remote',
+									'--symref',
+									remote,
+									'HEAD',
+								);
+								if (result.stdout) {
+									const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
+									if (match != null) {
+										const [, branch] = match;
+										return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
+									}
+								}
+							} catch {
+								if (isCancellationError(ex)) throw ex;
+							}
+						}
+
+						return undefined;
+					}
 				}
-			}
-		});
+			},
+			cancellation,
+		);
 	}
 
 	@debug()
@@ -1323,7 +1355,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.getBaseBranchName(
 			repoPath,
 			ref,
-			async (commonPath, signal) => {
+			async (commonPath, _cacheable, signal) => {
 				try {
 					// getGkConfig has built-in fallback to regular config for backward compatibility
 					let mergeBase = await this.provider.config.getGkConfig(commonPath, `branch.${ref}.gk-merge-base`);

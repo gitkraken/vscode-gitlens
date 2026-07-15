@@ -1135,7 +1135,11 @@ export class Cache implements Disposable {
 	getContributorsStats(
 		repoPath: string,
 		cacheKey: string,
-		factory: (commonPath: string, cancellation?: AbortSignal) => PromiseOrValue<GitContributorsStats | undefined>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<GitContributorsStats | undefined>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<GitContributorsStats | undefined> {
 		return this.getSharedSimpleWithKey(this.contributorsStats, repoPath, cacheKey, factory, options);
@@ -1144,7 +1148,11 @@ export class Cache implements Disposable {
 	getBaseBranchName(
 		repoPath: string,
 		ref: string,
-		factory: (commonPath: string, cancellation?: AbortSignal) => PromiseOrValue<string | undefined>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		return this.getSharedSimpleWithKey(this.baseBranchName, repoPath, ref, factory, {
@@ -1198,9 +1206,21 @@ export class Cache implements Disposable {
 	getDefaultBranchName(
 		repoPath: string,
 		remote: string,
-		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory);
+		return this.getSharedSimpleWithKey(this.defaultBranchName, repoPath, remote, factory, {
+			cancellation: cancellation,
+		});
+	}
+
+	/** Clears the cached default branch for one `remote` key (the networked lookup or its `:local` variant). */
+	deleteDefaultBranchName(repoPath: string, remote: string): void {
+		this._caches.defaultBranchName?.delete(this.getCommonPath(repoPath), remote);
 	}
 
 	getInitialCommitSha(
@@ -1472,7 +1492,10 @@ export class Cache implements Disposable {
 		cache: RepoPromiseCacheMap<string, T>,
 		repoPath: string,
 		cacheKey: string,
-		factory: (commonPath: string, cancellation?: AbortSignal) => PromiseOrValue<T>,
+		// `cacheable` is forwarded so a factory can distinguish "the answer is genuinely nothing" from "the
+		// read failed": these entries have no TTL, so a failure resolved as `undefined` would otherwise be
+		// served as a real answer until something explicitly evicts it.
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
 		options?: { accessTTL?: number; cancellation?: AbortSignal },
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
@@ -1480,7 +1503,7 @@ export class Cache implements Disposable {
 		return cache.getOrCreate(
 			commonPath,
 			cacheKey,
-			(_cacheable, signal) => Promise.resolve(factory(commonPath, signal)),
+			(cacheable, signal) => Promise.resolve(factory(commonPath, cacheable, signal)),
 			options,
 		);
 	}

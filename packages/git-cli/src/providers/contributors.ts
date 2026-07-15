@@ -301,7 +301,11 @@ export class ContributorsGitSubProvider implements GitContributorsSubProvider {
 
 		const scope = getScopedLogger();
 
-		const getCore = async (commonPath: string, signal?: AbortSignal): Promise<GitContributorsStats | undefined> => {
+		const getCore = async (
+			commonPath: string,
+			_cacheable?: CacheController,
+			signal?: AbortSignal,
+		): Promise<GitContributorsStats | undefined> => {
 			try {
 				const args = ['shortlog', '-s', '--all'];
 

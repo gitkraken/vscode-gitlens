@@ -1,7 +1,8 @@
 import * as assert from 'assert';
+import { execFileSync } from 'node:child_process';
 import * as sinon from 'sinon';
 import type { TestRepo } from './helpers.js';
-import { addCommit, createBranch, createTestRepo } from './helpers.js';
+import { addCommit, cloneTestRepo, createBranch, createTestRepo } from './helpers.js';
 
 suite('BranchesSubProvider', () => {
 	let repo: TestRepo;
@@ -107,5 +108,60 @@ suite('BranchesSubProvider.getBranchMergedStatus caching', () => {
 		} finally {
 			runSpy.restore();
 		}
+	});
+});
+
+suite('BranchesSubProvider — default branch caching', () => {
+	let origin: TestRepo;
+	let clone: TestRepo;
+
+	suiteSetup(() => {
+		origin = createTestRepo();
+		addCommit(origin.path, 'f.txt', 'x', 'seed');
+		clone = cloneTestRepo(origin.path);
+		// A fresh clone has `refs/remotes/origin/HEAD`; drop it so the local-only lookup starts as a miss,
+		// which is the state that used to get cached forever.
+		execFileSync('git', ['remote', 'set-head', 'origin', '--delete'], { cwd: clone.path, stdio: 'pipe' });
+	});
+
+	suiteTeardown(() => {
+		clone.cleanup();
+		origin.cleanup();
+	});
+
+	test('a local miss is cached, so repeated lookups spawn once', async () => {
+		// `symbolic-ref` on an absent `refs/remotes/<remote>/HEAD` exits FATAL, not empty, and matches no
+		// `GitWarnings` entry — so it reaches the factory's catch. That is still an answer, and the common
+		// one; invalidating it there meant every caller re-probed and the cache bought nothing. The sibling
+		// test can't catch that: it only asserts a later networked lookup sees a newly created symref.
+		const spy = sinon.spy(clone.provider.git, 'run');
+		try {
+			const first = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin', { local: true });
+			const second = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin', { local: true });
+
+			assert.strictEqual(first, undefined);
+			assert.strictEqual(second, undefined);
+
+			const spawns = spy
+				.getCalls()
+				.filter(c => c.args.includes('symbolic-ref') && c.args.includes(`refs/remotes/origin/HEAD`)).length;
+			assert.strictEqual(spawns, 1, 'the cached miss must not re-spawn `symbolic-ref`');
+		} finally {
+			spy.restore();
+		}
+	});
+
+	test('a cached local miss does not survive the networked path creating the symref', async () => {
+		const local = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin', { local: true });
+		assert.strictEqual(local, undefined, 'no local symref yet, so the local-only lookup must miss');
+
+		// The networked lookup runs `git remote set-head -a`, which creates the symref the local variant
+		// was told didn't exist. Without an explicit eviction that miss stays cached — and a consumer of
+		// this package that never wires up a file watcher has nothing else to repair it.
+		const networked = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin');
+		assert.ok(networked, 'the networked lookup should resolve a default branch');
+
+		const after = await clone.provider.branches.getDefaultBranchName(clone.path, 'origin', { local: true });
+		assert.strictEqual(after, networked, 'the local lookup must now see the symref the networked path created');
 	});
 });
