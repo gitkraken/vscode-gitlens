@@ -114,23 +114,48 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 	}
 
 	@debug({ exit: true })
-	async getCommitCount(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<number | undefined> {
-		const result = await this.git.run(
-			{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
-			'rev-list',
-			'--count',
+	getCommitCount(repoPath: string, rev: string, cancellation?: AbortSignal): Promise<number | undefined> {
+		return this.cache.commitCount.getOrCreate(
+			repoPath,
 			rev,
-			'--',
+			async (cacheable, signal) => {
+				// Bind the shared spawn to the aggregate `signal` (fires only when ALL current callers
+				// abort), not this-caller's `cancellation` — otherwise a superseded caller's abort would
+				// kill the shared command and reject concurrent riders that never cancelled.
+				const result = await this.git.run(
+					{ cwd: repoPath, cancellation: signal ?? cancellation, errors: 'ignore' },
+					'rev-list',
+					'--count',
+					rev,
+					'--',
+				);
+				if (result.completion.status === 'cancelled' || signal?.aborted) {
+					throw new CancellationError();
+				}
+
+				// `errors: 'ignore'` turns a failed run (unknown rev, a transient `index.lock`) into an
+				// empty stdout rather than a throw. That's indistinguishable from a real answer here, so
+				// don't let it become a cached one — this entry has a sliding hour-long TTL, and repeated
+				// access would keep a transient failure alive indefinitely. The pre-cache implementation
+				// simply retried on the next call; invalidating restores that.
+				//
+				// BOTH conditions, not either alone. `exitCode !== 0` catches "git ran and said no" (a bad
+				// rev exits 128); `status !== 'exited'` catches "git never answered" — a queue rejection or
+				// spawn failure (no exit code at all), or a swallowed `GitWarnings` match, which carries git's
+				// real code and so can slip past the exit-code test on its own.
+				if (result.completion.status !== 'exited' || result.exitCode !== 0) {
+					cacheable.invalidate();
+					return undefined;
+				}
+
+				const data = result.stdout.trim();
+				if (!data) return undefined;
+
+				const count = parseInt(data, 10);
+				return isNaN(count) ? undefined : count;
+			},
+			{ cancellation: cancellation },
 		);
-		if (result.completion.status === 'cancelled' || cancellation?.aborted) {
-			throw new CancellationError();
-		}
-
-		const data = result.stdout.trim();
-		if (!data) return undefined;
-
-		const count = parseInt(data, 10);
-		return isNaN(count) ? undefined : count;
 	}
 
 	@debug({ exit: true })

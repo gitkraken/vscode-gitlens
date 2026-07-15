@@ -601,6 +601,11 @@ export class Cache implements Disposable {
 				keysToClear.add('tags');
 				keysToClear.add('refs');
 				keysToClear.add('refTips');
+				// `commit`/`commitCount` can be keyed by a tag name (e.g. the tag node's load-more count),
+				// which re-points on a force-moved or deleted-and-recreated tag — same drift the
+				// `branch`/`branches` cascade above clears for.
+				keysToClear.add('commit');
+				keysToClear.add('commitCount');
 			}
 
 			if (types.includes('tracking')) {

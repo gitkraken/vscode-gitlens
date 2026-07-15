@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import type { TestRepo } from './helpers.js';
 import { addCommit, createTestRepo, getHeadSha } from './helpers.js';
 
@@ -75,5 +76,40 @@ suite('CommitsSubProvider', () => {
 
 		const notAncestor = await repo.provider.commits.isAncestorOf(repo.path, 'HEAD', 'HEAD~1');
 		assert.strictEqual(notAncestor, false, 'HEAD should not be ancestor of HEAD~1');
+	});
+	test('a cancelled caller must not reject a concurrent caller sharing the in-flight spawn', async () => {
+		// Deliberately a rev no earlier test has touched: on a cache HIT both callers would just share a
+		// settled promise, which exercises per-caller cancellation but NOT the case that actually
+		// regressed — two callers riding one live `rev-list`. Missing the cache is what puts them on the
+		// same spawn, so the first caller's abort has a shared command it could wrongly kill.
+		const rev = 'HEAD~2..HEAD';
+		const first = new AbortController();
+		const second = new AbortController();
+
+		const p1 = repo.provider.commits.getCommitCount(repo.path, rev, first.signal);
+		const p2 = repo.provider.commits.getCommitCount(repo.path, rev, second.signal);
+		first.abort();
+
+		const [r1, r2] = await Promise.allSettled([p1, p2]);
+		assert.strictEqual(r1.status, 'rejected', 'the caller that aborted should see its own cancellation');
+		assert.strictEqual(r2.status, 'fulfilled', 'a caller that never cancelled must still get its result');
+		assert.ok(r2.status === 'fulfilled' && typeof r2.value === 'number', 'and it must be a real count');
+	});
+	test('a failed rev-list is not cached as a real "unknown" count', async () => {
+		// `errors: 'ignore'` makes a bad rev resolve with empty stdout, which looks exactly like a
+		// legitimate `undefined`. Caching that would pin a transient failure for the entry's sliding
+		// hour-long TTL, so the factory must invalidate and let the next call retry.
+		const bogus = 'no-such-rev-abcdef';
+		assert.strictEqual(await repo.provider.commits.getCommitCount(repo.path, bogus), undefined);
+
+		// Count spawns rather than timing: if the failure were cached, the second call would be served
+		// from it and never reach git.
+		const spy = sinon.spy(repo.provider.git, 'run');
+		try {
+			assert.strictEqual(await repo.provider.commits.getCommitCount(repo.path, bogus), undefined);
+			assert.ok(spy.callCount > 0, 'a failed lookup must be retried, not served from cache');
+		} finally {
+			spy.restore();
+		}
 	});
 });

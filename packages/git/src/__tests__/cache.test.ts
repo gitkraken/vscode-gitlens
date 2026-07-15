@@ -362,3 +362,32 @@ suite('Cache — status generation', () => {
 		);
 	});
 });
+
+suite('Cache — tag-scoped invalidation', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+
+	setup(() => {
+		cache = new Cache();
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('commitCount is cleared when tags change', async () => {
+		let factoryCount = 0;
+		const factory = () => {
+			factoryCount++;
+			return Promise.resolve(10);
+		};
+
+		await cache.commitCount.getOrCreate(repoPath, 'v1.0.0', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		cache.clearCaches(repoPath, 'tags');
+
+		await cache.commitCount.getOrCreate(repoPath, 'v1.0.0', factory);
+		assert.strictEqual(factoryCount, 2, 'a force-moved or recreated tag must not serve its old count');
+	});
+});
