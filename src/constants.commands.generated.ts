@@ -1026,6 +1026,7 @@ export type ContributedPaletteCommands =
 	| 'gitlens.git.worktree.open'
 	| 'gitlens.gitCommands'
 	| 'gitlens.gk.switchOrganization'
+	| 'gitlens.graph.simulate.mainView'
 	| 'gitlens.graph.soloBranch'
 	| 'gitlens.graph.soloBranch:views'
 	| 'gitlens.graph.soloTag'

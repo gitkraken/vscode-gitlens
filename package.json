@@ -8264,6 +8264,11 @@
 				"title": "Share as Cloud Patch..."
 			},
 			{
+				"command": "gitlens.graph.simulate.mainView",
+				"title": "Simulate Graph as Main View (Debugging)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.graph.soloBranch",
 				"title": "Solo Branch",
 				"category": "GitLens"
@@ -13960,6 +13965,10 @@
 				{
 					"command": "gitlens.graph.shareAsCloudPatch",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.graph.simulate.mainView",
+					"when": "gitlens:enabled && (gitlens:debugging || gitlens:prerelease)"
 				},
 				{
 					"command": "gitlens.graph.soloBranch",

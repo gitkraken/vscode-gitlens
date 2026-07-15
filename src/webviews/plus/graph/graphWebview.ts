@@ -56,6 +56,7 @@ import type {
 	GraphTelemetryContext,
 	WebviewTelemetryEvents,
 } from '../../../constants.telemetry.js';
+import { viewIdsByDefaultContainerId } from '../../../constants.views.js';
 import type { Container } from '../../../container.js';
 import type { FeaturePreview } from '../../../features.js';
 import { getFeaturePreviewStatus } from '../../../features.js';
@@ -163,6 +164,7 @@ import type { GraphWipServiceContext } from './graphWipService.js';
 import { GraphWipService } from './graphWipService.js';
 import type {
 	BranchState,
+	ChooseGraphLayoutParams,
 	CloseGraphWalkthroughBannerParams,
 	DidGetSidebarDataParams,
 	DidRequestOpenTimelineScopeParams,
@@ -203,6 +205,7 @@ import {
 	ChooseAuthorRequest,
 	ChooseComparisonRequest,
 	ChooseFileRequest,
+	ChooseGraphLayoutCommand,
 	ChooseRefRequest,
 	ChooseRepositoryCommand,
 	CloseGraphWalkthroughBannerCommand,
@@ -217,6 +220,7 @@ import {
 	DidChangeGraphWalkthroughComplete,
 	DidChangeGraphWalkthroughStarted,
 	DidChangeHooksBanner,
+	DidChangeLayoutPromptNotification,
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
@@ -1981,6 +1985,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			this.onGraphWalkthroughBannerChanged();
 		} else if (e.key === 'graph:visualizations:buttonCallout') {
 			this.onVisualizationsButtonCalloutChanged();
+		} else if (e.key === 'graph:layoutPrompt') {
+			this.onLayoutPromptChanged();
 		}
 	}
 
@@ -2067,6 +2073,52 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@ipcCommand(DismissVisualizationsButtonCalloutCommand)
 	private onDismissVisualizationsButtonCallout() {
 		void this.container.onboarding.dismiss('graph:visualizations:buttonCallout').catch();
+	}
+
+	/** The prompt only applies to the Graph *view* (side bar/panel host) — the editor tab has no
+	 *  side-vs-bottom placement to choose. It arms only once the Graph's DEFAULT container is the
+	 *  GitLens side bar — i.e. when the Graph has replaced Home as the panel's main view (#5391).
+	 *  Until that consolidation lands this is always false for users; devs/pre-release can preview
+	 *  via the `gitlens.graph.simulate.mainView` command, which mutates the same mapping. */
+	private getLayoutPromptNeeded(): boolean {
+		const graphIsMainView =
+			viewIdsByDefaultContainerId.get('workbench.view.extension.gitlens')?.includes('graph') ?? false;
+
+		return graphIsMainView && this.host.is('view') && !this.container.onboarding.isDismissed('graph:layoutPrompt');
+	}
+
+	private onLayoutPromptChanged() {
+		if (!this.host.visible) return;
+
+		void this.host.notify(DidChangeLayoutPromptNotification, this.getLayoutPromptNeeded());
+	}
+
+	@ipcCommand(ChooseGraphLayoutCommand)
+	private async onChooseGraphLayout(params: ChooseGraphLayoutParams) {
+		// One-shot prompt: any answer — including closing without choosing — dismisses it for good
+		void this.container.onboarding.dismiss('graph:layoutPrompt').catch();
+
+		if (params.choice === 'dismissed') return;
+
+		// Move this view to the chosen container; VS Code persists view locations itself, so the
+		// choice sticks across reloads without any setting of our own
+		const destinationId =
+			params.choice === 'sidebar' ? 'workbench.view.extension.gitlens' : 'workbench.view.extension.gitlensPanel';
+		// Guarded like `resetViewsLayout`: the prompt is already consumed (dismissed above), so a
+		// rejected move must not also skip the container reset / re-reveal below
+		try {
+			await executeCoreCommand('vscode.moveViews', { viewIds: [this.host.id], destinationId: destinationId });
+		} catch {}
+		// The destination container itself may have been dragged elsewhere — dragging a container's
+		// only view relocates the whole container (e.g. the Graph in the secondary side bar means
+		// `gitlensPanel` IS the secondary side bar), which makes the move above a no-op. Send the
+		// container back to its declared home too — mirrors `resetViewsLayout`.
+		try {
+			await executeCoreCommand(`${destinationId}.resetViewContainerLocation`);
+		} catch {}
+		// Re-reveal — the move leaves the view collapsed/unfocused. The prompt only exists on the
+		// view host (see getLayoutPromptNeeded), so the view id is the right target here.
+		void executeCoreCommand('gitlens.views.graph.focus');
 	}
 
 	private onGraphWalkthroughProgressChanged() {
@@ -4318,6 +4370,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			visualizationsButtonCalloutDismissed: this.container.onboarding.isDismissed(
 				'graph:visualizations:buttonCallout',
 			),
+			layoutPromptNeeded: this.getLayoutPromptNeeded(),
 			searchRequest: searchRequest,
 			details: {
 				...storedPanels?.details,
