@@ -662,13 +662,18 @@ gl-lit-graph {
 		// is a generous fixed distance past the lanes' edge so it covers typical pills and bleeds a few
 		// letters into the message; an unusually long pill keeps its own outline past the taper.
 		&.is-graph-band.is-graph-bleed::before {
+			// Spillover past the lanes/pills (`--row-band-edge`) into the message is deliberately kept
+			// subtle: it holds the ramp's peak AT the edge (continuous — no hard step), then falls off
+			// quicker at first and slower later (convex decay) so the wash dims fast just past the pills
+			// but never cuts hard against the message text.
 			background-image: linear-gradient(
 				90deg,
 				transparent var(--band-origin),
 				color-mix(in srgb, var(--row-lane-color) 8%, transparent) calc(var(--band-origin) + 0.5rem),
 				color-mix(in srgb, var(--row-lane-color) 18%, transparent) var(--row-band-edge),
-				color-mix(in srgb, var(--row-lane-color) 16%, transparent) calc(var(--row-band-edge) + 2.5rem),
-				color-mix(in srgb, var(--row-lane-color) 7%, transparent) calc(var(--row-band-edge) + 9rem),
+				color-mix(in srgb, var(--row-lane-color) 9%, transparent) calc(var(--row-band-edge) + 1.25rem),
+				color-mix(in srgb, var(--row-lane-color) 4%, transparent) calc(var(--row-band-edge) + 4rem),
+				color-mix(in srgb, var(--row-lane-color) 1.5%, transparent) calc(var(--row-band-edge) + 8.5rem),
 				transparent calc(var(--row-band-edge) + 13rem)
 			);
 		}
