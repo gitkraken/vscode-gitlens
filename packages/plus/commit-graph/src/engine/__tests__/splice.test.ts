@@ -124,8 +124,9 @@ suite('engine/process prefix-change splice equivalence', () => {
 		// Out-of-contract input (a parent emitted above its own loaded child) makes the child reserve a lane
 		// for an already-placed commit, which `finalizeLayout` then reports as an "unloaded" column for a sha
 		// that IS loaded. Feeding that phantom back as a preference used to add a lane on EVERY update
-		// (reproduced: maxColumn 2→13 over 12 cycles). The renderer's feedback order — stubs first, rows last,
-		// so a real row's column always wins — is what contains it, and this pins that contract.
+		// (reproduced: maxColumn 2→13 over 12 cycles). The feedback order — stubs first, rows last, so a real
+		// row's column always wins — is what contains it (owned by `process.ts`'s `preferencesFromStability`,
+		// which the `stableFrom` token routes through; this hand-built map mirrors it).
 		const skewed = [
 			commit('P', ['Z'], undefined, 100),
 			commit('C', ['P'], undefined, 50),

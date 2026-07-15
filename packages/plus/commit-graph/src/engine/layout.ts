@@ -796,9 +796,10 @@ export function appendColumnsAndSegments(
  * `--author-date-order` all guarantee this (the GitLens provider passes `--date-order`), and it is what GKC's
  * GraphContainer assumes. Feeding a parent above its own loaded child breaks the pass: the child mints a
  * reservation for an already-placed commit that nothing ever consumes, and it surfaces in `unloadedColumns`
- * as a dangling lane for a commit that is very much loaded. Consumers that feed those columns back as
- * `preferredColumns` must let a real row's column win the tie (see `gl-lit-graph`'s `recomputeRows`), or that
- * phantom ratchets the lane space by one on every update.
+ * as a dangling lane for a commit that is very much loaded. When such a phantom column is fed back as a
+ * preference it must lose to the real row's column, or the lane space ratchets by one on every update —
+ * `process.ts`'s `stableFrom` token handles that ordering internally, so consumers pass the opaque token
+ * rather than assembling `preferredColumns` themselves.
  */
 export function computeColumns(
 	rows: readonly GraphRow[],

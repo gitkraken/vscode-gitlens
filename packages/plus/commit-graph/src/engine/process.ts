@@ -30,6 +30,35 @@ interface InternalProcessResume {
 	commitCount: number;
 }
 
+// Opaque sticky-columns token — bundles a run's output so the NEXT run can reproduce its lane assignments
+// (colours + splice stability) without the consumer knowing how preferences are derived. Callers hold it
+// verbatim and pass it back as `stableFrom`; the shape is private, which is the point: the feed ordering
+// (below-window stubs first, real rows win) is an engine detail, not a contract the renderer must honour.
+declare const processStabilityBrand: unique symbol;
+export type GraphStability = { readonly [processStabilityBrand]: true };
+interface InternalStability {
+	rows: readonly ProcessedGraphRow[];
+	unloadedColumns: ReadonlyMap<Sha, number>;
+}
+
+// Sticky preferences from a prior run's output. Below-window stubs are seeded FIRST so a real row's column
+// always wins the tie: the two sets are disjoint for well-formed (children-first) rows, but a stray stub for
+// a sha that IS loaded must never clobber that row's true column, or the lane space ratchets by one on every
+// update. This is the sole home of that ordering — it used to live in the renderer.
+function preferencesFromStability(stability: GraphStability | undefined): ReadonlyMap<Sha, number> | undefined {
+	if (stability == null) return undefined;
+
+	const prior = stability as unknown as InternalStability;
+	const preferred = new Map<Sha, number>();
+	for (const [sha, column] of prior.unloadedColumns) {
+		preferred.set(sha, column);
+	}
+	for (const row of prior.rows) {
+		preferred.set(row.sha, row.column);
+	}
+	return preferred;
+}
+
 function commitToGraphRow(commit: GraphCommit): GraphRow {
 	return {
 		sha: commit.hash,
@@ -80,7 +109,12 @@ export function processCommitsAndSegments(
 		syntheticChildren?: ReadonlySet<Sha>;
 		/** Resume token from a prior call to continue the pass over freshly-paged rows in O(page) time. */
 		resume?: GraphProcessResume;
-		/** Sticky-column hints from a prior run (sha → column) — see `computeColumnsAndSegments`. */
+		/** Sticky-columns token from a prior run — reproduces its lane assignments. The preferred consumer
+		 *  API: opaque, so the caller never encodes the preference-derivation. Ignored if `preferredColumns`
+		 *  is also given (an explicit map wins, for low-level/test callers). */
+		stableFrom?: GraphStability;
+		/** Explicit sticky-column hints (sha → column) — the low-level escape hatch; most callers pass
+		 *  `stableFrom` instead. See `computeColumnsAndSegments`. */
 		preferredColumns?: ReadonlyMap<Sha, number>;
 		/**
 		 * Prefix-change reconciliation: the layout still runs over everything (it's the cheap pass —
@@ -101,6 +135,8 @@ export function processCommitsAndSegments(
 	unloadedColumns: ReadonlyMap<Sha, number>;
 	/** Resume token to pass back on the next page-in for an incremental append. */
 	resume: GraphProcessResume;
+	/** Sticky-columns token to pass back as `stableFrom` on the next update, to reproduce these lanes. */
+	stability: GraphStability;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
 	reconciled?: ReconciledSuffix;
 } {
@@ -141,6 +177,7 @@ export function processCommitsAndSegments(
 			segments: segments,
 			unloadedColumns: unloadedColumns,
 			resume: nextResume as unknown as GraphProcessResume,
+			stability: { rows: allRows, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		};
 	}
 
@@ -152,7 +189,8 @@ export function processCommitsAndSegments(
 		snapshot,
 	} = computeColumnsAndSegments(rows, {
 		pinnedShas: options?.pinnedShas,
-		preferredColumns: options?.preferredColumns,
+		// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
+		preferredColumns: options?.preferredColumns ?? preferencesFromStability(options?.stableFrom),
 	});
 	// Prefix-change reconciliation: align the fresh LAYOUT against the prior rows so the edge pass
 	// can stop at carry convergence and adopt the prior row objects (edges included) wholesale.
@@ -200,6 +238,7 @@ export function processCommitsAndSegments(
 		segments: segments,
 		unloadedColumns: unloadedColumns,
 		resume: nextResume as unknown as GraphProcessResume,
+		stability: { rows: processed, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		reconciled: reconciled,
 	};
 }

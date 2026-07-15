@@ -2,7 +2,7 @@ import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
 import { classifyRowsDelta } from '@gitkraken/commit-graph/engine/delta.js';
 import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
-import type { GraphProcessResume } from '@gitkraken/commit-graph/engine/process.js';
+import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
 import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
 import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
 import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
@@ -594,6 +594,9 @@ export class GlLitGraph extends LitElement {
 	// is the last engine input (post-filter) used to classify the change; `commits` doubles as its
 	// mapping, reused for the prefix. Any mismatch falls back to a full recompute.
 	private _engineResume?: GraphProcessResume;
+	// Opaque sticky-columns token from the prior engine run — fed back as `stableFrom` so a fetch/new commit
+	// reproduces the prior lanes instead of reshuffling them. The engine owns how it's derived.
+	private _engineStability?: GraphStability;
 	private _priorEngineSourceRows?: readonly GitGraphRow[];
 	private _priorEngineIdLength?: number;
 	// True when the LAST recomputeRows took the payload-only path (engine + topology derivations
@@ -1702,6 +1705,7 @@ export class GlLitGraph extends LitElement {
 		const rows = this.rows;
 		if (rows == null || rows.length === 0) {
 			this._engineResume = undefined;
+			this._engineStability = undefined;
 			this._priorEngineSourceRows = undefined;
 			this.commits = [];
 			this.processedRows = [];
@@ -1780,27 +1784,16 @@ export class GlLitGraph extends LitElement {
 			segments = result.segments;
 			unloadedColumns = result.unloadedColumns;
 			this._engineResume = result.resume;
+			this._engineStability = result.stability;
 		} else {
 			commits = sourceRows.map(r => toGraphCommit(r, idLength, this.repoPath));
-			// Sticky columns: seed the layout with the prior run's lane assignments so the unchanged
-			// region reproduces its layout across a top insertion — free-column allocation is order-
-			// sensitive, so without the hints a fetch/new commit reshuffles lane colors AND defeats
-			// the suffix reconciliation below.
-			let preferredColumns: Map<Sha, number> | undefined;
-			if (delta.kind === 'replace' && this.processedRows.length > 0) {
-				preferredColumns = new Map();
-				// Below-window parents keep their reserved lanes too — their dangling stubs thread
-				// through every row beneath their merge, so a shifted reservation column would break
-				// the suffix convergence just as a shifted row column would. Seeded FIRST so that a real
-				// row always wins the tie: the two are disjoint for well-formed (children-first) rows, but
-				// a stray stub for a sha that IS loaded must never clobber that row's true column.
-				for (const [sha, column] of this.unloadedColumns) {
-					preferredColumns.set(sha, column);
-				}
-				for (const r of this.processedRows) {
-					preferredColumns.set(r.sha, r.column);
-				}
-			}
+			// Sticky columns: seed the layout with the prior run's lane assignments so the unchanged region
+			// reproduces its layout across a top insertion — free-column allocation is order-sensitive, so
+			// without the hint a fetch/new commit reshuffles lane colors AND defeats the suffix reconciliation
+			// below. The engine's opaque token carries that hint; how it's derived (below-window stubs vs real
+			// rows) is an engine detail we deliberately don't reach into.
+			const stableFrom =
+				delta.kind === 'replace' && this.processedRows.length > 0 ? this._engineStability : undefined;
 			// Prefix change (fetch/new commits/rebase): hand the prior rows to the engine so its edge
 			// pass — the expensive half — stops at carry convergence and splices the prior row objects
 			// (edges included) back in by IDENTITY. Byte-identical to a full run by construction; the
@@ -1809,7 +1802,7 @@ export class GlLitGraph extends LitElement {
 			const result = processCommitsAndSegments(commits, {
 				syntheticChildren: synthetic ?? undefined,
 				pinnedShas: pinnedSha != null ? [pinnedSha] : undefined,
-				preferredColumns: preferredColumns,
+				stableFrom: stableFrom,
 				reconcile:
 					delta.kind === 'replace' && this.processedRows.length > 0
 						? {
@@ -1824,6 +1817,7 @@ export class GlLitGraph extends LitElement {
 			// Only keep a resume for a plain (unscoped, unpinned) run — a scoped/pinned run's edge carry-over
 			// carries synthetic/pinned state that can't seed a later plain append.
 			this._engineResume = resumable ? result.resume : undefined;
+			this._engineStability = result.stability;
 			this.lastRowsDeltaReconciled = result.reconciled;
 		}
 		this._priorEngineSourceRows = sourceRows;

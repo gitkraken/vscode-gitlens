@@ -71,4 +71,48 @@ suite('engine/process processCommitsAndSegments', () => {
 		// The dangling stub edge is present on the merge row.
 		assert.strictEqual(result.rows[0].edges[1].starting?.parentSha, 'Z');
 	});
+
+	// The `stableFrom` token is the production sticky-columns path (the renderer hands a prior result back
+	// instead of assembling `preferredColumns` itself). These are the ONLY tests that exercise it and the
+	// preference ordering inside `preferencesFromStability`; every other sticky test uses the low-level
+	// `preferredColumns` escape hatch, so a regression in that derivation would otherwise ship green.
+	test('a stableFrom token reproduces the layout hand-built preferences produce', () => {
+		const base = [commit('T0', ['T1']), commit('T1', ['T2']), commit('T2', ['BASE']), commit('BASE', [])];
+		const next = [commit('FT', ['T1']), commit('NEW', ['T0']), ...base];
+
+		const prior = processCommitsAndSegments(base);
+		const manual = new Map<string, number>();
+		for (const [sha, column] of prior.unloadedColumns) {
+			manual.set(sha, column);
+		}
+		for (const r of prior.rows) {
+			manual.set(r.sha, r.column);
+		}
+
+		const viaToken = processCommitsAndSegments(next, { stableFrom: prior.stability });
+		const viaManual = processCommitsAndSegments(next, { preferredColumns: manual });
+		assert.deepStrictEqual(
+			viaToken.rows.map(r => [r.sha, r.column]),
+			viaManual.rows.map(r => [r.sha, r.column]),
+		);
+	});
+
+	test('the stableFrom token lets a real row win a phantom stub for the same sha', () => {
+		// Out-of-contract order (parent P above its loaded child C) makes C reserve a phantom lane that
+		// `finalizeLayout` surfaces in `unloadedColumns` for P (col 1) even though P is a loaded row (col 0).
+		// `preferencesFromStability` must seed stubs FIRST so P's real column wins the tie; a swapped order
+		// would feed P the stub column and ratchet the lane space every update. Feeding the token back must
+		// keep P on its own column 0. (Verified swap-sensitive: the swapped order puts P at 1.)
+		const skewed = [
+			commit('P', ['Z'], { date: 100 }),
+			commit('C', ['P'], { date: 50 }),
+			commit('Z', [], { date: 10 }),
+		];
+		const cold = processCommitsAndSegments(skewed);
+		assert.strictEqual(cold.rows.find(r => r.sha === 'P')?.column, 0, 'fixture: P is a loaded row on column 0');
+		assert.strictEqual(cold.unloadedColumns.get('P'), 1, 'fixture: P also has a phantom stub on column 1');
+
+		const relaid = processCommitsAndSegments(skewed, { stableFrom: cold.stability });
+		assert.strictEqual(relaid.rows.find(r => r.sha === 'P')?.column, 0, 'the real row must win the stub');
+	});
 });
