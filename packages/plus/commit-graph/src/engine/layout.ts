@@ -83,6 +83,14 @@ interface LayoutState {
 	scratchFactory?: (state: LayoutState) => LayoutScratch;
 	/** Memoized sticky scratch. Read ONLY on the fallback-scan path — see {@link getScratch}. */
 	scratch?: LayoutScratch;
+	/** Builds {@link ownedLanes} on first use — the merge no-drag guard's occupancy test. Undefined on
+	 *  preference-less runs (nothing to protect); lazy so a merge-free relayout never pays. */
+	ownedLanesFactory?: () => OwnedLanes;
+	/** Memoized owner-lanes, built by {@link getOwnedLanes} the first time a merge's additional parent needs it. */
+	ownedLanes?: OwnedLanes;
+	/** Memoized sha → row index — shared by the scratch and the merge no-drag guard so a sticky run builds it
+	 *  at most once. Sticky runs only. */
+	getRowIndex?: () => ReadonlyMap<Sha, number>;
 	/** Index of the row being assigned — needs at earlier rows are already consumed or stale. */
 	currentRow: number;
 }
@@ -188,8 +196,10 @@ function makeScratchFactory(
  *
  * Deliberately owner-ROWS, not true lane occupancy: pass-through lanes can't be derived from prior columns
  * alone. That is enough — inheritance only hands out a PREFERENCE, so a grant that turns out to overlap a
- * pass-through is caught by `columnsUsed` at claim time and degrades to a plain fallback. Built only when
- * some row lacks a preference (i.e. the graph changed), so a steady-state relayout never pays for it.
+ * pass-through is caught by `columnsUsed` at claim time and degrades to a plain fallback. Two builders: the
+ * inheritance preamble builds it only when a row lacks a preference (so a merge-free steady-state relayout
+ * skips it), and the merge no-drag guard builds it on any sticky run with a merge whose additional parent
+ * owns a column — see the guard for why that has to happen even in steady state.
  */
 class OwnedLanes {
 	private readonly byColumn: number[][] = [];
@@ -242,6 +252,14 @@ function getScratch(state: LayoutState): LayoutScratch | undefined {
 		state.scratch = state.scratchFactory(state);
 	}
 	return state.scratch;
+}
+
+/** Owner-lanes, built on first use. `undefined` when the run has no preferences to protect. */
+function getOwnedLanes(state: LayoutState): OwnedLanes | undefined {
+	if (state.ownedLanes === undefined && state.ownedLanesFactory !== undefined) {
+		state.ownedLanes = state.ownedLanesFactory();
+	}
+	return state.ownedLanes;
 }
 
 /** Mark a sha's pending preference claim satisfied — it can never consult its preference again. */
@@ -641,6 +659,31 @@ function assignColumnForRow(state: LayoutState, row: GraphRow): number {
 				}
 			}
 
+			// The no-drag rule for an ADDITIONAL parent. Same intent as the first-parent block above (an owner
+			// keeps its lane) but a STRICTER test: the first parent's is a bare column mismatch, this one is a
+			// full interval-occupancy check, because a merge only drags its branch-off parent when OTHER owners
+			// sit on that parent's lane across [merge row, parent row) — reserving a fresh lane there would
+			// evict them (a fetched merge onto a trunk commit split the trunk this way). Reserve nothing: the
+			// parent keeps its own chain and the merge edge roots at its node column. The decision is a pure
+			// function of (rows, prior columns) — occupancy-gated, not merge-newness-gated — so it reproduces
+			// identically on the next relayout; that delta-independence is what keeps the layout a fixpoint
+			// (asserted by the sticky-columns relayout tests, which re-run and check the columns don't move).
+			if (index > 0 && !isParentPinned && state.ownedLanesFactory !== undefined) {
+				// Cheap early-out before building the lanes: only a parent that OWNS a prior column can be
+				// dragged, so a brand-new branch tip (no preference) takes the normal reserve-a-lane path.
+				const parentColumn = state.preferredColumns?.get(parentSha);
+				if (parentColumn !== undefined) {
+					const parentRow = state.getRowIndex?.().get(parentSha);
+					if (
+						parentRow !== undefined &&
+						getOwnedLanes(state)!.occupied(parentColumn, state.currentRow + 1, parentRow)
+					) {
+						consumeNeed(state, parentSha);
+						continue;
+					}
+				}
+			}
+
 			const parentColumn = pickParentColumn(state, parentSha, index, column);
 			state.reserverInfoBySha.set(parentSha, {
 				kind: row.kind,
@@ -859,10 +902,12 @@ export function computeColumnsAndSegments(
 		return rowIndexBySha;
 	};
 
+	// Owner-rows-per-column, shared by the inheritance preamble (below) and the merge no-drag guard (via
+	// `state.ownedLanes`). Built once, reflects both prior owners and any inheritance grants the preamble adds.
+	let lanes: OwnedLanes | undefined;
 	let preferredColumns = options?.preferredColumns;
 	if (preferredColumns != null && preferredColumns.size > 0) {
 		const owned = preferredColumns;
-		let lanes: OwnedLanes | undefined;
 
 		// Copy-on-first-write: a relayout of an unchanged graph has a preference for every row already, so
 		// eagerly copying the map (n string-keyed entries — a third of the whole pass at 100k rows) buys
@@ -914,6 +959,13 @@ export function computeColumnsAndSegments(
 			pinnedColumns,
 			pinnedColumnCount,
 		);
+		// The merge no-drag guard needs owner occupancy + the parent's row, and on EVERY sticky run (steady
+		// state too, or the fetch's fix wouldn't reproduce and the layout would stop being a fixpoint). Built
+		// lazily on the first qualifying merge — a merge-free relayout pays nothing — reusing the preamble's
+		// `lanes` when it built one (same owners + grants). Dropped below so the snapshot doesn't retain it.
+		const finalPreferred = preferredColumns;
+		state.ownedLanesFactory = () => lanes ?? new OwnedLanes(rows, finalPreferred);
+		state.getRowIndex = getRowIndex;
 	}
 
 	const output: ProcessedGraphRow[] = new Array(rows.length);
@@ -924,6 +976,9 @@ export function computeColumnsAndSegments(
 	state.preferredColumns = undefined;
 	state.scratchFactory = undefined;
 	state.scratch = undefined;
+	state.ownedLanesFactory = undefined;
+	state.ownedLanes = undefined;
+	state.getRowIndex = undefined;
 	state.currentRow = 0;
 
 	// Snapshot the state BEFORE finalization (which is a pure derivation, so the shared state stays a

@@ -68,20 +68,33 @@ suite('engine/layout computeColumns', () => {
 });
 
 suite('engine/layout sticky columns', () => {
-	// Re-run `rows` seeded with the prior run's columns, exactly as the renderer does on a rows update:
-	// below-window stubs first, then real rows — so a row's own column always wins the tie (see
-	// `gl-lit-graph`'s `recomputeRows`).
-	function relayout(prior: readonly GraphRow[], next: readonly GraphRow[]) {
-		const first = computeColumnsAndSegments(prior);
+	// Seed `preferredColumns` from a run's output the same way the engine does internally when a caller hands
+	// back the opaque `stableFrom` token: below-window stubs first, then real rows — so a row's own column
+	// always wins the tie (the sole home of that ordering is `process.ts`'s `preferencesFromStability`).
+	function preferencesOf(result: ReturnType<typeof computeColumnsAndSegments>): Map<Sha, number> {
 		const preferred = new Map<Sha, number>();
-		for (const [sha, column] of first.unloadedColumns) {
+		for (const [sha, column] of result.unloadedColumns) {
 			preferred.set(sha, column);
 		}
-		for (const r of first.rows) {
+		for (const r of result.rows) {
 			preferred.set(r.sha, r.column);
 		}
+		return preferred;
+	}
 
-		const second = computeColumnsAndSegments(next, { preferredColumns: preferred });
+	// Re-run `next` seeded with the prior run's columns. Also asserts the result is a FIXPOINT — feeding the
+	// relayout's OWN output back must reproduce it exactly. Every sticky-columns guarantee in this suite rests
+	// on that (a fetch/WIP/merge update must not reshuffle lanes AGAIN on the next relayout); pinning it here
+	// makes the property tested, not merely assumed, for every scenario below.
+	function relayout(prior: readonly GraphRow[], next: readonly GraphRow[]) {
+		const first = computeColumnsAndSegments(prior);
+		const second = computeColumnsAndSegments(next, { preferredColumns: preferencesOf(first) });
+		const third = computeColumnsAndSegments(next, { preferredColumns: preferencesOf(second) });
+		assert.deepStrictEqual(
+			third.rows.map(r => [r.sha, r.column]),
+			second.rows.map(r => [r.sha, r.column]),
+			'relayout is not a fixpoint — the columns moved again on the next update',
+		);
 		return {
 			before: new Map(first.rows.map(r => [r.sha, r.column])),
 			after: new Map(second.rows.map(r => [r.sha, r.column])),
@@ -280,6 +293,20 @@ suite('engine/layout sticky columns', () => {
 		}
 		assert.strictEqual(after.get('newmain'), before.get('main'), 'the new trunk commit continues the trunk lane');
 		assert.notStrictEqual(after.get('feat'), before.get('T2'), 'the fetched tip must not sit on the trunk lane');
+	});
+
+	test('a fetched merge does not evict the trunk its additional parent sits on', () => {
+		// A fetched merge FM whose ADDITIONAL parent (T2) is a mid-trunk commit used to reserve the trunk's
+		// column for T2 at the merge row, occupying it down to T2 and shoving the owners in between (T0, T1)
+		// off their lane — the trunk split. FM must leave T2 on its own chain and take a side lane instead.
+		const prior = [row('T0', ['T1']), row('T1', ['T2']), row('T2', ['T3']), row('T3', ['BASE']), row('BASE', [])];
+		const next = [row('FM', ['FB', 'T2'], 'merge'), row('FB', ['T3']), ...prior];
+		const { before, after } = relayout(prior, next);
+
+		for (const sha of ['T0', 'T1', 'T2', 'T3', 'BASE']) {
+			assert.strictEqual(after.get(sha), before.get(sha), `${sha} was evicted from the trunk`);
+		}
+		assert.notStrictEqual(after.get('FM'), before.get('T2'), 'the merge must not sit on the trunk lane');
 	});
 });
 
