@@ -4329,6 +4329,10 @@
 				]
 			}
 		},
+		"gitlens.graph.simulate.mainView": {
+			"label": "Simulate Graph as Main View (Debugging)",
+			"commandPalette": "gitlens:enabled && (gitlens:debugging || gitlens:prerelease)"
+		},
 		"gitlens.graph.soloBranch": {
 			"label": "Solo Branch",
 			"commandPalette": "gitlens:enabled",

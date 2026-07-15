@@ -30,6 +30,9 @@ export const onboardingDefinitions = {
 	// Graph Kanban Toggle (first-interaction callout)
 	'graph:kanban:buttonCallout': { schema: '18.2.0', scope: 'global' },
 
+	// Graph Layout Prompt (one-time layout choice on first entry to the Graph view)
+	'graph:layoutPrompt': { schema: '18.4.0', scope: 'global' },
+
 	// Graph Walkthrough Banner
 	'graph-walkthrough:banner': {
 		schema: '18.0.0',

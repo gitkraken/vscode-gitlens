@@ -35,6 +35,7 @@ import {
 	DidChangeGraphWalkthroughComplete,
 	DidChangeGraphWalkthroughStarted,
 	DidChangeHooksBanner,
+	DidChangeLayoutPromptNotification,
 	DidChangeMcpBanner,
 	DidChangeNotification,
 	DidChangeOrgSettings,
@@ -546,6 +547,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	graphWalkthroughBannerCollapsed?: boolean | undefined;
 	graphWalkthroughComplete?: boolean | undefined;
 	graphWalkthroughStarted?: boolean | undefined;
+	layoutPromptNeeded?: boolean | undefined;
 
 	constructor(
 		host: ReactiveElementHost,
@@ -1595,6 +1597,10 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 
 			case DidChangeGraphWalkthroughStarted.is(msg):
 				this.updateState({ graphWalkthroughStarted: msg.params });
+				break;
+
+			case DidChangeLayoutPromptNotification.is(msg):
+				this.updateState({ layoutPromptNeeded: msg.params });
 				break;
 
 			case DidChangeWorkingTreeNotification.is(msg): {
