@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
+import * as process from 'node:process';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 
 // oxlint-disable-next-line import/no-default-export

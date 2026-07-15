@@ -67,29 +67,37 @@ async function dismissOnboardingOverlays(page: Page): Promise<void> {
 				const roots: (Element | ShadowRoot)[] = [host.shadowRoot ?? host];
 				while (roots.length) {
 					const root = roots.pop()!;
-					for (const el of Array.from(root.querySelectorAll('*'))) {
+					for (const el of [...root.querySelectorAll('*')]) {
 						if (
 							(el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') &&
 							/^skip all$/i.test((el.textContent ?? '').trim())
 						) {
 							(el as HTMLElement).click();
+
 							return 'dismissed';
 						}
-						if (el.shadowRoot != null) roots.push(el.shadowRoot);
+
+						if (el.shadowRoot != null) {
+							roots.push(el.shadowRoot);
+						}
 					}
 				}
+
 				return 'pending';
 			})
 			.catch(() => 'absent' as const);
 
 		if (result === 'absent') return;
+
 		if (result === 'dismissed') {
 			await page
 				.locator('kiro-sign-in-page')
 				.waitFor({ state: 'detached', timeout: 5000 })
 				.catch(() => {});
+
 			return;
 		}
+
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
 }
