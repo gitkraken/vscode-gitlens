@@ -186,7 +186,8 @@ jobs:
                       echo "Downloading Windsurf: $url"
                       curl -fsSL "$url" -o /tmp/windsurf.tar.gz
                       mkdir -p /tmp/windsurf && tar -xzf /tmp/windsurf.tar.gz -C /tmp/windsurf
-                      exe=$(find /tmp/windsurf -maxdepth 2 -type f -name windsurf | head -n1)
+                      # Windsurf's Electron binary is named after its codename (devin-desktop)
+                      exe=$(find /tmp/windsurf -maxdepth 2 -type f \( -name devin-desktop -o -name windsurf \) | head -n1)
                       ;;
                     kiro)
                       url=$(curl -fsSL "https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-stable.json" | jq -r '.releases[].updateTo.url | select(endswith(".tar.gz"))' | head -n1)
@@ -196,7 +197,9 @@ jobs:
                       exe=$(find /tmp/kiro -maxdepth 2 -type f -name kiro | head -n1)
                       ;;
                     cursor)
-                      curl -fsSL "https://downloader.cursor.sh/linux/appImage/x64" -o /tmp/cursor.AppImage
+                      url=$(curl -fsSL "https://www.cursor.com/api/download?platform=linux-x64&releaseTrack=stable" | jq -r '.downloadUrl')
+                      echo "Downloading Cursor: $url"
+                      curl -fsSL "$url" -o /tmp/cursor.AppImage
                       chmod +x /tmp/cursor.AppImage
                       ( cd /tmp && ./cursor.AppImage --appimage-extract >/dev/null )
                       exe=$(find /tmp/squashfs-root -type f -path '*/usr/share/cursor/cursor' | head -n1)
