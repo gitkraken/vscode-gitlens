@@ -2,7 +2,7 @@
 import type { ChildProcess } from 'node:child_process';
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import * as process from 'node:process';
@@ -221,7 +221,8 @@ export interface LaunchOptions {
 	/**
 	 * Absolute path to a VS Code-compatible editor binary (e.g. Cursor, Windsurf, Trae).
 	 * When set, the harness launches this binary instead of downloading VS Code.
-	 * Overridable per-project or globally via the `VSCODE_E2E_EXECUTABLE_PATH` env var.
+	 * Per-spec escape hatch; the normal path is the `editorExecutablePath` worker option set by
+	 * Playwright projects (see editors.ts / playwright.config.ts).
 	 */
 	executablePath?: string;
 	/**
@@ -266,23 +267,39 @@ interface BaseFixtures {
 interface WorkerFixtures {
 	vscode: VSCodeInstance;
 	vscodeOptions: LaunchOptions;
+	/** Editor identity for this project (e.g. 'vscode', 'windsurf'); set by Playwright projects. */
+	editorId: string;
+	/** Absolute path to the editor binary; empty means download VS Code. Set by Playwright projects. */
+	editorExecutablePath: string;
 }
 
 export const test = base.extend<BaseFixtures, WorkerFixtures>({
 	// Default options (can be overridden per-file)
 	vscodeOptions: [{ vscodeVersion: process.env.VSCODE_VERSION ?? 'stable' }, { scope: 'worker', option: true }],
 
+	// Editor identity — set per-project (see editors.ts / playwright.config.ts).
+	// Defaults target VS Code so a config-less run (or the `vscode` project) downloads VS Code.
+	editorId: ['vscode', { scope: 'worker', option: true }],
+	editorExecutablePath: ['', { scope: 'worker', option: true }],
+
 	// vscode launches VS Code with GitLens extension (shared per worker)
 	vscode: [
-		async ({ vscodeOptions }, use) => {
+		async ({ vscodeOptions, editorId, editorExecutablePath }, use) => {
 			// Ensure the E2E runner is built (handles VS Code extension skipping globalSetup)
 			ensureRunnerBuilt();
 
 			const tempDir = await createTmpDir();
-			// Allow pointing tests at a VS Code-compatible editor binary (Cursor, Windsurf, Kiro, etc.)
-			// instead of downloading VS Code. When unset (or empty), downloads the requested VS Code version.
-			// `||` (not `??`) so an empty env var — e.g. the VS Code leg of a CI editor matrix — falls through.
-			const executableOverride = vscodeOptions.executablePath || process.env.VSCODE_E2E_EXECUTABLE_PATH;
+			// Resolve the editor binary: project-provided path (forks like Cursor/Windsurf/Kiro),
+			// then a per-spec override, else download VS Code. `||` (not `??`) so an empty path falls through.
+			const executableOverride = editorExecutablePath || vscodeOptions.executablePath;
+			// A fork project MUST supply a binary — never silently fall back to downloading VS Code, which
+			// would run the wrong editor under the fork's project name (a false-green result).
+			if (editorId !== 'vscode' && !executableOverride) {
+				throw new Error(
+					`E2E project "${editorId}" requires an editor binary path (env not set); refusing to fall back to VS Code`,
+				);
+			}
+
 			const vscodePath =
 				executableOverride || (await downloadAndUnzipVSCode(vscodeOptions.vscodeVersion ?? 'stable'));
 			// Patch product.json to prevent installer-mutex false positive on Windows
@@ -320,6 +337,18 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 			// Ensure Xvfb is running for headless Linux environments
 			const display = ensureXvfb();
 
+			// On Linux, VS Code (and forks) create a single-instance IPC socket under $XDG_RUNTIME_DIR
+			// (default /run/user/<uid>). Headless environments without a systemd login session — CI under
+			// xvfb, non-interactive WSL — often have no such dir, so the socket `listen` fails with EACCES
+			// at launch (forks like Positron abort on this where VS Code falls back). Give each worker its
+			// own writable runtime dir: fixes access and avoids cross-worker socket-name collisions.
+			let runtimeDir: string | undefined;
+			if (process.platform === 'linux') {
+				runtimeDir = path.join(tempDir, 'xdg-runtime');
+				await mkdir(runtimeDir, { recursive: true });
+				await chmod(runtimeDir, 0o700);
+			}
+
 			const electronApp = await _electron.launch({
 				...options,
 				env: {
@@ -328,6 +357,8 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					ELECTRON_RUN_AS_NODE: undefined!,
 					// Set DISPLAY for headless Linux (Xvfb)
 					...(display ? { DISPLAY: display } : {}),
+					// Per-worker writable runtime dir for the editor's IPC socket (see note above)
+					...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
 				},
 			});
 

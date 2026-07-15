@@ -51,9 +51,23 @@ pnpm run test:e2e -- --grep "wizard"
 # Run in headed mode (useful for debugging)
 pnpm run test:e2e -- --headed
 
-# Run with specific project (Electron desktop)
-pnpm run test:e2e -- --project=electron
+# Run against a specific editor (one Playwright project per editor; see tests/e2e/editors.ts).
+# VS Code is the default; a fork project only registers when its binary path env var is set.
+pnpm run test:e2e -- --project=vscode
+WINDSURF_E2E_PATH=/path/to/windsurf pnpm run test:e2e -- --project=windsurf
 ```
+
+Editors that lack the UI surface a given spec needs (e.g. some forks) can opt that spec out with the
+`@no-fork` tag — fork projects run with `grepInvert: /@no-fork/`, while `vscode` runs everything:
+
+```ts
+// @no-fork: <editor> lacks a stable point to drive this flow
+test('...', { tag: '@no-fork' }, async ({ vscode }) => {
+	/* ... */
+});
+```
+
+Only tag genuine editor incompatibilities (missing UI), never functional failures — those get fixed.
 
 ## Interpreting Test Output
 

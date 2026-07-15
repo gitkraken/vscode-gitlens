@@ -112,22 +112,49 @@ jobs:
             - name: Run unit tests
               run: xvfb-run -a pnpm run test
 
+    derive-matrix:
+        name: Derive editor matrix
+        runs-on: ubuntu-latest
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        timeout-minutes: 5
+        outputs:
+            editors: ${{ steps.gen.outputs.editors }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Calc tools versions
+              id: tools-versions
+              run: |
+                  NODE_VERSION=$(jq -r '.engines.node | gsub("[^0-9.]"; "")' package.json)
+                  echo "node-version=$NODE_VERSION" >> $GITHUB_OUTPUT
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ steps.tools-versions.outputs.node-version }}
+
+            # Single source of truth for the editor matrix is tests/e2e/editors.ts; read it directly
+            # (Node strips the TS types) so the CI matrix never drifts from the Playwright projects.
+            - name: Generate matrix
+              id: gen
+              run: |
+                  editors=$(node --experimental-strip-types -e "import('./tests/e2e/editors.ts').then(m => console.log(JSON.stringify(m.editors)))")
+                  echo "editors=$editors" >> "$GITHUB_OUTPUT"
+
     e2e-tests:
         name: E2E Tests (${{ matrix.editor.name }})
+        needs: derive-matrix
         runs-on: ubuntu-latest
         if: ${{ github.event_name == 'workflow_dispatch' }}
         timeout-minutes: 25
-        # Forks (Cursor, Kiro) have known editor-specific UI gaps; keep them informational so they
-        # don't block CI, while VS Code and Windsurf remain required.
+        # Experimental forks have known editor-specific UI gaps; keep them informational so they don't
+        # block CI, while non-experimental editors (VS Code, Windsurf) remain required.
         continue-on-error: ${{ matrix.editor.experimental }}
         strategy:
             fail-fast: false
             matrix:
-                editor:
-                    - { name: 'VS Code', id: 'vscode', experimental: false }
-                    - { name: 'Windsurf', id: 'windsurf', experimental: false }
-                    - { name: 'Kiro', id: 'kiro', experimental: true }
-                    - { name: 'Cursor', id: 'cursor', experimental: true }
+                editor: ${{ fromJSON(needs.derive-matrix.outputs.editors) }}
         steps:
             - name: Checkout
               uses: actions/checkout@v4
@@ -169,10 +196,10 @@ jobs:
             - name: Build (production with DEBUG for simulator)
               run: pnpm run bundle:e2e
 
-            # Provisions a VS Code-compatible editor binary for forks and exposes its path.
-            # VS Code itself is downloaded by the test harness, so no path is emitted for it.
+            # Provisions a VS Code-compatible editor binary for forks and exposes its path via the
+            # editor's env var (matrix.editor.envVar), which the Playwright project reads. VS Code
+            # itself is downloaded by the harness, so no path is emitted for it.
             - name: Provision editor
-              id: provision
               run: |
                   set -euo pipefail
                   id="${{ matrix.editor.id }}"
@@ -205,6 +232,19 @@ jobs:
                       exe=$(find /tmp/squashfs-root -type f -path '*/usr/share/cursor/cursor' | head -n1)
                       [ -z "$exe" ] && exe=$(find /tmp/squashfs-root -maxdepth 2 -type f -name cursor | head -n1)
                       ;;
+                    positron)
+                      # Positron ships no GitHub release assets; binaries live on Posit's CDN.
+                      # releases.json carries the current version's direct .deb URL (no version hardcode).
+                      url=$(curl -fsSL "https://cdn.posit.co/positron/releases/deb/x86_64/releases.json" | jq -r '.url')
+                      echo "Downloading Positron: $url"
+                      curl -fsSL "$url" -o /tmp/positron.deb
+                      mkdir -p /tmp/positron && dpkg-deb -x /tmp/positron.deb /tmp/positron
+                      # Electron binary is /usr/share/positron/positron (code-oss layout); the bin/ wrapper is deeper
+                      exe=$(find /tmp/positron/usr/share -maxdepth 2 -type f -name positron | head -n1)
+                      ;;
+                    *)
+                      echo "::error::Unknown editor id '$id'"; exit 1
+                      ;;
                   esac
                   if [ "$id" != "vscode" ]; then
                     if [ -z "$exe" ] || [ ! -f "$exe" ]; then
@@ -212,13 +252,14 @@ jobs:
                     fi
                     chmod +x "$exe"
                     echo "Resolved $id executable: $exe"
+                    # Expose the path via the editor's env var so the Playwright project picks it up.
+                    echo "${{ matrix.editor.envVar }}=$exe" >> "$GITHUB_ENV"
                   fi
-                  echo "exe=$exe" >> "$GITHUB_OUTPUT"
 
             - name: Run E2E tests
-              env:
-                  VSCODE_E2E_EXECUTABLE_PATH: ${{ steps.provision.outputs.exe }}
-              run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16" pnpm run test:e2e
+              run: >
+                  xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
+                  pnpm run test:e2e -- --project=${{ matrix.editor.id }}
 
             - name: Upload test results
               if: failure()
