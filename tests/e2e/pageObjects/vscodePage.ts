@@ -61,6 +61,11 @@ export class VSCodePage {
 		) as Promise<T>;
 	}
 
+	/** The host editor's URI scheme (e.g. `vscode`, `cursor`, `windsurf`, `kiro`) */
+	async getUriScheme(): Promise<string> {
+		return this.evaluate(vscode => vscode.env.uriScheme);
+	}
+
 	/** Check if a command is registered */
 	async hasCommand(command: string): Promise<boolean> {
 		return this.evaluate(async (vscode, command) => {
