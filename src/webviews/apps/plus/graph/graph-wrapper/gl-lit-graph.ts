@@ -5202,8 +5202,9 @@ export class GlLitGraph extends LitElement {
 				const graphControlHere =
 					gutterWidth === 0 && (this.graphPlacement === 'grouped' ? zone.id === graphHostId : i === 0);
 				const hasRefsControl = (zone.id === 'ref' && this.refsPlacement === 'column') || zone.id === refsHostId;
-				// The graph control is labeled ("Graph") on its host cell, so it's wider than the bare refs toggle.
-				const controlsPx = (graphControlHere ? 64 : 0) + (hasRefsControl ? 22 : 0);
+				// Both toggles are bare icon buttons here — the graph control is only labeled in the list
+				// header — so they reserve the same width.
+				const controlsPx = (graphControlHere ? 22 : 0) + (hasRefsControl ? 22 : 0);
 				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, zone.width - controlsPx);
 				return html`<div
 						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}"
@@ -5212,7 +5213,7 @@ export class GlLitGraph extends LitElement {
 						style=${cspStyleMap(style)}
 						@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, zone.id)}
 					>
-						${graphControlHere ? this.renderPlacementControl(true) : nothing}
+						${graphControlHere ? this.renderPlacementControl() : nothing}
 						${zone.id === refsHostId ? this.renderRefsPlacementControl(false, visibleZones) : nothing}
 						<span
 							class="gl-graph__header-label"
@@ -5327,8 +5328,9 @@ export class GlLitGraph extends LitElement {
 	// Group/ungroup pushbutton for the graph's placement: click toggles Column ↔ Grouped. Hiding/showing
 	// the graph is via the column right-click menu (which sets `graphPlacement: 'hidden'`), not this
 	// button. Lives in the Graph header cell (column mode) or the grouped host's header cell. `labeled`
-	// appends a "Graph" text label — used when the graph has no cell of its own (grouped into another
-	// column, or hidden), so the header still names the affordance the way the standalone column does.
+	// appends a "Graph" text label — used only by the list header, whose single details cell has no other
+	// label to name the affordance. The table header keeps it bare: its host cell already shows that
+	// column's own label, and a second "GRAPH" beside it reads as two columns rather than one control.
 	private renderPlacementControl(labeled = false): TemplateResult {
 		const hidden = this.graphPlacement === 'hidden';
 		const grouped = this.graphPlacement === 'grouped';

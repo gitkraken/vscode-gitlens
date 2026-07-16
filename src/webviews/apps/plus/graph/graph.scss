@@ -432,10 +432,20 @@ gl-lit-graph {
 			outline: none;
 		}
 	}
-	// Icon shown in place of a column-header text label when the column is too narrow for the text.
+	// Optical correction: centering a text box centers its font box (ascent >> descent), but all-caps only
+	// occupies the ascent — so caps render low against the icons. A 1px bottom pad centers cap-height
+	// instead. Not for the swap-in icon below: a block child, already exact.
+	.gl-graph__header-label:not(:has(.gl-graph__header-label-icon)),
+	.gl-graph__placement-toggle-label {
+		padding-bottom: 1px;
+	}
+	// Icon shown in place of a column-header text label when the column is too narrow for the text. It's
+	// the label's only child, so a block box lets the cell's `align-items: center` center the icon itself;
+	// the icon font's default inline-block + `vertical-align: middle` would instead center it on the text
+	// baseline's half-x-height, which sits below the cell's center axis.
 	.gl-graph__header-label-icon {
-		font-size: 1.4rem;
-		vertical-align: middle;
+		display: block;
+		--code-icon-size: 1.4rem;
 	}
 	// The GRAB target straddles the column boundary in the HEADER only (takes no flex width, so header
 	// columns line up with the rows). Width matches the VS Code sash hover hit-area (~8px). Pointer
@@ -1247,6 +1257,9 @@ gl-lit-graph {
 		right: 2.7rem;
 	}
 	.gl-graph__placement-toggle {
+		// The icon is a flex item here, so its `vertical-align` is inert — `align-items` centers it.
+		--code-icon-size: 1.3rem;
+
 		display: inline-flex;
 		flex-shrink: 0;
 		align-items: center;
@@ -1283,12 +1296,9 @@ gl-lit-graph {
 			outline: 1px solid hsl(var(--brand));
 			outline-offset: 1px;
 		}
-		code-icon {
-			font-size: 1.3rem;
-		}
 	}
-	// Labeled placement toggle ("Graph" + icon) — shown when the graph has no cell of its own (grouped
-	// into another column, or hidden), so the affordance is named like the standalone column's header.
+	// Labeled placement toggle ("Graph" + icon) — used only by the list header, whose single details cell
+	// has no other label to name the affordance.
 	.gl-graph__placement-toggle--labeled {
 		width: auto;
 		gap: 0.3rem;
@@ -1297,6 +1307,10 @@ gl-lit-graph {
 	.gl-graph__placement-toggle-label {
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+		// Match the column labels: a button's UA `font` shorthand blocks the header's weight/line-height
+		// from inheriting, which would render this label lighter than every real column header.
+		font-weight: 500;
+		line-height: 1.4;
 	}
 
 	// List style: 2-line stacked rows (line 1 = refs + message; line 2 = author · date · sha).
