@@ -17,6 +17,7 @@ import type {
 import type { GraphWalkthroughContextKeys, WalkthroughContextKeys } from './constants.walkthroughs.js';
 import type { FeaturePreviews, FeaturePreviewStatus } from './features.js';
 import type { AgentDescriptor, AgentRoute } from './plus/agents/agentDescriptor.js';
+import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/autoRebase.types.js';
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { GraphColumnConfig } from './webviews/plus/graph/protocol.js';
@@ -112,6 +113,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'autoRebase/completed': AutoRebaseCompletedEvent;
 	/** Sent when automation stops and hands off to the Resolve panel (low confidence, non-conflict pause, etc.) */
 	'autoRebase/escalated': AutoRebaseEscalatedEvent;
+	/** Sent when the user re-engages automation on an escalated run, resuming the same session */
+	'autoRebase/resumed': AutoRebaseResumedEvent;
 	/** Sent when the user cancels an automatic rebase (the rebase is aborted) */
 	'autoRebase/cancelled': AutoRebaseLifecycleEvent;
 	/** Sent when an automatic rebase fails unexpectedly */
@@ -119,9 +122,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when the end-of-run summary is fetched for display */
 	'autoRebase/summary/shown': AutoRebaseLifecycleEvent;
 	/** Sent when a completed automatic rebase is rolled back */
-	'autoRebase/undo/completed': AutoRebaseUndoEvent;
+	'autoRebase/undo/completed': void;
 	/** Sent when an undo is refused (branch moved, dirty working tree, etc.) */
-	'autoRebase/undo/refused': AutoRebaseUndoEvent;
+	'autoRebase/undo/refused': AutoRebaseUndoRefusedEvent;
 
 	/** Sent when an agent hook is installed */
 	'agents/hookInstalled': AgentProviderEvent;
@@ -1021,9 +1024,14 @@ interface AutoRebaseEscalatedEvent extends AutoRebaseLifecycleEvent {
 	step: number | undefined;
 }
 
-interface AutoRebaseUndoEvent {
-	/** Why the undo was refused; absent on success */
-	reason?: 'no-record' | 'operation-in-progress' | 'branch-changed' | 'branch-moved' | 'dirty';
+interface AutoRebaseResumedEvent {
+	/** The escalated step being resumed, when known */
+	step: number | undefined;
+}
+
+interface AutoRebaseUndoRefusedEvent {
+	/** Why the undo was refused */
+	reason: AutoRebaseUndoRefusalReason;
 }
 
 export interface CLIInstallStartedEvent {
