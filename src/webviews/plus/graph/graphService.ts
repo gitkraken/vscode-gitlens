@@ -82,6 +82,9 @@ export type ResolveResult =
 				resolutions: ResolvedFileSummary[];
 				errors?: ResolveFileError[];
 				skipped?: ResolveSkippedFile[];
+				/** Present only when seeded from an automatic-rebase escalation — tells the panel the
+				 *  run is mid-rebase so it can offer "Apply & Resume with AI" instead of a plain Apply. */
+				autoRebase?: { sessionId: string; stepNumber?: number; totalSteps?: number };
 			};
 	  }
 	| { error: { message: string } }
@@ -99,7 +102,7 @@ export type AutoRebaseSummaryStep = {
 	step: number;
 	totalSteps: number;
 	commit: { sha?: string; message?: string };
-	kind: 'conflicts' | 'empty-skipped';
+	kind: 'conflicts' | 'empty-skipped' | 'manual';
 	files: ResolvedFileSummary[];
 };
 
@@ -116,6 +119,9 @@ export type AutoRebaseSummary = {
 	outcome: 'completed' | 'escalated' | 'aborted' | 'failed' | 'undone';
 	/** Undo passes validation right now (branch tip still at `postRebaseSha`, tree clean enough, …) */
 	undoable: boolean;
+	/** Undo is available but will stash the working tree first (the dirt is the autostash, which
+	 *  `undo()` recovers) — the confirm prompt warns about this */
+	undoWillStash?: boolean;
 	/** Why undo is unavailable — tooltip for the disabled Undo button */
 	undoRefusal?: string;
 	/** `left-in-stash` must be surfaced before offering undo: the autostash re-apply conflicted
@@ -554,6 +560,10 @@ export interface GraphInspectService {
 	/** Rolls the branch back to its pre-rebase tip — validated (refuses if the branch has moved).
 	 *  `sessionId` guards against acting on a different run than the summary being shown. */
 	undoAutoRebase(repoPath: string, sessionId: string): Promise<UndoAutoRebaseResult>;
+	/** Re-engages automatic rebase (takeover) to finish the remaining steps after an escalation was
+	 *  resolved manually — resumes the same session in place. Fire-and-forget: returns once triggered,
+	 *  not when the resumed rebase finishes. */
+	resumeAutoRebase(repoPath: string): Promise<void>;
 	/** Phase 1 of the branch-compare progressive load — counts + All Files only. Triggered on
 	 *  refs/wip change. Per-side commit + file data is fetched separately via {@link getBranchComparisonSide}. */
 	getBranchComparisonSummary(
