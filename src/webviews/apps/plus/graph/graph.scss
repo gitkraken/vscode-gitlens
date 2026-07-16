@@ -546,14 +546,23 @@ gl-lit-graph {
 		// Scope-anchor resting tint: colorize the WHOLE anchor row by its role (target = colored, base =
 		// monochromatic muted, focal = brand) so the anchor reads across the row, not just at the marker.
 		// Declared before the state rules below so hover/highlight/selection still override it.
+		// Each resting tint also publishes `--row-rest-bg` (same value) so the row-actions strip + its status
+		// badge can reproduce the row's own background at rest rather than punching an untinted hole through
+		// it; source order here IS the precedence (anchor < inRefChain < highlighted).
 		&.is-anchor--target {
-			background-color: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+			--row-rest-bg: color-mix(in srgb, var(--vscode-charts-purple, #b180d7) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
 		}
 		&.is-anchor--fork {
-			background-color: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
+			--row-rest-bg: color-mix(in srgb, var(--vscode-descriptionForeground, #8b949e) 12%, transparent);
+
+			background-color: var(--row-rest-bg);
 		}
 		&.is-anchor--focal {
-			background-color: hsl(var(--brand) / 0.1);
+			--row-rest-bg: hsl(var(--brand) / 0.1);
+
+			background-color: var(--row-rest-bg);
 		}
 
 		&:hover {
@@ -570,12 +579,16 @@ gl-lit-graph {
 			outline-offset: -1px;
 		}
 		&.is-inRefChain {
-			background-color: hsl(var(--brand) / 0.06);
+			--row-rest-bg: hsl(var(--brand) / 0.06);
+
+			background-color: var(--row-rest-bg);
 		}
 		// Active-search match (normal mode): the VS Code list filter-match tint so hits stand out while
 		// non-matches dim (is-dimmed). Before is-selected so a selected match still reads as selected.
 		&.is-highlighted {
-			background-color: var(--vscode-list-filterMatchBackground, hsl(var(--brand) / 0.2));
+			--row-rest-bg: var(--vscode-list-filterMatchBackground, hsl(var(--brand) / 0.2));
+
+			background-color: var(--row-rest-bg);
 			box-shadow: inset 0 0 0 1px var(--vscode-list-filterMatchBorder, transparent);
 		}
 		&.is-selected {
@@ -727,8 +740,12 @@ gl-lit-graph {
 		// semi-transparent): the row-state tint on top, an opaque base (graph bg) below — both fade in
 		// over 1.6rem so the left edge blends into the row instead of a hard cut. Content underneath is
 		// hidden once faded, so nothing shows through behind the buttons.
+		// The tint is the row's OWN resting one (`--row-rest-bg`, unset => transparent) so a `--has-persistent`
+		// strip — visible at rest, see below — disappears into the row instead of reading as a highlighted
+		// chip behind its always-on buttons, while staying opaque enough to still hide row content. The
+		// reveal rules below swap in the hover/selection tints.
 		background:
-			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
+			linear-gradient(to right, transparent, var(--row-rest-bg, transparent) 1.6rem),
 			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
@@ -740,6 +757,9 @@ gl-lit-graph {
 		opacity: 1;
 		visibility: visible;
 		pointer-events: auto;
+		background:
+			linear-gradient(to right, transparent, var(--vscode-list-hoverBackground) 1.6rem),
+			linear-gradient(to right, transparent, hsl(var(--background)) 1.6rem);
 		transition:
 			opacity 120ms ease-out,
 			visibility 0s;
@@ -812,12 +832,19 @@ gl-lit-graph {
 		bottom: -0.1rem;
 		font-size: 1.2rem;
 		border-radius: 50%;
-		// Opaque chip MATCHING the revealed row bg (not the black editor bg) so it cleanly cuts the
-		// main icon's corner — same two-layer (row tint over the graph bg) as the strip itself.
+		// Opaque chip MATCHING the row bg (not the black editor bg) so it cleanly cuts the main icon's
+		// corner — same two-layer (row tint over the graph bg) as the strip itself, and tracking the same
+		// tints. A status badge only ever renders on an always-on button, so it's the resting tint here.
+		background:
+			linear-gradient(0deg, var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			hsl(var(--background));
+		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
+	}
+	.gl-graph__row:hover .gl-graph__row-action-status,
+	.gl-graph__row.is-focused .gl-graph__row-action-status {
 		background:
 			linear-gradient(0deg, var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
 			hsl(var(--background));
-		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
 	}
 	.gl-graph__row.is-selected .gl-graph__row-action-status {
 		background: linear-gradient(0deg, var(--row-selection-bg), var(--row-selection-bg)), hsl(var(--background));
