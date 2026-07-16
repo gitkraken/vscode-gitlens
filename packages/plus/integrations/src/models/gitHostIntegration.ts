@@ -562,7 +562,7 @@ export abstract class GitHostIntegration<
 				};
 			}
 
-			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
+			const cursorInfo = this.parseCursorInfo<PagedProjectInput>(options?.cursor);
 			const cursors: PagedProjectInput[] = cursorInfo.cursors ?? [];
 			let projectInputs: PagedProjectInput[] = Array.from(projects.values(), project => ({
 				namespace: organization,
@@ -657,7 +657,7 @@ export abstract class GitHostIntegration<
 		}
 
 		if (api.getProviderIssuesPagingMode(providerId) === PagingMode.Repo && !api.isRepoIdsInput(reposOrRepoIds)) {
-			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
+			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
 			if (cursors.length > 0) {
@@ -900,7 +900,7 @@ export abstract class GitHostIntegration<
 			api.getProviderPullRequestsPagingMode(providerId) === PagingMode.Repo &&
 			!api.isRepoIdsInput(reposOrRepoIds)
 		) {
-			const cursorInfo = JSON.parse(options?.cursor ?? '{}');
+			const cursorInfo = this.parseCursorInfo<PagedRepoInput>(options?.cursor);
 			const cursors: PagedRepoInput[] = cursorInfo.cursors ?? [];
 			let repoInputs: PagedRepoInput[] = reposOrRepoIds.map(repo => ({ repo: repo, cursor: undefined }));
 			if (cursors.length > 0) {
@@ -1064,6 +1064,21 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
 	): Promise<PagedResult<ProviderPullRequest> | undefined>;
+
+	/**
+	 * Parses a Repo/Project paging cursor into its `cursors` bundle. Guards against valid JSON whose
+	 * `cursors` is a truthy non-array (e.g. `{ "cursors": "..." }`), which would otherwise bypass the
+	 * `?? []` fallback at call sites and flow into `.map()` downstream, throwing instead of degrading to
+	 * the first page.
+	 */
+	private parseCursorInfo<T>(cursor?: string): { cursors?: T[] } {
+		try {
+			const parsed = JSON.parse(cursor ?? '{}') as { cursors?: T[] };
+			return Array.isArray(parsed?.cursors) ? parsed : {};
+		} catch {
+			return {};
+		}
+	}
 
 	// `state` selects which PR states to include (open/closed/merged/all). Providers that cannot express it
 	// in a single query filter the normalized results; omitted preserves the historical open-only behavior.

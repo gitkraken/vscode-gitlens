@@ -354,6 +354,39 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a malformed Repo-mode cursor degrades to the first page instead of throwing (#5481)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
+
+		let called = false;
+		stubApi(gl, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repo,
+			getCurrentUser: () => Promise.resolve({ username: 'me' }),
+			getPullRequestsForRepo: () => {
+				called = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		// A cursor whose `cursors` is a truthy non-array would bypass the `?? []` fallback and reach `.map()`,
+		// throwing. parseCursorInfo must reject the shape so the read falls back to the first page.
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitLab,
+			repos: [{ namespace: 'g', name: 'r' }],
+			cursor: JSON.stringify({ cursors: 'not-an-array' }),
+		});
+		assert.equal(called, true, 'the read still runs (first page) rather than throwing on the bad cursor');
+		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
 	test('listProjects discovers Azure DevOps projects via the git-host project hook (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
