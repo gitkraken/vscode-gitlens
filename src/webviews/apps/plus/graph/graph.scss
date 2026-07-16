@@ -1060,10 +1060,9 @@ gl-lit-graph {
 
 	.gl-graph__refs {
 		display: flex;
-		// The message yields first (its high flex-shrink + 14rem floor) so pills keep their FULL name until
-		// the message reaches that floor; only then do pills shrink (label keeps a name prefix, not a bare
-		// icon). No hard width cap here — a fixed % capped the pills *before* the message hit its floor, so
-		// names ellipsized with room to spare in narrower windows; the message's min-width is the real bound.
+		// Pills shrink (label ellipsises) down to their leading icon; the grouped cap below is what bounds
+		// them against the message. Uncapped base = the dedicated Refs column / compact line 2, where the
+		// refs own the whole cell and there's no message to protect.
 		flex-shrink: 1;
 		min-width: 0;
 		// Separate the pills from the message text that follows in the same cell.
@@ -1072,22 +1071,16 @@ gl-lit-graph {
 		gap: 0.4rem;
 		overflow: hidden;
 	}
-	// Floor the zone so its overflow:hidden can never chop the leftmost interactive marks, while the
-	// name LABEL still collapses fully (its own min-width:0 + ellipsis). Fixed rem, NOT min-content —
-	// the label is `white-space: nowrap`, so its min-content is the WHOLE name and would block shrinking.
-	// Measured floors: a lone pill is icon-only — border(0.1·2)+pad(0.8·2)+icon(1.2) = 3rem; a +N pill
-	// adds the icon↔label gap + label↔badge gap + the badge ≈ 6rem (tuned to a 1-digit badge so it
-	// collapses to exactly icon + badge with NO 1-char name sliver; a wider count clips a hair only at
-	// full compression). The badge rule comes AFTER the plain rule so it wins the source-order tie.
+	// Leading-icon guarantee: floor the zone so its overflow:hidden can never chop the pill's leading
+	// icon — border(0.1·2)+pad(0.8·2)+icon(1.2) = exactly 3rem. This is NOT a pill floor (the pill sizes
+	// itself, see `-main`), and NOT min-content — that sums in the anchor markers AND outranks the
+	// grouped cap below (min-width beats max-width), starving the message all over again.
 	.gl-graph__refs:has(.gl-graph__ref-pill) {
 		min-width: 3rem;
 	}
-	.gl-graph__refs:has(.gl-graph__ref-pill-more) {
-		min-width: 6rem;
-	}
 	// The WIP stats badge is NOT a truncatable pill — it must always show in full. Inlined into the
 	// message column it shares `.gl-graph__refs`, whose shrink/clip is meant for branch pills; pin it to
-	// its content width (and drop the 60% cap + overflow clip) so the message yields instead of the stats.
+	// its content width (and drop the inline cap + overflow clip) so the message yields instead of the stats.
 	.gl-graph__refs:has(.gl-graph__wip-stats) {
 		flex-shrink: 0;
 		min-width: auto;
@@ -1097,13 +1090,16 @@ gl-lit-graph {
 	// Pills sharing the message cell size to their CONTENT, not a flex-shrunk fraction. flex-shrink:0 makes
 	// the zone EXACTLY the pills' width, so each label's box matches its text — eliminating the sub-pixel
 	// rounding that tripped `text-overflow: ellipsis` a pixel early (a flex-shrunk zone lands on a fractional
-	// width whose floor is 1px under the text, so the name ellipsised with room to spare). max-width caps the
-	// zone so the message still keeps a ~9rem floor; past the cap the pills truncate (hover reveals the full
-	// name). Scoped to ref-pill refs that precede a message — NOT the wip-stats refs (must never cap) nor the
-	// dedicated Refs column / compact line 2 (no message sibling there).
+	// width whose floor is 1px under the text, so the name ellipsised with room to spare). The CAP is what
+	// makes pills yield — a bare `100% - 9rem` reserved the message only ~7 chars, so the pills ate the cell
+	// and never visibly shrank; the percentage splits it down the middle instead. `100% - 9rem` takes back
+	// over below an 18rem cell (of the zone's CONTENT box), where half would leave the message too little to
+	// read. Past the cap the pills truncate (hover reveals the full name). Tune the percentage to trade pill
+	// name vs message length — it's the only dial here. Scoped to ref-pill refs that precede a message — NOT
+	// the wip-stats refs (must never cap) nor the dedicated Refs column / compact line 2 (no message sibling).
 	.gl-graph__refs:has(.gl-graph__ref-pill):has(~ .gl-graph__message) {
 		flex-shrink: 0;
-		max-width: calc(100% - 9rem);
+		max-width: min(40%, calc(100% - 9rem));
 	}
 	// In the list (2-line) layout the pills sit on line 2 (before the sha/author/date); the line's flex
 	// gap already spaces them from the metadata, so drop the refs' trailing margin.
@@ -1111,7 +1107,7 @@ gl-lit-graph {
 		margin-right: 0;
 	}
 	// Dedicated Refs column (refs placement = column): the pills own the whole cell, so drop the
-	// inline 60%-of-row cap + the trailing margin (no message follows them here) and let them fill it.
+	// inline share-of-row cap + the trailing margin (no message follows them here) and let them fill it.
 	.gl-graph__zone--ref .gl-graph__refs {
 		max-width: 100%;
 		margin-right: 0;
@@ -1124,12 +1120,15 @@ gl-lit-graph {
 	}
 	.gl-graph__message {
 		// The message absorbs ALL the squeeze in this cell: the branch pills are flex-shrink:0 and capped
-		// (see the `.gl-graph__refs` rule above) so they size to their CONTENT and reserve the message a
-		// floor, while the message shrinks/ellipsises into whatever's left. flex-shrink stays high so the
-		// message yields before the lane-collapse adornments do; min-width mirrors the pills' reserve — the
-		// message is ALWAYS ellipsised here anyway (content is thousands of px), so a modest floor costs
-		// nothing readable but lets the pills (short, COMPLETE identifiers) show their full name, not `m…`.
-		min-width: 9rem;
+		// (see the `.gl-graph__refs` rule above) so they size to their CONTENT, while the message shrinks/
+		// ellipsises into whatever's left. flex-shrink stays high so the message yields before the
+		// lane-collapse adornments do.
+		// min-width MUST stay 0. A floor here can't push the pills back (they're flex-shrink:0) — it only
+		// overflows the line, and the zone's overflow:hidden then chops the message's own `…` off, so it
+		// read as CLIPPED instead of ellipsised. The pills' cap above is what reserves the message its
+		// room; this side just has to yield. The cap can't do the arithmetic itself anyway — it can't see
+		// the refs' 0.6rem margin or the (variable, optional) `-msg-adornments` sharing this line.
+		min-width: 0;
 		flex: 1 1 auto;
 		flex-shrink: 100;
 		overflow: hidden;
@@ -1526,24 +1525,16 @@ gl-lit-graph {
 	// (NOT inline color/bg, so the :hover rule can win). At rest: lane-colored text + soft border;
 	// on hover: the pill FILLS with its lane color and the text flips to a readable contrast.
 	.gl-graph__ref-pill {
-		// min-width:0 so the refs zone CAN shrink the pill (its flex auto-minimum would otherwise be
-		// the full-name min-content and the pill would overflow + get clipped by the zone's
-		// overflow:hidden instead of truncating). The icon (flex-shrink:0) + visible overflow on
-		// `-main` provide the floor: the label ellipsises away but the icon never shrinks or clips, so
-		// `-main` bottoms out at "just the icon" and never past it. min-width:0 must also be set on
-		// `-main` for the shrink to reach the label. position:relative anchors the hover-expand overlay
-		// (`-expand`), which reveals the full name ON TOP of the message.
-		// overflow:hidden HERE (not just max-width) clips the pill's flex-shrink:0 segments — the
-		// out-of-sync jump button, PR/issue chips, +N badge — at the pill's own edge once `-main`
-		// bottoms out: those never shrink, and the refs-zone floors (below) only reserve room for
-		// icon(+badge), not for them, so without this they painted past the pill into the neighbor
-		// column (message text, or the next zone/column when refs sit as a bare flex sibling —
-		// dedicated Refs column, compact line 2). :hover/pinned reopen to visible so `-expand` escapes.
+		// NO min-width:0 and NO overflow:hidden — either one zeroes the flex auto-minimum, which let the
+		// pill collapse under its own rigid segments (jump button, PR/issue chips, +N badge) until they
+		// painted over the leading icon. Letting `min-width: auto` stand sizes the pill to its real
+		// content instead. It's a SOFT floor — max-width below clamps it (css-flexbox §4.5) — so a narrow
+		// refs zone still squeezes the pill and clips it at the zone's edge; that's fine, because `-main`
+		// can no longer collapse past its icon, so the segments can never overlap it. position:relative
+		// anchors the hover-expand overlay (`-expand`), which reveals the full name ON TOP of the message.
 		position: relative;
-		min-width: 0;
 		display: inline-flex;
 		max-width: 100%;
-		overflow: hidden;
 		flex-shrink: 1;
 		align-items: center;
 		gap: 0.6rem;
@@ -1576,15 +1567,23 @@ gl-lit-graph {
 		}
 	}
 	.gl-graph__ref-pill-main {
-		display: flex;
-		// min-width:0 propagates the pill's shrink down to the label so it can ellipsise (without it,
-		// `-main`'s auto-minimum is the full-name min-content and nothing truncates). NO overflow:hidden
-		// here though — the icon is flex-shrink:0, and visible overflow guarantees it's never clipped
-		// when `-main` shrinks to the floor; the label owns its own overflow:hidden + ellipsis.
-		min-width: 0;
+		// Grid, not flex: `minmax(0, 1fr)` zeroes the label track's min-content contribution — the one
+		// thing flex CAN'T express (a flex item contributes its own min-content, and the label is nowrap,
+		// so that's the WHOLE name; hence the fixed-rem floors this replaced). `-main`'s auto-minimum is
+		// therefore exactly icon + gap, so it can never collapse past its icon and let the trailing
+		// segments paint over it. The label still ellipsises — a 0-min track doesn't apply its item's
+		// auto-minimum, and the label owns its own overflow:hidden.
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
 		flex-shrink: 1;
 		align-items: center;
-		gap: 0.6rem;
+	}
+	// Icon↔label spacing as a LABEL MARGIN, not `-main`'s grid `gap`: a gap doesn't collapse with its
+	// 0-width track, so it stranded 0.6rem of dead space between the icon and the divider at full
+	// compression. A margin rides with the label and vanishes with it. Scoped to `-main`'s label — the
+	// ghost pill's label is a direct flex child of the pill and takes the pill's own `gap` instead.
+	.gl-graph__ref-pill-main > .gl-graph__ref-pill-label {
+		margin-inline-start: 0.6rem;
 	}
 	.gl-graph__ref-pill-icon {
 		display: inline-flex;
@@ -1594,9 +1593,8 @@ gl-lit-graph {
 		--code-icon-size: 1.2rem;
 	}
 	.gl-graph__ref-pill-label {
-		// Shrink all the way to the icon (+ the +N badge) — the label is the first thing to collapse
-		// once the message hits its floor. The zone floors (`:has(.ref-pill)` 3rem / `:has(.ref-more)`
-		// 6.6rem) keep the icon (and badge) from being clipped.
+		// Collapses to nothing — it's the only part of the pill that yields (it sits in `-main`'s 0-min
+		// grid track). The refs zone's 3rem floor keeps the leading icon itself from being clipped.
 		min-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
@@ -1661,9 +1659,10 @@ gl-lit-graph {
 		display: inline-flex;
 		// The in-sync segment shrinks FIRST (higher shrink than the name half) and well before the local
 		// name, so the local branch stays readable longest; its remote label ellipsises, then it floors at
-		// the cloud icon — leaving the `[name-icon] | [cloud-icon]` minimum with the divider intact.
+		// the cloud icon — leaving the `[name-icon] | [cloud-icon]` minimum with the divider intact. No
+		// min-width:0 — the auto-minimum IS that floor (the labelled shape gets it from the grid below;
+		// the icon-only and icon+stats shapes have nothing that shrinks anyway).
 		flex-shrink: 100;
-		min-width: 0;
 		align-items: center;
 		line-height: 1;
 		gap: 0.3rem;
@@ -1671,6 +1670,17 @@ gl-lit-graph {
 		padding: 0 0 0 0.5rem;
 		border: 0;
 		border-left: 1px solid var(--ref-border, currentColor);
+	}
+	// Same 0-min label track as `-main`, but ONLY for the shape that HAS a label. Unscoped, this breaks the
+	// other two shapes sharing this class: the `--jump` button (icon + arrow [+ stats]) would wrap its last
+	// child to an implicit second row, and the no-jump stats shape would collapse its tracking pill into the
+	// 0-min track.
+	.gl-graph__ref-pill-upstream:has(> .gl-graph__ref-pill-upstream-label) {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		// Gap → label margin, same as `-main`: a grid gap survives its 0-width track and would strand
+		// dead space between the cloud icon and the next segment at full compression.
+		column-gap: 0;
 	}
 	// Out-of-sync: the WHOLE segment is a button that jumps to the counterpart's row. Reset the UA button
 	// chrome (keeping the base layout/divider) and STRETCH it to the full pill height, bleeding into the
@@ -1755,6 +1765,8 @@ gl-lit-graph {
 		white-space: nowrap;
 		text-overflow: ellipsis;
 		line-height: 1;
+		// Carries its own icon↔label spacing (see the grid rule above) so it vanishes with the label.
+		margin-inline-start: 0.3rem;
 		padding-block: 0.3rem;
 		margin-block: -0.3rem;
 		opacity: 0.85;
@@ -1912,9 +1924,6 @@ gl-lit-graph {
 	}
 	.gl-graph__ref-pill:hover {
 		z-index: 20;
-		// Reopen the pill's own resting overflow:hidden (see above) so `-expand`'s absolute overlay —
-		// contained by THIS element (position:relative) — can still escape past the pill's edge.
-		overflow: visible;
 	}
 	.gl-graph__ref-pill:hover .gl-graph__ref-pill-expand {
 		display: inline-flex;
@@ -1938,8 +1947,6 @@ gl-lit-graph {
 	.gl-graph__ref-pill.is-context-pinned,
 	.gl-graph__ref-pill.is-pinned {
 		z-index: 20;
-		// Same reopen as :hover above — pinned states keep `-expand` shown for their lifetime.
-		overflow: visible;
 	}
 	.gl-graph__ref-pill.is-context-pinned .gl-graph__ref-pill-expand,
 	.gl-graph__ref-pill.is-pinned .gl-graph__ref-pill-expand {
