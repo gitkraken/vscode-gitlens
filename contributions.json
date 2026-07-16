@@ -6545,7 +6545,7 @@
 		"gitlens.showGraph": {
 			"label": "Show Commit Graph",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled",
+			"commandPalette": true,
 			"menus": {
 				"gitlens/scm/title": [
 					{
@@ -6619,12 +6619,12 @@
 		"gitlens.showGraphPage": {
 			"label": "Show Commit Graph in Editor",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
+			"commandPalette": true
 		},
 		"gitlens.showGraphView": {
 			"label": "Show Commit Graph View",
 			"icon": "$(gitlens-graph)",
-			"commandPalette": "gitlens:enabled"
+			"commandPalette": true
 		},
 		"gitlens.showHomeView": {
 			"label": "Show Home View",
@@ -20924,7 +20924,7 @@
 		"gitlens.views.graph": {
 			"type": "webview",
 			"name": "Graph",
-			"when": "!gitlens:disabled && (!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/)",
+			"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 			"contextualTitle": "GitLens",
 			"icon": "$(gitlens-graph)",
 			"initialSize": 4,

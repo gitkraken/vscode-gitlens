@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds an empty state to the _Commit Graph_ when no repository is open &mdash; offers _Open a Folder_, _Clone a Repository_, and _Start a New Project_ actions to get started; in web/virtual environments (e.g. vscode.dev) clone and new-project are replaced by an _Open Remote Repository_ action ([#5408](https://github.com/gitkraken/vscode-gitlens/issues/5408))
+
 ### Changed
 
 - Changes the default _Commit Graph_ lane colors for dark and high-contrast themes to a new vibrant, perceptually-uniform palette &mdash; every lane shares the same perceived brightness so no lane visually dominates; light themes keep the previous colors, and any `gitlens.graphLane1Color`&ndash;`gitlens.graphLane10Color` customizations in `workbench.colorCustomizations` are still honored

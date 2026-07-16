@@ -99,6 +99,7 @@ import { getSelectedRepoPath } from './utils/repository.utils.js';
 import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import { shouldShowPrimaryWipRow } from './utils/wip.utils.js';
+import './empty-state.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
@@ -1620,6 +1621,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				></gl-graph-header>
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
+					${when(
+						this.graphState.repositories?.length === 0,
+						() => html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`,
+					)}
 					<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
 					<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
 					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
