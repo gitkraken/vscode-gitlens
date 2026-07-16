@@ -63,6 +63,7 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
 			maxPages: 2,
 		});
 
@@ -98,6 +99,7 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
 			maxPages: 10,
 		});
 		assert.equal(result.items.length, 2);
@@ -129,6 +131,7 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
 			maxPages: 10,
 		});
 		assert.equal(result.items.length, 1, 'keeps the page fetched before the failure');
@@ -297,6 +300,8 @@ suite('sweep + broaden (#5438)', () => {
 					cursor: JSON.stringify({ value: 'next-org-b', type: 'cursor' }),
 				},
 			],
+			// Both orgs still had more this round, so none is recorded as exhausted.
+			exhausted: [],
 		});
 
 		round = 1;
@@ -306,6 +311,105 @@ suite('sweep + broaden (#5438)', () => {
 			'org-a': JSON.stringify({ value: 'next-org-a', type: 'cursor' }),
 			'org-b': JSON.stringify({ value: 'next-org-b', type: 'cursor' }),
 		});
+
+		manager.dispose();
+	});
+
+	test('broadenIssues skips an exhausted org on later rounds instead of re-fetching its first page', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: { values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository] },
+			});
+
+		let round = 0;
+		const reads: Record<number, string[]> = {};
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: (
+					repos: ProviderReposInput,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+			const org = (repos as { namespace: string }[])[0]?.namespace;
+			(reads[round] ??= []).push(org);
+			// org-a is exhausted after round 0 (no more); org-b keeps paging into round 1.
+			const more = org === 'org-b' && round === 0;
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${org}-${round}` } as unknown as ProviderIssue],
+					paging: more
+						? { more: true, cursor: JSON.stringify({ value: `next-${org}`, type: 'cursor' }) }
+						: { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const orgs = [
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-a' },
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-b' },
+		];
+
+		const first = await manager.broadenIssues({ orgs: [...orgs], page: 1 });
+		assert.deepEqual(reads[0].sort(), ['org-a', 'org-b'], 'both orgs read on the first round');
+		assert.deepEqual(JSON.parse(first.cursor!).exhausted, [
+			{ providerId: GitCloudHostIntegrationId.GitHub, org: 'org-a' },
+		]);
+
+		round = 1;
+		await manager.broadenIssues({ orgs: [...orgs], page: 2, cursor: first.cursor });
+		assert.deepEqual(reads[1], ['org-b'], 'the exhausted org-a is skipped, only org-b is re-read');
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests with no repos reads the account-wide user PRs core (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let reposCalled = false;
+		let accountWideStates: string[] | undefined | 'unset' = 'unset';
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				reposCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		// The account-wide core is provider-specific; stub the model hook the sweep routes to for empty repos.
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: (o?: {
+					state?: string[];
+				}) => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = (o?: { state?: string[] }) => {
+			accountWideStates = o?.state;
+			return Promise.resolve({
+				value: {
+					values: [{ id: 'mine' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const result = await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
+		assert.equal(reposCalled, false, 'no repos → the repo-scoped core is not called');
+		assert.deepEqual(result.items, [{ id: 'mine' }], 'account-wide user PRs are returned');
+		assert.deepEqual(
+			accountWideStates,
+			['closed', 'merged'],
+			'the closed sweep state reaches the account-wide core',
+		);
 
 		manager.dispose();
 	});

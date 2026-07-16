@@ -12,6 +12,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -22,8 +23,13 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
-import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
-import { providersMetadata } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
+import { providersMetadata, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
@@ -280,6 +286,23 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			},
 			cancellation,
 		);
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		// The current user's login scopes the account-wide `involves:` query (see getPullRequestsForUser →
+		// getPullRequestsAssociatedWithUser). Resolve it from THIS session (multi-account safe).
+		const username = (await this.getProviderCurrentAccount(session))?.username;
+		if (username == null) return undefined;
+
+		const api = await this.getProvidersApi();
+		return api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
+			baseUrl: this.apiBaseUrl,
+			states: toProviderPullRequestStates(options?.state),
+			cursor: options?.cursor,
+		});
 	}
 
 	protected override async searchProviderMyIssues(

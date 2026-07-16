@@ -11,6 +11,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -227,6 +228,31 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		return {
 			values: orgs.map(o => ({ id: o.id, name: o.name, url: `${this.apiBaseUrl}/${o.name}` })),
+		};
+	}
+
+	protected override async getProviderProjectsForOrg(
+		session: ProviderAuthenticationSession,
+		org?: string,
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
+		// Azure is the one git host with a project tier: repos live under org (resource) → project. Enumerate
+		// the user's orgs (optionally scoped to `org`), read their projects, and surface each as an org-shaped
+		// entry so the ProviderBackend facade can list them uniformly.
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		const scopedOrgs = org != null ? orgs.filter(o => o.name === org || o.id === org) : orgs;
+		if (scopedOrgs.length === 0) return { values: [] };
+
+		const projects = await this.getProviderProjectsForResources(session, scopedOrgs);
+		if (projects == null) return undefined;
+
+		return {
+			values: projects.map(p => ({
+				id: p.id,
+				name: p.name,
+				url: `${this.apiBaseUrl}/${p.resourceName}/${p.name}`,
+			})),
 		};
 	}
 
@@ -531,6 +557,53 @@ export abstract class AzureDevOpsIntegrationBase<
 		}
 
 		return [...prsById.values()];
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		const api = await this.getProvidersApi();
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return undefined;
+
+		// Azure PRs are org + project scoped: enumerate the user's orgs and their projects, then read authored
+		// and assigned PRs across all of them. Return the raw provider shape (not the normalized model) so the
+		// ProviderBackend surface stays uniform with the other providers.
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		const projects = await this.getProviderProjectsForResources(session, orgs);
+		if (projects == null || projects.length === 0) return undefined;
+
+		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
+		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
+		const states = toProviderPullRequestStates(options?.state);
+		const [assignedPrs, authoredPrs] = await Promise.all([
+			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
+				...apiOptions,
+				assigneeLogins: [user.username],
+				states: states,
+			}),
+			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
+				...apiOptions,
+				authorLogin: user.username,
+				states: states,
+			}),
+		]);
+
+		// Dedupe by id: a PR the user both authored and is assigned to appears in both reads.
+		const prsById = new Map<string, ProviderPullRequest>();
+		for (const pr of [...(authoredPrs ?? []), ...(assignedPrs ?? [])]) {
+			if (!prsById.has(pr.id)) {
+				prsById.set(pr.id, pr);
+			}
+		}
+
+		// KNOWN LIMITATION: getPullRequestsForAzureProjects returns a single provider-default page per project
+		// (no pageInfo exposed), so a project with more PRs than one page is capped here. Reported as one
+		// exhausted page rather than a resumable cursor until the wrapper exposes paging.
+		return { values: [...prsById.values()], paging: { cursor: '{}', more: false } };
 	}
 
 	protected override async searchProviderMyIssues(

@@ -239,6 +239,43 @@ export abstract class GitHostIntegration<
 	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined>;
 
 	/**
+	 * Result-returning list of the projects a git host exposes beneath its orgs, unified into the
+	 * {@link ProviderOrganization} shape. Only Azure DevOps has a project tier between org and repo; other
+	 * git hosts have none and leave {@link getProviderProjectsForOrg} undefined, so this returns `undefined`
+	 * for them (the ProviderBackend facade then treats them as having no projects). With `org`, scopes to
+	 * that org's projects; without, returns projects across every org the user can see.
+	 */
+	@trace()
+	async getProjectsForOrgResult(
+		org?: string,
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderHierarchyResult<ProviderOrganization> | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		if (this.getProviderProjectsForOrg == null) {
+			return undefined;
+		}
+
+		const start = performance.now();
+		try {
+			const result = await this.getProviderProjectsForOrg(session, org);
+			this.resetRequestExceptionCount('getProjectsForOrg');
+			return { value: result, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getProjectsForOrg', ex, { scope: scope });
+			return { error: ex, duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderProjectsForOrg?(
+		session: ProviderAuthenticationSession,
+		org?: string,
+	): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined>;
+
+	/**
 	 * Lists repositories under the given organization (org/workspace/group) one page at a time — follow
 	 * `paging.cursor` to page, or drain with the integrations provider paging helper.
 	 * `options.project` is only meaningful for Azure DevOps, whose repos are scoped by `org` + `project`;
@@ -983,6 +1020,50 @@ export abstract class GitHostIntegration<
 			};
 		}
 	}
+
+	/**
+	 * Account-wide, user-scoped counterpart of {@link getMyPullRequestsForReposResult} that returns the raw
+	 * `ProviderPullRequest` shape (not the normalized model). Unlike the repo-scoped core, this needs no
+	 * `repos` — it reads the current user's pull requests across the account, so the ProviderBackend sweep
+	 * can drive its Kanban "done" column even when no repositories are supplied (where the repo-scoped core
+	 * rejects an empty `repos` input). Recovers thrown errors into `{ error }` so callers surface warnings.
+	 */
+	async getMyPullRequestsForUserResult(
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+		connectionId?: string,
+	): Promise<IntegrationResult<PagedResult<ProviderPullRequest> | undefined>> {
+		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		if (this.getProviderMyPullRequestsForUser == null) {
+			return undefined;
+		}
+
+		const start = performance.now();
+		try {
+			const result = await this.getProviderMyPullRequestsForUser(session, options);
+			this.resetRequestExceptionCount('getMyPullRequestsForUser');
+			return { value: result, duration: performance.now() - start };
+		} catch (ex) {
+			this.handleProviderException('getMyPullRequestsForUser', ex, { scope: scope });
+			return { error: ex, duration: performance.now() - start };
+		}
+	}
+
+	/**
+	 * Reads the current user's pull requests across the whole account (author + assignee + review-requested,
+	 * per each provider's native "my PRs" query), returning the raw provider shape. Optional: providers that
+	 * can't express an account-wide user query leave it undefined and the surface falls back to repo-scoped.
+	 *
+	 * These native user queries are cursor-based, so `cursor` (not a page number) drives continuation; there
+	 * is no jump-to-page-N and no per-call page size on this path.
+	 */
+	protected getProviderMyPullRequestsForUser?(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined>;
 
 	// `state` selects which PR states to include (open/closed/merged/all). Providers that cannot express it
 	// in a single query filter the normalized results; omitted preserves the historical open-only behavior.

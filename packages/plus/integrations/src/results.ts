@@ -15,7 +15,7 @@ export interface ProviderWarning {
 	/** The specific token/connection the read was pinned to, when a `connectionId` was supplied. */
 	connectionId?: string;
 	message: string;
-	kind: 'auth' | 'rate-limit' | 'not-found' | 'other';
+	kind: 'auth' | 'rate-limit' | 'not-found' | 'no-connection' | 'other';
 	/** Convenience mirror of `kind === 'auth'`. */
 	isAuth: boolean;
 }

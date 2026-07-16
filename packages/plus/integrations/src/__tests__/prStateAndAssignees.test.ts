@@ -65,7 +65,10 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 			},
 		});
 
-		await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
+		await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+		});
 		assert.deepEqual(capturedStates, [GitPullRequestState.Closed, GitPullRequestState.Merged]);
 
 		manager.dispose();
@@ -88,7 +91,10 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		});
 
 		// The closed sweep maps the state filter for GitLab exactly as it does for GitHub — no provider gate.
-		await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitLab] });
+		await manager.sweepClosedPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitLab],
+			repos: [{ namespace: 'g', name: 'r' }],
+		});
 		assert.deepEqual(capturedStates, [GitPullRequestState.Closed, GitPullRequestState.Merged]);
 
 		manager.dispose();

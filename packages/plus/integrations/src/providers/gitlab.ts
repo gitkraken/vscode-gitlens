@@ -13,6 +13,7 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -24,7 +25,12 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitLabIntegrationIds } from './gitlab/gitlab.utils.js';
 import { getGitLabPullRequestIdentityFromMaybeUrl, matchesGitLabOrgNamespace } from './gitlab/gitlab.utils.js';
 import { fromGitLabMergeRequestProvidersApi } from './gitlab/models.js';
-import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
 import {
 	ProviderPullRequestReviewState,
 	providersMetadata,
@@ -364,6 +370,38 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		);
 
 		return [...results];
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		// Resolve the username from THIS session's token (multi-account safe) to scope the account-wide read.
+		const username = (await this.getProviderCurrentAccount(session))?.username;
+		if (username == null) return undefined;
+
+		const api = await this.getProvidersApi();
+		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
+			isPAT: this.isEnterprise,
+			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+			states: toProviderPullRequestStates(options?.state),
+			cursor: options?.cursor,
+		});
+		if (result == null) return undefined;
+
+		// GitLab's user query returns PRs the user is involved in; keep only those they authored, are
+		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope.
+		const values = result.values.filter(pr => {
+			const isAssignee = pr.assignees?.some(a => a.username === username);
+			const isRequestedReviewer = pr.reviews?.some(
+				review =>
+					review.reviewer?.username === username ||
+					review.state === ProviderPullRequestReviewState.ReviewRequested,
+			);
+			const isAuthor = pr.author?.username === username;
+			return isAssignee || isRequestedReviewer || isAuthor;
+		});
+		return { ...result, values: values };
 	}
 
 	protected override async searchProviderMyIssues(

@@ -11,6 +11,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -24,7 +25,7 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
-import type { ProviderRepository } from './models.js';
+import type { ProviderPullRequest, ProviderRepository } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
 
@@ -252,6 +253,26 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			{ states: toProviderPullRequestStates(state) },
 		);
 		return prs?.map(pr => fromProviderPullRequest(pr, this));
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		const api = await this.getProvidersApi();
+		// KNOWN LIMITATION: Bitbucket Server's account-wide read returns a single provider-default page (the
+		// wrapper discards pageInfo), so a user with more PRs than one page is capped here. Wrapped as one
+		// exhausted page for the ProviderBackend sweep until the wrapper exposes paging.
+		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
+			toTokenWithInfo(this.id, session),
+			this.apiBaseUrl,
+			{
+				states: toProviderPullRequestStates(options?.state),
+			},
+		);
+		if (prs == null) return undefined;
+
+		return { values: prs, paging: { cursor: '{}', more: false } };
 	}
 
 	protected override async searchProviderMyIssues(

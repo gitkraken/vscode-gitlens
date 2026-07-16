@@ -86,12 +86,17 @@ export class IntegrationAuthenticationService implements Disposable {
 	}
 
 	supports(providerId: string): boolean {
+		// Linear and Trello are cloud-backed issue integrations (same as Jira): `ensureProvider` registers a
+		// cloud auth provider for them, so a disconnect must offer to sign out of the cloud token too —
+		// otherwise the backend token and configured connection survive the disable.
 		switch (providerId) {
 			case GitCloudHostIntegrationId.AzureDevOps:
 			case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
 			case GitCloudHostIntegrationId.Bitbucket:
 			case GitCloudHostIntegrationId.GitLab:
 			case IssuesCloudHostIntegrationId.Jira:
+			case IssuesCloudHostIntegrationId.Linear:
+			case IssuesCloudHostIntegrationId.Trello:
 			case GitCloudHostIntegrationId.GitHub:
 				return true;
 			default:

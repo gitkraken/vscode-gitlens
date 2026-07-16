@@ -12,6 +12,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
@@ -22,7 +23,12 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
-import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
@@ -343,6 +349,39 @@ export class BitbucketIntegration extends GitHostIntegration<
 				(orig, _cur) => orig,
 			),
 		];
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		const api = await this.getProvidersApi();
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.id == null) return undefined;
+
+		const workspaces = await this.getProviderResourcesForCurrentUser(session);
+		if (workspaces == null || workspaces.length === 0) return undefined;
+
+		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to.
+		// Bitbucket's cross-workspace read is per-workspace, so fan out and concatenate the raw provider shapes.
+		// `states` accepts an array so the closed+merged "done" sweep maps in one pass.
+		const states = toProviderPullRequestStates(options?.state);
+		const perWorkspace = await flatSettled(
+			workspaces.map(async ws => {
+				const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+					toTokenWithInfo(this.id, session),
+					user.id,
+					ws.slug,
+					{ states: states },
+				);
+				return prs ?? [];
+			}),
+		);
+
+		// KNOWN LIMITATION: the workspace read returns a single provider-default page (the shared provider-api
+		// wrapper discards its pageInfo), so a workspace with more PRs than one page is capped here. Reported as
+		// a single exhausted page rather than a resumable cursor until the wrapper exposes paging.
+		return { values: perWorkspace, paging: { cursor: '{}', more: false } };
 	}
 
 	protected override async searchProviderMyIssues(
