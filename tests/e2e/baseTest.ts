@@ -45,9 +45,8 @@ async function waitForGitLensActivation(evaluate: VSCodeEvaluator['evaluate'], t
 		}
 		await new Promise(resolve => setTimeout(resolve, 250));
 	}
-	throw new Error(
-		`GitLens did not activate within ${timeout}ms${lastError ? `: ${(lastError as Error).message}` : ''}`,
-	);
+	const detail = lastError instanceof Error ? lastError.message : '';
+	throw new Error(`GitLens did not activate within ${timeout}ms${detail ? `: ${detail}` : ''}`);
 }
 
 /**
@@ -85,7 +84,9 @@ async function dismissOnboardingOverlays(page: Page): Promise<void> {
 
 				return 'pending';
 			})
-			.catch(() => 'absent' as const);
+			// A thrown evaluate (e.g. execution context briefly torn down during startup) is transient —
+			// treat it as 'pending' and keep polling, not 'absent', so a slightly-late overlay isn't missed.
+			.catch(() => 'pending' as const);
 
 		if (result === 'absent') return;
 

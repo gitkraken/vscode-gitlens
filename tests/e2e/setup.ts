@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process';
 import path from 'node:path';
+import * as process from 'node:process';
 import type { FullConfig } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 
@@ -14,10 +15,13 @@ export default async (config: FullConfig): Promise<void> => {
 	// If Playwright doesn't filter `config.projects` by `--project` here, this safely degrades to
 	// "download whenever the vscode project is registered" (which it always is).
 	const needsVSCode = config.projects.some(p => {
-		const use = p.use as { editorExecutablePath?: string };
+		// `use` is optional on a Playwright project — default to {} so a project without it doesn't throw.
+		const use = (p.use ?? {}) as { editorExecutablePath?: string };
 		return !use.editorExecutablePath;
 	});
 	if (needsVSCode) {
-		await downloadAndUnzipVSCode('stable');
+		// Match the channel the worker fixture resolves (vscodeOptions.vscodeVersion ?? 'stable') so we
+		// don't pre-download the wrong build when VSCODE_VERSION targets a non-stable channel.
+		await downloadAndUnzipVSCode(process.env.VSCODE_VERSION ?? 'stable');
 	}
 };

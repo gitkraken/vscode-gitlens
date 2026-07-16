@@ -140,7 +140,13 @@ jobs:
               id: gen
               run: |
                   editors=$(node --experimental-strip-types -e "import('./tests/e2e/editors.ts').then(m => console.log(JSON.stringify(m.editors)))")
-                  echo "editors=$editors" >> "$GITHUB_OUTPUT"
+                  # Heredoc-delimited output is robust even if the value ever spans lines — this is the
+                  # workflow's source of truth, and a bare `echo name=$value` would corrupt fromJSON().
+                  {
+                    echo "editors<<EOF"
+                    echo "$editors"
+                    echo "EOF"
+                  } >> "$GITHUB_OUTPUT"
 
     e2e-tests:
         name: E2E Tests (${{ matrix.editor.name }})
