@@ -1,0 +1,312 @@
+import * as assert from 'node:assert/strict';
+import { suite, test } from 'mocha';
+import type { PagedResult } from '@gitlens/utils/paging.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { GitCloudHostIntegrationId } from '../constants.js';
+import { createIntegrationManager } from '../index.js';
+import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { IntegrationResult } from '../models/integration.js';
+import type {
+	ProviderIssue,
+	ProviderPullRequest,
+	ProviderReposInput,
+	ProviderRepository,
+} from '../providers/models.js';
+import { PagingMode } from '../providers/models.js';
+import { createFakeRuntime } from './fakeRuntime.js';
+
+/**
+ * Verifies the sweep drain loop (all-pages, `truncated`/`fetchFailed` signals) and the broaden fan-out
+ * (per-org warning isolation, `broadenedProviderIds`, `fanOutCount`) for the ProviderBackend surface (#5438).
+ */
+
+function primarySession(token: string): ProviderAuthenticationSession {
+	return {
+		id: 'primary',
+		accessToken: token,
+		account: { id: 'me', label: 'me' },
+		scopes: ['repo'],
+		cloud: true,
+		type: 'oauth',
+		domain: 'github.com',
+	};
+}
+
+function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
+	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+}
+
+async function connectedGitHub(runtime: ReturnType<typeof createFakeRuntime>) {
+	const manager = createIntegrationManager(runtime);
+	const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+	(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+	return { manager: manager, gh: gh };
+}
+
+suite('sweep + broaden (#5438)', () => {
+	test('sweepPullRequests drains multiple pages and marks truncated at maxPages', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls++;
+				return Promise.resolve({
+					values: [{ id: `pr-${calls}` } as unknown as ProviderPullRequest],
+					paging: { more: true, cursor: JSON.stringify({ value: calls + 1, type: 'page' }) },
+				} satisfies PagedResult<ProviderPullRequest>);
+			},
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			maxPages: 2,
+		});
+
+		assert.equal(result.items.length, 2, 'drained exactly maxPages pages');
+		assert.equal(result.page.allPages, true);
+		assert.equal(result.page.truncated, true, 'stopping at maxPages with more available marks truncated');
+		assert.equal(result.hasMore, true);
+		assert.equal(result.fetchFailed, undefined);
+		assert.equal(calls, 2);
+
+		manager.dispose();
+	});
+
+	test('sweepPullRequests stops cleanly when the provider runs out of pages', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls++;
+				return Promise.resolve({
+					values: [{ id: `pr-${calls}` } as unknown as ProviderPullRequest],
+					paging: {
+						more: calls < 2,
+						cursor: calls < 2 ? JSON.stringify({ value: calls + 1, type: 'page' }) : '{}',
+					},
+				} satisfies PagedResult<ProviderPullRequest>);
+			},
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			maxPages: 10,
+		});
+		assert.equal(result.items.length, 2);
+		assert.equal(result.page.truncated, false);
+		assert.equal(result.hasMore, false);
+
+		manager.dispose();
+	});
+
+	test('a page that throws mid-drain sets fetchFailed while keeping earlier pages', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				calls++;
+				if (calls === 1) {
+					return Promise.resolve({
+						values: [{ id: 'pr-1' } as unknown as ProviderPullRequest],
+						paging: { more: true, cursor: JSON.stringify({ value: 2, type: 'page' }) },
+					} satisfies PagedResult<ProviderPullRequest>);
+				}
+				return Promise.reject(new Error('page 2 down'));
+			},
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			maxPages: 10,
+		});
+		assert.equal(result.items.length, 1, 'keeps the page fetched before the failure');
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].providerId, GitCloudHostIntegrationId.GitHub);
+
+		manager.dispose();
+	});
+
+	test('broadenIssues aggregates per-org, isolates a failing org into a warning, and reports fanOutCount', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// Both orgs resolve to the same GitHub integration; behavior differs by org name.
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+				},
+			});
+
+		const issue = { id: 'i-1' } as unknown as ProviderIssue;
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: (
+					repos: ProviderReposInput,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+			const ns = (repos as { namespace: string }[])[0]?.namespace;
+			if (ns === 'org-fail') return Promise.resolve({ error: new Error('issues boom') });
+			return Promise.resolve({ value: { values: [issue] } });
+		};
+
+		const result = await manager.broadenIssues({
+			orgs: [
+				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-ok' },
+				{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-fail' },
+			],
+			page: 1,
+		});
+
+		assert.deepEqual(result.items, [issue], 'only the successful org contributed issues');
+		assert.equal(result.warnings.length, 1, 'the failing org produced a warning without failing the fan-out');
+		assert.deepEqual(result.broadenedProviderIds, [GitCloudHostIntegrationId.GitHub]);
+		assert.equal(result.fanOutCount, 2, 'fanOutCount counts every org work item');
+
+		manager.dispose();
+	});
+
+	test('broadenIssues drains paginated repositories under an org', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		let calls = 0;
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (_org: string, options?: { cursor?: string }) => {
+			calls++;
+			const page = options?.cursor != null ? 2 : 1;
+			return Promise.resolve({
+				value: {
+					values: [{ name: `repo-${page}`, namespace: 'org' } as unknown as ProviderRepository],
+					paging: { more: page === 1, cursor: JSON.stringify({ value: page + 1, type: 'page' }) },
+				},
+			});
+		};
+
+		const issue = { id: 'i-1' } as unknown as ProviderIssue;
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: (
+					repos: ProviderReposInput,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+			assert.deepEqual(repos, [
+				{ namespace: 'org', name: 'repo-1' },
+				{ namespace: 'org', name: 'repo-2' },
+			]);
+			return Promise.resolve({ value: { values: [issue] } });
+		};
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.equal(calls, 2, 'drains until the provider stops paging');
+		assert.deepEqual(result.items, [issue]);
+
+		manager.dispose();
+	});
+
+	test('broadenIssues returns and reuses per-org opaque cursors for multi-org fan-out', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+				},
+			});
+
+		let round = 0;
+		const capturedCursors: Record<number, Record<string, string | undefined>> = {};
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: (
+					repos: ProviderReposInput,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = (repos: ProviderReposInput, options?: { cursor?: string }) => {
+			const org = (repos as { namespace: string }[])[0]?.namespace;
+			capturedCursors[round] ??= {};
+			capturedCursors[round][org] = options?.cursor;
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${org}-${round}` } as unknown as ProviderIssue],
+					paging:
+						round === 0
+							? { more: true, cursor: JSON.stringify({ value: `next-${org}`, type: 'cursor' }) }
+							: { more: false, cursor: '{}' },
+				},
+			});
+		};
+
+		const orgs = [
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-a' },
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org-b' },
+		] as const;
+
+		const first = await manager.broadenIssues({ orgs: [...orgs], page: 1 });
+		assert.equal(first.hasMore, true);
+		assert.deepEqual(capturedCursors[0], { 'org-a': undefined, 'org-b': undefined });
+		assert.deepEqual(JSON.parse(first.cursor!), {
+			cursors: [
+				{
+					providerId: GitCloudHostIntegrationId.GitHub,
+					org: 'org-a',
+					cursor: JSON.stringify({ value: 'next-org-a', type: 'cursor' }),
+				},
+				{
+					providerId: GitCloudHostIntegrationId.GitHub,
+					org: 'org-b',
+					cursor: JSON.stringify({ value: 'next-org-b', type: 'cursor' }),
+				},
+			],
+		});
+
+		round = 1;
+		const second = await manager.broadenIssues({ orgs: [...orgs], page: 2, cursor: first.cursor });
+		assert.equal(second.hasMore, false);
+		assert.deepEqual(capturedCursors[1], {
+			'org-a': JSON.stringify({ value: 'next-org-a', type: 'cursor' }),
+			'org-b': JSON.stringify({ value: 'next-org-b', type: 'cursor' }),
+		});
+
+		manager.dispose();
+	});
+});
