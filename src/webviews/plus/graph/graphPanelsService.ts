@@ -508,7 +508,7 @@ export class GraphPanelsService {
 
 			let webviewItem = `gitlens:worktree${w.isDefault ? '+default' : ''}${
 				w.workspaceFolder != null ? '+active' : ''
-			}`;
+			}${w.locked ? '+locked' : ''}`;
 			if (w.branch != null) {
 				webviewItem += '+branch';
 				if (w.branch.starred) {

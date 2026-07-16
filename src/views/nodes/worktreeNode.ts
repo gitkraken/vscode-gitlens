@@ -348,6 +348,9 @@ export class WorktreeNode extends CacheableChildrenViewNode<'worktree', ViewsWit
 		if (this.worktree.opened) {
 			contextValue += '+active';
 		}
+		if (this.worktree.locked) {
+			contextValue += '+locked';
+		}
 		if (hasChanges) {
 			contextValue += '+working';
 		}

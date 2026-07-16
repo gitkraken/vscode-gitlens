@@ -4525,6 +4525,20 @@
 				]
 			}
 		},
+		"gitlens.graph.unlockWorktree": {
+			"label": "Unlock Worktree",
+			"icon": "$(unlock)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+locked\\b)/ && !listMultiSelection && !gitlens:readonly",
+						"group": "1_gitlens_actions_2",
+						"order": 4
+					}
+				]
+			}
+		},
 		"gitlens.graph.unpinBranchFromEdge": {
 			"label": "Unpin Branch from Edge",
 			"menus": {
@@ -18585,6 +18599,20 @@
 						"when": "viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/ && !listMultiSelection && !gitlens:readonly && !gitlens:untrusted && !gitlens:hasVirtualFolders",
 						"group": "1_gitlens_actions",
 						"order": 1
+					}
+				]
+			}
+		},
+		"gitlens.views.unlockWorktree": {
+			"label": "Unlock Worktree",
+			"icon": "$(unlock)",
+			"enablement": "!operationInProgress",
+			"menus": {
+				"view/item/context": [
+					{
+						"when": "viewItem =~ /gitlens:worktree\\b(?=.*?\\b\\+locked\\b)/ && !listMultiSelection && !gitlens:readonly",
+						"group": "1_gitlens_actions_2",
+						"order": 4
 					}
 				]
 			}

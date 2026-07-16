@@ -2351,6 +2351,15 @@ export class GraphCommands {
 		await WorktreeActions.remove(worktree.repoPath, [worktree.uri]);
 	}
 
+	@command('gitlens.graph.unlockWorktree')
+	@debug()
+	private async unlockWorktree(item?: GraphItemContext) {
+		const worktree = await this.getGraphItemWorktree(item);
+		if (worktree == null) return;
+
+		await WorktreeActions.unlock(worktree);
+	}
+
 	@command('gitlens.graph.addAuthor')
 	@debug()
 	private addAuthor(item?: GraphItemContext) {

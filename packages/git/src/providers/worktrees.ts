@@ -31,5 +31,7 @@ export interface GitWorktreesSubProvider {
 	): Promise<GitWorktree | undefined>;
 	getWorktrees(repoPath: string, cancellation?: AbortSignal): Promise<GitWorktree[]>;
 	getWorktreesDefaultUri(repoPath: string): Uri | undefined;
-	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void>;
+	/** Pass `force: 'locked'` to also override a locked worktree */
+	deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean | 'locked' }): Promise<void>;
+	unlockWorktree(repoPath: string, path: string | Uri): Promise<void>;
 }

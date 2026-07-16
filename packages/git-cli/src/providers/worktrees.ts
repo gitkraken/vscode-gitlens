@@ -14,8 +14,13 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { Git, GitError } from '../exec/git.js';
-import { getGitCommandError } from '../exec/git.js';
+import { getGitCommandError, GitErrors } from '../exec/git.js';
 import { parseGitWorktrees } from '../parsers/worktreeParser.js';
+
+/** Extracts the lock reason from Git's `cannot remove a locked working tree` output, when it provides one */
+function getLockReason(ex: GitError): string | undefined {
+	return GitErrors.worktreeLockedReason.exec(ex.stderr || ex.stdout || ex.message || '')?.[1].trim() || undefined;
+}
 
 export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	constructor(
@@ -155,7 +160,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 	}
 
 	@debug()
-	async deleteWorktree(repoPath: string, path: string | Uri, options?: { force?: boolean }): Promise<void> {
+	async deleteWorktree(
+		repoPath: string,
+		path: string | Uri,
+		options?: { force?: boolean | 'locked' },
+	): Promise<void> {
 		const scope = getScopedLogger();
 
 		await this.git.ensureSupports(
@@ -167,6 +176,10 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 		const args = ['worktree', 'remove'];
 		if (options?.force) {
 			args.push('--force');
+			// Git requires a second `--force` to remove a locked worktree
+			if (options.force === 'locked') {
+				args.push('--force');
+			}
 		}
 
 		const pathStr = normalizePath(toFsPath(path));
@@ -183,7 +196,11 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				ex as GitError,
 				reason =>
 					new WorktreeDeleteError(
-						{ reason: reason, gitCommand: { repoPath: repoPath, args: args } },
+						{
+							reason: reason,
+							lockReason: reason === 'locked' ? getLockReason(ex as GitError) : undefined,
+							gitCommand: { repoPath: repoPath, args: args },
+						},
 						ex as GitError,
 					),
 			);
@@ -245,5 +262,19 @@ export class WorktreesGitSubProvider implements GitWorktreesSubProvider {
 				this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 			}
 		}
+	}
+
+	@debug()
+	async unlockWorktree(repoPath: string, path: string | Uri): Promise<void> {
+		await this.git.ensureSupports(
+			'git:worktrees',
+			'Unlocking worktrees',
+			' Please install a more recent version of Git and try again.',
+		);
+
+		await this.git.run({ cwd: repoPath, errors: 'throw' }, 'worktree', 'unlock', normalizePath(toFsPath(path)));
+
+		this.context.hooks?.cache?.onReset?.(repoPath, 'worktrees');
+		this.context.hooks?.repository?.onChanged?.(repoPath, ['worktrees']);
 	}
 }

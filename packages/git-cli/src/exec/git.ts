@@ -126,6 +126,10 @@ export const GitErrors = {
 	unsafeRepository:
 		/(?:^fatal:\s*detected dubious ownership in repository at '([^']+)'|unsafe repository \('([^']+)' is owned by someone else\))[\s\S]*(git config --global --add safe\.directory [^\n•]+)/m,
 	unstagedChanges: /You have unstaged changes/i,
+	// Matches both variants: with a lock reason (`..., lock reason: <reason>`) and without (`...;`)
+	worktreeLocked: /fatal:\s*cannot remove a locked working tree/i,
+	// Only matches the variant where Git reports a lock reason; the reason is free text, so capture the whole line
+	worktreeLockedReason: /cannot remove a locked working tree,[ \t]*lock reason:[ \t]*(.*)/i,
 } as const;
 
 export const GitWarnings = {
@@ -393,6 +397,8 @@ const errorToReasonMap = new Map<GitCommand, [RegExp, GitCommandToReasonMap[GitC
 	[
 		'worktree-delete',
 		[
+			// Must come first -- a locked worktree's lock reason is free text that can otherwise match the errors below
+			[GitErrors.worktreeLocked, 'locked'],
 			[GitErrors.mainWorkingTree, 'defaultWorkingTree'],
 			[GitErrors.uncommittedChanges, 'uncommittedChanges'],
 			[GitErrors.failedToDeleteDirectoryNotEmpty, 'directoryNotEmpty'],
