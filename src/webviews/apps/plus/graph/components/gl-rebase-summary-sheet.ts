@@ -20,6 +20,7 @@ import '../../../shared/components/button.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/commit-sha.js';
 import '../../../shared/components/overlays/detail-sheet.js';
+import '../../../shared/components/overlays/popover-confirm.js';
 import '../../../shared/components/overlays/tooltip.js';
 
 export interface RebaseSummaryViewDiffDetail {
@@ -126,7 +127,14 @@ export class GlRebaseSummarySheet extends LitElement {
 				padding-block-end: var(--gl-space-12);
 			}
 
+			/* The header has to read as a band that owns the rows beneath it. It can't tint itself with
+			   the sideBar-background (the sheet body's own surface) or with the
+			   sideBarSectionHeader-background (identical to it in the default themes) — either way the
+			   band and its rows paint the same color and the steps blur into one wash. Deriving the tint
+			   from the foreground contrasts against whatever surface the host provides. */
 			.step__head {
+				--step-accent: color-mix(in srgb, var(--vscode-descriptionForeground) 60%, transparent);
+
 				position: sticky;
 				top: 0;
 				z-index: 1;
@@ -140,9 +148,46 @@ export class GlRebaseSummarySheet extends LitElement {
 				color: inherit;
 				text-align: start;
 				cursor: pointer;
-				background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+				background: color-mix(
+					in srgb,
+					var(--vscode-foreground) 8%,
+					var(--vscode-sideBar-background, var(--vscode-editor-background))
+				);
 				border: none;
-				border-bottom: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+				border-block: var(--gl-border-width) solid var(--vscode-widget-border, transparent);
+				/* Outcome accent down the band's edge — the same signal as the header's badge, but
+				   scannable while the rows are what's actually being read. */
+				box-shadow: inset 0.3rem 0 0 0 var(--step-accent);
+			}
+
+			/* The overview closes with its own border, so the first band doesn't need a top rule too. */
+			.steps > .step__head:first-child {
+				border-block-start: none;
+			}
+
+			.step__head[data-kind='empty-skipped'] {
+				--step-accent: var(--vscode-inputValidation-warningBorder, var(--vscode-editorWarning-foreground));
+			}
+
+			.step__head[data-kind='manual'] {
+				--step-accent: var(--vscode-textLink-foreground);
+			}
+
+			/* Two-line header: label + badge on top, commit sha + message beneath. */
+			.step__body {
+				display: flex;
+				flex: 1;
+				flex-direction: column;
+				gap: var(--gl-space-2);
+				min-width: 0;
+			}
+
+			.step__primary,
+			.step__secondary {
+				display: flex;
+				gap: var(--gl-space-6);
+				align-items: center;
+				min-width: 0;
 			}
 
 			.step__label {
@@ -155,6 +200,7 @@ export class GlRebaseSummarySheet extends LitElement {
 				min-width: 0;
 				overflow: hidden;
 				color: var(--vscode-descriptionForeground);
+				font-size: var(--gl-font-sm);
 				text-overflow: ellipsis;
 				white-space: nowrap;
 			}
@@ -172,13 +218,27 @@ export class GlRebaseSummarySheet extends LitElement {
 				font-variant: all-small-caps;
 			}
 
+			.step__manual {
+				flex: none;
+				color: var(--vscode-descriptionForeground);
+				font-size: var(--gl-font-sm);
+				font-variant: all-small-caps;
+			}
+
+			/* Indent the rows behind a rail so they read as belonging to the band above, and close the
+			   group with trailing space — a boundary alone still left adjacent steps ambiguous about
+			   which header owned which rows. */
 			.files {
 				display: flex;
 				flex-direction: column;
 				gap: var(--gl-space-8);
-				margin: 0;
-				padding: var(--gl-space-8) var(--gl-space-16);
+				margin-block: 0 var(--gl-space-12);
+				margin-inline: var(--gl-space-24) 0;
+				padding-block: var(--gl-space-8);
+				padding-inline: var(--gl-space-12) var(--gl-space-16);
 				list-style: none;
+				border-inline-start: 0.2rem solid
+					color-mix(in srgb, var(--vscode-descriptionForeground) 45%, transparent);
 			}
 
 			.resolve-file__head {
@@ -224,15 +284,6 @@ export class GlRebaseSummarySheet extends LitElement {
 				justify-content: flex-end;
 				width: 100%;
 			}
-
-			.footer__confirm {
-				display: flex;
-				flex: 1;
-				gap: var(--gl-space-8);
-				align-items: center;
-				min-width: 0;
-				color: var(--vscode-descriptionForeground);
-			}
 		`,
 	];
 
@@ -258,9 +309,6 @@ export class GlRebaseSummarySheet extends LitElement {
 
 	@state()
 	private _openReasons = new Set<string>();
-
-	@state()
-	private _confirmingUndo = false;
 
 	override render(): unknown {
 		return html`<gl-detail-sheet aria-label="Automatic rebase summary" close-label="Close">
@@ -316,16 +364,15 @@ export class GlRebaseSummarySheet extends LitElement {
 						? html`<span>onto</span><gl-branch-name .name=${summary.upstream}></gl-branch-name>`
 						: nothing
 				}
-				<span class="overview__counts">
-					· rebase
-					${outcomeLabel}${
-						summary.steps.length > 0
-							? html` · ${pluralize('conflict', fileCount)} resolved across ${summary.steps.length} of
-								${summary.totalSteps || summary.steps.length}
-								${summary.totalSteps === 1 ? 'step' : 'steps'}`
-							: nothing
-					}
-				</span>
+			</div>
+			<div class="overview__counts">
+				Rebase
+				${outcomeLabel}${
+					summary.steps.length > 0
+						? html` · ${pluralize('conflicted file', fileCount)} resolved across
+							${pluralize('step', summary.steps.length)}`
+						: nothing
+				}
 			</div>
 			${
 				summary.autostash === 'left-in-stash'
@@ -356,21 +403,34 @@ export class GlRebaseSummarySheet extends LitElement {
 		return html`<button
 				type="button"
 				class="step__head"
+				data-kind=${step.kind}
 				aria-expanded=${!collapsed}
 				@click=${() => this.toggleStep(step.step)}
 			>
 				<code-icon icon=${collapsed ? 'chevron-right' : 'chevron-down'} size="12"></code-icon>
-				<span class="step__label">Step ${step.step} of ${step.totalSteps}</span>
-				${step.commit.sha ? html`<gl-commit-sha .sha=${step.commit.sha}></gl-commit-sha>` : nothing}
-				<span class="step__message" title=${step.commit.message ?? ''}>${messageLine}</span>
-				${
-					step.kind === 'empty-skipped'
-						? html`<gl-tooltip content="The resolution made this commit empty, so it was skipped">
-								<span class="step__skipped">commit skipped</span>
-							</gl-tooltip>`
-						: nothing
-				}
-				<span class="step__count">${pluralize('file', step.files.length)}</span>
+				<span class="step__body">
+					<span class="step__primary">
+						<span class="step__label">Conflict in Step ${step.step} of ${step.totalSteps}</span>
+						${
+							step.kind === 'empty-skipped'
+								? html`<gl-tooltip content="The resolution made this commit empty, so it was skipped">
+										<span class="step__skipped">commit skipped</span>
+									</gl-tooltip>`
+								: step.kind === 'manual'
+									? html`<gl-tooltip
+											content="Automation couldn't resolve this step — you resolved it manually"
+										>
+											<span class="step__manual">resolved manually</span>
+										</gl-tooltip>`
+									: nothing
+						}
+					</span>
+					<span class="step__secondary">
+						${step.commit.sha ? html`<gl-commit-sha .sha=${step.commit.sha}></gl-commit-sha>` : nothing}
+						<span class="step__message" title=${step.commit.message ?? ''}>${messageLine}</span>
+					</span>
+				</span>
+				<span class="step__count">${pluralize('conflicted file', step.files.length)}</span>
 			</button>
 			${
 				collapsed
@@ -433,40 +493,38 @@ export class GlRebaseSummarySheet extends LitElement {
 		const summary = this.summary;
 		if (summary == null || this.loading || this.error) return nothing;
 
-		const undoBlocked = !summary.undoable || this.undoing || this.undoError != null;
-		if (this._confirmingUndo && !undoBlocked) {
-			return html`<div slot="footer" class="footer">
-				<span class="footer__confirm"
-					>Reset ${summary.branch ?? 'the branch'} to
-					<gl-commit-sha .sha=${summary.preRebaseSha}></gl-commit-sha>? Commits created by the rebase will be
-					discarded.</span
-				>
-				<gl-button
-					appearance="secondary"
-					?disabled=${this.undoing}
-					@click=${() => (this._confirmingUndo = false)}
-					>Keep</gl-button
-				>
-				<gl-button ?disabled=${this.undoing} @click=${this.onConfirmUndo}
-					>${this.undoing ? 'Undoing…' : 'Undo'}</gl-button
-				>
-			</div>`;
+		// `undoError` intentionally doesn't disable the button — a refusal surfaces in the overview
+		// banner and can be retried by reopening the popover. `undoing` disables it during the RPC.
+		const undoDisabled = !summary.undoable || this.undoing;
+		const label = this.undoing ? 'Undoing…' : 'Undo Rebase';
+
+		let undo;
+		if (summary.undoable) {
+			const message = `Reset ${summary.branch ?? 'the branch'} to ${summary.preRebaseSha.slice(
+				0,
+				7,
+			)}? Commits created by the rebase will be discarded.${
+				summary.undoWillStash ? ' Your working changes will be stashed first.' : ''
+			}`;
+			undo = html`<gl-popover-confirm
+				heading="Undo Rebase"
+				message=${message}
+				confirm="Undo"
+				@gl-confirm=${this.onConfirmUndo}
+			>
+				<gl-button slot="anchor" appearance="secondary" ?disabled=${undoDisabled}>${label}</gl-button>
+			</gl-popover-confirm>`;
+		} else {
+			const button = html`<gl-button appearance="secondary" ?disabled=${undoDisabled}>${label}</gl-button>`;
+			undo =
+				summary.undoRefusal != null
+					? html`<gl-tooltip content=${summary.undoRefusal}>${button}</gl-tooltip>`
+					: button;
 		}
 
-		const undoButton = html`<gl-button
-			appearance="secondary"
-			?disabled=${undoBlocked}
-			aria-disabled=${undoBlocked}
-			@click=${() => (this._confirmingUndo = true)}
-			>Undo Rebase</gl-button
-		>`;
 		return html`<div slot="footer" class="footer">
-			${
-				summary.undoable || summary.undoRefusal == null
-					? undoButton
-					: html`<gl-tooltip content=${summary.undoRefusal}>${undoButton}</gl-tooltip>`
-			}
-			<gl-button @click=${this.onKeep}>Keep Rebase</gl-button>
+			${undo}
+			<gl-button @click=${this.onKeep}>OK</gl-button>
 		</div>`;
 	}
 
