@@ -256,23 +256,33 @@ jobs:
                     echo "${{ matrix.editor.envVar }}=$exe" >> "$GITHUB_ENV"
                   fi
 
+            # Invoke Playwright directly via `pnpm exec` — `pnpm run test:e2e -- --project=<id>`
+            # keeps the literal `--`, which Playwright treats as a positional filter (not the
+            # `--project` option), so the filter is ignored and EVERY registered project runs
+            # (e.g. vscode + windsurf → ~2x the tests). Passing --project straight to the binary
+            # applies it correctly, keeping each matrix job scoped to its own editor.
             - name: Run E2E tests
               run: >
                   xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x16"
-                  pnpm run test:e2e -- --project=${{ matrix.editor.id }}
+                  pnpm exec playwright test -c tests/e2e/playwright.config.ts --project=${{ matrix.editor.id }}
 
+            # Upload on both pass and fail (skip only on cancel) so results/report are available to
+            # inspect even when the job is green — flaky-retry traces (trace: on-first-retry) land in
+            # out/test-results/ but would be dropped by an `if: failure()` gate on a passing run.
             - name: Upload test results
-              if: failure()
+              if: ${{ !cancelled() }}
               uses: actions/upload-artifact@v4
               with:
                   name: playwright-results-${{ matrix.editor.id }}
                   path: out/test-results/
                   retention-days: 7
+                  if-no-files-found: ignore
 
             - name: Upload Playwright report
-              if: failure()
+              if: ${{ !cancelled() }}
               uses: actions/upload-artifact@v4
               with:
                   name: playwright-report-${{ matrix.editor.id }}
                   path: playwright-report/
                   retention-days: 7
+                  if-no-files-found: ignore
