@@ -3789,14 +3789,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (this.container.git.repositoryCount === 0) {
 			this._wip.updateWorkingTreeBadge(undefined);
-			return { ...this.host.baseWebviewState, allowed: true, repositories: [], isWeb: isWeb };
+			return {
+				...this.host.baseWebviewState,
+				allowed: true,
+				repositories: [],
+				isWeb: isWeb,
+				subscription: await this.container.subscription.getSubscription(),
+			};
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
 				this._wip.updateWorkingTreeBadge(undefined);
-				return { ...this.host.baseWebviewState, allowed: true, repositories: [], isWeb: isWeb };
+				return {
+					...this.host.baseWebviewState,
+					allowed: true,
+					repositories: [],
+					isWeb: isWeb,
+					subscription: await this.container.subscription.getSubscription(),
+				};
 			}
 		}
 
