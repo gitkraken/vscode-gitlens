@@ -780,7 +780,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.getDefaultBranchName(
 			repoPath,
 			remote,
-			async (commonPath, _cacheable, signal) => {
+			async (commonPath, cacheable, signal) => {
 				let retried = false;
 				while (true) {
 					try {
@@ -792,6 +792,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						);
 						return result.stdout.trim() || undefined;
 					} catch (ex) {
+						// Only "no HEAD ref configured" is an ANSWER here; every other throw means the lookup
+						// never happened. This entry has no TTL, so caching a failure — an offline `ls-remote`
+						// being the likely one — would pin "no default branch" for the session.
+						let answered = false;
 						if (/is not a symbolic ref/.test(ex.stderr)) {
 							try {
 								if (!retried) {
@@ -825,11 +829,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 										return `${remote}/${branch.substring('refs/heads/'.length).trim()}`;
 									}
 								}
+								// `ls-remote` ran and the remote advertised no HEAD — a real "none".
+								answered = true;
 							} catch {
 								if (isCancellationError(ex)) throw ex;
 							}
 						}
 
+						if (!answered) {
+							cacheable.invalidate();
+						}
 						return undefined;
 					}
 				}
@@ -846,6 +855,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
+			// A name reused from a deleted branch must not inherit its predecessor's base
+			this.cache.deleteBaseBranchName(repoPath, name);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
@@ -872,6 +883,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const args = ['branch', options?.force ? '-D' : '-d', ...branches];
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
+			for (const branch of branches) {
+				this.cache.deleteBaseBranchName(repoPath, branch);
+			}
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {
@@ -1355,7 +1369,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.getBaseBranchName(
 			repoPath,
 			ref,
-			async (commonPath, _cacheable, signal) => {
+			async (commonPath, cacheable, signal) => {
 				try {
 					// getGkConfig has built-in fallback to regular config for backward compatibility
 					let mergeBase = await this.provider.config.getGkConfig(commonPath, `branch.${ref}.gk-merge-base`);
@@ -1387,18 +1401,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					}
 				} catch {}
 
-				const branch = await this.getBaseBranchFromReflog(
+				const reflog = await this.getBaseBranchFromReflog(
 					commonPath,
 					ref,
 					{ upstream: true, priority: priority },
 					signal,
 				);
-				if (branch != null) {
+				if (reflog.branch != null) {
 					// Self-write: see comment on the migration path above.
-					void this.storeBaseBranchName(commonPath, ref, branch, {
+					void this.storeBaseBranchName(commonPath, ref, reflog.branch, {
 						skipInvalidation: ['branchOverviews', 'baseBranchName'],
 					});
-					return branch;
+					return reflog.branch;
+				}
+
+				// This entry has no TTL and the `'branches'` cascade no longer clears it (a tip move can't
+				// change a base), so a failed read cached as `undefined` would read as "no base branch" for
+				// the rest of the session. Only a reflog that actually RAN and found nothing is an answer.
+				if (reflog.failed) {
+					cacheable.invalidate();
 				}
 
 				return undefined;
@@ -1407,12 +1428,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		);
 	}
 
+	/**
+	 * `failed` separates "the reflog ran and had no answer" from "the read never happened" — the caller
+	 * caches the former forever and must not cache the latter.
+	 */
 	private async getBaseBranchFromReflog(
 		repoPath: string,
 		ref: string,
 		options?: { upstream: true; priority?: GitCommandPriority },
 		cancellation?: AbortSignal,
-	): Promise<string | undefined> {
+	): Promise<{ branch: string | undefined; failed: boolean }> {
 		const priority = options?.priority;
 		const priorityOpts = priority != null ? { priority: priority } : undefined;
 
@@ -1425,7 +1450,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 
 			let entries = result.stdout.split('\n').filter(entry => Boolean(entry));
-			if (entries.length !== 1) return undefined;
+			if (entries.length !== 1) return { branch: undefined, failed: false };
 
 			// Check if branch created from an explicit branch
 			let match = entries[0].match(/branch: Created from (.*)$/);
@@ -1438,11 +1463,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							`${name}@{u}`,
 							priorityOpts,
 						);
-						if (upstream) return upstream;
+						if (upstream) return { branch: upstream, failed: false };
 					}
 
 					name = await this.provider.refs.getSymbolicReferenceName(repoPath, name, priorityOpts);
-					if (name) return name;
+					if (name) return { branch: name, failed: false };
 				}
 			}
 
@@ -1455,7 +1480,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			);
 
 			entries = result.stdout.split('\n').filter(entry => Boolean(entry));
-			if (!entries.length) return undefined;
+			if (!entries.length) return { branch: undefined, failed: false };
 
 			match = entries.at(-1)!.match(/checkout: moving from ([^\s]+)\s/);
 			if (match?.length === 2) {
@@ -1466,17 +1491,21 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						`${name}@{u}`,
 						priorityOpts,
 					);
-					if (upstream) return upstream;
+					if (upstream) return { branch: upstream, failed: false };
 				}
 
 				name = await this.provider.refs.getSymbolicReferenceName(repoPath, name, priorityOpts);
-				if (name) return name;
+				if (name) return { branch: name, failed: false };
 			}
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
+
+			// The reads use default error handling, so a spawn failure, queue rejection or swallowed
+			// `GitWarnings` match lands here rather than producing an empty answer.
+			return { branch: undefined, failed: true };
 		}
 
-		return undefined;
+		return { branch: undefined, failed: false };
 	}
 
 	@debug({ exit: true })
@@ -1538,6 +1567,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const args = ['branch', '-m', oldName, newName];
 		try {
 			await this.git.run({ cwd: repoPath }, ...args);
+			// Old name's entry is now orphaned; the new name must not inherit a predecessor's base
+			this.cache.deleteBaseBranchName(repoPath, oldName);
+			this.cache.deleteBaseBranchName(repoPath, newName);
 			this.context.hooks?.cache?.onReset?.(repoPath, 'branches');
 			this.context.hooks?.repository?.onChanged?.(repoPath, ['heads']);
 		} catch (ex) {

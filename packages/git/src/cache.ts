@@ -64,6 +64,13 @@ export type CachedGitTypes =
 export type ConflictDetectionCacheKey = `apply:${string}:${string}:${string}` | `merge:${string}:${string}`;
 
 /**
+ * Ceiling on how long a derived branch base is trusted. Long enough that repeated reads during normal use
+ * are served from cache, short enough that a base that changed by a route with no eviction signal (an
+ * external delete-and-recreate of a branch that is never checked out) self-heals without a reload.
+ */
+const baseBranchNameTTL = 5 * 60 * 1000; // 5 minutes
+
+/**
  * gkConfig keys that participate in the `branchOverviews` cache's mergeTarget/mergeBase lineage.
  * Capture group 1 is the ref name (which may itself contain `.`/`/`).
  */
@@ -526,9 +533,26 @@ export class Cache implements Disposable {
 				keysToClear.add('resolvedRevisions');
 			}
 
-			// Shared branch caches (branch list, metadata)
-			if (types.includes('branches')) {
+			// Shared branch caches (branch list, metadata). `baseBranchName` is deliberately NOT cleared
+			// here — a branch's base is set at creation and only changes when its stored key changes
+			// (`gkConfig`/`config` below) or the branch itself is created/renamed/deleted. Every op that
+			// does one of those calls `deleteBaseBranchName` and moves or drops the branch's persisted
+			// `branch.<ref>.gk-*` keys: `createBranch`/`deleteLocalBranch`/`renameBranch`, plus the two
+			// paths that create a branch as a side effect (`checkout -b`, `worktree add -b`). Tip movement
+			// can't change a base, so clearing on every commit only forced a `git reflog` re-derivation.
+			if (types.includes('branch')) {
+				// `'branch'` comes from a HEAD change — a checkout — which appends `checkout: moving from X
+				// to Y` to the reflog, exactly the entry `getBaseBranchName` greps for when nothing is
+				// stored. A base derived as "none" BEFORE that entry existed is cached with no TTL, so
+				// without this it stays "none" for the session even though the answer now exists.
+				//
+				// Deliberately not under `'branches'`: a tip move can't change a branch's base, and
+				// re-deriving on every commit is precisely the cost this branch set out to remove. Checkouts
+				// are user-driven and rare by comparison.
 				keysToClear.add('baseBranchName');
+			}
+
+			if (types.includes('branches')) {
 				keysToClear.add('branchMetadataMap');
 				keysToClear.add('branches');
 				keysToClear.add('sharedBranches');
@@ -540,6 +564,10 @@ export class Cache implements Disposable {
 			}
 
 			if (types.includes('config')) {
+				// `getBaseBranchName` falls back to `branch.<ref>.vscode-merge-base` (written by VS Code's
+				// built-in Git), which lives in `.git/config` — so a config change is the only signal that
+				// source changed. Cheap: config events are rare.
+				keysToClear.add('baseBranchName');
 				keysToClear.add('configKeys');
 				keysToClear.add('configPatterns');
 				keysToClear.add('currentBranchReference');
@@ -1161,8 +1189,31 @@ export class Cache implements Disposable {
 		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
 		return this.getSharedSimpleWithKey(this.baseBranchName, repoPath, ref, factory, {
+			// A bounded ceiling, because the eviction signals can't cover every way a base changes. The
+			// `'branches'` cascade deliberately doesn't clear this — a tip move can't change a base, and
+			// re-deriving per commit is the cost this exists to avoid — but that leaves a hole: a branch
+			// deleted and recreated OUTSIDE GitLens, and never checked out, emits only `heads`. A base
+			// derived as "none" before that would otherwise stay "none" for the session.
+			//
+			// `createTTL`, NOT `accessTTL`: the sliding variant resets on every read, so a branch card
+			// polling this entry would hold it alive forever and never re-derive — the exact case the
+			// ceiling exists for. Absolute from creation bounds staleness regardless of read frequency.
+			createTTL: baseBranchNameTTL,
 			cancellation: cancellation,
 		});
+	}
+
+	/**
+	 * Clears the cached base branch for `ref`. Call from ops that create/rename/delete a branch — the
+	 * `'branches'` cascade no longer clears these, since tip movement can't change a branch's base.
+	 *
+	 * Only clears the cache. A branch's base is *persisted* as `branch.<ref>.gk-merge-base` and read back
+	 * before the reflog fallback, so an op that ends a branch's identity under a name must drop or move
+	 * that key too (`removeGkConfigBranchSection`/`renameGkConfigBranchSection`) — otherwise the
+	 * re-derivation this triggers just reads the stale value straight back.
+	 */
+	deleteBaseBranchName(repoPath: string, ref: string): void {
+		this._caches.baseBranchName?.delete(this.getCommonPath(repoPath), ref);
 	}
 
 	getBranchMergedStatus(
@@ -1498,10 +1549,10 @@ export class Cache implements Disposable {
 		repoPath: string,
 		cacheKey: string,
 		// `cacheable` is forwarded so a factory can distinguish "the answer is genuinely nothing" from "the
-		// read failed": these entries have no TTL, so a failure resolved as `undefined` would otherwise be
-		// served as a real answer until something explicitly evicts it.
+		// read failed": callers here set no TTL by default, so a failure resolved as `undefined` would
+		// otherwise be served as a real answer until something explicitly evicts it.
 		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
-		options?: { accessTTL?: number; cancellation?: AbortSignal },
+		options?: { accessTTL?: number; createTTL?: number; cancellation?: AbortSignal },
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 

@@ -83,7 +83,9 @@ suite('OperationsGitSubProvider Test Suite', () => {
 		(gitStub.run as sinon.SinonStub).resolves(successResult());
 
 		const context = {} as unknown as GitServiceContext;
-		const cache = {} as unknown as Cache;
+		// `checkout({ createBranch })` clears the new branch's cached and persisted base — see the note
+		// there — so the stub needs those two seams.
+		const cache = { deleteBaseBranchName: () => {} } as unknown as Cache;
 		const provider = {} as unknown as CliGitProviderInternal;
 
 		operations = new OperationsGitSubProvider(context, gitStub, cache, provider);

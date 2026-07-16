@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import * as sinon from 'sinon';
 import { fileUri } from '@gitlens/utils/uri.js';
 import { Cache } from '../cache.js';
 
@@ -133,6 +134,100 @@ suite('Cache.clearCaches — branchMergedStatus', () => {
 		await cache.getBranchOverview(repoPath, 'main|origin/main', overviewFactory);
 		assert.strictEqual(mergedStatusCount, 1, 'branchMergedStatus is content-keyed, so it should be preserved');
 		assert.strictEqual(overviewCount, 2, 'branchOverviews should still be cleared on a branches event');
+	});
+});
+
+suite('Cache — baseBranchName lifetime', () => {
+	const repoPath = '/test/repo';
+	let cache: Cache;
+	let factoryCount: number;
+	const factory = () => {
+		factoryCount++;
+		return Promise.resolve('origin/main');
+	};
+
+	setup(() => {
+		cache = new Cache();
+		factoryCount = 0;
+	});
+
+	teardown(() => {
+		cache.dispose();
+	});
+
+	test('the ceiling is absolute — frequent reads cannot extend it', async () => {
+		// The distinction this pins: `accessTTL` resets on every read, so an entry being polled (a branch
+		// card) would be held alive forever and never re-derive — which is precisely the case the ceiling
+		// exists for. `createTTL` is measured from creation, so reads can't push it out.
+		const clock = sinon.useFakeTimers({ now: Date.now(), shouldAdvanceTime: false });
+		try {
+			await cache.getBaseBranchName(repoPath, 'main', factory);
+			assert.strictEqual(factoryCount, 1);
+
+			// Read repeatedly, well inside the window. Each of these would reset a sliding TTL.
+			for (let i = 0; i < 4; i++) {
+				clock.tick(60 * 1000);
+				await cache.getBaseBranchName(repoPath, 'main', factory);
+				assert.strictEqual(factoryCount, 1, 'still inside the ceiling, so served from cache');
+			}
+
+			// Past the ceiling measured from CREATION, despite a read 60s ago. A sliding TTL would not have
+			// expired here — that difference is the whole point of the assertion.
+			clock.tick(2 * 60 * 1000);
+			await cache.getBaseBranchName(repoPath, 'main', factory);
+			assert.strictEqual(factoryCount, 2, 'the absolute ceiling must expire regardless of read frequency');
+		} finally {
+			clock.restore();
+		}
+	});
+
+	test('survives tip movement — a commit cannot change a branch’s base', async () => {
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		// A commit rewrites `refs/heads/<branch>`, which classifies as `'heads'` alone. It does NOT touch
+		// `.git/HEAD` — that still points at the same ref — so `'head'` is a checkout's signature, not a
+		// commit's, and using it here would test the wrong operation.
+		cache.onRepositoryChanged(repoPath, ['heads']);
+
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 1, 'a commit should not force a base-branch re-derivation');
+	});
+
+	test('is cleared on checkout — the reflog may now answer what it could not before', async () => {
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		// A checkout rewrites `.git/HEAD` (`['head', 'heads']`) and appends `checkout: moving from X to Y`
+		// to the reflog — the entry the base derivation greps for when nothing is stored. A base cached as
+		// "none" before that entry existed has to be allowed to re-derive.
+		cache.onRepositoryChanged(repoPath, ['head', 'heads']);
+
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 2, 'a checkout should force a base-branch re-derivation');
+	});
+
+	test('is cleared on config changes — `vscode-merge-base` lives in .git/config', async () => {
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 1);
+
+		cache.onRepositoryChanged(repoPath, ['config']);
+
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 2, 'a config change may have rewritten vscode-merge-base');
+	});
+
+	test('deleteBaseBranchName clears only the named ref', async () => {
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		await cache.getBaseBranchName(repoPath, 'feature', factory);
+		assert.strictEqual(factoryCount, 2);
+
+		cache.deleteBaseBranchName(repoPath, 'feature');
+
+		await cache.getBaseBranchName(repoPath, 'main', factory);
+		assert.strictEqual(factoryCount, 2, 'untouched refs keep their cached base');
+		await cache.getBaseBranchName(repoPath, 'feature', factory);
+		assert.strictEqual(factoryCount, 3, 'the named ref re-derives');
 	});
 });
 
