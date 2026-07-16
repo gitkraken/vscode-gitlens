@@ -1594,7 +1594,9 @@ export const DidSearchNotification = new IpcNotification<DidSearchParams>(scope,
 export interface DidFetchParams {
 	lastFetched: Date;
 }
-export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch');
+// `silent` — this only carries the last-fetched time; the user isn't waiting on it, so it should never
+// spin the view's progress indicator.
+export const DidFetchNotification = new IpcNotification<DidFetchParams>(scope, 'didFetch', undefined, undefined, true);
 
 export interface DidInvalidateScopeAnchorsParams {
 	repoPath: string;

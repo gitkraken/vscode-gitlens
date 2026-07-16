@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes the _Commit Graph_ working changes (WIP) details continuing to show files after they were committed or discarded outside of VS Code (e.g. from a terminal)
+- Fixes the _Commit Graph_ view's progress indicator repeatedly flashing while nothing appears to change (most noticeable after the VS Code window regains focus) &mdash; last-fetched updates now coalesce into a single pending update instead of queuing one per `FETCH_HEAD` change
 
 ### Removed
 

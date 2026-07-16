@@ -22,6 +22,7 @@ import { supportedOrderedCloudIssuesIntegrationIds } from '@gitlens/integrations
 import type { ConnectionStateChangeEvent } from '@gitlens/integrations/integrationService.js';
 import { filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CoalescedRun } from '@gitlens/utils/coalescedRun.js';
 import { getScopedCounter } from '@gitlens/utils/counter.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
@@ -2901,6 +2902,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		}
 	}
 
+	/**
+	 * Coalesces `DidFetch` pushes into a single in-flight notify with one trailing re-fire. The payload is
+	 * idempotent (just the latest fetch time), but `postMessage` is sequentialized by unique message id, so
+	 * an un-coalesced burst enqueues one post per trigger. When the queue drains slower than it fills — the
+	 * webview is throttled while the window is unfocused, or the host is busy — the backlog grows unbounded,
+	 * and since every slow post to a *view* is wrapped in `withProgress({ viewId })`, each drained post
+	 * re-shows the view's progress indicator, strobing it for the life of the drain. Bursts are routine:
+	 * `.git/FETCH_HEAD` force-fires `lastFetched` on any FS touch (see `Repository.onFetchHeadChanged`).
+	 */
+	private readonly _didFetchNotify = new CoalescedRun<boolean>(
+		() => this.runNotifyDidFetch(),
+		() => void this.notifyDidFetch(),
+	);
+	/** Last-sent fetch time — skips pushes when `lastFetched` didn't actually advance. */
+	private _lastSentFetchedAt: number | undefined;
+
 	// Debounced handler for repository `lastFetched` events. Coalesces 100ms bursts of FETCH_HEAD
 	// FS-watcher events that real-world git operations produce (`git fetch` writes the file in
 	// multiple steps, the watcher sees each one) into a single downstream refresh.
@@ -2999,17 +3016,34 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		});
 	}
 
+	private notifyDidFetch(): Promise<boolean> {
+		return this._didFetchNotify.run();
+	}
+
 	@trace()
-	private async notifyDidFetch() {
+	private async runNotifyDidFetch(): Promise<boolean> {
 		if (!this.host.ready || !this.host.visible) {
 			this.host.addPendingIpcNotification(DidFetchNotification, this._ipcNotificationMap, this);
 			return false;
 		}
 
-		const lastFetched = await this.repository!.getLastFetched();
-		return this.host.notify(DidFetchNotification, {
-			lastFetched: new Date(lastFetched),
-		});
+		const repo = this.repository;
+		if (repo == null) return false;
+
+		const lastFetched = await repo.getLastFetched();
+		// Re-validate after the await — a repo swap mid-read would push the old repo's fetch time.
+		if (this._repository !== repo) return false;
+		// FETCH_HEAD force-fires `lastFetched` even when the time didn't advance, so most triggers
+		// carry nothing new; skip those rather than spend a post on an identical payload.
+		if (lastFetched === this._lastSentFetchedAt) return true;
+
+		const success = await this.host.notify(DidFetchNotification, { lastFetched: new Date(lastFetched) });
+		// Stamp only after a successful send, and only if the repo still matches, so a failed
+		// transport or a mid-await swap can't poison the dedupe.
+		if (success && this._repository === repo) {
+			this._lastSentFetchedAt = lastFetched;
+		}
+		return success;
 	}
 
 	@trace()
@@ -4508,6 +4542,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// already captured its `seqAtRebuildStart` and will commit it as the fired watermark — zeroing
 		// here would strand the next repo's events below it. Monotonic growth is safe; only deltas matter.
 		this._lastFetchedHandlerDebounced?.cancel();
+		this._lastSentFetchedAt = undefined;
 		this._inspect.resetCaches();
 		this.invalidateScopeAnchors();
 		this._data.clearStateFreshnessRetryTimer();

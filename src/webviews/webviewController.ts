@@ -1016,7 +1016,7 @@ export class WebviewController<
 			completionId: completionId,
 		};
 
-		const success = await this.postMessage(msg);
+		const success = await this.postMessage(msg, notificationType.silent);
 		if (success) {
 			this._pendingIpcNotifications.clear();
 			// While the replay window is open, append every successfully delivered message to the log in send order
@@ -1096,7 +1096,7 @@ export class WebviewController<
 			message: `${message.id}|${message.method}${message.completionId ? `+${message.completionId}` : ''}`,
 		}),
 	})
-	private async postMessage(message: IpcMessage): Promise<boolean> {
+	private async postMessage(message: IpcMessage, silent?: boolean): Promise<boolean> {
 		if (!this._ready) return Promise.resolve(false);
 
 		const scope = getScopedLogger();
@@ -1127,7 +1127,7 @@ export class WebviewController<
 
 		let success;
 
-		if (this.is('view')) {
+		if (this.is('view') && !silent) {
 			// If we are in a view, show progress if we are waiting too long
 			const result = await pauseOnCancelOrTimeout(promise, undefined, 100);
 			if (result.paused) {
@@ -1207,7 +1207,7 @@ export class WebviewController<
 				continue;
 			}
 
-			void this.postMessage(msg);
+			void this.postMessage(msg, type?.silent);
 			// Mirror notify()'s success-path buffer push for pending IpcMessages that just got flushed —
 			// otherwise pre-first-ready notifications (e.g. Graph's deferred-rows microtask firing during
 			// HTML generation) never enter the replay buffer and a panel-layout-settle reconnect would
