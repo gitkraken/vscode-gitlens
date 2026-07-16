@@ -82,6 +82,8 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 
 	// Wait for graph to fully render (column headers appear)
 	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	// ...and the virtualized rows to actually paint (headers appear before rows finish layout).
+	await waitForGraphRowsRendered(graphWebview!);
 
 	return {
 		graphWebview: graphWebview!,
@@ -100,6 +102,7 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await waitForGraphRowsRendered(graphWebview!);
 	return graphWebview!;
 }
 
@@ -108,9 +111,29 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
  * Graph rows are rendered by @gitkraken/gitkraken-components with commit messages as visible text.
  */
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
-	const messageEl = graphWebview.getByText(messageText, { exact: true }).first();
+	// Scope to the virtualized graph grid so we match the row's message cell — not a copy of the same
+	// text rendered in the details panel (an unscoped `.first()` could latch onto that). Filter to the
+	// visible instance so we skip recycled/off-screen row nodes react-virtualized keeps mounted.
+	const messageEl = graphWebview
+		.locator('.ReactVirtualized__Grid')
+		.getByText(messageText, { exact: true })
+		.filter({ visible: true })
+		.first();
 	await expect(messageEl).toBeVisible({ timeout: MaxTimeout });
 	await messageEl.click();
+}
+
+/**
+ * Wait until the virtualized graph rows have painted their commit-message cells.
+ * The column headers ("BRANCH / TAG") render before the react-virtualized grid finishes its first
+ * layout pass, so gating readiness on the header alone races the row paint on slower webviews (VS
+ * Code forks) — the very window where a row message resolves in the DOM but reports `hidden`. Gate
+ * on a visible row message cell, the surface these tests then click.
+ */
+async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
+	await expect(
+		graphWebview.locator('.ReactVirtualized__Grid .message-zone--summary').filter({ visible: true }).first(),
+	).toBeVisible({ timeout: 30000 });
 }
 
 async function ensureDetailsPanelOpen(graphWebview: FrameLocator): Promise<void> {
