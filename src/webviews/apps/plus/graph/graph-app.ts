@@ -100,6 +100,7 @@ import { getCommitDateFromRow } from './utils/row.utils.js';
 import { serializeWipContext } from './utils/rowContext.utils.js';
 import { shouldShowPrimaryWipRow } from './utils/wip.utils.js';
 import './empty-state.js';
+import './access-account.js';
 import './gate.js';
 import './graph-header.js';
 import './graph-wrapper/graph-wrapper.js';
@@ -1590,10 +1591,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	resetHover() {
-		this.graphHover.reset();
+		// `graphHover` is null when the account-access screen replaces the graph tree (early-return in
+		// `render()`); `onStateUpdate` still fires `resetHover` on every state push regardless.
+		this.graphHover?.reset();
 	}
 
 	override render() {
+		const sub = this.graphState.subscription;
+		if (sub != null && (sub.account == null || sub.account.verified === false)) {
+			return html`<gl-graph-access-account></gl-graph-access-account>`;
+		}
+
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
