@@ -3281,6 +3281,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.lastPrompt=${resolveEntry?.prompt}
 			.refineMode=${resolveEntry?.refineMode ?? false}
 			.refineDraft=${resolveEntry?.refineDraft}
+			.canResumeAutoRebase=${resolveData?.autoRebase != null}
 			@resolve-run=${(e: CustomEvent<{ prompt?: string }>) => {
 				// Same model gate as compose/review — open the picker first when no model is set.
 				if (this._state.aiModel.get() == null) {
@@ -3302,6 +3303,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			@resolve-open-file=${(e: CustomEvent<{ filePath: string }>) =>
 				this.handleResolveOpenFile(e.detail.filePath)}
 			@resolve-apply-all=${() => void this._workflow.resolve.applyResolutions()}
+			@resolve-apply-and-resume=${() => void this.handleResolveApplyAndResume()}
 			@resolve-discard=${() => {
 				// Clamp the content height during the results→plain-WIP swap so it doesn't jump,
 				// matching compose/review discard.
@@ -3348,6 +3350,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 
 		const total = panel.conflictedFiles?.length ?? 0;
 		return { scope: checked.size === total ? undefined : [...checked] };
+	}
+
+	/** Apply the escalation-seeded resolutions, then hand the rest of the rebase back to AI (takeover).
+	 *  Sequenced — apply stages the resolved step first so the resumed automation continues it. */
+	private async handleResolveApplyAndResume(): Promise<void> {
+		// Capture before applying — apply forgets resolve mode, which can change `effectiveRepoPath`.
+		const repoPath = this.effectiveRepoPath;
+		await this._workflow.resolve.applyResolutions();
+		if (repoPath == null) return;
+
+		void this._actions.resumeAutoRebase(repoPath);
 	}
 
 	/** Open a resolved file's AI-resolved-vs-conflicted diff (virtual FS, no disk write). */

@@ -194,6 +194,30 @@ suite('coretools/conflict/AutoRebaseService undo', () => {
 		assert.strictEqual(state.resets.length, 0);
 		assert.strictEqual(storage.size, 1);
 	});
+
+	test('canUndo flags a reapplied-autostash dirty tree as recoverable (undo would stash)', async () => {
+		const { service, state } = makeFakes({ ...record, autostash: 'reapplied' }, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, true);
+		assert.strictEqual(state.resets.length, 0);
+	});
+
+	test('canUndo flags a left-in-stash-autostash dirty tree as recoverable (undo would stash)', async () => {
+		const { service, state } = makeFakes({ ...record, autostash: 'left-in-stash' }, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, true);
+		assert.strictEqual(state.resets.length, 0);
+	});
+
+	test('canUndo reports a genuine-dirty tree (no autostash) as not recoverable', async () => {
+		const { service, state } = makeFakes(record, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, false);
+		assert.strictEqual(state.resets.length, 0);
+	});
 });
 
 function makePausedRebaseStatus(): GitPausedOperationStatus {

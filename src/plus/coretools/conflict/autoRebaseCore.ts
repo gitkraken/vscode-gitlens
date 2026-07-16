@@ -3,6 +3,7 @@ import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperati
 import type {
 	AutoRebaseEscalation,
 	AutoRebaseHandoff,
+	AutoRebaseResumeContext,
 	AutoRebaseSession,
 	AutoRebaseStepRecord,
 } from './autoRebase.types.js';
@@ -68,8 +69,12 @@ export async function runAutoRebaseLoop(
 	ports: AutoRebaseLoopPorts,
 	signal: AbortSignal,
 	onDidChange: () => void,
+	resume?: AutoRebaseResumeContext,
 ): Promise<AutoRebaseLoopResult> {
-	const previousResolutions: Resolution[] = [];
+	// Seed from resolutions already recorded before a resume so a repeatedly-conflicting region stays
+	// consistent across the escalation boundary (a fresh run passes none). Apply the same recency cap.
+	const previousResolutions: Resolution[] = resume?.previousResolutions ? [...resume.previousResolutions] : [];
+	capRecent(previousResolutions);
 	let iterations = 0;
 	let maxIterations: number | undefined;
 	let previousIterationKey: string | undefined;
@@ -204,11 +209,50 @@ export async function runAutoRebaseLoop(
 		previousIterationKey = iterationKey;
 
 		if (entries.length === 0) {
-			// Paused with nothing conflicted. When the index has staged changes, the step was
-			// resolved externally (e.g. via the Resolve panel after an escalation, before a
-			// takeover) and is ready — continue it. Otherwise it's a genuine non-conflict stop
-			// (an interactive `edit`/`break`) that needs a human.
-			if (await ports.hasStagedChanges()) {
+			// Paused with nothing conflicted. Continue when the step's resolution is staged, OR when
+			// we're resuming a step we escalated for conflicts: no unmerged entries left means the human
+			// resolved it — even a resolution matching HEAD (e.g. "stage current" on a both-modified
+			// binary) leaves nothing staged and continues as an empty, skipped commit. Otherwise it's a
+			// genuine non-conflict stop (an interactive `edit`/`break`) that needs a human.
+			const snap = resume?.escalatedStep;
+			const resumingThisStep = snap?.stepNumber === stepNumber;
+			if (resumingThisStep || (await ports.hasStagedChanges())) {
+				// If this is the escalated step being resumed after a manual resolution, record it so
+				// the summary spans the whole run (the AI couldn't finish it, but the user did).
+				// Best-effort: a snapshot failure must never break the resume. Record at most once.
+				if (snap != null && resumingThisStep) {
+					try {
+						const paths = [...snap.conflictedContents.keys()];
+						const after = await ports.readWorkingFiles(paths);
+						session.steps.push({
+							stepNumber: stepNumber,
+							totalSteps: totalSteps,
+							commit: {
+								sha: status.steps.current.commit?.ref,
+								message: status.steps.current.commit?.message,
+							},
+							kind: 'manual',
+							files: paths.map(p => {
+								const attempted = snap.resolutions.find(r => r.filePath === p);
+								return {
+									path: p,
+									strategy: attempted?.strategy ?? 'skipped',
+									confidence: 1,
+									description: attempted?.description ?? '',
+									note: 'Resolved manually',
+									conflictedContent: snap.conflictedContents.get(p),
+									resolvedContent: after.get(p),
+								};
+							}),
+						});
+						onDidChange();
+					} catch {
+						// best-effort — never break the resume on a snapshot failure
+					}
+					// Record at most once (`resume` is defined here since `snap` came from it).
+					resume!.escalatedStep = undefined;
+				}
+
 				session.phase = 'continuing';
 				session.progressMessage = `Step ${stepNumber}/${totalSteps} · Continuing…`;
 				onDidChange();

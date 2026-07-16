@@ -15,10 +15,12 @@ import type {
 	AutoRebaseSession,
 	AutoRebaseUndoResult,
 	AutoRebaseUndoValidation,
+	EscalatedStepSnapshot,
 } from './autoRebase.types.js';
 import type { AutoRebaseLoopPorts } from './autoRebaseCore.js';
 import { runAutoRebaseLoop } from './autoRebaseCore.js';
 import type { ConflictToolsIntegration } from './integration.js';
+import type { Resolution } from './types.js';
 
 export interface AutoRebaseStartOptions {
 	upstream: string;
@@ -33,10 +35,21 @@ interface ActiveAutoRebase {
 	cts: CancellationTokenSource;
 	source: Source;
 	handoff?: AutoRebaseHandoff;
+	/** Durable copy of the escalated step's pre-resolution state (survives handoff consumption), so a
+	 *  resume can record the human-resolved step in the summary. Set on escalation, cleared on resume. */
+	escalatedStep?: EscalatedStepSnapshot;
 	detachRequested?: boolean;
 }
 
 const runningPhases = new Set(['starting', 'resolving', 'applying', 'continuing']);
+
+/** A dirty working tree that `undo()` can recover by stashing — the autostash either re-applied
+ *  cleanly (`reapplied`) or was left in the stash after a conflicted re-apply (`left-in-stash`) — as
+ *  opposed to genuine user changes (`none`), which undo refuses. Shared so the undo gate and the
+ *  actual undo can't drift. */
+function autostashRecoverable(autostash: StoredAutoRebaseUndo['autostash']): boolean {
+	return autostash === 'reapplied' || autostash === 'left-in-stash';
+}
 
 /**
  * Runs a rebase from start to finish, resolving each conflicted step with AI (applying, staging,
@@ -106,6 +119,9 @@ export class AutoRebaseService implements Disposable {
 				headSha: headSha,
 				upstream: options.upstream,
 				hadWorkingChanges: status?.hasChanges ?? false,
+				// We start from no in-progress operation and autostash (if any) is created by our own
+				// rebase after this point, so there's no pre-existing autostash to account for.
+				hadAutostash: false,
 				stashCount: stashCount,
 				startedAt: Date.now(),
 			},
@@ -147,10 +163,22 @@ export class AutoRebaseService implements Disposable {
 			throw new Error('The rebase is not paused.');
 		}
 
-		const branch =
+		// Resume our own escalated run in place — reuse the existing session (id, preRun, and the
+		// steps already recorded before the escalation) instead of discarding them via a fresh
+		// takeover session, so the end-of-run summary spans the whole rebase.
+		const existing = this._sessions.get(svc.path);
+		if (existing?.session.phase === 'escalated') {
+			return this.resumeEscalatedSession(svc, existing, integration, source);
+		}
+
+		// The rebase we're taking over may have already autostashed before we arrived — record whether
+		// an autostash entry is present now, since our `stashCount` baseline includes it (a conflicted
+		// re-apply won't grow the count, so `finalize` detects it by the entry still being present).
+		const [branch, stashMessages] = await Promise.all([
 			(status.incoming != null && 'name' in status.incoming ? status.incoming.name : undefined) ??
-			(await svc.branches.getBranch())?.name;
-		const stashCount = (await this.listStashMessages(svc)).length;
+				svc.branches.getBranch().then(b => b?.name),
+			this.listStashMessages(svc),
+		]);
 
 		const session: AutoRebaseSession = {
 			id: uuid(),
@@ -161,13 +189,52 @@ export class AutoRebaseService implements Disposable {
 				branch: branch,
 				// orig-head — the branch tip before the rebase started
 				headSha: status.source.ref,
+				// The rebase we're taking over was started elsewhere, so carry its `onto` target as the
+				// upstream so the summary keeps the "onto <upstream>" context (as the started path does).
+				upstream: status.onto?.name ?? status.onto?.ref,
 				hadWorkingChanges: undefined,
-				stashCount: stashCount,
+				hadAutostash: stashMessages[0] === 'autostash',
+				stashCount: stashMessages.length,
 				startedAt: Date.now(),
 			},
 			steps: [],
 		};
 		const active = this.trackSession(session, source);
+
+		try {
+			await this.runLoop(svc, active, integration, source);
+		} catch (ex) {
+			this.fail(active, ex);
+		}
+		return session;
+	}
+
+	/**
+	 * Re-engages automation on our own escalated run, in place. Rearms the existing session (fresh
+	 * cancellation, phase back to running) while preserving its `id` (the run's AI conversation, so
+	 * refinement/retries stay in one billed session), `preRun`, and already-recorded `steps` — so the
+	 * summary spans the whole rebase. Deliberately does NOT go through {@link trackSession}, which
+	 * would replace the session object (wiping its steps) and fire a fresh `started` event.
+	 */
+	private async resumeEscalatedSession(
+		svc: GitRepositoryService,
+		active: ActiveAutoRebase,
+		integration: ConflictToolsIntegration,
+		source: Source,
+	): Promise<AutoRebaseSession> {
+		const { session } = active;
+
+		// The prior cts is spent (the escalated loop returned); the one-shot handoff is stale.
+		active.cts.dispose();
+		active.cts = new CancellationTokenSource();
+		active.source = source;
+		active.detachRequested = false;
+		active.handoff = undefined;
+		session.escalation = undefined;
+		session.phase = 'starting';
+		session.progressMessage = undefined;
+		this.container.telemetry.sendEvent('autoRebase/resumed', { step: active.escalatedStep?.stepNumber }, source);
+		this.fireChange(session);
 
 		try {
 			await this.runLoop(svc, active, integration, source);
@@ -232,7 +299,7 @@ export class AutoRebaseService implements Disposable {
 	): Promise<AutoRebaseUndoResult> {
 		const result = await this.undoCore(repoPath, options);
 		if (result.ok) {
-			this.container.telemetry.sendEvent('autoRebase/undo/completed', {});
+			this.container.telemetry.sendEvent('autoRebase/undo/completed');
 		} else {
 			this.container.telemetry.sendEvent('autoRebase/undo/refused', { reason: result.reason });
 		}
@@ -249,6 +316,14 @@ export class AutoRebaseService implements Disposable {
 		}
 
 		const svc = this.container.git.getRepositoryService(repoPath);
+		// Undo needs the ops (reset) provider. Guard here so an environment that lacks it (e.g. a
+		// stub/web repo service) returns a clean refusal instead of throwing a TypeError past the
+		// ok/refused telemetry branch.
+		const ops = svc.ops;
+		if (ops == null) {
+			return { ok: false, reason: 'unavailable', message: 'Undo isn’t available in this environment.' };
+		}
+
 		const validation = await this.validateUndo(svc, record);
 
 		let warning: 'changes-left-in-stash' | undefined;
@@ -256,9 +331,7 @@ export class AutoRebaseService implements Disposable {
 		if (!validation.ok) {
 			if (validation.reason !== 'dirty') return validation;
 
-			const ifDirty =
-				options?.ifDirty ??
-				(record.autostash === 'reapplied' || record.autostash === 'left-in-stash' ? 'stash' : 'refuse');
+			const ifDirty = options?.ifDirty ?? (autostashRecoverable(record.autostash) ? 'stash' : 'refuse');
 			switch (ifDirty) {
 				case 'stash':
 					if (svc.stash == null) return validation;
@@ -286,7 +359,7 @@ export class AutoRebaseService implements Disposable {
 			}
 		}
 
-		await svc.ops!.reset(record.preRebaseSha, { mode: 'hard' });
+		await ops.reset(record.preRebaseSha, { mode: 'hard' });
 
 		if (popAfterReset) {
 			try {
@@ -370,8 +443,10 @@ export class AutoRebaseService implements Disposable {
 		};
 
 		// Watch for newly-recorded steps on each loop tick to emit per-step telemetry — keeps the
-		// loop itself telemetry-free (and unit-testable without the container)
-		let reportedSteps = 0;
+		// loop itself telemetry-free (and unit-testable without the container). Start from the count
+		// already recorded so a resume (which reuses the session's pre-escalation steps) reports only
+		// the new steps rather than re-emitting the ones already sent by the original run.
+		let reportedSteps = active.session.steps.length;
 		const onLoopChange = () => {
 			const { steps } = active.session;
 			while (reportedSteps < steps.length) {
@@ -394,17 +469,56 @@ export class AutoRebaseService implements Disposable {
 			this.fireChange(active.session);
 		};
 
-		const result = await runAutoRebaseLoop(active.session, ports, signal, onLoopChange);
+		// Rebuild the resolutions recorded so far (empty for a fresh run) so a resume keeps the loop's
+		// cross-step consistency memory instead of restarting it blank after an escalation.
+		const priorResolutions: Resolution[] = active.session.steps.flatMap(step =>
+			step.files
+				.filter(f => f.resolvedContent != null)
+				.map(f => ({
+					filePath: f.path,
+					content: f.resolvedContent!,
+					strategy: f.strategy,
+					confidence: f.confidence,
+					description: f.description,
+					note: f.note,
+				})),
+		);
+
+		const result = await runAutoRebaseLoop(active.session, ports, signal, onLoopChange, {
+			escalatedStep: active.escalatedStep,
+			previousResolutions: priorResolutions,
+		});
 		switch (result.type) {
 			case 'completed':
-				await this.finalize(svc, active);
-				break;
 			case 'cancelled':
-				await this.handleCancelled(svc, active);
+				// The run reached a non-escalated terminal state — the escalated-step snapshot (which
+				// can hold large conflicted-file contents) has served its purpose recording a resumed
+				// step, so drop it rather than retain it for the terminal session's lifetime. A
+				// re-escalation takes the `escalated` branch below and re-sets a fresh snapshot.
+				active.escalatedStep = undefined;
+				if (result.type === 'completed') {
+					await this.finalize(svc, active, { fromLoop: true });
+				} else {
+					await this.handleCancelled(svc, active);
+				}
 				break;
 			case 'escalated':
 				active.session.escalation = result.escalation;
 				active.handoff = result.handoff;
+				// Persist the escalated step's pre-resolution snapshot durably (the handoff itself is
+				// consumed one-shot by the Resolve panel), so a later resume can record the step.
+				active.escalatedStep =
+					result.handoff != null
+						? {
+								stepNumber: result.escalation.stepNumber,
+								conflictedContents: result.handoff.conflictedContents,
+								resolutions: result.handoff.resolutions.map(r => ({
+									filePath: r.filePath,
+									strategy: r.strategy,
+									description: r.description,
+								})),
+							}
+						: undefined;
 				active.session.phase = 'escalated';
 				active.session.progressMessage = undefined;
 				this.sendEscalatedEvent(active);
@@ -413,13 +527,20 @@ export class AutoRebaseService implements Disposable {
 		}
 	}
 
-	private async finalize(svc: GitRepositoryService, active: ActiveAutoRebase): Promise<void> {
+	private async finalize(
+		svc: GitRepositoryService,
+		active: ActiveAutoRebase,
+		options?: { fromLoop?: boolean },
+	): Promise<void> {
 		const { session } = active;
 		const headSha = (await svc.revision.resolveRevision('HEAD')).sha;
 
-		// Steps were recorded but the tip is back at the start: the rebase was aborted externally
-		// between our last continue and now — there is nothing to undo (or summarize as applied).
-		if (session.steps.length > 0 && headSha === session.preRun.headSha) {
+		// The loop reported completion but the tip is back at the start: the rebase was aborted
+		// externally (`git rebase --abort`) while we were driving it — there is nothing to undo (or
+		// summarize as applied). Gate on `fromLoop` rather than `steps.length` so an abort *before* the
+		// first step is recorded is still caught, without misclassifying `start()`'s "already up to
+		// date" no-op (which reaches finalize directly, never from the loop, also with 0 steps).
+		if (options?.fromLoop && headSha === session.preRun.headSha) {
 			session.phase = 'aborted';
 			session.progressMessage = undefined;
 			this.fireChange(session);
@@ -428,12 +549,20 @@ export class AutoRebaseService implements Disposable {
 		}
 
 		const stashMessages = await this.listStashMessages(svc);
-		const autostash =
-			stashMessages.length > session.preRun.stashCount && stashMessages[0] === 'autostash'
-				? 'left-in-stash'
-				: session.preRun.hadWorkingChanges
-					? 'reapplied'
-					: 'none';
+		const autostashPresent = stashMessages[0] === 'autostash';
+		let autostash: 'none' | 'reapplied' | 'left-in-stash';
+		if (session.preRun.hadAutostash) {
+			// Takeover of a rebase that had already autostashed: the baseline count includes that entry,
+			// so a conflicted re-apply leaves it in place (count unchanged) — detect it by the autostash
+			// still being present rather than by the count growing.
+			autostash =
+				autostashPresent && stashMessages.length >= session.preRun.stashCount ? 'left-in-stash' : 'reapplied';
+		} else if (autostashPresent && stashMessages.length > session.preRun.stashCount) {
+			// Our own run autostashed and its re-apply conflicted, leaving the entry behind.
+			autostash = 'left-in-stash';
+		} else {
+			autostash = session.preRun.hadWorkingChanges ? 'reapplied' : 'none';
+		}
 
 		session.postRun = { headSha: headSha, autostash: autostash, finishedAt: Date.now() };
 
@@ -495,7 +624,7 @@ export class AutoRebaseService implements Disposable {
 			// is still at the pre-rebase tip is "aborted — branch unchanged" literally true.
 			const headSha = (await svc.revision.resolveRevision('HEAD')).sha;
 			if (headSha !== session.preRun.headSha) {
-				await this.finalize(svc, active);
+				await this.finalize(svc, active, { fromLoop: true });
 				return;
 			}
 		}
@@ -631,6 +760,9 @@ export class AutoRebaseService implements Disposable {
 				reason: 'dirty',
 				message: 'The working tree has changes that would be lost.',
 				autostashConflict: record.autostash === 'left-in-stash',
+				// undo() recovers this by stashing (same condition it uses to decide `ifDirty`), so the
+				// summary can still offer Undo — unlike genuine user changes (autostash `none`).
+				recoverable: autostashRecoverable(record.autostash),
 			};
 		}
 

@@ -17,6 +17,7 @@ import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { pluralize } from '@gitlens/utils/string.js';
 import { getAvatarUri } from '../../../avatars.js';
+import type { ContinueRebaseWithAiCommandArgs } from '../../../commands/autoRebase.js';
 import { openExplainDocument } from '../../../commands/explainBase.js';
 import type { ExplainCommitCommandArgs } from '../../../commands/explainCommit.js';
 import { generateChangelogAndOpenMarkdownDocument } from '../../../commands/generateChangelog.js';
@@ -160,6 +161,9 @@ export class GraphInspectServices {
 	private _autoRebaseVirtual?: {
 		readonly provider: GraphResolveVirtualContentProvider;
 		readonly registration: Disposable;
+		/** Session id of the run whose step sessions are currently registered — when a different run's
+		 *  summary is fetched, the prior run's sessions are released rather than accumulated. */
+		runId?: string;
 	};
 	/** Cached full AI resolutions per repo (keyed by repoPath) — holds the resolved `content` for a
 	 *  later `applyResolutions`, plus the virtual session id so it can be ended on discard/apply. */
@@ -1730,6 +1734,20 @@ export class GraphInspectServices {
 				},
 				onResolveProgress: this._resolveProgressEvent.subscribe(buffer, tracker),
 				getSeededResolveSession: async (repoPath: string): Promise<ResolveResult | undefined> => {
+					// The escalated session lingers if its rebase is ended outside the service (external
+					// abort, or a manual continue/finish) — nothing transitions it off `escalated`. Only
+					// adopt the one-shot handoff if that same rebase is still paused here (orig-head
+					// matches), so a stale handoff can't seed — and clobber the AI conversation of — an
+					// unrelated later resolve in this repo.
+					const session = this.container.autoRebase.getSession(repoPath);
+					if (session?.phase !== 'escalated') return undefined;
+
+					const svc = this.container.git.getRepositoryService(repoPath);
+					const status = await svc.pausedOps?.getPausedOperationStatus?.({ force: true });
+					if (status?.type !== 'rebase' || !status.isPaused || status.source.ref !== session.preRun.headSha) {
+						return undefined;
+					}
+
 					const handoff = this.container.autoRebase.takeEscalationHandoff(repoPath);
 					if (handoff == null) return undefined;
 
@@ -1752,11 +1770,21 @@ export class GraphInspectServices {
 						handoff.skipped,
 					);
 
+					// Mark the result as mid-run so the panel offers "Apply & Resume with AI". The
+					// session stays `escalated` after the one-shot handoff, so its escalation info is
+					// still readable here.
+					const escalation = this.container.autoRebase.getSession(repoPath)?.escalation;
+
 					return {
 						result: {
 							resolutions: summaries,
 							errors: errors.length > 0 ? errors : undefined,
 							skipped: skipped.length > 0 ? skipped : undefined,
+							autoRebase: {
+								sessionId: handoff.sessionId,
+								stepNumber: escalation?.stepNumber,
+								totalSteps: escalation?.totalSteps,
+							},
 						},
 					};
 				},
@@ -1777,12 +1805,19 @@ export class GraphInspectServices {
 					}
 
 					const validation = await this.container.autoRebase.canUndo(repoPath);
-					const undoable = outcome === 'completed' && validation.ok;
+					// A dirty tree that's only the autostash (reapplied/left-in-stash) is still undoable —
+					// `undo()` stashes before resetting. Only genuine user changes truly block it.
+					const undoable =
+						outcome === 'completed' &&
+						(validation.ok || (validation.reason === 'dirty' && validation.recoverable === true));
+					// Whether that recoverable-dirty path applies, so the confirm can warn it'll stash first.
+					const undoWillStash =
+						!validation.ok && validation.reason === 'dirty' && validation.recoverable === true;
 
 					// (Re-)register the per-step virtual diff sessions — the webview may not have
 					// existed when the run finished, so they're built lazily on each summary fetch
 					// (deterministic ids make a re-fetch replace rather than accumulate).
-					const { provider } = this.getOrCreateAutoRebaseVirtual();
+					const { provider } = this.getOrCreateAutoRebaseVirtual(session.id);
 					const steps: AutoRebaseSummaryStep[] = session.steps.map(step => {
 						const virtualSessionId = `${session.id}:step-${step.stepNumber}`;
 						const previewable = step.files.filter(
@@ -1838,13 +1873,16 @@ export class GraphInspectServices {
 							totalSteps: session.steps[0]?.totalSteps ?? 0,
 							outcome: outcome,
 							undoable: undoable,
+							undoWillStash: undoWillStash,
 							undoRefusal: undoable
 								? undefined
-								: outcome !== 'completed'
-									? 'The rebase did not complete.'
-									: !validation.ok
-										? validation.message
-										: undefined,
+								: outcome === 'undone'
+									? 'This rebase was already undone.'
+									: outcome !== 'completed'
+										? 'The rebase did not complete.'
+										: !validation.ok
+											? validation.message
+											: undefined,
 							autostash: session.postRun?.autostash,
 							steps: steps,
 						},
@@ -1868,6 +1906,15 @@ export class GraphInspectServices {
 									: undefined,
 						},
 					};
+				},
+				resumeAutoRebase: (repoPath: string): Promise<void> => {
+					// Delegate to the command so the Pro-plan gate + progress notification are reused;
+					// fire-and-forget (the takeover runs the rest of the rebase on its own progress).
+					void executeCommand<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
+						repoPath: repoPath,
+						source: 'graph',
+					});
+					return Promise.resolve();
 				},
 				getBranchComparisonSummary: async (repoPath, leftRef, rightRef, options, signal) => {
 					// Phase 1 — counts + the unified All Files diff + the merge base. Smallest payload
@@ -2234,11 +2281,17 @@ export class GraphInspectServices {
 	}
 
 	/** Lazy-init the auto-rebase summary's virtual content provider (namespace `auto-rebase`). */
-	private getOrCreateAutoRebaseVirtual(): { provider: GraphResolveVirtualContentProvider } {
+	private getOrCreateAutoRebaseVirtual(runId?: string): { provider: GraphResolveVirtualContentProvider } {
 		if (this._autoRebaseVirtual == null) {
 			const provider = new GraphResolveVirtualContentProvider(AutoRebaseVirtualNamespace);
 			const registration = this.container.virtualFs.registerProvider(provider);
-			this._autoRebaseVirtual = { provider: provider, registration: registration };
+			this._autoRebaseVirtual = { provider: provider, registration: registration, runId: runId };
+		} else if (runId != null && this._autoRebaseVirtual.runId !== runId) {
+			// A different run's summary — release the previous run's step sessions (each retains every
+			// previewable file's full before/after contents) instead of leaking them for the webview's
+			// lifetime. Re-fetching the same run reuses its sessions (deterministic ids).
+			this._autoRebaseVirtual.provider.endAllSessions();
+			this._autoRebaseVirtual.runId = runId;
 		}
 		return this._autoRebaseVirtual;
 	}

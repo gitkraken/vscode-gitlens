@@ -184,6 +184,81 @@ suite('coretools/conflict/autoRebaseCore', () => {
 		assert.strictEqual(session.steps.length, 0);
 	});
 
+	test('resuming records the human-resolved escalated step, then continues with AI', async () => {
+		// Step 1 was escalated + resolved by the user (staged, no unmerged); step 2 conflicts and is
+		// AI-resolved on resume. The manual step must land in the summary with before/after content.
+		const repo = makeRepo({ 2: ['b.txt'] }, 2);
+		const session = makeSession();
+
+		const ports = makePorts(repo, {
+			// Step 1 is staged (the human's resolution); step 2 isn't.
+			hasStagedChanges: () => Promise.resolve(repo.step === 1),
+			readWorkingFiles: paths => Promise.resolve(new Map(paths.map(p => [p, `after:${p}`]))),
+		});
+
+		const result = await runAutoRebaseLoop(session, ports, new AbortController().signal, () => {}, {
+			escalatedStep: {
+				stepNumber: 1,
+				conflictedContents: new Map([['x.txt', 'before:x.txt']]),
+				resolutions: [{ filePath: 'x.txt', strategy: 'take-ours', description: 'kept ours' }],
+			},
+		});
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps.length, 2);
+
+		const manual = session.steps[0];
+		assert.strictEqual(manual.kind, 'manual');
+		assert.strictEqual(manual.stepNumber, 1);
+		assert.strictEqual(manual.commit.sha, 'c1');
+		assert.strictEqual(manual.files.length, 1);
+		assert.strictEqual(manual.files[0].path, 'x.txt');
+		assert.strictEqual(manual.files[0].conflictedContent, 'before:x.txt');
+		assert.strictEqual(manual.files[0].resolvedContent, 'after:x.txt');
+		assert.strictEqual(manual.files[0].note, 'Resolved manually');
+
+		assert.strictEqual(session.steps[1].kind, 'conflicts');
+		assert.strictEqual(session.steps[1].stepNumber, 2);
+	});
+
+	test('resume without an escalated-step snapshot just continues (no synthetic step)', async () => {
+		// A non-handoff escalation (or a takeover of an external rebase): step 1 is staged/resolved
+		// with no snapshot, so nothing is recorded for it — only the AI-resolved step 2.
+		const repo = makeRepo({ 2: ['b.txt'] }, 2);
+		const session = makeSession();
+		const ports = makePorts(repo, { hasStagedChanges: () => Promise.resolve(repo.step === 1) });
+
+		const result = await runAutoRebaseLoop(session, ports, new AbortController().signal, () => {}, {});
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps.length, 1);
+		assert.strictEqual(session.steps[0].stepNumber, 2);
+	});
+
+	test('resuming continues an escalated step resolved to a HEAD-matching (unstaged) result', async () => {
+		// The escalated step (1) was resolved so its result matches HEAD (e.g. "stage current" on a
+		// both-modified binary), leaving NOTHING staged. The loop must still continue it — no unmerged
+		// entries means it's resolved — rather than escalating 'non-conflict-pause'.
+		const repo = makeRepo({ 2: ['b.txt'] }, 2);
+		const session = makeSession();
+		const ports = makePorts(repo, { hasStagedChanges: () => Promise.resolve(false) });
+
+		const result = await runAutoRebaseLoop(session, ports, new AbortController().signal, () => {}, {
+			escalatedStep: {
+				stepNumber: 1,
+				conflictedContents: new Map([['icon.bin', 'before']]),
+				resolutions: [{ filePath: 'icon.bin', strategy: 'take-ours', description: 'kept ours' }],
+			},
+		});
+
+		assert.strictEqual(result.type, 'completed');
+		assert.strictEqual(session.steps.length, 2);
+		assert.strictEqual(session.steps[0].kind, 'manual');
+		assert.strictEqual(session.steps[0].stepNumber, 1);
+		assert.strictEqual(session.steps[1].stepNumber, 2);
+		assert.strictEqual(repo.continues.length, 2);
+	});
+
 	test('confidence exactly at the threshold passes; deterministic deleted resolutions are exempt', async () => {
 		const repo = makeRepo({ 1: ['a.txt', 'gone.txt'] });
 		const session = makeSession();
@@ -399,6 +474,7 @@ suite('coretools/conflict/autoRebaseCore', () => {
 					gitCommand: { repoPath: '/repo', args: ['rebase', '--continue'] },
 				});
 			}
+
 			repo.done = true;
 			return Promise.resolve();
 		};

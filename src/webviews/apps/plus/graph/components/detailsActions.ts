@@ -755,6 +755,12 @@ export class DetailsActions {
 		return this.services.graphInspect.undoAutoRebase(repoPath, sessionId);
 	}
 
+	/** Re-engage automatic rebase (takeover) to finish the remaining steps after an escalation was
+	 *  resolved manually. Fire-and-forget — resolves once triggered, not when the rebase finishes. */
+	resumeAutoRebase(repoPath: string): Promise<void> {
+		return this.services.graphInspect.resumeAutoRebase(repoPath);
+	}
+
 	/** Re-resolves a single file with user feedback (per-file retry). See {@link startResolve}. */
 	reresolveFile(
 		repoPath: string,
