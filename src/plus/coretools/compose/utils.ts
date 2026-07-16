@@ -13,6 +13,7 @@ import type { CancellationToken } from 'vscode';
 export {
 	applyComposePlan,
 	composePlan,
+	detectInteriorRefs,
 	REDACTED_HUNK_CONTENT,
 	refinePlan,
 	undoCompose,

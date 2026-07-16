@@ -3,6 +3,7 @@ import { CancellationTokenSource, commands, Disposable, window } from 'vscode';
 import { AIConversation } from '@gitlens/ai/models/conversation.js';
 import type { AIModel } from '@gitlens/ai/models/model.js';
 import { rootSha } from '@gitlens/git/models/revision.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { md5, sha256 } from '@gitlens/utils/crypto.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
@@ -1444,7 +1445,7 @@ export class ComposerWebviewProvider implements WebviewProvider<State, State, Co
 			}
 		} catch (error) {
 			// Check if this was a cancellation or a real error
-			if (this._generateCommitsCancellation?.token.isCancellationRequested) {
+			if (this._generateCommitsCancellation?.token.isCancellationRequested || isCancellationError(error)) {
 				this._context.operations.generateCommits.cancelledCount++;
 				// Send cancellation notification
 				this.host.sendTelemetryEvent(

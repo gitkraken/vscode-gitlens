@@ -85,6 +85,8 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 		const target = input.target;
 
 		try {
+			await this.confirmInteriorRefsOrThrow(git, source);
+
 			const result: ComposePlanResult = await composePlan({
 				git: git,
 				model: model,
@@ -95,6 +97,7 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 				onProgress: input.onProgress,
 				cancellation: signal,
 				onBeforePrompt: onBeforePrompt,
+				overrideSafetyFailures: { interiorRefs: true },
 			});
 
 			const cacheKey = this.createCacheKey(input.svc.path);
@@ -151,6 +154,7 @@ export class ComposerComposeIntegration extends ComposeToolsIntegration {
 				// authors get correct attribution + Co-authored-by trailers. For workdir
 				// source, all hunks lack authors so this is a no-op.
 				authorAttribution: 'plurality',
+				overrideSafetyFailures: { interiorRefs: true },
 			});
 
 			return {

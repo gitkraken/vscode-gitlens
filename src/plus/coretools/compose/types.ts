@@ -27,6 +27,7 @@ export type {
 	DiffTreeOptions,
 	ForEachRefOptions,
 	IndexScopedOptions,
+	InteriorRefViolation,
 	LogOptions,
 	OnBeforePrompt,
 	OpOptions,

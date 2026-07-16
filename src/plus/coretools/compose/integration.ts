@@ -1,4 +1,4 @@
-import { CancellationTokenSource } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
 import type { AIChatMessage, AIProviderResponse } from '@gitlens/ai/models/provider.js';
 import type { Source } from '../../../constants.telemetry.js';
 import type { Container } from '../../../container.js';
@@ -17,10 +17,11 @@ import type {
 	ComposeSession,
 	ComposeSource,
 	GitExecOptions,
+	InteriorRefViolation,
 	OnBeforePrompt,
 	UndoForceOptions,
 } from './types.js';
-import { undoCompose, validateUndoCompose } from './utils.js';
+import { detectInteriorRefs, undoCompose, validateUndoCompose } from './utils.js';
 
 /**
  * Shape cached between generate + apply phases. UX-specific subclasses may carry
@@ -116,6 +117,23 @@ export class ComposeToolsIntegration {
 
 	protected buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
 		return buildLargePromptGate(initiallySuppressed);
+	}
+
+	/**
+	 * Pre-flight gate for history-rewriting composes: warn when branches, tags, or a detached HEAD
+	 * point at commits inside the range this compose would rewrite (the refs the `interiorRefs`
+	 * override leaves in place), and let the user confirm. No-op for sources that don't rewrite
+	 * history (e.g. workdir) or when nothing points into the range.
+	 */
+	protected async confirmInteriorRefsOrThrow(git: ComposeGitPort, source: ComposeSource): Promise<void> {
+		const violations = await detectInteriorRefs(git, source);
+		if (violations.length === 0) return;
+
+		// Declining is a user choice, not a failure — throw an AbortError so callers treat it as a
+		// cancellation (`isCancellationError`), matching the large-prompt gate's decline path.
+		if (!(await showInteriorRefsWarning(violations))) {
+			throw new DOMException('Compose cancelled — interior-ref warning declined', 'AbortError');
+		}
 	}
 
 	protected createCacheKey(repoPath: string): string {
@@ -278,4 +296,32 @@ function buildLargePromptGate(initiallySuppressed: boolean): OnBeforePrompt {
 		hasConfirmed = true;
 		return true;
 	};
+}
+
+async function showInteriorRefsWarning(violations: InteriorRefViolation[]): Promise<boolean> {
+	const confirm = { title: 'Continue' };
+	const cancel = { title: 'Cancel', isCloseAffordance: true };
+	const result = await window.showWarningMessage(
+		`Some commits being recomposed are also pointed to by other branches or tags:\n\n${formatInteriorRefList(
+			violations,
+		)}\n\nThese references won't be updated — they'll keep pointing at their current commits (which remain in the repository), so the recomposed history will diverge from them rather than being followed by them.\n\nDo you want to continue?`,
+		{ modal: true },
+		confirm,
+		cancel,
+	);
+	return result === confirm;
+}
+
+function formatInteriorRefList(violations: InteriorRefViolation[]): string {
+	const max = 10;
+	const labels = violations.map(v => {
+		if (v.refname.startsWith('refs/tags/')) return `tag ${v.refname.slice('refs/tags/'.length)}`;
+		if (v.refname.startsWith('refs/heads/')) return v.refname.slice('refs/heads/'.length);
+		return v.refname;
+	});
+	const shown = labels.slice(0, max).map(l => `  • ${l}`);
+	if (labels.length > max) {
+		shown.push(`  • …and ${labels.length - max} more`);
+	}
+	return shown.join('\n');
 }
