@@ -5,6 +5,7 @@ import { when } from 'lit/directives/when.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { GitReference } from '@gitlens/git/models/reference.js';
 import { pausedOperationStatusStringsByType } from '@gitlens/git/utils/pausedOperationStatus.utils.js';
+import type { ContinueRebaseWithAiCommandArgs } from '../../../../../commands/autoRebase.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { ShowInCommitGraphCommandArgs } from '../../../../plus/graph/registration.js';
 import type { WebviewContext } from '../../../shared/contexts/webview.js';
@@ -120,6 +121,17 @@ export class GlMergeConflictWarning extends LitElement {
 	@property({ type: Boolean, attribute: 'ai-resolve' })
 	aiResolve = false;
 
+	/** Opt-in for showing a "Resume with AI" action on a paused rebase — re-engages automatic rebase
+	 *  (takeover) to finish the remaining steps. Only enabled by hosts where AI is allowed (graph). */
+	@property({ type: Boolean, attribute: 'ai-resume' })
+	aiResume = false;
+
+	/** Whether the working tree has anything staged. Mirrors the takeover loop's own
+	 *  `hasStagedChanges()` gate, so the "Continue with AI" affordance matches what a takeover would
+	 *  actually do on a rebase paused without conflicts. */
+	@property({ type: Boolean, attribute: 'has-staged-changes' })
+	hasStagedChanges = false;
+
 	/** Render the bar as a plain status read-out — no paused-op action buttons and no clickable
 	 *  conflicts text. Set by hosts that are in a mode (compose/review/resolve) so the bar doesn't
 	 *  compete with the mode's own controls. */
@@ -143,6 +155,13 @@ export class GlMergeConflictWarning extends LitElement {
 
 	private get onOpenEditorUrl() {
 		return this.createPausedOperationCommandLink('open');
+	}
+
+	private get onContinueWithAiUrl() {
+		return createCommandLink<ContinueRebaseWithAiCommandArgs>('gitlens.ai.continueRebase', {
+			repoPath: this.pausedOpStatus?.repoPath,
+			source: 'graph',
+		});
 	}
 
 	private get onShowConflictsUrl() {
@@ -249,6 +268,15 @@ export class GlMergeConflictWarning extends LitElement {
 		if (this.pausedOpStatus == null || this.readOnly) return nothing;
 
 		const status = this.pausedOpStatus.type;
+		// "Continue with AI" mirrors the takeover loop's own gate (`resumingThisStep ||
+		// hasStagedChanges()`): with conflicts it resolves them, and with a staged resolution it
+		// continues and keeps resolving the REMAINING steps — so hiding it once the user stages an
+		// escalated step would strand them on plain "Continue", which ends automation for the rest of
+		// the run. Still hidden for a genuine non-conflict stop (an interactive edit/break with nothing
+		// staged), where a takeover has nothing to continue and would only escalate.
+		const aiRebase = status === 'rebase' && this.aiResume && (this.conflicts || this.hasStagedChanges);
+		// Plain `<op> --continue` is valid once a rebase has no unresolved conflicts.
+		const canContinue = status !== 'revert' && !(status === 'rebase' && this.conflicts);
 
 		return html`<action-nav class="actions">
 			${when(
@@ -261,10 +289,17 @@ export class GlMergeConflictWarning extends LitElement {
 					></action-item>`,
 			)}
 			${when(
-				status !== 'revert' && !(status === 'rebase' && this.conflicts),
-				() => html`
-					<action-item label="Continue" icon="gl-continue" href=${this.onContinueUrl}></action-item>
-				`,
+				canContinue,
+				() => html`<action-item label="Continue" icon="gl-continue" href=${this.onContinueUrl}></action-item>`,
+			)}
+			${when(
+				aiRebase,
+				() =>
+					html`<action-item
+						label="Continue with AI"
+						href=${this.onContinueWithAiUrl}
+						icon="gl-continue"
+					></action-item>`,
 			)}
 			${when(
 				status !== 'merge',

@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { GitFileChangeShape } from '@gitlens/git/models/fileChange.js';
@@ -422,13 +423,6 @@ export class GlDetailsResolveModePanel extends LitElement {
 				min-width: 0;
 			}
 
-			/* aria-disabled (not native) keeps Apply hoverable so its "why" tooltip shows; dim it ourselves
-			   since gl-button only styles the native disabled state. */
-			.resolve-apply[aria-disabled='true'] {
-				cursor: default;
-				opacity: 0.4;
-			}
-
 			/* The detached refine input self-insets/-centres; inside the already-padded zone that doubles
 			   the inset, so pin it flush to the zone's content box (mirrors compose's override). Orange-tint
 			   the Refine submit with the SAME recompose accent compose uses (blue stays reserved for Apply);
@@ -503,6 +497,9 @@ export class GlDetailsResolveModePanel extends LitElement {
 	 *  entry's `refineDraft`. Seeds the refine `gl-ai-input`'s one-shot `.value`, remounted via
 	 *  `keyed(repoPath)` so an anchor switch reseeds. */
 	@property() refineDraft?: string;
+	/** Set when this session was seeded from an automatic-rebase escalation (there are more steps to
+	 *  run) — surfaces an "Apply & Resume with AI" action that hands the rest of the rebase back to AI. */
+	@property({ type: Boolean }) canResumeAutoRebase = false;
 
 	/** Rows whose per-file feedback input is expanded. Panel-local UI state. */
 	@state() private _expandedRetry = new Set<string>();
@@ -776,6 +773,13 @@ export class GlDetailsResolveModePanel extends LitElement {
 		const needCount = skipped.length + errors.length;
 		const total = resolvedCount + needCount;
 
+		// Resuming hands the rebase back to `git rebase --continue`, which can't proceed while any file
+		// is still conflicted — so it requires the step *fully* resolved: at least one applied
+		// resolution, nothing left needing input, and no `skipped`-strategy resolution (those apply
+		// nothing and leave the file conflicted). "Apply Resolutions" has no such constraint — it can
+		// apply a partial set and leave the rest for manual handling.
+		const canResume = applicable > 0 && needCount === 0 && applicable === resolvedCount;
+
 		return html`
 			${
 				total > 0
@@ -866,18 +870,42 @@ export class GlDetailsResolveModePanel extends LitElement {
 								</gl-ai-input>`,
 							)
 						: html`<div class="resolve-apply-row">
-								<gl-button
-									class="resolve-apply"
-									full
-									aria-disabled=${applicable === 0 ? 'true' : nothing}
-									tooltip=${applicable === 0 ? 'No resolutions ready to apply' : nothing}
-									@click=${() => {
-										if (applicable === 0) return;
-
-										this.emit('resolve-apply-all');
-									}}
-									>${applyLabel}</gl-button
-								>
+								${
+									this.canResumeAutoRebase
+										? html`<gl-tooltip
+												content=${
+													canResume
+														? 'Apply these resolutions and let AI finish the rebase'
+														: 'Resolve the remaining conflicts before resuming'
+												}
+											>
+												<gl-button
+													class="resolve-apply"
+													full
+													?disabled=${!canResume}
+													@click=${() => this.emit('resolve-apply-and-resume')}
+													>Apply &amp; Resume with AI</gl-button
+												>
+											</gl-tooltip>`
+										: nothing
+								}
+								${(() => {
+									const applyButton = html`<gl-button
+										class="resolve-apply"
+										full
+										appearance=${ifDefined(this.canResumeAutoRebase ? 'secondary' : undefined)}
+										?disabled=${applicable === 0}
+										@click=${() => this.emit('resolve-apply-all')}
+										>${applyLabel}</gl-button
+									>`;
+									// Explain the disabled state via an external tooltip (real `?disabled` blocks the
+									// button's own hover), mirroring the summary sheet's Undo button pattern.
+									return applicable === 0
+										? html`<gl-tooltip content="No resolutions ready to apply"
+												>${applyButton}</gl-tooltip
+											>`
+										: applyButton;
+								})()}
 								<gl-button appearance="secondary" @click=${() => this.emit('resolve-discard')}
 									>Discard</gl-button
 								>

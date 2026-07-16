@@ -65,8 +65,9 @@ export interface AutoRebaseStepRecord {
 	stepNumber: number;
 	totalSteps: number;
 	commit: { sha: string | undefined; message: string | undefined };
-	/** `empty-skipped`: the step's resolution made the commit empty and it was skipped */
-	kind: 'conflicts' | 'empty-skipped';
+	/** `empty-skipped`: the step's resolution made the commit empty and it was skipped.
+	 *  `manual`: the step escalated and the user resolved it; recorded when automation resumed */
+	kind: 'conflicts' | 'empty-skipped' | 'manual';
 	files: AutoRebaseFileRecord[];
 }
 
@@ -84,6 +85,10 @@ export interface AutoRebaseSession {
 		upstream?: string;
 		/** Whether the working tree had changes when the run started (autostash engages); unknown for takeover */
 		hadWorkingChanges?: boolean;
+		/** Whether an autostash entry was already present when we started (takeover of a rebase that
+		 *  autostashed before we took over) — its `stashCount` baseline already includes that entry, so
+		 *  a conflicted re-apply doesn't grow the count and must be detected by the entry still being present */
+		hadAutostash?: boolean;
 		/** Stash entry count at run start — used to detect an autostash left in the stash */
 		stashCount: number;
 		startedAt: number;
@@ -104,6 +109,31 @@ export interface AutoRebaseSession {
 	progressMessage?: string;
 }
 
+/**
+ * Durable copy of an escalated step's pre-resolution state, captured at escalation time so a
+ * resumed run can record the human-resolved step in the summary. Kept independent of the one-shot
+ * {@link AutoRebaseHandoff}, which the Resolve panel consumes (clearing it) before the user resumes.
+ */
+export interface EscalatedStepSnapshot {
+	/** The rebase step (msgnum) that escalated — matched against the paused step on resume */
+	stepNumber: number | undefined;
+	/** Working-tree (marker) snapshots of the step's files, keyed by path — the "before" side */
+	conflictedContents: Map<string, string>;
+	/** The AI's attempted resolutions for the step (strategy + rationale), informational */
+	resolutions: { filePath: string; strategy: Resolution['strategy']; description: string }[];
+}
+
+/** Context passed to the loop when resuming an escalated run so the human-resolved escalated step
+ *  can be recorded in the summary. */
+export interface AutoRebaseResumeContext {
+	escalatedStep?: EscalatedStepSnapshot;
+	/** Resolutions already recorded by earlier steps (with content) — seeds the loop's
+	 *  `previousResolutions` so a resumed run keeps resolving a repeatedly-conflicting region
+	 *  consistently with what the original run decided (the same guarantee a single continuous run
+	 *  gives). */
+	previousResolutions?: Resolution[];
+}
+
 /** One-shot payload handed to the Resolve panel when automation escalates mid-step. */
 export interface AutoRebaseHandoff {
 	/** Session id — reuse as the resolve conversation id so refinement stays in the run's AI conversation */
@@ -118,6 +148,7 @@ export interface AutoRebaseHandoff {
 
 export type AutoRebaseUndoRefusalReason =
 	| 'no-record'
+	| 'unavailable'
 	| 'operation-in-progress'
 	| 'branch-changed'
 	| 'branch-moved'
@@ -132,6 +163,9 @@ export type AutoRebaseUndoValidation =
 			/** When refused for `dirty`: the dirtiness is (at least partly) the conflicted
 			 *  application of an autostash whose changes are safe in the stash */
 			autostashConflict?: boolean;
+			/** When refused for `dirty`: `undo()` can still recover it by stashing (the dirt is the
+			 *  autostash, `reapplied` or `left-in-stash`), so callers may still offer Undo */
+			recoverable?: boolean;
 	  };
 
 export type AutoRebaseUndoResult =

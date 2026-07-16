@@ -1,9 +1,11 @@
 import * as assert from 'assert';
+import { CancellationTokenSource } from 'vscode';
 import { PausedOperationAbortError } from '@gitlens/git/errors.js';
 import type { GitPausedOperationStatus } from '@gitlens/git/models/pausedOperationStatus.js';
 import type { StoredAutoRebaseUndo } from '../../../../constants.storage.js';
 import type { Container } from '../../../../container.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
+import type { AutoRebaseSession } from '../autoRebase.types.js';
 import { AutoRebaseService } from '../autoRebaseService.js';
 
 interface FakeRepoState {
@@ -194,6 +196,30 @@ suite('coretools/conflict/AutoRebaseService undo', () => {
 		assert.strictEqual(state.resets.length, 0);
 		assert.strictEqual(storage.size, 1);
 	});
+
+	test('canUndo flags a reapplied-autostash dirty tree as recoverable (undo would stash)', async () => {
+		const { service, state } = makeFakes({ ...record, autostash: 'reapplied' }, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, true);
+		assert.strictEqual(state.resets.length, 0);
+	});
+
+	test('canUndo flags a left-in-stash-autostash dirty tree as recoverable (undo would stash)', async () => {
+		const { service, state } = makeFakes({ ...record, autostash: 'left-in-stash' }, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, true);
+		assert.strictEqual(state.resets.length, 0);
+	});
+
+	test('canUndo reports a genuine-dirty tree (no autostash) as not recoverable', async () => {
+		const { service, state } = makeFakes(record, { hasChanges: true });
+		const result = await service.canUndo('/repo');
+		assert.strictEqual(!result.ok && result.reason, 'dirty');
+		assert.strictEqual(!result.ok && result.recoverable, false);
+		assert.strictEqual(state.resets.length, 0);
+	});
 });
 
 function makePausedRebaseStatus(): GitPausedOperationStatus {
@@ -271,6 +297,103 @@ function makeTakeoverFakes(headSha: string) {
 
 	return { service: service, state: state, storage: storage, svc: svc as unknown as GitRepositoryService };
 }
+
+/**
+ * Harness for resuming our own escalated run: the loop finds the rebase paused with nothing
+ * conflicted and the escalated step's snapshot matching it, so it records the step the user resolved
+ * by hand and continues to completion. Captures telemetry event names so a test can assert what the
+ * resume reported.
+ */
+function makeResumeFakes() {
+	const state = { statusReads: 0 };
+	const events: string[] = [];
+	const storage = new Map<string, unknown>();
+	const status = makePausedRebaseStatus();
+
+	const svc = {
+		path: '/repo',
+		pausedOps: {
+			getPausedOperationStatus: () => {
+				state.statusReads++;
+				// 1st read: takeover's pre-flight. 2nd: the loop tick that records the manual step and
+				// continues. 3rd: no paused operation left, so the loop reports completion.
+				return Promise.resolve(state.statusReads <= 2 ? status : undefined);
+			},
+			continuePausedOperation: () => Promise.resolve(),
+		},
+		branches: { getBranch: () => Promise.resolve({ name: 'feature' }) },
+		revision: { resolveRevision: () => Promise.resolve({ sha: 'post', revision: 'post' }) },
+		status: { getStatus: () => Promise.resolve({ hasChanges: false, files: [] }) },
+		ops: { reset: () => Promise.resolve() },
+		staging: { stageFiles: () => Promise.resolve() },
+		createUnsafeGit: () => undefined,
+	};
+
+	const container = {
+		storage: {
+			getWorkspace: (key: string) => storage.get(key),
+			storeWorkspace: (key: string, value: unknown) => {
+				storage.set(key, value);
+				return Promise.resolve();
+			},
+			deleteWorkspace: (key: string) => {
+				storage.delete(key);
+				return Promise.resolve();
+			},
+		},
+		git: { getRepositoryService: () => svc },
+		telemetry: { sendEvent: (name: string) => void events.push(name) },
+		ai: { enabled: true, allowed: true, flushBYOKUsage: () => Promise.resolve() },
+	} as unknown as Container;
+
+	const service = new AutoRebaseService(container);
+	// Stub the lazily node-imported integration — the resumed step needs only the unmerged listing
+	// (empty: the user resolved it) and the working-tree read for the step's "after" side.
+	(service as unknown as { _integration: Promise<unknown> })._integration = Promise.resolve({
+		listUnmergedEntries: () => Promise.resolve([]),
+		readWorkingFiles: () => Promise.resolve(new Map([['x.txt', 'after:x.txt']])),
+	});
+
+	// Seed the escalated session takeover() resumes in place, with the snapshot captured at
+	// escalation time (step 1, one file the AI attempted but couldn't apply confidently).
+	const session: AutoRebaseSession = {
+		id: 'session-1',
+		repoPath: '/repo',
+		mode: 'takeover',
+		phase: 'escalated',
+		preRun: { branch: 'feature', headSha: 'orig', stashCount: 0, startedAt: Date.now() },
+		steps: [],
+	};
+	(service as unknown as { _sessions: Map<string, unknown> })._sessions.set('/repo', {
+		session: session,
+		cts: new CancellationTokenSource(),
+		source: { source: 'commandPalette' },
+		escalatedStep: {
+			stepNumber: 1,
+			conflictedContents: new Map([['x.txt', 'before:x.txt']]),
+			resolutions: [{ filePath: 'x.txt', strategy: 'ai', description: 'merged both sides' }],
+		},
+	});
+
+	return { service: service, session: session, events: events, svc: svc as unknown as GitRepositoryService };
+}
+
+suite('coretools/conflict/AutoRebaseService resume telemetry', () => {
+	test('a manually-resolved step is recorded but not reported as an AI-resolved step', async () => {
+		const { service, events, svc } = makeResumeFakes();
+
+		const session = await service.takeover(svc, { source: 'commandPalette' });
+
+		// The step must land in the summary (otherwise the assertion below would pass trivially)
+		assert.strictEqual(session.phase, 'completed');
+		assert.strictEqual(session.steps.length, 1);
+		assert.strictEqual(session.steps[0].kind, 'manual');
+
+		// ...but automation neither resolved nor applied it, so it must not be counted as one
+		assert.ok(events.includes('autoRebase/resumed'), 'the resume itself is reported');
+		assert.strictEqual(events.includes('autoRebase/step/resolved'), false);
+	});
+});
 
 suite('coretools/conflict/AutoRebaseService late cancel', () => {
 	test('a cancel that lands after the rebase finished finalizes as completed, not aborted', async () => {
