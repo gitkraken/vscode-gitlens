@@ -13,6 +13,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
@@ -144,7 +145,12 @@ export abstract class GitHostIntegration<
 		return defaultBranch;
 	}
 
-	getRepoInfo?(repo: { owner: string; name: string; project?: string }): Promise<ProviderRepository | undefined>;
+	getRepoInfo?(repo: {
+		owner: string;
+		name: string;
+		project?: string;
+		connectionId?: string;
+	}): Promise<ProviderRepository | undefined>;
 
 	protected abstract getProviderDefaultBranch(
 		{ accessToken }: ProviderAuthenticationSession,
@@ -199,22 +205,32 @@ export abstract class GitHostIntegration<
 	 * `truncated === true` means the defensive page-drain backstop stopped before the upstream listing
 	 * was exhausted.
 	 */
-	@trace()
 	async getOrganizationsForUser(): Promise<ProviderHierarchyResult<ProviderOrganization> | undefined> {
+		return (await this.getOrganizationsForUserResult())?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getOrganizationsForUser}. Resolves the session for `connectionId`
+	 * (or the primary connection when omitted, honoring multi-account reads) and recovers a thrown error
+	 * into `{ error }` so callers can surface it as a warning instead of swallowing it to `undefined`.
+	 */
+	@trace()
+	async getOrganizationsForUserResult(
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderHierarchyResult<ProviderOrganization> | undefined>> {
 		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
-
+		const start = performance.now();
 		try {
-			const result = await this.getProviderOrganizationsForUser?.(this._session!);
+			const result = await this.getProviderOrganizationsForUser?.(session);
 			this.resetRequestExceptionCount('getOrganizationsForUser');
-			return result;
+			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getOrganizationsForUser', ex, { scope: scope });
-			return undefined;
+			return { error: ex, duration: performance.now() - start };
 		}
 	}
 
@@ -230,25 +246,35 @@ export abstract class GitHostIntegration<
 	 * returns all matches in a single page.) `truncated === true` means the defensive page-drain
 	 * backstop stopped before the upstream listing was exhausted.
 	 */
-	@trace()
 	async getRepositoriesForOrg(
 		org: string,
 		options?: { project?: string; cursor?: string },
 	): Promise<ProviderHierarchyResult<ProviderRepository> | undefined> {
+		return (await this.getRepositoriesForOrgResult(org, options))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getRepositoriesForOrg}. Resolves the session for `connectionId`
+	 * (or the primary connection when omitted) and recovers a thrown error into `{ error }` for warnings.
+	 */
+	@trace()
+	async getRepositoriesForOrgResult(
+		org: string,
+		options?: { project?: string; cursor?: string; connectionId?: string },
+	): Promise<IntegrationResult<ProviderHierarchyResult<ProviderRepository> | undefined>> {
 		const scope = getScopedLogger();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(options?.connectionId, scope);
+		if (session == null) return undefined;
 
-		const connected = this.maybeConnected ?? (await this.isConnected());
-		if (!connected) return undefined;
-
-		await this.refreshSessionIfExpired(scope);
-
+		const start = performance.now();
 		try {
-			const result = await this.getProviderRepositoriesForOrg?.(this._session!, org, options);
+			const result = await this.getProviderRepositoriesForOrg?.(session, org, options);
 			this.resetRequestExceptionCount('getRepositoriesForOrg');
-			return result;
+			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForOrg', ex, { scope: scope });
-			return undefined;
+			return { error: ex, duration: performance.now() - start };
 		}
 	}
 
@@ -380,6 +406,28 @@ export abstract class GitHostIntegration<
 		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderIssue> | undefined> {
+		return (await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getMyIssuesForRepos}. Resolves the session for `connectionId`
+	 * (or the primary connection when omitted, so multi-account reads use the right token) and recovers
+	 * thrown errors and validation failures into `{ error }` so callers can surface them as warnings
+	 * rather than swallowing them to `undefined`.
+	 */
+	async getMyIssuesForReposResult(
+		reposOrRepoIds: ProviderReposInput,
+		options?: {
+			filters?: IssueFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			includeAllAssignees?: boolean;
+			state?: IssueStateFilter;
+		},
+		connectionId?: string,
+	): Promise<IntegrationResult<PagedResult<ProviderIssue> | undefined>> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderIssueStates(options?.state);
@@ -387,6 +435,8 @@ export abstract class GitHostIntegration<
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
+
+		const start = performance.now();
 
 		const api = await this.getProvidersApi();
 		if (
@@ -396,7 +446,10 @@ export abstract class GitHostIntegration<
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`, 'getIssuesForRepos');
-			return undefined;
+			return {
+				error: new Error(`Unsupported input for provider ${providerId}`),
+				duration: performance.now() - start,
+			};
 		}
 
 		let getIssuesOptions: GetIssuesOptions | undefined;
@@ -410,10 +463,16 @@ export abstract class GitHostIntegration<
 
 			if (organizations.size > 1) {
 				Logger.warn(`Multiple organizations not supported for provider ${providerId}`, 'getIssuesForRepos');
-				return undefined;
+				return {
+					error: new Error(`Multiple organizations not supported for provider ${providerId}`),
+					duration: performance.now() - start,
+				};
 			} else if (organizations.size === 0) {
 				Logger.warn(`No organizations found for provider ${providerId}`, 'getIssuesForRepos');
-				return undefined;
+				return {
+					error: new Error(`No organizations found for provider ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			const organization: string = first(organizations.values())!;
@@ -421,30 +480,39 @@ export abstract class GitHostIntegration<
 			if (options?.filters != null) {
 				if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
 					Logger.warn(`Unsupported filters for provider ${providerId}`, 'getIssuesForRepos');
-					return undefined;
+					return {
+						error: new Error(`Unsupported filters for provider ${providerId}`),
+						duration: performance.now() - start,
+					};
 				}
 
 				let userAccount: ProviderAccount | undefined;
 				try {
 					userAccount = await api.getCurrentUserForInstance(
-						{ providerId: providerId, connectionId: connectionId },
+						toTokenWithInfo(providerId, session),
 						organization,
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
-					return undefined;
+					return { error: ex, duration: performance.now() - start };
 				}
 
 				if (userAccount == null) {
 					Logger.warn(`Unable to get current user for ${providerId}`, 'getIssuesForRepos');
-					return undefined;
+					return {
+						error: new Error(`Unable to get current user for ${providerId}`),
+						duration: performance.now() - start,
+					};
 				}
 
 				const userFilterProperty = userAccount.name;
 
 				if (userFilterProperty == null) {
 					Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getIssuesForRepos');
-					return undefined;
+					return {
+						error: new Error(`Unable to get user property for filter for ${providerId}`),
+						duration: performance.now() - start,
+					};
 				}
 
 				getIssuesOptions = {
@@ -475,7 +543,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
-							{ providerId: providerId, connectionId: connectionId },
+							toTokenWithInfo(providerId, session),
 							projectInput.namespace,
 							projectInput.project,
 							{
@@ -501,35 +569,44 @@ export abstract class GitHostIntegration<
 				);
 
 				return {
-					values: data,
-					paging: {
-						more: hasMore,
-						cursor: JSON.stringify(cursor),
+					value: {
+						values: data,
+						paging: {
+							more: hasMore,
+							cursor: JSON.stringify(cursor),
+						},
 					},
+					duration: performance.now() - start,
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return undefined;
+				return { error: ex, duration: performance.now() - start };
 			}
 		}
 		if (options?.filters != null) {
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
+				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session));
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return undefined;
+				return { error: ex, duration: performance.now() - start };
 			}
 
 			if (userAccount == null) {
 				Logger.warn(`Unable to get current user for ${providerId}`, 'getIssuesForRepos');
-				return undefined;
+				return {
+					error: new Error(`Unable to get current user for ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			const userFilterProperty = userAccount.username;
 			if (userFilterProperty == null) {
 				Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getIssuesForRepos');
-				return undefined;
+				return {
+					error: new Error(`Unable to get user property for filter for ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			getIssuesOptions = {
@@ -557,7 +634,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					repoInputs.map(async repoInput => {
 						const results = await api.getIssuesForRepo(
-							{ providerId: providerId, connectionId: connectionId },
+							toTokenWithInfo(providerId, session),
 							repoInput.repo,
 							{
 								...getIssuesOptions,
@@ -579,20 +656,23 @@ export abstract class GitHostIntegration<
 				);
 
 				return {
-					values: data,
-					paging: {
-						more: hasMore,
-						cursor: JSON.stringify(cursor),
+					value: {
+						values: data,
+						paging: {
+							more: hasMore,
+							cursor: JSON.stringify(cursor),
+						},
 					},
+					duration: performance.now() - start,
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return undefined;
+				return { error: ex, duration: performance.now() - start };
 			}
 		}
 
 		try {
-			return await api.getIssuesForRepos({ providerId: providerId, connectionId: connectionId }, reposOrRepoIds, {
+			const result = await api.getIssuesForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
 				baseUrl: options?.customUrl,
@@ -600,9 +680,10 @@ export abstract class GitHostIntegration<
 				pageSize: options?.pageSize,
 				states: states,
 			});
+			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			Logger.error(ex, 'getIssuesForRepos');
-			return undefined;
+			return { error: ex, duration: performance.now() - start };
 		}
 	}
 
@@ -615,10 +696,31 @@ export abstract class GitHostIntegration<
 			page?: number;
 			pageSize?: number;
 			/** PR states to include; when omitted the provider returns its default (open only). */
-			state?: PullRequestStateFilter;
+			state?: PullRequestStateFilter | PullRequestStateFilter[];
 		},
 		connectionId?: string,
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		return (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getMyPullRequestsForRepos}. Resolves the session for `connectionId`
+	 * (or the primary connection when omitted, so multi-account reads use the right token) and recovers
+	 * thrown errors and validation failures into `{ error }` so callers can surface them as warnings
+	 * rather than swallowing them to `undefined`.
+	 */
+	async getMyPullRequestsForReposResult(
+		reposOrRepoIds: ProviderReposInput,
+		options?: {
+			filters?: PullRequestFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			state?: PullRequestStateFilter | PullRequestStateFilter[];
+		},
+		connectionId?: string,
+	): Promise<IntegrationResult<PagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderPullRequestStates(options?.state);
@@ -626,6 +728,8 @@ export abstract class GitHostIntegration<
 		// is resolved here for connectivity/bail; the connection's token is applied per API call below.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
+
+		const start = performance.now();
 
 		const api = await this.getProvidersApi();
 		if (
@@ -635,14 +739,20 @@ export abstract class GitHostIntegration<
 					!reposOrRepoIds.every(repo => repo.project != null && repo.namespace != null)))
 		) {
 			Logger.warn(`Unsupported input for provider ${providerId}`);
-			return undefined;
+			return {
+				error: new Error(`Unsupported input for provider ${providerId}`),
+				duration: performance.now() - start,
+			};
 		}
 
 		let getPullRequestsOptions: GetPullRequestsOptions | undefined;
 		if (options?.filters != null) {
 			if (!api.providerSupportsPullRequestFilters(providerId, options.filters)) {
 				Logger.warn(`Unsupported filters for provider ${providerId}`, 'getPullRequestsForRepos');
-				return undefined;
+				return {
+					error: new Error(`Unsupported filters for provider ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			let userAccount: ProviderAccount | undefined;
@@ -657,34 +767,43 @@ export abstract class GitHostIntegration<
 						`Multiple organizations not supported for provider ${providerId}`,
 						'getPullRequestsForRepos',
 					);
-					return undefined;
+					return {
+						error: new Error(`Multiple organizations not supported for provider ${providerId}`),
+						duration: performance.now() - start,
+					};
 				} else if (organizations.size === 0) {
 					Logger.warn(`No organizations found for provider ${providerId}`, 'getPullRequestsForRepos');
-					return undefined;
+					return {
+						error: new Error(`No organizations found for provider ${providerId}`),
+						duration: performance.now() - start,
+					};
 				}
 
 				const organization: string = first(organizations.values())!;
 				try {
 					userAccount = await api.getCurrentUserForInstance(
-						{ providerId: providerId, connectionId: connectionId },
+						toTokenWithInfo(providerId, session),
 						organization,
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
-					return undefined;
+					return { error: ex, duration: performance.now() - start };
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser({ providerId: providerId, connectionId: connectionId });
+					userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session));
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
-					return undefined;
+					return { error: ex, duration: performance.now() - start };
 				}
 			}
 
 			if (userAccount == null) {
 				Logger.warn(`Unable to get current user for ${providerId}`, 'getPullRequestsForRepos');
-				return undefined;
+				return {
+					error: new Error(`Unable to get current user for ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			let userFilterProperty: string | null;
@@ -701,7 +820,10 @@ export abstract class GitHostIntegration<
 
 			if (userFilterProperty == null) {
 				Logger.warn(`Unable to get user property for filter for ${providerId}`, 'getPullRequestsForRepos');
-				return undefined;
+				return {
+					error: new Error(`Unable to get user property for filter for ${providerId}`),
+					duration: performance.now() - start,
+				};
 			}
 
 			// Route the "review requested from me" filter to the field each provider actually reads:
@@ -755,7 +877,7 @@ export abstract class GitHostIntegration<
 				await Promise.all(
 					repoInputs.map(async repoInput => {
 						const results = await api.getPullRequestsForRepo(
-							{ providerId: providerId, connectionId: connectionId },
+							toTokenWithInfo(providerId, session),
 							repoInput.repo,
 							{
 								...getPullRequestsOptions,
@@ -779,36 +901,36 @@ export abstract class GitHostIntegration<
 				);
 
 				return {
-					values: data,
-					paging: {
-						more: hasMore,
-						cursor: JSON.stringify(cursor),
+					value: {
+						values: data,
+						paging: {
+							more: hasMore,
+							cursor: JSON.stringify(cursor),
+						},
 					},
+					duration: performance.now() - start,
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getPullRequestsForRepos');
-				return undefined;
+				return { error: ex, duration: performance.now() - start };
 			}
 		}
 
 		try {
-			return await api.getPullRequestsForRepos(
-				{ providerId: providerId, connectionId: connectionId },
-				reposOrRepoIds,
-				{
-					...getPullRequestsOptions,
-					cursor: options?.cursor,
-					baseUrl: options?.customUrl,
-					page: options?.page,
-					pageSize: options?.pageSize,
-					states: states,
-					// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
-					includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
-				},
-			);
+			const result = await api.getPullRequestsForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
+				...getPullRequestsOptions,
+				cursor: options?.cursor,
+				baseUrl: options?.customUrl,
+				page: options?.page,
+				pageSize: options?.pageSize,
+				states: states,
+				// Azure DevOps only populates clone URLs on request (extra call); no-op elsewhere.
+				includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
+			});
+			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			Logger.error(ex, 'getPullRequestsForRepos');
-			return undefined;
+			return { error: ex, duration: performance.now() - start };
 		}
 	}
 

@@ -446,6 +446,15 @@ export type GetIssuesForResourceForCurrentUserFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[] }>;
 
+// Trello reads (issues-capable provider). The Trello client is keyed by an `appKey` (the Trello app key from
+// the cloud token exchange) alongside the OAuth token, so these mirror the client method shapes directly.
+export type GetTrelloCurrentUserFn = Trello['getCurrentUser'];
+export type GetTrelloBoardsForCurrentUserFn = Trello['getBoardsForCurrentUser'];
+export type GetTrelloListsForBoardFn = Trello['getListsForTrelloBoard'];
+export type GetTrelloAccountForIdFn = Trello['getAccountForId'];
+export type GetTrelloIssuesForBoardFn = Trello['getIssuesForBoard'];
+export type GetTrelloLabelsForBoardFn = Trello['getLabelsForBoard'];
+
 export interface ProviderInfo extends ProviderMetadata {
 	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
@@ -480,6 +489,12 @@ export interface ProviderInfo extends ProviderMetadata {
 	getReposForWorkspaceFn?: GetReposForWorkspaceFn;
 	getReposForCurrentUserFn?: GetReposForCurrentUserFn;
 	getGroupsForCurrentUserFn?: GetGroupsForCurrentUserFn;
+	getTrelloCurrentUserFn?: GetTrelloCurrentUserFn;
+	getTrelloBoardsForCurrentUserFn?: GetTrelloBoardsForCurrentUserFn;
+	getTrelloListsForBoardFn?: GetTrelloListsForBoardFn;
+	getTrelloAccountForIdFn?: GetTrelloAccountForIdFn;
+	getTrelloIssuesForBoardFn?: GetTrelloIssuesForBoardFn;
+	getTrelloLabelsForBoardFn?: GetTrelloLabelsForBoardFn;
 }
 
 export interface ProviderMetadata {
@@ -917,8 +932,15 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 
 /** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
 export function toProviderPullRequestStates(
-	state: PullRequestStateFilter | undefined,
+	state: PullRequestStateFilter | PullRequestStateFilter[] | undefined,
 ): GitPullRequestState[] | undefined {
+	// Accept an array so callers can request a union the single-value filter can't express (e.g. the
+	// closed + merged "done" sweep); each element maps through the single-value logic and the result is deduped.
+	if (Array.isArray(state)) {
+		const states = state.flatMap(s => toProviderPullRequestStates(s) ?? []);
+		return states.length > 0 ? [...new Set(states)] : undefined;
+	}
+
 	switch (state) {
 		case 'open':
 			return [GitPullRequestState.Open];

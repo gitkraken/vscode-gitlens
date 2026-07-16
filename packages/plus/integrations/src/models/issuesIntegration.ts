@@ -7,7 +7,7 @@ import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import type { IssueFilter } from '../providers/models.js';
-import type { Integration, IntegrationType } from './integration.js';
+import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
 export function isIssuesIntegration(integration: Integration): integration is IssuesIntegration {
@@ -43,9 +43,18 @@ export abstract class IssuesIntegration<
 		resource: T,
 	): Promise<Account | undefined>;
 
-	@gate()
 	@trace()
 	async getResourcesForUser(connectionId?: string): Promise<T[] | undefined> {
+		return (await this.getResourcesForUserResult(connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getResourcesForUser}. Recovers thrown errors into `{ error }` so callers
+	 * can surface them as warnings rather than silently swallowing them to `undefined`. Gated here (not on the
+	 * wrapper) so direct callers such as the ProviderBackend facade share the same dedup as `getResourcesForUser`.
+	 */
+	@gate()
+	async getResourcesForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -54,10 +63,10 @@ export abstract class IssuesIntegration<
 		try {
 			const resources = await this.getProviderResourcesForUser(session);
 			this.resetRequestExceptionCount('getResourcesForUser');
-			return resources;
+			return { value: resources };
 		} catch (ex) {
 			this.handleProviderException('getResourcesForUser', ex);
-			return undefined;
+			return { error: ex };
 		}
 	}
 
@@ -65,6 +74,17 @@ export abstract class IssuesIntegration<
 
 	@trace()
 	async getProjectsForResources(resources: T[], connectionId?: string): Promise<T[] | undefined> {
+		return (await this.getProjectsForResourcesResult(resources, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getProjectsForResources}. Recovers thrown errors into `{ error }` so callers
+	 * can surface them as warnings rather than silently swallowing them to `undefined`.
+	 */
+	async getProjectsForResourcesResult(
+		resources: T[],
+		connectionId?: string,
+	): Promise<IntegrationResult<T[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -73,18 +93,27 @@ export abstract class IssuesIntegration<
 		try {
 			const projects = await this.getProviderProjectsForResources(session, resources);
 			this.resetRequestExceptionCount('getProjectsForResources');
-			return projects;
+			return { value: projects };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForResources', ex);
-			return undefined;
+			return { error: ex };
 		}
 	}
 
 	async getProjectsForUser(connectionId?: string): Promise<T[] | undefined> {
-		const resources = await this.getResourcesForUser(connectionId);
-		if (resources == null) return undefined;
+		return (await this.getProjectsForUserResult(connectionId))?.value;
+	}
 
-		return this.getProjectsForResources(resources, connectionId);
+	/**
+	 * Result-returning core of {@link getProjectsForUser}. Composes the resource and project result methods so
+	 * callers can surface per-step warnings.
+	 */
+	async getProjectsForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+		const resources = await this.getResourcesForUserResult(connectionId);
+		if (resources?.error != null) return resources;
+		if (resources?.value == null) return undefined;
+
+		return this.getProjectsForResourcesResult(resources.value, connectionId);
 	}
 
 	protected abstract getProviderProjectsForResources(
