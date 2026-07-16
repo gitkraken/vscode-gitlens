@@ -87,6 +87,7 @@ import {
 import { getSiblingWorktreeBranches, getWorktreesByBranch } from '../../../git/utils/-webview/worktree.utils.js';
 import type { OnboardingChangeEvent } from '../../../onboarding/onboardingService.js';
 import type { UsageChangeEvent } from '../../../onboarding/usageTracker.js';
+import type { Subscription } from '../../../plus/gk/models/subscription.js';
 import type { FeaturePreviewChangeEvent, SubscriptionChangeEvent } from '../../../plus/gk/subscriptionService.js';
 import { isHooksBannerEnabled, isMcpBannerEnabled } from '../../../plus/gk/utils/-webview/mcp.utils.js';
 import { showComparisonPicker } from '../../../quickpicks/comparisonPicker.js';
@@ -402,6 +403,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	/** Mirrors the webview's `displayMode` (session-only); Visualizations mode needs row stats. */
 	private _displayMode: GraphDisplayMode = 'graph';
 	private _hoverCache = new Map<string, Promise<string>>();
+	// True while the webview shows only the account-access screen (signed out or unverified). In that
+	// state `getState` skips the entire graph data pipeline, so the graph must be reloaded once the
+	// account becomes usable — see `onSubscriptionChanged`.
+	private _accountAccessRequired = false;
 
 	// Map value type is `() => Promise<boolean | void>` so we can include notify methods that don't
 	// return whether they sent (e.g. `notifyDidChangeBranchStateOnly`, `notifyDidChangeOverview`).
@@ -1811,6 +1816,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		};
 	}
 
+	private isAccountAccessRequired(subscription: Subscription): boolean {
+		return subscription.account == null || subscription.account.verified === false;
+	}
+
 	@trace({ args: false })
 	private onFeaturePreviewChanged(e: FeaturePreviewChangeEvent) {
 		if (e.feature !== 'graph') return;
@@ -1922,6 +1931,8 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	@trace({ args: false })
 	private onRepositoryWorkingTreeChanged(e: RepositoryWorkingTreeChangeEvent) {
 		if (e.repository.id !== this.repository?.id) return;
+		// Skip WIP git-status work while only the account-access screen is shown.
+		if (this._accountAccessRequired) return;
 
 		void this._wip.notifyDidChangeWorkingTree();
 	}
@@ -1931,7 +1942,18 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		if (e.etag === this._etagSubscription) return;
 
 		this._etagSubscription = e.etag;
+
+		const wasAccountAccessRequired = this._accountAccessRequired;
+		this._accountAccessRequired = this.isAccountAccessRequired(e.current);
+
 		void this.notifyDidChangeSubscription();
+
+		// While the access screen is shown, `getState` short-circuits the data pipeline; when the
+		// account becomes usable, `notifyDidChangeSubscription` alone won't reload it, so force a full
+		// state refresh to populate the graph.
+		if (wasAccountAccessRequired && !this._accountAccessRequired && this.host.ready) {
+			this._data.updateState(true);
+		}
 	}
 
 	private onOnboardingChanged(e: OnboardingChangeEvent) {
@@ -3787,6 +3809,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const searchRequest = this._searchRequest;
 		this._searchRequest = undefined;
 
+		const subscription = await this.container.subscription.getSubscription();
+		this._accountAccessRequired = this.isAccountAccessRequired(subscription);
+		if (this._accountAccessRequired) {
+			// Signed out or unverified: the webview renders only the account-access screen, so skip the
+			// entire graph data pipeline (git walk, WIP, branch/PR/remote/worktree lookups). A full reload
+			// is forced from `onSubscriptionChanged` once the account becomes usable.
+			this._wip.updateWorkingTreeBadge(undefined);
+			return {
+				...this.host.baseWebviewState,
+				allowed: false,
+				repositories: [],
+				isWeb: isWeb,
+				subscription: subscription,
+			};
+		}
+
 		if (this.container.git.repositoryCount === 0) {
 			this._wip.updateWorkingTreeBadge(undefined);
 			return {
@@ -3794,7 +3832,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 				allowed: true,
 				repositories: [],
 				isWeb: isWeb,
-				subscription: await this.container.subscription.getSubscription(),
+				subscription: subscription,
 			};
 		}
 
@@ -3807,7 +3845,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					allowed: true,
 					repositories: [],
 					isWeb: isWeb,
-					subscription: await this.container.subscription.getSubscription(),
+					subscription: subscription,
 				};
 			}
 		}
