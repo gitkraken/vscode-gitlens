@@ -326,6 +326,14 @@ export class GitProviderService implements UnifiedDisposable {
 		this._disposable = fromDisposables(
 			this._gitService,
 			this._cache,
+			// Drive the cache's status clock from the ONE point every watched repo's changes flow through (the watch
+			// session), so a single edit advances it exactly once regardless of how many subscribers (an open repo's
+			// own lease + a service-level `watch()`) share the ref-counted session — and, because the session fires
+			// these BEFORE notifying its subscribers, always before any consumer can read status.
+			// Forced changes (`forcedRepositoryChanges`) bypass the session, so the provider's own repo handler
+			// advances those instead — `fireChange` accepts `force` only for those, so the two sets are disjoint.
+			this._watchService.onDidChangeWorkingTree(repoPath => this._cache.onWorkingTreeChanged(repoPath)),
+			this._watchService.onDidChangeRepository(e => this._cache.onRepositoryChanged(e.repoPath, e.changes)),
 			this._repositoryInitWatcher,
 			this._repositoryInitWatcher.onDidCreate(e => {
 				const f = workspace.getWorkspaceFolder(Uri.file(e.path));

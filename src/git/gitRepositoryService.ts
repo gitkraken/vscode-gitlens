@@ -116,6 +116,9 @@ export class GitRepositoryService {
 		const handle = this._svc.watchService.watch(this.path, gitDir);
 		if (handle == null) return undefined;
 
+		// No cache wiring here: BOTH channels are driven once, globally, at the watch session (see
+		// `GitProviderService`) — before the session notifies any subscriber. Subscribing the cache here too would
+		// advance the clock a second time, mid-notification, whenever this watch shares an open repo's session.
 		const wtSub = handle.session.subscribeToWorkingTree({ delayMs: opts?.workingTreeDelayMs ?? 500 });
 		const repoSub = handle.session.subscribe();
 

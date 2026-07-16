@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { Wip } from '../../../../../commitDetails/protocol.js';
 import type {
 	BranchComparisonOptions,
@@ -8,6 +9,7 @@ import type {
 	ScopeSelection,
 } from '../../../../../plus/graph/graphService.js';
 import { createResource } from '../../../../shared/state/resource.js';
+import type { AppState } from '../../context.js';
 import type { DetailsResources, ResolvedServices } from '../detailsActions.js';
 import { DetailsActions, scopeSelectionEqual } from '../detailsActions.js';
 import { createDetailsState } from '../detailsState.js';
@@ -48,6 +50,9 @@ function createServices(commitCompose?: (repoPath: string, plan: unknown) => Pro
 	return {
 		graphInspect: {
 			commitCompose: commitCompose ?? (async () => ({ success: true })),
+		},
+		repository: {
+			hasRemotes: async () => false,
 		},
 		telemetry: {
 			sendEvent: () => Promise.resolve(),
@@ -443,6 +448,184 @@ suite('DetailsActions', () => {
 
 		assert.strictEqual(state.wip.get(), wip);
 		assert.strictEqual(state.wipStale.get(), false);
+	});
+
+	// WIP payloads race: a refresh response and host pushes can arrive in either order relative to the working tree
+	// they reflect. Ordering is by the host's `revision` marker (assigned at read-start), never by arrival.
+	const wipRepo = { uri: 'file:///repo', name: 'repo', path: '/repo', isWorktree: false };
+	function makeWip(revision: number, modified: number): Wip {
+		return {
+			changes: undefined,
+			repositoryCount: 1,
+			repo: wipRepo,
+			revision: revision,
+			stats: { added: 0, deleted: 0, modified: modified },
+		};
+	}
+
+	test('refetchWipQuiet drops its result when a push reflecting a newer working tree landed mid-flight', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const staleRefresh = makeWip(1, 1); // read started BEFORE the change
+		const newerPush = makeWip(2, 2); // read started AFTER it
+
+		// A wip fetch that resolves only when the test releases it, so the push can land mid-flight.
+		let releaseFetch!: (v: { wip: Wip }) => void;
+		const fetchGate = new Promise<{ wip: Wip }>(resolve => (releaseFetch = resolve));
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => fetchGate),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		const refreshing = actions.refetchWipQuiet('/repo', true);
+		await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+		actions.applyPushedWip(newerPush);
+		assert.strictEqual(state.wip.get(), newerPush);
+
+		releaseFetch({ wip: staleRefresh });
+		await refreshing;
+
+		assert.strictEqual(state.wip.get(), newerPush, 'an older refresh must not overwrite a newer push');
+	});
+
+	test('a delayed push reflecting an older working tree cannot revert newer applied state', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const newer = makeWip(5, 2);
+		const delayedOlder = makeWip(4, 1); // produced earlier, delivered later
+
+		actions.applyPushedWip(newer);
+		assert.strictEqual(state.wip.get(), newer);
+
+		actions.applyPushedWip(delayedOlder);
+		assert.strictEqual(state.wip.get(), newer, 'a delayed older push must be dropped, not revert newer state');
+	});
+
+	test('a push reflecting a newer working tree still applies over an older one', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const older = makeWip(1, 1);
+		const newer = makeWip(2, 2);
+
+		actions.applyPushedWip(older);
+		actions.applyPushedWip(newer);
+		assert.strictEqual(state.wip.get(), newer, 'newer revisions must still win');
+	});
+
+	// The panel's applied-revision gate and the graph's wip cache have to advance together. If a writer moves one
+	// without the other, re-selecting the repo seeds a payload the gate then rejects — and nothing repaints.
+	function createGraphStateStub(seed?: { repoPath: string; wip: Wip; isLive: boolean }) {
+		const cache = new Map<string, Wip>();
+		if (seed != null) {
+			cache.set(seed.repoPath, seed.wip);
+		}
+		return {
+			cache: cache,
+			stub: {
+				getWipState: (repoPath: string) => {
+					const wip = cache.get(repoPath);
+					return wip != null ? { wip: wip, isLive: seed?.isLive ?? true, ageMs: 0 } : undefined;
+				},
+				setWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
+				ingestWip: (repoPath: string, wip: Wip) => void cache.set(repoPath, wip),
+				setWorkingTreeStats: () => {},
+				mergeOverviewWipForRepo: () => {},
+			},
+		};
+	}
+
+	test('refetchWipQuiet writes its accepted result back to the graph cache', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: fresh })),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+		const graph = createGraphStateStub({ repoPath: '/repo', wip: makeWip(9, 1), isLive: true });
+		actions.graphState = graph.stub as unknown as AppState;
+
+		await actions.refetchWipQuiet('/repo', true);
+
+		assert.strictEqual(state.wip.get(), fresh);
+		assert.strictEqual(
+			graph.cache.get('/repo'),
+			fresh,
+			'the cache must not be left older than the revision the panel just applied',
+		);
+	});
+
+	test('an accepted host result ingests authoritatively — never through the optimistic API', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => ({ wip: fresh })),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+
+		// `setWip` marks the entry as a pending local edit, which suppresses `isLive` and buys a `git status`
+		// revalidate on every revisit — forever on an idle repo. A host RPC response is not a local guess.
+		const calls: string[] = [];
+		actions.graphState = {
+			getWipState: () => undefined,
+			setWip: () => calls.push('setWip'),
+			ingestWip: () => calls.push('ingestWip'),
+			setWorkingTreeStats: () => {},
+		} as unknown as AppState;
+
+		await actions.refetchWipQuiet('/repo', true);
+
+		assert.deepStrictEqual(calls, ['ingestWip'], 'a host result must not be cached as an optimistic local edit');
+	});
+
+	test('a cached WIP older than what is applied is a miss — it must fetch, not paint nothing', async () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const fresh = makeWip(10, 2);
+		let fetched = 0;
+		const resources = createResources({
+			wip: createResource(async (_signal, _repoPath: string) => {
+				fetched++;
+				return { wip: fresh };
+			}),
+		});
+		const actions = new DetailsActions(state, createServices(), resources);
+		// Live cache entry stranded at an older revision than the panel has applied (an explicit refresh advanced
+		// the panel past it). `isLive: true` is the trap: it also suppresses the background revalidate.
+		const graph = createGraphStateStub({ repoPath: '/repo', wip: makeWip(9, 1), isLive: true });
+		actions.graphState = graph.stub as unknown as AppState;
+
+		actions.applyPushedWip(makeWip(10, 2));
+		state.wip.set(undefined);
+
+		await actions.fetchDetails(uncommitted, '/repo');
+
+		assert.strictEqual(fetched, 1, 'a rejected cache seed must fall through to a fetch');
+		assert.strictEqual(state.wip.get(), fresh, 'the panel must repaint rather than be left blank');
+	});
+
+	test('WIP payloads without a revision are always applied (non-Graph producers)', () => {
+		const state = createDetailsState();
+		state.activeMode.set(null);
+
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		const unversioned: Wip = { changes: undefined, repositoryCount: 1, repo: wipRepo };
+		actions.applyPushedWip(makeWip(9, 3));
+		actions.applyPushedWip(unversioned);
+		assert.strictEqual(state.wip.get(), unversioned, 'no revision means no ordering to enforce');
 	});
 
 	test('applyPushedWip ignores host pushes for a repo while its commit is in flight', () => {

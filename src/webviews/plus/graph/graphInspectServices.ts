@@ -101,7 +101,7 @@ export type GraphInspectServicesContext = {
 	getWipForRepoAndStats: (
 		repo: GlRepository,
 		signal?: AbortSignal,
-		options?: { bypassCache?: boolean },
+		options?: { force?: boolean },
 	) => Promise<{ wip: Wip } | undefined>;
 	getSearchContext: (sha: string | undefined) => GitCommitSearchContext | undefined;
 };
@@ -470,9 +470,10 @@ export class GraphInspectServices {
 					// panel uses — if a prior initial-state fetch landed with bad data and no FS event
 					// has fired since, the header/row badges stay stuck on stale stats until the next
 					// incidental tick.
-					// `force` (user-initiated refresh) bypasses `_wipStatusCache` so the button runs
-					// a genuinely fresh `git status` rather than re-serving a possibly-stale entry.
-					return this.context.getWipForRepoAndStats(repo, signal, force ? { bypassCache: true } : undefined);
+					// `force` (user-initiated refresh) advances the repo's status generation so the button runs
+					// a genuinely fresh `git status` — rather than joining one already in flight from before
+					// the click, or re-serving a cached entry.
+					return this.context.getWipForRepoAndStats(repo, signal, force ? { force: true } : undefined);
 				},
 				explainCommit: async (
 					repoPath: string,

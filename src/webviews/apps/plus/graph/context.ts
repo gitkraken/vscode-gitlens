@@ -121,6 +121,16 @@ export interface AppState extends State {
 	setWip(repoPath: string, wip: Wip): void;
 
 	/**
+	 * Ingest an AUTHORITATIVE `Wip` for `repoPath` — a `getWip` RPC response, produced by the host
+	 * from the same single `git status` as a push. Reconciles the same mirrors a push does (cache +
+	 * ordering high-water, badge stats, overview entry) and leaves the entry live: it is host truth,
+	 * not a local guess, so a revisit must not have to buy another `git status` to re-confirm it.
+	 * Use this for anything the host produced; {@link setWip} is only for optimistic local edits.
+	 * Ordering is the caller's to enforce.
+	 */
+	ingestWip(repoPath: string, wip: Wip): void;
+
+	/**
 	 * Reseed `workingTreeStats` (header / primary-row badge source) from a panel-driven `getWip`
 	 * response. No-op unless `repoPath` matches the selected repository. `stats` is the primary
 	 * wip's embedded counts (git-authoritative, same object as `wip.stats`) so the file list and

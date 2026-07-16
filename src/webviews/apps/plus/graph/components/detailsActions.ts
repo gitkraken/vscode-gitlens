@@ -219,6 +219,10 @@ const commitEnrichmentCacheLimit = 32;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
+	/** Highest {@link Wip.revision} applied to `state.wip`, per repo. WIP payloads (host pushes and fetch/refresh
+	 *  responses) can arrive out of order relative to the working-tree state they reflect, so we order them by the
+	 *  host's marker rather than by arrival — see {@link acceptWipRevision}. */
+	private readonly _lastAppliedWipRevision = new Map<string, number>();
 	private _pendingStagingOp?: Promise<void>;
 	/** Repo path with a commit RPC in flight. While set, host-pushed WIP for this repo is ignored:
 	 *  the commit's own pre-commit hooks (e.g. lint-staged stashing unstaged changes) churn the
@@ -965,7 +969,11 @@ export class DetailsActions {
 				// we know we don't have cached merge-target data (set in fetchWipBranchEnrichment).
 
 				const cached = this.graphState?.getWipState(repoPath);
-				if (cached != null) {
+				// Seed through the same gate as every other writer: records the seeded revision (so a delayed older
+				// push can't later apply over it). A cached payload OLDER than what's applied (an explicit refresh
+				// advanced the panel past the cache) is a MISS, not a hit — it has to fall through to the fetch
+				// below or nothing repaints and the panel keeps whatever the last selection left behind.
+				if (cached != null && this.acceptWipRevision(cached.wip, repoPath)) {
 					this.state.wip.set(cached.wip);
 					if (this.state.activeMode.get() != null) {
 						this.state.wipStale.set(true);
@@ -991,12 +999,13 @@ export class DetailsActions {
 									const result = this.resources.wip.value.get();
 									if (result != null) {
 										const { wip } = result;
+										// Drop if a newer WIP landed while this background revalidate was in flight.
+										if (!this.acceptWipRevision(wip, repoPath)) return;
+
 										this.state.wip.set(wip);
-										this.graphState?.setWip(repoPath, wip);
-										// Stats travel embedded as `wip.stats`.
-										if (wip.stats != null) {
-											this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
-										}
+										// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles
+										// every mirror and leaves the entry live, so revisits don't re-buy a `git status`.
+										this.graphState?.ingestWip(repoPath, wip);
 										if (this.state.activeMode.get() != null) {
 											this.state.wipStale.set(true);
 										}
@@ -1015,7 +1024,7 @@ export class DetailsActions {
 						})();
 					}
 				} else {
-					// Missing cache entry — block and fetch.
+					// Cache miss, or a cached payload older than what's already applied — block and fetch.
 					await this.resources.wip.fetch(repoPath);
 
 					if (this._lastFetchedKey !== key) return;
@@ -1024,12 +1033,13 @@ export class DetailsActions {
 						const result = this.resources.wip.value.get();
 						if (result != null) {
 							const { wip } = result;
+							// Drop if a newer WIP landed while this fetch was in flight.
+							if (!this.acceptWipRevision(wip, repoPath)) return;
+
 							this.state.wip.set(wip);
-							this.graphState?.setWip(repoPath, wip);
-							// Stats travel embedded as `wip.stats`.
-							if (wip.stats != null) {
-								this.graphState?.setWorkingTreeStats(repoPath, wip.stats);
-							}
+							// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles every
+							// mirror and leaves the entry live, so revisits don't re-buy a `git status`.
+							this.graphState?.ingestWip(repoPath, wip);
 							if (this.state.activeMode.get() != null) {
 								this.state.wipStale.set(true);
 							}
@@ -3121,13 +3131,17 @@ export class DetailsActions {
 		const result = this.resources.wip.value.get();
 		if (result == null) return;
 
-		this.applyWipPayload(result.wip, repoPath);
-		// Reseed the header/row badge source from the SAME `git status` the panel just applied.
-		// Stats travel embedded as `result.wip.stats` (one git-authoritative object), so the
-		// panel's file list and the header counts can't disagree.
-		if (result.wip.stats != null) {
-			this.graphState?.setWorkingTreeStats(repoPath, result.wip.stats);
-		}
+		// `applyWipPayload` enforces the ordering: if a push reflecting a LATER working tree landed while this
+		// refresh was in flight, this (older) result is dropped — and if this refresh is the newer read, it wins.
+		// Bail on drop so the badge isn't reseeded from a payload the panel didn't apply.
+		if (!this.applyWipPayload(result.wip, repoPath)) return;
+
+		// Write the accepted response back to the graph cache, like every other fetch site. Skipping it leaves the
+		// cache holding an OLDER revision than the panel just applied, so re-selecting this repo later seeds a
+		// payload its own gate then rejects — a blank panel until the next push. `ingestWip` also reseeds the
+		// header/row badge from the SAME `git status` the panel just applied: stats travel embedded as
+		// `result.wip.stats` (one git-authoritative object), so the file list and the counts can't disagree.
+		this.graphState?.ingestWip(repoPath, result.wip);
 	}
 
 	/**
@@ -3166,7 +3180,27 @@ export class DetailsActions {
 		this.applyWipPayload(wip, repoPath);
 	}
 
-	private applyWipPayload(wip: Wip, repoPath: string): void {
+	/**
+	 * Gates every `state.wip` write on the host's per-repo freshness marker ({@link Wip.revision}), recording it on
+	 * accept. Payloads race: a debounced/delayed push can land after a newer push or a forced refresh, and a fetch
+	 * can resolve after a newer push. Ordering by arrival would let any of those revert newer state, so we compare
+	 * the host's marker instead and drop anything reflecting an older working tree than what's already applied.
+	 * Payloads without a revision (non-Graph producers) are always accepted — they have no ordering to enforce.
+	 */
+	private acceptWipRevision(wip: Wip, repoPath: string): boolean {
+		if (wip.revision == null) return true;
+
+		const lastApplied = this._lastAppliedWipRevision.get(repoPath);
+		if (lastApplied != null && wip.revision < lastApplied) return false;
+
+		this._lastAppliedWipRevision.set(repoPath, wip.revision);
+		return true;
+	}
+
+	/** @returns `false` if the payload was dropped as older than what's already applied (see {@link acceptWipRevision}). */
+	private applyWipPayload(wip: Wip, repoPath: string): boolean {
+		if (!this.acceptWipRevision(wip, repoPath)) return false;
+
 		const prev = this.state.wip.get();
 		this.state.wip.set(wip);
 		if (this.state.activeMode.get() != null) {
@@ -3176,6 +3210,7 @@ export class DetailsActions {
 		if (branchName != null && prev?.branch?.name !== branchName) {
 			this.fetchWipBranchEnrichment(repoPath, branchName, this.resetEnrichment());
 		}
+		return true;
 	}
 
 	private optimisticallyUpdateFileStaged(filePath: string, newStaged: boolean): void {

@@ -727,7 +727,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			container: this.container,
 			host: this.host,
 			getSession: () => this._data.session,
-			getWipForRepoAndStats: (repo, signal, options) => this._wip.getWipForRepoAndStats(repo, signal, options),
+			getWipForRepoAndStats: async (repo, signal, options) => {
+				const result = await this._wip.getWipForRepoAndStats(repo, signal, options);
+				// This response goes straight to the client, bypassing the push channel — so the push dedup's
+				// record of what the client holds is now stale. Invalidate it, or a corrective push that happens
+				// to be byte-identical to the last one we sent would be suppressed as a no-op.
+				if (result != null) {
+					this._wip.onWipServedOutOfBand(repo, result.wip.revision);
+				}
+				return result;
+			},
 			getSearchContext: sha => this._searchService.getSearchContext(sha),
 		};
 	}
@@ -4588,6 +4597,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			detectNested: true,
 		});
 		const result = repo != null ? await this._wip.getWipForRepoAndStats(repo) : undefined;
+		// Serves the client directly, and `value.repoPath` can be the primary — so this is an out-of-band serve and
+		// must invalidate the push dedup like any other, or a later push carrying this same content is deduped away.
+		if (repo != null && result != null) {
+			this._wip.onWipServedOutOfBand(repo, result.wip.revision);
+		}
 		// Ship `wip` (with stats embedded as `wip.stats`) so the webview never has to re-derive
 		// them — the host just did the work, the webview's classifier wouldn't match
 		// `git diff --shortstat` semantics for renames/conflicts, and the derived value would drop

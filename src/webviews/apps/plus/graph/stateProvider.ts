@@ -1530,8 +1530,13 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// The producer always populates `wip.stats` and skips this notification when the status
 				// fetch fails, but guarding here keeps a stats-less push from blanking the badge and
 				// matches the `DidRequestWipRefetchNotification` handler's discipline below.
+				// Drop a push reflecting an older working tree than what's already applied (see `isStaleWip`) —
+				// otherwise a delayed push regresses the cache/badge/overview. `wipMetadataBySha` is an independent
+				// per-sha merge, so it still applies.
+				const staleWip = this.isStaleWip(msg.params.repoPath, msg.params.wip);
+
 				const updates: Partial<State> = {};
-				if (msg.params.wip?.stats != null) {
+				if (!staleWip && msg.params.wip?.stats != null) {
 					updates.workingTreeStats = msg.params.wip.stats;
 				}
 				if (msg.params.wipMetadataBySha != null) {
@@ -1544,7 +1549,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// The host packs the full WIP into every working-tree notification (same
 				// `git status` it already ran for the stats). The panel observes this and
 				// applies it directly — no `getWip` round-trip needed.
-				if (msg.params.wip != null) {
+				if (!staleWip && msg.params.wip != null) {
 					updates.wip = msg.params.wip;
 					// Seed the cache so re-opening the WIP panel paints from memory while a fresh
 					// host push lands. The active-watcher set covers `isLive` derivation at read
@@ -1555,7 +1560,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Merge the overview entry for the primary's current branch from the same fetch,
 				// so the overview card's dirty/clean indicator AND inline breakdown counts stay
 				// live without the bulk probe. Skip on detached HEAD (no branch to key by).
-				this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
+				if (!staleWip) {
+					this.mergeOverviewWipForRepo(msg.params.repoPath, msg.params.wip, msg.params.wip?.stats);
+				}
 				break;
 			}
 
@@ -1563,7 +1570,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				// Host pre-fetched the WIP for a non-active worktree (the active-repo watcher
 				// wouldn't fire for it). Push it through the same channel as the regular
 				// working-tree notification — the panel's `applyPushedWip` observer handles it.
-				if (msg.params.wip != null) {
+				// Same ordering rule as the working-tree notification above — a refetch reflecting an older working
+				// tree than what's applied must not regress the cache/badge/row metadata (see `isStaleWip`).
+				if (msg.params.wip != null && !this.isStaleWip(msg.params.repoPath, msg.params.wip)) {
 					const updates: Partial<State> = { wip: msg.params.wip };
 					const { repoPath } = msg.params;
 					// Stats travel embedded as `wip.stats` (host-computed from the same `git status`).
@@ -1704,6 +1713,15 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private readonly _wips = new LruMap<string, { wip: Wip; timestamp: number }>(16);
 
 	/**
+	 * Highest {@link Wip.revision} accepted per repo path — the ordering high-water for `isStaleWip`.
+	 *
+	 * Deliberately NOT read off `_wips`: that cache is evictable, and evicting a repo's payload would forget its
+	 * revision, so a delayed older push for it would then be accepted and regress the cache. Ordering state has to
+	 * outlive the payload it ordered, and only ever increase. One number per repo path seen this session.
+	 */
+	private readonly _wipRevisions = new Map<string, number>();
+
+	/**
 	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
 	 * `getWipState().isLive` so consumers know whether a cache hit will be refreshed by a
 	 * push soon (true) or needs explicit revalidation (false).
@@ -1721,11 +1739,36 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	private _pendingLocalEditPaths = new Set<string>();
 
 	/**
+	 * Whether `wip` reflects an OLDER working tree than the one already cached for `repoPath`, per the host's
+	 * monotonic {@link Wip.revision}. Payloads race — a debounced push can land after a newer push or after a forced
+	 * refresh — so the graph-level mirrors (cache, badge, overview) must order by that marker rather than by arrival,
+	 * or a delayed push regresses them. Unstamped payloads have no ordering to enforce and are never stale.
+	 */
+	private isStaleWip(repoPath: string, wip: Wip | undefined): boolean {
+		if (wip?.revision == null) return false;
+
+		const applied = this._wipRevisions.get(repoPath);
+		return applied != null && wip.revision < applied;
+	}
+
+	/** Advance the ordering high-water for `repoPath`. Monotonic — a payload accepted for its content (an unstamped
+	 *  wip, an optimistic local edit) must never lower the bar for the pushes that follow it. */
+	private recordWipRevision(repoPath: string, wip: Wip): void {
+		if (wip.revision == null) return;
+
+		const applied = this._wipRevisions.get(repoPath);
+		if (applied == null || wip.revision > applied) {
+			this._wipRevisions.set(repoPath, wip.revision);
+		}
+	}
+
+	/**
 	 * Seed the wip cache from a host push (working-tree notification / refetch notification).
 	 * Clears the pending-local-edit marker because this write IS the host-side reconciliation.
 	 */
 	private cacheWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this.recordWipRevision(repoPath, wip);
 		this._pendingLocalEditPaths.delete(repoPath);
 	}
 
@@ -1802,7 +1845,29 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 */
 	setWip(repoPath: string, wip: Wip): void {
 		this._wips.set(repoPath, { wip: wip, timestamp: Date.now() });
+		this.recordWipRevision(repoPath, wip);
 		this._pendingLocalEditPaths.add(repoPath);
+	}
+
+	/**
+	 * Ingest an AUTHORITATIVE wip for `repoPath` — a `getWip` RPC response, which the host produces from the same
+	 * single `git status` as a push. Reconciles every mirror a push reconciles: the payload cache and its ordering
+	 * high-water, the header/row badge stats, and the overview entry (otherwise the overview card's dirty indicator
+	 * silently keeps pre-refresh state — only the notification handlers merged it).
+	 *
+	 * Distinct from {@link setWip}, which exists for OPTIMISTIC local guesses and so marks the entry non-live until
+	 * the host reconciles. Marking host truth non-live makes every revisit buy another `git status` to re-confirm
+	 * what the host just said — and on an idle repo, with no watcher ticks to reconcile it, that repeats forever.
+	 *
+	 * Ordering is the caller's to enforce (same contract as `setWip`) — the panel gates on its own applied revision
+	 * before it paints, and ingesting a payload it didn't paint would strand the cache ahead of it.
+	 */
+	ingestWip(repoPath: string, wip: Wip): void {
+		this.cacheWip(repoPath, wip);
+		if (wip.stats != null) {
+			this.setWorkingTreeStats(repoPath, wip.stats);
+		}
+		this.mergeOverviewWipForRepo(repoPath, wip, wip.stats);
 	}
 
 	/**

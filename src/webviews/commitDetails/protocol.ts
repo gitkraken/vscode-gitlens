@@ -132,6 +132,13 @@ export interface WipSigning {
 export interface Wip {
 	changes: WipChange | undefined;
 	repositoryCount: number;
+	/**
+	 * Host-stamped, per-repo monotonic freshness marker, assigned when the producing `git status` read STARTS (so a
+	 * slow read of older state can't outrank a later read of newer state). Lets a consumer order payloads that can
+	 * arrive out of order — a delayed push vs. a newer push or forced refresh — and discard any that reflect an
+	 * older working tree than one already applied. Optional: only the Graph's `getWipForRepoAndStats` stamps it.
+	 */
+	revision?: number;
 	branch?: GitBranchShape;
 	repo: {
 		uri: string;
