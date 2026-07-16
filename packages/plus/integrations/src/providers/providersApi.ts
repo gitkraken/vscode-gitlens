@@ -1,5 +1,5 @@
 import ProviderApis from '@gitkraken/provider-apis';
-import type { GitPullRequestState } from '@gitkraken/provider-apis';
+import type { GitPullRequestState, TrelloBoard, TrelloList } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -282,6 +282,12 @@ export class ProvidersApi {
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
 				provider: providerApis.trello,
+				getTrelloCurrentUserFn: providerApis.trello.getCurrentUser.bind(providerApis.trello),
+				getTrelloBoardsForCurrentUserFn: providerApis.trello.getBoardsForCurrentUser.bind(providerApis.trello),
+				getTrelloListsForBoardFn: providerApis.trello.getListsForTrelloBoard.bind(providerApis.trello),
+				getTrelloAccountForIdFn: providerApis.trello.getAccountForId.bind(providerApis.trello),
+				getTrelloIssuesForBoardFn: providerApis.trello.getIssuesForBoard.bind(providerApis.trello),
+				getTrelloLabelsForBoardFn: providerApis.trello.getLabelsForBoard.bind(providerApis.trello),
 			},
 		};
 	}
@@ -1210,6 +1216,89 @@ export class ProvidersApi {
 				{ token: token },
 			);
 
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError<ProviderIssue[] | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	// Trello reads. The Trello client is keyed by an `appKey` (the Trello app key from the cloud token exchange)
+	// paired with the OAuth token, so each wrapper threads `appKey` through alongside `tokenWithInfo`.
+	async getTrelloCurrentUser(
+		tokenOptInfo: TokenWithInfo,
+		appKey: string,
+	): Promise<
+		{ id: string; name: string; email: string; username: string; url: string; avatarUrl: string | null } | undefined
+	> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getTrelloCurrentUserFn',
+		);
+		try {
+			const result = await provider.getTrelloCurrentUserFn?.(
+				{ appKey: appKey },
+				{ token: tokenWithInfo.accessToken },
+			);
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getTrelloBoardsForCurrentUser(
+		tokenOptInfo: TokenWithInfo,
+		appKey: string,
+	): Promise<TrelloBoard[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getTrelloBoardsForCurrentUserFn',
+		);
+		try {
+			const result = await provider.getTrelloBoardsForCurrentUserFn?.(
+				{ appKey: appKey },
+				{ token: tokenWithInfo.accessToken },
+			);
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getTrelloListsForBoard(
+		tokenOptInfo: TokenWithInfo,
+		appKey: string,
+		boardId: string,
+	): Promise<TrelloList[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getTrelloListsForBoardFn',
+		);
+		try {
+			const result = await provider.getTrelloListsForBoardFn?.(
+				{ appKey: appKey, boardId: boardId },
+				{ token: tokenWithInfo.accessToken },
+			);
+			return result?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
+	async getTrelloIssuesForBoard(
+		tokenOptInfo: TokenWithInfo,
+		appKey: string,
+		boardId: string,
+		options?: { assigneeLogins?: string[]; trelloBoardListsById?: Record<string, { name: string }> },
+	): Promise<ProviderIssue[] | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getTrelloIssuesForBoardFn',
+		);
+		try {
+			const result = await provider.getTrelloIssuesForBoardFn?.(
+				{ appKey: appKey, boardId: boardId, ...options },
+				{ token: tokenWithInfo.accessToken },
+			);
 			return result?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderIssue[] | undefined>(tokenWithInfo, e);

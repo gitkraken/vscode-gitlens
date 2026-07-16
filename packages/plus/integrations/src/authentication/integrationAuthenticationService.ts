@@ -128,6 +128,7 @@ export class IntegrationAuthenticationService implements Disposable {
 			case GitSelfManagedHostIntegrationId.BitbucketServer:
 			case IssuesCloudHostIntegrationId.Jira:
 			case IssuesCloudHostIntegrationId.Linear:
+			case IssuesCloudHostIntegrationId.Trello:
 				provider = new CloudIntegrationAuthenticationProvider(
 					this,
 					this.configuredIntegrationService,
@@ -135,7 +136,7 @@ export class IntegrationAuthenticationService implements Disposable {
 				);
 				break;
 			default:
-				throw new Error(`No authentication provider registered for integration '${providerId}'`);
+				throw new Error(`No authentication provider registered for integration '${String(providerId)}'`);
 		}
 
 		this.providers.set(providerId, provider);

@@ -12540,6 +12540,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14f"
 				}
+			},
+			"gitlens-provider-trello": {
+				"description": "provider-trello icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f150"
+				}
 			}
 		},
 		"menus": {

@@ -1,0 +1,135 @@
+import type { Account } from '@gitlens/git/models/author.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
+import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { isIssueResourceDescriptor } from '@gitlens/git/utils/resourceDescriptor.utils.js';
+import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
+import { toTokenWithInfo } from '../authentication/models.js';
+import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IssuesIntegration } from '../models/issuesIntegration.js';
+import type { IssueFilter } from './models.js';
+import { providersMetadata, toIssueShape } from './models.js';
+
+const metadata = providersMetadata[IssuesCloudHostIntegrationId.Trello];
+const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+
+/** A Trello board, surfaced as both a "resource" (org analogue) and a "project" for issue reads. */
+export interface TrelloBoardDescriptor extends IssueResourceDescriptor {}
+
+export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrationId.Trello> {
+	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
+
+	override get id(): IssuesCloudHostIntegrationId.Trello {
+		return IssuesCloudHostIntegrationId.Trello;
+	}
+	protected override get key(): 'trello' {
+		return 'trello';
+	}
+	override get name(): string {
+		return metadata.name;
+	}
+	override get domain(): string {
+		return metadata.domain;
+	}
+
+	/** The Trello client requires the app key paired with the token; a session without one can't read. */
+	private appKeyFor(session: ProviderAuthenticationSession): string | undefined {
+		return session.appKey;
+	}
+
+	protected override async getProviderAccountForResource(
+		session: ProviderAuthenticationSession,
+		_resource: ResourceDescriptor,
+	): Promise<Account | undefined> {
+		const appKey = this.appKeyFor(session);
+		if (appKey == null) return undefined;
+
+		const api = await this.getProvidersApi();
+		const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
+		if (user == null) return undefined;
+
+		return {
+			provider: this,
+			id: user.id,
+			name: user.name,
+			username: user.username,
+			email: user.email,
+			avatarUrl: user.avatarUrl ?? undefined,
+		};
+	}
+
+	protected override async getProviderResourcesForUser(
+		session: ProviderAuthenticationSession,
+	): Promise<TrelloBoardDescriptor[] | undefined> {
+		const appKey = this.appKeyFor(session);
+		if (appKey == null) return undefined;
+
+		const api = await this.getProvidersApi();
+		const boards = await api.getTrelloBoardsForCurrentUser(toTokenWithInfo(this.id, session), appKey);
+		return boards?.map(b => ({ key: b.id, id: b.id, name: b.name }));
+	}
+
+	protected override getProviderProjectsForResources(
+		_session: ProviderAuthenticationSession,
+		resources: ResourceDescriptor[],
+	): Promise<TrelloBoardDescriptor[] | undefined> {
+		// Trello boards are both the resource and the project scope, so projects are the boards themselves.
+		return Promise.resolve(
+			resources.filter(isIssueResourceDescriptor).map(r => ({ key: r.key, id: r.id, name: r.name })),
+		);
+	}
+
+	protected override async getProviderIssuesForProject(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<IssueShape[] | undefined> {
+		const appKey = this.appKeyFor(session);
+		if (appKey == null || !isIssueResourceDescriptor(project)) return undefined;
+
+		const api = await this.getProvidersApi();
+		const tokenWithInfo = toTokenWithInfo(this.id, session);
+
+		// Enrich issues with their board list names (card status), mirroring gitkraken.dev's Trello reads.
+		const lists = await api.getTrelloListsForBoard(tokenWithInfo, appKey, project.id);
+		const trelloBoardListsById = lists?.reduce<Record<string, { name: string }>>((acc, list) => {
+			acc[list.id] = { name: list.name };
+			return acc;
+		}, {});
+
+		const issues = await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
+			assigneeLogins: options?.user != null ? [options.user] : undefined,
+			trelloBoardListsById: trelloBoardListsById,
+		});
+
+		return issues?.map(issue => toIssueShape(issue, this)).filter((result): result is IssueShape => result != null);
+	}
+
+	protected override searchProviderMyIssues(
+		_session: ProviderAuthenticationSession,
+		_resources?: ResourceDescriptor[],
+		_cancellation?: AbortSignal,
+	): Promise<IssueShape[] | undefined> {
+		// Trello has no cross-board "issues assigned to me" endpoint; issues are read per board via
+		// getIssuesForProject. Callers that need them enumerate boards first.
+		return Promise.resolve(undefined);
+	}
+
+	protected override getProviderLinkedIssueOrPullRequest(
+		_session: ProviderAuthenticationSession,
+		_resource: ResourceDescriptor,
+		_id: { id: string; key: string },
+		_type: undefined | IssueOrPullRequestType,
+	): Promise<IssueOrPullRequest | undefined> {
+		return Promise.resolve(undefined);
+	}
+
+	protected override getProviderIssue(
+		_session: ProviderAuthenticationSession,
+		_resource: ResourceDescriptor,
+		_id: string,
+	): Promise<Issue | undefined> {
+		return Promise.resolve(undefined);
+	}
+}

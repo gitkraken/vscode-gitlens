@@ -341,6 +341,8 @@ export class CloudIntegrationAuthenticationProvider<
 			// Note: do not use the session's domain, because the format is different than in our model
 			domain: descriptor.domain,
 			protocol: sessionProtocol ?? undefined,
+			// Carried for providers whose client needs an app key alongside the token (e.g. Trello).
+			appKey: session.appKey,
 		};
 	}
 

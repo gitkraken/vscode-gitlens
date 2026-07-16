@@ -34,6 +34,7 @@ export type IntegrationIds = GitHostIntegrationIds | IssuesHostIntegrationIds;
 export const supportedOrderedCloudIssuesIntegrationIds = [
 	IssuesCloudHostIntegrationId.Jira,
 	IssuesCloudHostIntegrationId.Linear,
+	IssuesCloudHostIntegrationId.Trello,
 ];
 export const supportedOrderedCloudIntegrationIds = [
 	GitCloudHostIntegrationId.GitHub,
@@ -46,6 +47,7 @@ export const supportedOrderedCloudIntegrationIds = [
 	GitSelfManagedHostIntegrationId.BitbucketServer,
 	IssuesCloudHostIntegrationId.Jira,
 	IssuesCloudHostIntegrationId.Linear,
+	IssuesCloudHostIntegrationId.Trello,
 ];
 
 export const integrationIds = [
@@ -173,6 +175,13 @@ export const supportedCloudIntegrationDescriptors: IntegrationDescriptor[] = [
 		id: IssuesCloudHostIntegrationId.Linear,
 		name: 'Linear',
 		icon: 'gl-provider-linear',
+		supports: ['issues'],
+		requiresPro: true,
+	},
+	{
+		id: IssuesCloudHostIntegrationId.Trello,
+		name: 'Trello',
+		icon: 'gl-provider-trello',
 		supports: ['issues'],
 		requiresPro: true,
 	},

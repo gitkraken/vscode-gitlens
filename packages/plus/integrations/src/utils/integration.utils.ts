@@ -35,8 +35,7 @@ export const supportedIntegrationIds: IntegrationIds[] = [
 	GitCloudHostIntegrationId.Bitbucket,
 	GitCloudHostIntegrationId.AzureDevOps,
 	IssuesCloudHostIntegrationId.Jira,
-	// Note: Trello is metadata-only (no auth provider), so it is intentionally absent — including it
-	// would make reset()'s ensureProvider() throw 'No authentication provider registered'.
+	IssuesCloudHostIntegrationId.Trello,
 	...selfHostedIntegrationIds,
 ] as const;
 
