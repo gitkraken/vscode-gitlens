@@ -14568,18 +14568,6 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.showGraph",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showGraphPage",
-					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.showGraphView",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.showInCommitGraph",
 					"when": "false"
 				},
@@ -29283,7 +29271,7 @@
 					"type": "webview",
 					"id": "gitlens.views.graph",
 					"name": "Graph",
-					"when": "!gitlens:disabled && (!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/)",
+					"when": "!gitlens:plus:disabled || gitlens:plus:disabled:view:overrides =~ /(?:^|\\|)gitlens\\.views\\.graph(?:\\||$)/",
 					"contextualTitle": "GitLens",
 					"icon": "$(gitlens-graph)",
 					"initialSize": 4,

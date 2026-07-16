@@ -382,6 +382,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	accessor webroot: string | undefined;
 
 	@signalState()
+	accessor isWeb: State['isWeb'] = false;
+
+	@signalState()
 	accessor repositories: State['repositories'];
 
 	@signalState()

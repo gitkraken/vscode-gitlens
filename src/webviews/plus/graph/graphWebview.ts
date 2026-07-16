@@ -1,5 +1,6 @@
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
+import { isWeb } from '@env/platform.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
 import { GitCommit } from '@gitlens/git/models/commit.js';
 import type { GitGraph, GitGraphRow, GitGraphRowType } from '@gitlens/git/models/graph.js';
@@ -3680,14 +3681,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		if (this.container.git.repositoryCount === 0) {
 			this._wip.updateWorkingTreeBadge(undefined);
-			return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+			return { ...this.host.baseWebviewState, allowed: true, repositories: [], isWeb: isWeb };
 		}
 
 		if (this.repository == null) {
 			this.repository = this.container.git.getBestRepositoryOrFirst();
 			if (this.repository == null) {
 				this._wip.updateWorkingTreeBadge(undefined);
-				return { ...this.host.baseWebviewState, allowed: true, repositories: [] };
+				return { ...this.host.baseWebviewState, allowed: true, repositories: [], isWeb: isWeb };
 			}
 		}
 

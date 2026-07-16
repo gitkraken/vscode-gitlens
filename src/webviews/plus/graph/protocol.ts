@@ -378,6 +378,9 @@ export interface GraphScope {
 export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.graph'> {
 	windowFocused?: boolean;
 	webroot?: string;
+	/** True when running in a web/virtual environment (e.g. vscode.dev), where the no-repo empty state
+	 *  offers "Open Remote Repository" instead of clone/init. Sourced from `isWeb` (`@env/platform`). */
+	isWeb?: boolean;
 	repositories?: GraphRepository[];
 	/** Absolute fsPaths of every worktree in the current repo's family (the main checkout plus
 	 *  every secondary worktree), sourced from the loaded graph. A reusable registry for any
