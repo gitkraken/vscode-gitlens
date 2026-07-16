@@ -349,21 +349,44 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await chmod(runtimeDir, 0o700);
 			}
 
-			const electronApp = await _electron.launch({
-				...options,
-				env: {
-					...process.env,
-					// Allows Claude Code and other CLI agents run the tests from within VS Code
-					ELECTRON_RUN_AS_NODE: undefined!,
-					// Set DISPLAY for headless Linux (Xvfb)
-					...(display ? { DISPLAY: display } : {}),
-					// Per-worker writable runtime dir for the editor's IPC socket (see note above)
-					...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
-				},
-			});
+			const launchEnv = {
+				...process.env,
+				// Allows Claude Code and other CLI agents run the tests from within VS Code
+				ELECTRON_RUN_AS_NODE: undefined!,
+				// Set DISPLAY for headless Linux (Xvfb)
+				...(display ? { DISPLAY: display } : {}),
+				// Per-worker writable runtime dir for the editor's IPC socket (see note above)
+				...(runtimeDir ? { XDG_RUNTIME_DIR: runtimeDir } : {}),
+			};
 
-			// Connect to the VS Code test server using Playwright's internal API
-			const evaluator = await VSCodeEvaluator.connect(electronApp);
+			// Bringing up the editor + its in-process test server can transiently fail under
+			// parallel-launch contention: Electron aborts with `Process failed to launch`, or the test
+			// server doesn't print its ready line before the connect deadline. Most visible on the
+			// heavier forks (Windsurf/Positron) when several workers spawn at once. Retry launch+connect
+			// a few times so a contended worker recovers instead of failing the whole shard. Each
+			// attempt keeps the SAME per-attempt connect timeout, so a healthy worker still starts
+			// immediately — only a genuinely failed spawn pays the (failure-path) retry cost.
+			const maxLaunchAttempts = 3;
+			let electronApp!: ElectronApplication;
+			let evaluator!: VSCodeEvaluator;
+			for (let attempt = 1; attempt <= maxLaunchAttempts; attempt++) {
+				let app: ElectronApplication | undefined;
+				try {
+					app = await _electron.launch({ ...options, env: launchEnv });
+					evaluator = await VSCodeEvaluator.connect(app);
+					electronApp = app;
+					break;
+				} catch (ex) {
+					// Tear down the half-started editor (if it launched) so the retry starts clean and
+					// no orphan process/socket lingers.
+					await app?.close().catch(() => {});
+					if (attempt >= maxLaunchAttempts) throw ex;
+
+					// Back-off (failure-path only) to let the launch contention drain before respawning;
+					// an immediate relaunch tends to hit the same pressure.
+					await new Promise(resolve => setTimeout(resolve, 2000));
+				}
+			}
 			const evaluate = evaluator.evaluate.bind(evaluator);
 
 			const page = await electronApp.firstWindow();
