@@ -92,6 +92,7 @@ export class ProvidersApi {
 			[GitCloudHostIntegrationId.GitHub]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitHub],
 				provider: providerApis.github,
+				getRepoFn: providerApis.github.getRepo.bind(providerApis.github),
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github),
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
 					providerApis.github,
@@ -108,6 +109,7 @@ export class ProvidersApi {
 			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
 				provider: providerApis.github,
+				getRepoFn: providerApis.github.getRepo.bind(providerApis.github),
 				getCurrentUserFn: providerApis.github.getCurrentUser.bind(providerApis.github),
 				getPullRequestsForReposFn: providerApis.github.getPullRequestsForRepos.bind(
 					providerApis.github,
@@ -147,6 +149,7 @@ export class ProvidersApi {
 			[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted]: {
 				...providersMetadata[GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted],
 				provider: providerApis.gitlab,
+				getRepoFn: providerApis.gitlab.getRepo.bind(providerApis.gitlab),
 				getCurrentUserFn: providerApis.gitlab.getCurrentUser.bind(providerApis.gitlab),
 				getPullRequestsForReposFn: providerApis.gitlab.getPullRequestsForRepos.bind(
 					providerApis.gitlab,
@@ -169,6 +172,7 @@ export class ProvidersApi {
 			[GitCloudHostIntegrationId.Bitbucket]: {
 				...providersMetadata[GitCloudHostIntegrationId.Bitbucket],
 				provider: providerApis.bitbucket,
+				getRepoFn: providerApis.bitbucket.getRepo.bind(providerApis.bitbucket),
 				getCurrentUserFn: providerApis.bitbucket.getCurrentUser.bind(providerApis.bitbucket),
 				getBitbucketResourcesForCurrentUserFn: providerApis.bitbucket.getWorkspacesForCurrentUser.bind(
 					providerApis.bitbucket,

@@ -228,10 +228,21 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		);
 	}
 
-	public override async getRepoInfo(repo: { owner: string; name: string }): Promise<ProviderRepository | undefined> {
+	public override async getRepoInfo(repo: {
+		owner: string;
+		name: string;
+		project?: string;
+		connectionId?: string;
+	}): Promise<ProviderRepository | undefined> {
 		const api = await this.getProvidersApi();
-		const tokenOptInfo = this._session ? toTokenWithInfo(this.id, this._session) : { providerId: this.id };
-		return api.getRepo(tokenOptInfo, repo.owner, repo.name, undefined);
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
+			isPAT: this.isEnterprise,
+			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(

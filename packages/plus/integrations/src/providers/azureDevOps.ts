@@ -442,12 +442,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	public override async getRepoInfo(repo: {
 		owner: string;
 		name: string;
-		project: string;
+		project?: string;
+		connectionId?: string;
 	}): Promise<ProviderRepository | undefined> {
-		const api = await this.getProvidersApi();
-		if (this._session == null) return undefined;
+		if (repo.project == null) return undefined;
+		if (this.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer) return undefined;
 
-		const { tokenWithInfo, options } = this.getApiOptions(this._session);
+		const api = await this.getProvidersApi();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		const { tokenWithInfo, options } = this.getApiOptions(session);
 		return api.getRepo(tokenWithInfo, repo.owner, repo.name, repo.project, options);
 	}
 

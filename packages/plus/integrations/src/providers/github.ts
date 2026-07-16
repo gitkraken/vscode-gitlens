@@ -245,6 +245,23 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		});
 	}
 
+	public override async getRepoInfo(repo: {
+		owner: string;
+		name: string;
+		project?: string;
+		connectionId?: string;
+	}): Promise<ProviderRepository | undefined> {
+		const api = await this.getProvidersApi();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		// `apiBaseUrl` is api.github.com for cloud and the GHE instance base for enterprise (inherited override).
+		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
