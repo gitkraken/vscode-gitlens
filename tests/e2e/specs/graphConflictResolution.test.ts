@@ -79,13 +79,24 @@ async function ensureDetailsPanelOpen(webview: FrameLocator): Promise<void> {
 /** Select the WIP row and wait for its details (file list) to render. */
 async function selectWipDetails(webview: FrameLocator): Promise<void> {
 	await ensureDetailsPanelOpen(webview);
-	// Match the visible WIP row label, not the hidden tooltip span that carries the same text.
-	const wipRow = webview
-		.getByText(/Working (Changes|Tree)/)
-		.filter({ visible: true })
-		.first();
-	await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
-	await wipRow.click();
+
+	// Prefer the dedicated WIP/overview button: it selects the WIP row from a stable, standalone target.
+	// A conflicted WIP row carries adornment overlays (the "Resolve Conflicts…" chip and the modified-
+	// file stats pill) that sit over the row's message cell and intercept a direct row-text click on
+	// slower/contended renders (the workers=4 flake). Clicking the button sidesteps those overlays.
+	const overviewButton = webview.locator('gl-button[data-action="wip"]').first();
+	if (await overviewButton.isVisible().catch(() => false)) {
+		await overviewButton.click();
+	} else {
+		// Fallback: click the visible WIP row label (not the hidden tooltip span with the same text).
+		const wipRow = webview
+			.getByText(/Working (Changes|Tree)/)
+			.filter({ visible: true })
+			.first();
+		await expect(wipRow).toBeVisible({ timeout: MaxTimeout });
+		await wipRow.click();
+	}
+
 	await ensureDetailsPanelOpen(webview);
 	await expect(webview.locator('gl-details-wip-panel').first()).toBeVisible({ timeout: 30000 });
 }
