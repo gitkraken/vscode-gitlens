@@ -12,20 +12,11 @@ import type { Disposable } from 'vscode';
 const servicesDisposables = Symbol('rpcServicesDisposables');
 
 /**
- * Wraps all object-valued properties with Supertalk's `proxy()` marker.
- *
- * Call this on the final services object returned from `getRpcServices()`.
- * Sub-service objects and class instances become remote proxies;
- * functions and primitives pass through unchanged.
- *
- * Services that implement `dispose()` are collected behind a non-enumerable symbol
- * (invisible to the RPC layer) so the webview controller can release them at teardown
- * via {@link disposeServices}. This is the disposal path for service resources that
- * must outlive `SubscriptionTracker.reset()` (RPC reconnection), e.g. the eager
- * signal-freshness listeners in `SubscriptionService`.
- *
- * Only TOP-LEVEL properties are scanned — a disposable service nested inside a
- * sub-object won't be collected; hoist it to the top level instead.
+ * Wraps object-valued properties with Supertalk's `proxy()` marker (functions/primitives pass through).
+ * Services implementing `dispose()` are collected behind a non-enumerable symbol so the controller can
+ * release them at teardown via {@link disposeServices} — the path for resources that must outlive
+ * `SubscriptionTracker.reset()` (e.g. `SubscriptionService`'s eager listeners). Only top-level properties
+ * are scanned; hoist nested disposables to the top level.
  */
 export function proxyServices<T extends Record<string, unknown>>(services: T): T {
 	const result: Record<string, unknown> = {};
@@ -33,6 +24,10 @@ export function proxyServices<T extends Record<string, unknown>>(services: T): T
 	for (const [key, value] of Object.entries(services)) {
 		if (value != null && typeof value === 'object') {
 			if (typeof (value as Partial<Disposable>).dispose === 'function') {
+				// NOTE: `proxy()` exposes every string-named method over RPC (Supertalk has no host-side
+				// allowlist), so a collected service's `dispose()` is client-reachable — a stray call would
+				// refreeze the signals (#5513). Only trusted webview code calls today; move to a symbol-keyed
+				// disposal method if that ever changes.
 				disposables.push(value as Disposable);
 			}
 			result[key] = proxy(value);

@@ -446,6 +446,14 @@ suite('EventVisibilityBuffer Test Suite', () => {
 			assert.strictEqual(cb2.firstCall.args[0], 'hello');
 		});
 
+		test('fire is a safe no-op with no subscribers (eager-independence — #5513)', () => {
+			// SubscriptionService's eager listener fires on every change regardless of whether a client
+			// has subscribed, keeping the bridged signal fresh either way (#5513) — so fire() must not
+			// depend on there being any handlers.
+			const event = createRpcEvent<string>('key', 'save-last');
+			assert.doesNotThrow(() => event.fire('no-subscribers'));
+		});
+
 		test('fire should not invoke unsubscribed handlers', () => {
 			const event = createRpcEvent<string>('key', 'save-last');
 			const subscriber = event.subscribe();

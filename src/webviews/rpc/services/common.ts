@@ -96,5 +96,3 @@ export function createSharedServices(
 		drafts: new DraftsService(container, host),
 	};
 }
-
-export { disposeServices, proxyServices } from './proxy.js';

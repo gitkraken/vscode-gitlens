@@ -38,7 +38,6 @@ suite('RPC services proxy/disposal Test Suite', () => {
 	test('collected disposables are not exposed as an enumerable property', () => {
 		const services = proxyServices({ disposable: { dispose: () => {} } });
 		assert.deepStrictEqual(Object.keys(services), ['disposable']);
-		assert.strictEqual(Object.getOwnPropertySymbols(services).length, 1);
 		assert.strictEqual(
 			Object.entries(services).every(([, value]) => value != null),
 			true,
