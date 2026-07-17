@@ -131,6 +131,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree (guides="always", folder + files)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="always">
 						<gl-tree-item branch level="1" path="src/git">
@@ -166,6 +167,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree (guides="onHover")',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="onHover">
 						<gl-tree-item branch level="1" path="src/commands">
@@ -188,6 +190,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree-item (leaf, icon + description + decoration)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="always">
 						<gl-tree-item level="1" path="src/git/gitProviderService.ts">
@@ -203,6 +206,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree-item (branch, expanded vs collapsed)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="always">
 						<gl-tree-item branch level="1" path="src/webviews">
@@ -238,6 +242,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree-item (checkable: checked / indeterminate / disabled)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="onHover">
 						<gl-tree-item
@@ -275,6 +280,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree-item (selected + focused, controlled)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="always">
 						<gl-tree-item
@@ -294,6 +300,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-tree-item (rich row + inline action)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<gl-tree guides="always">
 						<gl-tree-item rich level="1" path="src/agents/session.ts">
@@ -311,6 +318,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (basic list)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="24rem">
 						<gl-file-tree-pane .files=${basicFiles}></gl-file-tree-pane>
@@ -321,6 +329,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (tree layout + file icons)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="26rem">
 						<gl-file-tree-pane .files=${treeLayoutFiles} .filesLayout=${treeLayoutConfig} show-file-icons>
@@ -332,6 +341,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (checkable: stage/unstage)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="24rem">
 						<gl-file-tree-pane
@@ -349,6 +359,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (conflict status)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="16rem">
 						<gl-file-tree-pane .files=${conflictFiles}></gl-file-tree-pane>
@@ -359,6 +370,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (actions + agent decoration)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="16rem">
 						<gl-file-tree-pane
@@ -373,6 +385,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-file-tree-pane (search box + match highlighting)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="24rem">
 						<gl-file-tree-pane .files=${basicFiles} .searchContext=${searchContext} show-search-box>
@@ -384,6 +397,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-wip-tree-pane (grouped staged/unstaged)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="26rem">
 						<gl-wip-tree-pane .files=${wipFiles} .stats=${wipStats} .preferences=${wipPreferences}>
@@ -395,6 +409,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-wip-tree-pane (checkable + multi-selectable)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="26rem">
 						<gl-wip-tree-pane
@@ -411,6 +426,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-wip-tree-pane (conflict resolution toolbar)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="18rem">
 						<gl-wip-tree-pane
@@ -426,6 +442,7 @@ export const treesGroups: ComponentGroup[] = [
 			{
 				label: 'gl-wip-tree-pane (empty state)',
 				layout: 'tall',
+				span: 'third',
 				render: () => html`
 					<div data-tree-frame-height="10rem">
 						<gl-wip-tree-pane .files=${noFiles} .preferences=${wipPreferences}></gl-wip-tree-pane>

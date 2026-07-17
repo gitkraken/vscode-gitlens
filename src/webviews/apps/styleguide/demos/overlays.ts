@@ -213,7 +213,8 @@ export const overlaysGroups: ComponentGroup[] = [
 			},
 			{
 				label: 'gl-dialog (non-modal, closedby=none)',
-				layout: 'block',
+				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-button
 						@click=${(e: Event) => ((e.currentTarget as HTMLElement).nextElementSibling as GlDialog).show()}
@@ -290,6 +291,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'gl-detail-sheet (dismissible, default)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-button
 						@click=${(e: Event) =>
@@ -306,6 +308,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'gl-detail-sheet (non-dismissible, footer actions)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-button
 						@click=${(e: Event) =>
@@ -365,6 +368,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-item (selected / default / disabled) in menu-list',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-item aria-selected="true">Most recent commit date</menu-item>
@@ -377,6 +381,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-item (href link) in menu-list',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-item href="https://github.com/gitkraken/vscode-gitlens/pull/3521"
@@ -392,6 +397,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-item (role=none, non-interactive row) in menu-list',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-item role="none">
@@ -406,6 +412,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-list (flat)',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-item aria-selected="true">Most recent commit date</menu-item>
@@ -417,6 +424,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-list (grouped, menu-label + menu-divider)',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-label>Sort by</menu-label>
@@ -432,6 +440,7 @@ export const overlaysGroups: ComponentGroup[] = [
 			{
 				label: 'menu-divider separating plain items in a menu-list',
 				layout: 'block',
+				span: 'third',
 				render: () => html`
 					<menu-list>
 						<menu-item>Cherry-pick commit</menu-item>

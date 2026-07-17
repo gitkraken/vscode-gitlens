@@ -335,13 +335,14 @@ export const styleguideStyles = css`
 
 	.demo-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		grid-template-columns: repeat(6, minmax(0, 1fr));
 		gap: var(--gl-space-12);
 	}
 
 	.demo {
 		display: flex;
 		flex-direction: column;
+		grid-column: span 2;
 	}
 
 	.demo__stage {
@@ -539,21 +540,37 @@ export const styleguideStyles = css`
 	/* ── Components tab: demo cell layout variants ───────────────────────── */
 
 	.demo--wide {
+		grid-column: span 4;
+	}
+
+	/* Half/third column widths for block-family demos — must follow .demo--block so they
+	   override its full-row span at equal specificity. */
+	.demo--half {
+		grid-column: span 3;
+	}
+
+	.demo--third {
 		grid-column: span 2;
 	}
 
-	/* Matches .demo--block .demo__stage's specificity (2 classes) so stack/tall demos — which also
+	/* Matches .demo--block .demo__stage's specificity (2 classes) so grid/tall demos — which also
 	   carry demo--block for the full-width grid span — aren't overridden back to display:block. */
-	.demo__stage.demo__stage--stack {
-		display: flex;
-		flex-direction: column;
+	.demo__stage.demo__stage--grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: var(--gl-space-8);
-		align-items: stretch;
+		align-items: start;
 	}
 
 	.demo__stage.demo__stage--tall {
 		display: block;
 		block-size: 28rem;
+	}
+
+	.demo__stage--framed {
+		padding: var(--gl-space-12);
+		border: var(--gl-border-width) solid var(--gl-color-border);
+		border-radius: var(--gl-radius-sm);
 	}
 
 	.demo__note {
@@ -573,6 +590,34 @@ export const styleguideStyles = css`
 		max-inline-size: 100%;
 	}
 
+	/* Step the 6-track demo grid down as the content column narrows (1rem = 10px).
+	   :not(.demo--block) keeps plain block demos full-row — a bare .demo here would out-cascade
+	   .demo--block by source order; --third/--half opt back in to the narrower span. */
+	@container (max-width: 76rem) {
+		.demo:not(.demo--block),
+		.demo--third,
+		.demo--half {
+			grid-column: span 3;
+		}
+
+		.demo--wide {
+			grid-column: span 6;
+		}
+
+		.demo__stage.demo__stage--grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@container (max-width: 50rem) {
+		.demo,
+		.demo--third,
+		.demo--half,
+		.demo--wide {
+			grid-column: span 6;
+		}
+	}
+
 	.components {
 		display: flex;
 		flex-direction: row;
@@ -586,6 +631,7 @@ export const styleguideStyles = css`
 
 	.components__content {
 		flex: 1;
+		container-type: inline-size;
 	}
 
 	/* ── Elements tab ─────────────────────────────────────────────────────── */

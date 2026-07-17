@@ -8,7 +8,6 @@ import '../../shared/components/card/card.js';
 import '../../shared/components/card/work-item.js';
 import '../../shared/components/chips/action-chip.js';
 import '../../shared/components/code-icon.js';
-import '../../shared/components/details-header/gl-details-header.js';
 import '../../shared/components/gl-error-banner.js';
 import '../../shared/components/hooks-banner.js';
 import '../../shared/components/mcp-banner.js';
@@ -119,7 +118,7 @@ export const structureGroups: ComponentGroup[] = [
 			},
 			{
 				label: 'gl-card indicator matrix (remaining values)',
-				layout: 'stack',
+				layout: 'grid',
 				render: () => html`
 					<gl-card density="tight" indicator="base">base</gl-card>
 					<gl-card density="tight" indicator="info">info</gl-card>
@@ -146,11 +145,12 @@ export const structureGroups: ComponentGroup[] = [
 	},
 	{
 		family: 'Panes & structure',
-		description: 'Pane groups, resizable split panels, and the details-panel header.',
+		description: 'Pane groups and resizable split panels.',
 		demos: [
 			{
 				label: 'webview-pane-group (stacked, fixed-height sections)',
 				layout: 'tall',
+				span: 'half',
 				render: () => html`
 					<webview-pane-group>
 						<webview-pane collapsable expanded>
@@ -168,6 +168,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'webview-pane-group (flexible, one pane fills remaining space)',
 				layout: 'tall',
+				span: 'half',
 				render: () => html`
 					<webview-pane-group flexible>
 						<webview-pane collapsable expanded>
@@ -184,6 +185,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'webview-pane (static header, non-collapsable)',
 				layout: 'tall',
+				span: 'half',
 				render: () => html`
 					<webview-pane-group>
 						<webview-pane>
@@ -196,6 +198,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'webview-pane (collapsable, collapsed)',
 				layout: 'tall',
+				span: 'half',
 				render: () => html`
 					<webview-pane-group>
 						<webview-pane collapsable>
@@ -208,6 +211,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'webview-pane (collapsable, expanded, loading, with actions)',
 				layout: 'tall',
+				span: 'half',
 				render: () => html`
 					<webview-pane-group>
 						<webview-pane collapsable expanded loading>
@@ -223,6 +227,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-split-panel (horizontal, primary=start)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-split-panel position="30" primary="start">
 						<div slot="start">File Tree</div>
@@ -233,6 +238,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-split-panel (vertical, primary=end)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-split-panel orientation="vertical" position="65" primary="end">
 						<div slot="start">Commit Graph</div>
@@ -244,6 +250,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-split-panel (overlay mode, primary=start)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-split-panel mode="overlay" position="28" primary="start">
 						<div slot="start">Minimap Waterways</div>
@@ -254,56 +261,13 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-split-panel (disabled)',
 				layout: 'tall',
+				framed: true,
 				render: () => html`
 					<gl-split-panel position="50" disabled>
 						<div slot="start">Locked panel A</div>
 						<div slot="end">Locked panel B</div>
 					</gl-split-panel>
 				`,
-			},
-			{
-				label: 'gl-details-header (idle, compose+review modes)',
-				layout: 'block',
-				render: () => html`
-					<gl-details-header .modes=${['compose', 'review']}>
-						<span>Fix rebase conflict handling</span>
-						<gl-button slot="actions" appearance="toolbar">
-							<code-icon icon="kebab-vertical"></code-icon>
-						</gl-button>
-					</gl-details-header>
-				`,
-			},
-			{
-				label: 'gl-details-header (active mode, results view)',
-				layout: 'block',
-				render: () => html`
-					<gl-details-header .modes=${['compose', 'review']} .activeMode=${'review'} in-results-view>
-						<span>Reviewing Changes</span>
-					</gl-details-header>
-				`,
-				note: 'in-results-view swaps the Refresh + Close action cluster for Restart + Close (Close-only appears separately, only while modeStatus reports execState: "generating").',
-			},
-			{
-				label: 'gl-details-header (compare entry-point + loading)',
-				layout: 'block',
-				render: () => html`
-					<gl-details-header .modes=${['compose']} .compareEnabled=${true} loading>
-						<span>4f9a2c1 Fix graph rendering regression</span>
-					</gl-details-header>
-				`,
-			},
-			{
-				label: 'gl-details-header (running-operation status overlay)',
-				layout: 'block',
-				render: () => html`
-					<gl-details-header
-						.modes=${['compose', 'review']}
-						.modeStatus=${{ compose: { execState: 'generating', hasResult: false } }}
-					>
-						<span>Working tree changes</span>
-					</gl-details-header>
-				`,
-				note: 'execState generating renders a spinning icon on the Compose chip in place of its mode icon.',
 			},
 		],
 	},
@@ -314,6 +278,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (solid, primary+secondary, dismissible)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						banner-title="Heads up"
@@ -327,6 +292,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (gradient, primary+secondary)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						display="gradient"
@@ -341,6 +307,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (gradient-purple, AI/MCP styling)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						display="gradient-purple"
@@ -354,6 +321,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (outline, responsive layout)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						display="outline"
@@ -368,6 +336,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (gradient-transparent, title+body only)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						display="gradient-transparent"
@@ -379,6 +348,7 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-banner (command-driven primary button)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`
 					<gl-banner
 						banner-title="Reload required"
@@ -394,33 +364,39 @@ export const structureGroups: ComponentGroup[] = [
 			{
 				label: 'gl-error-banner (with error message)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-error-banner .error=${demoErrorSignal}></gl-error-banner>`,
 				note: 'Fully interactive: dismissing calls error.set(undefined) on the signal and the banner disappears in place.',
 			},
 			{
 				label: 'gl-mcp-banner (install prompt, w/ Claude Hooks CTA)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-mcp-banner source="commit-graph" can-install-claude-hook></gl-mcp-banner>`,
 			},
 			{
 				label: 'gl-mcp-banner (already bundled + cleanup notice)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-mcp-banner source="home" canautoregister show-cleanup-notice></gl-mcp-banner>`,
 				note: 'canAutoRegister is TS-private, so it can only be set via the bare canautoregister attribute, not a .canAutoRegister= property binding.',
 			},
 			{
 				label: 'gl-mcp-banner (responsive layout)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-mcp-banner source="inspect" layout="responsive"></gl-mcp-banner>`,
 			},
 			{
 				label: 'gl-hooks-banner (default layout)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-hooks-banner source="commit-graph"></gl-hooks-banner>`,
 			},
 			{
 				label: 'gl-hooks-banner (responsive layout)',
 				layout: 'block',
+				span: 'half',
 				render: () => html`<gl-hooks-banner source="home" layout="responsive"></gl-hooks-banner>`,
 			},
 		],

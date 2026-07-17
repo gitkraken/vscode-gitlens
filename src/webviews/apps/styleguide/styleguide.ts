@@ -665,12 +665,18 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 										d => html`
 											<div
 												class="demo ${d.layout === 'block' ||
-												d.layout === 'stack' ||
+												d.layout === 'grid' ||
 												d.layout === 'tall'
 													? 'demo--block'
-													: ''} ${d.wide ? 'demo--wide' : ''}"
+													: ''} ${d.wide ? 'demo--wide' : ''} ${d.span
+													? `demo--${d.span}`
+													: ''}"
 											>
-												<div class="demo__stage demo__stage--${d.layout ?? 'inline'}">
+												<div
+													class="demo__stage demo__stage--${d.layout ?? 'inline'} ${d.framed
+														? 'demo__stage--framed'
+														: ''}"
+												>
 													${d.render()}
 												</div>
 												<div class="demo__label">${d.label}</div>
