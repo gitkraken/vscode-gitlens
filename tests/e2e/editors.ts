@@ -15,6 +15,13 @@ export interface EditorConfig {
 	 * login), just not in CI. See baseTest.ts `assertWorkbenchReachable` and docs/testing.md.
 	 */
 	runInCI?: boolean;
+	/**
+	 * Playwright worker count for this editor's CI job (defaults to the config's CI value when omitted).
+	 * Heavier forks (Positron) thrash a limited CI runner when 4 Electron instances launch at once —
+	 * webviews/views then exceed their load timeouts (graph rows, activity-bar view registration).
+	 * Fewer workers trade wall-clock for the resources each instance needs to render in time.
+	 */
+	ciWorkers?: number;
 }
 
 export const editors: EditorConfig[] = [
@@ -23,7 +30,7 @@ export const editors: EditorConfig[] = [
 	{ id: 'kiro', name: 'Kiro', experimental: true, envVar: 'KIRO_E2E_PATH' },
 	// Login-walled (see runInCI): excluded from the CI matrix, still runnable locally.
 	{ id: 'cursor', name: 'Cursor', experimental: true, envVar: 'CURSOR_E2E_PATH', runInCI: false },
-	{ id: 'positron', name: 'Positron', experimental: true, envVar: 'POSITRON_E2E_PATH' },
+	{ id: 'positron', name: 'Positron', experimental: true, envVar: 'POSITRON_E2E_PATH', ciWorkers: 2 },
 ];
 
 /** Editors included in the CI matrix (see {@link EditorConfig.runInCI}). */

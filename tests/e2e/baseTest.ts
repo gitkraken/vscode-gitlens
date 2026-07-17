@@ -265,6 +265,15 @@ const defaultUserSettings: Record<string, unknown> = {
 	// Skip onboarding/welcome screens — ephemeral test environments shouldn't show welcome views
 	'gitlens.advanced.skipOnboarding': true,
 
+	// Quiet VS Code's built-in Git extension. These tests drive git through the CLI + GitLens (never
+	// the built-in SCM UI), but the built-in extension watches `.git` and periodically refreshes/
+	// fetches — grabbing `.git/index.lock` mid-operation. Under a 4-worker CI runner that contends with
+	// the CLI `git rebase`/merge the specs run, hanging them to the test timeout (the rebase.test.ts
+	// flake). Disabling its background activity removes the lock contention without affecting GitLens.
+	'git.autorefresh': false,
+	'git.autofetch': false,
+	'git.autoStash': false,
+
 	// Associate git-rebase-todo files with GitLens rebase editor
 	// TODO: is this needed?
 	'workbench.editorAssociations': {
