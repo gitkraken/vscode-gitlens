@@ -202,6 +202,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	@query('.probe') private probe!: HTMLElement;
 	@state() private tab: 'tokens' | 'components' | 'elements' = 'tokens';
 	@state() private auditOn = localStorage.getItem('gl-styleguide-audit') === 'on';
+	@state() private checkerOn = localStorage.getItem('gl-styleguide-checker') !== 'off';
 	@state() private resolved = new Map<string, string>();
 	@state() private contrast = new Map<string, number>();
 	@state() private scheme = '';
@@ -349,6 +350,11 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	private toggleAudit(e: Event): void {
 		this.auditOn = (e.target as HTMLInputElement).checked;
 		localStorage.setItem('gl-styleguide-audit', this.auditOn ? 'on' : 'off');
+	}
+
+	private toggleChecker(e: Event): void {
+		this.checkerOn = (e.target as HTMLInputElement).checked;
+		localStorage.setItem('gl-styleguide-checker', this.checkerOn ? 'on' : 'off');
 	}
 
 	private selectTab(tab: 'tokens' | 'components' | 'elements'): void {
@@ -547,12 +553,6 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 					</hgroup>
 					<div class="page__controlbar">
 						<div class="controlbar">
-							${this.tab === 'tokens'
-								? html`<label class="toggle">
-										Accessibility audit
-										<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
-									</label>`
-								: nothing}
 							<span class="scheme-chip ${this.isHc ? 'scheme-chip--hc' : ''}">
 								<code-icon icon="${this.isHc ? 'color-mode' : 'symbol-color'}"></code-icon> ${this
 									.scheme}
@@ -608,7 +608,21 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 	}
 
 	private renderTokensTab(): unknown {
-		return html`${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()}`;
+		return html`
+			<div class="tokens ${this.checkerOn ? '' : 'tokens--no-checker'}">
+				<div class="controlbar controlbar--sticky">
+					<label class="toggle">
+						Accessibility audit
+						<input type="checkbox" .checked=${this.auditOn} @change=${this.toggleAudit} />
+					</label>
+					<label class="toggle">
+						Transparency checker
+						<input type="checkbox" .checked=${this.checkerOn} @change=${this.toggleChecker} />
+					</label>
+				</div>
+				${this.renderAuditBanner()} ${this.renderPalette()} ${this.renderScales()}
+			</div>
+		`;
 	}
 
 	private renderComponentsTab(): unknown {

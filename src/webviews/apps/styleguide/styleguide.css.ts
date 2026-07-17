@@ -70,6 +70,15 @@ export const styleguideStyles = css`
 		margin-inline-start: calc(-1 * var(--gl-space-6));
 	}
 
+	.controlbar--sticky {
+		position: sticky;
+		/* Negative offset lets the bar ride up into the content's top padding before pinning near the tab bar */
+		top: calc(-1 * var(--gl-space-20));
+		z-index: var(--gl-z-sticky);
+		justify-content: flex-start;
+		margin-block-end: var(--gl-space-16);
+	}
+
 	.toggle {
 		display: inline-flex;
 		gap: var(--gl-space-8);
@@ -178,6 +187,10 @@ export const styleguideStyles = css`
 		content: '';
 		background: var(--swatch-color);
 		border-radius: var(--gl-radius-sm);
+	}
+
+	.tokens--no-checker .swatch {
+		background-image: none;
 	}
 
 	/* ── Ramp strip ───────────────────────────────────────────────────────── */
