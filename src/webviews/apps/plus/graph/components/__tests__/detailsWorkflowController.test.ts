@@ -156,6 +156,10 @@ class FakeHost implements DetailsWorkflowHost {
 	isWipSelection(): boolean {
 		return this._selection.sha === uncommitted;
 	}
+	branchSheetRefreshes = 0;
+	refreshBranchSheet(): void {
+		this.branchSheetRefreshes++;
+	}
 	currentSelection(): DetailsSelection {
 		return this._selection;
 	}

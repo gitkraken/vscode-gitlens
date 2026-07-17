@@ -1294,6 +1294,15 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		return this.isWip;
 	}
 
+	/** Bumps the open sheet's stamp so it refetches — see {@link DetailsWorkflowController}.
+	 *  `_branchSheetChangeStamp` isn't reactive, so this needs an explicit `requestUpdate`. */
+	refreshBranchSheet(): void {
+		if (this._branchSheet == null) return;
+
+		this._branchSheetChangeStamp++;
+		this.requestUpdate();
+	}
+
 	override willUpdate(changedProperties: Map<string, unknown>): void {
 		// `_graphState` is a plain `@consume`d context value (no `@state()`), so its own changes
 		// don't show up in `changedProperties` — piggyback on whatever else triggered this cycle and

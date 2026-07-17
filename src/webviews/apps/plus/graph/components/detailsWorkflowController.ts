@@ -79,6 +79,9 @@ export interface DetailsWorkflowHost extends ReactiveControllerHost {
 	graphRepoPath(): string | undefined;
 	/** Returns true when the active selection is the WIP/uncommitted sha. */
 	isWipSelection(): boolean;
+	/** Refreshes an open branch sheet's enrichment. The sheet owns its own enrichment state and
+	 *  cache, so it isn't covered by `refreshWipBranchEnrichment`. No-op when no sheet is open. */
+	refreshBranchSheet(): void;
 	/** Snapshot of the host's current selection — used to seed `exitMode` when the
 	 *  controller forces a mode exit on repo change. */
 	currentSelection(): DetailsSelection;
@@ -2709,14 +2712,18 @@ export class DetailsWorkflowController implements ReactiveController {
 			const unsubscribe = await subscribeAll([
 				() =>
 					this.actions.services.repository.onRepositoryChanged(repoPath, data => {
-						if (!this.host.isWipSelection()) return;
-
 						const relevant = data.changes.some(
 							c => c === 'gkConfig' || c === 'config' || c === 'heads' || c === 'remoteProviders',
 						);
-						if (relevant) {
-							this.actions.refreshWipBranchEnrichment();
-						}
+						if (!relevant) return;
+
+						// The branch sheet fetches the same enrichment but owns its own state/cache, so the
+						// WIP refresh below doesn't cover it — refresh it regardless of the selection.
+						this.host.refreshBranchSheet();
+
+						if (!this.host.isWipSelection()) return;
+
+						this.actions.refreshWipBranchEnrichment();
 					}),
 			]);
 			if (typeof unsubscribe !== 'function') return;
