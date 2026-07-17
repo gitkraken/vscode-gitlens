@@ -665,85 +665,87 @@ suite('DetailsActions', () => {
 		assert.strictEqual(state.wip.get(), transient, 'push after the commit settles must apply');
 	});
 
-	test('resetRepoScopedState conditionally clears signals', () => {
+	// The panel's `willUpdate` fetch seeds, then the controller's `hostUpdate` render-target trigger fires
+	// (Lit runs `willUpdate` first). The reset has to run BEFORE any seeding — hence in the fetch prologue —
+	// or it clobbers what the fetch just wrote. These tests pin that ordering rather than the per-signal
+	// preserve gates that used to paper over it.
+
+	test('resetRepoScopedState clears every repo-scoped signal unconditionally', () => {
 		const state = createDetailsState();
-		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
-		const wip = { repo: { path: '/repo1' } } as any;
-		state.commit.set(commit);
-		state.wip.set(wip);
-
-		const actions = new DetailsActions(state, createServices(), createResources());
-
-		// 1. Calling with matching path preserves state
-		actions.resetRepoScopedState('/repo1');
-		assert.strictEqual(state.commit.get(), commit);
-		assert.strictEqual(state.wip.get(), wip);
-
-		// 2. Calling with mismatching path clears state
-		actions.resetRepoScopedState('/repo2');
-		assert.strictEqual(state.commit.get(), undefined);
-		assert.strictEqual(state.wip.get(), undefined);
-	});
-
-	test('resetRepoScopedState preserves wip enrichment chips alongside state.wip', () => {
-		const state = createDetailsState();
-		const wip = { repo: { path: '/repo1' } } as any;
-		state.wip.set(wip);
+		state.commit.set({ repoPath: '/repo1', sha: 'c1' } as any);
+		state.wip.set({ repo: { path: '/repo1' } } as any);
 		state.wipAutolinks.set([{ id: 'auto1' } as any]);
-		state.wipIssues.set([{ entityId: 'issue1' } as any]);
-		state.wipMergeTarget.set({ branch: { name: 'main' } } as any);
 		state.wipMergeTargetLoading.set(true);
-		state.wipPullRequest.set({ id: 'pr1' } as any);
-		state.wipPullRequestLoading.set(true);
-
-		const actions = new DetailsActions(state, createServices(), createResources());
-
-		// Matching path: chips survive alongside state.wip.
-		actions.resetRepoScopedState('/repo1');
-		assert.deepStrictEqual(state.wipAutolinks.get(), [{ id: 'auto1' }]);
-		assert.deepStrictEqual(state.wipIssues.get(), [{ entityId: 'issue1' }]);
-		assert.deepStrictEqual(state.wipMergeTarget.get(), { branch: { name: 'main' } });
-		assert.strictEqual(state.wipMergeTargetLoading.get(), true);
-		assert.deepStrictEqual(state.wipPullRequest.get(), { id: 'pr1' });
-		assert.strictEqual(state.wipPullRequestLoading.get(), true);
-
-		// Mismatching path: chips wiped along with state.wip.
-		actions.resetRepoScopedState('/repo2');
-		assert.strictEqual(state.wipAutolinks.get(), undefined);
-		assert.strictEqual(state.wipIssues.get(), undefined);
-		assert.strictEqual(state.wipMergeTarget.get(), undefined);
-		assert.strictEqual(state.wipMergeTargetLoading.get(), false);
-		assert.strictEqual(state.wipPullRequest.get(), undefined);
-		assert.strictEqual(state.wipPullRequestLoading.get(), false);
-	});
-
-	test('resetRepoScopedState preserves single-commit enrichment alongside state.commit', () => {
-		const state = createDetailsState();
-		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
-		state.commit.set(commit);
 		state.autolinks.set([{ id: 'auto1' } as any]);
 		state.formattedMessage.set('msg');
-		state.autolinkedIssues.set([{ id: 'issue1' } as any]);
-		state.pullRequest.set({ id: 'pr1' } as any);
-		state.signature.set({ verified: true } as any);
+		state.commitFrom.set({ repoPath: '/repo1', sha: 'c1' } as any);
+		state.reachability.set({ partial: true, refs: [{ name: 'main', refType: 'branch' }] } as any);
+		state.reachabilityState.set('loaded');
 
 		const actions = new DetailsActions(state, createServices(), createResources());
 
-		// Matching path: enrichment survives alongside state.commit.
+		// Matching the target repo is NOT a reason to preserve — callers reset before seeding, so there is
+		// never anything fresh to protect. Whether to reset at all is `resetRepoScopedStateOnSwitch`'s call.
 		actions.resetRepoScopedState('/repo1');
-		assert.deepStrictEqual(state.autolinks.get(), [{ id: 'auto1' }]);
-		assert.strictEqual(state.formattedMessage.get(), 'msg');
-		assert.deepStrictEqual(state.autolinkedIssues.get(), [{ id: 'issue1' }]);
-		assert.deepStrictEqual(state.pullRequest.get(), { id: 'pr1' });
-		assert.deepStrictEqual(state.signature.get(), { verified: true });
-
-		// Mismatching path: enrichment wiped along with state.commit.
-		actions.resetRepoScopedState('/repo2');
+		assert.strictEqual(state.commit.get(), undefined);
+		assert.strictEqual(state.wip.get(), undefined);
+		assert.strictEqual(state.wipAutolinks.get(), undefined);
+		assert.strictEqual(state.wipMergeTargetLoading.get(), false);
 		assert.strictEqual(state.autolinks.get(), undefined);
 		assert.strictEqual(state.formattedMessage.get(), undefined);
-		assert.strictEqual(state.autolinkedIssues.get(), undefined);
-		assert.strictEqual(state.pullRequest.get(), undefined);
-		assert.strictEqual(state.signature.get(), undefined);
+		assert.strictEqual(state.commitFrom.get(), undefined);
+		assert.strictEqual(state.reachability.get(), undefined);
+		assert.strictEqual(state.reachabilityState.get(), 'idle');
+	});
+
+	test('a fetch seeding a new repo survives the render-target trigger that follows it', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+		const reachability = { partial: true, refs: [{ name: 'feature/git-health', refType: 'branch' }] } as any;
+
+		// Land on /repo1 first so the next fetch is a genuine cross-repo switch.
+		await actions.fetchDetails('c1', '/repo1');
+		await actions.fetchDetails('c2', '/repo2', reachability);
+
+		// `hostUpdate`'s trigger fires after `willUpdate`'s fetch. It must not clobber the graph-seeded
+		// reachability: nothing re-seeds it (the `_lastFetchedKey` dedup early-outs), so a wipe here
+		// stranded the branch indicator at `idle` until the user forced a redundant git call.
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.reachability.get(), reachability, 'graph-seeded reachability must survive');
+		assert.strictEqual(state.reachabilityState.get(), 'loaded');
+	});
+
+	test('resetRepoScopedStateOnSwitch clears when the fetched repo differs', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		await actions.fetchDetails('c1', '/repo1');
+		state.wipAutolinks.set([{ id: 'auto1' } as any]);
+
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.commit.get(), undefined);
+		assert.strictEqual(state.wipAutolinks.get(), undefined);
+	});
+
+	test('resetRepoScopedStateOnSwitch defers to an active mode or an open compare sheet', async () => {
+		const state = createDetailsState();
+		const actions = new DetailsActions(state, createServices(), createResources());
+
+		// An active mode owns its own in-flight fetches — resetting would clobber `branchCommitsFetching`
+		// back to false mid-air, stranding the picker in "no items + not loading".
+		await actions.fetchDetails('c1', '/repo1');
+		state.activeMode.set('compose');
+		state.branchCommitsFetching.set(true);
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.branchCommitsFetching.get(), true, 'an in-flight mode fetch must not be clobbered');
+		state.activeMode.set(null);
+
+		// An open compare sheet is anchored to its own refs.
+		const commit = { repoPath: '/repo1', sha: 'c1' } as any;
+		state.commit.set(commit);
+		state.compareSheetOpen.set(true);
+		actions.resetRepoScopedStateOnSwitch('/repo2');
+		assert.strictEqual(state.commit.get(), commit, 'an open compare sheet keeps its repo-scoped state');
 	});
 
 	test('resetRepoScopedState keeps enrichment caches matching the target repo', () => {

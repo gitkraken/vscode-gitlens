@@ -219,6 +219,11 @@ const commitEnrichmentCacheLimit = 32;
 
 export class DetailsActions {
 	private _lastFetchedKey?: string;
+	/** The repo whose data the fetched signals currently hold. Assigned only where a fetch actually seeds, and never
+	 *  cleared — a fetch that bails seeds nothing, so what's held (and therefore this description of it) is unchanged.
+	 *  Lets a reset tell "stale value from the prior repo" apart from "value this cycle's fetch just seeded for the
+	 *  incoming repo", which values like reachability can't answer about themselves. */
+	private _lastFetchedRepoPath?: string;
 	/** Highest {@link Wip.revision} applied to `state.wip`, per repo. WIP payloads (host pushes and fetch/refresh
 	 *  responses) can arrive out of order relative to the working-tree state they reflect, so we order them by the
 	 *  host's marker rather than by arrival — see {@link acceptWipRevision}. */
@@ -418,134 +423,51 @@ export class DetailsActions {
 	}
 
 	/**
+	 * Reset repo-scoped state for a switch to {@link repoPath}, unless something else owns it. No-op when the
+	 * last fetch already seeded this repo — that's what makes this safe to call from both the fetch prologues
+	 * and {@link DetailsWorkflowController}'s render-target trigger without the two fighting.
+	 *
+	 * Skips while an open compare sheet (anchored to its own refs) or an active mode owns the state: a mode's
+	 * `fetchBranchCommits` can be in flight, and resetting would clobber `branchCommitsFetching` back to false,
+	 * stranding the picker in "no items + not loading". Cross-repo staleness on that path is caught instead by
+	 * `toggleMode`'s {@link branchCommitsFetchedRepoPath} check.
+	 */
+	resetRepoScopedStateOnSwitch(repoPath?: string): void {
+		if (this._lastFetchedRepoPath === repoPath) return;
+		if (this.state.compareSheetOpen.get() || this.state.compareAsPanel.get()) return;
+		if (this.state.activeMode.get() != null) return;
+
+		this.resetRepoScopedState(repoPath);
+	}
+
+	/**
 	 * Invalidate every repo/worktree-scoped signal in {@link DetailsState} so the panel does not
-	 * surface the prior repo's data after the host's render target switches. Called from the
-	 * worktree-switch trigger in {@link DetailsWorkflowController}.
+	 * surface the prior repo's data after the host's render target switches.
 	 *
 	 * The implicit "next fetch overwrites" pattern fails for signals that are gated (e.g.
 	 * `branchCommits`), never auto-refreshed on repo switch, or that return nothing for the new
 	 * repo and leave the old value latent. Clearing here forces a clean slate so the picker /
 	 * panel show a loading state until the new repo's fetches land.
 	 *
+	 * Callers MUST invoke this BEFORE seeding anything for the incoming repo — the fetch prologues
+	 * do, which is the invariant that keeps this method a plain unconditional wipe. It used to run
+	 * after the panel's `willUpdate` fetch had already seeded (Lit fires `willUpdate` ahead of the
+	 * controller's `hostUpdate`), so each signal seeded synchronously needed its own preserve gate
+	 * to survive; the ones that never got a gate were silently clobbered instead.
+	 *
 	 * Notes on what is NOT touched here:
-	 * - `_lastFetchedKey` is left alone — `willUpdate` on the panel already kicked off
-	 *   `fetchDetails(sha, newRepoPath)` BEFORE this runs (Lit fires `willUpdate` ahead of
-	 *   `hostUpdate`), so the key has already been re-stamped to the new selection. Resetting
-	 *   it here would cause that fetch's success path to abort its write.
-	 * - `_enrichmentController` is left alone for the same reason — see the doc on
-	 *   {@link clearEnrichmentCaches}.
-	 * - Capability flags (`preferences`, `orgSettings`, `aiModel`, etc.) and pure UI toggles
-	 *   are not repo-scoped — they intentionally survive switches.
+	 * - `_lastFetchedKey` / `_lastFetchedRepoPath` are left alone — the prologue stamps them right
+	 *   after this returns, and resetting them would re-arm this reset against its own fetch.
+	 * - `_enrichmentController` is left alone — see the doc on {@link clearEnrichmentCaches}.
 	 */
 	resetRepoScopedState(repoPath?: string): void {
-		const s = this.state;
-
-		// `willUpdate` (which fires before `hostUpdate`) may have synchronously hydrated the
-		// commit/wip signal from cache for the just-arrived selection — already keyed to the
-		// new repo. Wiping unconditionally clobbers that hydrate and the next render lands on
-		// `undefined` (the blank-panel bug). Preserve when the held value already belongs to
-		// the new repo; pair the enrichment chips with the same gate so they don't flash empty
-		// while the kept selection stays visible.
-		const preserveWip = repoPath != null && s.wip.get()?.repo?.path === repoPath;
-		const preserveCommit = repoPath != null && s.commit.get()?.repoPath === repoPath;
-
+		// Which signals this covers is declared at each signal in `createDetailsState` — including the
+		// repo-scoped slice of the transient layer (the commit-input form). Mode signals + scope +
+		// aiExcludedFiles are already cleared by `exitMode`, which runs before this on the switch trigger;
+		// `generating` is panel-derived from the registry, which the switch clears.
+		this.state.resetRepoScoped();
+		// The LRU caches + branch-commits controllers aren't signals, so they still need doing by hand.
 		this.clearEnrichmentCaches(repoPath);
-
-		// Core selection-scoped data
-		if (!preserveCommit) {
-			s.commit.set(undefined);
-		}
-		if (!preserveWip) {
-			s.wip.set(undefined);
-		}
-		s.searchContext.set(undefined);
-
-		// WIP enrichment (branch-scoped chips) — paired with `preserveWip`. Without the gate
-		// the chips would flash empty even though `state.wip` survives the reset.
-		if (!preserveWip) {
-			s.wipAutolinks.set(undefined);
-			s.wipIssues.set(undefined);
-			s.wipMergeTarget.set(undefined);
-			s.wipMergeTargetLoading.set(false);
-			s.wipPullRequest.set(undefined);
-			s.wipPullRequestLoading.set(false);
-		}
-
-		// 2-commit compare fetched data
-		s.commitFrom.set(undefined);
-		s.commitTo.set(undefined);
-		s.compareStats.set(undefined);
-		s.compareFiles.set(undefined);
-		s.compareBetweenCount.set(undefined);
-		s.compareAutolinks.set(undefined);
-		s.compareAutolinksLoading.set(false);
-		s.signatureFrom.set(undefined);
-		s.signatureTo.set(undefined);
-		s.compareEnrichedItems.set(undefined);
-		s.compareEnrichmentLoading.set(false);
-
-		// Single-commit enrichment — paired with `preserveCommit` for the same reason.
-		if (!preserveCommit) {
-			s.autolinks.set(undefined);
-			s.formattedMessage.set(undefined);
-			s.autolinkedIssues.set(undefined);
-			s.pullRequest.set(undefined);
-			s.signature.set(undefined);
-		}
-
-		// Reachability + AI explain
-		s.reachability.set(undefined);
-		s.reachabilityState.set('idle');
-		s.explain.set(undefined);
-		s.compareExplainBusy.set(false);
-		s.compareGenerateChangelogBusy.set(false);
-
-		// Branch-commits picker source (the gated leak that motivated this method)
-		s.branchCommits.set(undefined);
-		s.branchMergeBase.set(undefined);
-		s.branchCommitsFetching.set(false);
-		s.branchCommitsHasMore.set(false);
-		s.branchCommitsLoadingMore.set(false);
-
-		// Branch-comparison phases + per-scope Maps. `openCompare` already resets these on entry,
-		// but the Maps accumulate keys across repos otherwise — clear here so a stale per-scope
-		// value can never resurface on a different repo's same-shaped key.
-		s.branchCompareAheadCount.set(0);
-		s.branchCompareBehindCount.set(0);
-		s.branchCompareAllFiles.set([]);
-		s.branchCompareAllFilesCount.set(0);
-		s.branchCompareAheadCommits.set([]);
-		s.branchCompareBehindCommits.set([]);
-		s.branchCompareAheadFiles.set([]);
-		s.branchCompareBehindFiles.set([]);
-		s.branchCompareAheadLoaded.set(false);
-		s.branchCompareBehindLoaded.set(false);
-		s.branchCompareAheadHasMore.set(false);
-		s.branchCompareBehindHasMore.set(false);
-		s.branchCompareAheadLimit.set(100);
-		s.branchCompareBehindLimit.set(100);
-		s.branchCompareAheadLoadingMore.set(false);
-		s.branchCompareBehindLoadingMore.set(false);
-		s.branchCompareAutolinksByScope.set(new Map());
-		s.branchCompareEnrichedAutolinksByScope.set(new Map());
-		s.branchCompareContributorsByScope.set(new Map());
-		s.branchCompareEnrichmentLoading.set(new Map());
-		s.branchCompareContributorsLoading.set(new Map());
-		s.branchCompareCommitFilesLoading.set(new Map());
-
-		// Capability-ish but repo-scoped
-		s.hasRemotes.set(false);
-
-		// Repo-scoped transient state. Mode signals + scope + aiExcludedFiles are already
-		// cleared via `exitMode` which runs before this in the worktree-switch trigger. The
-		// commit-input form is repo-scoped too — the panel's `updated` hook clears it on
-		// repoChanged but only when no mode is active, so cover the mode-active case here.
-		s.commitMessage.set('');
-		s.commitMessageDirty.set(false);
-		s.amend.set(false);
-		s.amendBaseSha.set(undefined);
-		s.commitError.set(undefined);
-		// `generating` is not reset here — it's panel-derived from the registry, which repo-switch clears.
 	}
 
 	/**
@@ -891,7 +813,13 @@ export class DetailsActions {
 			return;
 		}
 
+		// Landing on a different repo — drop its predecessor's state before seeding any of this one's
+		// below, so "clear then seed" is one synchronous sequence. `clearEnrichmentCaches` keeps this
+		// repo's cache entries, so the hydrate below still paints at t≈0.
+		this.resetRepoScopedStateOnSwitch(repoPath);
+
 		this._lastFetchedKey = key;
+		this._lastFetchedRepoPath = repoPath;
 
 		// For commit selections, hydrate enrichment from cache if we've seen this sha before.
 		// Misses (or WIP) get cleared to undefined so stale prior-selection chips don't linger.
@@ -1457,7 +1385,12 @@ export class DetailsActions {
 			return;
 		}
 
+		// Same clear-then-seed sequence as `fetchDetails` — the eager `commitFrom`/`commitTo` lite paint
+		// below is seeding, so the switch has to be cleared ahead of it.
+		this.resetRepoScopedStateOnSwitch(repoPath);
+
 		this._lastFetchedKey = key;
+		this._lastFetchedRepoPath = repoPath;
 		this.clearCompareEnrichment();
 		// Search context only applies in single-commit selection — clear on entering compare.
 		this.state.searchContext.set(undefined);

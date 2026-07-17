@@ -234,21 +234,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		// panel's `willUpdate → switchAnchorWithinMode` handles the activeMode transition for
 		// them, and the registry preserves each anchor's run across the jump.
 		if (this.host.repoPath !== this._subscribedRepoPath) {
-			const compareOpen = this.actions.state.compareSheetOpen.get() || this.actions.state.compareAsPanel.get();
-			const activeMode = this.actions.state.activeMode.get();
-			// Reset repo-scoped state only when nothing else has already handled it. `switchAnchorWithinMode`
-			// runs from `willUpdate` (before `hostUpdate`) and already calls `resetRepoScopedState` for the
-			// active-mode case — running it again here would clobber `branchCommitsFetching` back to false
-			// while the in-flight fetch is mid-air, leaving the picker in a "no items + not loading" state
-			// that renders as the empty splash. Compare-open uses the same skip rationale as before: the
-			// comparison is anchored to its own refs and shouldn't get its repo-scoped chips cleared.
-			if (!compareOpen && activeMode == null) {
-				// Invalidate every repo-scoped signal so the panel doesn't show the prior worktree's
-				// WIP / branch commits / enrichment chips while the new repo's fetches are in flight.
-				// `clearEnrichmentCaches` (called inside) handles cache + controller hygiene; this
-				// extends it to the state signals that the picker / mode panels read directly.
-				this.actions.resetRepoScopedState(this.host.repoPath);
-			}
+			// Fallback for render-target switches that never ran a fetch. The fetch prologues own this
+			// reset now — they clear the prior repo before seeding the new one — and this no-ops once
+			// they have (it's keyed off the same last-fetched repo), so the two can't fight. Skip
+			// conditions for an active mode / open compare sheet live in the method.
+			this.actions.resetRepoScopedStateOnSwitch(this.host.repoPath);
 			this.ensureSubscription(this.host.repoPath);
 		}
 
@@ -375,12 +365,11 @@ export class DetailsWorkflowController implements ReactiveController {
 		// Remember this anchor's mode so a subsequent return restores it.
 		this.rememberMode(selection, mode);
 
-		// Fetch branch commits for the WIP scope picker when the current cache is missing or
-		// belongs to a different repo. Repo mismatch happens when the user switches between
-		// worktree-row anchors while in mode — `resetRepoScopedState` clears branchCommits AFTER
-		// `toggleMode` already evaluated the gate, leaving a window where the picker would
-		// render empty waiting for a fetch that never started. Checking the last-fetched
-		// repoPath catches that case explicitly.
+		// Fetch branch commits for the WIP scope picker when the current cache is missing or belongs to a
+		// different repo. Repo mismatch happens when the user switches between worktree-row anchors while
+		// in mode: no repo-scoped reset runs on that path — both the fetch prologue and the render-target
+		// trigger skip while a mode is active — so branchCommits can still hold the prior repo's. Checking
+		// the last-fetched repoPath catches that explicitly.
 		if (isWip && !state.branchCommitsFetching.get()) {
 			const lastFetchedRepoPath = this.actions.branchCommitsFetchedRepoPath();
 			if (state.branchCommits.get() == null || lastFetchedRepoPath !== repoPath) {
