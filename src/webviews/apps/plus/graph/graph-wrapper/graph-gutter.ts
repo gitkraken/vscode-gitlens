@@ -323,17 +323,22 @@ function renderNode(row: ProcessedGraphRow, metrics: GutterMetrics, nodeStyle?: 
 		// (background fill, stroke width/cap/dash) lives in `.gl-graph__node-outline`; the bg-mask keeps
 		// the 1px gap to the lane line above/below. A DIRTY working tree adds a small solid center dot
 		// (with a ~2px gap inside the ring); a clean tree is just the empty dotted ring.
+		// Trim the WIP ring a touch below the avatar node radius so its hover/select grow (scale 1.18)
+		// stays inside the 24px row — at r=10 the stroked ring's grown diameter (~25.7px) clipped
+		// top/bottom against the gutter viewport. Dots mode (r=5) never clips, so it's left as-is.
+		const wipR = mode === 'avatar' ? r - 1.5 : r;
 		// Dirty WIP: a small solid center dot. Sized a touch smaller than the ring's inner edge so a
-		// clear gap rings it (the row gradient shows in the gap). Clean WIP: no center — just the ring.
+		// clear gap rings it (the row gradient shows in the gap); derived from `wipR` so the interior
+		// gap stays balanced when the ring is trimmed. Clean WIP: no center — just the ring.
 		const wipDot =
 			nodeStyle?.wipState === 'dirty'
-				? svg`<circle class="gl-graph__node-wip-dirty" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, r - 3.5)} fill=${nodeColor} />`
+				? svg`<circle class="gl-graph__node-wip-dirty" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, wipR - 3.5)} fill=${nodeColor} />`
 				: nothing;
 		// No background-mask circle here (unlike the other nodes): the WIP ring's interior is left
 		// transparent (`.gl-graph__node-outline` fill: none) so the row's gradient shines through the
 		// middle. The WIP node is always a lane tip, so the only lane line is the one descending below it.
 		return svg`<g class="commit-dot-glow">
-			<circle class="commit-dot gl-graph__node-outline" cx=${nodeX} cy=${nodeY} r=${r} stroke=${nodeColor} />
+			<circle class="commit-dot gl-graph__node-outline" cx=${nodeX} cy=${nodeY} r=${wipR} stroke=${nodeColor} />
 			${wipDot}
 		</g>`;
 	}
