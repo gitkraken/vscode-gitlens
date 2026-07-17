@@ -128,6 +128,8 @@ export class GlGraphBranchSheetPane extends LitElement {
 	@state() private _pullRequestLoading = false;
 	/** Tag tip-commit summary (for the tag tip line). */
 	@state() private _tipMessage?: string;
+	/** Previous reachable tag (for the tag sheet's "since <prev-tag>" changelog default). */
+	@state() private _prevTagRef?: string;
 	/** User's AI band scope pick — reset on ref identity change; falls back to the default
 	 *  (unpushed when it exists, else target) when unset or no longer available. */
 	@state() private _aiScope?: AiScope;
@@ -136,6 +138,7 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 	private readonly _cache = new Map<string, BranchSheetCacheEntry>();
 	private readonly _tipCache = new Map<string, string | undefined>();
+	private readonly _prevTagCache = new Map<string, string | undefined>();
 	private _controller?: AbortController;
 	private _loadedKey?: string;
 	private _refreshTimer?: ReturnType<typeof setTimeout>;
@@ -169,6 +172,8 @@ export class GlGraphBranchSheetPane extends LitElement {
 		// A new ref's AI band re-derives its own default scope rather than inheriting the previous
 		// ref's pick.
 		this._aiScope = undefined;
+		// Tag-only; cleared here so a tag → branch switch doesn't leave a stale changelog default.
+		this._prevTagRef = undefined;
 
 		// Branch refs (local/current/worktree/remote): fetch enrichment. Remote surfaces only the PR
 		// chip + Checkout row (per the gating table); the other legs land but stay ungated-off.
@@ -184,11 +189,11 @@ export class GlGraphBranchSheetPane extends LitElement {
 			return;
 		}
 
-		// Tags: no branch enrichment; fetch the tip-commit summary for the tip line.
+		// Tags: no branch enrichment; fetch the tip-commit summary + previous tag (changelog default).
 		this._loadedKey = key;
 		this.resetEnrichmentState();
 		if (ref?.refType === 'tag' && key != null && repoPath != null && ref.sha != null && services != null) {
-			void this.loadTagTip(key, repoPath, ref.sha, services);
+			void this.loadTagData(key, repoPath, ref.name, ref.sha, services);
 		} else {
 			this._tipMessage = undefined;
 		}
@@ -348,8 +353,15 @@ export class GlGraphBranchSheetPane extends LitElement {
 		this._pullRequestLoading = false;
 	}
 
-	/** Fetch the tag's tip-commit summary for the tip line (best-effort; cached per key). */
-	private async loadTagTip(key: string, repoPath: string, sha: string, services: ResolvedServices): Promise<void> {
+	/** Fetch the tag's tip-commit summary (tip line) and its previous reachable tag (changelog
+	 *  default) under one signal — both best-effort and cached per key. */
+	private async loadTagData(
+		key: string,
+		repoPath: string,
+		tagName: string,
+		sha: string,
+		services: ResolvedServices,
+	): Promise<void> {
 		this._controller?.abort();
 		const controller = new AbortController();
 		this._controller = controller;
@@ -357,20 +369,34 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 		if (this._tipCache.has(key)) {
 			this._tipMessage = this._tipCache.get(key);
+		} else {
+			this._tipMessage = undefined;
+			try {
+				const commit = await services.repository.getCommit(repoPath, sha);
+				if (signal.aborted || this._loadedKey !== key) return;
+
+				const message = commit?.summary ?? commit?.message;
+				this._tipMessage = message;
+				this._tipCache.set(key, message);
+			} catch {
+				// Best-effort — the tip line just omits the message on failure.
+			}
+		}
+
+		if (this._prevTagCache.has(key)) {
+			this._prevTagRef = this._prevTagCache.get(key);
 			return;
 		}
 
-		this._tipMessage = undefined;
-
+		this._prevTagRef = undefined;
 		try {
-			const commit = await services.repository.getCommit(repoPath, sha);
+			const prevTag = await services.graphInspect.getPreviousTag(repoPath, tagName, sha, signal);
 			if (signal.aborted || this._loadedKey !== key) return;
 
-			const message = commit?.summary ?? commit?.message;
-			this._tipMessage = message;
-			this._tipCache.set(key, message);
+			this._prevTagRef = prevTag;
+			this._prevTagCache.set(key, prevTag);
 		} catch {
-			// Best-effort — the tip line just omits the message on failure.
+			// Best-effort — no changelog default when the previous tag can't be resolved.
 		}
 	}
 
@@ -439,21 +465,29 @@ export class GlGraphBranchSheetPane extends LitElement {
 	}
 
 	private renderRemoteHub(ref: BranchSheetRef): TemplateResult | typeof nothing {
+		const branch = this._branch;
 		const context = this.parseContext();
-		if (context == null) return nothing;
 
-		const step: SheetStep = {
-			icon: 'gl-switch',
-			label: `Switch to ${this.displayName(ref)}`,
-			actionLabel: 'Switch',
-			href: this._webview.createCommandLink<GraphItemContext>('gitlens.switchToBranch:', context),
-		};
-		return html`<div class="hub">
-			<section class="section">
-				<h3 class="section__heading">Next steps</h3>
-				${this.renderStep(step)}
-			</section>
-		</div>`;
+		// The AI band (Explain + Generate Changelog) scoped to the remote branch's changes vs its
+		// merge target (the default branch fallback, e.g. `origin/main`) — self-hides when AI is off,
+		// the branch is merged, or no scope resolves.
+		const aiBand = branch != null ? this.renderAiBand(branch) : nothing;
+		const steps =
+			context != null
+				? html`<section class="section">
+						<h3 class="section__heading">Next steps</h3>
+						${this.renderStep({
+							icon: 'gl-switch',
+							label: `Switch to ${this.displayName(ref)}`,
+							actionLabel: 'Switch',
+							href: this._webview.createCommandLink<GraphItemContext>('gitlens.switchToBranch:', context),
+						})}
+					</section>`
+				: nothing;
+
+		if (aiBand === nothing && steps === nothing) return nothing;
+
+		return html`<div class="hub">${aiBand}${steps}</div>`;
 	}
 
 	private renderTagStrip(ref: BranchSheetRef): TemplateResult | typeof nothing {
@@ -474,28 +508,55 @@ export class GlGraphBranchSheetPane extends LitElement {
 
 	private renderTagHub(ref: BranchSheetRef): TemplateResult | typeof nothing {
 		const context = this.parseContext();
-		if (context == null) return nothing;
 
-		const steps: SheetStep[] = [
-			{
-				icon: 'git-branch',
-				label: `Create Branch from ${ref.name}`,
-				actionLabel: 'Create Branch…',
-				href: this._webview.createCommandLink<GraphItemContext>('gitlens.createBranch:', context),
-			},
-			{
-				icon: 'gl-switch',
-				label: `Switch to ${ref.name} (Detached)`,
-				actionLabel: 'Switch',
-				href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.switchToTag', context),
-			},
-		];
+		const steps: SheetStep[] = [];
+
+		// Changelog since the previous reachable tag — release-notes default, no manual base pick.
+		const prevTag = this._prevTagRef;
+		if (this.aiEnabled && this.orgSettings?.ai !== false && prevTag != null) {
+			steps.push({
+				icon: 'list-unordered',
+				label: `Changelog since ${prevTag}`,
+				actionLabel: 'Generate',
+				loading: this._generateChangelogBusy,
+				onClick: () => this.onTagGenerateChangelog(prevTag, ref.name),
+			});
+		}
+
+		if (context != null) {
+			steps.push(
+				{
+					icon: 'git-branch',
+					label: `Create Branch from ${ref.name}`,
+					actionLabel: 'Create Branch…',
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.createBranch:', context),
+				},
+				{
+					icon: 'gl-switch',
+					label: `Switch to ${ref.name} (Detached)`,
+					actionLabel: 'Switch',
+					href: this._webview.createCommandLink<GraphItemContext>('gitlens.graph.switchToTag', context),
+				},
+			);
+		}
+
+		if (steps.length === 0) return nothing;
+
 		return html`<div class="hub">
 			<section class="section">
 				<h3 class="section__heading">Next steps</h3>
 				${steps.map(step => this.renderStep(step))}
 			</section>
 		</div>`;
+	}
+
+	private onTagGenerateChangelog(prevTag: string, tagName: string): void {
+		if (this._generateChangelogBusy || this.services == null || this.repoPath == null) return;
+
+		this._generateChangelogBusy = true;
+		void this.services.graphInspect.generateChangelogCompare(this.repoPath, prevTag, tagName).finally(() => {
+			this._generateChangelogBusy = false;
+		});
 	}
 
 	/** One consolidated strip row — issues (chips + associate) on the left, actions (PR chip +
@@ -638,13 +699,13 @@ export class GlGraphBranchSheetPane extends LitElement {
 			<div class="relationship-cards">
 				${this.renderUpstreamCard(branch)}${this.renderMergeTargetCard(branch)}
 			</div>
+			${this.renderAiBand(branch)}
 			${steps.length > 0
 				? html`<section class="section">
 						<h3 class="section__heading">Next steps</h3>
 						${steps.map(step => this.renderStep(step))}
 					</section>`
 				: nothing}
-			${this.renderAiBand(branch)}
 		</div>`;
 	}
 

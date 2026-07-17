@@ -360,6 +360,14 @@ export interface GraphInspectService {
 		signal?: AbortSignal,
 	): Promise<ExplainResult>;
 	generateChangelogCompare(repoPath: string, fromRef: string, toRef: string, signal?: AbortSignal): Promise<void>;
+	/** Resolve the newest tag reachable from — and older than — the given tag, for a
+	 *  previous-tag → this-tag changelog default. Returns `undefined` when there's no prior tag. */
+	getPreviousTag(
+		repoPath: string,
+		tagName: string,
+		tagSha: string,
+		signal?: AbortSignal,
+	): Promise<string | undefined>;
 	getScopeFiles(repoPath: string, scope: ScopeSelection, signal?: AbortSignal): Promise<GitFileChangeShape[]>;
 	reviewChanges(
 		repoPath: string,

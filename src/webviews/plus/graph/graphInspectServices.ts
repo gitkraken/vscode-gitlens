@@ -545,6 +545,39 @@ export class GraphInspectServices {
 						Logger.error(ex, 'GraphWebviewProvider', 'generateChangelogCompare');
 					}
 				},
+				getPreviousTag: async (
+					repoPath: string,
+					tagName: string,
+					tagSha: string,
+					signal?: AbortSignal,
+				): Promise<string | undefined> => {
+					try {
+						signal?.throwIfAborted();
+						const svc = this.container.git.getRepositoryService(repoPath);
+						const { values: tags } = await svc.tags.getTags({ sort: true }, signal);
+
+						// Anchor on the current tag's date so only strictly-older tags are considered
+						// (the reachability check below is the real guarantee; this just bounds cost).
+						const currentDate = tags.find(t => t.name === tagName)?.date?.getTime();
+
+						// `tags` is date-desc, so the first older tag that is an ancestor of the current
+						// tag is the newest previous reachable tag.
+						for (const tag of tags) {
+							signal?.throwIfAborted();
+							if (tag.sha === tagSha || tag.name === tagName) continue;
+							if (currentDate != null && (tag.date?.getTime() ?? 0) >= currentDate) continue;
+
+							const mergeBase = await svc.refs.getMergeBase(tag.sha, tagSha, undefined, signal);
+							if (mergeBase === tag.sha) return tag.name;
+						}
+						return undefined;
+					} catch (ex) {
+						if (isCancellationError(ex)) throw ex;
+
+						Logger.error(ex, 'GraphWebviewProvider', 'getPreviousTag');
+						return undefined;
+					}
+				},
 				explainCompare: async (
 					repoPath: string,
 					fromSha: string,
