@@ -102,7 +102,10 @@ async function selectCommitByMessage(graphWebview: FrameLocator, messageText: st
 		.getByText(messageText, { exact: true })
 		.filter({ visible: true })
 		.first();
-	await expect(messageEl).toBeVisible({ timeout: MaxTimeout });
+	// A specific commit's row can take longer than the 10s MaxTimeout to paint on a heavily-contended
+	// CI runner (react-virtualized fills rows progressively; the oldest commit sits at the bottom), so
+	// give the row-paint the same 30s budget as waitForGraphRowsRendered rather than racing it.
+	await expect(messageEl).toBeVisible({ timeout: 30000 });
 	// The graph grid (`#commit-message-zone`) owns row selection via event delegation, so it is the
 	// topmost hit-test target over the message cell — a normal click reports "grid intercepts pointer
 	// events". On slower fork webviews (Positron) the virtualized row also stays perpetually "not
