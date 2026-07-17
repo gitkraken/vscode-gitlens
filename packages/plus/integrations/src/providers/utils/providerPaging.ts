@@ -1,12 +1,16 @@
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderHierarchyResult } from '../models.js';
 
-/** Encodes a 1-based page number as the opaque `{ value, type: 'page' }` cursor the paging layer uses. */
+/**
+ * Encodes an opaque numeric paging token as the `{ value, type: 'page' }` cursor the paging layer uses.
+ * The value is whatever the consumer round-trips unchanged: a 1-based page number for numbered-page reads,
+ * or a provider offset (e.g. Bitbucket Server's `nextPageStart`) that is never reinterpreted here.
+ */
 export function toPageCursor(page: number): string {
 	return JSON.stringify({ value: page, type: 'page' });
 }
 
-/** Extracts a 1-based page number from a `{ value, type: 'page' }` cursor; undefined when absent/malformed. */
+/** Extracts the numeric paging token from a `{ value, type: 'page' }` cursor; undefined when absent/malformed. */
 export function parsePageCursor(cursor: string | undefined): number | undefined {
 	if (cursor == null || cursor === '{}') return undefined;
 
