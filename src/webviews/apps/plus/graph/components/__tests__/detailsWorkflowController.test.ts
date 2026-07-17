@@ -72,6 +72,7 @@ function createResources(): DetailsResources {
 	return {
 		commit: createResource(async (_signal, _repoPath: string, _sha: string) => undefined),
 		wip: createResource(async (_signal, _repoPath: string) => undefined),
+		pastAgentSessions: createResource(async (_signal, _worktreePath: string) => undefined),
 		compare: createResource(async (_signal, _repoPath: string, _fromSha: string, _toSha: string) => undefined),
 		branchCompareSummary: createResource(
 			async (

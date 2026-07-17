@@ -323,6 +323,10 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 	 *  the same snapshot doesn't. */
 	private _wipFileStatsFetchedFor?: Wip;
 
+	/** Worktree path the past-agent-sessions resource was last fetched for — dedupes
+	 *  {@link updateWipPastSessions} so re-rendering the same WIP row doesn't refetch. */
+	private _lastPastSessionsPath?: string;
+
 	/** User's explicit choice for the agents-pane mode — collapsed (bar only) or expanded
 	 *  (all cards). Flipped by chevron clicks via {@link _onAgentStatusExpandRequest}. The
 	 *  third surface state — `partial`, only needs-input cards — is derived (not stored here):
@@ -550,6 +554,20 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				this._wipFileStats = stats ?? undefined;
 			}
 		});
+	}
+
+	/** Lazily fetch the worktree's past (resumable) agent sessions while a WIP row is selected,
+	 *  mirroring {@link updateWipFileStats}. Dedupes on {@link _lastPastSessionsPath} so re-rendering
+	 *  the same worktree doesn't refetch; the `Resource` itself (a `SignalWatcher` dependency) drives
+	 *  the re-render once the fetch resolves. */
+	private updateWipPastSessions(): void {
+		if (!this.isWip) return;
+
+		const worktreePath = this._state.wip.get()?.repo?.path;
+		if (worktreePath == null || worktreePath === this._lastPastSessionsPath) return;
+
+		this._lastPastSessionsPath = worktreePath;
+		void this._actions?.resources.pastAgentSessions.fetch(worktreePath);
 	}
 
 	/** Attach the lazily-fetched per-file line stats to the WIP file rows so `gl-file-tree-pane`
@@ -1492,6 +1510,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// Reads `wip`/`activeMode`/`sha` signals (also read in render), so this re-runs on every
 		// working-tree push and selection change — the lazy fetch is gated + deduped inside.
 		this.updateWipFileStats();
+		this.updateWipPastSessions();
 
 		// The branch sheet just closed (any path: Esc/X/scrim, the Focus action, the sheet's own
 		// close-request on a deleted branch, the selection-change auto-close above, OR a graph-
@@ -2255,8 +2274,17 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// the auto-partial trigger and the rendered card list agree on the same data within a
 		// single update. See `_cycleAgentSessions` for why this matters.
 		const worktreeAgentSessions = this._cycleAgentSessions;
+		// Past sessions are keyed by worktree path (see `updateWipPastSessions`) — only trust the
+		// resource's current value when it was fetched for THIS wip's worktree; otherwise a fetch
+		// for a just-left worktree is still in flight and its stale value must not paint here.
+		const wipWorktreePath = wip.repo?.path;
+		const pastAgentSessions =
+			this._lastPastSessionsPath === wipWorktreePath
+				? this._actions?.resources.pastAgentSessions.value.get()
+				: undefined;
+		const hasPastSessions = (pastAgentSessions?.sessions.length ?? 0) > 0;
 		const hasPausedOp = wip.changes?.pausedOpStatus != null;
-		const showAgentStatus = worktreeAgentSessions != null && activeMode == null;
+		const showAgentStatus = (worktreeAgentSessions != null || hasPastSessions) && activeMode == null;
 		// Tri-state of the agents pane drives both splitter availability and sizing:
 		//  - `collapsed` / `partial`: pane is content-sized via CSS `fit-content(<MAX>%)` (see
 		//                              `--auto-size` rule). Splitter inert. The `position`
@@ -2280,10 +2308,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// splitter position directly.
 		const useAutoSize = !agentStatusIsExpanded;
 		// Cards visible under the current expand state, derived right here from the truth
-		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed.
-		const agentStatusHasVisibleCards = worktreeAgentSessions?.some(s =>
-			expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
-		);
+		// (`worktreeAgentSessions` + `agentStatusExpand`) — no event-driven mirror needed. Past rows
+		// only ever render when expanded (see `gl-details-agent-status`), so they only count there.
+		const agentStatusHasVisibleCards =
+			(worktreeAgentSessions?.some(s =>
+				expandVisibleCategories[agentStatusExpand].has(agentPhaseToCategory[s.phase]),
+			) ??
+				false) ||
+			(agentStatusExpand === 'expanded' && hasPastSessions);
 
 		const restContent =
 			activeMode === 'review'
@@ -2447,6 +2479,8 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 						<div slot="start" class="agent-status-split__top scrollable">
 							<gl-details-agent-status
 								.sessions=${worktreeAgentSessions}
+								.pastSessions=${pastAgentSessions}
+								.worktreePath=${wipWorktreePath}
 								.expand=${agentStatusExpand}
 								.selectedSessionId=${this._selectedAgentSessionId}
 								@gl-agent-status-expand-request=${this._onAgentStatusExpandRequest}

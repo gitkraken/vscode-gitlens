@@ -112,6 +112,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'agents/session/started': AgentProviderEvent;
 	/** Sent when an agent session ends */
 	'agents/session/ended': AgentProviderEvent;
+	/** Sent when a past agent session is resumed from its transcript */
+	'agents/sessionResumed': AgentSessionResumedEvent;
 	/** Sent when a permission request is resolved */
 	'agents/permission/resolved': AgentPermissionResolvedEvent;
 	/** Sent when a reconciliation poll (`list-sessions`) finds the polled session set differs from
@@ -807,6 +809,14 @@ interface AgentPermissionResolvedEvent {
 	'agent.provider': string;
 	'permission.tool': string;
 	'permission.decision': string;
+}
+
+interface AgentSessionResumedEvent {
+	'agent.provider': string;
+	/** Where the resume was invoked from. */
+	'agent.resume.source': 'webview' | 'quickpick';
+	/** Where it landed — a terminal, or the agent's own editor extension. */
+	'agent.resume.target': 'extension' | 'terminal';
 }
 
 interface AgentSyncDiscrepancyEvent {

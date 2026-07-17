@@ -276,6 +276,117 @@ suite('ClaudeCodeTranscriptReader', () => {
 	});
 });
 
+suite('ClaudeCodeTranscriptReader.listSessions', () => {
+	let tmpRoot: string;
+	const cwd = '/Users/me/repo.worktrees/bug/x';
+	const dirName = '-Users-me-repo-worktrees-bug-x';
+
+	setup(() => {
+		tmpRoot = mkdtempSync(join(tmpdir(), 'gl-transcript-list-'));
+	});
+	teardown(() => {
+		rmSync(tmpRoot, { recursive: true, force: true });
+	});
+
+	async function seed(name: string, body: string, mtime?: number): Promise<string> {
+		const dir = join(tmpRoot, 'projects', dirName);
+		await mkdir(dir, { recursive: true });
+		const path = join(dir, name);
+		await writeFile(path, body);
+		if (mtime != null) {
+			await utimes(path, new Date(mtime), new Date(mtime));
+		}
+		return path;
+	}
+
+	test('returns an empty listing for a cwd with no project dir', async () => {
+		await seed('a.jsonl', jsonl(aiTitle('a', 'A')));
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		assert.deepStrictEqual(await reader.listSessions('/Users/me/elsewhere'), { sessions: [], total: 0 });
+	});
+
+	test('orders by last activity, newest first', async () => {
+		await seed('old.jsonl', jsonl(aiTitle('old', 'Older')), Date.now() - 60_000);
+		await seed('new.jsonl', jsonl(aiTitle('new', 'Newest')), Date.now());
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions } = await reader.listSessions(cwd);
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Newest', 'Older'],
+		);
+	});
+
+	test('ignores sibling subdirectories and non-jsonl files', async () => {
+		await seed('real.jsonl', jsonl(aiTitle('real', 'Real')));
+		// Claude keeps a per-session subdir (`<uuid>/subagents`) alongside each transcript.
+		await mkdir(join(tmpRoot, 'projects', dirName, 'real', 'subagents'), { recursive: true });
+		await writeFile(join(tmpRoot, 'projects', dirName, 'notes.txt'), 'nope');
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd);
+		assert.strictEqual(total, 1, 'subdirs and non-jsonl files must not count');
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Real'],
+		);
+	});
+
+	test('drops transcripts carrying neither a title nor a prompt', async () => {
+		await seed('junk.jsonl', jsonl(JSON.stringify({ type: 'last-prompt', sessionId: 'junk' })));
+		await seed('good.jsonl', jsonl(aiTitle('good', 'Good')));
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd);
+		assert.strictEqual(total, 2, 'total counts every transcript, including dropped ones');
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['Good'],
+		);
+	});
+
+	test('keeps a prompt-only transcript and recovers its newest prompt', async () => {
+		await seed(
+			'p.jsonl',
+			jsonl(
+				JSON.stringify({ type: 'last-prompt', sessionId: 'p', lastPrompt: 'first ask' }),
+				JSON.stringify({ type: 'last-prompt', sessionId: 'p', lastPrompt: 'latest ask' }),
+			),
+		);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions } = await reader.listSessions(cwd);
+		assert.strictEqual(sessions.length, 1);
+		assert.strictEqual(sessions[0].lastPrompt, 'latest ask', 'newest prompt wins');
+	});
+
+	test('summarizes only up to `limit`, but totals the whole directory', async () => {
+		for (let i = 0; i < 5; i++) {
+			await seed(`s${i}.jsonl`, jsonl(aiTitle(`s${i}`, `S${i}`)), Date.now() - i * 1000);
+		}
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd, { limit: 2 });
+		assert.strictEqual(total, 5);
+		assert.strictEqual(sessions.length, 2);
+	});
+
+	test('recovers titles from a file far larger than the read windows', async () => {
+		// Titles land early and prompts land at the tail; the middle is never read.
+		const filler = `${JSON.stringify({ type: 'assistant', sessionId: 'big', text: 'x'.repeat(4000) })}\n`;
+		const body =
+			jsonl(aiTitle('big', 'Head Title')) +
+			filler.repeat(60) + // ~240KB of unread middle
+			jsonl(JSON.stringify({ type: 'last-prompt', sessionId: 'big', lastPrompt: 'tail prompt' }));
+		await seed('big.jsonl', body);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions } = await reader.listSessions(cwd);
+		assert.strictEqual(sessions[0].titles.ai, 'Head Title', 'title must come from the head window');
+		assert.strictEqual(sessions[0].lastPrompt, 'tail prompt', 'prompt must come from the tail window');
+	});
+});
+
 suite('encodeProjectDirName', () => {
 	const cases: [cwd: string, expected: string][] = [
 		['/Users/me/repo', '-Users-me-repo'],

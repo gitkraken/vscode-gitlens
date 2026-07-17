@@ -3,6 +3,7 @@ import type { AgentSessionState } from '../../../../agents/models/agentSessionSt
 import type { OverviewBranch } from '../../../shared/overviewBranches.js';
 import {
 	findOverviewBranchForSession,
+	formatAgentElapsed,
 	indexAgentSessionsByRepoAndWorktree,
 	matchAgentSessionsForWorktree,
 } from '../agentUtils.js';
@@ -171,6 +172,36 @@ suite('agentUtils', () => {
 
 			const found = findOverviewBranchForSession({ active: [defaultBranch], recent: [] }, session);
 			assert.strictEqual(found?.name, 'main');
+		});
+	});
+
+	suite('formatAgentElapsed', () => {
+		const s = 1000;
+		const m = 60 * s;
+		const h = 60 * m;
+		const d = 24 * h;
+		const w = 7 * d;
+		const ago = (ms: number) => Date.now() - ms;
+
+		test('returns undefined for undefined', () => {
+			assert.strictEqual(formatAgentElapsed(undefined), undefined);
+		});
+
+		test('rolls seconds → minutes → hours', () => {
+			assert.strictEqual(formatAgentElapsed(ago(5 * s)), '5s');
+			assert.strictEqual(formatAgentElapsed(ago(5 * m)), '5m');
+			assert.strictEqual(formatAgentElapsed(ago(3 * h + 20 * m)), '3h 20m');
+			assert.strictEqual(formatAgentElapsed(ago(3 * h)), '3h');
+		});
+
+		test('rolls hours → days past 24h', () => {
+			assert.strictEqual(formatAgentElapsed(ago(26 * h)), '1d 2h');
+			assert.strictEqual(formatAgentElapsed(ago(3 * d)), '3d');
+		});
+
+		test('rolls days → weeks past 7d', () => {
+			assert.strictEqual(formatAgentElapsed(ago(9 * d)), '1w 2d');
+			assert.strictEqual(formatAgentElapsed(ago(2 * w)), '2w');
 		});
 	});
 });

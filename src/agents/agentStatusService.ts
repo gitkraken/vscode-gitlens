@@ -1,13 +1,25 @@
 import type { Disposable, QuickPickItem } from 'vscode';
 import { commands, EventEmitter, Uri, window, workspace } from 'vscode';
 import { Logger } from '@gitlens/utils/logger.js';
+import { arePathsEqual } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { Container } from '../container.js';
 import { createQuickPickSeparator } from '../quickpicks/items/common.js';
 import { registerCommand } from '../system/-webview/command.js';
-import type { AgentSessionState, AgentSessionWorktreeMetadata } from './models/agentSessionState.js';
-import { getSessionDisplayName, serializeAgentSession } from './models/agentSessionState.js';
-import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
+import type {
+	AgentSessionState,
+	AgentSessionWorktreeMetadata,
+	PastAgentSessionsResult,
+	PastAgentSessionState,
+} from './models/agentSessionState.js';
+import { getSessionDisplayName, serializeAgentSession, serializePastAgentSession } from './models/agentSessionState.js';
+import type {
+	AgentSession,
+	AgentSessionProvider,
+	PermissionDecision,
+	PermissionSuggestion,
+	ResumableSessionsResult,
+} from './provider.js';
 import { isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
 import {
 	canResumeSession,
@@ -198,6 +210,124 @@ export class AgentStatusService implements Disposable {
 	private getWorktreeMetadataForSession(session: AgentSession): AgentSessionWorktreeMetadata | undefined {
 		if (session.worktreePath == null) return undefined;
 		return this._worktreeNameByPath.get(session.worktreePath);
+	}
+
+	/**
+	 * Lists the past, resumable sessions for `worktreePath`, most-recently-active first.
+	 *
+	 * Excludes sessions that are still live — those already flow to consumers through
+	 * {@link onDidChangeSessions} and are opened, not resumed.
+	 */
+	async getPastSessions(worktreePath: string, options?: { limit?: number }): Promise<PastAgentSessionsResult> {
+		const live = new Set(this.sessions.map(s => s.id));
+		const worktreeName = this._worktreeNameByPath.get(worktreePath)?.name;
+
+		const sessions: PastAgentSessionState[] = [];
+		let total = 0;
+
+		// Providers with no durable per-directory store omit `listResumableSessions` entirely.
+		const pending: Promise<ResumableSessionsResult>[] = [];
+		for (const provider of this._providers) {
+			const listing = provider.listResumableSessions?.(worktreePath, options);
+			if (listing != null) {
+				pending.push(listing);
+			}
+		}
+
+		const settled = await Promise.allSettled(pending);
+		for (const result of settled) {
+			if (result.status !== 'fulfilled') continue;
+
+			total += result.value.total;
+			for (const session of result.value.sessions) {
+				if (live.has(session.id)) continue;
+
+				sessions.push(serializePastAgentSession(session, worktreePath, worktreeName));
+			}
+		}
+
+		// Providers are ordered, so re-sort across them.
+		sessions.sort((a, b) => b.lastActivity - a.lastActivity);
+		return { sessions: sessions, total: total };
+	}
+
+	/** The worktree's sessions as the resume picker shows them: the live ones it can open, then the
+	 *  past ones it can resume. */
+	async getResumableSessions(
+		worktreePath: string,
+		options?: { limit?: number },
+	): Promise<{ live: AgentSession[]; past: PastAgentSessionState[]; total: number }> {
+		const live = this.sessions.filter(s => !s.isSubagent && s.worktreePath === worktreePath);
+		const { sessions, total } = await this.getPastSessions(worktreePath, options);
+		return { live: live, past: sessions, total: total };
+	}
+
+	/**
+	 * Resumes a past session by starting a fresh process against its transcript.
+	 *
+	 * `'default'` uses the Claude Code extension only when `cwd` is itself one of this window's
+	 * workspace folders, and otherwise falls back to a terminal. The extension's open command takes a
+	 * session id and no cwd, so it resolves the session against the window's own folder — right only
+	 * when that folder IS the session's directory. An ancestor folder won't do: the transcript is
+	 * homed under the exact cwd, so the extension would look elsewhere and come up empty. A terminal
+	 * is anchored at `cwd`, so it stays correct for any worktree.
+	 */
+	private async resumeSession(
+		sessionId: string,
+		cwd: string,
+		target: 'default' | 'terminal',
+		source: 'webview' | 'quickpick',
+		name?: string,
+	): Promise<void> {
+		const useExtension =
+			target === 'default' &&
+			this.getWorkspacePaths().some(p => arePathsEqual(p, cwd)) &&
+			(await isClaudeExtensionAvailable());
+		const resumedInExtension = useExtension && (await tryOpenClaudeSession(sessionId));
+		if (!resumedInExtension) {
+			await resumeClaudeSessionInTerminal({ id: sessionId, cwd: cwd, name: name }, this.container);
+		}
+
+		this.container.telemetry.sendEvent('agents/sessionResumed', {
+			'agent.provider': 'claudeCode',
+			'agent.resume.source': source,
+			'agent.resume.target': resumedInExtension ? 'extension' : 'terminal',
+		});
+	}
+
+	private async showResumeSessionPicker(worktreePath: string): Promise<void> {
+		const { showResumableSessionPicker } = await import(
+			/* webpackChunkName: "agents" */ '../quickpicks/resumableSessionPicker.js'
+		);
+
+		const { live, past, total } = await this.getResumableSessions(worktreePath, { limit: 100 });
+		const pick = await showResumableSessionPicker(
+			live,
+			past,
+			total,
+			this._worktreeNameByPath.get(worktreePath)?.name,
+		);
+		if (pick == null) return;
+
+		if (pick.live != null) {
+			if (pick.target === 'resume-terminal') {
+				await resumeClaudeSessionInTerminal(toResumableSessionRef(pick.live), this.container);
+				return;
+			}
+
+			await this.dispatchSessionAction(pick.live);
+			return;
+		}
+
+		if (pick.past == null) return;
+
+		await this.resumeSession(
+			pick.past.id,
+			pick.past.cwd,
+			pick.target === 'resume-terminal' ? 'terminal' : 'default',
+			'quickpick',
+			pick.past.displayName,
+		);
 	}
 
 	private maybeFireSessionsChanged(): void {
@@ -423,6 +553,16 @@ export class AgentStatusService implements Disposable {
 				}
 			}),
 			registerCommand('gitlens.agents.openSession', (sessionId?: string) => this.openSession(sessionId)),
+			registerCommand('gitlens.agents.resumeSession', (args?: { sessionId: string; cwd: string }) => {
+				if (args?.sessionId == null) return Promise.resolve();
+
+				return this.resumeSession(args.sessionId, args.cwd, 'default', 'webview');
+			}),
+			registerCommand('gitlens.agents.showResumeSessionPicker', (args?: { worktreePath: string }) => {
+				if (args?.worktreePath == null) return Promise.resolve();
+
+				return this.showResumeSessionPicker(args.worktreePath);
+			}),
 			registerCommand('gitlens.agents.switchDefaultAgent', async () => {
 				const { pickAndSetDefaultAgent } = await import(
 					/* webpackChunkName: "agents" */ '../plus/agents/agentPicker.js'

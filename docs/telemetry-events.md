@@ -183,6 +183,20 @@ routed its hook events here — so don't treat every event as a dropped IPC sign
 }
 ```
 
+### agents/sessionResumed
+
+> Sent when a past agent session is resumed from its transcript
+
+```typescript
+{
+  'agent.provider': string,
+  // Where the resume was invoked from.
+  'agent.resume.source': 'webview' | 'quickpick',
+  // Where it landed — a terminal, or the agent's own editor extension.
+  'agent.resume.target': 'extension' | 'terminal'
+}
+```
+
 ### ai/credits/addOnClicked
 
 > Sent when the user clicks "Get More Credits" on the weekly AI usage-limit notification

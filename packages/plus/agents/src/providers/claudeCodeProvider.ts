@@ -29,6 +29,9 @@ import type {
 	PendingPermissionKind,
 	PermissionDecision,
 	PermissionSuggestion,
+	ResumableAgentSession,
+	ResumableSessionsOptions,
+	ResumableSessionsResult,
 } from '../types.js';
 import { getPhaseForStatus } from '../types.js';
 import { ClaudeCodeTranscriptReader } from './claudeCodeTranscript.js';
@@ -315,6 +318,25 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 		if (installed && wasOff) {
 			void this.syncSessions();
 		}
+	}
+
+	/** Reads past sessions out of Claude's transcript store. Claude homes each transcript under the
+	 *  directory encoding the session's current cwd (migrating it if the session `cd`s), so the
+	 *  directory for `cwd` is exactly what `claude --resume <id>` can find when invoked from there —
+	 *  every session returned is resumable from `cwd`. */
+	async listResumableSessions(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult> {
+		const { sessions, total } = await this._transcriptReader.listSessions(cwd, { limit: options?.limit });
+
+		const resumable = sessions.map<ResumableAgentSession>(s => ({
+			id: s.sessionId,
+			providerId: this.id,
+			cwd: cwd,
+			lastActivity: new Date(s.lastActivityMs),
+			titles: s.titles,
+			lastPrompt: s.lastPrompt,
+		}));
+
+		return { sessions: resumable, total: total };
 	}
 
 	dispose(): void {

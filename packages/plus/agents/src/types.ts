@@ -233,6 +233,35 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 	 *  `vscode.openFolder` and relies on VS Code's window-folder matching to focus the owning
 	 *  window (which works whether or not the peer runs GitLens). */
 	notifyPeerOpenSession?(workspacePath: string, sessionId: string): Promise<boolean>;
+
+	/** Lists past sessions that can be resumed from `cwd`, most-recently-active first. Omitted by
+	 *  providers with no durable per-directory session store to read. Live sessions are excluded by
+	 *  the caller, not here — this reports what the store holds. */
+	listResumableSessions?(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult>;
+}
+
+export interface ResumableSessionsOptions {
+	/** How many sessions to detail. Discovery covers the whole store; only this many are read. */
+	readonly limit?: number;
+}
+
+/** A session that is no longer running but whose transcript survives, so it can be resumed. */
+export interface ResumableAgentSession {
+	readonly id: string;
+	readonly providerId: string;
+	/** The directory the session must be resumed from — resolving it is the store's whole job. */
+	readonly cwd: string;
+	readonly lastActivity: Date;
+	/** Mirrors {@link AgentSession.transcriptTitles} — kept unresolved so naming stays the display
+	 *  cascade's job rather than being decided here. */
+	readonly titles?: { readonly custom?: string; readonly ai?: string; readonly agent?: string };
+	readonly lastPrompt?: string;
+}
+
+export interface ResumableSessionsResult {
+	readonly sessions: ResumableAgentSession[];
+	/** Everything the store holds for `cwd`, not just the detailed slice — drives "Showing N of M". */
+	readonly total: number;
 }
 
 /**

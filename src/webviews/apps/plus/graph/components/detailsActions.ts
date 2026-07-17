@@ -29,6 +29,7 @@ import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
+import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
 import type { ViewFilesLayout } from '../../../../../config.js';
 import type {
@@ -147,6 +148,7 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
 
 export interface ResolvedServices {
+	readonly agents: ResolvedSubService<'agents'>;
 	readonly files: ResolvedSubService<'files'>;
 	readonly drafts: ResolvedSubService<'drafts'>;
 	readonly graphInspect: ResolvedSubService<'graphInspect'>;
@@ -166,6 +168,8 @@ export interface ResolvedServices {
 export interface DetailsResources {
 	readonly commit: Resource<CommitDetails | undefined, [string, string]>;
 	readonly wip: Resource<{ wip: Wip } | undefined, [string, boolean?]>;
+	/** Past (resumable) agent sessions for a worktree — top-3, keyed on `worktreePath`. */
+	readonly pastAgentSessions: Resource<PastAgentSessionsResult | undefined, [string]>;
 	readonly compare: Resource<CompareDiff | undefined, [string, string, string]>;
 	/** Phase 1 — counts + All Files. Keyed on `(repoPath, leftRef, rightRef, options)`. */
 	readonly branchCompareSummary: Resource<
@@ -369,6 +373,7 @@ export class DetailsActions {
 		this._commitEnrichmentCache.clear();
 		this.resources.commit.dispose();
 		this.resources.wip.dispose();
+		this.resources.pastAgentSessions.dispose();
 		this.resources.compare.dispose();
 		this.resources.branchCompareSummary.dispose();
 		this.resources.branchCompareSide.dispose();

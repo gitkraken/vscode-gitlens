@@ -81,8 +81,21 @@ export function formatAgentElapsed(value: Date | number | undefined): string | u
 	if (minutes < 60) return `${minutes}m`;
 
 	const hours = Math.floor(minutes / 60);
-	const remainingMinutes = minutes % 60;
-	return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+	if (hours < 24) {
+		const remainingMinutes = minutes % 60;
+		return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+	}
+
+	// Past sessions can be days or weeks old; keep rolling so "3d" beats "72h".
+	const days = Math.floor(hours / 24);
+	if (days < 7) {
+		const remainingHours = hours % 24;
+		return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+	}
+
+	const weeks = Math.floor(days / 7);
+	const remainingDays = days % 7;
+	return remainingDays > 0 ? `${weeks}w ${remainingDays}d` : `${weeks}w`;
 }
 
 /** Per-session "what is it doing" line. Mirrors the contract used by the graph details panel:
