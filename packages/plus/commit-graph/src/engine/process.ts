@@ -139,6 +139,10 @@ export function processCommitsAndSegments(
 	stability: GraphStability;
 	/** The spans actually reused from `reconcile.priorRows` (prior row identity), when any. */
 	reconciled?: ReconciledSuffix;
+	/** True when this run DISCARDED the sticky preferences and adopted a cold layout because the sticky
+	 *  one had degraded (see the renormalize block). Lets the caller expect a wholesale lane reshuffle for
+	 *  this one update — colours/columns move — instead of the usual stable relayout. */
+	renormalized?: boolean;
 } {
 	// Incremental append: continue from the prior snapshot when this call is a pure APPEND of the SAME
 	// prefix (older commits added at the bottom), with no pinned lanes and no scope (synthetic edges) —
@@ -182,16 +186,36 @@ export function processCommitsAndSegments(
 	}
 
 	const rows: GraphRow[] = commits.map(commitToGraphRow);
-	const {
-		rows: processed,
-		segments,
-		unloadedColumns,
-		snapshot,
-	} = computeColumnsAndSegments(rows, {
+	// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
+	const preferredColumns = options?.preferredColumns ?? preferencesFromStability(options?.stableFrom);
+	let layout = computeColumnsAndSegments(rows, {
 		pinnedShas: options?.pinnedShas,
-		// An explicit map wins (test/low-level callers); otherwise derive from the opaque token.
-		preferredColumns: options?.preferredColumns ?? preferencesFromStability(options?.stableFrom),
+		preferredColumns: preferredColumns,
 	});
+
+	// RENORMALIZE. Sticky preferences are a ratchet in one direction: a lane that can't get a low column on
+	// the update it arrives keeps that column forever, and because a lane spans its tip down to its fork
+	// point, ONE badly-placed tip inflates the gutter for every row it crosses (measured: a tip that belongs
+	// on column 1 parked on column 9 and dragged a 250-row lane through the whole visible graph). Nothing
+	// recovers from it, which is why reopening the graph — a preference-less run — "fixes" it.
+	//
+	// So do that automatically. A cold layout is the layout-only (cheap) pass — the edge pass, the expensive
+	// half, runs once below over whichever layout we keep — so we can afford to compute it and COMPARE by
+	// gutter area (`laneArea`), then keep the sticky layout unless cold is tighter by more than one full
+	// column of height. The slack is what preserves stability: in steady state the sticky layout reproduces
+	// its prior columns and cold cannot beat it by a whole column, so nothing reshuffles; only a genuinely
+	// degraded layout (a far-right lane dragging the gutter out) loses to cold and gets discarded. Skipped
+	// when the run is already preference-less (a cold open / paging append is optimal by construction) or
+	// pinned (a pinned layout isn't comparable to an unpinned cold one).
+	let renormalized = false;
+	if (preferredColumns != null && preferredColumns.size > 0 && options?.pinnedShas == null) {
+		const cold = computeColumnsAndSegments(rows);
+		if (cold.laneArea + rows.length < layout.laneArea) {
+			layout = cold;
+			renormalized = true;
+		}
+	}
+	const { rows: processed, segments, unloadedColumns, snapshot } = layout;
 	// Prefix-change reconciliation: align the fresh LAYOUT against the prior rows so the edge pass
 	// can stop at carry convergence and adopt the prior row objects (edges included) wholesale.
 	// Scoped/pinned runs are excluded — their edges carry synthetic/pinned state a prior plain run
@@ -240,5 +264,6 @@ export function processCommitsAndSegments(
 		resume: nextResume as unknown as GraphProcessResume,
 		stability: { rows: processed, unloadedColumns: unloadedColumns } as unknown as GraphStability,
 		reconciled: reconciled,
+		renormalized: renormalized,
 	};
 }

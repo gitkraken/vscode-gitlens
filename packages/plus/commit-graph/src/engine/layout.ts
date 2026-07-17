@@ -93,6 +93,8 @@ interface LayoutState {
 	getRowIndex?: () => ReadonlyMap<Sha, number>;
 	/** Index of the row being assigned — needs at earlier rows are already consumed or stale. */
 	currentRow: number;
+	/** Σ per-row rightmost live lane — see {@link computeColumnsAndSegments}'s `laneArea`. */
+	laneArea: number;
 }
 
 function createState(
@@ -111,6 +113,7 @@ function createState(
 		finalizedSegments: [],
 		preferredColumns: preferredColumns,
 		currentRow: 0,
+		laneArea: 0,
 	};
 }
 
@@ -763,6 +766,8 @@ function cloneLayoutState(s: LayoutState): LayoutState {
 		scratchFactory: undefined,
 		scratch: undefined,
 		currentRow: 0,
+		// Re-seeded by `assignColumnsInto` for the appended slice; the append API doesn't surface it.
+		laneArea: 0,
 	};
 }
 
@@ -791,6 +796,18 @@ function assignColumnsInto(state: LayoutState, rows: readonly GraphRow[], output
 		state.currentRow = i;
 		const column = assignColumnForRow(state, rows[i]);
 		output[i] = { ...rows[i], column: column, edges: {}, edgeColumnMax: 0 };
+
+		// `columnsUsed` IS this row's live-lane set (the row's own column included, frees for it already
+		// run), so its max is the row's rightmost lane — the edge pass's `edgeColumnMax` without needing
+		// the edge pass. Scanning the set beats maintaining an incremental max: it's a handful of small
+		// ints, and a free would force a rescan anyway.
+		let rightmost = column;
+		for (const c of state.columnsUsed) {
+			if (c > rightmost) {
+				rightmost = c;
+			}
+		}
+		state.laneArea += rightmost;
 	}
 }
 
@@ -874,6 +891,12 @@ export function computeColumnsAndSegments(
 	// Resume token to continue this pass over freshly-paged rows via `appendColumnsAndSegments`. Valid
 	// only for the unpinned case (an append can't retro-extend pinned chains); ignore it when pinned.
 	snapshot: GraphLayoutSnapshot;
+	/** Σ over rows of the rightmost live lane — the graph's total gutter AREA, and the only honest way to
+	 *  rank two layouts: width alone is blind (a sticky and a cold layout are routinely the same width
+	 *  while sticky drags a far-right lane through hundreds of rows). Lower is better. Consumers compare
+	 *  a sticky run's area against a cold one's to decide whether the sticky layout has degraded enough to
+	 *  discard — see `process.ts`'s renormalize step. */
+	laneArea: number;
 } {
 	// `pinnedShas` is the ORDERED list of branch heads to pin to successive columns (0, 1, 2, …); expand
 	// it to a per-commit column map (each head's first-parent chain; shared ancestors keep the lower lane).
@@ -970,6 +993,7 @@ export function computeColumnsAndSegments(
 
 	const output: ProcessedGraphRow[] = new Array(rows.length);
 	assignColumnsInto(state, rows, output);
+	const laneArea = state.laneArea;
 	// Pass-local state — dropped before the snapshot below retains THIS state object (it is not cloned), or
 	// the resume token would pin the n-entry maps (and the factory's closure over `rows`) for the lifetime of
 	// the loaded graph.
@@ -995,5 +1019,6 @@ export function computeColumnsAndSegments(
 		segments: segments,
 		unloadedColumns: unloadedColumns,
 		snapshot: snapshot as unknown as GraphLayoutSnapshot,
+		laneArea: laneArea,
 	};
 }
