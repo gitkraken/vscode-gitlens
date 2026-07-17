@@ -68,6 +68,7 @@ import type {
 } from './providers/models.js';
 import { providersMetadata, toIssueShape } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
+import { parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
 	ProviderBroadenResult,
 	ProviderPagedResult,
@@ -1530,9 +1531,12 @@ export class IntegrationService implements Disposable {
 	 * "assigned to me" scoping so unassigned issues are included. Best-effort: a per-step failure becomes a
 	 * warning without failing the whole read.
 	 *
-	 * Returns the paginated wrapper for contract uniformity with the other reads. The read fans out across
-	 * projects with no single resumable cursor, so it reports one aggregated page (`currentPage: 1`); `hasMore`
-	 * is set only when a project's own drain hit its backstop (results may be incomplete).
+	 * Paginated by project: these providers have no single cross-project issue cursor, so a page is a bounded
+	 * window of projects (each drained by its own read), advanced 1-based via `page` (default 1) with
+	 * `itemsPerPage` projects per page (default 20). `hasMore`/`cursor` carry the next project window when more
+	 * remain. Note: a project's own read has an internal page backstop (see the per-provider drains); if a
+	 * single project exceeds it, its extra issues are dropped silently — this layer has no per-project
+	 * truncation signal to surface, so that bound is not reflected in `hasMore`.
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1540,14 +1544,22 @@ export class IntegrationService implements Disposable {
 		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
+		page?: number;
+		cursor?: string;
+		itemsPerPage?: number;
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
+		// Resolve the requested 1-based page from an explicit `page` or the opaque page cursor (either may be
+		// supplied; the cursor wins so a threaded continuation isn't clobbered).
+		const page = Math.max(1, parsePageCursor(options.cursor) ?? options.page ?? 1);
+		const projectsPerPage = Math.max(1, options.itemsPerPage ?? 20);
+
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		const emptyPage = (fetchFailed?: boolean): ProviderPagedResult<IssueShape> => ({
 			items: items,
 			warnings: warnings,
-			page: { currentPage: 1, itemsPerPage: items.length },
+			page: { currentPage: page, itemsPerPage: items.length },
 			hasMore: false,
 			fetchFailed: fetchFailed || undefined,
 		});
@@ -1594,8 +1606,16 @@ export class IntegrationService implements Disposable {
 			return emptyPage(projectsWarning != null && projects == null);
 		}
 
-		const scopedProjects =
+		const matchedProjects =
 			options.project != null ? projects.filter(p => this.resourceMatchesOrg(p, options.project!)) : projects;
+		// Page at project granularity: this window of projects for the requested page. `moreProjectWindows`
+		// drives `hasMore`/`cursor` below (per-project internal caps are not observable here — see the docstring).
+		const windowStart = (page - 1) * projectsPerPage;
+		const scopedProjects = matchedProjects.slice(windowStart, windowStart + projectsPerPage);
+		const moreProjectWindows = matchedProjects.length > windowStart + projectsPerPage;
+		if (scopedProjects.length === 0) {
+			return emptyPage();
+		}
 
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
 		// handle from the connection's own account (multi-account safe), capturing any error so its kind
@@ -1658,8 +1678,10 @@ export class IntegrationService implements Disposable {
 		return {
 			items: items,
 			warnings: warnings,
-			page: { currentPage: 1, itemsPerPage: items.length },
-			hasMore: false,
+			page: { currentPage: page, itemsPerPage: items.length },
+			hasMore: moreProjectWindows,
+			// Thread the next project window as a page cursor so the caller can advance; omitted when done.
+			cursor: moreProjectWindows ? toPageCursor(page + 1) : undefined,
 			fetchFailed: fetchFailed || undefined,
 		};
 	}

@@ -499,6 +499,59 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssueTrackerIssuesPage pages by project window with a next-page cursor (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		// Three projects; with itemsPerPage 2 the first page covers 2 and reports a next-page cursor.
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () =>
+			Promise.resolve({
+				value: [
+					{ key: 'p1', id: 'p1', name: 'P1' },
+					{ key: 'p2', id: 'p2', name: 'P2' },
+					{ key: 'p3', id: 'p3', name: 'P3' },
+				],
+			});
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		const readProjects: string[] = [];
+		(
+			jira as unknown as {
+				getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }>;
+			}
+		).getIssuesForProjectResult = (p: { id: string }) => {
+			readProjects.push(p.id);
+			return Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+		};
+
+		const first = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+		});
+		assert.deepEqual(readProjects, ['p1', 'p2'], 'first page reads the first project window');
+		assert.equal(first.hasMore, true, 'more project windows remain');
+		assert.ok(first.cursor != null, 'a next-page cursor is threaded');
+
+		readProjects.length = 0;
+		const second = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+			cursor: first.cursor,
+		});
+		assert.deepEqual(readProjects, ['p3'], 'the cursor advances to the remaining project');
+		assert.equal(second.hasMore, false, 'no more windows after the last');
+		assert.equal(second.cursor, undefined);
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage surfaces a failed issue read as a warning + fetchFailed, not empty (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
