@@ -206,7 +206,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		// is the Linear user id, which is unambiguous.
 		if (options?.user != null) {
 			const viewerId = (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
-			if (viewerId == null) return issues;
+			// If the viewer can't be resolved we can't scope to "my issues" — returning the unfiltered team
+			// issues would leak everyone else's. Return none rather than broaden silently; the facade
+			// (getIssuesForProjectResult → runCaptured) still surfaces the empty read to the caller.
+			if (viewerId == null) return [];
 			return issues.filter(issue => issue.assignees?.some(a => a.id === viewerId));
 		}
 

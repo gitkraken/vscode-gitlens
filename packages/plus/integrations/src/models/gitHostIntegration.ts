@@ -611,6 +611,10 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							// Echo the requested numbered page so the facade reports the real currentPage for
+							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
+							// leave `page` undefined via their own reads.
+							page: options?.page,
 						},
 					},
 					duration: performance.now() - start,
@@ -698,6 +702,10 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							// Echo the requested numbered page so the facade reports the real currentPage for
+							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
+							// leave `page` undefined via their own reads.
+							page: options?.page,
 						},
 					},
 					duration: performance.now() - start,
@@ -943,6 +951,10 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							// Echo the requested numbered page so the facade reports the real currentPage for
+							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
+							// leave `page` undefined via their own reads.
+							page: options?.page,
 						},
 					},
 					duration: performance.now() - start,

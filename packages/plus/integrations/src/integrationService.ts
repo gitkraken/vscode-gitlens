@@ -1279,15 +1279,17 @@ export class IntegrationService implements Disposable {
 		// `itemsPerPage` as if it were applied — report what the provider returned (its own pageSize when
 		// available, else the actual item count).
 		const paged = this.toProviderPageInfo(items.length, value?.paging);
-		// The org-hierarchy read can stop at a defensive backstop with more repos unlisted and no cursor to
-		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Surface that as
-		// `hasMore` so the caller knows the listing is incomplete rather than treating it as fully drained.
+		// The org-hierarchy read can stop at a defensive backstop with more repos unlisted and NO cursor to
+		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Surface that as a
+		// terminal `page.truncated` signal, NOT as `hasMore`: `hasMore` without a `cursor` would invite a
+		// consumer to request the "next page" and get the same aggregate back forever. `hasMore` stays true
+		// only when the provider gave a real resumable cursor.
 		const truncated = value?.truncated ?? value?.paging?.truncated ?? false;
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
-			page: paged.page,
-			hasMore: paged.hasMore || truncated,
+			page: { ...paged.page, truncated: truncated || undefined },
+			hasMore: paged.hasMore,
 			cursor: paged.cursor,
 			fetchFailed: (warning != null && value == null) || undefined,
 		};
@@ -1385,10 +1387,14 @@ export class IntegrationService implements Disposable {
 		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
 		// unless the provider reports its own.
 		const paged = this.toProviderPageInfo(items.length, value?.paging);
+		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
+		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
+		// the page may be incomplete.
+		const truncated = value?.paging?.truncated ?? false;
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
-			page: paged.page,
+			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: paged.cursor,
 			fetchFailed: (warning != null && value == null) || undefined,
@@ -1849,8 +1855,14 @@ export class IntegrationService implements Disposable {
 			items: items,
 			warnings: warnings,
 			// `allPages` asserts completeness — it must be false when any provider truncated (a single-page
-			// account-wide read that couldn't confirm it drained everything), matching `hasMore`.
-			page: { currentPage: 1, itemsPerPage: items.length, allPages: !truncated, truncated: truncated },
+			// account-wide read that couldn't confirm it drained everything) OR a drain aborted on a read
+			// failure (its slice is incomplete). Either way the sweep did not read every page.
+			page: {
+				currentPage: 1,
+				itemsPerPage: items.length,
+				allPages: !truncated && !fetchFailed,
+				truncated: truncated,
+			},
 			hasMore: truncated,
 			fetchFailed: fetchFailed || undefined,
 		};
