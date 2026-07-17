@@ -206,6 +206,11 @@ export function createRpcEvent<T>(key: string, mode: 'save-last' | 'signal', sig
  * Standard pattern for the common case: Container event emitter → buffered handler → cleanup.
  * The `subscribe` function receives the already-buffered handler and returns a `Disposable`.
  *
+ * The `subscribe` callback runs LAZILY — only when a client registers a handler, and once per
+ * registration. It must never be the sole updater of a bridged `Signal.State`: a webview that
+ * reads the signal without subscribing gets a permanently frozen value (#5513). Keep signals
+ * fresh with an eagerly-registered listener instead — see `SubscriptionService`'s constructor.
+ *
  * For custom patterns (aggregation, handler maps, replay-on-subscribe), use `bufferEventHandler` directly.
  *
  * @param buffer - Optional visibility buffer (undefined = no buffering)

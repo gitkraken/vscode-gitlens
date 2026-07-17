@@ -64,6 +64,7 @@ import {
 import { isRpcMessage } from './rpc/constants.js';
 import { EventVisibilityBuffer, SubscriptionTracker } from './rpc/eventVisibilityBuffer.js';
 import { RpcHost } from './rpc/rpcHost.js';
+import { disposeServices } from './rpc/services/proxy.js';
 import type { WebviewCommandCallback, WebviewCommandRegistrar } from './webviewCommandRegistrar.js';
 import type { CustomEditorDescriptor, WebviewPanelDescriptor, WebviewViewDescriptor } from './webviewDescriptors.js';
 import type { WebviewHost, WebviewProvider, WebviewShowingArgs } from './webviewProvider.js';
@@ -318,6 +319,9 @@ export class WebviewController<
 				...(this.provider.registerCommands?.() ?? []),
 				this.provider,
 				...(this._rpcHost != null ? [this._rpcHost] : []),
+				// Service resources that must survive tracker.reset() (reconnection) are released
+				// only here, at controller teardown — see proxyServices/disposeServices
+				{ dispose: () => disposeServices(rpcServices) },
 			);
 		});
 	}

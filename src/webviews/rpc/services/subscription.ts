@@ -5,9 +5,15 @@
  * `Signal.State` properties (for reactive bridging via Supertalk's SignalHandler).
  * The signals are the canonical host-side mirrors of Container state — portable
  * across all webviews that use this shared service.
+ *
+ * Signal freshness is guaranteed by listeners registered eagerly in the constructor —
+ * it must never depend on a client subscribing to the RPC change events, because
+ * webviews are entitled to read the bridged signals without subscribing (#5513).
+ * The service must be disposed (via `disposeServices`) to release those listeners.
  */
 
 import { Signal } from 'signal-polyfill';
+import { Disposable } from 'vscode';
 import { getAvatarUriFromGravatarEmail } from '../../../avatars.js';
 import type { Container } from '../../../container.js';
 import type { Subscription } from '../../../plus/gk/models/subscription.js';
@@ -17,8 +23,9 @@ import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibil
 import { createRpcEventSubscription } from '../eventVisibilityBuffer.js';
 import type { OrgSettings, RpcEventSubscription } from './types.js';
 
-export class SubscriptionService {
+export class SubscriptionService implements Disposable {
 	readonly #container: Container;
+	readonly #disposable: Disposable;
 
 	// ── Reactive signals (auto-synced to webview via SignalHandler) ──
 
@@ -76,8 +83,34 @@ export class SubscriptionService {
 			drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
 		});
 
-		// Initialize subscription asynchronously — resolves before webview connects
+		// Keep the signals fresh eagerly — NOT inside the lazy RPC-event subscriptions below,
+		// which only register their Container listeners when a client subscribes a handler.
+		// Clients (e.g. the Graph header) read the bridged signals without ever subscribing (#5513).
+		// Registered before the async seed below so no change can slip between them.
+		// These listeners outlive `tracker.reset()` (RPC reconnection) by design; they are
+		// released by `dispose()` at webview teardown.
+		this.#disposable = Disposable.from(
+			container.subscription.onDidChange(e => {
+				const serialized = serialize(e.current);
+				this.subscriptionState.set(serialized);
+				this.#updateDerivedState(serialized);
+			}),
+			onDidChangeContext(key => {
+				if (key === 'gitlens:gk:organization:ai:enabled' || key === 'gitlens:gk:organization:drafts:enabled') {
+					this.orgSettingsState.set({
+						ai: getContext('gitlens:gk:organization:ai:enabled', false),
+						drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
+					});
+				}
+			}),
+		);
+
+		// Initialize subscription asynchronously — resolves before webview connects.
+		// If a change event has already populated the signal by then, keep it — the event's
+		// state is at least as fresh as this snapshot, which was requested earlier.
 		void container.subscription.getSubscription().then(sub => {
+			if (this.subscriptionState.get() !== undefined) return;
+
 			const serialized = serialize(sub);
 			this.subscriptionState.set(serialized);
 			this.#updateDerivedState(serialized);
@@ -87,13 +120,7 @@ export class SubscriptionService {
 			buffer,
 			'subscriptionChanged',
 			'save-last',
-			buffered =>
-				container.subscription.onDidChange(e => {
-					const serialized = serialize(e.current);
-					this.subscriptionState.set(serialized);
-					this.#updateDerivedState(serialized);
-					buffered(serialized);
-				}),
+			buffered => container.subscription.onDidChange(e => buffered(serialize(e.current))),
 			undefined,
 			tracker,
 		);
@@ -108,17 +135,19 @@ export class SubscriptionService {
 						key === 'gitlens:gk:organization:ai:enabled' ||
 						key === 'gitlens:gk:organization:drafts:enabled'
 					) {
-						const settings: OrgSettings = {
+						buffered({
 							ai: getContext('gitlens:gk:organization:ai:enabled', false),
 							drafts: getContext('gitlens:gk:organization:drafts:enabled', false),
-						};
-						this.orgSettingsState.set(settings);
-						buffered(settings);
+						});
 					}
 				}),
 			undefined,
 			tracker,
 		);
+	}
+
+	dispose(): void {
+		this.#disposable.dispose();
 	}
 
 	/**
