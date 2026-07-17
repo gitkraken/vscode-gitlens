@@ -831,6 +831,23 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
+	 * Warnings for an early-returning read where the integration couldn't be resolved. When a specific
+	 * `connectionId` was requested (and the provider is a git host), a missing integration means that
+	 * connection is gone/invalid — surface a `no-connection` warning + `fetchFailed` so the caller can tell
+	 * it apart from a truly empty account. Without a `connectionId` (or for an issue tracker on a git-host
+	 * read), it's simply not connected, which stays a silent empty result.
+	 */
+	private earlyReturnConnectionWarnings(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+	): { warnings: ProviderWarning[]; fetchFailed: boolean } {
+		if (connectionId == null) return { warnings: [], fetchFailed: false };
+
+		const domain = this.getConfiguredConnectionDomain(id, connectionId);
+		return { warnings: [this.noConnectionWarning(id, domain, connectionId)], fetchFailed: true };
+	}
+
+	/**
 	 * Narrows a caller-provided PR filter set to what the provider actually supports (via its metadata), so
 	 * an unsupported filter never trips the read core's "Unsupported filters" guard.
 	 *
@@ -884,7 +901,6 @@ export class IntegrationService implements Disposable {
 	 * possible, so the caller threads the cursor back instead).
 	 */
 	private toProviderPageInfo(
-		page: number,
 		itemsPerPage: number,
 		paging: { more?: boolean; cursor?: string; page?: number; pageSize?: number } | undefined,
 	): { page: ProviderPageInfo; hasMore: boolean; cursor?: string } {
@@ -901,12 +917,14 @@ export class IntegrationService implements Disposable {
 				}
 			} catch {}
 		}
+		// Only echo a page number the provider actually honored. Numbered-page hosts report their own
+		// `paging.page`; cursor-only hosts (e.g. GitHub PR search) report none and ignore a synthesized
+		// page-number cursor — returning their first page — so echoing the requested `page` would mislabel
+		// page 1 as page N. Report page 1 in that case rather than the unapplied request.
+		const currentPage = paging?.page != null ? Math.max(1, paging.page) : 1;
 		return {
-			// Prefer the provider's own page/pageSize when it reports them (numbered-page hosts), so the
-			// echoed metadata reflects what the provider actually returned rather than the requested/derived
-			// values. Fall back to the caller-derived numbers for cursor-only hosts.
 			page: {
-				currentPage: Math.max(1, paging?.page ?? page),
+				currentPage: currentPage,
 				itemsPerPage: paging?.pageSize ?? itemsPerPage,
 			},
 			hasMore: paging?.more ?? false,
@@ -916,7 +934,7 @@ export class IntegrationService implements Disposable {
 
 	private getBroadenIssuesCursor(
 		cursor: string | undefined,
-		org: { providerId: IntegrationIds; name: string },
+		org: { providerId: IntegrationIds; name: string; connectionId?: string },
 		page: number,
 		orgCount: number,
 	): string | undefined {
@@ -927,9 +945,13 @@ export class IntegrationService implements Disposable {
 		if (cursor != null) {
 			try {
 				const parsed = JSON.parse(cursor) as {
-					cursors?: { providerId?: IntegrationIds; org?: string; cursor?: string }[];
+					cursors?: { providerId?: IntegrationIds; org?: string; connectionId?: string; cursor?: string }[];
 				};
-				const match = parsed.cursors?.find(c => c.providerId === org.providerId && c.org === org.name)?.cursor;
+				// Key by connectionId too: two accounts on the same provider can share an org name, and without
+				// it account A's cursor would be applied to account B (or both exhausted together).
+				const match = parsed.cursors?.find(
+					c => c.providerId === org.providerId && c.org === org.name && c.connectionId === org.connectionId,
+				)?.cursor;
 				if (match != null) {
 					return match;
 				}
@@ -947,24 +969,29 @@ export class IntegrationService implements Disposable {
 	 */
 	private isBroadenIssuesOrgExhausted(
 		cursor: string | undefined,
-		org: { providerId: IntegrationIds; name: string },
+		org: { providerId: IntegrationIds; name: string; connectionId?: string },
 		orgCount: number,
 	): boolean {
 		if (orgCount === 1 || cursor == null) return false;
 
 		try {
 			const parsed = JSON.parse(cursor) as {
-				exhausted?: { providerId?: IntegrationIds; org?: string }[];
+				exhausted?: { providerId?: IntegrationIds; org?: string; connectionId?: string }[];
 			};
-			return parsed.exhausted?.some(e => e.providerId === org.providerId && e.org === org.name) ?? false;
+			// Match connectionId too, so exhausting account A's org doesn't skip account B's same-named org.
+			return (
+				parsed.exhausted?.some(
+					e => e.providerId === org.providerId && e.org === org.name && e.connectionId === org.connectionId,
+				) ?? false
+			);
 		} catch {
 			return false;
 		}
 	}
 
 	private toBroadenIssuesCursor(
-		cursors: { providerId: IntegrationIds; org: string; cursor: string }[],
-		exhausted: { providerId: IntegrationIds; org: string }[],
+		cursors: { providerId: IntegrationIds; org: string; connectionId?: string; cursor: string }[],
+		exhausted: { providerId: IntegrationIds; org: string; connectionId?: string }[],
 		orgCount: number,
 	): string | undefined {
 		if (cursors.length === 0) return undefined;
@@ -1225,7 +1252,16 @@ export class IntegrationService implements Disposable {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
-			return { items: [], warnings: [], page: { currentPage: page, itemsPerPage: 0 }, hasMore: false };
+			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// surface a no-connection warning + fetchFailed rather than a silent empty page.
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			return {
+				items: [],
+				warnings: early.warnings,
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: early.fetchFailed || undefined,
+			};
 		}
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
@@ -1242,12 +1278,16 @@ export class IntegrationService implements Disposable {
 		// The repos read core is cursor-only and can't accept a page size, so don't echo the requested
 		// `itemsPerPage` as if it were applied — report what the provider returned (its own pageSize when
 		// available, else the actual item count).
-		const paged = this.toProviderPageInfo(page, items.length, value?.paging);
+		const paged = this.toProviderPageInfo(items.length, value?.paging);
+		// The org-hierarchy read can stop at a defensive backstop with more repos unlisted and no cursor to
+		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Surface that as
+		// `hasMore` so the caller knows the listing is incomplete rather than treating it as fully drained.
+		const truncated = value?.truncated ?? value?.paging?.truncated ?? false;
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
 			page: paged.page,
-			hasMore: paged.hasMore,
+			hasMore: paged.hasMore || truncated,
 			cursor: paged.cursor,
 			fetchFailed: (warning != null && value == null) || undefined,
 		};
@@ -1278,7 +1318,16 @@ export class IntegrationService implements Disposable {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
-			return { items: [], warnings: [], page: { currentPage: page, itemsPerPage: 0 }, hasMore: false };
+			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// surface a no-connection warning + fetchFailed rather than a silent empty page.
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			return {
+				items: [],
+				warnings: early.warnings,
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: early.fetchFailed || undefined,
+			};
 		}
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
@@ -1335,7 +1384,7 @@ export class IntegrationService implements Disposable {
 		// Account-wide reads have no meaningful page number (cursor-only), so report page 1 rather than
 		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
 		// unless the provider reports its own.
-		const paged = this.toProviderPageInfo(accountWide ? 1 : page, items.length, value?.paging);
+		const paged = this.toProviderPageInfo(items.length, value?.paging);
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
@@ -1364,7 +1413,16 @@ export class IntegrationService implements Disposable {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
-			return { items: [], warnings: [], page: { currentPage: page, itemsPerPage: 0 }, hasMore: false };
+			// A supplied connectionId that no longer resolves is a broken connection, not an empty account —
+			// surface a no-connection warning + fetchFailed rather than a silent empty page.
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			return {
+				items: [],
+				warnings: early.warnings,
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: early.fetchFailed || undefined,
+			};
 		}
 
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
@@ -1388,7 +1446,7 @@ export class IntegrationService implements Disposable {
 		);
 
 		const items = value?.values ?? [];
-		const paged = this.toProviderPageInfo(page, options.itemsPerPage ?? items.length, value?.paging);
+		const paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
@@ -1460,24 +1518,33 @@ export class IntegrationService implements Disposable {
 			options.project != null ? projects.filter(p => this.resourceMatchesOrg(p, options.project!)) : projects;
 
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
-		// handle from the connection's own account (multi-account safe).
+		// handle from the connection's own account (multi-account safe), capturing any error so its kind
+		// (e.g. auth) is preserved rather than collapsed to a generic warning.
 		let user: string | undefined;
 		if (options.includeAllAssignees !== true) {
-			const account = await integration.getAccountForResource(scopedResources[0], options.connectionId);
+			const { value: account, warning: accountWarning } = await this.runCaptured(
+				options.providerId,
+				domain,
+				options.connectionId,
+				() => integration.getAccountForResourceResult(scopedResources[0], options.connectionId),
+			);
 			user = account?.username ?? account?.name ?? undefined;
 			// If we needed a user scope but couldn't resolve one, an unscoped read would silently broaden
 			// "assigned to me" to every visible issue (Jira/Trello treat an absent user as no filter),
 			// contaminating the result with others' issues. Surface a warning and stop instead of broadening.
+			// Prefer the captured error's classification (auth/rate-limit/…) so Kepler can drive recovery.
 			if (user == null) {
-				warnings.push({
-					providerId: options.providerId,
-					domain: domain,
-					connectionId: options.connectionId,
-					message:
-						'Could not resolve the current user to scope issues to; skipping to avoid returning issues assigned to others.',
-					kind: 'other',
-					isAuth: false,
-				});
+				warnings.push(
+					accountWarning ?? {
+						providerId: options.providerId,
+						domain: domain,
+						connectionId: options.connectionId,
+						message:
+							'Could not resolve the current user to scope issues to; skipping to avoid returning issues assigned to others.',
+						kind: 'other',
+						isAuth: false,
+					},
+				);
 				return { items: items, warnings: warnings, fetchFailed: true };
 			}
 		}
@@ -1566,12 +1633,13 @@ export class IntegrationService implements Disposable {
 			items.push(...value.values);
 			if (!(value.paging?.more ?? false)) {
 				// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
-				// sets `paging.truncated`; propagate it so the sweep doesn't claim an all-pages result.
+				// sets `paging.truncated`; propagate it (and any top-level `truncated`) so the sweep doesn't
+				// claim an all-pages result.
 				return {
 					items: items,
 					warnings: warnings,
 					fetchFailed: false,
-					truncated: value.paging?.truncated ?? false,
+					truncated: (value as { truncated?: boolean }).truncated ?? value.paging?.truncated ?? false,
 				};
 			}
 			if (page >= maxPages) {
@@ -1631,7 +1699,15 @@ export class IntegrationService implements Disposable {
 
 			repos.push(...value.values);
 			if (!(value.paging?.more ?? false)) {
-				return { repos: repos, warnings: warnings, fetchFailed: false, truncated: false };
+				// Honor both the top-level `ProviderHierarchyResult.truncated` (the org-hierarchy backstop hit
+				// its own page cap) and `paging.truncated` (a single-page read that couldn't confirm it was
+				// complete); either means repos may be missing and this org isn't fully drained.
+				return {
+					repos: repos,
+					warnings: warnings,
+					fetchFailed: false,
+					truncated: value.truncated ?? value.paging?.truncated ?? false,
+				};
 			}
 			if (page >= maxPages) {
 				return { repos: repos, warnings: warnings, fetchFailed: false, truncated: true };
@@ -1725,7 +1801,9 @@ export class IntegrationService implements Disposable {
 		return {
 			items: items,
 			warnings: warnings,
-			page: { currentPage: 1, itemsPerPage: items.length, allPages: true, truncated: truncated },
+			// `allPages` asserts completeness — it must be false when any provider truncated (a single-page
+			// account-wide read that couldn't confirm it drained everything), matching `hasMore`.
+			page: { currentPage: 1, itemsPerPage: items.length, allPages: !truncated, truncated: truncated },
 			hasMore: truncated,
 			fetchFailed: fetchFailed || undefined,
 		};
@@ -1782,6 +1860,7 @@ export class IntegrationService implements Disposable {
 						broadenedProviderIds: [] as IntegrationIds[],
 						providerId: org.providerId,
 						org: org.name,
+						connectionId: connectionId,
 						nextCursor: undefined,
 						hasMore: false,
 						exhausted: true,
@@ -1814,6 +1893,7 @@ export class IntegrationService implements Disposable {
 						broadenedProviderIds: [] as IntegrationIds[],
 						providerId: org.providerId,
 						org: org.name,
+						connectionId: connectionId,
 						nextCursor: undefined,
 						hasMore: false,
 						exhausted: false,
@@ -1844,7 +1924,6 @@ export class IntegrationService implements Disposable {
 				if (issuesCaptured.value != null) {
 					items.push(...issuesCaptured.value.values);
 					const paged = this.toProviderPageInfo(
-						page,
 						issuesCaptured.value.values.length,
 						issuesCaptured.value.paging,
 					);
@@ -1858,6 +1937,7 @@ export class IntegrationService implements Disposable {
 					broadenedProviderIds: issuesCaptured.value != null ? [org.providerId] : ([] as IntegrationIds[]),
 					providerId: org.providerId,
 					org: org.name,
+					connectionId: connectionId,
 					nextCursor: nextCursor,
 					hasMore: hasMore,
 					// Exhausted once a successful read reports no more pages — recorded in the cursor so later
@@ -1872,8 +1952,8 @@ export class IntegrationService implements Disposable {
 		const items: ProviderIssue[] = [];
 		const warnings: ProviderWarning[] = [];
 		const broadenedProviderIds = new Set<IntegrationIds>();
-		const cursors: { providerId: IntegrationIds; org: string; cursor: string }[] = [];
-		const exhausted: { providerId: IntegrationIds; org: string }[] = [];
+		const cursors: { providerId: IntegrationIds; org: string; connectionId?: string; cursor: string }[] = [];
+		const exhausted: { providerId: IntegrationIds; org: string; connectionId?: string }[] = [];
 		let hasMore = false;
 		let fetchFailed = false;
 		let truncated = false;
@@ -1888,10 +1968,15 @@ export class IntegrationService implements Disposable {
 				broadenedProviderIds.add(id);
 			}
 			if (result.nextCursor != null) {
-				cursors.push({ providerId: result.providerId, org: result.org, cursor: result.nextCursor });
+				cursors.push({
+					providerId: result.providerId,
+					org: result.org,
+					connectionId: result.connectionId,
+					cursor: result.nextCursor,
+				});
 			}
 			if (result.exhausted) {
-				exhausted.push({ providerId: result.providerId, org: result.org });
+				exhausted.push({ providerId: result.providerId, org: result.org, connectionId: result.connectionId });
 			}
 			if (result.hasMore) {
 				hasMore = true;

@@ -75,7 +75,10 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		assert.equal(capturedCursor, JSON.stringify({ value: 2, type: 'page' }), 'page 2 encoded as a page cursor');
 		assert.deepEqual(result.items, [pr]);
-		assert.equal(result.page.currentPage, 2);
+		// GitHub PR search is cursor-only and reports no `currentPage`; it ignored the synthesized page-number
+		// cursor and returned its first page, so the echoed page must be 1 (not the requested 2) — the opaque
+		// `endCursor` is what the caller threads to actually advance.
+		assert.equal(result.page.currentPage, 1);
 		assert.equal(result.hasMore, true, 'hasMore reflects paging.more');
 		assert.equal(
 			result.cursor,
@@ -422,8 +425,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getProjectsForResourcesResult = () =>
 			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
-		(jira as unknown as { getAccountForResource: () => Promise<{ username: string }> }).getAccountForResource =
-			() => Promise.resolve({ username: 'me' });
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let capturedUser: string | undefined;
 		(
 			jira as unknown as {
@@ -460,8 +464,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			linear as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getProjectsForResourcesResult = () =>
 			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
-		(linear as unknown as { getAccountForResource: () => Promise<{ username: string }> }).getAccountForResource =
-			() => Promise.resolve({ username: 'me' });
+		(
+			linear as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		// A thrown/unsupported read (Linear's not-implemented) recovers into { error } at the result core.
 		(
 			linear as unknown as { getIssuesForProjectResult: () => Promise<{ error: Error }> }
@@ -488,8 +493,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getProjectsForResourcesResult = () =>
 			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
 		// Current-user lookup fails → undefined. Must NOT broaden to all-visible.
-		(jira as unknown as { getAccountForResource: () => Promise<undefined> }).getAccountForResource = () =>
-			Promise.resolve(undefined);
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: undefined }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: undefined });
 		let readCalled = false;
 		(
 			jira as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
@@ -509,28 +515,39 @@ suite('ProviderBackend surface facade (#5438)', () => {
 	test('listPullRequestsPage warns instead of fetching all when no requested filter is supported (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
-		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		// GitLab supports only [Author, ReviewRequested], so `Assignee` is genuinely unsupported there —
+		// exercising the real unsupported-filter guard (not an incomplete-stub TypeError as before).
+		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
+		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'gitlab.com',
+		};
 
 		let readCalled = false;
-		stubApi(gh, {
+		stubApi(gl, {
 			isRepoIdsInput: () => false,
-			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repo,
+			providerSupportsPullRequestFilters: () => false,
+			getCurrentUser: () => Promise.resolve({ username: 'me', id: 'me' }),
+			getPullRequestsForRepo: () => {
+				readCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
 			getPullRequestsForRepos: () => {
 				readCalled = true;
 				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
 			},
 		});
 
-		// Mention is not in GitHub's supported PR filters; requesting only it must not silently fetch all PRs.
 		const result = await manager.listPullRequestsPage({
-			providerId: GitCloudHostIntegrationId.GitHub,
-			repos: repos,
-			filters: [PullRequestFilter.Mention],
+			providerId: GitCloudHostIntegrationId.GitLab,
+			repos: [{ namespace: 'g', name: 'r' }],
+			filters: [PullRequestFilter.Assignee],
 		});
 		assert.equal(readCalled, false, 'the read is skipped rather than run unfiltered');
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
+		assert.equal(result.warnings[0].kind, 'other');
 
 		manager.dispose();
 	});

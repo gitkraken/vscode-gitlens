@@ -68,7 +68,8 @@ suite('sweep + broaden (#5438)', () => {
 		});
 
 		assert.equal(result.items.length, 2, 'drained exactly maxPages pages');
-		assert.equal(result.page.allPages, true);
+		// allPages asserts completeness — false here because the drain stopped at maxPages with more available.
+		assert.equal(result.page.allPages, false);
 		assert.equal(result.page.truncated, true, 'stopping at maxPages with more available marks truncated');
 		assert.equal(result.hasMore, true);
 		assert.equal(result.fetchFailed, undefined);

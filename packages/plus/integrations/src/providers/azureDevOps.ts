@@ -523,7 +523,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		const states = toProviderPullRequestStates(state);
 
 		const user = await this.getProviderCurrentAccount(session);
-		if (user?.username == null) return undefined;
+		// Azure filters key on the identity GUID (account id), not the display name — see
+		// getProviderMyPullRequestsForUser and the repo-scoped path in gitHostIntegration.ts.
+		if (user?.id == null) return undefined;
 
 		const orgs = await this.getProviderResourcesForUser(session);
 		if (orgs == null || orgs.length === 0) return undefined;
@@ -542,14 +544,14 @@ export abstract class AzureDevOpsIntegrationBase<
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
-				assigneeLogins: [user.username],
+				assigneeLogins: [user.id],
 				states: states,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
-				authorLogin: user.username,
+				authorLogin: user.id,
 				states: states,
 			})
 		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
@@ -574,7 +576,10 @@ export abstract class AzureDevOpsIntegrationBase<
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
-		if (user?.username == null) return undefined;
+		// Azure routes authorLogin/assigneeLogins to `searchCriteria.creatorId`/`reviewerId`, which require the
+		// identity GUID (account id), not the display name — matching the repo-scoped path in
+		// gitHostIntegration.ts. Using `username` here would match nothing and return zero PRs.
+		if (user?.id == null) return undefined;
 
 		// Azure PRs are org + project scoped: enumerate the user's orgs and their projects, then read authored
 		// and assigned PRs across all of them. Return the raw provider shape (not the normalized model) so the
@@ -591,12 +596,12 @@ export abstract class AzureDevOpsIntegrationBase<
 		const [assignedPrs, authoredPrs] = await Promise.all([
 			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...apiOptions,
-				assigneeLogins: [user.username],
+				assigneeLogins: [user.id],
 				states: states,
 			}),
 			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...apiOptions,
-				authorLogin: user.username,
+				authorLogin: user.id,
 				states: states,
 			}),
 		]);

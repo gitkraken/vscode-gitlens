@@ -23,6 +23,19 @@ export abstract class IssuesIntegration<
 	@gate()
 	@trace()
 	async getAccountForResource(resource: T, connectionId?: string): Promise<Account | undefined> {
+		return (await this.getAccountForResourceResult(resource, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getAccountForResource}. Recovers a thrown error into `{ error }` so
+	 * callers can preserve its classification (e.g. a 401/403 → an `auth` warning that drives re-auth)
+	 * instead of collapsing every failure into an untyped `undefined`.
+	 */
+	@gate()
+	async getAccountForResourceResult(
+		resource: T,
+		connectionId?: string,
+	): Promise<IntegrationResult<Account | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -31,10 +44,10 @@ export abstract class IssuesIntegration<
 		try {
 			const account = await this.getProviderAccountForResource(session, resource);
 			this.resetRequestExceptionCount('getAccountForResource');
-			return account;
+			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex);
-			return undefined;
+			return { error: ex };
 		}
 	}
 
