@@ -8,6 +8,7 @@ import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../cons
 import { AuthenticationError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderIssue, ProviderOrganization, ProviderPullRequest } from '../providers/models.js';
 import { PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -170,7 +171,20 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const issue = { id: '7' } as unknown as ProviderIssue;
+		// A raw provider issue with the fields toIssueShape requires (updatedDate + url), since listIssuesPage
+		// now normalizes repo-scoped results to IssueShape.
+		const issue = {
+			id: '7',
+			number: '7',
+			title: 'Issue 7',
+			url: 'https://github.com/o/r/issues/7',
+			createdDate: new Date(0),
+			updatedDate: new Date(0),
+			closedDate: null,
+			author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+			assignees: [],
+			labels: [],
+		} as unknown as ProviderIssue;
 		let capturedCursor: string | undefined;
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
@@ -190,9 +204,42 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			page: 4,
 		});
 		assert.equal(capturedCursor, JSON.stringify({ value: 4, type: 'page' }));
-		assert.deepEqual(result.items, [issue]);
+		assert.equal(result.items.length, 1, 'the repo-scoped issue is normalized and returned');
+		assert.equal(result.items[0].id, '7');
 		assert.equal(result.hasMore, false);
 		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage with no repos reads the account-wide user issues core (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let reposCoreCalled = false;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: () => {
+				reposCoreCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+		// The account-wide core returns normalized IssueShapes; stub the model hook the empty-repos path uses.
+		(
+			gh as unknown as { searchMyIssuesResult: () => Promise<IntegrationResult<IssueShape[]>> }
+		).searchMyIssuesResult = () => Promise.resolve({ value: [{ id: 'mine' } as unknown as IssueShape] });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub });
+		assert.equal(
+			reposCoreCalled,
+			false,
+			'no repos → the repo-scoped core (which rejects empty input) is not called',
+		);
+		assert.equal(result.items.length, 1, 'account-wide user issues are returned');
+		assert.equal(result.items[0].id, 'mine');
 
 		manager.dispose();
 	});

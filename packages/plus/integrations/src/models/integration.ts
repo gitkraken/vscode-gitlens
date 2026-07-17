@@ -559,6 +559,19 @@ export abstract class IntegrationBase<
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchMyIssuesResult(resources, cancellation, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link searchMyIssues}. Recovers thrown errors into `{ error }` so callers
+	 * (e.g. the ProviderBackend account-wide issues read) can surface a per-provider warning instead of a
+	 * silent empty result. Returns the normalized {@link IssueShape} (there is no raw account-wide issue read).
+	 */
+	async searchMyIssuesResult(
+		resources?: ResourceDescriptor | ResourceDescriptor[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -571,10 +584,10 @@ export abstract class IntegrationBase<
 				cancellation,
 			);
 			this.resetRequestExceptionCount('searchMyIssues');
-			return issues;
+			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope });
-			return undefined;
+			return { error: ex };
 		}
 	}
 

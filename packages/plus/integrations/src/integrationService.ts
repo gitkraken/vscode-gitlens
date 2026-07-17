@@ -66,7 +66,7 @@ import type {
 	ProviderRepository,
 	PullRequestFilter,
 } from './providers/models.js';
-import { providersMetadata } from './providers/models.js';
+import { providersMetadata, toIssueShape } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import type {
 	ProviderBroadenResult,
@@ -1396,8 +1396,12 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
-	 * Reads one page of the user's issues for the given git-host provider, scoped to `repos`. Composes the
-	 * git-host read core, translating `page` ↔ the provider's opaque cursor.
+	 * Reads one page of the user's issues for the given git-host provider. Returns the normalized
+	 * {@link IssueShape} (uniform with {@link listIssueTrackerIssuesPage}). With `repos`, reads those repos'
+	 * issues (translating `page` ↔ the provider's opaque cursor) and maps the raw provider issues to shapes.
+	 * With no `repos`, reads the current user's issues account-wide — the repo-scoped core rejects an empty
+	 * `repos` input for GitHub/Bitbucket/Azure, so route to the account-wide `searchMyIssues` core instead
+	 * (which is already user-scoped and returns shapes, but is a single unpaginated fan-out).
 	 */
 	async listIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1409,7 +1413,7 @@ export class IntegrationService implements Disposable {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
-	}): Promise<ProviderPagedResult<ProviderIssue>> {
+	}): Promise<ProviderPagedResult<IssueShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
@@ -1428,6 +1432,25 @@ export class IntegrationService implements Disposable {
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+		const accountWide = (options.repos?.length ?? 0) === 0;
+
+		if (accountWide) {
+			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
+			// already-user-scoped core instead. It returns normalized shapes and no resumable cursor, so this
+			// is reported as a single page.
+			const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
+				integration.searchMyIssuesResult(undefined, undefined, options.connectionId),
+			);
+			const items = value ?? [];
+			return {
+				items: items,
+				warnings: warning != null ? [warning] : [],
+				page: { currentPage: 1, itemsPerPage: items.length },
+				hasMore: false,
+				fetchFailed: (warning != null && value == null) || undefined,
+			};
+		}
+
 		const cursor = options.cursor ?? this.pageToCursor(page);
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 			integration.getMyIssuesForReposResult(
@@ -1445,7 +1468,10 @@ export class IntegrationService implements Disposable {
 			),
 		);
 
-		const items = value?.values ?? [];
+		// The repo-scoped core returns the raw provider shape; normalize to IssueShape for a uniform contract.
+		const items = (value?.values ?? [])
+			.map(issue => toIssueShape(issue, integration))
+			.filter((issue): issue is IssueShape => issue != null);
 		const paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		return {
 			items: items,
