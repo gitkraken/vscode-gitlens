@@ -1,5 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
@@ -95,10 +97,11 @@ suite('Linear issue reads (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('getIssuesForProject returns [] (not the unfiltered issues) when the viewer id cannot be resolved', async () => {
+	test('getIssuesForProject surfaces an error (not [] and not the unfiltered issues) when the viewer is unresolved', async () => {
 		// Regression guard for the "my-issues leak": when a user scope is requested but the current viewer
-		// can't be resolved, returning the unfiltered team issues would leak everyone else's. This has
-		// regressed twice along this axis, so pin the exact branch.
+		// can't be resolved, returning the unfiltered team issues would leak everyone else's, and returning []
+		// is indistinguishable from "no issues assigned to me". This has regressed twice along this axis, so
+		// pin that it surfaces an error the facade can turn into a warning + fetchFailed.
 		const manager = createIntegrationManager(createFakeRuntime());
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
 		(linear as unknown as { _session: ProviderAuthenticationSession })._session = linearSession();
@@ -116,8 +119,18 @@ suite('Linear issue reads (#5438)', () => {
 			getLinearCurrentUser: () => Promise.resolve(undefined),
 		});
 
-		const issues = await linear.getIssuesForProject({ key: 't1', id: 't1', name: 'Team 1' }, { user: 'ada' });
-		assert.deepEqual(issues, [], 'no issues leak when the viewer is unresolved');
+		// The result-returning core recovers the throw into { error } (no leaked issues, distinguishable from
+		// a genuinely empty read).
+		const result = await (
+			linear as unknown as {
+				getIssuesForProjectResult: (
+					p: ResourceDescriptor,
+					o?: { user?: string },
+				) => Promise<{ value?: IssueShape[]; error?: unknown }>;
+			}
+		).getIssuesForProjectResult({ key: 't1', id: 't1', name: 'Team 1' }, { user: 'ada' });
+		assert.equal(result.value, undefined, 'no issues leak when the viewer is unresolved');
+		assert.ok(result.error != null, 'an unresolved viewer is surfaced as an error, not a silent empty');
 
 		manager.dispose();
 	});

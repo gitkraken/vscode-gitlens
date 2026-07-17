@@ -92,7 +92,7 @@ suite('Trello integration (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a session without an appKey yields no results instead of calling the client', async () => {
+	test('a session without an appKey surfaces an error instead of an empty read (and never calls the client)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
 		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession(undefined);
@@ -105,9 +105,15 @@ suite('Trello integration (#5438)', () => {
 			},
 		});
 
-		const resources = await trello.getResourcesForUser();
-		assert.equal(resources, undefined, 'no appKey → no read');
-		assert.equal(called, false);
+		// A session that authenticated but has no appKey can't read Trello; this must be distinguishable from
+		// an empty account. The result-returning core recovers the thrown IntegrationReadUnavailableError into
+		// { error } (which the facade surfaces as a warning + fetchFailed), and the client is never called.
+		const result = await (
+			trello as unknown as { getResourcesForUserResult: () => Promise<{ value?: unknown; error?: unknown }> }
+		).getResourcesForUserResult();
+		assert.equal(result.value, undefined, 'no appKey → no data');
+		assert.ok(result.error != null, 'a missing appKey is surfaced as an error, not an empty account');
+		assert.equal(called, false, 'the client is never called without an appKey');
 
 		manager.dispose();
 	});

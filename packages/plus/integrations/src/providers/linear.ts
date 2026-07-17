@@ -9,6 +9,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { IssueFilter, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
@@ -207,9 +208,15 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		if (options?.user != null) {
 			const viewerId = (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
 			// If the viewer can't be resolved we can't scope to "my issues" — returning the unfiltered team
-			// issues would leak everyone else's. Return none rather than broaden silently; the facade
-			// (getIssuesForProjectResult → runCaptured) still surfaces the empty read to the caller.
-			if (viewerId == null) return [];
+			// issues would leak everyone else's, and returning [] is indistinguishable from "no issues assigned
+			// to me". Throw so the facade (getIssuesForProjectResult → runCaptured) surfaces a warning +
+			// fetchFailed the caller can act on, instead of a silent empty.
+			if (viewerId == null) {
+				throw new IntegrationReadUnavailableError(
+					metadata.name,
+					'could not resolve the current user to scope issues to',
+				);
+			}
 			return issues.filter(issue => issue.assignees?.some(a => a.id === viewerId));
 		}
 

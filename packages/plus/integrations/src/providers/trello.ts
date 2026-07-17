@@ -7,6 +7,7 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { IssueFilter } from './models.js';
 import { providersMetadata, toIssueShape } from './models.js';
@@ -38,12 +39,23 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return session.appKey;
 	}
 
+	/**
+	 * Resolves the app key or throws — a session that authenticated but carries no app key can't read Trello,
+	 * and must be surfaced as a broken read (warning + fetchFailed) rather than an empty account.
+	 */
+	private requireAppKey(session: ProviderAuthenticationSession): string {
+		const appKey = this.appKeyFor(session);
+		if (appKey == null) {
+			throw new IntegrationReadUnavailableError(metadata.name, 'missing app key (session has no appKey)');
+		}
+		return appKey;
+	}
+
 	protected override async getProviderAccountForResource(
 		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
-		const appKey = this.appKeyFor(session);
-		if (appKey == null) return undefined;
+		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();
 		const user = await api.getTrelloCurrentUser(toTokenWithInfo(this.id, session), appKey);
@@ -62,8 +74,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	protected override async getProviderResourcesForUser(
 		session: ProviderAuthenticationSession,
 	): Promise<TrelloBoardDescriptor[] | undefined> {
-		const appKey = this.appKeyFor(session);
-		if (appKey == null) return undefined;
+		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();
 		const boards = await api.getTrelloBoardsForCurrentUser(toTokenWithInfo(this.id, session), appKey);
@@ -85,8 +96,9 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		project: ResourceDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		const appKey = this.appKeyFor(session);
-		if (appKey == null || !isIssueResourceDescriptor(project)) return undefined;
+		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
+		if (!isIssueResourceDescriptor(project)) return undefined;
+		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
