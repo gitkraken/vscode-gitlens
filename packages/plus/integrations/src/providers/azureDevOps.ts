@@ -597,12 +597,15 @@ export abstract class AzureDevOpsIntegrationBase<
 		// Drain each project fully (numbered pages) for both the authored and assigned reads. Azure has no
 		// single cross-project cursor, so the aggregate is one page; `truncated` is set only if a project hit
 		// the backstop with more pages remaining.
-		const prsById = new Map<string, ProviderPullRequest>();
 		let truncated = false;
+		// Drain one project's numbered pages, returning its PRs. Returns per-project (not mutating shared
+		// state) so the fan-out below can be settled independently: one project's read failure must not
+		// discard every other project's already-drained PRs.
 		const drainProject = async (
 			project: { namespace: string; project: string },
 			scope: { authorLogin?: string; assigneeLogins?: string[] },
-		): Promise<void> => {
+		): Promise<ProviderPullRequest[]> => {
+			const collected: ProviderPullRequest[] = [];
 			let page: number | undefined;
 			for (let i = 0; i < maxPagesPerProject; i++) {
 				const result = await api.getPullRequestsForAzureProject(tokenWithInfo, project, {
@@ -613,11 +616,7 @@ export abstract class AzureDevOpsIntegrationBase<
 				});
 				if (result == null) break;
 
-				for (const pr of result.data) {
-					if (!prsById.has(pr.id)) {
-						prsById.set(pr.id, pr);
-					}
-				}
+				collected.push(...result.data);
 				if (!result.hasMore || result.nextPage == null) break;
 
 				page = result.nextPage;
@@ -625,9 +624,12 @@ export abstract class AzureDevOpsIntegrationBase<
 					truncated = true;
 				}
 			}
+			return collected;
 		};
 
-		await Promise.all(
+		// `flatSettled` isolates per-project failures (a 429/403/network blip on one project degrades to
+		// partial data, mirroring the account-wide issue reads above) instead of rejecting the whole sweep.
+		const drained = await flatSettled(
 			projects.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
 				return [
@@ -636,6 +638,14 @@ export abstract class AzureDevOpsIntegrationBase<
 				];
 			}),
 		);
+
+		// Dedupe by id: a PR the user both authored and is assigned to appears in both reads.
+		const prsById = new Map<string, ProviderPullRequest>();
+		for (const pr of drained) {
+			if (!prsById.has(pr.id)) {
+				prsById.set(pr.id, pr);
+			}
+		}
 
 		return {
 			values: [...prsById.values()],

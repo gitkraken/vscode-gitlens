@@ -554,4 +554,51 @@ suite('sweep + broaden (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test("Azure account-wide PR read: one project's failure does not discard the others (#5438)", async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// The 'bad' project's read throws (e.g. a 429/403 mid-sweep); the 'good' project drains cleanly. The
+		// fan-out must be settled per-project so the failure doesn't take down the good project's PRs.
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }) => {
+				if (project.project === 'bad') return Promise.reject(new Error('boom'));
+				return Promise.resolve({
+					data: [{ id: `pr-${project.project}` } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				});
+			},
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve([
+				{ resourceName: 'org-1', name: 'good' },
+				{ resourceName: 'org-1', name: 'bad' },
+			]);
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		const ids = result?.value?.values.map(pr => pr.id) ?? [];
+		assert.deepEqual(ids, ['pr-good'], "the good project's PRs survive the bad project's failure");
+
+		manager.dispose();
+	});
 });

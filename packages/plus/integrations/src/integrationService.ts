@@ -1551,8 +1551,10 @@ export class IntegrationService implements Disposable {
 	}): Promise<ProviderPagedResult<IssueShape>> {
 		// Resolve the requested 1-based page from an explicit `page` or the opaque page cursor (either may be
 		// supplied; the cursor wins so a threaded continuation isn't clobbered).
-		const page = Math.max(1, parsePageCursor(options.cursor) ?? options.page ?? 1);
-		const projectsPerPage = Math.max(1, options.itemsPerPage ?? 20);
+		// Floor both so a fractional input can't produce a fractional slice bound (slice tolerates it, but the
+		// intent is integer pages/windows).
+		const page = Math.max(1, Math.trunc(parsePageCursor(options.cursor) ?? options.page ?? 1));
+		const projectsPerPage = Math.max(1, Math.trunc(options.itemsPerPage ?? 20));
 
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
