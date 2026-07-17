@@ -9,7 +9,11 @@ import type { AgentSessionState, AgentSessionWorktreeMetadata } from './models/a
 import { getSessionDisplayName, serializeAgentSession } from './models/agentSessionState.js';
 import type { AgentSession, AgentSessionProvider, PermissionDecision, PermissionSuggestion } from './provider.js';
 import { isClaudeExtensionAvailable, tryOpenClaudeSession } from './utils/-webview/claudeExtension.js';
-import { canResumeSession, resumeClaudeSessionInTerminal } from './utils/-webview/claudeResume.js';
+import {
+	canResumeSession,
+	resumeClaudeSessionInTerminal,
+	toResumableSessionRef,
+} from './utils/-webview/claudeResume.js';
 
 export class AgentStatusService implements Disposable {
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -610,7 +614,7 @@ export class AgentStatusService implements Disposable {
 		const action = 'Resume in Terminal';
 		const choice = await window.showWarningMessage(`${warning} Resume it in a terminal?`, action);
 		if (choice === action) {
-			await resumeClaudeSessionInTerminal(session, this.container);
+			await resumeClaudeSessionInTerminal(toResumableSessionRef(session), this.container);
 		}
 	}
 
