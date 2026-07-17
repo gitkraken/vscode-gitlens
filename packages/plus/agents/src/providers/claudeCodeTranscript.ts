@@ -97,12 +97,16 @@ export class ClaudeCodeTranscriptReader {
 		this._generations.delete(sessionId);
 	}
 
+	protected getProjectsRoot(): string {
+		return join(homedir(), '.claude', 'projects');
+	}
+
 	protected async locateTranscript(sessionId: string, cwd: string | undefined): Promise<string | undefined> {
-		const root = join(homedir(), '.claude', 'projects');
+		const root = this.getProjectsRoot();
 		const fileName = `${sessionId}.jsonl`;
 
-		if (cwd != null && cwd.length > 0) {
-			const encoded = cwd.replace(/[/\\:]/g, '-');
+		const encoded = cwd != null && cwd.length > 0 ? encodeProjectDirName(cwd) : undefined;
+		if (encoded != null) {
 			const candidate = join(root, encoded, fileName);
 			if (await fileExists(candidate)) return candidate;
 		}
@@ -112,6 +116,17 @@ export class ClaudeCodeTranscriptReader {
 			dirs = await readdir(root);
 		} catch {
 			return undefined;
+		}
+
+		// Windows: our paths carry a lower-cased drive letter (`normalizePath`), but Claude encodes the
+		// OS-native cwd (`C:\...` → `C--...`), so the exact probe above misses on every Windows path.
+		if (encoded != null) {
+			const lowered = encoded.toLowerCase();
+			const match = dirs.find(d => d !== encoded && d.toLowerCase() === lowered);
+			if (match != null) {
+				const candidate = join(root, match, fileName);
+				if (await fileExists(candidate)) return candidate;
+			}
 		}
 
 		const candidates = await Promise.all(
@@ -187,6 +202,14 @@ function applyTitleLine(line: string, sessionId: string, titles: TranscriptTitle
 			}
 			break;
 	}
+}
+
+/** Encodes a launch cwd into its `~/.claude/projects` directory name. Claude replaces every
+ *  non-alphanumeric character — not just separators — preserving runs (`/home/e/.claude` →
+ *  `-home-e--claude`) and case. Separators-only would leave the dot in our own worktree convention
+ *  (`<repo>.worktrees/<name>`) intact and compute a directory that never exists. */
+export function encodeProjectDirName(cwd: string): string {
+	return cwd.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 function isLikelyTitleLine(line: string): boolean {

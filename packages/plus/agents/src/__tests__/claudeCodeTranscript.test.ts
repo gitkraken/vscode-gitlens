@@ -4,7 +4,7 @@ import { appendFile, mkdir, utimes, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
-import { ClaudeCodeTranscriptReader } from '../providers/claudeCodeTranscript.js';
+import { ClaudeCodeTranscriptReader, encodeProjectDirName } from '../providers/claudeCodeTranscript.js';
 
 /** A reader subclass that overrides transcript location to point at a temp directory, so tests
  *  don't need to touch `~/.claude/projects/`. */
@@ -237,27 +237,85 @@ suite('ClaudeCodeTranscriptReader', () => {
 		assert.strictEqual(reader.cache().has(sessionId), false, 'forget must beat a concurrent resolve write');
 	});
 
-	test('locator: uses real directory lookup when no override is set', async () => {
-		// Build a real-shaped layout: <root>/projects/<encoded-cwd>/<sessionId>.jsonl
-		const projects = join(tmpRoot, 'projects');
-		const cwd = '/Users/me/repo';
-		const encoded = cwd.replace(/[/\\:]/g, '-');
-		const projectDir = join(projects, encoded);
-		await mkdir(projectDir, { recursive: true });
-		const path = join(projectDir, `${sessionId}.jsonl`);
-		await writeFile(path, jsonl(aiTitle(sessionId, 'Located')));
+	test('locator: resolves through the encoded cwd directory', async () => {
+		// Seed a *literal* dir name — deriving it from `encodeProjectDirName` would make this pass
+		// under any encoding. The dot in `.worktrees` is what a separators-only rule leaves intact.
+		const projects = await seedProject(tmpRoot, '-Users-me-repo-worktrees-bug-graph-wip', sessionId, 'Located');
 
-		// Build a reader that uses our temp `projects` dir as root via subclass override.
-		class RootedReader extends ClaudeCodeTranscriptReader {
-			protected override locateTranscript(sid: string): Promise<string | undefined> {
-				return Promise.resolve(join(projectDir, `${sid}.jsonl`));
-			}
-		}
-		const reader = new RootedReader();
-		const titles = await reader.resolve(sessionId, cwd);
+		const reader = new RootedReader(projects);
+		const titles = await reader.resolve(sessionId, '/Users/me/repo.worktrees/bug/graph-wip');
 		assert.strictEqual(titles?.ai, 'Located');
 	});
+
+	test('locator: matches the encoded directory case-insensitively', async () => {
+		// Claude encodes the OS-native cwd (`C:\Users\me\repo`), but our paths carry a lower-cased
+		// drive letter — an exact-name probe misses on every Windows path.
+		const projects = await seedProject(tmpRoot, 'C--Users-me-repo', sessionId, 'Windows');
+
+		const reader = new RootedReader(projects);
+		const titles = await reader.resolve(sessionId, 'c:/Users/me/repo');
+		assert.strictEqual(titles?.ai, 'Windows');
+	});
+
+	test('locator: falls back to scanning every project dir when the encoded cwd misses', async () => {
+		// Covers cwd drift: the session was launched elsewhere and `cd`'d, so its recorded cwd no
+		// longer encodes to the directory it actually lives in.
+		const projects = await seedProject(tmpRoot, '-somewhere-else-entirely', sessionId, 'Found by scan');
+
+		const reader = new RootedReader(projects);
+		const titles = await reader.resolve(sessionId, '/Users/me/drifted');
+		assert.strictEqual(titles?.ai, 'Found by scan');
+	});
+
+	test('locator: returns undefined when no project dir holds the session', async () => {
+		const projects = await seedProject(tmpRoot, '-Users-me-repo', 'a-different-session', 'Nope');
+
+		const reader = new RootedReader(projects);
+		const titles = await reader.resolve(sessionId, '/Users/me/repo');
+		assert.strictEqual(titles, undefined);
+	});
 });
+
+suite('encodeProjectDirName', () => {
+	const cases: [cwd: string, expected: string][] = [
+		['/Users/me/repo', '-Users-me-repo'],
+		// Our own worktree convention — the dot must collapse, or we compute a dir that never exists
+		['/Users/me/repo.worktrees/bug/graph-wip', '-Users-me-repo-worktrees-bug-graph-wip'],
+		// Runs are preserved, not collapsed
+		['/Users/me/.claude', '-Users-me--claude'],
+		// Case is preserved
+		['/Users/me/GitKrakenComponents', '-Users-me-GitKrakenComponents'],
+		// Every non-alphanumeric goes, not just separators
+		['/Users/me/repo+branch', '-Users-me-repo-branch'],
+		['/Users/me/my_repo', '-Users-me-my-repo'],
+		['C:\\Users\\me\\repo', 'C--Users-me-repo'],
+	];
+
+	for (const [cwd, expected] of cases) {
+		test(`encodes ${cwd}`, () => {
+			assert.strictEqual(encodeProjectDirName(cwd), expected);
+		});
+	}
+});
+
+/** Reader rooted at a temp `projects` dir so the real locator runs without touching `~/.claude`. */
+class RootedReader extends ClaudeCodeTranscriptReader {
+	constructor(private readonly _root: string) {
+		super();
+	}
+	protected override getProjectsRoot(): string {
+		return this._root;
+	}
+}
+
+/** Builds `<tmpRoot>/projects/<dirName>/<sessionId>.jsonl` carrying `title`; returns the projects root. */
+async function seedProject(tmpRoot: string, dirName: string, sessionId: string, title: string): Promise<string> {
+	const projects = join(tmpRoot, 'projects');
+	const dir = join(projects, dirName);
+	await mkdir(dir, { recursive: true });
+	await writeFile(join(dir, `${sessionId}.jsonl`), jsonl(aiTitle(sessionId, title)));
+	return projects;
+}
 
 /** Subclass that exposes a read counter for cache assertions. */
 class TrackingReader extends ClaudeCodeTranscriptReader {
