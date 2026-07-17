@@ -40,6 +40,12 @@ export default defineConfig<CustomOptions>({
 			},
 			// Forks opt out of editor-incompatible specs via the `@no-fork` tag (see docs/testing.md).
 			grepInvert: e.id === 'vscode' ? undefined : /@no-fork/,
+			// Experimental forks are informational (continue-on-error in CI). Some are structurally
+			// un-runnable on a fresh CI profile (e.g. Cursor's un-skippable sign-in wall — see baseTest.ts
+			// assertWorkbenchReachable), so retrying their deterministic failures 2× would only triple an
+			// already-doomed job's wall-clock (risking the 20-min cancel) for no signal. Give them a single
+			// shot; VS Code + non-experimental forks keep the standard CI retry budget.
+			retries: process.env.CI && e.experimental ? 0 : undefined,
 		})),
 	testMatch: '*.test.ts',
 });

@@ -103,6 +103,37 @@ async function dismissOnboardingOverlays(page: Page): Promise<void> {
 	}
 }
 
+/**
+ * Some VS Code forks hard-gate their entire workbench behind a full-screen sign-in wall on a fresh
+ * (unauthenticated) profile — every CI run and every harness-created temp profile is such a profile.
+ * Cursor shows `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features require you to be
+ * logged in"): there is no "continue without an account" affordance, Escape does nothing, and the
+ * workbench stays in `nomaineditorarea nosidebar`, so every pointer event is swallowed and UI-driven
+ * specs would each burn their full 30s click timeout before failing (a ~20-min job that gets cancelled).
+ * We can't bypass it — it requires a real auth token we won't (and CI can't) carry, and seeding the
+ * non-auth onboarding flags into `state.vscdb` does not lift it (verified).
+ *
+ * So detect it and fail fast with a clear message. On such a login-walled fork this throws during the
+ * (worker-scoped) `vscode` fixture setup, turning each doomed UI spec into an immediate, self-explanatory
+ * failure instead of a 30s-per-click timeout. Login-walled forks are `experimental` (informational /
+ * continue-on-error in CI), so a fast red is the honest outcome. No-op on VS Code and forks that reach a
+ * normal workbench (Windsurf).
+ */
+async function assertWorkbenchReachable(page: Page, editorId: string): Promise<void> {
+	if (editorId === 'vscode') return;
+
+	// Cursor's sign-in wall. Add other forks' login-overlay selectors here if they surface the same way.
+	const signInWall = await page.locator('.onboarding-v2-overlay').count();
+	if (signInWall > 0) {
+		throw new Error(
+			`E2E editor "${editorId}" is showing a sign-in wall (.onboarding-v2-overlay) on this fresh ` +
+				`profile and its workbench is unreachable — UI-driven specs cannot run without an authenticated ` +
+				`account (see docs/testing.md). This is a known structural limitation of the fork, not a product ` +
+				`or harness bug.`,
+		);
+	}
+}
+
 /** Xvfb display number used for headless Linux testing */
 const XVFB_DISPLAY = ':99';
 
@@ -175,6 +206,30 @@ function patchTestVSCodeProductJson(vscodePath: string): void {
 			writeFileSync(productJsonPath, JSON.stringify(product, null, '\t'));
 		}
 		break;
+	}
+}
+
+/**
+ * Force-kills an editor process tree by its main PID.
+ *
+ * Windows does not cascade termination to child processes, so a worker whose `electronApp.close()`
+ * hangs or half-completes (timed-out or crashed editor) leaves orphaned renderer / GPU / utility /
+ * spawned-`git` children behind — visible locally as a pile of stray `Cursor`/`Code`/`git`/
+ * `chrome_crashpad_handler` processes after a run. Killing the tree from the still-live main PID
+ * (`taskkill /T`) reaps them. A no-op when the process already exited cleanly (the happy path).
+ * Scoped strictly to this instance's PID so it never touches the developer's own editor windows.
+ */
+function killProcessTree(pid: number | undefined): void {
+	if (pid == null) return;
+
+	try {
+		if (process.platform === 'win32') {
+			execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+		} else {
+			process.kill(pid, 'SIGKILL');
+		}
+	} catch {
+		// Already gone / no such process — nothing to clean up.
 	}
 }
 
@@ -379,7 +434,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 					break;
 				} catch (ex) {
 					// Tear down the half-started editor (if it launched) so the retry starts clean and
-					// no orphan process/socket lingers.
+					// no orphan process/socket lingers. Kill the tree first (while the root is live) so the
+					// fork's helper children are reaped, then let close() settle Playwright's side.
+					killProcessTree(app?.process().pid);
 					await app?.close().catch(() => {});
 					if (attempt >= maxLaunchAttempts) throw ex;
 
@@ -389,34 +446,52 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				}
 			}
 			const evaluate = evaluator.evaluate.bind(evaluator);
+			// Main editor PID, captured up-front so teardown can force-kill the tree even if setup below
+			// throws (e.g. the fail-fast sign-in-wall guard) before `use()` is ever reached.
+			const editorPid = electronApp.process().pid;
 
-			const page = await electronApp.firstWindow();
-			const gitlens = new GitLensPage(page, evaluate);
+			try {
+				const page = await electronApp.firstWindow();
+				const gitlens = new GitLensPage(page, evaluate);
 
-			// Wait for GitLens to activate before providing to tests.
-			// Gate on the extension host (editor-agnostic) so this works on VS Code as well as
-			// forks like Cursor whose customized UI has no standard activity bar to key off of.
-			await waitForGitLensActivation(evaluate);
+				// Wait for GitLens to activate before providing to tests.
+				// Gate on the extension host (editor-agnostic) so this works on VS Code as well as
+				// forks like Cursor whose customized UI has no standard activity bar to key off of.
+				await waitForGitLensActivation(evaluate);
 
-			// Clear any editor onboarding overlay (e.g. Kiro's sign-in page) that would block UI clicks.
-			await dismissOnboardingOverlays(page);
+				// Clear any editor onboarding overlay (e.g. Kiro's sign-in page) that would block UI clicks.
+				await dismissOnboardingOverlays(page);
 
-			// On editors with a standard activity bar, also wait for the GitLens tab to paint so
-			// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor).
-			if ((await page.locator('[id="workbench.parts.activitybar"]').count()) > 0) {
-				await gitlens.waitForActivation();
+				// Fail fast (with a clear message) on a login-walled fork whose workbench is unreachable on a
+				// fresh profile (e.g. Cursor's sign-in wall) instead of letting every UI spec burn its click
+				// timeout. Must come after the dismiss attempt above so a genuinely-dismissable overlay isn't
+				// mistaken for a hard wall.
+				await assertWorkbenchReachable(page, editorId);
+
+				// On editors with a standard activity bar, also wait for the GitLens tab to paint so
+				// UI-driven tests have a settled workbench. Skipped on forks without one (e.g. Cursor).
+				if ((await page.locator('[id="workbench.parts.activitybar"]').count()) > 0) {
+					await gitlens.waitForActivation();
+				}
+
+				await use({
+					electron: { app: electronApp, ...options, workspacePath: workspacePath },
+					gitlens: gitlens,
+					page: page,
+				} satisfies VSCodeInstance);
+			} finally {
+				// Cleanup — runs on the happy path AND when setup above throws, so a failed worker never
+				// leaks its editor.
+				evaluator.close();
+				// Force-kill the whole process tree BEFORE close(): Windows doesn't cascade termination, and
+				// once the main process has exited a `taskkill /T` can no longer walk to its (now-orphaned)
+				// children — so a post-close kill misses the fork's helper processes (language servers,
+				// GPU/utility/renderer). Killing from the still-live root reaps them all; close() then just
+				// settles Playwright's side.
+				killProcessTree(editorPid);
+				await electronApp.close().catch(() => {});
+				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 			}
-
-			await use({
-				electron: { app: electronApp, ...options, workspacePath: workspacePath },
-				gitlens: gitlens,
-				page: page,
-			} satisfies VSCodeInstance);
-
-			// Cleanup
-			evaluator.close();
-			await electronApp.close();
-			await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 		},
 		{ scope: 'worker' },
 	],
