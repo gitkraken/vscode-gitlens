@@ -495,13 +495,22 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		});
 	}
 
+	private _graphObserved = false;
+
+	// Observe the outer `.graph` div once rendered — it contains the entire layout (header, panes,
+	// sidebar, React mount), so freezing this one element freezes everything inside it. Idempotent and
+	// driven from both `firstUpdated` and `updated`: `.graph` is absent on the first render when the
+	// account-access screen replaces the tree (signed out), so it must attach when the graph appears
+	// after sign-in — where `firstUpdated` no longer fires.
+	private ensureGraphObserved(): void {
+		if (this._graphObserved || this.graphRootEl == null || this._graphSizeObserver == null) return;
+
+		this._graphObserved = true;
+		this._graphSizeObserver.observe(this.graphRootEl);
+	}
+
 	protected override firstUpdated(): void {
-		// Observe the outer `.graph` div once it's been rendered. It contains the entire
-		// layout — header, panes, sidebar, the React mount — so freezing this single element
-		// freezes everything inside it without needing to touch other components.
-		if (this.graphRootEl != null) {
-			this._graphSizeObserver?.observe(this.graphRootEl);
-		}
+		this.ensureGraphObserved();
 
 		// Manual refresh entry point (the WIP empty pane's refresh button, routed through the
 		// details panel) — force an immediate refetch rather than waiting on `onLaunchpadChanged`.
@@ -1396,6 +1405,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	override updated(changedProperties: Map<PropertyKey, unknown>): void {
 		super.updated(changedProperties);
 
+		// Attach the `.graph` size observer as soon as the graph tree exists — it isn't rendered on the
+		// first update when the account-access screen replaces it (signed out), and `firstUpdated` won't
+		// fire again after sign-in.
+		this.ensureGraphObserved();
+
 		// Start the Launchpad pipeline once `services` first resolves. `services` is a `@consume`d
 		// context value (not a reactive property), so it won't appear in `changedProperties` — guard
 		// with a one-shot flag instead.
@@ -1592,7 +1606,8 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	resetHover() {
 		// `graphHover` is null when the account-access screen replaces the graph tree (early-return in
-		// `render()`); `onStateUpdate` still fires `resetHover` on every state push regardless.
+		// `render()`); `onStateUpdate` (graph.ts) only calls `resetHover` on state pushes that include
+		// `rows`, and the optional chaining keeps it safe if one arrives while the screen is shown.
 		this.graphHover?.reset();
 	}
 

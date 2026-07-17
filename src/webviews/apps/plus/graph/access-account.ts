@@ -4,7 +4,6 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import { createCommandLink } from '../../../../system/commands.js';
-import type { GlButton } from '../../shared/components/button.js';
 import { graphStateContext } from './context.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
@@ -203,6 +202,8 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 
 	private _cooldownInterval: ReturnType<typeof setInterval> | undefined;
 	private _syncTimer: ReturnType<typeof setTimeout> | undefined;
+	private _lastScreen: 'signin' | 'verify' | undefined;
+	private _lastFocusKey: string | undefined;
 
 	override disconnectedCallback(): void {
 		super.disconnectedCallback?.();
@@ -210,10 +211,44 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		this.clearTimers();
 	}
 
-	protected override firstUpdated(): void {
-		// Defer a frame so the gl-button's inner control has rendered — focusing it before then
-		// throws, since `gl-button.focus()` delegates to a not-yet-rendered `.control`.
-		requestAnimationFrame(() => this.renderRoot.querySelector<GlButton>('gl-button')?.focus());
+	protected override willUpdate(changedProperties: Map<PropertyKey, unknown>): void {
+		super.willUpdate(changedProperties);
+
+		const screen = this.graphState.subscription?.account == null ? 'signin' : 'verify';
+		// The sign-in and verify sub-screens share one reused element instance; drop transient UI state
+		// when switching between them so a stale spinner, cooldown, or "not verified" note can't leak
+		// across the transition.
+		if (this._lastScreen != null && this._lastScreen !== screen) {
+			this.clearTimers();
+			this.waiting = false;
+			this.syncing = false;
+			this.syncChecked = false;
+			this.cooldown = 0;
+		}
+		this._lastScreen = screen;
+	}
+
+	protected override updated(changedProperties: Map<PropertyKey, unknown>): void {
+		super.updated(changedProperties);
+
+		// Keep focus on the primary control whenever the visible view changes — the initial mount, the
+		// sign-in <-> verify switch, and the actions <-> "waiting" swap each remove the focused control,
+		// which would otherwise drop focus to <body>. Defer a frame so the new control's inner element
+		// has rendered (gl-button.focus() delegates to a not-yet-rendered `.control`).
+		const screen = this.graphState.subscription?.account == null ? 'signin' : 'verify';
+		const focusKey = `${screen}:${this.waiting ? 'waiting' : 'idle'}`;
+		if (focusKey === this._lastFocusKey) return;
+
+		this._lastFocusKey = focusKey;
+		requestAnimationFrame(() => {
+			// `gl-button.focus()` delegates to its inner `.control`, which is null while the button is
+			// still rendering or being torn down during a screen swap — ignore focus in that window.
+			try {
+				this.renderRoot?.querySelector<HTMLElement>('gl-button, .cancel')?.focus();
+			} catch {
+				/* control not ready yet */
+			}
+		});
 	}
 
 	override render(): unknown {
