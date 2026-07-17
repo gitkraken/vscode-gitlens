@@ -141,8 +141,8 @@ export const styleguideStyles = css`
 
 	.audit-banner--ok {
 		color: var(--gl-color-success);
-		background: color-mix(in srgb, var(--gl-color-success) 14%, var(--gl-color-surface));
-		border-color: color-mix(in srgb, var(--gl-color-success) 45%, var(--gl-color-surface));
+		background: var(--gl-color-success-bg);
+		border-color: var(--gl-color-success-border);
 	}
 
 	.swatch-row {
@@ -250,7 +250,7 @@ export const styleguideStyles = css`
 
 	.badge--pass {
 		color: var(--gl-color-success);
-		background: color-mix(in srgb, var(--gl-color-success) 16%, var(--gl-color-surface));
+		background: var(--gl-color-success-bg);
 	}
 
 	.badge--fail {

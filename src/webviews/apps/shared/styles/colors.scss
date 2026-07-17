@@ -123,6 +123,8 @@
 	--gl-color-danger: var(--vscode-errorForeground, var(--vscode-editorError-foreground));
 	--gl-color-info: var(--vscode-inputValidation-infoBorder, var(--gl-color-link));
 	--gl-color-on-status: var(--gl-color-on-emphasis-base);
+	--gl-color-success-bg: color-mix(in srgb, var(--gl-color-success) 18%, var(--gl-color-surface));
+	--gl-color-success-border: color-mix(in srgb, var(--gl-color-success) 50%, var(--gl-color-surface));
 	--gl-color-info-bg: color-mix(in srgb, var(--gl-color-info) 18%, var(--gl-color-surface));
 	--gl-color-info-border: color-mix(in srgb, var(--gl-color-info) 50%, var(--gl-color-surface));
 	--gl-color-warning-bg: color-mix(in srgb, var(--gl-color-warning) 18%, var(--gl-color-surface));
@@ -170,4 +172,15 @@
 	--gl-color-diff-added: #2da44e;
 	--gl-color-diff-modified: #bf8700;
 	--gl-color-diff-removed: #cf222e;
+}
+
+// HC themes: highlight's basis (button-background) is the flat black/white control fill there, so
+// the marker/tint vanishes. contrastActiveBorder is VS Code's own "active element" HC color —
+// meaning-bearing, so it stays vivid per the hybrid-HC rule.
+@include utils.scheme-hc-dark(':root:has(', ')') {
+	--gl-color-highlight: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
+}
+
+@include utils.scheme-hc-light(':root:has(', ')') {
+	--gl-color-highlight: var(--vscode-contrastActiveBorder, var(--vscode-focusBorder));
 }

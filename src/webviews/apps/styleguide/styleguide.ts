@@ -8,6 +8,8 @@ import type { LoggerContext } from '../shared/contexts/logger.js';
 import type { HostIpc } from '../shared/ipc.js';
 import type { ThemeChangeEvent } from '../shared/theme.js';
 import { componentGroups, nonElements, undemoed } from './demos/index.js';
+import { patternsStyles } from './patterns.css.js';
+import { renderPatterns } from './patterns.js';
 import { StyleguideStateProvider } from './stateProvider.js';
 import { elementStyles, styleguideStyles } from './styleguide.css.js';
 import '../shared/components/button.js';
@@ -78,7 +80,7 @@ const PALETTE: TokenGroup[] = [
 			{ name: '--gl-color-warning', derivation: '← vscode editorWarning-foreground' },
 			{ name: '--gl-color-danger', derivation: '← vscode errorForeground' },
 			{ name: '--gl-color-info', derivation: '← vscode inputValidation-infoBorder' },
-			{ name: '--gl-color-success-bg', derivation: 'mix(success 16%, surface)' },
+			{ name: '--gl-color-success-bg', derivation: 'mix(success 18%, surface)' },
 			{ name: '--gl-color-warning-bg', derivation: 'mix(warning 18%, surface)' },
 			{ name: '--gl-color-danger-bg', derivation: 'mix(danger 18%, surface)' },
 			{ name: '--gl-color-info-bg', derivation: 'mix(info 18%, surface)' },
@@ -197,10 +199,10 @@ interface Rgba {
 
 @customElement('gl-styleguide-app')
 export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
-	static override styles = [elementStyles, styleguideStyles];
+	static override styles = [elementStyles, styleguideStyles, patternsStyles];
 
 	@query('.probe') private probe!: HTMLElement;
-	@state() private tab: 'tokens' | 'components' | 'elements' = 'tokens';
+	@state() private tab: 'tokens' | 'patterns' | 'components' | 'elements' = 'tokens';
 	@state() private auditOn = localStorage.getItem('gl-styleguide-audit') === 'on';
 	@state() private checkerOn = localStorage.getItem('gl-styleguide-checker') !== 'off';
 	@state() private resolved = new Map<string, string>();
@@ -357,7 +359,7 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 		localStorage.setItem('gl-styleguide-checker', this.checkerOn ? 'on' : 'off');
 	}
 
-	private selectTab(tab: 'tokens' | 'components' | 'elements'): void {
+	private selectTab(tab: 'tokens' | 'patterns' | 'components' | 'elements'): void {
 		this.tab = tab;
 	}
 
@@ -578,6 +580,14 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 							Colors &amp; tokens
 						</button>
 						<button
+							class="tab ${this.tab === 'patterns' ? 'tab--active' : ''}"
+							role="tab"
+							aria-selected=${this.tab === 'patterns'}
+							@click=${() => this.selectTab('patterns')}
+						>
+							Patterns Demo
+						</button>
+						<button
 							class="tab ${this.tab === 'components' ? 'tab--active' : ''}"
 							role="tab"
 							aria-selected=${this.tab === 'components'}
@@ -599,9 +609,11 @@ export class GlStyleguideApp extends GlAppHost<State, StyleguideStateProvider> {
 				<main class="page__content">
 					${this.tab === 'tokens'
 						? this.renderTokensTab()
-						: this.tab === 'components'
-							? this.renderComponentsTab()
-							: this.renderElementsTab()}
+						: this.tab === 'patterns'
+							? renderPatterns()
+							: this.tab === 'components'
+								? this.renderComponentsTab()
+								: this.renderElementsTab()}
 				</main>
 			</div>
 		`;

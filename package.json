@@ -29289,7 +29289,7 @@
 		"icons:svgo": "svgo -q -f ./images/icons/ --config svgo.config.js",
 		"lint:ci": "pnpm run clean:lint && oxlint --type-aware --type-check -c .oxlintrc.ci.json && pnpm run lint:css",
 		"lint:css": "stylelint \"src/webviews/apps/**/*.{scss,ts}\" --cache",
-		"lint:css:fix": "stylelint \"src/webviews/apps/**/*.{scss,ts}\" --cache --fix",
+		"lint:css:fix": "stylelint \"src/webviews/apps/**/*.{scss,ts}\" --cache --fix; oxfmt",
 		"package": "vsce package --no-dependencies",
 		"package-pre": "pnpm run patch-pre && pnpm run package --pre-release",
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
