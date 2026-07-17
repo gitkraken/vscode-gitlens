@@ -52,13 +52,14 @@ import type {
 	UpdateGraphConfigurationParams,
 } from '../../../../plus/graph/protocol.js';
 import { isSecondaryWipSha } from '../../../../plus/graph/protocol.js';
+import { agentSuffixIconFor } from '../../../shared/agentUtils.js';
 import type { GlButton } from '../../../shared/components/button.js';
 import type { CodeIcon } from '../../../shared/components/code-icon.js';
 import { GlMarkdown } from '../../../shared/components/markdown/markdown.react.jsx';
 import type { RunningOperationBucket } from '../components/detailsState.js';
 import { rowAdornmentTooltipFor, statusIconFor } from '../components/runningOperationStatus.js';
 import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
-import { agentIndicatorTooltipFor, agentSuffixIconFor } from '../components/wipRowAgentStatus.js';
+import { agentIndicatorTooltipFor } from '../components/wipRowAgentStatus.js';
 import type { GraphStateProvider } from '../stateProvider.js';
 import { getCommitDateFromRow, pickRowUndoTarget } from '../utils/row.utils.js';
 import {

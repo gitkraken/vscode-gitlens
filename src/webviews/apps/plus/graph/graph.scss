@@ -801,6 +801,21 @@ gl-lit-graph {
 	.gl-graph__row-action.unpushed-push-button {
 		color: var(--branch-status-ahead-foreground);
 	}
+	// Agent indicator phase color. The `.agent-indicator` block further down is nested inside
+	// `.graph-row-actions` — the REACT renderer's container — so it can't reach this renderer's
+	// `.gl-graph__row-actions` rows; these rules are the Lit equivalent (the markup already carries
+	// `agent-indicator--${category}`). Compound selectors, like `.unpushed-push-button` above, so
+	// they outrank `.gl-graph__row-action`'s own `color` on specificity rather than source order.
+	// Tokens come from theme.scss, keeping this aligned with the tree decoration and status pill.
+	.gl-graph__row-action.agent-indicator--needs-input {
+		color: var(--gl-agent-waiting-color);
+	}
+	.gl-graph__row-action.agent-indicator--working {
+		color: var(--gl-agent-working-color);
+	}
+	.gl-graph__row-action.agent-indicator--idle {
+		color: var(--gl-agent-idle-color);
+	}
 	.gl-graph__row-action {
 		position: relative;
 		display: inline-flex;
@@ -839,6 +854,14 @@ gl-lit-graph {
 			linear-gradient(0deg, var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
 			hsl(var(--background));
 		color: var(--vscode-icon-foreground, hsl(var(--foreground)));
+	}
+	// The agent badge IS the phase signal, so it takes the phase color from its button instead of the
+	// neutral foreground above — matching the file tree's agent decoration, and the React renderer,
+	// whose suffix icon already inherits the color from `.agent-indicator`. Scoped to the agent button:
+	// the compose/review/resolve badges sharing this class encode operation state (loading/pass/error),
+	// which must not read as an agent phase. Outranks the base rule on specificity, not source order.
+	.gl-graph__row-action--agent .gl-graph__row-action-status {
+		color: inherit;
 	}
 	.gl-graph__row:hover .gl-graph__row-action-status,
 	.gl-graph__row.is-focused .gl-graph__row-action-status {

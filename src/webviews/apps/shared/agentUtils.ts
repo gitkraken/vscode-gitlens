@@ -27,6 +27,22 @@ export function getAgentCategoryLabel(category: AgentSessionCategory): string {
 	}
 }
 
+/** Corner-badge glyph overlaid on the `robot` identity icon. `idle` has no badge — the bare robot
+ *  in its color carries the meaning. Shared by the graph's WIP row indicator and the file tree's
+ *  agent decoration so both read the same. Callers holding an `AgentSessionPhase` must map through
+ *  {@link agentPhaseToCategory} first (`waiting` → `needs-input`). Pair `working`'s `sync` with
+ *  `modifier="spin"`. */
+export function agentSuffixIconFor(category: AgentSessionCategory): string | undefined {
+	switch (category) {
+		case 'needs-input':
+			return 'warning';
+		case 'working':
+			return 'sync';
+		case 'idle':
+			return undefined;
+	}
+}
+
 /** Kind-aware label for a needs-input phase. Surfaces "Plan ready" / "Question" / "Input needed"
  *  / "Permission" on chips, card phase labels, and status pills so the user can tell at a glance
  *  whether they need to read a plan, answer a question, or just allow a tool call. Falls back to
