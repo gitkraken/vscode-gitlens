@@ -147,19 +147,65 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 
-	protected override getProviderAccountForResource(
-		_session: ProviderAuthenticationSession,
+	protected override async getProviderAccountForResource(
+		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
-		throw new Error('Method not implemented.');
+		const api = await this.getProvidersApi();
+		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
+		// (Trello-style) from the fields the viewer query returns.
+		const user = await api.getLinearCurrentUser(toTokenWithInfo(this.id, session));
+		if (user == null) return undefined;
+
+		return {
+			provider: this,
+			id: user.id,
+			name: user.name ?? user.displayName ?? undefined,
+			username: user.displayName ?? undefined,
+			email: user.email ?? undefined,
+			avatarUrl: undefined,
+		};
 	}
 
-	protected override getProviderIssuesForProject(
-		_session: ProviderAuthenticationSession,
-		_project: ResourceDescriptor,
-		_options?: { user?: string; filters?: IssueFilter[] },
+	protected override async getProviderIssuesForProject(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		throw new Error('Method not implemented.');
+		if (!isIssueResourceDescriptor(project)) return undefined;
+
+		const api = await this.getProvidersApi();
+		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here. Drain the
+		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop.
+		let cursor: string | undefined;
+		let hasMore: boolean;
+		let requestCount = 0;
+		const issues: IssueShape[] = [];
+		do {
+			const result = await api.getLinearIssues(
+				toTokenWithInfo(this.id, session),
+				{ teams: [project.id] },
+				{ cursor: cursor },
+			);
+			requestCount += 1;
+			hasMore = result.paging?.more ?? false;
+			cursor = result.paging?.cursor;
+			for (const issue of result.values) {
+				const shape = toIssueShape(issue, this);
+				if (shape != null) {
+					issues.push(shape);
+				}
+			}
+		} while (requestCount < maxPagesPerRequest && hasMore);
+
+		// Linear's issue list has no server-side author/assignee filter, so scope to the current user
+		// client-side when a user was requested (the assignee filter is what "my issues" means here).
+		if (options?.user != null) {
+			const user = options.user;
+			return issues.filter(issue => issue.assignees?.some(a => a.name === user || a.id === user));
+		}
+
+		return issues;
 	}
 
 	override get id(): IssuesCloudHostIntegrationId.Linear {

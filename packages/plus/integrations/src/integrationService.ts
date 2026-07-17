@@ -1460,10 +1460,14 @@ export class IntegrationService implements Disposable {
 	/**
 	 * Reads the user's issues from an issue-tracker provider (Jira/Linear/Trello), whose issues live under
 	 * resource → project (not repos), so they can't go through {@link listIssuesPage} (git-host, repo-scoped).
-	 * Returns the normalized {@link IssueShape} these providers produce (they have no raw `ProviderIssue`
-	 * form), aggregated across the projects of the given `org` (or every visible resource/project when
-	 * omitted). `includeAllAssignees` drops the "assigned to me" scoping so unassigned issues are included.
-	 * Best-effort: a per-step failure becomes a warning without failing the whole read.
+	 * Returns the normalized {@link IssueShape} these providers produce, aggregated across the projects of the
+	 * given `org` (or every visible resource/project when omitted). `includeAllAssignees` drops the
+	 * "assigned to me" scoping so unassigned issues are included. Best-effort: a per-step failure becomes a
+	 * warning without failing the whole read.
+	 *
+	 * Returns the paginated wrapper for contract uniformity with the other reads. The read fans out across
+	 * projects with no single resumable cursor, so it reports one aggregated page (`currentPage: 1`); `hasMore`
+	 * is set only when a project's own drain hit its backstop (results may be incomplete).
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1472,14 +1476,25 @@ export class IntegrationService implements Disposable {
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
 		connectionId?: string;
-	}): Promise<ProviderResult<IssueShape>> {
-		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
-		if (integration == null || !isIssuesIntegration(integration)) {
-			return { items: [], warnings: [] };
-		}
-
+	}): Promise<ProviderPagedResult<IssueShape>> {
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
+		const emptyPage = (fetchFailed?: boolean): ProviderPagedResult<IssueShape> => ({
+			items: items,
+			warnings: warnings,
+			page: { currentPage: 1, itemsPerPage: items.length },
+			hasMore: false,
+			fetchFailed: fetchFailed || undefined,
+		});
+
+		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
+		if (integration == null || !isIssuesIntegration(integration)) {
+			// A supplied connectionId that no longer resolves is a broken connection, not an empty account.
+			const early = this.earlyReturnConnectionWarnings(options.providerId, options.connectionId);
+			warnings.push(...early.warnings);
+			return emptyPage(early.fetchFailed);
+		}
+
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
 
 		const { value: resources, warning: resourcesWarning } = await this.runCaptured(
@@ -1492,13 +1507,13 @@ export class IntegrationService implements Disposable {
 			warnings.push(resourcesWarning);
 		}
 		if (resources == null || resources.length === 0) {
-			return { items: items, warnings: warnings };
+			return emptyPage(resourcesWarning != null && resources == null);
 		}
 
 		const scopedResources =
 			options.org != null ? resources.filter(r => this.resourceMatchesOrg(r, options.org!)) : resources;
 		if (scopedResources.length === 0) {
-			return { items: items, warnings: warnings };
+			return emptyPage();
 		}
 
 		const { value: projects, warning: projectsWarning } = await this.runCaptured(
@@ -1511,7 +1526,7 @@ export class IntegrationService implements Disposable {
 			warnings.push(projectsWarning);
 		}
 		if (projects == null || projects.length === 0) {
-			return { items: items, warnings: warnings };
+			return emptyPage(projectsWarning != null && projects == null);
 		}
 
 		const scopedProjects =
@@ -1545,7 +1560,7 @@ export class IntegrationService implements Disposable {
 						isAuth: false,
 					},
 				);
-				return { items: items, warnings: warnings, fetchFailed: true };
+				return emptyPage(true);
 			}
 		}
 
@@ -1575,7 +1590,13 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
-		return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
+		return {
+			items: items,
+			warnings: warnings,
+			page: { currentPage: 1, itemsPerPage: items.length },
+			hasMore: false,
+			fetchFailed: fetchFailed || undefined,
+		};
 	}
 
 	/**

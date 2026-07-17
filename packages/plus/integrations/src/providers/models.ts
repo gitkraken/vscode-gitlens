@@ -400,6 +400,18 @@ export type GetCurrentUserForResourceFn = (
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
 export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
+export type GetLinearIssuesFn = (
+	input: { teams?: string[]; projects?: string[]; labels?: string[] } & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+/**
+ * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
+ * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
+ * importing `@linear/sdk` (which is bundled in the SDK dist and not a resolvable top-level dependency).
+ */
+export type GetLinearCurrentUserFn = (
+	options?: EnterpriseOptions,
+) => Promise<{ data: { id: string; name?: string | null; email?: string | null; displayName?: string | null } }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
@@ -474,6 +486,8 @@ export interface ProviderInfo extends ProviderMetadata {
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
 	getLinearOrganizationFn?: GetLinearOrganizationFn;
 	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
+	getLinearIssuesFn?: GetLinearIssuesFn;
+	getLinearCurrentUserFn?: GetLinearCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForCurrentUserFn?: GetBitbucketResourcesForCurrentUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;

@@ -278,6 +278,8 @@ export class ProvidersApi {
 				getIssuesForCurrentUserFn: providerApis.linear.getIssuesForCurrentUser.bind(providerApis.linear),
 				getLinearOrganizationFn: providerApis.linear.getLinearOrganization.bind(providerApis.linear),
 				getLinearTeamsForCurrentUserFn: providerApis.linear.getTeamsForCurrentUser.bind(providerApis.linear),
+				getLinearIssuesFn: providerApis.linear.getIssues.bind(providerApis.linear),
+				getLinearCurrentUserFn: providerApis.linear.getCurrentUser.bind(providerApis.linear),
 			},
 			[IssuesCloudHostIntegrationId.Trello]: {
 				...providersMetadata[IssuesCloudHostIntegrationId.Trello],
@@ -677,6 +679,45 @@ export class ProvidersApi {
 			return (await provider.getLinearTeamsForCurrentUserFn?.({ token: token }))?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderLinearTeam[] | undefined>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Reads issues scoped to Linear teams/projects/labels (Linear's issue-list filter). One page per call —
+	 * follow `paging.cursor`. Linear's `getIssues` has no author/assignee filter, so per-user scoping is
+	 * applied client-side by the caller.
+	 */
+	async getLinearIssues(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+		input: { teams?: string[]; projects?: string[]; labels?: string[] },
+		options?: PagingInput,
+	): Promise<PagedResult<ProviderIssue>> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getLinearIssuesFn',
+		);
+		return this.getPagedResult<ProviderIssue>(
+			{ ...input, ...options },
+			provider.getLinearIssuesFn,
+			tokenWithInfo,
+			options?.cursor ?? undefined,
+		);
+	}
+
+	/** Resolves Linear's current user (viewer). The viewer query returns only id/name/email/displayName. */
+	async getLinearCurrentUser(
+		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
+	): Promise<{ id: string; name?: string | null; email?: string | null; displayName?: string | null } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getLinearCurrentUserFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			return (await provider.getLinearCurrentUserFn?.({ token: token }))?.data;
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
 		}
 	}
 
