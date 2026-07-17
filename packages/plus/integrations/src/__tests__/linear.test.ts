@@ -95,6 +95,33 @@ suite('Linear issue reads (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('getIssuesForProject returns [] (not the unfiltered issues) when the viewer id cannot be resolved', async () => {
+		// Regression guard for the "my-issues leak": when a user scope is requested but the current viewer
+		// can't be resolved, returning the unfiltered team issues would leak everyone else's. This has
+		// regressed twice along this axis, so pin the exact branch.
+		const manager = createIntegrationManager(createFakeRuntime());
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+		(linear as unknown as { _session: ProviderAuthenticationSession })._session = linearSession();
+
+		stubApi(linear, {
+			getLinearIssues: () =>
+				Promise.resolve({
+					values: [
+						fakeLinearIssue('1', { id: 'u1', name: 'Ada Lovelace' }),
+						fakeLinearIssue('2', { id: 'u2', name: 'Someone Else' }),
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+			// Viewer resolves to an id-less object → cannot scope to "my issues".
+			getLinearCurrentUser: () => Promise.resolve(undefined),
+		});
+
+		const issues = await linear.getIssuesForProject({ key: 't1', id: 't1', name: 'Team 1' }, { user: 'ada' });
+		assert.deepEqual(issues, [], 'no issues leak when the viewer is unresolved');
+
+		manager.dispose();
+	});
+
 	test('getAccountForResource resolves the viewer', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);

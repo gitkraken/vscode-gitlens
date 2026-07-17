@@ -552,6 +552,78 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssueTrackerIssuesPage: an exact-boundary window (projects === itemsPerPage) is not marked hasMore (#5438)', async () => {
+		// Guards the `>` vs `>=` boundary in `moreProjectWindows`: exactly itemsPerPage projects is a single
+		// full page with nothing left over, so hasMore must be false and no cursor threaded.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () =>
+			Promise.resolve({
+				value: [
+					{ key: 'p1', id: 'p1', name: 'P1' },
+					{ key: 'p2', id: 'p2', name: 'P2' },
+				],
+			});
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		(
+			jira as unknown as { getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }> }
+		).getIssuesForProjectResult = (p: { id: string }) =>
+			Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			itemsPerPage: 2,
+		});
+		assert.equal(result.items.length, 2, 'both projects fit in the single boundary page');
+		assert.equal(result.hasMore, false, 'exactly itemsPerPage projects leaves nothing for a next window');
+		assert.equal(result.cursor, undefined, 'no cursor when there is no next window');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage: a project filter matching nothing returns an empty page, not an error (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () => Promise.resolve({ value: [{ key: 'p1', id: 'p1', name: 'P1' }] });
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		let issueReads = 0;
+		(
+			jira as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
+		).getIssuesForProjectResult = () => {
+			issueReads += 1;
+			return Promise.resolve({ value: [] });
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			project: 'does-not-exist',
+		});
+		assert.equal(result.items.length, 0, 'no issues when the project filter matches nothing');
+		assert.equal(result.hasMore, false);
+		assert.equal(result.fetchFailed, undefined, 'a zero-match filter is an empty page, not a failure');
+		assert.equal(issueReads, 0, 'no project is read when none match the filter');
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage surfaces a failed issue read as a warning + fetchFailed, not empty (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

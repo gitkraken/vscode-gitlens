@@ -555,6 +555,52 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('Bitbucket account-wide PR read marks truncated when a workspace hits the page backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// Every page claims there's more, so the drain runs until the maxPagesPerWorkspace (20) backstop and
+		// reports truncated rather than looping unbounded.
+		let calls = 0;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				o?: { page?: number },
+			) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				return Promise.resolve({
+					data: [{ id: `pr-${page}` } as unknown as ProviderPullRequest],
+					hasMore: true,
+					nextPage: page + 1,
+				});
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
+		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 20, 'the drain stops at the maxPagesPerWorkspace backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped workspace is reported as truncated');
+
+		manager.dispose();
+	});
+
 	test("Azure account-wide PR read: one project's failure does not discard the others (#5438)", async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -598,6 +644,51 @@ suite('sweep + broaden (#5438)', () => {
 		).getMyPullRequestsForUserResult();
 		const ids = result?.value?.values.map(pr => pr.id) ?? [];
 		assert.deepEqual(ids, ['pr-good'], "the good project's PRs survive the bad project's failure");
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide PR read marks truncated when a project hits the page backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Every page claims more, so each project's drain runs until the maxPagesPerProject (20) backstop.
+		// A single project fans out into an authored + assigned read, so 2 × 20 = 40 calls for one project.
+		let calls = 0;
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { project: string }, o?: { page?: number }) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				return Promise.resolve({
+					data: [{ id: `pr-${project.project}-${page}` } as unknown as ProviderPullRequest],
+					hasMore: true,
+					nextPage: page + 1,
+				});
+			},
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+			}
+		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'good' }]);
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 40, 'both scoped drains stop at the maxPagesPerProject backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped project is reported as truncated');
 
 		manager.dispose();
 	});
