@@ -832,6 +832,26 @@ export class IntegrationService implements Disposable {
 	}
 
 	/**
+	 * Builds a warning for a drain that stopped short of completeness (hit a page backstop, or a single-page
+	 * read that couldn't confirm it drained everything). `truncated`/`allPages` already carry this on the
+	 * result, but consumers that only inspect `warnings` would otherwise see no signal the read is partial.
+	 */
+	private truncationWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `Pull request read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
+	/**
 	 * Warnings for an early-returning read where the integration couldn't be resolved. When a specific
 	 * `connectionId` was requested (and the provider is a git host), a missing integration means that
 	 * connection is gone/invalid — surface a `no-connection` warning + `fetchFailed` so the caller can tell
@@ -1532,11 +1552,13 @@ export class IntegrationService implements Disposable {
 	 * warning without failing the whole read.
 	 *
 	 * Paginated by project: these providers have no single cross-project issue cursor, so a page is a bounded
-	 * window of projects (each drained by its own read), advanced 1-based via `page` (default 1) with
-	 * `itemsPerPage` projects per page (default 20). `hasMore`/`cursor` carry the next project window when more
-	 * remain. Note: a project's own read has an internal page backstop (see the per-provider drains); if a
-	 * single project exceeds it, its extra issues are dropped silently — this layer has no per-project
-	 * truncation signal to surface, so that bound is not reflected in `hasMore`.
+	 * window of projects (each drained by its own read). Pagination is opt-in — a caller that supplies none of
+	 * `page`/`cursor`/`itemsPerPage` reads every matched project in one page (`hasMore: false`), preserving the
+	 * "aggregate everything" contract for callers that don't page. When any of those is supplied, the read is
+	 * windowed to `itemsPerPage` projects (default 20) advanced 1-based via `page`/`cursor`, with `hasMore`/
+	 * `cursor` carrying the next window. Note: a project's own read has an internal page backstop (see the
+	 * per-provider drains); if a single project exceeds it, its extra issues are dropped silently — this layer
+	 * has no per-project truncation signal to surface, so that bound is not reflected in `hasMore`.
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1549,6 +1571,10 @@ export class IntegrationService implements Disposable {
 		itemsPerPage?: number;
 		connectionId?: string;
 	}): Promise<ProviderPagedResult<IssueShape>> {
+		// Pagination is opt-in: only window the projects when the caller actually asked to page. A caller that
+		// passes none of page/cursor/itemsPerPage keeps the "aggregate every matched project" contract, so an
+		// existing consumer that doesn't inspect `hasMore` never silently loses projects past a default window.
+		const paginated = options.page != null || options.cursor != null || options.itemsPerPage != null;
 		// Resolve the requested 1-based page from an explicit `page` or the opaque page cursor (either may be
 		// supplied; the cursor wins so a threaded continuation isn't clobbered).
 		// Floor both so a fractional input can't produce a fractional slice bound (slice tolerates it, but the
@@ -1610,11 +1636,14 @@ export class IntegrationService implements Disposable {
 
 		const matchedProjects =
 			options.project != null ? projects.filter(p => this.resourceMatchesOrg(p, options.project!)) : projects;
-		// Page at project granularity: this window of projects for the requested page. `moreProjectWindows`
-		// drives `hasMore`/`cursor` below (per-project internal caps are not observable here — see the docstring).
-		const windowStart = (page - 1) * projectsPerPage;
-		const scopedProjects = matchedProjects.slice(windowStart, windowStart + projectsPerPage);
-		const moreProjectWindows = matchedProjects.length > windowStart + projectsPerPage;
+		// Page at project granularity when paginating: this window of projects for the requested page.
+		// `moreProjectWindows` drives `hasMore`/`cursor` below (per-project internal caps are not observable
+		// here — see the docstring). When not paginating, the window is every matched project.
+		const windowStart = paginated ? (page - 1) * projectsPerPage : 0;
+		const scopedProjects = paginated
+			? matchedProjects.slice(windowStart, windowStart + projectsPerPage)
+			: matchedProjects;
+		const moreProjectWindows = paginated && matchedProjects.length > windowStart + projectsPerPage;
 		if (scopedProjects.length === 0) {
 			return emptyPage();
 		}
@@ -1745,20 +1774,21 @@ export class IntegrationService implements Disposable {
 				// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
 				// sets `paging.truncated`; propagate it (and any top-level `truncated`) so the sweep doesn't
 				// claim an all-pages result.
-				return {
-					items: items,
-					warnings: warnings,
-					fetchFailed: false,
-					truncated: (value as { truncated?: boolean }).truncated ?? value.paging?.truncated ?? false,
-				};
+				const truncated = (value as { truncated?: boolean }).truncated ?? value.paging?.truncated ?? false;
+				if (truncated) {
+					warnings.push(this.truncationWarning(id, domain, connectionId));
+				}
+				return { items: items, warnings: warnings, fetchFailed: false, truncated: truncated };
 			}
 			if (page >= maxPages) {
+				warnings.push(this.truncationWarning(id, domain, connectionId));
 				return { items: items, warnings: warnings, fetchFailed: false, truncated: true };
 			}
 
 			const nextCursor = value.paging?.cursor;
 			if (nextCursor == null || nextCursor === '{}') {
 				// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
+				warnings.push(this.truncationWarning(id, domain, connectionId));
 				return { items: items, warnings: warnings, fetchFailed: false, truncated: true };
 			}
 

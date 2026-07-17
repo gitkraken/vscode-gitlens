@@ -503,6 +503,11 @@ suite('sweep + broaden (#5438)', () => {
 		const result = await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
 		assert.equal(result.page.truncated, true, 'truncation is surfaced');
 		assert.equal(result.hasMore, true, 'a truncated sweep is not reported as fully drained');
+		// A consumer that only inspects `warnings` must also see the read was partial.
+		assert.ok(
+			result.warnings.some(w => /truncat/i.test(w.message)),
+			'a truncated drain pushes a warning, not just a boolean',
+		);
 
 		manager.dispose();
 	});

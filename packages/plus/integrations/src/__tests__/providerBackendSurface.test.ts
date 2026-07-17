@@ -552,6 +552,40 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssueTrackerIssuesPage: no paging options reads every project (no silent default-window cap) (#5438)', async () => {
+		// A caller that passes none of page/cursor/itemsPerPage keeps the "aggregate everything" contract:
+		// all matched projects are read in one page even past the default window of 20, with hasMore false.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		const projects = Array.from({ length: 25 }, (_, i) => ({ key: `p${i}`, id: `p${i}`, name: `P${i}` }));
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () => Promise.resolve({ value: projects });
+		(
+			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		let reads = 0;
+		(
+			jira as unknown as { getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }> }
+		).getIssuesForProjectResult = (p: { id: string }) => {
+			reads += 1;
+			return Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
+		assert.equal(reads, 25, 'every matched project is read, not just the first default window');
+		assert.equal(result.items.length, 25, 'issues from all projects are aggregated');
+		assert.equal(result.hasMore, false, 'a non-paged read reports no further windows');
+		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
 	test('listIssueTrackerIssuesPage: an exact-boundary window (projects === itemsPerPage) is not marked hasMore (#5438)', async () => {
 		// Guards the `>` vs `>=` boundary in `moreProjectWindows`: exactly itemsPerPage projects is a single
 		// full page with nothing left over, so hasMore must be false and no cursor threaded.
