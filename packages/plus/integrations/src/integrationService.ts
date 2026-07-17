@@ -930,10 +930,13 @@ export class IntegrationService implements Disposable {
 		if (raw != null && raw !== '{}') {
 			try {
 				const parsed = JSON.parse(raw) as { type?: string; cursors?: unknown };
-				// Retain opaque cursor strings for cursor-only hosts, and per-repo/project cursor bundles for
-				// PagingMode.Repo/Project reads. Page-number cursors are synthesized from the page param and don't
-				// need to be threaded back.
-				if (parsed.type === 'cursor' || Array.isArray(parsed.cursors)) {
+				// Retain opaque cursor strings for cursor-only hosts, per-repo/project cursor bundles for
+				// PagingMode.Repo/Project reads, AND page/offset cursors. The latter matters for reads with no
+				// caller-visible page param to increment — e.g. Bitbucket Server's account-wide PR read threads
+				// its next `start` offset as a `type:'page'` cursor; dropping it left the caller with
+				// `hasMore:true` and nothing to continue with. A page cursor is a valid opaque continuation, so
+				// threading it back is always safe even where a page number is also reported.
+				if (parsed.type === 'cursor' || parsed.type === 'page' || Array.isArray(parsed.cursors)) {
 					cursor = raw;
 				}
 			} catch {}
@@ -1101,13 +1104,19 @@ export class IntegrationService implements Disposable {
 				const integration = await this.getIntegrationForRead(id, connectionId);
 				if (integration == null) {
 					// A specifically requested connection that can't be resolved is a broken connection, not a
-					// provider with no orgs — surface it instead of dropping the id silently.
+					// provider with no orgs — surface it (warning + fetchFailed) instead of dropping the id
+					// silently, so a caller can tell it apart from an account that genuinely has no orgs.
 					const early = this.earlyReturnConnectionWarnings(id, connectionId);
-					return { items: [] as ProviderOrganization[], warnings: early.warnings };
+					return {
+						items: [] as ProviderOrganization[],
+						warnings: early.warnings,
+						fetchFailed: early.fetchFailed,
+					};
 				}
 
 				const items: ProviderOrganization[] = [];
 				const warnings: ProviderWarning[] = [];
+				let fetchFailed = false;
 				const domain = this.domainForRead(integration, id, connectionId);
 				if (isIssuesIntegration(integration)) {
 					// Issue trackers expose "resources" (Jira sites, Linear orgs, …) as their org analogue.
@@ -1119,6 +1128,10 @@ export class IntegrationService implements Disposable {
 					}
 					if (warning != null) {
 						warnings.push(warning);
+						// A warning with no value is a hard read failure, not an empty account.
+						if (resources == null) {
+							fetchFailed = true;
+						}
 					}
 				} else {
 					const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
@@ -1140,15 +1153,19 @@ export class IntegrationService implements Disposable {
 					}
 					if (warning != null) {
 						warnings.push(warning);
+						if (value == null) {
+							fetchFailed = true;
+						}
 					}
 				}
 
-				return { items: items, warnings: warnings };
+				return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 			}),
 		);
 
 		const items: ProviderOrganization[] = [];
 		const warnings: ProviderWarning[] = [];
+		let fetchFailed = false;
 		for (const result of results) {
 			if (result == null) {
 				continue;
@@ -1156,8 +1173,11 @@ export class IntegrationService implements Disposable {
 
 			items.push(...result.items);
 			warnings.push(...result.warnings);
+			if (result.fetchFailed) {
+				fetchFailed = true;
+			}
 		}
-		return { items: items, warnings: warnings };
+		return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 	}
 
 	/**
@@ -1188,13 +1208,18 @@ export class IntegrationService implements Disposable {
 				const integration = await this.getIntegrationForRead(id, connectionId);
 				if (integration == null) {
 					// A requested connection that can't be resolved is a broken connection, not a provider with
-					// no projects — surface it instead of dropping the id silently.
+					// no projects — surface it (warning + fetchFailed) instead of dropping the id silently.
 					const early = this.earlyReturnConnectionWarnings(id, connectionId);
-					return { items: [] as ProviderOrganization[], warnings: early.warnings };
+					return {
+						items: [] as ProviderOrganization[],
+						warnings: early.warnings,
+						fetchFailed: early.fetchFailed,
+					};
 				}
 
 				const items: ProviderOrganization[] = [];
 				const warnings: ProviderWarning[] = [];
+				let fetchFailed = false;
 				const domain = this.domainForRead(integration, id, connectionId);
 				const org = options?.org;
 
@@ -1206,11 +1231,14 @@ export class IntegrationService implements Disposable {
 					);
 					if (warning != null) {
 						warnings.push(warning);
+						if (projects == null) {
+							fetchFailed = true;
+						}
 					}
 					if (projects != null) {
 						items.push(...projects.values);
 					}
-					return { items: items, warnings: warnings };
+					return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 				}
 
 				if (org != null) {
@@ -1222,6 +1250,9 @@ export class IntegrationService implements Disposable {
 					);
 					if (resourcesWarning != null) {
 						warnings.push(resourcesWarning);
+						if (resources == null) {
+							fetchFailed = true;
+						}
 					}
 					const resource = resources?.find(r => this.resourceMatchesOrg(r, org));
 					if (resource != null) {
@@ -1233,6 +1264,9 @@ export class IntegrationService implements Disposable {
 						);
 						if (projectsWarning != null) {
 							warnings.push(projectsWarning);
+							if (projects == null) {
+								fetchFailed = true;
+							}
 						}
 						if (projects != null) {
 							items.push(...projects.map(p => this.resourceToOrg(p)));
@@ -1244,18 +1278,22 @@ export class IntegrationService implements Disposable {
 					);
 					if (warning != null) {
 						warnings.push(warning);
+						if (projects == null) {
+							fetchFailed = true;
+						}
 					}
 					if (projects != null) {
 						items.push(...projects.map(p => this.resourceToOrg(p)));
 					}
 				}
 
-				return { items: items, warnings: warnings };
+				return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 			}),
 		);
 
 		const items: ProviderOrganization[] = [];
 		const warnings: ProviderWarning[] = [];
+		let fetchFailed = false;
 		for (const result of results) {
 			if (result == null) {
 				continue;
@@ -1263,8 +1301,11 @@ export class IntegrationService implements Disposable {
 
 			items.push(...result.items);
 			warnings.push(...result.warnings);
+			if (result.fetchFailed) {
+				fetchFailed = true;
+			}
 		}
-		return { items: items, warnings: warnings };
+		return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 	}
 
 	/**
@@ -2288,9 +2329,13 @@ export class IntegrationService implements Disposable {
 		// match the host parsed from the URL. Otherwise we'd resolve `owner/repo` against a different host's
 		// account — and if that host happens to have the same owner/repo, return a confidently wrong identity.
 		if (options.connectionId != null && isGitSelfManagedHostIntegrationId(id)) {
-			const connectionDomain = this.getConfiguredConnectionDomain(id, options.connectionId);
+			// Normalize BOTH sides before comparing: the stored connection domain is usually a full URL
+			// (`https://git.example.com`), while `urlHost` is already a bare host. Comparing the raw stored
+			// value against the normalized host would fail on scheme/trailing-slash alone and wrongly reject a
+			// correctly-configured connection as `no-connection`.
+			const connectionHost = hostFromDomain(this.getConfiguredConnectionDomain(id, options.connectionId));
 			const urlHost = hostFromDomain(provider.domain);
-			if (connectionDomain != null && urlHost != null && connectionDomain !== urlHost) {
+			if (connectionHost != null && urlHost != null && connectionHost !== urlHost) {
 				return { resolution: { status: 'no-connection' }, cliUnsupported: false };
 			}
 		}

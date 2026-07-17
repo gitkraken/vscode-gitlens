@@ -91,7 +91,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('a page-type next cursor sets hasMore but is not surfaced as an opaque cursor', async () => {
+	test('a page-type next cursor is threaded back as an opaque continuation', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
@@ -112,7 +112,10 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			repos: repos,
 		});
 		assert.equal(result.hasMore, true);
-		assert.equal(result.cursor, undefined, 'page-based next is not an opaque cursor');
+		// A page/offset cursor is a valid opaque continuation and must be threaded back — reads with no
+		// caller-visible page to increment (e.g. Bitbucket Server's account-wide PR read) rely on it, and
+		// surfacing it never hurts a numbered-page consumer that ignores it.
+		assert.equal(result.cursor, JSON.stringify({ value: 3, type: 'page' }), 'page-type cursor is surfaced');
 
 		manager.dispose();
 	});
@@ -263,6 +266,43 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			{ id: 'k2', name: 'k2', url: '' },
 		]);
 		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
+	test('listOrgs/listProjects set fetchFailed (not just a warning) for an invalid connection (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+		void linear;
+
+		// An unresolved connectionId makes getIntegrationForRead return undefined — a broken connection, not an
+		// empty account. Both list reads must surface fetchFailed alongside the no-connection warning so a
+		// caller can tell them apart (parity with listRepos).
+		(manager as unknown as { getIntegrationForRead: () => Promise<undefined> }).getIntegrationForRead = () =>
+			Promise.resolve(undefined);
+
+		const orgs = await manager.listOrgs({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			connectionId: 'ghost',
+		});
+		assert.equal(orgs.items.length, 0);
+		assert.equal(orgs.fetchFailed, true, 'listOrgs reports fetchFailed for a broken connection');
+		assert.ok(
+			orgs.warnings.some(w => w.kind === 'no-connection'),
+			'listOrgs still emits a no-connection warning',
+		);
+
+		const projects = await manager.listProjects({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			connectionId: 'ghost',
+		});
+		assert.equal(projects.items.length, 0);
+		assert.equal(projects.fetchFailed, true, 'listProjects reports fetchFailed for a broken connection');
+		assert.ok(
+			projects.warnings.some(w => w.kind === 'no-connection'),
+			'listProjects still emits a no-connection warning',
+		);
 
 		manager.dispose();
 	});
