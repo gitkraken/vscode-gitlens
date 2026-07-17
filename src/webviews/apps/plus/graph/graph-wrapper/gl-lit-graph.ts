@@ -5590,7 +5590,13 @@ export class GlLitGraph extends LitElement {
 		let totalDx = 0;
 		let rafId: number | null = null;
 		const flush = (): void => {
-			rafId = null;
+			// Cancel any still-pending rAF (harmless no-op when running AS that rAF): `onUp` calls flush
+			// directly, and just nulling the id would orphan the scheduled frame — it would then re-set the
+			// preview AFTER cleanup cleared it, freezing rendering on the stale snapshot until the next drag.
+			if (rafId != null) {
+				cancelAnimationFrame(rafId);
+				rafId = null;
+			}
 			const result = dragResizeZone(visibleZones, visibleIdx, totalDx);
 			if (result == null) return;
 
@@ -5624,10 +5630,14 @@ export class GlLitGraph extends LitElement {
 		onUp = (): void => {
 			flush();
 			// Commit: persist the cascaded columns' new widths as their preferred. Clear the preview so
-			// updateRenderState re-solves from the persisted preferred widths.
+			// updateRenderState re-solves from the persisted preferred widths. Only when a drag actually
+			// moved a boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
+			// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit echo
+			// races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
 			const solved = this.dragSolvedZones;
 			const ids = this.dragSavedIds;
-			if (solved != null && ids != null) {
+			const changed = solved != null && ids != null && ids.length > 0;
+			if (changed) {
 				const widthById = new Map(ids.map(id => [id, solved.find(z => z.id === id)?.currentWidth]));
 				this.zones = this.zones.map(z => {
 					const w = widthById.get(z.id);
@@ -5635,7 +5645,9 @@ export class GlLitGraph extends LitElement {
 				});
 			}
 			cleanup();
-			this.persistColumnsConfig();
+			if (changed) {
+				this.persistColumnsConfig();
+			}
 		};
 		this.resizeDragCleanup = cleanup;
 		document.body.style.cursor = 'col-resize';
@@ -5648,7 +5660,7 @@ export class GlLitGraph extends LitElement {
 		window.addEventListener('pointercancel', onUp);
 	}
 
-	// Double-click a column boundary to fit a column to its widest loaded content. The handle sits at the
+	// Double-click a column boundary to fit a column to its widest rendered content. The handle sits at the
 	// RIGHT edge of zone `visibleIdx` — i.e. the START of the NEXT column — so we fit that next column (the
 	// one the splitter precedes), matching the "splitter before the column" model. Handles only render on
 	// non-last zones, so `visibleIdx + 1` is always in range. The flex fill zone has no fixed width to fit.
@@ -5657,27 +5669,37 @@ export class GlLitGraph extends LitElement {
 		if (zone == null) return;
 		if (zone.flex) return;
 
-		const cells = this.querySelectorAll<HTMLElement>(`.gl-graph__zone--${zone.id}`);
+		// Only content-bearing cells count — workdir rows leave author/date/sha cells empty and pill-less
+		// rows leave ref cells empty; measuring those would fit the column to its bare padding. With none
+		// at all there is nothing to fit, so bail (a no-op, matching the pre-measurement behavior).
+		const cells = [...this.querySelectorAll<HTMLElement>(`.gl-graph__zone--${zone.id}`)].filter(
+			cell => cell.childElementCount > 0,
+		);
 		if (cells.length === 0) return;
 
-		// The cell never overflows — its content span truncates INSIDE it — so `cell.scrollWidth` is just the
-		// current width. Measure the natural width of the cell's content children instead: each is a default
-		// flex child (grow: 0), so its `scrollWidth` is the un-truncated content width. Sum them (a cell can
-		// hold a leading gutter/refs + the content) and add the cell's horizontal padding (read once).
-		const cs = getComputedStyle(cells[0]);
-		const pad = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+		// Fit to the widest content among the currently-rendered cells. `cell.scrollWidth` can't be used —
+		// content either truncates INSIDE the cell (text spans) or flex-shrinks to fit (ref pills), so neither
+		// overflows and both report the current width, not the natural one. Instead transiently size each cell
+		// to its content (`max-content`) and read its border-box `offsetWidth`, which already includes the
+		// cell padding and every internal margin/gap (avatar↔name, ref pill gaps). `flex-basis` overrides
+		// `width`, so both must be overridden. This is a synchronous write→read→restore (batched to avoid
+		// layout thrash) within one task, so the transient state never paints.
+		const saved = cells.map(cell => cell.style.cssText);
+		for (const cell of cells) {
+			cell.style.flex = '0 0 auto';
+			cell.style.width = 'max-content';
+			// Drop the zone's min-width floor too — it would inflate the measurement; the clamp below re-applies it.
+			cell.style.minWidth = '0';
+		}
 		let content = 0;
 		for (const cell of cells) {
-			let inner = 0;
-			for (const child of [...cell.children]) {
-				inner += (child as HTMLElement).scrollWidth;
-			}
-			content = Math.max(content, inner);
+			content = Math.max(content, cell.offsetWidth);
 		}
+		cells.forEach((cell, i) => (cell.style.cssText = saved[i]));
 		if (content <= 0) return;
 
-		// Round up + a hair so the fitted text isn't immediately re-truncated by sub-pixel rounding.
-		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content + pad) + 1));
+		// Round up + a hair so the fitted content isn't immediately re-truncated by sub-pixel rounding.
+		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content) + 1));
 		if (width === zone.width) return;
 
 		this.zones = this.zones.map(z => (z.id === zone.id ? { ...z, width: width, currentWidth: undefined } : z));
