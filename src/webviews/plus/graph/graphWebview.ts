@@ -1839,6 +1839,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// `onRepositoryWorkingTreeChanged`.
 		if (e.repository.id !== this.repository?.id) return;
 
+		// While only the account-access screen is shown, the graph data is neither loaded nor displayed —
+		// skip all repo-driven WIP/branch/state work (mirrors the guard in `onRepositoryWorkingTreeChanged`).
+		if (this._accountAccessRequired) return;
+
 		// Lightweight WIP refresh — covers staging/unstaging (`index` → stats), `.gitignore` edits
 		// (`ignores` → which untracked files appear in `git status`), secondary-worktree add/remove
 		// (`worktrees` → wipMetadataBySha; also falls through to the structural gate below as a
@@ -1946,14 +1950,20 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const wasAccountAccessRequired = this._accountAccessRequired;
 		this._accountAccessRequired = this.isAccountAccessRequired(e.current);
 
-		void this.notifyDidChangeSubscription();
-
-		// While the access screen is shown, `getState` short-circuits the data pipeline; when the
-		// account becomes usable, `notifyDidChangeSubscription` alone won't reload it, so force a full
-		// state refresh to populate the graph.
-		if (wasAccountAccessRequired && !this._accountAccessRequired && this.host.ready) {
+		// When the account-access state flips in either direction, reload the full state rather than
+		// sending a subscription-only push. The full `getState` push carries subscription + repositories
+		// (+ rows) atomically and clears the working-tree badge on the access path, which:
+		//  - keeps the access screen up until the graph data is ready when entering a usable account (a
+		//    subscription-only push would un-gate the screen while `repositories` is still `[]`, flashing
+		//    the "no repository" empty state), and
+		//  - on entering the access screen, cancels any in-flight full-path `getState` (whose stale
+		//    signed-in state would otherwise overwrite the signed-out one) and clears a stale badge.
+		if (wasAccountAccessRequired !== this._accountAccessRequired && this.host.ready) {
 			this._data.updateState(true);
+			return;
 		}
+
+		void this.notifyDidChangeSubscription();
 	}
 
 	private onOnboardingChanged(e: OnboardingChangeEvent) {
