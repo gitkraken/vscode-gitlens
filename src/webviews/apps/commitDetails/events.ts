@@ -60,8 +60,8 @@ export function setupSubscriptions(
 				handleRepositoryChanged(state, event, actions),
 			),
 		() => services.config.onConfigChanged(() => handleConfigChanged(actions)),
-		// Note: onSubscriptionChanged removed — hasAccount signal bridged from host
-		// Note: onOrgSettingsChanged removed — orgSettings signal bridged from host
+		// Note: onSubscriptionChanged/onOrgSettingsChanged removed — the bridged hasAccount and
+		// orgSettings signals are kept fresh by SubscriptionService's eager listeners (#5513)
 		() =>
 			services.integrations.onIntegrationsChanged(data => handleIntegrationsChanged(state, data.hasAnyConnected)),
 		() => services.ai.onModelChanged(model => state.aiModel.set(model)),

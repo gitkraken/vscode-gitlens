@@ -7,7 +7,6 @@
  *
  */
 
-import { proxy } from '@eamodio/supertalk';
 import type { Container } from '../../../container.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../eventVisibilityBuffer.js';
 import { AIService } from './ai.js';
@@ -98,17 +97,4 @@ export function createSharedServices(
 	};
 }
 
-/**
- * Wraps all object-valued properties with Supertalk's `proxy()` marker.
- *
- * Call this on the final services object returned from `getRpcServices()`.
- * Sub-service objects and class instances become remote proxies;
- * functions and primitives pass through unchanged.
- */
-export function proxyServices<T extends Record<string, unknown>>(services: T): T {
-	const result: Record<string, unknown> = {};
-	for (const [key, value] of Object.entries(services)) {
-		result[key] = value != null && typeof value === 'object' ? proxy(value) : value;
-	}
-	return result as T;
-}
+export { disposeServices, proxyServices } from './proxy.js';
