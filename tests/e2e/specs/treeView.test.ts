@@ -67,6 +67,11 @@ async function openGraphWithPro(vscode: VSCodeInstance): Promise<{
 	expect(graphWebview).not.toBeNull();
 
 	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await waitForGraphRowsRendered(graphWebview!);
+	// Let the initial auto-selected-commit details render first: opening the details panel reflows the
+	// virtualized grid, and clicking a row mid-reflow races that layout pass (the row reports "not
+	// stable" and the grid intercepts the click) on slower fork webviews. Waiting here settles the grid.
+	await waitForDetailsLoaded(graphWebview!);
 
 	return {
 		graphWebview: graphWebview!,
@@ -82,13 +87,42 @@ async function reopenGraph(vscode: VSCodeInstance): Promise<FrameLocator> {
 	const graphWebview = await vscode.gitlens.getGitLensWebview('Graph', 'webviewView', 30000);
 	expect(graphWebview).not.toBeNull();
 	await expect(graphWebview!.getByText('BRANCH / TAG').first()).toBeVisible({ timeout: 30000 });
+	await waitForGraphRowsRendered(graphWebview!);
+	// Settle the grid before the next test clicks a row (see openGraphWithPro).
+	await waitForDetailsLoaded(graphWebview!);
 	return graphWebview!;
 }
 
 async function selectCommitByMessage(graphWebview: FrameLocator, messageText: string): Promise<void> {
-	const messageEl = graphWebview.getByText(messageText, { exact: true }).first();
+	// Scope to the virtualized graph grid so we match the row's message cell — not a copy of the same
+	// text rendered in the details panel — and filter to the visible instance so we skip recycled/
+	// off-screen row nodes react-virtualized keeps mounted (the fork webview render race).
+	const messageEl = graphWebview
+		.locator('.ReactVirtualized__Grid')
+		.getByText(messageText, { exact: true })
+		.filter({ visible: true })
+		.first();
 	await expect(messageEl).toBeVisible({ timeout: MaxTimeout });
-	await messageEl.click();
+	// The graph grid (`#commit-message-zone`) owns row selection via event delegation, so it is the
+	// topmost hit-test target over the message cell — a normal click reports "grid intercepts pointer
+	// events". On slower fork webviews (Positron) the virtualized row also stays perpetually "not
+	// stable" within the actionability window, so a plain click times out. Force the click at the
+	// confirmed-visible row's coordinates (the grid handles selection exactly as a real click would);
+	// if the row genuinely moved, the wrong commit is selected and the downstream assertion fails —
+	// so this can't turn into a false pass.
+	await messageEl.click({ force: true });
+}
+
+/**
+ * Wait until the virtualized graph rows have painted their commit-message cells. The column headers
+ * ("BRANCH / TAG") render before the react-virtualized grid finishes its first layout pass, so gating
+ * readiness on the header alone races the row paint on slower webviews (VS Code forks) — the window
+ * where a row message resolves in the DOM but reports `hidden`. Gate on a visible row message cell.
+ */
+async function waitForGraphRowsRendered(graphWebview: FrameLocator): Promise<void> {
+	await expect(
+		graphWebview.locator('.ReactVirtualized__Grid .message-zone--summary').filter({ visible: true }).first(),
+	).toBeVisible({ timeout: 30000 });
 }
 
 async function waitForDetailsLoaded(graphWebview: FrameLocator): Promise<void> {

@@ -493,7 +493,13 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				await rm(tempDir, { recursive: true, force: true }).catch(() => {});
 			}
 		},
-		{ scope: 'worker' },
+		// Worker-fixture setup timeout. Must be large enough for the launch+connect RETRY loop above to
+		// actually run to completion: one failing attempt costs up to ~launch(≤30s) + connect(≤30s), so
+		// 3 attempts + back-offs need ~2-3 min. The old default (the 60s test timeout) let only the first
+		// attempt run before firing — so on a heavy/contended fork (Positron/Windsurf) a transient slow
+		// launch failed the whole worker instead of recovering on retry. The happy path is unaffected
+		// (a healthy editor starts in seconds).
+		{ scope: 'worker', timeout: 180_000 },
 	],
 
 	createGitRepo: async ({}, use) => {
