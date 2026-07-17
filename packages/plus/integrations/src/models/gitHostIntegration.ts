@@ -210,6 +210,20 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
+	 * Whether this git host implements generic org discovery. False for providers that register no
+	 * {@link getProviderOrganizationsForUser} hook (e.g. Bitbucket Data Center) — the facade uses this to
+	 * report `unsupported` instead of a silent empty list, which is indistinguishable from "has no orgs".
+	 */
+	get supportsOrganizationDiscovery(): boolean {
+		return this.getProviderOrganizationsForUser != null;
+	}
+
+	/** Whether this git host implements generic repository discovery ({@link getProviderRepositoriesForOrg}). */
+	get supportsRepositoryDiscovery(): boolean {
+		return this.getProviderRepositoriesForOrg != null;
+	}
+
+	/**
 	 * Result-returning core of {@link getOrganizationsForUser}. Resolves the session for `connectionId`
 	 * (or the primary connection when omitted, honoring multi-account reads) and recovers a thrown error
 	 * into `{ error }` so callers can surface it as a warning instead of swallowing it to `undefined`.

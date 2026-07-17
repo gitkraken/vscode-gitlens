@@ -1133,6 +1133,18 @@ export class IntegrationService implements Disposable {
 							fetchFailed = true;
 						}
 					}
+				} else if (!integration.supportsOrganizationDiscovery) {
+					// The provider registers no org-discovery hook (e.g. Bitbucket Data Center). Report it as
+					// explicitly unsupported rather than contributing a silent empty list that a caller can't
+					// tell apart from "this account has no orgs".
+					warnings.push({
+						providerId: id,
+						domain: domain,
+						connectionId: connectionId,
+						message: `Organization discovery is not supported by '${id}'.`,
+						kind: 'other',
+						isAuth: false,
+					});
 				} else {
 					const { value, warning } = await this.runCaptured(id, domain, connectionId, () =>
 						integration.getOrganizationsForUserResult(connectionId),
@@ -1337,6 +1349,28 @@ export class IntegrationService implements Disposable {
 		}
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+
+		if (!integration.supportsRepositoryDiscovery) {
+			// No repo-discovery hook (e.g. Bitbucket Data Center) — report unsupported rather than a silent
+			// empty page indistinguishable from "this org has no repos".
+			return {
+				items: [],
+				warnings: [
+					{
+						providerId: options.providerId,
+						domain: domain,
+						connectionId: options.connectionId,
+						message: `Repository discovery is not supported by '${options.providerId}'.`,
+						kind: 'other',
+						isAuth: false,
+					},
+				],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const cursor = options.cursor ?? this.pageToCursor(page);
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 			integration.getRepositoriesForOrgResult(options.org, {

@@ -4,7 +4,11 @@ import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
 import { AuthenticationError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
@@ -873,6 +877,38 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			result.cursor,
 			JSON.stringify({ value: 3, type: 'page' }),
 			'a resumable next-page cursor is synthesized',
+		);
+
+		manager.dispose();
+	});
+
+	test('a provider without discovery hooks (Bitbucket Data Center) reports unsupported, not empty (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bbs = await manager.get(GitSelfManagedHostIntegrationId.BitbucketServer, 'https://bb.example.com');
+		(bbs as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bb.example.com',
+		};
+
+		// Bitbucket Data Center registers no org/repo discovery hook. listOrgs/listRepos must say so rather
+		// than return an empty list indistinguishable from a genuinely empty account.
+		const orgs = await manager.listOrgs({ providerId: GitSelfManagedHostIntegrationId.BitbucketServer });
+		assert.equal(orgs.items.length, 0);
+		assert.ok(
+			orgs.warnings.some(w => /not supported/i.test(w.message)),
+			'listOrgs reports discovery unsupported',
+		);
+
+		const repos = await manager.listRepos({
+			providerId: GitSelfManagedHostIntegrationId.BitbucketServer,
+			org: 'any',
+		});
+		assert.equal(repos.items.length, 0);
+		assert.equal(repos.fetchFailed, true);
+		assert.ok(
+			repos.warnings.some(w => /not supported/i.test(w.message)),
+			'listRepos reports discovery unsupported',
 		);
 
 		manager.dispose();

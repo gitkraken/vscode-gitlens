@@ -438,9 +438,9 @@ export type GetAzureProjectsForResourceFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: AzureProject[]; pageInfo?: PageInfo }>;
 export type GetBitbucketResourcesForCurrentUserFn = (
-	input: Record<string, never>,
+	input: { page?: number },
 	options?: EnterpriseOptions,
-) => Promise<{ data: BitbucketWorkspaceStub[] }>;
+) => Promise<{ data: BitbucketWorkspaceStub[]; pageInfo?: PageInfo }>;
 export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	input: {
 		userId: string;

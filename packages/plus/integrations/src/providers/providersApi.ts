@@ -762,7 +762,22 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 
 		try {
-			return (await provider.getBitbucketResourcesForCurrentUserFn?.({}, { token: token }))?.data;
+			// Drain every workspace page (numbered): the SDK returns 50 per page, and a user in more than one
+			// page of workspaces would otherwise silently lose the rest (with them, their orgs/PRs). Bounded by
+			// a defensive backstop.
+			const maxPages = 20;
+			const workspaces: ProviderBitbucketResource[] = [];
+			let page: number | undefined;
+			for (let i = 0; i < maxPages; i++) {
+				const result = await provider.getBitbucketResourcesForCurrentUserFn?.({ page: page }, { token: token });
+				if (result == null) return i === 0 ? undefined : workspaces;
+
+				workspaces.push(...result.data);
+				if (!result.pageInfo?.hasNextPage || result.pageInfo.nextPage == null) break;
+
+				page = result.pageInfo.nextPage;
+			}
+			return workspaces;
 		} catch (e) {
 			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(tokenWithInfo, e);
 		}
