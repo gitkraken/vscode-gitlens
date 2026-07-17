@@ -200,9 +200,14 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 
 		// Linear's issue list has no server-side author/assignee filter, so scope to the current user
 		// client-side when a user was requested (the assignee filter is what "my issues" means here).
+		// Match on the viewer's stable id, not the passed display name: Linear's `name` (full name) and
+		// `displayName` (nickname) are distinct fields, and assignees are normalized with `.name` = the full
+		// name while the caller's `user` is the displayName — so a name string can miss. The assignee `.id`
+		// is the Linear user id, which is unambiguous.
 		if (options?.user != null) {
-			const user = options.user;
-			return issues.filter(issue => issue.assignees?.some(a => a.name === user || a.id === user));
+			const viewerId = (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
+			if (viewerId == null) return issues;
+			return issues.filter(issue => issue.assignees?.some(a => a.id === viewerId));
 		}
 
 		return issues;

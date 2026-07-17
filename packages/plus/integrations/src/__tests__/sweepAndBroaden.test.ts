@@ -316,6 +316,73 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('broadenIssues keeps per-connection cursors separate for two accounts sharing an org name (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: { values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository] },
+			});
+
+		// Track which connection each read ran under, keyed by the connectionId threaded to the read.
+		let round = 0;
+		const capturedCursorByConnection: Record<number, Record<string, string | undefined>> = {};
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: (
+					repos: ProviderReposInput,
+					options?: { cursor?: string },
+					connectionId?: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = (
+			_repos: ProviderReposInput,
+			options?: { cursor?: string },
+			connectionId?: string,
+		) => {
+			capturedCursorByConnection[round] ??= {};
+			capturedCursorByConnection[round][connectionId ?? 'primary'] = options?.cursor;
+			return Promise.resolve({
+				value: {
+					values: [{ id: `${connectionId}` } as unknown as ProviderIssue],
+					paging: { more: true, cursor: JSON.stringify({ value: `next-${connectionId}`, type: 'cursor' }) },
+				},
+			});
+		};
+
+		// Two orgs with the SAME name but different connections — the pre-fix cursor keying (providerId+org
+		// only) would have applied one account's cursor to the other.
+		const orgs = [
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme', connectionId: 'a' },
+			{ providerId: GitCloudHostIntegrationId.GitHub, name: 'acme', connectionId: 'b' },
+		] as const;
+
+		const first = await manager.broadenIssues({ orgs: [...orgs], page: 1 });
+		const parsed = JSON.parse(first.cursor!) as {
+			cursors: { org: string; connectionId?: string; cursor: string }[];
+		};
+		// Each connection has its own cursor entry despite sharing the org name.
+		const a = parsed.cursors.find(c => c.connectionId === 'a');
+		const b = parsed.cursors.find(c => c.connectionId === 'b');
+		assert.equal(a?.cursor, JSON.stringify({ value: 'next-a', type: 'cursor' }));
+		assert.equal(b?.cursor, JSON.stringify({ value: 'next-b', type: 'cursor' }));
+
+		round = 1;
+		await manager.broadenIssues({ orgs: [...orgs], page: 2, cursor: first.cursor });
+		// Round 2: each connection gets ITS OWN cursor back, not the other's.
+		assert.equal(capturedCursorByConnection[1]?.a, JSON.stringify({ value: 'next-a', type: 'cursor' }));
+		assert.equal(capturedCursorByConnection[1]?.b, JSON.stringify({ value: 'next-b', type: 'cursor' }));
+
+		manager.dispose();
+	});
+
 	test('broadenIssues skips an exhausted org on later rounds instead of re-fetching its first page', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

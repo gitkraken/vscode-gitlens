@@ -30,7 +30,7 @@ function stubApi(integration: IssuesIntegration, api: Record<string, unknown>): 
 		Promise.resolve(api);
 }
 
-function fakeLinearIssue(id: string, assignee?: string): ProviderIssue {
+function fakeLinearIssue(id: string, assignee?: { id: string; name: string }): ProviderIssue {
 	return {
 		id: id,
 		number: id,
@@ -40,7 +40,7 @@ function fakeLinearIssue(id: string, assignee?: string): ProviderIssue {
 		updatedDate: new Date(0),
 		closedDate: null,
 		author: { id: 'a', name: 'A', avatarUrl: null, url: null },
-		assignees: assignee != null ? [{ id: assignee, name: assignee, avatarUrl: null, url: null }] : [],
+		assignees: assignee != null ? [{ id: assignee.id, name: assignee.name, avatarUrl: null, url: null }] : [],
 		labels: [],
 	} as unknown as ProviderIssue;
 }
@@ -72,16 +72,24 @@ suite('Linear issue reads (#5438)', () => {
 		(linear as unknown as { _session: ProviderAuthenticationSession })._session = linearSession();
 
 		stubApi(linear, {
+			// Assignee `name` (full name) deliberately differs from the viewer id, since the filter must match
+			// on the stable Linear user id, not a display/name string (name vs displayName diverge in Linear).
 			getLinearIssues: () =>
 				Promise.resolve({
-					values: [fakeLinearIssue('1', 'me'), fakeLinearIssue('2', 'other')],
+					values: [
+						fakeLinearIssue('1', { id: 'u1', name: 'Ada Lovelace' }),
+						fakeLinearIssue('2', { id: 'u2', name: 'Someone Else' }),
+					],
 					paging: { more: false, cursor: '{}' },
 				}),
+			getLinearCurrentUser: () =>
+				Promise.resolve({ id: 'u1', name: 'Ada Lovelace', email: 'ada@example.com', displayName: 'ada' }),
 		});
 
-		// Linear's getIssues has no server-side assignee filter, so the user scope is applied client-side.
-		const issues = await linear.getIssuesForProject({ key: 't1', id: 't1', name: 'Team 1' }, { user: 'me' });
-		assert.equal(issues?.length, 1, 'only the issue assigned to the user survives');
+		// `user` is the displayName ('ada'), which does NOT equal the assignee's name ('Ada Lovelace'); the
+		// filter must still match via the resolved viewer id (u1).
+		const issues = await linear.getIssuesForProject({ key: 't1', id: 't1', name: 'Team 1' }, { user: 'ada' });
+		assert.equal(issues?.length, 1, 'only the current user (by id) issue survives, despite name≠displayName');
 		assert.equal(issues?.[0].id, '1');
 
 		manager.dispose();
