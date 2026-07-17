@@ -16,7 +16,7 @@ import type { CustomConfigPath } from '../../protocol.js';
 
 export type SettingsKey = ConfigPath | CustomConfigPath;
 
-export type SettingsGroup = 'Annotations' | 'In-editor' | 'Views' | 'Integrations' | 'Editing' | 'General';
+export type SettingsGroup = 'Integrations' | 'Editor' | 'Views' | 'General';
 
 export type PreviewKind =
 	| 'blame'

@@ -12,6 +12,8 @@ import type { Container } from '../../container.js';
 import { CommitFormatter } from '../../git/formatters/commitFormatter.js';
 import type { ConfigPath, CoreConfigPath } from '../../system/-webview/configuration.js';
 import { configuration } from '../../system/-webview/configuration.js';
+import { openSettingsEditor } from '../../system/-webview/vscode/editors.js';
+import { droppedAnchorQueries } from '../apps/settings/categories/index.js';
 import type { CustomConfigPath } from '../protocol.js';
 import { assertsConfigKeyValue, isCustomConfigKey } from '../protocol.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from '../rpc/eventVisibilityBuffer.js';
@@ -73,6 +75,17 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 	): [boolean, Record<`context.${string}`, string | number | boolean | undefined> | undefined] {
 		const anchor = args[0];
 		if (anchor && typeof anchor === 'string') {
+			// Every `gitlens.showSettingsPage[!<anchor>]` invocation passes through here — including
+			// the base command's setting-key anchors (e.g. the status bar's "Blame Paused" tooltip) —
+			// so intercepting a dropped-category anchor here (rather than in the per-anchor command
+			// handlers in registration.ts) covers every entry point. Anchors that are setting keys
+			// still resolve normally below via the app's `anchorToCategory` key fallback.
+			const redirectQuery = droppedAnchorQueries[anchor];
+			if (redirectQuery != null) {
+				void openSettingsEditor(redirectQuery);
+				return [false, undefined];
+			}
+
 			if (!loading && this.host.ready && this.host.visible) {
 				this._onAnchorRequested.fire({ anchor: anchor });
 			} else {

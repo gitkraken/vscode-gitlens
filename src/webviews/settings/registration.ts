@@ -1,9 +1,9 @@
 import { Disposable, ViewColumn } from 'vscode';
-import type { GlCommands } from '../../constants.commands.js';
 import { registerCommand } from '../../system/-webview/command.js';
 import { loadChunk } from '../../system/-webview/loadChunk.js';
 import type { WebviewPanelsProxy, WebviewsController } from '../webviewsController.js';
 import type { State } from './protocol.js';
+import { settingsPageAnchorCommands } from './settingsPageAnchors.js';
 
 export type SettingsWebviewShowingArgs = [string];
 
@@ -44,25 +44,7 @@ export function registerSettingsWebviewCommands<T>(
 ): Disposable {
 	return Disposable.from(
 		registerCommand(`${panels.id}.refresh`, () => void panels.getActiveInstance()?.refresh(true)),
-		...(
-			[
-				'gitlens.showSettingsPage!file-annotations',
-				'gitlens.showSettingsPage!branches-view',
-				'gitlens.showSettingsPage!commits-view',
-				'gitlens.showSettingsPage!contributors-view',
-				'gitlens.showSettingsPage!current-line',
-				'gitlens.showSettingsPage!file-history-view',
-				'gitlens.showSettingsPage!line-history-view',
-				'gitlens.showSettingsPage!remotes-view',
-				'gitlens.showSettingsPage!repositories-view',
-				'gitlens.showSettingsPage!search-compare-view',
-				'gitlens.showSettingsPage!stashes-view',
-				'gitlens.showSettingsPage!tags-view',
-				'gitlens.showSettingsPage!worktrees-view',
-				'gitlens.showSettingsPage!commit-graph',
-				'gitlens.showSettingsPage!autolinks',
-			] satisfies GlCommands[]
-		).map(c => {
+		...settingsPageAnchorCommands.map(c => {
 			// The show and jump commands are structured to have a ! separating the base command from the anchor
 			let anchor: string | undefined;
 			const match = /.*?!(.*)/.exec(c);

@@ -6,12 +6,16 @@ import { generalCategories } from './general.js';
 import { integrationsCategories } from './integrations.js';
 import { viewsCategories } from './views.js';
 
-/** All categories, in nav order (group order: Annotations, In-editor, Views, Integrations, Editing, General). */
+/**
+ * All categories, in nav order (group order: Integrations, Editor, Views, General).
+ * `annotationsCategories` + `editorCategories` are both `group: 'Editor'` — two
+ * source files for one merged nav group (former "Annotations" + "In-editor").
+ */
 export const settingsCategories: readonly SettingsCategory[] = [
+	...integrationsCategories,
 	...annotationsCategories,
 	...editorCategories,
 	...viewsCategories,
-	...integrationsCategories,
 	...generalCategories,
 ];
 
@@ -21,10 +25,42 @@ export const settingsCategories: readonly SettingsCategory[] = [
  * variants) is a category id directly.
  */
 const anchorAliases: Record<string, string> = {
-	// The legacy sorting section's HTML id was 'views'
-	views: 'sorting',
 	// Legacy in-page anchors that map into merged categories
 	'views-side-bar': 'commits-view',
+};
+
+/**
+ * Dropped-category anchors (and legacy aliases whose target was dropped) →
+ * the native Settings UI search query they redirect to. Consumed by
+ * `SettingsWebviewProvider.onShowing` — the single chokepoint every
+ * `gitlens.showSettingsPage[!<anchor>]` invocation passes through (including
+ * the base command's setting-key anchors), so a redirect registered here
+ * intercepts the request before the webview ever shows.
+ *
+ * Covered by a test asserting every `showSettingsPage!<anchor>` command's
+ * anchor is either a kept category id (resolves via `anchorToCategory`) or a
+ * key here — so a dropped category can never silently orphan its entry point.
+ */
+export const droppedAnchorQueries: Record<string, string> = {
+	'file-annotations': 'gitlens.fileAnnotations',
+	'repositories-view': 'gitlens.views.repositories',
+	'branches-view': 'gitlens.views.branches',
+	'remotes-view': 'gitlens.views.remotes',
+	'tags-view': 'gitlens.views.tags',
+	'worktrees-view': 'gitlens.views.worktrees',
+	'commit-details-view': 'gitlens.views.commitDetails',
+	'contributors-view': 'gitlens.views.contributors',
+	'file-history-view': 'gitlens.views.fileHistory',
+	'line-history-view': 'gitlens.views.lineHistory',
+	'search-compare-view': 'gitlens.views.searchAndCompare',
+	sorting: 'gitlens.sortRepositoriesBy',
+	// The legacy sorting section's HTML id was 'views'; 'sorting' itself is also
+	// covered directly above in case anything still deep-links to the section id
+	views: 'gitlens.sortRepositoriesBy',
+	shortcuts: 'gitlens.keymap',
+	modes: 'gitlens.modes',
+	'terminal-links': 'gitlens.terminalLinks',
+	'rebase-editor': 'gitlens.rebaseEditor',
 };
 
 /**

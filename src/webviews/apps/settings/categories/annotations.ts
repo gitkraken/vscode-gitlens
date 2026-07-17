@@ -6,7 +6,7 @@ export const annotationsCategories: SettingsCategory[] = [
 		id: 'current-line',
 		settingsSearch: 'gitlens.currentLine',
 		name: 'Inline Blame',
-		group: 'Annotations',
+		group: 'Editor',
 		icon: 'eye',
 		hint: 'Adds an unobtrusive blame annotation at the end of the current line',
 		master: {
@@ -60,6 +60,15 @@ export const annotationsCategories: SettingsCategory[] = [
 				indent: true,
 			},
 			{
+				kind: 'text',
+				key: 'currentLine.dateFormat',
+				label: 'Date format',
+				placeholder: 'defaults to `defaultDateFormat` value',
+				hint: 'Used for absolute dates (e.g. the ${date} token) in the annotation format above',
+				preview: { type: 'date', default: 'MMMM Do, YYYY h:mma', defaultLookup: 'defaultDateFormat' },
+				enabledWhen: 'currentLine.enabled',
+			},
+			{
 				kind: 'check',
 				key: 'currentLine.scrollable',
 				label: 'Include the annotation when scrolling the editor horizontally',
@@ -76,7 +85,7 @@ export const annotationsCategories: SettingsCategory[] = [
 		id: 'code-lens',
 		settingsSearch: 'gitlens.codeLens',
 		name: 'Git CodeLens',
-		group: 'Annotations',
+		group: 'Editor',
 		icon: 'gl-commit-horizontal',
 		hint: 'Adds authorship CodeLens to the top of files and on code blocks',
 		master: {
@@ -192,6 +201,15 @@ export const annotationsCategories: SettingsCategory[] = [
 				indent: true,
 			},
 			{
+				kind: 'text',
+				key: 'codeLens.dateFormat',
+				label: 'Date format',
+				placeholder: 'defaults to `defaultDateFormat` value',
+				hint: 'Used for absolute dates in the Git CodeLens',
+				preview: { type: 'date', default: 'MMMM Do, YYYY h:mma', defaultLookup: 'defaultDateFormat' },
+				enabledWhen: 'codeLens.enabled',
+			},
+			{
 				kind: 'checkgroup',
 				key: 'codeLens.scopes',
 				label: 'Add CodeLens to the following scopes',
@@ -212,7 +230,7 @@ export const annotationsCategories: SettingsCategory[] = [
 		id: 'status-bar',
 		settingsSearch: 'gitlens.statusBar',
 		name: 'Status Bar Blame',
-		group: 'Annotations',
+		group: 'Editor',
 		icon: 'git-commit',
 		hint: 'Adds a Git blame annotation about the current line to the status bar',
 		master: {
@@ -242,6 +260,15 @@ export const annotationsCategories: SettingsCategory[] = [
 				defaultValue: "${author}, ${agoOrDate}${' via 'pullRequest}",
 				preview: { type: 'commit', default: "${author}, ${agoOrDate}${' via 'pullRequest}" },
 				tokens: true,
+				enabledWhen: 'statusBar.enabled',
+			},
+			{
+				kind: 'text',
+				key: 'statusBar.dateFormat',
+				label: 'Date format',
+				placeholder: 'defaults to `defaultDateFormat` value',
+				hint: 'Used for absolute dates in the annotation format above',
+				preview: { type: 'date', default: 'MMMM Do, YYYY h:mma', defaultLookup: 'defaultDateFormat' },
 				enabledWhen: 'statusBar.enabled',
 			},
 			{
@@ -298,13 +325,24 @@ export const annotationsCategories: SettingsCategory[] = [
 				hint: 'Avoids clearing the previous blame information when changing lines to reduce status bar "flashing"',
 				enabledWhen: 'statusBar.enabled',
 			},
+			{
+				kind: 'text',
+				key: 'statusBar.tooltipFormat',
+				label: 'Hover tooltip format',
+				placeholder: 'format (in markdown) of the hover shown over the status bar blame information',
+				defaultValue:
+					"${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
+				preview: { type: 'commit', default: '${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoOrDate}' },
+				tokens: true,
+				enabledWhen: 'statusBar.enabled',
+			},
 		],
 	},
 	{
 		id: 'hovers',
 		settingsSearch: 'gitlens.hovers',
 		name: 'Hovers',
-		group: 'Annotations',
+		group: 'Editor',
 		icon: 'comment',
 		hint: 'Adds detailed blame information accessible via hovers',
 		master: {
@@ -429,6 +467,17 @@ export const annotationsCategories: SettingsCategory[] = [
 				label: 'Add changes (diff)',
 				enabledWhen: 'hovers.enabled & hovers.annotations.enabled',
 				indent: true,
+			},
+			{
+				kind: 'text',
+				key: 'hovers.detailsMarkdownFormat',
+				label: 'Commit details format',
+				placeholder: 'format (in markdown) of the commit details hover',
+				defaultValue:
+					"${avatar} &nbsp;__${author}__${signature} &nbsp;$(history) ${agoAndDateBothSources}${' via  'pullRequest} ${message}${\n\n---\n\nfootnotes}\n\n${commands}",
+				preview: { type: 'commit', default: '${avatar} &nbsp;__${author}__ &nbsp;$(history) ${agoOrDate}' },
+				tokens: true,
+				enabledWhen: 'hovers.enabled',
 			},
 		],
 	},
