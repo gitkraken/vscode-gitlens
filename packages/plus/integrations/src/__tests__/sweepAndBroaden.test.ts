@@ -413,4 +413,29 @@ suite('sweep + broaden (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('a single-page account-wide read that signals truncation is not reported as complete (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// A provider whose account-wide read returns one page it can't confirm is complete sets
+		// `paging.truncated` (e.g. Bitbucket/Azure fan-outs). The sweep must surface that, not claim allPages.
+		(
+			gh as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ id: 'pr' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}', truncated: true },
+				},
+			});
+
+		const result = await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
+		assert.equal(result.page.truncated, true, 'truncation is surfaced');
+		assert.equal(result.hasMore, true, 'a truncated sweep is not reported as fully drained');
+
+		manager.dispose();
+	});
 });

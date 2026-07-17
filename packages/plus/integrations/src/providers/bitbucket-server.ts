@@ -272,7 +272,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		);
 		if (prs == null) return undefined;
 
-		return { values: prs, paging: { cursor: '{}', more: false } };
+		return { values: prs, paging: { cursor: '{}', more: false, truncated: true } };
 	}
 
 	protected override async searchProviderMyIssues(

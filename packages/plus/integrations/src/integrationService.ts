@@ -87,6 +87,7 @@ import {
 	isCloudGitSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
+	isNonExpiringZeroTokenIntegrationId,
 } from './utils/integration.utils.js';
 
 export interface ConnectionStateChangeEvent {
@@ -831,25 +832,44 @@ export class IntegrationService implements Disposable {
 
 	/**
 	 * Narrows a caller-provided PR filter set to what the provider actually supports (via its metadata), so
-	 * an unsupported filter never trips the read core's "Unsupported filters" guard. Returns `undefined` when
-	 * no filters were requested (repo-scoped reads stay unfiltered — the caller opts into user-scoping by
-	 * passing e.g. `[Author, Assignee, ReviewRequested]`) or when the provider supports none of them.
+	 * an unsupported filter never trips the read core's "Unsupported filters" guard.
+	 *
+	 * Returns `{ filters }` (possibly undefined when none were requested — an unfiltered read is intended),
+	 * plus `unsupported: true` when the caller DID request filters but the provider supports none of them. In
+	 * that case the caller must NOT silently fall through to an unfiltered fetch-all (which would return every
+	 * PR instead of the user's); it should skip the read and surface a warning.
 	 *
 	 * Genuine "my pull requests" self-scoping is delivered by the account-wide path
-	 * ({@link GitHostIntegration.getMyPullRequestsForUserResult}), which queries each provider's native
-	 * involves-me/authored-by-me endpoints; this helper only governs the optional repo-scoped narrowing.
+	 * ({@link GitHostIntegration.getMyPullRequestsForUserResult}); this helper only governs the optional
+	 * repo-scoped narrowing.
 	 */
 	private resolvePullRequestFilters(
 		id: IntegrationIds,
 		filters: PullRequestFilter[] | undefined,
-	): PullRequestFilter[] | undefined {
-		if (filters == null || filters.length === 0) return undefined;
+	): { filters?: PullRequestFilter[]; unsupported: boolean } {
+		if (filters == null || filters.length === 0) return { unsupported: false };
 
 		const supported = providersMetadata[id]?.supportedPullRequestFilters;
-		if (supported == null) return undefined;
+		const effective = supported != null ? filters.filter(f => supported.includes(f)) : [];
+		if (effective.length === 0) return { unsupported: true };
 
-		const effective = filters.filter(f => supported.includes(f));
-		return effective.length ? effective : undefined;
+		return { filters: effective, unsupported: false };
+	}
+
+	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of (see P2-10). */
+	private unsupportedFiltersWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `The requested pull request filters are not supported by '${id}'; skipped to avoid returning unfiltered results.`,
+			kind: 'other',
+			isAuth: false,
+		};
 	}
 
 	/** Encodes a 1-based page number as the opaque cursor the provider paging layer understands. */
@@ -1219,7 +1239,10 @@ export class IntegrationService implements Disposable {
 		);
 
 		const items = value?.values ?? [];
-		const paged = this.toProviderPageInfo(page, options.itemsPerPage ?? items.length, value?.paging);
+		// The repos read core is cursor-only and can't accept a page size, so don't echo the requested
+		// `itemsPerPage` as if it were applied — report what the provider returned (its own pageSize when
+		// available, else the actual item count).
+		const paged = this.toProviderPageInfo(page, items.length, value?.paging);
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
@@ -1261,12 +1284,30 @@ export class IntegrationService implements Disposable {
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
-		const cursor = options.cursor ?? this.pageToCursor(page);
 		// With no repos this is an account-wide "my PRs" read; the repo-scoped core rejects an empty `repos`
 		// input, so route to the account-wide, inherently user-scoped core instead (see drainPullRequests).
 		// That path is cursor-based and already user-scoped, so `filters`/`page`/`pageSize` don't apply there
-		// — continuation is via `cursor` only.
+		// — continuation is via the opaque `cursor` only. Do NOT synthesize a page-number cursor for it: the
+		// underlying query (e.g. GitHub `involves:`) ignores a page number and returns its first page, which
+		// would then be mislabeled as page N.
 		const accountWide = (options.repos?.length ?? 0) === 0;
+		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
+
+		// Resolve repo-scoped filters up front so an unsupported set is caught before the read: falling through
+		// unfiltered would return every PR in the repos rather than the user's (see P2-10).
+		const resolvedFilters = accountWide
+			? { unsupported: false as boolean, filters: undefined }
+			: this.resolvePullRequestFilters(options.providerId, options.filters);
+		if (resolvedFilters.unsupported) {
+			return {
+				items: [],
+				warnings: [this.unsupportedFiltersWarning(options.providerId, domain, options.connectionId)],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 			accountWide
 				? integration.getMyPullRequestsForUserResult(
@@ -1281,7 +1322,7 @@ export class IntegrationService implements Disposable {
 						// the current user (the core resolves the account for these), so it returns the user's PRs.
 						{
 							state: options.states,
-							filters: this.resolvePullRequestFilters(options.providerId, options.filters),
+							filters: resolvedFilters.filters,
 							cursor: cursor,
 							page: options.page,
 							pageSize: options.itemsPerPage,
@@ -1291,7 +1332,10 @@ export class IntegrationService implements Disposable {
 		);
 
 		const items = value?.values ?? [];
-		const paged = this.toProviderPageInfo(page, options.itemsPerPage ?? items.length, value?.paging);
+		// Account-wide reads have no meaningful page number (cursor-only), so report page 1 rather than
+		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
+		// unless the provider reports its own.
+		const paged = this.toProviderPageInfo(accountWide ? 1 : page, items.length, value?.paging);
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
@@ -1416,34 +1460,55 @@ export class IntegrationService implements Disposable {
 			options.project != null ? projects.filter(p => this.resourceMatchesOrg(p, options.project!)) : projects;
 
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
-		// handle from the connection's own account (multi-account safe), degrading to unscoped on failure.
+		// handle from the connection's own account (multi-account safe).
 		let user: string | undefined;
 		if (options.includeAllAssignees !== true) {
 			const account = await integration.getAccountForResource(scopedResources[0], options.connectionId);
 			user = account?.username ?? account?.name ?? undefined;
+			// If we needed a user scope but couldn't resolve one, an unscoped read would silently broaden
+			// "assigned to me" to every visible issue (Jira/Trello treat an absent user as no filter),
+			// contaminating the result with others' issues. Surface a warning and stop instead of broadening.
+			if (user == null) {
+				warnings.push({
+					providerId: options.providerId,
+					domain: domain,
+					connectionId: options.connectionId,
+					message:
+						'Could not resolve the current user to scope issues to; skipping to avoid returning issues assigned to others.',
+					kind: 'other',
+					isAuth: false,
+				});
+				return { items: items, warnings: warnings, fetchFailed: true };
+			}
 		}
 
 		const perProject = await Promise.all(
 			scopedProjects.map(project =>
-				this.runCaptured(options.providerId, domain, options.connectionId, async () => ({
-					value: await integration.getIssuesForProject(
+				this.runCaptured(options.providerId, domain, options.connectionId, () =>
+					integration.getIssuesForProjectResult(
 						project,
 						{ user: user, filters: options.filters },
 						options.connectionId,
 					),
-				})),
+				),
 			),
 		);
+		let fetchFailed = false;
 		for (const { value: issues, warning } of perProject) {
 			if (warning != null) {
 				warnings.push(warning);
+			}
+			// A thrown/unsupported read (e.g. Linear not-implemented) surfaces as a warning with no value;
+			// mark the aggregate as fetchFailed so an empty result isn't mistaken for "no issues".
+			if (warning != null && issues == null) {
+				fetchFailed = true;
 			}
 			if (issues != null) {
 				items.push(...issues);
 			}
 		}
 
-		return { items: items, warnings: warnings };
+		return { items: items, warnings: warnings, fetchFailed: fetchFailed || undefined };
 	}
 
 	/**
@@ -1500,7 +1565,14 @@ export class IntegrationService implements Disposable {
 
 			items.push(...value.values);
 			if (!(value.paging?.more ?? false)) {
-				return { items: items, warnings: warnings, fetchFailed: false, truncated: false };
+				// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
+				// sets `paging.truncated`; propagate it so the sweep doesn't claim an all-pages result.
+				return {
+					items: items,
+					warnings: warnings,
+					fetchFailed: false,
+					truncated: value.paging?.truncated ?? false,
+				};
 			}
 			if (page >= maxPages) {
 				return { items: items, warnings: warnings, fetchFailed: false, truncated: true };
@@ -1606,15 +1678,25 @@ export class IntegrationService implements Disposable {
 
 				const domain = this.domainForRead(integration, id, connectionId);
 				// Resolve filters per provider so each drains only the user's PRs (default) using the filters
-				// that provider supports — a single shared set could be unsupported by one of them.
-				const filters = this.resolvePullRequestFilters(id, options?.filters);
+				// that provider supports — a single shared set could be unsupported by one of them. Only relevant
+				// on the repo-scoped path; the account-wide drain (empty repos) ignores filters.
+				const resolved = this.resolvePullRequestFilters(id, options?.filters);
+				if (resolved.unsupported && repos.length > 0) {
+					// Don't drain unfiltered (would return every PR); report a warning and contribute nothing.
+					return {
+						items: [] as ProviderPullRequest[],
+						warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
 				return this.drainPullRequests(
 					integration,
 					id,
 					domain,
 					repos,
 					options?.state,
-					filters,
+					resolved.filters,
 					connectionId,
 					maxPages,
 				);
@@ -1672,10 +1754,11 @@ export class IntegrationService implements Disposable {
 	 * repositories, then reads that org's issues. A per-org failure becomes a warning without failing the
 	 * whole fan-out. `broadenedProviderIds` lists the distinct providers whose issue read resolved (even
 	 * if every issue duplicated a baseline), and `fanOutCount` is the number of org work items spawned.
-	 * No `connectionId`: this is a genuine multi-org/provider fan-out where a single id would be ambiguous.
+	 * Each org may carry its own `connectionId` to target a specific account (the fan-out spans providers, so
+	 * the connection is scoped per org rather than globally).
 	 */
 	async broadenIssues(options: {
-		orgs: { providerId: IntegrationIds; name: string }[];
+		orgs: { providerId: IntegrationIds; name: string; connectionId?: string }[];
 		page?: number;
 		cursor?: string;
 		forceSync?: boolean;
@@ -1684,12 +1767,8 @@ export class IntegrationService implements Disposable {
 
 		const results = await Promise.all(
 			options.orgs.map(async org => {
-				let integration: Integration | undefined;
-				try {
-					integration = await this.get(org.providerId);
-				} catch {
-					return undefined;
-				}
+				const connectionId = org.connectionId;
+				const integration = await this.getIntegrationForRead(org.providerId, connectionId);
 				if (integration == null || isIssuesIntegration(integration)) return undefined;
 
 				// An org a prior round already drained must not be re-read: cursor-only providers would answer a
@@ -1711,16 +1790,16 @@ export class IntegrationService implements Disposable {
 					};
 				}
 
-				await this.forceRefreshIfRequested(integration, options.forceSync, undefined);
+				await this.forceRefreshIfRequested(integration, options.forceSync, connectionId);
 
-				const domain = integration.domain;
+				const domain = this.domainForRead(integration, org.providerId, connectionId);
 				const reposDrain = await this.drainRepositories(
 					integration,
 					org.providerId,
 					domain,
 					org.name,
 					undefined,
-					undefined,
+					connectionId,
 					100,
 				);
 				const warnings: ProviderWarning[] = [...reposDrain.warnings];
@@ -1745,11 +1824,15 @@ export class IntegrationService implements Disposable {
 
 				// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
 				const cursor = this.getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
-				const issuesCaptured = await this.runCaptured(org.providerId, domain, undefined, () =>
-					integration.getMyIssuesForReposResult(repos, {
-						includeAllAssignees: true,
-						cursor: cursor,
-					}),
+				const issuesCaptured = await this.runCaptured(org.providerId, domain, connectionId, () =>
+					integration.getMyIssuesForReposResult(
+						repos,
+						{
+							includeAllAssignees: true,
+							cursor: cursor,
+						},
+						connectionId,
+					),
 				);
 				if (issuesCaptured.warning != null) {
 					warnings.push(issuesCaptured.warning);
@@ -1938,6 +2021,17 @@ export class IntegrationService implements Disposable {
 		const owner = provider.owner;
 		const name = provider.repoName;
 		if (owner == null || name == null) return unsupported;
+
+		// When pinning to a specific connection on a self-managed host, the connection's configured domain must
+		// match the host parsed from the URL. Otherwise we'd resolve `owner/repo` against a different host's
+		// account — and if that host happens to have the same owner/repo, return a confidently wrong identity.
+		if (options.connectionId != null && isGitSelfManagedHostIntegrationId(id)) {
+			const connectionDomain = this.getConfiguredConnectionDomain(id, options.connectionId);
+			const urlHost = hostFromDomain(provider.domain);
+			if (connectionDomain != null && urlHost != null && connectionDomain !== urlHost) {
+				return { resolution: { status: 'no-connection' }, cliUnsupported: false };
+			}
+		}
 
 		let integration: Integration | undefined;
 		try {
@@ -2604,11 +2698,11 @@ function toProviderSession(
 	},
 	host: string | undefined,
 ): ProviderAuthenticationSession {
+	// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a non-expiring token; left
+	// as 0 the session's `expiresAt` would be `now` and rejected as expired on the next read. Map it to the
+	// maximum expiry (mirrors the auth provider's own guard).
 	const expiresIn =
-		session.expiresIn === 0 &&
-		(id === GitCloudHostIntegrationId.GitHub || isCloudGitSelfManagedHostIntegrationId(id))
-			? maxSmallIntegerV8
-			: session.expiresIn;
+		session.expiresIn === 0 && isNonExpiringZeroTokenIntegrationId(id) ? maxSmallIntegerV8 : session.expiresIn;
 	const protocol = protocolFromDomain(connection.domain);
 
 	return {

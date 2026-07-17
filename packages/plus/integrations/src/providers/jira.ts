@@ -179,7 +179,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user: string; filters: IssueFilter[] },
+		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
 		let results;
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
@@ -201,9 +201,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				.filter((result): result is IssueShape => result !== undefined);
 		};
 
-		if (options?.user != null && options.filters.length > 0) {
+		if (options?.user != null) {
+			const user = options.user;
+			// A resolved user always scopes the read. Default to the assignee filter ("my issues") when no
+			// explicit filters are given — otherwise a caller that scopes by user but omits filters would fall
+			// through to the unscoped fetch below and get every issue in the project instead of the user's.
+			const filters = options.filters?.length ? options.filters : [IssueFilter.Assignee];
 			const resultsPromise = Promise.allSettled(
-				options.filters.map(filter => getSearchedUserIssuesForFilter(options.user, filter)),
+				filters.map(filter => getSearchedUserIssuesForFilter(user, filter)),
 			);
 
 			results = [

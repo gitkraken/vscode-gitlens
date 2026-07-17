@@ -732,7 +732,10 @@ export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string):
 
 export function toIssueShape(issue: ProviderIssue, provider: ProviderReference): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
-	if (issue.updatedDate == null || issue.author == null || issue.url == null) return undefined;
+	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
+	// which the SDK maps with `author: null`), and dropping every such item would discard the whole board.
+	// Fall back to an empty author instead so these issues still surface.
+	if (issue.updatedDate == null || issue.url == null) return undefined;
 
 	return {
 		type: 'issue',
@@ -747,10 +750,10 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		closed: issue.closedDate != null,
 		state: issue.closedDate != null ? 'closed' : 'opened',
 		author: {
-			id: issue.author.id ?? '',
-			name: issue.author.name ?? '',
-			avatarUrl: issue.author.avatarUrl ?? undefined,
-			url: issue.author.url ?? undefined,
+			id: issue.author?.id ?? '',
+			name: issue.author?.name ?? '',
+			avatarUrl: issue.author?.avatarUrl ?? undefined,
+			url: issue.author?.url ?? undefined,
 		},
 		assignees:
 			issue.assignees?.map(assignee => ({

@@ -151,10 +151,19 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
 			const { tokenWithInfo, options } = this.getApiOptions(session);
+			// The projects API is paginated; a single call would drop every project past the first page (and
+			// with it their repos and PRs). Drain all pages per resource, threading the returned cursor.
 			const azureProjects = await flatSettled(
 				resourcesWithoutProjects.map(
 					async resource =>
-						(await api.getAzureProjectsForResource(tokenWithInfo, resource.name, options)).values,
+						(
+							await collectProviderPagedResult(cursor =>
+								api.getAzureProjectsForResource(tokenWithInfo, resource.name, {
+									...options,
+									cursor: cursor,
+								}),
+							)
+						).values,
 				),
 			);
 
@@ -603,7 +612,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		// KNOWN LIMITATION: getPullRequestsForAzureProjects returns a single provider-default page per project
 		// (no pageInfo exposed), so a project with more PRs than one page is capped here. Reported as one
 		// exhausted page rather than a resumable cursor until the wrapper exposes paging.
-		return { values: [...prsById.values()], paging: { cursor: '{}', more: false } };
+		return { values: [...prsById.values()], paging: { cursor: '{}', more: false, truncated: true } };
 	}
 
 	protected override async searchProviderMyIssues(

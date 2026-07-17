@@ -9,7 +9,7 @@ import { AuthenticationError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderIssue, ProviderOrganization, ProviderPullRequest } from '../providers/models.js';
-import { PagingMode } from '../providers/models.js';
+import { PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -427,11 +427,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		let capturedUser: string | undefined;
 		(
 			jira as unknown as {
-				getIssuesForProject: (p: unknown, o?: { user?: string }) => Promise<IssueShape[]>;
+				getIssuesForProjectResult: (p: unknown, o?: { user?: string }) => Promise<{ value: IssueShape[] }>;
 			}
-		).getIssuesForProject = (_p: unknown, o?: { user?: string }) => {
+		).getIssuesForProjectResult = (_p: unknown, o?: { user?: string }) => {
 			capturedUser = o?.user;
-			return Promise.resolve([{ id: 'i1' } as unknown as IssueShape]);
+			return Promise.resolve({ value: [{ id: 'i1' } as unknown as IssueShape] });
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
@@ -444,6 +444,93 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		});
 		assert.equal(broadened.items.length, 1);
 		assert.equal(capturedUser, undefined, 'includeAllAssignees drops the user scope');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage surfaces a failed issue read as a warning + fetchFailed, not empty (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+
+		(
+			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			linear as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () =>
+			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+		(linear as unknown as { getAccountForResource: () => Promise<{ username: string }> }).getAccountForResource =
+			() => Promise.resolve({ username: 'me' });
+		// A thrown/unsupported read (Linear's not-implemented) recovers into { error } at the result core.
+		(
+			linear as unknown as { getIssuesForProjectResult: () => Promise<{ error: Error }> }
+		).getIssuesForProjectResult = () => Promise.resolve({ error: new Error('Method not implemented.') });
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear });
+		assert.equal(result.items.length, 0);
+		assert.equal(result.fetchFailed, true, 'a failed read is not silently reported as empty');
+		assert.ok(result.warnings.length >= 1, 'the failure surfaces a warning');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage warns instead of broadening when the current user cannot be resolved (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () =>
+			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+		// Current-user lookup fails → undefined. Must NOT broaden to all-visible.
+		(jira as unknown as { getAccountForResource: () => Promise<undefined> }).getAccountForResource = () =>
+			Promise.resolve(undefined);
+		let readCalled = false;
+		(
+			jira as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
+		).getIssuesForProjectResult = () => {
+			readCalled = true;
+			return Promise.resolve({ value: [] });
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
+		assert.equal(readCalled, false, 'the issue read is skipped rather than run unscoped (all-visible)');
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.length >= 1, 'the unresolved-user failure surfaces a warning');
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage warns instead of fetching all when no requested filter is supported (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let readCalled = false;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () => {
+				readCalled = true;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		// Mention is not in GitHub's supported PR filters; requesting only it must not silently fetch all PRs.
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			filters: [PullRequestFilter.Mention],
+		});
+		assert.equal(readCalled, false, 'the read is skipped rather than run unfiltered');
+		assert.equal(result.fetchFailed, true);
+		assert.equal(result.warnings.length, 1);
 
 		manager.dispose();
 	});

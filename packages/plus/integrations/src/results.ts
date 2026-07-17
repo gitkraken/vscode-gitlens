@@ -32,6 +32,8 @@ export interface ProviderPageInfo {
 export interface ProviderResult<T> {
 	items: T[];
 	warnings: ProviderWarning[];
+	/** True when a read failed and `items` is incomplete — distinguishes a failure from a genuinely empty result. */
+	fetchFailed?: boolean;
 }
 
 export interface ProviderPagedResult<T> extends ProviderResult<T> {

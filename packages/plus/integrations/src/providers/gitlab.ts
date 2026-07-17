@@ -353,8 +353,10 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 					.filter(pr => {
 						const isAssignee = pr.assignees?.some(a => a.username === username);
 						const isRequestedReviewer = pr.reviews?.some(
+							// Match only reviews assigned to the current user; a bare `state === ReviewRequested`
+							// check would also match reviews requested from OTHER people, leaking their MRs in.
 							review =>
-								review.reviewer?.username === username ||
+								review.reviewer?.username === username &&
 								review.state === ProviderPullRequestReviewState.ReviewRequested,
 						);
 						const isAuthor = pr.author?.username === username;
@@ -394,8 +396,10 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		const values = result.values.filter(pr => {
 			const isAssignee = pr.assignees?.some(a => a.username === username);
 			const isRequestedReviewer = pr.reviews?.some(
+				// Match only reviews assigned to the current user; a bare `state === ReviewRequested`
+				// check would also match reviews requested from OTHER people, leaking their MRs in.
 				review =>
-					review.reviewer?.username === username ||
+					review.reviewer?.username === username &&
 					review.state === ProviderPullRequestReviewState.ReviewRequested,
 			);
 			const isAuthor = pr.author?.username === username;

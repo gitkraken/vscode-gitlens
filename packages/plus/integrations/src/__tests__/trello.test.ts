@@ -39,7 +39,9 @@ function fakeIssue(): ProviderIssue {
 		createdDate: new Date(0),
 		updatedDate: new Date(0),
 		closedDate: null,
-		author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+		// The Trello SDK maps every card with `author: null` (cards have no creator field), so the test must
+		// use the real shape — a non-null author here would mask toIssueShape dropping null-author cards.
+		author: null,
 		assignees: [],
 		labels: [],
 	} as unknown as ProviderIssue;

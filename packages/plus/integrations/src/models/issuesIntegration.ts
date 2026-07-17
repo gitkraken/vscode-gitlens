@@ -127,6 +127,19 @@ export abstract class IssuesIntegration<
 		options?: { user?: string; filters?: IssueFilter[] },
 		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.getIssuesForProjectResult(project, options, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link getIssuesForProject}. Recovers thrown errors into `{ error }` so callers
+	 * (e.g. the ProviderBackend facade) can surface a per-provider warning instead of a silent empty read —
+	 * important for providers that throw on unsupported operations (e.g. Linear's not-implemented issue read).
+	 */
+	async getIssuesForProjectResult(
+		project: T,
+		options?: { user?: string; filters?: IssueFilter[] },
+		connectionId?: string,
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -135,10 +148,10 @@ export abstract class IssuesIntegration<
 		try {
 			const issues = await this.getProviderIssuesForProject(session, project, options);
 			this.resetRequestExceptionCount('getIssuesForProject');
-			return issues;
+			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex);
-			return undefined;
+			return { error: ex };
 		}
 	}
 

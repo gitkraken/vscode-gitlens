@@ -116,6 +116,20 @@ export function isCloudGitSelfManagedHostIntegrationId(
 	}
 }
 
+/**
+ * Whether a provider's cloud token uses `expiresIn: 0` to mean "never expires" (rather than "already
+ * expired"). GitHub and the cloud self-managed hosts always return 0 for their non-expiring tokens; Trello
+ * is issued with `expiration: never` (identity-service), so its cloud token comes back as 0 too. Callers
+ * must map 0 → a far-future expiry for these, or the session is immediately treated as expired.
+ */
+export function isNonExpiringZeroTokenIntegrationId(id: IntegrationIds): boolean {
+	return (
+		id === GitCloudHostIntegrationId.GitHub ||
+		id === IssuesCloudHostIntegrationId.Trello ||
+		isCloudGitSelfManagedHostIntegrationId(id)
+	);
+}
+
 export function isGitHostIntegration(integration: Integration): integration is GitHostIntegration {
 	return integration.type === 'git';
 }

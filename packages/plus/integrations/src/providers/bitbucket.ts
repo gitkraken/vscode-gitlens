@@ -381,7 +381,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// KNOWN LIMITATION: the workspace read returns a single provider-default page (the shared provider-api
 		// wrapper discards its pageInfo), so a workspace with more PRs than one page is capped here. Reported as
 		// a single exhausted page rather than a resumable cursor until the wrapper exposes paging.
-		return { values: perWorkspace, paging: { cursor: '{}', more: false } };
+		return { values: perWorkspace, paging: { cursor: '{}', more: false, truncated: true } };
 	}
 
 	protected override async searchProviderMyIssues(
