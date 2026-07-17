@@ -190,13 +190,16 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			);
 			requestCount += 1;
 			hasMore = result.paging?.more ?? false;
-			cursor = result.paging?.cursor;
+			const nextCursor = result.paging?.cursor;
 			for (const issue of result.values) {
 				const shape = toIssueShape(issue, this);
 				if (shape != null) {
 					issues.push(shape);
 				}
 			}
+			// Stop if the provider claims more but returns no advancing cursor, to avoid re-reading the same page.
+			if (hasMore && (nextCursor == null || nextCursor === cursor)) break;
+			cursor = nextCursor;
 		} while (requestCount < maxPagesPerRequest && hasMore);
 
 		// Linear's issue list has no server-side author/assignee filter, so scope to the current user

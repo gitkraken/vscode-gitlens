@@ -10,6 +10,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import type { ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
@@ -181,23 +182,47 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		project: JiraProjectDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		let results;
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const api = await this.getProvidersApi();
+
+		// Drain every page for a project read (bounded by a defensive backstop): the paged wrapper preserves the
+		// SDK's cursor, unlike the plain read which silently caps at the first page. `filter` undefined = the
+		// unscoped project read.
+		const drainIssues = async (scope: {
+			authorLogin?: string;
+			assigneeLogins?: string[];
+			mentionLogin?: string;
+		}): Promise<ProviderIssue[]> => {
+			const collected: ProviderIssue[] = [];
+			let cursor: string | undefined;
+			for (let i = 0; i < maxPagesPerRequest; i++) {
+				const result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
+					...scope,
+					cursor: cursor,
+				});
+				if (result == null) break;
+
+				collected.push(...result.data);
+				if (!result.hasMore || result.nextCursor == null || result.nextCursor === cursor) break;
+
+				cursor = result.nextCursor;
+			}
+			return collected;
+		};
 
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
 		): Promise<IssueShape[] | undefined> => {
-			const results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId, {
+			const results = await drainIssues({
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
 			});
 
 			return results
-				?.map(issue => toIssueShape(issue, this))
+				.map(issue => toIssueShape(issue, this))
 				.filter((result): result is IssueShape => result !== undefined);
 		};
 
@@ -211,7 +236,7 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				filters.map(filter => getSearchedUserIssuesForFilter(user, filter)),
 			);
 
-			results = [
+			const results = [
 				...flatten(
 					filterMap(await resultsPromise, r =>
 						r.status === 'fulfilled' && r.value != null ? r.value : undefined,
@@ -229,9 +254,9 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			return [...resultsById.values()];
 		}
 
-		results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId);
-		return results
-			?.map(issue => toIssueShape(issue, this))
+		const unscoped = await drainIssues({});
+		return unscoped
+			.map(issue => toIssueShape(issue, this))
 			.filter((result): result is IssueShape => result !== undefined);
 	}
 

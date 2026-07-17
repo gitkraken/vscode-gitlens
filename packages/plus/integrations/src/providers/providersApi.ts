@@ -1317,6 +1317,39 @@ export class ProvidersApi {
 		}
 	}
 
+	/**
+	 * Single page of {@link getIssuesForProject} that preserves the SDK's `pageInfo` so a caller can drain
+	 * every page (the plain {@link getIssuesForProject} discards it, silently capping at the first page).
+	 * `nextCursor` is the raw provider cursor (Jira offset / nextPageToken) fed back verbatim as `options.cursor`.
+	 */
+	async getIssuesForProjectPaged(
+		tokenOptInfo: TokenWithInfo,
+		project: string,
+		resourceId: string,
+		options?: GetIssuesOptions,
+	): Promise<{ data: ProviderIssue[]; hasMore: boolean; nextCursor: string | undefined } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getIssuesForProjectFn',
+		);
+		const token = tokenWithInfo.accessToken;
+
+		try {
+			const result = await provider.getIssuesForProjectFn?.(
+				{ projectKey: project, resourceId: resourceId, ...options },
+				{ token: token },
+			);
+			if (result == null) return undefined;
+			return {
+				data: result.data,
+				hasMore: result.pageInfo?.hasNextPage ?? false,
+				nextCursor: result.pageInfo?.endCursor ?? undefined,
+			};
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
+		}
+	}
+
 	// Trello reads. The Trello client is keyed by an `appKey` (the Trello app key from the cloud token exchange)
 	// paired with the OAuth token, so each wrapper threads `appKey` through alongside `tokenWithInfo`.
 	async getTrelloCurrentUser(

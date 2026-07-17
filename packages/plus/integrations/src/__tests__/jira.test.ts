@@ -37,27 +37,21 @@ suite('Jira issue scoping (#5438)', () => {
 		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
 
-		let scopedOptions: { assigneeLogins?: string[] } | undefined | 'unscoped' = 'unscoped';
+		const captured: { assigneeLogins?: string[] }[] = [];
 		stubApi(jira, {
-			getIssuesForProject: (
+			getIssuesForProjectPaged: (
 				_t: unknown,
 				_name: string,
 				_resourceId: string,
 				options?: { assigneeLogins?: string[] },
 			) => {
-				// The scoped branch passes an options object; the unscoped fallback calls with no 4th arg.
-				scopedOptions = options ?? 'unscoped';
-				return Promise.resolve([]);
+				captured.push(options ?? {});
+				return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
 			},
 		});
 
 		await jira.getIssuesForProject(project, { user: 'me' });
-		assert.notEqual(scopedOptions, 'unscoped', 'the read is scoped, not an unscoped project-wide fetch');
-		assert.deepEqual(
-			(scopedOptions as { assigneeLogins?: string[] }).assigneeLogins,
-			['me'],
-			'defaults to the assignee filter for the resolved user',
-		);
+		assert.deepEqual(captured[0]?.assigneeLogins, ['me'], 'defaults to the assignee filter for the resolved user');
 
 		manager.dispose();
 	});
@@ -67,18 +61,63 @@ suite('Jira issue scoping (#5438)', () => {
 		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
 		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
 
-		let calledUnscoped = false;
+		let sawUnscoped = false;
 		stubApi(jira, {
-			getIssuesForProject: (_t: unknown, _name: string, _resourceId: string, options?: unknown) => {
-				if (options == null) {
-					calledUnscoped = true;
+			getIssuesForProjectPaged: (
+				_t: unknown,
+				_name: string,
+				_resourceId: string,
+				options?: { authorLogin?: string; assigneeLogins?: string[]; mentionLogin?: string },
+			) => {
+				// The unscoped read carries no author/assignee/mention scope (only a paging cursor).
+				if (options?.authorLogin == null && options?.assigneeLogins == null && options?.mentionLogin == null) {
+					sawUnscoped = true;
 				}
-				return Promise.resolve([]);
+				return Promise.resolve({ data: [], hasMore: false, nextCursor: undefined });
 			},
 		});
 
 		await jira.getIssuesForProject(project, undefined);
-		assert.equal(calledUnscoped, true, 'without a user, the project-wide (all visible) fetch is used');
+		assert.equal(sawUnscoped, true, 'without a user, the project-wide (all visible) fetch is used');
+
+		manager.dispose();
+	});
+
+	test('drains every page of a project read, threading the SDK cursor (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		// Three pages threaded by cursor; the read must follow hasMore/nextCursor to the end, not stop at page 1.
+		const cursors: (string | undefined)[] = [];
+		stubApi(jira, {
+			getIssuesForProjectPaged: (_t: unknown, _n: string, _r: string, options?: { cursor?: string }) => {
+				cursors.push(options?.cursor);
+				const page = options?.cursor == null ? 1 : Number(options.cursor);
+				return Promise.resolve({
+					data: [
+						{
+							id: `i${page}`,
+							number: `${page}`,
+							title: `Issue ${page}`,
+							url: `https://atlassian.net/i/${page}`,
+							createdDate: new Date(0),
+							updatedDate: new Date(0),
+							closedDate: null,
+							author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+							assignees: [],
+							labels: [],
+						},
+					],
+					hasMore: page < 3,
+					nextCursor: page < 3 ? String(page + 1) : undefined,
+				});
+			},
+		});
+
+		const issues = await jira.getIssuesForProject(project, undefined);
+		assert.deepEqual(cursors, [undefined, '2', '3'], 'each page threads the previous page cursor');
+		assert.equal(issues?.length, 3, 'issues from all three pages are returned');
 
 		manager.dispose();
 	});
