@@ -9,7 +9,12 @@ import { AuthenticationError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
-import type { ProviderIssue, ProviderOrganization, ProviderPullRequest } from '../providers/models.js';
+import type {
+	ProviderIssue,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from '../providers/models.js';
 import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -826,6 +831,49 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.fetchFailed, true);
 		assert.equal(result.warnings.length, 1);
 		assert.equal(result.warnings[0].kind, 'other');
+
+		manager.dispose();
+	});
+
+	test('listRepos reports the requested page and a resumable next-page cursor for numbered-page hosts (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// Bitbucket applies the requested page but reports no currentPage and no cursor. The facade must still
+		// report the requested page (not a stuck 1) and synthesize a next-page cursor when hasMore — otherwise
+		// a currentPage+1 consumer loops on page 2 forever.
+		(
+			bb as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
+					paging: { more: true, cursor: '{}' },
+				},
+			});
+
+		const result = await manager.listRepos({
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			org: 'org',
+			page: 2,
+		});
+		assert.equal(result.page.currentPage, 2, 'the requested page is reported, not a stuck 1');
+		assert.equal(result.hasMore, true);
+		assert.equal(
+			result.cursor,
+			JSON.stringify({ value: 3, type: 'page' }),
+			'a resumable next-page cursor is synthesized',
+		);
 
 		manager.dispose();
 	});

@@ -239,6 +239,42 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('broadenIssues surfaces repo-drain truncation as page.truncated, not an uncontinuable hasMore (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		// The repo drain always claims more but never returns an advancing cursor, so drainRepositories stops
+		// at its backstop with `truncated` and no resumable repo cursor. That incompleteness must surface as a
+		// terminal page.truncated, NOT hasMore:true with no cursor (which would re-drain the same repos).
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: () => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
+					paging: { more: true, cursor: '{}' },
+				},
+			});
+		(
+			gh as unknown as {
+				getMyIssuesForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+		assert.equal(result.page.truncated, true, 'repo-drain truncation is surfaced');
+		assert.equal(result.hasMore, false, 'truncation is not advertised as a resumable next page');
+		assert.equal(result.cursor, undefined, 'no cursor is emitted for an uncontinuable truncation');
+
+		manager.dispose();
+	});
+
 	test('broadenIssues returns and reuses per-org opaque cursors for multi-org fan-out', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

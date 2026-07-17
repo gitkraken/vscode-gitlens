@@ -1357,12 +1357,19 @@ export class IntegrationService implements Disposable {
 		// consumer to request the "next page" and get the same aggregate back forever. `hasMore` stays true
 		// only when the provider gave a real resumable cursor.
 		const truncated = value?.truncated ?? value?.paging?.truncated ?? false;
+		// currentPage: the provider's own page number when it reports one; otherwise the requested `page`. Some
+		// numbered-page hosts (Bitbucket repos) apply the page but don't echo `currentPage`, which would leave
+		// this stuck at 1 and make a `currentPage + 1` consumer re-request the same page forever.
+		const currentPage = value?.paging?.page != null ? Math.max(1, value.paging.page) : page;
+		// Continuation: prefer a real provider cursor; else, for a numbered-page host that signalled more but
+		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
+		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
-			page: { ...paged.page, truncated: truncated || undefined },
+			page: { ...paged.page, currentPage: currentPage, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
-			cursor: paged.cursor,
+			cursor: cursorOut,
 			fetchFailed: (warning != null && value == null) || undefined,
 		};
 	}
@@ -2226,12 +2233,18 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
+		const cursor = this.toBroadenIssuesCursor(cursors, exhausted, options.orgs.length);
 		return {
 			items: items,
 			warnings: warnings,
 			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated },
-			hasMore: hasMore || truncated,
-			cursor: this.toBroadenIssuesCursor(cursors, exhausted, options.orgs.length),
+			// `hasMore` promises a resumable continuation, so it must be true ONLY when a real cursor was
+			// produced. Repo-drain truncation (a backstop hit with no persisted repo cursor) can't be resumed —
+			// re-invoking would re-drain the same repos and repeat issues — so it is surfaced as the terminal
+			// `page.truncated` incompleteness signal instead of `hasMore`, matching listRepos. Guard `hasMore`
+			// against a missing cursor so we never advertise a continuation the caller can't make.
+			hasMore: hasMore && cursor != null,
+			cursor: cursor,
 			fetchFailed: fetchFailed || undefined,
 			broadenedProviderIds: [...broadenedProviderIds],
 			fanOutCount: options.orgs.length,
