@@ -291,6 +291,19 @@ export type GetPullRequestsForAzureProjectsFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderPullRequest[] }>;
 
+/** Single Azure project PR read, paginated by number (unlike the aggregate {@link GetPullRequestsForAzureProjectsFn}). */
+export type GetPullRequestsForAzureProjectFn = (
+	input: {
+		namespace: string;
+		project: string;
+		authorLogin?: string;
+		assigneeLogins?: string[];
+		reviewerId?: string;
+		states?: GitPullRequestState[];
+	} & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderPullRequest[]; pageInfo: { hasNextPage: boolean; nextPage: number | null } }>;
+
 export type MergePullRequestFn =
 	| ((
 			input: {
@@ -475,6 +488,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;
+	getPullRequestsForAzureProjectFn?: GetPullRequestsForAzureProjectFn;
 	getIssueFn?: GetIssueFn;
 	getIssuesForReposFn?: GetIssuesForReposFn;
 	getIssuesForCurrentUserFn?: GetIssuesForCurrentUserFn;

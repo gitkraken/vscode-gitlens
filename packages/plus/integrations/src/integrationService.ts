@@ -1078,7 +1078,12 @@ export class IntegrationService implements Disposable {
 		const results = await Promise.all(
 			ids.map(async id => {
 				const integration = await this.getIntegrationForRead(id, connectionId);
-				if (integration == null) return undefined;
+				if (integration == null) {
+					// A specifically requested connection that can't be resolved is a broken connection, not a
+					// provider with no orgs — surface it instead of dropping the id silently.
+					const early = this.earlyReturnConnectionWarnings(id, connectionId);
+					return { items: [] as ProviderOrganization[], warnings: early.warnings };
+				}
 
 				const items: ProviderOrganization[] = [];
 				const warnings: ProviderWarning[] = [];
@@ -1160,7 +1165,12 @@ export class IntegrationService implements Disposable {
 		const results = await Promise.all(
 			ids.map(async id => {
 				const integration = await this.getIntegrationForRead(id, connectionId);
-				if (integration == null) return undefined;
+				if (integration == null) {
+					// A requested connection that can't be resolved is a broken connection, not a provider with
+					// no projects — surface it instead of dropping the id silently.
+					const early = this.earlyReturnConnectionWarnings(id, connectionId);
+					return { items: [] as ProviderOrganization[], warnings: early.warnings };
+				}
 
 				const items: ProviderOrganization[] = [];
 				const warnings: ProviderWarning[] = [];
@@ -1447,6 +1457,29 @@ export class IntegrationService implements Disposable {
 			const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
 				integration.searchMyIssuesResult(undefined, undefined, options.connectionId),
 			);
+
+			// Only GitHub supports an account-wide issue search; GitLab and Bitbucket have no such endpoint
+			// (their issue reads are repo-scoped, and Bitbucket exposes no issues at all), so their core
+			// returns `undefined` with no error. Surface that as an explicit unsupported warning + fetchFailed
+			// rather than a silent empty success — the caller must fall back (e.g. broadenIssues over repos).
+			if (value == null && warning == null) {
+				return {
+					items: [],
+					warnings: [
+						{
+							providerId: options.providerId,
+							domain: domain,
+							connectionId: options.connectionId,
+							message: `Account-wide issue search is not supported by '${options.providerId}'; scope the read to repositories instead.`,
+							kind: 'other',
+							isAuth: false,
+						},
+					],
+					page: { currentPage: 1, itemsPerPage: 0 },
+					hasMore: false,
+					fetchFailed: true,
+				};
+			}
 			const items = value ?? [];
 			return {
 				items: items,
@@ -1801,7 +1834,19 @@ export class IntegrationService implements Disposable {
 			ids.map(async id => {
 				const connectionId = singleProvider ? options?.connectionId : undefined;
 				const integration = await this.getIntegrationForRead(id, connectionId);
-				if (integration == null || isIssuesIntegration(integration)) return undefined;
+				if (integration == null) {
+					// A requested connection that can't be resolved is a broken connection — surface it as a
+					// warning + fetchFailed rather than dropping the provider's slice silently.
+					const early = this.earlyReturnConnectionWarnings(id, connectionId);
+					if (early.warnings.length === 0) return undefined;
+					return {
+						items: [] as ProviderPullRequest[],
+						warnings: early.warnings,
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
+				if (isIssuesIntegration(integration)) return undefined;
 
 				await this.forceRefreshIfRequested(integration, options?.forceSync, connectionId);
 
@@ -1906,7 +1951,26 @@ export class IntegrationService implements Disposable {
 			options.orgs.map(async org => {
 				const connectionId = org.connectionId;
 				const integration = await this.getIntegrationForRead(org.providerId, connectionId);
-				if (integration == null || isIssuesIntegration(integration)) return undefined;
+				if (integration == null) {
+					// A requested connection that can't be resolved is a broken connection — surface it as a
+					// warning + fetchFailed rather than dropping the org silently.
+					const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId);
+					if (early.warnings.length === 0) return undefined;
+					return {
+						items: [] as ProviderIssue[],
+						warnings: early.warnings,
+						broadenedProviderIds: [] as IntegrationIds[],
+						providerId: org.providerId,
+						org: org.name,
+						connectionId: connectionId,
+						nextCursor: undefined,
+						hasMore: false,
+						exhausted: false,
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
+				if (isIssuesIntegration(integration)) return undefined;
 
 				// An org a prior round already drained must not be re-read: cursor-only providers would answer a
 				// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it

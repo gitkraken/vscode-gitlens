@@ -28,6 +28,7 @@ import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type { ProviderPullRequest, ProviderRepository } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { parsePageCursor, toPageCursor } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -252,7 +253,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			this.apiBaseUrl,
 			{ states: toProviderPullRequestStates(state) },
 		);
-		return prs?.map(pr => fromProviderPullRequest(pr, this));
+		return prs?.data.map(pr => fromProviderPullRequest(pr, this));
 	}
 
 	protected override async getProviderMyPullRequestsForUser(
@@ -260,19 +261,24 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
-		// KNOWN LIMITATION: Bitbucket Server's account-wide read returns a single provider-default page (the
-		// wrapper discards pageInfo), so a user with more PRs than one page is capped here. Wrapped as one
-		// exhausted page for the ProviderBackend sweep until the wrapper exposes paging.
-		const prs = await api.getBitbucketServerPullRequestsForCurrentUser(
+		const states = toProviderPullRequestStates(options?.state);
+		// Bitbucket Server pages the current-user PR read by number; drain a single page here and thread the
+		// next page as the cursor so the ProviderBackend sweep drives the drain (bounded by its maxPages).
+		const page = parsePageCursor(options?.cursor);
+		const result = await api.getBitbucketServerPullRequestsForCurrentUser(
 			toTokenWithInfo(this.id, session),
 			this.apiBaseUrl,
-			{
-				states: toProviderPullRequestStates(options?.state),
-			},
+			{ states: states, page: page },
 		);
-		if (prs == null) return undefined;
+		if (result == null) return undefined;
 
-		return { values: prs, paging: { cursor: '{}', more: false, truncated: true } };
+		return {
+			values: result.data,
+			paging: {
+				more: result.hasMore,
+				cursor: result.hasMore && result.nextPage != null ? toPageCursor(result.nextPage) : '{}',
+			},
+		};
 	}
 
 	protected override async searchProviderMyIssues(

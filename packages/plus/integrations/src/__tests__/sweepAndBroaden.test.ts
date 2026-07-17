@@ -506,4 +506,52 @@ suite('sweep + broaden (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('Bitbucket account-wide PR read drains all workspace pages (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		let calls = 0;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: (
+				_t: unknown,
+				_u: string,
+				_ws: string,
+				o?: { page?: number },
+			) => {
+				calls += 1;
+				const page = o?.page ?? 1;
+				// Two pages: page 1 hasMore, page 2 terminal.
+				return Promise.resolve({
+					data: [{ id: `pr-${page}` } as unknown as ProviderPullRequest],
+					hasMore: page < 2,
+					nextPage: page < 2 ? page + 1 : null,
+				});
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		// Single workspace so the drain is deterministic.
+		(
+			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
+		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+
+		// Call the account-wide core directly to assert the per-workspace drain (avoids the sweep wrapper).
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		assert.equal(calls, 2, 'both workspace pages are drained');
+		assert.equal(result?.value?.values.length, 2, 'PRs from both pages are returned');
+		assert.equal(result?.value?.paging?.truncated, undefined, 'a fully drained workspace is not marked truncated');
+
+		manager.dispose();
+	});
 });

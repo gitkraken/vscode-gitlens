@@ -332,7 +332,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 				ws.slug,
 				{ states: states },
 			);
-			return prs?.map(pr => fromProviderPullRequest(pr, this));
+			return prs?.data.map(pr => fromProviderPullRequest(pr, this));
 		});
 
 		const reviewerClause = `reviewers.uuid="${user.id}"`;
@@ -363,25 +363,38 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
 		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to.
-		// Bitbucket's cross-workspace read is per-workspace, so fan out and concatenate the raw provider shapes.
-		// `states` accepts an array so the closed+merged "done" sweep maps in one pass.
+		// Bitbucket's cross-workspace read is per-workspace and numbered-page, so drain each workspace fully
+		// (bounded by a defensive backstop) and concatenate. There's no single cross-workspace cursor, so the
+		// aggregate is one page; `truncated` is set only if a workspace hit the backstop with more pages left.
 		const states = toProviderPullRequestStates(options?.state);
+		const maxPagesPerWorkspace = 20;
+		let truncated = false;
 		const perWorkspace = await flatSettled(
 			workspaces.map(async ws => {
-				const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
-					toTokenWithInfo(this.id, session),
-					user.id,
-					ws.slug,
-					{ states: states },
-				);
-				return prs ?? [];
+				const collected: ProviderPullRequest[] = [];
+				let page: number | undefined;
+				for (let i = 0; i < maxPagesPerWorkspace; i++) {
+					const result = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
+						toTokenWithInfo(this.id, session),
+						user.id,
+						ws.slug,
+						{ states: states, page: page },
+					);
+					if (result == null) break;
+
+					collected.push(...result.data);
+					if (!result.hasMore || result.nextPage == null) break;
+
+					page = result.nextPage;
+					if (i === maxPagesPerWorkspace - 1) {
+						truncated = true;
+					}
+				}
+				return collected;
 			}),
 		);
 
-		// KNOWN LIMITATION: the workspace read returns a single provider-default page (the shared provider-api
-		// wrapper discards its pageInfo), so a workspace with more PRs than one page is capped here. Reported as
-		// a single exhausted page rather than a resumable cursor until the wrapper exposes paging.
-		return { values: perWorkspace, paging: { cursor: '{}', more: false, truncated: true } };
+		return { values: perWorkspace, paging: { cursor: '{}', more: false, truncated: truncated || undefined } };
 	}
 
 	protected override async searchProviderMyIssues(

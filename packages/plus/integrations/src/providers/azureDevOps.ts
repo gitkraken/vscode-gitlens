@@ -591,33 +591,56 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (projects == null || projects.length === 0) return undefined;
 
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
-		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
 		const states = toProviderPullRequestStates(options?.state);
-		const [assignedPrs, authoredPrs] = await Promise.all([
-			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...apiOptions,
-				assigneeLogins: [user.id],
-				states: states,
-			}),
-			api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
-				...apiOptions,
-				authorLogin: user.id,
-				states: states,
-			}),
-		]);
+		const maxPagesPerProject = 20;
 
-		// Dedupe by id: a PR the user both authored and is assigned to appears in both reads.
+		// Drain each project fully (numbered pages) for both the authored and assigned reads. Azure has no
+		// single cross-project cursor, so the aggregate is one page; `truncated` is set only if a project hit
+		// the backstop with more pages remaining.
 		const prsById = new Map<string, ProviderPullRequest>();
-		for (const pr of [...(authoredPrs ?? []), ...(assignedPrs ?? [])]) {
-			if (!prsById.has(pr.id)) {
-				prsById.set(pr.id, pr);
-			}
-		}
+		let truncated = false;
+		const drainProject = async (
+			project: { namespace: string; project: string },
+			scope: { authorLogin?: string; assigneeLogins?: string[] },
+		): Promise<void> => {
+			let page: number | undefined;
+			for (let i = 0; i < maxPagesPerProject; i++) {
+				const result = await api.getPullRequestsForAzureProject(tokenWithInfo, project, {
+					...apiOptions,
+					...scope,
+					states: states,
+					page: page,
+				});
+				if (result == null) break;
 
-		// KNOWN LIMITATION: getPullRequestsForAzureProjects returns a single provider-default page per project
-		// (no pageInfo exposed), so a project with more PRs than one page is capped here. Reported as one
-		// exhausted page rather than a resumable cursor until the wrapper exposes paging.
-		return { values: [...prsById.values()], paging: { cursor: '{}', more: false, truncated: true } };
+				for (const pr of result.data) {
+					if (!prsById.has(pr.id)) {
+						prsById.set(pr.id, pr);
+					}
+				}
+				if (!result.hasMore || result.nextPage == null) break;
+
+				page = result.nextPage;
+				if (i === maxPagesPerProject - 1) {
+					truncated = true;
+				}
+			}
+		};
+
+		await Promise.all(
+			projects.flatMap(p => {
+				const project = { namespace: p.resourceName, project: p.name };
+				return [
+					drainProject(project, { authorLogin: user.id }),
+					drainProject(project, { assigneeLogins: [user.id] }),
+				];
+			}),
+		);
+
+		return {
+			values: [...prsById.values()],
+			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
+		};
 	}
 
 	protected override async searchProviderMyIssues(

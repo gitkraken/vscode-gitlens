@@ -1,6 +1,23 @@
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderHierarchyResult } from '../models.js';
 
+/** Encodes a 1-based page number as the opaque `{ value, type: 'page' }` cursor the paging layer uses. */
+export function toPageCursor(page: number): string {
+	return JSON.stringify({ value: page, type: 'page' });
+}
+
+/** Extracts a 1-based page number from a `{ value, type: 'page' }` cursor; undefined when absent/malformed. */
+export function parsePageCursor(cursor: string | undefined): number | undefined {
+	if (cursor == null || cursor === '{}') return undefined;
+
+	try {
+		const parsed = JSON.parse(cursor) as { value?: unknown; type?: unknown };
+		if (parsed.type === 'page' && typeof parsed.value === 'number') return parsed.value;
+	} catch {}
+
+	return undefined;
+}
+
 /**
  * Drains a provider paged fetcher into a single result while preserving enough metadata to
  * signal whether the defensive backstop interrupted the drain.

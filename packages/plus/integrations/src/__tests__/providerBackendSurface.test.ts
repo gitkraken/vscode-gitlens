@@ -562,20 +562,19 @@ suite('ProviderBackend surface facade (#5438)', () => {
 	test('listPullRequestsPage warns instead of fetching all when no requested filter is supported (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
-		// GitLab supports only [Author, ReviewRequested], so `Assignee` is genuinely unsupported there —
-		// exercising the real unsupported-filter guard (not an incomplete-stub TypeError as before).
-		const gl = await manager.get(GitCloudHostIntegrationId.GitLab);
-		(gl as unknown as { _session: ProviderAuthenticationSession })._session = {
+		// Bitbucket's supportedPullRequestFilters is [Author, ReviewRequested] — `Assignee` is genuinely
+		// unsupported, so resolvePullRequestFilters returns unsupported and the preflight guard fires. (GitLab
+		// would be wrong here: it DOES support Assignee, so the guard wouldn't trigger for the right reason.)
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
 			...primarySession('t'),
-			domain: 'gitlab.com',
+			domain: 'bitbucket.org',
 		};
 
 		let readCalled = false;
-		stubApi(gl, {
+		stubApi(bb, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repo,
-			providerSupportsPullRequestFilters: () => false,
-			getCurrentUser: () => Promise.resolve({ username: 'me', id: 'me' }),
 			getPullRequestsForRepo: () => {
 				readCalled = true;
 				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
@@ -587,7 +586,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		});
 
 		const result = await manager.listPullRequestsPage({
-			providerId: GitCloudHostIntegrationId.GitLab,
+			providerId: GitCloudHostIntegrationId.Bitbucket,
 			repos: [{ namespace: 'g', name: 'r' }],
 			filters: [PullRequestFilter.Assignee],
 		});

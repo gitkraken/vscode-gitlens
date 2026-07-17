@@ -220,6 +220,9 @@ export class ProvidersApi {
 				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
 					providerApis.azureDevOps,
 				),
+				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
+					providerApis.azureDevOps,
+				),
 				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
 					providerApis.azureDevOps,
 				),
@@ -247,6 +250,9 @@ export class ProvidersApi {
 					providerApis.azureDevOps,
 				),
 				getPullRequestsForAzureProjectsFn: providerApis.azureDevOps.getPullRequestsForProjects.bind(
+					providerApis.azureDevOps,
+				),
+				getPullRequestsForAzureProjectFn: providerApis.azureDevOps.getPullRequestsForProject.bind(
 					providerApis.azureDevOps,
 				),
 				getIssuesForAzureProjectFn: providerApis.azureDevOps.getIssuesForAzureProject.bind(
@@ -766,8 +772,8 @@ export class ProvidersApi {
 		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
 		workspaceSlug: string,
-		options?: { states?: GitPullRequestState[] },
-	): Promise<ProviderPullRequest[] | undefined> {
+		options?: { states?: GitPullRequestState[]; page?: number },
+	): Promise<{ data: ProviderPullRequest[]; hasMore: boolean; nextPage: number | null } | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getBitbucketPullRequestsAuthoredByUserForWorkspaceFn',
@@ -775,12 +781,12 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 
 		try {
-			return (
-				await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
-					{ userId: userId, workspaceSlug: workspaceSlug, states: options?.states },
-					{ token: token },
-				)
-			)?.data;
+			const result = await provider.getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?.(
+				{ userId: userId, workspaceSlug: workspaceSlug, states: options?.states, page: options?.page },
+				{ token: token },
+			);
+			if (result == null) return undefined;
+			return { data: result.data, hasMore: result.pageInfo.hasNextPage, nextPage: result.pageInfo.nextPage };
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -789,20 +795,20 @@ export class ProvidersApi {
 	async getBitbucketServerPullRequestsForCurrentUser(
 		tokenOptInfo: TokenWithInfo<GitSelfManagedHostIntegrationId.BitbucketServer>,
 		baseUrl: string,
-		options?: { states?: GitPullRequestState[] },
-	): Promise<ProviderPullRequest[] | undefined> {
+		options?: { states?: GitPullRequestState[]; page?: number },
+	): Promise<{ data: ProviderPullRequest[]; hasMore: boolean; nextPage: number | null } | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getBitbucketServerPullRequestsForCurrentUserFn',
 		);
 		const token = tokenWithInfo.accessToken;
 		try {
-			return (
-				await provider.getBitbucketServerPullRequestsForCurrentUserFn?.(
-					{ states: options?.states },
-					{ token: token, baseUrl: baseUrl },
-				)
-			)?.data;
+			const result = await provider.getBitbucketServerPullRequestsForCurrentUserFn?.(
+				{ states: options?.states, page: options?.page },
+				{ token: token, baseUrl: baseUrl },
+			);
+			if (result == null) return undefined;
+			return { data: result.data, hasMore: result.pageInfo.hasNextPage, nextPage: result.pageInfo.nextPage };
 		} catch (e) {
 			return this.handleProviderError(tokenWithInfo, e);
 		}
@@ -1104,6 +1110,54 @@ export class ProvidersApi {
 			)?.data;
 		} catch (e) {
 			return this.handleProviderError<ProviderPullRequest[]>(tokenWithInfo, e);
+		}
+	}
+
+	/**
+	 * Single Azure project PR read, paginated by number. Unlike {@link getPullRequestsForAzureProjects} (which
+	 * aggregates across projects and exposes no paging), this returns one page plus whether more remain, so a
+	 * caller can drain a project fully.
+	 */
+	async getPullRequestsForAzureProject(
+		tokenOptInfo: TokenWithInfo<
+			GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		>,
+		project: { namespace: string; project: string },
+		options?: {
+			authorLogin?: string;
+			assigneeLogins?: string[];
+			reviewerId?: string;
+			states?: GitPullRequestState[];
+			page?: number;
+			isPAT?: boolean;
+			baseUrl?: string;
+		},
+	): Promise<{ data: ProviderPullRequest[]; hasMore: boolean; nextPage: number | null } | undefined> {
+		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
+			tokenOptInfo,
+			'getPullRequestsForAzureProjectFn',
+		);
+		const token = tokenWithInfo.accessToken;
+		// Azure only supports PAT for this call
+		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
+
+		try {
+			const result = await provider.getPullRequestsForAzureProjectFn?.(
+				{
+					namespace: project.namespace,
+					project: project.project,
+					authorLogin: options?.authorLogin,
+					assigneeLogins: options?.assigneeLogins,
+					reviewerId: options?.reviewerId,
+					states: options?.states,
+					page: options?.page,
+				},
+				{ token: azureToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+			);
+			if (result == null) return undefined;
+			return { data: result.data, hasMore: result.pageInfo.hasNextPage, nextPage: result.pageInfo.nextPage };
+		} catch (e) {
+			return this.handleProviderError(tokenWithInfo, e);
 		}
 	}
 
