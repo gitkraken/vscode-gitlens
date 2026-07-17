@@ -649,6 +649,67 @@ suite('sweep + broaden (#5438)', () => {
 		).getMyPullRequestsForUserResult();
 		const ids = result?.value?.values.map(pr => pr.id) ?? [];
 		assert.deepEqual(ids, ['pr-good'], "the good project's PRs survive the bad project's failure");
+		// A dropped project makes the aggregate incomplete: it must be flagged truncated, not reported as a
+		// clean all-pages read (the earlier flatSettled swallowed the failure silently).
+		assert.equal(result?.value?.paging?.truncated, true, 'a dropped project marks the aggregate truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide PR read dedupes by URL so cross-org id collisions are kept (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Both orgs surface a PR whose Azure pullRequestId is "42" (ids are only org-unique). Keyed by id one
+		// would be dropped; keyed by the org-qualified url both survive.
+		stubApi(azure, {
+			getPullRequestsForAzureProject: (_t: unknown, project: { namespace: string; project: string }) =>
+				Promise.resolve({
+					data: [
+						{
+							id: '42',
+							url: `https://dev.azure.com/${project.namespace}/_git/pr/42`,
+						} as unknown as ProviderPullRequest,
+					],
+					hasMore: false,
+					nextPage: null,
+				}),
+		});
+		(azure as unknown as { getProviderCurrentAccount: () => Promise<{ id: string }> }).getProviderCurrentAccount =
+			() => Promise.resolve({ id: 'guid-1' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () =>
+			Promise.resolve([
+				{ id: 'org-a', name: 'Org A' },
+				{ id: 'org-b', name: 'Org B' },
+			]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+			}
+		).getProviderProjectsForResources = () =>
+			Promise.resolve([
+				{ resourceName: 'org-a', name: 'p' },
+				{ resourceName: 'org-b', name: 'p' },
+			]);
+
+		const result = await (
+			azure as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		const urls = (result?.value?.values ?? []).map(pr => pr.url).sort();
+		assert.deepEqual(
+			urls,
+			['https://dev.azure.com/org-a/_git/pr/42', 'https://dev.azure.com/org-b/_git/pr/42'],
+			'both cross-org PRs with the same numeric id are kept',
+		);
 
 		manager.dispose();
 	});

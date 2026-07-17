@@ -153,34 +153,38 @@ export abstract class AzureDevOpsIntegrationBase<
 			const { tokenWithInfo, options } = this.getApiOptions(session);
 			// The projects API is paginated; a single call would drop every project past the first page (and
 			// with it their repos and PRs). Drain all pages per resource, threading the returned cursor.
-			const azureProjects = await flatSettled(
-				resourcesWithoutProjects.map(
-					async resource =>
-						(
-							await collectProviderPagedResult(cursor =>
-								api.getAzureProjectsForResource(tokenWithInfo, resource.name, {
-									...options,
-									cursor: cursor,
-								}),
-							)
-						).values,
-				),
+			// Per-resource (not a shared flatSettled) so a resource whose drain was truncated (hit the paging
+			// backstop) or rejected is NOT cached — caching a partial list here would make every later repo/PR/
+			// issue read for that org silently inherit an incomplete project set. Leaving it uncached means the
+			// next call retries it.
+			const drains = await Promise.allSettled(
+				resourcesWithoutProjects.map(async resource => ({
+					resource: resource,
+					result: await collectProviderPagedResult(cursor =>
+						api.getAzureProjectsForResource(tokenWithInfo, resource.name, { ...options, cursor: cursor }),
+					),
+				})),
 			);
 
-			for (const resource of resourcesWithoutProjects) {
-				const projects = azureProjects?.filter(p => p.namespace === resource.name);
-				if (projects != null) {
-					this._projects.set(
-						`${accessToken}:${resource.id}`,
-						projects.map(p => ({
-							id: p.id,
-							name: p.name,
-							resourceId: resource.id,
-							resourceName: resource.name,
-							key: p.id,
-						})),
-					);
-				}
+			for (const drain of drains) {
+				// A rejected resource drain contributes nothing and is left uncached (retried next call).
+				if (drain.status !== 'fulfilled') continue;
+
+				const { resource, result } = drain.value;
+				// A truncated drain is an incomplete project set; don't cache it as if complete.
+				if (result.truncated) continue;
+
+				const projects = result.values.filter(p => p.namespace === resource.name);
+				this._projects.set(
+					`${accessToken}:${resource.id}`,
+					projects.map(p => ({
+						id: p.id,
+						name: p.name,
+						resourceId: resource.id,
+						resourceName: resource.name,
+						key: p.id,
+					})),
+				);
 			}
 		}
 
@@ -627,9 +631,11 @@ export abstract class AzureDevOpsIntegrationBase<
 			return collected;
 		};
 
-		// `flatSettled` isolates per-project failures (a 429/403/network blip on one project degrades to
-		// partial data, mirroring the account-wide issue reads above) instead of rejecting the whole sweep.
-		const drained = await flatSettled(
+		// Settle per-project failures instead of rejecting the whole sweep — but, unlike a silent `flatSettled`,
+		// record that a project was dropped so the result isn't reported as complete. A 429/403/network blip on
+		// one project degrades to partial data flagged `truncated` (mirroring a paging-backstop hit), so the
+		// facade's `allPages`/warning path surfaces the incompleteness rather than declaring success over a hole.
+		const settled = await Promise.allSettled(
 			projects.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
 				return [
@@ -639,16 +645,27 @@ export abstract class AzureDevOpsIntegrationBase<
 			}),
 		);
 
-		// Dedupe by id: a PR the user both authored and is assigned to appears in both reads.
-		const prsById = new Map<string, ProviderPullRequest>();
-		for (const pr of drained) {
-			if (!prsById.has(pr.id)) {
-				prsById.set(pr.id, pr);
+		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
+		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
+		// would drop one of them. The normalized `url` is org-qualified and unambiguous.
+		const prsByUrl = new Map<string, ProviderPullRequest>();
+		for (const outcome of settled) {
+			if (outcome.status !== 'fulfilled') {
+				// A dropped project means the aggregate is incomplete; flag it so the caller doesn't treat the
+				// partial result as an all-pages read.
+				truncated = true;
+				continue;
+			}
+			for (const pr of outcome.value) {
+				const key = pr.url ?? pr.id;
+				if (!prsByUrl.has(key)) {
+					prsByUrl.set(key, pr);
+				}
 			}
 		}
 
 		return {
-			values: [...prsById.values()],
+			values: [...prsByUrl.values()],
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
 		};
 	}

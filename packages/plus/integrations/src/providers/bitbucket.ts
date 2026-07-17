@@ -362,14 +362,15 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const workspaces = await this.getProviderResourcesForCurrentUser(session);
 		if (workspaces == null || workspaces.length === 0) return undefined;
 
-		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to.
-		// Bitbucket's cross-workspace read is per-workspace and numbered-page, so drain each workspace fully
-		// (bounded by a defensive backstop) and concatenate. There's no single cross-workspace cursor, so the
-		// aggregate is one page; `truncated` is set only if a workspace hit the backstop with more pages left.
+		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to,
+		// plus the PRs they've been requested to review. Bitbucket's cross-workspace read is per-workspace and
+		// numbered-page, so drain each workspace fully (bounded by a defensive backstop) and concatenate.
+		// There's no single cross-workspace cursor, so the aggregate is one page; `truncated` is set when a
+		// workspace hit the backstop with more pages left, or when a workspace's read was dropped by a failure.
 		const states = toProviderPullRequestStates(options?.state);
 		const maxPagesPerWorkspace = 20;
 		let truncated = false;
-		const perWorkspace = await flatSettled(
+		const settled = await Promise.allSettled(
 			workspaces.map(async ws => {
 				const collected: ProviderPullRequest[] = [];
 				let page: number | undefined;
@@ -394,7 +395,58 @@ export class BitbucketIntegration extends GitHostIntegration<
 			}),
 		);
 
-		return { values: perWorkspace, paging: { cursor: '{}', more: false, truncated: truncated || undefined } };
+		const prsByUrl = new Map<string, ProviderPullRequest>();
+		for (const outcome of settled) {
+			// A dropped workspace means the aggregate is incomplete; flag it (don't silently swallow the
+			// rejection) so the sweep reports the read as partial rather than an all-pages success.
+			if (outcome.status !== 'fulfilled') {
+				truncated = true;
+				continue;
+			}
+			for (const pr of outcome.value) {
+				const key = pr.url ?? pr.id;
+				if (!prsByUrl.has(key)) {
+					prsByUrl.set(key, pr);
+				}
+			}
+		}
+
+		// Bitbucket's account-wide (per-workspace) endpoint returns authored PRs only, and the SDK exposes no
+		// workspace-level reviewer query — only a repo-scoped one. Restore the reviewer slice the repo-scoped
+		// search path uses (over the currently open remotes for this provider) so review-requested PRs aren't
+		// dropped from the account-wide read. LIMITATION: reviewer coverage is bounded to open-remote repos
+		// until the SDK exposes a workspace-level reviewer endpoint; a reviewer PR on a repo with no open remote
+		// is not returned, so the result is flagged truncated when that reviewer read couldn't be attempted.
+		const remotes = await this.ctx.repositories.getOpenRemotes();
+		const workspaceRepos = await nonnullSettled(
+			remotes.map(async (r: GitRemote) => {
+				const integration = await this.authenticationService.getByRemote(r);
+				const [namespace, name] = r.path.split('/');
+				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
+			}),
+		);
+		if (workspaceRepos.length > 0) {
+			try {
+				const reviewing = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
+					query: `reviewers.uuid="${user.id}"`,
+				});
+				for (const pr of reviewing.values ?? []) {
+					const key = pr.url ?? pr.id;
+					if (!prsByUrl.has(key)) {
+						prsByUrl.set(key, pr);
+					}
+				}
+			} catch {
+				// A failed reviewer read leaves the review-requested slice missing; report the aggregate as
+				// partial rather than silently dropping it.
+				truncated = true;
+			}
+		}
+
+		return {
+			values: [...prsByUrl.values()],
+			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
+		};
 	}
 
 	protected override async searchProviderMyIssues(
