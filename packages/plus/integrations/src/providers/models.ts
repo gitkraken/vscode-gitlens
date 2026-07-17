@@ -725,6 +725,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Linear,
 		scopes: [],
+		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
+		supportedIssueFilters: [IssueFilter.Assignee],
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
@@ -733,6 +735,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Trello,
 		scopes: [],
+		// Trello cards are filtered by the assignee (member) only; author/mention have no Trello equivalent.
+		supportedIssueFilters: [IssueFilter.Assignee],
 	},
 };
 

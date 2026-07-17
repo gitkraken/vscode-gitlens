@@ -10,7 +10,7 @@ import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type { ProviderIssue, ProviderOrganization, ProviderPullRequest } from '../providers/models.js';
-import { PagingMode, PullRequestFilter } from '../providers/models.js';
+import { IssueFilter, PagingMode, PullRequestFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -622,6 +622,39 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(result.items.length, 25, 'issues from all projects are aggregated');
 		assert.equal(result.hasMore, false, 'a non-paged read reports no further windows');
 		assert.equal(result.cursor, undefined);
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage: an unsupported issue filter warns + fetchFailed instead of degrading (#5438)', async () => {
+		// Linear/Trello support only the Assignee filter. A caller asking for Author must not silently get an
+		// Assignee-scoped (or unfiltered) set — it must be surfaced as a warning + fetchFailed.
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+
+		(
+			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			linear as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () => Promise.resolve({ value: [{ key: 't1', id: 't1', name: 'Team 1' }] });
+		let read = false;
+		(
+			linear as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
+		).getIssuesForProjectResult = () => {
+			read = true;
+			return Promise.resolve({ value: [] });
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Linear,
+			filters: [IssueFilter.Author],
+		});
+		assert.equal(result.items.length, 0);
+		assert.equal(result.fetchFailed, true, 'an unsupported filter is a failed read, not an empty result');
+		assert.ok(result.warnings.length >= 1, 'a warning explains the unsupported filter');
+		assert.equal(read, false, 'no project is read when the filter is unsupported');
 
 		manager.dispose();
 	});

@@ -1689,6 +1689,25 @@ export class IntegrationService implements Disposable {
 			return emptyPage();
 		}
 
+		// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
+		// Assignee). An unsupported filter must not silently degrade — Linear/Trello ignore the requested type
+		// and apply Assignee regardless — so warn + fetchFailed instead of returning a differently-scoped set.
+		if (options.filters?.length) {
+			const supported = providersMetadata[options.providerId]?.supportedIssueFilters;
+			const allSupported = supported != null && options.filters.every(f => supported.includes(f));
+			if (!allSupported) {
+				warnings.push({
+					providerId: options.providerId,
+					domain: domain,
+					connectionId: options.connectionId,
+					message: `One or more requested issue filters are not supported by '${options.providerId}'.`,
+					kind: 'other',
+					isAuth: false,
+				});
+				return emptyPage(true);
+			}
+		}
+
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
 		// handle from the connection's own account (multi-account safe), capturing any error so its kind
 		// (e.g. auth) is preserved rather than collapsed to a generic warning.

@@ -625,6 +625,17 @@ export abstract class GitHostIntegration<
 			}
 		}
 		if (options?.filters != null) {
+			// Validate the requested filters against what this provider actually supports — same guard the Azure
+			// branch above applies. Without it an unsupported filter (e.g. GitLab has no Mention endpoint) would
+			// resolve to no filter property being set and silently degrade to an unfiltered, project-wide read.
+			if (!api.providerSupportsIssueFilters(providerId, options.filters)) {
+				Logger.warn(`Unsupported filters for provider ${providerId}`, 'getIssuesForRepos');
+				return {
+					error: new Error(`Unsupported filters for provider ${providerId}`),
+					duration: performance.now() - start,
+				};
+			}
+
 			let userAccount: ProviderAccount | undefined;
 			try {
 				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session));
