@@ -882,6 +882,44 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssuesPage({ repos }) reads Bitbucket issues via the legacy per-repo client (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// Bitbucket registers no getIssuesForReposFn; its override reads through the legacy getUsersIssuesForRepo
+		// client (which already yields IssueShape). Stub the current account and that client.
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		let readRepo: string | undefined;
+		(bb as unknown as { authenticationService: { apis: { bitbucket: Promise<unknown> } } }).authenticationService =
+			{
+				apis: {
+					bitbucket: Promise.resolve({
+						getUsersIssuesForRepo: (_p: unknown, _t: unknown, _u: string, owner: string, repo: string) => {
+							readRepo = `${owner}/${repo}`;
+							return Promise.resolve([{ id: 'bb-i1', provider: bb } as unknown as IssueShape]);
+						},
+					}),
+				},
+			};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			repos: [{ namespace: 'ws', name: 'repo' }],
+		});
+		assert.equal(readRepo, 'ws/repo', 'the per-repo client is called with the repo owner/name');
+		assert.equal(result.items.length, 1, 'the Bitbucket issue is returned through the facade');
+		assert.equal(result.items[0].id, 'bb-i1');
+
+		manager.dispose();
+	});
+
 	test('a provider without discovery hooks (Bitbucket Data Center) reports unsupported, not empty (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

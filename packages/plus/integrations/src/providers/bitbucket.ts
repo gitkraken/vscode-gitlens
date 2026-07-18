@@ -1,6 +1,6 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -22,11 +22,14 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
+import type { IntegrationResult } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
+	IssueFilter,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
+	ProviderReposInput,
 	ProviderRepository,
 } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
@@ -474,6 +477,73 @@ export class BitbucketIntegration extends GitHostIntegration<
 			}),
 		);
 		return issueResult;
+	}
+
+	/**
+	 * Bitbucket's repo-scoped issue read. The shared `getMyIssuesForReposResult` path can't serve Bitbucket
+	 * (no `getIssuesForReposFn` registered — Bitbucket's issue client is the separate legacy `getUsersIssuesFor-
+	 * Repo`, which already returns normalized {@link IssueShape}). Override the shapes seam directly so
+	 * `listIssuesPage({ repos })` and `broadenIssues` work for Bitbucket. `getUsersIssuesForRepo` is scoped to
+	 * the current user (assignee OR reporter) and single-page, so `includeAllAssignees` can't be honored and the
+	 * result is reported as one non-continued page.
+	 */
+	override async getMyIssuesForReposAsShapesResult(
+		reposOrRepoIds: ProviderReposInput,
+		_options?: {
+			filters?: IssueFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			includeAllAssignees?: boolean;
+			state?: IssueStateFilter;
+		},
+		connectionId?: string,
+	): Promise<IntegrationResult<PagedResult<IssueShape> | undefined>> {
+		const start = performance.now();
+		const session = await this.resolveReadSession(connectionId, undefined);
+		if (session == null) return undefined;
+
+		const user = await this.getProviderCurrentAccount(session);
+		if (user?.username == null) return { value: undefined, duration: performance.now() - start };
+
+		const api = await this.authenticationService.apis.bitbucket;
+		if (!api) return { value: undefined, duration: performance.now() - start };
+
+		// Only repo inputs carry the owner/name this read needs; bare repo-id inputs aren't addressable here.
+		const repos = reposOrRepoIds.filter(
+			(r): r is { namespace: string; name: string } =>
+				typeof r === 'object' && r != null && 'namespace' in r && 'name' in r,
+		);
+		if (repos.length === 0) {
+			return {
+				value: { values: [], paging: { more: false, cursor: '{}' } },
+				duration: performance.now() - start,
+			};
+		}
+
+		try {
+			// `getUsersIssuesForRepo` returns `Issue` (which implements `IssueShape`).
+			const values: IssueShape[] = await flatSettled(
+				repos.map(repo =>
+					api.getUsersIssuesForRepo(
+						this,
+						toTokenWithInfo(this.id, session),
+						user.id,
+						repo.namespace,
+						repo.name,
+						this.apiBaseUrl,
+					),
+				),
+			);
+			// Single-page, non-continued: getUsersIssuesForRepo reads only the first page per repo.
+			return {
+				value: { values: values, paging: { more: false, cursor: '{}' } },
+				duration: performance.now() - start,
+			};
+		} catch (ex) {
+			return { error: ex as Error, duration: performance.now() - start };
+		}
 	}
 
 	private readonly storagePrefix = 'bitbucket';

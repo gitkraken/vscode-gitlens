@@ -1595,7 +1595,9 @@ export class IntegrationService implements Disposable {
 
 		const cursor = options.cursor ?? this.pageToCursor(page);
 		const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-			integration.getMyIssuesForReposResult(
+			// The shapes seam returns normalized IssueShape (and lets a provider whose only issue client already
+			// yields shapes — Bitbucket — serve this path without a raw ProviderIssue round-trip).
+			integration.getMyIssuesForReposAsShapesResult(
 				options.repos ?? [],
 				// Forward `page`/`pageSize` alongside the cursor so PagingMode.Repo/Project hosts honor the
 				// requested page and page size rather than ignoring a synthesized page-number cursor.
@@ -1610,10 +1612,7 @@ export class IntegrationService implements Disposable {
 			),
 		);
 
-		// The repo-scoped core returns the raw provider shape; normalize to IssueShape for a uniform contract.
-		const items = (value?.values ?? [])
-			.map(issue => toIssueShape(issue, integration))
-			.filter((issue): issue is IssueShape => issue != null);
+		const items = value?.values ?? [];
 		const paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		return {
 			items: items,
@@ -2099,7 +2098,7 @@ export class IntegrationService implements Disposable {
 		page?: number;
 		cursor?: string;
 		forceSync?: boolean;
-	}): Promise<ProviderBroadenResult<ProviderIssue>> {
+	}): Promise<ProviderBroadenResult<IssueShape>> {
 		const page = Math.max(1, options.page ?? 1);
 
 		const results = await Promise.all(
@@ -2112,7 +2111,7 @@ export class IntegrationService implements Disposable {
 					const early = this.earlyReturnConnectionWarnings(org.providerId, connectionId);
 					if (early.warnings.length === 0) return undefined;
 					return {
-						items: [] as ProviderIssue[],
+						items: [] as IssueShape[],
 						warnings: early.warnings,
 						broadenedProviderIds: [] as IntegrationIds[],
 						providerId: org.providerId,
@@ -2183,7 +2182,8 @@ export class IntegrationService implements Disposable {
 				// Broaden = "all visible": drop the assigned-to-me filter so unassigned issues are included.
 				const cursor = this.getBroadenIssuesCursor(options.cursor, org, page, options.orgs.length);
 				const issuesCaptured = await this.runCaptured(org.providerId, domain, connectionId, () =>
-					integration.getMyIssuesForReposResult(
+					// Normalized shapes seam (uniform with listIssuesPage; serves Bitbucket via its override).
+					integration.getMyIssuesForReposAsShapesResult(
 						repos,
 						{
 							includeAllAssignees: true,
@@ -2196,7 +2196,7 @@ export class IntegrationService implements Disposable {
 					warnings.push(issuesCaptured.warning);
 				}
 				const issuesFetchFailed = issuesCaptured.warning != null && issuesCaptured.value == null;
-				const items: ProviderIssue[] = [];
+				const items: IssueShape[] = [];
 				let hasMore = false;
 				let nextCursor: string | undefined;
 				if (issuesCaptured.value != null) {
@@ -2227,7 +2227,7 @@ export class IntegrationService implements Disposable {
 			}),
 		);
 
-		const items: ProviderIssue[] = [];
+		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		const broadenedProviderIds = new Set<IntegrationIds>();
 		const cursors: { providerId: IntegrationIds; org: string; connectionId?: string; cursor: string }[] = [];

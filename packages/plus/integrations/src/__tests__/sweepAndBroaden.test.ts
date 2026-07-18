@@ -164,11 +164,11 @@ suite('sweep + broaden (#5438)', () => {
 		const issue = { id: 'i-1' } as unknown as ProviderIssue;
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: (
+				getMyIssuesForReposAsShapesResult: (
 					repos: ProviderReposInput,
 				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+		).getMyIssuesForReposAsShapesResult = (repos: ProviderReposInput) => {
 			const ns = (repos as { namespace: string }[])[0]?.namespace;
 			if (ns === 'org-fail') return Promise.resolve({ error: new Error('issues boom') });
 			return Promise.resolve({ value: { values: [issue] } });
@@ -216,11 +216,11 @@ suite('sweep + broaden (#5438)', () => {
 		const issue = { id: 'i-1' } as unknown as ProviderIssue;
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: (
+				getMyIssuesForReposAsShapesResult: (
 					repos: ProviderReposInput,
 				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+		).getMyIssuesForReposAsShapesResult = (repos: ProviderReposInput) => {
 			assert.deepEqual(repos, [
 				{ namespace: 'org', name: 'repo-1' },
 				{ namespace: 'org', name: 'repo-2' },
@@ -259,9 +259,9 @@ suite('sweep + broaden (#5438)', () => {
 			});
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+				getMyIssuesForReposAsShapesResult: () => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = () =>
+		).getMyIssuesForReposAsShapesResult = () =>
 			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
 
 		const result = await manager.broadenIssues({
@@ -296,12 +296,12 @@ suite('sweep + broaden (#5438)', () => {
 		const capturedCursors: Record<number, Record<string, string | undefined>> = {};
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: (
+				getMyIssuesForReposAsShapesResult: (
 					repos: ProviderReposInput,
 					options?: { cursor?: string },
 				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = (repos: ProviderReposInput, options?: { cursor?: string }) => {
+		).getMyIssuesForReposAsShapesResult = (repos: ProviderReposInput, options?: { cursor?: string }) => {
 			const org = (repos as { namespace: string }[])[0]?.namespace;
 			capturedCursors[round] ??= {};
 			capturedCursors[round][org] = options?.cursor;
@@ -372,13 +372,13 @@ suite('sweep + broaden (#5438)', () => {
 		const capturedCursorByConnection: Record<number, Record<string, string | undefined>> = {};
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: (
+				getMyIssuesForReposAsShapesResult: (
 					repos: ProviderReposInput,
 					options?: { cursor?: string },
 					connectionId?: string,
 				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = (
+		).getMyIssuesForReposAsShapesResult = (
 			_repos: ProviderReposInput,
 			options?: { cursor?: string },
 			connectionId?: string,
@@ -438,11 +438,11 @@ suite('sweep + broaden (#5438)', () => {
 		const reads: Record<number, string[]> = {};
 		(
 			gh as unknown as {
-				getMyIssuesForReposResult: (
+				getMyIssuesForReposAsShapesResult: (
 					repos: ProviderReposInput,
 				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
 			}
-		).getMyIssuesForReposResult = (repos: ProviderReposInput) => {
+		).getMyIssuesForReposAsShapesResult = (repos: ProviderReposInput) => {
 			const org = (repos as { namespace: string }[])[0]?.namespace;
 			(reads[round] ??= []).push(org);
 			// org-a is exhausted after round 0 (no more); org-b keeps paging into round 1.

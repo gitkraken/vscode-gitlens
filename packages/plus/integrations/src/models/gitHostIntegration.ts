@@ -1,6 +1,6 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest, PullRequestMergeMethod, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
@@ -34,6 +34,7 @@ import {
 	IssueFilter,
 	PagingMode,
 	PullRequestFilter,
+	toIssueShape,
 	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from '../providers/models.js';
@@ -755,6 +756,37 @@ export abstract class GitHostIntegration<
 			Logger.error(ex, 'getIssuesForRepos');
 			return { error: ex, duration: performance.now() - start };
 		}
+	}
+
+	/**
+	 * Repo-scoped "my issues" read returning the normalized {@link IssueShape} the ProviderBackend facade
+	 * consumes. The default drains {@link getMyIssuesForReposResult} (the raw provider-apis path) and maps to
+	 * IssueShape. A provider whose only issue client already yields normalized shapes and isn't wired into that
+	 * path (Bitbucket, via `getUsersIssuesForRepo`) overrides this to read directly, so the facade's repo-scoped
+	 * issue reads (`listIssuesPage({ repos })`, `broadenIssues`) work without a raw `ProviderIssue` round-trip.
+	 */
+	async getMyIssuesForReposAsShapesResult(
+		reposOrRepoIds: ProviderReposInput,
+		options?: {
+			filters?: IssueFilter[];
+			cursor?: string;
+			customUrl?: string;
+			page?: number;
+			pageSize?: number;
+			includeAllAssignees?: boolean;
+			state?: IssueStateFilter;
+		},
+		connectionId?: string,
+	): Promise<IntegrationResult<PagedResult<IssueShape> | undefined>> {
+		const result = await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId);
+		if (result == null) return undefined;
+		if (result.error != null) return { error: result.error, duration: result.duration };
+		if (result.value == null) return { value: undefined, duration: result.duration };
+
+		const values = result.value.values
+			.map(issue => toIssueShape(issue, this))
+			.filter((issue): issue is IssueShape => issue != null);
+		return { value: { ...result.value, values: values }, duration: result.duration };
 	}
 
 	async getMyPullRequestsForRepos(
