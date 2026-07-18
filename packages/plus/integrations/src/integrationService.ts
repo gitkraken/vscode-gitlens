@@ -893,7 +893,7 @@ export class IntegrationService implements Disposable {
 		return { filters: effective, unsupported: false };
 	}
 
-	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of (see P2-10). */
+	/** Warning for a repo-scoped PR read whose requested filters the provider supports none of. */
 	private unsupportedFiltersWarning(
 		id: IntegrationIds,
 		domain: string | undefined,
@@ -1457,7 +1457,7 @@ export class IntegrationService implements Disposable {
 		const cursor = accountWide ? options.cursor : (options.cursor ?? this.pageToCursor(page));
 
 		// Resolve repo-scoped filters up front so an unsupported set is caught before the read: falling through
-		// unfiltered would return every PR in the repos rather than the user's (see P2-10).
+		// unfiltered would return every PR in the repos rather than the user's.
 		const resolvedFilters = accountWide
 			? { unsupported: false as boolean, filters: undefined }
 			: this.resolvePullRequestFilters(options.providerId, options.filters);
@@ -2175,7 +2175,7 @@ export class IntegrationService implements Disposable {
 				const fetchFailed = reposDrain.fetchFailed;
 				const truncated = reposDrain.truncated;
 
-				const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r })) ?? [];
+				const repos: ProviderReposInput = reposDrain.repos.map(r => ({ ...r }));
 				if (repos.length === 0) {
 					return {
 						items: [],

@@ -298,11 +298,22 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		if (username == null) return undefined;
 
 		const api = await this.getProvidersApi();
-		return api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
+		const states = toProviderPullRequestStates(options?.state);
+		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			baseUrl: this.apiBaseUrl,
-			states: toProviderPullRequestStates(options?.state),
+			states: states,
 			cursor: options?.cursor,
 		});
+		if (result == null) return undefined;
+
+		// The SDK's account-wide `involves:` search (getPullRequestsAssociatedWithUser) drops the `states`
+		// input entirely — it never reaches the query's state qualifier — so the read comes back with every
+		// state. Filter client-side to honor the requested states (e.g. the closed+merged "done" sweep, which
+		// would otherwise include open PRs).
+		if (states != null) {
+			return { ...result, values: result.values.filter(pr => states.includes(pr.state)) };
+		}
+		return result;
 	}
 
 	protected override async searchProviderMyIssues(

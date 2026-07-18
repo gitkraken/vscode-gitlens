@@ -3550,13 +3550,15 @@ export class GitHubApi {
 				r => r.url,
 				(original, _current) => original,
 			);
-			// Each category is capped at 100 with no cursor; if any hit that cap there are more issues we can't
-			// page to, so report the read as truncated rather than a complete list.
+			// Each category is capped at 100 with no cursor; if any category's total exceeds what we fetched,
+			// there are more issues we can't page to, so report the read as truncated rather than a complete
+			// list. Use the query's `issueCount` (the true per-category total) rather than `nodes.length`, so a
+			// category with exactly 100 issues (all returned) isn't mislabeled as truncated.
 			const pageSize = 100;
 			const truncated =
-				rsp.authored.nodes.length >= pageSize ||
-				rsp.assigned.nodes.length >= pageSize ||
-				rsp.mentioned.nodes.length >= pageSize;
+				rsp.authored.issueCount > pageSize ||
+				rsp.assigned.issueCount > pageSize ||
+				rsp.mentioned.issueCount > pageSize;
 			return { values: [...results], truncated: truncated };
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);

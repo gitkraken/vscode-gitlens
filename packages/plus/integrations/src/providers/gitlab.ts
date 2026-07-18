@@ -383,17 +383,22 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		if (username == null) return undefined;
 
 		const api = await this.getProvidersApi();
+		const states = toProviderPullRequestStates(options?.state);
 		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
 			isPAT: this.isEnterprise,
 			baseUrl: this.isEnterprise ? `https://${this.domain}` : undefined,
-			states: toProviderPullRequestStates(options?.state),
+			states: states,
 			cursor: options?.cursor,
 		});
 		if (result == null) return undefined;
 
 		// GitLab's user query returns PRs the user is involved in; keep only those they authored, are
-		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope.
+		// assigned to, or are a requested reviewer on, matching the "my pull requests" scope. The SDK's
+		// account-wide read (getPullRequestsAssociatedWithUser) also drops the `states` input, so filter by
+		// state client-side too (e.g. the closed+merged "done" sweep would otherwise include open MRs).
 		const values = result.values.filter(pr => {
+			if (states != null && !states.includes(pr.state)) return false;
+
 			const isAssignee = pr.assignees?.some(a => a.username === username);
 			const isRequestedReviewer = pr.reviews?.some(
 				// Match only reviews assigned to the current user; a bare `state === ReviewRequested`
