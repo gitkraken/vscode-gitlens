@@ -311,9 +311,12 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		);
 
 		try {
-			return StatusFileFormatter.fromTemplate(format, file, {
-				relativePath: 'src/app/code.ts',
-			});
+			// `relativePath` intentionally omitted — represents flat/list tree mode (the
+			// default production callers use), so `${directory}`/`${path}` render the
+			// file's full relative path rather than collapsing to empty (passing the
+			// file's own path as `relativePath` would do, since it's the base ${directory}
+			// and ${path} are computed against)
+			return StatusFileFormatter.fromTemplate(format, file);
 		} catch (ex) {
 			return formatPreviewError(ex);
 		}
