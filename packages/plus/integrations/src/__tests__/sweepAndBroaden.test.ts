@@ -574,6 +574,8 @@ suite('sweep + broaden (#5438)', () => {
 					nextPage: page < 2 ? page + 1 : null,
 				});
 			},
+			// The reviewer slice reads over open remotes; return none so it doesn't add PRs here.
+			getPullRequestsForRepos: () => Promise.resolve({ values: [] }),
 		});
 		(
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
@@ -582,6 +584,14 @@ suite('sweep + broaden (#5438)', () => {
 		(
 			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
 		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+		// One open remote resolving to this provider, so the reviewer slice is attempted (not skipped, which
+		// would legitimately mark the read truncated).
+		(
+			bb as unknown as { ctx: { repositories: { getOpenRemotes: () => Promise<{ path: string }[]> } } }
+		).ctx.repositories.getOpenRemotes = () => Promise.resolve([{ path: 'ws/repo' }]);
+		(
+			bb as unknown as { authenticationService: { getByRemote: () => Promise<unknown> } }
+		).authenticationService.getByRemote = () => Promise.resolve(bb);
 
 		// Call the account-wide core directly to assert the per-workspace drain (avoids the sweep wrapper).
 		const result = await (
@@ -592,6 +602,60 @@ suite('sweep + broaden (#5438)', () => {
 		assert.equal(calls, 2, 'both workspace pages are drained');
 		assert.equal(result?.value?.values.length, 2, 'PRs from both pages are returned');
 		assert.equal(result?.value?.paging?.truncated, undefined, 'a fully drained workspace is not marked truncated');
+
+		manager.dispose();
+	});
+
+	test('Bitbucket account-wide PR read includes review-requested PRs via reviewerId, not a text query (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		let reviewerIdArg: string | undefined;
+		let queryArg: string | undefined;
+		stubApi(bb, {
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'authored', url: 'u/authored' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getPullRequestsForRepos: (_t: unknown, _repos: unknown, o?: { reviewerId?: string; query?: string }) => {
+				reviewerIdArg = o?.reviewerId;
+				queryArg = o?.query;
+				return Promise.resolve({
+					values: [{ id: 'reviewing', url: 'u/reviewing' } as unknown as ProviderPullRequest],
+				});
+			},
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
+		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+		(
+			bb as unknown as { ctx: { repositories: { getOpenRemotes: () => Promise<{ path: string }[]> } } }
+		).ctx.repositories.getOpenRemotes = () => Promise.resolve([{ path: 'ws/repo' }]);
+		(
+			bb as unknown as { authenticationService: { getByRemote: () => Promise<unknown> } }
+		).authenticationService.getByRemote = () => Promise.resolve(bb);
+
+		const result = await (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+		// The reviewer clause must go through the dedicated reviewerId input, not the text `query` (which the
+		// SDK treats as a title/description search that would match nothing).
+		assert.equal(reviewerIdArg, 'u1', 'the reviewer read uses reviewerId');
+		assert.equal(queryArg, undefined, 'the reviewer clause is not passed as a text query');
+		const urls = (result?.value?.values ?? []).map(pr => pr.url).sort();
+		assert.deepEqual(urls, ['u/authored', 'u/reviewing'], 'both authored and review-requested PRs are returned');
 
 		manager.dispose();
 	});

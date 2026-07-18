@@ -418,8 +418,9 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// workspace-level reviewer query — only a repo-scoped one. Restore the reviewer slice the repo-scoped
 		// search path uses (over the currently open remotes for this provider) so review-requested PRs aren't
 		// dropped from the account-wide read. LIMITATION: reviewer coverage is bounded to open-remote repos
-		// until the SDK exposes a workspace-level reviewer endpoint; a reviewer PR on a repo with no open remote
-		// is not returned, so the result is flagged truncated when that reviewer read couldn't be attempted.
+		// until the SDK exposes a workspace-level reviewer endpoint — a reviewer PR on a repo with no open
+		// remote can't be read, so the result is flagged truncated both when a reviewer read fails AND when it
+		// couldn't be attempted (no open remotes), keeping the coverage hole honest.
 		const remotes = await this.ctx.repositories.getOpenRemotes();
 		const workspaceRepos = await nonnullSettled(
 			remotes.map(async (r: GitRemote) => {
@@ -430,8 +431,13 @@ export class BitbucketIntegration extends GitHostIntegration<
 		);
 		if (workspaceRepos.length > 0) {
 			try {
+				// Use the dedicated `reviewerId` input, NOT `query`: the SDK routes `query` through a text
+				// filter (matches title/description), so passing the BBQL clause as `query` would search for the
+				// literal string and match nothing. `states` keeps the reviewer slice consistent with the
+				// authored drain's state filter.
 				const reviewing = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
-					query: `reviewers.uuid="${user.id}"`,
+					reviewerId: user.id,
+					states: states,
 				});
 				for (const pr of reviewing.values ?? []) {
 					const key = pr.url ?? pr.id;
@@ -444,6 +450,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 				// partial rather than silently dropping it.
 				truncated = true;
 			}
+		} else {
+			// No open remote for this provider means the reviewer slice couldn't be attempted at all — the
+			// review-requested coverage hole is real, so flag the aggregate as partial rather than implying
+			// a complete "my PRs" read.
+			truncated = true;
 		}
 
 		return {
@@ -523,8 +534,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 		}
 
 		try {
+			// Settle per-repo so one repo's failure doesn't drop the others — but flag `truncated` on a drop
+			// (rather than silently swallowing it) so a partial read isn't reported as complete.
 			// `getUsersIssuesForRepo` returns `Issue` (which implements `IssueShape`).
-			const values: IssueShape[] = await flatSettled(
+			const settled = await Promise.allSettled(
 				repos.map(repo =>
 					api.getUsersIssuesForRepo(
 						this,
@@ -536,9 +549,20 @@ export class BitbucketIntegration extends GitHostIntegration<
 					),
 				),
 			);
+			const values: IssueShape[] = [];
+			let truncated = false;
+			for (const outcome of settled) {
+				if (outcome.status !== 'fulfilled') {
+					truncated = true;
+					continue;
+				}
+				if (outcome.value != null) {
+					values.push(...outcome.value);
+				}
+			}
 			// Single-page, non-continued: getUsersIssuesForRepo reads only the first page per repo.
 			return {
-				value: { values: values, paging: { more: false, cursor: '{}' } },
+				value: { values: values, paging: { more: false, cursor: '{}', truncated: truncated || undefined } },
 				duration: performance.now() - start,
 			};
 		} catch (ex) {

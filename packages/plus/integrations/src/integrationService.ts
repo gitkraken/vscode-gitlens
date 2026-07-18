@@ -59,14 +59,13 @@ import { createApiClients } from './providers/apiClients.js';
 import type { GitHubApi } from './providers/github/github.js';
 import type {
 	IssueFilter,
-	ProviderIssue,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderReposInput,
 	ProviderRepository,
 	PullRequestFilter,
 } from './providers/models.js';
-import { providersMetadata, toIssueShape } from './providers/models.js';
+import { providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import { parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
