@@ -4320,7 +4320,7 @@
 										},
 										"createPullRequest": {
 											"type": "string",
-											"markdownDescription": "Specifies the format of a create pull request URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${base}` &mdash; base branch\\\n`${compare}` &mdash; compare branch"
+											"markdownDescription": "Specifies the format of a create pull request URL for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${base}` &mdash; base branch\\\n`${head}` &mdash; compare branch"
 										},
 										"file": {
 											"type": "string",

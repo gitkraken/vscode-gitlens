@@ -155,6 +155,14 @@ export interface AutolinksDescriptor extends DescriptorBase {
 }
 
 /**
+ * The custom-remotes editor (fully dynamic — rows are the `gitlens.remotes`
+ * array, not authored here). Whole-entry writes via the `applyRemoteRule` family.
+ */
+export interface RemotesDescriptor extends DescriptorBase {
+	kind: 'remotes';
+}
+
+/**
  * The GitLens SCM grouped-views editor (fully dynamic — rows are derived from
  * `groupableViewTypes`, not authored here). Writes `views.scm.grouped.views` /
  * `.hiddenViews` (per-row checkboxes, via the existing `applyCheck type:'object'`
@@ -197,6 +205,7 @@ export type SettingDescriptor =
 	| SliderDescriptor
 	| CheckGroupDescriptor
 	| AutolinksDescriptor
+	| RemotesDescriptor
 	| ScmViewsDescriptor
 	| IntegrationsPanelDescriptor
 	| AIPanelDescriptor
@@ -331,6 +340,8 @@ export function descriptorKeys(d: SettingDescriptor): string[] {
 	switch (d.kind) {
 		case 'autolinks':
 			return ['autolinks'];
+		case 'remotes':
+			return ['remotes'];
 		case 'scm-views':
 			return ['views.scm.grouped.views', 'views.scm.grouped.hiddenViews', 'views.scm.grouped.default'];
 		// The AI panel reflects these settings (read-only or via commands), so a

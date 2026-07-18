@@ -15,6 +15,7 @@ import './format-input.js';
 import './settings-ai.js';
 import './settings-autolinks.js';
 import './settings-integrations.js';
+import './settings-remotes.js';
 import './settings-scm-views.js';
 import '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/code-icon.js';
@@ -340,6 +341,9 @@ export class GlSettingControl extends SignalWatcher(LitElement) {
 
 			case 'autolinks':
 				return html`<gl-settings-autolinks .actions=${this.actions}></gl-settings-autolinks>`;
+
+			case 'remotes':
+				return html`<gl-settings-remotes .actions=${this.actions}></gl-settings-remotes>`;
 
 			case 'scm-views':
 				return html`<gl-settings-scm-views .actions=${this.actions}></gl-settings-scm-views>`;

@@ -69,6 +69,22 @@ export const integrationsCategories: SettingsCategory[] = [
 		],
 	},
 	{
+		id: 'remotes',
+		settingsSearch: 'gitlens.remotes',
+		name: 'Custom Remotes',
+		group: 'Integrations',
+		icon: 'remote',
+		hint: 'Match your Git remotes to a provider so GitLens can open files, commits, and pull requests on self-hosted or custom Git hosts.',
+		controls: [
+			{
+				kind: 'remotes',
+				label: 'Custom remotes',
+				// Search text — the rendered rows come from the gitlens.remotes array
+				hint: 'GitHub Enterprise, GitLab self-hosted, Bitbucket Server, Azure DevOps, self-hosted, enterprise, custom remote',
+			},
+		],
+	},
+	{
 		id: 'launchpad',
 		settingsSearch: 'gitlens.launchpad',
 		name: 'Launchpad',

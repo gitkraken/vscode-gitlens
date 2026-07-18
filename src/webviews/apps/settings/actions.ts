@@ -1,5 +1,5 @@
 import type { Remote } from '@eamodio/supertalk';
-import type { AutolinkConfig, Config } from '../../../config.js';
+import type { AutolinkConfig, Config, CustomRemoteType, RemotesUrlsConfig } from '../../../config.js';
 import { isCustomConfigKey } from '../../protocol.js';
 import type { SettingsServices, SettingsUpdateParams } from '../../settings/settingsService.js';
 import { anchorToCategory } from './categories/index.js';
@@ -9,6 +9,27 @@ import type { SettingsState } from './state.js';
 
 /** Resolved settings sub-service type (after awaiting the sub-service property from the Remote proxy). */
 export type ResolvedSettingsService = Awaited<Remote<SettingsServices>['settings']>;
+
+/**
+ * Loose editor shape for one `gitlens.remotes` entry.
+ *
+ * Deliberately NOT the strict `RemotesConfig` union: that union requires BOTH
+ * `domain` and `regex` to be present with one set to `null`, but the package.json
+ * schema declares each as `type: string` and its `oneOf` treats a present-`null`
+ * matcher as satisfying the other branch's `required` — so writing the inactive
+ * matcher as `null` produces a settings.json that squiggles ("matches multiple
+ * schemas") on hand-edit. The editor therefore OMITS the inactive matcher field
+ * entirely; the `apply()` write path casts this loose shape onto `config.remotes`.
+ */
+export type RemoteRuleDraft = {
+	type: CustomRemoteType;
+	domain?: string;
+	regex?: string;
+	name?: string;
+	protocol?: string;
+	ignoreSSLErrors?: boolean | 'force';
+	urls?: RemotesUrlsConfig;
+};
 
 /**
  * Unifies user interactions with config writes for the Settings webview.
@@ -355,6 +376,32 @@ export class SettingsActions {
 		);
 		autolinks.splice(index, 1);
 		return this.apply({ autolinks: autolinks.length ? autolinks : undefined });
+	}
+
+	// ── Custom remotes ──
+
+	/**
+	 * Writes a whole remote entry at `index` — the editor commits the full entry
+	 * each time (never a single property) so a matcher-mode/type switch can't leave
+	 * a stale `domain`/`regex` alongside the new one while its config echo is still
+	 * in flight. Untouched entries keep their original (hand-authored) shape; only
+	 * the rewritten entry is emitted through the omit-inactive-matcher projection.
+	 */
+	async applyRemoteRule(index: number, rule: RemoteRuleDraft): Promise<void> {
+		const remotes: RemoteRuleDraft[] = structuredClone(
+			this.state.getSettingValue<RemoteRuleDraft[]>('remotes') ?? [],
+		);
+		// Clamp so a concurrent external removal can't leave a sparse hole
+		remotes[Math.min(index, remotes.length)] = { ...rule };
+		return this.apply({ remotes: remotes });
+	}
+
+	async removeRemote(index: number): Promise<void> {
+		const remotes: RemoteRuleDraft[] = structuredClone(
+			this.state.getSettingValue<RemoteRuleDraft[]>('remotes') ?? [],
+		);
+		remotes.splice(index, 1);
+		return this.apply({ remotes: remotes.length ? remotes : undefined });
 	}
 
 	// ── Previews ──
