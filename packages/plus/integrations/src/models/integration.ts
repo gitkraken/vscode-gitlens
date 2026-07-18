@@ -597,6 +597,49 @@ export abstract class IntegrationBase<
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined>;
 
+	/**
+	 * Truncation-aware variant of {@link searchProviderMyIssues}. The default wraps the normalized read and
+	 * reports `truncated: false`; a provider whose account-wide search is capped without a cursor (GitHub)
+	 * overrides this to report when the read is incomplete, so the facade can surface it instead of publishing
+	 * a partial list as complete.
+	 */
+	protected async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		resources?: ResourceDescriptor[],
+		cancellation?: AbortSignal,
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+		const values = await this.searchProviderMyIssues(session, resources, cancellation);
+		if (values == null) return undefined;
+		return { values: values, truncated: false };
+	}
+
+	/**
+	 * Result-returning, truncation-aware account-wide issue read. Recovers thrown errors into `{ error }` and
+	 * carries the `truncated` flag so the ProviderBackend facade can report an incomplete read honestly.
+	 */
+	async searchMyIssuesWithTruncationResult(
+		resources?: ResourceDescriptor | ResourceDescriptor[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean } | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		try {
+			const result = await this.searchProviderMyIssuesWithTruncation(
+				session,
+				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
+				cancellation,
+			);
+			this.resetRequestExceptionCount('searchMyIssues');
+			return { value: result };
+		} catch (ex) {
+			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			return { error: ex };
+		}
+	}
+
 	@trace()
 	async getLinkedIssueOrPullRequest(
 		resource: T,

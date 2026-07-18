@@ -1556,9 +1556,9 @@ export class IntegrationService implements Disposable {
 		if (accountWide) {
 			// The repo-scoped core rejects empty repos (GitHub/Bitbucket/Azure); read the account-wide,
 			// already-user-scoped core instead. It returns normalized shapes and no resumable cursor, so this
-			// is reported as a single page.
+			// is reported as a single page — with `page.truncated` when the provider's search is capped.
 			const { value, warning } = await this.runCaptured(options.providerId, domain, options.connectionId, () =>
-				integration.searchMyIssuesResult(undefined, undefined, options.connectionId),
+				integration.searchMyIssuesWithTruncationResult(undefined, undefined, options.connectionId),
 			);
 
 			// Only GitHub supports an account-wide issue search; GitLab and Bitbucket have no such endpoint
@@ -1583,11 +1583,25 @@ export class IntegrationService implements Disposable {
 					fetchFailed: true,
 				};
 			}
-			const items = value ?? [];
+			const items = value?.values ?? [];
+			const warnings = warning != null ? [warning] : [];
+			// GitHub caps each authored/assigned/mentioned category at 100 with no cursor; when that cap is hit
+			// the read is incomplete and can't be paged, so report it as truncated (+ a warning) rather than a
+			// complete list.
+			if (value?.truncated) {
+				warnings.push({
+					providerId: options.providerId,
+					domain: domain,
+					connectionId: options.connectionId,
+					message: `Account-wide issue search for '${options.providerId}' was truncated (capped at 100 per category); results may be incomplete.`,
+					kind: 'other',
+					isAuth: false,
+				});
+			}
 			return {
 				items: items,
-				warnings: warning != null ? [warning] : [],
-				page: { currentPage: 1, itemsPerPage: items.length },
+				warnings: warnings,
+				page: { currentPage: 1, itemsPerPage: items.length, truncated: value?.truncated || undefined },
 				hasMore: false,
 				fetchFailed: (warning != null && value == null) || undefined,
 			};

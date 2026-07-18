@@ -310,6 +310,19 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchProviderMyIssuesWithTruncation(session, repos, cancellation))?.values;
+	}
+
+	/**
+	 * GitHub's account-wide issue search caps each of authored/assigned/mentioned at 100 with no cursor, so the
+	 * result can be incomplete. This variant preserves the `truncated` flag the API reports (the abstract
+	 * {@link searchProviderMyIssues} contract can't carry it) so the facade can surface the incompleteness.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		repos?: GitHubRepositoryDescriptor[],
+		cancellation?: AbortSignal,
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		return (await this.authenticationService.apis.github)?.searchMyIssues(
 			this,
 			toTokenWithInfo(this.id, session),

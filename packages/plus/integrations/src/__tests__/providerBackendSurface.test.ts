@@ -239,10 +239,16 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
 			},
 		});
-		// The account-wide core returns normalized IssueShapes; stub the model hook the empty-repos path uses.
+		// The account-wide core returns normalized IssueShapes with a truncation flag; stub the truncation-aware
+		// model hook the empty-repos path now uses.
 		(
-			gh as unknown as { searchMyIssuesResult: () => Promise<IntegrationResult<IssueShape[]>> }
-		).searchMyIssuesResult = () => Promise.resolve({ value: [{ id: 'mine' } as unknown as IssueShape] });
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: IssueShape[]; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'mine' } as unknown as IssueShape], truncated: false } });
 
 		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub });
 		assert.equal(
@@ -252,6 +258,33 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		);
 		assert.equal(result.items.length, 1, 'account-wide user issues are returned');
 		assert.equal(result.items[0].id, 'mine');
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage account-wide reports truncated + a warning when the provider caps the search (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		// GitHub caps each authored/assigned/mentioned category at 100 with no cursor; when the read is capped
+		// the facade must surface it as truncated + a warning, not a complete list.
+		(
+			gh as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: IssueShape[]; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'mine' } as unknown as IssueShape], truncated: true } });
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub });
+		assert.equal(result.page.truncated, true, 'a capped account-wide read is reported truncated');
+		assert.ok(
+			result.warnings.some(w => /truncat/i.test(w.message)),
+			'a warning explains the read was capped',
+		);
 
 		manager.dispose();
 	});

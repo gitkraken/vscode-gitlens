@@ -3453,17 +3453,20 @@ export class GitHubApi {
 			includeBody?: boolean;
 		},
 		cancellation?: AbortSignal,
-	): Promise<IssueShape[] | undefined> {
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		const scope = getScopedLogger();
 
 		interface SearchResult {
 			authored: {
+				issueCount: number;
 				nodes: GitHubIssue[];
 			};
 			assigned: {
+				issueCount: number;
 				nodes: GitHubIssue[];
 			};
 			mentioned: {
+				issueCount: number;
 				nodes: GitHubIssue[];
 			};
 		}
@@ -3483,6 +3486,7 @@ export class GitHubApi {
 				$avatarSize: Int
 			) {
 				authored: search(first: 100, query: $authored, type: ISSUE) {
+					issueCount
 					nodes {
 						... on Issue {
 							${issueFragement}
@@ -3490,6 +3494,7 @@ export class GitHubApi {
 					}
 				}
 				assigned: search(first: 100, query: $assigned, type: ISSUE) {
+					issueCount
 					nodes {
 						... on Issue {
 							${issueFragement}
@@ -3497,6 +3502,7 @@ export class GitHubApi {
 					}
 				}
 				mentioned: search(first: 100, query: $mentioned, type: ISSUE) {
+					issueCount
 					nodes {
 						... on Issue {
 							${issueFragement}
@@ -3537,14 +3543,21 @@ export class GitHubApi {
 				return fromGitHubIssue(issue, provider);
 			}
 
-			if (rsp == null) return [];
+			if (rsp == null) return { values: [], truncated: false };
 
 			const results: IterableIterator<IssueShape> = uniqueBy(
 				[...rsp.assigned.nodes, ...rsp.mentioned.nodes, ...rsp.authored.nodes].map(toQueryResult),
 				r => r.url,
 				(original, _current) => original,
 			);
-			return [...results];
+			// Each category is capped at 100 with no cursor; if any hit that cap there are more issues we can't
+			// page to, so report the read as truncated rather than a complete list.
+			const pageSize = 100;
+			const truncated =
+				rsp.authored.nodes.length >= pageSize ||
+				rsp.assigned.nodes.length >= pageSize ||
+				rsp.mentioned.nodes.length >= pageSize;
+			return { values: [...results], truncated: truncated };
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
