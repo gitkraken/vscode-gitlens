@@ -726,7 +726,7 @@ function regexCompiles(pattern: string): boolean {
 }
 
 /** True once every schema-required `urls` field is non-empty. */
-function urlsComplete(urls: RemotesUrlsConfig | undefined): boolean {
+export function urlsComplete(urls: RemotesUrlsConfig | undefined): boolean {
 	if (urls == null) return false;
 
 	const record = urls as unknown as Record<string, string | undefined>;
@@ -739,7 +739,7 @@ function urlsComplete(urls: RemotesUrlsConfig | undefined): boolean {
  * `urls` block. A non-compiling regex still qualifies (write-and-warn — the
  * consumer skips it safely; the UI flags it).
  */
-function isPersistable(draft: RemoteDraft): boolean {
+export function isPersistable(draft: RemoteDraft): boolean {
 	const hasMatcher = draft.matcherMode === 'regex' ? Boolean(draft.regex) : Boolean(draft.domain);
 	if (!hasMatcher) return false;
 	if (draft.type === 'Custom') return urlsComplete(draft.urls);
@@ -752,7 +752,7 @@ function isPersistable(draft: RemoteDraft): boolean {
  * matcher-mode marker, omits the inactive matcher entirely (see `RemoteRuleDraft`),
  * and keeps `urls` only for `type: Custom`.
  */
-function projectEntry(draft: RemoteDraft): RemoteRuleDraft {
+export function projectEntry(draft: RemoteDraft): RemoteRuleDraft {
 	const entry: RemoteRuleDraft = { type: draft.type };
 	if (draft.matcherMode === 'regex') {
 		if (draft.regex) {
