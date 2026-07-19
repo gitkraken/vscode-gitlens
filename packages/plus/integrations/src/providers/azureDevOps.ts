@@ -9,10 +9,10 @@ import type {
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -26,6 +26,7 @@ import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
+import { firstRecoverableRejection } from '../results.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -647,12 +648,17 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
 		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
+		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
+		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
+		const recoverable = firstRecoverableRejection(settled);
+		if (recoverable != null) throw recoverable;
+
 		// would drop one of them. The normalized `url` is org-qualified and unambiguous.
 		const prsByUrl = new Map<string, ProviderPullRequest>();
 		for (const outcome of settled) {
 			if (outcome.status !== 'fulfilled') {
-				// A dropped project means the aggregate is incomplete; flag it so the caller doesn't treat the
-				// partial result as an all-pages read.
+				// A dropped project (transient 5xx/network) means the aggregate is incomplete; flag it so the
+				// caller doesn't treat the partial result as an all-pages read.
 				truncated = true;
 				continue;
 			}
@@ -672,8 +678,23 @@ export abstract class AzureDevOpsIntegrationBase<
 
 	protected override async searchProviderMyIssues(
 		session: ProviderAuthenticationSession,
-		_repos?: AzureRepositoryDescriptor[],
+		repos?: AzureRepositoryDescriptor[],
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchProviderMyIssuesWithTruncation(session, repos))?.values;
+	}
+
+	/**
+	 * Account-wide "my issues" for Azure = the user's authored + assigned work items across every project of
+	 * every org. Azure's issue read is numbered-page, so each (project × filter) read is drained to exhaustion
+	 * (bounded by a defensive per-read backstop). Unlike a silent `flatSettled`, a project read that was
+	 * truncated by the backstop or rejected outright is recorded as `truncated`, so the facade reports an
+	 * incomplete read instead of publishing a partial list as complete.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		_resources?: ResourceDescriptor[],
+		_cancellation?: AbortSignal,
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		const api = await this.getProvidersApi();
 
 		const user = await this.getProviderCurrentAccount(session);
@@ -686,43 +707,61 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (projects == null || projects.length === 0) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
-		const assignedIssues = await flatSettled(
-			projects.map(async p => {
-				const issuesResponse = (
-					await api.getIssuesForAzureProject(tokenWithInfo, p.resourceName, p.name, {
-						...options,
-						assigneeLogins: [user.username!],
-					})
-				).values;
-				return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
-			}),
-		);
-		const authoredIssues = await flatSettled(
-			projects.map(async p => {
-				const issuesResponse = (
-					await api.getIssuesForAzureProject(tokenWithInfo, p.resourceName, p.name, {
-						...options,
-						authorLogin: user.username!,
-					})
-				).values;
-				return issuesResponse.map(i => fromProviderIssue(i, this as any, { project: p }));
-			}),
-		);
+
+		// Drain one (project × filter) read fully, threading the provider's paging cursor. Returns the drained
+		// issues plus whether the drain stopped short (backstop hit) — the caller aggregates the flag.
+		const drain = async (
+			p: AzureProjectDescriptor,
+			scope: { assigneeLogins?: string[]; authorLogin?: string },
+		): Promise<{ issues: IssueShape[]; truncated: boolean }> => {
+			const result = await collectProviderPagedResult(cursor =>
+				api.getIssuesForAzureProject(tokenWithInfo, p.resourceName, p.name, {
+					...options,
+					...scope,
+					cursor: cursor,
+				}),
+			);
+			return {
+				issues: result.values.map(i => fromProviderIssue(i, this as any, { project: p })),
+				truncated: result.truncated ?? false,
+			};
+		};
+
 		// TODO: Add mentioned issues
+		const settled = await Promise.allSettled(
+			projects.flatMap(p => [
+				drain(p, { assigneeLogins: [user.username!] }),
+				drain(p, { authorLogin: user.username! }),
+			]),
+		);
+
+		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
+		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
+		const recoverable = firstRecoverableRejection(settled);
+		if (recoverable != null) throw recoverable;
+
 		const issuesById = new Map<string, IssueShape>();
+		let truncated = false;
+		for (const outcome of settled) {
+			// A rejected (project × filter) read means this org's issues are incomplete; flag it rather than
+			// dropping it silently, so the facade doesn't report the partial aggregate as an all-pages read.
+			if (outcome.status !== 'fulfilled') {
+				truncated = true;
+				continue;
+			}
 
-		for (const issue of authoredIssues ?? []) {
-			issuesById.set(issue.id, issue);
-		}
+			if (outcome.value.truncated) {
+				truncated = true;
+			}
 
-		for (const issue of assignedIssues ?? []) {
-			const existing = issuesById.get(issue.id);
-			if (existing == null) {
-				issuesById.set(issue.id, issue);
+			for (const issue of outcome.value.issues) {
+				if (!issuesById.has(issue.id)) {
+					issuesById.set(issue.id, issue);
+				}
 			}
 		}
 
-		return [...issuesById.values()];
+		return { values: [...issuesById.values()], truncated: truncated };
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

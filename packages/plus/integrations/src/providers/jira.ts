@@ -3,7 +3,6 @@ import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/m
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -182,20 +181,30 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		project: JiraProjectDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
+		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
+	}
+
+	protected override async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: JiraProjectDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const api = await this.getProvidersApi();
 
 		// Drain every page for a project read (bounded by a defensive backstop): the paged wrapper preserves the
 		// SDK's cursor, unlike the plain read which silently caps at the first page. `filter` undefined = the
-		// unscoped project read.
+		// unscoped project read. Reports `truncated` when the drain stopped at the backstop with more pages
+		// still available, so the facade can flag an incomplete project read.
 		const drainIssues = async (scope: {
 			authorLogin?: string;
 			assigneeLogins?: string[];
 			mentionLogin?: string;
-		}): Promise<ProviderIssue[]> => {
+		}): Promise<{ issues: ProviderIssue[]; truncated: boolean }> => {
 			const collected: ProviderIssue[] = [];
 			let cursor: string | undefined;
+			let truncated = false;
 			for (let i = 0; i < maxPagesPerRequest; i++) {
 				const result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
 					...scope,
@@ -207,23 +216,31 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				if (!result.hasMore || result.nextCursor == null || result.nextCursor === cursor) break;
 
 				cursor = result.nextCursor;
+				// The provider still reports more pages but we're at the last allowed iteration: the drain is
+				// incomplete.
+				if (i === maxPagesPerRequest - 1) {
+					truncated = true;
+				}
 			}
-			return collected;
+			return { issues: collected, truncated: truncated };
 		};
 
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
-		): Promise<IssueShape[] | undefined> => {
-			const results = await drainIssues({
+		): Promise<{ issues: IssueShape[]; truncated: boolean }> => {
+			const result = await drainIssues({
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
 			});
 
-			return results
-				.map(issue => toIssueShape(issue, this))
-				.filter((result): result is IssueShape => result !== undefined);
+			return {
+				issues: result.issues
+					.map(issue => toIssueShape(issue, this))
+					.filter((r): r is IssueShape => r !== undefined),
+				truncated: result.truncated,
+			};
 		};
 
 		if (options?.user != null) {
@@ -232,32 +249,42 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			// explicit filters are given — otherwise a caller that scopes by user but omits filters would fall
 			// through to the unscoped fetch below and get every issue in the project instead of the user's.
 			const filters = options.filters?.length ? options.filters : [IssueFilter.Assignee];
-			const resultsPromise = Promise.allSettled(
+			const settled = await Promise.allSettled(
 				filters.map(filter => getSearchedUserIssuesForFilter(user, filter)),
 			);
 
-			const results = [
-				...flatten(
-					filterMap(await resultsPromise, r =>
-						r.status === 'fulfilled' && r.value != null ? r.value : undefined,
-					),
-				),
-			];
+			// If every filter branch rejected, the read failed outright — propagate the first rejection instead
+			// of returning an empty list, which the facade (getIssuesForProjectResult → runCaptured) would
+			// otherwise surface as a successful "no issues" rather than a warning + fetchFailed.
+			if (settled.every(r => r.status === 'rejected')) {
+				throw settled[0].status === 'rejected' ? settled[0].reason : new Error('Jira issue read failed');
+			}
 
+			let truncated = false;
 			const resultsById = new Map<string, IssueShape>();
-			for (const resultIssue of results) {
-				if (!resultsById.has(resultIssue.id)) {
-					resultsById.set(resultIssue.id, resultIssue);
+			for (const outcome of settled) {
+				if (outcome.status !== 'fulfilled') continue;
+
+				if (outcome.value.truncated) {
+					truncated = true;
+				}
+				for (const resultIssue of outcome.value.issues) {
+					if (!resultsById.has(resultIssue.id)) {
+						resultsById.set(resultIssue.id, resultIssue);
+					}
 				}
 			}
 
-			return [...resultsById.values()];
+			return { values: [...resultsById.values()], truncated: truncated };
 		}
 
 		const unscoped = await drainIssues({});
-		return unscoped
-			.map(issue => toIssueShape(issue, this))
-			.filter((result): result is IssueShape => result !== undefined);
+		return {
+			values: unscoped.issues
+				.map(issue => toIssueShape(issue, this))
+				.filter((result): result is IssueShape => result !== undefined),
+			truncated: unscoped.truncated,
+		};
 	}
 
 	protected override async searchProviderMyIssues(

@@ -23,6 +23,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
+import { firstRecoverableRejection } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
 	IssueFilter,
@@ -33,6 +34,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
+import { collectProviderPagedResult } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -398,10 +400,16 @@ export class BitbucketIntegration extends GitHostIntegration<
 			}),
 		);
 
+		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
+		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
+		const recoverable = firstRecoverableRejection(settled);
+		if (recoverable != null) throw recoverable;
+
 		const prsByUrl = new Map<string, ProviderPullRequest>();
 		for (const outcome of settled) {
-			// A dropped workspace means the aggregate is incomplete; flag it (don't silently swallow the
-			// rejection) so the sweep reports the read as partial rather than an all-pages success.
+			// A dropped workspace (transient 5xx/network) means the aggregate is incomplete; flag it (don't
+			// silently swallow the rejection) so the sweep reports the read as partial rather than an all-pages
+			// success.
 			if (outcome.status !== 'fulfilled') {
 				truncated = true;
 				continue;
@@ -434,16 +442,24 @@ export class BitbucketIntegration extends GitHostIntegration<
 				// Use the dedicated `reviewerId` input, NOT `query`: the SDK routes `query` through a text
 				// filter (matches title/description), so passing the BBQL clause as `query` would search for the
 				// literal string and match nothing. `states` keeps the reviewer slice consistent with the
-				// authored drain's state filter.
-				const reviewing = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
-					reviewerId: user.id,
-					states: states,
-				});
-				for (const pr of reviewing.values ?? []) {
+				// authored drain's state filter. Drain every page (the single-call read dropped review-requested
+				// PRs past the first page); `collectProviderPagedResult` follows the SDK cursor to its backstop.
+				const reviewing = await collectProviderPagedResult(cursor =>
+					api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
+						reviewerId: user.id,
+						states: states,
+						cursor: cursor,
+					}),
+				);
+				for (const pr of reviewing.values) {
 					const key = pr.url ?? pr.id;
 					if (!prsByUrl.has(key)) {
 						prsByUrl.set(key, pr);
 					}
+				}
+				// The reviewer drain hitting its own page backstop also leaves the slice incomplete.
+				if (reviewing.truncated) {
+					truncated = true;
 				}
 			} catch {
 				// A failed reviewer read leaves the review-requested slice missing; report the aggregate as
@@ -476,8 +492,8 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (!api) return undefined;
 
 		const issueResult = await flatSettled(
-			repos.map(repo => {
-				return api.getUsersIssuesForRepo(
+			repos.map(async repo => {
+				const result = await api.getUsersIssuesForRepo(
 					this,
 					toTokenWithInfo(this.id, session),
 					user.id,
@@ -485,6 +501,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 					repo.name,
 					this.apiBaseUrl,
 				);
+				return result?.issues;
 			}),
 		);
 		return issueResult;
@@ -494,13 +511,14 @@ export class BitbucketIntegration extends GitHostIntegration<
 	 * Bitbucket's repo-scoped issue read. The shared `getMyIssuesForReposResult` path can't serve Bitbucket
 	 * (no `getIssuesForReposFn` registered — Bitbucket's issue client is the separate legacy `getUsersIssuesFor-
 	 * Repo`, which already returns normalized {@link IssueShape}). Override the shapes seam directly so
-	 * `listIssuesPage({ repos })` and `broadenIssues` work for Bitbucket. `getUsersIssuesForRepo` is scoped to
-	 * the current user (assignee OR reporter) and single-page, so `includeAllAssignees` can't be honored and the
-	 * result is reported as one non-continued page.
+	 * `listIssuesPage({ repos })` and `broadenIssues` work for Bitbucket. `getUsersIssuesForRepo` drains every
+	 * page of each repo and honors `includeAllAssignees` (dropping the assignee/reporter scope so `broadenIssues`
+	 * sees all issues). It has no cross-repo cursor, so the aggregate is reported as one non-continued page,
+	 * flagged `truncated` when any repo's own page drain hit its backstop or a repo read failed.
 	 */
 	override async getMyIssuesForReposAsShapesResult(
 		reposOrRepoIds: ProviderReposInput,
-		_options?: {
+		options?: {
 			filters?: IssueFilter[];
 			cursor?: string;
 			customUrl?: string;
@@ -536,7 +554,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		try {
 			// Settle per-repo so one repo's failure doesn't drop the others — but flag `truncated` on a drop
 			// (rather than silently swallowing it) so a partial read isn't reported as complete.
-			// `getUsersIssuesForRepo` returns `Issue` (which implements `IssueShape`).
+			// `getUsersIssuesForRepo` drains all pages and returns `{ issues, truncated }`.
 			const settled = await Promise.allSettled(
 				repos.map(repo =>
 					api.getUsersIssuesForRepo(
@@ -546,9 +564,15 @@ export class BitbucketIntegration extends GitHostIntegration<
 						repo.namespace,
 						repo.name,
 						this.apiBaseUrl,
+						{ includeAllAssignees: options?.includeAllAssignees },
 					),
 				),
 			);
+			// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind, caught below into
+			// `{ error }`) so the facade surfaces a recovery warning instead of a generic "truncated".
+			const recoverable = firstRecoverableRejection(settled);
+			if (recoverable != null) throw recoverable;
+
 			const values: IssueShape[] = [];
 			let truncated = false;
 			for (const outcome of settled) {
@@ -557,10 +581,14 @@ export class BitbucketIntegration extends GitHostIntegration<
 					continue;
 				}
 				if (outcome.value != null) {
-					values.push(...outcome.value);
+					values.push(...outcome.value.issues);
+					if (outcome.value.truncated) {
+						truncated = true;
+					}
 				}
 			}
-			// Single-page, non-continued: getUsersIssuesForRepo reads only the first page per repo.
+			// No cross-repo cursor: the aggregate is one non-continued page, flagged truncated when a repo's own
+			// page drain stopped short or a repo read failed.
 			return {
 				value: { values: values, paging: { more: false, cursor: '{}', truncated: truncated || undefined } },
 				duration: performance.now() - start,

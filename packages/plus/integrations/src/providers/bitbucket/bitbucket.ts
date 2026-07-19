@@ -151,30 +151,60 @@ export class BitbucketApi implements Disposable {
 		owner: string,
 		repo: string,
 		baseUrl: string,
-	): Promise<Issue[] | undefined> {
+		options?: { includeAllAssignees?: boolean; maxPages?: number },
+	): Promise<{ issues: Issue[]; truncated: boolean } | undefined> {
 		const scope = getScopedLogger();
-		const query = encodeURIComponent(`assignee.uuid="${userUuid}" OR reporter.uuid="${userUuid}"`);
+		// `includeAllAssignees` broadens the read from "assigned to OR reported by me" to every issue in the
+		// repo (drops the user clause entirely), so unassigned issues surface for the broaden path.
+		const q =
+			options?.includeAllAssignees === true
+				? undefined
+				: `assignee.uuid="${userUuid}" OR reporter.uuid="${userUuid}"`;
 
-		const response = await this.request<{
-			values: BitbucketIssue[];
-			pagelen: number;
-			size: number;
-			page: number;
-		}>(
-			provider,
-			token,
-			baseUrl,
-			`repositories/${owner}/${repo}/issues?q=${query}`,
-			{
-				method: 'GET',
-			},
-			scope,
-		);
+		// Bitbucket Cloud pages issues by numbered page (`?page=N`), returning `next` while more remain. Drain
+		// every page (bounded by a defensive backstop) instead of the previous single-page read that silently
+		// dropped everything past the first page. `truncated` reports the backstop stopping short.
+		const maxPages = options?.maxPages ?? 20;
+		const issues: BitbucketIssue[] = [];
+		let truncated = false;
+		let page = 1;
+		for (let i = 0; i < maxPages; i++) {
+			const params = new URLSearchParams({ page: String(page) });
+			if (q != null) {
+				params.set('q', q);
+			}
 
-		if (!response?.values?.length) {
+			const response = await this.request<{
+				values: BitbucketIssue[];
+				pagelen: number;
+				size: number;
+				page: number;
+				next?: string;
+			}>(
+				provider,
+				token,
+				baseUrl,
+				`repositories/${owner}/${repo}/issues?${params.toString()}`,
+				{ method: 'GET' },
+				scope,
+			);
+
+			if (response?.values?.length) {
+				issues.push(...response.values);
+			}
+			if (response?.next == null) break;
+
+			page += 1;
+			// More pages remain but we're at the last allowed iteration: the drain is incomplete.
+			if (i === maxPages - 1) {
+				truncated = true;
+			}
+		}
+
+		if (issues.length === 0 && !truncated) {
 			return undefined;
 		}
-		return response.values.map(issue => fromBitbucketIssue(issue, provider));
+		return { issues: issues.map(issue => fromBitbucketIssue(issue, provider)), truncated: truncated };
 	}
 
 	@trace({

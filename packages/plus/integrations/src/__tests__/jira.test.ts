@@ -121,4 +121,49 @@ suite('Jira issue scoping (#5438)', () => {
 
 		manager.dispose();
 	});
+
+	test('reports truncated when the per-project drain hits its page backstop (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		// The provider always reports another page: the drain must stop at its backstop and flag truncation
+		// rather than looping or silently dropping the tail.
+		stubApi(jira, {
+			getIssuesForProjectPaged: (_t: unknown, _n: string, _r: string, options?: { cursor?: string }) => {
+				const page = options?.cursor == null ? 1 : Number(options.cursor);
+				return Promise.resolve({ data: [], hasMore: true, nextCursor: String(page + 1) });
+			},
+		});
+
+		const result = await (
+			jira as unknown as {
+				getProviderIssuesForProjectWithTruncation: (
+					session: ProviderAuthenticationSession,
+					p: typeof project,
+					options?: unknown,
+				) => Promise<{ values: unknown[]; truncated: boolean }>;
+			}
+		).getProviderIssuesForProjectWithTruncation(jiraSession(), project, undefined);
+		assert.equal(result.truncated, true, 'the backstop hit is reported as truncated');
+
+		manager.dispose();
+	});
+
+	test('propagates the error when every filter branch rejects, instead of an empty success (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		stubApi(jira, {
+			getIssuesForProjectPaged: () => Promise.reject(new Error('boom')),
+		});
+
+		// A user-scoped read whose only filter branch rejects must surface the failure (via the result core's
+		// `{ error }`), not resolve to an empty "no issues" list.
+		const result = await jira.getIssuesForProjectResult(project, { user: 'me' });
+		assert.ok(result?.error != null, 'the rejection surfaces as an error, not an empty success');
+
+		manager.dispose();
+	});
 });

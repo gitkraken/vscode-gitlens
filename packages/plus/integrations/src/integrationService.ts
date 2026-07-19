@@ -58,14 +58,13 @@ import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { GitHubApi } from './providers/github/github.js';
 import type {
-	IssueFilter,
 	ProviderOrganization,
 	ProviderPullRequest,
 	ProviderReposInput,
 	ProviderRepository,
 	PullRequestFilter,
 } from './providers/models.js';
-import { providersMetadata } from './providers/models.js';
+import { IssueFilter, providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import { parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
@@ -922,8 +921,8 @@ export class IntegrationService implements Disposable {
 	 */
 	private toProviderPageInfo(
 		itemsPerPage: number,
-		paging: { more?: boolean; cursor?: string; page?: number; pageSize?: number } | undefined,
-	): { page: ProviderPageInfo; hasMore: boolean; cursor?: string } {
+		paging: { more?: boolean; cursor?: string; page?: number; pageSize?: number; truncated?: boolean } | undefined,
+	): { page: ProviderPageInfo; hasMore: boolean; cursor?: string; truncated: boolean } {
 		let cursor: string | undefined;
 		const raw = paging?.cursor;
 		if (raw != null && raw !== '{}') {
@@ -952,6 +951,9 @@ export class IntegrationService implements Disposable {
 			},
 			hasMore: paging?.more ?? false,
 			cursor: cursor,
+			// A single-page provider read that couldn't confirm completeness carries `paging.truncated`;
+			// surface it so callers can flag `page.truncated` instead of publishing a partial read as complete.
+			truncated: paging?.truncated ?? false,
 		};
 	}
 
@@ -1390,10 +1392,13 @@ export class IntegrationService implements Disposable {
 		// consumer to request the "next page" and get the same aggregate back forever. `hasMore` stays true
 		// only when the provider gave a real resumable cursor.
 		const truncated = value?.truncated ?? value?.paging?.truncated ?? false;
-		// currentPage: the provider's own page number when it reports one; otherwise the requested `page`. Some
-		// numbered-page hosts (Bitbucket repos) apply the page but don't echo `currentPage`, which would leave
-		// this stuck at 1 and make a `currentPage + 1` consumer re-request the same page forever.
-		const currentPage = value?.paging?.page != null ? Math.max(1, value.paging.page) : page;
+		// currentPage: the provider's own page number when it reports one; otherwise the page encoded in the
+		// cursor the caller threaded back (a continuation that supplies only `cursor`, not `page`), falling back
+		// to the requested `page`. Some numbered-page hosts (Bitbucket repos) apply the page but don't echo
+		// `currentPage`, which would otherwise leave this stuck at 1 and make a `currentPage + 1` consumer
+		// re-request the same page forever.
+		const currentPage =
+			value?.paging?.page != null ? Math.max(1, value.paging.page) : (parsePageCursor(options.cursor) ?? page);
 		// Continuation: prefer a real provider cursor; else, for a numbered-page host that signalled more but
 		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
 		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
@@ -1627,10 +1632,13 @@ export class IntegrationService implements Disposable {
 
 		const items = value?.values ?? [];
 		const paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
+		// A provider read that couldn't confirm completeness (e.g. Bitbucket's single-page repo issue read
+		// that dropped a repo) sets `paging.truncated`; surface it as a terminal `page.truncated` so a partial
+		// page isn't published as complete.
 		return {
 			items: items,
 			warnings: warning != null ? [warning] : [],
-			page: paged.page,
+			page: { ...paged.page, truncated: paged.truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: paged.cursor,
 			fetchFailed: (warning != null && value == null) || undefined,
@@ -1651,8 +1659,9 @@ export class IntegrationService implements Disposable {
 	 * "aggregate everything" contract for callers that don't page. When any of those is supplied, the read is
 	 * windowed to `itemsPerPage` projects (default 20) advanced 1-based via `page`/`cursor`, with `hasMore`/
 	 * `cursor` carrying the next window. Note: a project's own read has an internal page backstop (see the
-	 * per-provider drains); if a single project exceeds it, its extra issues are dropped silently — this layer
-	 * has no per-project truncation signal to surface, so that bound is not reflected in `hasMore`.
+	 * per-provider drains); if a single project exceeds it, its extra issues can't be paged from here, but that
+	 * incompleteness IS surfaced as `page.truncated` (Jira/Linear report the backstop hit) rather than passed
+	 * off as a complete read.
 	 */
 	async listIssueTrackerIssuesPage(options: {
 		providerId: IntegrationIds;
@@ -1761,6 +1770,22 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
+		// `includeAllAssignees` drops the user scope, but a user-relative filter (Author/Mention) is meaningless
+		// without a user. Passing both to the provider degrades silently: Jira, seeing no user, falls through to
+		// an unscoped project fetch and returns EVERY issue instead of the requested author's/mentions. Reject
+		// the incompatible combination up front rather than publishing a differently-scoped set as the result.
+		if (options.includeAllAssignees === true && options.filters?.some(f => f !== IssueFilter.Assignee)) {
+			warnings.push({
+				providerId: options.providerId,
+				domain: domain,
+				connectionId: options.connectionId,
+				message: `\`includeAllAssignees\` cannot be combined with an author/mention filter for '${options.providerId}' (those filters require a user scope).`,
+				kind: 'other',
+				isAuth: false,
+			});
+			return emptyPage(true);
+		}
+
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
 		// handle from the connection's own account (multi-account safe), capturing any error so its kind
 		// (e.g. auth) is preserved rather than collapsed to a generic warning.
@@ -1796,7 +1821,7 @@ export class IntegrationService implements Disposable {
 		const perProject = await Promise.all(
 			scopedProjects.map(project =>
 				this.runCaptured(options.providerId, domain, options.connectionId, () =>
-					integration.getIssuesForProjectResult(
+					integration.getIssuesForProjectWithTruncationResult(
 						project,
 						{ user: user, filters: options.filters },
 						options.connectionId,
@@ -1805,24 +1830,31 @@ export class IntegrationService implements Disposable {
 			),
 		);
 		let fetchFailed = false;
-		for (const { value: issues, warning } of perProject) {
+		// A project whose internal page-drain hit its backstop (Jira/Linear cap at maxPagesPerRequest) reports
+		// `truncated`; surface it as `page.truncated` so a windowed read isn't published as having drained each
+		// project completely.
+		let projectTruncated = false;
+		for (const { value: result, warning } of perProject) {
 			if (warning != null) {
 				warnings.push(warning);
 			}
 			// A thrown/unsupported read (e.g. Linear not-implemented) surfaces as a warning with no value;
 			// mark the aggregate as fetchFailed so an empty result isn't mistaken for "no issues".
-			if (warning != null && issues == null) {
+			if (warning != null && result == null) {
 				fetchFailed = true;
 			}
-			if (issues != null) {
-				items.push(...issues);
+			if (result != null) {
+				items.push(...result.values);
+				if (result.truncated) {
+					projectTruncated = true;
+				}
 			}
 		}
 
 		return {
 			items: items,
 			warnings: warnings,
-			page: { currentPage: page, itemsPerPage: items.length },
+			page: { currentPage: page, itemsPerPage: items.length, truncated: projectTruncated || undefined },
 			hasMore: moreProjectWindows,
 			// Thread the next project window as a page cursor so the caller can advance; omitted when done.
 			cursor: moreProjectWindows ? toPageCursor(page + 1) : undefined,
@@ -2212,6 +2244,10 @@ export class IntegrationService implements Disposable {
 				const items: IssueShape[] = [];
 				let hasMore = false;
 				let nextCursor: string | undefined;
+				// Carry a truncation signal from the issue read too: a provider that couldn't confirm it drained
+				// a repo (`paging.truncated`) means this org's issues may be incomplete, on top of any repo-drain
+				// truncation already captured above.
+				let issuesTruncated = false;
 				if (issuesCaptured.value != null) {
 					items.push(...issuesCaptured.value.values);
 					const paged = this.toProviderPageInfo(
@@ -2220,6 +2256,7 @@ export class IntegrationService implements Disposable {
 					);
 					hasMore = paged.hasMore;
 					nextCursor = paged.cursor;
+					issuesTruncated = paged.truncated;
 				}
 
 				return {
@@ -2235,7 +2272,7 @@ export class IntegrationService implements Disposable {
 					// rounds skip it while other orgs keep paging.
 					exhausted: issuesCaptured.value != null && !hasMore,
 					fetchFailed: fetchFailed || issuesFetchFailed,
-					truncated: truncated,
+					truncated: truncated || issuesTruncated,
 				};
 			}),
 		);

@@ -560,11 +560,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		let capturedUser: string | undefined;
 		(
 			jira as unknown as {
-				getIssuesForProjectResult: (p: unknown, o?: { user?: string }) => Promise<{ value: IssueShape[] }>;
+				getIssuesForProjectWithTruncationResult: (
+					p: unknown,
+					o?: { user?: string },
+				) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
 			}
-		).getIssuesForProjectResult = (_p: unknown, o?: { user?: string }) => {
+		).getIssuesForProjectWithTruncationResult = (_p: unknown, o?: { user?: string }) => {
 			capturedUser = o?.user;
-			return Promise.resolve({ value: [{ id: 'i1' } as unknown as IssueShape] });
+			return Promise.resolve({ value: { values: [{ id: 'i1' } as unknown as IssueShape], truncated: false } });
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
@@ -606,11 +609,15 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const readProjects: string[] = [];
 		(
 			jira as unknown as {
-				getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }>;
+				getIssuesForProjectWithTruncationResult: (p: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
 			}
-		).getIssuesForProjectResult = (p: { id: string }) => {
+		).getIssuesForProjectWithTruncationResult = (p: { id: string }) => {
 			readProjects.push(p.id);
-			return Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+			return Promise.resolve({
+				value: { values: [{ id: `${p.id}-i` } as unknown as IssueShape], truncated: false },
+			});
 		};
 
 		const first = await manager.listIssueTrackerIssuesPage({
@@ -653,10 +660,16 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let reads = 0;
 		(
-			jira as unknown as { getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }> }
-		).getIssuesForProjectResult = (p: { id: string }) => {
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (p: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = (p: { id: string }) => {
 			reads += 1;
-			return Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+			return Promise.resolve({
+				value: { values: [{ id: `${p.id}-i` } as unknown as IssueShape], truncated: false },
+			});
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
@@ -683,10 +696,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getProjectsForResourcesResult = () => Promise.resolve({ value: [{ key: 't1', id: 't1', name: 'Team 1' }] });
 		let read = false;
 		(
-			linear as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
-		).getIssuesForProjectResult = () => {
+			linear as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
 			read = true;
-			return Promise.resolve({ value: [] });
+			return Promise.resolve({ value: { values: [], truncated: false } });
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({
@@ -724,9 +741,13 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		(
-			jira as unknown as { getIssuesForProjectResult: (p: { id: string }) => Promise<{ value: IssueShape[] }> }
-		).getIssuesForProjectResult = (p: { id: string }) =>
-			Promise.resolve({ value: [{ id: `${p.id}-i` } as unknown as IssueShape] });
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (p: {
+					id: string;
+				}) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = (p: { id: string }) =>
+			Promise.resolve({ value: { values: [{ id: `${p.id}-i` } as unknown as IssueShape], truncated: false } });
 
 		const result = await manager.listIssueTrackerIssuesPage({
 			providerId: IssuesCloudHostIntegrationId.Jira,
@@ -755,10 +776,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		let issueReads = 0;
 		(
-			jira as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
-		).getIssuesForProjectResult = () => {
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
 			issueReads += 1;
-			return Promise.resolve({ value: [] });
+			return Promise.resolve({ value: { values: [], truncated: false } });
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({
@@ -790,8 +815,9 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
 		// A thrown/unsupported read (Linear's not-implemented) recovers into { error } at the result core.
 		(
-			linear as unknown as { getIssuesForProjectResult: () => Promise<{ error: Error }> }
-		).getIssuesForProjectResult = () => Promise.resolve({ error: new Error('Method not implemented.') });
+			linear as unknown as { getIssuesForProjectWithTruncationResult: () => Promise<{ error: Error }> }
+		).getIssuesForProjectWithTruncationResult = () =>
+			Promise.resolve({ error: new Error('Method not implemented.') });
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear });
 		assert.equal(result.items.length, 0);
@@ -819,16 +845,61 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getAccountForResourceResult = () => Promise.resolve({ value: undefined });
 		let readCalled = false;
 		(
-			jira as unknown as { getIssuesForProjectResult: () => Promise<{ value: IssueShape[] }> }
-		).getIssuesForProjectResult = () => {
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
 			readCalled = true;
-			return Promise.resolve({ value: [] });
+			return Promise.resolve({ value: { values: [], truncated: false } });
 		};
 
 		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
 		assert.equal(readCalled, false, 'the issue read is skipped rather than run unscoped (all-visible)');
 		assert.equal(result.fetchFailed, true);
 		assert.ok(result.warnings.length >= 1, 'the unresolved-user failure surfaces a warning');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage warns on includeAllAssignees combined with an author filter (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getProjectsForResourcesResult = () =>
+			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+		let readCalled = false;
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () => {
+			readCalled = true;
+			return Promise.resolve({ value: { values: [], truncated: false } });
+		};
+
+		// includeAllAssignees drops the user scope, but an author filter needs one; the combination would make
+		// Jira fall through to an unscoped fetch returning EVERY issue. The facade must reject it, not read.
+		const result = await manager.listIssueTrackerIssuesPage({
+			providerId: IssuesCloudHostIntegrationId.Jira,
+			includeAllAssignees: true,
+			filters: [IssueFilter.Author],
+		});
+		assert.equal(readCalled, false, 'the read is skipped rather than run unscoped');
+		assert.equal(result.fetchFailed, true);
+		assert.ok(
+			result.warnings.some(w => /includeAllAssignees/i.test(w.message)),
+			'the incompatible combination is surfaced as a warning',
+		);
 
 		manager.dispose();
 	});
@@ -915,6 +986,44 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listRepos derives currentPage from the cursor when the caller supplies only cursor (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// A continuation that threads back only the opaque cursor (no `page`) for a numbered-page host that
+		// echoes no `currentPage` must report the page encoded in the cursor, not a stuck 1 — otherwise a
+		// `currentPage + 1` consumer re-requests the same page forever.
+		(
+			bb as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+					options?: { cursor?: string },
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository>>>;
+			}
+		).getRepositoriesForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ name: 'r', namespace: 'org' } as unknown as ProviderRepository],
+					paging: { more: true, cursor: '{}' },
+				},
+			});
+
+		const result = await manager.listRepos({
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			org: 'org',
+			cursor: JSON.stringify({ value: 2, type: 'page' }),
+		});
+		assert.equal(result.page.currentPage, 2, 'the page comes from the threaded cursor, not a stuck 1');
+		assert.equal(result.cursor, JSON.stringify({ value: 3, type: 'page' }), 'the next-page cursor advances');
+
+		manager.dispose();
+	});
+
 	test('listIssuesPage({ repos }) reads Bitbucket issues via the legacy per-repo client (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -936,7 +1045,10 @@ suite('ProviderBackend surface facade (#5438)', () => {
 					bitbucket: Promise.resolve({
 						getUsersIssuesForRepo: (_p: unknown, _t: unknown, _u: string, owner: string, repo: string) => {
 							readRepo = `${owner}/${repo}`;
-							return Promise.resolve([{ id: 'bb-i1', provider: bb } as unknown as IssueShape]);
+							return Promise.resolve({
+								issues: [{ id: 'bb-i1', provider: bb } as unknown as IssueShape],
+								truncated: false,
+							});
 						},
 					}),
 				},
@@ -949,6 +1061,54 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		assert.equal(readRepo, 'ws/repo', 'the per-repo client is called with the repo owner/name');
 		assert.equal(result.items.length, 1, 'the Bitbucket issue is returned through the facade');
 		assert.equal(result.items[0].id, 'bb-i1');
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage forwards includeAllAssignees to the Bitbucket issue client and surfaces truncation (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		let sawIncludeAllAssignees: boolean | undefined;
+		(bb as unknown as { authenticationService: { apis: { bitbucket: Promise<unknown> } } }).authenticationService =
+			{
+				apis: {
+					bitbucket: Promise.resolve({
+						getUsersIssuesForRepo: (
+							_p: unknown,
+							_t: unknown,
+							_u: string,
+							_owner: string,
+							_repo: string,
+							_baseUrl: string,
+							opts?: { includeAllAssignees?: boolean },
+						) => {
+							sawIncludeAllAssignees = opts?.includeAllAssignees;
+							// A repo whose own page drain hit its backstop reports truncated.
+							return Promise.resolve({
+								issues: [{ id: 'bb-i1', provider: bb } as unknown as IssueShape],
+								truncated: true,
+							});
+						},
+					}),
+				},
+			};
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.Bitbucket,
+			repos: [{ namespace: 'ws', name: 'repo' }],
+			includeAllAssignees: true,
+		});
+		assert.equal(sawIncludeAllAssignees, true, 'includeAllAssignees reaches the issue client (broaden path)');
+		assert.equal(result.page.truncated, true, "a repo's page-drain backstop surfaces as page.truncated");
 
 		manager.dispose();
 	});

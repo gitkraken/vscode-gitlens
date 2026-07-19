@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { RequestRateLimitError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
@@ -855,6 +856,102 @@ suite('sweep + broaden (#5438)', () => {
 		).getMyPullRequestsForUserResult();
 		assert.equal(calls, 40, 'both scoped drains stop at the maxPagesPerProject backstop');
 		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped project is reported as truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read drains every page per project/filter (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// Two pages threaded by the SDK cursor; the read must follow paging.more/cursor to the end, not stop at
+		// the first page (the old `.values`-only read silently capped at page 1).
+		const seenCursors: (string | undefined)[] = [];
+		stubApi(azure, {
+			getIssuesForAzureProject: (_t: unknown, _ns: string, _p: string, options?: { cursor?: string }) => {
+				seenCursors.push(options?.cursor);
+				const page = options?.cursor == null ? 1 : Number(options.cursor);
+				return Promise.resolve({
+					values: [
+						{
+							id: `i${page}`,
+							url: `https://x/i${page}`,
+							updatedDate: new Date(0),
+						} as unknown as ProviderIssue,
+					],
+					paging: { more: page < 2, cursor: page < 2 ? String(page + 1) : '{}' },
+				});
+			},
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+			}
+		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'proj' }]);
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: unknown[]; truncated: boolean }>
+				>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		// One project × two filters (assignee + author) run concurrently, each drained to page 2. Order across
+		// the two drains is not deterministic, so assert counts: two first-page reads (undefined) and two
+		// second-page reads ('2').
+		assert.equal(seenCursors.length, 4, 'both filters drain both pages');
+		assert.equal(seenCursors.filter(c => c == null).length, 2, 'two first-page reads');
+		assert.equal(seenCursors.filter(c => c === '2').length, 2, 'two second-page reads (the cursor is threaded)');
+		assert.equal(result?.value?.truncated, false, 'a fully drained read is not truncated');
+
+		manager.dispose();
+	});
+
+	test('Azure account-wide issue read re-throws an auth/rate-limit rejection instead of masking it (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		// A 429 on one project must NOT collapse into a generic "truncated" success — it re-throws so the result
+		// core captures it as a rate-limit warning that drives recovery (fetchFailed), distinct from a page
+		// backstop.
+		stubApi(azure, {
+			getIssuesForAzureProject: () =>
+				Promise.reject(new RequestRateLimitError(new Error('429'), undefined, undefined)),
+		});
+		(
+			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ username: 'me' });
+		(
+			azure as unknown as { getProviderResourcesForUser: () => Promise<{ id: string; name: string }[]> }
+		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
+		(
+			azure as unknown as {
+				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+			}
+		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'proj' }]);
+
+		const result = await (
+			azure as unknown as {
+				searchMyIssuesWithTruncationResult: () => Promise<IntegrationResult<unknown>>;
+			}
+		).searchMyIssuesWithTruncationResult();
+		assert.ok(result?.error != null, 'the rate-limit rejection surfaces as an error, not a truncated success');
 
 		manager.dispose();
 	});

@@ -173,14 +173,24 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		project: ResourceDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
+		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
+	}
+
+	protected override async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
 		const api = await this.getProvidersApi();
 		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here. Drain the
-		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop.
+		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop. `truncated` is
+		// set when that backstop stopped the drain with more pages still available.
 		let cursor: string | undefined;
 		let hasMore: boolean;
 		let requestCount = 0;
+		let truncated = false;
 		const issues: IssueShape[] = [];
 		do {
 			const result = await api.getLinearIssues(
@@ -200,6 +210,10 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			// Stop if the provider claims more but returns no advancing cursor, to avoid re-reading the same page.
 			if (hasMore && (nextCursor == null || nextCursor === cursor)) break;
 			cursor = nextCursor;
+			// More pages remain but we've hit the backstop: the drain is incomplete.
+			if (hasMore && requestCount >= maxPagesPerRequest) {
+				truncated = true;
+			}
 		} while (requestCount < maxPagesPerRequest && hasMore);
 
 		// Linear's issue list has no server-side author/assignee filter, so scope to the current user
@@ -220,10 +234,13 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 					'could not resolve the current user to scope issues to',
 				);
 			}
-			return issues.filter(issue => issue.assignees?.some(a => a.id === viewerId));
+			return {
+				values: issues.filter(issue => issue.assignees?.some(a => a.id === viewerId)),
+				truncated: truncated,
+			};
 		}
 
-		return issues;
+		return { values: issues, truncated: truncated };
 	}
 
 	override get id(): IssuesCloudHostIntegrationId.Linear {

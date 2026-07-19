@@ -168,9 +168,49 @@ export abstract class IssuesIntegration<
 		}
 	}
 
+	/**
+	 * Truncation-aware variant of {@link getIssuesForProjectResult}. A provider that drains a project's issues
+	 * with an internal page backstop (Jira/Linear) overrides {@link getProviderIssuesForProjectWithTruncation}
+	 * to report when that backstop was hit, so the facade can surface an incomplete project read instead of
+	 * publishing it as complete. The default reports `truncated: false`.
+	 */
+	async getIssuesForProjectWithTruncationResult(
+		project: T,
+		options?: { user?: string; filters?: IssueFilter[] },
+		connectionId?: string,
+	): Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean } | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		try {
+			const result = await this.getProviderIssuesForProjectWithTruncation(session, project, options);
+			this.resetRequestExceptionCount('getIssuesForProject');
+			return { value: result };
+		} catch (ex) {
+			this.handleProviderException('getIssuesForProject', ex);
+			return { error: ex };
+		}
+	}
+
 	protected abstract getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined>;
+
+	/**
+	 * Truncation-aware core of {@link getProviderIssuesForProject}. The default wraps the plain read and
+	 * reports `truncated: false`; a provider whose per-project drain is capped by a page backstop overrides
+	 * this to report incompleteness.
+	 */
+	protected async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: T,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+		const values = await this.getProviderIssuesForProject(session, project, options);
+		if (values == null) return undefined;
+		return { values: values, truncated: false };
+	}
 }
