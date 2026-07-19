@@ -920,6 +920,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.config=${graphState.config}
 				.downstreams=${graphState.downstreams}
 				.columns=${graphState.columns}
+				.activeFilterColumns=${graphState.activeFilterColumns}
 				.repoPath=${this.getRepoPath()}
 				.columnsContext=${graphState.context?.header}
 				.settingsContext=${graphState.context?.settings}

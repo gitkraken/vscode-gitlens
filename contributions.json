@@ -4270,7 +4270,7 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
+						"group": "1_style",
 						"order": 1
 					}
 				]
@@ -4284,8 +4284,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
-						"order": 1
+						"group": "1_style",
+						"order": 2
 					}
 				]
 			}
@@ -4298,8 +4298,8 @@
 				"webview/context": [
 					{
 						"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-						"group": "2_columns",
-						"order": 1
+						"group": "1_style",
+						"order": 3
 					}
 				]
 			}

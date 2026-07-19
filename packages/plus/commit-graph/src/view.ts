@@ -238,10 +238,22 @@ export function mergeZones(
 // drift, no horizontal scrollbar. The elastic "fill" zone absorbs slack; everything else holds its
 // solved width. See `solveZoneLayout` / `dragResizeZone`.
 
-/** Index of the elastic fill zone (the `flex` one), falling back to the last visible zone. */
+const fillZoneFallbackOrder: readonly ZoneId[] = ['message', 'author', 'datetime', 'sha'];
+
+/**
+ * Index of the elastic fill zone. An explicitly configured `flex` zone wins; otherwise the first
+ * available content zone in Message → Author → Date → SHA order stretches. Refs is only a last-resort
+ * fallback when every content zone is absent.
+ */
 function fillZoneIndex(zones: readonly ZoneSpec[]): number {
 	const i = zones.findIndex(z => z.flex);
-	return i >= 0 ? i : zones.length - 1;
+	if (i >= 0) return i;
+
+	for (const id of fillZoneFallbackOrder) {
+		const fallback = zones.findIndex(z => z.id === id);
+		if (fallback >= 0) return fallback;
+	}
+	return zones.length - 1;
 }
 
 /** True when `zone` is the active fill zone for this set. */
@@ -268,6 +280,7 @@ export function solveZoneLayout(zones: readonly ZoneSpec[], targetWidth: number)
 	const fillIdx = fillZoneIndex(zones);
 	const work = zones.map((z, i) => ({
 		...z,
+		flex: i === fillIdx,
 		currentWidth: clampZoneWidth(z, i === fillIdx, z.currentWidth ?? z.width),
 	}));
 	if (work.length === 0) return work;
@@ -362,7 +375,12 @@ export function dragResizeZone(
 ): { zones: ZoneSpec[]; savedIds: ZoneId[] } | null {
 	if (idx < 0 || idx + 1 >= startZones.length) return null;
 
-	const next = startZones.map(z => ({ ...z, currentWidth: z.currentWidth ?? z.width }));
+	const fillIdx = fillZoneIndex(startZones);
+	const next = startZones.map((z, i) => ({
+		...z,
+		flex: i === fillIdx,
+		currentWidth: z.currentWidth ?? z.width,
+	}));
 	const movingRight = deltaX >= 0;
 	const grow = next[movingRight ? idx : idx + 1];
 	// Indices that cascade-shrink, nearest the boundary first (rightward when dragging right, leftward

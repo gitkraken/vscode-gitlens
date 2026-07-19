@@ -1,4 +1,3 @@
-import type { GraphStyle } from '@gitkraken/commit-graph/view.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
 import { html, LitElement, nothing } from 'lit';
@@ -1761,7 +1760,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				class="graph__graph-pane-body"
 				@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
 				@gl-graph-open-branch=${this.handleOpenBranchSheet}
-				@gl-graph-style-change=${this.handleStyleChange}
 			>
 				${when(
 					this.graphState.config?.sidebar,
@@ -2412,12 +2410,6 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.setDetailsVisible(true, 'toggle');
 			this.ensureDetailsPosition();
 		}
-	}
-
-	// The graph-style toggle (in gl-lit-graph's header) bubbles its next mode up; persist it to
-	// `gitlens.graph.style`, which flows back through config → the component's `effectiveStyle`.
-	private handleStyleChange(e: CustomEvent<{ style: GraphStyle }>) {
-		this._ipc.sendCommand(UpdateGraphConfigurationCommand, { changes: { style: e.detail.style } });
 	}
 
 	private handleToggleMinimap() {

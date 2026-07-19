@@ -27589,17 +27589,17 @@
 				{
 					"command": "gitlens.graph.setStyleAuto",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-					"group": "2_columns@1"
+					"group": "1_style@1"
 				},
 				{
 					"command": "gitlens.graph.setStyleList",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-					"group": "2_columns@1"
+					"group": "1_style@2"
 				},
 				{
 					"command": "gitlens.graph.setStyleTable",
 					"when": "webviewItem =~ /gitlens:graph:(columns|settings)\\b/ && config.gitlens.graph.experimental.useNewEngine",
-					"group": "2_columns@1"
+					"group": "1_style@3"
 				},
 				{
 					"command": "gitlens.graph.columnGraphCompact",

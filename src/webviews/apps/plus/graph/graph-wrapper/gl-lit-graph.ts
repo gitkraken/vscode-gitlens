@@ -11,7 +11,6 @@ import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@git
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
 import type {
 	GraphPlacement,
-	GraphStyle,
 	RefsPlacement,
 	ResolvedGraphStyle,
 	ZoneId,
@@ -46,6 +45,7 @@ import type {
 	DidSearchParams,
 	GraphAvatars,
 	GraphColumnConfig,
+	GraphColumnName,
 	GraphColumnsConfig,
 	GraphColumnsSettings,
 	GraphComponentConfig,
@@ -127,9 +127,6 @@ const scrollMarkerDragThresholdPx = 3;
 // Width (px) of the dedicated lane-fold strip prepended to the lanes when folding is enabled — wide
 // enough for the chevron toggle, narrow enough to not crowd the lanes.
 const foldLaneWidthPx = 14;
-// Right gutter (px) reserved for the header's absolutely-positioned settings gear, so the columns
-// stop short of it instead of the gear pushing the flex fill (which broke header↔body alignment).
-const headerSettingsGutterPx = 24;
 // Minimum width (px) of the graph column's horizontal scrollbar thumb, so it stays grabbable even when
 // the lane content vastly overflows a narrow viewport.
 const graphHScrollMinThumbPx = 24;
@@ -152,8 +149,19 @@ const zoneHeaderIcons: Record<ZoneId, string> = {
 function headerLabelFits(label: string, areaPx: number): boolean {
 	return areaPx >= label.length * 7 + 28;
 }
+// Footprint (px) of the pinned settings gear over the trailing header cell's tail (button + edge
+// inset); the trailing HEADER cell renders narrower by this so its label/icon never sit under it.
+const headerActionPx = 24;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
+// Lazily-created offscreen canvas 2D context reused for text measurement (`measureText`) — never
+// attached to the DOM. Used to size the date column to its NORMAL (non-compact) format on autosize.
+let textMeasureCanvas: HTMLCanvasElement | undefined;
+function getTextMeasureContext(): CanvasRenderingContext2D | null {
+	textMeasureCanvas ??= document.createElement('canvas');
+	return textMeasureCanvas.getContext('2d');
+}
 
 // WIP (workdir) rows carry a today-ish synthetic date, not a real commit date — reading one straight
 // off a visible-range edge would skew the reported day-range (minimap). Walks from `from` toward
@@ -355,6 +363,12 @@ export class GlLitGraph extends LitElement {
 	// Branch pinned to the leftmost lane(s) (gitlens.graph.pinBranchToEdge). Resolved to a sha and fed
 	// to the engine as `pinnedShas`; a floating "Jump to Pinned Branch" pill scrolls to it when off-screen.
 	@property({ type: Object }) pinnedRef?: GraphPinnedRef;
+	// Columns whose header filter is currently active (derived host-side from the search query's
+	// operators — see graph-header's `updateActiveFilterColumns`). A filterable column's header filter
+	// button is persistently shown + accent-toned when its id is in this set, and its 22px footprint
+	// joins that cell's label-fit math (see `renderHeader`). Hover/focus reveal is CSS-only and never
+	// touches this or the zone-width solver.
+	@property({ attribute: false }) activeFilterColumns?: ReadonlySet<GraphColumnName>;
 
 	@state() private containerWidth = 0;
 	@state() private focusIndex = 0;
@@ -1577,9 +1591,6 @@ export class GlLitGraph extends LitElement {
 		// Pass-through raster layer's h-scroll translate + edge-fade mask gates — set on the render path too so
 		// freshly rendered / recycled rows position + fade their raster before the first clamp overlay pass paints.
 		this.updateGutterScrollVars();
-		// Right gutter the header reserves for the absolutely-positioned settings gear (matches the
-		// zone-solve target so header columns end exactly where the row columns do).
-		this.style.setProperty('--gl-graph-end-gutter', `${this.endGutterPx}px`);
 		// Full GRAPH height (header + scroller) so the column resize-line dividers, anchored at the header
 		// cells' top (the graph's top), span all the way to the bottom edge (VS Code sash look) instead of
 		// stopping a header's-height short. `scrollerClientHeight` excludes the header, so add it back.
@@ -3268,24 +3279,26 @@ export class GlLitGraph extends LitElement {
 		return gutterPadding * 2 + (this.maxColumn + 1) * this.columnWidth;
 	}
 
-	// Right gutter reserved on BOTH the header (padding) and the rows (the columns stop short of it),
-	// so the settings gear has a home and the body never grows into it. Max of the scrollbar width and
-	// the gear's footprint (gear only present when there's a settings menu).
-	private get endGutterPx(): number {
-		const scrollbar = Math.max(0, this.lastScrollbarWidth);
-		// Reserve room for the header actions so columns stop short of them: the graph-style toggle (always
-		// present) + the settings gear (only when there's a settings menu).
-		const actions = headerSettingsGutterPx + (this.settingsContext != null ? headerSettingsGutterPx : 0);
-		return Math.max(scrollbar, actions);
+	// The row columns stop only for the vertical scrollbar. Header actions reserve space INSIDE the
+	// trailing header cell, so their footprint never creates an empty body gutter.
+	private get scrollbarGutterPx(): number {
+		return Math.max(0, this.lastScrollbarWidth);
+	}
+
+	// Width the pinned settings gear occupies over the trailing header cell's tail (0 when there's no
+	// settings menu). The trailing HEADER cell renders narrower by this much so its label/icon never sit
+	// under the gear — header-only; body columns keep their full width to the scrollbar.
+	private get headerActionsPx(): number {
+		return this.settingsContext != null ? headerActionPx : 0;
 	}
 
 	// Available width the content zones zero-scroll-fill (Σ currentWidth = this): the container minus the
-	// right gutter (scrollbar / settings gear) and — in `column` placement — the separate graph column
+	// scrollbar gutter and — in `column` placement — the separate graph column
 	// (which keeps its own width + lane-scroll). In inline/hidden placement the graph isn't a separate
 	// cell, so it's just the container minus the gutter.
 	private get zoneTargetWidth(): number {
 		const graphCol = this.graphPlacement === 'column' ? this.graphColumnWidth : 0;
-		return Math.max(0, this.containerWidth - this.endGutterPx - graphCol);
+		return Math.max(0, this.containerWidth - this.scrollbarGutterPx - graphCol);
 	}
 
 	// Width of the dedicated lane-fold strip prepended to the lanes. Non-zero only when folding is on
@@ -3315,7 +3328,7 @@ export class GlLitGraph extends LitElement {
 		for (const z of this.getVisibleZones()) {
 			zoneMinSum += z.minWidth;
 		}
-		const capForZones = this.containerWidth - this.endGutterPx - zoneMinSum;
+		const capForZones = this.containerWidth - this.scrollbarGutterPx - zoneMinSum;
 		return Math.max(floor, Math.min(want, capForZones));
 	}
 
@@ -4929,7 +4942,8 @@ export class GlLitGraph extends LitElement {
 	// Auto-adapts to classic (≈14px) vs overlay (0px) scrollbars. Measured only on resize +
 	// first render (the only times it can change for an always-overflowing list) rather than
 	// every reactive update — reading offsetWidth/clientWidth forces a synchronous layout.
-	// Set via CSSOM (CSP-safe) so it doesn't trigger a re-render.
+	// Set via CSSOM (CSP-safe), then re-render once because the measured width is also an input
+	// to the zero-scroll column solve.
 	private measureScrollbarWidth(): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller == null) return;
@@ -4939,6 +4953,7 @@ export class GlLitGraph extends LitElement {
 
 		this.lastScrollbarWidth = scrollbarWidth;
 		this.style.setProperty('--gl-graph-scrollbar-width', `${scrollbarWidth}px`);
+		this.requestUpdate();
 	}
 
 	// Toggle the header's scrolled-shadow via CSSOM only when crossing the threshold — NOT a
@@ -5172,12 +5187,18 @@ export class GlLitGraph extends LitElement {
 				: nothing}
 			${visibleZones.map((zone, i) => {
 				const isLast = i === visibleZones.length - 1;
+				// The trailing HEADER cell yields its tail to the pinned gear — header-only: the BODY column
+				// keeps its full solved width to the scrollbar (no dead body gutter), and no divider marks the
+				// last cell's right edge, so the header being narrower there is invisible.
+				const isTrailingCell = isLast && !graphIsLastColumn;
+				const headerW = isTrailingCell ? Math.max(0, zone.width - this.headerActionsPx) : zone.width;
 				// Same zero-scroll rule as the body cells (zoneStyle): fill may shrink but not grow, others
 				// rigid at the solved width — so the header columns line up exactly with the rows below.
-				const w = `${zone.width}px`;
+				const w = `${headerW}px`;
+				const minW = isTrailingCell ? '0px' : `${zone.minWidth}px`;
 				const style = zone.flex
-					? { flex: `0 1 ${w}`, minWidth: `${zone.minWidth}px` }
-					: { flex: `0 0 ${w}`, width: w, minWidth: `${zone.minWidth}px` };
+					? { flex: `0 1 ${w}`, minWidth: minW }
+					: { flex: `0 0 ${w}`, width: w, minWidth: minW };
 				// Reserve room for any controls in this cell, then swap the text label for its icon when
 				// the remaining width can't fit it (legacy narrow-column behavior). The flex zone never
 				// narrows (it grows), so it always keeps its text.
@@ -5186,10 +5207,23 @@ export class GlLitGraph extends LitElement {
 				const graphControlHere =
 					gutterWidth === 0 && (this.graphPlacement === 'grouped' ? zone.id === graphHostId : i === 0);
 				const hasRefsControl = (zone.id === 'ref' && this.refsPlacement === 'column') || zone.id === refsHostId;
+				// This column offers a header filter (host `isFilterable`), and whether that filter is currently
+				// active (its search operator is in the query — see `activeFilterColumns`). Active persistently
+				// shows the button and reserves its unit in the fit math below; hover/focus reveal is CSS-only
+				// and never reaches this math.
+				const filterable = this.columns?.[zone.id]?.isFilterable === true;
+				const filterActive = filterable && (this.activeFilterColumns?.has(zone.id) ?? false);
 				// Both toggles are bare icon buttons here — the graph control is only labeled in the list
-				// header — so they reserve the same width.
-				const controlsPx = (graphControlHere ? 22 : 0) + (hasRefsControl ? 22 : 0);
-				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, zone.width - controlsPx);
+				// header — so they reserve the same width; an ACTIVE filter button reserves one unit too.
+				const controlsPx = (graphControlHere ? 22 : 0) + (hasRefsControl ? 22 : 0) + (filterActive ? 22 : 0);
+				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
+				// Floor degradation: an active filter on an ultra-narrow icon-only column can't fit both the
+				// filter button and the column icon — render ONLY the filter button (never a clipped half icon).
+				const filterOnly = filterActive && labelAsIcon && headerW - controlsPx < 46;
+				// Double-click fits the column the splitter precedes (the NEXT zone) — except when that's the
+				// elastic fill (no fixed width), where it fits THIS zone instead (see onResizeAutosize). Name
+				// the real target so the tooltip doesn't lie.
+				const fitTargetLabel = (visibleZones[i + 1]?.flex ? zone.label : visibleZones[i + 1]?.label) ?? 'next';
 				return html`<div
 						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}"
 						data-col-id=${zone.id}
@@ -5199,20 +5233,23 @@ export class GlLitGraph extends LitElement {
 					>
 						${graphControlHere ? this.renderPlacementControl() : nothing}
 						${zone.id === refsHostId ? this.renderRefsPlacementControl(false, visibleZones) : nothing}
-						<span
-							class="gl-graph__header-label"
-							role="button"
-							tabindex="0"
-							aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
-							data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
-							@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
-							>${labelAsIcon
-								? html`<code-icon
-										class="gl-graph__header-label-icon"
-										icon=${zoneHeaderIcons[zone.id]}
-									></code-icon>`
-								: zone.label}</span
-						>
+						${filterOnly
+							? this.renderFilterButton(zone, true, true)
+							: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
+									<span
+										class="gl-graph__header-label"
+										role="button"
+										tabindex="0"
+										aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
+										data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
+										@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
+										>${labelAsIcon
+											? html`<code-icon
+													class="gl-graph__header-label-icon"
+													icon=${zoneHeaderIcons[zone.id]}
+												></code-icon>`
+											: zone.label}</span
+									>`}
 						${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
 							? this.renderRefsPlacementControl(true, visibleZones)
 							: nothing}
@@ -5227,7 +5264,7 @@ export class GlLitGraph extends LitElement {
 									aria-valuenow=${zone.width}
 									aria-valuemin=${zone.minWidth}
 									aria-valuemax="800"
-									data-tooltip=${`Drag to resize, or double-click to fit the ${(visibleZones[i + 1]?.label ?? 'next').toLowerCase()} column to its contents`}
+									data-tooltip=${`Drag to resize, or double-click to fit the ${fitTargetLabel.toLowerCase()} column to its contents`}
 									@pointerdown=${(e: PointerEvent) => this.onResizeStart(e, visibleZones, i)}
 									@keydown=${(e: KeyboardEvent) => this.onResizeKeydown(e, visibleZones, i)}
 								>
@@ -5238,8 +5275,46 @@ export class GlLitGraph extends LitElement {
 						? this.renderGraphHeaderCell(gutterWidth, graphIsLastColumn)
 						: nothing}`;
 			})}
-			${this.renderStyleToggle()}${this.renderSettingsControl()}
+			${this.renderSettingsControl()}
 		</div>`;
+	}
+
+	// Header filter button, rendered at a filterable column cell's inline-start (after any placement
+	// controls, before the label). Idle it's collapsed to zero width + transparent (reserves no label
+	// space); the cell's `:hover`/`:focus-within` reveals it (CSS only). `active` shows it persistently in
+	// the accent tone with the filled icon. `floor` is the degraded ultra-narrow case where it stands in
+	// for the column icon entirely, so its tooltip names the filtered column. Click dispatches
+	// `gl-graph-filter-column` (bubbles+composed) — graph-app routes the zone to the right filter picker.
+	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean): TemplateResult {
+		const ariaLabel = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
+		const tooltip = floor
+			? `${zone.label} — Filtered. Click to Edit Filter`
+			: active
+				? `Edit ${zone.label} Filter`
+				: `Filter by ${zone.label}`;
+		return html`<button
+			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${floor
+				? ' gl-graph__filter-toggle--floor'
+				: ''}"
+			type="button"
+			aria-pressed=${active ? 'true' : 'false'}
+			aria-label=${ariaLabel}
+			data-tooltip=${tooltip}
+			draggable="false"
+			@pointerdown=${(e: Event) => e.stopPropagation()}
+			@click=${(e: Event) => this.onFilterButtonClick(e, zone.id)}
+		>
+			<code-icon icon=${active ? 'filter-filled' : 'filter'}></code-icon>
+		</button>`;
+	}
+
+	// Bubbles+composed so it reaches the `@gl-graph-filter-column` listener on `<gl-graph-wrapper>`
+	// (graph-app binds it there); both this element and the wrapper are light DOM, so no re-dispatch.
+	private onFilterButtonClick(event: Event, zoneId: ZoneId): void {
+		event.stopPropagation();
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-filter-column', { detail: { zone: zoneId }, bubbles: true, composed: true }),
+		);
 	}
 
 	// Compact-density header. The stacked 2-line rows have no per-zone columns, so instead of the full
@@ -5258,7 +5333,7 @@ export class GlLitGraph extends LitElement {
 			>
 				${graphIsColumn ? nothing : this.renderPlacementControl(true)}
 			</div>
-			${this.renderStyleToggle()}${this.renderSettingsControl()}
+			${this.renderSettingsControl()}
 		</div>`;
 	}
 
@@ -5269,15 +5344,18 @@ export class GlLitGraph extends LitElement {
 	private renderGraphHeaderCell(gutterWidth: number, isLast: boolean): TemplateResult {
 		const foldLaneWidth = this.foldLaneWidth;
 		const totalWidth = this.graphColumnWidth;
+		// As the trailing cell, yield the tail to the pinned gear (header-only — the body gutter keeps
+		// `totalWidth`; no divider marks the last cell's right edge, so the difference is invisible).
+		const cellWidth = isLast ? Math.max(0, totalWidth - this.headerActionsPx) : totalWidth;
 		// Swap the "Graph" text for the graph icon once the cell can't fit it (placement control + label
 		// + handle) — same narrow-column behavior as the zone headers.
-		const labelAsIcon = !headerLabelFits('Graph', totalWidth - 22);
+		const labelAsIcon = !headerLabelFits('Graph', cellWidth - 22);
 		return html`<div
 			class="gl-graph__header-cell gl-graph__header-cell--graph${this.dragColId === 'graph'
 				? ' is-dragging'
 				: ''}"
 			data-vscode-context=${this.columnsContext ?? nothing}
-			style=${cspStyleMap({ width: `${totalWidth}px`, minWidth: `${totalWidth}px` })}
+			style=${cspStyleMap({ width: `${cellWidth}px`, minWidth: `${cellWidth}px` })}
 			@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, 'graph')}
 		>
 			<span
@@ -5436,35 +5514,6 @@ export class GlLitGraph extends LitElement {
 		this.persistColumnsConfig();
 	};
 
-	// 3-way graph-style toggle beside the settings gear: shows the current `gitlens.graph.style` mode's
-	// icon and cycles auto → table → list on click. Persists via a bubbling event the app forwards to the
-	// host (`UpdateGraphConfigurationCommand`); the setting then flows back through config → `effectiveStyle`.
-	private renderStyleToggle(): TemplateResult {
-		const style = this.config?.style ?? 'auto';
-		const icon = style === 'table' ? 'table' : style === 'list' ? 'list-flat' : 'gl-list-auto';
-		const label = style === 'table' ? 'Table' : style === 'list' ? 'List' : 'Auto';
-		const next = style === 'auto' ? 'table' : style === 'table' ? 'list' : 'auto';
-		return html`<button
-			class="gl-graph__placement-toggle gl-graph__header-style${this.settingsContext != null
-				? ' gl-graph__header-style--with-gear'
-				: ''}"
-			type="button"
-			aria-label=${`Graph style: ${label}. Click to cycle Auto, Table, List.`}
-			data-tooltip=${`Graph style: ${label} — click to change`}
-			draggable="false"
-			@pointerdown=${(e: Event) => e.stopPropagation()}
-			@click=${() => this.onStyleToggle(next)}
-		>
-			<code-icon icon=${icon}></code-icon>
-		</button>`;
-	}
-
-	private onStyleToggle(next: GraphStyle): void {
-		this.dispatchEvent(
-			new CustomEvent('gl-graph-style-change', { detail: { style: next }, bubbles: true, composed: true }),
-		);
-	}
-
 	// Settings gear: opens VS Code's native graph menu (column show/hide + the Scroll Markers submenu)
 	// on click. `settingsContext` is the host-built `gitlens:graph:settings` data-vscode-context; a
 	// left-click dispatches a synthetic `contextmenu` at the button so the native menu opens there
@@ -5557,7 +5606,7 @@ export class GlLitGraph extends LitElement {
 		// Double-click = fit-to-content. The capture + preventDefault below suppress the native `dblclick`,
 		// so detect a rapid second press on the SAME boundary here and autosize instead of starting a drag.
 		const now = Date.now();
-		if (this.lastResizeDownIdx === visibleIdx && now - this.lastResizeDownAt < 300) {
+		if (this.lastResizeDownIdx === visibleIdx && now - this.lastResizeDownAt < 500) {
 			this.lastResizeDownAt = 0;
 			this.lastResizeDownIdx = -1;
 			event.preventDefault();
@@ -5661,12 +5710,15 @@ export class GlLitGraph extends LitElement {
 	}
 
 	// Double-click a column boundary to fit a column to its widest rendered content. The handle sits at the
-	// RIGHT edge of zone `visibleIdx` — i.e. the START of the NEXT column — so we fit that next column (the
-	// one the splitter precedes), matching the "splitter before the column" model. Handles only render on
-	// non-last zones, so `visibleIdx + 1` is always in range. The flex fill zone has no fixed width to fit.
+	// RIGHT edge of zone `visibleIdx` — i.e. the START of the NEXT column — so we normally fit that next
+	// column (the one the splitter precedes), matching the "splitter before the column" model. Handles only
+	// render on non-last zones, so `visibleIdx + 1` is always in range. When the next column is the elastic
+	// fill (no fixed width to fit) we fall back to fitting the LEFT column instead of no-opping.
 	private onResizeAutosize(visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
-		const zone = visibleZones[visibleIdx + 1];
+		const right = visibleZones[visibleIdx + 1];
+		const zone = right != null && !right.flex ? right : visibleZones[visibleIdx];
 		if (zone == null) return;
+		// Only one fill zone exists, so the left can't also be flex today — but guard anyway.
 		if (zone.flex) return;
 
 		// Only content-bearing cells count — workdir rows leave author/date/sha cells empty and pill-less
@@ -5677,18 +5729,63 @@ export class GlLitGraph extends LitElement {
 		);
 		if (cells.length === 0) return;
 
-		// Fit to the widest content among the currently-rendered cells. `cell.scrollWidth` can't be used —
-		// content either truncates INSIDE the cell (text spans) or flex-shrinks to fit (ref pills), so neither
-		// overflows and both report the current width, not the natural one. Instead transiently size each cell
-		// to its content (`max-content`) and read its border-box `offsetWidth`, which already includes the
-		// cell padding and every internal margin/gap (avatar↔name, ref pill gaps). `flex-basis` overrides
-		// `width`, so both must be overridden. This is a synchronous write→read→restore (batched to avoid
-		// layout thrash) within one task, so the transient state never paints.
+		// The date column renders the ultra-compact "2d" stub whenever it's ≤ shortDateWidth, so measuring
+		// the rendered cells would fit it to that stub. Instead measure the NORMAL date string so the fit
+		// always sizes for the full date (which also lifts the column out of short mode, > shortDateWidth).
+		// Falls back to the DOM path when the formatter or resolvable dates are unavailable.
+		const content =
+			zone.id === 'datetime'
+				? (this.measureDatetimeContent(cells) ?? this.measureDomContent(cells))
+				: this.measureDomContent(cells);
+		if (content <= 0) return;
+
+		// Round up + a hair so the fitted content isn't immediately re-truncated by sub-pixel rounding.
+		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content) + 1));
+		// No-op only when BOTH the canonical preferred (`this.zones`) and the solved/rendered width already
+		// match the fit. Preferred alone isn't enough: a previously-persisted fit can equal the new fit
+		// while a deficit renders the column crushed below it — the commit below must still run to lift it.
+		const preferredWidth = this.zones.find(z => z.id === zone.id)?.width;
+		if (width === preferredWidth && width === zone.width) return;
+
+		// Commit like a drag does — zero-sum against the CURRENT solved snapshot: the fitted zone takes its
+		// fit width, every other fixed zone freezes at its solved width, and the elastic fill's committed
+		// width hands over the growth delta. Without that last part, a deficit layout re-seeds the fill at
+		// its full preferred on the next solve and the positional deficit pass (rightmost-first, fill
+		// unprivileged) crushes the fitted column straight back to its floor — the fit visibly no-ops.
+		// In slack, solved == preferred for fixed zones, so only the fill's (elastic, re-absorbing) width
+		// moves; a shrink-fit (excess <= 0) frees width that flows back to the fill as slack on its own.
+		const solvedById = new Map(visibleZones.map(z => [z.id, z.width]));
+		const fillId = visibleZones.find(z => z.flex)?.id;
+		const excess = width - (solvedById.get(zone.id) ?? width);
+		this.zones = this.zones.map(z => {
+			if (z.id === zone.id) return { ...z, width: width, currentWidth: undefined };
+
+			if (z.id === fillId) {
+				if (excess <= 0) return z;
+
+				const solved = solvedById.get(z.id) ?? z.width;
+				return { ...z, width: Math.max(z.minWidth, solved - excess), currentWidth: undefined };
+			}
+
+			const solved = solvedById.get(z.id);
+			return solved != null && solved !== z.width ? { ...z, width: solved, currentWidth: undefined } : z;
+		});
+		this.persistColumnsConfig();
+		this.requestUpdate();
+	}
+
+	// Fit-to-content width (px, incl. cell padding + internal gaps) across a set of rendered zone cells:
+	// `cell.scrollWidth` can't be used — content either truncates INSIDE the cell (text spans) or
+	// flex-shrinks to fit (ref pills), so neither overflows and both report the current width, not the
+	// natural one. Instead transiently size each cell to its content (`max-content`) and read its
+	// border-box `offsetWidth`. `flex-basis` overrides `width`, so both must be overridden. Synchronous
+	// write→read→restore (batched to avoid layout thrash) within one task, so the transient state never paints.
+	private measureDomContent(cells: readonly HTMLElement[]): number {
 		const saved = cells.map(cell => cell.style.cssText);
 		for (const cell of cells) {
 			cell.style.flex = '0 0 auto';
 			cell.style.width = 'max-content';
-			// Drop the zone's min-width floor too — it would inflate the measurement; the clamp below re-applies it.
+			// Drop the zone's min-width floor too — it would inflate the measurement; the caller re-applies it.
 			cell.style.minWidth = '0';
 		}
 		let content = 0;
@@ -5696,15 +5793,52 @@ export class GlLitGraph extends LitElement {
 			content = Math.max(content, cell.offsetWidth);
 		}
 		cells.forEach((cell, i) => (cell.style.cssText = saved[i]));
-		if (content <= 0) return;
+		return content;
+	}
 
-		// Round up + a hair so the fitted content isn't immediately re-truncated by sub-pixel rounding.
-		const width = Math.max(zone.minWidth, Math.min(zone.maxWidth ?? Infinity, Math.ceil(content) + 1));
-		if (width === zone.width) return;
+	// Date-column fit target: the width of the NORMAL (non-compact) date string, not the "2d" stub the
+	// column shows while narrow. Measures `formatDateFn(date)` for each rendered row via a canvas 2D
+	// context using the rendered `.gl-graph__date` span's font, adds the cell's horizontal padding, and
+	// returns the widest. Returns undefined (→ DOM fallback) when the formatter, a measuring context, or
+	// any resolvable date is missing.
+	private measureDatetimeContent(cells: readonly HTMLElement[]): number | undefined {
+		const format = this.formatDateFn;
+		if (format == null) return undefined;
 
-		this.zones = this.zones.map(z => (z.id === zone.id ? { ...z, width: width, currentWidth: undefined } : z));
-		this.persistColumnsConfig();
-		this.requestUpdate();
+		const ctx = getTextMeasureContext();
+		if (ctx == null) return undefined;
+
+		// sha → date over the rendered rows, so each measured cell maps to its commit's real date.
+		const dateBySha = new Map<string, number>();
+		for (const row of this.displayRows) {
+			if (row.date != null) {
+				dateBySha.set(row.sha, row.date);
+			}
+		}
+
+		// Font + horizontal padding sampled from a rendered date span / its cell (all rows share these).
+		const sampleSpan = cells[0].querySelector<HTMLElement>('.gl-graph__date');
+		const font = getComputedStyle(sampleSpan ?? cells[0]).font;
+		if (font) {
+			ctx.font = font;
+		}
+		const cellStyle = getComputedStyle(cells[0]);
+		const padding = parseFloat(cellStyle.paddingLeft) + parseFloat(cellStyle.paddingRight);
+
+		let maxText = 0;
+		let matched = 0;
+		for (const cell of cells) {
+			const rowId = cell.closest('[id^="graph-row-"]')?.id;
+			const sha = rowId?.slice('graph-row-'.length);
+			const date = sha != null ? dateBySha.get(sha) : undefined;
+			if (date == null) continue;
+
+			matched++;
+			maxText = Math.max(maxText, ctx.measureText(format(date)).width);
+		}
+		if (matched === 0) return undefined;
+
+		return maxText + (Number.isFinite(padding) ? padding : 0);
 	}
 
 	// Drag the graph-column resize handle to set its displayed width (`graphViewportWidth`). Lanes keep

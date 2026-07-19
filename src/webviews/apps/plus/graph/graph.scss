@@ -361,11 +361,10 @@ gl-lit-graph {
 		display: flex;
 		flex-shrink: 0;
 		height: 2.4rem;
-		// Reserve the end gutter (max of the scrollbar width and the settings-gear footprint, set at
-		// runtime) so header columns end exactly where the rows do — the rows' zone solve reserves the
-		// SAME gutter, and the gear is absolutely positioned within it (below) instead of consuming flex
-		// width (which would shrink the fill column and break header↔body alignment).
-		padding-right: var(--gl-graph-end-gutter, var(--gl-graph-scrollbar-width, 0px));
+		// Match the body scroller's stable scrollbar lane so the header and row column edges align. The
+		// pinned settings gear sits over the trailing header cell's tail, which renders narrower to yield
+		// it room (header-only — body columns keep their full width to the scrollbar).
+		padding-inline-end: var(--gl-graph-scrollbar-width, 0px);
 		user-select: none;
 		border-bottom: 1px solid hsl(var(--border));
 		background: hsl(var(--background));
@@ -411,6 +410,13 @@ gl-lit-graph {
 			pointer-events: none;
 		}
 	}
+	// The trailing header cell renders narrower than its body column (it yields its tail to the pinned
+	// gear). Clip it so a squeezed icon/label can't spill under the gear — safe for zone cells (the last
+	// zone renders no resize handle), but NOT for the graph cell, which always renders its own handle
+	// hanging outside the cell (clipping would sever it).
+	.gl-graph__header-cell:not(.gl-graph__header-cell--graph):not(:has(~ .gl-graph__header-cell)) {
+		overflow: hidden;
+	}
 	.gl-graph__header-label {
 		min-width: 0;
 		overflow: hidden;
@@ -448,15 +454,18 @@ gl-lit-graph {
 		--code-icon-size: 1.4rem;
 	}
 	// The GRAB target straddles the column boundary in the HEADER only (takes no flex width, so header
-	// columns line up with the rows). Width matches the VS Code sash hover hit-area (~8px). Pointer
-	// events live here — NOT over the list — so the divider never intercepts clicks/wheel on the row
+	// columns line up with the rows). Pointer events live here — NOT over the list — so the divider
+	// never intercepts clicks/wheel on the row
 	// adornments + action buttons below (those stay on top + clickable).
 	.gl-graph__resize-handle {
 		position: absolute;
 		top: 0;
-		right: -0.4rem;
+		// 1.2rem hit area centered on the boundary (was 0.8rem, tight) so the grab/double-click target is
+		// comfortable; the visible divider is the separate `.gl-graph__resize-line` child (unchanged), so
+		// widening the hit area doesn't thicken the line.
+		right: -0.6rem;
 		z-index: 10;
-		width: var(--vscode-sash-hoverSize, 0.8rem);
+		width: 1.2rem;
 		height: 100%;
 		cursor: ew-resize;
 		// A touch-drag resizes the column instead of scrolling the list.
@@ -1288,27 +1297,14 @@ gl-lit-graph {
 		margin-left: auto;
 		margin-right: 0.6rem;
 	}
-	// Settings gear pinned to the header's right edge, ABSOLUTELY positioned within the reserved end
-	// gutter so it never consumes flex width (which shrank the fill column and broke header↔body
-	// alignment). Centered vertically; sits in the gutter the columns stop short of.
+	// Settings gear pinned to the header's inline end, absolutely positioned over the tail the trailing
+	// header cell yields to it. It never consumes flex width, so header/body column edges align.
 	.gl-graph__header-settings {
 		position: absolute;
-		right: 0.3rem;
+		inset-inline-end: 0.3rem;
 		top: 50%;
 		transform: translateY(-50%);
 		margin: 0;
-	}
-	// 3-way graph-style toggle, pinned to the header's right edge in the reserved end gutter (left of the
-	// settings gear when it's present, else at the edge). Absolute so it doesn't consume flex width.
-	.gl-graph__header-style {
-		position: absolute;
-		right: 0.3rem;
-		top: 50%;
-		transform: translateY(-50%);
-		margin: 0;
-	}
-	.gl-graph__header-style--with-gear {
-		right: 2.7rem;
 	}
 	.gl-graph__placement-toggle {
 		// The icon is a flex item here, so its `vertical-align` is inert — `align-items` centers it.
@@ -1365,6 +1361,71 @@ gl-lit-graph {
 		// from inheriting, which would render this label lighter than every real column header.
 		font-weight: 500;
 		line-height: 1.4;
+	}
+
+	// Column-header filter button. Idle it collapses to zero width + transparent, so the label sits at its
+	// normal position (no reserved space). The reveal is entirely CSS-internal to the header cell — it
+	// never touches the JS zone-width solver (only an ACTIVE filter feeds the fit math, done in renderHeader).
+	.gl-graph__filter-toggle {
+		--code-icon-size: 1.3rem;
+
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 0;
+		height: 1.8rem;
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		border: 1px solid transparent;
+		border-radius: 0.4rem;
+		background: transparent;
+		color: hsl(var(--muted-foreground));
+		opacity: 0;
+		pointer-events: none;
+		cursor: pointer;
+		// Width + margin animate the label sliding right; opacity fades the icon in.
+		transition:
+			width var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			margin var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			opacity var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			background-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			border-color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out),
+			color var(--gl-duration-fast, 120ms) var(--gl-ease-out, ease-out);
+	}
+	// Reveal on cell hover / keyboard focus-within: expand to the ~22px footprint (sliding the label right)
+	// and fade in. Presentational only — the label-fit math (renderHeader) is unaffected by hover.
+	.gl-graph__header-cell:hover .gl-graph__filter-toggle,
+	.gl-graph__header-cell:focus-within .gl-graph__filter-toggle,
+	.gl-graph__filter-toggle.is-active {
+		width: 1.8rem;
+		margin-inline-start: 0.4rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.gl-graph__filter-toggle:hover {
+		background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		border-color: hsl(var(--border));
+		color: hsl(var(--foreground));
+	}
+	.gl-graph__filter-toggle:focus-visible {
+		outline: 1px solid hsl(var(--brand));
+		outline-offset: 1px;
+	}
+	// Active filter: persistently shown + accent-toned so the "filtered" state reads at a glance (paired
+	// with the `filter-filled` icon set in renderFilterButton). Accent uses focusBorder for legibility.
+	.gl-graph__filter-toggle.is-active {
+		color: var(--vscode-focusBorder);
+	}
+	.gl-graph__filter-toggle.is-active:hover {
+		border-color: var(--vscode-focusBorder);
+		color: var(--vscode-focusBorder);
+	}
+	// Floor degradation: the button stands in for the column icon on an ultra-narrow active-filtered cell,
+	// so it's the cell's sole content — drop the reveal margin so it sits flush at the cell's inline-start.
+	.gl-graph__filter-toggle--floor {
+		margin-inline-start: 0;
 	}
 
 	// List style: 2-line stacked rows (line 1 = refs + message; line 2 = author · date · sha).
