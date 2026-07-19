@@ -29623,7 +29623,7 @@
 		"ovsx": "1.0.2",
 		"oxfmt": "0.59.0",
 		"oxlint": "1.74.0",
-		"oxlint-tsgolint": "0.24.0",
+		"oxlint-tsgolint": "0.25.0",
 		"playwright": "1.61.1",
 		"postcss": "8.5.16",
 		"postcss-lit": "1.4.1",
@@ -29645,7 +29645,7 @@
 		"typescript": "catalog:",
 		"typescript-6": "catalog:",
 		"webpack": "5.108.4",
-		"webpack-bundle-analyzer": "5.3.0",
+		"webpack-bundle-analyzer": "5.3.1",
 		"webpack-cli": "7.2.1",
 		"webpack-node-externals": "3.0.0",
 		"webpack-require-from": "1.8.6",
@@ -29655,7 +29655,7 @@
 	"lint-staged": {
 		"*.{ts,tsx,json,jsonc,md,scss,yaml}": "oxfmt --no-error-on-unmatched-pattern"
 	},
-	"packageManager": "pnpm@11.13.1",
+	"packageManager": "pnpm@11.15.0",
 	"postcss-lit": {
 		"babelOptions": {
 			"sourceType": "unambiguous",

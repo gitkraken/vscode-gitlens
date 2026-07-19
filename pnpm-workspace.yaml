@@ -101,6 +101,13 @@ minimumReleaseAgeExclude:
     - '@oxlint/plugins@1.74.0'
     - oxfmt@0.59.0
     - oxlint@1.74.0
+    - '@oxlint-tsgolint/darwin-arm64@0.25.0'
+    - '@oxlint-tsgolint/darwin-x64@0.25.0'
+    - '@oxlint-tsgolint/linux-arm64@0.25.0'
+    - '@oxlint-tsgolint/linux-x64@0.25.0'
+    - '@oxlint-tsgolint/win32-arm64@0.25.0'
+    - '@oxlint-tsgolint/win32-x64@0.25.0'
+    - oxlint-tsgolint@0.25.0
 
 overrides:
     '@opentelemetry/core@<2.8.0': ^2.8.0
