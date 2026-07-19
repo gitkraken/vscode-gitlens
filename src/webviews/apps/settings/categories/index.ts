@@ -53,12 +53,16 @@ export const droppedAnchorQueries: Record<string, string> = {
 	'file-history-view': 'gitlens.views.fileHistory',
 	'line-history-view': 'gitlens.views.lineHistory',
 	'search-compare-view': 'gitlens.views.searchAndCompare',
-	sorting: 'gitlens.sortRepositoriesBy',
+	// Substring-matches every sort* setting (sortRepositoriesBy/sortBranchesBy/sortTagsBy/
+	// sortContributorsBy/sortWorktreesBy/sortWorkingChangesBy), not just sortRepositoriesBy
+	sorting: 'gitlens.sort',
 	// The legacy sorting section's HTML id was 'views'; 'sorting' itself is also
 	// covered directly above in case anything still deep-links to the section id
-	views: 'gitlens.sortRepositoriesBy',
+	views: 'gitlens.sort',
 	shortcuts: 'gitlens.keymap',
-	modes: 'gitlens.modes',
+	// Substring-matches both `gitlens.modes` and `gitlens.mode.statusBar.*`/`gitlens.mode.active`,
+	// which the dropped section also exposed
+	modes: 'gitlens.mode',
 	'terminal-links': 'gitlens.terminalLinks',
 	'rebase-editor': 'gitlens.rebaseEditor',
 };

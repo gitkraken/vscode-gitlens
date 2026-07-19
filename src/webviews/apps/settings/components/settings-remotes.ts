@@ -11,6 +11,7 @@ import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
 import '../../shared/components/checkbox/checkbox.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/segmented/segmented.js';
 import '../../shared/components/select/select.js';
 
 declare global {
@@ -38,6 +39,12 @@ const typeOptions: { value: CustomRemoteType; label: string }[] = [
 ];
 
 const typeLabels = new Map(typeOptions.map(o => [o.value, o.label]));
+
+/** Options for the domain/regex matcher-mode segmented control. */
+const matcherModeOptions: { value: MatcherMode; label: string }[] = [
+	{ value: 'domain', label: 'Domain' },
+	{ value: 'regex', label: 'Regex' },
+];
 
 /**
  * Provider types whose self-hosted URLs are path-structural (the built-in matchers
@@ -241,31 +248,6 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 				flex-wrap: wrap;
 				gap: var(--gl-space-8);
 				align-items: center;
-			}
-
-			.matcher-toggle {
-				display: inline-flex;
-				gap: var(--gl-space-2);
-				align-items: stretch;
-			}
-
-			.matcher-toggle__option {
-				padding: var(--gl-space-4) var(--gl-space-10);
-				font-size: 1.15rem;
-				color: var(--color-foreground--65);
-				cursor: pointer;
-				background: transparent;
-				border: var(--gl-border-width) solid var(--vscode-inputOption-activeBorder, transparent);
-				border-radius: var(--gl-radius-sm);
-			}
-
-			.matcher-toggle__option[aria-pressed='true'] {
-				color: var(--vscode-inputOption-activeForeground);
-				background-color: var(--vscode-inputOption-activeBackground);
-			}
-
-			.matcher-toggle__option:focus-visible {
-				${focusOutline}
 			}
 
 			input[type='text'] {
@@ -548,24 +530,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			<div class="field">
 				<span class="field__label">Match remotes by</span>
 				<div class="field__row">
-					<div class="matcher-toggle" role="group" aria-label="Matcher type">
-						<button
-							type="button"
-							class="matcher-toggle__option"
-							aria-pressed=${!isRegex ? 'true' : 'false'}
-							@click=${() => this.setMatcherMode('domain')}
-						>
-							Domain
-						</button>
-						<button
-							type="button"
-							class="matcher-toggle__option"
-							aria-pressed=${isRegex ? 'true' : 'false'}
-							@click=${() => this.setMatcherMode('regex')}
-						>
-							Regex
-						</button>
-					</div>
+					<gl-segmented-control
+						label="Matcher type"
+						.options=${matcherModeOptions}
+						.value=${draft.matcherMode}
+						@gl-change-value=${(e: Event) =>
+							this.setMatcherMode((e.target as HTMLElement & { value: string }).value as MatcherMode)}
+					></gl-segmented-control>
 					<input
 						class="${matcherMissing || regexBroken ? 'invalid' : ''}"
 						type="text"

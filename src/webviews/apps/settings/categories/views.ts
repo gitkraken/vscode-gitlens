@@ -1,5 +1,19 @@
 /* oxlint-disable no-template-curly-in-string -- descriptor data contains literal GitLens format tokens */
-import type { SettingsCategory } from '../model.js';
+import type { CheckGroupOptionDescriptor, SettingsCategory } from '../model.js';
+
+/** Shared by `graph.scrollMarkers.additionalTypes` and `graph.minimap.additionalTypes` — both mark the
+ *  same 5 ref types, differing only in their trailing WIP/worktree-specific option. */
+const sharedMarkerTypeOptions: CheckGroupOptionDescriptor[] = [
+	{ value: 'localBranches', label: 'Local branches', hint: 'Marks the location of local branches' },
+	{
+		value: 'remoteBranches',
+		label: 'Remote branches',
+		hint: 'Marks the location of remote branches',
+	},
+	{ value: 'pullRequests', label: 'Pull requests', hint: 'Marks the location of pull requests' },
+	{ value: 'stashes', label: 'Stashes', hint: 'Marks the location of stashes' },
+	{ value: 'tags', label: 'Tags', hint: 'Marks the location of tags' },
+];
 
 export const viewsCategories: SettingsCategory[] = [
 	{
@@ -75,15 +89,7 @@ export const viewsCategories: SettingsCategory[] = [
 				key: 'graph.scrollMarkers.additionalTypes',
 				label: 'Also mark these on the scrollbar',
 				options: [
-					{ value: 'localBranches', label: 'Local branches', hint: 'Marks the location of local branches' },
-					{
-						value: 'remoteBranches',
-						label: 'Remote branches',
-						hint: 'Marks the location of remote branches',
-					},
-					{ value: 'pullRequests', label: 'Pull requests', hint: 'Marks the location of pull requests' },
-					{ value: 'stashes', label: 'Stashes', hint: 'Marks the location of stashes' },
-					{ value: 'tags', label: 'Tags', hint: 'Marks the location of tags' },
+					...sharedMarkerTypeOptions,
 					{
 						value: 'wip',
 						label: 'Working tree (WIP)',
@@ -103,15 +109,7 @@ export const viewsCategories: SettingsCategory[] = [
 				key: 'graph.minimap.additionalTypes',
 				label: 'Also mark these on the minimap',
 				options: [
-					{ value: 'localBranches', label: 'Local branches', hint: 'Marks the location of local branches' },
-					{
-						value: 'remoteBranches',
-						label: 'Remote branches',
-						hint: 'Marks the location of remote branches',
-					},
-					{ value: 'pullRequests', label: 'Pull requests', hint: 'Marks the location of pull requests' },
-					{ value: 'stashes', label: 'Stashes', hint: 'Marks the location of stashes' },
-					{ value: 'tags', label: 'Tags', hint: 'Marks the location of tags' },
+					...sharedMarkerTypeOptions,
 					{
 						value: 'worktree',
 						label: 'Other worktrees',

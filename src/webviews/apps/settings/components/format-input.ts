@@ -24,10 +24,15 @@ declare global {
 }
 
 /** The fixed sample date used by date-format previews (parity with the legacy app). */
-const offset = (new Date().getTimezoneOffset() / 60) * 100;
-const sampleDate = new Date(
-	`Wed Jul 25 2018 19:18:00 GMT${offset >= 0 ? '-' : '+'}${String(Math.abs(offset)).padStart(4, '0')}`,
-);
+// `getTimezoneOffset()` is inverted relative to a GMT suffix (e.g. UTC+5:30 reports -330), and it's
+// minutes, not a base-100 hour fraction — split into hours/minutes rather than scaling by 100 so
+// fractional-hour zones (e.g. India, +5:30) don't mis-encode (naive `/60*100` gave "GMT+0550").
+const tzo = new Date().getTimezoneOffset();
+const tzSign = tzo >= 0 ? '-' : '+';
+const tzAbs = Math.abs(tzo);
+const tzHours = String(Math.floor(tzAbs / 60)).padStart(2, '0');
+const tzMinutes = String(tzAbs % 60).padStart(2, '0');
+const sampleDate = new Date(`Wed Jul 25 2018 19:18:00 GMT${tzSign}${tzHours}${tzMinutes}`);
 
 /** Which token set (if any) the input offers, and the grammar affordances it exposes. */
 type TokenMode = 'commit' | 'hover' | 'file' | 'date';
@@ -426,6 +431,14 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 	/** Tracks descriptor identity so a reused instance drops a stale draft/example on switch. */
 	private _lastDescriptorKey: string | undefined;
 
+	/**
+	 * The `descriptor.key`+value pair `updateExample()` last actually recomputed for — guards against
+	 * `updated()` re-firing the debounced preview RPC (or re-running `formatDate` synchronously) on
+	 * every reactive render, when unrelated @state changes (token-menu filter, arrow-nav index,
+	 * modifier prefix/suffix/width, typeahead query) don't touch the format value.
+	 */
+	private _lastExampleKey: string | undefined;
+
 	private get value(): string {
 		return this._draft ?? String(this._state.getSettingValue(this.descriptor.key) ?? '');
 	}
@@ -446,6 +459,9 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			this._modSuffix = '';
 			this._modWidth = '';
 			this._modFlag = '';
+			// Clear the guard too — otherwise a coincidental key collision with the previous
+			// descriptor (same value string) would stale-skip the new descriptor's first recompute
+			this._lastExampleKey = undefined;
 			this._closeSuggestions();
 		}
 	}
@@ -482,6 +498,14 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		if (preview == null) return;
 
 		let value = this.value;
+
+		// `updated()` calls this on every reactive render, but only the format value (not the token-menu
+		// filter, arrow-nav index, modifier builder fields, or typeahead query) should trigger a
+		// recompute — skip re-running `formatDate`/re-firing the debounced preview RPC when unchanged.
+		const key = `${this.descriptor?.key ?? ''} ${value}`;
+		if (key === this._lastExampleKey) return;
+
+		this._lastExampleKey = key;
 
 		switch (preview.type) {
 			case 'commit':
@@ -706,15 +730,20 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			return;
 		}
 
-		// Replace the partial word after `${` with the full token + closing brace (keep the typed `${`)
+		// Replace the partial word after `${` with the full token + closing brace (keep the typed `${`).
+		// Skip the closing brace when one already follows the caret (e.g. completing `${au|}` should
+		// yield `${author}`, not `${author}}`).
 		const insertStart = caret - match[1].length;
-		const completion = `${token}}`;
+		const hasClosingBrace = value[caret] === '}';
+		const completion = hasClosingBrace ? token : `${token}}`;
 		this._draft = value.substring(0, insertStart) + completion + value.substring(caret);
 		this._closeSuggestions();
 
 		void this.updateComplete.then(() => {
 			input.focus();
-			const next = insertStart + completion.length;
+			// Land the caret just past the closing brace either way (whether it was just
+			// inserted, or was already present and left in place).
+			const next = insertStart + completion.length + (hasClosingBrace ? 1 : 0);
 			input.setSelectionRange(next, next);
 		});
 	}
