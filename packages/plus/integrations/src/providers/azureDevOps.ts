@@ -646,13 +646,13 @@ export abstract class AzureDevOpsIntegrationBase<
 			}),
 		);
 
-		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
-		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
 		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
 		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
 		const recoverable = firstRecoverableRejection(settled);
 		if (recoverable != null) throw recoverable;
 
+		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
+		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
 		// would drop one of them. The normalized `url` is org-qualified and unambiguous.
 		const prsByUrl = new Map<string, ProviderPullRequest>();
 		for (const outcome of settled) {

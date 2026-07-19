@@ -207,8 +207,12 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 					issues.push(shape);
 				}
 			}
-			// Stop if the provider claims more but returns no advancing cursor, to avoid re-reading the same page.
-			if (hasMore && (nextCursor == null || nextCursor === cursor)) break;
+			// The provider claims more but returns no advancing cursor: we can't continue without re-reading the
+			// same page, so the drain is incomplete — flag it rather than silently stopping.
+			if (hasMore && (nextCursor == null || nextCursor === cursor)) {
+				truncated = true;
+				break;
+			}
 			cursor = nextCursor;
 			// More pages remain but we've hit the backstop: the drain is incomplete.
 			if (hasMore && requestCount >= maxPagesPerRequest) {

@@ -213,11 +213,17 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 				if (result == null) break;
 
 				collected.push(...result.data);
-				if (!result.hasMore || result.nextCursor == null || result.nextCursor === cursor) break;
+				if (!result.hasMore) break;
+
+				// The provider claims more pages but gave no advancing cursor: we can't continue, so the drain
+				// is incomplete — flag it rather than silently stopping (matches drainPullRequests/Repositories).
+				if (result.nextCursor == null || result.nextCursor === cursor) {
+					truncated = true;
+					break;
+				}
 
 				cursor = result.nextCursor;
-				// The provider still reports more pages but we're at the last allowed iteration: the drain is
-				// incomplete.
+				// More pages remain but we're at the last allowed iteration: the drain is incomplete.
 				if (i === maxPagesPerRequest - 1) {
 					truncated = true;
 				}
