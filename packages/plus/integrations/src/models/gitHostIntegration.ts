@@ -225,6 +225,16 @@ export abstract class GitHostIntegration<
 	}
 
 	/**
+	 * Whether this git host exposes issues on the ProviderBackend surface. Most git hosts do; a host whose
+	 * issue tracker is deprecated (Bitbucket Cloud, superseded by dedicated issue integrations like Jira)
+	 * overrides this to false, so the facade reports issues as unsupported instead of serving a partial or
+	 * deprecated source.
+	 */
+	get supportsIssues(): boolean {
+		return true;
+	}
+
+	/**
 	 * Result-returning core of {@link getOrganizationsForUser}. Resolves the session for `connectionId`
 	 * (or the primary connection when omitted, honoring multi-account reads) and recovers a thrown error
 	 * into `{ error }` so callers can surface it as a warning instead of swallowing it to `undefined`.

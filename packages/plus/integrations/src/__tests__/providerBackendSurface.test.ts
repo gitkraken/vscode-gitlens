@@ -1024,7 +1024,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('listIssuesPage({ repos }) reads Bitbucket issues via the legacy per-repo client (#5438)', async () => {
+	test('listIssuesPage reports Bitbucket issues as unsupported (deprecated in favor of Jira) (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
@@ -1033,82 +1033,18 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			domain: 'bitbucket.org',
 		};
 
-		// Bitbucket registers no getIssuesForReposFn; its override reads through the legacy getUsersIssuesForRepo
-		// client (which already yields IssueShape). Stub the current account and that client.
-		(
-			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
-		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
-		let readRepo: string | undefined;
-		(bb as unknown as { authenticationService: { apis: { bitbucket: Promise<unknown> } } }).authenticationService =
-			{
-				apis: {
-					bitbucket: Promise.resolve({
-						getUsersIssuesForRepo: (_p: unknown, _t: unknown, _u: string, owner: string, repo: string) => {
-							readRepo = `${owner}/${repo}`;
-							return Promise.resolve({
-								issues: [{ id: 'bb-i1', provider: bb } as unknown as IssueShape],
-								truncated: false,
-							});
-						},
-					}),
-				},
-			};
-
+		// Bitbucket Cloud deprecated its issue tracker; it's not an issue provider on this surface. The facade
+		// must say so (warning + fetchFailed), not serve the legacy per-repo client or a silent empty page.
 		const result = await manager.listIssuesPage({
 			providerId: GitCloudHostIntegrationId.Bitbucket,
 			repos: [{ namespace: 'ws', name: 'repo' }],
 		});
-		assert.equal(readRepo, 'ws/repo', 'the per-repo client is called with the repo owner/name');
-		assert.equal(result.items.length, 1, 'the Bitbucket issue is returned through the facade');
-		assert.equal(result.items[0].id, 'bb-i1');
-
-		manager.dispose();
-	});
-
-	test('listIssuesPage forwards includeAllAssignees to the Bitbucket issue client and surfaces truncation (#5438)', async () => {
-		const runtime = createFakeRuntime();
-		const manager = createIntegrationManager(runtime);
-		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
-		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
-			...primarySession('t'),
-			domain: 'bitbucket.org',
-		};
-
-		(
-			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
-		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
-		let sawIncludeAllAssignees: boolean | undefined;
-		(bb as unknown as { authenticationService: { apis: { bitbucket: Promise<unknown> } } }).authenticationService =
-			{
-				apis: {
-					bitbucket: Promise.resolve({
-						getUsersIssuesForRepo: (
-							_p: unknown,
-							_t: unknown,
-							_u: string,
-							_owner: string,
-							_repo: string,
-							_baseUrl: string,
-							opts?: { includeAllAssignees?: boolean },
-						) => {
-							sawIncludeAllAssignees = opts?.includeAllAssignees;
-							// A repo whose own page drain hit its backstop reports truncated.
-							return Promise.resolve({
-								issues: [{ id: 'bb-i1', provider: bb } as unknown as IssueShape],
-								truncated: true,
-							});
-						},
-					}),
-				},
-			};
-
-		const result = await manager.listIssuesPage({
-			providerId: GitCloudHostIntegrationId.Bitbucket,
-			repos: [{ namespace: 'ws', name: 'repo' }],
-			includeAllAssignees: true,
-		});
-		assert.equal(sawIncludeAllAssignees, true, 'includeAllAssignees reaches the issue client (broaden path)');
-		assert.equal(result.page.truncated, true, "a repo's page-drain backstop surfaces as page.truncated");
+		assert.equal(result.items.length, 0, 'no issues are returned for a non-issue provider');
+		assert.equal(result.fetchFailed, true);
+		assert.ok(
+			result.warnings.some(w => /not supported/i.test(w.message)),
+			'issues are reported as unsupported',
+		);
 
 		manager.dispose();
 	});

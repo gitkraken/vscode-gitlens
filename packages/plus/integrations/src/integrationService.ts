@@ -908,6 +908,22 @@ export class IntegrationService implements Disposable {
 		};
 	}
 
+	/** Warning for a git host that doesn't expose issues on this surface (e.g. Bitbucket, deprecated in favor of Jira). */
+	private issuesUnsupportedWarning(
+		id: IntegrationIds,
+		domain: string | undefined,
+		connectionId: string | undefined,
+	): ProviderWarning {
+		return {
+			providerId: id,
+			domain: domain,
+			connectionId: connectionId,
+			message: `Issues are not supported by '${id}'; use a dedicated issue integration (e.g. Jira) instead.`,
+			kind: 'other',
+			isAuth: false,
+		};
+	}
+
 	/** Encodes a 1-based page number as the opaque cursor the provider paging layer understands. */
 	private pageToCursor(page: number | undefined): string | undefined {
 		if (page == null || page <= 1) return undefined;
@@ -1555,6 +1571,19 @@ export class IntegrationService implements Disposable {
 		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+
+		// A git host whose issue tracker is deprecated (Bitbucket, superseded by dedicated issue integrations)
+		// reports issues as explicitly unsupported rather than serving a partial/legacy source or a silent empty.
+		if (!integration.supportsIssues) {
+			return {
+				items: [],
+				warnings: [this.issuesUnsupportedWarning(options.providerId, domain, options.connectionId)],
+				page: { currentPage: page, itemsPerPage: 0 },
+				hasMore: false,
+				fetchFailed: true,
+			};
+		}
+
 		const accountWide = (options.repos?.length ?? 0) === 0;
 
 		if (accountWide) {
@@ -2170,6 +2199,30 @@ export class IntegrationService implements Disposable {
 					};
 				}
 				if (isIssuesIntegration(integration)) return undefined;
+
+				// A git host whose issue tracker is deprecated (Bitbucket) exposes no issues here — surface a
+				// warning + fetchFailed and skip it (no repo drain), so broadening never serves a legacy source.
+				if (!integration.supportsIssues) {
+					return {
+						items: [] as IssueShape[],
+						warnings: [
+							this.issuesUnsupportedWarning(
+								org.providerId,
+								this.domainForRead(integration, org.providerId, connectionId),
+								connectionId,
+							),
+						],
+						broadenedProviderIds: [] as IntegrationIds[],
+						providerId: org.providerId,
+						org: org.name,
+						connectionId: connectionId,
+						nextCursor: undefined,
+						hasMore: false,
+						exhausted: false,
+						fetchFailed: true,
+						truncated: false,
+					};
+				}
 
 				// An org a prior round already drained must not be re-read: cursor-only providers would answer a
 				// fresh page-1 request with their first page again, duplicating issues across rounds. Skip it

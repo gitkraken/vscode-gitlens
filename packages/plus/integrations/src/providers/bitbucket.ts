@@ -1,6 +1,6 @@
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
-import type { Issue, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
+import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest, IssueOrPullRequestType } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
@@ -22,15 +22,12 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationResult } from '../models/integration.js';
 import { firstRecoverableRejection } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
-	IssueFilter,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
-	ProviderReposInput,
 	ProviderRepository,
 } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
@@ -492,8 +489,8 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (!api) return undefined;
 
 		const issueResult = await flatSettled(
-			repos.map(async repo => {
-				const result = await api.getUsersIssuesForRepo(
+			repos.map(repo => {
+				return api.getUsersIssuesForRepo(
 					this,
 					toTokenWithInfo(this.id, session),
 					user.id,
@@ -501,101 +498,19 @@ export class BitbucketIntegration extends GitHostIntegration<
 					repo.name,
 					this.apiBaseUrl,
 				);
-				return result?.issues;
 			}),
 		);
 		return issueResult;
 	}
 
 	/**
-	 * Bitbucket's repo-scoped issue read. The shared `getMyIssuesForReposResult` path can't serve Bitbucket
-	 * (no `getIssuesForReposFn` registered — Bitbucket's issue client is the separate legacy `getUsersIssuesFor-
-	 * Repo`, which already returns normalized {@link IssueShape}). Override the shapes seam directly so
-	 * `listIssuesPage({ repos })` and `broadenIssues` work for Bitbucket. `getUsersIssuesForRepo` drains every
-	 * page of each repo and honors `includeAllAssignees` (dropping the assignee/reporter scope so `broadenIssues`
-	 * sees all issues). It has no cross-repo cursor, so the aggregate is reported as one non-continued page,
-	 * flagged `truncated` when any repo's own page drain hit its backstop or a repo read failed.
+	 * Bitbucket is not an issue provider on the ProviderBackend surface: Bitbucket Cloud deprecated its issue
+	 * tracker in favor of dedicated issue integrations (e.g. Jira). The legacy per-repo `getUsersIssuesForRepo`
+	 * client is retained only for autolink/hover enrichment, not for the ProviderBackend issue reads, so the
+	 * facade reports issues as unsupported rather than serving a deprecated, partial source.
 	 */
-	override async getMyIssuesForReposAsShapesResult(
-		reposOrRepoIds: ProviderReposInput,
-		options?: {
-			filters?: IssueFilter[];
-			cursor?: string;
-			customUrl?: string;
-			page?: number;
-			pageSize?: number;
-			includeAllAssignees?: boolean;
-			state?: IssueStateFilter;
-		},
-		connectionId?: string,
-	): Promise<IntegrationResult<PagedResult<IssueShape> | undefined>> {
-		const start = performance.now();
-		const session = await this.resolveReadSession(connectionId, undefined);
-		if (session == null) return undefined;
-
-		const user = await this.getProviderCurrentAccount(session);
-		if (user?.username == null) return { value: undefined, duration: performance.now() - start };
-
-		const api = await this.authenticationService.apis.bitbucket;
-		if (!api) return { value: undefined, duration: performance.now() - start };
-
-		// Only repo inputs carry the owner/name this read needs; bare repo-id inputs aren't addressable here.
-		const repos = reposOrRepoIds.filter(
-			(r): r is { namespace: string; name: string } =>
-				typeof r === 'object' && r != null && 'namespace' in r && 'name' in r,
-		);
-		if (repos.length === 0) {
-			return {
-				value: { values: [], paging: { more: false, cursor: '{}' } },
-				duration: performance.now() - start,
-			};
-		}
-
-		try {
-			// Settle per-repo so one repo's failure doesn't drop the others — but flag `truncated` on a drop
-			// (rather than silently swallowing it) so a partial read isn't reported as complete.
-			// `getUsersIssuesForRepo` drains all pages and returns `{ issues, truncated }`.
-			const settled = await Promise.allSettled(
-				repos.map(repo =>
-					api.getUsersIssuesForRepo(
-						this,
-						toTokenWithInfo(this.id, session),
-						user.id,
-						repo.namespace,
-						repo.name,
-						this.apiBaseUrl,
-						{ includeAllAssignees: options?.includeAllAssignees },
-					),
-				),
-			);
-			// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind, caught below into
-			// `{ error }`) so the facade surfaces a recovery warning instead of a generic "truncated".
-			const recoverable = firstRecoverableRejection(settled);
-			if (recoverable != null) throw recoverable;
-
-			const values: IssueShape[] = [];
-			let truncated = false;
-			for (const outcome of settled) {
-				if (outcome.status !== 'fulfilled') {
-					truncated = true;
-					continue;
-				}
-				if (outcome.value != null) {
-					values.push(...outcome.value.issues);
-					if (outcome.value.truncated) {
-						truncated = true;
-					}
-				}
-			}
-			// No cross-repo cursor: the aggregate is one non-continued page, flagged truncated when a repo's own
-			// page drain stopped short or a repo read failed.
-			return {
-				value: { values: values, paging: { more: false, cursor: '{}', truncated: truncated || undefined } },
-				duration: performance.now() - start,
-			};
-		} catch (ex) {
-			return { error: ex as Error, duration: performance.now() - start };
-		}
+	override get supportsIssues(): boolean {
+		return false;
 	}
 
 	private readonly storagePrefix = 'bitbucket';
