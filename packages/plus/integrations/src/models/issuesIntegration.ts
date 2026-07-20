@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -221,7 +222,9 @@ export abstract class IssuesIntegration<
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
 		connectionId?: string,
-	): Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean } | undefined>> {
+	): Promise<
+		IntegrationResult<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined>
+	> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
@@ -245,13 +248,14 @@ export abstract class IssuesIntegration<
 	/**
 	 * Truncation-aware core of {@link getProviderIssuesForProject}. The default wraps the plain read and
 	 * reports `truncated: false`; a provider whose per-project drain is capped by a page backstop overrides
-	 * this to report incompleteness.
+	 * this to report incompleteness. Optional metadata lets providers surface structured per-project failures
+	 * (e.g. a page-level auth rejection) without discarding the already-fetched prefix.
 	 */
 	protected async getProviderIssuesForProjectWithTruncation(
 		session: ProviderAuthenticationSession,
 		project: T,
 		options?: { user?: string; filters?: IssueFilter[] },
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		const values = await this.getProviderIssuesForProject(session, project, options);
 		if (values == null) return undefined;
 		return { values: values, truncated: false };

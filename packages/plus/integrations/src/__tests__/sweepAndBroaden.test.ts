@@ -635,8 +635,10 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
 		// Single workspace so the drain is deterministic.
 		(
-			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
-		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 
 		// Call the account-wide core directly to assert the per-workspace drain (avoids the sweep wrapper).
 		const result = await (
@@ -695,8 +697,10 @@ suite('sweep + broaden (#5438)', () => {
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
 		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
 		(
-			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
-		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 
 		const result = await (
 			bb as unknown as {
@@ -738,8 +742,10 @@ suite('sweep + broaden (#5438)', () => {
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
 		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
 		(
-			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
-		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 		return { manager: manager, bb: bb };
 	}
 
@@ -896,8 +902,10 @@ suite('sweep + broaden (#5438)', () => {
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
 		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
 		(
-			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
-		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 
 		const result = await callAccountWide(bb);
 		assert.deepEqual(
@@ -966,8 +974,10 @@ suite('sweep + broaden (#5438)', () => {
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
 		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
 		(
-			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
-		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+			bb as unknown as {
+				getProviderResourcesForCurrentUser: () => Promise<{ values: { id: string; slug: string }[] }>;
+			}
+		).getProviderResourcesForCurrentUser = () => Promise.resolve({ values: [{ id: 'w1', slug: 'ws' }] });
 
 		const result = await (
 			bb as unknown as {
@@ -1008,13 +1018,15 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
 			}
 		).getProviderProjectsForResources = () =>
-			Promise.resolve([
-				{ resourceName: 'org-1', name: 'good' },
-				{ resourceName: 'org-1', name: 'bad' },
-			]);
+			Promise.resolve({
+				values: [
+					{ resourceName: 'org-1', name: 'good' },
+					{ resourceName: 'org-1', name: 'bad' },
+				],
+			});
 
 		const result = await (
 			azure as unknown as {
@@ -1074,13 +1086,15 @@ suite('sweep + broaden (#5438)', () => {
 			]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
 			}
 		).getProviderProjectsForResources = () =>
-			Promise.resolve([
-				{ resourceName: 'org-a', name: 'p' },
-				{ resourceName: 'org-b', name: 'p' },
-			]);
+			Promise.resolve({
+				values: [
+					{ resourceName: 'org-a', name: 'p' },
+					{ resourceName: 'org-b', name: 'p' },
+				],
+			});
 
 		const result = await (
 			azure as unknown as {
@@ -1127,9 +1141,10 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
 			}
-		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'good' }]);
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'good' }] });
 
 		const result = await (
 			azure as unknown as {
@@ -1178,9 +1193,10 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<{ values: { resourceName: string; name: string }[] }>;
 			}
-		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'proj' }]);
+		).getProviderProjectsForResources = () =>
+			Promise.resolve({ values: [{ resourceName: 'org-1', name: 'proj' }] });
 
 		const result = await (
 			azure as unknown as {
@@ -1228,15 +1244,17 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<
-					{ resourceId: string; resourceName: string; name: string }[]
-				>;
+				getProviderProjectsForResources: () => Promise<{
+					values: { resourceId: string; resourceName: string; name: string }[];
+				}>;
 			}
 		).getProviderProjectsForResources = () =>
-			Promise.resolve([
-				{ resourceId: 'org-1', resourceName: 'org-1', name: 'good' },
-				{ resourceId: 'org-1', resourceName: 'org-1', name: 'bad' },
-			]);
+			Promise.resolve({
+				values: [
+					{ resourceId: 'org-1', resourceName: 'org-1', name: 'good' },
+					{ resourceId: 'org-1', resourceName: 'org-1', name: 'bad' },
+				],
+			});
 
 		const result = await (
 			azure as unknown as {

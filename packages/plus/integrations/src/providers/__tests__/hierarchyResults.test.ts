@@ -145,10 +145,12 @@ suite('provider hierarchy results', () => {
 		);
 		setSession(integration, createSession('dev.azure.com'));
 		(integration as any).getProviderResourcesForUser = async () => [{ id: 'org-1', name: 'acme' }];
-		(integration as any).getProviderProjectsForResources = async () => [
-			{ id: 'project-a', name: 'project-a', resourceId: 'org-1', resourceName: 'acme', key: 'project-a' },
-			{ id: 'project-b', name: 'project-b', resourceId: 'org-1', resourceName: 'acme', key: 'project-b' },
-		];
+		(integration as any).getProviderProjectsForResources = async () => ({
+			values: [
+				{ id: 'project-a', name: 'project-a', resourceId: 'org-1', resourceName: 'acme', key: 'project-a' },
+				{ id: 'project-b', name: 'project-b', resourceId: 'org-1', resourceName: 'acme', key: 'project-b' },
+			],
+		});
 
 		const result = await integration.getRepositoriesForOrg('acme');
 

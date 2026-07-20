@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
@@ -66,7 +67,7 @@ import type {
 } from './providers/models.js';
 import { IssueFilter, providersMetadata } from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
-import { parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
+import { mergeCollectionMetadata, parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
 	ProviderBroadenResult,
 	ProviderPagedResult,
@@ -940,10 +941,11 @@ export class IntegrationService implements Disposable {
 		paging: { more?: boolean; cursor?: string; page?: number; pageSize?: number; truncated?: boolean } | undefined,
 	): { page: ProviderPageInfo; hasMore: boolean; cursor?: string; truncated: boolean } {
 		let cursor: string | undefined;
+		let cursorPage: number | undefined;
 		const raw = paging?.cursor;
 		if (raw != null && raw !== '{}') {
 			try {
-				const parsed = JSON.parse(raw) as { type?: string; cursors?: unknown };
+				const parsed = JSON.parse(raw) as { type?: string; cursors?: unknown; page?: number };
 				// Retain opaque cursor strings for cursor-only hosts, per-repo/project cursor bundles for
 				// PagingMode.Repo/Project reads, AND page/offset cursors. The latter matters for reads with no
 				// caller-visible page param to increment — e.g. Bitbucket Server's account-wide PR read threads
@@ -952,17 +954,23 @@ export class IntegrationService implements Disposable {
 				// threading it back is always safe even where a page number is also reported.
 				if (parsed.type === 'cursor' || parsed.type === 'page' || Array.isArray(parsed.cursors)) {
 					cursor = raw;
+					// Per-repo/project cursor bundles also carry the current page number so the facade can report the
+					// real page when the consumer continues using only the cursor.
+					if (Array.isArray(parsed.cursors) && parsed.page != null) {
+						cursorPage = parsed.page;
+					}
 				}
 			} catch {}
 		}
 		// Only echo a page number the provider actually honored. Numbered-page hosts report their own
 		// `paging.page`; cursor-only hosts (e.g. GitHub PR search) report none and ignore a synthesized
 		// page-number cursor — returning their first page — so echoing the requested `page` would mislabel
-		// page 1 as page N. Report page 1 in that case rather than the unapplied request.
-		const currentPage = paging?.page != null ? Math.max(1, paging.page) : 1;
+		// page 1 as page N. Report page 1 in that case rather than the unapplied request. Per-repo/project
+		// bundles may carry the page explicitly in the cursor.
+		const currentPage = paging?.page ?? cursorPage ?? 1;
 		return {
 			page: {
-				currentPage: currentPage,
+				currentPage: Math.max(1, currentPage),
 				itemsPerPage: paging?.pageSize ?? itemsPerPage,
 			},
 			hasMore: paging?.more ?? false,
@@ -1096,10 +1104,20 @@ export class IntegrationService implements Disposable {
 		forceSync: boolean | undefined,
 		connectionId: string | undefined,
 	): Promise<void> {
-		if (forceSync !== true || connectionId != null) return;
+		if (forceSync !== true) return;
 
 		try {
-			await integration.syncCloudConnection('connected', true);
+			if (connectionId != null) {
+				// Refresh the specific connection's session directly; the primary-only sync path below would not
+				// reach a secondary account. `cloud: true` is required for multi-account backend connections.
+				const authProvider = await this.authenticationService.get(integration.authProvider.id);
+				await authProvider?.getSession(
+					{ ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true },
+					{ sync: true },
+				);
+			} else {
+				await integration.syncCloudConnection('connected', true);
+			}
 		} catch {}
 	}
 
@@ -1408,33 +1426,46 @@ export class IntegrationService implements Disposable {
 		);
 
 		const items = value?.values ?? [];
+		const warnings = warning != null ? [warning] : [];
 		// The repos read core is cursor-only and can't accept a page size, so don't echo the requested
 		// `itemsPerPage` as if it were applied — report what the provider returned (its own pageSize when
 		// available, else the actual item count).
 		const paged = this.toProviderPageInfo(items.length, value?.paging);
+		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
+		// them to any captured thrown-error warning without discarding the partial result's items.
+		const assessment = mergeAssessmentInto(
+			warnings,
+			options.providerId,
+			domain,
+			options.connectionId,
+			value?.metadata,
+		);
 		// The org-hierarchy read can stop at a defensive backstop with more repos unlisted and NO cursor to
 		// resume (top-level `truncated`, or `paging.truncated` on a single-page read). Surface that as a
 		// terminal `page.truncated` signal, NOT as `hasMore`: `hasMore` without a `cursor` would invite a
 		// consumer to request the "next page" and get the same aggregate back forever. `hasMore` stays true
-		// only when the provider gave a real resumable cursor.
-		const truncated = value?.truncated ?? value?.paging?.truncated ?? false;
-		// currentPage: the provider's own page number when it reports one; otherwise the page encoded in the
-		// cursor the caller threaded back (a continuation that supplies only `cursor`, not `page`), falling back
-		// to the requested `page`. Some numbered-page hosts (Bitbucket repos) apply the page but don't echo
-		// `currentPage`, which would otherwise leave this stuck at 1 and make a `currentPage + 1` consumer
-		// re-request the same page forever.
+		// only when the provider gave a real resumable cursor. Metadata incompleteness is an independent source
+		// of the same signal.
+		const truncated = (value?.truncated ?? false) || (value?.paging?.truncated ?? false) || assessment.truncated;
+		// Numbered-page hosts that don't echo `currentPage` may still be advanced by the requested `page` (initial
+		// read) or by the cursor the caller threaded back. Cursor-only hosts expose a real opaque cursor, in which
+		// case the provider's page-less first page is reported as page 1; don't echo an unapplied `page` there.
 		const currentPage =
-			value?.paging?.page != null ? Math.max(1, value.paging.page) : (parsePageCursor(options.cursor) ?? page);
+			paged.page.currentPage > 1
+				? paged.page.currentPage
+				: paged.cursor != null
+					? 1
+					: (parsePageCursor(options.cursor) ?? page);
 		// Continuation: prefer a real provider cursor; else, for a numbered-page host that signalled more but
 		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
 		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
 		return {
 			items: items,
-			warnings: warning != null ? [warning] : [],
+			warnings: warnings,
 			page: { ...paged.page, currentPage: currentPage, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: cursorOut,
-			fetchFailed: (warning != null && value == null) || undefined,
+			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 		};
 	}
 
@@ -1529,21 +1560,83 @@ export class IntegrationService implements Disposable {
 		// Account-wide reads have no meaningful page number (cursor-only), so report page 1 rather than
 		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
 		// unless the provider reports its own.
-		const paged = this.toProviderPageInfo(items.length, value?.paging);
+		let paged = this.toProviderPageInfo(items.length, value?.paging);
+		let allMetadata = value?.metadata;
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 		// them to any captured thrown-error warning without discarding the partial result's items.
 		const warnings = warning != null ? [warning] : [];
-		const assessment = mergeAssessmentInto(
-			warnings,
-			options.providerId,
-			domain,
-			options.connectionId,
-			value?.metadata,
-		);
+
+		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
+		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors
+		// so the returned `currentPage` actually reflects N instead of misreporting page 1. Keep the already-fetched
+		// prefix from each page so a later page failure doesn't discard the earlier pages.
+		if (
+			!accountWide &&
+			options.page != null &&
+			options.page > 1 &&
+			options.cursor == null &&
+			paged.page.currentPage === 1 &&
+			paged.hasMore &&
+			paged.cursor != null &&
+			paged.cursor !== '{}'
+		) {
+			let currentCursor: string | undefined = paged.cursor;
+			let currentPage = 1;
+			let currentHasMore: boolean = paged.hasMore;
+			let currentTruncated: boolean = paged.truncated;
+			const fetchNext = (cursor: string) =>
+				this.runCaptured(options.providerId, domain, options.connectionId, () =>
+					integration.getMyPullRequestsForReposResult(
+						options.repos ?? [],
+						{
+							state: options.states,
+							filters: resolvedFilters.filters,
+							cursor: cursor,
+							pageSize: options.itemsPerPage,
+						},
+						options.connectionId,
+					),
+				);
+			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
+				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
+				if (nextWarning != null) {
+					warnings.push(nextWarning);
+				}
+
+				if (nextValue == null) {
+					currentHasMore = false;
+					break;
+				}
+
+				items.push(...nextValue.values);
+				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
+				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, nextValue.paging);
+				currentPage++;
+				const nextCursor = nextPaged.cursor;
+				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
+					// Provider didn't advance the cursor; stop to avoid an infinite loop.
+					currentHasMore = false;
+					break;
+				}
+
+				currentCursor = nextCursor;
+				currentHasMore = nextPaged.hasMore;
+				currentTruncated = nextPaged.truncated;
+			}
+
+			paged = {
+				page: { currentPage: currentPage, itemsPerPage: paged.page.itemsPerPage },
+				hasMore: currentHasMore,
+				cursor: currentCursor,
+				truncated: currentTruncated,
+			};
+		}
+
+		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
 		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
 		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
-		const truncated = (value?.paging?.truncated ?? false) || assessment.truncated;
+		const truncated = paged.truncated || assessment.truncated;
 		return {
 			items: items,
 			warnings: warnings,
@@ -1638,6 +1731,7 @@ export class IntegrationService implements Disposable {
 					fetchFailed: true,
 				};
 			}
+
 			const items = value?.values ?? [];
 			const warnings = warning != null ? [warning] : [];
 			// Fold in structured per-scope failures from the account-wide fan-out (e.g. Azure across projects):
@@ -1694,17 +1788,88 @@ export class IntegrationService implements Disposable {
 		);
 
 		const items = value?.values ?? [];
-		const paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
+		const warnings = warning != null ? [warning] : [];
+		let paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
+		let allMetadata = value?.metadata;
+
+		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
+		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors so
+		// the returned `currentPage` actually reflects N instead of misreporting page 1. Keep the already-fetched
+		// prefix from each page so a later page failure doesn't discard the earlier pages.
+		if (
+			options.page != null &&
+			options.page > 1 &&
+			options.cursor == null &&
+			paged.page.currentPage === 1 &&
+			paged.hasMore &&
+			paged.cursor != null &&
+			paged.cursor !== '{}'
+		) {
+			let currentCursor: string | undefined = paged.cursor;
+			let currentPage = 1;
+			let currentHasMore: boolean = paged.hasMore;
+			let currentTruncated: boolean = paged.truncated;
+			const fetchNext = (cursor: string) =>
+				this.runCaptured(options.providerId, domain, options.connectionId, () =>
+					integration.getMyIssuesForReposAsShapesResult(
+						options.repos ?? [],
+						{
+							filters: options.filters,
+							includeAllAssignees: options.includeAllAssignees,
+							cursor: cursor,
+							pageSize: options.itemsPerPage,
+						},
+						options.connectionId,
+					),
+				);
+			while (currentPage < options.page && currentHasMore && currentCursor != null && currentCursor !== '{}') {
+				const { value: nextValue, warning: nextWarning } = await fetchNext(currentCursor);
+				if (nextWarning != null) {
+					warnings.push(nextWarning);
+				}
+
+				if (nextValue == null) {
+					currentHasMore = false;
+					break;
+				}
+
+				items.push(...nextValue.values);
+				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
+				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, nextValue.paging);
+				currentPage++;
+				const nextCursor = nextPaged.cursor;
+				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
+					currentHasMore = false;
+					break;
+				}
+
+				currentCursor = nextCursor;
+				currentHasMore = nextPaged.hasMore;
+				currentTruncated = nextPaged.truncated;
+			}
+
+			paged = {
+				page: { currentPage: currentPage, itemsPerPage: paged.page.itemsPerPage },
+				hasMore: currentHasMore,
+				cursor: currentCursor,
+				truncated: currentTruncated,
+			};
+		}
+
+		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
+		// them to any captured thrown-error warning without discarding the partial result's items.
+		const assessment = mergeAssessmentInto(warnings, options.providerId, domain, options.connectionId, allMetadata);
 		// A provider read that couldn't confirm completeness (e.g. Bitbucket's single-page repo issue read
 		// that dropped a repo) sets `paging.truncated`; surface it as a terminal `page.truncated` so a partial
-		// page isn't published as complete.
+		// page isn't published as complete. Metadata incompleteness is an independent source of the same signal.
+		const truncated = paged.truncated || assessment.truncated;
 		return {
 			items: items,
-			warnings: warning != null ? [warning] : [],
-			page: { ...paged.page, truncated: paged.truncated || undefined },
+			warnings: warnings,
+			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: paged.cursor,
-			fetchFailed: (warning != null && value == null) || undefined,
+			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 		};
 	}
 
@@ -1732,6 +1897,7 @@ export class IntegrationService implements Disposable {
 		project?: string;
 		filters?: IssueFilter[];
 		includeAllAssignees?: boolean;
+		forceSync?: boolean;
 		page?: number;
 		cursor?: string;
 		itemsPerPage?: number;
@@ -1750,10 +1916,10 @@ export class IntegrationService implements Disposable {
 
 		const items: IssueShape[] = [];
 		const warnings: ProviderWarning[] = [];
-		const emptyPage = (fetchFailed?: boolean): ProviderPagedResult<IssueShape> => ({
+		const emptyPage = (fetchFailed?: boolean, truncated?: boolean): ProviderPagedResult<IssueShape> => ({
 			items: items,
 			warnings: warnings,
-			page: { currentPage: page, itemsPerPage: items.length },
+			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
 			hasMore: false,
 			fetchFailed: fetchFailed || undefined,
 		});
@@ -1767,6 +1933,8 @@ export class IntegrationService implements Disposable {
 		}
 
 		const domain = this.domainForRead(integration, options.providerId, options.connectionId);
+
+		await this.forceRefreshIfRequested(integration, options.forceSync, options.connectionId);
 
 		const { value: resources, warning: resourcesWarning } = await this.runCaptured(
 			options.providerId,
@@ -1812,7 +1980,10 @@ export class IntegrationService implements Disposable {
 		const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
 		const projects = projectsResult?.values;
 		if (projects == null || projects.length === 0) {
-			return emptyPage((projectsWarning != null && projectsResult == null) || projectDiscoveryFailed);
+			return emptyPage(
+				(projectsWarning != null && projectsResult == null) || projectDiscoveryFailed,
+				projectDiscoveryTruncated,
+			);
 		}
 
 		const matchedProjects =
@@ -1829,7 +2000,7 @@ export class IntegrationService implements Disposable {
 			// The discovered projects didn't intersect the requested filter/window. If discovery itself was
 			// partial, the empty result is not a proven-empty account — carry `fetchFailed` so the caller knows
 			// projects may be missing rather than treating this as a clean empty page.
-			return emptyPage(projectDiscoveryFailed);
+			return emptyPage(projectDiscoveryFailed, projectDiscoveryTruncated);
 		}
 
 		// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
@@ -1917,6 +2088,7 @@ export class IntegrationService implements Disposable {
 		// `truncated`; surface it as `page.truncated` so a windowed read isn't published as having drained each
 		// project completely.
 		let projectTruncated = projectDiscoveryTruncated;
+		let drainMetadata: CollectionMetadata | undefined;
 		for (const { value: result, warning } of perProject) {
 			if (warning != null) {
 				warnings.push(warning);
@@ -1931,8 +2103,21 @@ export class IntegrationService implements Disposable {
 				if (result.truncated) {
 					projectTruncated = true;
 				}
+				if (result.metadata != null) {
+					drainMetadata = mergeCollectionMetadata(drainMetadata, result.metadata);
+				}
 			}
 		}
+
+		const drainAssessment = mergeAssessmentInto(
+			warnings,
+			options.providerId,
+			domain,
+			options.connectionId,
+			drainMetadata,
+		);
+		fetchFailed = fetchFailed || drainAssessment.fetchFailed;
+		projectTruncated = projectTruncated || drainAssessment.truncated;
 
 		// A per-project read that returned data but couldn't confirm completeness (e.g. Trello's provider-native
 		// cap) sets `truncated` without a structured failure. Add one provider-neutral incompleteness warning so
@@ -2035,7 +2220,10 @@ export class IntegrationService implements Disposable {
 					value.paging?.truncated ??
 					assessment.truncated ??
 					false;
-				if (truncated) {
+				// Only emit the generic truncation warning when the assessment didn't already add a warning for the
+				// truncation (structured failures or the generic incompleteness warning). Adding it unconditionally
+				// duplicates the same failure signal.
+				if (truncated && !assessment.truncated) {
 					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
 				}
 				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: truncated };

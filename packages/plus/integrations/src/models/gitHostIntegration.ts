@@ -493,7 +493,7 @@ export abstract class GitHostIntegration<
 			state?: IssueStateFilter;
 		},
 		connectionId?: string,
-	): Promise<IntegrationResult<PagedResult<ProviderIssue> | undefined>> {
+	): Promise<IntegrationResult<(PagedResult<ProviderIssue> & { metadata?: CollectionMetadata }) | undefined>> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderIssueStates(options?.state);
@@ -603,14 +603,15 @@ export abstract class GitHostIntegration<
 			}
 
 			try {
-				const cursor: { cursors: PagedProjectInput[] } = { cursors: [] };
+				const cursor: { cursors: PagedProjectInput[]; page?: number } = { cursors: [] };
 				let hasMore = false;
 				let truncated = false;
+				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
 				// `allSettled`, not `Promise.all`: one project's read rejecting must not discard every sibling
-				// project's already-fetched issues and cursors. A rejected project flags `truncated` (this issue
-				// path carries no structured-failure channel) so the facade reports the read as incomplete rather
-				// than publishing a partial project set as complete.
+				// project's already-fetched issues and cursors. A rejected project is recorded as a structured
+				// failure so the facade can warn and set `fetchFailed` instead of reporting a partial project set
+				// as complete.
 				const settled = await Promise.allSettled(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
@@ -631,13 +632,27 @@ export abstract class GitHostIntegration<
 					}),
 				);
 
-				for (const outcome of settled) {
+				for (let i = 0; i < settled.length; i++) {
+					const outcome = settled[i];
+					const projectInput = projectInputs[i];
 					if (outcome.status !== 'fulfilled') {
 						truncated = true;
+						const failure = toCollectionScopeFailure(
+							{
+								providerId: providerId,
+								resourceId: projectInput.namespace,
+								projectId: projectInput.project,
+							},
+							outcome.reason,
+						);
+						metadata = mergeCollectionMetadata(metadata, {
+							completeness: 'partial',
+							failures: [failure],
+						});
 						continue;
 					}
 
-					const { projectInput, results } = outcome.value;
+					const { projectInput: _projectInput, results } = outcome.value;
 					data.push(...results.values);
 					if (results.paging?.more) {
 						hasMore = true;
@@ -647,6 +662,12 @@ export abstract class GitHostIntegration<
 							cursor: results.paging.cursor,
 						});
 					}
+				}
+
+				// Keep the requested page number in the composite cursor so the facade can report the real
+				// currentPage when the consumer continues using only the cursor.
+				if (options?.page != null) {
+					cursor.page = options.page;
 				}
 
 				return {
@@ -661,6 +682,7 @@ export abstract class GitHostIntegration<
 							// leave `page` undefined via their own reads.
 							page: options?.page,
 						},
+						metadata: metadata,
 					},
 					duration: performance.now() - start,
 				};
@@ -725,13 +747,14 @@ export abstract class GitHostIntegration<
 			}
 
 			try {
-				const cursor: { cursors: PagedRepoInput[] } = { cursors: [] };
+				const cursor: { cursors: PagedRepoInput[]; page?: number } = { cursors: [] };
 				let hasMore = false;
 				let truncated = false;
+				let metadata: CollectionMetadata | undefined;
 				const data: ProviderIssue[] = [];
 				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
-				// already-fetched issues and cursors. A rejected repo flags `truncated` (this issue path carries
-				// no structured-failure channel) so the facade reports the read as incomplete.
+				// already-fetched issues and cursors. A rejected repo is recorded as a structured failure so the
+				// facade can warn and set `fetchFailed` instead of reporting a partial repo set as complete.
 				const settled = await Promise.allSettled(
 					repoInputs.map(async repoInput => {
 						const results = await api.getIssuesForRepo(
@@ -752,18 +775,35 @@ export abstract class GitHostIntegration<
 					}),
 				);
 
-				for (const outcome of settled) {
+				for (let i = 0; i < settled.length; i++) {
+					const outcome = settled[i];
+					const repoInput = repoInputs[i];
 					if (outcome.status !== 'fulfilled') {
 						truncated = true;
+						const failure = toCollectionScopeFailure(
+							{
+								providerId: providerId,
+								repositoryId: `${repoInput.repo.namespace}/${repoInput.repo.name}`,
+							},
+							outcome.reason,
+						);
+						metadata = mergeCollectionMetadata(metadata, {
+							completeness: 'partial',
+							failures: [failure],
+						});
 						continue;
 					}
 
-					const { repoInput, results } = outcome.value;
+					const { repoInput: _repoInput, results } = outcome.value;
 					data.push(...results.values);
 					if (results.paging?.more) {
 						hasMore = true;
 						cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
 					}
+				}
+
+				if (options?.page != null) {
+					cursor.page = options.page;
 				}
 
 				return {
@@ -778,6 +818,7 @@ export abstract class GitHostIntegration<
 							// leave `page` undefined via their own reads.
 							page: options?.page,
 						},
+						metadata: metadata,
 					},
 					duration: performance.now() - start,
 				};
@@ -822,7 +863,7 @@ export abstract class GitHostIntegration<
 			state?: IssueStateFilter;
 		},
 		connectionId?: string,
-	): Promise<IntegrationResult<PagedResult<IssueShape> | undefined>> {
+	): Promise<IntegrationResult<(PagedResult<IssueShape> & { metadata?: CollectionMetadata }) | undefined>> {
 		const result = await this.getMyIssuesForReposResult(reposOrRepoIds, options, connectionId);
 		if (result == null) return undefined;
 		if (result.error != null) return { error: result.error, duration: result.duration };
@@ -1018,7 +1059,7 @@ export abstract class GitHostIntegration<
 			}
 
 			try {
-				const cursor: { cursors: PagedRepoInput[] } = { cursors: [] };
+				const cursor: { cursors: PagedRepoInput[]; page?: number } = { cursors: [] };
 				let hasMore = false;
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
@@ -1081,6 +1122,12 @@ export abstract class GitHostIntegration<
 				// warning/fetchFailed assessment downstream.
 				if (failures.length > 0) {
 					metadata = mergeCollectionMetadata(metadata, { completeness: 'partial', failures: failures });
+				}
+
+				// Keep the requested page number in the composite cursor so the facade can report the real
+				// currentPage when the consumer continues using only the cursor.
+				if (options?.page != null) {
+					cursor.page = options.page;
 				}
 
 				return {
@@ -1152,15 +1199,39 @@ export abstract class GitHostIntegration<
 
 		const start = performance.now();
 		try {
-			const pullRequests = await this.searchProviderMyPullRequests(
-				session,
-				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
-				cancellation,
-				silent,
-				state,
-			);
+			// Prefer the optional metadata-aware path for account-wide reads so partial failures (e.g. one Azure
+			// org rejecting) are surfaced as a soft `{ value, error }` instead of being lost. Repo-scoped reads and
+			// providers without that override keep using the legacy array path.
+			let result: IntegrationResult<PullRequest[] | undefined>;
+			if (this.searchProviderMyPullRequestsResult != null && repos == null) {
+				result = await this.searchProviderMyPullRequestsResult(
+					session,
+					repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+					cancellation,
+					silent,
+					state,
+				);
+			} else {
+				result = {
+					value: await this.searchProviderMyPullRequests(
+						session,
+						repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
+						cancellation,
+						silent,
+						state,
+					),
+				};
+			}
 			this.resetRequestExceptionCount('searchMyPullRequests');
-			return { value: pullRequests, duration: performance.now() - start };
+			// `IntegrationResult` is a strict union of value-only or error-only (and may be `undefined`). Return the
+			// matching branch explicitly; a missing result is treated as a successful empty read.
+			if (result == null) {
+				return { value: undefined, duration: performance.now() - start };
+			}
+			if (result.error != null) {
+				return { error: result.error, duration: performance.now() - start };
+			}
+			return { value: result.value, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('searchMyPullRequests', ex, {
 				scope: scope,
@@ -1241,6 +1312,22 @@ export abstract class GitHostIntegration<
 		silent?: boolean,
 		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined>;
+
+	/**
+	 * Optional metadata-aware counterpart of {@link searchProviderMyPullRequests}. Providers whose account-wide
+	 * "my PRs" read already produces {@link ProviderApiPagedResult} with completeness/failures can override
+	 * this to return a soft `{ value, error }` result so `searchMyPullRequests` surfaces partial data and a
+	 * warning instead of silently discarding the failure signal. The wrapper prefers this when present; the
+	 * abstract {@link searchProviderMyPullRequests} remains the required fallback for repo-scoped and
+	 * metadata-oblivious paths.
+	 */
+	protected searchProviderMyPullRequestsResult?(
+		session: ProviderAuthenticationSession,
+		repos?: T[],
+		cancellation?: AbortSignal,
+		silent?: boolean,
+		state?: PullRequestStateFilter,
+	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 
 	async searchPullRequests(
 		searchQuery: string,

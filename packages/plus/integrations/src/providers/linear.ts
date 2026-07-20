@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -11,8 +12,10 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { toCollectionScopeFailure } from '../results.js';
 import type { IssueFilter, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
+import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -180,7 +183,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		session: ProviderAuthenticationSession,
 		project: ResourceDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		if (!isIssueResourceDescriptor(project)) return undefined;
 
 		const api = await this.getProvidersApi();
@@ -191,13 +194,29 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		let hasMore: boolean;
 		let requestCount = 0;
 		let truncated = false;
+		let collectionMetadata: CollectionMetadata | undefined;
 		const issues: IssueShape[] = [];
 		do {
-			const result = await api.getLinearIssues(
-				toTokenWithInfo(this.id, session),
-				{ teams: [project.id] },
-				{ cursor: cursor },
-			);
+			let result: Awaited<ReturnType<typeof api.getLinearIssues>>;
+			try {
+				result = await api.getLinearIssues(
+					toTokenWithInfo(this.id, session),
+					{ teams: [project.id] },
+					{ cursor: cursor },
+				);
+			} catch (ex) {
+				// A page failure after the first page leaves the already-drained prefix intact; record the
+				// failure at the project scope instead of re-throwing and discarding the prefix. If nothing was
+				// fetched yet, preserve the original throw behavior so the caller sees a hard error.
+				if (issues.length === 0) throw ex;
+
+				truncated = true;
+				collectionMetadata = mergeCollectionMetadata(collectionMetadata, {
+					completeness: 'partial',
+					failures: [toCollectionScopeFailure({ providerId: this.id, projectId: project.id }, ex)],
+				});
+				break;
+			}
 			requestCount += 1;
 			hasMore = result.paging?.more ?? false;
 			const nextCursor = result.paging?.cursor;
@@ -213,6 +232,7 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 				truncated = true;
 				break;
 			}
+
 			cursor = nextCursor;
 			// More pages remain but we've hit the backstop: the drain is incomplete.
 			if (hasMore && requestCount >= maxPagesPerRequest) {
@@ -241,10 +261,11 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			return {
 				values: issues.filter(issue => issue.assignees?.some(a => a.id === viewerId)),
 				truncated: truncated,
+				metadata: collectionMetadata,
 			};
 		}
 
-		return { values: issues, truncated: truncated };
+		return { values: issues, truncated: truncated, metadata: collectionMetadata };
 	}
 
 	override get id(): IssuesCloudHostIntegrationId.Linear {

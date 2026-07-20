@@ -764,7 +764,7 @@ export class ProvidersApi {
 
 	async getBitbucketResourcesForCurrentUser(
 		tokenOptInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
-	): Promise<ProviderBitbucketResource[] | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderBitbucketResource> | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getBitbucketResourcesForCurrentUserFn',
@@ -778,18 +778,27 @@ export class ProvidersApi {
 			const maxPages = 20;
 			const workspaces: ProviderBitbucketResource[] = [];
 			let page: number | undefined;
+			let truncated = false;
 			for (let i = 0; i < maxPages; i++) {
 				const result = await provider.getBitbucketResourcesForCurrentUserFn?.({ page: page }, { token: token });
-				if (result == null) return i === 0 ? undefined : workspaces;
+				if (result == null) {
+					return i === 0 ? undefined : { values: workspaces, paging: { cursor: '{}', more: truncated } };
+				}
 
 				workspaces.push(...result.data);
 				if (!result.pageInfo?.hasNextPage || result.pageInfo.nextPage == null) break;
 
 				page = result.pageInfo.nextPage;
+				if (i === maxPages - 1) {
+					truncated = true;
+				}
 			}
-			return workspaces;
+			return { values: workspaces, paging: { cursor: '{}', more: truncated } };
 		} catch (e) {
-			return this.handleProviderError<ProviderBitbucketResource[] | undefined>(tokenWithInfo, e);
+			return this.handleProviderError<ProviderApiPagedResult<ProviderBitbucketResource> | undefined>(
+				tokenWithInfo,
+				e,
+			);
 		}
 	}
 

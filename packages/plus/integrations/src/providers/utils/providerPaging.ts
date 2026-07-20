@@ -1,4 +1,5 @@
 import type { CollectionCompleteness, CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import { toCollectionScopeFailure } from '../../results.js';
 import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**
@@ -81,6 +82,7 @@ export function mergeCollectionMetadata(
 export async function collectProviderPagedResult<T>(
 	fetch: (cursor: string | undefined) => Promise<ProviderApiPagedResult<T> | undefined>,
 	maxPages = 20,
+	scope?: CollectionScopeFailure['scope'],
 ): Promise<ProviderHierarchyResult<T>> {
 	const values: NonNullable<T>[] = [];
 	let cursor: string | undefined;
@@ -95,7 +97,22 @@ export async function collectProviderPagedResult<T>(
 	});
 
 	for (let page = 0; page < maxPages; page++) {
-		const result = await fetch(cursor);
+		let result: ProviderApiPagedResult<T> | undefined;
+		try {
+			result = await fetch(cursor);
+		} catch (ex) {
+			// When the caller supplied a scope, preserve the items already fetched from that scope and record the
+			// failure in collection metadata rather than re-throwing and discarding the prefix. Callers without a
+			// scope keep the legacy throw behavior.
+			if (scope == null) throw ex;
+			return build({
+				truncated: true,
+				metadata: mergeCollectionMetadata(metadata, {
+					completeness: 'partial',
+					failures: [toCollectionScopeFailure(scope, ex)],
+				}),
+			});
+		}
 		if (result == null) return build();
 
 		values.push(...result.values);
@@ -108,6 +125,9 @@ export async function collectProviderPagedResult<T>(
 		}
 
 		cursor = result.paging.cursor;
+		if (cursor == null || cursor === '{}') {
+			return build({ truncated: true });
+		}
 		if (page === maxPages - 1) {
 			return build({ paging: result.paging, truncated: true });
 		}

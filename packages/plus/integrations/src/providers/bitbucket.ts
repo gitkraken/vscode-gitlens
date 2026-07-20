@@ -25,6 +25,7 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import { toCollectionScopeFailure } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
+	ProviderApiCollectionResult,
 	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
@@ -32,7 +33,7 @@ import type {
 	ProviderRepository,
 } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
-import { collectProviderPagedResult } from './utils/providerPaging.js';
+import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -241,12 +242,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 		return this._accounts.get(accessToken);
 	}
 
-	private _workspaces: Map<string, BitbucketWorkspaceDescriptor[] | undefined> | undefined;
+	private _workspaces: Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined> | undefined;
 	private async getProviderResourcesForCurrentUser(
 		session: ProviderAuthenticationSession,
 		force: boolean = false,
-	): Promise<BitbucketWorkspaceDescriptor[] | undefined> {
-		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
+	): Promise<ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined> {
+		this._workspaces ??= new Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined>();
 		const { accessToken } = session;
 		const cachedResources = this._workspaces.get(accessToken);
 
@@ -254,10 +255,26 @@ export class BitbucketIntegration extends GitHostIntegration<
 			const api = await this.getProvidersApi();
 
 			const resources = await api.getBitbucketResourcesForCurrentUser(toTokenWithInfo(this.id, session));
-			this._workspaces.set(
-				accessToken,
-				resources != null ? resources.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug })) : undefined,
-			);
+			let result: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined;
+			if (resources != null) {
+				const values = resources.values.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug }));
+				let metadata: CollectionMetadata | undefined;
+				if (resources.paging?.more === true) {
+					metadata = {
+						completeness: 'partial',
+						failures: [
+							toCollectionScopeFailure(
+								{ providerId: this.id },
+								new Error(
+									'Workspace discovery reached the page backstop before all workspaces were read',
+								),
+							),
+						],
+					};
+				}
+				result = { values: values, ...(metadata != null ? { metadata: metadata } : {}) };
+			}
+			this._workspaces.set(accessToken, result);
 		}
 
 		return this._workspaces.get(accessToken);
@@ -270,7 +287,8 @@ export class BitbucketIntegration extends GitHostIntegration<
 		if (workspaces == null) return undefined;
 
 		return {
-			values: workspaces.map(w => ({ id: w.id, name: w.slug, url: `https://bitbucket.org/${w.slug}` })),
+			values: workspaces.values.map(w => ({ id: w.id, name: w.slug, url: `https://bitbucket.org/${w.slug}` })),
+			...(workspaces.metadata != null ? { metadata: workspaces.metadata } : {}),
 		};
 	}
 
@@ -325,8 +343,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
 
-		const workspaces = await this.getProviderResourcesForCurrentUser(session);
-		if (workspaces == null || workspaces.length === 0) return undefined;
+		const workspacesResult = await this.getProviderResourcesForCurrentUser(session);
+		if (workspacesResult == null) return undefined;
+
+		const workspaces = workspacesResult.values;
+		if (workspaces.length === 0) return undefined;
 
 		const authoredPrs = workspaces.map(async ws => {
 			const prs = await api.getBitbucketPullRequestsAuthoredByUserForWorkspace(
@@ -362,8 +383,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.id == null) return undefined;
 
-		const workspaces = await this.getProviderResourcesForCurrentUser(session);
-		if (workspaces == null || workspaces.length === 0) return undefined;
+		const workspacesResult = await this.getProviderResourcesForCurrentUser(session);
+		if (workspacesResult == null) return undefined;
+
+		const workspaces = workspacesResult.values;
+		if (workspaces.length === 0) return undefined;
 
 		// Account-wide "my PRs" for Bitbucket = the user's authored PRs across every workspace they belong to,
 		// plus the PRs they've been requested to review. Bitbucket's cross-workspace read is per-workspace and
@@ -372,7 +396,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// workspace hit the backstop with more pages left, or when a workspace's read was dropped by a failure.
 		const states = toProviderPullRequestStates(options?.state);
 		const maxPagesPerWorkspace = 20;
-		let truncated = false;
+		let truncated = workspacesResult.metadata != null && workspacesResult.metadata.completeness !== 'complete';
 		// Structured per-scope failures from BOTH the authored and reviewer slices. A rejected scope is recorded
 		// here (never re-thrown) so successful sibling workspaces/repos survive and the ProviderBackend facade
 		// maps each failure to an actionable warning + `fetchFailed` (auth/rate-limit failures still drive
@@ -412,6 +436,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 				failures.push(this.toWorkspaceFailure(workspaces[i].slug, outcome.reason));
 				return;
 			}
+
 			for (const pr of outcome.value) {
 				const key = pr.url ?? pr.id;
 				if (!prsByUrl.has(key)) {
@@ -469,9 +494,16 @@ export class BitbucketIntegration extends GitHostIntegration<
 					return { repo: repo, reviewing: reviewing };
 				});
 
-				for (const outcome of drained) {
+				for (let i = 0; i < drained.length; i++) {
+					const outcome = drained[i];
 					if (outcome.status !== 'fulfilled') {
-						failures.push(this.toRepositoryFailure(`${ws.slug}/unknown`, outcome.reason));
+						const repo = repos[i];
+						failures.push(
+							this.toRepositoryFailure(
+								`${repo?.namespace ?? ws.slug}/${repo?.name ?? 'unknown'}`,
+								outcome.reason,
+							),
+						);
 						continue;
 					}
 
@@ -495,8 +527,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// failures instead of re-throwing: re-throwing would discard every successful sibling's PRs. Auth/rate-limit
 		// failures stay actionable through the metadata (the facade maps kind `authentication` → an `auth` warning,
 		// `rate-limit` → a `rate-limit` warning) while the survivors are returned with `fetchFailed`.
-		const metadata: CollectionMetadata | undefined =
-			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
+		const metadata: CollectionMetadata | undefined = mergeCollectionMetadata(
+			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined,
+			workspacesResult.metadata,
+		);
 
 		return {
 			values: [...prsByUrl.values()],
@@ -563,7 +597,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
-		let workspaces = storedWorkspaces?.data?.map((o: BitbucketWorkspaceDescriptor) => ({ ...o }));
+		let workspaces: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined =
+			storedWorkspaces?.data?.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })) != null
+				? { values: storedWorkspaces.data.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })) }
+				: undefined;
 
 		if (storedAccount == null) {
 			account = await this.getProviderCurrentAccount(this._session);
@@ -591,10 +628,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 			await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
 				v: 1,
 				timestamp: Date.now(),
-				data: workspaces,
+				data: workspaces?.values,
 			});
 		}
-		this._workspaces ??= new Map<string, BitbucketWorkspaceDescriptor[] | undefined>();
+		this._workspaces ??= new Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined>();
 		this._workspaces.set(this._session.accessToken, workspaces);
 	}
 

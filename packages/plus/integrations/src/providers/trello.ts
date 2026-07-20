@@ -106,6 +106,7 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
+
 		const appKey = this.requireAppKey(session);
 
 		const api = await this.getProvidersApi();

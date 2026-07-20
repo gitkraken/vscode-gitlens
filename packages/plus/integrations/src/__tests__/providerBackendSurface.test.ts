@@ -57,7 +57,7 @@ const authError = new AuthenticationError(
 );
 
 suite('ProviderBackend surface facade (#5438)', () => {
-	test('listPullRequestsPage encodes page→cursor and derives hasMore + opaque cursor from the response', async () => {
+	test('listPullRequestsPage drains cursor-only hosts to the requested page', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
@@ -65,14 +65,20 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const pr = { id: '1' } as unknown as ProviderPullRequest;
 		let capturedCursor: string | undefined;
+		let page = 0;
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
 			getPullRequestsForRepos: (_t: unknown, _r: unknown, opts: { cursor?: string }) => {
 				capturedCursor = opts.cursor;
+				page += 1;
+				// Second page has no more data; the opaque cursor from the first page is threaded to advance.
 				return Promise.resolve({
 					values: [pr],
-					paging: { more: true, cursor: JSON.stringify({ value: 'NEXT', type: 'cursor' }) },
+					paging: {
+						more: page === 1,
+						cursor: page === 1 ? JSON.stringify({ value: 'NEXT', type: 'cursor' }) : '{}',
+					},
 				} satisfies PagedResult<ProviderPullRequest>);
 			},
 		});
@@ -83,18 +89,14 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			page: 2,
 		});
 
-		assert.equal(capturedCursor, JSON.stringify({ value: 2, type: 'page' }), 'page 2 encoded as a page cursor');
-		assert.deepEqual(result.items, [pr]);
-		// GitHub PR search is cursor-only and reports no `currentPage`; it ignored the synthesized page-number
-		// cursor and returned its first page, so the echoed page must be 1 (not the requested 2) — the opaque
-		// `endCursor` is what the caller threads to actually advance.
-		assert.equal(result.page.currentPage, 1);
-		assert.equal(result.hasMore, true, 'hasMore reflects paging.more');
 		assert.equal(
-			result.cursor,
+			capturedCursor,
 			JSON.stringify({ value: 'NEXT', type: 'cursor' }),
-			'cursor-only host cursor exposed',
+			'page 2 advanced via the opaque cursor from page 1',
 		);
+		assert.equal(result.items.length, 2, 'prefix from page 1 preserved and page 2 items appended');
+		assert.equal(result.page.currentPage, 2, 'currentPage reflects the requested page after draining');
+		assert.equal(result.hasMore, false, 'hasMore reflects the final page');
 		assert.equal(result.warnings.length, 0);
 
 		manager.dispose();
