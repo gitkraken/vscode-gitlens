@@ -50,100 +50,35 @@ async function waitForGitLensActivation(evaluate: VSCodeEvaluator['evaluate'], t
 }
 
 /**
- * Dismisses editor-specific onboarding overlays that intercept pointer events on the workbench.
- * Kiro renders a `<kiro-sign-in-page>` shadow-DOM overlay on first launch that sits above the
- * workbench and swallows clicks (the extension host still runs beneath it); clicking its "Skip All"
- * button removes it. A no-op on every other editor — VS Code/Windsurf/Positron reach the workbench
- * directly, and Cursor's overlay is a hard login wall (handled by `assertWorkbenchReachable`, not
- * dismissable here).
- */
-async function dismissOnboardingOverlays(page: Page, editorId: string): Promise<void> {
-	if (editorId !== 'kiro') return;
-
-	// The overlay can render a beat — or several, on a resource-starved CI runner — after activation.
-	// Wait for it to *appear* before concluding it's absent: the previous early-return on a not-yet-
-	// rendered overlay let a late one slip through and intercept every click (the CI cancel this guards
-	// against). Bounded — if it never shows within the budget, this is a no-op.
-	try {
-		await page.locator('kiro-sign-in-page').waitFor({ state: 'attached', timeout: 15000 });
-	} catch {
-		return;
-	}
-
-	// Overlay is present — click its "Skip All" affordance (nested in shadow DOM). Poll briefly because
-	// the button can mount a fraction after the host.
-	for (let attempt = 0; attempt < 20; attempt++) {
-		const result = await page
-			.evaluate(() => {
-				const host = document.querySelector('kiro-sign-in-page');
-				if (host == null) return 'gone';
-
-				const roots: (Element | ShadowRoot)[] = [host.shadowRoot ?? host];
-				while (roots.length) {
-					const root = roots.pop()!;
-					for (const el of [...root.querySelectorAll('*')]) {
-						if (
-							(el.tagName === 'BUTTON' || el.tagName === 'A' || el.getAttribute('role') === 'button') &&
-							/^skip all$/i.test((el.textContent ?? '').trim())
-						) {
-							(el as HTMLElement).click();
-
-							return 'dismissed';
-						}
-
-						if (el.shadowRoot != null) {
-							roots.push(el.shadowRoot);
-						}
-					}
-				}
-
-				return 'pending';
-			})
-			// A thrown evaluate (e.g. execution context briefly torn down during startup) is transient —
-			// treat it as 'pending' and keep polling.
-			.catch(() => 'pending' as const);
-
-		// Overlay detached on its own between polls — nothing left to dismiss.
-		if (result === 'gone') return;
-
-		if (result === 'dismissed') {
-			await page
-				.locator('kiro-sign-in-page')
-				.waitFor({ state: 'detached', timeout: 5000 })
-				.catch(() => {});
-
-			return;
-		}
-
-		await new Promise(resolve => setTimeout(resolve, 250));
-	}
-}
-
-/**
  * Some VS Code forks hard-gate their entire workbench behind a full-screen sign-in wall on a fresh
  * (unauthenticated) profile — every CI run and every harness-created temp profile is such a profile.
- * Cursor shows `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features require you to be
- * logged in"): there is no "continue without an account" affordance, Escape does nothing, and the
- * workbench stays in `nomaineditorarea nosidebar`, so every pointer event is swallowed and UI-driven
- * specs would each burn their full 30s click timeout before failing (a ~20-min job that gets cancelled).
- * We can't bypass it — it requires a real auth token we won't (and CI can't) carry, and seeding the
- * non-auth onboarding flags into `state.vscdb` does not lift it (verified).
+ * Both walls were confirmed by launching the fork on a fresh profile and dumping the overlay's DOM:
+ * - Cursor: `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features require you to be
+ *   logged in") — no "continue without an account" affordance, workbench stuck in `nomaineditorarea
+ *   nosidebar`.
+ * - Kiro: `kiro-sign-in-page` — a full-screen "Sign in" page ("By signing in, you agree to the AWS
+ *   Customer Agreement, Service Terms, and Privacy Notice"), the only action being AWS Builder ID
+ *   sign-in. No skip / continue-without-account affordance exists.
+ *
+ * Neither can be bypassed — each needs a real auth token we won't (and CI can't) carry, and seeding
+ * the non-auth onboarding flags into `state.vscdb` does not lift them (verified). Every pointer event
+ * is swallowed, so UI-driven specs would each burn their full 30s click timeout before failing.
  *
  * So detect it and fail fast with a clear message. On such a login-walled fork this throws during the
  * (worker-scoped) `vscode` fixture setup, turning each doomed UI spec into an immediate, self-explanatory
- * failure instead of a 30s-per-click timeout. Login-walled forks are `experimental` (informational /
- * continue-on-error in CI), so a fast red is the honest outcome. No-op on VS Code and forks that reach a
- * normal workbench (Windsurf).
+ * failure instead of a 30s-per-click timeout. These forks are also excluded from the CI matrix entirely
+ * (`editors.ts` `runInCI: false`) — fail-fast alone doesn't bound the job, since a thrown worker fixture
+ * can't be reused, so each retry relaunches the editor into the same wall until the job is cancelled.
+ * They stay `experimental` and locally runnable (`--project=<id>` on an authenticated machine). No-op on
+ * VS Code and forks that reach a normal workbench (Windsurf/Positron).
  */
 async function assertWorkbenchReachable(page: Page, editorId: string): Promise<void> {
 	if (editorId === 'vscode') return;
 
-	// Overlays that gate the whole workbench and swallow every click. `.onboarding-v2-overlay` is Cursor's
-	// hard login wall (unbypassable — needs a real auth token). `kiro-sign-in-page` is normally cleared by
-	// `dismissOnboardingOverlays` above; reaching here with it still present means the dismiss failed (it
-	// rendered too late to catch, or Kiro now hard-gates it). Either way, fail fast with a clear message
-	// instead of letting each UI spec burn its full click timeout (a job that gets cancelled at the CI
-	// wall-clock limit, which also drops the results artifact).
+	// Overlays that gate the whole workbench and swallow every click: Cursor's `.onboarding-v2-overlay`
+	// and Kiro's `kiro-sign-in-page`, both hard login walls with no dismiss affordance (verified against a
+	// fresh-profile DOM dump). Fail fast with a clear message instead of letting each UI spec burn its full
+	// click timeout.
 	for (const selector of ['.onboarding-v2-overlay', 'kiro-sign-in-page']) {
 		if ((await page.locator(selector).count()) > 0) {
 			throw new Error(
@@ -490,13 +425,9 @@ export const test = base.extend<BaseFixtures, WorkerFixtures>({
 				// forks like Cursor whose customized UI has no standard activity bar to key off of.
 				await waitForGitLensActivation(evaluate);
 
-				// Clear any editor onboarding overlay (e.g. Kiro's sign-in page) that would block UI clicks.
-				await dismissOnboardingOverlays(page, editorId);
-
 				// Fail fast (with a clear message) on a login-walled fork whose workbench is unreachable on a
-				// fresh profile (e.g. Cursor's sign-in wall) instead of letting every UI spec burn its click
-				// timeout. Must come after the dismiss attempt above so a genuinely-dismissable overlay isn't
-				// mistaken for a hard wall.
+				// fresh profile (Cursor's or Kiro's sign-in wall) instead of letting every UI spec burn its
+				// click timeout.
 				await assertWorkbenchReachable(page, editorId);
 
 				// On editors with a standard activity bar, also wait for the GitLens tab to paint so

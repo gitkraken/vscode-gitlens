@@ -28,11 +28,11 @@ export interface EditorConfig {
 export const editors: EditorConfig[] = [
 	{ id: 'vscode', name: 'VS Code', experimental: false, envVar: '' },
 	{ id: 'windsurf', name: 'Windsurf', experimental: false, envVar: 'WINDSURF_E2E_PATH' },
-	// Login-walled on a fresh CI profile (see runInCI): Kiro's `kiro-sign-in-page` overlay persists —
-	// its "Skip All" affordance only clears the wall on an already-authenticated machine (verified: green
-	// locally, wall never lifts in CI), so every UI spec fails and each retry relaunches the editor into
-	// the same wall → the job burns its wall-clock and gets cancelled. Excluded from CI, still runnable
-	// locally. See baseTest.ts `assertWorkbenchReachable` and docs/testing.md.
+	// Login-walled (see runInCI): Kiro's `kiro-sign-in-page` is a full-screen AWS Builder ID sign-in wall
+	// with no skip / continue-without-account affordance (verified by dumping the overlay DOM on a fresh
+	// profile — reproduces both locally and in CI), so every UI spec fails and each retry relaunches the
+	// editor into the same wall → the job burns its wall-clock and gets cancelled. Excluded from CI, still
+	// runnable locally on an authenticated machine. See baseTest.ts `assertWorkbenchReachable` and docs/testing.md.
 	{ id: 'kiro', name: 'Kiro', experimental: true, envVar: 'KIRO_E2E_PATH', runInCI: false },
 	{ id: 'cursor', name: 'Cursor', experimental: true, envVar: 'CURSOR_E2E_PATH', runInCI: false },
 	{ id: 'positron', name: 'Positron', experimental: true, envVar: 'POSITRON_E2E_PATH', ciWorkers: 2 },
