@@ -1289,7 +1289,7 @@ export class IntegrationService implements Disposable {
 							id,
 							domain,
 							connectionId,
-							() => integration.getProjectsForResourcesResult([resource], connectionId),
+							() => integration.getProjectsForResourcesWithMetadataResult([resource], connectionId),
 						);
 						if (projectsWarning != null) {
 							warnings.push(projectsWarning);
@@ -1298,12 +1298,21 @@ export class IntegrationService implements Disposable {
 							}
 						}
 						if (projects != null) {
-							items.push(...projects.map(p => this.resourceToOrg(p)));
+							items.push(...projects.values.map(p => this.resourceToOrg(p)));
+						}
+						// Fold in per-resource completeness/failures so a partial fan-out warns and marks fetchFailed
+						// without dropping the resources that succeeded.
+						const assessment = assessCollectionMetadata(id, domain, connectionId, projects?.metadata);
+						for (const w of assessment.warnings) {
+							appendDedupedWarning(warnings, w);
+						}
+						if (assessment.fetchFailed) {
+							fetchFailed = true;
 						}
 					}
 				} else {
 					const { value: projects, warning } = await this.runCaptured(id, domain, connectionId, () =>
-						integration.getProjectsForUserResult(connectionId),
+						integration.getProjectsForUserWithMetadataResult(connectionId),
 					);
 					if (warning != null) {
 						warnings.push(warning);
@@ -1312,7 +1321,14 @@ export class IntegrationService implements Disposable {
 						}
 					}
 					if (projects != null) {
-						items.push(...projects.map(p => this.resourceToOrg(p)));
+						items.push(...projects.values.map(p => this.resourceToOrg(p)));
+					}
+					const assessment = assessCollectionMetadata(id, domain, connectionId, projects?.metadata);
+					for (const w of assessment.warnings) {
+						appendDedupedWarning(warnings, w);
+					}
+					if (assessment.fetchFailed) {
+						fetchFailed = true;
 					}
 				}
 
@@ -1329,7 +1345,9 @@ export class IntegrationService implements Disposable {
 			}
 
 			items.push(...result.items);
-			warnings.push(...result.warnings);
+			for (const w of result.warnings) {
+				appendDedupedWarning(warnings, w);
+			}
 			if (result.fetchFailed) {
 				fetchFailed = true;
 			}
@@ -1762,17 +1780,31 @@ export class IntegrationService implements Disposable {
 			return emptyPage();
 		}
 
-		const { value: projects, warning: projectsWarning } = await this.runCaptured(
+		const { value: projectsResult, warning: projectsWarning } = await this.runCaptured(
 			options.providerId,
 			domain,
 			options.connectionId,
-			() => integration.getProjectsForResourcesResult(scopedResources, options.connectionId),
+			() => integration.getProjectsForResourcesWithMetadataResult(scopedResources, options.connectionId),
 		);
 		if (projectsWarning != null) {
 			warnings.push(projectsWarning);
 		}
+		// Partial project discovery: continue with the resources that succeeded, but surface per-resource
+		// failures as warnings and remember to mark the page fetchFailed so the caller knows some issues may be
+		// missing. `projectDiscoveryFailed` is OR-ed into the page's fetchFailed at every return below.
+		const projectAssessment = assessCollectionMetadata(
+			options.providerId,
+			domain,
+			options.connectionId,
+			projectsResult?.metadata,
+		);
+		for (const w of projectAssessment.warnings) {
+			appendDedupedWarning(warnings, w);
+		}
+		const projectDiscoveryFailed = projectAssessment.fetchFailed;
+		const projects = projectsResult?.values;
 		if (projects == null || projects.length === 0) {
-			return emptyPage(projectsWarning != null && projects == null);
+			return emptyPage((projectsWarning != null && projectsResult == null) || projectDiscoveryFailed);
 		}
 
 		const matchedProjects =
@@ -1867,7 +1899,9 @@ export class IntegrationService implements Disposable {
 				),
 			),
 		);
-		let fetchFailed = false;
+		// Partial project discovery means some projects' issues are missing from this page; propagate it so the
+		// page reports fetchFailed even when every discovered project's own read succeeded.
+		let fetchFailed = projectDiscoveryFailed;
 		// A project whose internal page-drain hit its backstop (Jira/Linear cap at maxPagesPerRequest) reports
 		// `truncated`; surface it as `page.truncated` so a windowed read isn't published as having drained each
 		// project completely.

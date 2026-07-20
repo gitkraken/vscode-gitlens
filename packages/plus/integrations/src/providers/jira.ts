@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -9,7 +10,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
-import type { ProviderIssue } from './models.js';
+import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
@@ -133,6 +134,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		resources: JiraOrganizationDescriptor[],
 		force: boolean = false,
 	): Promise<JiraProjectDescriptor[] | undefined> {
+		return (await this.getProviderProjectsForResourcesWithMetadata(session, resources, force)).values;
+	}
+
+	protected override async getProviderProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: JiraOrganizationDescriptor[],
+		force: boolean = false,
+	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const { accessToken } = session;
 		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
 
@@ -149,33 +158,43 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			}
 		}
 
+		let metadata: CollectionMetadata | undefined;
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const jiraProjectBaseDescriptors = (
-				await api.getJiraProjectsForResources(
-					toTokenWithInfo(this.id, session),
-					resourcesWithoutProjects.map(r => r.id),
-				)
-			).values;
+			const result = await api.getJiraProjectsForResources(
+				toTokenWithInfo(this.id, session),
+				resourcesWithoutProjects.map(r => r.id),
+			);
+			metadata = result.metadata;
+
+			// Only the resources the SDK did NOT report as failed are proven: cache their mapped projects
+			// (including a proven-empty array, so a genuinely empty resource doesn't refetch every time). A
+			// resource listed in `metadata.failures` is left uncached so the next read retries it, and — crucially
+			// on a forced refresh — its existing valid cache entry is preserved rather than erased by the failure.
+			const failedResourceIds = new Set(
+				(metadata?.failures ?? []).map(f => f.scope?.resourceId).filter((id): id is string => id != null),
+			);
 
 			for (const resource of resourcesWithoutProjects) {
-				const projects = jiraProjectBaseDescriptors?.filter(p => p.resourceId === resource.id);
-				if (projects != null) {
-					this._projects.set(
-						`${accessToken}:${resource.id}`,
-						projects.map(p => ({ ...p })),
-					);
-				}
+				if (failedResourceIds.has(resource.id)) continue;
+
+				const projects = result.values.filter(p => p.resourceId === resource.id);
+				this._projects.set(
+					`${accessToken}:${resource.id}`,
+					projects.map(p => ({ ...p })),
+				);
 			}
 		}
 
-		return resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
+		const values = resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
 			const resourceProjects = this._projects!.get(`${accessToken}:${resource.id}`);
 			if (resourceProjects != null) {
 				projects.push(...resourceProjects);
 			}
 			return projects;
 		}, []);
+
+		return { values: values, metadata: metadata };
 	}
 
 	protected override async getProviderIssuesForProject(

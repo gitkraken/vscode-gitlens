@@ -167,3 +167,208 @@ suite('Jira issue scoping (#5438)', () => {
 		manager.dispose();
 	});
 });
+
+/**
+ * Verifies Jira project fan-out metadata consumption + retry-safe caching (#5438): a mixed-success fan-out
+ * preserves the successful resources' projects and surfaces the failed resource's metadata, a failed resource
+ * is never cached as empty (so it retries), a proven-empty resource IS cached, and a forced refresh that fails
+ * doesn't erase an older valid cache entry.
+ */
+suite('Jira project fan-out metadata + caching (#5438)', () => {
+	const orgOk = { key: 'r1', id: 'r1', name: 'Resource 1', url: '', avatarUrl: '' };
+	const orgBad = { key: 'r2', id: 'r2', name: 'Resource 2', url: '', avatarUrl: '' };
+
+	function jiraProject(id: string, resourceId: string) {
+		return { key: id, id: id, name: `Project ${id}`, resourceId: resourceId };
+	}
+
+	test('a mixed-success fan-out keeps the successful projects and reports the failed resource metadata', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		const calls: string[][] = [];
+		stubApi(jira, {
+			getJiraProjectsForResources: (_t: unknown, resourceIds: string[]) => {
+				calls.push(resourceIds);
+				// r1 succeeds, r2 fails with auth: the SDK returns r1's project plus a structured failure for r2.
+				return Promise.resolve({
+					values: [jiraProject('p1', 'r1')],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { resourceId: 'r2' } }],
+					},
+				});
+			},
+		});
+
+		const result = await (
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: (
+					resources: unknown[],
+				) => Promise<{ value?: { values: { id: string }[]; metadata?: { completeness: string } } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+
+		assert.deepEqual(
+			result.value?.values.map(p => p.id),
+			['p1'],
+			'the successful resource contributes its project',
+		);
+		assert.equal(result.value?.metadata?.completeness, 'partial', 'the fan-out reports partial completeness');
+		assert.deepEqual(calls[0], ['r1', 'r2'], 'both resources are requested on the first read');
+
+		manager.dispose();
+	});
+
+	test('a failed resource is not cached as empty and is retried on the next call', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		const requested: string[][] = [];
+		let attempt = 0;
+		stubApi(jira, {
+			getJiraProjectsForResources: (_t: unknown, resourceIds: string[]) => {
+				requested.push(resourceIds);
+				attempt++;
+				if (attempt === 1) {
+					// First call: r2 fails.
+					return Promise.resolve({
+						values: [jiraProject('p1', 'r1')],
+						metadata: {
+							completeness: 'partial',
+							failures: [{ kind: 'network', scope: { resourceId: 'r2' } }],
+						},
+					});
+				}
+				// Second call: r2 recovers.
+				return Promise.resolve({
+					values: [jiraProject('p2', 'r2')],
+					metadata: { completeness: 'complete' },
+				});
+			},
+		});
+
+		const api = jira as unknown as {
+			getProjectsForResourcesWithMetadataResult: (
+				resources: unknown[],
+			) => Promise<{ value?: { values: { id: string }[] } }>;
+		};
+
+		await api.getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+		const second = await api.getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+
+		// r1 was cached after the first (successful) read, so only the failed r2 is retried on the second call.
+		assert.deepEqual(requested[1], ['r2'], 'only the previously-failed resource is retried');
+		assert.deepEqual(
+			second.value?.values.map(p => p.id).sort(),
+			['p1', 'p2'],
+			'the retried resource now contributes its project alongside the cached one',
+		);
+
+		manager.dispose();
+	});
+
+	test('a proven-empty resource is cached and does not refetch', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		let calls = 0;
+		stubApi(jira, {
+			getJiraProjectsForResources: (_t: unknown, _resourceIds: string[]) => {
+				calls++;
+				// r1 completes successfully but genuinely has no projects.
+				return Promise.resolve({ values: [], metadata: { completeness: 'complete' } });
+			},
+		});
+
+		const api = jira as unknown as {
+			getProjectsForResourcesWithMetadataResult: (resources: unknown[]) => Promise<unknown>;
+		};
+
+		await api.getProjectsForResourcesWithMetadataResult([orgOk]);
+		await api.getProjectsForResourcesWithMetadataResult([orgOk]);
+
+		assert.equal(calls, 1, 'a proven-empty resource is cached and not refetched');
+
+		manager.dispose();
+	});
+
+	test('a failed forced refresh does not erase an older valid cache entry', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		let attempt = 0;
+		stubApi(jira, {
+			getJiraProjectsForResources: (_t: unknown, _resourceIds: string[]) => {
+				attempt++;
+				if (attempt === 1) {
+					return Promise.resolve({
+						values: [jiraProject('p1', 'r1')],
+						metadata: { completeness: 'complete' },
+					});
+				}
+				// Forced refresh fails for r1.
+				return Promise.resolve({
+					values: [],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'rate-limit', scope: { resourceId: 'r1' } }],
+					},
+				});
+			},
+		});
+
+		const withMetadata = jira as unknown as {
+			getProviderProjectsForResourcesWithMetadata: (
+				session: ProviderAuthenticationSession,
+				resources: unknown[],
+				force?: boolean,
+			) => Promise<{ values: { id: string }[]; metadata?: { failures?: unknown[] } }>;
+		};
+
+		await withMetadata.getProviderProjectsForResourcesWithMetadata(jiraSession(), [orgOk], false);
+		const refreshed = await withMetadata.getProviderProjectsForResourcesWithMetadata(jiraSession(), [orgOk], true);
+
+		// The forced refresh failed, but the older valid cache entry for r1 must survive so the caller still sees
+		// its project — while the refresh failure remains visible in the returned metadata.
+		assert.deepEqual(
+			refreshed.values.map(p => p.id),
+			['p1'],
+			'the previously cached project is preserved through a failed refresh',
+		);
+		assert.equal(refreshed.metadata?.failures?.length, 1, 'the refresh failure is still surfaced to the caller');
+
+		manager.dispose();
+	});
+
+	test('a no-failure fan-out behaves exactly as before (all projects, no metadata failures)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		stubApi(jira, {
+			getJiraProjectsForResources: () =>
+				Promise.resolve({
+					values: [jiraProject('p1', 'r1'), jiraProject('p2', 'r2')],
+					metadata: { completeness: 'complete' },
+				}),
+		});
+
+		const result = await (
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: (
+					resources: unknown[],
+				) => Promise<{ value?: { values: { id: string }[]; metadata?: { failures?: unknown[] } } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult([orgOk, orgBad]);
+
+		assert.deepEqual(result.value?.values.map(p => p.id).sort(), ['p1', 'p2']);
+		assert.equal(result.value?.metadata?.failures, undefined, 'no failures on a clean fan-out');
+
+		manager.dispose();
+	});
+});

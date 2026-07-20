@@ -460,8 +460,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
 
 		(
-			linear as unknown as { getProjectsForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForUserResult = () => Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			linear as unknown as {
+				getProjectsForUserWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForUserWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 
 		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Linear });
 		assert.deepEqual(result.items, [{ id: 'p1', name: 'Project One', url: '' }]);
@@ -484,13 +487,13 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
 		(
 			jira as unknown as {
-				getProjectsForResourcesResult: (
+				getProjectsForResourcesWithMetadataResult: (
 					resources: ResourceDescriptor[],
-				) => Promise<{ value: ResourceDescriptor[] }>;
+				) => Promise<{ value: { values: ResourceDescriptor[] } }>;
 			}
-		).getProjectsForResourcesResult = (scopedResources: ResourceDescriptor[]) => {
+		).getProjectsForResourcesWithMetadataResult = (scopedResources: ResourceDescriptor[]) => {
 			capturedResources = scopedResources;
-			return Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			return Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		};
 
 		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Jira, org: 'org-2' });
@@ -656,9 +659,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
-			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
@@ -699,14 +704,18 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		// Three projects; with itemsPerPage 2 the first page covers 2 and reports a next-page cursor.
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
 			Promise.resolve({
-				value: [
-					{ key: 'p1', id: 'p1', name: 'P1' },
-					{ key: 'p2', id: 'p2', name: 'P2' },
-					{ key: 'p3', id: 'p3', name: 'P3' },
-				],
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1', name: 'P1' },
+						{ key: 'p2', id: 'p2', name: 'P2' },
+						{ key: 'p3', id: 'p3', name: 'P3' },
+					],
+				},
 			});
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
@@ -758,8 +767,10 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		const projects = Array.from({ length: 25 }, (_, i) => ({ key: `p${i}`, id: `p${i}`, name: `P${i}` }));
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () => Promise.resolve({ value: projects });
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () => Promise.resolve({ value: { values: projects } });
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
@@ -797,8 +808,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			linear as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () => Promise.resolve({ value: [{ key: 't1', id: 't1', name: 'Team 1' }] });
+			linear as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 't1', id: 't1', name: 'Team 1' }] } });
 		let read = false;
 		(
 			linear as unknown as {
@@ -834,13 +848,17 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
 			Promise.resolve({
-				value: [
-					{ key: 'p1', id: 'p1', name: 'P1' },
-					{ key: 'p2', id: 'p2', name: 'P2' },
-				],
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1', name: 'P1' },
+						{ key: 'p2', id: 'p2', name: 'P2' },
+					],
+				},
 			});
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
@@ -874,8 +892,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () => Promise.resolve({ value: [{ key: 'p1', id: 'p1', name: 'P1' }] });
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'p1', id: 'p1', name: 'P1' }] } });
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
@@ -912,9 +933,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			linear as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
-			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			linear as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		(
 			linear as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
 		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
@@ -941,9 +964,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
-			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		// Current-user lookup fails → undefined. Must NOT broaden to all-visible.
 		(
 			jira as unknown as { getAccountForResourceResult: () => Promise<{ value: undefined }> }
@@ -977,9 +1002,11 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
 		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
 		(
-			jira as unknown as { getProjectsForResourcesResult: () => Promise<{ value: ResourceDescriptor[] }> }
-		).getProjectsForResourcesResult = () =>
-			Promise.resolve({ value: [{ key: 'proj', id: 'p1', name: 'Project One' }] });
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
 		let readCalled = false;
 		(
 			jira as unknown as {

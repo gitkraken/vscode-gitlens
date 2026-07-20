@@ -6,7 +6,7 @@ import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
-import type { IssueFilter } from '../providers/models.js';
+import type { IssueFilter, ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
@@ -92,19 +92,35 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Result-returning core of {@link getProjectsForResources}. Recovers thrown errors into `{ error }` so callers
-	 * can surface them as warnings rather than silently swallowing them to `undefined`.
+	 * can surface them as warnings rather than silently swallowing them to `undefined`. Implemented by unwrapping
+	 * the metadata-aware path's `values` so the array-returning contract stays backward compatible.
 	 */
 	async getProjectsForResourcesResult(
 		resources: T[],
 		connectionId?: string,
 	): Promise<IntegrationResult<T[] | undefined>> {
+		const result = await this.getProjectsForResourcesWithMetadataResult(resources, connectionId);
+		if (result == null) return undefined;
+		if (result.error != null) return { value: result.value?.values, error: result.error };
+		return { value: result.value?.values };
+	}
+
+	/**
+	 * Metadata-aware counterpart of {@link getProjectsForResourcesResult} for ProviderBackend composition:
+	 * returns the SDK collection `{ values, metadata }` (completeness + per-resource failures) so callers can
+	 * warn on failed resources and set `fetchFailed` without discarding the resources that succeeded.
+	 */
+	async getProjectsForResourcesWithMetadataResult(
+		resources: T[],
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderApiCollectionResult<T> | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;
 
 		try {
-			const projects = await this.getProviderProjectsForResources(session, resources);
+			const projects = await this.getProviderProjectsForResourcesWithMetadata(session, resources);
 			this.resetRequestExceptionCount('getProjectsForResources');
 			return { value: projects };
 		} catch (ex) {
@@ -119,14 +135,41 @@ export abstract class IssuesIntegration<
 
 	/**
 	 * Result-returning core of {@link getProjectsForUser}. Composes the resource and project result methods so
-	 * callers can surface per-step warnings.
+	 * callers can surface per-step warnings. Unwraps the metadata-aware path for the array-returning contract.
 	 */
 	async getProjectsForUserResult(connectionId?: string): Promise<IntegrationResult<T[] | undefined>> {
+		const result = await this.getProjectsForUserWithMetadataResult(connectionId);
+		if (result == null) return undefined;
+		if (result.error != null) return { value: result.value?.values, error: result.error };
+		return { value: result.value?.values };
+	}
+
+	/**
+	 * Metadata-aware counterpart of {@link getProjectsForUserResult}: composes resource discovery with the
+	 * metadata-aware project read so ProviderBackend consumers get completeness/failures across resources.
+	 */
+	async getProjectsForUserWithMetadataResult(
+		connectionId?: string,
+	): Promise<IntegrationResult<ProviderApiCollectionResult<T> | undefined>> {
 		const resources = await this.getResourcesForUserResult(connectionId);
-		if (resources?.error != null) return resources;
+		if (resources?.error != null) return { error: resources.error };
 		if (resources?.value == null) return undefined;
 
-		return this.getProjectsForResourcesResult(resources.value, connectionId);
+		return this.getProjectsForResourcesWithMetadataResult(resources.value, connectionId);
+	}
+
+	/**
+	 * Metadata-aware provider project discovery. The default wraps the array-returning
+	 * {@link getProviderProjectsForResources} in `{ values }` with no metadata, so providers without a
+	 * fan-out completeness signal (Linear, Trello) need no change; Jira overrides it to preserve the SDK's
+	 * per-resource completeness/failures.
+	 */
+	protected async getProviderProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: T[],
+	): Promise<ProviderApiCollectionResult<T>> {
+		const projects = await this.getProviderProjectsForResources(session, resources);
+		return { values: projects ?? [] };
 	}
 
 	protected abstract getProviderProjectsForResources(
