@@ -920,6 +920,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				.config=${graphState.config}
 				.downstreams=${graphState.downstreams}
 				.columns=${graphState.columns}
+				.columnsRevision=${graphState.columnsRevision ?? 0}
 				.activeFilterColumns=${graphState.activeFilterColumns}
 				.repoPath=${this.getRepoPath()}
 				.columnsContext=${graphState.context?.header}
@@ -1310,7 +1311,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	}
 
 	private onColumnsChanged(event: CustomEventType<'graph-changecolumns'>) {
-		this._ipc.sendCommand(UpdateColumnsCommand, { config: event.detail.settings });
+		this._ipc.sendCommand(UpdateColumnsCommand, {
+			config: event.detail.settings,
+			revision: event.detail.revision,
+		});
 	}
 
 	private onGetMoreRows({ detail: sha }: CustomEventType<'graph-morerows'>) {

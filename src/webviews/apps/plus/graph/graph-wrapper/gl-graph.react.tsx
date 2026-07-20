@@ -1295,7 +1295,7 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		// event map from react wrapped component
-		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig }>;
+		'graph-changecolumns': CustomEvent<{ settings: GraphColumnsConfig; revision?: number }>;
 		'graph-changegraphconfiguration': CustomEvent<UpdateGraphConfigurationParams['changes']>;
 		'graph-changerefsvisibility': CustomEvent<{ refs: GraphExcludedRef[]; visible: boolean }>;
 		'graph-changeselection': CustomEvent<{

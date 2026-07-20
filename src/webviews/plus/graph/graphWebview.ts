@@ -429,6 +429,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		[DidStartFeaturePreviewNotification, this.notifyDidStartFeaturePreview],
 	]);
 	private _selectedId?: string;
+	// Latest columns-write revision received from the webview (see UpdateColumnsParams.revision);
+	// echoed on every columns push so the webview can order pushes against its in-flight writes.
+	private _columnsRevision = 0;
 	private _selectedRows: Record<string, SelectedRowState> | undefined;
 	private _theme: ColorTheme | undefined;
 	private _repositoryEventsDisposable: Disposable | undefined;
@@ -2112,6 +2115,9 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 	@ipcCommand(UpdateColumnsCommand)
 	private onColumnsChanged(params: IpcParams<typeof UpdateColumnsCommand>) {
+		// Ack the webview's write counter — every later columns push carries it so the webview can drop
+		// pushes generated before this write (see DidChangeColumnsParams.columnsRevision).
+		this._columnsRevision = params.revision ?? this._columnsRevision;
 		this.updateColumns(params.config);
 
 		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
@@ -3032,6 +3038,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnSettings = this.getColumnSettings(columns);
 		return this.host.notify(DidChangeColumnsNotification, {
 			columns: columnSettings,
+			columnsRevision: this._columnsRevision,
 			context: this.getColumnHeaderContext(columnSettings),
 			settingsContext: this.getGraphSettingsIconContext(columnSettings),
 		});
@@ -4284,6 +4291,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			// by the onReady snapshot (the publisher's this-connection watermark) at no extra cost.
 			sync: { generation: this._graphSync.generation, seq: -1 },
 			columns: columnSettings,
+			columnsRevision: this._columnsRevision,
 			config: this.getComponentConfig(),
 			context: {
 				header: this.getColumnHeaderContext(columnSettings),

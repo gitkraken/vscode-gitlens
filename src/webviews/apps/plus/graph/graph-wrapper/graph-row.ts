@@ -79,6 +79,10 @@ export interface RowRenderContext {
 	graphPlacement: GraphPlacement;
 	/** Visible-column slot the graph occupies in column mode (interleaved among the zone cells). */
 	graphColumnPos: number;
+	/** When the graph is grouped, the host zone id its lanes render on — BY ID, not position — so the
+	 *  [graph + host] pair travels together through reorders. Undefined when not grouped, or grouped with
+	 *  no resolvable host (falls back to `graphColumnPos`'s anchor-slot clamp). */
+	graphHostId?: string;
 	/** Where refs render: `grouped` = pills at the head of the first content column (default); `column`
 	 *  = a dedicated Refs column (expanded density only). Drives whether refs prepend inline. */
 	refsPlacement: RefsPlacement;
@@ -875,10 +879,12 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// band stops at the START of the host column (the lanes' right edge), since a non-refs host owns its
 	// own content. `hidden` has no node, so it falls back to the thin left EDGE.
 	const isGraphColumn = ctx.graphPlacement === 'column';
-	// Which zone slot the lanes occupy: the graph's own slot (column) or — when inlined — its
-	// RIGHT-neighbor zone, so inlining combines the graph into the column to its right and never crams
-	// a leading Refs column with lane art. Clamped to the last zone.
-	const laneZoneIdx = Math.min(ctx.graphColumnPos, Math.max(0, ctx.zones.length - 1));
+	// Which zone slot the lanes occupy: the graph's own slot (column) or — when inlined — its grouped HOST
+	// zone, tracked BY ID (`graphHostId`) so it never crams a leading Refs column with lane art. Falls back
+	// to the anchor-slot clamp (last zone) when the host id is unset or no longer visible.
+	const graphHostIdx = ctx.graphHostId != null ? ctx.zones.findIndex(z => z.id === ctx.graphHostId) : -1;
+	const laneZoneIdx =
+		graphHostIdx >= 0 ? graphHostIdx : Math.min(ctx.graphColumnPos, Math.max(0, ctx.zones.length - 1));
 	const laneZone = ctx.zones[laneZoneIdx];
 	// Lead offset = total RENDERED width of every zone BEFORE the lanes (flex zones included — their
 	// solved `width` is the rendered width); the band (an absolute overlay) shifts right by it so it
@@ -928,9 +934,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	if (ctx.style === 'list') {
 		body = renderListBody(row, ctx, inlineGutter, inlineRefs, relativeDate);
 	} else {
-		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx`
-		// — the graph's right-neighbor) so inlining combines into the column to its right; inline refs sit
-		// at the head of the first content zone. The cell holding the gutter is flush (no left padding).
+		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx` —
+		// the graph's grouped host, by id) so inlining combines into that column; inline refs sit at the
+		// head of the first content zone. The cell holding the gutter is flush (no left padding).
 		const cells: (TemplateResult | typeof nothing)[] = ctx.zones.map((zone, zoneIndex) => {
 			const gutterHere = ctx.graphPlacement === 'grouped' && zoneIndex === laneZoneIdx;
 			// Grouped refs render on their HOST zone by id (so the group moves as a unit); fall back to the

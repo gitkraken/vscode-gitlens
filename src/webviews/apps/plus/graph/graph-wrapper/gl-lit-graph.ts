@@ -209,6 +209,8 @@ interface RenderCtx {
 	graphPlacement: GraphPlacement;
 	/** Visible-column slot the graph occupies (column mode) — interleaved among the zone cells. */
 	graphColumnPos: number;
+	/** Host zone id the grouped lanes render in (see `graphHostIdFor`); undefined = anchor-slot fallback. */
+	graphHostId: string | undefined;
 	/** Width (px) of the dedicated lane-fold strip prepended to the lanes; 0 when folding disabled. */
 	foldLaneWidth: number;
 	/** Displayed width (px) of the graph column (fold strip + gutter viewport). When < gutterWidth +
@@ -324,6 +326,8 @@ export class GlLitGraph extends LitElement {
 	@property({ type: String }) searchMode?: GraphSearchMode;
 	@property({ type: Object }) config?: GraphComponentConfig;
 	@property({ type: Object }) columns?: GraphColumnsSettings;
+	// Host's ack of our latest columns write (see persistColumnsConfig / shouldApplyIncomingColumns).
+	@property({ type: Number }) columnsRevision = 0;
 	// Selected repo path — needed to reconstruct lean commit rows' right-click context (the host now
 	// ships only `contexts.flags`, not a serialized `contexts.row`); see toGraphCommit.
 	@property({ type: String }) repoPath?: string;
@@ -379,13 +383,15 @@ export class GlLitGraph extends LitElement {
 	// order), so the only reactive bit is `dragColId` — the id of the column being dragged — which marks
 	// its cell as the lifted one. The rest of the drag (base snapshot, target, rAF) lives in `columnDrag`.
 	@state() private dragColId: string | null = null;
-	// Where the lane art renders. Session-scoped for now (not yet persisted across reloads).
+	// Where the lane art renders. Persisted via the columns config (`graph.grouped`; `isHidden` from the
+	// host's column menu always wins).
 	@state() private graphPlacement: GraphPlacement = 'column';
 	// The graph's ANCHOR position: an insert-index into the FULL ordered zone list (`this.zones`,
 	// including hidden / inline-refs zones), NOT the visible list. The VISIBLE slot is DERIVED from this
 	// each render (`graphVisibleIndex`) by counting how many visible zones precede the anchor — so
 	// hiding/inlining/reordering a column to the graph's left shifts its visible slot automatically and
-	// can never desync. drag/Arrow-key reorder map the visible target back to an anchor. Session-scoped.
+	// can never desync. drag/Arrow-key reorder map the visible target back to an anchor. Persisted via
+	// the columns config (`graph.order`).
 	@state() private graphColumnPos = 0;
 	// Derived once per render in `updateRenderState`: the graph's VISIBLE-slot index (anchor projected
 	// through the current visible zones). Read by the header; passed to rows as `ctx.graphColumnPos`.
@@ -393,12 +399,18 @@ export class GlLitGraph extends LitElement {
 	// Where refs (branches/tags/remotes) render: 'grouped' = pills at the head of their host column —
 	// the zone adjacent to Refs at group-time (`refsHostZoneId`), falling back to Message — anchored BY
 	// ID via `refsHostIdFor` so the group travels with it through reorders (default); 'column' = a
-	// dedicated Refs column (expanded density only, where columns exist). Session-scoped, matching
-	// `graphPlacement`.
+	// dedicated Refs column (expanded density only, where columns exist). Persisted via the columns
+	// config (`ref.grouped`), matching `graphPlacement`.
 	@state() private refsPlacement: RefsPlacement = 'grouped';
 	// Adjacent zone id captured at group-time by `toggleRefsPlacement` (undefined = use the Message
-	// fallback). Session-scoped like `refsPlacement` — not persisted.
+	// fallback). Persisted via the columns config round-trip (`ref.grouped`'s string value; see
+	// `buildColumnsConfig`).
 	@state() private refsHostZoneId: string | undefined;
+	// Host zone the GRAPH groups into, captured at group-time — mirrors `refsHostZoneId` BY ID so the
+	// [graph + host] pair travels together through reorders. Persisted via the columns config
+	// (`graph.grouped`'s string value; see `currentGraphColumnConfig`). Undefined = fall back to the
+	// anchor slot (`graphHostIdFor`) — also covers legacy persisted `grouped: true`.
+	@state() private graphHostZoneId: string | undefined;
 	// Lane folding (collapse/expand of mergeable lane segments). On → a dedicated fold strip on the
 	// left edge of the lanes shows expand/collapse chevrons on collapsible segment-tip rows. Off → no
 	// fold strip, no chevrons, and all lanes stay expanded (default-collapse + manual folds ignored).
@@ -540,6 +552,7 @@ export class GlLitGraph extends LitElement {
 			style: c.style,
 			graphPlacement: c.graphPlacement,
 			graphColumnPos: c.graphColumnPos,
+			graphHostId: c.graphHostId,
 			refsPlacement: c.refsPlacement,
 			refsHostId: c.refsHostId,
 			gutterCache: this.gutterCache,
@@ -637,6 +650,9 @@ export class GlLitGraph extends LitElement {
 	private lastRowsRef?: GitGraphRow[];
 	private lastIdLength = 7;
 	private lastColumnsRef?: GraphColumnsSettings;
+	// Monotonic counter stamped on every local columns write (rides UpdateColumnsCommand; the host acks
+	// it back as `columnsRevision` on every push). See `shouldApplyIncomingColumns`.
+	private columnsWriteRevision = 0;
 	// Cached collapse/scope derivation (the pre-filter row set produced by computeDisplayRows /
 	// compactColumns). Rebuilt only when its inputs change — so an incremental filter search, which
 	// re-runs recomputeDisplayRows on every results update without touching these inputs, reuses it
@@ -1082,7 +1098,7 @@ export class GlLitGraph extends LitElement {
 			this.recomputeRows(idLength);
 		}
 
-		if (changed.has('columns') || this.columns !== this.lastColumnsRef) {
+		if ((changed.has('columns') || this.columns !== this.lastColumnsRef) && this.shouldApplyIncomingColumns()) {
 			this.lastColumnsRef = this.columns;
 			this.zones = mergeZones(defaultZones, columnsToZones(this.columns));
 			// The host's column menu hides/shows the graph + Branches/Tags columns via a boolean `isHidden`;
@@ -1092,8 +1108,13 @@ export class GlLitGraph extends LitElement {
 			// races an in-flight drag (see the width/order comment below).
 			if (this.columns?.graph?.isHidden === true) {
 				this.graphPlacement = 'hidden';
+			} else if (this.columns?.graph?.grouped === true || typeof this.columns?.graph?.grouped === 'string') {
+				this.graphPlacement = 'grouped';
+				this.graphHostZoneId =
+					typeof this.columns?.graph?.grouped === 'string' ? this.columns.graph.grouped : undefined;
 			} else {
-				this.graphPlacement = this.columns?.graph?.grouped === true ? 'grouped' : 'column';
+				this.graphPlacement = 'column';
+				this.graphHostZoneId = undefined;
 			}
 			if (this.columns?.ref?.isHidden === true) {
 				this.refsPlacement = 'hidden';
@@ -1358,7 +1379,7 @@ export class GlLitGraph extends LitElement {
 		return refIdx < 0 ? undefined : (visibleZones[refIdx + 1] ?? visibleZones[refIdx - 1])?.id;
 	}
 
-	// True when the Refs column sits immediately right of the Graph column in the full zone order — here
+	// True when the Refs column sits immediately LEFT of the Graph column in the full zone order — here
 	// "group refs" instead merges the GRAPH into the Refs zone (see `toggleRefsPlacement`), not the
 	// `refsGroupTargetId` neighbor (which only walks real content zones and can't see the graph). Shared
 	// by `toggleRefsPlacement` (drives the merge) and the placement-control label (keeps it honest) so the
@@ -1374,11 +1395,16 @@ export class GlLitGraph extends LitElement {
 		return this.zones.find(z => z.id === id)?.label ?? id;
 	}
 
-	// Host zone the GRAPH groups into (by id) — the zone its lanes render in (its visible-slot neighbor).
-	// Used to ride the graph's group toggle on that cell instead of stranding it on the first column.
-	// Undefined when the graph is a column or hidden (no grouped host).
+	// Host zone the GRAPH groups into — BY ID (`graphHostZoneId`, captured at group-time), so the
+	// [graph + host] pair travels together through reorders instead of jumping to whatever zone lands at
+	// the anchor slot. Falls back to the anchor-slot derivation when unset — covers legacy persisted
+	// `grouped: true` (no id) and a hidden/inlined captured host. Undefined when the graph is a column or
+	// hidden (no grouped host). Mirrors `refsHostIdFor`.
 	private graphHostIdFor(visibleZones: readonly ZoneSpec[]): string | undefined {
 		if (this.graphPlacement !== 'grouped') return undefined;
+		if (this.graphHostZoneId != null && visibleZones.some(z => z.id === this.graphHostZoneId)) {
+			return this.graphHostZoneId;
+		}
 		return visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
 	}
 
@@ -1516,6 +1542,9 @@ export class GlLitGraph extends LitElement {
 		// hscrollbar all read this single derived slot (no per-row recompute, no desync).
 		const graphVisSlot = this.graphVisibleIndex(visibleZones);
 		this.graphVisibleSlot = graphVisSlot;
+		// Resolved once here — rows + the hscrollbar lead below both read this single value (no per-row
+		// recompute, no desync).
+		const graphHostId = this.graphHostIdFor(visibleZones);
 		this._renderCtx = {
 			total: rows.length,
 			rowHeight: this.rowHeight,
@@ -1525,6 +1554,7 @@ export class GlLitGraph extends LitElement {
 			style: style,
 			graphPlacement: this.graphPlacement,
 			graphColumnPos: graphVisSlot,
+			graphHostId: graphHostId,
 			foldLaneWidth: this.foldLaneWidth,
 			graphColumnWidth: this.graphColumnWidth,
 			inlineGutterWidth: this.inlineGutterWidth,
@@ -1569,12 +1599,16 @@ export class GlLitGraph extends LitElement {
 		// so the bar lines up with the gutter viewport); width = the viewport; thumb = proportional with
 		// a floor; thumb offset maps [0, max] onto the leftover track.
 		// Column placement splices the graph at `graphVisSlot` (0..length) so the lead sums every preceding
-		// zone; inline shares the host zone (clamped to the last zone). Clamping the column case dropped the
-		// last column's width when the graph was the LAST column (band/scrollbar anchored one column short).
+		// zone; inline shares the resolved HOST zone (by id — falls back to the anchor-slot clamp when the
+		// host isn't in `visibleZones`). Clamping the column case dropped the last column's width when the
+		// graph was the LAST column (band/scrollbar anchored one column short).
+		const graphHostVisIdx = visibleZones.findIndex(z => z.id === graphHostId);
 		const leadCount =
 			this.graphPlacement === 'column'
 				? Math.min(graphVisSlot, visibleZones.length)
-				: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
+				: graphHostVisIdx >= 0
+					? graphHostVisIdx
+					: Math.min(graphVisSlot, Math.max(0, visibleZones.length - 1));
 		let leadOffset = 0;
 		for (let i = 0; i < leadCount; i++) {
 			leadOffset += visibleZones[i].width;
@@ -5213,9 +5247,31 @@ export class GlLitGraph extends LitElement {
 				// and never reaches this math.
 				const filterable = this.columns?.[zone.id]?.isFilterable === true;
 				const filterActive = filterable && (this.activeFilterColumns?.has(zone.id) ?? false);
-				// Both toggles are bare icon buttons here — the graph control is only labeled in the list
-				// header — so they reserve the same width; an ACTIVE filter button reserves one unit too.
-				const controlsPx = (graphControlHere ? 22 : 0) + (hasRefsControl ? 22 : 0) + (filterActive ? 22 : 0);
+				const refsMember = zone.id === refsHostId;
+				// The refs crumb carries the refs FILTER button too — grouped refs have no ref header cell,
+				// so the crumb is that filter's only home (routes to pickRefs like the column's own button).
+				const refsCrumbZone = refsMember ? this.zones.find(z => z.id === 'ref') : undefined;
+				const refsCrumbFilterable = refsCrumbZone != null && this.columns?.ref?.isFilterable === true;
+				const refsCrumbFilterActive = refsCrumbFilterable && (this.activeFilterColumns?.has('ref') ?? false);
+				// Grouped only — when the graph is HIDDEN the same control renders here as a bare restore
+				// toggle, and a crumb would falsely read as "grouped into this column".
+				const graphCrumb = graphControlHere && this.graphPlacement === 'grouped';
+				// Crumbs are fixed-size chips: full = column icon + map toggle in ONE button + chevron
+				// (~55px); collapsed = the bare map chip (~22px), no identity icon, no chevron. Both crumbs
+				// collapse together when the fulls (plus filters + the host label's reserve) can't fit —
+				// deterministic math, so the cell content can never spill into the neighboring header.
+				const crumbCount = (graphCrumb ? 1 : 0) + (refsMember ? 1 : 0);
+				const filtersPx = (filterActive ? 22 : 0) + (refsCrumbFilterActive ? 22 : 0);
+				const hostLabelReservePx = Math.min(zone.label.length * 7, 70) + 16;
+				const crumbsCollapsed = crumbCount > 0 && headerW - filtersPx - hostLabelReservePx < crumbCount * 55;
+				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
+				// Fixed reserve per control (22 each): a hidden-graph restore toggle, the ungrouped ref
+				// column's right-edge toggle, ACTIVE filter buttons — plus the crumbs at their stage size.
+				const controlsPx =
+					(graphControlHere && !graphCrumb ? 22 : 0) +
+					(hasRefsControl && !refsMember ? 22 : 0) +
+					filtersPx +
+					crumbsPx;
 				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
 				// Floor degradation: an active filter on an ultra-narrow icon-only column can't fit both the
 				// filter button and the column icon — render ONLY the filter button (never a clipped half icon).
@@ -5231,28 +5287,60 @@ export class GlLitGraph extends LitElement {
 						style=${cspStyleMap(style)}
 						@pointerdown=${(e: PointerEvent) => this.onColumnPointerDown(e, zone.id)}
 					>
-						${graphControlHere ? this.renderPlacementControl() : nothing}
-						${zone.id === refsHostId ? this.renderRefsPlacementControl(false, visibleZones) : nothing}
-						${filterOnly
-							? this.renderFilterButton(zone, true, true)
-							: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
-									<span
-										class="gl-graph__header-label"
-										role="button"
-										tabindex="0"
-										aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
-										data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
-										@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
-										>${labelAsIcon
+						<span class="gl-graph__header-cell-content">
+							${graphControlHere
+								? html`<span class="gl-graph__group-member">
+										${this.renderPlacementControl(
+											false,
+											graphCrumb && !crumbsCollapsed ? 'graph-line' : undefined,
+										)}
+										${graphCrumb && !crumbsCollapsed
 											? html`<code-icon
-													class="gl-graph__header-label-icon"
-													icon=${zoneHeaderIcons[zone.id]}
+													class="gl-graph__group-member-chevron"
+													icon="chevron-right"
 												></code-icon>`
-											: zone.label}</span
-									>`}
-						${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
-							? this.renderRefsPlacementControl(true, visibleZones)
-							: nothing}
+											: nothing}
+									</span>`
+								: nothing}
+							${refsMember
+								? html`<span class="gl-graph__group-member">
+										${refsCrumbFilterable
+											? this.renderFilterButton(refsCrumbZone, refsCrumbFilterActive, false, true)
+											: nothing}
+										${this.renderRefsPlacementControl(
+											false,
+											visibleZones,
+											crumbsCollapsed ? undefined : zoneHeaderIcons.ref,
+										)}
+										${crumbsCollapsed
+											? nothing
+											: html`<code-icon
+													class="gl-graph__group-member-chevron"
+													icon="chevron-right"
+												></code-icon>`}
+									</span>`
+								: nothing}
+							${filterOnly
+								? this.renderFilterButton(zone, true, true)
+								: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
+										<span
+											class="gl-graph__header-label"
+											role="button"
+											tabindex="0"
+											aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
+											data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
+											@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
+											>${labelAsIcon
+												? html`<code-icon
+														class="gl-graph__header-label-icon"
+														icon=${zoneHeaderIcons[zone.id]}
+													></code-icon>`
+												: zone.label}</span
+										>`}
+							${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
+								? this.renderRefsPlacementControl(true, visibleZones)
+								: nothing}
+						</span>
 						${isLast
 							? nothing
 							: html`<div
@@ -5285,17 +5373,14 @@ export class GlLitGraph extends LitElement {
 	// the accent tone with the filled icon. `floor` is the degraded ultra-narrow case where it stands in
 	// for the column icon entirely, so its tooltip names the filtered column. Click dispatches
 	// `gl-graph-filter-column` (bubbles+composed) — graph-app routes the zone to the right filter picker.
-	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean): TemplateResult {
-		const ariaLabel = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
-		const tooltip = floor
-			? `${zone.label} — Filtered. Click to Edit Filter`
-			: active
-				? `Edit ${zone.label} Filter`
-				: `Filter by ${zone.label}`;
+	private renderFilterButton(zone: ZoneSpec, active: boolean, floor: boolean, member = false): TemplateResult {
+		// Same action-first language as the placement toggles (Group/Ungroup X with/from Y).
+		const tooltip = active ? `Edit ${zone.label} Filter` : `Filter by ${zone.label}`;
+		const ariaLabel = tooltip;
 		return html`<button
 			class="gl-graph__filter-toggle${active ? ' is-active' : ''}${floor
 				? ' gl-graph__filter-toggle--floor'
-				: ''}"
+				: ''}${member ? ' gl-graph__filter-toggle--member' : ''}"
 			type="button"
 			aria-pressed=${active ? 'true' : 'false'}
 			aria-label=${ariaLabel}
@@ -5393,19 +5478,31 @@ export class GlLitGraph extends LitElement {
 	// appends a "Graph" text label — used only by the list header, whose single details cell has no other
 	// label to name the affordance. The table header keeps it bare: its host cell already shows that
 	// column's own label, and a second "GRAPH" beside it reads as two columns rather than one control.
-	private renderPlacementControl(labeled = false): TemplateResult {
+	// `identityIcon` renders the column's icon inside the button (the crumb-chip form: the WHOLE crumb is
+	// the ungroup control — one hit target, the tooltip covers it all — instead of a dead identity glyph
+	// beside a tiny button).
+	private renderPlacementControl(labeled = false, identityIcon?: string): TemplateResult {
 		const hidden = this.graphPlacement === 'hidden';
 		const grouped = this.graphPlacement === 'grouped';
-		// Group/detach affordance: standalone column = outline `map` (group with the next column);
+		// Group/detach affordance: standalone column = outline `map` (group with the target column);
 		// grouped = filled `map-filled` (separate back out). Icons are provisional (easy to swap).
 		const icon = grouped ? 'map-filled' : 'map';
+		// Name the actual target — the current host when offering to ungroup, the would-be host (same
+		// slot `togglePlacement` captures on group) when offering to group — so the label can never lie.
+		const visibleZones = this._renderCtx?.zones ?? this.getVisibleZones();
+		const targetId = grouped
+			? this.graphHostIdFor(visibleZones)
+			: visibleZones[Math.min(this.graphVisibleSlot, Math.max(0, visibleZones.length - 1))]?.id;
+		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
 		const title = hidden
-			? 'Graph: hidden — click to show as its own column'
+			? 'Show Graph Column'
 			: grouped
-				? 'Graph: grouped with the next column — click to show as its own column'
-				: 'Graph: shown as its own column — click to group it with the next column';
+				? `Ungroup Graph from ${targetName}`
+				: `Group Graph with ${targetName}`;
 		return html`<button
-			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}"
+			class="gl-graph__placement-toggle${labeled ? ' gl-graph__placement-toggle--labeled' : ''}${identityIcon
+				? ' gl-graph__placement-toggle--crumb'
+				: ''}"
 			type="button"
 			aria-pressed=${grouped ? 'true' : 'false'}
 			aria-label=${title}
@@ -5414,15 +5511,39 @@ export class GlLitGraph extends LitElement {
 			@pointerdown=${(e: Event) => e.stopPropagation()}
 			@click=${this.togglePlacement}
 		>
-			<code-icon icon=${icon}></code-icon>${labeled
+			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon>` : nothing}${labeled
 				? html`<span class="gl-graph__placement-toggle-label">Graph</span>`
-				: nothing}
+				: nothing}<code-icon icon=${icon}></code-icon>
 		</button>`;
 	}
 
 	// Click: flip Column ↔ Grouped (from hidden, restore to column).
 	private togglePlacement = (): void => {
-		this.graphPlacement = this.graphPlacement === 'column' ? 'grouped' : 'column';
+		if (this.graphPlacement === 'column') {
+			// column → grouped: capture the host BY ID — the zone at the graph's current visible slot (its
+			// right neighbor once the graph cell folds away) — so the [graph + host] pair travels together
+			// through later reorders instead of re-deriving positionally each time.
+			const visible = this.getVisibleZones();
+			this.graphHostZoneId = visible[Math.min(this.graphVisibleSlot, Math.max(0, visible.length - 1))]?.id;
+			this.graphPlacement = 'grouped';
+		} else if (this.graphPlacement === 'grouped') {
+			// grouped → column: re-derive the anchor from the host's CURRENT position — BEFORE clearing the
+			// sticky id, while `graphHostIdFor` can still resolve it — so the graph column reappears
+			// immediately LEFT of the host (which may have moved while grouped). Leave the anchor unchanged
+			// if the host is no longer visible.
+			const visible = this.getVisibleZones();
+			const hostId = this.graphHostIdFor(visible);
+			const hostIdx = hostId != null ? visible.findIndex(z => z.id === hostId) : -1;
+			if (hostIdx >= 0) {
+				this.graphColumnPos = this.graphAnchorForVisibleSlot(visible, hostIdx);
+			}
+			this.graphPlacement = 'column';
+			this.graphHostZoneId = undefined;
+		} else {
+			// hidden → column.
+			this.graphPlacement = 'column';
+			this.graphHostZoneId = undefined;
+		}
 		// Reset the offsets on a placement flip: a carried-over value would leave `--graph-gutter-scroll`
 		// sliding the rasters out from under their dots in the new placement. Re-run the scroll path so the
 		// var + any dependent clamp state re-settle against the new placement.
@@ -5449,7 +5570,12 @@ export class GlLitGraph extends LitElement {
 	// Refs header (`atEnd` → outline `map` → group with Message), mirroring the graph column's toggle;
 	// when grouped it migrates to the LEFT of the Message host header (filled `map-filled` → separate
 	// back out). Rendered from the zone-header loop. Expanded density only (the header).
-	private renderRefsPlacementControl(atEnd: boolean, visibleZones: readonly ZoneSpec[]): TemplateResult {
+	// `identityIcon` = the crumb-chip form (column icon inside the button) — see renderPlacementControl.
+	private renderRefsPlacementControl(
+		atEnd: boolean,
+		visibleZones: readonly ZoneSpec[],
+		identityIcon?: string,
+	): TemplateResult {
 		const isColumn = this.refsPlacement === 'column';
 		const icon = isColumn ? 'map' : 'map-filled';
 		// SPECIAL CASE (see `refsGroupMergesGraph`): here the click merges the Graph into Refs, not the
@@ -5461,12 +5587,14 @@ export class GlLitGraph extends LitElement {
 			isColumn && !mergesGraph ? this.refsGroupTargetId(visibleZones) : this.refsHostIdFor(visibleZones);
 		const targetName = targetId != null ? this.zoneDisplayName(targetId) : 'the next column';
 		const title = mergesGraph
-			? 'Branches / Tags: shown as their own column — click to group the Graph into it'
+			? 'Group Graph with Branches / Tags'
 			: isColumn
-				? `Branches / Tags: shown as their own column — click to group them with the ${targetName} column`
-				: `Branches / Tags: grouped with ${targetName} — click to show them as their own column`;
+				? `Group Branches / Tags with ${targetName}`
+				: `Ungroup Branches / Tags from ${targetName}`;
 		return html`<button
-			class=${atEnd ? 'gl-graph__placement-toggle gl-graph__placement-toggle--end' : 'gl-graph__placement-toggle'}
+			class="gl-graph__placement-toggle${atEnd ? ' gl-graph__placement-toggle--end' : ''}${identityIcon
+				? ' gl-graph__placement-toggle--crumb'
+				: ''}"
 			type="button"
 			aria-pressed=${isColumn ? 'false' : 'true'}
 			aria-label=${title}
@@ -5475,7 +5603,9 @@ export class GlLitGraph extends LitElement {
 			@pointerdown=${(e: Event) => e.stopPropagation()}
 			@click=${this.toggleRefsPlacement}
 		>
-			<code-icon icon=${icon}></code-icon>
+			${identityIcon ? html`<code-icon icon=${identityIcon}></code-icon> ` : nothing}<code-icon
+				icon=${icon}
+			></code-icon>
 		</button>`;
 	}
 
@@ -5493,15 +5623,17 @@ export class GlLitGraph extends LitElement {
 		// order. "Group refs" here means "merge that adjacent refs+graph pair", which is the SAME operation
 		// as grouping the graph in [Graph][Refs]. So group the GRAPH into the Refs zone (Refs STAYS a
 		// column — the flexible zone hosts lanes + pills), producing the identical end state. The anchor
-		// moves onto the refs zone so the lanes group there.
+		// moves onto the refs zone so the lanes group there; the sticky host id is set to `'ref'` directly
+		// (no visible-slot lookup needed — this IS the merge).
 		if (this.refsGroupMergesGraph()) {
 			const refsFullIdx = this.zones.findIndex(z => z.id === 'ref');
 			this.graphPlacement = 'grouped';
+			this.graphHostZoneId = 'ref';
 			this.graphColumnPos = refsFullIdx;
-			// Unlike the ordinary group/ungroup paths above/below (session-only placement, anchor
-			// unchanged), this special case moves the persisted anchor itself — persist it now so an
-			// unrelated columns push (e.g. another column's visibility toggled from the host) can't echo
-			// back the stale pre-toggle order and snap the anchor back.
+			// Unlike ordinary GROUPING (which captures the host id and leaves the anchor alone), this
+			// special case moves the persisted anchor itself — persist it now so an unrelated columns
+			// push (e.g. another column's visibility toggled from the host) can't echo back the stale
+			// pre-toggle order and snap the anchor back.
 			this.persistColumnsConfig();
 			return;
 		}
@@ -5566,9 +5698,12 @@ export class GlLitGraph extends LitElement {
 			order: this.graphColumnPos,
 		};
 		// Omit `grouped` while hidden so the `...persisted` spread above preserves the last-echoed
-		// value — only an active (non-hidden) placement overwrites it.
+		// value — only an active (non-hidden) placement overwrites it. Persist the RESOLVED host id
+		// (mirrors `ref.grouped` via `refsHostIdFor`, see `buildColumnsConfig`); `?? true` covers an
+		// unresolvable host (e.g. a not-currently-visible zone) so grouped placement itself still persists.
 		if (this.graphPlacement !== 'hidden') {
-			config.grouped = this.graphPlacement === 'grouped' || undefined;
+			config.grouped =
+				this.graphPlacement === 'grouped' ? (this.graphHostIdFor(this.getVisibleZones()) ?? true) : undefined;
 		}
 		return config;
 	}
@@ -5591,9 +5726,23 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private persistColumnsConfig(): void {
+		// Stamp the write with the next revision; the host acks it on every subsequent columns push so
+		// `shouldApplyIncomingColumns` can order pushes against our writes deterministically.
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-changecolumns', { detail: { settings: this.buildColumnsConfig() } }),
+			new CustomEvent('gl-graph-changecolumns', {
+				detail: { settings: this.buildColumnsConfig(), revision: ++this.columnsWriteRevision },
+			}),
 		);
+	}
+
+	// True when an incoming `columns` push reflects ALL our local writes (the host processes commands
+	// serially and acks the latest write revision on every push). A push whose ack trails our counter was
+	// generated BEFORE an in-flight write — applying it would revert the just-made placement/width change
+	// ("grouping resets or jumps right after load") — so it's dropped; our own echo (ack == counter)
+	// arrives next and re-syncs. Host-initiated changes (cog menu, resets) carry the current ack, so with
+	// no write in flight they always apply.
+	private shouldApplyIncomingColumns(): boolean {
+		return this.columnsRevision >= this.columnsWriteRevision;
 	}
 
 	private applyZones(next: readonly ZoneSpec[]): void {
@@ -5678,20 +5827,16 @@ export class GlLitGraph extends LitElement {
 		};
 		onUp = (): void => {
 			flush();
-			// Commit: persist the cascaded columns' new widths as their preferred. Clear the preview so
-			// updateRenderState re-solves from the persisted preferred widths. Only when a drag actually
-			// moved a boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
-			// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit echo
-			// races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
+			// Commit the FULL drag result (see zonesWithSolvedWidths — zero-sum, so the re-solve
+			// reproduces the drag-end state instead of jumping). Only when a drag actually moved a
+			// boundary (`savedIds` non-empty) — a zero-distance press (e.g. the first click of a
+			// double-click, which autosizes on the second press) must NOT persist, or its stale pre-fit
+			// echo races the autosize's fitted echo and the width visibly bounces pre-fit → fitted.
 			const solved = this.dragSolvedZones;
 			const ids = this.dragSavedIds;
 			const changed = solved != null && ids != null && ids.length > 0;
 			if (changed) {
-				const widthById = new Map(ids.map(id => [id, solved.find(z => z.id === id)?.currentWidth]));
-				this.zones = this.zones.map(z => {
-					const w = widthById.get(z.id);
-					return w != null ? { ...z, width: w, currentWidth: undefined } : z;
-				});
+				this.zones = this.zonesWithSolvedWidths(solved);
 			}
 			cleanup();
 			if (changed) {
@@ -6357,12 +6502,6 @@ export class GlLitGraph extends LitElement {
 		cols.splice(from, 1);
 		cols.splice(target, 0, colId);
 
-		// An inlined graph follows its HOST zone so the pair moves as a group; a column graph moves alone.
-		const hostId =
-			!graphIsColumn && this.graphPlacement === 'grouped'
-				? base.visible[Math.min(base.visibleSlot, Math.max(0, base.visible.length - 1))]?.id
-				: undefined;
-
 		let zones = base.zones;
 		if (colId !== 'graph') {
 			// Move the dragged zone in the FULL list via the shared visible→canonical mapping, so it lands
@@ -6383,18 +6522,16 @@ export class GlLitGraph extends LitElement {
 			);
 		}
 
+		// Grouped's anchor never moves during a content reorder anymore — the lanes render at the STICKY
+		// host id (`graphHostIdFor`), not a re-derived slot, so no host-follow compensation is needed here.
+		if (this.graphPlacement === 'grouped') {
+			return { zones: zones, graphColumnPos: base.graphColumnPos };
+		}
+
 		// Reordering never changes WHICH zones are visible — only their order; recompute the visible order.
 		const visibleIds = new Set(base.visible.map(z => z.id));
 		const updatedVisible = zones.filter(z => visibleIds.has(z.id));
-		const graphSlot =
-			hostId != null
-				? Math.max(
-						0,
-						updatedVisible.findIndex(z => z.id === hostId),
-					)
-				: graphIsColumn
-					? cols.indexOf('graph')
-					: Math.min(base.visibleSlot, updatedVisible.length);
+		const graphSlot = graphIsColumn ? cols.indexOf('graph') : Math.min(base.visibleSlot, updatedVisible.length);
 		return { zones: zones, graphColumnPos: this.graphAnchorForVisibleSlotIn(zones, updatedVisible, graphSlot) };
 	}
 
@@ -6511,18 +6648,25 @@ export class GlLitGraph extends LitElement {
 
 		event.preventDefault();
 		const step = (event.shiftKey ? 40 : 8) * dir;
-		// Same boundary trade as the pointer drag, applied once and persisted immediately: trade width
-		// between this column and its right neighbor, persisting both columns' new preferred widths.
+		// Same boundary trade as the pointer drag, applied once and persisted immediately. Commits the
+		// FULL result set (zero-sum — see zonesWithSolvedWidths); a floored no-op press commits nothing.
 		const result = dragResizeZone(visibleZones, visibleIdx, step);
-		if (result == null) return;
+		if (result == null || result.savedIds.length === 0) return;
 
-		const widthById = new Map(result.savedIds.map(id => [id, result.zones.find(z => z.id === id)?.currentWidth]));
-		this.applyZones(
-			this.zones.map(z => {
-				const w = widthById.get(z.id);
-				return w != null ? { ...z, width: w, currentWidth: undefined } : z;
-			}),
-		);
+		this.applyZones(this.zonesWithSolvedWidths(result.zones));
+	}
+
+	// Zero-sum resize commit: persist EVERY visible zone at its drag/keyboard-result width — not just the
+	// cascade's touched ids. In a deficit layout an untouched zone's larger preferred would re-inflate on
+	// the next solve and crush the just-resized columns back to their floors (the release-time "jump").
+	// The result set already sums exactly to the target, so committing it verbatim makes the re-solve
+	// reproduce it deterministically. Hidden/inlined zones aren't in the set and keep their preferreds.
+	private zonesWithSolvedWidths(solved: readonly ZoneSpec[]): ZoneSpec[] {
+		const widthById = new Map(solved.map(z => [z.id, z.currentWidth ?? z.width]));
+		return this.zones.map(z => {
+			const w = widthById.get(z.id);
+			return w != null ? { ...z, width: w, currentWidth: undefined } : z;
+		});
 	}
 
 	// Keyboard reorder for the column label (Arrow Left/Right). Uses the same gap-index +

@@ -115,7 +115,7 @@ export interface GraphColumnSetting {
 	isHidden: boolean;
 	mode?: string;
 	order?: number;
-	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;
 }
 
@@ -427,6 +427,8 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	 */
 	sync?: GraphRowsSyncStamp;
 	columns?: GraphColumnsSettings;
+	/** See {@link DidChangeColumnsParams.columnsRevision} — bootstrap carries it too. */
+	columnsRevision?: number;
 	config?: GraphComponentConfig;
 	context?: GraphContexts & { settings?: SerializedGraphItemContext };
 	nonce?: string;
@@ -742,7 +744,7 @@ export interface GraphColumnConfig {
 	mode?: string;
 	width?: number;
 	order?: number;
-	/** Column↔grouped placement. `graph`: `true` = grouped. `ref`: host zone id = grouped, `false` = column. */
+	/** Column↔grouped placement. `graph`: `true` (legacy) or host zone id = grouped. `ref`: host zone id = grouped, `false` = column. */
 	grouped?: boolean | string;
 }
 
@@ -864,6 +866,9 @@ export const SearchCancelCommand = new IpcCommand<SearchCancelParams>(scope, 'se
 
 export interface UpdateColumnsParams {
 	config: GraphColumnsConfig;
+	/** Monotonic per-webview-session write counter; echoed back as `columnsRevision` so the webview can
+	 * order pushes against its own writes (see `DidChangeColumnsParams.columnsRevision`). */
+	revision?: number;
 }
 export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
 
@@ -1447,6 +1452,10 @@ export const DidChangeBranchStateNotification = new IpcNotification<DidChangeBra
 
 export interface DidChangeColumnsParams {
 	columns: GraphColumnsSettings | undefined;
+	/** The latest webview columns-write revision this push reflects (commands are processed serially).
+	 * The webview drops pushes whose revision trails its own write counter — they were generated before
+	 * an in-flight local change and would otherwise revert it (early-load grouping "reset/jump"). */
+	columnsRevision?: number;
 	context?: string;
 	settingsContext?: string;
 }

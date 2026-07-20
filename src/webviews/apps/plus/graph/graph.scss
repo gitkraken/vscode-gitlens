@@ -1363,6 +1363,75 @@ gl-lit-graph {
 		line-height: 1.4;
 	}
 
+	// Breadcrumb "group member": a folded column's muted label + its placement toggle + a chevron, rendered
+	// at the head of its grouped HOST cell ahead of the host's own label (e.g. `Graph ⛶ › Message`). The
+	// label + chevron drop on narrow hosts (see `controlsPx`/`headerLabelFits`), leaving just the toggle.
+	.gl-graph__group-member {
+		display: inline-flex;
+		// Icon-only crumbs are fixed-size (column icon + toggle + chevron) — they never shrink or clip.
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.3rem;
+		overflow: hidden;
+
+		// Breathing room between successive crumbs — members are adjacent flex spans, so without this
+		// a member's chevron sits flush against the next member's label.
+		+ .gl-graph__group-member {
+			margin-inline-start: 0.5rem;
+		}
+		// The refs crumb hosts the refs filter button at its inline-START (before the label, matching the
+		// non-grouped columns). Idle it collapses to ~0 width but still owns a flex-gap slot — pull the
+		// following label back so the idle crumb shows no leading hole.
+		.gl-graph__filter-toggle {
+			margin-inline-end: -0.3rem;
+		}
+		// The toggle's base margin-right stacks with the crumb's gap + the chevron's margin (0.8rem on
+		// the toggle→chevron side vs 0.5rem everywhere else) — the flex gap alone spaces it here.
+		.gl-graph__placement-toggle {
+			margin-right: 0;
+		}
+	}
+	// Revealed (crumb hover/focus) or active, the crumb's filter rejoins the gap flow: drop the idle
+	// pull-back AND the global reveal's leading margin (the crumb's own gap already spaces it).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:focus-within .gl-graph__filter-toggle--member,
+	.gl-graph__filter-toggle--member.is-active {
+		margin-inline-start: 0;
+		margin-inline-end: 0;
+	}
+	// Everything in a header cell EXCEPT the resize handle lives in this clipper: cell content can never
+	// spill into the neighboring header (the old overlap), while the handle — which hangs OUTSIDE the
+	// cell box — stays a direct cell child so it isn't severed.
+	.gl-graph__header-cell-content {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 0;
+		align-items: center;
+		height: 100%;
+		overflow: hidden;
+	}
+	// Crumb-chip form of the placement toggle: the column's identity icon + the map icon in ONE button —
+	// the whole crumb is the ungroup hit target (same pattern as `--labeled`, icon instead of text).
+	.gl-graph__placement-toggle--crumb {
+		width: auto;
+		gap: 0.3rem;
+		padding: 0 0.5rem;
+	}
+	// Breadcrumb separator between a group member and the next crumb (or the host label). Every chevron
+	// gets 0.5rem of air on BOTH sides: left = the member's 0.3rem gap + 0.2rem here; right = the 0.5rem
+	// inter-member margin (above) or the host label's scoped 0.5rem padding (below).
+	.gl-graph__group-member-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		margin-inline-start: 0.2rem;
+		color: hsl(var(--muted-foreground));
+	}
+	// The host's own label follows the crumbs at the same 0.5rem the inter-member margin provides —
+	// its default 0.8rem label padding read as a wider, uneven gap after the last chevron.
+	.gl-graph__group-member ~ .gl-graph__header-label {
+		padding-inline-start: 0.5rem;
+	}
+
 	// Column-header filter button. Idle it collapses to zero width + transparent, so the label sits at its
 	// normal position (no reserved space). The reveal is entirely CSS-internal to the header cell — it
 	// never touches the JS zone-width solver (only an ACTIVE filter feeds the fit math, done in renderHeader).
@@ -1396,11 +1465,21 @@ gl-lit-graph {
 	}
 	// Reveal on cell hover / keyboard focus-within: expand to the ~22px footprint (sliding the label right)
 	// and fade in. Presentational only — the label-fit math (renderHeader) is unaffected by hover.
-	.gl-graph__header-cell:hover .gl-graph__filter-toggle,
-	.gl-graph__header-cell:focus-within .gl-graph__filter-toggle,
+	// Crumb-hosted filters (`--member`) are excluded: they reveal on their own CRUMB's hover below, so
+	// mousing anywhere on a wide host cell doesn't pop a filter inside the breadcrumb.
+	.gl-graph__header-cell:hover .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:focus-within .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
 	.gl-graph__filter-toggle.is-active {
 		width: 1.8rem;
 		margin-inline-start: 0.4rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	// Crumb filter reveal: only when the pointer/focus is on that breadcrumb member itself. Margins stay
+	// 0 (the crumb's own gap spaces it — see the member margin rules above).
+	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:focus-within .gl-graph__filter-toggle--member {
+		width: 1.8rem;
 		opacity: 1;
 		pointer-events: auto;
 	}

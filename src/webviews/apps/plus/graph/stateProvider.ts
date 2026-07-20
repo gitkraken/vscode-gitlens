@@ -1251,6 +1251,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 			case DidChangeColumnsNotification.is(msg):
 				this.updateState({
 					columns: msg.params.columns,
+					columnsRevision: msg.params.columnsRevision,
 					context: {
 						...this._state.context,
 						header: msg.params.context,
