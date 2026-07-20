@@ -1,5 +1,5 @@
-import type { PagedResult } from '@gitlens/utils/paging.js';
-import type { ProviderHierarchyResult } from '../models.js';
+import type { CollectionCompleteness, CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import type { ProviderApiPagedResult, ProviderHierarchyResult } from '../models.js';
 
 /**
  * Encodes an opaque numeric paging token as the `{ value, type: 'page' }` cursor the paging layer uses.
@@ -22,40 +22,96 @@ export function parsePageCursor(cursor: string | undefined): number | undefined 
 	return undefined;
 }
 
+/** Precedence for merged completeness: any known omission (`partial`) wins, then inability to confirm
+ * (`unknown`), and only an all-`complete` set of pages stays `complete`. */
+const completenessRank: Record<CollectionCompleteness, number> = { partial: 2, unknown: 1, complete: 0 };
+
+/** A stable key for deduplicating structurally-identical scope failures accumulated across drained pages. */
+function collectionFailureKey(failure: CollectionScopeFailure): string {
+	const scope = failure.scope;
+	return [
+		failure.kind,
+		scope?.providerId ?? '',
+		scope?.resourceId ?? '',
+		scope?.projectId ?? '',
+		scope?.repositoryId ?? '',
+		failure.message ?? '',
+	].join(' ');
+}
+
+/**
+ * Merges SDK collection metadata across drained pages. Completeness follows {@link completenessRank};
+ * failures are concatenated and deduplicated by kind, scope IDs, and message. Returns `undefined` when no
+ * page supplied metadata, so metadata-free providers and test doubles keep behaving as before.
+ */
+export function mergeCollectionMetadata(
+	base: CollectionMetadata | undefined,
+	next: CollectionMetadata | undefined,
+): CollectionMetadata | undefined {
+	if (base == null) return next;
+	if (next == null) return base;
+
+	const completeness =
+		completenessRank[next.completeness] > completenessRank[base.completeness]
+			? next.completeness
+			: base.completeness;
+
+	const failures: CollectionScopeFailure[] = [];
+	const seen = new Set<string>();
+	for (const failure of [...(base.failures ?? []), ...(next.failures ?? [])]) {
+		const key = collectionFailureKey(failure);
+		if (seen.has(key)) continue;
+
+		seen.add(key);
+		failures.push(failure);
+	}
+
+	return { completeness: completeness, ...(failures.length ? { failures: failures } : {}) };
+}
+
 /**
  * Drains a provider paged fetcher into a single result while preserving enough metadata to
- * signal whether the defensive backstop interrupted the drain.
+ * signal whether the defensive backstop interrupted the drain, and merging SDK collection metadata
+ * ({@link mergeCollectionMetadata}) across the fetched pages.
+ *
+ * The local `truncated` flag and SDK `metadata` are distinct facts: a page-drain backstop must remain visible
+ * even if every fetched page reported `complete`, and SDK incompleteness is preserved even when the drain
+ * finished within its page budget.
  */
 export async function collectProviderPagedResult<T>(
-	fetch: (cursor: string | undefined) => Promise<PagedResult<T> | undefined>,
+	fetch: (cursor: string | undefined) => Promise<ProviderApiPagedResult<T> | undefined>,
 	maxPages = 20,
 ): Promise<ProviderHierarchyResult<T>> {
 	const values: NonNullable<T>[] = [];
 	let cursor: string | undefined;
+	let metadata: CollectionMetadata | undefined;
+
+	// Omit `metadata` entirely when no page supplied it, so a metadata-free drain stays deep-equal to its
+	// pre-metadata shape (and consumers never see an explicit `undefined`).
+	const build = (extra?: Partial<ProviderHierarchyResult<T>>): ProviderHierarchyResult<T> => ({
+		values: values,
+		...extra,
+		...(metadata != null ? { metadata: metadata } : {}),
+	});
 
 	for (let page = 0; page < maxPages; page++) {
 		const result = await fetch(cursor);
-		if (result == null) return { values: values };
+		if (result == null) return build();
 
 		values.push(...result.values);
-		if (!result.paging?.more) return { values: values };
+		metadata = mergeCollectionMetadata(metadata, result.metadata);
+
+		if (!result.paging?.more) return build();
 
 		if (result.paging.cursor === cursor) {
-			return {
-				values: values,
-				truncated: true,
-			};
+			return build({ truncated: true });
 		}
 
 		cursor = result.paging.cursor;
 		if (page === maxPages - 1) {
-			return {
-				values: values,
-				paging: result.paging,
-				truncated: true,
-			};
+			return build({ paging: result.paging, truncated: true });
 		}
 	}
 
-	return { values: values };
+	return build();
 }

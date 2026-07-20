@@ -103,6 +103,12 @@ export type ProviderGitHubOrganization = Organization;
 export type ProviderGitLabGroup = GitLabGroup;
 export type ProviderHierarchyResult<T> = PagedResult<T> & {
 	readonly truncated?: boolean;
+	/**
+	 * SDK collection metadata merged across the drained pages. Independent from the local `truncated` backstop:
+	 * a page-drain backstop stays visible even if every fetched page reported `complete`, and SDK
+	 * incompleteness is preserved even when the drain finished within its page budget.
+	 */
+	readonly metadata?: CollectionMetadata;
 };
 
 /**

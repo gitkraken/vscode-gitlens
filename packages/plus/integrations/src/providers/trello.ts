@@ -110,12 +110,14 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			return acc;
 		}, {});
 
-		const issues = await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
-			assigneeLogins: options?.user != null ? [options.user] : undefined,
-			trelloBoardListsById: trelloBoardListsById,
-		});
+		const issues = (
+			await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
+				assigneeLogins: options?.user != null ? [options.user] : undefined,
+				trelloBoardListsById: trelloBoardListsById,
+			})
+		).values;
 
-		return issues?.map(issue => toIssueShape(issue, this)).filter((result): result is IssueShape => result != null);
+		return issues.map(issue => toIssueShape(issue, this)).filter((result): result is IssueShape => result != null);
 	}
 
 	protected override searchProviderMyIssues(

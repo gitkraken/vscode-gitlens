@@ -1,5 +1,5 @@
 import ProviderApis from '@gitkraken/provider-apis';
-import type { GitPullRequestState, TrelloBoard, TrelloList } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, GitPullRequestState, TrelloBoard, TrelloList } from '@gitkraken/provider-apis';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
@@ -34,6 +34,8 @@ import type {
 	PagingInput,
 	PagingMode,
 	ProviderAccount,
+	ProviderApiCollectionResult,
+	ProviderApiPagedResult,
 	ProviderAzureProject,
 	ProviderAzureResource,
 	ProviderBitbucketResource,
@@ -458,13 +460,13 @@ export class ProvidersApi {
 			| ((
 					input: any,
 					options?: { token?: string; isPAT?: boolean; baseUrl?: string },
-			  ) => Promise<{ data: NonNullable<T>[]; pageInfo?: PageInfo }>)
+			  ) => Promise<{ data: NonNullable<T>[]; pageInfo?: PageInfo; metadata?: CollectionMetadata }>)
 			| undefined,
 		tokenWithInfo: TokenWithInfo,
 		cursor: string = '{}',
 		isPAT: boolean = false,
 		baseUrl?: string,
-	): Promise<PagedResult<T>> {
+	): Promise<ProviderApiPagedResult<T>> {
 		let cursorInfo;
 		try {
 			cursorInfo = JSON.parse(cursor);
@@ -518,11 +520,18 @@ export class ProvidersApi {
 				nextCursor = JSON.stringify({ value: pageInfo.nextPage, type: 'page' });
 			}
 
+			// SDK collection completeness is independent from provider-native pagination: a result can expose a
+			// real next page (`more`) and still have a failed sibling scope (`partial`/`unknown`). Surface the
+			// latter as `truncated` so consumers treat the page as incomplete. Absent metadata (old providers,
+			// test doubles) leaves `truncated` unset for backward compatibility.
+			const truncated = result.metadata != null && result.metadata.completeness !== 'complete' ? true : undefined;
+
 			return {
 				values: result.data,
 				paging: {
 					cursor: nextCursor,
 					more: hasMore,
+					truncated: truncated,
 					// Numbered-page metadata; left undefined by cursor-based providers (which don't report a
 					// currentPage), so we never echo the requested page for a provider that ignored it.
 					page: pageInfo?.currentPage ?? undefined,
@@ -531,9 +540,10 @@ export class ProvidersApi {
 					totalPages: pageInfo?.totalPages ?? undefined,
 					totalCount: pageInfo?.totalCount ?? undefined,
 				},
+				metadata: result.metadata,
 			};
 		} catch (e) {
-			return this.handleProviderError<PagedResult<T>>(tokenWithInfo, e);
+			return this.handleProviderError<ProviderApiPagedResult<T>>(tokenWithInfo, e);
 		}
 	}
 
@@ -832,7 +842,7 @@ export class ProvidersApi {
 	async getJiraProjectsForResources(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
 		resourceIds: string[],
-	): Promise<ProviderJiraProject[] | undefined> {
+	): Promise<ProviderApiCollectionResult<ProviderJiraProject>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getJiraProjectsForResourcesFn',
@@ -840,10 +850,15 @@ export class ProvidersApi {
 		const token = tokenWithInfo.accessToken;
 
 		try {
-			return (await provider.getJiraProjectsForResourcesFn?.({ resourceIds: resourceIds }, { token: token }))
-				?.data;
+			const result = await provider.getJiraProjectsForResourcesFn?.(
+				{ resourceIds: resourceIds },
+				{ token: token },
+			);
+			// Preserve the SDK's per-resource completeness/failures instead of collapsing to a bare array, so the
+			// Jira integration can cache only proven-successful resources and warn on the failed ones.
+			return { values: result?.data ?? [], metadata: result?.metadata };
 		} catch (e) {
-			return this.handleProviderError<ProviderJiraProject[] | undefined>(tokenWithInfo, e);
+			return this.handleProviderError<ProviderApiCollectionResult<ProviderJiraProject>>(tokenWithInfo, e);
 		}
 	}
 
@@ -1020,7 +1035,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenOptInfo,
 		reposOrIds: ProviderReposInput,
 		options?: GetPullRequestsOptions & { isPAT?: boolean; baseUrl?: string },
-	): Promise<PagedResult<ProviderPullRequest>> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getPullRequestsForReposFn',
@@ -1043,7 +1058,7 @@ export class ProvidersApi {
 		tokenOptInfo: TokenOptInfo,
 		repo: ProviderRepoInput,
 		options?: GetPullRequestsOptions & { isPAT?: boolean; baseUrl?: string },
-	): Promise<PagedResult<ProviderPullRequest>> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getPullRequestsForRepoFn',
@@ -1063,17 +1078,17 @@ export class ProvidersApi {
 		tokenWithInfo: TokenWithInfo<GitCloudHostIntegrationId.Bitbucket>,
 		userId: string,
 		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
-	): Promise<PagedResult<ProviderPullRequest>>;
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
 		tokenWithInfo: TokenWithInfo<Exclude<IntegrationIds, GitCloudHostIntegrationId.Bitbucket>>,
 		username: string,
 		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
-	): Promise<PagedResult<ProviderPullRequest>>;
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>>;
 	async getPullRequestsForUser(
 		tokenOptInfo: TokenWithInfo,
 		usernameOrId: string,
 		options?: { isPAT?: boolean } & GetPullRequestsForUserOptions,
-	): Promise<PagedResult<ProviderPullRequest>> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getPullRequestsForUserFn',
@@ -1432,7 +1447,7 @@ export class ProvidersApi {
 		appKey: string,
 		boardId: string,
 		options?: { assigneeLogins?: string[]; trelloBoardListsById?: Record<string, { name: string }> },
-	): Promise<ProviderIssue[] | undefined> {
+	): Promise<ProviderApiCollectionResult<ProviderIssue>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getTrelloIssuesForBoardFn',
@@ -1442,9 +1457,11 @@ export class ProvidersApi {
 				{ appKey: appKey, boardId: boardId, ...options },
 				{ token: tokenWithInfo.accessToken },
 			);
-			return result?.data;
+			// Trello's search caps results and reports the cap through `metadata.completeness` (never a cursor).
+			// Preserve it so the integration can signal a terminal truncation rather than a fake next page.
+			return { values: result?.data ?? [], metadata: result?.metadata };
 		} catch (e) {
-			return this.handleProviderError<ProviderIssue[] | undefined>(tokenWithInfo, e);
+			return this.handleProviderError<ProviderApiCollectionResult<ProviderIssue>>(tokenWithInfo, e);
 		}
 	}
 

@@ -151,10 +151,12 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const jiraProjectBaseDescriptors = await api.getJiraProjectsForResources(
-				toTokenWithInfo(this.id, session),
-				resourcesWithoutProjects.map(r => r.id),
-			);
+			const jiraProjectBaseDescriptors = (
+				await api.getJiraProjectsForResources(
+					toTokenWithInfo(this.id, session),
+					resourcesWithoutProjects.map(r => r.id),
+				)
+			).values;
 
 			for (const resource of resourcesWithoutProjects) {
 				const projects = jiraProjectBaseDescriptors?.filter(p => p.resourceId === resource.id);

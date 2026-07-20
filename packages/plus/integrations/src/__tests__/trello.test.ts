@@ -80,7 +80,7 @@ suite('Trello integration (#5438)', () => {
 			getTrelloIssuesForBoard: (_t: unknown, appKey: string, boardId: string) => {
 				capturedAppKey = appKey;
 				capturedBoardId = boardId;
-				return Promise.resolve([fakeIssue()]);
+				return Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } });
 			},
 		});
 
