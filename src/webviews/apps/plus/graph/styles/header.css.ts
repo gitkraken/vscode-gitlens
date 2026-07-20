@@ -178,6 +178,14 @@ export const graphHeaderControlStyles = css`
 		font-size: var(--gl-font-md);
 	}
 
+	/* The repo group trims these icon buttons to a 0.2rem pad to keep its trailing edge tight, which
+	   also leaves them shorter than every other header control. Restore only the vertical pad so they
+	   match the ~2.6rem row height, keeping the tight horizontal pad the component intends. */
+	.titlebar__group gl-repo-button-group::part(provider-icon),
+	.titlebar__group gl-repo-button-group::part(connect-icon) {
+		--button-padding: 0.3rem 0.2rem;
+	}
+
 	.shrink {
 		max-width: fit-content;
 		transition: all var(--gl-duration-medium);
