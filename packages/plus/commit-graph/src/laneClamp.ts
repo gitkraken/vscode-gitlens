@@ -188,9 +188,7 @@ export function computeLaneWindow(input: LaneWindowInput): LaneWindow {
 	return { startColumn: startColumn, endColumn: endColumn };
 }
 
-/** Value-equality for two (possibly absent) lane windows — the h-scroll bucket-crossing check. Compares the
- *  band too: a bucket crossing can shift the band (edge-band reclassification) while the clip bounds hold (a
- *  medium graph the window always covers), and that MUST still trigger a rebuild. */
+/** Value-equality for two (possibly absent) lane windows — the h-scroll bucket-crossing check. */
 export function laneWindowsEqual(a: LaneWindow | undefined, b: LaneWindow | undefined): boolean {
 	if (a == null || b == null) return a === b;
 
