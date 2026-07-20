@@ -3208,10 +3208,12 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		hover.onRowHovered(graphRow, anchor);
 	}
 
-	private handleGraphRowHoverTrack({ detail: { graphZoneType, graphRow } }: CustomEventType<'rowhovertrack'>) {
+	private handleGraphRowHoverTrack({
+		detail: { graphZoneType, graphRow, minimapDate },
+	}: CustomEventType<'rowhovertrack'>) {
 		if (graphZoneType === 'ref') return;
 
-		this.minimapEl?.select(graphRow.date, true);
+		this.minimapEl?.select(minimapDate ?? graphRow.date, true);
 		// Old-engine event detail is typed with the GKC row shape; the runtime object is the native row.
 		this.graphHover?.onRowChanged(graphRow as unknown as GitGraphRow);
 	}

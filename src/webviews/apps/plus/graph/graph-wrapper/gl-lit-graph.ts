@@ -193,6 +193,12 @@ type ResolvedRefTarget = {
 	current: boolean;
 };
 
+/** Which surface of a hovered row the pointer is over (see `handleRowHover`). 'content' = the
+ *  message/author/date/sha cells (schedules the rich commit card); 'graph' = the lanes/commit-dot
+ *  column (tracks only — no card today, but the seam for a future lane/branch hover card). Threaded
+ *  into the emitted `gl-graph-rowhover*` events' detail so the wrapper can forward it accurately. */
+type RowHoverZone = 'content' | 'graph';
+
 /**
  * Snapshot of the render-derived state the per-row `renderItem` needs. Populated once per
  * `render()` and read (never re-derived) inside the hot per-row loop, so `renderItem` can be a
@@ -429,6 +435,15 @@ export class GlLitGraph extends LitElement {
 	// Name of the click-pinned ref pill: keeps it expanded (the `.is-pinned` class, reconciled after
 	// each render) and drives the dim chain above + the click toggle. Undefined = nothing pinned.
 	@state() private _pinnedRefKey?: string;
+	// The ref pill (if any) currently under the pointer — `{ key, sha }` matches what `togglePinnedRef`
+	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
+	// press right after entering the pill activates immediately, with no re-hover required.
+	private hoveredPillRef?: { key: string; sha: string };
+	// Transient Ctrl/Cmd-hold chain (`activateModifierChain`/`deactivateModifierChain`): while a
+	// modifier is held over a ref pill, dims rows outside that ref's first-parent chain — the same
+	// derivation as the click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas`
+	// assignment in `updateRenderState`, which prefers this over `refHoverChainShas` while set).
+	@state() private modifierChainShas?: ReadonlySet<string>;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
@@ -692,6 +707,10 @@ export class GlLitGraph extends LitElement {
 	private formatDateFn?: (date: number) => string;
 	private formatDateShortFn?: (date: number) => string;
 	private lastConfigRef?: GraphComponentConfig;
+	// Keeps relative dates ("5m ago") fresh on an otherwise-idle graph. Only runs while the effective
+	// date style is relative (see `isRelativeDateStyle`); started/stopped alongside `formatDateFn` in
+	// willUpdate, and always torn down in disconnectedCallback.
+	private relativeTimeTimer?: ReturnType<typeof setInterval>;
 	// Scroll-rail markers (recomputed only when rows/selection/search/marker-types change). The flat
 	// list is grouped by row for rendering: one full-width interactive band per row carrying all its
 	// markers (so hover/click hits the whole row + one tooltip lists every marker, in lane order).
@@ -958,10 +977,20 @@ export class GlLitGraph extends LitElement {
 			this.attachScrollListener();
 		}
 		window.addEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
+		this.startRelativeTimeTimer();
+		document.addEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
+		window.addEventListener('keydown', this.onModifierKeyDown);
+		window.addEventListener('keyup', this.onModifierKeyUp);
+		window.addEventListener('blur', this.onWindowBlurForModifierChain);
 	}
 
 	override disconnectedCallback(): void {
 		window.removeEventListener('gl-graph-lane-palette-changed', this.onLanePaletteChanged);
+		document.removeEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
+		this.stopRelativeTimeTimer();
+		window.removeEventListener('keydown', this.onModifierKeyDown);
+		window.removeEventListener('keyup', this.onModifierKeyUp);
+		window.removeEventListener('blur', this.onWindowBlurForModifierChain);
 		// Release the gutter-template cache so a detached instance holds no `TemplateResult`s.
 		this.gutterCache.clear();
 		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
@@ -993,6 +1022,8 @@ export class GlLitGraph extends LitElement {
 			this.pinnedRefDismiss = undefined;
 		}
 		this._pinnedRefKey = undefined;
+		this.hoveredPillRef = undefined;
+		this.modifierChainShas = undefined;
 		if (this.tooltipShowTimer != null) {
 			clearTimeout(this.tooltipShowTimer);
 			this.tooltipShowTimer = undefined;
@@ -1146,6 +1177,12 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
+		// The host window losing focus (e.g. Alt-Tab away) can leave the Ctrl-hold dim stuck — the same
+		// `blur` signal drives `gl-graph--window-unfocused` in render().
+		if (changed.has('windowFocused') && this.windowFocused === false) {
+			this.deactivateModifierChain();
+		}
+
 		const selectionChanged = changed.has('selectedRows') || this.selectedRows !== this.lastSelectedRowsRef;
 		if (selectionChanged) {
 			this.lastSelectedRowsRef = this.selectedRows;
@@ -1156,6 +1193,11 @@ export class GlLitGraph extends LitElement {
 			this.lastConfigRef = this.config;
 			this.formatDateFn = this.buildFormatDate(false);
 			this.formatDateShortFn = this.buildFormatDate(true);
+			if (this.isRelativeDateStyle()) {
+				this.startRelativeTimeTimer();
+			} else {
+				this.stopRelativeTimeTimer();
+			}
 		}
 
 		// Upstream metadata (ahead/behind) arrives lazily after a `gl-graph-missingrefsmetadata` request;
@@ -1577,7 +1619,8 @@ export class GlLitGraph extends LitElement {
 			inScopeShas: this.scopeProjection != null ? undefined : this.inScopeShas,
 			searchMatchedShas: this._searchMatchedShas,
 			searchMode: this.searchMode,
-			inRefChainShas: this.refHoverChainShas,
+			// The transient Ctrl-hold chain overrides the click-pin while held; falls back to the pin.
+			inRefChainShas: this.modifierChainShas ?? this.refHoverChainShas,
 			dimMergeCommits: this.config?.dimMergeCommits,
 			showGhostRefs: this.config?.showGhostRefsOnRowHover === true,
 			getAvatarUrl: this.resolveAvatarUrl,
@@ -2717,8 +2760,10 @@ export class GlLitGraph extends LitElement {
 	// decoupled `gl-graph-rowhover*` events; the wrapper translates them into the existing GraphHover
 	// pipeline (GetRowHoverRequest → markdown card). Debounced to match the legacy 250ms open delay.
 	private hoveredRowSha?: string;
+	// Zone of the CURRENT `hoveredRowSha` hover (always set together with it) — see `RowHoverZone`.
+	private hoveredRowZone?: RowHoverZone;
 	private readonly emitRowHover = debounce(
-		(detail: { sha: string; clientX: number; currentTarget: HTMLElement }): void => {
+		(detail: { sha: string; clientX: number; currentTarget: HTMLElement; zone: RowHoverZone }): void => {
 			this.dispatchEvent(new CustomEvent('gl-graph-rowhover', { detail: detail }));
 		},
 		250,
@@ -2728,6 +2773,28 @@ export class GlLitGraph extends LitElement {
 		// No hovers/tooltips while a column resize is in progress — the pointer sweeps over the graph
 		// as the user drags the header handle, and flickering tooltips/row cards would be distracting.
 		if (this.draggingColumn) return;
+
+		// Ctrl/Cmd-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so a
+		// modifier keydown that arrives later knows what to activate against. Fires for every element in
+		// the viewport (not just pills) — resolving to `undefined` off a pill is what detects "left it"
+		// without needing a separate pointerout branch for the pill↔non-pill transition.
+		const pill = this.resolvePillHover(event);
+		if (pill != null) {
+			if (
+				this.hoveredPillRef == null ||
+				this.hoveredPillRef.key !== pill.key ||
+				this.hoveredPillRef.sha !== pill.sha
+			) {
+				this.hoveredPillRef = pill;
+				// Modifier already held when the pointer arrives (no fresh keydown to catch) — activate now.
+				if (event.ctrlKey || event.metaKey) {
+					this.activateModifierChain();
+				}
+			}
+		} else if (this.hoveredPillRef != null) {
+			this.hoveredPillRef = undefined;
+			this.deactivateModifierChain();
+		}
 
 		const target = this.closestTooltipTarget(event.target);
 		// Row entry → rich hover (only when NOT over a small affordance with its own tooltip, and
@@ -2812,7 +2879,21 @@ export class GlLitGraph extends LitElement {
 		// so it deliberately persists across hover-out.)
 		if (!(related instanceof Node) || !this.contains(related)) {
 			this.endRowHover(related ?? null);
+			// `onPointerOverTooltip` clears `hoveredPillRef` itself on every move that resolves off a
+			// pill — but a move that leaves the viewport entirely fires no further pointerover, so that
+			// path never runs. Mirror the row-hover cleanup above for the same reason.
+			if (this.hoveredPillRef != null) {
+				this.hoveredPillRef = undefined;
+				this.deactivateModifierChain();
+			}
 		}
+	};
+
+	// `pointerleave` (unlike `pointerout`) only fires once the pointer has left the element AND all its
+	// descendants — exactly the "gone" signal the minimap's day-highlight needs (the wrapper re-dispatches
+	// this as `gl-graph-mouse-leave` for graph-app's `minimapEl.unselect`).
+	private readonly onPointerLeave = (): void => {
+		this.dispatchEvent(new CustomEvent('gl-graph-mouseleave'));
 	};
 
 	// While a ref is pinned, a pointerdown anywhere that ISN'T a ref pill unfocuses it (click-outside
@@ -2902,6 +2983,67 @@ export class GlLitGraph extends LitElement {
 		return counterpart != null && counterpart !== sha ? [sha, counterpart] : [sha];
 	}
 
+	// Ctrl/Cmd-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
+	// pin), layered on top of it via the `inRefChainShas` fallback in `updateRenderState`. Unlike the
+	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
+	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
+	// cache to evict here (contrast `togglePinnedRef`/`clearPinnedRef`, which evict to promote/demote the
+	// inline pill). A hovered ref PILL wins (richer chain: the ref's own chain + its tracked
+	// counterpart); otherwise a hovered ROW (either zone — a `graph`-zone hover is still a row hover
+	// with a sha) seeds from its LANE TIP instead of its own sha (see `laneTipShaFor`).
+	private activateModifierChain(): void {
+		if (this.hoveredPillRef != null) {
+			const pill = this.hoveredPillRef;
+			this.modifierChainShas = identifyFirstParentChain(
+				this.processedRows,
+				this.pinnedChainShas(pill.key, pill.sha),
+			);
+			return;
+		}
+
+		if (this.hoveredRowSha != null) {
+			this.modifierChainShas = identifyFirstParentChain(this.processedRows, [
+				this.laneTipShaFor(this.hoveredRowSha),
+			]);
+		}
+	}
+
+	// `identifyFirstParentChain` walks DOWNWARD only (seed → first parents), so a mid-lane row must
+	// seed from its LANE'S TIP, not its own sha, or only the older half would highlight. Reuses the
+	// exact ghost-ref resolution (`renderRowItem`'s `laneTipSha ?? c.trunkTipSha`): `segmentByCommit`
+	// (excludes the trunk segment) with `trunkGhostTipSha()` as the trunk fallback — which ALSO hops a
+	// workdir tip to its real-HEAD parent, so a hovered WIP row's lane resolves through its anchor the
+	// same way the trunk's ghost ref does. Falls back to the row's own sha when neither resolves.
+	private laneTipShaFor(sha: string): string {
+		return this.segmentByCommit.get(sha) ?? this.trunkGhostTipSha() ?? sha;
+	}
+
+	private deactivateModifierChain(): void {
+		this.modifierChainShas = undefined;
+	}
+
+	// A fresh press of the modifier (not the key-repeat while held) while a pill OR a row is already
+	// hovered — the mirror of the "modifier already held, pointer arrives" branches in
+	// `onPointerOverTooltip`/`handleRowHover`.
+	private readonly onModifierKeyDown = (event: KeyboardEvent): void => {
+		if (event.repeat || (event.key !== 'Control' && event.key !== 'Meta')) return;
+		if (this.hoveredPillRef == null && this.hoveredRowSha == null) return;
+
+		this.activateModifierChain();
+	};
+
+	private readonly onModifierKeyUp = (event: KeyboardEvent): void => {
+		if (event.key !== 'Control' && event.key !== 'Meta') return;
+
+		this.deactivateModifierChain();
+	};
+
+	// A stuck modifier can't self-correct via keyup once focus has left the window (e.g. alt-tabbing
+	// away while still holding Ctrl over the graph) — drop the transient dim on blur.
+	private readonly onWindowBlurForModifierChain = (): void => {
+		this.deactivateModifierChain();
+	};
+
 	// Reconcile the click-pinned expand class after each render. The pill element is recreated on
 	// re-render (scroll/selection), so the imperative `.is-pinned` class can't live only on the DOM —
 	// re-apply it to the pinned pill (by its UNIQUE `data-ref-key`) and strip it from any stale pill.
@@ -2937,13 +3079,16 @@ export class GlLitGraph extends LitElement {
 		});
 	}
 
-	// Emit the rich-hover lifecycle for the row under the pointer. Refs are excluded (they own the
-	// ref popover); the standalone graph column is excluded (it's decorative). Mirrors the legacy
-	// gl-graph: an immediate start/track pair (cancels unhover timers + tracks the minimap) then a
-	// debounced hover that actually requests + shows the card.
+	// Emit the rich-hover lifecycle for the row under the pointer. Ref pills are fully excluded (they
+	// own their own popover). The lanes/commit-dot column now PARTICIPATES (start/track fire → the
+	// minimap follows it) but the ONE decision point below (zone → treatment) only schedules the
+	// debounced card for 'content' — sliding onto content from the SAME row upgrades to the full
+	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
+	// minimap tracking. Also (re)targets the Ctrl/Cmd-hold lane-chain dim (`activateModifierChain`)
+	// when a NEW row is entered while the modifier is already held.
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
-		if (node instanceof Element && node.closest('[data-ref-name], .gl-graph__zone--graph') != null) {
+		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
 			this.cancelRowHover();
 			return;
 		}
@@ -2955,7 +3100,31 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		if (sha === this.hoveredRowSha) return;
+		const zone: RowHoverZone =
+			node instanceof Element && node.closest('.gl-graph__zone--graph') != null ? 'graph' : 'content';
+
+		if (sha === this.hoveredRowSha) {
+			// Same row — only a zone CHANGE reacts; staying within a zone is a no-op.
+			if (zone === this.hoveredRowZone) return;
+
+			this.hoveredRowZone = zone;
+			this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
+			if (zone === 'content') {
+				// graph → content: upgrade to the full hover. `rowhoverstart` cancels the unhover timer
+				// the graph transition below arms, so a quick oscillation stays flicker-free.
+				this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
+				this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
+			} else {
+				// content → graph: cancel any pending card request and hide an already-open one, but
+				// keep the row tracked — `gl-graph-rowunhover` hides the card without touching the
+				// minimap's selected day (see handleGraphRowUnhover/GraphHover.onRowUnhovered).
+				this.emitRowHover.cancel();
+				this.dispatchEvent(
+					new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: null } }),
+				);
+			}
+			return;
+		}
 
 		// Moving directly between rows (or onto an affordance and back): end the previous row's
 		// hover first so its card can't linger. `rowhoverstart` below cancels the resulting unhover
@@ -2965,13 +3134,21 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this.hoveredRowSha = sha;
+		this.hoveredRowZone = zone;
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
-		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha } }));
-		this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl });
+		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
+		if (zone === 'content') {
+			this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
+		}
+		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
+		if (event.ctrlKey || event.metaKey) {
+			this.activateModifierChain();
+		}
 	}
 
-	// End any active row hover (also used when the pointer moves onto a tooltip affordance or the
-	// decorative graph column, so the rich card hides instead of co-showing with the tooltip).
+	// End any active row hover (also used when the pointer moves onto a tooltip affordance or a ref
+	// pill, which own their own tooltip/popover) — fully drops tracking, unlike the same-row zone
+	// transition above, which keeps `hoveredRowSha` alive.
 	private cancelRowHover(): void {
 		this.endRowHover(null);
 	}
@@ -2981,10 +3158,17 @@ export class GlLitGraph extends LitElement {
 		const sha = this.hoveredRowSha;
 		if (sha == null) return;
 
+		const zone = this.hoveredRowZone;
 		this.hoveredRowSha = undefined;
+		this.hoveredRowZone = undefined;
 		this.dispatchEvent(
-			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, relatedTarget: relatedTarget } }),
+			new CustomEvent('gl-graph-rowunhover', { detail: { sha: sha, zone: zone, relatedTarget: relatedTarget } }),
 		);
+		// A pill claiming the hover moments earlier in the SAME event (see onPointerOverTooltip) has
+		// already re-activated for it — only clear when NEITHER a pill nor a row is hovered anymore.
+		if (this.hoveredPillRef == null) {
+			this.deactivateModifierChain();
+		}
 	}
 
 	private closestTooltipTarget(node: EventTarget | null): HTMLElement | undefined {
@@ -3608,18 +3792,57 @@ export class GlLitGraph extends LitElement {
 	// `short` is set and the effective style is relative, returns the ultra-compact form ("2d");
 	// absolute styles can't meaningfully shrink a custom format, so they ignore `short`.
 	private buildFormatDate(short: boolean): (date: number) => string {
-		const style = this.config?.dateStyle;
-		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
-		const isRelative = style === 'relative' || (style == null && fmt == null);
-		if (isRelative) {
+		if (this.isRelativeDateStyle()) {
 			// Both forms come from GitLens' `fromNow` (the `short` flag picks "2d" vs "2 days ago") so the
 			// narrow and wide date columns share one threshold set and can't disagree on resize.
 			return short
 				? (date: number): string => gitlensFromNow(new Date(date), true)
 				: (date: number): string => gitlensFromNow(new Date(date));
 		}
+
+		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
 		return (date: number): string => formatGitLensDate(new Date(date), fmt ?? 'short');
 	}
+
+	// Same effective-style check `buildFormatDate` uses — factored out so the relative-time refresh
+	// timer (willUpdate) can gate on it without duplicating the two-line derivation.
+	private isRelativeDateStyle(): boolean {
+		const style = this.config?.dateStyle;
+		const fmt = typeof this.config?.dateFormat === 'string' ? this.config.dateFormat : undefined;
+		return style === 'relative' || (style == null && fmt == null);
+	}
+
+	// Starts (or leaves running) the relative-time refresh timer — only while the effective date style
+	// is relative; a no-op otherwise/when already running. `requestUpdate()` alone is enough to refresh
+	// the visible rows' dates: `formatDateFn` isn't identity-gated in the willUpdate trigger matrix, so
+	// no engine/adornment/marker recompute runs, just a re-render of what's on screen.
+	private startRelativeTimeTimer(): void {
+		if (this.relativeTimeTimer != null || !this.isRelativeDateStyle()) return;
+
+		this.relativeTimeTimer = setInterval(this.onRelativeTimeTick, 60_000);
+	}
+
+	private stopRelativeTimeTimer(): void {
+		if (this.relativeTimeTimer == null) return;
+
+		clearInterval(this.relativeTimeTimer);
+		this.relativeTimeTimer = undefined;
+	}
+
+	private readonly onRelativeTimeTick = (): void => {
+		// A hidden retained webview must not churn while backgrounded.
+		if (document.visibilityState === 'hidden') return;
+
+		this.requestUpdate();
+	};
+
+	// Becoming visible again while the timer is active refreshes immediately instead of waiting up to
+	// 60s for the next tick.
+	private readonly onVisibilityChangeForRelativeTime = (): void => {
+		if (document.visibilityState === 'visible' && this.relativeTimeTimer != null) {
+			this.requestUpdate();
+		}
+	};
 
 	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
 	// avoid the sticky "No commits" cold-load trap: while `loading` OR before the host's first row push
@@ -3714,6 +3937,7 @@ export class GlLitGraph extends LitElement {
 				@contextmenu=${this.onContextMenu}
 				@pointerover=${this.onPointerOverTooltip}
 				@pointerout=${this.onPointerOutTooltip}
+				@pointerleave=${this.onPointerLeave}
 			>
 				${header}
 				<lit-virtualizer
@@ -4105,6 +4329,17 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 		return undefined;
+	}
+
+	// Resolve the `{ key, sha }` pair `togglePinnedRef`/`activateModifierChain` need from a pointer
+	// event's path — same two lookups the pill click handler makes (resolveRef for the pill, resolveSha
+	// for its row), just packaged for the hover path.
+	private resolvePillHover(event: Event): { key: string; sha: string } | undefined {
+		const ref = this.resolveRef(event);
+		if (ref == null) return undefined;
+
+		const sha = this.resolveSha(event);
+		return sha != null ? { key: ref.key, sha: sha } : undefined;
 	}
 
 	// Resolve a PR/issue chip or upstream segment double-click into its full metadata object (walking
@@ -6702,5 +6937,6 @@ declare global {
 
 	interface GlobalEventHandlersEventMap {
 		'gl-graph-lanetoggle': CustomEvent<{ tipSha: string }>;
+		'gl-graph-mouseleave': CustomEvent<void>;
 	}
 }
