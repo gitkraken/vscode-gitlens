@@ -1453,7 +1453,7 @@
 					},
 					"gitlens.graph.experimental.useNewEngine": {
 						"type": "boolean",
-						"default": false,
+						"default": true,
 						"markdownDescription": "(Experimental) Render the _Commit Graph_ with the new Lit-based engine (`@gitkraken/commit-graph`). Many features are not yet wired in this mode.",
 						"scope": "window",
 						"order": 1110,
