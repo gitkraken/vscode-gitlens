@@ -69,6 +69,32 @@ test('...', { tag: '@no-fork' }, async ({ vscode }) => {
 
 Only tag genuine editor incompatibilities (missing UI), never functional failures — those get fixed.
 
+### Login-walled forks (Cursor, Kiro)
+
+Some forks hard-gate their entire workbench behind a sign-in wall on a fresh (unauthenticated) profile —
+the state every CI run and every harness-created temp profile is in:
+
+- **Cursor** shows a full-screen `.onboarding-v2-overlay` ("Sign Up / Log In", "Cursor's AI features
+  require you to be logged in") with no "continue without an account" affordance, leaving the workbench in
+  `nomaineditorarea nosidebar` so every pointer event is swallowed.
+- **Kiro** shows a `kiro-sign-in-page` overlay. Its "Skip All" button clears the wall on an
+  already-authenticated machine (so specs pass locally), but on a fresh CI profile the wall never lifts —
+  the auth lives in a machine-bound OS secret store CI can't carry, so the same click that dismisses it
+  locally does nothing in CI.
+
+Neither can be bypassed without a real auth token (which CI can't carry), and seeding the non-auth
+onboarding flags into `state.vscdb` does not lift them.
+
+The harness detects a still-present wall in `baseTest.ts` (`assertWorkbenchReachable`, after a best-effort
+`dismissOnboardingOverlays`) and fails the worker fixture fast with a clear message, instead of letting
+each UI-driven spec burn its full click timeout. But fail-fast alone does not bound the job: a failed
+worker fixture can't be reused, so Playwright relaunches the editor for the _next_ test into the same
+wall, and `retries` multiplies that — the job still burns its wall-clock and gets cancelled with zero
+useful signal. So login-walled forks are **excluded from the CI matrix** entirely via `editors.ts`
+`runInCI: false` (the single source of truth the CI matrix derives from). They stay `experimental` and
+registered for local `--project=<id>` runs on an authenticated machine; only there do their UI specs (and,
+everywhere, extension-host `mcp*` specs) exercise anything.
+
 ## Interpreting Test Output
 
 - PASS = test passed
