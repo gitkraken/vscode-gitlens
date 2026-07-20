@@ -592,13 +592,16 @@ gl-lit-graph {
 
 			background-color: var(--row-rest-bg);
 		}
-		// Active-search match (normal mode): the VS Code list filter-match tint so hits stand out while
-		// non-matches dim (is-dimmed). Before is-selected so a selected match still reads as selected.
+		// Active-search match (normal mode): the VS Code range-highlight color — the row-scale "line
+		// containing a search hit" tint (Quick Open/Find) — while non-matches dim (is-dimmed); char-level
+		// find/filter-match tints are too heavy across a full row. Falls back to a brand tint where the
+		// theme defines neither (e.g. high contrast). Before is-selected so a selected match still reads
+		// as selected.
 		&.is-highlighted {
-			--row-rest-bg: var(--vscode-list-filterMatchBackground, hsl(var(--brand) / 0.2));
+			--row-rest-bg: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 0.2));
 
 			background-color: var(--row-rest-bg);
-			box-shadow: inset 0 0 0 1px var(--vscode-list-filterMatchBorder, transparent);
+			box-shadow: inset 0 0 0 1px var(--vscode-editor-rangeHighlightBorder, transparent);
 		}
 		&.is-selected {
 			// Component-scoped tokens (not the raw `--vscode-*` directly) so the window-unfocused override
