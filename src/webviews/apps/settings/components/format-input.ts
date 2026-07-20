@@ -4,6 +4,11 @@ import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { debounce } from '@gitlens/utils/debounce.js';
+import type {
+	CompletionItem,
+	CompletionSelectEvent,
+	GlAutocomplete,
+} from '../../shared/components/autocomplete/autocomplete.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '../../shared/components/styles/lit/base.css.js';
 import { formatDate } from '../../shared/date.js';
@@ -13,6 +18,7 @@ import { dateFormatTokens, getFormatTokens } from '../format-tokens.js';
 import type { TextDescriptor } from '../model.js';
 import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
+import '../../shared/components/autocomplete/autocomplete.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
 import '../../shared/components/markdown/markdown.js';
@@ -130,57 +136,6 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 			.tokens-trigger:focus-visible {
 				${focusOutline}
-			}
-
-			/* Inline token typeahead */
-			.suggestions {
-				position: absolute;
-				z-index: var(--gl-z-popover, 50);
-				inset-inline: 0;
-				inset-block-start: calc(100% + 0.2rem);
-				display: flex;
-				flex-direction: column;
-				max-height: 24rem;
-				padding: 0.3rem 0;
-				margin: 0;
-				overflow-y: auto;
-				list-style: none;
-				background-color: var(--vscode-editorSuggestWidget-background, var(--vscode-menu-background));
-				border: var(--gl-border-width) solid var(--vscode-editorSuggestWidget-border, var(--vscode-menu-border));
-				border-radius: var(--gl-radius-sm, 0.4rem);
-				box-shadow: var(--gl-shadow-popover, 0 2px 8px rgb(0 0 0 / 0.3));
-			}
-
-			.suggestion {
-				display: flex;
-				gap: var(--gl-space-12);
-				align-items: center;
-				justify-content: space-between;
-				width: 100%;
-				padding: 0.4rem 0.9rem;
-				text-align: left;
-				cursor: pointer;
-				background: transparent;
-				border: none;
-			}
-
-			.suggestion[aria-selected='true'],
-			.suggestion:hover {
-				background-color: var(
-					--vscode-editorSuggestWidget-selectedBackground,
-					var(--vscode-list-hoverBackground)
-				);
-			}
-
-			.suggestion code {
-				font-family: var(--vscode-editor-font-family);
-				font-size: 1.15rem;
-				color: var(--color-link-foreground);
-			}
-
-			.suggestion span {
-				font-size: 1.05rem;
-				color: var(--color-foreground--65);
 			}
 
 			/* Token menu (chevron popover) */
@@ -426,8 +381,8 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 	@state()
 	private _suggestQuery: string = '';
 
-	@state()
-	private _suggestIndex: number = 0;
+	@query('gl-autocomplete')
+	private _autocomplete?: GlAutocomplete;
 
 	/** Tracks descriptor identity so a reused instance drops a stale draft/example on switch. */
 	private _lastDescriptorKey: string | undefined;
@@ -589,17 +544,20 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 			switch (e.key) {
 				case 'ArrowDown':
 					e.preventDefault();
-					this._suggestIndex = (this._suggestIndex + 1) % suggestions.length;
+					this._autocomplete?.selectNext();
 					return;
 				case 'ArrowUp':
 					e.preventDefault();
-					this._suggestIndex = (this._suggestIndex - 1 + suggestions.length) % suggestions.length;
+					this._autocomplete?.selectPrevious();
 					return;
 				case 'Enter':
 				case 'Tab':
 					if (suggestions.length) {
 						e.preventDefault();
-						this.acceptSuggestion(suggestions[this._suggestIndex].token);
+						// The input drives navigation; accept the dropdown's highlighted item, falling
+						// back to the first match so Enter completes without arrowing.
+						const index = this._autocomplete?.selectedIndex ?? -1;
+						this.acceptSuggestion(suggestions[index < 0 ? 0 : index].token);
 					}
 					return;
 				case 'Escape':
@@ -666,6 +624,16 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		return tokens.filter(t => t.token.toLowerCase().includes(q) || t.label.toLowerCase().includes(q));
 	}
 
+	/** The current typeahead matches projected into the shared autocomplete's item shape. */
+	private get suggestionItems(): CompletionItem<FormatTokenInfo>[] {
+		return this.suggestions.map(t => ({
+			// oxlint-disable-next-line prefer-template -- `\${` escaping is harder to read than concatenation
+			label: '${' + t.token + '}',
+			description: t.label,
+			item: t,
+		}));
+	}
+
 	/** Composes a token with the current modifier-builder settings, per the `${'prefix'token|width?-'suffix'}` grammar. */
 	private composeToken(token: string): string {
 		const prefix = this._modPrefix ? `'${this._modPrefix}'` : '';
@@ -718,8 +686,12 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 		}
 
 		this._suggestQuery = match[1];
-		this._suggestIndex = 0;
 		this._suggestOpen = true;
+		// Pre-select the first match so Enter accepts it without arrowing (the shared dropdown starts
+		// unselected; wait for it to render the updated items before highlighting the first one).
+		void this.updateComplete.then(() => {
+			this._autocomplete?.setSelection(0);
+		});
 	}
 
 	private acceptSuggestion(token: string): void {
@@ -754,7 +726,12 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 	private _closeSuggestions(): void {
 		this._suggestOpen = false;
 		this._suggestQuery = '';
-		this._suggestIndex = 0;
+		this._autocomplete?.resetSelection();
+	}
+
+	private handleSuggestionSelect(e: CustomEvent<CompletionSelectEvent>): void {
+		// The token info is carried in the completion item; accept it via the shared brace-aware path.
+		this.acceptSuggestion((e.detail.item.item as FormatTokenInfo).token);
 	}
 
 	// ── Token-menu keyboard navigation (roving tabindex) ──
@@ -834,6 +811,11 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 						aria-expanded=${ifDefined(typeahead ? String(this._suggestOpen) : undefined)}
 						aria-controls=${ifDefined(typeahead ? 'token-suggestions' : undefined)}
 						aria-autocomplete=${ifDefined(typeahead ? 'list' : undefined)}
+						aria-activedescendant=${ifDefined(
+							typeahead && this._suggestOpen && this.suggestions.length > 0
+								? this._autocomplete?.getActiveDescendant()
+								: undefined,
+						)}
 						.value=${this.value}
 						placeholder=${ifDefined(d.placeholder)}
 						?disabled=${this.disabled}
@@ -843,7 +825,12 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 					/>
 					${mode != null ? this.renderTokenMenu(mode) : nothing}
 				</div>
-				${this._suggestOpen ? this.renderSuggestions() : nothing}
+				<gl-autocomplete
+					id="token-suggestions"
+					.items=${this.suggestionItems}
+					?open=${this._suggestOpen && this.suggestions.length > 0}
+					@gl-autocomplete-select=${this.handleSuggestionSelect}
+				></gl-autocomplete>
 			</div>
 			${d.preview != null
 				? html`<p
@@ -857,28 +844,6 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 							: html`<span class="example__text">${this._example || '—'}</span>`}
 					</p>`
 				: nothing}`;
-	}
-
-	private renderSuggestions(): unknown {
-		const suggestions = this.suggestions;
-		if (!suggestions.length) return nothing;
-
-		return html`<ul id="token-suggestions" class="suggestions" role="listbox" aria-label="Matching tokens">
-			${suggestions.map(
-				(t, i) => html`<li>
-					<button
-						type="button"
-						class="suggestion"
-						role="option"
-						aria-selected=${i === this._suggestIndex}
-						@mousedown=${(e: MouseEvent) => e.preventDefault()}
-						@click=${() => this.acceptSuggestion(t.token)}
-					>
-						<code>\${${t.token}}</code><span>${t.label}</span>
-					</button>
-				</li>`,
-			)}
-		</ul>`;
 	}
 
 	private renderTokenMenu(mode: TokenMode): unknown {
