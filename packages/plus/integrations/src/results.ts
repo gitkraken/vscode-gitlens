@@ -1,3 +1,4 @@
+import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { IntegrationIds } from './constants.js';
 
@@ -134,4 +135,107 @@ export function firstRecoverableRejection(settled: PromiseSettledResult<unknown>
 		}
 	}
 	return undefined;
+}
+
+/** Maps a structured SDK failure kind to the neutral {@link ProviderWarning} discriminant. */
+function collectionFailureKindToWarningKind(kind: CollectionScopeFailure['kind']): ProviderWarning['kind'] {
+	switch (kind) {
+		case 'authentication':
+			return 'auth';
+		case 'rate-limit':
+			return 'rate-limit';
+		case 'not-found':
+			return 'not-found';
+		// `network`, `provider`, and `unknown` are non-actionable-by-kind; surface them as a generic warning.
+		default:
+			return 'other';
+	}
+}
+
+/** Builds a scope-aware warning message so a partial fan-out identifies which resource/project/repo failed. */
+function collectionFailureMessage(failure: CollectionScopeFailure): string {
+	const scope = failure.scope;
+	const parts: string[] = [];
+	if (scope?.resourceId != null) {
+		parts.push(`resource ${scope.resourceId}`);
+	}
+	if (scope?.projectId != null) {
+		parts.push(`project ${scope.projectId}`);
+	}
+	if (scope?.repositoryId != null) {
+		parts.push(`repository ${scope.repositoryId}`);
+	}
+
+	const scopeText = parts.length ? ` (${parts.join(', ')})` : '';
+	const detail = failure.message != null ? `: ${failure.message}` : '';
+	return `Failed to read ${failure.kind} scope${scopeText}${detail}`;
+}
+
+/** A stable key for deduplicating warnings accumulated across drained pages / fan-out scopes. */
+function providerWarningKey(warning: ProviderWarning): string {
+	return [warning.providerId, warning.connectionId ?? '', warning.domain ?? '', warning.kind, warning.message].join(
+		' ',
+	);
+}
+
+/** Appends `warning` to `into` only when an equal warning (by provider/connection/domain/kind/message) is absent. */
+export function appendDedupedWarning(into: ProviderWarning[], warning: ProviderWarning): void {
+	const key = providerWarningKey(warning);
+	if (into.some(existing => providerWarningKey(existing) === key)) return;
+
+	into.push(warning);
+}
+
+/**
+ * Converts SDK collection {@link CollectionMetadata} into neutral ProviderBackend signals, without discarding
+ * any successful items the caller already holds:
+ *
+ * - Each structured `failure` becomes a scope-aware {@link ProviderWarning} classified by kind.
+ * - `failures.length > 0` sets `fetchFailed` (the collection is incomplete because part of the read failed).
+ * - `partial`/`unknown` completeness sets `truncated`. When there is no structured failure to explain the
+ *   incompleteness, a single generic warning is added; when failures exist, no duplicate generic warning is.
+ *
+ * Warnings are built with the caller's GitLens `providerId` (never `failure.scope.providerId`, which reports
+ * `azure` for both cloud and server) and deduplicated so repeated failures across drain pages collapse.
+ */
+export function assessCollectionMetadata(
+	providerId: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	metadata: CollectionMetadata | undefined,
+): { warnings: ProviderWarning[]; fetchFailed: boolean; truncated: boolean } {
+	if (metadata == null) return { warnings: [], fetchFailed: false, truncated: false };
+
+	const warnings: ProviderWarning[] = [];
+	const failures = metadata.failures ?? [];
+	for (const failure of failures) {
+		const kind = collectionFailureKindToWarningKind(failure.kind);
+		appendDedupedWarning(warnings, {
+			providerId: providerId,
+			domain: domain,
+			connectionId: connectionId,
+			message: collectionFailureMessage(failure),
+			kind: kind,
+			isAuth: kind === 'auth',
+		});
+	}
+
+	const incomplete = metadata.completeness !== 'complete';
+	// Incompleteness with no structured failure to explain it still needs one warning so the caller can surface
+	// truncation; when failures already explain it, avoid a redundant second warning.
+	if (incomplete && failures.length === 0) {
+		appendDedupedWarning(warnings, {
+			providerId: providerId,
+			domain: domain,
+			connectionId: connectionId,
+			message:
+				metadata.completeness === 'partial'
+					? 'Some results were omitted; the read is incomplete'
+					: 'Result completeness could not be confirmed',
+			kind: 'other',
+			isAuth: false,
+		});
+	}
+
+	return { warnings: warnings, fetchFailed: failures.length > 0, truncated: incomplete };
 }

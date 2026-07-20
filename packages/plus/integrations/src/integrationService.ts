@@ -78,7 +78,7 @@ import type {
 	RepositoryResolution,
 	ResolveRepositoryResult,
 } from './results.js';
-import { toProviderWarning } from './results.js';
+import { appendDedupedWarning, assessCollectionMetadata, toProviderWarning } from './results.js';
 import type { Source } from './telemetry.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
@@ -1520,17 +1520,26 @@ export class IntegrationService implements Disposable {
 		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
 		// unless the provider reports its own.
 		const paged = this.toProviderPageInfo(items.length, value?.paging);
+		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
+		// them to any captured thrown-error warning without discarding the partial result's items.
+		const assessment = assessCollectionMetadata(options.providerId, domain, options.connectionId, value?.metadata);
+		const warnings = warning != null ? [warning] : [];
+		for (const w of assessment.warnings) {
+			appendDedupedWarning(warnings, w);
+		}
 		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
-		// the page may be incomplete.
-		const truncated = value?.paging?.truncated ?? false;
+		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
+		const truncated = (value?.paging?.truncated ?? false) || assessment.truncated;
 		return {
 			items: items,
-			warnings: warning != null ? [warning] : [],
+			warnings: warnings,
 			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
 			cursor: paged.cursor,
-			fetchFailed: (warning != null && value == null) || undefined,
+			// A metadata failure means items are incomplete even when the read didn't throw; a thrown error with
+			// no recovered value is the pre-existing failure case.
+			fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 		};
 	}
 
@@ -1916,6 +1925,9 @@ export class IntegrationService implements Disposable {
 		const warnings: ProviderWarning[] = [];
 		let cursor: string | undefined;
 		let page = 0;
+		// SDK metadata failures across pages mean the collection is incomplete even when no page threw; carry
+		// this through the terminal returns instead of resetting it to false at the last page.
+		let fetchFailed = false;
 
 		// With no repos this is an account-wide "my PRs" sweep. The repo-scoped core rejects an empty `repos`
 		// input (`isRepoIdsInput([])` is true → "Unsupported input"), so read the account-wide, inherently
@@ -1936,34 +1948,52 @@ export class IntegrationService implements Disposable {
 						),
 			);
 			if (warning != null) {
-				warnings.push(warning);
+				appendDedupedWarning(warnings, warning);
 			}
 			if (value == null) {
 				// `warning` set → a hard read failure (incomplete items); otherwise not connected / no session.
-				return { items: items, warnings: warnings, fetchFailed: warning != null, truncated: false };
+				return {
+					items: items,
+					warnings: warnings,
+					fetchFailed: fetchFailed || warning != null,
+					truncated: false,
+				};
 			}
 
 			items.push(...value.values);
+
+			// Assess this page's SDK metadata: append scope-aware warnings (deduped across pages), and remember
+			// whether a structured failure or incompleteness occurred.
+			const assessment = assessCollectionMetadata(id, domain, connectionId, value.metadata);
+			for (const w of assessment.warnings) {
+				appendDedupedWarning(warnings, w);
+			}
+			fetchFailed = fetchFailed || assessment.fetchFailed;
+
 			if (!(value.paging?.more ?? false)) {
 				// A read that can't confirm completeness (single-page provider reads with no `hasNextPage`)
-				// sets `paging.truncated`; propagate it (and any top-level `truncated`) so the sweep doesn't
-				// claim an all-pages result.
-				const truncated = (value as { truncated?: boolean }).truncated ?? value.paging?.truncated ?? false;
+				// sets `paging.truncated`; propagate it (and any top-level `truncated` and SDK incompleteness)
+				// so the sweep doesn't claim an all-pages result.
+				const truncated =
+					(value as { truncated?: boolean }).truncated ??
+					value.paging?.truncated ??
+					assessment.truncated ??
+					false;
 				if (truncated) {
-					warnings.push(this.truncationWarning(id, domain, connectionId));
+					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
 				}
-				return { items: items, warnings: warnings, fetchFailed: false, truncated: truncated };
+				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: truncated };
 			}
 			if (page >= maxPages) {
-				warnings.push(this.truncationWarning(id, domain, connectionId));
-				return { items: items, warnings: warnings, fetchFailed: false, truncated: true };
+				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
+				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
 			const nextCursor = value.paging?.cursor;
 			if (nextCursor == null || nextCursor === '{}') {
 				// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
-				warnings.push(this.truncationWarning(id, domain, connectionId));
-				return { items: items, warnings: warnings, fetchFailed: false, truncated: true };
+				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
+				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
 			cursor = nextCursor;
@@ -2115,7 +2145,9 @@ export class IntegrationService implements Disposable {
 			}
 
 			items.push(...drain.items);
-			warnings.push(...drain.warnings);
+			for (const w of drain.warnings) {
+				appendDedupedWarning(warnings, w);
+			}
 			if (drain.fetchFailed) {
 				fetchFailed = true;
 			}

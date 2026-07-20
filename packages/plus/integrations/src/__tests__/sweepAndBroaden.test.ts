@@ -144,6 +144,49 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a sweep with SDK metadata failures reports allPages: false and preserves fetched items (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			// A single terminal page (no `more`) that still reports a structured failure: the successful sibling
+			// PR must survive, but the sweep cannot claim it read every page.
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [{ id: 'pr-good' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { repositoryId: 'octocat/broken' } }],
+					},
+				}),
+		});
+
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.GitHub],
+			repos: [{ namespace: 'octocat', name: 'hello' }],
+			maxPages: 10,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['pr-good'],
+			'the successful sibling PR survives the failed scope',
+		);
+		assert.equal(result.fetchFailed, true, 'a structured SDK failure means the slice is incomplete');
+		assert.equal(result.page.allPages, false, 'allPages is false after any SDK failure');
+		assert.equal(result.page.truncated, true);
+		assert.equal(
+			result.warnings.some(w => w.kind === 'auth'),
+			true,
+			'the auth scope failure is surfaced',
+		);
+
+		manager.dispose();
+	});
+
 	test('broadenIssues aggregates per-org, isolates a failing org into a warning, and reports fanOutCount', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

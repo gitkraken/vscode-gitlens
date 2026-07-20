@@ -177,6 +177,111 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a partial multi-repo result preserves items, emits a scope warning, and sets fetchFailed + truncation (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			// A successful sibling repo returns a PR while another repo failed with auth: the SDK reports the
+			// survivor's data plus a structured failure, not a thrown rejection.
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [pr],
+					paging: { more: false, cursor: '{}' },
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { repositoryId: 'octocat/broken' } }],
+					},
+				}),
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+		});
+
+		assert.deepEqual(result.items, [pr], 'the successful sibling PR survives the failed repo');
+		assert.equal(result.fetchFailed, true, 'a structured failure means the collection is incomplete');
+		assert.equal(result.page.truncated, true, 'partial completeness sets terminal truncation');
+		assert.equal(result.warnings.length, 1, 'one scope-aware warning, no duplicate generic truncation warning');
+		assert.equal(result.warnings[0].kind, 'auth');
+		assert.equal(result.warnings[0].isAuth, true);
+		assert.ok(
+			result.warnings[0].message.includes('octocat/broken'),
+			'the failed repository scope is named in the warning',
+		);
+
+		manager.dispose();
+	});
+
+	test('unknown completeness with no failures truncates without fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [pr],
+					paging: { more: false, cursor: '{}' },
+					metadata: { completeness: 'unknown' },
+				}),
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+		});
+
+		assert.deepEqual(result.items, [pr]);
+		assert.equal(result.fetchFailed, undefined, 'unknown without a failure is not a fetch failure');
+		assert.equal(result.page.truncated, true, 'unknown completeness still cannot claim a complete read');
+		assert.equal(result.warnings.length, 1, 'a single generic incompleteness warning');
+		assert.equal(result.warnings[0].kind, 'other');
+
+		manager.dispose();
+	});
+
+	test('complete metadata leaves a normal paged result unchanged (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: () =>
+				Promise.resolve({
+					values: [pr],
+					paging: { more: false, cursor: '{}' },
+					metadata: { completeness: 'complete' },
+				}),
+		});
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+		});
+
+		assert.deepEqual(result.items, [pr]);
+		assert.equal(result.fetchFailed, undefined);
+		assert.equal(result.page.truncated, undefined, 'complete adds no truncation');
+		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
 	test('listIssuesPage mirrors the page→cursor round-trip and warning mapping', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

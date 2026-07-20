@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -22,6 +23,7 @@ import type {
 	PagedProjectInput,
 	PagedRepoInput,
 	ProviderAccount,
+	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderIssue,
 	ProviderOrganization,
@@ -38,6 +40,7 @@ import {
 	toProviderIssueStates,
 	toProviderPullRequestStates,
 } from '../providers/models.js';
+import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
@@ -811,7 +814,7 @@ export abstract class GitHostIntegration<
 			state?: PullRequestStateFilter | PullRequestStateFilter[];
 		},
 		connectionId?: string,
-	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		return (await this.getMyPullRequestsForReposResult(reposOrRepoIds, options, connectionId))?.value;
 	}
 
@@ -832,7 +835,7 @@ export abstract class GitHostIntegration<
 			state?: PullRequestStateFilter | PullRequestStateFilter[];
 		},
 		connectionId?: string,
-	): Promise<IntegrationResult<PagedResult<ProviderPullRequest> | undefined>> {
+	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
 		const providerId = this.authProvider.id;
 		const states = toProviderPullRequestStates(options?.state);
@@ -985,6 +988,8 @@ export abstract class GitHostIntegration<
 			try {
 				const cursor: { cursors: PagedRepoInput[] } = { cursors: [] };
 				let hasMore = false;
+				let truncated = false;
+				let metadata: CollectionMetadata | undefined;
 				const data: ProviderPullRequest[] = [];
 				await Promise.all(
 					repoInputs.map(async repoInput => {
@@ -1005,6 +1010,12 @@ export abstract class GitHostIntegration<
 							},
 						);
 						data.push(...results.values);
+						// Fan-out across repos: preserve each repo's SDK completeness/failures and its terminal
+						// truncation so a single failed/incomplete repo isn't lost when merged with its siblings.
+						metadata = mergeCollectionMetadata(metadata, results.metadata);
+						if (results.paging?.truncated) {
+							truncated = true;
+						}
 						if (results.paging?.more) {
 							hasMore = true;
 							cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
@@ -1018,11 +1029,13 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							truncated: truncated || undefined,
 							// Echo the requested numbered page so the facade reports the real currentPage for
 							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
 							// leave `page` undefined via their own reads.
 							page: options?.page,
 						},
+						metadata: metadata,
 					},
 					duration: performance.now() - start,
 				};
@@ -1110,7 +1123,7 @@ export abstract class GitHostIntegration<
 	async getMyPullRequestsForUserResult(
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
 		connectionId?: string,
-	): Promise<IntegrationResult<PagedResult<ProviderPullRequest> | undefined>> {
+	): Promise<IntegrationResult<ProviderApiPagedResult<ProviderPullRequest> | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1142,7 +1155,7 @@ export abstract class GitHostIntegration<
 	protected getProviderMyPullRequestsForUser?(
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
-	): Promise<PagedResult<ProviderPullRequest> | undefined>;
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined>;
 
 	/**
 	 * Parses a Repo/Project paging cursor into its `cursors` bundle. Guards against valid JSON whose
