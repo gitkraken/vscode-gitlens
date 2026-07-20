@@ -3,7 +3,7 @@ import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
-import { RequestRateLimitError } from '../errors.js';
+import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
@@ -618,8 +618,10 @@ suite('sweep + broaden (#5438)', () => {
 					nextPage: page < 2 ? page + 1 : null,
 				});
 			},
-			// The reviewer slice reads over open remotes; return none so it doesn't add PRs here.
-			getPullRequestsForRepos: () => Promise.resolve({ values: [] }),
+			// The reviewer slice now enumerates the workspace's repos and drains each; return no repos so it
+			// contributes nothing here, keeping the test focused on the authored drain.
+			getReposForBitbucketWorkspace: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
 		});
 		(
 			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
@@ -628,14 +630,6 @@ suite('sweep + broaden (#5438)', () => {
 		(
 			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
 		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
-		// One open remote resolving to this provider, so the reviewer slice is attempted (not skipped, which
-		// would legitimately mark the read truncated).
-		(
-			bb as unknown as { ctx: { repositories: { getOpenRemotes: () => Promise<{ path: string }[]> } } }
-		).ctx.repositories.getOpenRemotes = () => Promise.resolve([{ path: 'ws/repo' }]);
-		(
-			bb as unknown as { authenticationService: { getByRemote: () => Promise<unknown> } }
-		).authenticationService.getByRemote = () => Promise.resolve(bb);
 
 		// Call the account-wide core directly to assert the per-workspace drain (avoids the sweep wrapper).
 		const result = await (
@@ -661,6 +655,7 @@ suite('sweep + broaden (#5438)', () => {
 
 		let reviewerIdArg: string | undefined;
 		let queryArg: string | undefined;
+		let reviewerReposCalled = false;
 		stubApi(bb, {
 			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
 				Promise.resolve({
@@ -668,12 +663,25 @@ suite('sweep + broaden (#5438)', () => {
 					hasMore: false,
 					nextPage: null,
 				}),
-			getPullRequestsForRepos: (_t: unknown, _repos: unknown, o?: { reviewerId?: string; query?: string }) => {
+			// The reviewer slice now enumerates the workspace's repos, then drains each repo's PRs by reviewerId.
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, o?: { reviewerId?: string; query?: string }) => {
 				reviewerIdArg = o?.reviewerId;
 				queryArg = o?.query;
 				return Promise.resolve({
 					values: [{ id: 'reviewing', url: 'u/reviewing' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
 				});
+			},
+			// The aggregate getPullRequestsForRepos must NOT be used for the reviewer slice anymore (it's not
+			// resumable); flag if it's called so the test fails loudly on a regression.
+			getPullRequestsForRepos: () => {
+				reviewerReposCalled = true;
+				return Promise.resolve({ values: [] });
 			},
 		});
 		(
@@ -682,24 +690,238 @@ suite('sweep + broaden (#5438)', () => {
 		(
 			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
 		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
-		(
-			bb as unknown as { ctx: { repositories: { getOpenRemotes: () => Promise<{ path: string }[]> } } }
-		).ctx.repositories.getOpenRemotes = () => Promise.resolve([{ path: 'ws/repo' }]);
-		(
-			bb as unknown as { authenticationService: { getByRemote: () => Promise<unknown> } }
-		).authenticationService.getByRemote = () => Promise.resolve(bb);
 
 		const result = await (
 			bb as unknown as {
 				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
 			}
 		).getMyPullRequestsForUserResult();
-		// The reviewer clause must go through the dedicated reviewerId input, not the text `query` (which the
-		// SDK treats as a title/description search that would match nothing).
+		// The reviewer read goes through the per-repo paged method with the dedicated reviewerId input, not the
+		// aggregate getPullRequestsForRepos (which is not resumable) nor a text `query`.
+		assert.equal(reviewerReposCalled, false, 'the non-resumable aggregate getPullRequestsForRepos is not used');
 		assert.equal(reviewerIdArg, 'u1', 'the reviewer read uses reviewerId');
 		assert.equal(queryArg, undefined, 'the reviewer clause is not passed as a text query');
 		const urls = (result?.value?.values ?? []).map(pr => pr.url).sort();
 		assert.deepEqual(urls, ['u/authored', 'u/reviewing'], 'both authored and review-requested PRs are returned');
+
+		manager.dispose();
+	});
+
+	/**
+	 * Helper: wire a Bitbucket integration for the reviewer-slice tests, stubbing account/workspaces and the
+	 * authored drain (empty) so each test only exercises the repo-discovery + per-repo reviewer drain.
+	 */
+	async function bitbucketForReviewerSlice(
+		runtime: ReturnType<typeof createFakeRuntime>,
+		api: Record<string, unknown>,
+	) {
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			// Authored drain contributes nothing; the tests target the reviewer slice.
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({ data: [], hasMore: false, nextPage: null }),
+			...api,
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
+		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+		return { manager: manager, bb: bb };
+	}
+
+	function callAccountWide(bb: GitHostIntegration) {
+		return (
+			bb as unknown as {
+				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+			}
+		).getMyPullRequestsForUserResult();
+	}
+
+	test('Bitbucket reviewer PRs are returned for a repo with no open local remote (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		// No getOpenRemotes stub — the new reviewer slice enumerates workspace repos instead of open remotes.
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [{ id: 'rev', url: 'u/rev' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+
+		const result = await callAccountWide(bb);
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url),
+			['u/rev'],
+			'a reviewer PR on a repo with no open remote is discovered via the workspace repo list',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice drains all pages of a repo with multiple PR pages (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		let prCalls = 0;
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, _repo: unknown, o?: { cursor?: string }) => {
+				prCalls += 1;
+				const page = o?.cursor == null || o.cursor === '{}' ? 1 : Number(JSON.parse(o.cursor).value);
+				return Promise.resolve({
+					values: [{ id: `rev-${page}`, url: `u/rev-${page}` } as unknown as ProviderPullRequest],
+					paging: {
+						more: page < 2,
+						cursor: page < 2 ? JSON.stringify({ value: page + 1, type: 'page' }) : '{}',
+					},
+				});
+			},
+		});
+
+		const result = await callAccountWide(bb);
+		assert.equal(prCalls, 2, 'both PR pages of the repo are drained');
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url).sort(),
+			['u/rev-1', 'u/rev-2'],
+			'PRs from both pages are returned',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice preserves siblings and warns when one repo fails with auth (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [
+						{ id: 'r1', namespace: 'ws', name: 'good' } as unknown as ProviderRepository,
+						{ id: 'r2', namespace: 'ws', name: 'bad' } as unknown as ProviderRepository,
+					],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: (_t: unknown, repo: { name: string }) => {
+				if (repo.name === 'bad') {
+					return Promise.reject(
+						new AuthenticationError(
+							{
+								providerId: GitCloudHostIntegrationId.Bitbucket,
+								microHash: undefined,
+								cloud: true,
+								type: 'oauth',
+								scopes: [],
+							},
+							AuthenticationErrorReason.Unauthorized,
+						),
+					);
+				}
+				return Promise.resolve({
+					values: [{ id: 'good-pr', url: 'u/good' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+
+		// An auth failure is actionable, so the account-wide core throws → the result core recovers it into
+		// { error }, which the facade maps to an auth warning. The sweep still preserves the good repo's PR.
+		const result = await manager.sweepPullRequests({
+			providerIds: [GitCloudHostIntegrationId.Bitbucket],
+			connectionId: undefined,
+		});
+
+		assert.deepEqual(
+			result.items.map(pr => pr.url),
+			['u/good'],
+			"the good repo's reviewer PR survives the bad repo's auth failure",
+		);
+		assert.equal(result.fetchFailed, true, 'the auth failure marks the slice incomplete');
+		assert.ok(
+			result.warnings.some(w => w.kind === 'auth'),
+			'the repo auth failure is surfaced as an actionable auth warning',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice dedupes authored/reviewer PRs by URL (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+		stubApi(bb, {
+			// The same PR is both authored by and review-requested from the user; it must collapse to one entry.
+			getBitbucketPullRequestsAuthoredByUserForWorkspace: () =>
+				Promise.resolve({
+					data: [{ id: 'shared', url: 'u/shared' } as unknown as ProviderPullRequest],
+					hasMore: false,
+					nextPage: null,
+				}),
+			getReposForBitbucketWorkspace: () =>
+				Promise.resolve({
+					values: [{ id: 'r1', namespace: 'ws', name: 'repo' } as unknown as ProviderRepository],
+					paging: { more: false, cursor: '{}' },
+				}),
+			getPullRequestsForRepo: () =>
+				Promise.resolve({
+					values: [{ id: 'shared', url: 'u/shared' } as unknown as ProviderPullRequest],
+					paging: { more: false, cursor: '{}' },
+				}),
+		});
+		(
+			bb as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		(
+			bb as unknown as { getProviderResourcesForCurrentUser: () => Promise<{ id: string; slug: string }[]> }
+		).getProviderResourcesForCurrentUser = () => Promise.resolve([{ id: 'w1', slug: 'ws' }]);
+
+		const result = await callAccountWide(bb);
+		assert.deepEqual(
+			(result?.value?.values ?? []).map(pr => pr.url),
+			['u/shared'],
+			'an authored PR that is also review-requested collapses to a single entry by URL',
+		);
+
+		manager.dispose();
+	});
+
+	test('Bitbucket reviewer slice marks truncated when repo discovery hits its backstop (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		let discoveryCalls = 0;
+		const { manager, bb } = await bitbucketForReviewerSlice(runtime, {
+			// Repo discovery always reports another page → the drain stops at its backstop and flags truncation.
+			getReposForBitbucketWorkspace: (_t: unknown, _ws: string, o?: { cursor?: string }) => {
+				discoveryCalls += 1;
+				const page = o?.cursor == null || o.cursor === '{}' ? 1 : Number(JSON.parse(o.cursor).value);
+				return Promise.resolve({
+					values: [
+						{ id: `r${page}`, namespace: 'ws', name: `repo-${page}` } as unknown as ProviderRepository,
+					],
+					paging: { more: true, cursor: JSON.stringify({ value: page + 1, type: 'page' }) },
+				});
+			},
+			getPullRequestsForRepo: () => Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } }),
+		});
+
+		const result = await callAccountWide(bb);
+		assert.equal(discoveryCalls, 20, 'repo discovery stops at the maxReposPagesPerWorkspace backstop');
+		assert.equal(result?.value?.paging?.truncated, true, 'a backstopped repo discovery marks the slice truncated');
 
 		manager.dispose();
 	});

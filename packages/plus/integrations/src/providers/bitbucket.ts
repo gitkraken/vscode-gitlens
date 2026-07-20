@@ -1,3 +1,5 @@
+import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
+import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -13,7 +15,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
+import { batchResults, flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
@@ -22,9 +24,10 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { firstRecoverableRejection } from '../results.js';
+import { firstRecoverableRejection, isRecoverableReadError } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
+	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
@@ -35,6 +38,19 @@ import { collectProviderPagedResult } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
+
+/**
+ * Maps a caught GitLens request error to the SDK's {@link CollectionScopeFailure} kind so a per-scope failure
+ * in the reviewer fan-out is classified consistently with structured SDK failures (Step 3 then maps auth →
+ * `auth`, rate-limit → `rate-limit`, etc.). Unknown errors fall back to `provider` (a real, non-transient
+ * failure) rather than `unknown`, since they came from an actual request that rejected.
+ */
+function bitbucketFailureKind(ex: unknown): CollectionScopeFailure['kind'] {
+	if (ex instanceof AuthenticationError) return 'authentication';
+	if (ex instanceof RequestRateLimitError) return 'rate-limit';
+	if (ex instanceof RequestNotFoundError) return 'not-found';
+	return 'provider';
+}
 
 export class BitbucketIntegration extends GitHostIntegration<
 	GitCloudHostIntegrationId.Bitbucket,
@@ -356,7 +372,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
-	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.id == null) return undefined;
@@ -420,59 +436,107 @@ export class BitbucketIntegration extends GitHostIntegration<
 		}
 
 		// Bitbucket's account-wide (per-workspace) endpoint returns authored PRs only, and the SDK exposes no
-		// workspace-level reviewer query — only a repo-scoped one. Restore the reviewer slice the repo-scoped
-		// search path uses (over the currently open remotes for this provider) so review-requested PRs aren't
-		// dropped from the account-wide read. LIMITATION: reviewer coverage is bounded to open-remote repos
-		// until the SDK exposes a workspace-level reviewer endpoint — a reviewer PR on a repo with no open
-		// remote can't be read, so the result is flagged truncated both when a reviewer read fails AND when it
-		// couldn't be attempted (no open remotes), keeping the coverage hole honest.
-		const remotes = await this.ctx.repositories.getOpenRemotes();
-		const workspaceRepos = await nonnullSettled(
-			remotes.map(async (r: GitRemote) => {
-				const integration = await this.authenticationService.getByRemote(r);
-				const [namespace, name] = r.path.split('/');
-				return integration?.id === this.id ? { name: name, namespace: namespace } : undefined;
-			}),
-		);
-		if (workspaceRepos.length > 0) {
-			try {
-				// Use the dedicated `reviewerId` input, NOT `query`: the SDK routes `query` through a text
-				// filter (matches title/description), so passing the BBQL clause as `query` would search for the
-				// literal string and match nothing. `states` keeps the reviewer slice consistent with the
-				// authored drain's state filter. Drain every page (the single-call read dropped review-requested
-				// PRs past the first page); `collectProviderPagedResult` follows the SDK cursor to its backstop.
-				const reviewing = await collectProviderPagedResult(cursor =>
-					api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
-						reviewerId: user.id,
-						states: states,
-						cursor: cursor,
-					}),
-				);
-				for (const pr of reviewing.values) {
-					const key = pr.url ?? pr.id;
-					if (!prsByUrl.has(key)) {
-						prsByUrl.set(key, pr);
+		// workspace-level reviewer query — only a repo-scoped one. Enumerate the account's repos by draining each
+		// resolved workspace's repository list, then drain the real per-repo paged `getPullRequestsForRepo` for
+		// each repo with `reviewerId`, so review-requested PRs aren't bounded to the currently-open remotes and a
+		// reviewer PR past the first page isn't dropped. Structured per-scope failures are collected as
+		// CollectionScopeFailure so the ProviderBackend facade maps them to actionable warnings (Step 3).
+		const failures: CollectionScopeFailure[] = [];
+		const maxReposPagesPerWorkspace = 20;
+		const maxPrPagesPerRepo = 20;
+		// Bound concurrency: workspaces are few, so process them concurrently, but drain each workspace's repos in
+		// a bounded batch rather than an unbounded Promise.all over every repo in every workspace.
+		const repoBatchSize = 5;
+
+		await Promise.all(
+			workspaces.map(async ws => {
+				let repos: ProviderRepository[];
+				try {
+					const discovered = await collectProviderPagedResult(
+						cursor =>
+							api.getReposForBitbucketWorkspace(toTokenWithInfo(this.id, session), ws.slug, {
+								cursor: cursor,
+							}),
+						maxReposPagesPerWorkspace,
+					);
+					repos = discovered.values;
+					// Repo discovery hitting its backstop leaves the workspace's repo set incomplete.
+					if (discovered.truncated) {
+						truncated = true;
+					}
+				} catch (ex) {
+					// An auth/rate-limit failure is actionable; a transient failure still leaves the slice partial.
+					failures.push(this.toWorkspaceFailure(ws.slug, ex));
+					if (!isRecoverableReadError(ex)) {
+						truncated = true;
+					}
+					return;
+				}
+
+				const drained = await batchResults(repos, repoBatchSize, async repo => {
+					const reviewing = await collectProviderPagedResult(
+						cursor =>
+							api.getPullRequestsForRepo(
+								toTokenWithInfo(this.id, session),
+								{ namespace: repo.namespace, name: repo.name },
+								{ reviewerId: user.id, states: states, cursor: cursor },
+							),
+						maxPrPagesPerRepo,
+					);
+					return { repo: repo, reviewing: reviewing };
+				});
+
+				for (const outcome of drained) {
+					if (outcome.status !== 'fulfilled') {
+						failures.push(this.toRepositoryFailure(`${ws.slug}/unknown`, outcome.reason));
+						continue;
+					}
+
+					const { reviewing } = outcome.value;
+					for (const pr of reviewing.values) {
+						// Dedupe authored and reviewer PRs by URL, falling back to ID only when URL is absent.
+						const key = pr.url ?? pr.id;
+						if (!prsByUrl.has(key)) {
+							prsByUrl.set(key, pr);
+						}
+					}
+					// A per-repo PR drain hitting its own page backstop leaves the reviewer slice incomplete.
+					if (reviewing.truncated) {
+						truncated = true;
 					}
 				}
-				// The reviewer drain hitting its own page backstop also leaves the slice incomplete.
-				if (reviewing.truncated) {
-					truncated = true;
-				}
-			} catch {
-				// A failed reviewer read leaves the review-requested slice missing; report the aggregate as
-				// partial rather than silently dropping it.
-				truncated = true;
-			}
-		} else {
-			// No open remote for this provider means the reviewer slice couldn't be attempted at all — the
-			// review-requested coverage hole is real, so flag the aggregate as partial rather than implying
-			// a complete "my PRs" read.
-			truncated = true;
-		}
+			}),
+		);
+
+		// Auth/rate-limit failures stay actionable through the structured metadata (Step 3 maps kind
+		// `authentication` → an `auth` warning, `rate-limit` → a `rate-limit` warning). We do NOT re-throw them:
+		// re-throwing would discard the successful sibling repos' PRs. Returning the items plus the structured
+		// failures preserves the survivors while still surfacing the recovery-driving warning + fetchFailed (D3).
+		const metadata: CollectionMetadata | undefined =
+			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
 
 		return {
 			values: [...prsByUrl.values()],
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
+			metadata: metadata,
+		};
+	}
+
+	/** Classifies a caught workspace-scope error into a structured {@link CollectionScopeFailure}. */
+	private toWorkspaceFailure(workspaceSlug: string, ex: unknown): CollectionScopeFailure {
+		return {
+			scope: { providerId: this.id, resourceId: workspaceSlug },
+			kind: bitbucketFailureKind(ex),
+			...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
+		};
+	}
+
+	/** Classifies a caught repository-scope error into a structured {@link CollectionScopeFailure}. */
+	private toRepositoryFailure(repositoryId: string, ex: unknown): CollectionScopeFailure {
+		return {
+			scope: { providerId: this.id, repositoryId: repositoryId },
+			kind: bitbucketFailureKind(ex),
+			...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
 		};
 	}
 
