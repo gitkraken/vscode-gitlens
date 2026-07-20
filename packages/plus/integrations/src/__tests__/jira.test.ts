@@ -4,6 +4,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
+import { IssueFilter } from '../providers/models.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -368,6 +369,55 @@ suite('Jira project fan-out metadata + caching (#5438)', () => {
 
 		assert.deepEqual(result.value?.values.map(p => p.id).sort(), ['p1', 'p2']);
 		assert.equal(result.value?.metadata?.failures, undefined, 'no failures on a clean fan-out');
+
+		manager.dispose();
+	});
+
+	test('a mixed-success filter fan-out keeps the surviving branch and flags truncation (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+		(jira as unknown as { _session: ProviderAuthenticationSession })._session = jiraSession();
+
+		// Two filter branches: the assignee read succeeds, the author read rejects. The surviving branch's
+		// issues must be preserved and the result flagged `truncated` (an incomplete read), NOT returned as a
+		// complete "these are all your issues" list.
+		stubApi(jira, {
+			getIssuesForProjectPaged: (
+				_t: unknown,
+				_name: string,
+				_resourceId: string,
+				options?: { authorLogin?: string; assigneeLogins?: string[] },
+			) => {
+				if (options?.authorLogin != null) return Promise.reject(new Error('author branch boom'));
+				return Promise.resolve({
+					data: [
+						{
+							id: 'i1',
+							number: '1',
+							title: 'Assigned issue',
+							url: 'https://atlassian.net/i/1',
+							createdDate: new Date(0),
+							updatedDate: new Date(0),
+							closedDate: null,
+							author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+							assignees: [],
+							labels: [],
+						},
+					],
+					hasMore: false,
+					nextCursor: undefined,
+				});
+			},
+		});
+
+		const result = await jira.getIssuesForProjectWithTruncationResult(project, {
+			user: 'me',
+			filters: [IssueFilter.Assignee, IssueFilter.Author],
+		});
+
+		assert.equal(result?.value?.values.length, 1, 'the surviving assignee branch is preserved');
+		assert.equal(result?.value?.truncated, true, 'a rejected sibling branch flags the read as truncated');
+		assert.equal(result?.error, undefined, 'a partial success is not surfaced as a hard error');
 
 		manager.dispose();
 	});

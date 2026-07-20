@@ -1,4 +1,4 @@
-import type { CollectionMetadata } from '@gitkraken/provider-apis';
+import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -41,6 +41,7 @@ import {
 	toProviderPullRequestStates,
 } from '../providers/models.js';
 import { mergeCollectionMetadata } from '../providers/utils/providerPaging.js';
+import { toCollectionScopeFailure } from '../results.js';
 import type { IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
 
@@ -604,8 +605,13 @@ export abstract class GitHostIntegration<
 			try {
 				const cursor: { cursors: PagedProjectInput[] } = { cursors: [] };
 				let hasMore = false;
+				let truncated = false;
 				const data: ProviderIssue[] = [];
-				await Promise.all(
+				// `allSettled`, not `Promise.all`: one project's read rejecting must not discard every sibling
+				// project's already-fetched issues and cursors. A rejected project flags `truncated` (this issue
+				// path carries no structured-failure channel) so the facade reports the read as incomplete rather
+				// than publishing a partial project set as complete.
+				const settled = await Promise.allSettled(
 					projectInputs.map(async projectInput => {
 						const results = await api.getIssuesForAzureProject(
 							toTokenWithInfo(providerId, session),
@@ -621,17 +627,27 @@ export abstract class GitHostIntegration<
 								states: states,
 							},
 						);
-						data.push(...results.values);
-						if (results.paging?.more) {
-							hasMore = true;
-							cursor.cursors.push({
-								namespace: projectInput.namespace,
-								project: projectInput.project,
-								cursor: results.paging.cursor,
-							});
-						}
+						return { projectInput: projectInput, results: results };
 					}),
 				);
+
+				for (const outcome of settled) {
+					if (outcome.status !== 'fulfilled') {
+						truncated = true;
+						continue;
+					}
+
+					const { projectInput, results } = outcome.value;
+					data.push(...results.values);
+					if (results.paging?.more) {
+						hasMore = true;
+						cursor.cursors.push({
+							namespace: projectInput.namespace,
+							project: projectInput.project,
+							cursor: results.paging.cursor,
+						});
+					}
+				}
 
 				return {
 					value: {
@@ -639,6 +655,7 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							truncated: truncated || undefined,
 							// Echo the requested numbered page so the facade reports the real currentPage for
 							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
 							// leave `page` undefined via their own reads.
@@ -710,8 +727,12 @@ export abstract class GitHostIntegration<
 			try {
 				const cursor: { cursors: PagedRepoInput[] } = { cursors: [] };
 				let hasMore = false;
+				let truncated = false;
 				const data: ProviderIssue[] = [];
-				await Promise.all(
+				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// already-fetched issues and cursors. A rejected repo flags `truncated` (this issue path carries
+				// no structured-failure channel) so the facade reports the read as incomplete.
+				const settled = await Promise.allSettled(
 					repoInputs.map(async repoInput => {
 						const results = await api.getIssuesForRepo(
 							toTokenWithInfo(providerId, session),
@@ -727,13 +748,23 @@ export abstract class GitHostIntegration<
 								states: states,
 							},
 						);
-						data.push(...results.values);
-						if (results.paging?.more) {
-							hasMore = true;
-							cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
-						}
+						return { repoInput: repoInput, results: results };
 					}),
 				);
+
+				for (const outcome of settled) {
+					if (outcome.status !== 'fulfilled') {
+						truncated = true;
+						continue;
+					}
+
+					const { repoInput, results } = outcome.value;
+					data.push(...results.values);
+					if (results.paging?.more) {
+						hasMore = true;
+						cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
+					}
+				}
 
 				return {
 					value: {
@@ -741,6 +772,7 @@ export abstract class GitHostIntegration<
 						paging: {
 							more: hasMore,
 							cursor: JSON.stringify(cursor),
+							truncated: truncated || undefined,
 							// Echo the requested numbered page so the facade reports the real currentPage for
 							// numbered-page hosts (GitLab/Bitbucket/Azure), not a synthesized 1. Cursor-only hosts
 							// leave `page` undefined via their own reads.
@@ -990,8 +1022,13 @@ export abstract class GitHostIntegration<
 				let hasMore = false;
 				let truncated = false;
 				let metadata: CollectionMetadata | undefined;
+				const failures: CollectionScopeFailure[] = [];
 				const data: ProviderPullRequest[] = [];
-				await Promise.all(
+				// `allSettled`, not `Promise.all`: one repo's read rejecting must not discard every sibling repo's
+				// already-fetched PRs and cursors. A rejected repo becomes a structured `CollectionScopeFailure`
+				// (attributed to that repo) so the facade warns on it + sets `fetchFailed`, while the survivors and
+				// their continuation cursors are still returned.
+				const settled = await Promise.allSettled(
 					repoInputs.map(async repoInput => {
 						const results = await api.getPullRequestsForRepo(
 							toTokenWithInfo(providerId, session),
@@ -1009,19 +1046,42 @@ export abstract class GitHostIntegration<
 								includeRemoteInfo: isAzureDevOpsProvider(providerId) ? true : undefined,
 							},
 						);
-						data.push(...results.values);
-						// Fan-out across repos: preserve each repo's SDK completeness/failures and its terminal
-						// truncation so a single failed/incomplete repo isn't lost when merged with its siblings.
-						metadata = mergeCollectionMetadata(metadata, results.metadata);
-						if (results.paging?.truncated) {
-							truncated = true;
-						}
-						if (results.paging?.more) {
-							hasMore = true;
-							cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
-						}
+						return { repoInput: repoInput, results: results };
 					}),
 				);
+
+				// `allSettled` preserves order, so `settled[i]` is `repoInputs[i]`.
+				settled.forEach((outcome, i) => {
+					if (outcome.status !== 'fulfilled') {
+						const failedRepo = repoInputs[i].repo;
+						failures.push(
+							toCollectionScopeFailure(
+								{ providerId: providerId, repositoryId: `${failedRepo.namespace}/${failedRepo.name}` },
+								outcome.reason,
+							),
+						);
+						return;
+					}
+
+					const { repoInput, results } = outcome.value;
+					data.push(...results.values);
+					// Fan-out across repos: preserve each repo's SDK completeness/failures and its terminal
+					// truncation so a single failed/incomplete repo isn't lost when merged with its siblings.
+					metadata = mergeCollectionMetadata(metadata, results.metadata);
+					if (results.paging?.truncated) {
+						truncated = true;
+					}
+					if (results.paging?.more) {
+						hasMore = true;
+						cursor.cursors.push({ repo: repoInput.repo, cursor: results.paging.cursor });
+					}
+				});
+
+				// Merge the GitLens-side per-repo rejections into the SDK metadata so both flow through the same
+				// warning/fetchFailed assessment downstream.
+				if (failures.length > 0) {
+					metadata = mergeCollectionMetadata(metadata, { completeness: 'partial', failures: failures });
+				}
 
 				return {
 					value: {

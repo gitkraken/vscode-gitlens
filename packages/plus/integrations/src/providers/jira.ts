@@ -290,7 +290,15 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			let truncated = false;
 			const resultsById = new Map<string, IssueShape>();
 			for (const outcome of settled) {
-				if (outcome.status !== 'fulfilled') continue;
+				// A rejected filter branch (with at least one sibling succeeding) means this project's issues are
+				// incomplete: keep the sibling results but flag `truncated` so the facade reports the read as
+				// partial rather than publishing a mixed-success fan-out as complete. (This path returns
+				// `{ values, truncated }` with no structured-failure channel; the truncation drives the facade's
+				// incompleteness warning.)
+				if (outcome.status !== 'fulfilled') {
+					truncated = true;
+					continue;
+				}
 
 				if (outcome.value.truncated) {
 					truncated = true;

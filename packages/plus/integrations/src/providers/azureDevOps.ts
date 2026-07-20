@@ -1,3 +1,4 @@
+import type { CollectionMetadata, CollectionScope, CollectionScopeFailure } from '@gitkraken/provider-apis';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -12,7 +13,6 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -25,8 +25,8 @@ import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../c
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import type { IntegrationKey } from '../models/integration.js';
-import { firstRecoverableRejection } from '../results.js';
+import type { AccountWideIssuesResult, IntegrationKey } from '../models/integration.js';
+import { toCollectionScopeFailure } from '../results.js';
 import type {
 	AzureOrganizationDescriptor,
 	AzureProjectDescriptor,
@@ -35,6 +35,7 @@ import type {
 	AzureRepositoryDescriptor,
 } from './azure/models.js';
 import type {
+	ProviderApiPagedResult,
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
@@ -128,10 +129,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	}
 
 	private _projects: Map<string, AzureProjectDescriptor[] | undefined> | undefined;
+	/**
+	 * Discovers (and caches) each resource's projects. Only resources whose drain completed cleanly are cached;
+	 * a rejected or backstop-truncated drain is left uncached (retried next call). When `failures` is supplied,
+	 * a rejected resource is recorded there as a structured {@link CollectionScopeFailure} so an account-wide
+	 * caller can surface the incomplete project set (a whole org's PRs/issues silently missing otherwise) as a
+	 * scope-aware warning + `fetchFailed` rather than an all-pages success over a hole.
+	 */
 	private async getProviderProjectsForResources(
 		session: ProviderAuthenticationSession,
 		resources: AzureOrganizationDescriptor[],
 		force: boolean = false,
+		failures?: CollectionScopeFailure[],
 	): Promise<AzureProjectDescriptor[] | undefined> {
 		this._projects ??= new Map<string, AzureProjectDescriptor[] | undefined>();
 		const { accessToken } = session;
@@ -167,16 +176,25 @@ export abstract class AzureDevOpsIntegrationBase<
 				})),
 			);
 
-			for (const drain of drains) {
-				// A rejected resource drain contributes nothing and is left uncached (retried next call).
-				if (drain.status !== 'fulfilled') continue;
+			// `allSettled` preserves order, so `drains[i]` is `resourcesWithoutProjects[i]`.
+			drains.forEach((drain, i) => {
+				// A rejected resource drain contributes nothing and is left uncached (retried next call). Record
+				// it as a structured failure so an account-wide caller can warn on the org whose projects (and
+				// thus PRs/issues) are missing, instead of silently narrowing the read.
+				if (drain.status !== 'fulfilled') {
+					const resource = resourcesWithoutProjects[i];
+					failures?.push(
+						toCollectionScopeFailure({ providerId: this.id, resourceId: resource.id }, drain.reason),
+					);
+					return;
+				}
 
 				const { resource, result } = drain.value;
 				// A truncated drain is an incomplete project set; don't cache it as if complete.
-				if (result.truncated) continue;
+				if (result.truncated) return;
 
 				const projects = result.values.filter(p => p.namespace === resource.name);
-				this._projects.set(
+				this._projects!.set(
 					`${accessToken}:${resource.id}`,
 					projects.map(p => ({
 						id: p.id,
@@ -186,7 +204,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						key: p.id,
 					})),
 				);
-			}
+			});
 		}
 
 		return resources.reduce<AzureProjectDescriptor[]>((projects, resource) => {
@@ -309,7 +327,13 @@ export abstract class AzureDevOpsIntegrationBase<
 		const values: ProviderRepository[] = [];
 		let truncated = false;
 		for (const result of results) {
-			if (result.status !== 'fulfilled') continue;
+			// A rejected per-project repo drain leaves the org's repo set incomplete; flag it as truncated so
+			// listRepos doesn't publish a partial list as complete (the SDK repo read carries no metadata to
+			// classify the failure by scope here).
+			if (result.status !== 'fulfilled') {
+				truncated = true;
+				continue;
+			}
 
 			values.push(...result.value.values);
 			truncated ||= result.value.truncated === true;
@@ -546,26 +570,29 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
 		const projectInputs = projects.map(p => ({ namespace: p.resourceName, project: p.name }));
+		// Legacy array-returning path (Launchpad/focus view): unwrap `.values` from the SDK collection result.
+		// The metadata (partial/failures) isn't surfaced here because this path's return type has no warning
+		// channel; the metadata-aware ProviderBackend surface is getProviderMyPullRequestsForUser above.
 		const assignedPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
 				assigneeLogins: [user.id],
 				states: states,
 			})
-		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
+		).values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const authoredPrs = (
 			await api.getPullRequestsForAzureProjects(tokenWithInfo, projectInputs, {
 				...options,
 				authorLogin: user.id,
 				states: states,
 			})
-		)?.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
+		).values.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
 		const prsById = new Map<string, PullRequest>();
-		for (const pr of authoredPrs ?? []) {
+		for (const pr of authoredPrs) {
 			prsById.set(pr.id, pr);
 		}
 
-		for (const pr of assignedPrs ?? []) {
+		for (const pr of assignedPrs) {
 			const existing = prsById.get(pr.id);
 			if (existing == null) {
 				prsById.set(pr.id, pr);
@@ -578,7 +605,7 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async getProviderMyPullRequestsForUser(
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
-	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+	): Promise<ProviderApiPagedResult<ProviderPullRequest> | undefined> {
 		const api = await this.getProvidersApi();
 		const user = await this.getProviderCurrentAccount(session);
 		// Azure routes authorLogin/assigneeLogins to `searchCriteria.creatorId`/`reviewerId`, which require the
@@ -592,7 +619,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		const orgs = await this.getProviderResourcesForUser(session);
 		if (orgs == null || orgs.length === 0) return undefined;
 
-		const projects = await this.getProviderProjectsForResources(session, orgs);
+		// Structured per-scope failures from BOTH project discovery (a whole org dropped) and the per-project PR
+		// drains, so the facade warns on the failed scope + sets `fetchFailed` instead of silently narrowing.
+		const failures: CollectionScopeFailure[] = [];
+		const projects = await this.getProviderProjectsForResources(session, orgs, false, failures);
 		if (projects == null || projects.length === 0) return undefined;
 
 		const { tokenWithInfo, options: apiOptions } = this.getApiOptions(session);
@@ -632,37 +662,44 @@ export abstract class AzureDevOpsIntegrationBase<
 			return collected;
 		};
 
-		// Settle per-project failures instead of rejecting the whole sweep — but, unlike a silent `flatSettled`,
-		// record that a project was dropped so the result isn't reported as complete. A 429/403/network blip on
-		// one project degrades to partial data flagged `truncated` (mirroring a paging-backstop hit), so the
-		// facade's `allPages`/warning path surfaces the incompleteness rather than declaring success over a hole.
-		const settled = await Promise.allSettled(
+		// Settle per-project failures instead of rejecting the whole sweep. Each drain catches its own rejection
+		// and returns it tagged with the project scope, so a failure becomes a structured `CollectionScopeFailure`
+		// (attributed to that project) rather than being re-thrown — re-throwing an auth/rate-limit rejection would
+		// discard every other project's already-drained PRs. Auth/rate-limit stay actionable through the failure's
+		// kind (the facade maps it to an `auth`/`rate-limit` warning + `fetchFailed`), matching the SDK's model.
+		// `failures` was declared above so project-discovery failures and per-project drain failures share it.
+		const drainScoped = async (
+			project: { namespace: string; project: string },
+			scope: CollectionScope,
+			filter: { authorLogin?: string; assigneeLogins?: string[] },
+		): Promise<{ prs: ProviderPullRequest[] } | { failure: CollectionScopeFailure }> => {
+			try {
+				return { prs: await drainProject(project, filter) };
+			} catch (ex) {
+				return { failure: toCollectionScopeFailure(scope, ex) };
+			}
+		};
+		const outcomes = await Promise.all(
 			projects.flatMap(p => {
 				const project = { namespace: p.resourceName, project: p.name };
+				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
 				return [
-					drainProject(project, { authorLogin: user.id }),
-					drainProject(project, { assigneeLogins: [user.id] }),
+					drainScoped(project, scope, { authorLogin: user.id }),
+					drainScoped(project, scope, { assigneeLogins: [user.id] }),
 				];
 			}),
 		);
-
-		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
-		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
-		const recoverable = firstRecoverableRejection(settled);
-		if (recoverable != null) throw recoverable;
 
 		// Dedupe by URL, not the numeric `pr.id`: Azure's `pullRequestId` is unique only within an org, and
 		// this sweep spans every org the user belongs to, so two orgs can each surface id "42" — keying by id
 		// would drop one of them. The normalized `url` is org-qualified and unambiguous.
 		const prsByUrl = new Map<string, ProviderPullRequest>();
-		for (const outcome of settled) {
-			if (outcome.status !== 'fulfilled') {
-				// A dropped project (transient 5xx/network) means the aggregate is incomplete; flag it so the
-				// caller doesn't treat the partial result as an all-pages read.
-				truncated = true;
+		for (const outcome of outcomes) {
+			if ('failure' in outcome) {
+				failures.push(outcome.failure);
 				continue;
 			}
-			for (const pr of outcome.value) {
+			for (const pr of outcome.prs) {
 				const key = pr.url ?? pr.id;
 				if (!prsByUrl.has(key)) {
 					prsByUrl.set(key, pr);
@@ -670,9 +707,13 @@ export abstract class AzureDevOpsIntegrationBase<
 			}
 		}
 
+		const metadata: CollectionMetadata | undefined =
+			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
+
 		return {
 			values: [...prsByUrl.values()],
 			paging: { cursor: '{}', more: false, truncated: truncated || undefined },
+			metadata: metadata,
 		};
 	}
 
@@ -694,7 +735,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		session: ProviderAuthenticationSession,
 		_resources?: ResourceDescriptor[],
 		_cancellation?: AbortSignal,
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<AccountWideIssuesResult | undefined> {
 		const api = await this.getProvidersApi();
 
 		const user = await this.getProviderCurrentAccount(session);
@@ -703,7 +744,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		const orgs = await this.getProviderResourcesForUser(session);
 		if (orgs == null || orgs.length === 0) return undefined;
 
-		const projects = await this.getProviderProjectsForResources(session, orgs);
+		// Structured per-scope failures from BOTH project discovery (a whole org dropped) and the per-project
+		// issue drains, so the facade warns on the failed scope + sets `fetchFailed` instead of narrowing silently.
+		const failures: CollectionScopeFailure[] = [];
+		const projects = await this.getProviderProjectsForResources(session, orgs, false, failures);
 		if (projects == null || projects.length === 0) return undefined;
 
 		const { tokenWithInfo, options } = this.getApiOptions(session);
@@ -728,40 +772,55 @@ export abstract class AzureDevOpsIntegrationBase<
 		};
 
 		// TODO: Add mentioned issues
-		const settled = await Promise.allSettled(
-			projects.flatMap(p => [
-				drain(p, { assigneeLogins: [user.username!] }),
-				drain(p, { authorLogin: user.username! }),
-			]),
+		// Each drain catches its own rejection and returns it tagged with the project scope, so a failure becomes
+		// a structured `CollectionScopeFailure` (attributed to that project) instead of being re-thrown —
+		// re-throwing an auth/rate-limit rejection would discard every other project's already-drained issues.
+		// Auth/rate-limit stay actionable through the failure's kind (the facade maps it to a warning +
+		// `fetchFailed`). `failures` was declared above so discovery and drain failures share it.
+		const drainScoped = async (
+			p: AzureProjectDescriptor,
+			scope: CollectionScope,
+			filter: { assigneeLogins?: string[]; authorLogin?: string },
+		): Promise<{ issues: IssueShape[]; truncated: boolean } | { failure: CollectionScopeFailure }> => {
+			try {
+				return await drain(p, filter);
+			} catch (ex) {
+				return { failure: toCollectionScopeFailure(scope, ex) };
+			}
+		};
+		const outcomes = await Promise.all(
+			projects.flatMap(p => {
+				const scope = { providerId: this.id, resourceId: p.resourceId, projectId: p.name };
+				return [
+					drainScoped(p, scope, { assigneeLogins: [user.username!] }),
+					drainScoped(p, scope, { authorLogin: user.username! }),
+				];
+			}),
 		);
-
-		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
-		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
-		const recoverable = firstRecoverableRejection(settled);
-		if (recoverable != null) throw recoverable;
 
 		const issuesById = new Map<string, IssueShape>();
 		let truncated = false;
-		for (const outcome of settled) {
-			// A rejected (project × filter) read means this org's issues are incomplete; flag it rather than
-			// dropping it silently, so the facade doesn't report the partial aggregate as an all-pages read.
-			if (outcome.status !== 'fulfilled') {
-				truncated = true;
+		for (const outcome of outcomes) {
+			if ('failure' in outcome) {
+				failures.push(outcome.failure);
 				continue;
 			}
 
-			if (outcome.value.truncated) {
+			if (outcome.truncated) {
 				truncated = true;
 			}
 
-			for (const issue of outcome.value.issues) {
+			for (const issue of outcome.issues) {
 				if (!issuesById.has(issue.id)) {
 					issuesById.set(issue.id, issue);
 				}
 			}
 		}
 
-		return { values: [...issuesById.values()], truncated: truncated };
+		const metadata: CollectionMetadata | undefined =
+			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
+
+		return { values: [...issuesById.values()], truncated: truncated, metadata: metadata };
 	}
 
 	protected override async providerOnConnect(): Promise<void> {

@@ -1121,7 +1121,7 @@ export class ProvidersApi {
 			isPAT?: boolean;
 			baseUrl?: string;
 		},
-	): Promise<ProviderPullRequest[] | undefined> {
+	): Promise<ProviderApiCollectionResult<ProviderPullRequest>> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getPullRequestsForAzureProjectsFn',
@@ -1132,14 +1132,16 @@ export class ProvidersApi {
 		const azureToken = options?.isPAT ? token : this.getAzurePATForOAuthToken(token);
 
 		try {
-			return (
-				await provider.getPullRequestsForAzureProjectsFn?.(
-					{ projects: projects, ...options },
-					{ token: azureToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
-				)
-			)?.data;
+			const result = await provider.getPullRequestsForAzureProjectsFn?.(
+				{ projects: projects, ...options },
+				{ token: azureToken, isPAT: options?.isPAT, baseUrl: options?.baseUrl },
+			);
+			// The SDK's multi-project aggregate preserves successful projects and reports failed/incomplete ones
+			// through `metadata` (it has no `pageInfo`); keep it so the account-wide drain can warn on the failed
+			// projects and set `fetchFailed` instead of publishing a partial Azure read as complete.
+			return { values: result?.data ?? [], metadata: result?.metadata };
 		} catch (e) {
-			return this.handleProviderError<ProviderPullRequest[]>(tokenWithInfo, e);
+			return this.handleProviderError<ProviderApiCollectionResult<ProviderPullRequest>>(tokenWithInfo, e);
 		}
 	}
 

@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -47,6 +48,14 @@ export type IntegrationResult<T> =
 	| { value: T; duration?: number; error?: Error }
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
+
+/**
+ * Account-wide issue read result. `truncated` is a provider-native incompleteness signal with no cursor
+ * (GitHub's per-category cap, an Azure per-project backstop); `metadata` optionally carries structured
+ * per-scope failures from a fan-out (Azure across projects) so the facade maps them to scope-aware warnings
+ * + `fetchFailed`. Both are absent for a complete single-scope read.
+ */
+export type AccountWideIssuesResult = { values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata };
 
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
@@ -601,13 +610,15 @@ export abstract class IntegrationBase<
 	 * Truncation-aware variant of {@link searchProviderMyIssues}. The default wraps the normalized read and
 	 * reports `truncated: false`; a provider whose account-wide search is capped without a cursor (GitHub)
 	 * overrides this to report when the read is incomplete, so the facade can surface it instead of publishing
-	 * a partial list as complete.
+	 * a partial list as complete. `metadata` optionally carries structured per-scope failures from a fan-out
+	 * (Azure across projects) so the facade can warn on the failed scope and set `fetchFailed`; providers with
+	 * no fan-out (GitHub) leave it undefined.
 	 */
 	protected async searchProviderMyIssuesWithTruncation(
 		session: ProviderAuthenticationSession,
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
-	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
+	): Promise<AccountWideIssuesResult | undefined> {
 		const values = await this.searchProviderMyIssues(session, resources, cancellation);
 		if (values == null) return undefined;
 		return { values: values, truncated: false };
@@ -621,7 +632,7 @@ export abstract class IntegrationBase<
 		resources?: ResourceDescriptor | ResourceDescriptor[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-	): Promise<IntegrationResult<{ values: IssueShape[]; truncated: boolean } | undefined>> {
+	): Promise<IntegrationResult<AccountWideIssuesResult | undefined>> {
 		const scope = getScopedLogger();
 		const session = await this.resolveReadSession(connectionId, scope);
 		if (session == null) return undefined;

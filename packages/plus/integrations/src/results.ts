@@ -137,6 +137,33 @@ export function firstRecoverableRejection(settled: PromiseSettledResult<unknown>
 	return undefined;
 }
 
+/**
+ * Maps a caught GitLens request error to a structured {@link CollectionScopeFailure} kind, so a per-scope
+ * rejection in a GitLens-side fan-out (where the SDK can't classify it — the provider methods throw GitLens
+ * error classes, not HTTP status codes) is described with the same vocabulary as the SDK's own
+ * `CollectionScopeFailure`. An unknown error maps to `provider` (a real, non-transient failure from a request
+ * that rejected), never `unknown`.
+ */
+export function toCollectionFailureKind(ex: unknown): CollectionScopeFailure['kind'] {
+	if (ex instanceof AuthenticationError) return 'authentication';
+	if (ex instanceof RequestRateLimitError) return 'rate-limit';
+	if (ex instanceof RequestNotFoundError) return 'not-found';
+	return 'provider';
+}
+
+/**
+ * Builds a structured {@link CollectionScopeFailure} from a caught error and the scope it failed for, so a
+ * GitLens-side fan-out can preserve successful siblings and report the failed scope in collection metadata
+ * (which {@link assessCollectionMetadata} then maps to a scope-aware warning + `fetchFailed`).
+ */
+export function toCollectionScopeFailure(scope: CollectionScopeFailure['scope'], ex: unknown): CollectionScopeFailure {
+	return {
+		scope: scope,
+		kind: toCollectionFailureKind(ex),
+		...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
+	};
+}
+
 /** Maps a structured SDK failure kind to the neutral {@link ProviderWarning} discriminant. */
 function collectionFailureKindToWarningKind(kind: CollectionScopeFailure['kind']): ProviderWarning['kind'] {
 	switch (kind) {

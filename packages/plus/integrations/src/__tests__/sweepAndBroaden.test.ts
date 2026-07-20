@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -8,6 +9,7 @@ import { createIntegrationManager } from '../index.js';
 import type { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationResult } from '../models/integration.js';
 import type {
+	ProviderApiPagedResult,
 	ProviderIssue,
 	ProviderPullRequest,
 	ProviderReposInput,
@@ -72,7 +74,9 @@ suite('sweep + broaden (#5438)', () => {
 		// allPages asserts completeness — false here because the drain stopped at maxPages with more available.
 		assert.equal(result.page.allPages, false);
 		assert.equal(result.page.truncated, true, 'stopping at maxPages with more available marks truncated');
-		assert.equal(result.hasMore, true);
+		// A sweep exposes no resumable cursor, so incompleteness is expressed via page.truncated/allPages, never
+		// as hasMore — a hasMore:true here would make a draining consumer re-run the identical sweep forever.
+		assert.equal(result.hasMore, false);
 		assert.equal(result.fetchFailed, undefined);
 		assert.equal(calls, 2);
 
@@ -582,7 +586,10 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await manager.sweepClosedPullRequests({ providerIds: [GitCloudHostIntegrationId.GitHub] });
 		assert.equal(result.page.truncated, true, 'truncation is surfaced');
-		assert.equal(result.hasMore, true, 'a truncated sweep is not reported as fully drained');
+		assert.equal(result.page.allPages, false, 'a truncated sweep is not reported as fully drained');
+		// A sweep exposes no cursor to resume, so `hasMore` must be false even when incomplete — the
+		// incompleteness is expressed through page.truncated + allPages:false + a warning, not a fake next page.
+		assert.equal(result.hasMore, false, 'a cursorless sweep never advertises a resumable next page');
 		// A consumer that only inspects `warnings` must also see the read was partial.
 		assert.ok(
 			result.warnings.some(w => /truncat/i.test(w.message)),
@@ -836,8 +843,9 @@ suite('sweep + broaden (#5438)', () => {
 			},
 		});
 
-		// An auth failure is actionable, so the account-wide core throws → the result core recovers it into
-		// { error }, which the facade maps to an auth warning. The sweep still preserves the good repo's PR.
+		// An auth failure on one repo is recorded as a structured scope failure (not re-thrown, which would
+		// discard the good repo's PR), so the facade maps it to an actionable auth warning + fetchFailed while
+		// the good repo's reviewer PR still survives.
 		const result = await manager.sweepPullRequests({
 			providerIds: [GitCloudHostIntegrationId.Bitbucket],
 			connectionId: undefined,
@@ -1010,14 +1018,23 @@ suite('sweep + broaden (#5438)', () => {
 
 		const result = await (
 			azure as unknown as {
-				getMyPullRequestsForUserResult: () => Promise<IntegrationResult<PagedResult<ProviderPullRequest>>>;
+				getMyPullRequestsForUserResult: () => Promise<
+					IntegrationResult<ProviderApiPagedResult<ProviderPullRequest>>
+				>;
 			}
 		).getMyPullRequestsForUserResult();
 		const ids = result?.value?.values.map(pr => pr.id) ?? [];
 		assert.deepEqual(ids, ['pr-good'], "the good project's PRs survive the bad project's failure");
-		// A dropped project makes the aggregate incomplete: it must be flagged truncated, not reported as a
-		// clean all-pages read (the earlier flatSettled swallowed the failure silently).
-		assert.equal(result?.value?.paging?.truncated, true, 'a dropped project marks the aggregate truncated');
+		// A dropped project makes the aggregate incomplete: instead of re-throwing (which would discard the good
+		// project's PRs) or a silent flatSettled, the failure is preserved as a structured per-scope failure in
+		// the SDK metadata, which the facade then maps to a warning + fetchFailed.
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.equal(failures.length, 2, 'both filter reads for the bad project are recorded as scope failures');
+		assert.ok(
+			failures.every(f => f.scope?.projectId === 'bad'),
+			'the failure is attributed to the bad project scope',
+		);
+		assert.equal(result?.value?.metadata?.completeness, 'partial', 'the aggregate is marked partial');
 
 		manager.dispose();
 	});
@@ -1183,7 +1200,7 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
-	test('Azure account-wide issue read re-throws an auth/rate-limit rejection instead of masking it (#5438)', async () => {
+	test('Azure account-wide issue read preserves siblings and records an auth/rate-limit rejection as a scope failure (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
 		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
@@ -1192,12 +1209,16 @@ suite('sweep + broaden (#5438)', () => {
 			domain: 'dev.azure.com',
 		};
 
-		// A 429 on one project must NOT collapse into a generic "truncated" success — it re-throws so the result
-		// core captures it as a rate-limit warning that drives recovery (fetchFailed), distinct from a page
-		// backstop.
+		// A 429 on the 'bad' project must NOT re-throw (that would discard the 'good' project's issues) nor
+		// collapse into a generic truncation. It's preserved as a structured rate-limit scope failure in the
+		// metadata, which the facade maps to a rate-limit warning + fetchFailed, while the good issues survive.
 		stubApi(azure, {
-			getIssuesForAzureProject: () =>
-				Promise.reject(new RequestRateLimitError(new Error('429'), undefined, undefined)),
+			getIssuesForAzureProject: (_t: unknown, _org: string, project: string) => {
+				if (project === 'bad') {
+					return Promise.reject(new RequestRateLimitError(new Error('429'), undefined, undefined));
+				}
+				return Promise.resolve({ values: [{ id: 'i-good' }], paging: { more: false, cursor: '{}' } });
+			},
 		});
 		(
 			azure as unknown as { getProviderCurrentAccount: () => Promise<{ username: string }> }
@@ -1207,16 +1228,30 @@ suite('sweep + broaden (#5438)', () => {
 		).getProviderResourcesForUser = () => Promise.resolve([{ id: 'org-1', name: 'Org One' }]);
 		(
 			azure as unknown as {
-				getProviderProjectsForResources: () => Promise<{ resourceName: string; name: string }[]>;
+				getProviderProjectsForResources: () => Promise<
+					{ resourceId: string; resourceName: string; name: string }[]
+				>;
 			}
-		).getProviderProjectsForResources = () => Promise.resolve([{ resourceName: 'org-1', name: 'proj' }]);
+		).getProviderProjectsForResources = () =>
+			Promise.resolve([
+				{ resourceId: 'org-1', resourceName: 'org-1', name: 'good' },
+				{ resourceId: 'org-1', resourceName: 'org-1', name: 'bad' },
+			]);
 
 		const result = await (
 			azure as unknown as {
-				searchMyIssuesWithTruncationResult: () => Promise<IntegrationResult<unknown>>;
+				searchMyIssuesWithTruncationResult: () => Promise<
+					IntegrationResult<{ values: unknown[]; truncated: boolean; metadata?: CollectionMetadata }>
+				>;
 			}
 		).searchMyIssuesWithTruncationResult();
-		assert.ok(result?.error != null, 'the rate-limit rejection surfaces as an error, not a truncated success');
+		assert.equal(result?.error, undefined, 'a partial read is not surfaced as a hard error');
+		assert.equal(result?.value?.values.length, 1, "the good project's issues survive");
+		const failures = result?.value?.metadata?.failures ?? [];
+		assert.ok(
+			failures.some(f => f.kind === 'rate-limit' && f.scope?.projectId === 'bad'),
+			'the rate-limit rejection is recorded as a scope failure on the bad project',
+		);
 
 		manager.dispose();
 	});

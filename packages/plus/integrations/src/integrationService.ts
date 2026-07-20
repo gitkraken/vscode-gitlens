@@ -1640,15 +1640,27 @@ export class IntegrationService implements Disposable {
 			}
 			const items = value?.values ?? [];
 			const warnings = warning != null ? [warning] : [];
-			// GitHub caps each authored/assigned/mentioned category at 100 with no cursor; when that cap is hit
-			// the read is incomplete and can't be paged, so report it as truncated (+ a warning) rather than a
-			// complete list.
-			if (value?.truncated) {
+			// Fold in structured per-scope failures from the account-wide fan-out (e.g. Azure across projects):
+			// scope-aware warnings + `fetchFailed` when a scope failed, without discarding the successful items.
+			const assessment = mergeAssessmentInto(
+				warnings,
+				options.providerId,
+				domain,
+				options.connectionId,
+				value?.metadata,
+			);
+			// An account-wide search that couldn't confirm completeness (a provider cap with no cursor, or a
+			// per-scope backstop/failure) is incomplete and can't be paged; report it as truncated (+ a
+			// provider-neutral warning, unless a structured failure already explains it) rather than a complete
+			// list. Don't hard-code GitHub's "100 per category" cap here — Azure reaches this via a per-project
+			// backstop, and other providers may cap differently.
+			const truncated = (value?.truncated ?? false) || assessment.truncated;
+			if (truncated && warnings.length === 0) {
 				warnings.push({
 					providerId: options.providerId,
 					domain: domain,
 					connectionId: options.connectionId,
-					message: `Account-wide issue search for '${options.providerId}' was truncated (capped at 100 per category); results may be incomplete.`,
+					message: `Account-wide issue search for '${options.providerId}' was truncated; results may be incomplete.`,
 					kind: 'other',
 					isAuth: false,
 				});
@@ -1656,9 +1668,9 @@ export class IntegrationService implements Disposable {
 			return {
 				items: items,
 				warnings: warnings,
-				page: { currentPage: 1, itemsPerPage: items.length, truncated: value?.truncated || undefined },
+				page: { currentPage: 1, itemsPerPage: items.length, truncated: truncated || undefined },
 				hasMore: false,
-				fetchFailed: (warning != null && value == null) || undefined,
+				fetchFailed: assessment.fetchFailed || (warning != null && value == null) || undefined,
 			};
 		}
 
@@ -1786,14 +1798,18 @@ export class IntegrationService implements Disposable {
 		}
 		// Partial project discovery: continue with the resources that succeeded, but surface per-resource
 		// failures as warnings and remember to mark the page fetchFailed so the caller knows some issues may be
-		// missing. `projectDiscoveryFailed` is OR-ed into the page's fetchFailed at every return below.
-		const projectDiscoveryFailed = mergeAssessmentInto(
+		// missing. `projectDiscoveryFailed`/`projectDiscoveryTruncated` are OR-ed into the page's
+		// fetchFailed/truncated at every return below (a truncated-but-not-failed discovery, e.g. a paging
+		// backstop, still means the project set is incomplete).
+		const projectDiscoveryAssessment = mergeAssessmentInto(
 			warnings,
 			options.providerId,
 			domain,
 			options.connectionId,
 			projectsResult?.metadata,
-		).fetchFailed;
+		);
+		const projectDiscoveryFailed = projectDiscoveryAssessment.fetchFailed;
+		const projectDiscoveryTruncated = projectDiscoveryAssessment.truncated;
 		const projects = projectsResult?.values;
 		if (projects == null || projects.length === 0) {
 			return emptyPage((projectsWarning != null && projectsResult == null) || projectDiscoveryFailed);
@@ -1810,7 +1826,10 @@ export class IntegrationService implements Disposable {
 			: matchedProjects;
 		const moreProjectWindows = paginated && matchedProjects.length > windowStart + projectsPerPage;
 		if (scopedProjects.length === 0) {
-			return emptyPage();
+			// The discovered projects didn't intersect the requested filter/window. If discovery itself was
+			// partial, the empty result is not a proven-empty account — carry `fetchFailed` so the caller knows
+			// projects may be missing rather than treating this as a clean empty page.
+			return emptyPage(projectDiscoveryFailed);
 		}
 
 		// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
@@ -1897,7 +1916,7 @@ export class IntegrationService implements Disposable {
 		// A project whose internal page-drain hit its backstop (Jira/Linear cap at maxPagesPerRequest) reports
 		// `truncated`; surface it as `page.truncated` so a windowed read isn't published as having drained each
 		// project completely.
-		let projectTruncated = false;
+		let projectTruncated = projectDiscoveryTruncated;
 		for (const { value: result, warning } of perProject) {
 			if (warning != null) {
 				warnings.push(warning);
@@ -2205,7 +2224,11 @@ export class IntegrationService implements Disposable {
 				allPages: !truncated && !fetchFailed,
 				truncated: truncated,
 			},
-			hasMore: truncated,
+			// A sweep drains every page itself and exposes no cursor to resume — so `hasMore` must be false even
+			// when the read was incomplete. Terminal incompleteness is expressed through `page.truncated` +
+			// `allPages: false` + warnings; setting `hasMore: true` here would make a consumer that drains while
+			// `hasMore` re-run the identical sweep forever with no cursor to advance.
+			hasMore: false,
 			fetchFailed: fetchFailed || undefined,
 		};
 	}

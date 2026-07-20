@@ -1,5 +1,4 @@
 import type { CollectionMetadata, CollectionScopeFailure } from '@gitkraken/provider-apis';
-import { AuthenticationError, RequestNotFoundError, RequestRateLimitError } from '@gitlens/git/errors.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -23,7 +22,7 @@ import type {
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
-import { firstRecoverableRejection, isRecoverableReadError } from '../results.js';
+import { toCollectionScopeFailure } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import type {
 	ProviderApiPagedResult,
@@ -37,19 +36,6 @@ import { collectProviderPagedResult } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.Bitbucket];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
-
-/**
- * Maps a caught GitLens request error to the SDK's {@link CollectionScopeFailure} kind so a per-scope failure
- * in the reviewer fan-out is classified consistently with structured SDK failures (Step 3 then maps auth →
- * `auth`, rate-limit → `rate-limit`, etc.). Unknown errors fall back to `provider` (a real, non-transient
- * failure) rather than `unknown`, since they came from an actual request that rejected.
- */
-function bitbucketFailureKind(ex: unknown): CollectionScopeFailure['kind'] {
-	if (ex instanceof AuthenticationError) return 'authentication';
-	if (ex instanceof RequestRateLimitError) return 'rate-limit';
-	if (ex instanceof RequestNotFoundError) return 'not-found';
-	return 'provider';
-}
 
 export class BitbucketIntegration extends GitHostIntegration<
 	GitCloudHostIntegrationId.Bitbucket,
@@ -387,6 +373,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const states = toProviderPullRequestStates(options?.state);
 		const maxPagesPerWorkspace = 20;
 		let truncated = false;
+		// Structured per-scope failures from BOTH the authored and reviewer slices. A rejected scope is recorded
+		// here (never re-thrown) so successful sibling workspaces/repos survive and the ProviderBackend facade
+		// maps each failure to an actionable warning + `fetchFailed` (auth/rate-limit failures still drive
+		// recovery through their warning kind, matching the SDK's own collect-across-scopes model).
+		const failures: CollectionScopeFailure[] = [];
 		const settled = await Promise.allSettled(
 			workspaces.map(async ws => {
 				const collected: ProviderPullRequest[] = [];
@@ -412,19 +403,14 @@ export class BitbucketIntegration extends GitHostIntegration<
 			}),
 		);
 
-		// An auth/rate-limit rejection is actionable — re-throw it (preserving its kind) so the result core
-		// captures it as a warning that drives recovery, instead of collapsing it into a generic "truncated".
-		const recoverable = firstRecoverableRejection(settled);
-		if (recoverable != null) throw recoverable;
-
 		const prsByUrl = new Map<string, ProviderPullRequest>();
-		for (const outcome of settled) {
-			// A dropped workspace (transient 5xx/network) means the aggregate is incomplete; flag it (don't
-			// silently swallow the rejection) so the sweep reports the read as partial rather than an all-pages
-			// success.
+		// `allSettled` preserves order, so `settled[i]` is `workspaces[i]`. A rejected workspace becomes a
+		// structured failure (attributed to its slug) instead of a generic truncation or a re-throw, preserving
+		// every sibling workspace's authored PRs.
+		settled.forEach((outcome, i) => {
 			if (outcome.status !== 'fulfilled') {
-				truncated = true;
-				continue;
+				failures.push(this.toWorkspaceFailure(workspaces[i].slug, outcome.reason));
+				return;
 			}
 			for (const pr of outcome.value) {
 				const key = pr.url ?? pr.id;
@@ -432,7 +418,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 					prsByUrl.set(key, pr);
 				}
 			}
-		}
+		});
 
 		// Bitbucket's account-wide (per-workspace) endpoint returns authored PRs only, and the SDK exposes no
 		// workspace-level reviewer query — only a repo-scoped one. Enumerate the account's repos by draining each
@@ -440,7 +426,6 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// each repo with `reviewerId`, so review-requested PRs aren't bounded to the currently-open remotes and a
 		// reviewer PR past the first page isn't dropped. Structured per-scope failures are collected as
 		// CollectionScopeFailure so the ProviderBackend facade maps them to actionable warnings (Step 3).
-		const failures: CollectionScopeFailure[] = [];
 		const maxReposPagesPerWorkspace = 20;
 		const maxPrPagesPerRepo = 20;
 		// Bound concurrency: workspaces are few, so process them concurrently, but drain each workspace's repos in
@@ -464,11 +449,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 						truncated = true;
 					}
 				} catch (ex) {
-					// An auth/rate-limit failure is actionable; a transient failure still leaves the slice partial.
+					// Record the workspace as a structured failure and keep going: the failure metadata drives the
+					// warning + `fetchFailed` + incompleteness for every kind (auth/rate-limit stay actionable via
+					// their warning kind), so sibling workspaces' repos are still drained.
 					failures.push(this.toWorkspaceFailure(ws.slug, ex));
-					if (!isRecoverableReadError(ex)) {
-						truncated = true;
-					}
 					return;
 				}
 
@@ -507,10 +491,10 @@ export class BitbucketIntegration extends GitHostIntegration<
 			}),
 		);
 
-		// Auth/rate-limit failures stay actionable through the structured metadata (Step 3 maps kind
-		// `authentication` → an `auth` warning, `rate-limit` → a `rate-limit` warning). We do NOT re-throw them:
-		// re-throwing would discard the successful sibling repos' PRs. Returning the items plus the structured
-		// failures preserves the survivors while still surfacing the recovery-driving warning + fetchFailed (D3).
+		// Both slices record per-scope rejections (authored workspaces + reviewer workspaces/repos) as structured
+		// failures instead of re-throwing: re-throwing would discard every successful sibling's PRs. Auth/rate-limit
+		// failures stay actionable through the metadata (the facade maps kind `authentication` → an `auth` warning,
+		// `rate-limit` → a `rate-limit` warning) while the survivors are returned with `fetchFailed` (D3).
 		const metadata: CollectionMetadata | undefined =
 			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
 
@@ -523,20 +507,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 	/** Classifies a caught workspace-scope error into a structured {@link CollectionScopeFailure}. */
 	private toWorkspaceFailure(workspaceSlug: string, ex: unknown): CollectionScopeFailure {
-		return {
-			scope: { providerId: this.id, resourceId: workspaceSlug },
-			kind: bitbucketFailureKind(ex),
-			...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
-		};
+		return toCollectionScopeFailure({ providerId: this.id, resourceId: workspaceSlug }, ex);
 	}
 
 	/** Classifies a caught repository-scope error into a structured {@link CollectionScopeFailure}. */
 	private toRepositoryFailure(repositoryId: string, ex: unknown): CollectionScopeFailure {
-		return {
-			scope: { providerId: this.id, repositoryId: repositoryId },
-			kind: bitbucketFailureKind(ex),
-			...(ex instanceof Error && ex.message ? { message: ex.message } : {}),
-		};
+		return toCollectionScopeFailure({ providerId: this.id, repositoryId: repositoryId }, ex);
 	}
 
 	protected override async searchProviderMyIssues(
