@@ -4779,7 +4779,7 @@ export class GlLitGraph extends LitElement {
 					this.dispatchEvent(
 						new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }),
 					);
-					this.virtualizerRef.value?.scrollToIndex(idx, 'nearest');
+					this.revealIndexNearest(idx);
 				}
 				event.preventDefault();
 				return;
@@ -4857,7 +4857,7 @@ export class GlLitGraph extends LitElement {
 				);
 			}
 		}
-		this.virtualizerRef.value?.scrollToIndex(next, 'nearest');
+		this.revealIndexNearest(next);
 	};
 
 	// On Tab-in, align the active descendant with the current selection so the screen reader
@@ -4903,18 +4903,10 @@ export class GlLitGraph extends LitElement {
 		if (related instanceof Node && this.contains(related)) return;
 
 		// Ensure the active-descendant row is actually rendered (virtualized in) so the
-		// `aria-activedescendant` id resolves to a real element. Only scroll when the row is OFF-screen —
-		// an already-visible row (the common arrow-key/Tab-in case) needn't enter the virtualizer's
-		// scroll-scheduling path (`scrollToIndex` is a no-op for visible rows, but skipping the call
-		// avoids the work entirely). Same visibility math as flushPendingReveal/updateHeadPillDirection.
-		const scroller = this.virtualizerRef.value;
-		if (scroller == null) return;
-
-		const top = idx * this.rowHeight;
-		const viewTop = scroller.scrollTop;
-		if (top >= viewTop && top + this.rowHeight <= viewTop + this.scrollerClientHeight) return;
-
-		scroller.scrollToIndex(idx, 'nearest');
+		// `aria-activedescendant` id resolves to a real element. `revealIndexNearest` only scrolls when
+		// the row is off (or, with padding, too near) screen — an already-comfortably-visible row (the
+		// common arrow-key/Tab-in case) needn't enter the virtualizer's scroll-scheduling path.
+		this.revealIndexNearest(idx);
 	};
 
 	// Dispatch a "load the next page" request. The wrapper's `graphState.loading` guard (webview) and the
@@ -5161,6 +5153,39 @@ export class GlLitGraph extends LitElement {
 		this.flushPendingReveal();
 	}
 
+	// `scrollToIndex(idx, 'nearest')` replacement that also honors `gitlens.graph.scrollRowPadding` —
+	// rows of margin kept from the viewport edge (matches the legacy GKC prop, unread until now). Used
+	// by every 'nearest' reveal (keyboard nav, jump-to-HEAD/-sha, focus-in ensure-visible, the
+	// pending-reveal retry below) — deliberate-reveal-only, NEVER the scroll hot path, so the one live
+	// `scrollTop` read below is fine (mirrors the plain-visibility checks these same call sites already
+	// did). All size math otherwise comes from cached geometry (`scrollerClientHeight`/`rowHeight`) — no
+	// layout-forcing reads. Padding is clamped to leave at least one row of "nearest" slack either side;
+	// a clamp-to-zero (tiny viewport, or the setting itself is 0) falls through to the exact prior
+	// behavior.
+	private revealIndexNearest(idx: number): void {
+		const scroller = this.virtualizerRef.value;
+		if (scroller == null) return;
+
+		const rowHeight = this.rowHeight;
+		const viewportHeight = this.scrollerClientHeight;
+		const visibleRows = rowHeight > 0 ? viewportHeight / rowHeight : 0;
+		const padding = Math.max(0, Math.min(this.config?.scrollRowPadding ?? 0, Math.floor(visibleRows / 2) - 1));
+		if (padding <= 0) {
+			scroller.scrollToIndex(idx, 'nearest');
+			return;
+		}
+
+		const padPx = padding * rowHeight;
+		const rowTop = idx * rowHeight;
+		const rowBottom = rowTop + rowHeight;
+		const scrollTop = scroller.scrollTop;
+		if (rowTop < scrollTop + padPx) {
+			scroller.scrollTop = Math.max(0, rowTop - padPx);
+		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
+			scroller.scrollTop = rowBottom - viewportHeight + padPx;
+		}
+	}
+
 	private flushPendingReveal(): void {
 		const sha = this._pendingRevealSha;
 		if (sha == null) return;
@@ -5173,13 +5198,19 @@ export class GlLitGraph extends LitElement {
 
 		this._pendingRevealSha = undefined;
 
+		if (this._pendingRevealPosition === 'nearest') {
+			// Padding-aware — its own internal check subsumes the plain-visibility skip below.
+			this.revealIndexNearest(idx);
+			return;
+		}
+
 		// Already fully on-screen → leave the scroll position put (revealing shouldn't recenter a
 		// row the user can already see).
 		const top = idx * this.rowHeight;
 		const viewTop = scroller.scrollTop;
 		if (top >= viewTop && top + this.rowHeight <= viewTop + scroller.clientHeight) return;
 
-		scroller.scrollToIndex(idx, this._pendingRevealPosition);
+		scroller.scrollToIndex(idx, 'center');
 	}
 
 	// Attach the scroll handler PASSIVELY (so it never blocks the compositor on a scroll frame —
