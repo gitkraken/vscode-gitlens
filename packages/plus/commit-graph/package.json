@@ -46,6 +46,10 @@
 			"types": "./src/engine/layout.ts",
 			"default": "./src/engine/layout.ts"
 		},
+		"./engine/navigation.js": {
+			"types": "./src/engine/navigation.ts",
+			"default": "./src/engine/navigation.ts"
+		},
 		"./engine/process.js": {
 			"types": "./src/engine/process.ts",
 			"default": "./src/engine/process.ts"

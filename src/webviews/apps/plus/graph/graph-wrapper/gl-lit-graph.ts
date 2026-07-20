@@ -2,6 +2,7 @@ import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph
 import { AdornmentRegistry, RowAdornmentInvalidateEvent } from '@gitkraken/commit-graph/engine/adornments.js';
 import { classifyRowsDelta } from '@gitkraken/commit-graph/engine/delta.js';
 import { collectReachable, identifyFirstParentChain } from '@gitkraken/commit-graph/engine/layout.js';
+import { buildChildrenBySha, findBranchingPointSha } from '@gitkraken/commit-graph/engine/navigation.js';
 import type { GraphProcessResume, GraphStability } from '@gitkraken/commit-graph/engine/process.js';
 import { processCommitsAndSegments } from '@gitkraken/commit-graph/engine/process.js';
 import type { ReconciledSuffix } from '@gitkraken/commit-graph/engine/reconcile.js';
@@ -556,8 +557,8 @@ export class GlLitGraph extends LitElement {
 	// needs (`resolveRef` + `resolveSha` on the same event). Tracked regardless of the modifier so a
 	// press right after entering the pill activates immediately, with no re-hover required.
 	private hoveredPillRef?: { key: string; sha: string };
-	// Transient Ctrl/Cmd-hold chain (`activateModifierChain`/`deactivateModifierChain`): while a
-	// modifier is held over a ref pill, dims rows outside that ref's first-parent chain — the same
+	// Transient Alt-hold chain (`activateModifierChain`/`deactivateModifierChain`): while Alt is
+	// held over a ref pill, dims rows outside that ref's first-parent chain — the same
 	// derivation as the click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas`
 	// assignment in `updateRenderState`, which prefers this over `refHoverChainShas` while set).
 	@state() private modifierChainShas?: ReadonlySet<string>;
@@ -1340,7 +1341,7 @@ export class GlLitGraph extends LitElement {
 			}
 		}
 
-		// The host window losing focus (e.g. Alt-Tab away) can leave the Ctrl-hold dim stuck — the same
+		// The host window losing focus (e.g. Alt-Tab away) can leave the Alt-hold dim stuck — the same
 		// `blur` signal drives `gl-graph--window-unfocused` in render().
 		if (changed.has('windowFocused') && this.windowFocused === false) {
 			this.deactivateModifierChain();
@@ -1802,7 +1803,7 @@ export class GlLitGraph extends LitElement {
 			inScopeShas: this.scopeProjection != null ? undefined : this.inScopeShas,
 			searchMatchedShas: this._searchMatchedShas,
 			searchMode: this.searchMode,
-			// The transient Ctrl-hold chain overrides the click-pin while held; falls back to the pin.
+			// The transient Alt-hold chain overrides the click-pin while held; falls back to the pin.
 			inRefChainShas: this.modifierChainShas ?? this.refHoverChainShas,
 			dimMergeCommits: this.config?.dimMergeCommits,
 			showGhostRefs: this.config?.showGhostRefsOnRowHover === true,
@@ -2971,8 +2972,8 @@ export class GlLitGraph extends LitElement {
 		// as the user drags the header handle, and flickering tooltips/row cards would be distracting.
 		if (this.draggingColumn) return;
 
-		// Ctrl/Cmd-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so a
-		// modifier keydown that arrives later knows what to activate against. Fires for every element in
+		// Alt-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so an Alt
+		// keydown that arrives later knows what to activate against. Fires for every element in
 		// the viewport (not just pills) — resolving to `undefined` off a pill is what detects "left it"
 		// without needing a separate pointerout branch for the pill↔non-pill transition. Gated behind a
 		// cheap native `closest()` first: `resolvePillHover` walks `event.composedPath()` TWICE
@@ -2988,7 +2989,7 @@ export class GlLitGraph extends LitElement {
 			) {
 				this.hoveredPillRef = pill;
 				// Modifier already held when the pointer arrives (no fresh keydown to catch) — activate now.
-				if (event.ctrlKey || event.metaKey) {
+				if (event.altKey) {
 					this.activateModifierChain();
 				}
 			}
@@ -3184,7 +3185,7 @@ export class GlLitGraph extends LitElement {
 		return counterpart != null && counterpart !== sha ? [sha, counterpart] : [sha];
 	}
 
-	// Ctrl/Cmd-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
+	// Alt-hold transient chain (same first-parent derivation `togglePinnedRef` uses for the click
 	// pin), layered on top of it via the `inRefChainShas` fallback in `updateRenderState`. Unlike the
 	// pin, this never touches `_pinnedRefKey`/adornments — the ref pills themselves don't change, only
 	// the per-row dim/chain flags read fresh off `modifierChainShas` each render, so there's no adornment
@@ -3232,18 +3233,18 @@ export class GlLitGraph extends LitElement {
 		this.lastModifierChainSeed = undefined;
 	}
 
-	// A fresh press of the modifier (not the key-repeat while held) while a pill OR a row is already
-	// hovered — the mirror of the "modifier already held, pointer arrives" branches in
+	// A fresh press of Alt (not the key-repeat while held) while a pill OR a row is already
+	// hovered — the mirror of the "Alt already held, pointer arrives" branches in
 	// `onPointerOverTooltip`/`handleRowHover`.
 	private readonly onModifierKeyDown = (event: KeyboardEvent): void => {
-		if (event.repeat || (event.key !== 'Control' && event.key !== 'Meta')) return;
+		if (event.repeat || event.key !== 'Alt') return;
 		if (this.hoveredPillRef == null && this.hoveredRowSha == null) return;
 
 		this.activateModifierChain();
 	};
 
 	private readonly onModifierKeyUp = (event: KeyboardEvent): void => {
-		if (event.key !== 'Control' && event.key !== 'Meta') return;
+		if (event.key !== 'Alt') return;
 
 		this.deactivateModifierChain();
 	};
@@ -3288,8 +3289,8 @@ export class GlLitGraph extends LitElement {
 	// minimap follows it) but the ONE decision point below (zone → treatment) only schedules the
 	// debounced card for 'content' — sliding onto content from the SAME row upgrades to the full
 	// hover; sliding back onto the lanes hides any open/pending card without dropping row-hover/
-	// minimap tracking. Also (re)targets the Ctrl/Cmd-hold lane-chain dim (`activateModifierChain`)
-	// when a NEW row is entered while the modifier is already held.
+	// minimap tracking. Also (re)targets the Alt-hold lane-chain dim (`activateModifierChain`)
+	// when a NEW row is entered while Alt is already held.
 	private handleRowHover(event: PointerEvent): void {
 		const node = event.target;
 		if (node instanceof Element && node.closest('[data-ref-name]') != null) {
@@ -3344,7 +3345,7 @@ export class GlLitGraph extends LitElement {
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 		this.startRowHover(sha, zone, event, rowEl, true);
 		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
-		if (event.ctrlKey || event.metaKey) {
+		if (event.altKey) {
 			this.activateModifierChain();
 		}
 	}
@@ -4916,13 +4917,38 @@ export class GlLitGraph extends LitElement {
 		return undefined;
 	}
 
-	// Next/prev branching point (a merge commit — two or more parents) from `from`.
+	// Lazy reverse-topology map for branching-point nav; rebuilt only when processedRows changes.
+	private childrenBySha: ReadonlyMap<string, readonly string[]> | undefined;
+	private childrenByShaRows: readonly ProcessedGraphRow[] | undefined;
+
+	// Next/prev branching point: walks the row's lane lineage (same-column hops) to the nearest fork
+	// point — a commit with a child on another lane (old-engine parity). Walks the FULL topology
+	// (processedRows) so hops through a collapsed lane still land, then maps the target back to a
+	// display row — its own row, or the collapsed lane's chip row when it's folded away.
 	private findBranchingPointIndex(from: number, dir: 1 | -1): number | undefined {
-		const rows = this.displayRows;
-		for (let i = from + dir; i >= 0 && i < rows.length; i += dir) {
-			if ((rows[i].parents?.length ?? 0) > 1) return i;
+		const fromSha = this.displayRows[from]?.sha;
+		if (fromSha == null) return undefined;
+
+		if (this.childrenBySha == null || this.childrenByShaRows !== this.processedRows) {
+			this.childrenBySha = buildChildrenBySha(this.processedRows);
+			this.childrenByShaRows = this.processedRows;
 		}
-		return undefined;
+
+		const sha = findBranchingPointSha(
+			this.processedRows,
+			this.processedIndexBySha,
+			this.childrenBySha,
+			fromSha,
+			dir,
+		);
+		if (sha == null) return undefined;
+
+		const idx = this.indexBySha.get(sha);
+		if (idx != null) return idx;
+
+		// Target hidden inside a collapsed lane → land on that lane's chip (tip) row instead.
+		const tip = this.segmentByCommit.get(sha);
+		return tip != null ? this.indexBySha.get(tip) : undefined;
 	}
 
 	private onKeydown = (event: KeyboardEvent): void => {
@@ -5030,19 +5056,27 @@ export class GlLitGraph extends LitElement {
 			}
 			case 'h':
 			case 'H': {
-				// Jump selection to HEAD (the current branch tip) — a frequent re-orientation move.
+				// Jump selection to HEAD (the current branch tip) — a frequent re-orientation move. Shift
+				// targets HEAD's upstream instead (falling back to HEAD when it has none / it's off-window).
 				const headSha = this.headSha;
-				const idx = headSha != null ? this.indexBySha.get(headSha) : undefined;
-				if (headSha != null && idx != null) {
+				let targetSha = headSha;
+				if (event.shiftKey && headSha != null) {
+					// Several local branches can share the HEAD commit — take the checked-out one's upstream.
+					const heads = this.getCommitBySha(headSha)?.commitRefs.filter(r => r.kind === 'head');
+					const upstreamId = (heads?.find(r => r.current === true) ?? heads?.[0])?.upstreamId;
+					targetSha = (upstreamId != null ? this.refRowIndex.get(upstreamId)?.sha : undefined) ?? headSha;
+				}
+				const idx = targetSha != null ? this.indexBySha.get(targetSha) : undefined;
+				if (targetSha != null && idx != null) {
 					if (this._pinnedRefKey != null) {
 						this.clearPinnedRef();
 					}
 					this.focusIndex = idx;
 					this._selectionAnchorIndex = idx;
-					this.selectedShas = new Set([headSha]);
+					this.selectedShas = new Set([targetSha]);
 					this.requestUpdate();
 					this.dispatchEvent(
-						new CustomEvent('gl-graph-changeselection', { detail: { sha: headSha, mode: 'replace' } }),
+						new CustomEvent('gl-graph-changeselection', { detail: { sha: targetSha, mode: 'replace' } }),
 					);
 					this.revealIndexNearest(idx);
 				}
