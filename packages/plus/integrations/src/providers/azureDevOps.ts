@@ -313,8 +313,11 @@ export abstract class AzureDevOpsIntegrationBase<
 		const orgDescriptor = (await this.getProviderResourcesForUser(session))?.find(o => o.name === org);
 		if (orgDescriptor == null) return undefined;
 
-		const projects = await this.getProviderProjectsForResources(session, [orgDescriptor]);
-		if (!projects?.length) return { values: [] };
+		const discoveryFailures: CollectionScopeFailure[] = [];
+		const projects = await this.getProviderProjectsForResources(session, [orgDescriptor], false, discoveryFailures);
+		// An empty result is only proven-empty when discovery itself succeeded; a rejected project-discovery
+		// leaves the repo set unknowable, so flag truncated rather than publishing a hole as a complete list.
+		if (!projects?.length) return { values: [], ...(discoveryFailures.length ? { truncated: true } : {}) };
 
 		const results = await Promise.allSettled(
 			projects.map(p =>

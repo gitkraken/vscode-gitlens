@@ -116,28 +116,6 @@ export function toProviderWarning(
 }
 
 /**
- * Whether an exception is one a consumer should act on (re-auth, back off) rather than shrug off as a
- * transient blip. A fan-out (`Promise.allSettled`) that swallows every rejection into a generic "truncated"
- * signal hides these: a 401/429 on one project/workspace becomes indistinguishable from a page-backstop hit,
- * so Kepler never triggers recovery. Providers use this to re-throw such a rejection (preserving its kind)
- * instead of degrading it, while still tolerating transient 5xx/network errors as partial data.
- */
-export function isRecoverableReadError(ex: unknown): boolean {
-	return ex instanceof AuthenticationError || ex instanceof RequestRateLimitError;
-}
-
-/** Returns the first auth/rate-limit rejection in a settled fan-out, or undefined if none is recoverable. */
-export function firstRecoverableRejection(settled: PromiseSettledResult<unknown>[]): Error | undefined {
-	for (const outcome of settled) {
-		// `isRecoverableReadError` only matches AuthenticationError/RequestRateLimitError, both `Error`s.
-		if (outcome.status === 'rejected' && isRecoverableReadError(outcome.reason)) {
-			return outcome.reason as Error;
-		}
-	}
-	return undefined;
-}
-
-/**
  * Maps a caught GitLens request error to a structured {@link CollectionScopeFailure} kind, so a per-scope
  * rejection in a GitLens-side fan-out (where the SDK can't classify it — the provider methods throw GitLens
  * error classes, not HTTP status codes) is described with the same vocabulary as the SDK's own

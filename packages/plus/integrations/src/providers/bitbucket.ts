@@ -494,7 +494,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// Both slices record per-scope rejections (authored workspaces + reviewer workspaces/repos) as structured
 		// failures instead of re-throwing: re-throwing would discard every successful sibling's PRs. Auth/rate-limit
 		// failures stay actionable through the metadata (the facade maps kind `authentication` → an `auth` warning,
-		// `rate-limit` → a `rate-limit` warning) while the survivors are returned with `fetchFailed` (D3).
+		// `rate-limit` → a `rate-limit` warning) while the survivors are returned with `fetchFailed`.
 		const metadata: CollectionMetadata | undefined =
 			failures.length > 0 ? { completeness: 'partial', failures: failures } : undefined;
 
