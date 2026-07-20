@@ -28,6 +28,7 @@ import { isConflictStatus } from '@gitlens/git/utils/fileStatus.utils.js';
 import { areEqual } from '@gitlens/utils/array.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue } from '@gitlens/utils/promise.js';
 import type { PastAgentSessionsResult } from '../../../../../agents/models/agentSessionState.js';
 import type { Autolink } from '../../../../../autolinks/models/autolinks.js';
@@ -135,14 +136,21 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 
 	// wip — match scope inputs as closely as possible with a single range
 	const hasShas = (scope.includeShas?.length ?? 0) > 0;
-	if (scope.includeUnstaged && !scope.includeStaged && !hasShas) {
-		return { lhs: uncommittedStaged, rhs: uncommitted };
+	if (!hasShas) {
+		if (scope.includeUnstaged && !scope.includeStaged) {
+			return { lhs: uncommittedStaged, rhs: uncommitted };
+		}
+		if (!scope.includeUnstaged && scope.includeStaged) {
+			return { lhs: 'HEAD', rhs: uncommittedStaged };
+		}
+		return { lhs: 'HEAD', rhs: uncommitted };
 	}
-	if (!scope.includeUnstaged && scope.includeStaged && !hasShas) {
-		return { lhs: 'HEAD', rhs: uncommittedStaged };
-	}
-	// Default wip → HEAD ↔ working tree (covers includeUnstaged+staged and includeShas variants)
-	return { lhs: 'HEAD', rhs: uncommitted };
+
+	// includeShas is newest-first, so the range base is the oldest sha's parent
+	const lhs = `${scope.includeShas.at(-1)}^`;
+	if (scope.includeUnstaged) return { lhs: lhs, rhs: uncommitted };
+	if (scope.includeStaged) return { lhs: lhs, rhs: uncommittedStaged };
+	return { lhs: lhs, rhs: 'HEAD' };
 }
 
 type ResolvedSubService<K extends keyof GraphServices> = Awaited<Remote<GraphServices>[K]>;
@@ -916,6 +924,7 @@ export class DetailsActions {
 				// below or nothing repaints and the panel keeps whatever the last selection left behind.
 				if (cached != null && this.acceptWipRevision(cached.wip, repoPath)) {
 					this.state.wip.set(cached.wip);
+					this.rederiveDeferredDefaultScope(repoPath);
 					if (this.state.activeMode.get() != null) {
 						this.state.wipStale.set(true);
 					}
@@ -944,6 +953,7 @@ export class DetailsActions {
 										if (!this.acceptWipRevision(wip, repoPath)) return;
 
 										this.state.wip.set(wip);
+										this.rederiveDeferredDefaultScope(repoPath);
 										// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles
 										// every mirror and leaves the entry live, so revisits don't re-buy a `git status`.
 										this.graphState?.ingestWip(repoPath, wip);
@@ -978,6 +988,7 @@ export class DetailsActions {
 							if (!this.acceptWipRevision(wip, repoPath)) return;
 
 							this.state.wip.set(wip);
+							this.rederiveDeferredDefaultScope(repoPath);
 							// Authoritative host result (stats travel embedded as `wip.stats`) — reconciles every
 							// mirror and leaves the entry live, so revisits don't re-buy a `git status`.
 							this.graphState?.ingestWip(repoPath, wip);
@@ -2431,11 +2442,21 @@ export class DetailsActions {
 			}
 		}
 
-		// Late-arriving branch commits: if we entered a WIP review/compose mode before commits
-		// loaded, the default scope may have been computed without them. Re-derive only if the
-		// current scope still looks like the "deferred" default — i.e. no working/staged files
-		// were selected and includeShas is empty. Once the user drags or working changes are
-		// included, we leave it alone.
+		this.rederiveDeferredDefaultScope(repoPath);
+	}
+
+	/**
+	 * Finalize a "deferred" default scope once fresh data for `repoPath` arrives. Runs after both
+	 * the WIP fetch and the branch-commits fetch, in either completion order: a mode entry that
+	 * couldn't see this repo's data yet (cold load, or a cross-repo mode entry where the state
+	 * still held the outgoing repo's) leaves the deferred default (no flags, no shas), and this
+	 * re-derives it with buildDefaultScope's priority: working/staged changes → unpushed commits →
+	 * HEAD. Only acts while the scope still looks deferred — once the user drags or working
+	 * changes are included, it's left alone. Only trusts WIP/commits that belong to `repoPath`;
+	 * the commits fallback additionally waits for fresh WIP so a clean tree is a fact, not a
+	 * stale read.
+	 */
+	private rederiveDeferredDefaultScope(repoPath: string): void {
 		const activeMode = this.state.activeMode.get();
 		const activeContext = this.state.activeModeContext.get();
 		if (activeContext !== 'wip' || (activeMode !== 'review' && activeMode !== 'compose')) return;
@@ -2445,11 +2466,9 @@ export class DetailsActions {
 		if (currentScope.includeStaged || currentScope.includeUnstaged) return;
 		if ((currentScope.includeShas?.length ?? 0) > 0) return;
 
-		// Mirror buildDefaultScope's full priority: working/staged changes → unpushed commits → HEAD.
-		// Working changes win — on a cold compose entry the WIP may load after this fires, so we can't
-		// assume buildDefaultScope already saw it.
 		const wip = this.state.wip.get();
-		const wipFiles = wip?.changes?.files ?? [];
+		const wipFresh = wip != null && normalizePath(wip.repo.path) === normalizePath(repoPath);
+		const wipFiles = wipFresh ? (wip.changes?.files ?? []) : [];
 		const hasUnstaged = wipFiles.some(f => !f.staged);
 		const hasStaged = wipFiles.some(f => f.staged);
 
@@ -2457,6 +2476,11 @@ export class DetailsActions {
 		if (hasUnstaged || hasStaged) {
 			refreshedScope = { type: 'wip', includeUnstaged: hasUnstaged, includeStaged: hasStaged, includeShas: [] };
 		} else {
+			const commitsFresh =
+				this._branchCommitsFetchedRepoPath != null &&
+				normalizePath(this._branchCommitsFetchedRepoPath) === normalizePath(repoPath);
+			if (!wipFresh || !commitsFresh) return;
+
 			const commits = this.state.branchCommits.get();
 			const unpushedShas = commits?.filter(c => !c.pushed).map(c => c.sha) ?? [];
 			const refreshedIncludeShas =
@@ -2675,10 +2699,15 @@ export class DetailsActions {
 			.map(i => i.id);
 
 		if (current.type === 'wip') {
+			// A selection containing unstaged must also carry staged — unstaged diffs are
+			// index-relative, so composing unstaged without staged is ill-defined. The picker
+			// enforces this; normalize here as a backstop.
+			const includeUnstaged = selectedIds.has('unstaged');
 			return {
 				type: 'wip',
-				includeStaged: selectedIds.has('staged'),
-				includeUnstaged: selectedIds.has('unstaged'),
+				includeStaged:
+					selectedIds.has('staged') || (includeUnstaged && scopeItems.some(i => i.id === 'staged')),
+				includeUnstaged: includeUnstaged,
 				includeShas: pickedShas,
 			};
 		}

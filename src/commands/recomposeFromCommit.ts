@@ -10,6 +10,7 @@ import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
+import { resolveRecomposeAnchor } from './recompose.utils.js';
 
 export interface RecomposeFromCommitCommandArgs {
 	repoPath?: string;
@@ -89,9 +90,14 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 				return;
 			}
 
+			// Anchor on the branch's worktree (primary or secondary), creating one for a branch
+			// with no worktree; stop if the user declines or cancels the creation.
+			const anchor = await resolveRecomposeAnchor(this.container, branch);
+			if (anchor == null) return;
+
 			// Prefer the graph's inline compose mode when the range resolves cleanly; otherwise fall
 			// back to the standalone composer below.
-			const resolved = await resolveRecomposeScope(this.container, repo.git, {
+			const resolved = await resolveRecomposeScope(this.container, anchor.svc, {
 				branchName: branchName,
 				range: { base: baseCommitSha, head: headCommitSha },
 				includeWip: false,
@@ -99,7 +105,7 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 			if (resolved.ok) {
 				void executeCommand('gitlens.showGraph', {
 					action: 'enter-compose',
-					target: { sha: uncommitted, worktreePath: repoPath },
+					target: { sha: uncommitted, worktreePath: anchor.worktreePath },
 					composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
 					source: { source: args.source ?? 'commandPalette' },
 				});

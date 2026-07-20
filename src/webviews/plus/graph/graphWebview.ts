@@ -1096,12 +1096,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			const { target } = arg;
 			// Switch to the target's repository so a cold show lands on the right repo (and the
 			// primary-vs-secondary WIP comparison below resolves correctly). Mirrors the ref path.
+			let deferredForRepoSwitch = false;
 			if (target != null) {
-				this.repository =
-					(await this.container.git.getOrAddRepository(Uri.file(target.worktreePath), {
-						opened: false,
-						detectNested: true,
-					})) ?? this.repository;
+				const repo = await this.container.git.getOrAddRepository(Uri.file(target.worktreePath), {
+					opened: false,
+					detectNested: true,
+				});
+				// A warm show that switches repositories must not notify immediately — the webview
+				// would consume the action against the outgoing repo's context and the mode entry
+				// no-ops. Stash the action BEFORE the switch so the setter's state rebuild delivers
+				// it together with the new repo's state, same as a cold show.
+				if (!loading && repo != null && repo !== this.repository) {
+					this._pendingAction = {
+						action: arg.action,
+						target: arg.target,
+						composeInstructions: arg.composeInstructions,
+						composeScope: arg.composeScope,
+					};
+					deferredForRepoSwitch = true;
+				}
+				this.repository = repo ?? this.repository;
 			}
 			let rowId: string | undefined;
 			if (arg.action !== 'scope-to-branch') {
@@ -1125,7 +1139,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					composeInstructions: arg.composeInstructions,
 					composeScope: arg.composeScope,
 				};
-			} else {
+			} else if (!deferredForRepoSwitch) {
 				// Select the targeted row in the graph too (mirrors the ref path). The action
 				// notification only enters the mode / reveals the details panel; without this the
 				// graph row is never actually selected on a warm show. WIP rows + already-loaded

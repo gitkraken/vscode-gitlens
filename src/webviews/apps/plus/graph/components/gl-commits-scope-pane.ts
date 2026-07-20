@@ -37,7 +37,10 @@ export class GlCommitsScopePane extends LitElement {
 	@property({ type: Boolean })
 	loading = false;
 
-	/** 'compose' = top fixed, bottom draggable. 'review' = both draggable. */
+	/**
+	 * 'compose' = both draggable, but the start is clamped at the newest commit row (compose
+	 * ranges must end at HEAD). 'review' = both fully draggable.
+	 */
 	@property()
 	mode: 'compose' | 'review' = 'compose';
 
@@ -357,6 +360,38 @@ export class GlCommitsScopePane extends LitElement {
 		return last;
 	}
 
+	/**
+	 * Deepest index the start (top) handle may reach. In compose mode the start is clamped to the
+	 * first commit row (HEAD) — compose ranges must end at HEAD because the compose engine's apply
+	 * requires HEAD to be at the source range's tip, so excluding newer commits would always fail
+	 * at commit time. WIP-only lists fall back to the full draggable range so staged-only stays
+	 * reachable.
+	 */
+	private get maxStartIndex(): number {
+		if (this.mode === 'review') return this.maxDraggableIndex;
+
+		const firstCommit = this.items.findIndex(i => i.state === 'unpushed' || i.state === 'pushed');
+		return firstCommit >= 0 ? Math.min(firstCommit, this.maxDraggableIndex) : this.maxDraggableIndex;
+	}
+
+	private get effectiveMaxStart(): number {
+		return Math.min(this.maxStartIndex, this.rangeEnd);
+	}
+
+	/**
+	 * Shallowest index the end (bottom) handle may reach. A selection containing the unstaged row
+	 * must also contain the staged row — unstaged diffs are relative to the index, so composing
+	 * unstaged changes without the staged ones is ill-defined (the engine cannot exclude staged
+	 * content from a working-directory source).
+	 */
+	private get minEndIndex(): number {
+		const unstagedIndex = this.items.findIndex(i => i.id === 'unstaged');
+		if (unstagedIndex < 0 || this.rangeStart > unstagedIndex) return this.rangeStart;
+
+		const stagedIndex = this.items.findIndex(i => i.id === 'staged');
+		return stagedIndex >= 0 ? Math.max(this.rangeStart, stagedIndex) : this.rangeStart;
+	}
+
 	override render() {
 		if (!this.items.length && !this.loading) return this.renderEmpty();
 
@@ -366,9 +401,9 @@ export class GlCommitsScopePane extends LitElement {
 		const activeStart = this._dragging === 'start' ? (this._dragPreview ?? start) : start;
 
 		const showEndHandle = this.items.length > 1;
-		// In review mode, always show the start handle when there are multiple items
-		// so users can discover that the start of the range is also draggable.
-		const showStartHandle = this.mode === 'review' && this.items.length > 1;
+		// Hide the start handle when it has no room to move (compose with no WIP rows —
+		// the start is pinned at the newest commit).
+		const showStartHandle = this.items.length > 1 && (this.mode === 'review' || this.maxStartIndex > 0);
 
 		const showStartProxy = showStartHandle && this._startHandleOffscreen && !this._dragging;
 		const showEndProxy = showEndHandle && this._endHandleOffscreen && !this._dragging;
@@ -465,19 +500,19 @@ export class GlCommitsScopePane extends LitElement {
 
 	private renderHandle(type: 'start' | 'end', upperState: ScopeItemState | undefined) {
 		const isActive = this._dragging === type;
-		// In review mode the start handle is the only keyboard path to the start edge
-		// (the end-edge row owns end-edge keyboard). Put it in the Tab sequence.
-		// The end handle stays out of Tab order — its keyboard equivalent is the
-		// end-edge row — but remains focusable on click for mouse drag continuity.
-		const tabindex = type === 'start' && this.mode === 'review' ? '0' : '-1';
+		// The start handle is the only keyboard path to the start edge (the end-edge row
+		// owns end-edge keyboard). Put it in the Tab sequence. The end handle stays out
+		// of Tab order — its keyboard equivalent is the end-edge row — but remains
+		// focusable on click for mouse drag continuity.
+		const tabindex = type === 'start' ? '0' : '-1';
 		return html`<div
 			class="scope-handle ${isActive ? 'scope-handle--active' : ''}"
 			role="slider"
 			tabindex=${tabindex}
 			aria-label=${type === 'start' ? 'Start of selected scope' : 'End of selected scope'}
 			aria-orientation="vertical"
-			aria-valuemin="1"
-			aria-valuemax=${Math.max(1, this.maxDraggableIndex + 1)}
+			aria-valuemin=${type === 'start' ? 1 : Math.max(1, this.minEndIndex + 1)}
+			aria-valuemax=${Math.max(1, (type === 'start' ? this.effectiveMaxStart : this.maxDraggableIndex) + 1)}
 			aria-valuenow=${(type === 'start' ? this.rangeStart : this.rangeEnd) + 1}
 			aria-valuetext=${this.items[type === 'start' ? this.rangeStart : this.rangeEnd]?.label ?? ''}
 			data-handle=${type}
@@ -532,8 +567,7 @@ export class GlCommitsScopePane extends LitElement {
 
 	/**
 	 * Click-to-set-edge: snaps the nearer range edge to the clicked row, giving a
-	 * precise alternative to dragging in small viewports. In compose mode the start
-	 * is fixed (no start handle is rendered), so upward clicks become no-ops.
+	 * precise alternative to dragging in small viewports.
 	 */
 	private handleRowClick(e: MouseEvent, index: number): void {
 		if (this._dragging) return;
@@ -584,12 +618,12 @@ export class GlCommitsScopePane extends LitElement {
 		this.moveEndEdgeTo(next);
 	}
 
-	/** Set `rangeEnd` to `target`, clamped to `[rangeStart, maxDraggableIndex]`. */
+	/** Set `rangeEnd` to `target`, clamped to `[minEndIndex, maxDraggableIndex]`. */
 	private moveEndEdgeTo(target: number): void {
 		const maxIndex = this.maxDraggableIndex;
 		if (maxIndex < 0) return;
 
-		const clamped = Math.max(this.rangeStart, Math.min(maxIndex, target));
+		const clamped = Math.max(this.minEndIndex, Math.min(maxIndex, target));
 		const item = this.items[clamped];
 		if (item == null) return;
 		if (clamped === this.rangeEnd) return;
@@ -659,12 +693,9 @@ export class GlCommitsScopePane extends LitElement {
 
 		const start = this.rangeStart;
 		const end = this.rangeEnd;
-		const canMoveStart = this.mode === 'review';
 
 		let edge: 'start' | 'end';
 		if (clamped < start) {
-			if (!canMoveStart) return;
-
 			edge = 'start';
 		} else if (clamped > end) {
 			edge = 'end';
@@ -673,7 +704,7 @@ export class GlCommitsScopePane extends LitElement {
 			// always-available handle in both modes).
 			const distToStart = clamped - start;
 			const distToEnd = end - clamped;
-			edge = canMoveStart && distToStart < distToEnd ? 'start' : 'end';
+			edge = clamped <= this.effectiveMaxStart && distToStart < distToEnd ? 'start' : 'end';
 		}
 
 		if (edge === 'start') {
@@ -822,21 +853,19 @@ export class GlCommitsScopePane extends LitElement {
 
 		if (type === 'start') {
 			const current = this.rangeStart;
+			const max = this.effectiveMaxStart;
 			const next =
-				delta === -Infinity
-					? 0
-					: delta === Infinity
-						? this.rangeEnd
-						: Math.min(this.rangeEnd, Math.max(0, current + delta));
+				delta === -Infinity ? 0 : delta === Infinity ? max : Math.min(max, Math.max(0, current + delta));
 			this._userRangeStartId = this.items[next]?.id;
 		} else {
 			const current = this.rangeEnd;
+			const min = this.minEndIndex;
 			const next =
 				delta === -Infinity
-					? this.rangeStart
+					? min
 					: delta === Infinity
 						? maxIndex
-						: Math.max(this.rangeStart, Math.min(maxIndex, current + delta));
+						: Math.max(min, Math.min(maxIndex, current + delta));
 			this._userRangeEndId = this.items[next]?.id;
 		}
 		// Re-focus + scroll happens synchronously in `updated()` (via the pending
@@ -927,9 +956,9 @@ export class GlCommitsScopePane extends LitElement {
 			const clamped = Math.min(closestIndex, maxIndex);
 
 			if (this._dragging === 'end') {
-				this._dragPreview = Math.max(clamped, this.rangeStart);
+				this._dragPreview = Math.max(clamped, this.minEndIndex);
 			} else if (this._dragging === 'start') {
-				this._dragPreview = Math.min(clamped, this.rangeEnd);
+				this._dragPreview = Math.min(clamped, this.effectiveMaxStart);
 			}
 		}
 	}
@@ -1025,8 +1054,8 @@ export class GlCommitsScopePane extends LitElement {
 	private edgeScrollKeepsHandleVisible(direction: 'up' | 'down', containerRect: DOMRect): boolean {
 		if (this._dragging == null || this._dragPreview == null) return true;
 
-		const min = this._dragging === 'end' ? this.rangeStart : 0;
-		const max = this._dragging === 'end' ? this.maxDraggableIndex : this.rangeEnd;
+		const min = this._dragging === 'end' ? this.minEndIndex : 0;
+		const max = this._dragging === 'end' ? this.maxDraggableIndex : this.effectiveMaxStart;
 		const saturated = direction === 'up' ? this._dragPreview <= min : this._dragPreview >= max;
 		if (!saturated) return true;
 

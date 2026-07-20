@@ -2571,6 +2571,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const composeError =
 			(composeValue && 'error' in composeValue ? composeValue.error.message : undefined) ??
 			composeResource.error.get();
+		const composeErrorKind = composeValue && 'error' in composeValue ? composeValue.error.kind : undefined;
 		const mappedComposeStatus: 'idle' | 'loading' | 'ready' | 'error' =
 			composeEntry?.execState === 'generating'
 				? 'loading'
@@ -2593,6 +2594,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.commits=${composeResult?.commits}
 			.baseCommit=${composeResult?.baseCommit}
 			.errorMessage=${composeError}
+			.errorKind=${composeErrorKind}
 			.repoPath=${this.effectiveRepoPath}
 			.stale=${this._state.wipStale.get()}
 			.scope=${this._state.scope.get()}

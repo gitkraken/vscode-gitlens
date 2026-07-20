@@ -154,6 +154,13 @@ export function isComposeCancelled(ex: unknown): boolean {
 	return ex instanceof Error && ex.name === 'ComposeWorkflowError' && (ex as { code?: string }).code === 'CANCELLED';
 }
 
+/** Recognize input-validation errors (e.g. rewrite-range safety: interior forks, invalid scope) —
+ *  detected by name rather than `instanceof` to avoid dual-package hazards. Retrying the same
+ *  input fails identically, so the UI should offer scope adjustment instead of retry. */
+export function isComposeInputError(ex: unknown): boolean {
+	return ex instanceof Error && ex.name === 'ComposeWorkflowInputError';
+}
+
 export function toComposerHunk(h: ComposeHunk): ComposerHunk {
 	return {
 		index: h.index + 1,

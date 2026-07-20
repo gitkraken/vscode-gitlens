@@ -57,7 +57,12 @@ import type { ChoosePathParams, DidChoosePathParams } from '../timeline/protocol
 import { buildTimelineDataset } from '../timeline/timelineDataset.js';
 import type { GraphComposeIntegration } from './compose/integration.js';
 import { isComposeSimulatorActive, runSimulatedComposeChanges } from './compose/simulator.js';
-import { executeComposeCommit, isComposeCancelled, libraryPlanToProposedCommits } from './compose/utils.js';
+import {
+	executeComposeCommit,
+	isComposeCancelled,
+	isComposeInputError,
+	libraryPlanToProposedCommits,
+} from './compose/utils.js';
 import type { CommitDetails, CompareDiff, Wip } from './detailsProtocol.js';
 import {
 	GraphComposeVirtualContentProvider,
@@ -1186,6 +1191,7 @@ export class GraphInspectServices {
 						return {
 							error: {
 								message: ex instanceof Error ? ex.message : String(ex),
+								kind: isComposeInputError(ex) ? 'invalid-scope' : undefined,
 							},
 						};
 					} finally {

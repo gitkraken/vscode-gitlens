@@ -1,4 +1,3 @@
-import type { GitCommit } from '@gitlens/git/models/commit.js';
 import type { Container } from '../../../container.js';
 import type { GitRepositoryService } from '../../../git/gitRepositoryService.js';
 import { getBranchMergeTargetName } from '../../../git/utils/-webview/branch.utils.js';
@@ -9,7 +8,7 @@ export interface RecomposeScopeRequest {
 	/** Explicit range; `base` is EXCLUSIVE (parent of the first rewritten commit), `head` INCLUSIVE.
 	 *  Mirrors ComposerCommandArgs.range. */
 	range?: { base: string; head: string };
-	/** Selected commits; expanded to the covering contiguous range oldest→HEAD. */
+	/** Selected commits; expanded to the covering range ending at HEAD. */
 	commitShas?: string[];
 	/** Carry working-tree changes into the recompose (default false for recompose entries). */
 	includeWip?: boolean;
@@ -20,7 +19,7 @@ export type ResolvedRecomposeScope =
 			ok: true;
 			branchName: string;
 			headSha: string;
-			/** Child-first (HEAD-first) contiguous first-parent range; becomes scope.includeShas downstream. */
+			/** Child-first (HEAD-first) covering commit range ending at HEAD; becomes scope.includeShas downstream. */
 			shas: string[];
 			includeWip: boolean;
 			/** true when a commitShas sub-selection was widened to its covering range. */
@@ -28,33 +27,70 @@ export type ResolvedRecomposeScope =
 	  }
 	| { ok: false; reason: 'detached' | 'not-checked-out' | 'not-contiguous' | 'empty' | 'not-found'; message: string };
 
-/** Validate that `candidates` all lie on the first-parent chain from HEAD, and return the covering
- *  range HEAD→oldest-candidate (child-first). `firstParentChain` is the first-parent walk from HEAD
- *  (index 0 = HEAD) extended at least as far as the oldest candidate. */
-export function coverContiguousFromHead(
-	firstParentChain: readonly string[],
+/** Validate that every candidate lies within `rangeShas` (a child-first log of `base..HEAD`), and
+ *  return the whole log as the covering range — commits between and above candidates are folded in. */
+export function coverRangeFromHead(
+	rangeShas: readonly string[],
 	candidates: ReadonlySet<string>,
 ): { ok: true; shas: string[]; expanded: boolean } | { ok: false; reason: 'empty' | 'not-contiguous' } {
 	if (candidates.size === 0) return { ok: false, reason: 'empty' };
 
-	// Greatest chain index covered by a candidate, plus a count to verify every candidate is on the chain.
-	let maxIndex = -1;
-	let onChain = 0;
-	for (let i = 0; i < firstParentChain.length; i++) {
-		if (candidates.has(firstParentChain[i])) {
-			maxIndex = i;
-			onChain++;
+	let covered = 0;
+	for (const sha of rangeShas) {
+		if (candidates.has(sha)) {
+			covered++;
 		}
 	}
-	// A candidate missing from the chain is off the first-parent line (e.g. a merge side-branch commit).
-	if (onChain !== candidates.size) return { ok: false, reason: 'not-contiguous' };
+	// A candidate missing from the range log is not reachable from HEAD above the range base
+	// (e.g. a commit on an unrelated branch).
+	if (covered !== candidates.size) return { ok: false, reason: 'not-contiguous' };
 
-	// Fill any gaps within the covered prefix — that's the "covering range" semantics.
-	const shas = firstParentChain.slice(0, maxIndex + 1);
-	return { ok: true, shas: shas, expanded: shas.length > candidates.size };
+	return { ok: true, shas: [...rangeShas], expanded: rangeShas.length > candidates.size };
 }
 
-/** Turn a caller's recompose request into a validated, contiguous first-parent sha set ending at HEAD. */
+export type CoveredRangeFromHead =
+	| { ok: true; shas: string[]; expanded: boolean; baseParentSha: string | undefined }
+	| { ok: false; reason: 'empty' | 'not-contiguous' | 'not-found'; message: string };
+
+/** Expand `candidates` to the covering commit range ending at HEAD (child-first). Candidates may
+ *  sit anywhere in the DAG (e.g. merge side-branch commits); the covering range is
+ *  `parent(base)..HEAD` for a base candidate whose log contains every candidate. */
+export async function coverRangeEndingAtHead(
+	svc: GitRepositoryService,
+	headSha: string,
+	candidates: ReadonlySet<string>,
+): Promise<CoveredRangeFromHead> {
+	if (candidates.size === 0) return { ok: false, reason: 'empty', message: 'No commits to recompose' };
+
+	// Normalize to canonical shas and capture first parents to identify base candidates.
+	const firstParents = new Map<string, string | undefined>();
+	for (const sha of candidates) {
+		const commit = await svc.commits.getCommit(sha);
+		if (commit == null) return { ok: false, reason: 'not-found', message: `Commit '${sha}' was not found` };
+		firstParents.set(commit.sha, commit.parents[0]);
+	}
+
+	// A base candidate is a selected commit whose first parent is outside the selection; the
+	// range is valid when one base's parent-exclusive log from HEAD covers every candidate.
+	const normalized = new Set(firstParents.keys());
+	for (const [, parentSha] of firstParents) {
+		if (parentSha != null && normalized.has(parentSha)) continue;
+
+		const log = await svc.commits.getLog(parentSha != null ? `${parentSha}..${headSha}` : headSha, {
+			limit: 0,
+		});
+		const covered = coverRangeFromHead([...(log?.commits.keys() ?? [])], normalized);
+		if (covered.ok) return { ...covered, baseParentSha: parentSha };
+	}
+
+	return {
+		ok: false,
+		reason: 'not-contiguous',
+		message: 'Selected commits do not form a commit range ending at HEAD',
+	};
+}
+
+/** Turn a caller's recompose request into a validated covering commit range ending at HEAD. */
 export async function resolveRecomposeScope(
 	container: Container,
 	svc: GitRepositoryService,
@@ -80,11 +116,7 @@ export async function resolveRecomposeScope(
 		};
 	}
 
-	let candidates: Set<string>;
-	let fromRange = false;
-
 	if (request.range != null) {
-		fromRange = true;
 		if (request.range.head !== headSha) {
 			return {
 				ok: false,
@@ -93,20 +125,26 @@ export async function resolveRecomposeScope(
 			};
 		}
 
+		// An explicit range is already HEAD-anchored — its log IS the covering range.
 		const log = await svc.commits.getLog(`${request.range.base}..${request.range.head}`, { limit: 0 });
-		candidates = new Set(log?.commits.keys() ?? []);
-	} else if (request.commitShas?.length) {
-		// Resolve each selected sha so we can normalize to its canonical form and detect not-found entries.
-		const resolved: string[] = [];
-		for (const sha of request.commitShas) {
-			const commit = await svc.commits.getCommit(sha);
-			if (commit == null) {
-				return { ok: false, reason: 'not-found', message: `Commit '${sha}' was not found` };
-			}
-
-			resolved.push(commit.sha);
+		const shas = [...(log?.commits.keys() ?? [])];
+		if (shas.length === 0) {
+			return { ok: false, reason: 'empty', message: 'No commits to recompose' };
 		}
-		candidates = new Set(resolved);
+
+		return {
+			ok: true,
+			branchName: branch.name,
+			headSha: headSha,
+			shas: shas,
+			includeWip: request.includeWip ?? false,
+			expandedFromSelection: false,
+		};
+	}
+
+	let candidates: ReadonlySet<string>;
+	if (request.commitShas?.length) {
+		candidates = new Set(request.commitShas);
 	} else {
 		const repo = svc.getRepository();
 		if (repo == null) {
@@ -128,28 +166,9 @@ export async function resolveRecomposeScope(
 		candidates = new Set(branchData.commits.map(c => c.sha));
 	}
 
-	// Walk first-parent from HEAD (child-first), stopping once every candidate has been seen or root is reached.
-	const remaining = new Set(candidates);
-	const firstParentChain: string[] = [];
-	let cursor: GitCommit | undefined = headCommit;
-	while (cursor != null) {
-		firstParentChain.push(cursor.sha);
-		remaining.delete(cursor.sha);
-		if (remaining.size === 0) break;
-
-		const parentSha: string | undefined = cursor.parents[0];
-		if (parentSha == null) break;
-
-		cursor = await svc.commits.getCommit(parentSha);
-	}
-
-	const covered = coverContiguousFromHead(firstParentChain, candidates);
+	const covered = await coverRangeEndingAtHead(svc, headSha, candidates);
 	if (!covered.ok) {
-		const message =
-			covered.reason === 'empty'
-				? 'No commits to recompose'
-				: 'Selected commits are not a contiguous first-parent range from HEAD';
-		return { ok: false, reason: covered.reason, message: message };
+		return { ok: false, reason: covered.reason, message: covered.message };
 	}
 
 	return {
@@ -158,6 +177,6 @@ export async function resolveRecomposeScope(
 		headSha: headSha,
 		shas: covered.shas,
 		includeWip: request.includeWip ?? false,
-		expandedFromSelection: fromRange ? false : covered.expanded,
+		expandedFromSelection: covered.expanded,
 	};
 }

@@ -3,6 +3,7 @@ import { rootSha } from '@gitlens/git/models/revision.js';
 import type { Source } from '../../../../constants.telemetry.js';
 import type { GitRepositoryService } from '../../../../git/gitRepositoryService.js';
 import { ComposeToolsIntegration } from '../../../../plus/coretools/compose/integration.js';
+import { coverRangeEndingAtHead } from '../../../../plus/coretools/compose/recomposeScope.js';
 import type {
 	ComposeApplyPlan,
 	ComposeHunk,
@@ -18,6 +19,7 @@ import {
 	applyComposePlan,
 	cancellationTokenToSignal,
 	composePlan,
+	ComposeWorkflowInputError,
 	REDACTED_HUNK_CONTENT,
 	refinePlan,
 } from '../../../../plus/coretools/compose/utils.js';
@@ -575,40 +577,16 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			return { branchName: branch.name, headSha: headSha, rewriteFromSha: headSha, kind: 'wip-only' };
 		}
 
-		const selectedSet = new Set(scope.includeShas);
-		const ordered: string[] = [];
-		let cursorSha: string | undefined = headCommit.sha;
-		let cursorParents: readonly string[] = headCommit.parents;
-		let collecting = false;
-		while (cursorSha != null && ordered.length < selectedSet.size) {
-			if (selectedSet.has(cursorSha)) {
-				ordered.push(cursorSha);
-				collecting = true;
-			} else if (collecting) {
-				throw new Error('Compose scope includeShas is not a contiguous first-parent range from HEAD');
-			}
-			const parentSha: string | undefined = cursorParents[0];
-			if (parentSha == null) break;
-
-			const parentCommit = await svc.commits.getCommit(parentSha);
-			cursorSha = parentCommit?.sha;
-			cursorParents = parentCommit?.parents ?? [];
-		}
-		if (ordered.length !== selectedSet.size) {
-			throw new Error('Compose scope includeShas references commits not reachable via first-parent from HEAD');
+		const covered = await coverRangeEndingAtHead(svc, headSha, new Set(scope.includeShas));
+		if (!covered.ok) {
+			throw new ComposeWorkflowInputError(`Compose scope is invalid: ${covered.message}`);
 		}
 
-		const oldest = ordered.at(-1);
-		let rewriteFromSha = headSha;
-		if (oldest != null) {
-			const oldestCommit = await svc.commits.getCommit(oldest);
-			rewriteFromSha = oldestCommit?.parents[0] ?? rootSha;
-		}
 		return {
 			branchName: branch.name,
 			headSha: headSha,
-			rewriteFromSha: rewriteFromSha,
-			selectedShas: ordered,
+			rewriteFromSha: covered.baseParentSha ?? rootSha,
+			selectedShas: covered.shas,
 			kind: hasWip ? 'wip+commits' : 'commits-only',
 		};
 	}

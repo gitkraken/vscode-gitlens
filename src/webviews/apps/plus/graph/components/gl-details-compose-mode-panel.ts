@@ -118,6 +118,11 @@ export class GlDetailsComposeModePanel extends LitElement {
 	@property()
 	errorMessage?: string;
 
+	/** `invalid-scope` = the selected scope cannot be rewritten; Retry is hidden since the same
+	 *  input fails identically — the user goes back and adjusts the scope instead. */
+	@property()
+	errorKind?: 'invalid-scope';
+
 	/** Persisted preference threaded through to the inner `gl-file-tree-pane`. */
 	@property({ type: Boolean, attribute: 'show-search-box' })
 	showSearchBox?: boolean;
@@ -482,7 +487,7 @@ export class GlDetailsComposeModePanel extends LitElement {
 			return renderErrorState(
 				this.errorMessage,
 				'An error occurred during composition.',
-				'compose-error-retry',
+				this.errorKind === 'invalid-scope' ? undefined : 'compose-error-retry',
 				'compose-error-back',
 			);
 		}
