@@ -14,7 +14,6 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
-import type { PagedResult } from '@gitlens/utils/paging.js';
 import { batchResults, flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type {

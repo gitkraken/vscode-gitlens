@@ -239,3 +239,23 @@ export function assessCollectionMetadata(
 
 	return { warnings: warnings, fetchFailed: failures.length > 0, truncated: incomplete };
 }
+
+/**
+ * Convenience wrapper around {@link assessCollectionMetadata} for the common call-site pattern: assess the
+ * metadata, append its warnings (deduped) into an existing `warnings` accumulator, and return the
+ * `fetchFailed`/`truncated` flags for the caller to OR into its own. Keeps the four ProviderBackend read
+ * paths that consume metadata from each re-implementing the same append-and-flag dance.
+ */
+export function mergeAssessmentInto(
+	warnings: ProviderWarning[],
+	providerId: IntegrationIds,
+	domain: string | undefined,
+	connectionId: string | undefined,
+	metadata: CollectionMetadata | undefined,
+): { fetchFailed: boolean; truncated: boolean } {
+	const assessment = assessCollectionMetadata(providerId, domain, connectionId, metadata);
+	for (const warning of assessment.warnings) {
+		appendDedupedWarning(warnings, warning);
+	}
+	return { fetchFailed: assessment.fetchFailed, truncated: assessment.truncated };
+}

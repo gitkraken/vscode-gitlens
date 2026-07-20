@@ -78,7 +78,7 @@ import type {
 	RepositoryResolution,
 	ResolveRepositoryResult,
 } from './results.js';
-import { appendDedupedWarning, assessCollectionMetadata, toProviderWarning } from './results.js';
+import { appendDedupedWarning, mergeAssessmentInto, toProviderWarning } from './results.js';
 import type { Source } from './telemetry.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
@@ -1302,11 +1302,7 @@ export class IntegrationService implements Disposable {
 						}
 						// Fold in per-resource completeness/failures so a partial fan-out warns and marks fetchFailed
 						// without dropping the resources that succeeded.
-						const assessment = assessCollectionMetadata(id, domain, connectionId, projects?.metadata);
-						for (const w of assessment.warnings) {
-							appendDedupedWarning(warnings, w);
-						}
-						if (assessment.fetchFailed) {
+						if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
 							fetchFailed = true;
 						}
 					}
@@ -1323,11 +1319,7 @@ export class IntegrationService implements Disposable {
 					if (projects != null) {
 						items.push(...projects.values.map(p => this.resourceToOrg(p)));
 					}
-					const assessment = assessCollectionMetadata(id, domain, connectionId, projects?.metadata);
-					for (const w of assessment.warnings) {
-						appendDedupedWarning(warnings, w);
-					}
-					if (assessment.fetchFailed) {
+					if (mergeAssessmentInto(warnings, id, domain, connectionId, projects?.metadata).fetchFailed) {
 						fetchFailed = true;
 					}
 				}
@@ -1540,11 +1532,14 @@ export class IntegrationService implements Disposable {
 		const paged = this.toProviderPageInfo(items.length, value?.paging);
 		// Convert the SDK collection metadata into scope-aware warnings + failure/truncation flags, appending
 		// them to any captured thrown-error warning without discarding the partial result's items.
-		const assessment = assessCollectionMetadata(options.providerId, domain, options.connectionId, value?.metadata);
 		const warnings = warning != null ? [warning] : [];
-		for (const w of assessment.warnings) {
-			appendDedupedWarning(warnings, w);
-		}
+		const assessment = mergeAssessmentInto(
+			warnings,
+			options.providerId,
+			domain,
+			options.connectionId,
+			value?.metadata,
+		);
 		// A single-page provider read that couldn't confirm completeness sets `paging.truncated`; surface it
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
 		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
@@ -1792,16 +1787,13 @@ export class IntegrationService implements Disposable {
 		// Partial project discovery: continue with the resources that succeeded, but surface per-resource
 		// failures as warnings and remember to mark the page fetchFailed so the caller knows some issues may be
 		// missing. `projectDiscoveryFailed` is OR-ed into the page's fetchFailed at every return below.
-		const projectAssessment = assessCollectionMetadata(
+		const projectDiscoveryFailed = mergeAssessmentInto(
+			warnings,
 			options.providerId,
 			domain,
 			options.connectionId,
 			projectsResult?.metadata,
-		);
-		for (const w of projectAssessment.warnings) {
-			appendDedupedWarning(warnings, w);
-		}
-		const projectDiscoveryFailed = projectAssessment.fetchFailed;
+		).fetchFailed;
 		const projects = projectsResult?.values;
 		if (projects == null || projects.length === 0) {
 			return emptyPage((projectsWarning != null && projectsResult == null) || projectDiscoveryFailed);
@@ -2012,10 +2004,7 @@ export class IntegrationService implements Disposable {
 
 			// Assess this page's SDK metadata: append scope-aware warnings (deduped across pages), and remember
 			// whether a structured failure or incompleteness occurred.
-			const assessment = assessCollectionMetadata(id, domain, connectionId, value.metadata);
-			for (const w of assessment.warnings) {
-				appendDedupedWarning(warnings, w);
-			}
+			const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
 			fetchFailed = fetchFailed || assessment.fetchFailed;
 
 			if (!(value.paging?.more ?? false)) {
