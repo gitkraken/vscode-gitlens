@@ -92,6 +92,67 @@ suite('Trello integration (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('a complete board result reports no truncation (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
+			getTrelloIssuesForBoard: () =>
+				Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } }),
+		});
+
+		const result = await (
+			trello as unknown as {
+				getProviderIssuesForProjectWithTruncation: (
+					session: ProviderAuthenticationSession,
+					p: { key: string; id: string; name: string },
+				) => Promise<{ values: unknown[]; truncated: boolean }>;
+			}
+		).getProviderIssuesForProjectWithTruncation(trelloSession('my-app-key'), {
+			key: 'b1',
+			id: 'b1',
+			name: 'Board 1',
+		});
+
+		assert.equal(result.values.length, 1, 'all mapped cards are returned');
+		assert.equal(result.truncated, false, 'a complete read is not truncated');
+
+		manager.dispose();
+	});
+
+	test('a capped board result (metadata unknown) is terminal-truncated with the cards it did return (#5438)', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
+			// Trello's search caps at cards_limit and reports the cap as `unknown` completeness (no cursor).
+			getTrelloIssuesForBoard: () =>
+				Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'unknown' } }),
+		});
+
+		const result = await (
+			trello as unknown as {
+				getProviderIssuesForProjectWithTruncation: (
+					session: ProviderAuthenticationSession,
+					p: { key: string; id: string; name: string },
+				) => Promise<{ values: unknown[]; truncated: boolean }>;
+			}
+		).getProviderIssuesForProjectWithTruncation(trelloSession('my-app-key'), {
+			key: 'b1',
+			id: 'b1',
+			name: 'Board 1',
+		});
+
+		assert.equal(result.values.length, 1, 'the capped read still returns the cards it got');
+		assert.equal(result.truncated, true, 'a capped read is terminally truncated (no cursor to follow)');
+
+		manager.dispose();
+	});
+
 	test('a session without an appKey surfaces an error instead of an empty read (and never calls the client)', async () => {
 		const manager = createIntegrationManager(createFakeRuntime());
 		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);

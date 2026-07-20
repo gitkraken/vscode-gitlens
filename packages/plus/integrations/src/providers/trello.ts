@@ -96,6 +96,14 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		project: ResourceDescriptor,
 		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
+		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
+	}
+
+	protected override async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		// A non-issue descriptor genuinely has nothing to read (empty), but a missing app key is a broken read.
 		if (!isIssueResourceDescriptor(project)) return undefined;
 		const appKey = this.requireAppKey(session);
@@ -110,14 +118,20 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			return acc;
 		}, {});
 
-		const issues = (
-			await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
-				assigneeLogins: options?.user != null ? [options.user] : undefined,
-				trelloBoardListsById: trelloBoardListsById,
-			})
-		).values;
+		const result = await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
+			assigneeLogins: options?.user != null ? [options.user] : undefined,
+			trelloBoardListsById: trelloBoardListsById,
+		});
 
-		return issues.map(issue => toIssueShape(issue, this)).filter((result): result is IssueShape => result != null);
+		const values = result.values
+			.map(issue => toIssueShape(issue, this))
+			.filter((issue): issue is IssueShape => issue != null);
+
+		// Trello's search caps results and reports the cap through `metadata.completeness` (partial/unknown),
+		// never a cursor. Surface that as terminal truncation; there is no next page to fetch, so retrying the
+		// same read cannot recover the omitted cards (D11).
+		const truncated = result.metadata != null && result.metadata.completeness !== 'complete';
+		return { values: values, truncated: truncated };
 	}
 
 	protected override searchProviderMyIssues(

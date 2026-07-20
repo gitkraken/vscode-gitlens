@@ -1923,6 +1923,20 @@ export class IntegrationService implements Disposable {
 			}
 		}
 
+		// A per-project read that returned data but couldn't confirm completeness (e.g. Trello's provider-native
+		// cap) sets `truncated` without a structured failure. Add one provider-neutral incompleteness warning so
+		// the caller sees the truncation, but only when no warning already explains it (avoid duplicate noise).
+		if (projectTruncated && warnings.length === 0) {
+			warnings.push({
+				providerId: options.providerId,
+				domain: domain,
+				connectionId: options.connectionId,
+				message: 'Some issues were omitted; the provider returned an incomplete result.',
+				kind: 'other',
+				isAuth: false,
+			});
+		}
+
 		return {
 			items: items,
 			warnings: warnings,

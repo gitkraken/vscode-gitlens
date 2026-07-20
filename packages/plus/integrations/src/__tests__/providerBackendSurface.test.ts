@@ -1036,6 +1036,50 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssueTrackerIssuesPage surfaces a provider-native truncation as a warning + page.truncated, not fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const linear = await manager.get(IssuesCloudHostIntegrationId.Linear);
+
+		(
+			linear as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: [{ key: 'one', id: 'org-1', name: 'Org One' }] });
+		(
+			linear as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({ value: { values: [{ key: 'proj', id: 'p1', name: 'Project One' }] } });
+		(
+			linear as unknown as { getAccountForResourceResult: () => Promise<{ value: { username: string } }> }
+		).getAccountForResourceResult = () => Promise.resolve({ value: { username: 'me' } });
+		// A provider-native cap (e.g. Trello's cards_limit) returns data but flags truncation with no cursor.
+		(
+			linear as unknown as {
+				getIssuesForProjectWithTruncationResult: () => Promise<{
+					value: { values: IssueShape[]; truncated: boolean };
+				}>;
+			}
+		).getIssuesForProjectWithTruncationResult = () =>
+			Promise.resolve({ value: { values: [{ id: 'i1' } as unknown as IssueShape], truncated: true } });
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Linear });
+
+		assert.equal(result.items.length, 1, 'the cards the provider did return are preserved');
+		assert.equal(result.page.truncated, true, 'a provider-native cap sets terminal truncation');
+		assert.equal(result.hasMore, false, 'no next window — a cap is terminal, not paginated');
+		assert.equal(result.cursor, undefined, 'no cursor is invented for a provider-native cap');
+		assert.equal(result.fetchFailed, undefined, 'a successful-but-capped read is not a fetch failure');
+		assert.equal(result.warnings.length, 1, 'a single provider-neutral incompleteness warning');
+		assert.equal(result.warnings[0].kind, 'other');
+		assert.ok(
+			!/100 per category/i.test(result.warnings[0].message),
+			'the warning is provider-neutral, not the GitHub account-wide text',
+		);
+
+		manager.dispose();
+	});
+
 	test('listPullRequestsPage warns instead of fetching all when no requested filter is supported (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
