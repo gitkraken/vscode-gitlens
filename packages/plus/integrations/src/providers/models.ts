@@ -9,6 +9,7 @@ import type {
 	Bitbucket,
 	BitbucketServer,
 	BitbucketWorkspaceStub,
+	CollectionMetadata,
 	CursorPageInput,
 	EnterpriseOptions,
 	GetRepoInput,
@@ -102,6 +103,27 @@ export type ProviderGitHubOrganization = Organization;
 export type ProviderGitLabGroup = GitLabGroup;
 export type ProviderHierarchyResult<T> = PagedResult<T> & {
 	readonly truncated?: boolean;
+};
+
+/**
+ * A normalized {@link PagedResult} that additionally carries the SDK's collection {@link CollectionMetadata}
+ * (completeness + per-scope failures). Named to avoid colliding with the public ProviderBackend
+ * `ProviderPagedResult` in `results.ts`: this is the integration-local carrier between the `ProvidersApi`
+ * boundary and the code that maps metadata into warnings/truncation. `metadata` is optional so providers and
+ * test doubles that predate the SDK metadata contract keep behaving exactly as before.
+ */
+export type ProviderApiPagedResult<T> = PagedResult<T> & {
+	readonly metadata?: CollectionMetadata;
+};
+
+/**
+ * A non-paged collection result carrying SDK {@link CollectionMetadata}. Used for fan-out reads that return a
+ * flat set of values with completeness/failure metadata but no provider-native pagination (e.g. Jira project
+ * discovery across resources, Trello board search).
+ */
+export type ProviderApiCollectionResult<T> = {
+	readonly values: NonNullable<T>[];
+	readonly metadata?: CollectionMetadata;
 };
 
 /**
@@ -274,7 +296,10 @@ export type GetRepoOfProjectFn = (
 export type GetPullRequestsForReposFn = (
 	input: (GetPullRequestsForReposInput | GetPullRequestsForRepoIdsInput) & PagingInput,
 	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo }>;
+	// `metadata` carries SDK collection completeness/failures for multi-repo fan-outs (Bitbucket, Azure DevOps,
+	// Bitbucket Server); `pageInfo` is present for the cursor-based aggregate (GitHub). Both are optional so
+	// each provider only sets what it actually reports.
+) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo; metadata?: CollectionMetadata }>;
 
 export type GetPullRequestsForRepoFn = (
 	input: GetPullRequestsForRepoInput & PagingInput,
@@ -289,7 +314,9 @@ export type GetPullRequestsForUserFn = (
 export type GetPullRequestsForAzureProjectsFn = (
 	input: { projects: { namespace: string; project: string }[]; authorLogin?: string; assigneeLogins?: string[] },
 	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderPullRequest[] }>;
+	// Aggregate multi-project fan-out: no `pageInfo` (call getPullRequestsForAzureProject for that), but SDK
+	// collection metadata reports per-project completeness/failures.
+) => Promise<{ data: ProviderPullRequest[]; metadata?: CollectionMetadata }>;
 
 /** Single Azure project PR read, paginated by number (unlike the aggregate {@link GetPullRequestsForAzureProjectsFn}). */
 export type GetPullRequestsForAzureProjectFn = (
@@ -428,7 +455,9 @@ export type GetLinearCurrentUserFn = (
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
-) => Promise<{ data: JiraProject[] }>;
+	// Fan-out across resources: preserves successful resources' projects and reports per-resource failures in
+	// SDK collection metadata instead of throwing when a single resource fails.
+) => Promise<{ data: JiraProject[]; metadata?: CollectionMetadata }>;
 export type GetAzureResourcesForUserFn = (
 	input: { userId: string },
 	options?: EnterpriseOptions,
