@@ -335,9 +335,9 @@ export class CommitsGitSubProvider implements GitCommitsSubProvider {
 				return { refs: refs };
 			} catch (ex) {
 				cacheable?.invalidate();
-				debugger;
 				if (isCancellationError(ex)) throw ex;
 
+				debugger;
 				scope?.error(ex);
 
 				return undefined;
