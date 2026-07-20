@@ -1604,9 +1604,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	resetHover() {
-		// `graphHover` is null when the account-access screen replaces the graph tree (early-return in
-		// `render()`); `onStateUpdate` (graph.ts) only calls `resetHover` on state pushes that include
-		// `rows`, and the optional chaining keeps it safe if one arrives while the screen is shown.
+		// `graphHover` is null whenever the graph tree isn't rendered — the account-access screen (early
+		// return in `render`) or the no-repository empty state. `onStateUpdate` (graph.ts) only calls this on
+		// state pushes that include `rows` (even `rows: []`), so the optional chaining keeps it safe if one
+		// arrives while either screen is shown.
 		this.graphHover?.reset();
 	}
 
@@ -1619,37 +1620,50 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		const detailsVisible = this.graphState.details?.visible ?? false;
 		const minimapVisible = this.graphState.minimap?.visible ?? true;
 		const { single, multi } = this.activeSelection;
+		// No repository open: render only the empty state — skip the header and the whole graph subtree
+		// (React GraphContainer + minimap + sidebar + details) rather than mounting them just to paint the
+		// empty state over the top. `repositories` is `undefined` during the initial load window, so `=== 0`
+		// stays false until an actual `[]` arrives and the graph still renders while loading. This
+		// intentionally mounts/unmounts the graph subtree on the no-repo↔repo transition — acceptable here
+		// because there is no prior graph state to preserve (contrast the always-render remount-avoidance in
+		// `renderDetailsPanel`/`renderGraphPaneContent`, which guards mode switches, not this).
+		const noRepos = this.graphState.repositories?.length === 0;
 		return html`
 			<div class="graph">
 				${when(
 					this.graphState.config?.experimentalHomeHeaderEnabled ?? false,
 					() => html`<gl-account-bar class="graph__account-bar"></gl-account-bar>`,
 				)}
-				<gl-graph-header
-					class="graph__header"
-					.selectCommits=${this.selectCommits}
-					.getCommits=${this.getCommits}
-					.ensureGraphRendered=${this.ensureGraphRendered}
-					.detailsVisible=${detailsVisible}
-					.detailsEffectiveLocation=${this.effectiveDetailsLocation}
-					.minimapVisible=${minimapVisible}
-					.hasSelectedCommit=${single != null || multi != null}
-					@toggle-sidebar=${this.handleToggleSidebar}
-					@toggle-details=${this.handleToggleDetails}
-					@show-details=${this.handleShowDetails}
-					@toggle-minimap=${this.handleToggleMinimap}
-					@jump-to-wip=${this.handleJumpToWip}
-					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
-				></gl-graph-header>
+				${when(
+					!noRepos,
+					() => html`
+						<gl-graph-header
+							class="graph__header"
+							.selectCommits=${this.selectCommits}
+							.getCommits=${this.getCommits}
+							.ensureGraphRendered=${this.ensureGraphRendered}
+							.detailsVisible=${detailsVisible}
+							.detailsEffectiveLocation=${this.effectiveDetailsLocation}
+							.minimapVisible=${minimapVisible}
+							.hasSelectedCommit=${single != null || multi != null}
+							@toggle-sidebar=${this.handleToggleSidebar}
+							@toggle-details=${this.handleToggleDetails}
+							@show-details=${this.handleShowDetails}
+							@toggle-minimap=${this.handleToggleMinimap}
+							@jump-to-wip=${this.handleJumpToWip}
+							@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
+						></gl-graph-header>
+					`,
+				)}
 				<div class="graph__workspace">
 					${when(!this.graphState.allowed, () => html`<gl-graph-gate class="graph__gate"></gl-graph-gate>`)}
-					${when(
-						this.graphState.repositories?.length === 0,
-						() => html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`,
-					)}
-					<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
-					<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
-					<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
+					${noRepos
+						? html`<gl-graph-empty-state class="graph__empty-state"></gl-graph-empty-state>`
+						: html`
+								<gl-graph-hover id="commit-hover" .distance=${0} .skidding=${15}></gl-graph-hover>
+								<gl-drag-shift-overlay label="to Resume Dragging"></gl-drag-shift-overlay>
+								<main id="main" class="graph__panes">${this.renderDetailsPanel()}</main>
+							`}
 				</div>
 			</div>
 		`;
@@ -2898,15 +2912,18 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		return result;
 	}
 
+	// `this.graph` isn't rendered when no repository is open (see `render`). The header — the sole caller
+	// of these — is gated on the same condition, so it can't invoke them while the graph is absent, but
+	// guard defensively against future condition drift while preserving the existing return types.
 	private selectCommits = (shas: string[], options?: SelectCommitsOptions) => {
-		return this.graph.selectCommits(shas, options);
+		return this.graph?.selectCommits(shas, options) ?? [];
 	};
 
 	private getCommits = (shas: string[]) => {
-		return this.graph.getCommits(shas);
+		return this.graph?.getCommits(shas) ?? [];
 	};
 
-	private ensureGraphRendered = (): Promise<void> => this.graph.ensureRendered();
+	private ensureGraphRendered = (): Promise<void> => this.graph?.ensureRendered() ?? Promise.resolve();
 
 	private handleMinimapWheel(e: GraphMinimapWheelEvent) {
 		this.graph?.scrollGraphBy(e.detail.deltaY);

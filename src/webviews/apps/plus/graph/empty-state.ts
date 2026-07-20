@@ -10,15 +10,15 @@ import '../../shared/components/code-icon.js';
 @customElement('gl-graph-empty-state')
 export class GlGraphEmptyState extends SignalWatcher(LitElement) {
 	static override styles = css`
+		/* Absolute-fill the workspace region (not a flex container) to center the content; no opaque
+		   background or stacking needed since the graph subtree isn't rendered behind it (see graph-app render). */
 		:host {
 			position: absolute;
 			inset: 0;
-			z-index: var(--gl-z-cover);
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			padding: var(--gl-space-24);
-			background: var(--vscode-editor-background);
 			overflow: auto;
 		}
 
