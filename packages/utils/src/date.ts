@@ -78,54 +78,80 @@ export function createFromDateDelta(
 	return d;
 }
 
-export function fromNow(date: Date | number, short?: boolean): string {
-	const elapsed = (typeof date === 'number' ? date : date.getTime()) - Date.now();
-	// Guard against invalid dates (e.g. `new Date(<unparseable>)`), since a non-finite value would throw in `Intl.RelativeTimeFormat.format`
-	if (!Number.isFinite(elapsed)) return '';
+/** The unit + truncated magnitude `fromNow` would pick for `date` relative to `now` — same threshold
+ *  table + truncation `fromNow` formats with, factored out so a caller that needs to CLASSIFY a date
+ *  (not just format it) can't drift from what the column actually displays. Allocation-free (no `Date`
+ *  construction — both `date` and `now` are read as epoch ms when passed as numbers). `now` defaults to
+ *  `Date.now()`; a caller classifying many rows against the SAME instant should pass it explicitly. */
+export function fromNowUnit(
+	date: Date | number,
+	now: Date | number = Date.now(),
+): { unit: Intl.RelativeTimeFormatUnit; value: number } | undefined {
+	const elapsed =
+		(typeof date === 'number' ? date : date.getTime()) - (typeof now === 'number' ? now : now.getTime());
+	// Guard against invalid dates (e.g. `new Date(<unparseable>)`) — mirrors fromNow's own guard.
+	if (!Number.isFinite(elapsed)) return undefined;
 
-	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
-		const elapsedABS = Math.abs(elapsed);
+	const elapsedABS = Math.abs(elapsed);
+	for (const [unit, threshold, divisor] of relativeUnitThresholds) {
 		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
-			if (short) {
-				if (locale == null) {
-					if (defaultShortRelativeTimeFormat != null) {
-						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-					} else if (defaultRelativeTimeFormat != null) {
-						locale = defaultRelativeTimeFormat.resolvedOptions().locale;
-					} else {
-						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
-							localeMatcher: 'best fit',
-							numeric: 'always',
-							style: 'narrow',
-						});
-						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-					}
-				}
+			return { unit: unit, value: Math.trunc(elapsed / divisor) };
+		}
+	}
+	return undefined;
+}
 
-				if (locale === 'en' || locale?.startsWith('en-')) {
-					const value = Math.floor(elapsedABS / divisor);
-					return `${value}${shortUnit}`;
-				}
+function shortUnitLabel(unit: Intl.RelativeTimeFormatUnit): string {
+	return relativeUnitThresholds.find(([u]) => u === unit)?.[3] ?? '';
+}
 
-				defaultShortRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+/** The divisor (ms) `fromNowUnit` divides elapsed time by for `unit` — i.e. the elapsed-ms width one
+ *  step of `value` represents. Exported so a caller reconstructing a `fromNowUnit` result's elapsed
+ *  WINDOW (its start/end bounds) doesn't have to re-derive the thresholds table itself. */
+export function unitDivisorMs(unit: Intl.RelativeTimeFormatUnit): number {
+	return relativeUnitThresholds.find(([u]) => u === unit)?.[2] ?? 0;
+}
+
+export function fromNow(date: Date | number, short?: boolean): string {
+	const result = fromNowUnit(date);
+	if (result == null) return '';
+
+	const { unit, value } = result;
+	if (short) {
+		if (locale == null) {
+			if (defaultShortRelativeTimeFormat != null) {
+				locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+			} else if (defaultRelativeTimeFormat != null) {
+				locale = defaultRelativeTimeFormat.resolvedOptions().locale;
+			} else {
+				defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
 					localeMatcher: 'best fit',
 					numeric: 'always',
 					style: 'narrow',
 				});
-
-				return defaultShortRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
+				locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
 			}
-
-			defaultRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
-				localeMatcher: 'best fit',
-				numeric: 'auto',
-				style: 'long',
-			});
-			return defaultRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 		}
+
+		if (locale === 'en' || locale?.startsWith('en-')) {
+			return `${Math.abs(value)}${shortUnitLabel(unit)}`;
+		}
+
+		defaultShortRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+			localeMatcher: 'best fit',
+			numeric: 'always',
+			style: 'narrow',
+		});
+
+		return defaultShortRelativeTimeFormat.format(value, unit);
 	}
 
-	return '';
+	defaultRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+		localeMatcher: 'best fit',
+		numeric: 'auto',
+		style: 'long',
+	});
+	return defaultRelativeTimeFormat.format(value, unit);
 }
 
 export function formatDate(

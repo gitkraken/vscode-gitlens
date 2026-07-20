@@ -39,6 +39,9 @@ export interface RowRenderContext {
 	index: number;
 	total: number;
 	rowHeight: number;
+	/** Sticky-timeline hairline: this row's bucket (Today/Yesterday/This week/...) differs from the row
+	 *  above it — a 1px top divider, no extra row/height cost. See `gl-lit-graph.ts`'s `renderRowItem`. */
+	isBucketBoundary?: boolean;
 	/** Fixed standalone graph-column width (used in `column` placement) — the lane-art width, NOT
 	 *  including the fold strip (see `foldLaneWidth`). */
 	gutterWidth: number;
@@ -512,6 +515,30 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 		: nothing;
 }
 
+/** Whether a row's action strip has a PERSISTENT button (agent attached, an active resolve/compose/
+ *  review op, or an unpushed commit) — i.e. it switches to per-button `--has-persistent` mode instead of
+ *  the whole-strip hover/focus/selected fade. NOT simply `kind === 'workdir'` — a workdir row with no
+ *  agent/active op is JUST as hover-gated as a commit row. Exported so callers outside the row template
+ *  (the sticky-timeline pill's yield-to-row check) read the EXACT same decision `renderRowActions` makes
+ *  below, rather than re-deriving/drifting from it. */
+export function hasPersistentRowActions(
+	kind: ProcessedGraphRow['kind'],
+	wipAgent: WipRowAgentStatus | undefined,
+	wipOperation: RunningOperationBucket | undefined,
+	isUnpushed: boolean | undefined,
+): boolean {
+	if (kind === 'workdir') {
+		return (
+			wipAgent != null ||
+			wipOperation?.resolve != null ||
+			wipOperation?.compose != null ||
+			wipOperation?.review != null
+		);
+	}
+	if (kind === 'stash') return false;
+	return isUnpushed === true;
+}
+
 // Row-action strip (right-aligned): per row kind — workdir gets Resolve (conflicts only) / Compose /
 // Review / Stash-Save (+ an agent indicator when agents are attached), stash gets Apply/Drop, commit/
 // merge gets Undo (leaf worktree tip) / Open-Changes / Push-to-Commit (unpushed). Buttons carry
@@ -551,7 +578,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 
 			// Active compose/review stay visible at rest so their status icon reads; idle ones reveal on
 			// interaction. The agent indicator is always visible when present.
-			hasPersistent = agent != null || resolveActive || composeActive || reviewActive;
+			hasPersistent = hasPersistentRowActions(row.kind, agent, op, undefined);
 
 			actions = html`${agent != null
 					? html`<button
@@ -641,7 +668,7 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// actions grow leftward; on pushed rows the whole strip stays hover-only (no persistent button).
 			const undo = ctx.undoTarget;
 			const isUnpushed = ctx.isUnpushed === true;
-			hasPersistent = isUnpushed;
+			hasPersistent = hasPersistentRowActions(row.kind, undefined, undefined, isUnpushed);
 			const undoLabel = undo?.branchName != null ? `Undo Commit on ${undo.branchName}` : 'Undo Commit';
 
 			actions = html`${undo != null
@@ -847,6 +874,9 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	}
 	if (ctx.isDimmed) {
 		rowClasses += ' is-dimmed';
+	}
+	if (ctx.isBucketBoundary) {
+		rowClasses += ' is-timeline-boundary';
 	}
 	if (isWorkdir) {
 		rowClasses += ' is-workdir';

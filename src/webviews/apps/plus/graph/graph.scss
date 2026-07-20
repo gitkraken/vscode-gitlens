@@ -271,6 +271,104 @@ gl-lit-graph {
 		text-overflow: ellipsis;
 	}
 
+	// Sticky-timeline pill (gitlens.graph.stickyTimeline) — rides the header/first-row seam, top-right,
+	// clear of the scroll-marker rail (same `--gl-graph-scrollbar-width` offset the head/pinned pills
+	// use). AT REST shows only the bucket label (muted); scrolling OR hovering widens the SAME pill in
+	// place — ONE JS-toggled class (`is-scroll-active`, set in gl-lit-graph's onScroll) combined with
+	// native `:hover` drives every child's reveal below, so the expand/collapse never re-renders.
+	.gl-graph__sticky-timeline {
+		position: absolute;
+		top: 2.5rem;
+		right: var(--gl-graph-scrollbar-width, 14px);
+		z-index: 15;
+		display: inline-flex;
+		align-items: center;
+		height: 1.9rem;
+		padding: 0 0.8rem;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		white-space: nowrap;
+		cursor: default;
+		background-color: var(--vscode-editorWidget-background);
+		border: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		border-radius: 0.5rem;
+		opacity: 1;
+		transition:
+			box-shadow 0.24s ease,
+			opacity 0.18s ease;
+
+		// State selectors nest FROM THE PILL DOWN (not `X &`, which — nested this deep under the
+		// `gl-lit-graph` host rule — expands `&` to the FULL ancestor chain and puts X in FRONT of it,
+		// compiling to `X gl-lit-graph .gl-graph__sticky-timeline-icon`: never matches real DOM, since
+		// `gl-lit-graph` is the outermost ancestor, not a descendant of the pill).
+		&.is-scroll-active,
+		&:hover {
+			box-shadow: 0 0.2rem 0.6rem var(--vscode-widget-shadow);
+
+			.gl-graph__sticky-timeline-icon {
+				max-width: 1.8rem;
+				margin-right: 0.6rem;
+				opacity: 1;
+			}
+
+			.gl-graph__sticky-timeline-label {
+				color: var(--vscode-foreground);
+			}
+
+			.gl-graph__sticky-timeline-span {
+				max-width: 16rem;
+				margin-left: 0.8rem;
+				opacity: 1;
+			}
+		}
+
+		// Yields to the row it's covering (selected/focused/hovered/persistent action buttons — see
+		// updateStickyTimelineYield). Declared LAST so it wins over `.is-scroll-active`/`:hover` above on
+		// tied specificity (two classes each) — scrolling can coincide with the top row needing its
+		// corner, and yield must win. `pointer-events: none` (inherited by the children below — none set
+		// their own) passes the pointer straight through to the row/buttons underneath: no flicker loop,
+		// since the row then stays hovered/selected until the pointer actually leaves it.
+		&.is-yielding {
+			pointer-events: none;
+			opacity: 0;
+		}
+	}
+
+	.gl-graph__sticky-timeline-icon {
+		display: inline-block;
+		max-width: 0;
+		margin-right: 0;
+		overflow: hidden;
+		font-size: 1.2rem;
+		color: var(--vscode-focusBorder);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-right 0.24s ease;
+	}
+
+	.gl-graph__sticky-timeline-label {
+		color: var(--vscode-descriptionForeground);
+		transition: color 0.2s ease;
+	}
+
+	.gl-graph__sticky-timeline-span {
+		display: inline-block;
+		max-width: 0;
+		margin-left: 0;
+		overflow: hidden;
+		font-weight: 600;
+		font-variant-numeric: tabular-nums;
+		color: var(--vscode-descriptionForeground);
+		opacity: 0;
+		transition:
+			max-width 0.28s ease,
+			opacity 0.2s ease,
+			margin-left 0.24s ease;
+	}
+
 	// Hidden singleton holding the synthetic-edge <defs> filter — kept out of flow.
 	.gl-graph__defs {
 		position: absolute;
@@ -636,6 +734,13 @@ gl-lit-graph {
 		}
 		&.is-dimmed {
 			opacity: 0.35;
+		}
+
+		// Sticky-timeline bucket-boundary hairline (gitlens.graph.stickyTimeline) — a 1px top divider
+		// where this row's bucket differs from the row above it; `box-sizing: border-box` (set above)
+		// keeps the row's own fixed height unchanged, so no extra virtualizer row/scroll cost.
+		&.is-timeline-boundary {
+			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
 		}
 		// Lane-color BAND (graph = its own column), BOUNDED to the gutter: a soft gradient that FADES IN
 		// from the node (`--row-node-x`, transparent) and ramps up toward the graph column's right edge
