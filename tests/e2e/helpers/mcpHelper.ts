@@ -97,10 +97,16 @@ export async function findIpcFileByWorkspace(workspacePath: string, timeoutMs = 
 }
 
 /**
- * Waits for the gk CLI proxy binary to appear on disk.
- * GitLens auto-installs it on first activation (~5–6 s).
+ * Waits for the gk CLI proxy binary to appear on disk. GitLens auto-installs it on first activation.
+ * Timing is editor- and load-dependent: VS Code lands it in ~5–6s, but a heavy fork like Positron takes
+ * ~26s launched alone and ~44s when several instances start at once (measured on Linux — the download +
+ * extract slides later under launch contention). So the 30s default was too tight and produced transient
+ * `mcp*` failures on Positron under parallel CI workers. Polls and returns the instant the binary appears,
+ * so fast editors pay nothing; the generous cap only affects the slow/contended path. Kept under the 60s
+ * per-test timeout (this runs in the test-scoped `mcpClient` fixture) with headroom for the subsequent
+ * IPC-discovery wait.
  */
-export async function waitForCliInstall(gkPath: string, timeoutMs = 30_000): Promise<void> {
+export async function waitForCliInstall(gkPath: string, timeoutMs = 50_000): Promise<void> {
 	const deadline = Date.now() + timeoutMs;
 	while (Date.now() < deadline) {
 		if (existsSync(gkPath)) return;
