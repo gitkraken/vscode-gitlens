@@ -736,12 +736,6 @@ gl-lit-graph {
 			opacity: 0.35;
 		}
 
-		// Sticky-timeline bucket-boundary hairline (gitlens.graph.stickyTimeline) — a 1px top divider
-		// where this row's bucket differs from the row above it; `box-sizing: border-box` (set above)
-		// keeps the row's own fixed height unchanged, so no extra virtualizer row/scroll cost.
-		&.is-timeline-boundary {
-			border-top: var(--gl-border-width) solid var(--vscode-editorWidget-border, var(--vscode-widget-border));
-		}
 		// Lane-color BAND (graph = its own column), BOUNDED to the gutter: a soft gradient that FADES IN
 		// from the node (`--row-node-x`, transparent) and ramps up toward the graph column's right edge
 		// (`--row-gutter-width`), terminating in a crisp lane-color LINE at that edge — the "edge". Subtle
@@ -820,6 +814,44 @@ gl-lit-graph {
 			background-color: var(--row-lane-color);
 			pointer-events: none;
 		}
+	}
+
+	// Sticky-timeline bucket-boundary separator (gitlens.graph.timelineSeparators) — a real child element
+	// (NOT `.gl-graph__row::before`/`::after`: both are already claimed by the lane band/edge and the
+	// focus ring, and a row can be boundary + band/focused at once) rendered only on boundary rows (see
+	// `isBucketBoundary` in gl-lit-graph.ts/graph-row.ts). An absolutely-positioned 1px overlay — NOT a
+	// `border-top` — so it never touches row height/content flow (a top border shifts the content box by
+	// 1px even under `box-sizing: border-box`). The line spans the text zones but fades to transparent
+	// before it reaches the lane gutter (`--graph-col-left`/`--graph-col-vw`, published once per solve in
+	// `updateRenderState` — zeroed when the graph is hidden, so this degrades to a plain full-width line),
+	// so it never crosses the lane strokes/commit dots; ramps on BOTH sides handle the graph column sitting
+	// mid-row (`column` placement, reorderable) as gracefully as at an edge (ramp collapses to nothing when
+	// the excluded region starts/ends at 0%/100%). Static per layout, not per-scroll: the lane region here
+	// is the zone's VIEWPORT slot, not live per-scroll lane content position (`--graph-scroll-x` et al).
+	.gl-graph__row-timeline-sep {
+		--timeline-sep-color: var(--vscode-editorWidget-border, var(--vscode-widget-border));
+		--timeline-sep-ramp: 2rem;
+		--timeline-sep-mask: linear-gradient(
+			90deg,
+			black 0,
+			black calc(var(--graph-col-left, 0) - var(--timeline-sep-ramp)),
+			transparent var(--graph-col-left, 0),
+			transparent calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0)),
+			black calc(var(--graph-col-left, 0) + var(--graph-col-vw, 0) + var(--timeline-sep-ramp)),
+			black 100%
+		);
+
+		position: absolute;
+		top: 0;
+		right: 0;
+		left: 0;
+		height: 0;
+		pointer-events: none;
+		// A real border (not a background line): at fractional display scaling Chromium device-snaps
+		// borders but antialiases backgrounds across 2 physical rows — the mask fades it over the lanes.
+		border-top: var(--gl-border-width) solid var(--timeline-sep-color);
+		-webkit-mask-image: var(--timeline-sep-mask);
+		mask-image: var(--timeline-sep-mask);
 	}
 	// Unfocused host window: dim the selection accent to VS Code's inactive tone (matches list/tree
 	// views losing focus). `windowFocused` is undefined/true when focused — see gl-lit-graph.ts, which

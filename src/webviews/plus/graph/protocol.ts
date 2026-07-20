@@ -737,6 +737,7 @@ export interface GraphComponentConfig {
 	 * Backed by the user setting `gitlens.graph.style`.
 	 */
 	style?: GraphStyle;
+	timelineSeparators?: boolean;
 }
 
 export interface GraphColumnConfig {

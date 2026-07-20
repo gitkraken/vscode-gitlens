@@ -493,6 +493,7 @@ export interface GraphConfig {
 	};
 	readonly stickyTimeline: boolean;
 	readonly style: 'auto' | 'table' | 'list';
+	readonly timelineSeparators: boolean;
 }
 
 interface HeatmapConfig {

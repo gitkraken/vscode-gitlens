@@ -11,6 +11,15 @@ const relativeUnitThresholds: [Intl.RelativeTimeFormatUnit, number, number, stri
 	['minute', 60 * 1000, 60 * 1000, 'm'],
 	['second', 1000, 1000, 's'],
 ];
+// Built ONCE from the table above (not per-call `.find()` scans, and not a Map — plain object property
+// reads are monomorphic/faster than Map.get for this) — backs unitDivisorMs/unitThresholdMs below. Never
+// touched on fromNow's own hot path (see the loop in fromNow itself).
+const unitDivisors: Partial<Record<Intl.RelativeTimeFormatUnit, number>> = {};
+const unitThresholds: Partial<Record<Intl.RelativeTimeFormatUnit, number>> = {};
+for (const [unit, threshold, divisor] of relativeUnitThresholds) {
+	unitDivisors[unit] = divisor;
+	unitThresholds[unit] = threshold;
+}
 
 type DateStyle = 'full' | 'long' | 'medium' | 'short';
 type TimeStyle = 'full' | 'long' | 'medium' | 'short';
@@ -101,57 +110,94 @@ export function fromNowUnit(
 	return undefined;
 }
 
-function shortUnitLabel(unit: Intl.RelativeTimeFormatUnit): string {
-	return relativeUnitThresholds.find(([u]) => u === unit)?.[3] ?? '';
+/** Allocation-free sibling of `fromNowUnit` for a caller that only needs to CLASSIFY (compare two dates'
+ *  groups) rather than build the `{unit,value}` object — same loop over the same table, so it can't
+ *  drift from `fromNowUnit`/`fromNow`. Encodes the result as `unitOrdinal*100000 + truncValue` (ordinal
+ *  0 = 'year' … 6 = 'second', matching `relativeUnitThresholds`' order; `truncValue` keeps its sign, so
+ *  a positive result means `date` is in the FUTURE relative to `now`). */
+export function fromNowUnitKey(date: Date | number, now: Date | number = Date.now()): number | undefined {
+	const elapsed =
+		(typeof date === 'number' ? date : date.getTime()) - (typeof now === 'number' ? now : now.getTime());
+	if (!Number.isFinite(elapsed)) return undefined;
+
+	const elapsedABS = Math.abs(elapsed);
+	let ordinal = 0;
+	for (const [, threshold, divisor] of relativeUnitThresholds) {
+		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
+			return ordinal * 100_000 + Math.trunc(elapsed / divisor);
+		}
+
+		ordinal++;
+	}
+	return undefined;
 }
 
 /** The divisor (ms) `fromNowUnit` divides elapsed time by for `unit` — i.e. the elapsed-ms width one
  *  step of `value` represents. Exported so a caller reconstructing a `fromNowUnit` result's elapsed
  *  WINDOW (its start/end bounds) doesn't have to re-derive the thresholds table itself. */
 export function unitDivisorMs(unit: Intl.RelativeTimeFormatUnit): number {
-	return relativeUnitThresholds.find(([u]) => u === unit)?.[2] ?? 0;
+	return unitDivisors[unit] ?? 0;
 }
 
-export function fromNow(date: Date | number, short?: boolean): string {
-	const result = fromNowUnit(date);
-	if (result == null) return '';
+/** The elapsed-ms THRESHOLD `fromNowUnit` requires to classify into `unit` at all (only differs from
+ *  `unitDivisorMs` for 'year' — see the table above). Exported so a caller clamping a group's elapsed
+ *  window to where the NEXT unit actually takes over (not just `n+1` steps of the same divisor) can read
+ *  the real cutover point instead of re-deriving the thresholds table itself. */
+export function unitThresholdMs(unit: Intl.RelativeTimeFormatUnit): number {
+	return unitThresholds[unit] ?? 0;
+}
 
-	const { unit, value } = result;
-	if (short) {
-		if (locale == null) {
-			if (defaultShortRelativeTimeFormat != null) {
-				locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
-			} else if (defaultRelativeTimeFormat != null) {
-				locale = defaultRelativeTimeFormat.resolvedOptions().locale;
-			} else {
-				defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
+// fromNow keeps its OWN single-pass loop (not routed through fromNowUnit) — one iteration, no
+// intermediate {unit,value} object allocation on this hot formatting path; fromNowUnit below iterates
+// the SAME `relativeUnitThresholds` array, so the two classifications can't drift apart.
+export function fromNow(date: Date | number, short?: boolean): string {
+	const elapsed = (typeof date === 'number' ? date : date.getTime()) - Date.now();
+	// Guard against invalid dates (e.g. `new Date(<unparseable>)`), since a non-finite value would throw in `Intl.RelativeTimeFormat.format`
+	if (!Number.isFinite(elapsed)) return '';
+
+	for (const [unit, threshold, divisor, shortUnit] of relativeUnitThresholds) {
+		const elapsedABS = Math.abs(elapsed);
+		if (elapsedABS >= threshold || threshold === 1000 /* second */) {
+			if (short) {
+				if (locale == null) {
+					if (defaultShortRelativeTimeFormat != null) {
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+					} else if (defaultRelativeTimeFormat != null) {
+						locale = defaultRelativeTimeFormat.resolvedOptions().locale;
+					} else {
+						defaultShortRelativeTimeFormat = new Intl.RelativeTimeFormat(defaultLocales, {
+							localeMatcher: 'best fit',
+							numeric: 'always',
+							style: 'narrow',
+						});
+						locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+					}
+				}
+
+				if (locale === 'en' || locale?.startsWith('en-')) {
+					const value = Math.floor(elapsedABS / divisor);
+					return `${value}${shortUnit}`;
+				}
+
+				defaultShortRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
 					localeMatcher: 'best fit',
 					numeric: 'always',
 					style: 'narrow',
 				});
-				locale = defaultShortRelativeTimeFormat.resolvedOptions().locale;
+
+				return defaultShortRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 			}
+
+			defaultRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
+				localeMatcher: 'best fit',
+				numeric: 'auto',
+				style: 'long',
+			});
+			return defaultRelativeTimeFormat.format(Math.trunc(elapsed / divisor), unit);
 		}
-
-		if (locale === 'en' || locale?.startsWith('en-')) {
-			return `${Math.abs(value)}${shortUnitLabel(unit)}`;
-		}
-
-		defaultShortRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
-			localeMatcher: 'best fit',
-			numeric: 'always',
-			style: 'narrow',
-		});
-
-		return defaultShortRelativeTimeFormat.format(value, unit);
 	}
 
-	defaultRelativeTimeFormat ??= new Intl.RelativeTimeFormat(defaultLocales, {
-		localeMatcher: 'best fit',
-		numeric: 'auto',
-		style: 'long',
-	});
-	return defaultRelativeTimeFormat.format(value, unit);
+	return '';
 }
 
 export function formatDate(

@@ -41,8 +41,10 @@ import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import {
 	formatDate as formatGitLensDate,
 	fromNowUnit,
+	fromNowUnitKey,
 	fromNow as gitlensFromNow,
 	unitDivisorMs,
+	unitThresholdMs,
 } from '@gitlens/utils/date.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { pluralize } from '@gitlens/utils/string.js';
@@ -202,8 +204,16 @@ type StickyTimelineGroup = {
 // `fromNowUnit`'s own threshold table (no Date allocation when both args are numbers, as they always
 // are here), so this is safe to call per row. today/yesterday/"this week" collapse the column's
 // second/minute/hour/day-2-6 families the same way a Date cell's OWN relative text would read them.
+// Windows are clamped to the ADJACENT unit's real threshold (not just `n+1` steps of the same divisor)
+// so [lo,hi) exactly tiles what `fromNowUnit` actually produces — e.g. week:4's naive hi (35d) would
+// overshoot into where classification has already flipped to 'month' (~30.42d); year:1's naive lo (365d)
+// would undershoot into where it's still 'month' (year requires ~729d elapsed before it triggers at all).
 function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGroup {
 	const day = unitDivisorMs('day');
+	// Future dates (clock skew, an intentionally future-dated commit) — no sensible "in N days" bucket;
+	// read as "now" like a Date cell showing a sub-day relative time would.
+	if (dateMs > nowMs) return { key: 'today', label: 'Today', lo: 0, hi: day };
+
 	const result = fromNowUnit(dateMs, nowMs);
 	if (result == null) return { key: 'today', label: 'Today', lo: 0, hi: day };
 
@@ -219,16 +229,71 @@ function stickyTimelineGroupFor(dateMs: number, nowMs: number): StickyTimelineGr
 			return { key: 'week', label: 'This week', lo: 2 * day, hi: unitDivisorMs('week') };
 		case 'week': {
 			const week = unitDivisorMs('week');
-			if (n <= 1) return { key: 'week:1', label: 'Last week', lo: week, hi: 2 * week };
-			return { key: `week:${n}`, label: `${n} weeks ago`, lo: n * week, hi: (n + 1) * week };
+			const monthThreshold = unitThresholdMs('month');
+			if (n <= 1) {
+				return { key: 'week:1', label: 'Last week', lo: week, hi: Math.min(2 * week, monthThreshold) };
+			}
+			return {
+				key: `week:${n}`,
+				label: `${n} weeks ago`,
+				lo: n * week,
+				hi: Math.min((n + 1) * week, monthThreshold),
+			};
 		}
 		case 'month': {
 			const month = unitDivisorMs('month');
-			if (n <= 1) return { key: 'month:1', label: 'Last month', lo: month, hi: 2 * month };
-			return { key: `month:${n}`, label: `${n} months ago`, lo: n * month, hi: (n + 1) * month };
+			const yearThreshold = unitThresholdMs('year');
+			if (n <= 1) {
+				return { key: 'month:1', label: 'Last month', lo: month, hi: Math.min(2 * month, yearThreshold) };
+			}
+			return {
+				key: `month:${n}`,
+				label: `${n} months ago`,
+				lo: n * month,
+				hi: Math.min((n + 1) * month, yearThreshold),
+			};
 		}
-		default: // 'year' — the only other unit fromNowUnit's table can return.
-			return { key: `year:${n}`, label: `${n} years ago`, lo: n * unitDivisorMs('year') };
+		default: {
+			// 'year' — the only other unit fromNowUnit's table can return. year:1's true reachable window
+			// starts at the YEAR THRESHOLD (~729d), not `1 * yearDivisor` (365d) — everything from 365d up
+			// to the threshold is still classified 'month'; year:2+ aren't affected (n*year already clears
+			// the threshold). `hi` deliberately stays undefined — stickyTimelineSpanFor reads that as
+			// "open-ended" and formats "before <date>" instead of a bounded range (a year group's window
+			// still gets a real reclassification bound, just computed separately — see
+			// updateStickyTimelineBucket, which can't reuse group.hi here without losing that formatting).
+			const lo = n <= 1 ? unitThresholdMs('year') : n * unitDivisorMs('year');
+			return { key: `year:${n}`, label: `${n} years ago`, lo: lo };
+		}
+	}
+}
+
+// Allocation-free sibling of `stickyTimelineGroupFor` — same classification (including the future-date
+// guard) but returns a plain number instead of building the group object (label/lo/hi), for the PER-ROW
+// hairline comparison (renderRowItem calls this twice per row; must stay zero-allocation). Every group
+// `stickyTimelineGroupFor` distinguishes maps to a distinct number here too — bases are spaced 100,000
+// apart so `n` can grow arbitrarily large within a family without colliding with the next one.
+function stickyTimelineGroupKeyFor(dateMs: number, nowMs: number): number {
+	if (dateMs > nowMs) return 0; // future → 'today', same as stickyTimelineGroupFor.
+
+	const raw = fromNowUnitKey(dateMs, nowMs);
+	if (raw == null) return 0;
+
+	// fromNowUnitKey's ordinal order: 0=year, 1=month, 2=week, 3=day, 4=hour, 5=minute, 6=second.
+	const ordinal = Math.trunc(raw / 100_000);
+	const n = Math.abs(raw - ordinal * 100_000);
+	switch (ordinal) {
+		case 4: // hour
+		case 5: // minute
+		case 6: // second
+			return 0; // 'today'
+		case 3: // day
+			return n <= 1 ? 1 /* yesterday */ : 2; /* this week */
+		case 2: // week
+			return n <= 1 ? 100_000 /* last week */ : 100_000 + n;
+		case 1: // month
+			return n <= 1 ? 200_000 /* last month */ : 200_000 + n;
+		default: // 0 = year
+			return 300_000 + n;
 	}
 }
 
@@ -496,6 +561,10 @@ export class GlLitGraph extends LitElement {
 	// derivation as the click-pin, but momentary and layered ON TOP of it (see the `inRefChainShas`
 	// assignment in `updateRenderState`, which prefers this over `refHoverChainShas` while set).
 	@state() private modifierChainShas?: ReadonlySet<string>;
+	// Seed key `activateModifierChain` last computed the chain from (`pill:<key>:<sha>` or `row:<sha>`) —
+	// re-hovering the SAME pill/row while the modifier stays held (or a fresh keydown lands on it) is a
+	// no-op instead of re-walking `identifyFirstParentChain` over the whole graph again.
+	private lastModifierChainSeed?: string;
 	// Direction to the current HEAD commit when it's scrolled OFF-screen (drives the floating
 	// "Scroll to HEAD" pill; the arrow points toward HEAD). Undefined = HEAD is visible → no pill.
 	// Only flips when HEAD crosses the visible edge (set from onRangeChanged), so it's not per-frame.
@@ -506,10 +575,14 @@ export class GlLitGraph extends LitElement {
 	// Sticky-timeline group for the row scrolled to the top (drives the seam pill) — updated from
 	// onScroll/onRangeChanged (same spot as the pill directions above), written ONLY on a group-key
 	// change so a scroll that stays within one group never re-renders. Undefined = not yet computed /
-	// feature off. Key is dynamic (e.g. `week:3`) — see `StickyTimelineGroup`.
-	@state() private stickyTimelineBucketKey?: string;
-	@state() private stickyTimelineLabel = '';
-	@state() private stickyTimelineSpan = '';
+	// feature off. `key` is dynamic (e.g. `week:3`) — see `StickyTimelineGroup`. One @state object (not
+	// three separate fields) since they're always read/written together.
+	@state() private stickyTimeline?: { key: string; label: string; span: string };
+	// The last classified group's elapsed WINDOW [lo, hi) (hi = +Infinity for year groups — see
+	// updateStickyTimelineBucket) — lets a call land back in the SAME window short-circuit before even
+	// building a new StickyTimelineGroup (skips the fromNowUnit walk entirely). Invalidated whenever
+	// `nowMs` is refreshed (the window is elapsed-relative, so it can go stale as real time passes).
+	private stickyTimelineWindow?: { key: string; lo: number; hi: number };
 	// User-set displayed width (px) of the graph column viewport, via the resize handle. Undefined =
 	// fit the lanes. Narrower than the lane content → the gutter scrolls horizontally (graphScrollX)
 	// instead of the lanes re-spacing. Session-scoped, matching `graphPlacement`.
@@ -614,18 +687,23 @@ export class GlLitGraph extends LitElement {
 				: undefined;
 		const ghostRef: RowRenderContext['ghostRef'] =
 			ghostRefSource != null ? { name: ghostRefSource.name, kind: ghostRefSource.kind } : undefined;
-		// Sticky-timeline hairline: a 1px top border where this row's group differs from the row ABOVE
-		// it in display order (never row 0 — no "previous" to differ from). Compares raw row dates (NOT
+		// Sticky-timeline hairline: a 1px separator overlay where this row's group differs from the row
+		// ABOVE it in display order (never row 0 — no "previous" to differ from). Gated on its OWN setting
+		// (`gitlens.graph.timelineSeparators`), independent of the pill's `stickyTimeline` — this is the
+		// FIRST condition in the `&&` chain, so it's a real short-circuit: disabled means zero
+		// `stickyTimelineGroupKeyFor` calls, not just a discarded result. Compares raw row dates (NOT
 		// workdir-anchor-normalized like the pill's topmost-row read) — a WIP row's own "now" stamp
 		// legitimately reading as a different (newer) group than its anchor below it is the correct
-		// visual: it says "this is uncommitted, everything below is history". `stickyTimelineGroupFor`
-		// is pure arithmetic off the per-render-cached `nowMs` — no Date allocation, no extra lookups.
+		// visual: it says "this is uncommitted, everything below is history". `stickyTimelineGroupKeyFor`
+		// (the allocation-free sibling of `stickyTimelineGroupFor` — no object/label/lo/hi built) is pure
+		// arithmetic off the per-render-cached `nowMs`; the full group is built ONLY in
+		// `updateStickyTimelineBucket`, which runs far less often than once-per-visible-row-per-render.
 		const prevRowDate = index > 0 ? this.displayRows[index - 1]?.date : undefined;
 		const isBucketBoundary =
-			this.config?.stickyTimeline !== false &&
+			this.config?.timelineSeparators !== false &&
 			row.date != null &&
 			prevRowDate != null &&
-			stickyTimelineGroupFor(row.date, this.nowMs).key !== stickyTimelineGroupFor(prevRowDate, this.nowMs).key;
+			stickyTimelineGroupKeyFor(row.date, this.nowMs) !== stickyTimelineGroupKeyFor(prevRowDate, this.nowMs);
 		return renderRow(row, {
 			commit: commit,
 			index: index,
@@ -1065,7 +1143,6 @@ export class GlLitGraph extends LitElement {
 		document.addEventListener('visibilitychange', this.onVisibilityChangeForRelativeTime);
 		window.addEventListener('keydown', this.onModifierKeyDown);
 		window.addEventListener('keyup', this.onModifierKeyUp);
-		window.addEventListener('blur', this.onWindowBlurForModifierChain);
 	}
 
 	override disconnectedCallback(): void {
@@ -1074,7 +1151,6 @@ export class GlLitGraph extends LitElement {
 		this.stopRelativeTimeTimer();
 		window.removeEventListener('keydown', this.onModifierKeyDown);
 		window.removeEventListener('keyup', this.onModifierKeyUp);
-		window.removeEventListener('blur', this.onWindowBlurForModifierChain);
 		// Release the gutter-template cache so a detached instance holds no `TemplateResult`s.
 		this.gutterCache.clear();
 		// Drop the persistent requested-avatars dedup so a reconnect re-scans from scratch.
@@ -1084,7 +1160,8 @@ export class GlLitGraph extends LitElement {
 		this.virtualizerRef.value?.removeEventListener('scroll', this.onScroll);
 		this.clearScrolling.cancel();
 		this.clearStickyTimelineScrollActive.cancel();
-		this.stickyTimelineBucketKey = undefined;
+		this.stickyTimeline = undefined;
+		this.stickyTimelineWindow = undefined;
 		this.scanVisibleRangeDebounced.cancel();
 		if (this.avatarErrorFlushTimer != null) {
 			clearTimeout(this.avatarErrorFlushTimer);
@@ -1279,7 +1356,7 @@ export class GlLitGraph extends LitElement {
 			this.lastConfigRef = this.config;
 			this.formatDateFn = this.buildFormatDate(false);
 			this.formatDateShortFn = this.buildFormatDate(true);
-			if (this.isRelativeDateStyle()) {
+			if (this.needsRelativeTimeTimer()) {
 				this.startRelativeTimeTimer();
 			} else {
 				this.stopRelativeTimeTimer();
@@ -1287,10 +1364,11 @@ export class GlLitGraph extends LitElement {
 			// `stickyTimeline` propagates live: OFF hides immediately; ON (first load or re-enabled)
 			// computes right away from the current scroll position instead of waiting for the next scroll.
 			if (this.config?.stickyTimeline === false) {
-				if (this.stickyTimelineBucketKey != null) {
-					this.stickyTimelineBucketKey = undefined;
+				if (this.stickyTimeline != null) {
+					this.stickyTimeline = undefined;
+					this.stickyTimelineWindow = undefined;
 				}
-			} else if (this.stickyTimelineBucketKey == null) {
+			} else if (this.stickyTimeline == null) {
 				this.recomputeStickyTimelineBucket();
 			}
 		}
@@ -1761,7 +1839,11 @@ export class GlLitGraph extends LitElement {
 		for (let i = 0; i < leadCount; i++) {
 			leadOffset += visibleZones[i].width;
 		}
-		const viewport = Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
+		// `hidden` placement has no lane column at all, but `graphColumnWidth` still resolves to a phantom
+		// "what it would be if shown" size — zeroed here so `--graph-col-vw` (below) correctly tells the
+		// timeline-separator gradient (graph.scss) there's no lane region to exclude in that placement, not
+		// just the scrollbar (which self-gates on `graphPlacement === 'column'` regardless of this value).
+		const viewport = this.graphPlacement === 'hidden' ? 0 : Math.max(0, this.graphColumnWidth - this.foldLaneWidth);
 		const content = this.gutterWidth;
 		const thumb = content > 0 ? Math.max(graphHScrollMinThumbPx, (viewport * viewport) / content) : viewport;
 		const travel = Math.max(0, viewport - thumb);
@@ -2760,6 +2842,16 @@ export class GlLitGraph extends LitElement {
 	// captureLaneScrollAnchor / resolveLaneScrollAnchorTop / applyPendingScrollAnchor.
 	private _pendingScrollAnchorTop?: number;
 
+	// Topmost-row index for a scrollTop: floor(scrollTop/rowHeight), clamped into [0, rowCount-1] — "which
+	// row is pinned at the viewport's top edge". Shared by every reader that needs that (this method,
+	// the sticky-timeline bucket/yield checks) so the clamp can't drift between them. NOT the same as
+	// onRangeChanged's own `firstVisible` (see its comment) — that one skips the upper clamp.
+	private topmostRowIndexFor(scrollTop: number, rowCount: number): number {
+		if (rowCount <= 0) return 0;
+
+		return Math.max(0, Math.min(rowCount - 1, Math.floor(scrollTop / this.rowHeight)));
+	}
+
 	// Snapshot the row pinned at the viewport's top edge BEFORE a lane collapse/expand swaps displayRows:
 	// the topmost row intersecting `scrollTop` plus the pixels the viewport has scrolled INTO it. Returns
 	// the OLD row list by reference (still valid after the swap reassigns `this.displayRows`) so the resolve
@@ -2774,7 +2866,7 @@ export class GlLitGraph extends LitElement {
 		if (rows.length === 0) return undefined;
 
 		const scrollTop = scroller.scrollTop;
-		const index = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / this.rowHeight)));
+		const index = this.topmostRowIndexFor(scrollTop, rows.length);
 		return { rows: rows, index: index, offset: scrollTop - index * this.rowHeight };
 	}
 
@@ -2882,8 +2974,12 @@ export class GlLitGraph extends LitElement {
 		// Ctrl/Cmd-hold ref-chain dim: track which pill (if any) is under the pointer on EVERY move, so a
 		// modifier keydown that arrives later knows what to activate against. Fires for every element in
 		// the viewport (not just pills) — resolving to `undefined` off a pill is what detects "left it"
-		// without needing a separate pointerout branch for the pill↔non-pill transition.
-		const pill = this.resolvePillHover(event);
+		// without needing a separate pointerout branch for the pill↔non-pill transition. Gated behind a
+		// cheap native `closest()` first: `resolvePillHover` walks `event.composedPath()` TWICE
+		// (resolveRef + resolveSha each do their own walk/allocation) — most pointer moves in the graph
+		// aren't anywhere near a pill, so this short-circuits the common case for free.
+		const overPill = event.target instanceof Element && event.target.closest('[data-ref-name]') != null;
+		const pill = overPill ? this.resolvePillHover(event) : undefined;
 		if (pill != null) {
 			if (
 				this.hoveredPillRef == null ||
@@ -3099,6 +3195,10 @@ export class GlLitGraph extends LitElement {
 	private activateModifierChain(): void {
 		if (this.hoveredPillRef != null) {
 			const pill = this.hoveredPillRef;
+			const seed = `pill:${pill.key}:${pill.sha}`;
+			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
+
+			this.lastModifierChainSeed = seed;
 			this.modifierChainShas = identifyFirstParentChain(
 				this.processedRows,
 				this.pinnedChainShas(pill.key, pill.sha),
@@ -3107,6 +3207,10 @@ export class GlLitGraph extends LitElement {
 		}
 
 		if (this.hoveredRowSha != null) {
+			const seed = `row:${this.hoveredRowSha}`;
+			if (seed === this.lastModifierChainSeed && this.modifierChainShas != null) return;
+
+			this.lastModifierChainSeed = seed;
 			this.modifierChainShas = identifyFirstParentChain(this.processedRows, [
 				this.laneTipShaFor(this.hoveredRowSha),
 			]);
@@ -3125,6 +3229,7 @@ export class GlLitGraph extends LitElement {
 
 	private deactivateModifierChain(): void {
 		this.modifierChainShas = undefined;
+		this.lastModifierChainSeed = undefined;
 	}
 
 	// A fresh press of the modifier (not the key-repeat while held) while a pill OR a row is already
@@ -3140,12 +3245,6 @@ export class GlLitGraph extends LitElement {
 	private readonly onModifierKeyUp = (event: KeyboardEvent): void => {
 		if (event.key !== 'Control' && event.key !== 'Meta') return;
 
-		this.deactivateModifierChain();
-	};
-
-	// A stuck modifier can't self-correct via keyup once focus has left the window (e.g. alt-tabbing
-	// away while still holding Ctrl over the graph) — drop the transient dim on blur.
-	private readonly onWindowBlurForModifierChain = (): void => {
 		this.deactivateModifierChain();
 	};
 
@@ -3209,16 +3308,16 @@ export class GlLitGraph extends LitElement {
 			node instanceof Element && node.closest('.gl-graph__zone--graph') != null ? 'graph' : 'content';
 
 		if (sha === this.hoveredRowSha) {
-			// Same row — only a zone CHANGE reacts; staying within a zone is a no-op.
+			// Same row — only a zone CHANGE reacts; staying within a zone is a no-op. No
+			// `gl-graph-rowhovertrack` here (unlike the new-row path below): the row (and hence its
+			// minimap date) hasn't changed, only the zone within it, so the wrapper's minimap-select
+			// would just repeat the same date — a genuine no-op dispatch.
 			if (zone === this.hoveredRowZone) return;
 
 			this.hoveredRowZone = zone;
-			this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
 			if (zone === 'content') {
-				// graph → content: upgrade to the full hover. `rowhoverstart` cancels the unhover timer
-				// the graph transition below arms, so a quick oscillation stays flicker-free.
-				this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
-				this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
+				// graph → content: upgrade to the full hover.
+				this.startRowHover(sha, zone, event, rowEl, false);
 			} else {
 				// content → graph: cancel any pending card request and hide an already-open one, but
 				// keep the row tracked — `gl-graph-rowunhover` hides the card without touching the
@@ -3232,8 +3331,8 @@ export class GlLitGraph extends LitElement {
 		}
 
 		// Moving directly between rows (or onto an affordance and back): end the previous row's
-		// hover first so its card can't linger. `rowhoverstart` below cancels the resulting unhover
-		// timer in GraphHover, so the transition stays flicker-free.
+		// hover first so its card can't linger. `rowhoverstart` (inside startRowHover below) cancels
+		// the resulting unhover timer in GraphHover, so the transition stays flicker-free.
 		if (this.hoveredRowSha != null) {
 			this.endRowHover(null);
 		}
@@ -3242,14 +3341,32 @@ export class GlLitGraph extends LitElement {
 		this.hoveredRowZone = zone;
 		// hoveredRowSha is a plain field (no Lit render) — CSSOM is the only way the pill finds out.
 		this.updateStickyTimelineYield();
-		this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
 		this.dispatchEvent(new CustomEvent('gl-graph-rowhovertrack', { detail: { sha: sha, zone: zone } }));
-		if (zone === 'content') {
-			this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
-		}
+		this.startRowHover(sha, zone, event, rowEl, true);
 		// Modifier already held when a NEW row is entered (row→row retargets same as pill→pill).
 		if (event.ctrlKey || event.metaKey) {
 			this.activateModifierChain();
+		}
+	}
+
+	// `rowhoverstart` + emitRowHover's payload are dispatched together at both hover-start sites — a
+	// NEW row entered, or an already-hovered row's zone upgrading from graph → content — factored out so
+	// the two can't drift on the payload shape. `isNewRow` covers the new-row case, where `rowhoverstart`
+	// must fire even when landing directly in the 'graph' zone (so GraphHover's unhover timer still
+	// resets and the minimap still tracks); the same-row upgrade caller only reaches this when
+	// zone==='content', where `rowhoverstart` fires unconditionally either way.
+	private startRowHover(
+		sha: string,
+		zone: RowHoverZone,
+		event: PointerEvent,
+		rowEl: HTMLElement,
+		isNewRow: boolean,
+	): void {
+		if (isNewRow || zone === 'content') {
+			this.dispatchEvent(new CustomEvent('gl-graph-rowhoverstart'));
+		}
+		if (zone === 'content') {
+			this.emitRowHover({ sha: sha, clientX: event.clientX, currentTarget: rowEl, zone: zone });
 		}
 	}
 
@@ -3920,12 +4037,20 @@ export class GlLitGraph extends LitElement {
 		return style === 'relative' || (style == null && fmt == null);
 	}
 
-	// Starts (or leaves running) the relative-time refresh timer — only while the effective date style
-	// is relative; a no-op otherwise/when already running. `requestUpdate()` alone is enough to refresh
-	// the visible rows' dates: `formatDateFn` isn't identity-gated in the willUpdate trigger matrix, so
-	// no engine/adornment/marker recompute runs, just a re-render of what's on screen.
+	// Whether the 60s refresh timer needs to run at all: either the Date column's own cells are
+	// relative-styled text that goes stale, or the sticky-timeline pill's grouping is elapsed-based (see
+	// stickyTimelineGroupFor) and can drift even when every row's date column reads an absolute format.
+	// One shared timer covers both consumers instead of running two.
+	private needsRelativeTimeTimer(): boolean {
+		return this.isRelativeDateStyle() || this.config?.stickyTimeline !== false;
+	}
+
+	// Starts (or leaves running) the relative-time refresh timer — only while something actually needs
+	// it (see `needsRelativeTimeTimer`); a no-op otherwise/when already running. `requestUpdate()` alone
+	// is enough to refresh the visible rows' dates: `formatDateFn` isn't identity-gated in the willUpdate
+	// trigger matrix, so no engine/adornment/marker recompute runs, just a re-render of what's on screen.
 	private startRelativeTimeTimer(): void {
-		if (this.relativeTimeTimer != null || !this.isRelativeDateStyle()) return;
+		if (this.relativeTimeTimer != null || !this.needsRelativeTimeTimer()) return;
 
 		this.relativeTimeTimer = setInterval(this.onRelativeTimeTick, 60_000);
 	}
@@ -3941,23 +4066,31 @@ export class GlLitGraph extends LitElement {
 		// A hidden retained webview must not churn while backgrounded.
 		if (document.visibilityState === 'hidden') return;
 
-		this.requestUpdate();
+		// Only the Date column's cells need a re-render (relative text going stale); the sticky-timeline
+		// pill's own DOM is driven by its own @state write below, not this requestUpdate.
+		if (this.isRelativeDateStyle()) {
+			this.requestUpdate();
+		}
 		// Sticky-timeline groups are purely elapsed-based (see stickyTimelineGroupFor) — an otherwise-idle
 		// graph's group can drift as real time passes (e.g. a 6-day-old top row rolling into "Last week"),
-		// so recompute it on the same tick that refreshes the rows' own relative-time text. Refresh `nowMs`
-		// first — `updateRenderState` won't run until the `requestUpdate` above flushes (async), so without
-		// this the recompute would still read whatever was cached at the LAST render. Still edge-gated
-		// inside `updateStickyTimelineBucket`, so this is a no-op unless a boundary was actually crossed.
+		// so recompute it on every tick regardless of dateStyle. Refresh `nowMs` first so the recompute
+		// doesn't read a stale cached value. Still edge-gated inside `updateStickyTimelineBucket`/its
+		// window cache, so this is a no-op unless a boundary was actually crossed.
 		this.nowMs = Date.now();
 		this.recomputeStickyTimelineBucket();
 	};
 
 	// Becoming visible again while the timer is active refreshes immediately instead of waiting up to
-	// 60s for the next tick.
+	// 60s for the next tick — same split as onRelativeTimeTick (dates re-render only if relative-styled,
+	// sticky-timeline recomputes regardless).
 	private readonly onVisibilityChangeForRelativeTime = (): void => {
-		if (document.visibilityState === 'visible' && this.relativeTimeTimer != null) {
+		if (document.visibilityState !== 'visible' || this.relativeTimeTimer == null) return;
+
+		if (this.isRelativeDateStyle()) {
 			this.requestUpdate();
 		}
+		this.nowMs = Date.now();
+		this.recomputeStickyTimelineBucket();
 	};
 
 	// Loading / empty overlay shown over the (empty) lane area. State discrimination is deliberate to
@@ -4163,12 +4296,12 @@ export class GlLitGraph extends LitElement {
 	// `is-scroll-active` class in `onScroll` — CSS alone drives the reveal, see graph.scss). Not a
 	// button — purely informational, so no click handler/tabstop.
 	private renderStickyTimeline(): TemplateResult | typeof nothing {
-		if (this.config?.stickyTimeline === false || this.stickyTimelineBucketKey == null) return nothing;
+		if (this.config?.stickyTimeline === false || this.stickyTimeline == null) return nothing;
 
 		return html`<div ${ref(this.stickyTimelineRef)} class="gl-graph__sticky-timeline" aria-hidden="true">
 			<code-icon class="gl-graph__sticky-timeline-icon" icon="calendar"></code-icon>
-			<span class="gl-graph__sticky-timeline-label">${this.stickyTimelineLabel}</span>
-			<span class="gl-graph__sticky-timeline-span">${this.stickyTimelineSpan}</span>
+			<span class="gl-graph__sticky-timeline-label">${this.stickyTimeline.label}</span>
+			<span class="gl-graph__sticky-timeline-span">${this.stickyTimeline.span}</span>
 		</div>`;
 	}
 
@@ -5308,15 +5441,20 @@ export class GlLitGraph extends LitElement {
 		const viewportHeight = this.scrollerClientHeight;
 		const visibleRows = rowHeight > 0 ? viewportHeight / rowHeight : 0;
 		const padding = Math.max(0, Math.min(this.config?.scrollRowPadding ?? 0, Math.floor(visibleRows / 2) - 1));
+		const rowTop = idx * rowHeight;
+		const rowBottom = rowTop + rowHeight;
+		const scrollTop = scroller.scrollTop;
 		if (padding <= 0) {
+			// Already fully on-screen → leave it put, same as the 'center' path in flushPendingReveal;
+			// `scrollToIndex` isn't a guaranteed no-op for an already-visible row (lit-virtualizer can still
+			// nudge it), so skip the call entirely rather than rely on that.
+			if (rowTop >= scrollTop && rowBottom <= scrollTop + viewportHeight) return;
+
 			scroller.scrollToIndex(idx, 'nearest');
 			return;
 		}
 
 		const padPx = padding * rowHeight;
-		const rowTop = idx * rowHeight;
-		const rowBottom = rowTop + rowHeight;
-		const scrollTop = scroller.scrollTop;
 		if (rowTop < scrollTop + padPx) {
 			scroller.scrollTop = Math.max(0, rowTop - padPx);
 		} else if (rowBottom > scrollTop + viewportHeight - padPx) {
@@ -5594,36 +5732,58 @@ export class GlLitGraph extends LitElement {
 
 	// `gitlens.graph.stickyTimeline` OFF → clear (hides the pill/hairlines). Otherwise reclassifies
 	// `topMs` (the topmost visible row's workdir-normalized date) and writes @state ONLY when the
-	// group's KEY actually changes — mirrors `updateHeadPillDirection`'s edge-crossing gate.
+	// group's KEY actually changes — mirrors `updateHeadPillDirection`'s edge-crossing gate. The window
+	// cache (`stickyTimelineWindow`) short-circuits BEFORE that: while `topMs` (any row's date) stays
+	// within the last classified group's elapsed bounds, there's nothing to reclassify — pure numeric
+	// check, no `stickyTimelineGroupFor`/`fromNowUnit` call (and hence no allocation) at all.
 	private updateStickyTimelineBucket(topMs: number): void {
 		if (this.config?.stickyTimeline === false) {
-			if (this.stickyTimelineBucketKey != null) {
-				this.stickyTimelineBucketKey = undefined;
+			if (this.stickyTimeline != null) {
+				this.stickyTimeline = undefined;
+				this.stickyTimelineWindow = undefined;
 			}
 			return;
 		}
 
-		const group = stickyTimelineGroupFor(topMs, this.nowMs);
-		if (group.key === this.stickyTimelineBucketKey) return;
+		const win = this.stickyTimelineWindow;
+		const elapsed = this.nowMs - topMs;
+		if (win != null && elapsed >= win.lo && elapsed < win.hi) return;
 
-		this.stickyTimelineBucketKey = group.key;
-		this.stickyTimelineLabel = group.label;
-		this.stickyTimelineSpan = this.stickyTimelineSpanFor(group);
+		const group = stickyTimelineGroupFor(topMs, this.nowMs);
+		// A year group's `hi` is deliberately undefined on the GROUP (stickyTimelineSpanFor reads that as
+		// "open-ended" for the "before <date>" display) — but the WINDOW still needs a real reclassification
+		// bound, or it'd cache as valid forever and never notice elapsed crossing into year:(n+1). Derive it
+		// the same way fromNowUnit would classify the NEXT year boundary: elapsed is >=0 here (a year group
+		// only classifies past dates — the future-date guard in stickyTimelineGroupFor redirects anything
+		// newer to 'today' first), so this can't disagree with what re-running fromNowUnit would say.
+		const year = unitDivisorMs('year');
+		const hi = group.hi ?? (Math.trunc(elapsed / year) + 1) * year;
+		this.stickyTimelineWindow = { key: group.key, lo: group.lo, hi: hi };
+		if (group.key === this.stickyTimeline?.key) return;
+
+		this.stickyTimeline = { key: group.key, label: group.label, span: this.stickyTimelineSpanFor(group) };
 	}
 
-	// Derives the topmost-row index from a scrollTop with the SAME formula onRangeChanged's minimap-day
-	// read uses (Math.floor(scrollTop / rowHeight)), so the two paths can never disagree at the same
-	// scroll position, then updates the bucket through the shared, edge-gated `updateStickyTimelineBucket`.
-	// Shared by `onScroll` (the scroll hot path — `updateHeadPillDirection`-style: cheap index math + one
-	// array access, no DOM read beyond the `scrollTop` the caller already has) and
-	// `recomputeStickyTimelineBucket` (a live `scrollTop` read, fine there — not the hot path).
+	// Derives the topmost-row index (via the shared `topmostRowIndexFor` — NOT the same formula
+	// onRangeChanged's minimap-day read uses, which skips the upper clamp), then updates the bucket
+	// through the shared, edge-gated `updateStickyTimelineBucket`. Shared by `onScroll` (the scroll hot
+	// path — `updateHeadPillDirection`-style: cheap index math + one array access, no DOM read beyond
+	// the `scrollTop` the caller already has) and `recomputeStickyTimelineBucket` (a live `scrollTop`
+	// read, fine there — not the hot path).
 	private updateStickyTimelineBucketFromScrollTop(scrollTop: number): void {
 		const rows = this.displayRows;
 		const rh = this.rowHeight;
 		if (rows.length === 0 || rh <= 0) return;
 
-		const idx = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / rh)));
-		const dateMs = nearestNonWorkdirDate(rows, idx, rows.length - 1) ?? NaN;
+		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
+		const row = rows[idx];
+		// A workdir (WIP) row's OWN date is a synthetic stamp — resolve through its EXACT anchor
+		// (parents[0], mirroring the wrapper's dateForMinimapRow) when it's loaded; the positional
+		// nearestNonWorkdirDate walk is only a fallback for the rare case the anchor hasn't paged in yet.
+		const anchorSha = row?.kind === 'workdir' ? row.parents[0] : undefined;
+		const anchorIdx = anchorSha != null ? this.indexBySha.get(anchorSha) : undefined;
+		const anchorDate = anchorIdx != null ? rows[anchorIdx]?.date : undefined;
+		const dateMs = anchorDate ?? nearestNonWorkdirDate(rows, idx, rows.length - 1) ?? NaN;
 		if (!Number.isNaN(dateMs)) {
 			this.updateStickyTimelineBucket(dateMs);
 		}
@@ -5650,9 +5810,10 @@ export class GlLitGraph extends LitElement {
 	// once yielded via hover, the pointer sits over the (now pointer-transparent) pill's old spot, which
 	// hits the row/buttons underneath — the row stays hovered, so it stays yielded until the pointer
 	// actually leaves the row. O(1): index math + a few Set/Map lookups + one classList.toggle;
-	// `scrollTop` defaults to a live read (fine outside the scroll hot path) but `onScroll` passes the
-	// value it already has.
-	private updateStickyTimelineYield(scrollTop: number = this.virtualizerRef.value?.scrollTop ?? 0): void {
+	// `scrollTop` defaults to the last scroll position `onScroll` recorded (`_lastScrollTop`) — a plain
+	// field read, no DOM access — for the rare caller outside the scroll hot path; `onScroll` itself
+	// passes the value it already has.
+	private updateStickyTimelineYield(scrollTop: number = this._lastScrollTop): void {
 		const el = this.stickyTimelineRef.value;
 		if (el == null) return;
 
@@ -5663,7 +5824,7 @@ export class GlLitGraph extends LitElement {
 			return;
 		}
 
-		const idx = Math.max(0, Math.min(rows.length - 1, Math.floor(scrollTop / rh)));
+		const idx = this.topmostRowIndexFor(scrollTop, rows.length);
 		const row = rows[idx];
 		const yielding =
 			row != null &&

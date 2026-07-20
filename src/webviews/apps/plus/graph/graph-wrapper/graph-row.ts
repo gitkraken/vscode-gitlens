@@ -40,7 +40,8 @@ export interface RowRenderContext {
 	total: number;
 	rowHeight: number;
 	/** Sticky-timeline hairline: this row's bucket (Today/Yesterday/This week/...) differs from the row
-	 *  above it — a 1px top divider, no extra row/height cost. See `gl-lit-graph.ts`'s `renderRowItem`. */
+	 *  above it — renders a `.gl-graph__row-timeline-sep` overlay (1px, no row/height cost; fades out
+	 *  before the lane gutter — see graph.scss). See `gl-lit-graph.ts`'s `renderRowItem`. */
 	isBucketBoundary?: boolean;
 	/** Fixed standalone graph-column width (used in `column` placement) — the lane-art width, NOT
 	 *  including the fold strip (see `foldLaneWidth`). */
@@ -875,9 +876,6 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	if (ctx.isDimmed) {
 		rowClasses += ' is-dimmed';
 	}
-	if (ctx.isBucketBoundary) {
-		rowClasses += ' is-timeline-boundary';
-	}
 	if (isWorkdir) {
 		rowClasses += ' is-workdir';
 	}
@@ -1032,6 +1030,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					data-tooltip=${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}
 				></span>`
 			: nothing}
+		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
 		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
 	</div>`;
 }

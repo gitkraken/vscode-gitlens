@@ -3760,6 +3760,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			sidebarPinned: configuration.get('graph.sidebar.pinned') ?? false,
 			stickyTimeline: configuration.get('graph.stickyTimeline'),
 			style: configuration.get('graph.style'),
+			timelineSeparators: configuration.get('graph.timelineSeparators'),
 		};
 		return config;
 	}

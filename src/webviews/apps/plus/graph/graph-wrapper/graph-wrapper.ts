@@ -1528,7 +1528,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private _lastHoverRow: GitGraphRow | undefined;
 
 	private rowBySha(sha: string): GitGraphRow | undefined {
-		return this.getDecoratedRows().rows?.find(r => r.sha === sha);
+		return this.getDecoratedRowByShaMap()?.get(sha);
 	}
 
 	/** sha→HOST row map (`graphState.rows` — never the synthetic WIP rows `getDecoratedRows` injects),
