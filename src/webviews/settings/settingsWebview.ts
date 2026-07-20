@@ -142,7 +142,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 
 				// ── Queries ──
 
-				generateFormatPreview: params => Promise.resolve(this.generateFormatPreview(params)),
+				generateFormatPreview: params => this.generateFormatPreview(params),
 			},
 		} satisfies SettingsServices);
 	}
@@ -211,13 +211,15 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 		}
 	}
 
-	private generateFormatPreview(params: GenerateFormatPreviewParams): string {
+	private async generateFormatPreview(params: GenerateFormatPreviewParams): Promise<string> {
 		if (params.type === 'file') {
 			return this.generateFileFormatPreview(params.format);
 		}
 
 		const commit = new GitCommit(
-			'~/code/eamodio/vscode-gitlens-demo',
+			// Must be absolute (and consistent with the file URIs below): markdown/HTML previews
+			// resolve revision URIs against this base (`getRevisionUri`), which rejects a relative path
+			'/code/eamodio/vscode-gitlens-demo',
 			'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
 			new GitCommitIdentity(
 				'Eric Amodio',
@@ -241,7 +243,7 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 				filtered: {
 					files: [
 						new GitFileChange(
-							'~/code/eamodio/vscode-gitlens-demo',
+							'/code/eamodio/vscode-gitlens-demo',
 							'code.ts',
 							GitFileIndexStatus.Modified,
 							joinUriPath(fileUri('/code/eamodio/vscode-gitlens-demo'), 'code.ts'),
@@ -285,6 +287,26 @@ export class SettingsWebviewProvider implements WebviewProvider<State, State, Se
 				undefined,
 				new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
 			);
+		}
+
+		// Markdown-context previews (hover/tooltip formats) must use the async formatter — `${avatar}`
+		// returns a Promise in markdown mode, and only `fromTemplateAsync` awaits promise-returning tokens.
+		if (params.markdown) {
+			try {
+				return await CommitFormatter.fromTemplateAsync(
+					params.format,
+					commit,
+					{ source: 'settings' },
+					{
+						dateFormat: configuration.get('defaultDateFormat'),
+						pullRequest: pr,
+						messageTruncateAtNewLine: true,
+						outputFormat: 'markdown',
+					},
+				);
+			} catch (ex) {
+				return formatPreviewError(ex);
+			}
 		}
 
 		try {

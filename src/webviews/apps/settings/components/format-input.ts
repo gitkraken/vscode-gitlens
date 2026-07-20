@@ -15,6 +15,7 @@ import type { SettingsState } from '../state.js';
 import { settingsStateContext } from '../state.js';
 import '../../shared/components/button.js';
 import '../../shared/components/code-icon.js';
+import '../../shared/components/markdown/markdown.js';
 import '../../shared/components/overlays/popover.js';
 
 declare global {
@@ -472,8 +473,10 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 
 	private readonly requestPreview = debounce((type: 'commit' | 'commit-uncommitted' | 'file', format: string) => {
 		const key = this.descriptor.key;
+		// Hover/tooltip formats render as markdown at runtime, so their preview must too
+		const markdown = this.tokenMode === 'hover';
 		void this.actions
-			?.generateFormatPreview(key, type, format)
+			?.generateFormatPreview(key, type, format, markdown)
 			.then(preview => {
 				// The instance is reused across descriptors; ignore a late preview for a previous one
 				if (this.descriptor.key !== key) return;
@@ -849,7 +852,9 @@ export class GlFormatInput extends SignalWatcher(LitElement) {
 						aria-atomic="true"
 					>
 						<span>Example:</span>
-						<span class="example__text">${this._example || '—'}</span>
+						${mode === 'hover' && !this._exampleError && this._example
+							? html`<gl-markdown inline .markdown=${this._example}></gl-markdown>`
+							: html`<span class="example__text">${this._example || '—'}</span>`}
 					</p>`
 				: nothing}`;
 	}

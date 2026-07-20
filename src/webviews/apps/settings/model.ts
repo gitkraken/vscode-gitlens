@@ -125,7 +125,8 @@ export interface TextDescriptor extends DescriptorBase {
 	/**
 	 * Offer the token insert menu, and which token set it presents:
 	 * - `true` — commit tokens (plaintext commit/blame/status-bar formats)
-	 * - `'hover'` — commit tokens PLUS hover-only tokens (markdown hover/tooltip formats)
+	 * - `'hover'` — commit tokens PLUS hover-only tokens (markdown hover/tooltip formats); the
+	 *   live example renders as markdown too (via `gl-markdown`), matching the real hover/tooltip
 	 * - `'file'` — file tokens (`StatusFileFormatter` file-format strings)
 	 * Date-format fields derive their moment.js token set from `preview.type` instead.
 	 */

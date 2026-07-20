@@ -79,6 +79,12 @@ export interface GenerateFormatPreviewParams {
 	 */
 	type: 'commit' | 'commit-uncommitted' | 'file';
 	format: string;
+	/**
+	 * When true, renders the commit/commit-uncommitted preview with `outputFormat: 'markdown'`
+	 * instead of plaintext — the hover/tooltip formats (`tokens: 'hover'`) are markdown at
+	 * render time, so their preview must be too. No effect on the 'file' preview.
+	 */
+	markdown?: boolean;
 }
 
 // ============================================================
@@ -112,7 +118,8 @@ export interface SettingsViewService {
 	 * Render a format template against the canned sample commit/file using the real
 	 * `CommitFormatter`/`StatusFileFormatter`, so the preview matches what GitLens
 	 * will actually display. Returns an `Invalid format: …` message (with the parse
-	 * error) when the template fails to render.
+	 * error) when the template fails to render. `params.markdown` renders hover/tooltip
+	 * formats as markdown (via `CommitFormatter.fromTemplateAsync`) rather than plaintext.
 	 */
 	generateFormatPreview(params: GenerateFormatPreviewParams): Promise<string>;
 }

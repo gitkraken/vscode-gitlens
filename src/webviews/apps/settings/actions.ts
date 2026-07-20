@@ -423,8 +423,9 @@ export class SettingsActions {
 		key: string,
 		type: 'commit' | 'commit-uncommitted' | 'file',
 		format: string,
+		markdown?: boolean,
 	): Promise<string> {
-		return this.settings.generateFormatPreview({ key: key, type: type, format: format });
+		return this.settings.generateFormatPreview({ key: key, type: type, format: format, markdown: markdown });
 	}
 }
 
