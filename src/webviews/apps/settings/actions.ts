@@ -174,9 +174,11 @@ export class SettingsActions {
 	/**
 	 * Applies a set of changes at the current scope. Entries with an
 	 * `undefined` value are sent as removals (mirrors the legacy
-	 * `UpdateConfigurationCommand` semantics).
+	 * `UpdateConfigurationCommand` semantics). Resolves `true` when the write
+	 * lands and `false` when it fails (rolled back) — so callers that promote
+	 * local state on a confirmed write can await the outcome.
 	 */
-	async apply(changes: Record<string, unknown>): Promise<void> {
+	async apply(changes: Record<string, unknown>): Promise<boolean> {
 		// Descriptor keys are typed SettingsKey at authoring time; the runtime maps are
 		// string-keyed, so re-assert the params shape once at the RPC boundary
 		const writes: SettingsUpdateParams['changes'] = {};
@@ -202,11 +204,13 @@ export class SettingsActions {
 
 		try {
 			await this.settings.update({ changes: writes, removes: removes, scope: this.state.scope.get() });
+			return true;
 		} catch (ex) {
 			// The failed write never echoes, so restore the pre-edit values
 			this.state.config.set(previousConfig);
 			this.state.customSettings.set(previousCustomSettings);
 			this.state.error.set(ex instanceof Error ? ex.message : String(ex));
+			return false;
 		}
 	}
 
@@ -249,7 +253,7 @@ export class SettingsActions {
 	}
 
 	/** Applies a checkbox/switch change, including object/array/custom semantics and additional settings. */
-	async applyCheck(descriptor: CheckDescriptor, checked: boolean): Promise<void> {
+	async applyCheck(descriptor: CheckDescriptor, checked: boolean): Promise<boolean> {
 		const changes: Record<string, unknown> = {};
 		const valueOn = descriptor.valueOn !== undefined ? descriptor.valueOn : true;
 
@@ -302,26 +306,26 @@ export class SettingsActions {
 	}
 
 	/** Applies a select/segmented change with legacy boolean/null coercion. */
-	applyOption(key: SettingsKey, value: string): Promise<void> {
+	applyOption(key: SettingsKey, value: string): Promise<boolean> {
 		return this.apply({ [key]: ensureIfBooleanOrNull(value) });
 	}
 
 	/** Applies a text input commit; an empty value falls back to `defaultValue`, else `null`. */
-	applyText(key: SettingsKey, value: string, defaultValue?: string): Promise<void> {
+	applyText(key: SettingsKey, value: string, defaultValue?: string): Promise<boolean> {
 		return this.apply({ [key]: value ? value : (defaultValue ?? null) });
 	}
 
 	/** Applies a numeric input commit. */
-	applyNumber(key: SettingsKey, value: string, defaultValue?: string): Promise<void> {
+	applyNumber(key: SettingsKey, value: string, defaultValue?: string): Promise<boolean> {
 		return this.apply({ [key]: value ? Number(value) : defaultValue != null ? Number(defaultValue) : null });
 	}
 
-	applyValue(key: SettingsKey, value: unknown): Promise<void> {
+	applyValue(key: SettingsKey, value: unknown): Promise<boolean> {
 		return this.apply({ [key]: value });
 	}
 
 	/** Toggles membership of `value` in the string-array setting `key`. */
-	applyArrayMember(key: SettingsKey, value: string, include: boolean): Promise<void> {
+	applyArrayMember(key: SettingsKey, value: string, include: boolean): Promise<boolean> {
 		return this.apply({
 			[key]: toggleArrayMember(this.state.getSettingValue<string[]>(key) ?? [], value, include),
 		});
@@ -334,14 +338,14 @@ export class SettingsActions {
 		index: number,
 		prop: keyof AutolinkConfig,
 		value: string | boolean | null,
-	): Promise<void> {
+	): Promise<boolean> {
 		const autolinks: AutolinkConfig[] = structuredClone(
 			this.state.getSettingValue<AutolinkConfig[]>('autolinks') ?? [],
 		);
 
 		if (value == null || value === '') {
 			// Clearing a prop on a not-yet-real rule shouldn't create one
-			if (autolinks[index] == null) return;
+			if (autolinks[index] == null) return false;
 		}
 
 		const current: AutolinkConfig = autolinks[index] ?? {
@@ -361,16 +365,20 @@ export class SettingsActions {
 	 * draft each time so a second field's commit can't clobber the first while
 	 * its config echo is still in flight.
 	 */
-	async applyAutolinkRule(index: number, rule: AutolinkConfig): Promise<void> {
+	async applyAutolinkRule(index: number, rule: AutolinkConfig): Promise<boolean> {
 		const autolinks: AutolinkConfig[] = structuredClone(
 			this.state.getSettingValue<AutolinkConfig[]>('autolinks') ?? [],
 		);
-		// Clamp so a concurrent external removal can't leave a sparse hole
-		autolinks[Math.min(index, autolinks.length)] = { ...rule };
+		// A stale index past the array end (e.g. after an external `settings.json`
+		// edit shrank it) would silently append/overwrite the wrong rule — refuse it.
+		// `=== length` legitimately appends a new row; `< length` replaces in place.
+		if (index > autolinks.length) return false;
+
+		autolinks[index] = { ...rule };
 		return this.apply({ autolinks: autolinks });
 	}
 
-	async removeAutolink(index: number): Promise<void> {
+	async removeAutolink(index: number): Promise<boolean> {
 		const autolinks: AutolinkConfig[] = structuredClone(
 			this.state.getSettingValue<AutolinkConfig[]>('autolinks') ?? [],
 		);
@@ -387,16 +395,20 @@ export class SettingsActions {
 	 * in flight. Untouched entries keep their original (hand-authored) shape; only
 	 * the rewritten entry is emitted through the omit-inactive-matcher projection.
 	 */
-	async applyRemoteRule(index: number, rule: RemoteRuleDraft): Promise<void> {
+	async applyRemoteRule(index: number, rule: RemoteRuleDraft): Promise<boolean> {
 		const remotes: RemoteRuleDraft[] = structuredClone(
 			this.state.getSettingValue<RemoteRuleDraft[]>('remotes') ?? [],
 		);
-		// Clamp so a concurrent external removal can't leave a sparse hole
-		remotes[Math.min(index, remotes.length)] = { ...rule };
+		// A stale index past the array end (e.g. after an external `settings.json`
+		// edit shrank it) would silently append/overwrite the wrong entry — refuse it.
+		// `=== length` legitimately appends a new row; `< length` replaces in place.
+		if (index > remotes.length) return false;
+
+		remotes[index] = { ...rule };
 		return this.apply({ remotes: remotes });
 	}
 
-	async removeRemote(index: number): Promise<void> {
+	async removeRemote(index: number): Promise<boolean> {
 		const remotes: RemoteRuleDraft[] = structuredClone(
 			this.state.getSettingValue<RemoteRuleDraft[]>('remotes') ?? [],
 		);

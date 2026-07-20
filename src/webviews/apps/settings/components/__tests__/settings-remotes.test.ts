@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import type { RemotesUrlsConfig } from '../../../../../config.js';
-import { isPersistable, projectEntry, urlsComplete } from '../settings-remotes.js';
+import type { RemoteRuleDraft } from '../../actions.js';
+import { findEntryIndex, isEntryLive, isPersistable, projectEntry, urlsComplete } from '../settings-remotes.js';
 
 /**
  * The Custom Remotes editor (#5392 Doc C) mirrors the autolinks editor's
@@ -143,6 +144,81 @@ suite('settings — Custom Remotes editor entry projection', () => {
 	// `requiredUrlFields` in the source can't silently desync from this test's assumptions.
 	test('urlsComplete recognizes the fixture as complete', () => {
 		assert.strictEqual(urlsComplete(completeUrls()), true);
+	});
+});
+
+/**
+ * `isEntryLive` reads a persisted config entry (no matcher-mode marker) and reports
+ * whether it actually resolves in the consumer. It's what lets the editor tell the
+ * truth when an in-progress edit is invalid: if the SAVED entry is still live, the
+ * old matcher stays in effect, so the body says "unsaved" rather than "ignored".
+ */
+suite('settings — Custom Remotes editor live-entry predicate', () => {
+	test('a saved entry with a matcher stays live even when the editing draft cleared it', () => {
+		// The draft may be mid-clear/invalid, but the SAVED entry still resolves links
+		assert.strictEqual(isEntryLive({ type: 'GitHub', domain: 'git.corp.com' }), true);
+	});
+
+	test('a regex-matcher entry is live', () => {
+		assert.strictEqual(isEntryLive({ type: 'GitHub', regex: String.raw`\bgit\.corp\.com\b` }), true);
+	});
+
+	test('an entry with no matcher is not live', () => {
+		assert.strictEqual(isEntryLive({ type: 'GitHub' }), false);
+	});
+
+	test('a type: Custom entry with a complete urls block is live', () => {
+		assert.strictEqual(isEntryLive({ type: 'Custom', domain: 'git.corp.com', urls: completeUrls() }), true);
+	});
+
+	test('a type: Custom entry with an incomplete urls block is not live', () => {
+		const { fileRange: _fileRange, ...incomplete } = completeUrls();
+		assert.strictEqual(
+			isEntryLive({ type: 'Custom', domain: 'git.corp.com', urls: incomplete as unknown as RemotesUrlsConfig }),
+			false,
+		);
+	});
+
+	test('a type: Custom entry with no urls block is not live', () => {
+		assert.strictEqual(isEntryLive({ type: 'Custom', domain: 'git.corp.com' }), false);
+	});
+
+	test('an undefined entry (brand-new row) is not live', () => {
+		assert.strictEqual(isEntryLive(undefined), false);
+	});
+});
+
+/**
+ * `findEntryIndex` relocates an open draft after an external `settings.json` edit
+ * shifts the `remotes` array, so a later commit rewrites the entry we were editing
+ * instead of whatever slid into its old index. Deep-equality is key-order-insensitive
+ * so a hand-edit that merely reorders keys doesn't read as a different entry.
+ */
+suite('settings — Custom Remotes editor baseline relocation', () => {
+	test('finds the baseline at a shifted index', () => {
+		const baseline: RemoteRuleDraft = { type: 'GitHub', domain: 'git.corp.com' };
+		const entries: RemoteRuleDraft[] = [
+			{ type: 'GitLab', domain: 'gitlab.corp.com' },
+			{ type: 'GitHub', domain: 'git.corp.com' },
+		];
+		assert.strictEqual(findEntryIndex(entries, baseline), 1);
+	});
+
+	test('matches regardless of key order (external hand-edit reordered keys)', () => {
+		const baseline: RemoteRuleDraft = { type: 'GitHub', domain: 'git.corp.com', name: 'Corp' };
+		const entries: RemoteRuleDraft[] = [{ name: 'Corp', domain: 'git.corp.com', type: 'GitHub' }];
+		assert.strictEqual(findEntryIndex(entries, baseline), 0);
+	});
+
+	test('returns -1 when the baseline entry is gone (removed/changed externally)', () => {
+		const baseline: RemoteRuleDraft = { type: 'GitHub', domain: 'git.corp.com' };
+		const entries: RemoteRuleDraft[] = [{ type: 'GitLab', domain: 'gitlab.corp.com' }];
+		assert.strictEqual(findEntryIndex(entries, baseline), -1);
+	});
+
+	test('returns -1 for an undefined baseline (nothing to relocate)', () => {
+		const entries: RemoteRuleDraft[] = [{ type: 'GitHub', domain: 'git.corp.com' }];
+		assert.strictEqual(findEntryIndex(entries, undefined), -1);
 	});
 });
 

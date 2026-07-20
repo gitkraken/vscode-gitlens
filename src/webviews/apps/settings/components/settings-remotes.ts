@@ -2,6 +2,7 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
+import { areEqual } from '@gitlens/utils/object.js';
 import type { CustomRemoteType, RemotesUrlsConfig } from '../../../../config.js';
 import { focusOutline } from '../../shared/components/styles/lit/a11y.css.js';
 import { boxSizingBase, linkBase } from '../../shared/components/styles/lit/base.css.js';
@@ -364,16 +365,66 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 	/** True until the draft's first persist (so deleting it needs no config write). */
 	private _draftIsNew = false;
 
+	/**
+	 * The projected persisted entry the open draft currently maps to (unset for a new
+	 * row). Config is the source of truth for what's live; this is how we tell whether
+	 * a `remotes` change was our own write settling or an external `settings.json` edit
+	 * that shifted/removed the entry we're editing — see {@link willUpdate}.
+	 */
+	private _draftBaseline?: RemoteRuleDraft;
+
+	/** Transient notice shown when an external edit forced an open draft to be discarded. */
+	@state()
+	private _externalNotice?: string;
+
 	private get remotes(): RemoteRuleDraft[] {
 		return this._state.getSettingValue<RemoteRuleDraft[]>('remotes') ?? [];
 	}
 
+	override willUpdate(): void {
+		// Reading the signal here subscribes the component, so an external `settings.json`
+		// edit to `gitlens.remotes` re-runs this reconciliation for an open persisted row.
+		const remotes = this.remotes;
+
+		// Only a persisted, open row reconciles against config — a brand-new draft owns
+		// its appended slot and has no baseline yet.
+		if (this._draft == null || this._draftIsNew || this._draftIndex == null) return;
+
+		const current = remotes[this._draftIndex];
+		// Still what we last synced to — nothing external changed.
+		if (current != null && areEqual(current, this._draftBaseline)) return;
+
+		// Our own optimistic write (or its echo) landing in this slot — adopt it as the
+		// new baseline rather than mistaking an in-flight commit for an external change.
+		if (current != null && areEqual(current, projectEntry(this._draft))) {
+			this._draftBaseline = projectEntry(this._draft);
+			return;
+		}
+
+		// The slot changed to something we didn't cause. If our entry merely shifted
+		// position, follow it; otherwise it was removed or changed out from under us —
+		// discard the now-stale in-progress edit and say why.
+		const relocated = findEntryIndex(remotes, this._draftBaseline);
+		if (relocated !== -1) {
+			this._draftIndex = relocated;
+			return;
+		}
+
+		this._draft = undefined;
+		this._draftIndex = undefined;
+		this._draftIsNew = false;
+		this._draftBaseline = undefined;
+		this._externalNotice = 'This remote was changed outside the editor, so your unsaved edits were discarded.';
+	}
+
 	private addDraftRule = (): void => {
+		this._externalNotice = undefined;
 		// Never discard an unconfirmed new draft — just refocus it
 		if (!(this._draftIsNew && this._draft != null)) {
 			this._draft = { type: 'GitHub', matcherMode: 'domain' };
 			this._draftIndex = this.remotes.length;
 			this._draftIsNew = true;
+			this._draftBaseline = undefined;
 		}
 		void this.updateComplete.then(() => {
 			this.renderRoot
@@ -383,11 +434,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 	};
 
 	private toggleExpand(index: number): void {
+		this._externalNotice = undefined;
 		if (this._draftIndex === index && this._draft != null) {
 			// Collapse — a persisted row keeps its config value; an unsaved new row is discarded
 			this._draft = undefined;
 			this._draftIndex = undefined;
 			this._draftIsNew = false;
+			this._draftBaseline = undefined;
 			return;
 		}
 
@@ -401,33 +454,53 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		};
 		this._draftIndex = index;
 		this._draftIsNew = false;
+		// The persisted entry the draft is layered over; reconciliation tracks it (willUpdate)
+		this._draftBaseline = { ...entry };
 	}
 
-	/** Updates the draft and persists it when it would survive the consumer. */
-	private commit(patch: Partial<RemoteDraft>): void {
+	/**
+	 * Updates the draft and persists it when it would survive the consumer. The draft is
+	 * a staged edit over the persisted entry; a not-yet-valid edit is held locally while
+	 * config keeps whatever is live, and a new row is only promoted once its write lands.
+	 */
+	private async commit(patch: Partial<RemoteDraft>): Promise<void> {
 		if (this._draft == null || this._draftIndex == null) return;
 
 		const draft: RemoteDraft = { ...this._draft, ...patch };
 		this._draft = draft;
 
 		if (!isPersistable(draft)) {
-			// Not yet valid — hold the edit locally (warnings guide the user); don't
-			// write an entry the consumer would silently drop
+			// Not yet valid — hold the edit locally (the editor body shows what's still
+			// live and that the edit is unsaved); don't write an entry the consumer would
+			// silently drop
 			return;
 		}
 
+		const projected = projectEntry(draft);
+
 		if (this._draftIsNew) {
-			this._draftIndex = this.remotes.length;
-			this._draftIsNew = false;
+			// Append at the current end, but only promote to a persisted row once the write
+			// confirms — a failed/refused write leaves `_draftIsNew` set so the append block
+			// keeps rendering the user's typed row instead of orphaning it out of every path.
+			const targetIndex = this.remotes.length;
+			if (await this.actions?.applyRemoteRule(targetIndex, projected)) {
+				this._draftIsNew = false;
+				this._draftIndex = targetIndex;
+				this._draftBaseline = projected;
+			}
+			return;
 		}
-		void this.actions?.applyRemoteRule(this._draftIndex, projectEntry(draft));
+
+		if (await this.actions?.applyRemoteRule(this._draftIndex, projected)) {
+			this._draftBaseline = projected;
+		}
 	}
 
 	private setMatcherMode(mode: MatcherMode): void {
 		if (this._draft == null || this._draft.matcherMode === mode) return;
 
 		// Clear the now-inactive matcher so a switch can't persist both
-		this.commit(
+		void this.commit(
 			mode === 'regex' ? { matcherMode: mode, domain: undefined } : { matcherMode: mode, regex: undefined },
 		);
 	}
@@ -439,10 +512,11 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		// optional URL template drops out and a required one reads as missing
 		const { [field]: _removed, ...rest } = (this._draft.urls ?? {}) as Record<string, string>;
 		const urls: Record<string, string> = value ? { ...rest, [field]: value } : rest;
-		this.commit({ urls: urls as unknown as RemotesUrlsConfig });
+		void this.commit({ urls: urls as unknown as RemotesUrlsConfig });
 	}
 
 	private removeRule(index: number): void {
+		this._externalNotice = undefined;
 		const editingThis = this._draftIndex === index && this._draft != null;
 		const wasNew = this._draftIsNew;
 
@@ -450,8 +524,10 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			this._draft = undefined;
 			this._draftIndex = undefined;
 			this._draftIsNew = false;
+			this._draftBaseline = undefined;
 		} else if (this._draftIndex != null && index < this._draftIndex) {
-			// A removal before the open row shifts its config index down by one
+			// A removal before the open row shifts its config index down by one; its
+			// content is unchanged, so the baseline stays valid
 			this._draftIndex -= 1;
 		}
 
@@ -514,6 +590,14 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		const typeLabel = typeLabels.get(draft.type) ?? draft.type;
 		const urlsIncomplete = isCustom && !urlsComplete(draft.urls);
 
+		// Config is the source of truth for what's live. When the saved entry backing
+		// this row still resolves in the consumer, an invalid in-progress edit doesn't
+		// take anything offline — the saved matcher stays live until the edit is valid,
+		// so say that honestly instead of the (untrue) "this entry is ignored" line.
+		const saved = this._draftIsNew ? undefined : this.remotes[index];
+		const savedMatcher = saved?.regex || saved?.domain;
+		const editShadowsLive = !isPersistable(draft) && isEntryLive(saved);
+
 		return html`<div class="rule__editor" id="remote-${index}-editor">
 			<div class="field rule__type">
 				<label class="field__label" for="remote-${index}-type">Provider type</label>
@@ -552,15 +636,23 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 							)}
 					/>
 				</div>
-				${matcherMissing
+				${editShadowsLive
 					? html`<p class="notice notice--hint">
 							<code-icon icon="info" aria-hidden="true"></code-icon>
 							<span
-								>Add a ${isRegex ? 'regex' : 'domain'} to match remotes — until then this entry is
-								ignored.</span
+								>Unsaved changes — the saved matcher <code>${savedMatcher}</code> stays in effect until
+								this edit is valid.</span
 							>
 						</p>`
-					: nothing}
+					: matcherMissing
+						? html`<p class="notice notice--hint">
+								<code-icon icon="info" aria-hidden="true"></code-icon>
+								<span
+									>Add a ${isRegex ? 'regex' : 'domain'} to match remotes — until then this entry is
+									ignored.</span
+								>
+							</p>`
+						: nothing}
 				${regexBroken
 					? html`<p class="notice notice--warning">
 							<code-icon icon="warning" aria-hidden="true"></code-icon>
@@ -657,10 +749,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 		const remotes = this.remotes;
 		const draftIndex = this._draftIndex;
 
+		// For an open persisted row the summary renders from the persisted `entry` (the
+		// source of truth for what's live) while only the editor body renders the staged
+		// `_draft` — so an invalid in-progress edit can't misreport what's actually live.
 		const rows = remotes.map((entry, i) =>
 			this._draft != null && draftIndex === i
 				? html`<div class="rule" data-index=${i}>
-						${this.renderSummary(this._draft, i, true)}${this.renderEditor(this._draft, i)}
+						${this.renderSummary(entry, i, true)}${this.renderEditor(this._draft, i)}
 					</div>`
 				: html`<div class="rule" data-index=${i}>${this.renderSummary(entry, i, false)}</div>`,
 		);
@@ -674,7 +769,13 @@ export class GlSettingsRemotes extends SignalWatcher(LitElement) {
 			);
 		}
 
-		return html`<div class="rules">${rows}</div>
+		return html`${this._externalNotice
+				? html`<p class="notice notice--hint">
+						<code-icon icon="info" aria-hidden="true"></code-icon>
+						<span>${this._externalNotice}</span>
+					</p>`
+				: nothing}
+			<div class="rules">${rows}</div>
 			<p class="hint">
 				Match your Git remotes to a provider so GitLens can open files, commits, branches, and pull requests on
 				the right host — including self-hosted GitHub, GitLab, and Bitbucket Server. Use a domain to match a
@@ -694,6 +795,31 @@ function regexCompiles(pattern: string): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/**
+ * Whether an already-persisted entry actually resolves in the consumer — it has a
+ * matcher, and a `type: Custom` entry also has a complete `urls` block. Mirrors
+ * {@link isPersistable} but reads a plain persisted entry (no matcher-mode marker):
+ * such an entry carries exactly one of `regex`/`domain`, so either counts as a matcher.
+ */
+export function isEntryLive(entry: RemoteRuleDraft | undefined): boolean {
+	if (entry == null) return false;
+	if (!entry.regex && !entry.domain) return false;
+	if (entry.type === 'Custom') return urlsComplete(entry.urls);
+
+	return true;
+}
+
+/**
+ * Index of the first entry deep-equal (key-order-insensitive) to `target`, or -1.
+ * Relocates an open draft after an external `settings.json` edit shifts the array,
+ * so a later commit can't rewrite the wrong (shifted) entry.
+ */
+export function findEntryIndex(entries: readonly RemoteRuleDraft[], target: RemoteRuleDraft | undefined): number {
+	if (target == null) return -1;
+
+	return entries.findIndex(entry => areEqual(entry, target));
 }
 
 /** True once every schema-required `urls` field is non-empty. */
