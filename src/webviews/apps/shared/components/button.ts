@@ -327,9 +327,10 @@ export class GlButton extends LitElement {
 		}
 
 		if (changedProperties.has('disabled')) {
-			const disabled = changedProperties.get('disabled');
-			if (disabled) {
-				this.setAttribute('aria-disabled', disabled.toString());
+			// Reflect the NEW disabled state — `changedProperties.get('disabled')` is the PREVIOUS value,
+			// which set `aria-disabled` inverted on every toggle (announced enabled buttons as disabled).
+			if (this.disabled) {
+				this.setAttribute('aria-disabled', 'true');
 			} else {
 				this.removeAttribute('aria-disabled');
 			}
