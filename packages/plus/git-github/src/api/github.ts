@@ -3819,7 +3819,14 @@ export class GitHubApi {
 	async searchPullRequests(
 		provider: Provider,
 		token: GitHubTokenInfo,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			state?: PullRequestStateFilter;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
@@ -3861,7 +3868,14 @@ export class GitHubApi {
 				token,
 				query,
 				{
-					searchQuery: `is:pr is:open archived:false ${search.trim()}`,
+					searchQuery: [
+						'is:pr',
+						toGitHubSearchStateQualifier(options?.state),
+						'archived:false',
+						search.trim(),
+					]
+						.filter(Boolean)
+						.join(' '),
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},
@@ -3870,8 +3884,7 @@ export class GitHubApi {
 			);
 			if (rsp == null) return [];
 
-			const results = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
-			return results;
+			return rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
@@ -4110,4 +4123,18 @@ export class GitHubApi {
 
 function isGitHubDotCom(options?: { baseUrl?: string }) {
 	return options?.baseUrl == null || options.baseUrl === 'https://api.github.com';
+}
+
+// GitHub treats `is:closed` as closed-or-merged, so `is:unmerged` keeps closed and merged disjoint.
+export function toGitHubSearchStateQualifier(state: PullRequestStateFilter | undefined): string {
+	switch (state) {
+		case 'closed':
+			return 'is:closed is:unmerged';
+		case 'merged':
+			return 'is:merged';
+		case 'all':
+			return '';
+		default:
+			return 'is:open';
+	}
 }
