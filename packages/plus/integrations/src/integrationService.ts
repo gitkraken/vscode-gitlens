@@ -2477,7 +2477,7 @@ export class IntegrationService implements Disposable {
 				currentPage: 1,
 				itemsPerPage: items.length,
 				allPages: !truncated && !fetchFailed,
-				truncated: truncated,
+				truncated: truncated || undefined,
 			},
 			// A sweep drains every page itself and exposes no cursor to resume — so `hasMore` must be false even
 			// when the read was incomplete. Terminal incompleteness is expressed through `page.truncated` +
@@ -2729,7 +2729,7 @@ export class IntegrationService implements Disposable {
 		return {
 			items: items,
 			warnings: warnings,
-			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated },
+			page: { currentPage: page, itemsPerPage: items.length, truncated: truncated || undefined },
 			// `hasMore` promises a resumable continuation, so it must be true ONLY when a real cursor was
 			// produced. Repo-drain truncation (a backstop hit with no persisted repo cursor) can't be resumed —
 			// re-invoking would re-drain the same repos and repeat issues — so it is surfaced as the terminal

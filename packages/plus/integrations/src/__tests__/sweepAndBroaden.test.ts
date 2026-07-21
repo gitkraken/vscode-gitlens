@@ -109,7 +109,9 @@ suite('sweep + broaden (#5438)', () => {
 			maxPages: 10,
 		});
 		assert.equal(result.items.length, 2);
-		assert.equal(result.page.truncated, false);
+		// A clean drain normalizes `truncated` to undefined (not an explicit false), matching every other
+		// read method so consumers can treat "absent or falsy" as "not truncated" uniformly.
+		assert.equal(result.page.truncated, undefined);
 		assert.equal(result.hasMore, false);
 
 		manager.dispose();
