@@ -33,7 +33,11 @@ export interface ProviderPageInfo {
 export interface ProviderResult<T> {
 	items: T[];
 	warnings: ProviderWarning[];
-	/** True when a read failed and `items` is incomplete — distinguishes a failure from a genuinely empty result. */
+	/**
+	 * True when a read failed and `items` is incomplete — distinguishes a failure from a genuinely empty
+	 * result. Distinct from `page.truncated`, which marks a completed read that couldn't confirm it drained
+	 * everything.
+	 */
 	fetchFailed?: boolean;
 }
 
@@ -45,14 +49,11 @@ export interface ProviderPagedResult<T> extends ProviderResult<T> {
 	 * require the previous page's cursor, consumers should pass this value back to the next `cursor` option.
 	 */
 	cursor?: string;
-	/** True when the underlying read threw and `items` is incomplete (distinct from `page.truncated`). */
-	fetchFailed?: boolean;
 }
 
 export interface ProviderSweepResult<T> extends ProviderResult<T> {
 	page: ProviderPageInfo;
 	hasMore: boolean;
-	fetchFailed?: boolean;
 }
 
 export interface ProviderBroadenResult<T> extends ProviderPagedResult<T> {
