@@ -3581,9 +3581,16 @@ export class GitHubApi {
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
+		const pageSize = 10;
+		const include = options?.include?.length ? options.include : undefined;
+		const requiresPagination = shouldPaginateGitHubSearchState(include);
 
 		interface SearchResult {
 			search: {
+				pageInfo: {
+					endCursor?: string | null;
+					hasNextPage: boolean;
+				};
 				nodes: GitHubPullRequest[];
 			};
 		}
@@ -3591,9 +3598,14 @@ export class GitHubApi {
 		try {
 			const query = `query searchPullRequests(
 	$searchQuery: String!
+		$cursor: String
 	$avatarSize: Int
 ) {
-	search(first: 10, query: $searchQuery, type: ISSUE) {
+		search(first: ${pageSize}, after: $cursor, query: $searchQuery, type: ISSUE) {
+			pageInfo {
+				endCursor
+				hasNextPage
+			}
 		nodes {
 			...on PullRequest {
 				${gqlPullRequestFragment}
@@ -3613,29 +3625,41 @@ export class GitHubApi {
 				search += `${repo}${options.repos.join(repo)}`;
 			}
 
-			const rsp = await this.graphql<SearchResult>(
-				provider,
-				token,
-				query,
-				{
-					searchQuery: [
-						'is:pr',
-						toGitHubSearchStateQualifier(options?.include),
-						'archived:false',
-						search.trim(),
-					]
-						.filter(Boolean)
-						.join(' '),
-					baseUrl: options?.baseUrl,
-					avatarSize: options?.avatarSize,
-				},
-				scope,
-				cancellation,
-			);
-			if (rsp == null) return [];
+			const searchQuery = ['is:pr', toGitHubSearchStateQualifier(include), 'archived:false', search.trim()]
+				.filter(Boolean)
+				.join(' ');
 
-			const results = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
-			return filterPullRequestsBySearchState(results, options?.include);
+			let cursor: string | undefined;
+			const results: PullRequest[] = [];
+			do {
+				const rsp = await this.graphql<SearchResult>(
+					provider,
+					token,
+					query,
+					{
+						searchQuery: searchQuery,
+						cursor: cursor,
+						baseUrl: options?.baseUrl,
+						avatarSize: options?.avatarSize,
+					},
+					scope,
+					cancellation,
+				);
+				if (rsp == null) return [];
+
+				const pageResults = filterPullRequestsBySearchState(
+					rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider)),
+					include,
+				);
+				results.push(...pageResults);
+
+				cursor = rsp.search.pageInfo.endCursor ?? undefined;
+				if (!requiresPagination || results.length >= pageSize || !rsp.search.pageInfo.hasNextPage) {
+					break;
+				}
+			} while (true);
+
+			return results.slice(0, pageSize);
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope);
 		}
@@ -3751,4 +3775,11 @@ export function filterPullRequestsBySearchState<T extends { state: PullRequestSt
 	if (allowedStates.size === 3) return pullRequests;
 
 	return pullRequests.filter(pr => allowedStates.has(pr.state));
+}
+
+function shouldPaginateGitHubSearchState(include: PullRequestState[] | undefined): boolean {
+	if (include == null || include.length === 0) return false;
+
+	const uniqueStates = new Set<PullRequestState>(include);
+	return uniqueStates.size === 2 && uniqueStates.has('opened') && uniqueStates.has('merged');
 }

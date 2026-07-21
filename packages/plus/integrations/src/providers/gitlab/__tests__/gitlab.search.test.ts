@@ -98,4 +98,34 @@ suite('GitLabApi.searchPullRequests state-filtered paging', () => {
 
 		assert.deepEqual(requestedPages, [1], 'fetches only the first search page without a state filter');
 	});
+
+	test('keeps paging until matches are found beyond page 5', async () => {
+		const fullOpenedPage = (page: number) =>
+			Array.from({ length: 20 }, (_, i) => restMR(page * 100 + i + 1, 'opened'));
+		const page6 = [restMR(601, 'merged'), ...Array.from({ length: 19 }, (_, i) => restMR(602 + i, 'opened'))];
+
+		const requestedPages: number[] = [];
+		const api = new GitLabApi(
+			createFakeFetch(
+				[
+					fullOpenedPage(0),
+					fullOpenedPage(1),
+					fullOpenedPage(2),
+					fullOpenedPage(3),
+					fullOpenedPage(4),
+					page6,
+					[],
+				],
+				requestedPages,
+			),
+		);
+
+		const results = await api.searchPullRequests(provider, token, { search: 'fix', include: ['merged'] });
+
+		assert.deepEqual(
+			results.map(pr => pr.id),
+			['601'],
+		);
+		assert.deepEqual(requestedPages, [1, 2, 3, 4, 5, 6, 7]);
+	});
 });

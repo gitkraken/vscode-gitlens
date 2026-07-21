@@ -800,11 +800,10 @@ export class GitLabApi implements Disposable {
 				// The search API returns MRs of all states in relevance order, so the requested state(s) may not
 				// appear on the first page. Server-side `&state=` narrows the single-state case when honored, but it
 				// can't express multiple states, so page through the results and accumulate matches until we fill the
-				// detail-query cap (`perPageLimit`) or exhaust a bounded page budget. This keeps correctness whether
+				// detail-query cap (`perPageLimit`) or exhaust the search results. This keeps correctness whether
 				// or not `&state=` takes effect.
-				const maxSearchPages = 5;
 				const matches: GitLabMergeRequestREST[] = [];
-				for (let page = 1; page <= maxSearchPages; page++) {
+				for (let page = 1; ; page++) {
 					const pagePRs = await this.request<GitLabMergeRequestREST[]>(
 						provider,
 						token,
