@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict';
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { ProviderApiPagedResult } from '../models.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from '../utils/providerPaging.js';
+import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from '../utils/providerPaging.js';
 
 suite('collectProviderPagedResult', () => {
 	test('marks the result truncated and preserves paging when maxPages is reached', async () => {
@@ -149,6 +149,23 @@ suite('collectProviderPagedResult', () => {
 				failures: [{ kind: 'provider', scope: { providerId: 'github', resourceId: 'r1' }, message: 'boom' }],
 			},
 		});
+	});
+});
+
+suite('flatSettledOrThrow', () => {
+	test('propagates the provider error when every scope fails', async () => {
+		const error = new Error('boom');
+
+		await assert.rejects(
+			() => flatSettledOrThrow([Promise.reject(error), Promise.reject(new Error('later'))]),
+			error,
+		);
+	});
+
+	test('preserves successful scope results when another scope fails', async () => {
+		const result = await flatSettledOrThrow([Promise.reject(new Error('boom')), Promise.resolve(['a', 'b'])]);
+
+		assert.deepEqual(result, ['a', 'b']);
 	});
 });
 

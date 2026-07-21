@@ -16,6 +16,7 @@ const vstsHostnameSuffix = '.visualstudio.com';
 export interface AzureRepositoryDescriptor extends ResourceDescriptor {
 	owner: string;
 	name: string;
+	project?: string;
 }
 
 export interface AzureOrganizationDescriptor extends ResourceDescriptor {
