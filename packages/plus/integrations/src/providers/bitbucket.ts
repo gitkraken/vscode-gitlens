@@ -11,6 +11,7 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import { uniqueBy } from '@gitlens/utils/iterable.js';
 import { batchResults, flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
@@ -540,9 +541,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
+		if (cancellation?.aborted) throw new CancellationError();
+
 		const api = await this.getProvidersApi();
 		if (!api) return undefined;
 
@@ -554,11 +557,25 @@ export class BitbucketIntegration extends GitHostIntegration<
 		// ("scope couldn't be determined") for when no repos were requested and none were discovered.
 		if (workspaceRepos.length === 0) return repos != null ? [] : undefined;
 
-		const result = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), workspaceRepos, {
-			query: searchQuery,
-			states: toProviderPullRequestStates(state),
-		});
-		return result.values?.map(pr => fromProviderPullRequest(pr, this));
+		const token = toTokenWithInfo(this.id, session);
+		const states = toProviderPullRequestStates(state);
+		const providerPullRequests = await flatSettled(
+			workspaceRepos.map(async repo => {
+				const result = await collectProviderPagedResult(cursor => {
+					if (cancellation?.aborted) throw new CancellationError();
+
+					return api.getPullRequestsForRepo(token, repo, {
+						cursor: cursor,
+						query: searchQuery,
+						states: states,
+					});
+				});
+				return result.values;
+			}),
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return providerPullRequests.map(pr => fromProviderPullRequest(pr, this));
 	}
 
 	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
@@ -566,7 +583,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		const inputs = await nonnullSettled(
 			remotes.map(async (r: GitRemote) => {
 				const integration = await this.authenticationService.getByRemote(r);
-				if (integration?.id !== this.id) return undefined;
+				if (integration !== this) return undefined;
 
 				// Use the remote provider's parsing rather than splitting `r.path`, so adornments like a
 				// trailing `.git` or extra path segments don't leak into the namespace/name.

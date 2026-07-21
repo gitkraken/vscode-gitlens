@@ -10,10 +10,11 @@ import type {
 } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { nonnullSettled } from '@gitlens/utils/promise.js';
+import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -35,7 +36,7 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { parsePageCursor, toPageCursor } from './utils/providerPaging.js';
+import { collectProviderPagedResult, parsePageCursor, toPageCursor } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -293,9 +294,11 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		searchQuery: string,
 		repos?: BitbucketRepositoryDescriptor[],
-		_cancellation?: AbortSignal,
+		cancellation?: AbortSignal,
 		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
+		if (cancellation?.aborted) throw new CancellationError();
+
 		const api = await this.getProvidersApi();
 		if (!api) return undefined;
 
@@ -307,11 +310,25 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		// ("scope couldn't be determined") for when no repos were requested and none were discovered.
 		if (repoInputs.length === 0) return repos != null ? [] : undefined;
 
-		const result = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), repoInputs, {
-			baseUrl: this.apiBaseUrl,
-			states: toProviderPullRequestStates(state),
-		});
-		return result.values
+		const token = toTokenWithInfo(this.id, session);
+		const states = toProviderPullRequestStates(state);
+		const providerPullRequests = await flatSettled(
+			repoInputs.map(async repo => {
+				const result = await collectProviderPagedResult(cursor => {
+					if (cancellation?.aborted) throw new CancellationError();
+
+					return api.getPullRequestsForRepo(token, repo, {
+						baseUrl: this.apiBaseUrl,
+						cursor: cursor,
+						states: states,
+					});
+				});
+				return result.values;
+			}),
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return providerPullRequests
 			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
 			.map(pr => fromProviderPullRequest(pr, this));
 	}
@@ -321,7 +338,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		const inputs = await nonnullSettled(
 			remotes.map(async (r: GitRemote) => {
 				const integration = await this.authenticationService.getByRemote(r);
-				if (integration?.id !== this.id) return undefined;
+				if (integration !== this) return undefined;
 
 				const namespace = r.provider?.owner;
 				const name = r.provider?.repoName;

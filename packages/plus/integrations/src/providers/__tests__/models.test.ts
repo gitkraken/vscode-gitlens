@@ -28,6 +28,10 @@ suite('toProviderPullRequestStates', () => {
 		assert.equal(toProviderPullRequestStates(undefined), undefined);
 	});
 
+	test('returns undefined when an empty state list is provided', () => {
+		assert.equal(toProviderPullRequestStates([]), undefined);
+	});
+
 	test('maps a specific requested state', () => {
 		assert.deepEqual(toProviderPullRequestStates('open'), [toProviderPullRequestState('opened')]);
 	});

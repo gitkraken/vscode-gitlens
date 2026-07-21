@@ -324,7 +324,6 @@ export type GetPullRequestsForAzureProjectsFn = (
 		assigneeLogins?: string[];
 		reviewerId?: string;
 		states?: GitPullRequestState[];
-		repo?: ProviderRepoInput;
 	},
 	options?: EnterpriseOptions,
 	// Aggregate multi-project fan-out: no `pageInfo` (call getPullRequestsForAzureProject for that), but SDK
@@ -340,6 +339,7 @@ export type GetPullRequestsForAzureProjectFn = (
 		assigneeLogins?: string[];
 		reviewerId?: string;
 		states?: GitPullRequestState[];
+		repo?: ProviderRepoInput;
 	} & PagingInput,
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderPullRequest[]; pageInfo: { hasNextPage: boolean; nextPage: number | null } }>;
