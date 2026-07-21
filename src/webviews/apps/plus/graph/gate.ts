@@ -20,7 +20,10 @@ export class GlGraphGate extends SignalWatcher(LitElement) {
 		featureGateContentStyles,
 		css`
 			gl-feature-gate::part(section) {
-				width: 90vw;
+				/* Container units (not vw): size against the gate overlay's own box (the
+				   feature-gate host) rather than the webview viewport, so the card keeps tracking
+				   the gated area even if the gate is ever hosted in a sub-region of the view. */
+				width: calc(100cqi - var(--gl-space-16));
 				max-width: 90rem;
 			}
 		`,
