@@ -2121,7 +2121,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// Ack the webview's write counter — every later columns push carries it so the webview can drop
 		// pushes generated before this write (see DidChangeColumnsParams.columnsRevision).
 		this._columnsRevision = params.revision ?? this._columnsRevision;
-		this.updateColumns(params.config);
+		this.updateColumns(params.config, { keepStoredModes: true });
 
 		const eventData: WebviewTelemetryEvents['graph/columns/changed'] = {};
 		for (const [name, config] of Object.entries(params.config)) {
@@ -4376,13 +4376,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return result;
 	}
 
-	private updateColumns(columnsCfg: GraphColumnsConfig) {
+	private updateColumns(columnsCfg: GraphColumnsConfig, options?: { keepStoredModes?: boolean }) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		for (const [key, value] of Object.entries(columnsCfg)) {
 			// `mode` is host-owned — webviews only echo it, and a stale echo (second panel / pre-command
-			// persist) must not clobber a just-set value.
-			const current = columns?.[key];
-			columns = updateRecordValue(columns, key, { ...value, mode: current?.mode });
+			// persist) must not clobber a just-set value. Host callers (the column resets) author it for real.
+			const mode = options?.keepStoredModes ? columns?.[key]?.mode : value.mode;
+			columns = updateRecordValue(columns, key, { ...value, mode: mode });
 		}
 		void this.container.storage
 			.storeWorkspace('graph:columns', columns)

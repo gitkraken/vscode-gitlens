@@ -3497,6 +3497,8 @@ background-upgraded the extension while the host kept running the old build
   'context.config.autoFetch.enabled': boolean,
   'context.config.avatars': boolean,
   'context.config.branchesVisibility': 'all' | 'smart' | 'current' | 'favorited' | 'agents',
+  'context.config.changesColumn.enabled': boolean,
+  'context.config.changesColumn.mode': 'numbers' | 'squares' | 'bar' | 'bipolar',
   'context.config.commitOrdering': 'date' | 'author-date' | 'topo',
   'context.config.dateFormat': string,
   'context.config.dateStyle': 'absolute' | 'relative',

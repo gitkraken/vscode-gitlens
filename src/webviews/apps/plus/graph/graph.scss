@@ -1514,10 +1514,10 @@ gl-lit-graph {
 		position: absolute;
 		top: 0;
 		left: 50%;
-		width: 1px;
+		width: 0;
 		height: 100%;
-		transform: translateX(-0.5px);
-		background: hsl(var(--border));
+		// A real border, not a background line — crisp at fractional display scaling (see the timeline sep's note).
+		border-left: var(--gl-border-width) solid hsl(var(--border));
 	}
 	.gl-graph__changes-bipolar-added {
 		position: absolute;
