@@ -11,6 +11,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -24,9 +25,10 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
-import type { ProviderRepository } from './models.js';
+import type { ProviderPullRequest, ProviderRepository } from './models.js';
 import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+import { parsePageCursor, toPageCursor } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -174,10 +176,18 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		);
 	}
 
-	public override async getRepoInfo(repo: { owner: string; name: string }): Promise<ProviderRepository | undefined> {
+	public override async getRepoInfo(repo: {
+		owner: string;
+		name: string;
+		project?: string;
+		connectionId?: string;
+	}): Promise<ProviderRepository | undefined> {
 		const api = await this.getProvidersApi();
-		const tokenOptInfo = this._session ? toTokenWithInfo(this.id, this._session) : { providerId: this.id };
-		return api.getRepo(tokenOptInfo, repo.owner, repo.name, undefined, {
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -243,7 +253,33 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			this.apiBaseUrl,
 			{ states: toProviderPullRequestStates(state) },
 		);
-		return prs?.map(pr => fromProviderPullRequest(pr, this));
+		return prs?.data.map(pr => fromProviderPullRequest(pr, this));
+	}
+
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		const api = await this.getProvidersApi();
+		const states = toProviderPullRequestStates(options?.state);
+		// Bitbucket Server pages the current-user PR read by offset (`start`/`nextPageStart`); read a single
+		// page here and thread the next offset as the opaque cursor so the ProviderBackend sweep drives the
+		// drain (bounded by its maxPages). The cursor value is a start offset, not a 1-based page index.
+		const page = parsePageCursor(options?.cursor);
+		const result = await api.getBitbucketServerPullRequestsForCurrentUser(
+			toTokenWithInfo(this.id, session),
+			this.apiBaseUrl,
+			{ states: states, page: page },
+		);
+		if (result == null) return undefined;
+
+		return {
+			values: result.data,
+			paging: {
+				more: result.hasMore,
+				cursor: result.hasMore && result.nextPage != null ? toPageCursor(result.nextPage) : '{}',
+			},
+		};
 	}
 
 	protected override async searchProviderMyIssues(

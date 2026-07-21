@@ -196,7 +196,7 @@
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "0.50.0",
+		"@gitkraken/provider-apis": "0.52.0",
 		"@octokit/graphql": "9.0.3",
 		"@octokit/request": "10.0.10",
 		"@octokit/request-error": "7.1.0",

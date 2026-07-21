@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -22,7 +23,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, RequestClientError } from '../errors.js';
+import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
@@ -48,6 +49,14 @@ export type IntegrationResult<T> =
 	| { error: Error; duration?: number; value?: never }
 	| undefined;
 
+/**
+ * Account-wide issue read result. `truncated` is a provider-native incompleteness signal with no cursor
+ * (GitHub's per-category cap, an Azure per-project backstop); `metadata` optionally carries structured
+ * per-scope failures from a fan-out (Azure across projects) so the facade maps them to scope-aware warnings
+ * + `fetchFailed`. Both are absent for a complete single-scope read.
+ */
+export type AccountWideIssuesResult = { values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata };
+
 type SyncReqUsecase = Exclude<
 	| 'getAccountForCommit'
 	| 'getAccountForEmail'
@@ -57,12 +66,16 @@ type SyncReqUsecase = Exclude<
 	| 'getIssue'
 	| 'getIssueOrPullRequest'
 	| 'getIssuesForProject'
+	| 'getIssuesForRepos'
+	| 'getMyPullRequestsForUser'
 	| 'getOrganizationsForUser'
+	| 'getProjectsForOrg'
 	| 'getProjectsForResources'
 	| 'getPullRequest'
 	| 'getRepositoriesForOrg'
 	| 'getPullRequestForBranch'
 	| 'getPullRequestForCommit'
+	| 'getPullRequestsForRepos'
 	| 'getRepositoryMetadata'
 	| 'getResourcesForUser'
 	| 'mergePullRequest'
@@ -555,6 +568,19 @@ export abstract class IntegrationBase<
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchMyIssuesResult(resources, cancellation, connectionId))?.value;
+	}
+
+	/**
+	 * Result-returning core of {@link searchMyIssues}. Recovers thrown errors into `{ error }` so callers
+	 * (e.g. the ProviderBackend account-wide issues read) can surface a per-provider warning instead of a
+	 * silent empty result. Returns the normalized {@link IssueShape} (there is no raw account-wide issue read).
+	 */
+	async searchMyIssuesResult(
+		resources?: ResourceDescriptor | ResourceDescriptor[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<IssueShape[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -567,10 +593,10 @@ export abstract class IntegrationBase<
 				cancellation,
 			);
 			this.resetRequestExceptionCount('searchMyIssues');
-			return issues;
+			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope });
-			return undefined;
+			return { error: toError(ex) };
 		}
 	}
 
@@ -579,6 +605,51 @@ export abstract class IntegrationBase<
 		resources?: ResourceDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined>;
+
+	/**
+	 * Truncation-aware variant of {@link searchProviderMyIssues}. The default wraps the normalized read and
+	 * reports `truncated: false`; a provider whose account-wide search is capped without a cursor (GitHub)
+	 * overrides this to report when the read is incomplete, so the facade can surface it instead of publishing
+	 * a partial list as complete. `metadata` optionally carries structured per-scope failures from a fan-out
+	 * (Azure across projects) so the facade can warn on the failed scope and set `fetchFailed`; providers with
+	 * no fan-out (GitHub) leave it undefined.
+	 */
+	protected async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		resources?: ResourceDescriptor[],
+		cancellation?: AbortSignal,
+	): Promise<AccountWideIssuesResult | undefined> {
+		const values = await this.searchProviderMyIssues(session, resources, cancellation);
+		if (values == null) return undefined;
+		return { values: values, truncated: false };
+	}
+
+	/**
+	 * Result-returning, truncation-aware account-wide issue read. Recovers thrown errors into `{ error }` and
+	 * carries the `truncated` flag so the ProviderBackend facade can report an incomplete read honestly.
+	 */
+	async searchMyIssuesWithTruncationResult(
+		resources?: ResourceDescriptor | ResourceDescriptor[],
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<AccountWideIssuesResult | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null) return undefined;
+
+		try {
+			const result = await this.searchProviderMyIssuesWithTruncation(
+				session,
+				resources != null ? (Array.isArray(resources) ? resources : [resources]) : undefined,
+				cancellation,
+			);
+			this.resetRequestExceptionCount('searchMyIssues');
+			return { value: result };
+		} catch (ex) {
+			this.handleProviderException('searchMyIssues', ex, { scope: scope });
+			return { error: toError(ex) };
+		}
+	}
 
 	@trace()
 	async getLinkedIssueOrPullRequest(

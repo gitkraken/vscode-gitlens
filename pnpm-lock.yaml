@@ -72,8 +72,8 @@ importers:
         specifier: 13.0.0-vnext.38
         version: 13.0.0-vnext.38(dragula@3.7.3)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@gitkraken/provider-apis':
-        specifier: 0.50.0
-        version: 0.50.0(encoding@0.1.13)
+        specifier: 0.52.0
+        version: 0.52.0(encoding@0.1.13)
       '@gitkraken/shared-tools':
         specifier: 0.2.0
         version: 0.2.0
@@ -418,8 +418,8 @@ importers:
   packages/core:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: 0.50.0
-        version: 0.50.0(encoding@0.1.13)
+        specifier: 0.52.0
+        version: 0.52.0(encoding@0.1.13)
       '@octokit/graphql':
         specifier: 9.0.3
         version: 9.0.3
@@ -592,8 +592,8 @@ importers:
   packages/plus/integrations:
     dependencies:
       '@gitkraken/provider-apis':
-        specifier: 0.50.0
-        version: 0.50.0(encoding@0.1.13)
+        specifier: 0.52.0
+        version: 0.52.0(encoding@0.1.13)
       '@gitlens/git':
         specifier: workspace:*
         version: link:../../git
@@ -1095,8 +1095,8 @@ packages:
       react: 19.2.4
       react-dom: 19.2.4
 
-  '@gitkraken/provider-apis@0.50.0':
-    resolution: {integrity: sha512-rhOY+Rmzt50LbV2jlIZlNo7VytquFK7sNo1iYXEOU6JqZrN67ZOaA5Ml7xJmBCehCee1rJRNKgVIiCTr4biX7w==}
+  '@gitkraken/provider-apis@0.52.0':
+    resolution: {integrity: sha512-8zk7lRum4fUyDP8WQAiLjzh8Npoclir9hibdjN5bbkvNuHDoQOEXaya5M2LKXQuMG2tPcx6YVaynIuiqvj3ATA==}
     engines: {node: '>= 20'}
 
   '@gitkraken/shared-tools@0.2.0':
@@ -7788,7 +7788,7 @@ snapshots:
       react-dragula: 1.1.17
       react-onclickoutside: 6.13.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
 
-  '@gitkraken/provider-apis@0.50.0(encoding@0.1.13)':
+  '@gitkraken/provider-apis@0.52.0(encoding@0.1.13)':
     dependencies:
       '@linear/sdk': 58.1.0(encoding@0.1.13)
       diff: 8.0.4

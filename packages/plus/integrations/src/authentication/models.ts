@@ -25,6 +25,8 @@ export interface ProviderAuthenticationSession extends AuthenticationSessionLike
 	readonly expiresAt?: Date;
 	readonly domain: string;
 	readonly protocol?: string;
+	/** The provider app key paired with the token for providers whose client needs one (e.g. Trello). */
+	readonly appKey?: string;
 }
 
 export interface TokenInfo<T extends IntegrationIds | 'gitkraken' = IntegrationIds | 'gitkraken'> {
@@ -117,6 +119,8 @@ export interface CloudIntegrationAuthenticationSession {
 	scopes: string;
 	/** Backend per-connection token identifier, when the provider-tokens backend supports multi-account. */
 	id?: string;
+	/** Provider app key paired with the token (e.g. Trello app key), when the backend supplies one. */
+	appKey?: string;
 }
 
 export interface CloudIntegrationAuthorization {
