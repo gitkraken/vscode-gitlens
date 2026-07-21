@@ -15,6 +15,7 @@ import { getFeaturePreviewStatus } from '../../../../../features.js';
 import type { SubscriptionUpgradeCommandArgs } from '../../../../../plus/gk/models/subscription.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { GlButton } from '../../../shared/components/button.js';
+import { featureGateCompactThreshold } from '../../../shared/components/feature-gate.css.js';
 import type { PromosContext } from '../../../shared/contexts/promos.js';
 import { promosContext } from '../../../shared/contexts/promos.js';
 import { linkStyles } from './vscode.css.js';
@@ -76,16 +77,48 @@ export class GlFeatureGatePlusState extends LitElement {
 				margin-left: auto;
 			}
 
-			:host-context([appearance='alert']) p:first-child {
+			/* .trial's first paragraph is excluded: wrapping the trailing paragraphs made it a
+			   :first-child, which would newly zero its top margin at every size — full-size
+			   spacing must stay as it was before the wrapper existed. */
+			:host([appearance='alert']) p:first-child:not(.trial p) {
 				margin-top: 0;
 			}
 
-			:host-context([appearance='alert']) p:last-child {
+			:host([appearance='alert']) p:last-child {
 				margin-bottom: 0;
 			}
 
 			.centered {
 				text-align: center;
+			}
+
+			/* Centering lives on the wrapper (not the paragraphs) because the compact mode below
+			   turns the paragraphs inline — text-align only aligns content of block containers. */
+			.trial {
+				text-align: center;
+			}
+
+			/* Vertically constrained alert gates (e.g. the bottom panel): compact the action zone so
+			   it costs less height — tighter paragraph/rule rhythm, and the trial message + promo
+			   collapse onto a single line. The normal-height dialog keeps its default spacing.
+			   Only the TrialExpired branch has a .trial wrapper: it's the sole state that renders
+			   two trailing paragraphs — every other state ends with a single one, so there's
+			   nothing to collapse. */
+			@container (max-height: ${featureGateCompactThreshold}) {
+				:host([appearance='alert']) p,
+				:host([appearance='alert']) hr {
+					margin-block: var(--gl-space-6);
+				}
+
+				:host([appearance='alert']) .trial p {
+					display: inline;
+				}
+
+				:host([appearance='alert']) .trial gl-promo,
+				:host([appearance='alert']) .trial gl-promo::part(text) {
+					display: inline;
+					margin: 0;
+				}
 			}
 
 			.preview-image {
@@ -247,11 +280,13 @@ export class GlFeatureGatePlusState extends LitElement {
 						>
 					</p>
 					<hr />
-					<p class="centered">
-						Your trial has ended — upgrade to keep ${this.featureWithArticleIfNeeded ?? 'all Pro features'}
-						unlocked.
-					</p>
-					<p class="centered">${this.renderPromo()}</p>`;
+					<div class="trial">
+						<p>
+							Your trial has ended — upgrade to keep
+							${this.featureWithArticleIfNeeded ?? 'all Pro features'} unlocked.
+						</p>
+						<p>${this.renderPromo()}</p>
+					</div>`;
 
 			case SubscriptionState.TrialReactivationEligible:
 				return html`<slot name="feature"></slot>
