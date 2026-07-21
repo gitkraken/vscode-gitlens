@@ -23,6 +23,18 @@ export function parsePageCursor(cursor: string | undefined): number | undefined 
 	return undefined;
 }
 
+/** Preserves successful sibling scopes, but doesn't turn an all-scope provider failure into an empty success. */
+export async function flatSettledOrThrow<T>(promises: Promise<T[]>[]): Promise<T[]> {
+	const results = await Promise.allSettled(promises);
+	const fulfilled = results.filter((result): result is PromiseFulfilledResult<T[]> => result.status === 'fulfilled');
+	if (fulfilled.length === 0) {
+		const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+		if (rejected != null) throw rejected.reason;
+	}
+
+	return fulfilled.flatMap(result => result.value);
+}
+
 /** Precedence for merged completeness: any known omission (`partial`) wins, then inability to confirm
  * (`unknown`), and only an all-`complete` set of pages stays `complete`. */
 const completenessRank: Record<CollectionCompleteness, number> = { partial: 2, unknown: 1, complete: 0 };
