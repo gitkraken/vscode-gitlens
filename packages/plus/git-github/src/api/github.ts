@@ -3338,9 +3338,6 @@ export class GitHubApi {
 					};
 					nodes: GitHubPullRequest[];
 				};
-				viewer: {
-					login: string;
-				};
 			}
 
 			const query = `query searchMyPullRequests(
@@ -3359,9 +3356,6 @@ export class GitHubApi {
 					${gqlPullRequestFragment}
 				}
 			}
-		}
-		viewer {
-			login
 		}
 	}`;
 
