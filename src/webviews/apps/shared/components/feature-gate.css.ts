@@ -16,10 +16,10 @@ export const featureGateBaseStyles = css`
 		inset: 0;
 		box-sizing: border-box;
 
-		/* Size container for the gate's narrow-width adaptations. Safe because the host is an
-		   inset-0 overlay, so its inline size never depends on its contents. The top-layer dialog
-		   still resolves against this container via its flat-tree ancestry. */
-		container-type: inline-size;
+		/* Size container for the gate's narrow-width and short-height adaptations. Safe because the
+		   host is an inset-0 overlay, so its size never depends on its contents. The top-layer
+		   dialog still resolves against this container via its flat-tree ancestry. */
+		container-type: size;
 	}
 
 	::slotted(p) {
@@ -167,6 +167,17 @@ export const featureGateContentStyles = css`
 		align-items: flex-start;
 	}
 
+	/* Vertically constrained placements (e.g. the bottom panel): title and lede share one line
+	   (wrapping when also narrow) to shorten the header. The normal-height dialog is untouched. */
+	@container (max-height: ${featureGateCompactThreshold}) {
+		.feature__header hgroup {
+			display: flex;
+			flex-wrap: wrap;
+			column-gap: var(--gl-space-8);
+			align-items: baseline;
+		}
+	}
+
 	.feature__feature-icon {
 		/* Fixed light glyph: the brand gradient is dark in every theme, so a theme-driven foreground
 		   (near-black on light themes) would fail contrast against it. */
@@ -234,6 +245,36 @@ export const featureGateContentStyles = css`
 		strong {
 			font-size: var(--gl-font-md);
 			color: var(--color-foreground);
+		}
+	}
+
+	/* Vertically constrained placements: tighten the feature list. Halve the between-column gap,
+	   and float each item's icon so its copy flows around and under it instead of sitting in a
+	   rigid second column — reclaiming the indent for text. Placed after the base .list/.list__item
+	   rules so the height-scoped overrides win the cascade (the base .list gap shorthand would
+	   otherwise reset column-gap, and the base .list__item/.list__copy flex would defeat the float). */
+	@container (max-height: ${featureGateCompactThreshold}) {
+		.list {
+			column-gap: var(--gl-space-8);
+		}
+
+		.list__item {
+			display: block;
+		}
+
+		.list__item .icon-cube {
+			float: inline-start;
+			margin-inline-end: var(--gl-space-6);
+		}
+
+		.list__copy {
+			display: block;
+		}
+
+		/* The title runs in on the same line as the body, so match its size to the body — the
+		   larger heading size reads as inconsistent mid-sentence. Weight/color keep it distinct. */
+		.list__copy strong {
+			font-size: var(--gl-font-sm);
 		}
 	}
 `;
