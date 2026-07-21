@@ -1337,6 +1337,32 @@
 						"scope": "window",
 						"order": 710
 					},
+					"gitlens.graph.changesColumn.enabled": {
+						"type": "boolean",
+						"default": false,
+						"markdownDescription": "Specifies whether the _Commit Graph_ computes file and line change statistics for the Changes column. Computing changes can be performance intensive in large repositories. When disabled, the Changes column offers a one-time opt-in",
+						"scope": "window",
+						"order": 711
+					},
+					"gitlens.graph.changesColumn.mode": {
+						"type": "string",
+						"default": "bar",
+						"enum": [
+							"numbers",
+							"squares",
+							"bar",
+							"bipolar"
+						],
+						"enumDescriptions": [
+							"Shows the exact added and deleted line counts",
+							"Shows a five-cell diffstat of the added / deleted ratio",
+							"Shows a single bar sized by total churn, split into added and deleted",
+							"Shows a bipolar bar with additions growing right and deletions growing left"
+						],
+						"markdownDescription": "Specifies the visualization used by the _Commit Graph_ Changes column",
+						"scope": "window",
+						"order": 712
+					},
 					"gitlens.graph.avatars": {
 						"type": "boolean",
 						"default": true,

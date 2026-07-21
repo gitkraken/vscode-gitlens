@@ -10,6 +10,8 @@ import type { LaneSegment, ProcessedGraphRow, Sha } from '@gitkraken/commit-grap
 import type { LaneSweep, LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { computeLaneWindow, laneWindowCovers, resolveGroupedLaneCap } from '@gitkraken/commit-graph/laneClamp.js';
 import { computePrefetchDistance } from '@gitkraken/commit-graph/paging.js';
+import type { ChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
+import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
 import type {
 	GraphPlacement,
 	RefsPlacement,
@@ -82,6 +84,7 @@ import type { WipRowAgentStatus } from '../components/wipRowAgentStatus.js';
 import { createLaneCollapseAdornmentProvider } from './adornments/laneCollapseAdornmentProvider.js';
 import '../../../shared/components/code-icon.js';
 import '../../../shared/components/overlays/popover.js';
+import '../../../shared/components/overlays/tooltip.js';
 import type { LaneCollapseChipContext } from './adornments/laneCollapseAdornmentProvider.js';
 import type { ParsedRef } from './adornments/refAdornmentProvider.js';
 import { createRefAdornmentProvider, refPillKey } from './adornments/refAdornmentProvider.js';
@@ -150,6 +153,7 @@ const zoneHeaderIcons: Record<ZoneId, string> = {
 	message: 'comment',
 	author: 'account',
 	datetime: 'calendar',
+	changes: 'request-changes',
 	sha: 'git-commit',
 };
 // Whether an uppercased header label fits the given label-area width (px): ≈7px/char + the resize
@@ -329,6 +333,8 @@ interface RenderCtx {
 	gutterWidth: number;
 	columnWidth: number;
 	zones: readonly ZoneSpec[];
+	/** Shared ref to the host's per-sha diffstat map for the Changes column (absent key = still pending). */
+	rowsStats?: Readonly<Record<string, GraphRowStats>>;
 	style: ResolvedGraphStyle;
 	graphPlacement: GraphPlacement;
 	/** Visible-column slot the graph occupies (column mode) — interleaved among the zone cells. */
@@ -406,6 +412,42 @@ interface RenderCtx {
 	wipMetadataBySha?: GraphWipMetadataBySha;
 }
 
+// Changes-column mode picker: the four visualizations as an ordered glyph strip. Labels drive the
+// delegated tooltip + the accessible name; order matches the native menu.
+const changesModeOptions: readonly { mode: ChangesColumnMode; label: string }[] = [
+	{ mode: 'numbers', label: 'Numbers' },
+	{ mode: 'squares', label: 'Squares' },
+	{ mode: 'bar', label: 'Bar' },
+	{ mode: 'bipolar', label: 'Bipolar' },
+];
+
+// Static glyph templates for the mode picker — tiny iconographic shapes at glyph scale (fixed, no
+// data). Allocated once at module load and reused every render. Plain spans only (no custom elements);
+// all sizing/colors live in graph.scss. NO minus-notch at this scale (illegible — deliberate).
+const changesModeGlyphs: Record<ChangesColumnMode, TemplateResult> = {
+	numbers: html`<span class="gl-graph__changes-mode-glyph-numbers"
+		><span class="gl-graph__changes-mode-glyph-added">+N</span
+		><span class="gl-graph__changes-mode-glyph-deleted">−N</span></span
+	>`,
+	squares: html`<span class="gl-graph__changes-mode-glyph-squares"
+		>${(['added', 'added', 'added', 'added', 'deleted'] as const).map(
+			fill =>
+				html`<span
+					class="gl-graph__changes-mode-glyph-square gl-graph__changes-mode-glyph-square--${fill}"
+				></span>`,
+		)}</span
+	>`,
+	bar: html`<span class="gl-graph__changes-mode-glyph-track"
+		><span class="gl-graph__changes-mode-glyph-bar-added"></span
+		><span class="gl-graph__changes-mode-glyph-bar-deleted"></span
+	></span>`,
+	bipolar: html`<span class="gl-graph__changes-mode-glyph-track"
+		><span class="gl-graph__changes-mode-glyph-bipolar-axis"></span
+		><span class="gl-graph__changes-mode-glyph-bipolar-deleted"></span
+		><span class="gl-graph__changes-mode-glyph-bipolar-added"></span
+	></span>`,
+};
+
 /**
  * Pure-Lit commit graph host — the React-free replacement for `<gl-lit-graph>`. Owns the
  * `<lit-virtualizer>` row list, the engine pipeline (GitGraphRow → GraphCommitView →
@@ -429,6 +471,13 @@ export class GlLitGraph extends LitElement {
 	@property({ type: Array }) rows?: GitGraphRow[];
 	@property({ type: Object }) avatars?: GraphAvatars;
 	@property({ type: Object }) rowsStats?: Record<string, GraphRowStats>;
+	// True while the host is still computing per-row diffstats (rowsStats) — drives the Changes header's
+	// loading spinner. The wrapper only passes this (and rowsStats) while the Changes column is visible,
+	// so a hidden column never spins nor re-renders on stats deltas.
+	@property({ type: Boolean }) rowsStatsLoading = false;
+	// False = the Changes column is dormant (stats consent not yet given): it renders an opt-in overlay
+	// over its rows area instead of stats. The host pushes this from `graph.changesColumn.enabled`.
+	@property({ type: Boolean }) changesColumnEnabled = true;
 	@property({ type: Object }) selectedRows?: GraphSelectedRows;
 	// Lazily-fetched upstream/PR/issue metadata (keyed by ref id). The split ref pill reads ahead/behind
 	// from `refsMetadata[id].upstream`; missing entries are requested via `gl-graph-missingrefsmetadata`.
@@ -715,6 +764,7 @@ export class GlLitGraph extends LitElement {
 			gutterWidth: c.gutterWidth,
 			columnWidth: c.columnWidth,
 			zones: c.zones,
+			rowsStats: c.rowsStats,
 			style: c.style,
 			graphPlacement: c.graphPlacement,
 			graphColumnPos: c.graphColumnPos,
@@ -1214,6 +1264,8 @@ export class GlLitGraph extends LitElement {
 			unsub();
 		}
 		this.invalidateUnsubs = [];
+		// Drop the mode-picker's document/window dismiss listeners if it's still open on detach.
+		this.closeChangesModeMenu();
 		super.disconnectedCallback?.();
 	}
 
@@ -1296,6 +1348,11 @@ export class GlLitGraph extends LitElement {
 		if ((changed.has('columns') || this.columns !== this.lastColumnsRef) && this.shouldApplyIncomingColumns()) {
 			this.lastColumnsRef = this.columns;
 			this.zones = mergeZones(defaultZones, columnsToZones(this.columns));
+			// The rebuilt zones re-bind the header cells the open picker anchored to — close it so its
+			// dismiss / focus-return can't target a now-wrong column. No focus return (the anchor moves).
+			if (this.changesModeAnchor != null) {
+				this.closeChangesModeMenu('none');
+			}
 			// The host's column menu hides/shows the graph + Branches/Tags columns via a boolean `isHidden`;
 			// column↔grouped is persisted separately as `grouped` (see `currentGraphColumnConfig`/
 			// `buildColumnsConfig`). `isHidden` always wins. This bridge is idempotent — a local toggle
@@ -1372,6 +1429,12 @@ export class GlLitGraph extends LitElement {
 			} else if (this.stickyTimeline == null) {
 				this.recomputeStickyTimelineBucket();
 			}
+		}
+
+		// The host's `changesColumnEnabled` push is authoritative — clear the optimistic opt-in latch when it
+		// lands (enabled = the overlay is gone anyway; still-disabled = the write was declined, re-show it).
+		if (changed.has('changesColumnEnabled')) {
+			this._changesEnableRequested = false;
 		}
 
 		// Upstream metadata (ahead/behind) arrives lazily after a `gl-graph-missingrefsmetadata` request;
@@ -1777,6 +1840,7 @@ export class GlLitGraph extends LitElement {
 			gutterWidth: this.gutterWidth,
 			columnWidth: this.columnWidth,
 			zones: visibleZones,
+			rowsStats: this.rowsStats,
 			style: style,
 			graphPlacement: this.graphPlacement,
 			graphColumnPos: graphVisSlot,
@@ -3009,10 +3073,16 @@ export class GlLitGraph extends LitElement {
 
 		// Over a tooltip affordance: cancel any pending/active row hover so the two never co-show.
 		this.cancelRowHover();
+		this.showTooltipForTarget(target);
+	};
 
+	// Resolve + show the delegated tooltip for a `data-tooltip`/`data-tooltip-row` element. Shared by the
+	// pointer (`onPointerOverTooltip`) and keyboard (`showTooltipForFocus`) paths.
+	private showTooltipForTarget(target: HTMLElement): void {
 		if (target === this.tooltipAnchor) {
 			// Re-entering the same anchor (still open, or just-closed within the keep window): cancel the
-			// pending hide/clear and re-open in place — content is still set, so no re-fetch/flash.
+			// pending hide/clear and re-open in place — content is still set, so no re-fetch/flash. Also
+			// dedupes a coincident hover+focus on one element (the host anchors one tooltip at a time).
 			if (this.tooltipHideTimer != null) {
 				clearTimeout(this.tooltipHideTimer);
 				this.tooltipHideTimer = undefined;
@@ -3066,7 +3136,20 @@ export class GlLitGraph extends LitElement {
 		}
 
 		this.showTooltip(target, text, icon, placement, delay);
-	};
+	}
+
+	// Keyboard focus → same delegated tooltip resolver. Cheap + delegated (rides the viewport `focusin`).
+	private showTooltipForFocus(event: FocusEvent): void {
+		if (this.draggingColumn) return;
+
+		const target = this.closestTooltipTarget(event.target);
+		if (target == null) return;
+		// The mode-picker strip labels itself (aria + is-current highlight) — a tooltip popping over the
+		// just-opened menu from its own programmatic focus is noise, not help.
+		if (target.closest('.gl-graph__changes-mode-strip') != null) return;
+
+		this.showTooltipForTarget(target);
+	}
 
 	private readonly onPointerOutTooltip = (event: PointerEvent): void => {
 		// Only react when the pointer actually leaves the current anchor (not when moving to a child).
@@ -4112,6 +4195,75 @@ export class GlLitGraph extends LitElement {
 		return html`<div class="gl-graph__status" role="status"><span>${message}</span></div>`;
 	}
 
+	// One-time opt-in overlay for the dormant Changes column — covers ONLY its rows area (top offset =
+	// header height, see graph.scss) so the header stays interactive (mode picker, hide, resize). Absolutely
+	// positioned to the column's solved rect, mirroring renderHeader's zone + gutter layout so it aligns with
+	// the rows below. Suppressed the moment consent is requested (optimistic) or granted by the host.
+	private renderChangesOptInOverlay(): unknown {
+		if (this.changesColumnEnabled !== false || this._changesEnableRequested) return nothing;
+
+		// Defer while the status overlay owns the empty viewport ("Loading commits…" / "No commits") —
+		// the opt-in shouldn't compete with it, and there's no column of rows to overlay yet anyway.
+		if (this.displayRows.length === 0) return nothing;
+
+		const c = this._renderCtx;
+		if (c.style !== 'table') return nothing;
+
+		const zone = c.zones.find(z => z.id === 'changes');
+		if (zone == null) return nothing;
+
+		const narrow = zone.width < 150;
+		// `gl-tooltip` is `display: contents`, so its slotted buttons stay flex items of the overlay stack.
+		// wa-popup anchors to the FIRST slotted element (the Show button), while the button's `::before`
+		// expands its hit area to the whole overlay surface (see graph.scss) — hover/click anywhere on the
+		// dormant column triggers the button + its tooltip, but the tooltip stays pinned above the button.
+		return html`<div
+			${ref(this.changesOptInRef)}
+			class="gl-graph__changes-optin"
+			style=${cspStyleMap({ width: `${zone.width}px`, visibility: 'hidden' })}
+			@click=${this.onChangesOptInClick}
+		>
+			<gl-tooltip placement="top" show-delay="280">
+				<button type="button" class="gl-graph__changes-optin-button" aria-label="Show Changes Column">
+					Show
+				</button>
+				<button
+					type="button"
+					class="gl-graph__changes-optin-hide"
+					aria-label="Hide Column"
+					@click=${this.onChangesOptInHideClick}
+				>
+					Hide
+				</button>
+				<span slot="content" class="gl-graph__changes-optin-tooltip"
+					><span class="gl-graph__changes-optin-tooltip-title">Show Changes Column</span
+					><span
+						>Computes diff stats for loaded commits in the background — can be intensive in very large
+						repos.</span
+					><span class="gl-graph__changes-optin-tooltip-sub">Enable once for all repos.</span></span
+				>
+			</gl-tooltip>
+			${narrow
+				? nothing
+				: html`<span class="gl-graph__changes-optin-help"
+							>Computes diff stats for loaded commits in the background — can be intensive in very large
+							repos.</span
+						>
+						<span class="gl-graph__changes-optin-sub">Enable once for all repos.</span>`}
+		</div>`;
+	}
+
+	private onChangesOptInClick = (): void => {
+		this._changesEnableRequested = true;
+		this.requestUpdate();
+		this.dispatchEvent(new CustomEvent('gl-graph-enable-changes-column', { bubbles: true, composed: true }));
+	};
+
+	private onChangesOptInHideClick = (e: MouseEvent): void => {
+		e.stopPropagation();
+		this.applyZones(this.zones.map(z => (z.id === 'changes' ? { ...z, hidden: true } : z)));
+	};
+
 	// Filter-search results footer (mirrors the legacy graph's `renderFooter`, filter mode only — the
 	// normal/highlight mode's "Load more commits…" affordance isn't ported here). A sibling BELOW the
 	// viewport div (not inside the virtualizer's scroll content), so it never affects row virtualization.
@@ -4207,7 +4359,7 @@ export class GlLitGraph extends LitElement {
 						this.graphPlacement === 'column' && this.maxGraphScrollX > 0 ? this.graphWheelListener : nothing
 					}
 				></lit-virtualizer>
-				${this.renderStatusOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderStickyTimeline()}${this.renderHScrollbar()}
+				${this.renderStatusOverlay()}${this.renderChangesOptInOverlay()}${this.renderScrollMarkers()}${this.renderPinnedPill()}${this.renderHeadPill()}${this.renderStickyTimeline()}${this.renderHScrollbar()}${this.renderChangesModePopover()}
 			</div>
 			${this.renderSearchFooter()}
 			<span
@@ -5173,6 +5325,10 @@ export class GlLitGraph extends LitElement {
 	}
 
 	private onFocusIn = (event: FocusEvent): void => {
+		// Keyboard parity for the pointer tooltip path — a focused `data-tooltip` element (incl. the mode
+		// picker's glyph buttons) shows the same delegated tooltip.
+		this.showTooltipForFocus(event);
+
 		if (this.selectedShas.size === 0) return;
 
 		const firstSelected = this.selectedShas.values().next().value;
@@ -5408,6 +5564,19 @@ export class GlLitGraph extends LitElement {
 		// boundary without resizing us would otherwise leave the snap stale → every row (and its text)
 		// renders off the device-pixel grid and softens. Cheap: a no-op early-returns when already snapped.
 		this.snapVirtualizerToPixelGrid();
+		// Position the dormant Changes opt-in overlay from the RENDERED header cell — solved-zone
+		// arithmetic can't see layout-owning concerns (grouped refs/graph slot, crumbs), and drift paints
+		// the overlay over the wrong column (live-caught +126px with grouped refs). Hidden until
+		// positioned so it never flashes unaligned; re-synced every render (the template style re-apply
+		// resets it).
+		const optin = this.changesOptInRef.value;
+		if (optin != null) {
+			const cell = this.querySelector<HTMLElement>('.gl-graph__header-cell[data-col-id="changes"]');
+			if (cell != null) {
+				optin.style.left = `${cell.offsetLeft}px`;
+				optin.style.visibility = 'visible';
+			}
+		}
 	}
 
 	/** True when `sha` is currently rendered (present in `displayRows`); false when it's loaded but
@@ -5999,9 +6168,12 @@ export class GlLitGraph extends LitElement {
 				const crumbsPx = crumbCount * (crumbsCollapsed ? 22 : 55);
 				// Fixed reserve per control (22 each): a hidden-graph restore toggle, the ungrouped ref
 				// column's right-edge toggle, ACTIVE filter buttons — plus the crumbs at their stage size.
+				// Changes' mode chevron always renders inside the label (19px ≈ 1.2rem icon + 0.3rem gap +
+				// slack, graph.scss) — reserve its label-adjacent width so the text never crowds it out.
 				const controlsPx =
 					(graphControlHere && !graphCrumb ? 22 : 0) +
 					(hasRefsControl && !refsMember ? 22 : 0) +
+					(zone.id === 'changes' ? 19 : 0) +
 					filtersPx +
 					crumbsPx;
 				const labelAsIcon = !zone.flex && !headerLabelFits(zone.label, headerW - controlsPx);
@@ -6012,8 +6184,13 @@ export class GlLitGraph extends LitElement {
 				// elastic fill (no fixed width), where it fits THIS zone instead (see onResizeAutosize). Name
 				// the real target so the tooltip doesn't lie.
 				const fitTargetLabel = (visibleZones[i + 1]?.flex ? zone.label : visibleZones[i + 1]?.label) ?? 'next';
+				// Dormant tint on the Changes header while its stats are opt-in (consent not yet requested/given).
+				const changesDormant =
+					zone.id === 'changes' && this.changesColumnEnabled === false && !this._changesEnableRequested;
 				return html`<div
-						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}"
+						class="gl-graph__header-cell${this.dragColId === zone.id ? ' is-dragging' : ''}${changesDormant
+							? ' gl-graph__header-cell--changes-dormant'
+							: ''}"
 						data-col-id=${zone.id}
 						data-vscode-context=${this.columnsContext ?? nothing}
 						style=${cspStyleMap(style)}
@@ -6053,26 +6230,51 @@ export class GlLitGraph extends LitElement {
 									</span>`
 								: nothing}
 							${filterOnly
-								? this.renderFilterButton(zone, true, true)
+								? html`${this.renderFilterButton(zone, true, true)}${zone.id === 'changes'
+										? this.renderChangesModePickerButton()
+										: nothing}`
 								: html`${filterable ? this.renderFilterButton(zone, filterActive, false) : nothing}
 										<span
-											class="gl-graph__header-label"
+											class="gl-graph__header-label${zone.id === 'changes'
+												? ' gl-graph__header-label--changes'
+												: ''}"
 											role="button"
 											tabindex="0"
-											aria-label=${`${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
-											data-tooltip=${`Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
+											aria-haspopup=${zone.id === 'changes' ? 'menu' : nothing}
+											aria-expanded=${zone.id === 'changes'
+												? this.changesModeAnchor != null
+													? 'true'
+													: 'false'
+												: nothing}
+											aria-label=${zone.id === 'changes'
+												? 'Changes column. Press Enter to change the visualization; use Arrow Left/Right to reorder, or drag.'
+												: `${zone.label} column. Use Arrow Left/Right to reorder, or drag.`}
+											data-tooltip=${zone.id === 'changes'
+												? 'Change Visualization — or drag / Arrow keys to reorder'
+												: `Drag or press Arrow keys to reorder ${zone.label.toLowerCase()} column`}
 											@keydown=${(e: KeyboardEvent) => this.onLabelKeydown(e, visibleZones, i)}
 											>${labelAsIcon
 												? html`<code-icon
 														class="gl-graph__header-label-icon"
 														icon=${zoneHeaderIcons[zone.id]}
 													></code-icon>`
-												: zone.label}</span
+												: zone.id === 'changes'
+													? html`<span class="gl-graph__header-label-text"
+															>${zone.label}</span
+														>`
+													: zone.label}${zone.id === 'changes'
+												? html`<code-icon
+														class="gl-graph__changes-mode-chevron"
+														icon="chevron-down"
+														aria-hidden="true"
+													></code-icon>`
+												: nothing}</span
 										>`}
 							${zone.id === 'ref' && this.refsPlacement === 'column' && !(isLast && !graphIsLastColumn)
 								? this.renderRefsPlacementControl(true, visibleZones)
 								: nothing}
 						</span>
+						${zone.id === 'changes' ? this.renderChangesLoading(headerW, filterOnly, labelAsIcon) : nothing}
 						${isLast
 							? nothing
 							: html`<div
@@ -6380,8 +6582,8 @@ export class GlLitGraph extends LitElement {
 
 	// Settings gear: opens VS Code's native graph menu (column show/hide + the Scroll Markers submenu)
 	// on click. `settingsContext` is the host-built `gitlens:graph:settings` data-vscode-context; a
-	// left-click dispatches a synthetic `contextmenu` at the button so the native menu opens there
-	// (same pattern as gl-details-commit-panel.onMoreActionsClick).
+	// left-click dispatches a synthetic `contextmenu` at the button (see `openHeaderContextMenu`) so the
+	// native menu opens there (same pattern as gl-details-commit-panel.onMoreActionsClick).
 	private renderSettingsControl(): TemplateResult | typeof nothing {
 		if (this.settingsContext == null) return nothing;
 
@@ -6393,13 +6595,300 @@ export class GlLitGraph extends LitElement {
 			draggable="false"
 			data-vscode-context=${this.settingsContext}
 			@pointerdown=${(e: Event) => e.stopPropagation()}
-			@click=${this.openSettingsMenu}
+			@click=${this.openHeaderContextMenu}
 		>
 			<code-icon icon="settings-gear"></code-icon>
 		</button>`;
 	}
 
-	private openSettingsMenu = (event: MouseEvent): void => {
+	// Collision floors: below these header widths the inline-end spinner would overlap the leading content,
+	// so it's suppressed (filter-only = filter button ~18 + compact chevron ~19 + spinner ~13 + insets;
+	// icon-collapsed = icon + chevron ~45 + spinner + insets). Text mode always has room.
+	private static readonly changesSpinnerFilterOnlyFloor = 60;
+	private static readonly changesSpinnerIconFloor = 64;
+
+	// Loading spinner while the host resolves diffstats. Absolutely pinned to the column's inline-end
+	// (graph.scss), pointer-transparent + `aria-hidden`; suppressed only when the header is too narrow to
+	// clear the leading content (content-aware floor), otherwise shown in every state incl. filter-only.
+	private renderChangesLoading(
+		headerW: number,
+		filterOnly: boolean,
+		labelAsIcon: boolean,
+	): TemplateResult | typeof nothing {
+		if (!this.rowsStatsLoading) return nothing;
+
+		const floor = filterOnly
+			? GlLitGraph.changesSpinnerFilterOnlyFloor
+			: labelAsIcon
+				? GlLitGraph.changesSpinnerIconFloor
+				: 0;
+		if (headerW < floor) return nothing;
+
+		return html`<code-icon
+			class="gl-graph__changes-header-spinner"
+			icon="loading"
+			modifier="spin"
+			aria-hidden="true"
+		></code-icon>`;
+	}
+
+	// Compact chevron-only picker entry, shown beside the filter button when the Changes column is too narrow
+	// (filter + narrow) for the full label — keeps the mode picker reachable (incl. keyboard). Same open path
+	// as the label; the button becomes the popover anchor.
+	private renderChangesModePickerButton(): TemplateResult {
+		return html`<button
+			class="gl-graph__changes-mode-picker-button"
+			type="button"
+			aria-haspopup="menu"
+			aria-expanded=${this.changesModeAnchor != null ? 'true' : 'false'}
+			aria-label="Change Changes column visualization"
+			data-tooltip="Change Visualization"
+			draggable="false"
+			@pointerdown=${(e: Event) => e.stopPropagation()}
+			@click=${this.onChangesModePickerButtonClick}
+		>
+			<code-icon icon="chevron-down"></code-icon>
+		</button>`;
+	}
+
+	private readonly onChangesModePickerButtonClick = (event: Event): void => {
+		event.stopPropagation();
+		const target = event.currentTarget;
+		if (target instanceof HTMLElement) {
+			this.toggleChangesModeMenu(target);
+		}
+	};
+
+	private get currentChangesMode(): ChangesColumnMode {
+		return changesModeOrDefault(this.getVisibleZones().find(z => z.id === 'changes')?.mode);
+	}
+
+	// Mode-picker popover — a horizontal `menu` of `menuitemradio` glyph buttons hosted by `gl-popover`
+	// (`trigger="manual"`): gl-popover owns the surface, Floating-UI flip/shift positioning, native top-layer
+	// stacking, and the Escape/CloseWatcher + focus-out dismiss. We drive open/close programmatically from the
+	// pointerup drag-latch decision (its click trigger can't be gated on the latch) and anchor it to the
+	// combined Changes label control (or the compact chevron button in filter-only). Rendered inside the
+	// viewport so the delegated tooltip/`focusin` listeners cover the glyphs' `data-tooltip`. `null` anchor =
+	// closed (drives `open` + the label's aria-expanded); the current mode is highlighted + focused on open.
+	private changesModeMenuRef = createRef<HTMLElement>();
+	@state() private changesModeAnchor?: HTMLElement;
+	private changesModeFocusIndex = 0;
+
+	// Optimistic latch: the opt-in overlay's click flips this so the dormant overlay + header tint clear
+	// instantly, before the host's `changesColumnEnabled` push lands. Reset in willUpdate on that push
+	// (the host is authoritative), so a failed/declined write re-shows the overlay.
+	@state() private _changesEnableRequested = false;
+	private changesOptInRef: Ref<HTMLElement> = createRef();
+
+	private renderChangesModePopover(): TemplateResult {
+		const current = this.currentChangesMode;
+		return html`<gl-popover
+			class="gl-graph__changes-mode-popover"
+			appearance="menu"
+			trigger="manual"
+			placement="bottom-end"
+			?arrow=${false}
+			.distance=${4}
+			.anchor=${this.changesModeAnchor}
+			.open=${this.changesModeAnchor != null}
+			@gl-popover-after-show=${this.onChangesModePopoverShow}
+			@gl-popover-hide=${this.onChangesModePopoverHide}
+		>
+			<span slot="anchor"></span>
+			<div
+				${ref(this.changesModeMenuRef)}
+				slot="content"
+				class="gl-graph__changes-mode-strip"
+				role="menu"
+				aria-orientation="horizontal"
+				aria-label="Changes column visualization"
+				@keydown=${this.onChangesModeMenuKeydown}
+			>
+				${changesModeOptions.map((opt, i) => {
+					const isCurrent = opt.mode === current;
+					return html`<button
+						class="gl-graph__changes-mode-glyph${isCurrent ? ' is-current' : ''}"
+						type="button"
+						role="menuitemradio"
+						aria-checked=${isCurrent ? 'true' : 'false'}
+						aria-label=${opt.label}
+						data-tooltip=${opt.label}
+						tabindex=${i === this.changesModeFocusIndex ? '0' : '-1'}
+						@click=${() => this.pickChangesMode(opt.mode)}
+					>
+						${changesModeGlyphs[opt.mode]}
+					</button>`;
+				})}
+			</div>
+		</gl-popover>`;
+	}
+
+	private toggleChangesModeMenu(anchor: HTMLElement): void {
+		if (this.changesModeAnchor != null) {
+			this.closeChangesModeMenu('none');
+		} else {
+			this.openChangesModeMenu(anchor);
+		}
+	}
+
+	private openChangesModeMenu(anchor: HTMLElement): void {
+		this.changesModeFocusIndex = Math.max(
+			0,
+			changesModeOptions.findIndex(o => o.mode === this.currentChangesMode),
+		);
+		this.changesModeAnchor = anchor;
+		// Manual-trigger gl-popover installs its own Escape/CloseWatcher + focus-out dismiss, but not an
+		// outside-pointer dismiss — add one that EXCEPTS the anchor so a click on the label toggles (never
+		// reopens). Capture phase so it settles before the label's own pointerup toggle.
+		document.addEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+	}
+
+	// Focus on close: 'always' = keyboard/pick paths (ARIA menu pattern — focus returns to the trigger
+	// unconditionally); 'ifLost' = self-dismiss sync (only recover a focus that fell to <body> — never
+	// steal from a deliberate focus move); 'none' = drag/zones-rebuild/detach (the anchor is moving).
+	private closeChangesModeMenu(restore: 'none' | 'ifLost' | 'always' = 'none'): void {
+		const anchor = this.changesModeAnchor;
+		if (anchor == null) return;
+
+		this.changesModeAnchor = undefined;
+		this.detachChangesModeMenu();
+		if (restore !== 'none') {
+			this.restoreLabelFocus(anchor, restore === 'always');
+		}
+	}
+
+	private detachChangesModeMenu(): void {
+		document.removeEventListener('pointerdown', this.onChangesModeDocumentPointerDown, true);
+	}
+
+	// Return focus to the label only if the close dropped it to <body> — i.e. the focused glyph was hidden
+	// and nothing else claimed focus (Escape / a click on non-focusable chrome). Leaves focus wherever a Tab
+	// or a focusable-target click sent it, so we never steal it.
+	private restoreLabelFocus(anchor: HTMLElement, always: boolean): void {
+		// Same async-hide race as the open-focus: gl-popover's teardown can park focus elsewhere a frame
+		// AFTER updateComplete — retry once per frame (bounded) so the restore actually lands.
+		const tryRestore = (attempts: number): void => {
+			const active = document.activeElement;
+			if (always || active == null || active === document.body) {
+				anchor.focus();
+				if (document.activeElement === anchor) return;
+			} else {
+				return;
+			}
+
+			if (attempts > 0) {
+				requestAnimationFrame(() => tryRestore(attempts - 1));
+			}
+		};
+		void this.updateComplete.then(() => tryRestore(5));
+	}
+
+	// Move DOM focus to the roving-tabindex button (the current mode on open, the arrowed-to one after).
+	private focusChangesModeButton(): void {
+		this.changesModeMenuRef.value?.querySelector<HTMLElement>('[tabindex="0"]')?.focus();
+	}
+
+	private readonly onChangesModePopoverShow = (): void => {
+		// wa-popup commits the native `showPopover()` on its own (async) update — a single-frame focus
+		// attempt can land while the popover is still unfocusable and silently no-op (live-verified).
+		// Bounded per-frame retry until focus actually sticks.
+		const tryFocus = (attempts: number): void => {
+			const btn = this.changesModeMenuRef.value?.querySelector<HTMLElement>('[tabindex="0"]');
+			if (btn != null) {
+				btn.focus();
+				if (document.activeElement === btn) return;
+			}
+
+			if (attempts > 0) {
+				requestAnimationFrame(() => tryFocus(attempts - 1));
+			}
+		};
+		requestAnimationFrame(() => tryFocus(5));
+	};
+
+	// Sync our state when gl-popover self-dismisses (Escape via CloseWatcher, focus-out, webview blur). A
+	// programmatic close nulls the anchor first, so this early-returns for it. gl-popover emits `hide` BEFORE
+	// it hides the body, so an Escape-dismissed glyph is still the active element for the focus recovery.
+	private readonly onChangesModePopoverHide = (): void => {
+		const anchor = this.changesModeAnchor;
+		if (anchor == null) return;
+
+		this.changesModeAnchor = undefined;
+		this.detachChangesModeMenu();
+		this.restoreLabelFocus(anchor, false);
+	};
+
+	// Outside-pointer light dismiss (manual gl-popover doesn't install one). Excepts the anchor + popover
+	// content; capture phase so it settles before the label's own pointerup toggle.
+	private readonly onChangesModeDocumentPointerDown = (event: PointerEvent): void => {
+		const target = event.target;
+		if (!(target instanceof Node)) return;
+		if (this.changesModeMenuRef.value?.contains(target) || this.changesModeAnchor?.contains(target)) {
+			return;
+		}
+
+		this.closeChangesModeMenu('ifLost');
+	};
+
+	private readonly onChangesModeMenuKeydown = (event: KeyboardEvent): void => {
+		const count = changesModeOptions.length;
+		let next = this.changesModeFocusIndex;
+		switch (event.key) {
+			case 'ArrowRight':
+				next = (this.changesModeFocusIndex + 1) % count;
+				break;
+			case 'ArrowLeft':
+				next = (this.changesModeFocusIndex - 1 + count) % count;
+				break;
+			case 'Home':
+				next = 0;
+				break;
+			case 'End':
+				next = count - 1;
+				break;
+			// No Enter/Space case: the focused native <button> fires its own @click (→ pickChangesMode).
+			case 'Escape':
+				event.preventDefault();
+				event.stopPropagation();
+				this.closeChangesModeMenu('always');
+				return;
+			case 'Tab':
+				event.preventDefault();
+				this.closeChangesModeMenu('always');
+				return;
+			default:
+				return;
+		}
+		event.preventDefault();
+		if (next !== this.changesModeFocusIndex) {
+			this.changesModeFocusIndex = next;
+			this.requestUpdate();
+			void this.updateComplete.then(() => this.focusChangesModeButton());
+		}
+	};
+
+	// Host-authoritative write: `updateColumns` ignores webview-echoed `mode`, so route the pick through a
+	// dedicated command (gl-lit-graph → graph-app → UpdateColumnModeCommand → host `setColumnMode`).
+	private pickChangesMode(mode: ChangesColumnMode): void {
+		this.closeChangesModeMenu('always');
+		// Optimistic: reflect the pick on the changes zone now so the column re-renders instantly. No persist
+		// / no write-revision bump — a pure local render; the IPC below drives the real, host-authoritative
+		// write, whose columns echo re-confirms. A dropped push is harmless (local state already matches).
+		this.zones = this.zones.map(z => (z.id === 'changes' ? { ...z, mode: mode } : z));
+		this.requestUpdate();
+		this.dispatchEvent(
+			new CustomEvent('gl-graph-change-column-mode', {
+				detail: { name: 'changes', mode: mode },
+				bubbles: true,
+				composed: true,
+			}),
+		);
+	}
+
+	// Settings-gear menu opener (sole consumer): dispatches a synthetic `contextmenu` at the gear so VS
+	// Code's native menu opens there, resolving the gear's `settingsContext` `data-vscode-context`. (The
+	// Changes column's display mode is picked via the glyph popover, not a native menu item.)
+	private openHeaderContextMenu = (event: MouseEvent): void => {
 		event.preventDefault();
 		event.stopPropagation();
 		const target = event.currentTarget;
@@ -6970,6 +7459,10 @@ export class GlLitGraph extends LitElement {
 		target: number;
 		pendingX: number;
 		rafId: number | null;
+		// The Changes label control this press landed on (else null). A CLEAN click (pointerup with
+		// `started` still false — the same threshold gate the reorder uses) on it toggles the mode picker;
+		// any press that crosses the drag threshold reorders and never opens it. See `onColumnPointerUp`.
+		changesLabel: HTMLElement | null;
 		// Snapshot taken when the drag begins (threshold crossed). The tentative order is always recomputed
 		// FROM this base, and the pointer is hit-tested against these frozen column edges — so the columns
 		// shifting underneath never feeds back into the targeting. Restored verbatim on cancel.
@@ -7005,6 +7498,13 @@ export class GlLitGraph extends LitElement {
 			// no active pointer to capture — the window listeners still drive the drag
 		}
 
+		// Record whether the press landed on the Changes label control so a clean click (no drag) can open
+		// the picker at pointerup. Only the label (text/icon + chevron) arms it — empty cell space doesn't.
+		const changesLabel =
+			colId === 'changes' && event.target instanceof Element
+				? event.target.closest<HTMLElement>('.gl-graph__header-label--changes')
+				: null;
+
 		this.columnDrag = {
 			pointerId: event.pointerId,
 			colId: colId,
@@ -7016,6 +7516,7 @@ export class GlLitGraph extends LitElement {
 			target: -1,
 			pendingX: event.clientX,
 			rafId: null,
+			changesLabel: changesLabel,
 			base: null,
 		};
 		window.addEventListener('pointermove', this.onColumnPointerMove);
@@ -7037,6 +7538,8 @@ export class GlLitGraph extends LitElement {
 			this.draggingColumn = true;
 			this.scheduleHideTooltip();
 			this.cancelRowHover();
+			// A reorder beats the open picker (the anchored label is about to move) — close it, no focus return.
+			this.closeChangesModeMenu('none');
 			document.body.style.cursor = 'grabbing';
 			this.captureColumnDragBase();
 		}
@@ -7275,11 +7778,20 @@ export class GlLitGraph extends LitElement {
 		const base = drag.base;
 		const colId = drag.colId;
 		const started = drag.started;
+		const changesLabel = drag.changesLabel;
 		// Recompute the drop slot from the RELEASE position (the last rAF may not have flushed, so
 		// `drag.target` can be a frame stale) using the pointerup's own clientX — where the user let go.
 		const target = base != null ? this.columnDropTargetFor(base, event.clientX) : drag.target;
 		this.endColumnDrag();
-		if (!started || base == null) return;
+		if (!started || base == null) {
+			// A clean click (never crossed the drag threshold) on the Changes label toggles the picker; a
+			// started drag latches `base != null` and falls through here, so it can't open. No `@click`
+			// binding — this pointerup is the sole open trigger.
+			if (!started && changesLabel != null) {
+				this.toggleChangesModeMenu(changesLabel);
+			}
+			return;
+		}
 
 		const result = this.computeColumnReorder(base, colId, target);
 		// No NET change → restore base so a mid-drag tentative render can't stick. Must compare the graph
@@ -7405,6 +7917,18 @@ export class GlLitGraph extends LitElement {
 	// reorderZones path as the drag-drop handler. Gap convention: move-right lands past the right
 	// neighbor (gap i+2), move-left lands before the left neighbor (gap i-1).
 	private onLabelKeydown(event: KeyboardEvent, visibleZones: readonly ZoneSpec[], visibleIdx: number): void {
+		// The Changes label doubles as the mode-picker control: Enter/Space toggle the picker (Space must
+		// preventDefault or the viewport scrolls). Arrow keys still reorder (below), so this is additive.
+		if (
+			(event.key === 'Enter' || event.key === ' ') &&
+			visibleZones[visibleIdx].id === 'changes' &&
+			event.currentTarget instanceof HTMLElement
+		) {
+			event.preventDefault();
+			this.toggleChangesModeMenu(event.currentTarget);
+			return;
+		}
+
 		let toVisible: number;
 		if (event.key === 'ArrowRight') {
 			if (visibleIdx >= visibleZones.length - 1) return;

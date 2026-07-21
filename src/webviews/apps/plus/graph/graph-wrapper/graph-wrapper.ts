@@ -18,6 +18,7 @@ import type {
 	ColumnNumberBySha,
 	CssVariables,
 	GraphAvatars,
+	GraphColumnName,
 	GraphMissingRefsMetadata,
 	GraphRef,
 	GraphRefMetadataItem,
@@ -233,7 +234,9 @@ declare global {
 			/** Per-sha commit shell (no files/stats) for synchronous first paint of the details panel. */
 			commits?: Record<string, CommitDetails>;
 		}>;
+		'gl-graph-change-column-mode': CustomEvent<{ name: GraphColumnName; mode: string | undefined }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
+		'gl-graph-enable-changes-column': CustomEvent<void>;
 		'gl-graph-filter-column': CustomEvent<{ zone: GraphZoneType }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		'gl-graph-row-context-menu': CustomEvent<{ graphZoneType: GraphZoneType; graphRow: GitGraphRow }>;
@@ -906,10 +909,19 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		if (graphState.config?.useNewEngine) {
 			// Pure-Lit renderer (React-free). Emits the same `gl-graph-*` events + takes the same
 			// props as the React `<gl-lit-graph>`, so it's a drop-in within this branch.
+			// Gate the Changes-column stats props on the column being visible AND its stats consent enabled:
+			// a hidden OR dormant (opt-in pending) column must get zero stats-driven re-renders (the host
+			// ships rowsStats/rowsStatsLoading regardless). The engine's own zones may briefly lag this host
+			// `isHidden` during an in-flight local columns write; it self-heals on that write's echo, so any
+			// transient stats prop is harmless.
+			const changesColumnVisible = graphState.columns?.changes?.isHidden !== true;
+			const changesColumnActive = changesColumnVisible && (graphState.config?.changesColumnEnabled ?? true);
 			return html`<gl-lit-graph
 				.rows=${decoratedRows}
 				.avatars=${graphState.avatars}
-				.rowsStats=${graphState.rowsStats}
+				.changesColumnEnabled=${graphState.config?.changesColumnEnabled ?? true}
+				.rowsStats=${changesColumnActive ? graphState.rowsStats : undefined}
+				?rowsStatsLoading=${changesColumnActive && (graphState.rowsStatsLoading ?? false)}
 				.selectedRows=${this.getSelectedRowsProp(decoratedRows, showPrimary)}
 				.refsMetadata=${graphState.refsMetadata}
 				.refsMetadataResetToken=${graphState.refsMetadataResetToken}

@@ -1,3 +1,4 @@
+import { changesModeOrDefault } from '@gitkraken/commit-graph/stats.js';
 import type { CancellationToken, ColorTheme, ConfigurationChangeEvent, TextDocumentShowOptions } from 'vscode';
 import { CancellationTokenSource, commands, Disposable, Uri, ViewColumn, window, workspace } from 'vscode';
 import { isWeb } from '@env/platform.js';
@@ -240,6 +241,7 @@ import {
 	DidRequestWipRefetchNotification,
 	DidStartFeaturePreviewNotification,
 	DoubleClickedCommand,
+	EnableChangesColumnCommand,
 	EnsureRowRequest,
 	GetAgentSessionsRequest,
 	GetCountsRequest,
@@ -277,6 +279,7 @@ import {
 	TrackGraphOverviewShownCommand,
 	TrackGraphScopeChangedCommand,
 	TreemapFileActionCommand,
+	UpdateColumnModeCommand,
 	UpdateColumnsCommand,
 	UpdateExcludeTypesCommand,
 	UpdateGraphConfigurationCommand,
@@ -956,15 +959,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const columnContext: Partial<{
 			[K in Extract<keyof GraphShownTelemetryContext, `context.column.${string}`>]: GraphShownTelemetryContext[K];
 		}> = {};
-		const columns = this.getColumns();
-		if (columns != null) {
-			for (const [name, config] of Object.entries(columns)) {
-				if (!config.isHidden) {
-					columnContext[`context.column.${name}.visible`] = true;
-				}
-				if (config.mode != null) {
-					columnContext[`context.column.${name}.mode`] = config.mode;
-				}
+		// Use getColumnSettings (not raw getColumns) so the Changes column's config-overlaid mode is reported,
+		// not a possibly-stale stored mode.
+		const columnSettings = this.getColumnSettings(this.getColumns());
+		for (const [name, config] of Object.entries(columnSettings)) {
+			if (!config.isHidden) {
+				columnContext[`context.column.${name}.visible`] = true;
+			}
+			if (config.mode != null) {
+				columnContext[`context.column.${name}.mode`] = config.mode;
 			}
 		}
 
@@ -1697,8 +1700,26 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// catch-all below) AND the column-menu context (`lanes:density:*`, which the Expanded/Compact
 		// menu items toggle on). Refresh the column context too — otherwise the menu item is one-way: the
 		// spacing changes but the item's `when` clause never flips to offer the opposite.
-		if (configuration.changed(e, 'graph.lanes.density')) {
+		// The Changes column mode is a real setting overlaid into column config (see `getColumnSettings`) —
+		// a settings.json edit isn't part of the component-config catch-all, so push a columns update so the
+		// column (and the picker's current-mode highlight) re-render live.
+		if (configuration.changed(e, ['graph.lanes.density', 'graph.changesColumn.mode'])) {
 			void this.notifyDidChangeColumns();
+		}
+
+		// Enabling the Changes column's stats consent starts the stats-bearing rebuild with the same eager
+		// spinner flow as un-hiding the column; the component-config re-send (catch-all below) flips the
+		// webview out of its dormant overlay. Disabling needs no rebuild — already-loaded stats just go unused.
+		if (
+			configuration.changed(e, 'graph.changesColumn.enabled') &&
+			configuration.get('graph.changesColumn.enabled') &&
+			!this._data.session?.current.includes?.stats &&
+			!this.getColumnSettings(this.getColumns()).changes.isHidden
+		) {
+			this._data.rowsStatsLoadingOverride = true;
+			this._graphSync.mark('rowsStats');
+			void this._graphSync.flush();
+			this._data.updateState();
 		}
 
 		// `graph.showUpstreamStatus` feeds `resetRefsMetadata`'s feature-on/off decision (upstream is
@@ -2109,6 +2130,22 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 		this.host.sendTelemetryEvent('graph/columns/changed', eventData);
+	}
+
+	// The Changes mode picker's pick. Changes' mode is a real setting (single source of truth): write it
+	// effectively so a settings.json round-trip works both directions. Other columns' modes stay in storage
+	// (only the graph column's compact toggle uses that path). Mode is still never webview-authored via
+	// `updateColumns` — this dedicated command is the only mode write path from the webview.
+	@ipcCommand(UpdateColumnModeCommand)
+	private onColumnModeChanged(params: IpcParams<typeof UpdateColumnModeCommand>) {
+		if (params.name !== 'changes') return;
+
+		void configuration.updateEffective('graph.changesColumn.mode', changesModeOrDefault(params.mode));
+	}
+
+	@ipcCommand(EnableChangesColumnCommand)
+	private onEnableChangesColumn(): void {
+		void configuration.updateEffective('graph.changesColumn.enabled', true);
 	}
 
 	@ipcCommand(UpdateGraphDisplayModeCommand)
@@ -3602,6 +3639,13 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			}
 		}
 
+		// The Changes column's mode is config-driven (single source of truth) — overlay the setting over any
+		// stale/echoed storage mode so a settings.json edit drives the column and the picker stays in sync.
+		columnsSettings.changes = {
+			...columnsSettings.changes,
+			mode: configuration.get('graph.changesColumn.mode'),
+		};
+
 		return columnsSettings;
 	}
 
@@ -3705,6 +3749,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			autoFetchIntervalSeconds: this.getAutoFetchIntervalSeconds(),
 			autoFetchMode: this.getAutoFetchMode(),
 			avatars: configuration.get('graph.avatars'),
+			changesColumnEnabled: configuration.get('graph.changesColumn.enabled'),
 			dateFormat:
 				configuration.get('graph.dateFormat') ?? configuration.get('defaultDateFormat') ?? 'short+short',
 			dateStyle: configuration.get('graph.dateStyle') ?? configuration.get('defaultDateStyle'),
@@ -3881,7 +3926,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			(configuration.get('graph.minimap.enabled') &&
 				configuration.get('graph.minimap.dataType') === 'lines' &&
 				this.isMinimapVisible()) ||
-			!columnSettings.changes.isHidden ||
+			(this.isChangesColumnStatsEnabled() && !columnSettings.changes.isHidden) ||
 			this._displayMode === 'visualizations';
 
 		// Reuse the loaded graph when NOTHING that feeds it changed — the repo etag is untouched and
@@ -4334,7 +4379,10 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 	private updateColumns(columnsCfg: GraphColumnsConfig) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
 		for (const [key, value] of Object.entries(columnsCfg)) {
-			columns = updateRecordValue(columns, key, value);
+			// `mode` is host-owned — webviews only echo it, and a stale echo (second panel / pre-command
+			// persist) must not clobber a just-set value.
+			const current = columns?.[key];
+			columns = updateRecordValue(columns, key, { ...value, mode: current?.mode });
 		}
 		void this.container.storage
 			.storeWorkspace('graph:columns', columns)
@@ -4813,6 +4861,15 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		return { viewColumn: ViewColumn.Beside, sourceViewColumn: this.host.viewColumn };
 	}
 
+	// Stats for the Changes column are consent-gated on the new engine; the legacy engine keeps its
+	// pre-consent behavior (visible column = stats) until it is deleted.
+	private isChangesColumnStatsEnabled(): boolean {
+		return (
+			configuration.get('graph.changesColumn.enabled') ||
+			configuration.get('graph.experimental.useNewEngine') === false
+		);
+	}
+
 	@debug()
 	private async toggleColumn(name: GraphColumnName, visible: boolean) {
 		let columns = this.container.storage.getWorkspace('graph:columns');
@@ -4828,7 +4885,16 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 
 		void this.notifyDidChangeColumns();
 
-		if (name === 'changes' && !column.isHidden && !this._data.session?.current.includes?.stats) {
+		if (
+			name === 'changes' &&
+			this.isChangesColumnStatsEnabled() &&
+			!column.isHidden &&
+			!this._data.session?.current.includes?.stats
+		) {
+			// Eager override + flush so the Changes column shows its spinner during the stats-including rebuild.
+			this._data.rowsStatsLoadingOverride = true;
+			this._graphSync.mark('rowsStats');
+			void this._graphSync.flush();
 			this._data.updateState();
 		}
 	}

@@ -1378,6 +1378,194 @@ gl-lit-graph {
 		color: hsl(var(--muted-foreground));
 	}
 
+	// Changes column: a unified cell (files count · magnitude viz). Bar/bipolar segment widths come from
+	// `stats.ts` math as PERCENTAGES via `cspStyleMap`, so the tracks flex responsively with the column.
+	.gl-graph__changes {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 1.1rem;
+		width: 100%;
+		min-width: 0;
+		overflow: hidden;
+	}
+	.gl-graph__changes-files {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	// The files codicon glyph (font class from the globally-loaded codicons.scss). The `.codicon` compound
+	// selector matches the base `.codicon[class*='codicon-']` specificity but is scoped under gl-lit-graph,
+	// so it outranks it and can shrink the glyph from the base 16px to 12px.
+	.gl-graph__changes-files-icon.codicon {
+		flex-shrink: 0;
+		font-size: 1.2rem;
+		color: var(--color-graph-text-disabled);
+	}
+	.gl-graph__changes-files-count {
+		min-width: 1.6rem;
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+	}
+	// numbers mode: `+N` / `−N` in the added/deleted decoration colors, monospace + tabular so they align.
+	.gl-graph__changes-numbers {
+		display: inline-flex;
+		flex-shrink: 1;
+		min-width: 0;
+		align-items: center;
+		gap: 0.7rem;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.15rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.gl-graph__changes-added {
+		min-width: 0;
+		overflow: hidden;
+		color: var(--vscode-gitDecoration-addedResourceForeground);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-deleted {
+		min-width: 0;
+		overflow: hidden;
+		color: var(--vscode-gitDecoration-deletedResourceForeground);
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+
+	// squares mode: a leading total-churn number + five fixed cells (added / deleted / empty).
+	.gl-graph__changes-squares {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.gl-graph__changes-churn {
+		flex-shrink: 1;
+		min-width: 0;
+		overflow: hidden;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 1.1rem;
+		font-variant-numeric: tabular-nums;
+		color: hsl(var(--muted-foreground));
+		white-space: nowrap;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-squares-cells {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		gap: 0.2rem;
+	}
+	.gl-graph__changes-square {
+		width: 0.8rem;
+		height: 0.8rem;
+		flex-shrink: 0;
+		border-radius: 0.2rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-square--added {
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-square--deleted {
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bar mode: a responsive track (flexes with the column) holding the churn-magnitude fill, segment
+	// widths as percentages of the track.
+	.gl-graph__changes-bar {
+		display: flex;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		align-items: stretch;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bar-added {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bar-deleted {
+		flex-shrink: 0;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// bipolar mode: a responsive bounds track with a center axis; added grows right, deleted grows left,
+	// each scaled independently to a half-track (segment widths as percentages).
+	.gl-graph__changes-bipolar {
+		position: relative;
+		flex: 1 1 auto;
+		min-width: 3rem;
+		max-width: 20rem;
+		height: 0.9rem;
+		overflow: hidden;
+		border-radius: 0.3rem;
+		background-color: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-bipolar-axis,
+	.gl-graph__changes-mode-glyph-bipolar-axis {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 1px;
+		height: 100%;
+		transform: translateX(-0.5px);
+		background: hsl(var(--border));
+	}
+	.gl-graph__changes-bipolar-added {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0 0.2rem 0.2rem 0;
+		background-color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-bipolar-deleted {
+		position: absolute;
+		top: 50%;
+		right: 50%;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		border-radius: 0.2rem 0 0 0.2rem;
+		background-color: var(--color-graph-stats-deleted);
+	}
+
+	// Colorblind-safe deletions ("minus notch"): a dash punches the row background through the fill so
+	// add/delete survives red/green colorblindness without hue. Two layers because the row tint is
+	// semi-transparent; hover/selected need their own overrides below.
+	.gl-graph__changes-square--deleted,
+	.gl-graph__changes-bar-deleted,
+	.gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-rest-bg, transparent), var(--row-rest-bg, transparent)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+		background-size: 50% 1.5px;
+		background-repeat: no-repeat;
+		background-position: center;
+	}
+	.gl-graph__row:hover .gl-graph__changes-square--deleted,
+	.gl-graph__row:hover .gl-graph__changes-bar-deleted,
+	.gl-graph__row:hover .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--vscode-list-hoverBackground), var(--vscode-list-hoverBackground)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+	.gl-graph__row.is-selected .gl-graph__changes-square--deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bar-deleted,
+	.gl-graph__row.is-selected .gl-graph__changes-bipolar-deleted {
+		background-image:
+			linear-gradient(var(--row-selection-bg), var(--row-selection-bg)),
+			linear-gradient(var(--color-graph-background), var(--color-graph-background));
+	}
+
 	// Standalone graph column (placement = column): holds the fold strip + the gutter viewport, no
 	// padding (the SVG carries its own gutter padding), never shrinks.
 	.gl-graph__zone--graph {
@@ -1534,7 +1722,7 @@ gl-lit-graph {
 	// Revealed (crumb hover/focus) or active, the crumb's filter rejoins the gap flow: drop the idle
 	// pull-back AND the global reveal's leading margin (the crumb's own gap already spaces it).
 	.gl-graph__group-member:hover .gl-graph__filter-toggle--member,
-	.gl-graph__group-member:focus-within .gl-graph__filter-toggle--member,
+	.gl-graph__group-member:has(:focus-visible) .gl-graph__filter-toggle--member,
 	.gl-graph__filter-toggle--member.is-active {
 		margin-inline-start: 0;
 		margin-inline-end: 0;
@@ -1607,8 +1795,14 @@ gl-lit-graph {
 	// and fade in. Presentational only — the label-fit math (renderHeader) is unaffected by hover.
 	// Crumb-hosted filters (`--member`) are excluded: they reveal on their own CRUMB's hover below, so
 	// mousing anywhere on a wide host cell doesn't pop a filter inside the breadcrumb.
+	// Keyboard-origin focus only (`:focus-visible`, matching the header ring convention): the picker's
+	// close restores focus to the Changes label, and a plain `:focus-within` reveal made the filter icon
+	// pop in after every pointer-driven open/close. While the mode picker is OPEN the filter stays pinned
+	// (aria-expanded) — a mid-open collapse shifts the label and drags the anchored popover with it.
 	.gl-graph__header-cell:hover .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
-	.gl-graph__header-cell:focus-within .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(:focus-visible) .gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
+	.gl-graph__header-cell:has(.gl-graph__header-label--changes[aria-expanded='true'])
+		.gl-graph__filter-toggle:not(.gl-graph__filter-toggle--member),
 	.gl-graph__filter-toggle.is-active {
 		width: 1.8rem;
 		margin-inline-start: 0.4rem;
@@ -1645,6 +1839,316 @@ gl-lit-graph {
 	// so it's the cell's sole content — drop the reveal margin so it sits flush at the cell's inline-start.
 	.gl-graph__filter-toggle--floor {
 		margin-inline-start: 0;
+	}
+
+	// Combined Changes-column control: the CHANGES label + a trailing chevron form ONE pill that opens the
+	// mode picker. The label keeps its column-reorder role (drag + Arrow keys — see gl-lit-graph), so this is
+	// purely additive styling. The pill lights up on hover like the old standalone chevron did. Changes only.
+	.gl-graph__header-label--changes {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		border-radius: 0.4rem;
+		transition:
+			background-color 120ms ease-out,
+			color 120ms ease-out;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+			color: hsl(var(--foreground));
+		}
+	}
+	// The label text truncates while the chevron stays put (its width is held by the 19px controlsPx reserve).
+	// In icon-collapsed mode the label icon stands in for the text and the chevron follows it.
+	.gl-graph__header-label-text {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.gl-graph__changes-mode-chevron {
+		--code-icon-size: 1.2rem;
+		flex-shrink: 0;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Loading spinner shown while the host computes diffstats. Absolutely pinned to the column header's
+	// inline-end (the cell is `position: relative`), vertically centered, and pointer-transparent so it never
+	// shadows the resize handle's hit zone. When Changes is the trailing column its cell is already narrowed
+	// by the gear's width (headerActionsPx), so this inline-end inset keeps the spinner clear of the gear.
+	// Centered via auto block margins, NOT translateY — the spin animation owns `transform`, and a
+	// translate here would fight it (the icon visibly bobbed instead of spinning).
+	.gl-graph__changes-header-spinner {
+		--code-icon-size: 1.3rem;
+		position: absolute;
+		inset-block: 0;
+		inset-inline-end: 0.6rem;
+		block-size: 1.3rem;
+		margin-block: auto;
+		pointer-events: none;
+		color: hsl(var(--muted-foreground));
+	}
+
+	// Dormant Changes column opt-in overlay — covers ONLY the rows area (top = header height 2.4rem) so the
+	// header stays interactive. `left`/`width` are set inline from the column's solved rect (see
+	// renderChangesOptInOverlay). The whole surface is the Show-Changes affordance; the Hide link intercepts.
+	.gl-graph__changes-optin {
+		position: absolute;
+		top: 2.4rem;
+		bottom: 0;
+		// The inline `width` is the column's exact solved px — keep padding/border inside it.
+		box-sizing: border-box;
+		z-index: var(--gl-z-raised);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.8rem;
+		padding: 1.2rem 1.4rem;
+		overflow: hidden;
+		text-align: center;
+		cursor: pointer;
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+		border: 1px solid color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
+
+		&:hover {
+			border-color: var(--vscode-focusBorder);
+		}
+	}
+	.gl-graph__changes-optin-button {
+		height: 2.4rem;
+		padding: 0 1.2rem;
+		// Buttons don't inherit font — without these they render in the UA default (larger, wrong family).
+		font-family: inherit;
+		font-size: 1.2rem;
+		font-weight: 600;
+		white-space: nowrap;
+		color: var(--vscode-button-foreground);
+		background: var(--vscode-button-background);
+		border: none;
+		border-radius: 0.3rem;
+		cursor: pointer;
+
+		// Expand the button's hit area to the whole overlay (its nearest positioned ancestor) — hover/click
+		// anywhere on the dormant surface IS the button, so its gl-tooltip triggers + stays open while the
+		// tooltip itself anchors to the button's own rect (pseudo overflow doesn't grow it).
+		&::before {
+			content: '';
+			position: absolute;
+			inset: 0;
+		}
+
+		&:hover {
+			background: var(--vscode-button-hoverBackground);
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-hide {
+		// Positioned so it paints above the Show button's positioned full-surface `::before` and stays clickable.
+		position: relative;
+		padding: 0;
+		font-family: inherit;
+		font-size: 1rem;
+		color: hsl(var(--muted-foreground));
+		text-underline-offset: 0.2rem;
+		background: transparent;
+		border: none;
+		cursor: pointer;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			text-decoration: underline;
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: 0.2rem;
+		}
+	}
+	.gl-graph__changes-optin-help {
+		max-width: 18rem;
+		font-size: 1.1rem;
+		line-height: 1.45;
+		color: hsl(var(--muted-foreground));
+		// Let hover/clicks over the text fall through to the Show button's full-surface hit area.
+		pointer-events: none;
+	}
+	.gl-graph__changes-optin-sub {
+		max-width: 18rem;
+		font-size: 1rem;
+		color: var(--color-graph-text-disabled);
+		pointer-events: none;
+	}
+	// The narrow opt-in button's tooltip — the overlay's help stack (title/body/sub) reflowed into the tooltip.
+	.gl-graph__changes-optin-tooltip {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		max-width: 22rem;
+		white-space: normal;
+		text-align: center;
+	}
+	.gl-graph__changes-optin-tooltip-title {
+		font-weight: 600;
+	}
+	.gl-graph__changes-optin-tooltip-sub {
+		color: var(--color-graph-text-disabled);
+	}
+	// Matching faint tint on the dormant Changes header cell so header + overlay read as one dormant column.
+	.gl-graph__header-cell--changes-dormant {
+		background-color: color-mix(in srgb, var(--vscode-focusBorder) 8%, transparent);
+	}
+
+	// Changes mode-picker: a horizontal strip of 4 glyph buttons in a `gl-popover` menu. gl-popover owns the
+	// surface, positioning (flip/shift) + dismiss; this tightens the body padding and lays the glyphs out.
+	// gl-popover is Floating-UI `position: fixed` (NOT the native top layer) — the popup needs the popover
+	// z tier or graph chrome (sticky-timeline pill etc.) paints over it.
+	.gl-graph__changes-mode-popover::part(base__popup) {
+		z-index: var(--gl-z-popover);
+	}
+	.gl-graph__changes-mode-popover::part(body) {
+		padding: 0.4rem;
+	}
+	.gl-graph__changes-mode-strip {
+		display: flex;
+		gap: 0.3rem;
+	}
+
+	// Compact chevron-only picker entry (filter + narrow Changes column) — keeps the mode picker reachable.
+	.gl-graph__changes-mode-picker-button {
+		display: inline-flex;
+		flex: none;
+		align-items: center;
+		justify-content: center;
+		width: 1.9rem;
+		height: 1.9rem;
+		padding: 0;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		background: transparent;
+		border: none;
+		border-radius: 0.4rem;
+		--code-icon-size: 1.2rem;
+
+		&:hover {
+			color: hsl(var(--foreground));
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid var(--vscode-focusBorder);
+			outline-offset: -1px;
+		}
+	}
+
+	// A glyph button: fixed 4rem × 2.6rem, the current mode brand-tinted + brand-bordered.
+	.gl-graph__changes-mode-glyph {
+		display: inline-flex;
+		flex-shrink: 0;
+		align-items: center;
+		justify-content: center;
+		width: 4rem;
+		height: 2.6rem;
+		padding: 0;
+		border: 1px solid transparent;
+		border-radius: 0.5rem;
+		background: transparent;
+		color: hsl(var(--foreground));
+		cursor: pointer;
+
+		&:hover {
+			background: var(--vscode-toolbar-hoverBackground, hsl(var(--muted) / 0.5));
+		}
+		&:focus-visible {
+			outline: 1px solid hsl(var(--brand));
+			outline-offset: 1px;
+		}
+		&.is-current {
+			background: hsl(var(--brand) / 0.16);
+			border-color: hsl(var(--brand));
+		}
+
+		@media (prefers-reduced-motion: no-preference) {
+			transition:
+				background-color 120ms ease-out,
+				border-color 120ms ease-out;
+		}
+	}
+
+	// numbers glyph: a stylized `+N −N` in the add/delete colors (the numbers mode degrades to a mnemonic
+	// at glyph scale — actual counts are illegible this small).
+	.gl-graph__changes-mode-glyph-numbers {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		font-family: var(--vscode-editor-font-family, monospace);
+		font-size: 0.85rem;
+		font-weight: 650;
+		font-variant-numeric: tabular-nums;
+	}
+	.gl-graph__changes-mode-glyph-added {
+		color: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-deleted {
+		color: var(--color-graph-stats-deleted);
+	}
+
+	// squares glyph: five 4px cells (4 added / 1 deleted) — a fixed representative ratio.
+	.gl-graph__changes-mode-glyph-squares {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+	}
+	.gl-graph__changes-mode-glyph-square {
+		width: 0.4rem;
+		height: 0.4rem;
+		border-radius: 0.1rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-square--added {
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-square--deleted {
+		background: var(--color-graph-stats-deleted);
+	}
+
+	// bar + bipolar glyphs share a 22px × 7px track. bar: left-aligned green+red fill. bipolar: a center
+	// axis with green growing right / red growing left. Fixed representative widths (glyph, not data).
+	.gl-graph__changes-mode-glyph-track {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		width: 2.2rem;
+		height: 0.7rem;
+		overflow: hidden;
+		border-radius: 0.2rem;
+		background: var(--color-graph-stats-track);
+	}
+	.gl-graph__changes-mode-glyph-bar-added {
+		height: 100%;
+		width: 0.7rem;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bar-deleted {
+		height: 100%;
+		width: 0.2rem;
+		background: var(--color-graph-stats-deleted);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-added {
+		position: absolute;
+		top: 0;
+		left: 50%;
+		width: 0.6rem;
+		height: 100%;
+		background: var(--color-graph-stats-added);
+	}
+	.gl-graph__changes-mode-glyph-bipolar-deleted {
+		position: absolute;
+		top: 0;
+		right: 50%;
+		width: 0.3rem;
+		height: 100%;
+		background: var(--color-graph-stats-deleted);
 	}
 
 	// List style: 2-line stacked rows (line 1 = refs + message; line 2 = author · date · sha).
@@ -2515,6 +3019,10 @@ gl-lit-graph {
 	--color-graph-stats-added: var(--vscode-gitlens-graphChangesColumnAddedColor);
 	--color-graph-stats-deleted: var(--vscode-gitlens-graphChangesColumnDeletedColor);
 	--color-graph-stats-files: var(--vscode-gitDecoration-modifiedResourceForeground);
+	// Neutral "empty track" fill behind the Changes bars / bipolar axis / unfilled squares. Derived from
+	// the editor foreground (which flips with the theme) at low alpha, matching the `--color-graph-text-*`
+	// neutrals above so it reads as a subtle recess in both light + dark themes.
+	--color-graph-stats-track: color-mix(in srgb, transparent 82%, var(--color-graph-text-selected));
 
 	--color-graph-minimap-line0: var(--vscode-progressBar-background);
 	--color-graph-minimap-focusLine: var(--vscode-foreground);

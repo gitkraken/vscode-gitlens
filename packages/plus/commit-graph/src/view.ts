@@ -166,7 +166,7 @@ export function dashForKind(kind: string): string | undefined {
 
 // Multi-zone column layout
 
-export type ZoneId = 'ref' | 'message' | 'author' | 'datetime' | 'sha';
+export type ZoneId = 'ref' | 'message' | 'author' | 'datetime' | 'changes' | 'sha';
 
 export interface ZoneSpec {
 	id: ZoneId;
@@ -177,6 +177,9 @@ export interface ZoneSpec {
 	minWidth: number;
 	/** Optional soft ceiling. Honored for every zone EXCEPT the fill zone (which absorbs slack). */
 	maxWidth?: number;
+	/** Per-column display mode (e.g. the Changes column's numbers/squares/bar/bipolar variants).
+	 *  Free-form string at this layer — consumers narrow it to their own mode union. */
+	mode?: string;
 	/** Runtime solved width (set by `solveZoneLayout`) — the actual rendered px. Falls back to `width`
 	 * before the first solve. NOT persisted; only `width` (the preferred) round-trips to settings. */
 	currentWidth?: number;
@@ -188,11 +191,13 @@ export interface ZoneSpec {
 
 // minWidth floors: ref/author 32 and message 50 (flex) match the legacy gitkraken-components zones;
 // date (44) is tighter than the legacy 50 since it renders in ultra-compact form ("2d") when narrow;
+// changes (50) matches the legacy gitkraken-components CHANGES_ZONE_MIN_WIDTH;
 // sha (44) keeps ~3 monospace chars + an ellipsis at the floor.
 export const defaultZones: readonly ZoneSpec[] = [
 	{ id: 'ref', label: 'Branches / Tags', width: 180, minWidth: 32 },
 	{ id: 'message', label: 'Message', width: 0, minWidth: 50, flex: true },
 	{ id: 'author', label: 'Author', width: 140, minWidth: 32 },
+	{ id: 'changes', label: 'Changes', width: 200, minWidth: 50, mode: 'bar' },
 	{ id: 'datetime', label: 'Date', width: 80, minWidth: 44 },
 	{ id: 'sha', label: 'SHA', width: 76, minWidth: 44 },
 ];
@@ -201,7 +206,7 @@ export const defaultZones: readonly ZoneSpec[] = [
  * Merge a consumer-supplied zone overlay onto `defaultZones`. The overlay's order wins —
  * any default zones not mentioned in the overlay are appended at the end (so a future
  * version of commit-graph that adds a zone won't be silently dropped by an older settings blob).
- * Overlay entries inherit `label` / `minWidth` / `flex` defaults when absent.
+ * Overlay entries inherit `label` / `minWidth` / `flex` / `mode` defaults when absent.
  */
 export function mergeZones(
 	defaults: readonly ZoneSpec[],
@@ -223,6 +228,7 @@ export function mergeZones(
 			label: o.label ?? d.label,
 			minWidth: o.minWidth ?? d.minWidth,
 			flex: o.flex ?? d.flex,
+			mode: o.mode ?? d.mode,
 		});
 	}
 	for (const d of defaults) {
@@ -238,12 +244,12 @@ export function mergeZones(
 // drift, no horizontal scrollbar. The elastic "fill" zone absorbs slack; everything else holds its
 // solved width. See `solveZoneLayout` / `dragResizeZone`.
 
-const fillZoneFallbackOrder: readonly ZoneId[] = ['message', 'author', 'datetime', 'sha'];
+const fillZoneFallbackOrder: readonly ZoneId[] = ['message', 'author', 'datetime', 'changes', 'sha'];
 
 /**
  * Index of the elastic fill zone. An explicitly configured `flex` zone wins; otherwise the first
- * available content zone in Message → Author → Date → SHA order stretches. Refs is only a last-resort
- * fallback when every content zone is absent.
+ * available content zone in Message → Author → Date → Changes → SHA order stretches. Refs is only a
+ * last-resort fallback when every content zone is absent.
  */
 function fillZoneIndex(zones: readonly ZoneSpec[]): number {
 	const i = zones.findIndex(z => z.flex);

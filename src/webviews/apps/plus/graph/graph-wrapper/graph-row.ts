@@ -3,12 +3,22 @@ import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-grap
 import type { GraphCommit, ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
 import type { LaneWindow } from '@gitkraken/commit-graph/laneClamp.js';
 import { graphEdgeFadePx, rowShiftedGutterWidth } from '@gitkraken/commit-graph/laneClamp.js';
+import type { ChangesColumnMode, RowStats } from '@gitkraken/commit-graph/stats.js';
+import {
+	changesModeOrDefault,
+	changesTrackWidth,
+	computeChangesBarWidths,
+	computeChangesBipolarWidths,
+	computeChangesSquares,
+	formatChangesFiles,
+} from '@gitkraken/commit-graph/stats.js';
 import type { GraphPlacement, RefsPlacement, ResolvedGraphStyle, ZoneSpec } from '@gitkraken/commit-graph/view.js';
 import { relativeTime, rowGutterWidth, xForColumn } from '@gitkraken/commit-graph/view.js';
 import type { TemplateResult } from 'lit';
 import { html, nothing, svg } from 'lit';
 import { splitCommitMessage } from '@gitlens/git/utils/commit.utils.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import { agentSuffixIconFor } from '../../../shared/agentUtils.js';
 import type { StyleInfo } from '../../../shared/components/csp-style-map.directive.js';
 import { cspStyleMap } from '../../../shared/components/csp-style-map.directive.js';
@@ -63,6 +73,9 @@ export interface RowRenderContext {
 	/** The revealed lane offset (px) backing `groupedShifted` — 0 when unshifted. */
 	laneOffset?: number;
 	columnWidth: number;
+	/** Shared ref to the host's per-sha diffstat map (files/additions/deletions) driving the Changes
+	 *  column; an absent key means that row's stats are still pending (the cell renders blank). */
+	rowsStats?: Readonly<Record<string, RowStats>>;
 	/** Narrowest graph-column width: render nodes as a single dot rail (no lane spread / connectors). */
 	singleColumn?: boolean;
 	/** Lane build window (deep scrolled graphs) — edge art wholly outside it is skipped in the gutter
@@ -391,6 +404,118 @@ function renderMessageContent(message: string): TemplateResult {
 	return result;
 }
 
+// The Changes cell's tooltip + aria text: "N files changed, N lines added, N lines deleted", each part
+// omitted when zero. `pluralize` thousands-separates ≥4-digit counts. Cached by the stable stats object
+// (both the memoized cell and the per-row aria path read it, the latter every render for every row).
+const changesAriaTextCache = new WeakMap<RowStats, string>();
+function changesAriaText(stats: RowStats): string {
+	let text = changesAriaTextCache.get(stats);
+	if (text != null) return text;
+
+	const parts: string[] = [];
+	if (stats.files) {
+		parts.push(`${pluralize('file', stats.files)} changed`);
+	}
+	if (stats.additions) {
+		parts.push(`${pluralize('line', stats.additions)} added`);
+	}
+	if (stats.deletions) {
+		parts.push(`${pluralize('line', stats.deletions)} deleted`);
+	}
+	text = parts.join(', ');
+	changesAriaTextCache.set(stats, text);
+	return text;
+}
+
+// The Changes column's per-row cell: files count + hairline + the mode's magnitude viz. Pure fn of
+// (stats, mode); plain spans only (no per-row custom elements); absent stats = pending → `nothing`.
+// Memoized by (stats, mode): the SAME TemplateResult on a hit lets Lit skip the cell's subtree.
+const changesCellCache = new WeakMap<RowStats, Partial<Record<ChangesColumnMode, TemplateResult>>>();
+function renderChangesCell(
+	zone: ZoneSpec,
+	row: ProcessedGraphRow,
+	ctx: RowRenderContext,
+): TemplateResult | typeof nothing {
+	if (ctx.skeleton) return nothing;
+
+	const stats = ctx.rowsStats?.[row.sha];
+	if (stats == null) return nothing;
+
+	const mode = changesModeOrDefault(zone.mode);
+	let byMode = changesCellCache.get(stats);
+	const cached = byMode?.[mode];
+	if (cached != null) return cached;
+
+	// No data-tooltip here: a tooltip-bearing element suppresses the row hover card (tooltip exclusivity),
+	// and the stats already ride the row's aria-label + hover surface.
+	const result = html`<span class="gl-graph__changes"
+		><span class="gl-graph__changes-files"
+			><span class="codicon codicon-files gl-graph__changes-files-icon" aria-hidden="true"></span
+			><span class="gl-graph__changes-files-count">${formatChangesFiles(stats.files)}</span></span
+		>${renderChangesViz(mode, stats)}</span
+	>`;
+	byMode ??= {};
+	byMode[mode] = result;
+	changesCellCache.set(stats, byMode);
+	return result;
+}
+
+// The mode-specific magnitude visualization inside the Changes cell. Segment widths flow through
+// `cspStyleMap` (the graph webview's CSP forbids inline style attributes); colors come from graph.scss.
+function renderChangesViz(mode: ChangesColumnMode, stats: RowStats): TemplateResult {
+	const { additions, deletions } = stats;
+	switch (mode) {
+		case 'numbers':
+			// U+2212 MINUS SIGN (not an ASCII hyphen) so the deletions read as a true minus at this weight.
+			return html`<span class="gl-graph__changes-numbers"
+				><span class="gl-graph__changes-added">+${additions}</span
+				><span class="gl-graph__changes-deleted">−${deletions}</span></span
+			>`;
+		case 'squares': {
+			const squares = computeChangesSquares(additions, deletions);
+			return html`<span class="gl-graph__changes-squares"
+				><span class="gl-graph__changes-churn">${additions + deletions}</span
+				><span class="gl-graph__changes-squares-cells"
+					>${squares.map(
+						fill => html`<span class="gl-graph__changes-square gl-graph__changes-square--${fill}"></span>`,
+					)}</span
+				></span
+			>`;
+		}
+		case 'bipolar': {
+			// Widths as PERCENTAGES of the (CSS-sized, responsive) track — the math stays px-vs-78 so the
+			// magnitude scale is unchanged at the default width, and the cached template stays zone-independent.
+			const { addedWidth, deletedWidth } = computeChangesBipolarWidths(additions, deletions);
+			const half = changesTrackWidth / 2;
+			return html`<span class="gl-graph__changes-bipolar"
+				><span class="gl-graph__changes-bipolar-axis" aria-hidden="true"></span
+				><span
+					class="gl-graph__changes-bipolar-deleted"
+					style=${cspStyleMap({ width: `${((deletedWidth / half) * 50).toFixed(2)}%` })}
+				></span
+				><span
+					class="gl-graph__changes-bipolar-added"
+					style=${cspStyleMap({ width: `${((addedWidth / half) * 50).toFixed(2)}%` })}
+				></span
+			></span>`;
+		}
+		default: {
+			// 'bar' — the churn-magnitude fill split into added/deleted segments, as % of the responsive track.
+			const { addedWidth, deletedWidth } = computeChangesBarWidths(additions, deletions);
+			return html`<span class="gl-graph__changes-bar"
+				><span
+					class="gl-graph__changes-bar-added"
+					style=${cspStyleMap({ width: `${((addedWidth / changesTrackWidth) * 100).toFixed(2)}%` })}
+				></span
+				><span
+					class="gl-graph__changes-bar-deleted"
+					style=${cspStyleMap({ width: `${((deletedWidth / changesTrackWidth) * 100).toFixed(2)}%` })}
+				></span
+			></span>`;
+		}
+	}
+}
+
 /**
  * Inner content of a expanded zone cell (no leading gutter/refs — those go on the first zone).
  * Plain function (not a per-row closure factory) so it allocates nothing extra per visible row.
@@ -445,8 +570,13 @@ function renderZoneContent(
 	ctx: RowRenderContext,
 	relativeDate: string | undefined,
 ): TemplateResult | typeof nothing {
-	// Workdir/WIP rows carry no author/date/sha — leave those cells empty so columns align.
-	if (row.kind === 'workdir' && (zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha')) return nothing;
+	// Workdir/WIP rows carry no author/date/sha/changes — leave those cells empty so columns align.
+	if (
+		row.kind === 'workdir' &&
+		(zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha' || zone.id === 'changes')
+	) {
+		return nothing;
+	}
 
 	switch (zone.id) {
 		case 'ref': {
@@ -469,6 +599,8 @@ function renderZoneContent(
 			return html`<span class="gl-graph__date">${relativeDate ?? ''}</span>`;
 		case 'sha':
 			return html`<span class="gl-graph__sha">${ctx.commit.shortHash}</span>`;
+		case 'changes':
+			return renderChangesCell(zone, row, ctx);
 		default:
 			return nothing;
 	}
@@ -720,6 +852,13 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	// Format the relative date ONCE per row, then reuse for the date cell + both aria-label builds (one
 	// `new Date()` + Intl format per visible row instead of two producing the same string).
 	const relativeDate = ctx.commit.date ? (ctx.formatDate ?? relativeTime)(ctx.commit.date) : undefined;
+	// A11y: append the changes summary to the row label, but only when the Changes column is actually
+	// shown — announce only what's displayed. Skeleton rows keep the bare message label.
+	const changesStats = ctx.skeleton ? undefined : ctx.rowsStats?.[row.sha];
+	const changesText =
+		changesStats != null && ctx.zones.some(z => z.id === 'changes') ? changesAriaText(changesStats) : '';
+	// Zero-churn rows produce empty text — no dangling ", " on the label.
+	const changesAriaSuffix = changesText ? `, ${changesText}` : '';
 
 	const nodeStyle: NodeStyle = {
 		mode: ctx.nodeMode,
@@ -1001,8 +1140,8 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 		aria-label=${ctx.skeleton
 			? ctx.commit.message
 			: ctx.isAnchor && ctx.anchorKind != null
-				? `${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}. ${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}`
-				: buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}
+				? `${anchorTitle(ctx.anchorKind, ctx.anchorAlsoFork)}. ${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`
+				: `${buildAriaLabel(ctx.commit, row.kind, ctx.adornmentLabel, relativeDate)}${changesAriaSuffix}`}
 		data-sha=${row.sha}
 		data-index=${ctx.index}
 		data-focused=${ctx.isFocused || nothing}

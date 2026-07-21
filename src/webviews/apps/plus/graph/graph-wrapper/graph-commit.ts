@@ -320,11 +320,12 @@ export function columnsToZones(columns: GraphColumnsSettings | undefined): reado
 	if (columns == null || Object.keys(columns).length === 0) return undefined;
 
 	// Spread the matching defaultZones entry so the human label, minWidth, and flex flag are
-	// preserved (the persisted settings only carry width / hidden / order). Zeroing minWidth
+	// preserved (the persisted settings only carry width / hidden / mode / order). Zeroing minWidth
 	// here previously let fixed columns shrink to nothing in narrow panes.
-	// Persisted column keys ARE the engine's zone ids (both use `ref`/`author`/`datetime`/`message`/`sha`),
-	// so they map across directly — no name translation. Unknown keys (e.g. a legacy `graph`/`changes`
-	// column) have no matching default and are skipped.
+	// Persisted column keys ARE the engine's zone ids (both use `ref`/`author`/`datetime`/`message`/
+	// `changes`/`sha`), so they map across directly — no name translation. `graph` is the only
+	// remaining non-zone key (the gutter, not a content column) and has no matching default, so it's
+	// skipped here.
 	const defaultsById = new Map<ZoneId, ZoneSpec>(defaultZones.map(z => [z.id, z]));
 	const out: ZoneSpec[] = [];
 	for (const [name, c] of Object.entries(columns)) {
@@ -335,6 +336,7 @@ export function columnsToZones(columns: GraphColumnsSettings | undefined): reado
 			...d,
 			width: typeof c.width === 'number' && c.width > 0 ? c.width : d.width,
 			hidden: c.isHidden === true,
+			mode: c.mode ?? d.mode,
 		});
 	}
 	const colMap = columns as Record<string, { order?: number } | undefined>;
@@ -354,6 +356,7 @@ export function zonesToColumnsConfig(zones: readonly ZoneSpec[]): GraphColumnsCo
 		out[z.id] = {
 			width: z.width,
 			isHidden: z.hidden,
+			mode: z.mode,
 			order: i,
 		};
 	}

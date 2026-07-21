@@ -420,6 +420,10 @@ export interface GraphConfig {
 	};
 	readonly avatars: boolean;
 	readonly branchesVisibility: GraphBranchesVisibility;
+	readonly changesColumn: {
+		readonly enabled: boolean;
+		readonly mode: 'numbers' | 'squares' | 'bar' | 'bipolar';
+	};
 	readonly commitOrdering: 'date' | 'author-date' | 'topo';
 	readonly dateFormat: DateTimeFormat | string | null;
 	readonly dateStyle: DateStyle | null;

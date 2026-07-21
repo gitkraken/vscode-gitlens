@@ -26,6 +26,10 @@
 			"types": "./src/paging.ts",
 			"default": "./src/paging.ts"
 		},
+		"./stats.js": {
+			"types": "./src/stats.ts",
+			"default": "./src/stats.ts"
+		},
 		"./view.js": {
 			"types": "./src/view.ts",
 			"default": "./src/view.ts"

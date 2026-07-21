@@ -32,6 +32,7 @@ import type {
 import {
 	createSecondaryWipSha,
 	createWipSha,
+	EnableChangesColumnCommand,
 	GetRowHoverRequest,
 	getSecondaryWipPath,
 	GetWipStatsRequest,
@@ -44,6 +45,7 @@ import {
 	TrackGraphDetailsReviewModeCommand,
 	TrackGraphDetailsWipShownCommand,
 	TrackGraphScopeChangedCommand,
+	UpdateColumnModeCommand,
 	UpdateGraphConfigurationCommand,
 	UpdateGraphDisplayModeCommand,
 } from '../../../plus/graph/protocol.js';
@@ -2042,8 +2044,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					: nothing}
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
+					@gl-graph-change-column-mode=${this.handleGraphChangeColumnMode}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
+					@gl-graph-enable-changes-column=${this.handleGraphEnableChangesColumn}
 					@gl-graph-filter-column=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
@@ -3137,6 +3141,17 @@ export class GraphApp extends SignalWatcher(LitElement) {
 					};
 		const next = { ...map, [sha]: updated };
 		this.graphState.wipMetadataBySha = next;
+	}
+
+	// The Changes header mode picker's pick — a dedicated host write (not the columns persist, which drops
+	// echoed `mode`), keeping `setColumnMode` host-authoritative. Mirrors `gl-graph-filter-column`'s route.
+	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-change-column-mode'>) {
+		this._ipc.sendCommand(UpdateColumnModeCommand, { name: e.detail.name, mode: e.detail.mode });
+	}
+
+	// The dormant Changes column's one-time opt-in — a dedicated consent write (`graph.changesColumn.enabled`).
+	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enable-changes-column'>) {
+		this._ipc.sendCommand(EnableChangesColumnCommand, undefined);
 	}
 
 	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filter-column'>) {

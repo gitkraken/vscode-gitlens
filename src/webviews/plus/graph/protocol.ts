@@ -648,6 +648,7 @@ export interface GraphComponentConfig {
 	autoFetchIntervalSeconds?: number;
 	autoFetchMode?: GraphAutoFetchMode;
 	avatars?: boolean;
+	changesColumnEnabled?: boolean;
 	dateFormat: DateTimeFormat | string;
 	dateStyle: DateStyle;
 	detailsLocation?: 'auto' | 'right' | 'bottom';
@@ -871,6 +872,17 @@ export interface UpdateColumnsParams {
 	revision?: number;
 }
 export const UpdateColumnsCommand = new IpcCommand<UpdateColumnsParams>(scope, 'columns/update');
+
+export interface UpdateColumnModeParams {
+	name: GraphColumnName;
+	mode: string | undefined;
+}
+// Dedicated column-mode write: kept separate from `UpdateColumnsCommand` (which ignores echoed `mode` —
+// it's host-authoritative) so the Changes mode picker's pick reaches the host's `setColumnMode` directly.
+export const UpdateColumnModeCommand = new IpcCommand<UpdateColumnModeParams>(scope, 'columns/mode/update');
+
+// One-time consent write for the Changes column's stats computation (`graph.changesColumn.enabled`).
+export const EnableChangesColumnCommand = new IpcCommand(scope, 'columns/changes/enable');
 
 export interface UpdateRefsVisibilityParams {
 	refs: GraphExcludedRef[];
