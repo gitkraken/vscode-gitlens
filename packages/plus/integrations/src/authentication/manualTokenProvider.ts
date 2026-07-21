@@ -37,6 +37,7 @@ export interface ManualTokenAuthProviderOptions {
 	readonly scopes?: readonly string[];
 	readonly domain?: string;
 	readonly cloud?: boolean;
+	readonly appKey?: string;
 }
 
 export function createManualTokenAuthProvider(
@@ -51,6 +52,7 @@ export function createManualTokenAuthProvider(
 		cloud: options.cloud ?? true,
 		type: undefined,
 		domain: options.domain ?? '',
+		appKey: options.appKey,
 	};
 
 	return {

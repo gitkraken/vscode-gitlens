@@ -102,3 +102,81 @@ suite('page-number pagination (#5435)', () => {
 		manager.dispose();
 	});
 });
+
+/**
+ * Covers SDK collection metadata preservation at the `getPagedResult` boundary (#5438): metadata survives
+ * normalization, `partial`/`unknown` completeness sets `paging.truncated` independently from `paging.more`,
+ * a real cursor stays the only continuation, and absent metadata keeps the pre-metadata behavior.
+ */
+suite('collection metadata normalization (#5438)', () => {
+	async function readForRepos(
+		reposFn: CapturingProvider['getPullRequestsForReposFn'],
+	): Promise<{ paging?: Record<string, unknown>; metadata?: unknown } | undefined> {
+		const runtime = createFakeRuntime();
+		await seedGitHubConnection(runtime, 'sec-tok', 'token-secondary');
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		const api = await (
+			gh as unknown as { getProvidersApi(): Promise<{ providers: Record<string, unknown> }> }
+		).getProvidersApi();
+		(api.providers.github as CapturingProvider).getPullRequestsForReposFn = reposFn;
+
+		const result = await (
+			gh as unknown as {
+				getMyPullRequestsForRepos: (
+					repos: { namespace: string; name: string }[],
+					options: undefined,
+					connectionId: string,
+				) => Promise<{ paging?: Record<string, unknown>; metadata?: unknown } | undefined>;
+			}
+		).getMyPullRequestsForRepos([{ namespace: 'octo', name: 'repo' }], undefined, 'sec-tok');
+
+		manager.dispose();
+		return result;
+	}
+
+	test('preserves complete metadata without setting truncation', async () => {
+		const result = await readForRepos(() =>
+			Promise.resolve({ data: [], pageInfo: { hasNextPage: false }, metadata: { completeness: 'complete' } }),
+		);
+
+		assert.deepEqual(result?.metadata, { completeness: 'complete' });
+		assert.equal(result?.paging?.truncated, undefined, 'complete does not set truncation');
+	});
+
+	test('sets truncation for partial and unknown completeness', async () => {
+		const partial = await readForRepos(() =>
+			Promise.resolve({ data: [], pageInfo: { hasNextPage: false }, metadata: { completeness: 'partial' } }),
+		);
+		assert.equal(partial?.paging?.truncated, true, 'partial sets truncation');
+
+		const unknown = await readForRepos(() =>
+			Promise.resolve({ data: [], pageInfo: { hasNextPage: false }, metadata: { completeness: 'unknown' } }),
+		);
+		assert.equal(unknown?.paging?.truncated, true, 'unknown sets truncation');
+	});
+
+	test('keeps a real cursor as the only continuation even when metadata is partial', async () => {
+		const result = await readForRepos(() =>
+			Promise.resolve({
+				data: [],
+				pageInfo: { hasNextPage: true, endCursor: 'abc' },
+				metadata: { completeness: 'partial' },
+			}),
+		);
+
+		// A failed sibling scope (`partial`) coexists with a real next page: `more`/`cursor` come from pageInfo,
+		// `truncated` from metadata. Completeness never fabricates or suppresses the cursor.
+		assert.equal(result?.paging?.more, true);
+		assert.equal(result?.paging?.cursor, JSON.stringify({ value: 'abc', type: 'cursor' }));
+		assert.equal(result?.paging?.truncated, true);
+	});
+
+	test('leaves truncation unset and metadata absent when the provider reports none', async () => {
+		const result = await readForRepos(() => Promise.resolve({ data: [], pageInfo: { hasNextPage: false } }));
+
+		assert.equal(result?.metadata, undefined, 'no metadata for metadata-free providers');
+		assert.equal(result?.paging?.truncated, undefined, 'no truncation without metadata');
+	});
+});

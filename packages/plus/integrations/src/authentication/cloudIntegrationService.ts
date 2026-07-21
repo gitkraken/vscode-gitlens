@@ -61,6 +61,7 @@ function toSession(data: GKProviderToken): CloudIntegrationAuthenticationSession
 		expiresIn: data.expiresIn,
 		scopes: data.scopes,
 		id: data.tokenId,
+		appKey: data.appKey,
 	};
 }
 

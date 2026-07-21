@@ -9,6 +9,7 @@ import type {
 	Bitbucket,
 	BitbucketServer,
 	BitbucketWorkspaceStub,
+	CollectionMetadata,
 	CursorPageInput,
 	EnterpriseOptions,
 	GetRepoInput,
@@ -102,6 +103,33 @@ export type ProviderGitHubOrganization = Organization;
 export type ProviderGitLabGroup = GitLabGroup;
 export type ProviderHierarchyResult<T> = PagedResult<T> & {
 	readonly truncated?: boolean;
+	/**
+	 * SDK collection metadata merged across the drained pages. Independent from the local `truncated` backstop:
+	 * a page-drain backstop stays visible even if every fetched page reported `complete`, and SDK
+	 * incompleteness is preserved even when the drain finished within its page budget.
+	 */
+	readonly metadata?: CollectionMetadata;
+};
+
+/**
+ * A normalized {@link PagedResult} that additionally carries the SDK's collection {@link CollectionMetadata}
+ * (completeness + per-scope failures). Named to avoid colliding with the public ProviderBackend
+ * `ProviderPagedResult` in `results.ts`: this is the integration-local carrier between the `ProvidersApi`
+ * boundary and the code that maps metadata into warnings/truncation. `metadata` is optional so providers and
+ * test doubles that predate the SDK metadata contract keep behaving exactly as before.
+ */
+export type ProviderApiPagedResult<T> = PagedResult<T> & {
+	readonly metadata?: CollectionMetadata;
+};
+
+/**
+ * A non-paged collection result carrying SDK {@link CollectionMetadata}. Used for fan-out reads that return a
+ * flat set of values with completeness/failure metadata but no provider-native pagination (e.g. Jira project
+ * discovery across resources, Trello board search).
+ */
+export type ProviderApiCollectionResult<T> = {
+	readonly values: NonNullable<T>[];
+	readonly metadata?: CollectionMetadata;
 };
 
 /**
@@ -274,7 +302,10 @@ export type GetRepoOfProjectFn = (
 export type GetPullRequestsForReposFn = (
 	input: (GetPullRequestsForReposInput | GetPullRequestsForRepoIdsInput) & PagingInput,
 	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo }>;
+	// `metadata` carries SDK collection completeness/failures for multi-repo fan-outs (Bitbucket, Azure DevOps,
+	// Bitbucket Server); `pageInfo` is present for the cursor-based aggregate (GitHub). Both are optional so
+	// each provider only sets what it actually reports.
+) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo; metadata?: CollectionMetadata }>;
 
 export type GetPullRequestsForRepoFn = (
 	input: GetPullRequestsForRepoInput & PagingInput,
@@ -289,7 +320,22 @@ export type GetPullRequestsForUserFn = (
 export type GetPullRequestsForAzureProjectsFn = (
 	input: { projects: { namespace: string; project: string }[]; authorLogin?: string; assigneeLogins?: string[] },
 	options?: EnterpriseOptions,
-) => Promise<{ data: ProviderPullRequest[] }>;
+	// Aggregate multi-project fan-out: no `pageInfo` (call getPullRequestsForAzureProject for that), but SDK
+	// collection metadata reports per-project completeness/failures.
+) => Promise<{ data: ProviderPullRequest[]; metadata?: CollectionMetadata }>;
+
+/** Single Azure project PR read, paginated by number (unlike the aggregate {@link GetPullRequestsForAzureProjectsFn}). */
+export type GetPullRequestsForAzureProjectFn = (
+	input: {
+		namespace: string;
+		project: string;
+		authorLogin?: string;
+		assigneeLogins?: string[];
+		reviewerId?: string;
+		states?: GitPullRequestState[];
+	} & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderPullRequest[]; pageInfo: { hasNextPage: boolean; nextPage: number | null } }>;
 
 export type MergePullRequestFn =
 	| ((
@@ -400,10 +446,24 @@ export type GetCurrentUserForResourceFn = (
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
 export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
+export type GetLinearIssuesFn = (
+	input: { teams?: string[]; projects?: string[]; labels?: string[] } & PagingInput,
+	options?: EnterpriseOptions,
+) => Promise<{ data: ProviderIssue[]; pageInfo?: PageInfo }>;
+/**
+ * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
+ * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
+ * importing `@linear/sdk` (which is bundled in the SDK dist and not a resolvable top-level dependency).
+ */
+export type GetLinearCurrentUserFn = (
+	options?: EnterpriseOptions,
+) => Promise<{ data: { id: string; name?: string | null; email?: string | null; displayName?: string | null } }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
-) => Promise<{ data: JiraProject[] }>;
+	// Fan-out across resources: preserves successful resources' projects and reports per-resource failures in
+	// SDK collection metadata instead of throwing when a single resource fails.
+) => Promise<{ data: JiraProject[]; metadata?: CollectionMetadata }>;
 export type GetAzureResourcesForUserFn = (
 	input: { userId: string },
 	options?: EnterpriseOptions,
@@ -413,9 +473,9 @@ export type GetAzureProjectsForResourceFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: AzureProject[]; pageInfo?: PageInfo }>;
 export type GetBitbucketResourcesForCurrentUserFn = (
-	input: Record<string, never>,
+	input: { page?: number },
 	options?: EnterpriseOptions,
-) => Promise<{ data: BitbucketWorkspaceStub[] }>;
+) => Promise<{ data: BitbucketWorkspaceStub[]; pageInfo?: PageInfo }>;
 export type GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn = (
 	input: {
 		userId: string;
@@ -446,6 +506,15 @@ export type GetIssuesForResourceForCurrentUserFn = (
 	options?: EnterpriseOptions,
 ) => Promise<{ data: ProviderIssue[] }>;
 
+// Trello reads (issues-capable provider). The Trello client is keyed by an `appKey` (the Trello app key from
+// the cloud token exchange) alongside the OAuth token, so these mirror the client method shapes directly.
+export type GetTrelloCurrentUserFn = Trello['getCurrentUser'];
+export type GetTrelloBoardsForCurrentUserFn = Trello['getBoardsForCurrentUser'];
+export type GetTrelloListsForBoardFn = Trello['getListsForTrelloBoard'];
+export type GetTrelloAccountForIdFn = Trello['getAccountForId'];
+export type GetTrelloIssuesForBoardFn = Trello['getIssuesForBoard'];
+export type GetTrelloLabelsForBoardFn = Trello['getLabelsForBoard'];
+
 export interface ProviderInfo extends ProviderMetadata {
 	provider: GitHub | GitLab | Bitbucket | BitbucketServer | Jira | Linear | Trello | AzureDevOps;
 	getRepoFn?: GetRepoFn;
@@ -454,6 +523,7 @@ export interface ProviderInfo extends ProviderMetadata {
 	getPullRequestsForRepoFn?: GetPullRequestsForRepoFn;
 	getPullRequestsForUserFn?: GetPullRequestsForUserFn;
 	getPullRequestsForAzureProjectsFn?: GetPullRequestsForAzureProjectsFn;
+	getPullRequestsForAzureProjectFn?: GetPullRequestsForAzureProjectFn;
 	getIssueFn?: GetIssueFn;
 	getIssuesForReposFn?: GetIssuesForReposFn;
 	getIssuesForCurrentUserFn?: GetIssuesForCurrentUserFn;
@@ -465,6 +535,8 @@ export interface ProviderInfo extends ProviderMetadata {
 	getJiraResourcesForCurrentUserFn?: GetJiraResourcesForCurrentUserFn;
 	getLinearOrganizationFn?: GetLinearOrganizationFn;
 	getLinearTeamsForCurrentUserFn?: GetLinearTeamsForCurrentUserFn;
+	getLinearIssuesFn?: GetLinearIssuesFn;
+	getLinearCurrentUserFn?: GetLinearCurrentUserFn;
 	getAzureResourcesForUserFn?: GetAzureResourcesForUserFn;
 	getBitbucketResourcesForCurrentUserFn?: GetBitbucketResourcesForCurrentUserFn;
 	getBitbucketPullRequestsAuthoredByUserForWorkspaceFn?: GetBitbucketPullRequestsAuthoredByUserForWorkspaceFn;
@@ -480,6 +552,12 @@ export interface ProviderInfo extends ProviderMetadata {
 	getReposForWorkspaceFn?: GetReposForWorkspaceFn;
 	getReposForCurrentUserFn?: GetReposForCurrentUserFn;
 	getGroupsForCurrentUserFn?: GetGroupsForCurrentUserFn;
+	getTrelloCurrentUserFn?: GetTrelloCurrentUserFn;
+	getTrelloBoardsForCurrentUserFn?: GetTrelloBoardsForCurrentUserFn;
+	getTrelloListsForBoardFn?: GetTrelloListsForBoardFn;
+	getTrelloAccountForIdFn?: GetTrelloAccountForIdFn;
+	getTrelloIssuesForBoardFn?: GetTrelloIssuesForBoardFn;
+	getTrelloLabelsForBoardFn?: GetTrelloLabelsForBoardFn;
 }
 
 export interface ProviderMetadata {
@@ -682,6 +760,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Linear,
 		scopes: [],
+		// Linear scopes "my issues" client-side by the viewer's assignee id; author/mention aren't supported.
+		supportedIssueFilters: [IssueFilter.Assignee],
 	},
 	[IssuesCloudHostIntegrationId.Trello]: {
 		domain: 'trello.com',
@@ -690,6 +770,8 @@ export const providersMetadata: ProvidersMetadata = {
 		type: 'issues',
 		iconKey: IssuesCloudHostIntegrationId.Trello,
 		scopes: [],
+		// Trello cards are filtered by the assignee (member) only; author/mention have no Trello equivalent.
+		supportedIssueFilters: [IssueFilter.Assignee],
 	},
 };
 
@@ -717,7 +799,10 @@ export function getReasonsForUserIssue(issue: ProviderIssue, userLogin: string):
 
 export function toIssueShape(issue: ProviderIssue, provider: ProviderReference): IssueShape | undefined {
 	// TODO: Add some protections/baselines rather than killing the transformation here
-	if (issue.updatedDate == null || issue.author == null || issue.url == null) return undefined;
+	// `author` is intentionally not required: some providers have no per-item creator (e.g. Trello cards,
+	// which the SDK maps with `author: null`), and dropping every such item would discard the whole board.
+	// Fall back to an empty author instead so these issues still surface.
+	if (issue.updatedDate == null || issue.url == null) return undefined;
 
 	return {
 		type: 'issue',
@@ -732,10 +817,10 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 		closed: issue.closedDate != null,
 		state: issue.closedDate != null ? 'closed' : 'opened',
 		author: {
-			id: issue.author.id ?? '',
-			name: issue.author.name ?? '',
-			avatarUrl: issue.author.avatarUrl ?? undefined,
-			url: issue.author.url ?? undefined,
+			id: issue.author?.id ?? '',
+			name: issue.author?.name ?? '',
+			avatarUrl: issue.author?.avatarUrl ?? undefined,
+			url: issue.author?.url ?? undefined,
 		},
 		assignees:
 			issue.assignees?.map(assignee => ({
@@ -917,8 +1002,15 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 
 /** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
 export function toProviderPullRequestStates(
-	state: PullRequestStateFilter | undefined,
+	state: PullRequestStateFilter | PullRequestStateFilter[] | undefined,
 ): GitPullRequestState[] | undefined {
+	// Accept an array so callers can request a union the single-value filter can't express (e.g. the
+	// closed + merged "done" sweep); each element maps through the single-value logic and the result is deduped.
+	if (Array.isArray(state)) {
+		const states = state.flatMap(s => toProviderPullRequestStates(s) ?? []);
+		return states.length > 0 ? [...new Set(states)] : undefined;
+	}
+
 	switch (state) {
 		case 'open':
 			return [GitPullRequestState.Open];
