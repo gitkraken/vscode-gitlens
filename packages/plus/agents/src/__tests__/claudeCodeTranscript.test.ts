@@ -3,7 +3,11 @@ import { mkdtempSync, rmSync } from 'fs';
 import { appendFile, mkdir, utimes, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { TranscriptTitles } from '../providers/claudeCodeTranscript.js';
+import type {
+	TranscriptSessionEntry,
+	TranscriptSessionSummary,
+	TranscriptTitles,
+} from '../providers/claudeCodeTranscript.js';
 import { ClaudeCodeTranscriptReader, encodeProjectDirName } from '../providers/claudeCodeTranscript.js';
 
 /** A reader subclass that overrides transcript location to point at a temp directory, so tests
@@ -371,6 +375,79 @@ suite('ClaudeCodeTranscriptReader.listSessions', () => {
 		assert.strictEqual(sessions.length, 2);
 	});
 
+	test('tops up past junk transcripts to still satisfy `limit`', async () => {
+		const now = Date.now();
+		// Junk carries the newest mtimes, so a slice-then-filter approach would starve on it.
+		await seed('junk0.jsonl', jsonl(JSON.stringify({ type: 'last-prompt', sessionId: 'junk0' })), now);
+		await seed('junk1.jsonl', jsonl(JSON.stringify({ type: 'last-prompt', sessionId: 'junk1' })), now - 1000);
+		await seed('s0.jsonl', jsonl(aiTitle('s0', 'S0')), now - 2000);
+		await seed('s1.jsonl', jsonl(aiTitle('s1', 'S1')), now - 3000);
+		await seed('s2.jsonl', jsonl(aiTitle('s2', 'S2')), now - 4000);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd, { limit: 3 });
+		assert.strictEqual(total, 5);
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['S0', 'S1', 'S2'],
+		);
+	});
+
+	test('excludes ids before `limit` applies, but still counts them toward total', async () => {
+		const now = Date.now();
+		await seed('live.jsonl', jsonl(aiTitle('live', 'Live')), now);
+		await seed('s0.jsonl', jsonl(aiTitle('s0', 'S0')), now - 1000);
+		await seed('s1.jsonl', jsonl(aiTitle('s1', 'S1')), now - 2000);
+		await seed('s2.jsonl', jsonl(aiTitle('s2', 'S2')), now - 3000);
+
+		const reader = new RootedReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd, {
+			limit: 3,
+			excludeSessionIds: new Set(['live']),
+		});
+		assert.strictEqual(total, 4, 'excluded entries still count toward total');
+		assert.deepStrictEqual(
+			sessions.map(s => s.titles.ai),
+			['S0', 'S1', 'S2'],
+		);
+		assert.ok(!sessions.some(s => s.sessionId === 'live'), 'excluded id must not appear in sessions');
+	});
+
+	test('bounds the top-up scan to `limit + scan slack` when transcripts are all junk', async () => {
+		const limit = 2;
+		const scanSlack = 25; // mirrors listScanSlack in claudeCodeTranscript.ts
+		const junkCount = limit + scanSlack + 5; // comfortably past the ceiling
+		const now = Date.now();
+		for (let i = 0; i < junkCount; i++) {
+			await seed(
+				`junk${i}.jsonl`,
+				jsonl(JSON.stringify({ type: 'last-prompt', sessionId: `junk${i}` })),
+				now - i * 1000,
+			);
+		}
+
+		const reader = new CountingSummaryReader(join(tmpRoot, 'projects'));
+		const { sessions, total } = await reader.listSessions(cwd, { limit: limit });
+		assert.strictEqual(sessions.length, 0);
+		assert.strictEqual(total, junkCount);
+		assert.ok(
+			reader.readCount <= limit + scanSlack,
+			`expected at most ${limit + scanSlack} reads, got ${reader.readCount}`,
+		);
+	});
+
+	test('does not over-read once `limit` valid summaries are found', async () => {
+		const now = Date.now();
+		for (let i = 0; i < 5; i++) {
+			await seed(`s${i}.jsonl`, jsonl(aiTitle(`s${i}`, `S${i}`)), now - i * 1000);
+		}
+
+		const reader = new CountingSummaryReader(join(tmpRoot, 'projects'));
+		const { sessions } = await reader.listSessions(cwd, { limit: 2 });
+		assert.strictEqual(sessions.length, 2);
+		assert.strictEqual(reader.readCount, 2);
+	});
+
 	test('recovers titles from a file far larger than the read windows', async () => {
 		// Titles land early and prompts land at the tail; the middle is never read.
 		const filler = `${JSON.stringify({ type: 'assistant', sessionId: 'big', text: 'x'.repeat(4000) })}\n`;
@@ -416,6 +493,15 @@ class RootedReader extends ClaudeCodeTranscriptReader {
 	}
 	protected override getProjectsRoot(): string {
 		return this._root;
+	}
+}
+
+/** Rooted reader that counts `readSummary` calls, for asserting `listSessions`'s scan bounds. */
+class CountingSummaryReader extends RootedReader {
+	readCount = 0;
+	protected override async readSummary(entry: TranscriptSessionEntry): Promise<TranscriptSessionSummary> {
+		this.readCount++;
+		return super.readSummary(entry);
 	}
 }
 

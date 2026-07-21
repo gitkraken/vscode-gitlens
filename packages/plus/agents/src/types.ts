@@ -236,13 +236,18 @@ export interface AgentSessionProvider extends UnifiedDisposable {
 
 	/** Lists past sessions that can be resumed from `cwd`, most-recently-active first. Omitted by
 	 *  providers with no durable per-directory session store to read. Live sessions are excluded by
-	 *  the caller, not here — this reports what the store holds. */
+	 *  the caller, not here — this reports what the store holds. The caller may also pass its live
+	 *  set via {@link ResumableSessionsOptions.excludeSessionIds} so exclusion happens before `limit`
+	 *  applies rather than after. */
 	listResumableSessions?(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult>;
 }
 
 export interface ResumableSessionsOptions {
 	/** How many sessions to detail. Discovery covers the whole store; only this many are read. */
 	readonly limit?: number;
+	/** Session ids to skip before `limit` applies — typically the caller's live sessions.
+	 *  Excluded entries still count toward `total`. */
+	readonly excludeSessionIds?: ReadonlySet<string>;
 }
 
 /** A session that is no longer running but whose transcript survives, so it can be resumed. */

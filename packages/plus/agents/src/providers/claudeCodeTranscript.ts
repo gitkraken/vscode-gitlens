@@ -68,6 +68,9 @@ const listingCacheTtlMs = 10 * 1000;
  *  title cache, this needs a ceiling. */
 const summaryCacheLimit = 200;
 const defaultListLimit = 50;
+/** How far past `limit` the top-up scan may read when transcripts turn out empty — a junk-filled
+ *  store reads at most `limit + listScanSlack` summaries, staying well under {@link summaryCacheLimit}. */
+const listScanSlack = 25;
 
 /**
  * Reads Claude Code transcript JSONL files at `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`
@@ -146,7 +149,10 @@ export class ClaudeCodeTranscriptReader {
 
 	/**
 	 * Lists the transcripts of sessions whose working directory is `cwd`, most-recently-active first,
-	 * summarizing only the first `limit` of them.
+	 * summarizing until `limit` summarizable transcripts are found (bounded by a small scan slack) —
+	 * not just the first `limit` on disk, since junk transcripts (dropped below) would otherwise starve
+	 * the result. `excludeSessionIds` is skipped before `limit` applies, but excluded entries still
+	 * count toward `total`.
 	 *
 	 * Claude homes a transcript under the directory encoding the session's *current* cwd, migrating the
 	 * file if the session `cd`s — so this directory is exactly the set `claude --resume <id>` can find
@@ -157,7 +163,10 @@ export class ClaudeCodeTranscriptReader {
 	 * capped. Entries whose summary yields neither a title nor a prompt are dropped — those are aborted
 	 * or empty transcripts with nothing to show or search on.
 	 */
-	async listSessions(cwd: string, options?: { limit?: number }): Promise<TranscriptSessionListing> {
+	async listSessions(
+		cwd: string,
+		options?: { limit?: number; excludeSessionIds?: ReadonlySet<string> },
+	): Promise<TranscriptSessionListing> {
 		const dir = await this.resolveProjectDir(cwd);
 		if (dir == null) return { sessions: [], total: 0 };
 
@@ -165,17 +174,35 @@ export class ClaudeCodeTranscriptReader {
 		if (entries.length === 0) return { sessions: [], total: 0 };
 
 		const limit = options?.limit ?? defaultListLimit;
-		const slice = limit > 0 ? entries.slice(0, limit) : entries;
+		const exclude = options?.excludeSessionIds;
+		const candidates = exclude?.size ? entries.filter(e => !exclude.has(e.sessionId)) : entries;
 
-		const settled = await Promise.allSettled(slice.map(e => this.resolveSummary(e)));
 		const sessions: TranscriptSessionSummary[] = [];
-		for (const result of settled) {
-			if (result.status !== 'fulfilled') continue;
+		const pushSummaries = (settled: PromiseSettledResult<TranscriptSessionSummary | undefined>[]): void => {
+			for (const result of settled) {
+				if (result.status !== 'fulfilled') continue;
 
-			const summary = result.value;
-			if (summary == null || !hasSummaryContent(summary)) continue;
+				const summary = result.value;
+				if (summary == null || !hasSummaryContent(summary)) continue;
 
-			sessions.push(summary);
+				sessions.push(summary);
+			}
+		};
+
+		// limit <= 0 means "no ceiling" — summarize every candidate.
+		if (limit <= 0) {
+			pushSummaries(await Promise.allSettled(candidates.map(e => this.resolveSummary(e))));
+			return { sessions: sessions, total: entries.length };
+		}
+
+		const ceiling = Math.min(candidates.length, limit + listScanSlack);
+		let cursor = 0;
+		while (sessions.length < limit && cursor < ceiling) {
+			// Clamped to the remaining ceiling budget too — a run of junk entries must not let a
+			// need-sized batch read past `limit + listScanSlack`.
+			const batch = candidates.slice(cursor, cursor + Math.min(limit - sessions.length, ceiling - cursor));
+			cursor += batch.length;
+			pushSummaries(await Promise.allSettled(batch.map(e => this.resolveSummary(e))));
 		}
 
 		return { sessions: sessions, total: entries.length };

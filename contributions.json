@@ -4051,6 +4051,19 @@
 				]
 			}
 		},
+		"gitlens.graph.resumeAgentSession": {
+			"label": "Resume Agent Session...",
+			"icon": "$(robot)",
+			"menus": {
+				"webview/context": [
+					{
+						"when": "webviewItem =~ /^gitlens:wip\\b/ && !listMultiSelection && !gitlens:untrusted && !gitlens:hasVirtualFolders && gitlens:agents:enabled",
+						"group": "0_gitlens_worktree_1",
+						"order": 3
+					}
+				]
+			}
+		},
 		"gitlens.graph.revealWorktreeInExplorer": {
 			"label": "Reveal in File Explorer",
 			"menus": {

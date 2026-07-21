@@ -223,6 +223,7 @@ export type ContributedCommands =
 	| 'gitlens.graph.resetToCommit'
 	| 'gitlens.graph.resetToTag'
 	| 'gitlens.graph.resetToTip'
+	| 'gitlens.graph.resumeAgentSession'
 	| 'gitlens.graph.revealWorktreeInExplorer'
 	| 'gitlens.graph.revert'
 	| 'gitlens.graph.rewordCommit'

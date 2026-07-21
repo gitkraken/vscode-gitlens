@@ -1,6 +1,7 @@
 import type { PropertyValues } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { pluralize } from '@gitlens/utils/string.js';
 import type { PastAgentSessionsResult, PastAgentSessionState } from '../../../../../agents/models/agentSessionState.js';
 import { createCommandLink } from '../../../../../system/commands.js';
 import type { AgentSessionState } from '../../../../home/protocol.js';
@@ -430,6 +431,13 @@ export class GlDetailsAgentStatus extends LitElement {
 				color: var(--vscode-descriptionForeground);
 			}
 
+			.section__past-more {
+				--chip-text-transform: none;
+				margin-right: auto;
+				font-size: 0.85em;
+				color: var(--vscode-descriptionForeground);
+			}
+
 			.section__hover {
 				display: flex;
 				flex-direction: column;
@@ -743,8 +751,9 @@ export class GlDetailsAgentStatus extends LitElement {
 	compact = false;
 
 	/** Past (resumable) sessions for the worktree — top few, most-recent first, plus the total
-	 *  count for the "Showing N of M" footer. Rendered as a `.section__past` list, visible only
-	 *  while {@link expand} is `'expanded'` (past is never urgent enough to auto-surface). */
+	 *  count for the "N more past sessions" footer link. Rendered as a `.section__past` list,
+	 *  visible only while {@link expand} is `'expanded'` (past is never urgent enough to
+	 *  auto-surface). */
 	@property({ attribute: false })
 	pastSessions?: PastAgentSessionsResult;
 
@@ -764,8 +773,9 @@ export class GlDetailsAgentStatus extends LitElement {
 	 *
 	 *  Fields included reflect what `renderCard`, `renderHoverRow`, `tally`, and the heading
 	 *  cluster consume:
-	 *  - `expand`, `selectedSessionId`, `flat`, `compact` — all shape the rendered tree (`compact`
-	 *    is reflected via `update()`, which never runs when `shouldUpdate` returns false).
+	 *  - `expand`, `selectedSessionId`, `flat`, `compact`, `worktreePath` — all shape the rendered
+	 *    tree (`compact` is reflected via `update()`, which never runs when `shouldUpdate` returns
+	 *    false; `worktreePath` feeds the heading and past-footer resume-picker links).
 	 *  - Per session: `id`, `phase`, `status`, `statusDetail` (running-tool surface), `displayName`,
 	 *    `lastPrompt` (card prompt + fallback line), `phaseSince` (ms, drives elapsed labels).
 	 *  - `pendingPermission` — encoded by {@link permissionFingerprint} so every needs-input
@@ -786,6 +796,7 @@ export class GlDetailsAgentStatus extends LitElement {
 			`s${fpField(this.selectedSessionId)}`,
 			`f${this.flat ? 1 : 0}`,
 			`c${this.compact ? 1 : 0}`,
+			`w${fpField(this.worktreePath)}`,
 		];
 		const sessions = this.sessions ?? [];
 		for (const s of sessions) {
@@ -917,8 +928,8 @@ export class GlDetailsAgentStatus extends LitElement {
 
 	/** "Past sessions" list — resumable sessions recovered from the worktree's transcript store,
 	 *  rendered only in `expanded` mode. Each row links its resume chip at `gitlens.agents.resumeSession`
-	 *  (the default extension-if-available-else-terminal resume); the footer's "Resume Session…"
-	 *  button opens the full searchable picker over the worktree's 100 most-recent sessions. */
+	 *  (the default extension-if-available-else-terminal resume); the footer's count links into the
+	 *  same searchable picker over the worktree's 100 most-recent sessions as the heading action. */
 	private renderPastSection(past: PastAgentSessionState[] | undefined): unknown {
 		if (!past?.length) return nothing;
 
@@ -972,13 +983,32 @@ export class GlDetailsAgentStatus extends LitElement {
 		`;
 	}
 
-	/** Just the count — the picker that shows the rest lives on the heading. */
+	/** The count of past sessions the list can't show, linking into the same resume picker as the
+	 *  heading chip. Static (no link) when there's no worktree to scope the picker to. */
 	private renderPastFooter(total: number, shown: number): unknown {
 		if (total <= shown) return nothing;
 
+		const countText = pluralize('more past session', total - shown);
+		if (this.worktreePath == null) {
+			return html`
+				<div class="section__past-footer">
+					<span class="section__past-count">${countText}</span>
+				</div>
+			`;
+		}
+
 		return html`
 			<div class="section__past-footer">
-				<span class="section__past-count">Showing ${shown} of ${total}</span>
+				<gl-action-chip
+					class="section__past-more"
+					icon="history"
+					label="${countText} — Resume Session…"
+					overlay="tooltip"
+					href=${createCommandLink('gitlens.agents.showResumeSessionPicker', {
+						worktreePath: this.worktreePath,
+					})}
+					><span>${countText}…</span></gl-action-chip
+				>
 			</div>
 		`;
 	}

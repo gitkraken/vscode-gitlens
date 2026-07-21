@@ -325,7 +325,10 @@ export class ClaudeCodeProvider implements AgentSessionProvider {
 	 *  directory for `cwd` is exactly what `claude --resume <id>` can find when invoked from there —
 	 *  every session returned is resumable from `cwd`. */
 	async listResumableSessions(cwd: string, options?: ResumableSessionsOptions): Promise<ResumableSessionsResult> {
-		const { sessions, total } = await this._transcriptReader.listSessions(cwd, { limit: options?.limit });
+		const { sessions, total } = await this._transcriptReader.listSessions(cwd, {
+			limit: options?.limit,
+			excludeSessionIds: options?.excludeSessionIds,
+		});
 
 		const resumable = sessions.map<ResumableAgentSession>(s => ({
 			id: s.sessionId,

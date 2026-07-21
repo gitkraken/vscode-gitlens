@@ -212,15 +212,32 @@ export class AgentStatusService implements Disposable {
 		return this._worktreeNameByPath.get(session.worktreePath);
 	}
 
+	/** Resolves a worktree's display name on demand — `_worktreeNameByPath` only tracks worktrees
+	 *  with live sessions (and prunes them when the last one ends), so worktrees with only past
+	 *  sessions need a direct lookup or they'd surface nameless (e.g. in the resume picker title). */
+	private async getWorktreeName(worktreePath: string): Promise<string | undefined> {
+		const cached = this._worktreeNameByPath.get(worktreePath)?.name;
+		if (cached != null) return cached;
+
+		try {
+			const worktrees = await this.container.git.getRepositoryService(worktreePath).worktrees?.getWorktrees();
+			return worktrees?.find(wt => arePathsEqual(wt.path, worktreePath))?.name;
+		} catch {
+			return undefined;
+		}
+	}
+
 	/**
 	 * Lists the past, resumable sessions for `worktreePath`, most-recently-active first.
 	 *
 	 * Excludes sessions that are still live — those already flow to consumers through
-	 * {@link onDidChangeSessions} and are opened, not resumed.
+	 * {@link onDidChangeSessions} and are opened, not resumed. The live set is passed down via
+	 * `excludeSessionIds` so a provider excludes them before its own `limit` applies, rather than
+	 * this method dropping them from an already-limited slice.
 	 */
 	async getPastSessions(worktreePath: string, options?: { limit?: number }): Promise<PastAgentSessionsResult> {
 		const live = new Set(this.sessions.map(s => s.id));
-		const worktreeName = this._worktreeNameByPath.get(worktreePath)?.name;
+		const worktreeName = await this.getWorktreeName(worktreePath);
 
 		const sessions: PastAgentSessionState[] = [];
 		let total = 0;
@@ -228,7 +245,10 @@ export class AgentStatusService implements Disposable {
 		// Providers with no durable per-directory store omit `listResumableSessions` entirely.
 		const pending: Promise<ResumableSessionsResult>[] = [];
 		for (const provider of this._providers) {
-			const listing = provider.listResumableSessions?.(worktreePath, options);
+			const listing = provider.listResumableSessions?.(worktreePath, {
+				limit: options?.limit,
+				excludeSessionIds: live,
+			});
 			if (listing != null) {
 				pending.push(listing);
 			}
@@ -240,6 +260,8 @@ export class AgentStatusService implements Disposable {
 
 			total += result.value.total;
 			for (const session of result.value.sessions) {
+				// Safety net: `listResumableSessions` is optional on the interface, and a future
+				// provider may not honor `excludeSessionIds` — re-check here regardless.
 				if (live.has(session.id)) continue;
 
 				sessions.push(serializePastAgentSession(session, worktreePath, worktreeName));
@@ -248,7 +270,10 @@ export class AgentStatusService implements Disposable {
 
 		// Providers are ordered, so re-sort across them.
 		sessions.sort((a, b) => b.lastActivity - a.lastActivity);
-		return { sessions: sessions, total: total };
+		// Re-apply the limit across the merged, sorted result — a no-op with a single provider, but
+		// honors the contract once 2+ providers each return up to `limit`.
+		const limited = options?.limit != null && options.limit > 0 ? sessions.slice(0, options.limit) : sessions;
+		return { sessions: limited, total: total };
 	}
 
 	/** The worktree's sessions as the resume picker shows them: the live ones it can open, then the
@@ -301,12 +326,8 @@ export class AgentStatusService implements Disposable {
 		);
 
 		const { live, past, total } = await this.getResumableSessions(worktreePath, { limit: 100 });
-		const pick = await showResumableSessionPicker(
-			live,
-			past,
-			total,
-			this._worktreeNameByPath.get(worktreePath)?.name,
-		);
+		const worktreeName = await this.getWorktreeName(worktreePath);
+		const pick = await showResumableSessionPicker(live, past, total, worktreeName);
 		if (pick == null) return;
 
 		if (pick.live != null) {

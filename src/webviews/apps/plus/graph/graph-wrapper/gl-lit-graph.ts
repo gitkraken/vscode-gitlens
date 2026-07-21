@@ -144,7 +144,7 @@ const graphHScrollMinThumbPx = 24;
 const defaultGroupedMinLanes = 10;
 const defaultGroupedMaxPercent = 40;
 // Codicon shown in a column header in place of the text label when the column is too narrow to fit it
-// (legacy behavior — see `headerLabelFits`). The graph column uses 'graph-line' (handled inline).
+// (legacy behavior — see `headerLabelFits`). The graph column uses 'gl-graph' (handled inline).
 const zoneHeaderIcons: Record<ZoneId, string> = {
 	ref: 'git-branch',
 	message: 'comment',
@@ -6024,7 +6024,7 @@ export class GlLitGraph extends LitElement {
 								? html`<span class="gl-graph__group-member">
 										${this.renderPlacementControl(
 											false,
-											graphCrumb && !crumbsCollapsed ? 'graph-line' : undefined,
+											graphCrumb && !crumbsCollapsed ? 'gl-graph' : undefined,
 										)}
 										${graphCrumb && !crumbsCollapsed
 											? html`<code-icon
@@ -6183,7 +6183,7 @@ export class GlLitGraph extends LitElement {
 				data-tooltip="Drag or press Arrow keys to reorder the graph column"
 				@keydown=${this.onGraphLabelKeydown}
 				>${labelAsIcon
-					? html`<code-icon class="gl-graph__header-label-icon" icon="graph-line"></code-icon>`
+					? html`<code-icon class="gl-graph__header-label-icon" icon="gl-graph"></code-icon>`
 					: 'Graph'}</span
 			>${isLast ? nothing : this.renderPlacementControl()}
 			<div
