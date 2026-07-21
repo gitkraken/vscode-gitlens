@@ -10,14 +10,6 @@ export const wipBarStyles = css`
 		border-block-end: var(--gl-border-width) solid var(--vscode-panel-border, var(--color-foreground--25));
 	}
 
-	/* Bottom placement (details panel on the bottom) — flip the divider border and padding so it
-	   sits against the graph above it instead of the rows below. */
-	:host([position='bottom']) {
-		padding-block: 0.3rem 0;
-		border-block-start: var(--gl-border-width) solid var(--vscode-panel-border, var(--color-foreground--25));
-		border-block-end: none;
-	}
-
 	.bar {
 		/* Flex so the single '.pills' child (flex: 0 0 auto) sizes to its content and overflows to scroll. */
 		display: flex;

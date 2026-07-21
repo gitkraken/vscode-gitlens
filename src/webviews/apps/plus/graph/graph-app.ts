@@ -2027,16 +2027,11 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			selectedCommit != null && isWipSha(selectedCommit.sha)
 				? wipItems.find(i => i.repoPath === selectedCommit.repoPath)?.id
 				: undefined;
-		// Move the WIP bar to the bottom of the graph (just above the details pane) whenever the
-		// details panel is — or would be — on the bottom, so the bar always sits adjacent to the
-		// details. CSS `order` (not DOM reordering) does the move to avoid remounting the bar/graph.
-		const wipBottom = this.effectiveDetailsLocation === 'bottom';
 		return html`
-			<div class=${classMap({ 'graph__graph-column': true, '-wip-bottom': wipBottom })} slot=${ifDefined(slot)}>
+			<div class="graph__graph-column" slot=${ifDefined(slot)}>
 				${wipItems.length > 0
 					? html`
 							<gl-graph-wip-bar
-								.position=${wipBottom ? 'bottom' : 'top'}
 								.items=${wipItems}
 								.selectedId=${selectedWipId}
 								.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}

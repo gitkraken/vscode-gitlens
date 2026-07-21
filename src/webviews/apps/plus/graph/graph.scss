@@ -4141,13 +4141,6 @@ web-graph {
 			height: 100%;
 			min-height: 0;
 			overflow: hidden;
-
-			// Details on the bottom → move the WIP bar below the graph (just above the details pane)
-			// via flex order, so the bar is restyled/repositioned without remounting the bar or the
-			// graph wrapper (DOM reordering would remount and flicker).
-			&.-wip-bottom gl-graph-wip-bar {
-				order: 1;
-			}
 		}
 
 		// Light DOM custom elements default to display:inline — force block for flex sizing
