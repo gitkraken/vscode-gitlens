@@ -90,11 +90,14 @@ export async function collectProviderPagedResult<T>(
 
 	// Omit `metadata` entirely when no page supplied it, so a metadata-free drain stays deep-equal to its
 	// pre-metadata shape (and consumers never see an explicit `undefined`).
-	const build = (extra?: Partial<ProviderHierarchyResult<T>>): ProviderHierarchyResult<T> => ({
-		values: values,
-		...extra,
-		...(metadata != null ? { metadata: metadata } : {}),
-	});
+	const build = (extra?: Partial<ProviderHierarchyResult<T>>): ProviderHierarchyResult<T> => {
+		const mergedMetadata = extra?.metadata ?? metadata;
+		return {
+			values: values,
+			...extra,
+			...(mergedMetadata != null ? { metadata: mergedMetadata } : {}),
+		};
+	};
 
 	for (let page = 0; page < maxPages; page++) {
 		let result: ProviderApiPagedResult<T> | undefined;

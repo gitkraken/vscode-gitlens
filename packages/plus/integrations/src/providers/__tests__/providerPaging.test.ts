@@ -121,6 +121,35 @@ suite('collectProviderPagedResult', () => {
 			error,
 		);
 	});
+
+	test('preserves merged metadata when a scoped later page throws', async () => {
+		const error = new Error('boom');
+
+		const result = await collectProviderPagedResult(
+			async cursor => {
+				if (cursor == null) {
+					return {
+						values: ['a'],
+						paging: { cursor: '1', more: true },
+						metadata: { completeness: 'complete' },
+					};
+				}
+
+				throw error;
+			},
+			20,
+			{ providerId: 'github', resourceId: 'r1' },
+		);
+
+		assert.deepEqual(result, {
+			values: ['a'],
+			truncated: true,
+			metadata: {
+				completeness: 'partial',
+				failures: [{ kind: 'provider', scope: { providerId: 'github', resourceId: 'r1' }, message: 'boom' }],
+			},
+		});
+	});
 });
 
 suite('mergeCollectionMetadata', () => {

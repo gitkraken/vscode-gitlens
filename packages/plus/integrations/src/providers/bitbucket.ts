@@ -597,10 +597,17 @@ export class BitbucketIntegration extends GitHostIntegration<
 
 		let account: Account | undefined = storedAccount?.data ? { ...storedAccount.data, provider: this } : undefined;
 
-		let workspaces: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined =
-			storedWorkspaces?.data?.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })) != null
-				? { values: storedWorkspaces.data.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })) }
-				: undefined;
+		const storedWorkspacesData = storedWorkspaces?.data as
+			| ProviderApiCollectionResult<BitbucketWorkspaceDescriptor>
+			| BitbucketWorkspaceDescriptor[]
+			| undefined;
+		let workspaces: ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined;
+		if (!Array.isArray(storedWorkspacesData) && Array.isArray(storedWorkspacesData?.values)) {
+			workspaces = {
+				values: storedWorkspacesData.values.map((o: BitbucketWorkspaceDescriptor) => ({ ...o })),
+				...(storedWorkspacesData.metadata != null ? { metadata: storedWorkspacesData.metadata } : {}),
+			};
+		}
 
 		if (storedAccount == null) {
 			account = await this.getProviderCurrentAccount(this._session);
@@ -623,12 +630,12 @@ export class BitbucketIntegration extends GitHostIntegration<
 		this._accounts ??= new Map<string, Account | undefined>();
 		this._accounts.set(this._session.accessToken, account);
 
-		if (storedWorkspaces == null) {
+		if (workspaces == null) {
 			workspaces = await this.getProviderResourcesForCurrentUser(this._session, true);
 			await this.ctx.storage.store(`${this.storagePrefix}:${accountStorageKey}:workspaces`, {
-				v: 1,
+				v: 2,
 				timestamp: Date.now(),
-				data: workspaces?.values,
+				data: workspaces,
 			});
 		}
 		this._workspaces ??= new Map<string, ProviderApiCollectionResult<BitbucketWorkspaceDescriptor> | undefined>();

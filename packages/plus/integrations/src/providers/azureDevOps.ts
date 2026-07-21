@@ -876,6 +876,9 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected override async providerOnConnect(): Promise<void> {
 		if (this._session == null) return;
 
+		const canHydrateStoredProjects = (metadata: CollectionMetadata | undefined): boolean =>
+			metadata == null || metadata.completeness === 'complete';
+
 		const storedAccount = this.ctx.storage.get(`azure:${this._session.accessToken}:account`);
 		const storedOrganizations = this.ctx.storage.get(`azure:${this._session.accessToken}:organizations`);
 		const storedProjects = this.ctx.storage.get(`azure:${this._session.accessToken}:projects`);
@@ -883,10 +886,20 @@ export abstract class AzureDevOpsIntegrationBase<
 
 		let organizations = storedOrganizations?.data?.map((o: AzureOrganizationDescriptor) => ({ ...o }));
 
-		let projects: ProviderApiCollectionResult<AzureProjectDescriptor> | undefined =
-			storedProjects?.data?.map((p: AzureProjectDescriptor) => ({ ...p })) != null
-				? { values: storedProjects.data.map((p: AzureProjectDescriptor) => ({ ...p })) }
-				: undefined;
+		const storedProjectsData = storedProjects?.data as
+			| ProviderApiCollectionResult<AzureProjectDescriptor>
+			| AzureProjectDescriptor[]
+			| undefined;
+		let projects: ProviderApiCollectionResult<AzureProjectDescriptor> | undefined;
+		if (!Array.isArray(storedProjectsData) && Array.isArray(storedProjectsData?.values)) {
+			const hydrated = {
+				values: storedProjectsData.values.map((p: AzureProjectDescriptor) => ({ ...p })),
+				...(storedProjectsData.metadata != null ? { metadata: storedProjectsData.metadata } : {}),
+			};
+			if (canHydrateStoredProjects(hydrated.metadata)) {
+				projects = hydrated;
+			}
+		}
 
 		if (storedAccount == null) {
 			account = await this.getProviderCurrentAccount(this._session);
@@ -922,23 +935,29 @@ export abstract class AzureDevOpsIntegrationBase<
 		this._organizations ??= new Map<string, AzureOrganizationDescriptor[] | undefined>();
 		this._organizations.set(this._session.accessToken, organizations);
 
-		if (storedProjects == null && organizations?.length) {
+		if (projects == null && organizations?.length) {
 			projects = await this.getProviderProjectsForResources(this._session, organizations);
-			await this.ctx.storage.store(`azure:${this._session.accessToken}:projects`, {
-				v: 1,
-				timestamp: Date.now(),
-				data: projects?.values,
-			});
+			if (projects != null && canHydrateStoredProjects(projects.metadata)) {
+				await this.ctx.storage.store(`azure:${this._session.accessToken}:projects`, {
+					v: 2,
+					timestamp: Date.now(),
+					data: projects,
+				});
+			} else {
+				await this.ctx.storage.delete(`azure:${this._session.accessToken}:projects`);
+			}
 		}
 
 		this._projects ??= new Map<string, AzureProjectDescriptor[] | undefined>();
-		for (const project of projects?.values ?? []) {
-			const projectKey = `${this._session.accessToken}:${project.resourceId}`;
-			const projects = this._projects.get(projectKey);
-			if (projects == null) {
-				this._projects.set(projectKey, [project]);
-			} else if (!projects.some(p => p.id === project.id)) {
-				projects.push(project);
+		if (projects != null && canHydrateStoredProjects(projects.metadata)) {
+			for (const project of projects.values) {
+				const projectKey = `${this._session.accessToken}:${project.resourceId}`;
+				const projects = this._projects.get(projectKey);
+				if (projects == null) {
+					this._projects.set(projectKey, [project]);
+				} else if (!projects.some(p => p.id === project.id)) {
+					projects.push(project);
+				}
 			}
 		}
 	}

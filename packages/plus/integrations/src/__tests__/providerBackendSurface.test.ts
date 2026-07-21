@@ -419,6 +419,43 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listOrgs surfaces git-host collection metadata as warnings + fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		(
+			bb as unknown as {
+				getOrganizationsForUserResult: () => Promise<{
+					value: { values: ProviderOrganization[]; metadata: { completeness: string; failures: unknown[] } };
+				}>;
+			}
+		).getOrganizationsForUserResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { resourceId: 'ws-bad' } }],
+					},
+				},
+			});
+
+		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.Bitbucket });
+		assert.deepEqual(result.items, [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }]);
+		assert.equal(result.fetchFailed, true, 'metadata failures mark the read incomplete');
+		assert.ok(
+			result.warnings.some(w => w.kind === 'auth'),
+			'the scope failure is surfaced as an auth warning',
+		);
+
+		manager.dispose();
+	});
+
 	test('listOrgs/listProjects set fetchFailed (not just a warning) for an invalid connection (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);
@@ -470,6 +507,43 @@ suite('ProviderBackend surface facade (#5438)', () => {
 
 		const result = await manager.listProjects({ providerId: IssuesCloudHostIntegrationId.Linear });
 		assert.deepEqual(result.items, [{ id: 'p1', name: 'Project One', url: '' }]);
+
+		manager.dispose();
+	});
+
+	test('listProjects surfaces git-host project metadata as warnings + fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const azure = await manager.get(GitCloudHostIntegrationId.AzureDevOps);
+		(azure as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'dev.azure.com',
+		};
+
+		(
+			azure as unknown as {
+				getProjectsForOrgResult: () => Promise<{
+					value: { values: ProviderOrganization[]; metadata: { completeness: string; failures: unknown[] } };
+				}>;
+			}
+		).getProjectsForOrgResult = () =>
+			Promise.resolve({
+				value: {
+					values: [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { projectId: 'broken' } }],
+					},
+				},
+			});
+
+		const result = await manager.listProjects({ providerId: GitCloudHostIntegrationId.AzureDevOps });
+		assert.deepEqual(result.items, [{ id: 'p1', name: 'Proj', url: 'https://dev.azure.com/org/Proj' }]);
+		assert.equal(result.fetchFailed, true, 'metadata failures mark the read incomplete');
+		assert.ok(
+			result.warnings.some(w => w.kind === 'auth'),
+			'the scope failure is surfaced as an auth warning',
+		);
 
 		manager.dispose();
 	});
@@ -692,6 +766,65 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		});
 		assert.equal(broadened.items.length, 1);
 		assert.equal(capturedUser, undefined, 'includeAllAssignees drops the user scope');
+
+		manager.dispose();
+	});
+
+	test('listIssueTrackerIssuesPage resolves the current user per resource, not just from the first one (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const jira = await manager.get(IssuesCloudHostIntegrationId.Jira);
+
+		const resources: ResourceDescriptor[] = [
+			{ key: 'one', id: 'org-1', name: 'Org One' },
+			{ key: 'two', id: 'org-2', name: 'Org Two' },
+		];
+		(
+			jira as unknown as { getResourcesForUserResult: () => Promise<{ value: ResourceDescriptor[] }> }
+		).getResourcesForUserResult = () => Promise.resolve({ value: resources });
+		(
+			jira as unknown as {
+				getProjectsForResourcesWithMetadataResult: () => Promise<{ value: { values: ResourceDescriptor[] } }>;
+			}
+		).getProjectsForResourcesWithMetadataResult = () =>
+			Promise.resolve({
+				value: {
+					values: [
+						{ key: 'p1', id: 'p1', name: 'Project One', resourceId: 'org-1' },
+						{ key: 'p2', id: 'p2', name: 'Project Two', resourceId: 'org-2' },
+					],
+				},
+			});
+		(
+			jira as unknown as {
+				getAccountForResourceResult: (resource: ResourceDescriptor) => Promise<{ value: { username: string } }>;
+			}
+		).getAccountForResourceResult = (resource: ResourceDescriptor) => {
+			const resourceId = (resource as { id?: string; key: string }).id ?? resource.key;
+			return Promise.resolve({ value: { username: `${resourceId}-user` } });
+		};
+
+		const capturedReads: Array<{ projectId: string; user: string | undefined }> = [];
+		(
+			jira as unknown as {
+				getIssuesForProjectWithTruncationResult: (
+					p: { id: string },
+					o?: { user?: string },
+				) => Promise<{ value: { values: IssueShape[]; truncated: boolean } }>;
+			}
+		).getIssuesForProjectWithTruncationResult = (p: { id: string }, o?: { user?: string }) => {
+			capturedReads.push({ projectId: p.id, user: o?.user });
+			return Promise.resolve({
+				value: { values: [{ id: `${p.id}-i` } as unknown as IssueShape], truncated: false },
+			});
+		};
+
+		const result = await manager.listIssueTrackerIssuesPage({ providerId: IssuesCloudHostIntegrationId.Jira });
+		assert.equal(result.items.length, 2, 'issues from both resources are aggregated');
+		assert.deepEqual(capturedReads, [
+			{ projectId: 'p1', user: 'org-1-user' },
+			{ projectId: 'p2', user: 'org-2-user' },
+		]);
 
 		manager.dispose();
 	});

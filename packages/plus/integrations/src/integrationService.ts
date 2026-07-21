@@ -1197,6 +1197,10 @@ export class IntegrationService implements Disposable {
 								isAuth: false,
 							});
 						}
+
+						if (mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata).fetchFailed) {
+							fetchFailed = true;
+						}
 					}
 					if (warning != null) {
 						warnings.push(warning);
@@ -1284,6 +1288,10 @@ export class IntegrationService implements Disposable {
 					}
 					if (projects != null) {
 						items.push(...projects.values);
+
+						if (mergeAssessmentInto(warnings, id, domain, connectionId, projects.metadata).fetchFailed) {
+							fetchFailed = true;
+						}
 					}
 					return { items: items, warnings: warnings, fetchFailed: fetchFailed };
 				}
@@ -1988,20 +1996,6 @@ export class IntegrationService implements Disposable {
 
 		const matchedProjects =
 			options.project != null ? projects.filter(p => this.resourceMatchesOrg(p, options.project!)) : projects;
-		// Page at project granularity when paginating: this window of projects for the requested page.
-		// `moreProjectWindows` drives `hasMore`/`cursor` below (per-project internal caps are not observable
-		// here — see the docstring). When not paginating, the window is every matched project.
-		const windowStart = paginated ? (page - 1) * projectsPerPage : 0;
-		const scopedProjects = paginated
-			? matchedProjects.slice(windowStart, windowStart + projectsPerPage)
-			: matchedProjects;
-		const moreProjectWindows = paginated && matchedProjects.length > windowStart + projectsPerPage;
-		if (scopedProjects.length === 0) {
-			// The discovered projects didn't intersect the requested filter/window. If discovery itself was
-			// partial, the empty result is not a proven-empty account — carry `fetchFailed` so the caller knows
-			// projects may be missing rather than treating this as a clean empty page.
-			return emptyPage(projectDiscoveryFailed, projectDiscoveryTruncated);
-		}
 
 		// Validate the requested filters against what this provider supports (e.g. Linear/Trello support only
 		// Assignee). An unsupported filter must not silently degrade — Linear/Trello ignore the requested type
@@ -2038,36 +2032,89 @@ export class IntegrationService implements Disposable {
 			return emptyPage(true);
 		}
 
+		const resourceIdForProject = (project: ResourceDescriptor): string | undefined => {
+			const issueProject = project as { id?: string; key: string; resourceId?: string };
+			return issueProject.resourceId ?? issueProject.id ?? issueProject.key;
+		};
+		const labelForResource = (resource: ResourceDescriptor): string => {
+			const issueResource = resource as { id?: string; key: string; name?: string };
+			return issueResource.name ?? issueResource.id ?? issueResource.key;
+		};
+
 		// Scope to the current user's assigned issues unless the caller broadens to all assignees. Resolve the
-		// handle from the connection's own account (multi-account safe), capturing any error so its kind
+		// handle from each resource's own account (multi-account safe), capturing any error so its kind
 		// (e.g. auth) is preserved rather than collapsed to a generic warning.
-		let user: string | undefined;
+		let usersByResourceId: Map<string, string> | undefined;
+		let accountLookupFailed = false;
 		if (options.includeAllAssignees !== true) {
-			const { value: account, warning: accountWarning } = await this.runCaptured(
-				options.providerId,
-				domain,
-				options.connectionId,
-				() => integration.getAccountForResourceResult(scopedResources[0], options.connectionId),
+			usersByResourceId = new Map<string, string>();
+			const accounts = await Promise.all(
+				scopedResources.map(async resource => ({
+					resource: resource,
+					...(await this.runCaptured(options.providerId, domain, options.connectionId, () =>
+						integration.getAccountForResourceResult(resource, options.connectionId),
+					)),
+				})),
 			);
-			user = account?.username ?? account?.name ?? undefined;
-			// If we needed a user scope but couldn't resolve one, an unscoped read would silently broaden
-			// "assigned to me" to every visible issue (Jira/Trello treat an absent user as no filter),
-			// contaminating the result with others' issues. Surface a warning and stop instead of broadening.
-			// Prefer the captured error's classification (auth/rate-limit/…) so Kepler can drive recovery.
-			if (user == null) {
+
+			for (const { resource, value: account, warning: accountWarning } of accounts) {
+				const user = account?.username ?? account?.name ?? undefined;
+				if (user != null) {
+					usersByResourceId.set(resourceIdForProject(resource) ?? resource.key, user);
+					continue;
+				}
+
 				warnings.push(
 					accountWarning ?? {
 						providerId: options.providerId,
 						domain: domain,
 						connectionId: options.connectionId,
-						message:
-							'Could not resolve the current user to scope issues to; skipping to avoid returning issues assigned to others.',
+						message: `Could not resolve the current user for '${labelForResource(resource)}'; skipping that resource to avoid returning issues assigned to others.`,
 						kind: 'other',
 						isAuth: false,
 					},
 				);
-				return emptyPage(true);
+				accountLookupFailed = true;
 			}
+		}
+
+		const fallbackUserForUnscopedProject =
+			usersByResourceId?.size === 1 ? usersByResourceId.values().next().value : undefined;
+		const userForProject = (project: ResourceDescriptor): string | undefined => {
+			const resourceId = resourceIdForProject(project);
+			if (resourceId != null) {
+				const user = usersByResourceId?.get(resourceId);
+				if (user != null) {
+					return user;
+				}
+			}
+
+			// Some providers/tests return project descriptors without their parent resource id. When we have only
+			// one scoped resource, re-use that sole resolved user rather than silently dropping every project.
+			return fallbackUserForUnscopedProject;
+		};
+
+		const scopedProjectsWithUsers =
+			usersByResourceId != null
+				? matchedProjects.filter(project => {
+						return userForProject(project) != null;
+					})
+				: matchedProjects;
+
+		// Page at project granularity when paginating: this window of projects for the requested page.
+		// `moreProjectWindows` drives `hasMore`/`cursor` below (per-project internal caps are not observable
+		// here — see the docstring). When not paginating, the window is every matched project that can be read
+		// without broadening the user scope.
+		const windowStart = paginated ? (page - 1) * projectsPerPage : 0;
+		const scopedProjects = paginated
+			? scopedProjectsWithUsers.slice(windowStart, windowStart + projectsPerPage)
+			: scopedProjectsWithUsers;
+		const moreProjectWindows = paginated && scopedProjectsWithUsers.length > windowStart + projectsPerPage;
+		if (scopedProjects.length === 0) {
+			// The discovered projects didn't intersect the requested filter/window, or every matching resource
+			// failed user resolution. If discovery or account lookup was partial, the empty result is not a
+			// proven-empty account — carry `fetchFailed` so the caller knows issues may be missing.
+			return emptyPage(projectDiscoveryFailed || accountLookupFailed, projectDiscoveryTruncated);
 		}
 
 		const perProject = await Promise.all(
@@ -2075,15 +2122,19 @@ export class IntegrationService implements Disposable {
 				this.runCaptured(options.providerId, domain, options.connectionId, () =>
 					integration.getIssuesForProjectWithTruncationResult(
 						project,
-						{ user: user, filters: options.filters },
+						{
+							user: userForProject(project),
+							filters: options.filters,
+						},
 						options.connectionId,
 					),
 				),
 			),
 		);
+
 		// Partial project discovery means some projects' issues are missing from this page; propagate it so the
 		// page reports fetchFailed even when every discovered project's own read succeeded.
-		let fetchFailed = projectDiscoveryFailed;
+		let fetchFailed = projectDiscoveryFailed || accountLookupFailed;
 		// A project whose internal page-drain hit its backstop (Jira/Linear cap at maxPagesPerRequest) reports
 		// `truncated`; surface it as `page.truncated` so a windowed read isn't published as having drained each
 		// project completely.
@@ -2573,7 +2624,15 @@ export class IntegrationService implements Disposable {
 				if (issuesCaptured.warning != null) {
 					warnings.push(issuesCaptured.warning);
 				}
-				const issuesFetchFailed = issuesCaptured.warning != null && issuesCaptured.value == null;
+				const issuesAssessment = mergeAssessmentInto(
+					warnings,
+					org.providerId,
+					domain,
+					connectionId,
+					issuesCaptured.value?.metadata,
+				);
+				const issuesFetchFailed =
+					issuesAssessment.fetchFailed || (issuesCaptured.warning != null && issuesCaptured.value == null);
 				const items: IssueShape[] = [];
 				let hasMore = false;
 				let nextCursor: string | undefined;
@@ -2589,7 +2648,7 @@ export class IntegrationService implements Disposable {
 					);
 					hasMore = paged.hasMore;
 					nextCursor = paged.cursor;
-					issuesTruncated = paged.truncated;
+					issuesTruncated = paged.truncated || issuesAssessment.truncated;
 				}
 
 				return {
