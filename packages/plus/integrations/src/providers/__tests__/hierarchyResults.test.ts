@@ -162,6 +162,43 @@ suite('provider hierarchy results', () => {
 		assert.equal(result?.values[0].id, 'a-1');
 	});
 
+	test('Azure cross-project repo listing does not report truncation on a clean drain (#5438)', async () => {
+		// Every project drains a single page and the Azure SDK supplies no collection metadata, so the merged
+		// metadata is undefined. `truncated` must stay unset — a guard regression that evaluated
+		// `undefined !== 'complete'` would mis-signal a complete repo list as truncated.
+		const api: {
+			getReposForAzureProject: (
+				_token: unknown,
+				_org: string,
+				project: string,
+			) => Promise<{ values: { id: string; name: string }[]; paging?: { cursor: string; more: boolean } }>;
+		} = {
+			getReposForAzureProject: async (_token, _org, project) => ({
+				values: [{ id: `${project}-1`, name: `repo-${project}` }],
+			}),
+		};
+		const integration = new AzureDevOpsIntegration(
+			createFakeRuntime(),
+			{} as never,
+			async () => api as never,
+			new Emitter(),
+		);
+		setSession(integration, createSession('dev.azure.com'));
+		(integration as any).getProviderResourcesForUser = async () => [{ id: 'org-1', name: 'acme' }];
+		(integration as any).getProviderProjectsForResources = async () => ({
+			values: [
+				{ id: 'project-a', name: 'project-a', resourceId: 'org-1', resourceName: 'acme', key: 'project-a' },
+				{ id: 'project-b', name: 'project-b', resourceId: 'org-1', resourceName: 'acme', key: 'project-b' },
+			],
+		});
+
+		const result = await integration.getRepositoriesForOrg('acme');
+
+		assert.equal(result?.truncated, undefined, 'a clean drain with no metadata is not truncated');
+		assert.equal(result?.metadata, undefined, 'no metadata is synthesized on a clean drain');
+		assert.equal(result?.values.length, 2);
+	});
+
 	test('Azure providerOnConnect ignores legacy stored project arrays and rewrites complete discovery (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		await runtime.storage.store('azure:token:account', { v: 1, timestamp: 0, data: { id: 'a1' } });

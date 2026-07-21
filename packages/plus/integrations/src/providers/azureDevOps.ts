@@ -400,7 +400,7 @@ export abstract class AzureDevOpsIntegrationBase<
 		return {
 			values: values,
 			...(metadata != null ? { metadata: metadata } : {}),
-			...(truncated || metadata?.completeness !== 'complete' ? { truncated: true } : {}),
+			...(truncated || (metadata != null && metadata.completeness !== 'complete') ? { truncated: true } : {}),
 		};
 	}
 
