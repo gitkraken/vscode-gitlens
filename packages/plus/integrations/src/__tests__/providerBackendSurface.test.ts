@@ -464,6 +464,49 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listIssuesPage repo-scoped truncation warning identifies an issue read, not a pull request read (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		const issue = {
+			id: '7',
+			number: '7',
+			title: 'Issue 7',
+			url: 'https://github.com/o/r/issues/7',
+			createdDate: new Date(0),
+			updatedDate: new Date(0),
+			closedDate: null,
+			author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+			assignees: [],
+			labels: [],
+		} as unknown as ProviderIssue;
+		// A single-page repo-scoped read that can't confirm completeness sets `paging.truncated`. The facade
+		// must surface it via the shared truncation-warning helper, which is also used by PR reads: the message
+		// has to name the issue read, not mislabel it as a pull request read.
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: () =>
+				Promise.resolve({
+					values: [issue],
+					paging: { more: false, cursor: '{}', truncated: true },
+				} satisfies PagedResult<ProviderIssue>),
+		});
+
+		const result = await manager.listIssuesPage({ providerId: GitCloudHostIntegrationId.GitHub, repos: repos });
+		assert.equal(result.page.truncated, true, 'a repo-scoped read that signals truncation is reported truncated');
+		const truncationWarning = result.warnings.find(w => /truncat/i.test(w.message));
+		assert.ok(truncationWarning, 'a warning explains the read was truncated');
+		assert.ok(
+			/^Issue read/.test(truncationWarning.message),
+			'the warning names an issue read, not a pull request read',
+		);
+
+		manager.dispose();
+	});
+
 	test('listIssuesPage with no repos reads the account-wide user issues core (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

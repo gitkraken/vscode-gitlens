@@ -839,12 +839,13 @@ export class IntegrationService implements Disposable {
 		id: IntegrationIds,
 		domain: string | undefined,
 		connectionId: string | undefined,
+		readKind: 'Pull request' | 'Issue',
 	): ProviderWarning {
 		return {
 			providerId: id,
 			domain: domain,
 			connectionId: connectionId,
-			message: `Pull request read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
+			message: `${readKind} read for '${id}' was truncated (a page backstop was reached); results may be incomplete.`,
 			kind: 'other',
 			isAuth: false,
 		};
@@ -1094,9 +1095,10 @@ export class IntegrationService implements Disposable {
 
 	/**
 	 * Forces a real session refresh before a read when `forceSync` is set, so the read consumes a freshly
-	 * exchanged token rather than a possibly-stale cached one. Only the primary path is refreshed: a
-	 * per-connection (`connectionId`) read resolves its session directly from the auth provider and
-	 * bypasses this integration's refresh machinery, so `forceSync` is a no-op for non-primary reads.
+	 * exchanged token rather than a possibly-stale cached one. Both paths refresh, by different mechanisms: a
+	 * per-connection (`connectionId`) read syncs that specific connection's session directly through the auth
+	 * provider (the integration's primary-only sync path would never reach a secondary account), while a
+	 * primary read syncs via the integration's own cloud-connection machinery.
 	 * Best-effort — a failed sync is swallowed so the read still proceeds (and surfaces its own warning).
 	 */
 	private async forceRefreshIfRequested(
@@ -1646,7 +1648,7 @@ export class IntegrationService implements Disposable {
 		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
 		const truncated = paged.truncated || assessment.truncated;
 		if (truncated && warnings.length === 0) {
-			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId));
+			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Pull request'));
 		}
 		return {
 			items: items,
@@ -1875,7 +1877,7 @@ export class IntegrationService implements Disposable {
 		// page isn't published as complete. Metadata incompleteness is an independent source of the same signal.
 		const truncated = paged.truncated || assessment.truncated;
 		if (truncated && warnings.length === 0) {
-			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId));
+			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Issue'));
 		}
 		return {
 			items: items,
@@ -2281,19 +2283,19 @@ export class IntegrationService implements Disposable {
 				// truncation (structured failures or the generic incompleteness warning). Adding it unconditionally
 				// duplicates the same failure signal.
 				if (truncated && !assessment.truncated) {
-					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
+					appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
 				}
 				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: truncated };
 			}
 			if (page >= maxPages) {
-				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
+				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
 				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
 			const nextCursor = value.paging?.cursor;
 			if (nextCursor == null || nextCursor === '{}') {
 				// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
-				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId));
+				appendDedupedWarning(warnings, this.truncationWarning(id, domain, connectionId, 'Pull request'));
 				return { items: items, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
