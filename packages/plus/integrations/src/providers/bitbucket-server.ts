@@ -8,10 +8,13 @@ import type {
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
+import { nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -26,9 +29,19 @@ import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { IntegrationKey } from '../models/integration.js';
 import type { BitbucketRepositoryDescriptor } from './bitbucket/models.js';
 import type { ProviderPullRequest, ProviderRepository } from './models.js';
-import { fromProviderPullRequest, providersMetadata, toProviderPullRequestStates } from './models.js';
+import {
+	fromProviderPullRequest,
+	providerPullRequestMatchesSearch,
+	providersMetadata,
+	toProviderPullRequestStates,
+} from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { parsePageCursor, toPageCursor } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	flatSettledOrThrow,
+	parsePageCursor,
+	toPageCursor,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -280,6 +293,67 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				cursor: result.hasMore && result.nextPage != null ? toPageCursor(result.nextPage) : '{}',
 			},
 		};
+	}
+
+	protected override async searchProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: BitbucketRepositoryDescriptor[],
+		cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
+	): Promise<PullRequest[] | undefined> {
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const api = await this.getProvidersApi();
+		if (!api) return undefined;
+
+		const repoInputs =
+			repos != null
+				? repos.map(r => ({ name: r.name, namespace: r.owner }))
+				: await this.getWorkspaceRepoInputs();
+		if (cancellation?.aborted) throw new CancellationError();
+		// An explicitly-empty `repos` means "search these zero repos" -> no results; reserve `undefined`
+		// ("scope couldn't be determined") for when no repos were requested and none were discovered.
+		if (repoInputs.length === 0) return repos != null ? [] : undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const states = toProviderPullRequestStates(state);
+		const providerPullRequests = await flatSettledOrThrow(
+			repoInputs.map(async repo => {
+				const result = await collectProviderPagedResult(cursor => {
+					if (cancellation?.aborted) throw new CancellationError();
+
+					return api.getPullRequestsForRepo(token, repo, {
+						baseUrl: this.apiBaseUrl,
+						cursor: cursor,
+						states: states,
+					});
+				});
+				return result.values;
+			}),
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return providerPullRequests
+			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
+			.map(pr => fromProviderPullRequest(pr, this));
+	}
+
+	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
+		const remotes = await this.ctx.repositories.getOpenRemotes();
+		const inputs = await nonnullSettled(
+			remotes.map(async (r: GitRemote) => {
+				const integration = await this.authenticationService.getByRemote(r);
+				if (integration !== this) return undefined;
+
+				const namespace = r.provider?.owner;
+				const name = r.provider?.repoName;
+				return namespace != null && name != null ? { name: name, namespace: namespace } : undefined;
+			}),
+		);
+		// Dedupe: a repo with multiple remotes (e.g. `origin` + `upstream`) can map to the same input,
+		// which would otherwise fetch and return the same PRs more than once.
+		return [...new Map(inputs.map(i => [`${i.namespace}/${i.name}`, i])).values()];
 	}
 
 	protected override async searchProviderMyIssues(

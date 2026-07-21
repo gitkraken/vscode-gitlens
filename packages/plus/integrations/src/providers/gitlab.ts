@@ -454,6 +454,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 		searchQuery: string,
 		repos?: GitLabRepositoryDescriptor[],
 		cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
 	): Promise<PullRequest[] | undefined> {
 		const api = await this.authenticationService.apis.gitlab;
 		if (!api) {
@@ -467,6 +468,7 @@ abstract class GitLabIntegrationBase<ID extends GitLabIntegrationIds> extends Gi
 				search: searchQuery,
 				repos: repos?.map(r => `${r.owner}/${r.name}`),
 				baseUrl: this.apiBaseUrl,
+				state: state,
 			},
 			cancellation,
 		);
