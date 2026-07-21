@@ -1,6 +1,8 @@
 import { html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { RunningOperationExecState } from '../../../plus/graph/components/detailsState.js';
 import { chipStateSuffix, statusIconFor } from '../../../plus/graph/components/runningOperationStatus.js';
 import { elementBase } from '../styles/lit/base.css.js';
@@ -8,6 +10,7 @@ import { modeHeaderStyles, modeToggleStyles } from '../styles/lit/mode.css.js';
 import { detailsHeaderStyles } from './gl-details-header.css.js';
 import '../chips/action-chip.js';
 import '../code-icon.js';
+import '../indicators/new-indicator.js';
 import '../progress.js';
 
 /** Compose/review live in the details panel as toggle modes. Compare is rendered here too,
@@ -18,7 +21,14 @@ type Mode = 'review' | 'compose' | 'resolve';
 
 const modeConfig: Record<
 	Mode,
-	{ icon: string; label: string; closeLabel: string; text: string; collapsible: boolean }
+	{
+		icon: string;
+		label: string;
+		closeLabel: string;
+		text: string;
+		collapsible: boolean;
+		onboardingKey?: OnboardingKeys;
+	}
 > = {
 	compose: {
 		icon: 'wand',
@@ -26,6 +36,7 @@ const modeConfig: Record<
 		closeLabel: 'Close',
 		text: 'Compose',
 		collapsible: true,
+		onboardingKey: 'details:compose:buttonCallout',
 	},
 	review: {
 		icon: 'checklist',
@@ -33,6 +44,7 @@ const modeConfig: Record<
 		closeLabel: 'Close',
 		text: 'Review',
 		collapsible: true,
+		onboardingKey: 'details:review:buttonCallout',
 	},
 	resolve: {
 		icon: 'gl-merge',
@@ -157,7 +169,7 @@ export class GlDetailsHeader extends LitElement {
 			const mainIcon = showText && overlayIcon != null ? overlayIcon : config.icon;
 			const showSuffixOverlay = !showText && overlayIcon != null;
 
-			return html`<gl-action-chip
+			const chip = html`<gl-action-chip
 				icon=${mainIcon}
 				label="${label}"
 				overlay="tooltip"
@@ -178,6 +190,8 @@ export class GlDetailsHeader extends LitElement {
 						></code-icon>`
 					: nothing}
 			</gl-action-chip>`;
+
+			return html`<gl-new-indicator key=${ifDefined(config.onboardingKey)}>${chip}</gl-new-indicator>`;
 		});
 	}
 
@@ -194,15 +208,17 @@ export class GlDetailsHeader extends LitElement {
 		// Grouped with the mode toggles for layout + label-collapse parity, but Compare is not
 		// a mode (no active/close state) — it just opens the compare sheet. Its label collapses
 		// first (widest `@container` breakpoint in `gl-details-header.css.ts`).
-		return html`<gl-action-chip
-			icon="compare-changes"
-			label="Compare"
-			overlay="tooltip"
-			class="mode-toggle mode-toggle--compare"
-			@click=${this.handleCompare}
-		>
-			<span class="mode-toggle__text">Compare</span>
-		</gl-action-chip>`;
+		return html`<gl-new-indicator key="details:compare:buttonCallout">
+			<gl-action-chip
+				icon="compare-changes"
+				label="Compare"
+				overlay="tooltip"
+				class="mode-toggle mode-toggle--compare"
+				@click=${this.handleCompare}
+			>
+				<span class="mode-toggle__text">Compare</span>
+			</gl-action-chip>
+		</gl-new-indicator>`;
 	}
 
 	private handleCompare = (): void => {

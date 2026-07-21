@@ -459,7 +459,6 @@ export interface State extends WebviewState<'gitlens.graph' | 'gitlens.views.gra
 	graphWalkthroughBannerCollapsed?: boolean;
 	graphWalkthroughComplete?: boolean;
 	graphWalkthroughStarted?: boolean;
-	visualizationsButtonCalloutDismissed?: boolean;
 
 	// Persisted UI state (from `graph:state` workspace memento)
 	displayMode?: GraphDisplayMode;
@@ -1405,13 +1404,6 @@ export const DidChangeGraphWalkthroughStarted = new IpcNotification<boolean>(
 	scope,
 	'graphWalkthrough/started/didChange',
 );
-
-export const DidChangeVisualizationsButtonCallout = new IpcNotification<boolean>(
-	scope,
-	'visualizationsButtonCallout/didChange',
-);
-
-export const DismissVisualizationsButtonCalloutCommand = new IpcCommand(scope, 'visualizationsButtonCallout/dismiss');
 
 export interface DidRequestActiveSidebarPanelParams {
 	panel: GraphSidebarPanel;
