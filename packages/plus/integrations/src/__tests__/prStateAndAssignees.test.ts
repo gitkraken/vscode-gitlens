@@ -155,6 +155,61 @@ suite('PR state + includeAllAssignees + forceSync (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('GitHub account-wide PR read treats an empty state array as no filter, not zero states (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		// An empty `state: []` must fall through to the account-wide `involves:` path (getPullRequestsForUser),
+		// not resolve the per-state Promise.all([]) to an empty result.
+		let perStateSearchCalls = 0;
+		let accountWideCalled = false;
+		(
+			gh as unknown as { getProviderCurrentAccount: () => Promise<{ id: string; username: string }> }
+		).getProviderCurrentAccount = () => Promise.resolve({ id: 'u1', username: 'me' });
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: { apis: { github: Promise<Record<string, unknown> | undefined> } };
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+		githubApi.searchMyPullRequestsPage = () => {
+			perStateSearchCalls++;
+			return Promise.resolve({ values: [], hasMore: false, truncated: false });
+		};
+		stubApi(gh, {
+			getPullRequestsForUser: () => {
+				accountWideCalled = true;
+				return Promise.resolve({
+					values: [
+						{
+							id: '1',
+							url: 'https://github.com/o/r/pull/1',
+							state: 'open',
+						} as unknown as ProviderPullRequest,
+					],
+					paging: { more: false, cursor: '{}' },
+				});
+			},
+		});
+
+		const result = await (
+			gh as unknown as {
+				getProviderMyPullRequestsForUser: (
+					session: ProviderAuthenticationSession,
+					options?: { state?: ('open' | 'closed' | 'merged')[]; cursor?: string },
+				) => Promise<PagedResult<ProviderPullRequest> | undefined>;
+			}
+		).getProviderMyPullRequestsForUser(primarySession('t'), { state: [] });
+
+		assert.equal(perStateSearchCalls, 0, 'an empty state array does not take the per-state search path');
+		assert.equal(accountWideCalled, true, 'an empty state array falls through to the account-wide read');
+		assert.equal(result?.values.length, 1, 'the account-wide PRs are returned rather than an empty result');
+
+		manager.dispose();
+	});
+
 	test('without includeAllAssignees the assignee filter is applied', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

@@ -311,7 +311,9 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
-		if (options?.state != null) {
+		// An empty `state` array means "no state filter", not "read zero states": fall through to the
+		// account-wide `involves:` path rather than resolving `Promise.all([])` to an empty result.
+		if (options?.state != null && options.state.length > 0) {
 			const github = await this.authenticationService.apis.github;
 			if (github == null) return undefined;
 
