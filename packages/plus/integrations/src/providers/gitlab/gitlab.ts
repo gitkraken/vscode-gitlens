@@ -37,7 +37,12 @@ import type {
 	GitLabProjectREST,
 	GitLabUser,
 } from './models.js';
-import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models.js';
+import {
+	fromGitLabMergeRequest,
+	fromGitLabMergeRequestREST,
+	fromGitLabMergeRequestState,
+	toGitLabMergeRequestState,
+} from './models.js';
 
 // drop it as soon as we switch to @gitkraken/providers-api
 const gitlabUserIdPrefix = 'gid://gitlab/User/';
@@ -770,20 +775,25 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
+			const state = options?.state;
+			// Push a specific state server-side so matching results aren't crowded out of the first page.
+			let searchPath = `v4/search/?scope=merge_requests&search=${encodeURIComponent(search)}&per_page=${perPageLimit}`;
+			if (state != null && state !== 'all') {
+				searchPath += `&state=${encodeURIComponent(
+					toGitLabMergeRequestState(state === 'open' ? 'opened' : state),
+				)}`;
+			}
 			const allPRs = await this.request<GitLabMergeRequestREST[]>(
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/search/?scope=merge_requests&search=${search}&per_page=${perPageLimit}`,
+				searchPath,
 				{
 					method: 'GET',
 				},
 				cancellation,
 				scope,
 			);
-			// GitLab's search endpoint has no state qualifier. Preserve its historical all-state default,
-			// and filter the normalized REST results only when a specific state is requested.
-			const state = options?.state;
 			const restPRs =
 				state == null || state === 'all'
 					? allPRs

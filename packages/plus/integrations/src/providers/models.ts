@@ -318,7 +318,14 @@ export type GetPullRequestsForUserFn = (
 ) => Promise<{ data: ProviderPullRequest[]; pageInfo?: PageInfo }>;
 
 export type GetPullRequestsForAzureProjectsFn = (
-	input: { projects: { namespace: string; project: string }[]; authorLogin?: string; assigneeLogins?: string[] },
+	input: {
+		projects: { namespace: string; project: string }[];
+		authorLogin?: string;
+		assigneeLogins?: string[];
+		reviewerId?: string;
+		states?: GitPullRequestState[];
+		repo?: ProviderRepoInput;
+	},
 	options?: EnterpriseOptions,
 	// Aggregate multi-project fan-out: no `pageInfo` (call getPullRequestsForAzureProject for that), but SDK
 	// collection metadata reports per-project completeness/failures.
@@ -1001,10 +1008,10 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 }
 
 export function providerPullRequestMatchesSearch(pr: ProviderPullRequest, search: string): boolean {
-	const term = search.trim().toLocaleLowerCase();
+	const term = search.trim().toLowerCase();
 	if (term.length === 0) return true;
 
-	return pr.title.toLocaleLowerCase().includes(term) || (pr.description?.toLocaleLowerCase().includes(term) ?? false);
+	return pr.title.toLowerCase().includes(term) || (pr.description?.toLowerCase().includes(term) ?? false);
 }
 
 /** Maps a PR state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */

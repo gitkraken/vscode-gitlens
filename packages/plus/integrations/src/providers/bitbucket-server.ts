@@ -303,7 +303,9 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repos != null
 				? repos.map(r => ({ name: r.name, namespace: r.owner }))
 				: await this.getWorkspaceRepoInputs();
-		if (repoInputs.length === 0) return undefined;
+		// An explicitly-empty `repos` means "search these zero repos" -> no results; reserve `undefined`
+		// ("scope couldn't be determined") for when no repos were requested and none were discovered.
+		if (repoInputs.length === 0) return repos != null ? [] : undefined;
 
 		const result = await api.getPullRequestsForRepos(toTokenWithInfo(this.id, session), repoInputs, {
 			baseUrl: this.apiBaseUrl,
@@ -316,7 +318,7 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 
 	private async getWorkspaceRepoInputs(): Promise<{ name: string; namespace: string }[]> {
 		const remotes = await this.ctx.repositories.getOpenRemotes();
-		return nonnullSettled(
+		const inputs = await nonnullSettled(
 			remotes.map(async (r: GitRemote) => {
 				const integration = await this.authenticationService.getByRemote(r);
 				if (integration?.id !== this.id) return undefined;
@@ -326,6 +328,9 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 				return namespace != null && name != null ? { name: name, namespace: namespace } : undefined;
 			}),
 		);
+		// Dedupe: a repo with multiple remotes (e.g. `origin` + `upstream`) can map to the same input,
+		// which would otherwise fetch and return the same PRs more than once.
+		return [...new Map(inputs.map(i => [`${i.namespace}/${i.name}`, i])).values()];
 	}
 
 	protected override async searchProviderMyIssues(
