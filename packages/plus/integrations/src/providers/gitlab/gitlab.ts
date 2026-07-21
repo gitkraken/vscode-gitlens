@@ -2,6 +2,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
@@ -37,7 +38,12 @@ import type {
 	GitLabSshKey,
 	GitLabUser,
 } from './models.js';
-import { fromGitLabMergeRequest, fromGitLabMergeRequestREST, fromGitLabMergeRequestState } from './models.js';
+import {
+	fromGitLabMergeRequest,
+	fromGitLabMergeRequestREST,
+	fromGitLabMergeRequestState,
+	toGitLabMergeRequestState,
+} from './models.js';
 
 // drop it as soon as we switch to @gitkraken/providers-api
 const gitlabUserIdPrefix = 'gid://gitlab/User/';
@@ -789,7 +795,14 @@ export class GitLabApi implements Disposable {
 	async searchPullRequests(
 		provider: Provider,
 		token: TokenWithInfo,
-		options?: { search?: string; user?: string; repos?: string[]; baseUrl?: string; avatarSize?: number },
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			state?: PullRequestStateFilter;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
 		const scope = getScopedLogger();
@@ -800,17 +813,31 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
-			const restPRs = await this.request<GitLabMergeRequestREST[]>(
+			const state = options?.state;
+			// Push a specific state server-side so matching results aren't crowded out of the first page.
+			let searchPath = `v4/search/?scope=merge_requests&search=${encodeURIComponent(search)}&per_page=${perPageLimit}`;
+			if (state != null && state !== 'all') {
+				searchPath += `&state=${encodeURIComponent(
+					toGitLabMergeRequestState(state === 'open' ? 'opened' : state),
+				)}`;
+			}
+			const allPRs = await this.request<GitLabMergeRequestREST[]>(
 				provider,
 				token,
 				options?.baseUrl,
-				`v4/search/?scope=merge_requests&search=${search}&per_page=${perPageLimit}`,
+				searchPath,
 				{
 					method: 'GET',
 				},
 				cancellation,
 				scope,
 			);
+			const restPRs =
+				state == null || state === 'all'
+					? allPRs
+					: allPRs.filter(
+							pr => fromGitLabMergeRequestState(pr.state) === (state === 'open' ? 'opened' : state),
+						);
 			if (restPRs.length === 0) {
 				return [];
 			}
