@@ -13,6 +13,7 @@ import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescripto
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { Emitter } from '@gitlens/utils/event.js';
+import type { PagedResult } from '@gitlens/utils/paging.js';
 import { batch } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -24,9 +25,33 @@ import type { IntegrationConnectionChangeEvent } from '../integrationService.js'
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
-import type { ProviderHierarchyResult, ProviderOrganization, ProviderRepository } from './models.js';
-import { providersMetadata } from './models.js';
+import type {
+	ProviderHierarchyResult,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './models.js';
+import { providersMetadata, toProviderPullRequest, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+
+type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
+
+function parsePullRequestStateCursor(cursor: string | undefined): GitHubPullRequestStateCursor {
+	if (!cursor) return {};
+
+	try {
+		const parsed = JSON.parse(cursor) as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.entries(parsed).filter(
+				([key, value]) =>
+					(key === 'open' || key === 'closed' || key === 'merged' || key === 'all') &&
+					typeof value === 'string',
+			),
+		);
+	} catch {
+		return {};
+	}
+}
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -300,6 +325,23 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		});
 	}
 
+	public override async getRepoInfo(repo: {
+		owner: string;
+		name: string;
+		project?: string;
+		connectionId?: string;
+	}): Promise<ProviderRepository | undefined> {
+		const api = await this.getProvidersApi();
+		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
+		const session = await this.resolveReadSession(repo.connectionId, undefined);
+		if (session == null) return undefined;
+
+		// `apiBaseUrl` is api.github.com for cloud and the GHE instance base for enterprise (inherited override).
+		return api.getRepo(toTokenWithInfo(this.id, session), repo.owner, repo.name, repo.project, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
 	protected override async searchProviderMyPullRequests(
 		session: ProviderAuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
@@ -320,11 +362,98 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	protected override async getProviderMyPullRequestsForUser(
+		session: ProviderAuthenticationSession,
+		options?: { state?: PullRequestStateFilter[]; cursor?: string },
+	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		// An empty `state` array means "no state filter", not "read zero states": fall through to the
+		// account-wide `involves:` path rather than resolving `Promise.all([])` to an empty result.
+		if (options?.state != null && options.state.length > 0) {
+			const github = await this.authenticationService.apis.github;
+			if (github == null) return undefined;
+
+			const requestedStates = [...new Set(options.state)];
+			const cursors = parsePullRequestStateCursor(options.cursor);
+			const results = await Promise.all(
+				requestedStates.map(async state => ({
+					state: state,
+					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
+						baseUrl: this.apiBaseUrl,
+						state: state,
+						cursor: cursors[state],
+					}),
+				})),
+			);
+
+			const values = new Map<string, ProviderPullRequest>();
+			const nextCursors: GitHubPullRequestStateCursor = {};
+			let hasMore = false;
+			let truncated = false;
+			for (const { state, result } of results) {
+				for (const pr of result.values) {
+					values.set(pr.url, toProviderPullRequest(pr));
+				}
+				if (result.hasMore && result.cursor != null) {
+					hasMore = true;
+					nextCursors[state] = result.cursor;
+				}
+				if (result.truncated) {
+					truncated = true;
+				}
+			}
+
+			return {
+				values: [...values.values()],
+				paging: {
+					more: hasMore,
+					cursor: JSON.stringify(nextCursors),
+					truncated: truncated || undefined,
+				},
+			};
+		}
+
+		// The current user's login scopes the account-wide `involves:` query (see getPullRequestsForUser →
+		// getPullRequestsAssociatedWithUser). Resolve it from THIS session (multi-account safe).
+		const username = (await this.getProviderCurrentAccount(session))?.username;
+		if (username == null) return undefined;
+
+		const api = await this.getProvidersApi();
+		const states = toProviderPullRequestStates(options?.state);
+		const result = await api.getPullRequestsForUser(toTokenWithInfo(this.id, session), username, {
+			baseUrl: this.apiBaseUrl,
+			states: states,
+			cursor: options?.cursor,
+		});
+		if (result == null) return undefined;
+
+		// The SDK's account-wide `involves:` search (getPullRequestsAssociatedWithUser) drops the `states`
+		// input entirely — it never reaches the query's state qualifier — so the read comes back with every
+		// state. Filter client-side to honor the requested states (e.g. the closed+merged "done" sweep, which
+		// would otherwise include open PRs).
+		if (states != null) {
+			return { ...result, values: result.values.filter(pr => states.includes(pr.state)) };
+		}
+		return result;
+	}
+
 	protected override async searchProviderMyIssues(
 		session: ProviderAuthenticationSession,
 		repos?: GitHubRepositoryDescriptor[],
 		cancellation?: AbortSignal,
 	): Promise<IssueShape[] | undefined> {
+		return (await this.searchProviderMyIssuesWithTruncation(session, repos, cancellation))?.values;
+	}
+
+	/**
+	 * GitHub's account-wide issue search caps each of authored/assigned/mentioned at 100 with no cursor, so the
+	 * result can be incomplete. This variant preserves the `truncated` flag the API reports (the abstract
+	 * {@link searchProviderMyIssues} contract can't carry it) so the facade can surface the incompleteness.
+	 */
+	protected override async searchProviderMyIssuesWithTruncation(
+		session: ProviderAuthenticationSession,
+		repos?: GitHubRepositoryDescriptor[],
+		cancellation?: AbortSignal,
+	): Promise<{ values: IssueShape[]; truncated: boolean } | undefined> {
 		return (await this.authenticationService.apis.github)?.searchMyIssues(
 			this,
 			toTokenWithInfo(this.id, session),

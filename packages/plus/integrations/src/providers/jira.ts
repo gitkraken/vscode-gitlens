@@ -1,16 +1,19 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { IssueResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
-import { filterMap, flatten } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { toCollectionScopeFailure } from '../results.js';
+import type { ProviderApiCollectionResult, ProviderIssue } from './models.js';
 import { IssueFilter, providersMetadata, toAccount, toIssueShape } from './models.js';
+import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Jira];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -133,6 +136,14 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 		resources: JiraOrganizationDescriptor[],
 		force: boolean = false,
 	): Promise<JiraProjectDescriptor[] | undefined> {
+		return (await this.getProviderProjectsForResourcesWithMetadata(session, resources, force)).values;
+	}
+
+	protected override async getProviderProjectsForResourcesWithMetadata(
+		session: ProviderAuthenticationSession,
+		resources: JiraOrganizationDescriptor[],
+		force: boolean = false,
+	): Promise<ProviderApiCollectionResult<JiraProjectDescriptor>> {
 		const { accessToken } = session;
 		this._projects ??= new Map<string, JiraProjectDescriptor[] | undefined>();
 
@@ -149,85 +160,213 @@ export class JiraIntegration extends IssuesIntegration<IssuesCloudHostIntegratio
 			}
 		}
 
+		let metadata: CollectionMetadata | undefined;
 		if (resourcesWithoutProjects.length > 0) {
 			const api = await this.getProvidersApi();
-			const jiraProjectBaseDescriptors = await api.getJiraProjectsForResources(
+			const result = await api.getJiraProjectsForResources(
 				toTokenWithInfo(this.id, session),
 				resourcesWithoutProjects.map(r => r.id),
 			);
+			metadata = result.metadata;
+
+			// Only the resources the SDK did NOT report as failed are proven: cache their mapped projects
+			// (including a proven-empty array, so a genuinely empty resource doesn't refetch every time). A
+			// resource listed in `metadata.failures` is left uncached so the next read retries it, and — crucially
+			// on a forced refresh — its existing valid cache entry is preserved rather than erased by the failure.
+			const failedResourceIds = new Set(
+				(metadata?.failures ?? []).map(f => f.scope?.resourceId).filter((id): id is string => id != null),
+			);
 
 			for (const resource of resourcesWithoutProjects) {
-				const projects = jiraProjectBaseDescriptors?.filter(p => p.resourceId === resource.id);
-				if (projects != null) {
-					this._projects.set(
-						`${accessToken}:${resource.id}`,
-						projects.map(p => ({ ...p })),
-					);
-				}
+				if (failedResourceIds.has(resource.id)) continue;
+
+				const projects = result.values.filter(p => p.resourceId === resource.id);
+				this._projects.set(
+					`${accessToken}:${resource.id}`,
+					projects.map(p => ({ ...p })),
+				);
 			}
 		}
 
-		return resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
+		const values = resources.reduce<JiraProjectDescriptor[]>((projects, resource) => {
 			const resourceProjects = this._projects!.get(`${accessToken}:${resource.id}`);
 			if (resourceProjects != null) {
 				projects.push(...resourceProjects);
 			}
 			return projects;
 		}, []);
+
+		return { values: values, metadata: metadata };
 	}
 
 	protected override async getProviderIssuesForProject(
 		session: ProviderAuthenticationSession,
 		project: JiraProjectDescriptor,
-		options?: { user: string; filters: IssueFilter[] },
+		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		let results;
+		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
+	}
+
+	protected override async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: JiraProjectDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
 		const tokenWithInfo = toTokenWithInfo(this.id, session);
 
 		const api = await this.getProvidersApi();
 
+		// Drain every page for a project read (bounded by a defensive backstop): the paged wrapper preserves the
+		// SDK's cursor, unlike the plain read which silently caps at the first page. `filter` undefined = the
+		// unscoped project read. Reports `truncated` when the drain stopped at the backstop with more pages
+		// still available, and records a structured failure if a page-level error discarded the rest of the drain,
+		// so the facade can warn + set fetchFailed while preserving the already-fetched prefix.
+		const drainIssues = async (scope: {
+			authorLogin?: string;
+			assigneeLogins?: string[];
+			mentionLogin?: string;
+		}): Promise<{ issues: ProviderIssue[]; truncated: boolean; metadata?: CollectionMetadata }> => {
+			const collected: ProviderIssue[] = [];
+			let cursor: string | undefined;
+			let truncated = false;
+			let metadata: CollectionMetadata | undefined;
+			for (let i = 0; i < maxPagesPerRequest; i++) {
+				let result: Awaited<ReturnType<typeof api.getIssuesForProjectPaged>> | undefined;
+				try {
+					result = await api.getIssuesForProjectPaged(tokenWithInfo, project.name, project.resourceId, {
+						...scope,
+						cursor: cursor,
+					});
+				} catch (ex) {
+					// A page failure after the first page leaves the already-drained prefix intact; record the
+					// failure at the project scope instead of re-throwing and discarding the prefix. If nothing was
+					// fetched yet, the original throw behavior is preserved so the caller sees a hard error rather
+					// than an empty partial success.
+					if (collected.length === 0) throw ex;
+
+					truncated = true;
+					metadata = mergeCollectionMetadata(metadata, {
+						completeness: 'partial',
+						failures: [
+							toCollectionScopeFailure(
+								{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },
+								ex,
+							),
+						],
+					});
+					break;
+				}
+				if (result == null) break;
+
+				collected.push(...result.data);
+				if (!result.hasMore) break;
+
+				// The provider claims more pages but gave no advancing cursor: we can't continue, so the drain
+				// is incomplete — flag it rather than silently stopping (matches drainPullRequests/Repositories).
+				if (result.nextCursor == null || result.nextCursor === cursor) {
+					truncated = true;
+					break;
+				}
+
+				cursor = result.nextCursor;
+				// More pages remain but we're at the last allowed iteration: the drain is incomplete.
+				if (i === maxPagesPerRequest - 1) {
+					truncated = true;
+				}
+			}
+			return { issues: collected, truncated: truncated, metadata: metadata };
+		};
+
 		const getSearchedUserIssuesForFilter = async (
 			user: string,
 			filter: IssueFilter,
-		): Promise<IssueShape[] | undefined> => {
-			const results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId, {
+		): Promise<{ issues: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata }> => {
+			const result = await drainIssues({
 				authorLogin: filter === IssueFilter.Author ? user : undefined,
 				assigneeLogins: filter === IssueFilter.Assignee ? [user] : undefined,
 				mentionLogin: filter === IssueFilter.Mention ? user : undefined,
 			});
 
-			return results
-				?.map(issue => toIssueShape(issue, this))
-				.filter((result): result is IssueShape => result !== undefined);
+			return {
+				issues: result.issues
+					.map(issue => toIssueShape(issue, this))
+					.filter((r): r is IssueShape => r !== undefined),
+				truncated: result.truncated,
+				metadata: result.metadata,
+			};
 		};
 
-		if (options?.user != null && options.filters.length > 0) {
-			const resultsPromise = Promise.allSettled(
-				options.filters.map(filter => getSearchedUserIssuesForFilter(options.user, filter)),
+		if (options?.user != null) {
+			const user = options.user;
+			// A resolved user always scopes the read. Default to the assignee filter ("my issues") when no
+			// explicit filters are given — otherwise a caller that scopes by user but omits filters would fall
+			// through to the unscoped fetch below and get every issue in the project instead of the user's.
+			const filters = options.filters?.length ? options.filters : [IssueFilter.Assignee];
+			const settled = await Promise.allSettled(
+				filters.map(filter => getSearchedUserIssuesForFilter(user, filter)),
 			);
 
-			results = [
-				...flatten(
-					filterMap(await resultsPromise, r =>
-						r.status === 'fulfilled' && r.value != null ? r.value : undefined,
-					),
-				),
-			];
+			// If every filter branch rejected, the read failed outright — propagate the first rejection instead
+			// of returning an empty list, which the facade (getIssuesForProjectResult → runCaptured) would
+			// otherwise surface as a successful "no issues" rather than a warning + fetchFailed.
+			if (settled.every(r => r.status === 'rejected')) {
+				throw settled[0].status === 'rejected' ? settled[0].reason : new Error('Jira issue read failed');
+			}
 
+			let truncated = false;
+			let metadata: CollectionMetadata | undefined;
 			const resultsById = new Map<string, IssueShape>();
-			for (const resultIssue of results) {
-				if (!resultsById.has(resultIssue.id)) {
-					resultsById.set(resultIssue.id, resultIssue);
+			for (let i = 0; i < settled.length; i++) {
+				const outcome = settled[i];
+				const filter = filters[i];
+				// A rejected filter branch (with at least one sibling succeeding) means this project's issues are
+				// incomplete: keep the sibling results but record a structured failure so the facade can warn on
+				// the specific filter (auth/rate-limit) instead of just a generic truncation flag.
+				if (outcome.status !== 'fulfilled') {
+					truncated = true;
+					metadata = mergeCollectionMetadata(metadata, {
+						completeness: 'partial',
+						failures: [
+							toCollectionScopeFailure(
+								{ providerId: this.id, resourceId: project.resourceId, projectId: project.name },
+								new Error(
+									`Issue filter '${filter}' could not be read: ${
+										outcome.reason instanceof Error
+											? outcome.reason.message
+											: String(outcome.reason)
+									}`,
+									{ cause: outcome.reason },
+								),
+							),
+						],
+					});
+					continue;
+				}
+
+				if (outcome.value.truncated) {
+					truncated = true;
+				}
+				if (outcome.value.metadata != null) {
+					metadata = mergeCollectionMetadata(metadata, outcome.value.metadata);
+				}
+				for (const resultIssue of outcome.value.issues) {
+					if (!resultsById.has(resultIssue.id)) {
+						resultsById.set(resultIssue.id, resultIssue);
+					}
 				}
 			}
 
-			return [...resultsById.values()];
+			return { values: [...resultsById.values()], truncated: truncated, metadata: metadata };
 		}
 
-		results = await api.getIssuesForProject(tokenWithInfo, project.name, project.resourceId);
-		return results
-			?.map(issue => toIssueShape(issue, this))
-			.filter((result): result is IssueShape => result !== undefined);
+		const unscoped = await drainIssues({});
+		return {
+			values: unscoped.issues
+				.map(issue => toIssueShape(issue, this))
+				.filter((result): result is IssueShape => result !== undefined),
+			truncated: unscoped.truncated,
+			metadata: unscoped.metadata,
+		};
 	}
 
 	protected override async searchProviderMyIssues(

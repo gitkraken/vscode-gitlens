@@ -107,10 +107,14 @@ function createConfigAdapter(disposables: VsCodeDisposable[]): ConfigProvider {
 		}),
 		getRemoteConfigs: (): readonly IntegrationsRemoteConfig[] =>
 			(configuration.get('remotes') ?? [])
-				.filter(r => r.domain != null)
+				// Require a non-empty domain or regex: an empty string passes `!= null` but would match
+				// everything downstream (including the `ignoreSSLErrors` regex test), applying settings too broadly.
+				.filter(r => Boolean(r.domain) || Boolean(r.regex))
 				.map(r => ({
 					type: r.type,
-					domain: r.domain,
+					domain: r.domain || undefined,
+					regex: r.regex || undefined,
+					protocol: r.protocol || undefined,
 					ignoreSSLErrors: r.ignoreSSLErrors,
 				})),
 		onDidChange: onDidChange.event,

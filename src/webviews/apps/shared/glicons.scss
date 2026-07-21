@@ -6,7 +6,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 	@font-face {
 		font-family: 'glicons';
 		font-display: block;
-		src: url("#{root}/dist/glicons.woff2?2f19481571c66d65225c765413974b3f") format("woff2");
+		src: url("#{root}/dist/glicons.woff2?bf315b2453b6ee205d952af039dd3a34") format("woff2");
 	}
 </style>
 */
@@ -307,4 +307,7 @@ Must be placed at the end of body in the HTML file of any webview that needs it 
 }
 .glicon-remote-filled:before {
 	content: '\f151';
+}
+.glicon-provider-trello:before {
+	content: '\f152';
 }

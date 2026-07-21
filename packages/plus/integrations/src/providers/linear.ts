@@ -1,3 +1,4 @@
+import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -9,9 +10,12 @@ import type { IntegrationAuthenticationProviderDescriptor } from '../authenticat
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import { IssuesIntegration } from '../models/issuesIntegration.js';
+import { toCollectionScopeFailure } from '../results.js';
 import type { IssueFilter, ProviderIssue } from './models.js';
 import { fromProviderIssue, providersMetadata, toIssueShape } from './models.js';
+import { mergeCollectionMetadata } from './utils/providerPaging.js';
 
 const metadata = providersMetadata[IssuesCloudHostIntegrationId.Linear];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -133,32 +137,135 @@ export class LinearIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 		return this._teams.get(accessToken);
 	}
 
-	protected override getProviderResourcesForUser(
-		_session: ProviderAuthenticationSession,
+	protected override async getProviderResourcesForUser(
+		session: ProviderAuthenticationSession,
 	): Promise<ResourceDescriptor[] | undefined> {
-		throw new Error('Method not implemented.');
+		const organization = await this.getOrganization(session);
+		return organization != null ? [organization] : undefined;
 	}
 	protected override getProviderProjectsForResources(
-		_session: ProviderAuthenticationSession,
+		session: ProviderAuthenticationSession,
 		_resources: ResourceDescriptor[],
 	): Promise<ResourceDescriptor[] | undefined> {
-		throw new Error('Method not implemented.');
+		return this.getTeams(session);
 	}
 	readonly authProvider: IntegrationAuthenticationProviderDescriptor = authProvider;
 
-	protected override getProviderAccountForResource(
-		_session: ProviderAuthenticationSession,
+	protected override async getProviderAccountForResource(
+		session: ProviderAuthenticationSession,
 		_resource: ResourceDescriptor,
 	): Promise<Account | undefined> {
-		throw new Error('Method not implemented.');
+		const api = await this.getProvidersApi();
+		// Linear's viewer isn't a ProviderAccount (no username/avatar), so build the Account manually
+		// (Trello-style) from the fields the viewer query returns.
+		const user = await api.getLinearCurrentUser(toTokenWithInfo(this.id, session));
+		if (user == null) return undefined;
+
+		return {
+			provider: this,
+			id: user.id,
+			name: user.name ?? user.displayName ?? undefined,
+			username: user.displayName ?? undefined,
+			email: user.email ?? undefined,
+			avatarUrl: undefined,
+		};
 	}
 
-	protected override getProviderIssuesForProject(
-		_session: ProviderAuthenticationSession,
-		_project: ResourceDescriptor,
-		_options?: { user?: string; filters?: IssueFilter[] },
+	protected override async getProviderIssuesForProject(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
 	): Promise<IssueShape[] | undefined> {
-		throw new Error('Method not implemented.');
+		return (await this.getProviderIssuesForProjectWithTruncation(session, project, options))?.values;
+	}
+
+	protected override async getProviderIssuesForProjectWithTruncation(
+		session: ProviderAuthenticationSession,
+		project: ResourceDescriptor,
+		options?: { user?: string; filters?: IssueFilter[] },
+	): Promise<{ values: IssueShape[]; truncated: boolean; metadata?: CollectionMetadata } | undefined> {
+		if (!isIssueResourceDescriptor(project)) return undefined;
+
+		const api = await this.getProvidersApi();
+		// `getProviderProjectsForResources` returns Linear teams, so `project.id` is a team id here. Drain the
+		// team's issues (Linear pages by cursor); bounded by maxPagesPerRequest as a backstop. `truncated` is
+		// set when that backstop stopped the drain with more pages still available.
+		let cursor: string | undefined;
+		let hasMore: boolean;
+		let requestCount = 0;
+		let truncated = false;
+		let collectionMetadata: CollectionMetadata | undefined;
+		const issues: IssueShape[] = [];
+		do {
+			let result: Awaited<ReturnType<typeof api.getLinearIssues>>;
+			try {
+				result = await api.getLinearIssues(
+					toTokenWithInfo(this.id, session),
+					{ teams: [project.id] },
+					{ cursor: cursor },
+				);
+			} catch (ex) {
+				// A page failure after the first page leaves the already-drained prefix intact; record the
+				// failure at the project scope instead of re-throwing and discarding the prefix. If nothing was
+				// fetched yet, preserve the original throw behavior so the caller sees a hard error.
+				if (issues.length === 0) throw ex;
+
+				truncated = true;
+				collectionMetadata = mergeCollectionMetadata(collectionMetadata, {
+					completeness: 'partial',
+					failures: [toCollectionScopeFailure({ providerId: this.id, projectId: project.id }, ex)],
+				});
+				break;
+			}
+			requestCount += 1;
+			hasMore = result.paging?.more ?? false;
+			const nextCursor = result.paging?.cursor;
+			for (const issue of result.values) {
+				const shape = toIssueShape(issue, this);
+				if (shape != null) {
+					issues.push(shape);
+				}
+			}
+			// The provider claims more but returns no advancing cursor: we can't continue without re-reading the
+			// same page, so the drain is incomplete — flag it rather than silently stopping.
+			if (hasMore && (nextCursor == null || nextCursor === cursor)) {
+				truncated = true;
+				break;
+			}
+
+			cursor = nextCursor;
+			// More pages remain but we've hit the backstop: the drain is incomplete.
+			if (hasMore && requestCount >= maxPagesPerRequest) {
+				truncated = true;
+			}
+		} while (requestCount < maxPagesPerRequest && hasMore);
+
+		// Linear's issue list has no server-side author/assignee filter, so scope to the current user
+		// client-side when a user was requested (the assignee filter is what "my issues" means here).
+		// Match on the viewer's stable id, not the passed display name: Linear's `name` (full name) and
+		// `displayName` (nickname) are distinct fields, and assignees are normalized with `.name` = the full
+		// name while the caller's `user` is the displayName — so a name string can miss. The assignee `.id`
+		// is the Linear user id, which is unambiguous.
+		if (options?.user != null) {
+			const viewerId = (await api.getLinearCurrentUser(toTokenWithInfo(this.id, session)))?.id;
+			// If the viewer can't be resolved we can't scope to "my issues" — returning the unfiltered team
+			// issues would leak everyone else's, and returning [] is indistinguishable from "no issues assigned
+			// to me". Throw so the facade (getIssuesForProjectResult → runCaptured) surfaces a warning +
+			// fetchFailed the caller can act on, instead of a silent empty.
+			if (viewerId == null) {
+				throw new IntegrationReadUnavailableError(
+					metadata.name,
+					'could not resolve the current user to scope issues to',
+				);
+			}
+			return {
+				values: issues.filter(issue => issue.assignees?.some(a => a.id === viewerId)),
+				truncated: truncated,
+				metadata: collectionMetadata,
+			};
+		}
+
+		return { values: issues, truncated: truncated, metadata: collectionMetadata };
 	}
 
 	override get id(): IssuesCloudHostIntegrationId.Linear {
