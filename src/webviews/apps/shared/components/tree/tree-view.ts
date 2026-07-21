@@ -1027,8 +1027,11 @@ export class GlTreeView extends GlElement {
 						?open=${this._hoverOpen}
 						.anchor=${this._hoveredAnchor}
 						placement="right-start"
+						flip-fallback-placements="bottom-start top-start"
 						trigger="manual"
 						.distance=${12}
+						@mouseenter=${this.onHoverPopoverEnter}
+						@mouseleave=${() => this.onTreeItemUnhover()}
 					>
 						<div slot="content" class="hover-content">
 							${typeof this._hoveredTooltip === 'string'
@@ -1287,6 +1290,14 @@ export class GlTreeView extends GlElement {
 			this._hoveredAnchor = undefined;
 		}, 100);
 	}
+
+	// The pointer entering the hover popover keeps it open (like VS Code's own tree hovers). In
+	// narrow viewports the popover has to overlap the list — without this, the row's mouseleave
+	// (fired the moment the popover lands under or the pointer crosses into it) closes the hover
+	// and the re-hover reopens it, looping open/close.
+	private readonly onHoverPopoverEnter = (): void => {
+		clearTimeout(this._unhoverTimer);
+	};
 
 	private onSuspendRowTooltip() {
 		clearTimeout(this._hoverTimer);

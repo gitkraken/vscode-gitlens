@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes the _Commit Graph_ header's account/subscription state never updating after the view loads &mdash; sign-in/sign-out, organization switches, and plan changes (including the subscription simulator) now update the header live instead of requiring a reload; the same underlying fix also keeps account and organization state live in _Commit Details_ and organization AI/drafts settings live in the _Home_ view ([#5513](https://github.com/gitkraken/vscode-gitlens/issues/5513))
 - Fixes the _Commit Graph_ working changes (WIP) details continuing to show files after they were committed or discarded outside of VS Code (e.g. from a terminal)
 - Fixes the _Commit Graph_ view's progress indicator repeatedly flashing while nothing appears to change (most noticeable after the VS Code window regains focus) &mdash; last-fetched updates now coalesce into a single pending update instead of queuing one per `FETCH_HEAD` change
+- Fixes the _Commit Graph_ sidebar list hovers repeatedly opening and closing in narrow viewports &mdash; when there's no room beside the list the hover now falls back below/above the row instead of flipping over the pointer, and moving the pointer into the hover keeps it open (like VS Code's own tree hovers) instead of dismissing it
 
 ### Removed
 
