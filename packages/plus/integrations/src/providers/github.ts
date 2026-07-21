@@ -29,8 +29,27 @@ import type {
 	ProviderPullRequest,
 	ProviderRepository,
 } from './models.js';
-import { providersMetadata, toProviderPullRequestStates } from './models.js';
+import { providersMetadata, toProviderPullRequest, toProviderPullRequestStates } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
+
+type GitHubPullRequestStateCursor = Partial<Record<PullRequestStateFilter, string>>;
+
+function parsePullRequestStateCursor(cursor: string | undefined): GitHubPullRequestStateCursor {
+	if (!cursor) return {};
+
+	try {
+		const parsed = JSON.parse(cursor) as Record<string, unknown>;
+		return Object.fromEntries(
+			Object.entries(parsed).filter(
+				([key, value]) =>
+					(key === 'open' || key === 'closed' || key === 'merged' || key === 'all') &&
+					typeof value === 'string',
+			),
+		);
+	} catch {
+		return {};
+	}
+}
 
 const metadata = providersMetadata[GitCloudHostIntegrationId.GitHub];
 const authProvider: IntegrationAuthenticationProviderDescriptor = Object.freeze({
@@ -292,6 +311,50 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		session: ProviderAuthenticationSession,
 		options?: { state?: PullRequestStateFilter[]; cursor?: string },
 	): Promise<PagedResult<ProviderPullRequest> | undefined> {
+		if (options?.state != null) {
+			const github = await this.authenticationService.apis.github;
+			if (github == null) return undefined;
+
+			const requestedStates = [...new Set(options.state)];
+			const cursors = parsePullRequestStateCursor(options.cursor);
+			const results = await Promise.all(
+				requestedStates.map(async state => ({
+					state: state,
+					result: await github.searchMyPullRequestsPage(this, toTokenWithInfo(this.id, session), {
+						baseUrl: this.apiBaseUrl,
+						state: state,
+						cursor: cursors[state],
+					}),
+				})),
+			);
+
+			const values = new Map<string, ProviderPullRequest>();
+			const nextCursors: GitHubPullRequestStateCursor = {};
+			let hasMore = false;
+			let truncated = false;
+			for (const { state, result } of results) {
+				for (const pr of result.values) {
+					values.set(pr.url, toProviderPullRequest(pr));
+				}
+				if (result.hasMore && result.cursor != null) {
+					hasMore = true;
+					nextCursors[state] = result.cursor;
+				}
+				if (result.truncated) {
+					truncated = true;
+				}
+			}
+
+			return {
+				values: [...values.values()],
+				paging: {
+					more: hasMore,
+					cursor: JSON.stringify(nextCursors),
+					truncated: truncated || undefined,
+				},
+			};
+		}
+
 		// The current user's login scopes the account-wide `involves:` query (see getPullRequestsForUser →
 		// getPullRequestsAssociatedWithUser). Resolve it from THIS session (multi-account safe).
 		const username = (await this.getProviderCurrentAccount(session))?.username;

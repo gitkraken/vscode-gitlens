@@ -3,6 +3,7 @@ import { suite, test } from 'mocha';
 import { CloudIntegrationService } from '../authentication/cloudIntegrationService.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import { createManualTokenAuthProvider } from '../authentication/manualTokenProvider.js';
 import {
 	GitCloudHostIntegrationId,
 	GitSelfManagedHostIntegrationId,
@@ -53,5 +54,20 @@ suite('IntegrationAuthenticationService.supports (#5438)', () => {
 		const auth = createAuthService();
 
 		assert.equal(auth.supports('not-a-provider'), false);
+	});
+
+	test('manual token auth preserves the optional appKey on the session', async () => {
+		const provider = createManualTokenAuthProvider({
+			id: IssuesCloudHostIntegrationId.Trello,
+			token: 'tok',
+			account: { id: 'me', label: 'CLI Token' },
+			domain: 'trello.com',
+			appKey: 'trello-app-key',
+		});
+
+		const session = await provider.getSession({ domain: 'trello.com', scopes: [] });
+
+		assert.equal(session?.appKey, 'trello-app-key');
+		provider.dispose();
 	});
 });

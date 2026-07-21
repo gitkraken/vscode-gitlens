@@ -3310,7 +3310,7 @@ export class GitHubApi {
 	}
 
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
-	async searchMyPullRequests(
+	async searchMyPullRequestsPage(
 		provider: Provider,
 		token: GitHubTokenInfo,
 		options?: {
@@ -3321,17 +3321,21 @@ export class GitHubApi {
 			avatarSize?: number;
 			silent?: boolean;
 			state?: PullRequestStateFilter;
+			cursor?: string;
 		},
 		cancellation?: AbortSignal,
-	): Promise<PullRequest[]> {
+	): Promise<{ values: PullRequest[]; cursor?: string; hasMore: boolean; truncated: boolean }> {
 		const scope = getScopedLogger();
-
 		const limit = Math.min(100, this.config.getLaunchpadQueryLimit?.() ?? 100);
 
 		try {
 			interface SearchResult {
 				search: {
 					issueCount: number;
+					pageInfo: {
+						endCursor?: string | null;
+						hasNextPage: boolean;
+					};
 					nodes: GitHubPullRequest[];
 				};
 				viewer: {
@@ -3340,21 +3344,26 @@ export class GitHubApi {
 			}
 
 			const query = `query searchMyPullRequests(
-	$search: String!
-	$avatarSize: Int
-) {
-	search(first: ${limit}, query: $search, type: ISSUE) {
-		issueCount
-		nodes {
-			...on PullRequest {
-				${gqlPullRequestFragment}
+		$search: String!
+		$cursor: String
+		$avatarSize: Int
+	) {
+		search(first: ${limit}, after: $cursor, query: $search, type: ISSUE) {
+			issueCount
+			pageInfo {
+				endCursor
+				hasNextPage
+			}
+			nodes {
+				...on PullRequest {
+					${gqlPullRequestFragment}
+				}
 			}
 		}
-	}
-	viewer {
-		login
-	}
-}`;
+		viewer {
+			login
+		}
+	}`;
 
 			let search = options?.search?.trim() ?? '';
 
@@ -3366,27 +3375,21 @@ export class GitHubApi {
 				search += ` repo:${options.repos.join(' repo:')}`;
 			}
 
-			// Hack for now, ultimately this should be passed in
 			const ignoredRepos = this.config.getLaunchpadIgnoredRepositories?.() ?? [];
 			if (ignoredRepos.length) {
 				search += ` -repo:${ignoredRepos.join(' -repo:')}`;
 			}
 
-			// Hack for now, ultimately this should be passed in
 			const enabledOrgs = this.config.getLaunchpadIncludedOrganizations?.() ?? [];
 			if (enabledOrgs.length) {
 				search += ` org:${enabledOrgs.join(' org:')}`;
 			} else {
-				// Hack for now, ultimately this should be passed in
 				const ignoredOrgs = this.config.getLaunchpadIgnoredOrganizations?.() ?? [];
 				if (ignoredOrgs.length) {
 					search += ` -org:${ignoredOrgs.join(' -org:')}`;
 				}
 			}
 
-			// Map the requested state to a GitHub search qualifier; `all` omits it, default stays open-only.
-			// `is:closed` alone also matches merged PRs, so pair it with `is:unmerged` to keep `closed` and
-			// `merged` disjoint (mirroring the paginated path's states=[Closed], which excludes merged).
 			const stateQualifier =
 				options?.state === 'closed'
 					? 'is:closed is:unmerged'
@@ -3405,39 +3408,43 @@ export class GitHubApi {
 						.filter(Boolean)
 						.join(' ')
 						.trim(),
+					cursor: options?.cursor,
 					baseUrl: options?.baseUrl,
 					avatarSize: options?.avatarSize,
 				},
 				scope,
 				cancellation,
 			);
-			if (rsp == null) return [];
+			if (rsp == null) return { values: [], hasMore: false, truncated: false };
 
-			const viewer = rsp.viewer.login;
-
-			function toQueryResult(pr: GitHubPullRequest): PullRequest {
-				const reasons = [];
-				if (pr.author.login === viewer) {
-					reasons.push('authored');
-				}
-				if (pr.assignees.nodes.some(a => a.login === viewer)) {
-					reasons.push('assigned');
-				}
-				if (pr.reviewRequests.nodes.some(r => r.requestedReviewer?.login === viewer)) {
-					reasons.push('review-requested');
-				}
-				if (reasons.length === 0) {
-					reasons.push('mentioned');
-				}
-
-				return fromGitHubPullRequest(pr, provider);
-			}
-
-			const results: PullRequest[] = rsp.search.nodes.map(pr => toQueryResult(pr));
-			return results;
+			const results: PullRequest[] = rsp.search.nodes.map(pr => fromGitHubPullRequest(pr, provider));
+			return {
+				values: results,
+				cursor: rsp.search.pageInfo.endCursor ?? undefined,
+				hasMore: rsp.search.pageInfo.hasNextPage,
+				truncated: rsp.search.issueCount > 1000,
+			};
 		} catch (ex) {
 			throw this.handleException(ex, provider, scope, options?.silent);
 		}
+	}
+
+	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })
+	async searchMyPullRequests(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		options?: {
+			search?: string;
+			user?: string;
+			repos?: string[];
+			baseUrl?: string;
+			avatarSize?: number;
+			silent?: boolean;
+			state?: PullRequestStateFilter;
+		},
+		cancellation?: AbortSignal,
+	): Promise<PullRequest[]> {
+		return (await this.searchMyPullRequestsPage(provider, token, options, cancellation)).values;
 	}
 
 	@trace({ args: (provider, token) => ({ provider: provider.name, token: `<token:${token.microHash}>` }) })

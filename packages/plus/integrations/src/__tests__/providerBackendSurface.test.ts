@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -43,6 +44,35 @@ function primarySession(token: string): ProviderAuthenticationSession {
 
 function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+}
+
+function searchPullRequest(id: string, state: 'open' | 'closed' | 'merged'): PullRequest {
+	return {
+		id: id,
+		nodeId: `node-${id}`,
+		title: `PR ${id}`,
+		url: `https://example.com/pull/${id}`,
+		state: state === 'open' ? 'opened' : state,
+		createdDate: new Date('2024-01-01T00:00:00Z'),
+		updatedDate: new Date('2024-01-02T00:00:00Z'),
+		closedDate: state === 'open' ? undefined : new Date('2024-01-03T00:00:00Z'),
+		mergedDate: state === 'merged' ? new Date('2024-01-03T00:00:00Z') : undefined,
+		author: { id: 'me', name: 'me', username: 'me', avatarUrl: '', url: 'https://example.com/me' },
+		refs: {
+			base: { owner: 'octocat', repo: 'hello', sha: 'base' },
+			head: { owner: 'octocat', repo: 'hello', sha: 'head', url: 'https://example.com/head' },
+			isCrossRepository: false,
+		},
+		reviewRequests: [],
+		latestReviews: [],
+		assignees: [],
+		commentsCount: 0,
+		thumbsUpCount: 0,
+		additions: 1,
+		deletions: 1,
+		isDraft: false,
+		provider: { id: 'github', name: 'GitHub', domain: 'github.com', icon: 'github' },
+	} as unknown as PullRequest;
 }
 
 const authError = new AuthenticationError(
@@ -218,6 +248,109 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			'the failed repository scope is named in the warning',
 		);
 
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage uses GitHub account-wide closed/merged search and surfaces truncation warnings', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+		const githubApi = await (
+			gh as unknown as {
+				authenticationService: {
+					apis: { github: Promise<Record<string, unknown> | undefined> };
+				};
+			}
+		).authenticationService.apis.github;
+		assert.ok(githubApi);
+
+		const seenStates: string[] = [];
+		githubApi.searchMyPullRequestsPage = async (
+			_provider: unknown,
+			_token: unknown,
+			options?: { state?: string },
+		) => {
+			seenStates.push(options?.state ?? 'open');
+			return options?.state === 'closed'
+				? { values: [searchPullRequest('1', 'closed')], hasMore: false, truncated: true }
+				: { values: [searchPullRequest('2', 'merged')], hasMore: false, truncated: false };
+		};
+
+		const result = await manager.listPullRequestsPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			states: ['closed', 'merged'],
+		});
+
+		assert.deepEqual(seenStates, ['closed', 'merged']);
+		assert.equal(result.items.length, 2, 'closed and merged PRs survive the account-wide sweep');
+		assert.equal(result.page.truncated, true, 'GitHub search truncation is surfaced on the page');
+		assert.equal(result.warnings.length, 1, 'a generic truncation warning is emitted when no metadata explains it');
+		assert.equal(result.warnings[0].kind, 'other');
+
+		manager.dispose();
+	});
+
+	test('listPullRequestsPage derives the self-managed GitHub Enterprise baseUrl for repo reads', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com');
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			cloud: false,
+			domain: 'ghe.example.com',
+			protocol: 'https:',
+		};
+
+		let baseUrl: string | undefined;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
+			getPullRequestsForRepos: (_t: unknown, _r: unknown, opts: { baseUrl?: string }) => {
+				baseUrl = opts.baseUrl;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		await manager.listPullRequestsPage({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			repos: repos,
+		});
+
+		assert.equal(baseUrl, 'https://ghe.example.com/api/v3');
+		manager.dispose();
+	});
+
+	test('listIssuesPage derives the self-managed GitHub Enterprise baseUrl for repo reads', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe.example.com');
+		assert.ok(gh);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			cloud: false,
+			domain: 'ghe.example.com',
+			protocol: 'https:',
+		};
+
+		let baseUrl: string | undefined;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: (_t: unknown, _r: unknown, opts: { baseUrl?: string }) => {
+				baseUrl = opts.baseUrl;
+				return Promise.resolve({ values: [], paging: { more: false, cursor: '{}' } });
+			},
+		});
+
+		await manager.listIssuesPage({
+			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			repos: repos,
+		});
+
+		assert.equal(baseUrl, 'https://ghe.example.com/api/v3');
 		manager.dispose();
 	});
 

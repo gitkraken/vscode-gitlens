@@ -54,6 +54,59 @@ function isAzureDevOpsProvider(
 	);
 }
 
+function hostFromDomain(domain: string | undefined): string | undefined {
+	const value = domain?.trim();
+	if (!value) return undefined;
+
+	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
+		try {
+			return new URL(value).host || undefined;
+		} catch {
+			return undefined;
+		}
+	}
+
+	try {
+		return new URL(`https://${value}`).host || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function protocolFromDomain(domain: string | undefined): string | undefined {
+	const value = domain?.trim();
+	if (!value || !/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
+
+	try {
+		return new URL(value).protocol || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function getSelfManagedApiBaseUrl(
+	providerId: IntegrationIds,
+	domain: string | undefined,
+	protocol: string | undefined,
+): string | undefined {
+	const host = hostFromDomain(domain);
+	if (host == null) return undefined;
+
+	const scheme = protocol ?? protocolFromDomain(domain) ?? 'https:';
+	switch (providerId) {
+		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
+			return `${scheme}//${host}/api/v3`;
+		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
+			return `${scheme}//${host}/api`;
+		case GitSelfManagedHostIntegrationId.BitbucketServer:
+			return `${scheme}//${host}/rest/api/1.0`;
+		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
+			return `${scheme}//${host}`;
+		default:
+			return undefined;
+	}
+}
+
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -503,6 +556,8 @@ export abstract class GitHostIntegration<
 		if (session == null) return undefined;
 
 		const start = performance.now();
+		const customUrl =
+			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
 
 		const api = await this.getProvidersApi();
 		if (
@@ -557,6 +612,7 @@ export abstract class GitHostIntegration<
 					userAccount = await api.getCurrentUserForInstance(
 						toTokenWithInfo(providerId, session),
 						organization,
+						{ baseUrl: customUrl },
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
@@ -621,6 +677,7 @@ export abstract class GitHostIntegration<
 							{
 								...getIssuesOptions,
 								cursor: projectInput.cursor,
+								baseUrl: customUrl,
 								// Continuation is driven by the per-project cursor; only apply an explicit page on the
 								// first request so it can't clobber a continuation cursor on later pages.
 								page: projectInput.cursor == null ? options?.page : undefined,
@@ -705,7 +762,7 @@ export abstract class GitHostIntegration<
 
 			let userAccount: ProviderAccount | undefined;
 			try {
-				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session));
+				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session), { baseUrl: customUrl });
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
 				return { error: ex, duration: performance.now() - start };
@@ -763,7 +820,7 @@ export abstract class GitHostIntegration<
 							{
 								...getIssuesOptions,
 								cursor: repoInput.cursor,
-								baseUrl: options?.customUrl,
+								baseUrl: customUrl,
 								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
 								// first request so it can't clobber a continuation cursor on later pages.
 								page: repoInput.cursor == null ? options?.page : undefined,
@@ -832,7 +889,7 @@ export abstract class GitHostIntegration<
 			const result = await api.getIssuesForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
 				...getIssuesOptions,
 				cursor: options?.cursor,
-				baseUrl: options?.customUrl,
+				baseUrl: customUrl,
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,
@@ -918,6 +975,8 @@ export abstract class GitHostIntegration<
 		if (session == null) return undefined;
 
 		const start = performance.now();
+		const customUrl =
+			options?.customUrl ?? getSelfManagedApiBaseUrl(providerId, session.domain || this.domain, session.protocol);
 
 		const api = await this.getProvidersApi();
 		if (
@@ -972,6 +1031,9 @@ export abstract class GitHostIntegration<
 					userAccount = await api.getCurrentUserForInstance(
 						toTokenWithInfo(providerId, session),
 						organization,
+						{
+							baseUrl: customUrl,
+						},
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
@@ -979,7 +1041,9 @@ export abstract class GitHostIntegration<
 				}
 			} else {
 				try {
-					userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session));
+					userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session), {
+						baseUrl: customUrl,
+					});
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
 					return { error: ex, duration: performance.now() - start };
@@ -1077,7 +1141,7 @@ export abstract class GitHostIntegration<
 							{
 								...getPullRequestsOptions,
 								cursor: repoInput.cursor,
-								baseUrl: options?.customUrl,
+								baseUrl: customUrl,
 								// Continuation is driven by the per-repo cursor; only apply an explicit page on the
 								// first request so it can't clobber a continuation cursor on later pages.
 								page: repoInput.cursor == null ? options?.page : undefined,
@@ -1156,7 +1220,7 @@ export abstract class GitHostIntegration<
 			const result = await api.getPullRequestsForRepos(toTokenWithInfo(providerId, session), reposOrRepoIds, {
 				...getPullRequestsOptions,
 				cursor: options?.cursor,
-				baseUrl: options?.customUrl,
+				baseUrl: customUrl,
 				page: options?.page,
 				pageSize: options?.pageSize,
 				states: states,

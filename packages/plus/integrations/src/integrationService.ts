@@ -1645,6 +1645,9 @@ export class IntegrationService implements Disposable {
 		// as a terminal `page.truncated` (not `hasMore`, which has no cursor to advance) so the caller knows
 		// the page may be incomplete. Metadata incompleteness is an independent source of the same signal.
 		const truncated = paged.truncated || assessment.truncated;
+		if (truncated && warnings.length === 0) {
+			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId));
+		}
 		return {
 			items: items,
 			warnings: warnings,
@@ -1871,6 +1874,9 @@ export class IntegrationService implements Disposable {
 		// that dropped a repo) sets `paging.truncated`; surface it as a terminal `page.truncated` so a partial
 		// page isn't published as complete. Metadata incompleteness is an independent source of the same signal.
 		const truncated = paged.truncated || assessment.truncated;
+		if (truncated && warnings.length === 0) {
+			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId));
+		}
 		return {
 			items: items,
 			warnings: warnings,
