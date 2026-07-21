@@ -84,7 +84,7 @@
 		"dist"
 	],
 	"dependencies": {
-		"@gitkraken/provider-apis": "catalog:",
+		"@gitkraken/provider-apis": "0.52.0",
 		"@gitlens/git": "workspace:*",
 		"@gitlens/git-github": "workspace:*",
 		"@gitlens/utils": "workspace:*"
