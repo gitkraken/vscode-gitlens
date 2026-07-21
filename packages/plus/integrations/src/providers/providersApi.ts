@@ -782,7 +782,12 @@ export class ProvidersApi {
 			for (let i = 0; i < maxPages; i++) {
 				const result = await provider.getBitbucketResourcesForCurrentUserFn?.({ page: page }, { token: token });
 				if (result == null) {
-					return i === 0 ? undefined : { values: workspaces, paging: { cursor: '{}', more: truncated } };
+					return i === 0
+						? undefined
+						: {
+								values: workspaces,
+								paging: { cursor: '{}', more: false, ...(truncated ? { truncated: true } : {}) },
+							};
 				}
 
 				workspaces.push(...result.data);
@@ -793,7 +798,10 @@ export class ProvidersApi {
 					truncated = true;
 				}
 			}
-			return { values: workspaces, paging: { cursor: '{}', more: truncated } };
+			return {
+				values: workspaces,
+				paging: { cursor: '{}', more: false, ...(truncated ? { truncated: true } : {}) },
+			};
 		} catch (e) {
 			return this.handleProviderError<ProviderApiPagedResult<ProviderBitbucketResource> | undefined>(
 				tokenWithInfo,

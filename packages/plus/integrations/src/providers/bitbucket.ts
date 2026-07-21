@@ -259,7 +259,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 			if (resources != null) {
 				const values = resources.values.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug }));
 				let metadata: CollectionMetadata | undefined;
-				if (resources.paging?.more === true) {
+				if (resources.paging?.truncated === true) {
 					metadata = {
 						completeness: 'partial',
 						failures: [
