@@ -80,7 +80,7 @@ export class GlGraphLayoutPrompt extends LitElement {
 
 		.layout-prompt__options {
 			display: flex;
-			gap: var(--gl-space-12);
+			gap: var(--gl-space-16);
 			justify-content: center;
 		}
 
@@ -89,7 +89,7 @@ export class GlGraphLayoutPrompt extends LitElement {
 			flex-direction: column;
 			align-items: center;
 			gap: var(--gl-space-8);
-			padding: var(--gl-space-12);
+			padding: var(--gl-space-16);
 			background: none;
 			color: inherit;
 			font-family: inherit;
@@ -118,31 +118,27 @@ export class GlGraphLayoutPrompt extends LitElement {
 			white-space: nowrap;
 		}
 
-		.layout-prompt__illustration .frame {
-			fill: var(--vscode-editorWidget-background);
-			stroke: var(--vscode-descriptionForeground);
-			opacity: 0.9;
+		/* Designed illustrations ship as dark/light exports differing only in these colors — one
+		   markup, themed via custom properties (host body carries the vscode-* theme class) */
+		:host {
+			--lp-frame-bg: #121212;
+			--lp-frame-stroke: #363636;
+			--lp-shell-bg: #2a2a2c;
+			--lp-dot-fill: #d9d9d9;
+			--lp-row: #808080;
+			--lp-purple: #aa5bf5;
+			--lp-green: #00a02e;
 		}
 
-		.layout-prompt__illustration .region {
-			fill: var(--vscode-focusBorder);
-			opacity: 0.2;
-			stroke: var(--vscode-focusBorder);
-			stroke-opacity: 0.9;
-		}
-
-		.layout-prompt__illustration .lane {
-			stroke: var(--vscode-focusBorder);
-			fill: none;
-		}
-
-		.layout-prompt__illustration .dot {
-			fill: var(--vscode-focusBorder);
-		}
-
-		.layout-prompt__illustration .muted {
-			stroke: var(--vscode-descriptionForeground);
-			opacity: 0.35;
+		:host-context(.vscode-light),
+		:host-context(.vscode-high-contrast-light) {
+			--lp-frame-bg: #fefefe;
+			--lp-frame-stroke: #dddddd;
+			--lp-shell-bg: #e3e3e3;
+			--lp-dot-fill: #9c9c9c;
+			--lp-row: #b4b4b4;
+			--lp-purple: #c180ff;
+			--lp-green: #37d865;
 		}
 
 		.layout-prompt__footer {
@@ -181,7 +177,8 @@ export class GlGraphLayoutPrompt extends LitElement {
 
 		.layout-prompt__illustration {
 			display: block;
-			width: 13.2rem;
+			/* 1.25× the illustrations' native 13.8rem */
+			width: 17.25rem;
 			height: auto;
 		}
 
@@ -189,8 +186,8 @@ export class GlGraphLayoutPrompt extends LitElement {
 		   short); gl-dialog's own min-width (40rem) would otherwise overflow the side bar */
 		gl-dialog::part(base) {
 			box-sizing: border-box;
-			min-width: min(40rem, calc(100vw - 2.4rem));
-			max-width: min(56rem, calc(100vw - 2.4rem));
+			min-width: min(44rem, calc(100vw - 2.4rem));
+			max-width: min(60rem, calc(100vw - 2.4rem));
 			max-height: calc(100vh - 2.4rem);
 			overflow: auto;
 
@@ -260,7 +257,18 @@ export class GlGraphLayoutPrompt extends LitElement {
 				font-size: 1.3rem;
 			}
 
-			.layout-prompt__caption,
+			/* Visually hidden but kept in the accessibility tree — sighted users get the same
+			   text from the title's info-icon tooltip instead */
+			.layout-prompt__caption {
+				${srOnlyStyles}
+			}
+
+			.layout-prompt__title-info {
+				display: inline-block;
+				/* The smaller title leaves the icon sitting low — nudge it up optically */
+				translate: 0 -0.06em;
+			}
+
 			.layout-prompt__option-caption {
 				display: none;
 			}
@@ -359,42 +367,82 @@ export class GlGraphLayoutPrompt extends LitElement {
 		</gl-dialog>`;
 	}
 
-	/** Abstract window mock: highlighted side bar hosting a vertical commit graph */
+	/** Designed window mock: highlighted side bar hosting a vertical commit graph */
 	private renderSidebarIllustration() {
-		return svg`<svg class="layout-prompt__illustration" width="132" height="88" viewBox="0 0 132 88" aria-hidden="true">
-			<rect class="frame" x="1" y="1" width="130" height="86" rx="4" />
-			<rect class="region" x="2" y="2" width="55" height="84" />
-			<line class="lane" x1="20" y1="16" x2="20" y2="72" />
-			<path class="lane" d="M20 26 C 20 34, 36 32, 36 40 L 36 52 C 36 60, 20 58, 20 66" fill="none" />
-			<circle class="dot" cx="20" cy="16" r="3.5" />
-			<circle class="dot" cx="20" cy="40" r="3.5" />
-			<circle class="dot" cx="36" cy="46" r="3.5" />
-			<circle class="dot" cx="20" cy="72" r="3.5" />
-			<line class="muted" x1="66" y1="18" x2="120" y2="18" />
-			<line class="muted" x1="66" y1="32" x2="112" y2="32" />
-			<line class="muted" x1="66" y1="46" x2="120" y2="46" />
-			<line class="muted" x1="66" y1="60" x2="104" y2="60" />
+		return svg`<svg class="layout-prompt__illustration" width="138" height="75" viewBox="0 0 138 75" fill="none" aria-hidden="true">
+			<rect x="0.336586" y="0.336586" width="137.327" height="74.0488" rx="1.00976" fill="var(--lp-frame-bg)" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M0.5 0.999999C0.5 0.447715 0.947715 0 1.5 0H37.5V74H1.5C0.947715 74 0.5 73.5523 0.5 73V0.999999Z" fill="var(--lp-shell-bg)"/>
+			<rect x="114.837" y="5.33659" width="18.3268" height="10.3268" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="101.837" y="21.3366" width="22.3268" height="33.3268" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="101.837" y="59.3366" width="31.3268" height="10.3268" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="127.566" y="63.6147" width="3.36585" height="3.36585" rx="1.68293" fill="var(--lp-dot-fill)" stroke="#D9D9D9" stroke-width="0.673171"/>
+			<path d="M37.4707 0L37.4707 74.722" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M96.1536 0L96.1536 74.722" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M9.11255 74.4023L9.11255 62.0884" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<path d="M9.11255 45.2381L9.11255 10.8887" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<path d="M9.11255 51.7189L9.11255 49.1265" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<path d="M9.11255 58.1998L9.11255 55.6074" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<path d="M15.5935 74.4025L15.5935 42.6455" stroke="var(--lp-green)" stroke-width="0.812499"/>
+			<path d="M15.5935 38.4579L15.5935 17.0706" stroke="var(--lp-green)" stroke-width="0.812499"/>
+			<path d="M22.0745 74.4026L22.0745 23.8506" stroke="#40AAA3" stroke-width="0.812499"/>
+			<path d="M28.5557 74.4023L28.5557 30.3313" stroke="#8A743A" stroke-width="0.812499"/>
+			<circle cx="28.5556" cy="28.3874" r="1.94431" stroke="#8A743A" stroke-width="0.812499"/>
+			<circle cx="22.0747" cy="21.9062" r="1.94431" stroke="#40AAA3" stroke-width="0.812499"/>
+			<circle cx="15.5937" cy="15.4253" r="1.94431" stroke="var(--lp-green)" stroke-width="0.812499"/>
+			<circle cx="15.5937" cy="40.7014" r="1.94431" stroke="var(--lp-green)" stroke-width="0.812499"/>
+			<circle cx="9.11276" cy="8.94431" r="1.94431" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<circle cx="9.11276" cy="60.1443" r="1.94431" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<circle cx="9.11276" cy="53.6633" r="1.94431" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<circle cx="9.11276" cy="47.1823" r="1.94431" stroke="var(--lp-purple)" stroke-width="0.812499"/>
+			<path d="M37.3506 8.94385L11.0569 8.94385" stroke="#AA5BF5" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 47.1821H11.0569" stroke="#AA5BF5" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 53.6631H11.0569" stroke="#AA5BF5" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 15.4248L17.5379 15.4248" stroke="#00A02E" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 40.7012H17.5379" stroke="#00A02E" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 21.906H24.0189" stroke="#309FC7" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 28.3872H30.4999" stroke="#C7B830" stroke-opacity="0.3" stroke-width="2.75444"/>
+			<path d="M37.3506 60.7925H11.0569" stroke="#C7308B" stroke-opacity="0.3" stroke-width="2.75444"/>
 		</svg>`;
 	}
 
-	/** Abstract window mock: highlighted bottom panel hosting the commit graph — the graph
-	 * still flows top→bottom there (same list, wider), so the mini-graph is NOT rotated */
+	/** Designed window mock: highlighted bottom panel hosting the commit graph */
 	private renderPanelIllustration() {
-		return svg`<svg class="layout-prompt__illustration" width="132" height="88" viewBox="0 0 132 88" aria-hidden="true">
-			<rect class="frame" x="1" y="1" width="130" height="86" rx="4" />
-			<line class="muted" x1="14" y1="2" x2="14" y2="50" />
-			<rect class="region" x="2" y="51" width="128" height="35" />
-			<line class="lane" x1="24" y1="56" x2="24" y2="81" />
-			<path class="lane" d="M24 59 C 24 65, 35 63, 35 69 L 35 77" fill="none" />
-			<circle class="dot" cx="24" cy="56" r="3" />
-			<circle class="dot" cx="35" cy="77" r="3" />
-			<circle class="dot" cx="24" cy="81" r="3" />
-			<line class="muted" x1="48" y1="56" x2="120" y2="56" />
-			<line class="muted" x1="48" y1="68" x2="104" y2="68" />
-			<line class="muted" x1="48" y1="81" x2="112" y2="81" />
-			<line class="muted" x1="26" y1="14" x2="120" y2="14" />
-			<line class="muted" x1="26" y1="26" x2="108" y2="26" />
-			<line class="muted" x1="26" y1="38" x2="120" y2="38" />
+		return svg`<svg class="layout-prompt__illustration" width="138" height="75" viewBox="0 0 138 75" fill="none" aria-hidden="true">
+			<rect x="0.336586" y="0.336586" width="137.327" height="74.0488" rx="1.00976" fill="var(--lp-frame-bg)" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M1.5 75C0.947712 75 0.5 74.5523 0.5 74L0.499998 40L102.5 40L102.5 74C102.5 74.5523 102.052 75 101.5 75L1.5 75Z" fill="var(--lp-shell-bg)"/>
+			<rect x="118.815" y="5.04899" width="14.8098" height="10.7707" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="106.697" y="21.205" width="14.8098" height="33.6586" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="106.697" y="58.9025" width="26.9268" height="10.7707" rx="1.00976" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<rect x="127.566" y="63.6149" width="3.36585" height="3.36585" rx="1.68293" fill="var(--lp-dot-fill)" stroke="#D9D9D9" stroke-width="0.673171"/>
+			<path d="M102.5 40L0.499999 40" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M102.154 0L102.154 74.722" stroke="var(--lp-frame-stroke)" stroke-width="0.673171"/>
+			<path d="M37.3188 63.404L37.3188 63.2017" stroke="var(--lp-purple)" stroke-width="0.673171"/>
+			<g clip-path="url(#lp-panel-clip)">
+				<path d="M12.3188 76.2404L12.3188 47.7812" stroke="var(--lp-purple)" stroke-width="0.673171"/>
+				<path d="M60 46.1702H13.9299" stroke="#AA5BF5" stroke-opacity="0.3" stroke-width="2.2821"/>
+				<path d="M60 51.5398H19.2996" stroke="#00A02E" stroke-opacity="0.3" stroke-width="2.2821"/>
+				<path d="M60 72.4817H19.2996" stroke="#00A02E" stroke-opacity="0.3" stroke-width="2.2821"/>
+				<path d="M60 56.9094H24.6692" stroke="#309FC7" stroke-opacity="0.3" stroke-width="2.2821"/>
+				<path d="M60 62.2793H30.0389" stroke="#C7B830" stroke-opacity="0.3" stroke-width="2.2821"/>
+				<path d="M17.6885 70.6232L17.6885 52.9033" stroke="var(--lp-green)" stroke-width="0.673171"/>
+				<path d="M23.0581 100.404L23.0581 58.5205" stroke="#40AAA3" stroke-width="0.673171"/>
+				<path d="M28.4282 100.404L28.4282 63.8901" stroke="#8A743A" stroke-width="0.673171"/>
+				<circle cx="28.4278" cy="62.2794" r="1.6109" stroke="#8A743A" stroke-width="0.673171"/>
+				<circle cx="23.0582" cy="56.9097" r="1.6109" stroke="#40AAA3" stroke-width="0.673171"/>
+				<circle cx="17.6885" cy="51.5401" r="1.6109" stroke="var(--lp-green)" stroke-width="0.673171"/>
+				<circle cx="17.6885" cy="72.4817" r="1.6109" stroke="var(--lp-green)" stroke-width="0.673171"/>
+				<circle cx="12.3189" cy="46.1705" r="1.6109" stroke="var(--lp-purple)" stroke-width="0.673171"/>
+			</g>
+			<path d="M88.8481 47.1704H65.7586" stroke="var(--lp-row)" stroke-width="0.673171"/>
+			<path d="M80.7939 52.54H65.7589" stroke="var(--lp-row)" stroke-width="0.673171"/>
+			<path d="M88.8481 57.9097H65.7586" stroke="var(--lp-row)" stroke-width="0.673171"/>
+			<path d="M80.7939 63.2793H65.7589" stroke="var(--lp-row)" stroke-width="0.673171"/>
+			<path d="M88.8481 68.6489H65.7586" stroke="var(--lp-row)" stroke-width="0.673171"/>
+			<defs>
+				<clipPath id="lp-panel-clip">
+					<rect width="51" height="30" fill="white" transform="translate(9.5 44)"/>
+				</clipPath>
+			</defs>
 		</svg>`;
 	}
 
