@@ -36,6 +36,10 @@ suite('toProviderPullRequestStates', () => {
 		assert.deepEqual(toProviderPullRequestStates('open'), [toProviderPullRequestState('opened')]);
 	});
 
+	test('maps the item-state vocabulary for search include', () => {
+		assert.deepEqual(toProviderPullRequestStates('opened'), [toProviderPullRequestState('opened')]);
+	});
+
 	test('maps all requested state filters', () => {
 		assert.deepEqual(toProviderPullRequestStates('all'), [
 			toProviderPullRequestState('opened'),
@@ -46,6 +50,13 @@ suite('toProviderPullRequestStates', () => {
 
 	test('maps include arrays', () => {
 		assert.deepEqual(toProviderPullRequestStates(['opened', 'merged']), [
+			toProviderPullRequestState('opened'),
+			toProviderPullRequestState('merged'),
+		]);
+	});
+
+	test('dedupes mixed open/opened vocabulary inputs', () => {
+		assert.deepEqual(toProviderPullRequestStates(['open', 'opened', 'merged']), [
 			toProviderPullRequestState('opened'),
 			toProviderPullRequestState('merged'),
 		]);

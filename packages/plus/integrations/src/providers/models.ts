@@ -1008,20 +1008,12 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
 
-/** Maps PR include/state filters to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
-export function toProviderPullRequestStates(
-	state: PullRequestState[] | PullRequestStateFilter | PullRequestStateFilter[] | undefined,
-): GitPullRequestState[] | undefined {
-	// Accept arrays so callers can request unions (e.g. `include: ['closed', 'merged']` or the
-	// closed + merged "done" sweep). Deduping keeps overlapping inputs stable.
-	if (Array.isArray(state)) {
-		const states = state.flatMap(s => toProviderPullRequestStates(s) ?? []);
-		return states.length > 0 ? [...new Set(states)] : undefined;
-	}
+type PullRequestStateInput = PullRequestState | PullRequestStateFilter;
 
+function toProviderPullRequestStatesCore(state: PullRequestStateInput): GitPullRequestState[] {
 	switch (state) {
-		case 'opened':
 		case 'open':
+		case 'opened':
 			return [GitPullRequestState.Open];
 		case 'closed':
 			return [GitPullRequestState.Closed];
@@ -1029,9 +1021,17 @@ export function toProviderPullRequestStates(
 			return [GitPullRequestState.Merged];
 		case 'all':
 			return [GitPullRequestState.Open, GitPullRequestState.Closed, GitPullRequestState.Merged];
-		default:
-			return undefined;
 	}
+}
+
+/** Maps PR include/state filters to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
+export function toProviderPullRequestStates(
+	state: PullRequestStateInput | PullRequestStateInput[] | undefined,
+): GitPullRequestState[] | undefined {
+	if (state == null) return undefined;
+
+	const states = (Array.isArray(state) ? state : [state]).flatMap(s => toProviderPullRequestStatesCore(s));
+	return states.length > 0 ? [...new Set(states)] : undefined;
 }
 
 /** Maps an issue state filter to the SDK's `states` input. `undefined`/omitted preserves the open-only default. */
