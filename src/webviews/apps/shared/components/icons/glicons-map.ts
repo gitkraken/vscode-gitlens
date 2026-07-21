@@ -90,4 +90,5 @@ export const iconMap = Object.freeze({
 	'continue-sparkle': '\\f152',
 	'checkbox-unchecked': '\\f153',
 	'checkbox-checked': '\\f154',
+	'provider-trello': '\\f155',
 });
