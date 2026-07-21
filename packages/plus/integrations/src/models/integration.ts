@@ -23,7 +23,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import type { IntegrationIds, IssuesCloudHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
-import { AuthenticationError, RequestClientError } from '../errors.js';
+import { AuthenticationError, RequestClientError, toError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import type { ProvidersApi } from '../providers/providersApi.js';
 import type { Sources } from '../telemetry.js';
@@ -596,7 +596,7 @@ export abstract class IntegrationBase<
 			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope });
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 
@@ -647,7 +647,7 @@ export abstract class IntegrationBase<
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('searchMyIssues', ex, { scope: scope });
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 

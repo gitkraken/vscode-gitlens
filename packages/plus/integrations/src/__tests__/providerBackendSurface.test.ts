@@ -632,6 +632,37 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('listOrgs reports a Bitbucket workspace-discovery backstop as truncated, not fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const bb = await manager.get(GitCloudHostIntegrationId.Bitbucket);
+		(bb as unknown as { _session: ProviderAuthenticationSession })._session = {
+			...primarySession('t'),
+			domain: 'bitbucket.org',
+		};
+
+		// The workspace drain hit its page backstop (`paging.truncated`). That's truncation, not a read
+		// failure: the read succeeded but stopped short. It must surface an incompleteness warning without
+		// `fetchFailed`, which would otherwise flag the workspaces it did return as a broken read.
+		stubApi(bb, {
+			getBitbucketResourcesForCurrentUser: () =>
+				Promise.resolve({
+					values: [{ id: 'ws-1', slug: 'acme', name: 'Acme' }],
+					paging: { cursor: '{}', more: false, truncated: true },
+				}),
+		});
+
+		const result = await manager.listOrgs({ providerId: GitCloudHostIntegrationId.Bitbucket });
+		assert.deepEqual(result.items, [{ id: 'ws-1', name: 'acme', url: 'https://bitbucket.org/acme' }]);
+		assert.notEqual(result.fetchFailed, true, 'a backstop is truncation, not a read failure');
+		assert.ok(
+			result.warnings.some(w => /incomplete|omitted|completeness/i.test(w.message)),
+			'the truncation surfaces an incompleteness warning',
+		);
+
+		manager.dispose();
+	});
+
 	test('listOrgs/listProjects set fetchFailed (not just a warning) for an invalid connection (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const manager = createIntegrationManager(runtime);

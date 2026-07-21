@@ -17,6 +17,7 @@ import type { ProviderAuthenticationSession } from '../authentication/models.js'
 import { toTokenWithInfo } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import { toError } from '../errors.js';
 import type {
 	GetIssuesOptions,
 	GetPullRequestsOptions,
@@ -312,7 +313,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getOrganizationsForUser', ex, { scope: scope });
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 
@@ -348,7 +349,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForOrg', ex, { scope: scope });
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 
@@ -393,7 +394,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getRepositoriesForOrg', ex, { scope: scope });
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 
@@ -616,7 +617,7 @@ export abstract class GitHostIntegration<
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getIssuesForRepos');
-					return { error: ex, duration: performance.now() - start };
+					return { error: toError(ex), duration: performance.now() - start };
 				}
 
 				if (userAccount == null) {
@@ -745,7 +746,7 @@ export abstract class GitHostIntegration<
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return { error: ex, duration: performance.now() - start };
+				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
 		if (options?.filters != null) {
@@ -765,7 +766,7 @@ export abstract class GitHostIntegration<
 				userAccount = await api.getCurrentUser(toTokenWithInfo(providerId, session), { baseUrl: customUrl });
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return { error: ex, duration: performance.now() - start };
+				return { error: toError(ex), duration: performance.now() - start };
 			}
 
 			if (userAccount == null) {
@@ -881,7 +882,7 @@ export abstract class GitHostIntegration<
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getIssuesForRepos');
-				return { error: ex, duration: performance.now() - start };
+				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
 
@@ -897,7 +898,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			Logger.error(ex, 'getIssuesForRepos');
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 
@@ -1037,7 +1038,7 @@ export abstract class GitHostIntegration<
 					);
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
-					return { error: ex, duration: performance.now() - start };
+					return { error: toError(ex), duration: performance.now() - start };
 				}
 			} else {
 				try {
@@ -1046,7 +1047,7 @@ export abstract class GitHostIntegration<
 					});
 				} catch (ex) {
 					Logger.error(ex, 'getPullRequestsForRepos');
-					return { error: ex, duration: performance.now() - start };
+					return { error: toError(ex), duration: performance.now() - start };
 				}
 			}
 
@@ -1212,7 +1213,7 @@ export abstract class GitHostIntegration<
 				};
 			} catch (ex) {
 				Logger.error(ex, 'getPullRequestsForRepos');
-				return { error: ex, duration: performance.now() - start };
+				return { error: toError(ex), duration: performance.now() - start };
 			}
 		}
 
@@ -1230,7 +1231,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			Logger.error(ex, 'getPullRequestsForRepos');
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 
@@ -1302,7 +1303,7 @@ export abstract class GitHostIntegration<
 				silent: true,
 			});
 			return {
-				error: ex,
+				error: toError(ex),
 				duration: performance.now() - start,
 			};
 		}
@@ -1335,7 +1336,7 @@ export abstract class GitHostIntegration<
 			return { value: result, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleProviderException('getMyPullRequestsForUser', ex, { scope: scope });
-			return { error: ex, duration: performance.now() - start };
+			return { error: toError(ex), duration: performance.now() - start };
 		}
 	}
 

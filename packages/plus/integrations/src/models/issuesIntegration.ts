@@ -7,6 +7,7 @@ import { trace } from '@gitlens/utils/decorators/log.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
+import { toError } from '../errors.js';
 import type { IssueFilter, ProviderApiCollectionResult } from '../providers/models.js';
 import type { Integration, IntegrationResult, IntegrationType } from './integration.js';
 import { IntegrationBase } from './integration.js';
@@ -48,7 +49,7 @@ export abstract class IssuesIntegration<
 			return { value: account };
 		} catch (ex) {
 			this.handleProviderException('getAccountForResource', ex);
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 
@@ -80,7 +81,7 @@ export abstract class IssuesIntegration<
 			return { value: resources };
 		} catch (ex) {
 			this.handleProviderException('getResourcesForUser', ex);
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 
@@ -126,7 +127,7 @@ export abstract class IssuesIntegration<
 			return { value: projects };
 		} catch (ex) {
 			this.handleProviderException('getProjectsForResources', ex);
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 
@@ -208,7 +209,7 @@ export abstract class IssuesIntegration<
 			return { value: issues };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex);
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 
@@ -235,7 +236,7 @@ export abstract class IssuesIntegration<
 			return { value: result };
 		} catch (ex) {
 			this.handleProviderException('getIssuesForProject', ex);
-			return { error: ex };
+			return { error: toError(ex) };
 		}
 	}
 

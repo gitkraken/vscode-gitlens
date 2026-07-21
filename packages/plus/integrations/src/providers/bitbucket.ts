@@ -260,17 +260,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 				const values = resources.values.map(r => ({ ...r, key: r.id, name: r.name ?? r.slug }));
 				let metadata: CollectionMetadata | undefined;
 				if (resources.paging?.truncated === true) {
-					metadata = {
-						completeness: 'partial',
-						failures: [
-							toCollectionScopeFailure(
-								{ providerId: this.id },
-								new Error(
-									'Workspace discovery reached the page backstop before all workspaces were read',
-								),
-							),
-						],
-					};
+					// Hitting the page backstop is truncation (the read succeeded but stopped short), not a read
+					// failure: report `partial` completeness WITHOUT a structured failure so the facade surfaces it
+					// as truncated + an incompleteness warning, rather than as `fetchFailed` (which
+					// `assessCollectionMetadata` derives from any `failures` entry).
+					metadata = { completeness: 'partial' };
 				}
 				result = { values: values, ...(metadata != null ? { metadata: metadata } : {}) };
 			}

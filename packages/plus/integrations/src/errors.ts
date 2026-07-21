@@ -47,3 +47,13 @@ export class ProviderFetchError extends Error {
 		Error.captureStackTrace?.(this, new.target);
 	}
 }
+
+/**
+ * Normalizes a caught `unknown` into an `Error`. Result cores type their failure channel as `error: Error`,
+ * but a `catch` binding is `unknown` and a provider (or a third-party SDK) can throw a non-Error value;
+ * returning it raw would leak a non-Error through the public result surface and break downstream `instanceof`
+ * classification. Passes an existing `Error` through unchanged and wraps anything else with `String(ex)`.
+ */
+export function toError(ex: unknown): Error {
+	return ex instanceof Error ? ex : new Error(String(ex));
+}
