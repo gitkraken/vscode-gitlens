@@ -4,6 +4,16 @@ export interface PagedResult<T> {
 	readonly paging?: {
 		readonly cursor: string;
 		readonly more: boolean;
+		/**
+		 * True when the results may be incomplete in a way that following `cursor` won't resolve. Two sources:
+		 * a read that fetched a single default page and can't report `hasNextPage` (no cursor to follow at all),
+		 * or a multi-scope read where a sibling scope failed (`partial`/`unknown` completeness) even though the
+		 * current scope still exposes a real next page. `truncated` is therefore independent of `more`: `more`
+		 * means "there is a next page you can fetch with `cursor`"; `truncated` means "content may be missing
+		 * that paging alone won't recover." Consumers should surface this as a truncation signal rather than
+		 * treating the result as complete, and should not assume `truncated` implies `more` is false.
+		 */
+		readonly truncated?: boolean;
 		/** 1-based page that produced this result. Populated by numbered-page providers only. */
 		readonly page?: number;
 		/** Items requested per page, when known. */

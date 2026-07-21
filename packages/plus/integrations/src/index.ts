@@ -126,3 +126,32 @@ export {
 	isIntegrationId,
 	isSupportedCloudIntegrationId,
 } from './constants.js';
+
+// Neutral pagination + warning result types the Kepler ProviderBackend adapter maps to its own DTOs.
+// These carry no `@gitkraken/provider-apis` types, so consumers depend only on `@gitkraken/core-gitlens`.
+export type {
+	ProviderBroadenResult,
+	ProviderPagedResult,
+	ProviderPageInfo,
+	ProviderResult,
+	ProviderSweepResult,
+	ProviderWarning,
+	RepositoryIdentity,
+	RepositoryResolution,
+	RepositoryResolutionStatus,
+	ResolveRepositoryResult,
+} from './results.js';
+// Item shapes surfaced by the read methods. `ProviderOrganization` is a local interface; the rest are
+// re-aliases of `@gitkraken/provider-apis` types that resolve for consumers via the transitive install.
+export type {
+	ProviderAccount,
+	ProviderIssue,
+	ProviderOrganization,
+	ProviderPullRequest,
+	ProviderRepository,
+} from './providers/models.js';
+// Runtime enums — re-exported as values (not `export type`) so consumers can read their members.
+export { IssueFilter, PullRequestFilter } from './providers/models.js';
+// Cross-provider PR/issue state filters (string unions in the git models).
+export type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+export type { IssueStateFilter } from '@gitlens/git/models/issue.js';

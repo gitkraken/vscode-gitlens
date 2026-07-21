@@ -28,6 +28,8 @@ interface StoredSession {
 	expiresAt?: string;
 	domain?: string;
 	protocol?: string;
+	/** The provider app key paired with the token for providers whose client needs one (e.g. Trello). */
+	appKey?: string;
 }
 
 export interface ConfiguredIntegrationsChangeEvent {
@@ -618,5 +620,8 @@ function convertStoredSessionToSession(
 		domain: storedSession.domain ?? descriptor.domain,
 		protocol: storedSession.protocol,
 		type: storedSession.type,
+		// Carried for providers whose client needs an app key alongside the token (e.g. Trello); without
+		// this a rehydrated session silently loses the key and every read no-ops.
+		appKey: storedSession.appKey,
 	};
 }
