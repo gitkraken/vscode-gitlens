@@ -1004,15 +1004,6 @@ export function toProviderPullRequestState(state: PullRequestState): GitPullRequ
 			: GitPullRequestState.Merged;
 }
 
-// Normalizes a requested-states list into the provider-apis `states` filter. An empty `include` is
-// treated as "no explicit filter" (`undefined`) rather than `[]`, so providers fall back to their
-// default (open-only) behavior instead of relying on each provider coercing an empty array.
-export function toProviderPullRequestStates(
-	include: PullRequestState[] | undefined,
-): GitPullRequestState[] | undefined {
-	return include?.length ? include.map(toProviderPullRequestState) : undefined;
-}
-
 export function fromProviderPullRequestState(state: GitPullRequestState): PullRequestState {
 	return state === GitPullRequestState.Open ? 'opened' : state === GitPullRequestState.Closed ? 'closed' : 'merged';
 }
@@ -1021,8 +1012,8 @@ export function fromProviderPullRequestState(state: GitPullRequestState): PullRe
 export function toProviderPullRequestStates(
 	state: PullRequestState[] | PullRequestStateFilter | PullRequestStateFilter[] | undefined,
 ): GitPullRequestState[] | undefined {
-	// Accept arrays so callers can request unions (e.g. include arrays or the closed+merged "done" sweep);
-	// each element maps through the single-value logic and the result is deduped.
+	// Accept arrays so callers can request unions (e.g. `include: ['closed', 'merged']` or the
+	// closed + merged "done" sweep). Deduping keeps overlapping inputs stable.
 	if (Array.isArray(state)) {
 		const states = state.flatMap(s => toProviderPullRequestStates(s) ?? []);
 		return states.length > 0 ? [...new Set(states)] : undefined;
