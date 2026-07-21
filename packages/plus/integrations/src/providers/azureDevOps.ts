@@ -14,7 +14,6 @@ import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
-import { flatSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -53,7 +52,7 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
+import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
 
 function getAzureRepositoryIdentity(repo: AzureRepositoryDescriptor): {
 	resourceName: string;
@@ -807,14 +806,18 @@ export abstract class AzureDevOpsIntegrationBase<
 		if (cancellation?.aborted) throw new CancellationError();
 
 		const orgs = await this.getProviderResourcesForUser(session);
+		if (cancellation?.aborted) throw new CancellationError();
 		if (orgs == null || orgs.length === 0) return undefined;
 
 		// `getProviderProjectsForResources` returns a collection result ({ values, metadata }); this search
 		// path only needs the resolved projects, so read `.values`.
 		const projects = (await this.getProviderProjectsForResources(session, orgs)).values;
+		if (cancellation?.aborted) throw new CancellationError();
 		if (projects.length === 0) return undefined;
 
 		const repoDescriptorsByProject = await this.getRepoDescriptorsForProjects(session, projects);
+		if (cancellation?.aborted) throw new CancellationError();
+
 		const repoDescriptors = [...repoDescriptorsByProject.values()].filter(r => r != null).flat();
 		const requestedRepos = repos?.map(getAzureRepositoryIdentity);
 		const repoInputs =
@@ -854,7 +857,7 @@ export abstract class AzureDevOpsIntegrationBase<
 						project: { namespace: project.resourceName, project: project.name },
 					}));
 
-		const providerPullRequests = await flatSettled(
+		const providerPullRequests = await flatSettledOrThrow(
 			searchScopes.map(async scope => {
 				const values: ProviderPullRequest[] = [];
 				let page: number | undefined;

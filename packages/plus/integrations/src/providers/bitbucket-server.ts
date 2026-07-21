@@ -14,7 +14,7 @@ import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { md5 } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
-import { flatSettled, nonnullSettled } from '@gitlens/utils/promise.js';
+import { nonnullSettled } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type {
@@ -36,7 +36,12 @@ import {
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { collectProviderPagedResult, parsePageCursor, toPageCursor } from './utils/providerPaging.js';
+import {
+	collectProviderPagedResult,
+	flatSettledOrThrow,
+	parsePageCursor,
+	toPageCursor,
+} from './utils/providerPaging.js';
 
 const metadata = providersMetadata[GitSelfManagedHostIntegrationId.BitbucketServer];
 const authProvider = Object.freeze({ id: metadata.id, scopes: metadata.scopes });
@@ -306,13 +311,14 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 			repos != null
 				? repos.map(r => ({ name: r.name, namespace: r.owner }))
 				: await this.getWorkspaceRepoInputs();
+		if (cancellation?.aborted) throw new CancellationError();
 		// An explicitly-empty `repos` means "search these zero repos" -> no results; reserve `undefined`
 		// ("scope couldn't be determined") for when no repos were requested and none were discovered.
 		if (repoInputs.length === 0) return repos != null ? [] : undefined;
 
 		const token = toTokenWithInfo(this.id, session);
 		const states = toProviderPullRequestStates(state);
-		const providerPullRequests = await flatSettled(
+		const providerPullRequests = await flatSettledOrThrow(
 			repoInputs.map(async repo => {
 				const result = await collectProviderPagedResult(cursor => {
 					if (cancellation?.aborted) throw new CancellationError();
