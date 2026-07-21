@@ -37,7 +37,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				flex-direction: column;
 				align-items: center;
 				inline-size: 100%;
-				max-width: 30rem;
+				max-width: 42ch;
 				text-align: center;
 			}
 
@@ -170,6 +170,34 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 				}
 			}
 
+			/* Compact tier for short viewports (e.g. the default bottom-panel height ~265px), where the
+			   comfortable spacing pushes the sign-in actions below the fold. A media query (not a container
+			   query) is intentional: this screen fills the webview viewport and the host is the scroll
+			   surface, so 'container-type: size' would change scroll ownership. */
+			@media (height <= 360px) {
+				:host {
+					padding-block: var(--gl-space-12);
+				}
+
+				/* The fill-mode animation carries the 1.22 upscale, so switching to the plain keyframes is
+				   what actually drops it; the static transform only applies under reduced motion. */
+				.logo {
+					margin-block: 0 var(--gl-space-6);
+					transform: none;
+					animation-name: gl-fade-up;
+				}
+
+				.actions,
+				.waiting {
+					margin-block-start: var(--gl-space-12);
+				}
+
+				.footnote,
+				.sync-status {
+					margin-block-start: var(--gl-space-8);
+				}
+			}
+
 			@media (prefers-reduced-motion: reduce) {
 				.logo,
 				.icon-accent,
@@ -277,7 +305,7 @@ export class GlGraphAccessAccount extends SignalWatcher(LitElement) {
 		return html`
 			<div class="actions">
 				<gl-button full href=${createCommandLink<Source>('gitlens.plus.signUp', src)} @click=${this.onStart}
-					>Create Account</gl-button
+					>Create Free Account</gl-button
 				>
 				<gl-button
 					full
