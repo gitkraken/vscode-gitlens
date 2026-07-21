@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const workspaceRoot = dirname(dirname(dirname(packageRoot)));
 const outDir = join(packageRoot, 'out');
 
 await esbuild.build({
@@ -41,4 +42,12 @@ const mocha = createRequire(import.meta.url).resolve('mocha/bin/mocha.js');
 execFileSync(process.execPath, [mocha, '--ui', 'tdd', '--timeout', '30000', `${outDir}/**/__tests__/**/*.test.cjs`], {
 	stdio: 'inherit',
 	cwd: packageRoot,
+});
+
+// Keep the package's external-consumer boundary test in the standard integrations test flow so
+// `pnpm run test:packages` catches public-facade regressions too.
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'], {
+	stdio: 'inherit',
+	cwd: workspaceRoot,
 });

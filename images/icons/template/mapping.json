@@ -87,5 +87,6 @@
   "checkbox-checked": 61780,
   "checkbox-mixed": 61781,
   "radio-checked": 61782,
-  "radio-unchecked": 61783
+  "radio-unchecked": 61783,
+  "provider-trello": 61784
 }

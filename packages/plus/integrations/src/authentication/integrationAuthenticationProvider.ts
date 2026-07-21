@@ -3,12 +3,8 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationIds } from '../constants.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
 import type { Sources } from '../telemetry.js';
-import {
-	isCloudGitSelfManagedHostIntegrationId,
-	isGitSelfManagedHostIntegrationId,
-} from '../utils/integration.utils.js';
+import { isGitSelfManagedHostIntegrationId, isNonExpiringZeroTokenIntegrationId } from '../utils/integration.utils.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type { IntegrationAuthenticationService } from './integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from './models.js';
@@ -293,13 +289,10 @@ export class CloudIntegrationAuthenticationProvider<
 				: undefined);
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 
-		// Make an exception for GitHub and Cloud Self-Hosted integrations because they always return 0
-		if (
-			session?.expiresIn === 0 &&
-			(this.authProviderId === GitCloudHostIntegrationId.GitHub ||
-				isCloudGitSelfManagedHostIntegrationId(this.authProviderId))
-		) {
-			// It never expires so don't refresh it frequently:
+		// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a token that never
+		// expires; left as 0 the session would be built with `expiresAt = now` and rejected as expired on the
+		// next resolution. Map it to the maximum expiry so it isn't refreshed frequently.
+		if (session?.expiresIn === 0 && isNonExpiringZeroTokenIntegrationId(this.authProviderId)) {
 			session.expiresIn = maxSmallIntegerV8; // maximum expiration length
 		}
 
@@ -341,6 +334,8 @@ export class CloudIntegrationAuthenticationProvider<
 			// Note: do not use the session's domain, because the format is different than in our model
 			domain: descriptor.domain,
 			protocol: sessionProtocol ?? undefined,
+			// Carried for providers whose client needs an app key alongside the token (e.g. Trello).
+			appKey: session.appKey,
 		};
 	}
 
