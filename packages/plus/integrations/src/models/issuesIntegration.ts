@@ -21,7 +21,6 @@ export abstract class IssuesIntegration<
 > extends IntegrationBase<ID> {
 	readonly type: IntegrationType = 'issues';
 
-	@gate()
 	@trace()
 	async getAccountForResource(resource: T, connectionId?: string): Promise<Account | undefined> {
 		return (await this.getAccountForResourceResult(resource, connectionId))?.value;
@@ -30,7 +29,8 @@ export abstract class IssuesIntegration<
 	/**
 	 * Result-returning core of {@link getAccountForResource}. Recovers a thrown error into `{ error }` so
 	 * callers can preserve its classification (e.g. a 401/403 → an `auth` warning that drives re-auth)
-	 * instead of collapsing every failure into an untyped `undefined`.
+	 * instead of collapsing every failure into an untyped `undefined`. Gated here (not on the wrapper) so
+	 * direct callers such as the ProviderBackend facade share the same dedup as `getAccountForResource`.
 	 */
 	@gate()
 	async getAccountForResourceResult(
