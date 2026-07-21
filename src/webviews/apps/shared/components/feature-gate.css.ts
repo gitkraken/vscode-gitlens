@@ -1,4 +1,9 @@
-import { css } from 'lit';
+import { css, unsafeCSS } from 'lit';
+
+/* The single threshold (both axes) below which the gate switches to its compact look. Shared as a
+   constant because the width- and height-compact rules span this file and
+   feature-gate-plus-state.ts, and @container conditions can't read custom properties. */
+export const featureGateCompactThreshold = unsafeCSS('45rem');
 
 export const featureGateBaseStyles = css`
 	:host {
@@ -10,6 +15,11 @@ export const featureGateBaseStyles = css`
 		position: absolute;
 		inset: 0;
 		box-sizing: border-box;
+
+		/* Size container for the gate's narrow-width adaptations. Safe because the host is an
+		   inset-0 overlay, so its inline size never depends on its contents. The top-layer dialog
+		   still resolves against this container via its flat-tree ancestry. */
+		container-type: inline-size;
 	}
 
 	::slotted(p) {
@@ -76,6 +86,12 @@ export const featureGateBaseStyles = css`
 		overflow: auto;
 	}
 
+	@container (max-width: ${featureGateCompactThreshold}) {
+		.content {
+			padding-inline: var(--gl-space-12);
+		}
+	}
+
 	:host-context(body[data-placement='editor']) dialog,
 	:host([appearance='alert']) dialog {
 		--link-decoration-default: underline;
@@ -88,7 +104,7 @@ export const featureGateBaseStyles = css`
 
 		inset: 0;
 		width: max-content;
-		max-width: 600px;
+		max-width: 60rem;
 		height: max-content;
 		max-height: calc(100% - 0.4rem);
 		margin: auto;
@@ -170,6 +186,12 @@ export const featureGateContentStyles = css`
 		color: var(--color-foreground);
 	}
 
+	@container (max-width: ${featureGateCompactThreshold}) {
+		.feature__title {
+			font-size: var(--gl-font-lg);
+		}
+	}
+
 	.feature__title gl-feature-badge {
 		margin: 0;
 		transform: translateY(-0.4rem);
@@ -186,7 +208,9 @@ export const featureGateContentStyles = css`
 
 	.list {
 		display: grid;
-		grid-template-columns: repeat(2, 1fr);
+		/* Intrinsic column collapse: two columns when the content area is wide enough for two
+		   32rem tracks, a single column in narrow placements (side bar, panel splits). */
+		grid-template-columns: repeat(auto-fit, minmax(min(32rem, 100%), 1fr));
 		gap: var(--gl-space-16);
 		padding-inline-start: 0;
 		margin-block: var(--gl-space-6);

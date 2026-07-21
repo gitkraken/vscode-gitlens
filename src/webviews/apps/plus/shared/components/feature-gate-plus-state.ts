@@ -59,7 +59,10 @@ export class GlFeatureGatePlusState extends LitElement {
 				max-width: 300px;
 			}
 
-			@container (max-width: 600px) {
+			/* Collapses the CTA to a block, centered button in narrow default-appearance gates.
+			   A deliberate literal — this threshold is independent of the compact threshold shared
+			   via featureGateCompactThreshold (and of the alert dialog's same-valued width cap). */
+			@container (max-width: 60rem) {
 				:host([appearance='default']) gl-button:not(.inline) {
 					display: block;
 					margin-right: auto;
@@ -123,7 +126,7 @@ export class GlFeatureGatePlusState extends LitElement {
 	];
 
 	@query('gl-button')
-	private readonly button!: GlButton;
+	private readonly button?: GlButton;
 
 	@property()
 	appearance?: 'alert' | 'default';
@@ -152,10 +155,21 @@ export class GlFeatureGatePlusState extends LitElement {
 	@property()
 	webroot?: string;
 
-	protected override firstUpdated(): void {
-		if (this.appearance === 'alert') {
-			queueMicrotask(() => this.button.focus());
-		}
+	private _ctaPrimed = false;
+
+	protected override updated(): void {
+		// Prime the CTA for Enter — once, on the first update that actually renders a button
+		// (`state` can arrive after the first render, which emits nothing until then). Don't
+		// scroll it into view: in constrained placements the button sits far below the fold and
+		// scrolling to it hides the gate's title/context. The latch keeps later reactive updates
+		// (e.g. a subscription refresh) from stealing focus the user has since moved.
+		if (this._ctaPrimed || this.appearance !== 'alert') return;
+
+		const button = this.button;
+		if (button == null) return;
+
+		this._ctaPrimed = true;
+		queueMicrotask(() => button.focus({ preventScroll: true }));
 	}
 
 	override render(): unknown {
