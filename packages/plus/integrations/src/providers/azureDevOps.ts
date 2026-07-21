@@ -12,6 +12,7 @@ import type {
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { base64 } from '@gitlens/utils/base64.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
@@ -40,16 +41,31 @@ import type {
 	ProviderHierarchyResult,
 	ProviderOrganization,
 	ProviderPullRequest,
+	ProviderRepoInput,
 	ProviderRepository,
 } from './models.js';
 import {
 	fromProviderIssue,
 	fromProviderPullRequest,
+	providerPullRequestMatchesSearch,
 	providersMetadata,
 	toProviderPullRequestStates,
 } from './models.js';
 import type { ProvidersApi } from './providersApi.js';
-import { collectProviderPagedResult, mergeCollectionMetadata } from './utils/providerPaging.js';
+import { collectProviderPagedResult, flatSettledOrThrow, mergeCollectionMetadata } from './utils/providerPaging.js';
+
+function getAzureRepositoryIdentity(repo: AzureRepositoryDescriptor): {
+	resourceName: string;
+	projectName?: string;
+	repositoryName: string;
+} {
+	const match = /^([^/]+)\/_git\/([^/]+)$/i.exec(repo.name);
+	return {
+		resourceName: repo.owner,
+		projectName: repo.project ?? match?.[1],
+		repositoryName: match?.[2] ?? repo.name,
+	};
+}
 
 export abstract class AzureDevOpsIntegrationBase<
 	TIntegrationId extends GitCloudHostIntegrationId.AzureDevOps | GitSelfManagedHostIntegrationId.AzureDevOpsServer,
@@ -780,6 +796,97 @@ export abstract class AzureDevOpsIntegrationBase<
 		};
 	}
 
+	protected override async searchProviderPullRequests(
+		session: ProviderAuthenticationSession,
+		searchQuery: string,
+		repos?: AzureRepositoryDescriptor[],
+		cancellation?: AbortSignal,
+		state?: PullRequestStateFilter,
+	): Promise<PullRequest[] | undefined> {
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const orgs = await this.getProviderResourcesForUser(session);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (orgs == null || orgs.length === 0) return undefined;
+
+		// `getProviderProjectsForResources` returns a collection result ({ values, metadata }); this search
+		// path only needs the resolved projects, so read `.values`.
+		const projects = (await this.getProviderProjectsForResources(session, orgs)).values;
+		if (cancellation?.aborted) throw new CancellationError();
+		if (projects.length === 0) return undefined;
+
+		const repoDescriptorsByProject = await this.getRepoDescriptorsForProjects(session, projects);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		const repoDescriptors = [...repoDescriptorsByProject.values()].filter(r => r != null).flat();
+		const requestedRepos = repos?.map(getAzureRepositoryIdentity);
+		const repoInputs =
+			requestedRepos == null
+				? undefined
+				: repoDescriptors.filter(r =>
+						requestedRepos.some(
+							repo =>
+								repo.resourceName === r.resourceName &&
+								repo.repositoryName === r.name &&
+								(repo.projectName == null || repo.projectName === r.projectName),
+						),
+					);
+		if (repoInputs?.length === 0) return [];
+
+		const api = await this.getProvidersApi();
+		const { tokenWithInfo, options } = this.getApiOptions(session);
+		const states = toProviderPullRequestStates(state);
+		const searchScopes: { project: { namespace: string; project: string }; repo?: ProviderRepoInput }[] =
+			repoInputs != null
+				? repoInputs.flatMap(repo =>
+						repo.projectName == null
+							? []
+							: [
+									{
+										project: { namespace: repo.resourceName, project: repo.projectName },
+										repo: {
+											id: repo.id,
+											name: repo.name,
+											namespace: repo.resourceName,
+											project: repo.projectName,
+										},
+									},
+								],
+					)
+				: projects.map(project => ({
+						project: { namespace: project.resourceName, project: project.name },
+					}));
+
+		const providerPullRequests = await flatSettledOrThrow(
+			searchScopes.map(async scope => {
+				const values: ProviderPullRequest[] = [];
+				let page: number | undefined;
+				for (let i = 0; i < 20; i++) {
+					if (cancellation?.aborted) throw new CancellationError();
+
+					const result = await api.getPullRequestsForAzureProject(tokenWithInfo, scope.project, {
+						...options,
+						page: page,
+						repo: scope.repo,
+						states: states,
+					});
+					if (result == null) break;
+
+					values.push(...result.data);
+					if (!result.hasMore || result.nextPage == null) break;
+
+					page = result.nextPage;
+				}
+				return values;
+			}),
+		);
+		if (cancellation?.aborted) throw new CancellationError();
+
+		return [...new Map(providerPullRequests.map(pr => [pr.url ?? `${pr.repository.id}:${pr.id}`, pr])).values()]
+			.filter(pr => providerPullRequestMatchesSearch(pr, searchQuery))
+			.map(pr => this.fromAzureProviderPullRequest(pr, repoDescriptors, projects));
+	}
+
 	protected override async searchProviderMyIssues(
 		session: ProviderAuthenticationSession,
 		repos?: AzureRepositoryDescriptor[],
@@ -973,10 +1080,10 @@ export abstract class AzureDevOpsIntegrationBase<
 		repoDescriptors: AzureRemoteRepositoryDescriptor[],
 		projectDescriptors: AzureProjectDescriptor[],
 	): PullRequest {
-		const baseRepoDescriptor = repoDescriptors.find(r => r.name === azurePullRequest.repository.name);
+		const baseRepoDescriptor = repoDescriptors.find(r => r.id === azurePullRequest.repository.id);
 		const headRepoDescriptor =
 			azurePullRequest.headRepository != null
-				? repoDescriptors.find(r => r.name === azurePullRequest.headRepository!.name)
+				? repoDescriptors.find(r => r.id === azurePullRequest.headRepository!.id)
 				: undefined;
 		let project: AzureProjectDescriptor | undefined;
 		if (baseRepoDescriptor != null) {
@@ -1004,7 +1111,9 @@ export abstract class AzureDevOpsIntegrationBase<
 		}
 
 		if (baseRepoDescriptor?.projectName != null) {
-			project = projectDescriptors.find(p => p.name === baseRepoDescriptor.projectName);
+			project = projectDescriptors.find(
+				p => p.resourceName === baseRepoDescriptor.resourceName && p.name === baseRepoDescriptor.projectName,
+			);
 		}
 		return fromProviderPullRequest(azurePullRequest, this, { project: project });
 	}
