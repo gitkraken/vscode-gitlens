@@ -12737,6 +12737,13 @@
 					"fontPath": "dist/glicons.woff2",
 					"fontCharacter": "\\f14f"
 				}
+			},
+			"gitlens-provider-trello": {
+				"description": "provider-trello icon",
+				"default": {
+					"fontPath": "dist/glicons.woff2",
+					"fontCharacter": "\\f150"
+				}
 			}
 		},
 		"menus": {
@@ -29641,7 +29648,7 @@
 		"@gitkraken/commit-graph": "workspace:*",
 		"@gitkraken/compose-tools": "0.6.0",
 		"@gitkraken/conflict-tools": "0.2.3",
-		"@gitkraken/provider-apis": "catalog:",
+		"@gitkraken/provider-apis": "0.52.0",
 		"@gitkraken/shared-tools": "0.2.0",
 		"@gitlens/agents": "workspace:*",
 		"@gitlens/ai": "workspace:*",

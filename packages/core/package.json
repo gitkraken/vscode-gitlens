@@ -275,14 +275,14 @@
 		}
 	},
 	"dependencies": {
-		"@gitkraken/provider-apis": "catalog:",
-		"@octokit/graphql": "catalog:",
-		"@octokit/request": "catalog:",
-		"@octokit/request-error": "catalog:",
-		"@octokit/types": "catalog:",
-		"fast-string-truncated-width": "catalog:",
-		"ignore": "catalog:",
-		"vscode-uri": "catalog:"
+		"@gitkraken/provider-apis": "0.52.0",
+		"@octokit/graphql": "9.0.3",
+		"@octokit/request": "10.0.10",
+		"@octokit/request-error": "7.1.0",
+		"@octokit/types": "16.0.0",
+		"fast-string-truncated-width": "3.0.3",
+		"ignore": "7.0.5",
+		"vscode-uri": "3.1.0"
 	},
 	"scripts": {
 		"build": "node scripts/bundle.mjs",

@@ -240,7 +240,12 @@ export interface AuthenticationSessionsChangeEvent {
  */
 export interface IntegrationsRemoteConfig {
 	readonly type: string;
-	readonly domain: string;
+	/** Exact-match domain (mutually exclusive with `regex`) */
+	readonly domain?: string;
+	/** Regex pattern for flexible host matching (mutually exclusive with `domain`) */
+	readonly regex?: string;
+	/** URL protocol override (e.g., `'https'`) */
+	readonly protocol?: string;
 	readonly ignoreSSLErrors?: boolean | 'force';
 }
 

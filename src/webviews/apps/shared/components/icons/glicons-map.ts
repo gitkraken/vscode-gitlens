@@ -85,4 +85,5 @@ export const iconMap = Object.freeze({
 	'filter-mixed': '\\f14d',
 	'start-new': '\\f14e',
 	'merge': '\\f14f',
+	'provider-trello': '\\f150',
 });

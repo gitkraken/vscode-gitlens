@@ -79,5 +79,6 @@
   "kanban-view": 61772,
   "filter-mixed": 61773,
   "start-new": 61774,
-  "merge": 61775
+  "merge": 61775,
+  "provider-trello": 61776
 }

@@ -2,7 +2,11 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import {
+	GitCloudHostIntegrationId,
+	GitSelfManagedHostIntegrationId,
+	IssuesCloudHostIntegrationId,
+} from '../constants.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 function cloudSession(id: string, overrides?: Partial<ProviderAuthenticationSession>): ProviderAuthenticationSession {
@@ -42,6 +46,35 @@ suite('ConfiguredIntegrationService — multi-account (#5430)', () => {
 			(await runtime.storage.getSecret('integration.auth.cloud:github|github.com')) != null,
 			'legacy secret preserved',
 		);
+	});
+
+	test('rehydrates a Trello session preserving the appKey (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		// A stored Trello cloud session carries the app key its client needs alongside the token.
+		await runtime.storage.store('integrations:configured', {
+			trello: [{ id: 'trello.com', cloud: true, integrationId: 'trello', scopes: '' }],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:trello|trello.com',
+			JSON.stringify({
+				id: 'trello.com',
+				accessToken: 'tok',
+				scopes: [],
+				cloud: true,
+				type: 'oauth',
+				domain: 'trello.com',
+				appKey: 'my-app-key',
+			}),
+		);
+
+		const service = new ConfiguredIntegrationService(runtime);
+		const session = await service.getStoredSession(IssuesCloudHostIntegrationId.Trello, {
+			domain: 'trello.com',
+			scopes: [],
+		});
+
+		assert.ok(session != null, 'stored Trello session resolves');
+		assert.equal(session.appKey, 'my-app-key', 'the appKey survives rehydration (without it every read no-ops)');
 	});
 
 	test('hydration backfills the connection id from the canonical domain (never empty)', async () => {
