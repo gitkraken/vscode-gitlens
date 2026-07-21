@@ -287,6 +287,52 @@ suite('sweep + broaden (#5438)', () => {
 		manager.dispose();
 	});
 
+	test('broadenIssues maps repo-discovery metadata failures to warnings + fetchFailed (#5438)', async () => {
+		const runtime = createFakeRuntime();
+		const { manager, gh } = await connectedGitHub(runtime);
+
+		(
+			gh as unknown as {
+				getRepositoriesForOrgResult: (
+					org: string,
+				) => Promise<IntegrationResult<PagedResult<ProviderRepository> & { metadata?: CollectionMetadata }>>;
+			}
+		).getRepositoriesForOrgResult = (org: string) =>
+			Promise.resolve({
+				value: {
+					values: [{ name: `${org}-repo`, namespace: org } as unknown as ProviderRepository],
+					metadata: {
+						completeness: 'partial',
+						failures: [{ kind: 'authentication', scope: { repositoryId: `${org}/bad` } }],
+					},
+				},
+			});
+
+		(
+			gh as unknown as {
+				getMyIssuesForReposAsShapesResult: (
+					repos: ProviderReposInput,
+				) => Promise<IntegrationResult<PagedResult<ProviderIssue>>>;
+			}
+		).getMyIssuesForReposAsShapesResult = (_repos: ProviderReposInput) =>
+			Promise.resolve({ value: { values: [{ id: 'i-1' } as unknown as ProviderIssue] } });
+
+		const result = await manager.broadenIssues({
+			orgs: [{ providerId: GitCloudHostIntegrationId.GitHub, name: 'org' }],
+			page: 1,
+		});
+
+		assert.deepEqual(result.items, [{ id: 'i-1' }], 'the successful issues survive the partial repo discovery');
+		assert.equal(result.fetchFailed, true, 'repo-discovery metadata failures mark the broadened slice incomplete');
+		assert.equal(result.page.truncated, true, 'repo-discovery partial completeness is surfaced as truncation');
+		assert.ok(
+			result.warnings.some(w => w.kind === 'auth'),
+			'the repo-discovery scope failure is surfaced as an auth warning',
+		);
+
+		manager.dispose();
+	});
+
 	test('broadenIssues maps issue-read metadata failures to warnings + fetchFailed (#5438)', async () => {
 		const runtime = createFakeRuntime();
 		const { manager, gh } = await connectedGitHub(runtime);

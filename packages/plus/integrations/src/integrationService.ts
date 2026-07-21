@@ -2316,6 +2316,8 @@ export class IntegrationService implements Disposable {
 	}> {
 		const repos: ProviderRepository[] = [];
 		const warnings: ProviderWarning[] = [];
+		let fetchFailed = false;
+		let metadataTruncated = false;
 		let cursor: string | undefined;
 		let page = 0;
 
@@ -2333,10 +2335,18 @@ export class IntegrationService implements Disposable {
 				warnings.push(warning);
 			}
 			if (value == null) {
-				return { repos: repos, warnings: warnings, fetchFailed: warning != null, truncated: false };
+				return {
+					repos: repos,
+					warnings: warnings,
+					fetchFailed: fetchFailed || warning != null,
+					truncated: metadataTruncated,
+				};
 			}
 
 			repos.push(...value.values);
+			const assessment = mergeAssessmentInto(warnings, id, domain, connectionId, value.metadata);
+			fetchFailed = fetchFailed || assessment.fetchFailed;
+			metadataTruncated = metadataTruncated || assessment.truncated;
 			if (!(value.paging?.more ?? false)) {
 				// Honor both the top-level `ProviderHierarchyResult.truncated` (the org-hierarchy backstop hit
 				// its own page cap) and `paging.truncated` (a single-page read that couldn't confirm it was
@@ -2344,18 +2354,18 @@ export class IntegrationService implements Disposable {
 				return {
 					repos: repos,
 					warnings: warnings,
-					fetchFailed: false,
-					truncated: value.truncated ?? value.paging?.truncated ?? false,
+					fetchFailed: fetchFailed,
+					truncated: (value.truncated ?? value.paging?.truncated ?? false) || metadataTruncated,
 				};
 			}
 			if (page >= maxPages) {
-				return { repos: repos, warnings: warnings, fetchFailed: false, truncated: true };
+				return { repos: repos, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
 			const nextCursor = value.paging?.cursor;
 			if (nextCursor == null || nextCursor === '{}') {
 				// Provider says there is more but didn't return a usable cursor; stop rather than refetch the same page.
-				return { repos: repos, warnings: warnings, fetchFailed: false, truncated: true };
+				return { repos: repos, warnings: warnings, fetchFailed: fetchFailed, truncated: true };
 			}
 
 			cursor = nextCursor;
