@@ -22,6 +22,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
@@ -363,6 +364,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		state?: PullRequestStateFilter,
+		_options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		return (await this.authenticationService.apis.github)?.searchMyPullRequests(
 			this,

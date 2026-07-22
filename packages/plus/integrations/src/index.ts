@@ -88,6 +88,7 @@ export type { ApiClients } from './providers/apiClients.js';
 export type { Source } from './telemetry.js';
 export type { IntegrationIds, SupportedCloudIntegrationIds } from './constants.js';
 export type { ConnectionStateChangeEvent, IntegrationConnectionChangeEvent } from './integrationService.js';
+export type { SearchMyPullRequestsOptions } from './models/gitHostIntegration.js';
 export type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 
 // Authentication contract — what `IntegrationServiceHooks.createAuthenticationProvider`
