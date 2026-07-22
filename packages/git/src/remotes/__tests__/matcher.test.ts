@@ -143,6 +143,23 @@ suite('createRemoteProviderMatcher Test Suite', () => {
 			assert.strictEqual(provider.id, 'gitlab');
 		});
 
+		test("a config's protocol override wins over the URL scheme", () => {
+			// The config declares plain `http` for a self-managed host; the matcher must honor that override on
+			// the built provider rather than the `https` scheme carried by the URL. resolveRepository relies on
+			// this when it forwards a config-derived protocol on its synthetic exact-domain entry.
+			const configs: RemoteProviderConfig[] = [{ domain: 'git.mycorp.com', type: 'github', protocol: 'http' }];
+			const matcher = createRemoteProviderMatcher(configs);
+			const provider = matcher(
+				'https://git.mycorp.com/owner/repo.git',
+				'git.mycorp.com',
+				'owner/repo.git',
+				'https',
+			);
+			assert.ok(provider);
+			assert.strictEqual(provider.id, 'github');
+			assert.strictEqual(provider.protocol, 'http');
+		});
+
 		test('custom configs take priority over built-in providers', () => {
 			const configs: RemoteProviderConfig[] = [{ domain: 'github.com', type: 'gitlab' }];
 			const matcher = createRemoteProviderMatcher(configs);
