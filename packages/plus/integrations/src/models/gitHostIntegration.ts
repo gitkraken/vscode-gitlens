@@ -55,31 +55,23 @@ function isAzureDevOpsProvider(
 	);
 }
 
-function hostFromDomain(domain: string | undefined): string | undefined {
+function normalizeSelfManagedBaseUrl(domain: string | undefined, protocol: string | undefined): string | undefined {
 	const value = domain?.trim();
 	if (!value) return undefined;
 
 	if (/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) {
 		try {
-			return new URL(value).host || undefined;
+			const url = new URL(value);
+			return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
 		} catch {
 			return undefined;
 		}
 	}
 
+	const scheme = protocol ?? 'https:';
 	try {
-		return new URL(`https://${value}`).host || undefined;
-	} catch {
-		return undefined;
-	}
-}
-
-function protocolFromDomain(domain: string | undefined): string | undefined {
-	const value = domain?.trim();
-	if (!value || !/^[a-z][a-z\d+\-.]*:\/\//i.test(value)) return undefined;
-
-	try {
-		return new URL(value).protocol || undefined;
+		const url = new URL(`${scheme}//${value}`);
+		return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`;
 	} catch {
 		return undefined;
 	}
@@ -90,19 +82,18 @@ function getSelfManagedApiBaseUrl(
 	domain: string | undefined,
 	protocol: string | undefined,
 ): string | undefined {
-	const host = hostFromDomain(domain);
-	if (host == null) return undefined;
+	const baseUrl = normalizeSelfManagedBaseUrl(domain, protocol);
+	if (baseUrl == null) return undefined;
 
-	const scheme = protocol ?? protocolFromDomain(domain) ?? 'https:';
 	switch (providerId) {
 		case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
-			return `${scheme}//${host}/api/v3`;
+			return `${baseUrl.replace(/\/api(?:\/v\d+)?$/, '')}/api/v3`;
 		case GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted:
-			return `${scheme}//${host}/api`;
+			return baseUrl.replace(/\/api(?:\/v\d+)?$/, '');
 		case GitSelfManagedHostIntegrationId.BitbucketServer:
-			return `${scheme}//${host}/rest/api/1.0`;
+			return `${baseUrl.replace(/\/rest\/api\/1\.0$/, '')}/rest/api/1.0`;
 		case GitSelfManagedHostIntegrationId.AzureDevOpsServer:
-			return `${scheme}//${host}`;
+			return baseUrl;
 		default:
 			return undefined;
 	}
