@@ -1459,24 +1459,44 @@ export abstract class GitHostIntegration<
 		searchQuery: string,
 		repo?: T,
 		cancellation?: AbortSignal,
+		options?: { include?: PullRequestState[] },
+	): Promise<PullRequest[] | undefined>;
+	async searchPullRequests(
+		searchQuery: string,
+		repos?: T[],
+		cancellation?: AbortSignal,
+		options?: { include?: PullRequestState[] },
+	): Promise<PullRequest[] | undefined>;
+	async searchPullRequests(
+		searchQuery: string,
+		repo?: T,
+		cancellation?: AbortSignal,
 		connectionId?: string,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined>;
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
 		connectionId?: string,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined>;
 	@trace()
 	async searchPullRequests(
 		searchQuery: string,
 		repos?: T | T[],
 		cancellation?: AbortSignal,
-		connectionId?: string,
-		state?: PullRequestStateFilter,
+		connectionIdOrOptions?: string | { include?: PullRequestState[] },
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined> {
+		// `connectionId` (string) can be omitted when passing `options`; split the overlapping 4th arg.
+		// When the 4th arg isn't the options object (a string `connectionId` or `undefined`), fall back to
+		// the 5th-arg `options` so an explicit `undefined` connectionId still honors state filtering.
+		const connectionId = typeof connectionIdOrOptions === 'string' ? connectionIdOrOptions : undefined;
+		const searchOptions =
+			connectionIdOrOptions != null && typeof connectionIdOrOptions !== 'string'
+				? connectionIdOrOptions
+				: options;
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
 		const session = await this.resolveReadSession(connectionId, scope);
@@ -1488,7 +1508,7 @@ export abstract class GitHostIntegration<
 				searchQuery,
 				repos != null ? (Array.isArray(repos) ? repos : [repos]) : undefined,
 				cancellation,
-				state,
+				searchOptions,
 			);
 			this.resetRequestExceptionCount('searchPullRequests');
 			return prs;
@@ -1503,7 +1523,7 @@ export abstract class GitHostIntegration<
 		searchQuery: string,
 		repos?: T[],
 		cancellation?: AbortSignal,
-		state?: PullRequestStateFilter,
+		options?: { include?: PullRequestState[] },
 	): Promise<PullRequest[] | undefined>;
 
 	getPullRequestIdentityFromMaybeUrl(search: string): PullRequestUrlIdentity | undefined {

@@ -2,7 +2,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import { PullRequest } from '@gitlens/git/models/pullRequest.js';
-import type { PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestState } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
@@ -801,7 +801,7 @@ export class GitLabApi implements Disposable {
 			repos?: string[];
 			baseUrl?: string;
 			avatarSize?: number;
-			state?: PullRequestStateFilter;
+			include?: PullRequestState[];
 		},
 		cancellation?: AbortSignal,
 	): Promise<PullRequest[]> {
@@ -813,31 +813,57 @@ export class GitLabApi implements Disposable {
 
 		try {
 			const perPageLimit = 20; // with bigger amount we exceed the max GraphQL complexity in the next query
-			const state = options?.state;
-			// Push a specific state server-side so matching results aren't crowded out of the first page.
+			const include = options?.include?.length ? options.include : undefined;
+			// GitLab's search API takes a single `state` value, so push it server-side when exactly one state is
+			// requested; that keeps the requested state from being crowded out of the `perPageLimit` slice. For
+			// multiple states there's no single-value qualifier, so those are filtered client-side below.
 			let searchPath = `v4/search/?scope=merge_requests&search=${encodeURIComponent(search)}&per_page=${perPageLimit}`;
-			if (state != null && state !== 'all') {
-				searchPath += `&state=${encodeURIComponent(
-					toGitLabMergeRequestState(state === 'open' ? 'opened' : state),
-				)}`;
+			if (include?.length === 1) {
+				searchPath += `&state=${encodeURIComponent(toGitLabMergeRequestState(include[0]))}`;
 			}
-			const allPRs = await this.request<GitLabMergeRequestREST[]>(
-				provider,
-				token,
-				options?.baseUrl,
-				searchPath,
-				{
-					method: 'GET',
-				},
-				cancellation,
-				scope,
-			);
-			const restPRs =
-				state == null || state === 'all'
-					? allPRs
-					: allPRs.filter(
-							pr => fromGitLabMergeRequestState(pr.state) === (state === 'open' ? 'opened' : state),
-						);
+
+			let restPRs: GitLabMergeRequestREST[];
+			if (include == null) {
+				// Unfiltered search returns the first page as-is (as it did before state filtering existed).
+				restPRs = await this.request<GitLabMergeRequestREST[]>(
+					provider,
+					token,
+					options?.baseUrl,
+					searchPath,
+					{ method: 'GET' },
+					cancellation,
+					scope,
+				);
+			} else {
+				// The search API returns MRs of all states in relevance order, so the requested state(s) may not
+				// appear on the first page. Server-side `&state=` narrows the single-state case when honored, but it
+				// can't express multiple states, so page through the results and accumulate matches until we fill the
+				// detail-query cap (`perPageLimit`) or exhaust the search results. This keeps correctness whether
+				// or not `&state=` takes effect. Bounded by `maxSearchPages` like the other paged provider drains in
+				// this package so a large, low-match result set can't fan out into an unbounded request loop.
+				const maxSearchPages = 20;
+				const matches: GitLabMergeRequestREST[] = [];
+				for (let page = 1; page <= maxSearchPages; page++) {
+					const pagePRs = await this.request<GitLabMergeRequestREST[]>(
+						provider,
+						token,
+						options?.baseUrl,
+						`${searchPath}&page=${page}`,
+						{ method: 'GET' },
+						cancellation,
+						scope,
+					);
+					for (const pr of pagePRs) {
+						if (include.includes(fromGitLabMergeRequestState(pr.state))) {
+							matches.push(pr);
+							if (matches.length >= perPageLimit) break;
+						}
+					}
+					// Stop once we've filled the cap or hit the last (partial or empty) page.
+					if (matches.length >= perPageLimit || pagePRs.length < perPageLimit) break;
+				}
+				restPRs = matches;
+			}
 			if (restPRs.length === 0) {
 				return [];
 			}
