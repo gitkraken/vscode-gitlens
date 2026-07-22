@@ -1145,6 +1145,15 @@ gl-lit-graph {
 	.gl-graph__gutter-node .gl-graph__node-lane {
 		opacity: var(--gutter-node-dim, 1);
 	}
+	// Promote both sliding gutter layers to compositor layers, but only while the gutter can h-scroll
+	// (`is-gutter-fading` = it overflows): they then slide at fractional px with no per-frame repaint,
+	// keeping the pinned dot from desyncing off its surface-drawn lane art. Scoped so idle rows pay none.
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-surface {
+		will-change: transform;
+	}
+	.gl-graph__virtualizer.is-gutter-fading .gl-graph__gutter-node {
+		will-change: translate;
+	}
 	.gl-graph__row {
 		// The dot's screen x: its absolute lane x, slid by the scroll offset, pinned inside
 		// [inset, viewport-width - inset] — the same expression the band origin consumes, so the band

@@ -136,8 +136,10 @@ export function rowShiftedGutterWidth(
 		}
 	};
 	consider(row.column);
-	for (const key in row.edges) {
-		consider(Number(key));
+	for (let column = 0; column <= row.edgeColumnMax; column++) {
+		if (row.edges[column] == null) continue;
+
+		consider(column);
 	}
 	// The floor applies UNIVERSALLY, not just to all-lanes-left rows: a lane sitting exactly at (or
 	// barely past) the offset would otherwise yield a viewport narrower than the pinned dot itself,
