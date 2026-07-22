@@ -8,6 +8,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { repeat } from 'lit/directives/repeat.js';
 import type { OnboardingKeys } from '../../../../../constants.onboarding.js';
 import type { GraphDisplayMode, GraphSidebarPanel } from '../../../../plus/graph/protocol.js';
+import { focusOutlineButton } from '../../../shared/components/styles/lit/a11y.css.js';
 import { emitTelemetrySentEvent } from '../../../shared/telemetry.js';
 import { graphStateContext } from '../context.js';
 import { sidebarActionsContext } from './sidebarContext.js';
@@ -80,10 +81,26 @@ export interface GraphSidebarDisplayModeChangeEventDetail {
 @customElement('gl-graph-sidebar')
 export class GlGraphSideBar extends SignalWatcher(LitElement) {
 	static override styles = css`
-		:focus,
-		:focus-within,
-		:focus-visible {
-			outline-color: var(--vscode-focusBorder);
+		/* Keyboard focus ring matching the bottom-rail gl-buttons, which outline a 26px icon-cell host
+		   that carries a border-radius (an outline only rounds if its own element does). The raw .item
+		   buttons are full rail width with a count stacked below, so outlining the button box clips at
+		   the left edge, stays square, and would enclose the count. Instead outline the .icon wrapper:
+		   padding grows it into a 2.6rem rounded cell and an equal negative margin cancels the layout
+		   shift, so the icon doesn't move but the outline (offset 2px) rounds and sits exactly like the
+		   gl-button ring. pointer-events stay on the button, not this decorative cell. */
+		.item .icon {
+			display: inline-flex;
+			padding: 0.5rem;
+			margin: -0.5rem;
+			border-radius: var(--gl-radius-sm);
+			pointer-events: none;
+		}
+		.item:focus-visible {
+			outline: none;
+		}
+		.item:focus-visible .icon {
+			${focusOutlineButton}
+			outline-offset: -1px;
 		}
 
 		.sidebar {
@@ -650,7 +667,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				@click=${() => this.handleIconClick(icon)}
 				aria-pressed=${isActive}
 			>
-				<code-icon icon="${icon.icon}"></code-icon>
+				<span class="icon"><code-icon icon="${icon.icon}"></code-icon></span>
 				${this.renderIconCount(icon)}
 			</button>
 		</gl-tooltip>`;
@@ -691,7 +708,7 @@ export class GlGraphSideBar extends SignalWatcher(LitElement) {
 				class=${classMap({ item: true, 'overflow-toggle': true, active: containsActive })}
 				aria-label="More"
 			>
-				<code-icon icon="ellipsis"></code-icon>
+				<span class="icon"><code-icon icon="ellipsis"></code-icon></span>
 			</button>
 			<div slot="content" class="overflow-menu">
 				${repeat(
