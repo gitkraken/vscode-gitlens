@@ -1,7 +1,7 @@
 import type { CollectionMetadata } from '@gitkraken/provider-apis';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
-import type { PullRequest, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequest, PullRequestShape, PullRequestStateFilter } from '@gitlens/git/models/pullRequest.js';
 import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { RemoteProviderId } from '@gitlens/git/models/remoteProvider.js';
 import type { IssueResourceDescriptor, ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
@@ -63,9 +63,15 @@ import type {
 	ProviderPullRequest,
 	ProviderReposInput,
 	ProviderRepository,
+	ProviderRepositoryShape,
 	PullRequestFilter,
 } from './providers/models.js';
-import { IssueFilter, providersMetadata } from './providers/models.js';
+import {
+	fromProviderPullRequest,
+	IssueFilter,
+	providersMetadata,
+	toProviderRepositoryShape,
+} from './providers/models.js';
 import type { ProvidersApi } from './providers/providersApi.js';
 import { mergeCollectionMetadata, parsePageCursor, toPageCursor } from './providers/utils/providerPaging.js';
 import type {
@@ -1387,7 +1393,7 @@ export class IntegrationService implements Disposable {
 		cursor?: string;
 		itemsPerPage?: number;
 		connectionId?: string;
-	}): Promise<ProviderPagedResult<ProviderRepository>> {
+	}): Promise<ProviderPagedResult<ProviderRepositoryShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
@@ -1470,7 +1476,8 @@ export class IntegrationService implements Disposable {
 		// gave no cursor, synthesize the next page so the caller has something resumable to advance with.
 		const cursorOut = paged.cursor ?? (paged.hasMore ? this.pageToCursor(currentPage + 1) : undefined);
 		return {
-			items: items,
+			// Normalize the raw provider-apis repos to the GitLens-owned shape at the surface boundary.
+			items: items.map(toProviderRepositoryShape),
 			warnings: warnings,
 			page: { ...paged.page, currentPage: currentPage, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
@@ -1500,7 +1507,7 @@ export class IntegrationService implements Disposable {
 		itemsPerPage?: number;
 		forceSync?: boolean;
 		connectionId?: string;
-	}): Promise<ProviderPagedResult<ProviderPullRequest>> {
+	}): Promise<ProviderPagedResult<PullRequestShape>> {
 		const page = Math.max(1, options.page ?? 1);
 		const integration = await this.getIntegrationForRead(options.providerId, options.connectionId);
 		if (integration == null || isIssuesIntegration(integration)) {
@@ -1566,7 +1573,7 @@ export class IntegrationService implements Disposable {
 					),
 		);
 
-		const items = value?.values ?? [];
+		let items = value?.values ?? [];
 		// Account-wide reads have no meaningful page number (cursor-only), so report page 1 rather than
 		// echoing a requested page the provider never applied; repo-scoped reads report the requested page
 		// unless the provider reports its own.
@@ -1578,8 +1585,9 @@ export class IntegrationService implements Disposable {
 
 		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
 		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors
-		// so the returned `currentPage` actually reflects N instead of misreporting page 1. Keep the already-fetched
-		// prefix from each page so a later page failure doesn't discard the earlier pages.
+		// so the returned `currentPage` actually reflects N instead of misreporting page 1. Keep only the last
+		// successfully-read page's items while still merging warnings/metadata across the drained prefix; returning
+		// pages 1..N as "page N" would duplicate items for normal paged consumers.
 		if (
 			!accountWide &&
 			options.page != null &&
@@ -1618,9 +1626,10 @@ export class IntegrationService implements Disposable {
 					break;
 				}
 
-				items.push(...nextValue.values);
+				const nextItems = nextValue.values;
+				items = nextItems;
 				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
-				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, nextValue.paging);
+				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
 				currentPage++;
 				const nextCursor = nextPaged.cursor;
 				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
@@ -1635,7 +1644,7 @@ export class IntegrationService implements Disposable {
 			}
 
 			paged = {
-				page: { currentPage: currentPage, itemsPerPage: paged.page.itemsPerPage },
+				page: { currentPage: currentPage, itemsPerPage: options.itemsPerPage ?? items.length },
 				hasMore: currentHasMore,
 				cursor: currentCursor,
 				truncated: currentTruncated,
@@ -1651,7 +1660,8 @@ export class IntegrationService implements Disposable {
 			warnings.push(this.truncationWarning(options.providerId, domain, options.connectionId, 'Pull request'));
 		}
 		return {
-			items: items,
+			// Normalize the raw provider-apis PRs to the GitLens-owned shape at the surface boundary.
+			items: items.map(pr => fromProviderPullRequest(pr, integration)),
 			warnings: warnings,
 			page: { ...paged.page, truncated: truncated || undefined },
 			hasMore: paged.hasMore,
@@ -1800,15 +1810,16 @@ export class IntegrationService implements Disposable {
 			),
 		);
 
-		const items = value?.values ?? [];
+		let items = value?.values ?? [];
 		const warnings = warning != null ? [warning] : [];
 		let paged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, value?.paging);
 		let allMetadata = value?.metadata;
 
 		// Cursor-only repo-scoped hosts (e.g. GitHub) ignore a synthesized page-number cursor. When the caller
 		// explicitly asks for page N without supplying a continuation cursor, drain through the opaque cursors so
-		// the returned `currentPage` actually reflects N instead of misreporting page 1. Keep the already-fetched
-		// prefix from each page so a later page failure doesn't discard the earlier pages.
+		// the returned `currentPage` actually reflects N instead of misreporting page 1. Keep only the last
+		// successfully-read page's items while still merging warnings/metadata across the drained prefix; returning
+		// pages 1..N as "page N" would duplicate items for normal paged consumers.
 		if (
 			options.page != null &&
 			options.page > 1 &&
@@ -1846,9 +1857,10 @@ export class IntegrationService implements Disposable {
 					break;
 				}
 
-				items.push(...nextValue.values);
+				const nextItems = nextValue.values;
+				items = nextItems;
 				allMetadata = mergeCollectionMetadata(allMetadata, nextValue.metadata);
-				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? items.length, nextValue.paging);
+				const nextPaged = this.toProviderPageInfo(options.itemsPerPage ?? nextItems.length, nextValue.paging);
 				currentPage++;
 				const nextCursor = nextPaged.cursor;
 				if (nextCursor == null || nextCursor === currentCursor || nextCursor === '{}') {
@@ -1862,7 +1874,7 @@ export class IntegrationService implements Disposable {
 			}
 
 			paged = {
-				page: { currentPage: currentPage, itemsPerPage: paged.page.itemsPerPage },
+				page: { currentPage: currentPage, itemsPerPage: options.itemsPerPage ?? items.length },
 				hasMore: currentHasMore,
 				cursor: currentCursor,
 				truncated: currentTruncated,
@@ -2395,7 +2407,7 @@ export class IntegrationService implements Disposable {
 		forceSync?: boolean;
 		connectionId?: string;
 		maxPages?: number;
-	}): Promise<ProviderSweepResult<ProviderPullRequest>> {
+	}): Promise<ProviderSweepResult<PullRequestShape>> {
 		const ids = options?.providerIds ?? supportedOrderedCloudIntegrationIds;
 		const singleProvider = ids.length === 1;
 		const maxPages = options?.maxPages ?? 100;
@@ -2411,7 +2423,7 @@ export class IntegrationService implements Disposable {
 					const early = this.earlyReturnConnectionWarnings(id, connectionId);
 					if (early.warnings.length === 0) return undefined;
 					return {
-						items: [] as ProviderPullRequest[],
+						items: [] as PullRequestShape[],
 						warnings: early.warnings,
 						fetchFailed: true,
 						truncated: false,
@@ -2429,13 +2441,14 @@ export class IntegrationService implements Disposable {
 				if (resolved.unsupported && repos.length > 0) {
 					// Don't drain unfiltered (would return every PR); report a warning and contribute nothing.
 					return {
-						items: [] as ProviderPullRequest[],
+						items: [] as PullRequestShape[],
 						warnings: [this.unsupportedFiltersWarning(id, domain, connectionId)],
 						fetchFailed: true,
 						truncated: false,
 					};
 				}
-				return this.drainPullRequests(
+
+				const drain = await this.drainPullRequests(
 					integration,
 					id,
 					domain,
@@ -2445,10 +2458,13 @@ export class IntegrationService implements Disposable {
 					connectionId,
 					maxPages,
 				);
+				// Normalize the raw provider-apis PRs to the GitLens-owned shape here, where the per-provider
+				// `integration` (the mapper's provider reference) is in scope; the aggregation below only sees drains.
+				return { ...drain, items: drain.items.map(pr => fromProviderPullRequest(pr, integration)) };
 			}),
 		);
 
-		const items: ProviderPullRequest[] = [];
+		const items: PullRequestShape[] = [];
 		const warnings: ProviderWarning[] = [];
 		let fetchFailed = false;
 		let truncated = false;
@@ -2501,7 +2517,7 @@ export class IntegrationService implements Disposable {
 		forceSync?: boolean;
 		connectionId?: string;
 		maxPages?: number;
-	}): Promise<ProviderSweepResult<ProviderPullRequest>> {
+	}): Promise<ProviderSweepResult<PullRequestShape>> {
 		return this.sweepPullRequests({
 			...options,
 			state: ['closed', 'merged'],

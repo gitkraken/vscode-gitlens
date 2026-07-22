@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { GitPullRequestMergeableState, GitPullRequestState } from '@gitkraken/provider-apis';
 import { suite, test } from 'mocha';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -44,6 +45,55 @@ function primarySession(token: string): ProviderAuthenticationSession {
 
 function stubApi(gh: GitHostIntegration, api: Record<string, unknown>): void {
 	(gh as unknown as { getProvidersApi: () => Promise<unknown> }).getProvidersApi = () => Promise.resolve(api);
+}
+
+function providerPr(id: string): ProviderPullRequest {
+	return {
+		id: id,
+		number: Number(id),
+		title: `PR ${id}`,
+		description: null,
+		url: `https://example.com/pull/${id}`,
+		state: GitPullRequestState.Open,
+		isCrossRepository: false,
+		isDraft: false,
+		createdDate: new Date(0),
+		updatedDate: new Date(0),
+		closedDate: null,
+		mergedDate: null,
+		baseRef: null,
+		headRef: null,
+		commentCount: null,
+		upvoteCount: null,
+		commitCount: null,
+		fileCount: null,
+		additions: null,
+		deletions: null,
+		author: null,
+		assignees: null,
+		reviews: null,
+		reviewDecision: null,
+		repository: { id: `repo-${id}`, name: 'hello', owner: { login: 'octocat' }, remoteInfo: null },
+		headRepository: null,
+		headCommit: null,
+		mergeableState: GitPullRequestMergeableState.Unknown,
+		permissions: null,
+	};
+}
+
+function providerIssue(id: string): ProviderIssue {
+	return {
+		id: id,
+		number: id,
+		title: `Issue ${id}`,
+		url: `https://github.com/o/r/issues/${id}`,
+		createdDate: new Date(0),
+		updatedDate: new Date(0),
+		closedDate: null,
+		author: { id: 'a', name: 'A', avatarUrl: null, url: null },
+		assignees: [],
+		labels: [],
+	} as unknown as ProviderIssue;
 }
 
 function searchPullRequest(id: string, state: 'open' | 'closed' | 'merged'): PullRequest {
@@ -93,7 +143,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const firstPagePr = providerPr('1');
+		const secondPagePrs = [providerPr('2'), providerPr('3')];
 		let capturedCursor: string | undefined;
 		let page = 0;
 		stubApi(gh, {
@@ -104,7 +155,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 				page += 1;
 				// Second page has no more data; the opaque cursor from the first page is threaded to advance.
 				return Promise.resolve({
-					values: [pr],
+					values: page === 1 ? [firstPagePr] : secondPagePrs,
 					paging: {
 						more: page === 1,
 						cursor: page === 1 ? JSON.stringify({ value: 'NEXT', type: 'cursor' }) : '{}',
@@ -124,8 +175,13 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			JSON.stringify({ value: 'NEXT', type: 'cursor' }),
 			'page 2 advanced via the opaque cursor from page 1',
 		);
-		assert.equal(result.items.length, 2, 'prefix from page 1 preserved and page 2 items appended');
+		assert.deepEqual(
+			result.items.map(pr => pr.id),
+			['2', '3'],
+			'only the requested page is returned after draining',
+		);
 		assert.equal(result.page.currentPage, 2, 'currentPage reflects the requested page after draining');
+		assert.equal(result.page.itemsPerPage, 2, 'itemsPerPage reflects the returned page after draining');
 		assert.equal(result.hasMore, false, 'hasMore reflects the final page');
 		assert.equal(result.warnings.length, 0);
 
@@ -215,7 +271,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const pr = providerPr('1');
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
@@ -237,7 +293,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			repos: repos,
 		});
 
-		assert.deepEqual(result.items, [pr], 'the successful sibling PR survives the failed repo');
+		assert.equal(result.items.length, 1, 'the successful sibling PR survives the failed repo');
+		assert.equal(result.items[0].id, '1', 'the surviving PR is normalized to the GitLens shape');
 		assert.equal(result.fetchFailed, true, 'a structured failure means the collection is incomplete');
 		assert.equal(result.page.truncated, true, 'partial completeness sets terminal truncation');
 		assert.equal(result.warnings.length, 1, 'one scope-aware warning, no duplicate generic truncation warning');
@@ -360,7 +417,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const pr = providerPr('1');
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
@@ -377,7 +434,8 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			repos: repos,
 		});
 
-		assert.deepEqual(result.items, [pr]);
+		assert.equal(result.items.length, 1);
+		assert.equal(result.items[0].id, '1');
 		assert.equal(result.fetchFailed, undefined, 'unknown without a failure is not a fetch failure');
 		assert.equal(result.page.truncated, true, 'unknown completeness still cannot claim a complete read');
 		assert.equal(result.warnings.length, 1, 'a single generic incompleteness warning');
@@ -392,7 +450,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const pr = { id: '1' } as unknown as ProviderPullRequest;
+		const pr = providerPr('1');
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
 			getProviderPullRequestsPagingMode: () => PagingMode.Repos,
@@ -409,9 +467,58 @@ suite('ProviderBackend surface facade (#5438)', () => {
 			repos: repos,
 		});
 
-		assert.deepEqual(result.items, [pr]);
+		assert.equal(result.items.length, 1);
+		assert.equal(result.items[0].id, '1');
 		assert.equal(result.fetchFailed, undefined);
 		assert.equal(result.page.truncated, undefined, 'complete adds no truncation');
+		assert.equal(result.warnings.length, 0);
+
+		manager.dispose();
+	});
+
+	test('listIssuesPage drains cursor-only hosts to the requested page', async () => {
+		const runtime = createFakeRuntime();
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
+
+		let capturedCursor: string | undefined;
+		let page = 0;
+		stubApi(gh, {
+			isRepoIdsInput: () => false,
+			getProviderIssuesPagingMode: () => PagingMode.Repos,
+			getIssuesForRepos: (_t: unknown, _r: unknown, opts: { cursor?: string }) => {
+				capturedCursor = opts.cursor;
+				page += 1;
+				return Promise.resolve({
+					values: page === 1 ? [providerIssue('7')] : [providerIssue('8'), providerIssue('9')],
+					paging: {
+						more: page === 1,
+						cursor: page === 1 ? JSON.stringify({ value: 'NEXT', type: 'cursor' }) : '{}',
+					},
+				} satisfies PagedResult<ProviderIssue>);
+			},
+		});
+
+		const result = await manager.listIssuesPage({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			repos: repos,
+			page: 2,
+		});
+
+		assert.equal(
+			capturedCursor,
+			JSON.stringify({ value: 'NEXT', type: 'cursor' }),
+			'page 2 advanced via the opaque cursor from page 1',
+		);
+		assert.deepEqual(
+			result.items.map(issue => issue.id),
+			['8', '9'],
+			'only the requested page is returned after draining',
+		);
+		assert.equal(result.page.currentPage, 2, 'currentPage reflects the requested page after draining');
+		assert.equal(result.page.itemsPerPage, 2, 'itemsPerPage reflects the returned page after draining');
+		assert.equal(result.hasMore, false, 'hasMore reflects the final page');
 		assert.equal(result.warnings.length, 0);
 
 		manager.dispose();
@@ -423,20 +530,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		// A raw provider issue with the fields toIssueShape requires (updatedDate + url), since listIssuesPage
-		// now normalizes repo-scoped results to IssueShape.
-		const issue = {
-			id: '7',
-			number: '7',
-			title: 'Issue 7',
-			url: 'https://github.com/o/r/issues/7',
-			createdDate: new Date(0),
-			updatedDate: new Date(0),
-			closedDate: null,
-			author: { id: 'a', name: 'A', avatarUrl: null, url: null },
-			assignees: [],
-			labels: [],
-		} as unknown as ProviderIssue;
+		const issue = providerIssue('7');
 		let capturedCursor: string | undefined;
 		stubApi(gh, {
 			isRepoIdsInput: () => false,
@@ -470,18 +564,7 @@ suite('ProviderBackend surface facade (#5438)', () => {
 		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
 		(gh as unknown as { _session: ProviderAuthenticationSession })._session = primarySession('t');
 
-		const issue = {
-			id: '7',
-			number: '7',
-			title: 'Issue 7',
-			url: 'https://github.com/o/r/issues/7',
-			createdDate: new Date(0),
-			updatedDate: new Date(0),
-			closedDate: null,
-			author: { id: 'a', name: 'A', avatarUrl: null, url: null },
-			assignees: [],
-			labels: [],
-		} as unknown as ProviderIssue;
+		const issue = providerIssue('7');
 		// A single-page repo-scoped read that can't confirm completeness sets `paging.truncated`. The facade
 		// must surface it via the shared truncation-warning helper, which is also used by PR reads: the message
 		// has to name the issue read, not mislabel it as a pull request read.

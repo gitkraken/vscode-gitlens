@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Normalizes the pull-request and repository item types on the ProviderBackend surface so consumers no longer depend on `@gitkraken/provider-apis` types (matching how issues already surface `IssueShape`): `IntegrationService.listPullRequestsPage`/`sweepPullRequests`/`sweepClosedPullRequests` now return the GitLens-owned `PullRequestShape` and `listRepos` returns the new GitLens-owned `ProviderRepositoryShape`; the raw provider-apis PR/repo/account/issue types are no longer re-exported from the `@gitlens/integrations` facade ([#5533](https://github.com/gitkraken/vscode-gitlens/issues/5533)) (plus/integrations)
 - Decouples the `GitLabApi`, `BitbucketApi`, and `AzureDevOpsApi` clients from `IntegrationServiceContext`, taking a narrow `ProviderApiConfig` instead (mirroring `GitHubApiConfig`); the manager wires them via new `createGitLabApi`/`createBitbucketApi`/`createAzureDevOpsApi` factories (plus/integrations)
 
 ## [0.4.0] - 2026-06-30
