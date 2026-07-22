@@ -13,11 +13,16 @@ import type {
 	CursorPageInput,
 	EnterpriseOptions,
 	GetRepoInput,
+	GitBuildStatusState as GitBuildStatusStateType,
 	GitHub,
+	GitIssueState as GitIssueStateType,
 	GitLab,
 	GitLabGroup,
 	GitMergeStrategy,
 	GitPullRequest,
+	GitPullRequestMergeableState as GitPullRequestMergeableStateType,
+	GitPullRequestReviewState as GitPullRequestReviewStateType,
+	GitPullRequestState as GitPullRequestStateType,
 	GitRepository,
 	GitRepositoryRemoteInfo,
 	Jira,
@@ -36,15 +41,8 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
-import {
-	GitBuildStatusState,
-	GitIssueState,
-	GitPullRequestMergeableState,
-	GitPullRequestReviewState,
-	GitPullRequestState,
-} from '@gitkraken/provider-apis';
-import { EntityIdentifierUtils } from '@gitkraken/provider-apis/entity-identifiers';
-import { GitProviderUtils } from '@gitkraken/provider-apis/provider-utils';
+import entityIdentifiersModule from '@gitkraken/provider-apis/entity-identifiers';
+import providerUtilsModule from '@gitkraken/provider-apis/provider-utils';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type { IssueMember, IssueProject, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
@@ -77,6 +75,57 @@ import {
 } from '../constants.js';
 import type { Integration, IntegrationType } from '../models/integration.js';
 import { getEntityIdentifierInput } from './utils.js';
+
+type GitBuildStatusState = GitBuildStatusStateType;
+type GitIssueState = GitIssueStateType;
+type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
+type GitPullRequestReviewState = GitPullRequestReviewStateType;
+type GitPullRequestState = GitPullRequestStateType;
+
+const { EntityIdentifierUtils } = entityIdentifiersModule;
+const { GitProviderUtils } = providerUtilsModule;
+
+const GitBuildStatusState = {
+	ActionRequired: 'ACTION_REQUIRED' as GitBuildStatusState,
+	Cancelled: 'CANCELLED' as GitBuildStatusState,
+	Error: 'ERROR' as GitBuildStatusState,
+	Failed: 'FAILED' as GitBuildStatusState,
+	Pending: 'PENDING' as GitBuildStatusState,
+	Running: 'RUNNING' as GitBuildStatusState,
+	Skipped: 'SKIPPED' as GitBuildStatusState,
+	Success: 'SUCCESS' as GitBuildStatusState,
+	Warning: 'WARNING' as GitBuildStatusState,
+	OptionalActionRequired: 'OPTIONAL_ACTION_REQUIRED' as GitBuildStatusState,
+} as const;
+
+const GitIssueState = {
+	Open: 'OPEN' as GitIssueState,
+	Closed: 'CLOSED' as GitIssueState,
+} as const;
+
+const GitPullRequestState = {
+	Open: 'OPEN' as GitPullRequestState,
+	Closed: 'CLOSED' as GitPullRequestState,
+	Merged: 'MERGED' as GitPullRequestState,
+} as const;
+
+const GitPullRequestReviewState = {
+	Approved: 'APPROVED' as GitPullRequestReviewState,
+	ChangesRequested: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
+	Commented: 'COMMENTED' as GitPullRequestReviewState,
+	ReviewRequested: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
+} as const;
+
+const GitPullRequestMergeableState = {
+	Behind: 'BEHIND' as GitPullRequestMergeableState,
+	Blocked: 'BLOCKED' as GitPullRequestMergeableState,
+	Conflicts: 'CONFLICTS' as GitPullRequestMergeableState,
+	FailingChecks: 'FAILING_CHECKS' as GitPullRequestMergeableState,
+	Mergeable: 'MERGEABLE' as GitPullRequestMergeableState,
+	Unknown: 'UNKNOWN' as GitPullRequestMergeableState,
+	UnknownAndBlocked: 'UNKNOWN_AND_BLOCKED' as GitPullRequestMergeableState,
+	Unstable: 'UNSTABLE' as GitPullRequestMergeableState,
+} as const;
 
 /**
  * Forward-only host type — the package only sets `EnrichablePullRequest.enrichable`

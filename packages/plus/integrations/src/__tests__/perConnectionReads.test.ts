@@ -4,7 +4,7 @@ import type { Account } from '@gitlens/git/models/author.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
@@ -27,7 +27,190 @@ async function seedConnectionSecret(runtime: ReturnType<typeof createFakeRuntime
 	);
 }
 
+async function seedPrimaryConnection(runtime: ReturnType<typeof createFakeRuntime>, tokenId: string, token: string) {
+	await runtime.storage.store('integrations:configured', {
+		github: [{ id: tokenId, cloud: true, integrationId: 'github', scopes: 'repo', primary: true }],
+	});
+	await seedConnectionSecret(runtime, tokenId, token);
+}
+
 suite('per-connection reads (#5430)', () => {
+	test('getCurrentAccount reads with the specified connection token and caches per connection', async () => {
+		const runtime = createFakeRuntime();
+		await seedPrimaryConnection(runtime, 'primary-tok', 'token-primary');
+		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary');
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		const lookups: string[] = [];
+		(
+			gh as unknown as {
+				getProviderCurrentAccount: (session: ProviderAuthenticationSession) => Promise<Account | undefined>;
+			}
+		).getProviderCurrentAccount = session => {
+			lookups.push(session.accessToken);
+			return Promise.resolve({ id: session.accessToken, username: session.accessToken } as Account);
+		};
+
+		const primary = await gh.getCurrentAccount();
+		const secondary = await gh.getCurrentAccount({ connectionId: 'sec-tok' });
+		const primaryAgain = await gh.getCurrentAccount();
+
+		assert.equal(primary?.username, 'token-primary', 'primary lookup uses the primary session');
+		assert.equal(secondary?.username, 'token-secondary', 'secondary lookup uses the specified connection');
+		assert.equal(primaryAgain?.username, 'token-primary', 'primary cache remains distinct after a secondary read');
+		assert.deepEqual(
+			lookups,
+			['token-primary', 'token-secondary'],
+			'provider lookups are cached separately for the primary and requested connection',
+		);
+
+		manager.dispose();
+	});
+
+	test('getCurrentAccount invalidates a cached secondary identity when that connection token changes', async () => {
+		const runtime = createFakeRuntime();
+		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary-1');
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		const lookups: string[] = [];
+		(
+			gh as unknown as {
+				getProviderCurrentAccount: (session: ProviderAuthenticationSession) => Promise<Account | undefined>;
+			}
+		).getProviderCurrentAccount = session => {
+			lookups.push(session.accessToken);
+			return Promise.resolve({ id: session.accessToken, username: session.accessToken } as Account);
+		};
+
+		const first = await gh.getCurrentAccount({ connectionId: 'sec-tok' });
+		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary-2');
+		const second = await gh.getCurrentAccount({ connectionId: 'sec-tok' });
+
+		assert.equal(first?.username, 'token-secondary-1');
+		assert.equal(second?.username, 'token-secondary-2');
+		assert.deepEqual(
+			lookups,
+			['token-secondary-1', 'token-secondary-2'],
+			'the same connection id refetches after its session token changes',
+		);
+
+		manager.dispose();
+	});
+
+	test('getMyCurrentAccounts threads connectionId to the account lookup', async () => {
+		const runtime = createFakeRuntime();
+		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary');
+		const manager = createIntegrationManager(runtime);
+		const gh = await manager.get(GitCloudHostIntegrationId.GitHub);
+
+		let capturedToken: string | undefined;
+		(
+			gh as unknown as {
+				getProviderCurrentAccount: (session: ProviderAuthenticationSession) => Promise<Account | undefined>;
+			}
+		).getProviderCurrentAccount = session => {
+			capturedToken = session.accessToken;
+			return Promise.resolve({ id: 'me', username: 'secondary-user' } as Account);
+		};
+
+		const accounts = await manager.getMyCurrentAccounts([GitCloudHostIntegrationId.GitHub], 'sec-tok');
+
+		assert.equal(
+			capturedToken,
+			'token-secondary',
+			'service routed the account lookup through the requested connection',
+		);
+		assert.equal(
+			accounts.get(GitCloudHostIntegrationId.GitHub)?.username,
+			'secondary-user',
+			'service returns the requested connection account',
+		);
+
+		manager.dispose();
+	});
+
+	test('getMyCurrentAccounts resolves the self-managed host for the requested connection', async () => {
+		const runtime = createFakeRuntime();
+		await runtime.storage.store('integrations:configured', {
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise]: [
+				{
+					id: 'ghe-a1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-a.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+				{
+					id: 'ghe-b1',
+					cloud: true,
+					integrationId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					domain: 'ghe-b.example.com',
+					scopes: 'repo',
+					primary: true,
+				},
+			],
+		});
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-a1',
+			JSON.stringify({
+				id: 'ghe-a1',
+				accessToken: 'token-a',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-a.example.com',
+			}),
+		);
+		await runtime.storage.storeSecret(
+			'integration.auth.cloud:cloud-github-enterprise|ghe-b1',
+			JSON.stringify({
+				id: 'ghe-b1',
+				accessToken: 'token-b',
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: 'ghe-b.example.com',
+			}),
+		);
+
+		const manager = createIntegrationManager(runtime);
+		const gheA = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-a.example.com');
+		const gheB = await manager.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise, 'ghe-b.example.com');
+
+		const lookups: Array<{ domain: string; token: string }> = [];
+		for (const integration of [gheA, gheB]) {
+			(
+				integration as unknown as {
+					domain: string;
+					getProviderCurrentAccount: (session: ProviderAuthenticationSession) => Promise<Account | undefined>;
+				}
+			).getProviderCurrentAccount = session => {
+				lookups.push({
+					domain: (integration as unknown as { domain: string }).domain,
+					token: session.accessToken,
+				});
+				return Promise.resolve({ id: session.accessToken, username: session.accessToken } as Account);
+			};
+		}
+
+		const accounts = await manager.getMyCurrentAccounts(
+			[GitSelfManagedHostIntegrationId.CloudGitHubEnterprise],
+			'ghe-b1',
+		);
+
+		assert.deepEqual(lookups, [{ domain: 'ghe-b.example.com', token: 'token-b' }]);
+		assert.equal(
+			accounts.get(GitSelfManagedHostIntegrationId.CloudGitHubEnterprise)?.username,
+			'token-b',
+			'the requested self-managed connection account is returned',
+		);
+
+		manager.dispose();
+	});
+
 	test('searchMyIssues reads with the specified connection token, not the primary', async () => {
 		const runtime = createFakeRuntime();
 		await seedConnectionSecret(runtime, 'sec-tok', 'token-secondary');

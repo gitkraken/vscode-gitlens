@@ -1,5 +1,4 @@
 import type { AnyEntityIdentifierInput, EntityIdentifier } from '@gitkraken/provider-apis';
-import { EntityIdentifierProviderType, EntityType, EntityVersion } from '@gitkraken/provider-apis';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
@@ -20,6 +19,30 @@ import { isCloudGitSelfManagedHostIntegrationId } from '../utils/integration.uti
 import type { AzureProjectInputDescriptor } from './azure/models.js';
 import type { GitConfigEntityIdentifier } from './models.js';
 import { isGitHubDotCom, isGitLabDotCom } from './models.js';
+
+const EntityIdentifierProviderType = {
+	Azure: 'azure',
+	AzureDevOpsServer: 'azureDevOpsServer',
+	Github: 'github',
+	GithubEnterprise: 'githubEnterprise',
+	Gitlab: 'gitlab',
+	GitlabSelfHosted: 'gitlabSelfHosted',
+	Bitbucket: 'bitbucket',
+	BitbucketServer: 'bitbucketServer',
+	Jira: 'jira',
+	JiraServer: 'jiraServer',
+	Linear: 'linear',
+	Trello: 'trello',
+} as const;
+
+const EntityType = {
+	PullRequest: 'pr',
+	Issue: 'issue',
+} as const;
+
+const EntityVersion = {
+	One: '1',
+} as const;
 
 /**
  * Forward-compatible structural shape of the host's `LaunchpadItem`. The package
@@ -48,7 +71,7 @@ function isIssue(item: IssueOrPullRequest | LaunchpadItem): item is Issue {
 }
 
 export function getEntityIdentifierInput(entity: Issue | PullRequest | LaunchpadItem): AnyEntityIdentifierInput {
-	let entityType = EntityType.Issue;
+	let entityType: (typeof EntityType)[keyof typeof EntityType] = EntityType.Issue;
 	if (entity.type === 'pullrequest') {
 		entityType = EntityType.PullRequest;
 	}
@@ -69,6 +92,7 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 
 	let projectId = null;
 	let resourceId = null;
+	let accountOrOrgId = null;
 	let organizationName = null;
 	let repoId = null;
 	if (provider === EntityIdentifierProviderType.Jira) {
@@ -93,6 +117,15 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 		if (entityType === EntityType.PullRequest && repoId == null) {
 			throw new Error('Azure PRs must have a repository ID to be encoded');
 		}
+	} else if (provider === EntityIdentifierProviderType.Trello) {
+		if (!isIssue(entity) || entity.project == null) {
+			throw new Error('Trello issues must have a board project to be encoded');
+		}
+
+		projectId = entity.project.id;
+		// Trello currently exposes the board but not a separate workspace/org id here. Reuse the board id in
+		// both serialization slots so branch associations remain round-trippable until the upstream shape grows.
+		accountOrOrgId = entity.project.resourceId || entity.project.id;
 	} else if (
 		provider === EntityIdentifierProviderType.Bitbucket ||
 		provider === EntityIdentifierProviderType.BitbucketServer
@@ -115,9 +148,9 @@ export function getEntityIdentifierInput(entity: Issue | PullRequest | Launchpad
 	// structurally narrowed to any single variant. The 2-step cast through
 	// `unknown` is the documented escape for this discriminated-union pattern.
 	return {
-		accountOrOrgId: null, // needed for Trello issues, once supported
+		accountOrOrgId: accountOrOrgId,
 		organizationName: organizationName, // needed for Azure issues and PRs, once supported
-		projectId: projectId, // needed for Jira issues, Trello issues, and Azure issues and PRs, once supported
+		projectId: projectId,
 		repoId: repoId ?? null, // needed for Azure and BitBucket PRs, once supported
 		resourceId: resourceId, // needed for Jira issues
 		provider: provider,
@@ -144,6 +177,8 @@ export function getProviderIdFromEntityIdentifier(
 			return IssuesCloudHostIntegrationId.Jira;
 		case EntityIdentifierProviderType.Linear:
 			return IssuesCloudHostIntegrationId.Linear;
+		case EntityIdentifierProviderType.Trello:
+			return IssuesCloudHostIntegrationId.Trello;
 		case EntityIdentifierProviderType.Azure:
 			return GitCloudHostIntegrationId.AzureDevOps;
 		case EntityIdentifierProviderType.AzureDevOpsServer:
@@ -159,7 +194,9 @@ export function getProviderIdFromEntityIdentifier(
 	}
 }
 
-function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifierProviderType {
+function fromStringToEntityIdentifierProviderType(
+	str: string,
+): (typeof EntityIdentifierProviderType)[keyof typeof EntityIdentifierProviderType] {
 	switch (str) {
 		case 'github':
 			return EntityIdentifierProviderType.Github;
@@ -173,6 +210,8 @@ function fromStringToEntityIdentifierProviderType(str: string): EntityIdentifier
 			return EntityIdentifierProviderType.Jira;
 		case 'linear':
 			return EntityIdentifierProviderType.Linear;
+		case 'trello':
+			return EntityIdentifierProviderType.Trello;
 		case 'azure':
 		case 'azureDevOps':
 		case 'azure-devops':
@@ -304,7 +343,8 @@ export async function getIssueFromGitConfigEntityIdentifier(
 		identifier.provider !== EntityIdentifierProviderType.Bitbucket &&
 		identifier.provider !== EntityIdentifierProviderType.BitbucketServer &&
 		identifier.provider !== EntityIdentifierProviderType.AzureDevOpsServer &&
-		identifier.provider !== EntityIdentifierProviderType.Azure
+		identifier.provider !== EntityIdentifierProviderType.Azure &&
+		identifier.provider !== EntityIdentifierProviderType.Trello
 	) {
 		return undefined;
 	}
