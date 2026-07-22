@@ -815,6 +815,11 @@ export function toIssueShape(issue: ProviderIssue, provider: ProviderReference):
 	return {
 		type: 'issue',
 		provider: provider,
+		// `id` is the provider's display number/key (GitHub number, Jira/Linear key, Trello idShort), NOT a
+		// globally-unique id: it's rendered to users as `#{id}`, used to build branch names, and passed back
+		// to the provider as the `getIssue`/cache lookup key, all of which expect the number. It is only unique
+		// within its container (repo/board/project), so consumers correlating issues across containers must key
+		// off `nodeId` (the stable global id), never `id`.
 		id: issue.number,
 		nodeId: issue.graphQLId ?? issue.id,
 		title: issue.title,
