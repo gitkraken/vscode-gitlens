@@ -1,5 +1,30 @@
-import { GitPullRequestMergeableState, GitPullRequestReviewState, GitPullRequestState } from '@gitkraken/provider-apis';
+import type {
+	GitPullRequestMergeableState as GitPullRequestMergeableStateType,
+	GitPullRequestReviewState as GitPullRequestReviewStateType,
+	GitPullRequestState as GitPullRequestStateType,
+} from '@gitkraken/provider-apis';
 import type { ProviderAccount, ProviderPullRequest } from '../models.js';
+
+type GitPullRequestMergeableState = GitPullRequestMergeableStateType;
+type GitPullRequestReviewState = GitPullRequestReviewStateType;
+type GitPullRequestState = GitPullRequestStateType;
+
+const GitPullRequestState = {
+	Open: 'OPEN' as GitPullRequestState,
+	Closed: 'CLOSED' as GitPullRequestState,
+	Merged: 'MERGED' as GitPullRequestState,
+} as const;
+
+const GitPullRequestReviewState = {
+	Approved: 'APPROVED' as GitPullRequestReviewState,
+	ChangesRequested: 'CHANGES_REQUESTED' as GitPullRequestReviewState,
+	Commented: 'COMMENTED' as GitPullRequestReviewState,
+	ReviewRequested: 'REVIEW_REQUESTED' as GitPullRequestReviewState,
+} as const;
+
+const GitPullRequestMergeableState = {
+	Unknown: 'UNKNOWN' as GitPullRequestMergeableState,
+} as const;
 
 export interface BitbucketServerLink {
 	href: string;
