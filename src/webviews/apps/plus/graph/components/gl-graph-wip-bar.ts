@@ -37,9 +37,9 @@ export interface WipBarItem {
 	 *  commit is recent, so a dirty worktree on an older branch would otherwise have nothing to show. */
 	branchModel?: OverviewBranch;
 	/** WIP in the shape the shared hover consumes. Built inside `graph-app`'s memoized item so its identity
-	 *  is stable across renders — the hover's wip-details guard is keyed by branch id, but a fresh object
-	 *  every render would still churn its `updated()` cycle. `workingTreeState` is absent until the
-	 *  breakdown is fetched lazily on hover. */
+	 *  is stable across renders — the hover dedupes its lazy wip-details fetch by this object's reference
+	 *  (not branch id), so a fresh object every render would re-fire the fetch. `workingTreeState` is absent
+	 *  until the breakdown is fetched lazily on hover. */
 	wip?: OverviewBranchWip;
 	agent?: AgentSessionCategory;
 	/** How many agent sessions are running in this worktree. Surfaced next to the robot only when > 1 —

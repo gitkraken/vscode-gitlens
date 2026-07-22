@@ -710,14 +710,6 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.overviewEnrichment = next;
 	}
 
-	/**
-	 * Additively fetch enrichment for branch ids that may sit OUTSIDE the overview's active/recent set —
-	 * a WIP-bar pill on a worktree whose branch missed the recency cut still wants its PR/issues.
-	 *
-	 * Deliberately not routed through `ensureOverviewEnrichmentFetched`: that guards on a fingerprint of
-	 * the exact overview id set, so feeding it a different list would flip the fingerprint back and forth
-	 * and refetch forever. This path fetches only the ids it doesn't already have and merges — never drops.
-	 */
 	/** Clear all enrichment state — the shared record, the overview fingerprint, and the additive
 	 *  WIP-bar tracking Sets — as one unit. Both reset paths (scope-anchor invalidation and the overview
 	 *  panel's `refresh`) must go through here so the add-only `_extraEnrichmentBranchIds` can't outlive
@@ -731,6 +723,14 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		}
 	}
 
+	/**
+	 * Additively fetch enrichment for branch ids that may sit OUTSIDE the overview's active/recent set —
+	 * a WIP-bar pill on a worktree whose branch missed the recency cut still wants its PR/issues.
+	 *
+	 * Deliberately not routed through `ensureOverviewEnrichmentFetched`: that guards on a fingerprint of
+	 * the exact overview id set, so feeding it a different list would flip the fingerprint back and forth
+	 * and refetch forever. This path fetches only the ids it doesn't already have and merges — never drops.
+	 */
 	ensureEnrichmentFetchedForBranches(branchIds: string[]): void {
 		const enrichment = this.overviewEnrichment;
 		const missing = branchIds.filter(
@@ -831,8 +831,9 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	/**
 	 * Merge a lazily-fetched merge-target into `overviewEnrichment` for the given branchId. The graph
 	 * overview's enrichment IPC opts out of eager merge-target fetching (`skipMergeTarget: true`); the
-	 * card and click-to-scope paths fetch via `BranchesService.getMergeTargetStatus` and call this to
-	 * publish the result so the existing `reconcileScopeMergeTarget` hook backfills the scope's tip SHA.
+	 * click-to-scope path and the shared branch hover (`gl-branch-hover`, backing both the overview card
+	 * and the graph WIP-bar pills) fetch it via `getBranchEnrichment(...).mergeTargetStatus` and call this
+	 * to publish the result so the existing `reconcileScopeMergeTarget` hook backfills the scope's tip SHA.
 	 */
 	mergeMergeTargetIntoEnrichment(branchId: string, mergeTarget: OverviewBranchMergeTarget | undefined): void {
 		const current = this.overviewEnrichment;
