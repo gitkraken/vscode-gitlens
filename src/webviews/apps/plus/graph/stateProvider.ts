@@ -1260,6 +1260,25 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				if (next.lastFetched?.getTime() === this._state.lastFetched?.getTime()) {
 					delete next.lastFetched;
 				}
+				// `workingTreeStats` has a second, revision-ordered writer — the wip channel
+				// (`DidChangeWorkingTree`/refetch, guarded by `isStaleWip`). This full-state copy is unstamped and
+				// snapshotted early in the host rebuild, so drop it whenever the wip channel has already written
+				// stats for the repo THIS push is for (`_wipStatsRepo === incoming.selectedRepository`): the live
+				// value wins, including one a B working-tree tick delivered early during an A→B swap (which is why
+				// the compare is against the incoming repo, not the client's lagging current selection). Otherwise
+				// seed (first delivery). Plus an equal-value delete to spare a redundant header re-render.
+				if ('workingTreeStats' in next) {
+					const { seed, wipStatsRepo } = resolveFullStateWorkingTreeStats(
+						incoming.selectedRepository,
+						this._wipStatsRepo,
+					);
+					// Seeding hands ownership back to the full-state (clears the marker) so a stale marker from a
+					// prior visit can't drop a later seed after a B→A→B swap-back; a drop keeps the wip owner.
+					this._wipStatsRepo = wipStatsRepo;
+					if (!seed || areEqual(next.workingTreeStats, this._state.workingTreeStats)) {
+						delete next.workingTreeStats;
+					}
+				}
 				this.updateState(next);
 				break;
 			}
@@ -1629,6 +1648,11 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 				const updates: Partial<State> = {};
 				if (!staleWip && msg.params.wip?.stats != null) {
 					updates.workingTreeStats = msg.params.wip.stats;
+					// Stamp ownership by the PUSH's repo, not the client's current `selectedRepository` (which lags
+					// the host during a swap). This channel is primary-only host-side, so an early B tick during an
+					// A→B switch is genuinely B's — attributing it to B lets its fresh stats supersede B's full-state
+					// seed once the switch lands. (`repoPath === id` for file repos, the only producers of stats.)
+					this._wipStatsRepo = msg.params.repoPath;
 				}
 				if (msg.params.wipMetadataBySha != null) {
 					updates.wipMetadataBySha = mergeWipMetadata(
@@ -1675,6 +1699,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 					// the per-file classifier doesn't match `git diff --shortstat` semantics).
 					if (stats != null && repoPath === this.selectedRepository) {
 						updates.workingTreeStats = stats;
+						this._wipStatsRepo = repoPath;
 					}
 
 					// Refresh the secondary row's metadata (workDirStats + pausedOpStatus) when
@@ -1811,6 +1836,17 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	 * outlive the payload it ordered, and only ever increase. One number per repo path seen this session.
 	 */
 	private readonly _wipRevisions = new Map<string, number>();
+
+	/**
+	 * Which repo currently owns the primary `workingTreeStats` badge on the wip channel's behalf: its `repoPath`
+	 * (stamped on each wip stats write; `repository.id` for file repos, the only producers), CLEARED when a
+	 * full-state seed takes over. The full-state gate drops its (unstamped, early-snapshotted) stats when this
+	 * matches the pushed `selectedRepository`, so the live channel's value wins — including one a working-tree
+	 * tick delivered early during a repo swap, since ownership is stamped by the PUSH's repo (not the client's
+	 * lagging current selection). Distinct from `_wipRevisions` (revision high-water, also advanced for probed
+	 * secondaries); this marks only who owns the primary badge value.
+	 */
+	private _wipStatsRepo: string | undefined;
 
 	/**
 	 * The set of repo paths the host currently has an active working-tree watcher for. Drives
@@ -1975,6 +2011,7 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 	setWorkingTreeStats(repoPath: string, stats: GraphWorkingTreeStats): void {
 		if (repoPath !== this.selectedRepository) return;
 
+		this._wipStatsRepo = repoPath;
 		this.updateState({ workingTreeStats: stats });
 	}
 
@@ -2094,6 +2131,23 @@ export class GraphStateProvider extends StateProviderBase<State['webviewId'], Ap
 		this.options.onStateUpdate?.(partial);
 		this.fireProviderUpdate();
 	}
+}
+
+/**
+ * Resolve a full-state `workingTreeStats` push against the wip channel's ownership marker (`_wipStatsRepo`, the
+ * repo the revision-ordered wip channel last wrote stats for). The full-state copy is UNSTAMPED and snapshotted
+ * early in the host rebuild, so drop it while the wip channel still owns the repo this push is FOR
+ * (`wipStatsRepo === incomingRepo`) — the live value wins, INCLUDING one delivered early during a repo swap
+ * (hence comparing against the incoming repo, not the client's lagging current selection). Otherwise seed AND
+ * hand ownership back (clear the marker), so a STALE marker from a prior visit can't wrongly drop a later seed
+ * after a B→A→B swap-back. Returns the seed decision and the next ownership marker atomically.
+ */
+export function resolveFullStateWorkingTreeStats(
+	incomingRepo: string | undefined,
+	wipStatsRepo: string | undefined,
+): { seed: boolean; wipStatsRepo: string | undefined } {
+	if (wipStatsRepo === incomingRepo) return { seed: false, wipStatsRepo: wipStatsRepo };
+	return { seed: true, wipStatsRepo: undefined };
 }
 
 /**

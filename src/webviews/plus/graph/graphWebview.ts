@@ -847,8 +847,17 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// them) — un-gate the search rider AND attach it to THIS flush: invalidation alone leaves the
 		// restore waiting for the next rows emission, which on an idle repo may be arbitrarily far away.
 		this._searchService.invalidateRider();
-		this._graphSync.attachRiders({ search: this._searchService.buildSearchRider() });
+		const search = this._searchService.buildSearchRider();
+		this._graphSync.attachRiders({ search: search });
 		this._graphSync.onConnectionReady();
+		// A rider riding a DELTA is silently lost if the freshly-booted receiver gap-drops that delta (its
+		// `notify` still returns true, so the rider clears and never rides the recovery snapshot). When there's
+		// an active search to restore, force this flush to a snapshot — applied unconditionally, it carries the
+		// rider; the post-bootstrap sync-hello then no-ops via the supersede branch (`onConnectionReady` above
+		// precedes this emission).
+		if (search != null) {
+			this._graphSync.requireSnapshot();
+		}
 		void this._graphSync.flush();
 	}
 
@@ -862,8 +871,14 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		// See onReady — a soft-reconnected iframe also reboots without search results, and must get the
 		// search envelope on THIS flush, not whenever the next rows emission happens to occur.
 		this._searchService.invalidateRider();
-		this._graphSync.attachRiders({ search: this._searchService.buildSearchRider() });
+		const search = this._searchService.buildSearchRider();
+		this._graphSync.attachRiders({ search: search });
 		this._graphSync.onConnectionReady();
+		// See onReady — a search rider on a delta is gap-dropped by the rebooted receiver; snapshot it so the
+		// active search survives the reconnect (within-window reconnects already pay a snapshot via the hello).
+		if (search != null) {
+			this._graphSync.requireSnapshot();
+		}
 		void this._graphSync.flush();
 	}
 

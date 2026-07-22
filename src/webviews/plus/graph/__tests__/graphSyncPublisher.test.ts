@@ -447,6 +447,39 @@ suite('graphSyncPublisher', () => {
 		publisher.dispose();
 	});
 
+	test('a snapshot required mid-flight recovers once from the finally, without timer polling', async () => {
+		const { publisher, host, data } = createPublisher();
+		data.rows = rows(5);
+
+		await publisher.flush(); // initial snapshot (gate off)
+		assert.strictEqual(host.sent.length, 1);
+
+		// Delta #1 in flight, notify held pending.
+		host.gate = true;
+		data.avatars.set('a@example.com', 'url-a');
+		publisher.mark('avatars');
+		const inFlight = publisher.flush();
+		assert.strictEqual(host.sent.length, 2);
+
+		// Mid-flight a snapshot becomes required, and a re-entrant flush lands while one is in flight. It must
+		// LATCH a single follow-up (not re-arm the debounce, which would poll while notify is slow/hung), so
+		// nothing emits until the in-flight run finishes.
+		publisher.requireSnapshot();
+		void publisher.flush(); // single-flight return → latches the follow-up
+		assert.strictEqual(host.sent.length, 2, 'the latched follow-up does not emit while one is in flight');
+		assert.strictEqual(publisher.snapshotRequired, true);
+
+		host.gate = false; // let the follow-up's notify complete
+		host.release(true); // delta #1 completes → the finally launches exactly one follow-up flush
+		await inFlight;
+		await tick();
+		assert.strictEqual(host.sent.length, 3, 'the recovery snapshot shipped exactly once, from the finally');
+		assert.strictEqual(host.last.sync?.snapshot, true);
+		assert.strictEqual(publisher.snapshotRequired, false, 'the snapshot requirement cleared');
+
+		publisher.dispose();
+	});
+
 	test('a snapshot is deferred while there is no graph (deferred bootstrap) — no empty-rows flash', async () => {
 		const { publisher, host, data } = createPublisher();
 		data.rows = undefined; // deferred bootstrap: webview ready before the graph build lands

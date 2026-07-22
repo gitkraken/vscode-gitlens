@@ -127,6 +127,9 @@ export class GraphSyncPublisher {
 
 	private _flushing: Promise<void> | undefined;
 	private _flushTimer: ReturnType<typeof setTimeout> | undefined;
+	/** A snapshot became required while a flush was in flight — launch exactly one follow-up from the flush's
+	 *  `finally` (never re-arm the timer, which would poll every debounce interval while `notify` is slow). */
+	private _reflushAfterInflight = false;
 
 	constructor(
 		private readonly host: GraphSyncHost,
@@ -201,7 +204,9 @@ export class GraphSyncPublisher {
 		if ('selectedRows' in riders) {
 			this._riderSelectedRows = riders.selectedRows;
 		}
-		this._ridersPending = true;
+		// Pending only when a rider is actually present (mirrors the post-send re-derivation in `doFlush`) — an
+		// all-undefined attach (e.g. a no-search reconnect) must not force an otherwise-empty emission.
+		this._ridersPending = this._riderSearch !== undefined || this._riderSelectedRows !== undefined;
 	}
 
 	/** Force the next avatars emission to ship the full map even if the Map size is unchanged (the avatar
@@ -319,16 +324,31 @@ export class GraphSyncPublisher {
 		// picks them up. Nothing is buffered, so nothing is lost.
 		if (!this.host.isReady() || !this.host.isVisible()) return Promise.resolve();
 
-		// Single-flight: coalesce concurrent callers onto the in-flight run.
-		if (this._flushing != null) return this._flushing;
+		// Single-flight: coalesce concurrent callers onto the in-flight run. If a snapshot became required
+		// mid-flight (e.g. `requireSnapshot` from a resync/identity change), its `scheduleFlush` timer was just
+		// cancelled at the top of this call — latch a single follow-up for the in-flight run's `finally` rather
+		// than re-arming the timer (which would poll every debounce interval while `notify` is slow/hung). The
+		// trailing run below skips this under its `!_snapshotRequired` gate.
+		if (this._flushing != null) {
+			if (this._snapshotRequired) {
+				this._reflushAfterInflight = true;
+			}
+			return this._flushing;
+		}
 
 		const promise = this.doFlush().finally(() => {
 			this._flushing = undefined;
-			// Trailing run for marks/riders that arrived while the flush was in flight. Gated on
-			// `!_snapshotRequired` so a broken delivery (which keeps riders pending AND sets the snapshot
-			// requirement via `markBroken`) does NOT hot-loop — recovery waits for the next external trigger,
-			// and a mid-flight `requireSnapshot` already scheduled its own flush. No-op once disposed.
-			if (!this._disposed && !this._snapshotRequired && (this._dirty.size > 0 || this._ridersPending)) {
+			// A snapshot latched mid-flight (see the single-flight branch) launches exactly once here.
+			// `markBroken` sets the requirement from INSIDE doFlush — never via a re-entrant flush — so it
+			// never latches, preserving the no-hot-loop guarantee on a persistently failing transport.
+			const reflushForSnapshot = this._reflushAfterInflight && this._snapshotRequired;
+			this._reflushAfterInflight = false;
+			// Trailing run for marks/riders that arrived while the flush was in flight, gated on
+			// `!_snapshotRequired` for the same no-hot-loop reason.
+			if (
+				!this._disposed &&
+				(reflushForSnapshot || (!this._snapshotRequired && (this._dirty.size > 0 || this._ridersPending)))
+			) {
 				void this.flush();
 			}
 		});

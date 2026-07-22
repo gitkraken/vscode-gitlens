@@ -2234,10 +2234,13 @@ class GraphSession implements GitGraphSession {
 			rows: true,
 			reachability: true,
 			rowsStats: true,
-			// Ties to the rowsStatsSeed drop above: these fallbacks recompute stats for shas already shipped.
+			// Ties to the rowsStatsSeed drop above: these fallbacks recompute stats for shas already shipped
+			// (`error` included — it drops the seed too, so its recompute must be re-shipped, not dedup-skipped).
 			rowsStatsRecomputed:
 				outcome?.path === 'fallback' &&
-				(outcome.reason === 'shallow-changed' || outcome.reason === 'replace-refs-changed'),
+				(outcome.reason === 'shallow-changed' ||
+					outcome.reason === 'replace-refs-changed' ||
+					outcome.reason === 'error'),
 			avatars: true,
 			downstreams: true,
 		};

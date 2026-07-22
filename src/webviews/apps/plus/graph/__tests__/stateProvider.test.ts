@@ -17,6 +17,7 @@ import {
 	mergeWipMetadata,
 	reconcileScopeMergeTarget,
 	reduceGraphSearchControlState,
+	resolveFullStateWorkingTreeStats,
 	shouldRestoreSearchQuery,
 } from '../stateProvider.js';
 import type { SelectionBranch, SelectionContext } from '../utils/branchSelection.utils.js';
@@ -1020,5 +1021,43 @@ suite('shouldRestoreSearchQuery', () => {
 	test('does not fire with no/empty restored query', () => {
 		assert.strictEqual(shouldRestoreSearchQuery('', undefined, true, true), false);
 		assert.strictEqual(shouldRestoreSearchQuery('', { query: '' }, true, true), false);
+	});
+});
+
+suite('resolveFullStateWorkingTreeStats', () => {
+	test('drops and keeps ownership when the wip channel owns the incoming repo', () => {
+		// Steady-state protection AND early swap-delivery retention: a B tick (even one that arrived while the
+		// client still showed A) stamped _wipStatsRepo = B, so B's own full-state drops its older seed.
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/b'), { seed: false, wipStatsRepo: '/b' });
+	});
+
+	test('seeds and clears ownership when the wip channel owns a different repo', () => {
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/b', '/a'), { seed: true, wipStatsRepo: undefined });
+	});
+
+	test('seeds before the wip channel has written any stats', () => {
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats('/a', undefined), {
+			seed: true,
+			wipStatsRepo: undefined,
+		});
+	});
+
+	test('seeds when the incoming repo is absent', () => {
+		assert.deepStrictEqual(resolveFullStateWorkingTreeStats(undefined, '/a'), {
+			seed: true,
+			wipStatsRepo: undefined,
+		});
+	});
+
+	test('B-WIP → A-full-state → B-full-state re-seeds B (swap-back regression)', () => {
+		// A B working-tree tick stamped ownership = B.
+		let owner: string | undefined = '/b';
+		// Swap B→A: A's full-state seeds and must CLEAR the stale B marker.
+		let r = resolveFullStateWorkingTreeStats('/a', owner);
+		assert.deepStrictEqual(r, { seed: true, wipStatsRepo: undefined });
+		owner = r.wipStatsRepo;
+		// Swap back A→B on an idle B (no tick): B's full-state must RE-SEED, not be dropped by a stale marker.
+		r = resolveFullStateWorkingTreeStats('/b', owner);
+		assert.strictEqual(r.seed, true, 'B full-state must re-seed after swap-back');
 	});
 });
