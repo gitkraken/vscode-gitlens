@@ -648,18 +648,22 @@ export class IntegrationService implements Disposable {
 	}
 
 	@debug({
-		args: integrationIds => ({ integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>' }),
+		args: (integrationIds, connectionId) => ({
+			integrationIds: integrationIds?.length ? integrationIds.join(',') : '<undefined>',
+			connectionId: connectionId ?? '<primary>',
+		}),
 	})
 	async getMyCurrentAccounts(
 		integrationIds: (GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds)[],
+		connectionId?: string,
 	): Promise<Map<GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds, Account>> {
 		const accounts = new Map<GitCloudHostIntegrationId | CloudGitSelfManagedHostIntegrationIds, Account>();
 		await Promise.allSettled(
 			integrationIds.map(async integrationId => {
-				const integration = await this.get(integrationId);
+				const integration = await this.getIntegrationForRead(integrationId, connectionId);
 				if (integration == null) return;
 
-				const account = await integration.getCurrentAccount();
+				const account = await integration.getCurrentAccount({ connectionId: connectionId });
 				if (account) {
 					accounts.set(integrationId, account);
 				}

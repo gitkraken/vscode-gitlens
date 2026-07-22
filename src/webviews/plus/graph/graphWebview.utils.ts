@@ -281,6 +281,9 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 		// case SelfHostedIntegrationId.BitbucketServer:
 		// 	return 'bitbucketServer';
 
+		case IssuesCloudHostIntegrationId.Trello:
+			return 'trello';
+
 		// case IssueIntegrationId.JiraServer:
 		// 	return 'jiraServer';
 
