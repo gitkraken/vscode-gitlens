@@ -22,6 +22,7 @@ import type {
 } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import type { SearchMyPullRequestsOptions } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import { toCollectionScopeFailure } from '../results.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
@@ -304,6 +305,7 @@ export class BitbucketIntegration extends GitHostIntegration<
 		_cancellation?: AbortSignal,
 		_silent?: boolean,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined> {
 		if (repos != null) {
 			// TODO: implement repos version
@@ -311,22 +313,11 @@ export class BitbucketIntegration extends GitHostIntegration<
 		}
 
 		const states = toProviderPullRequestStates(state);
-		// Bitbucket's reviewing PRs use a raw BBQL query; map the requested state to its state clause.
-		const stateClause =
-			state === 'closed'
-				? '(state="DECLINED" OR state="SUPERSEDED")'
-				: state === 'merged'
-					? 'state="MERGED"'
-					: state === 'all'
-						? undefined
-						: 'state="OPEN"';
 
 		const api = await this.getProvidersApi();
 		if (!api) {
 			return undefined;
 		}
-
-		const workspaceRepos = await this.getWorkspaceRepoInputs();
 
 		const user = await this.getProviderCurrentAccount(session);
 		if (user?.username == null) return undefined;
@@ -346,6 +337,38 @@ export class BitbucketIntegration extends GitHostIntegration<
 			);
 			return prs?.data.map(pr => fromProviderPullRequest(pr, this));
 		});
+
+		if (!options?.includeReviewRequested) {
+			return [
+				...uniqueBy(
+					await flatSettled(authoredPrs),
+					pr => pr.url,
+					(orig, _cur) => orig,
+				),
+			];
+		}
+
+		// Bitbucket's reviewing PRs require a repo-scoped BBQL query; keep that sweep opt-in so the default
+		// "my pull requests" feed stays aligned with backends that only expose authored PRs.
+		const stateClause =
+			state === 'closed'
+				? '(state="DECLINED" OR state="SUPERSEDED")'
+				: state === 'merged'
+					? 'state="MERGED"'
+					: state === 'all'
+						? undefined
+						: 'state="OPEN"';
+
+		const workspaceRepos = await this.getWorkspaceRepoInputs();
+		if (workspaceRepos.length === 0) {
+			return [
+				...uniqueBy(
+					await flatSettled(authoredPrs),
+					pr => pr.url,
+					(orig, _cur) => orig,
+				),
+			];
+		}
 
 		const reviewerClause = `reviewers.uuid="${user.id}"`;
 		const reviewingPrs = api
