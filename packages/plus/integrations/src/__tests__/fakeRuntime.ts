@@ -126,9 +126,8 @@ export function createFakeRuntime(): FakeRuntime {
 		getIssueOrPullRequest: undefined as never,
 		getIssue: (id, resource, integration, cacheable) => {
 			const key = `${integration?.id ?? 'none'}:${integration?.domain ?? 'none'}:${id}:${JSON.stringify(resource)}`;
-			const cached = issueCache.get(key);
-			if (cached != null) {
-				return cached as ReturnType<typeof cacheable>['value'];
+			if (issueCache.has(key)) {
+				return issueCache.get(key) as ReturnType<typeof cacheable>['value'];
 			}
 
 			const entry = cacheable({ invalidate: () => issueCache.delete(key) } as never).value;
