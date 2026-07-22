@@ -155,7 +155,7 @@ export interface IntegrationCacheProvider {
 	getCurrentAccount(
 		integration: IntegrationBase,
 		cacheable: Cacheable<Account>,
-		options?: CacheExpiryOptions,
+		options?: CacheExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Account>;
 }
 
