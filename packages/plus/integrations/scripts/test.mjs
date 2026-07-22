@@ -51,3 +51,7 @@ execFileSync(pnpm, ['--filter', '@gitlens/integrations-consumer-fixture', 'test'
 	stdio: 'inherit',
 	cwd: workspaceRoot,
 });
+
+// Smoke-test the published ESM facade directly under Node too. Bundled tests/fixtures can mask CommonJS named
+// export regressions in transitive deps, but direct consumers of the package import the built entrypoint.
+await import(new URL('../dist/lite.js', import.meta.url));

@@ -118,15 +118,22 @@ export class TrelloIntegration extends IssuesIntegration<IssuesCloudHostIntegrat
 			acc[list.id] = { name: list.name };
 			return acc;
 		}, {});
+		const boardProject = {
+			id: project.id,
+			name: project.name,
+			resourceId: project.id,
+			resourceName: project.name,
+		};
 
 		const result = await api.getTrelloIssuesForBoard(tokenWithInfo, appKey, project.id, {
 			assigneeLogins: options?.user != null ? [options.user] : undefined,
 			trelloBoardListsById: trelloBoardListsById,
 		});
 
-		const values = result.values
-			.map(issue => toIssueShape(issue, this))
-			.filter((issue): issue is IssueShape => issue != null);
+		const values = result.values.flatMap(issue => {
+			const mapped = toIssueShape(issue, this);
+			return mapped == null ? [] : [{ ...mapped, project: boardProject } satisfies IssueShape];
+		});
 
 		// Trello's search caps results and reports the cap through `metadata.completeness` (partial/unknown),
 		// never a cursor. Surface that as terminal truncation; there is no next page to fetch, so retrying the

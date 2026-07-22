@@ -226,6 +226,8 @@ export function toGraphIssueTrackerType(id: string): GraphIssueTrackerType | und
 			return 'jiraCloud';
 		case IssuesCloudHostIntegrationId.Linear:
 			return 'linear';
+		case IssuesCloudHostIntegrationId.Trello:
+			return 'trello';
 
 		// case IssueIntegrationId.JiraServer:
 		// 	return 'jiraServer';

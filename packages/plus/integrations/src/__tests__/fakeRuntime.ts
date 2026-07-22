@@ -52,6 +52,7 @@ export function createFakeRuntime(): FakeRuntime {
 	const storage = new Map<string, unknown>();
 	const workspaceStorage = new Map<string, unknown>();
 	const secrets = new Map<string, string>();
+	const currentAccountCache = new Map<string, { etag: string | undefined; value: unknown }>();
 
 	const storageProvider: IntegrationStorageProvider = {
 		get: <T>(key: string) => storage.get(key) as T | undefined,
@@ -125,8 +126,16 @@ export function createFakeRuntime(): FakeRuntime {
 		getIssue: () => {
 			throw new Error('FakeRuntime.cache.getIssue: not implemented in test');
 		},
-		getCurrentAccount: () => {
-			throw new Error('FakeRuntime.cache.getCurrentAccount: not implemented in test');
+		getCurrentAccount: (integration, cacheable, options) => {
+			const key = `${integration.id}:${integration.domain}:${options?.connectionId ?? ''}`;
+			const cached = currentAccountCache.get(key);
+			if (cached != null && cached.etag === options?.etag)
+				return cached.value as ReturnType<typeof cacheable>['value'];
+
+			const entry = cacheable({ invalidate: () => currentAccountCache.delete(key) } as never).value;
+			currentAccountCache.set(key, { etag: options?.etag, value: entry });
+			void Promise.resolve(entry).catch(() => currentAccountCache.delete(key));
+			return entry;
 		},
 	};
 

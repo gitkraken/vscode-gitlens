@@ -1,10 +1,16 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { Issue } from '@gitlens/git/models/issue.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import { createIntegrationManager } from '../index.js';
 import type { IssuesIntegration } from '../models/issuesIntegration.js';
 import type { ProviderIssue } from '../providers/models.js';
+import {
+	encodeIssueOrPullRequestForGitConfig,
+	getIssueFromGitConfigEntityIdentifier,
+	getIssueOwner,
+} from '../providers/utils.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 /**
@@ -88,6 +94,59 @@ suite('Trello integration (#5438)', () => {
 		assert.equal(issues?.length, 1, 'the board issues are mapped to issue shapes');
 		assert.equal(capturedBoardId, 'b1');
 		assert.equal(capturedAppKey, 'my-app-key');
+		assert.deepEqual(issues?.[0]?.project, {
+			id: 'b1',
+			name: 'Board 1',
+			resourceId: 'b1',
+			resourceName: 'Board 1',
+		});
+
+		manager.dispose();
+	});
+
+	test('Trello issues round-trip through branch association metadata', async () => {
+		const manager = createIntegrationManager(createFakeRuntime());
+		const trello = await manager.get(IssuesCloudHostIntegrationId.Trello);
+		(trello as unknown as { _session: ProviderAuthenticationSession })._session = trelloSession('my-app-key');
+
+		stubApi(trello, {
+			getTrelloListsForBoard: () => Promise.resolve([{ id: 'l1', name: 'To Do' }]),
+			getTrelloIssuesForBoard: () =>
+				Promise.resolve({ values: [fakeIssue()], metadata: { completeness: 'complete' } }),
+		});
+
+		const issue = (await trello.getIssuesForProject({ key: 'b1', id: 'b1', name: 'Board 1' }))?.[0];
+		assert.ok(issue != null, 'a Trello issue was mapped');
+		if (issue == null) throw new Error('Expected a Trello issue');
+
+		const owner = getIssueOwner(issue);
+		assert.ok(owner != null, 'a Trello board owner descriptor can be derived');
+		if (owner == null) throw new Error('Expected a Trello owner descriptor');
+
+		const issueWithType = { ...issue, type: 'issue' } satisfies Issue;
+
+		const identifier = encodeIssueOrPullRequestForGitConfig(issueWithType, owner);
+		let captured: { resource: { id?: string; key: string; owner?: string; name?: string }; id: string } | undefined;
+
+		const resolved = await getIssueFromGitConfigEntityIdentifier(
+			async () => ({
+				getIssue: async (resource, id) => {
+					captured = {
+						resource: resource as { id?: string; key: string; owner?: string; name?: string },
+						id: id,
+					};
+					return issueWithType;
+				},
+			}),
+			identifier,
+		);
+
+		assert.equal(identifier.provider, 'trello');
+		assert.deepEqual(captured, {
+			resource: { id: 'b1', key: 'b1', owner: undefined, name: 'Board 1' },
+			id: '1',
+		});
+		assert.equal(resolved?.id, '1');
 
 		manager.dispose();
 	});

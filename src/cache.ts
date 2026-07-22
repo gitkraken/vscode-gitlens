@@ -112,10 +112,12 @@ export class CacheProvider implements Disposable {
 	getCurrentAccount(
 		integration: IntegrationBase,
 		cacheable: Cacheable<Account>,
-		options?: ExpiryOptions,
+		options?: ExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Account> {
+		const { connectionId, etag: etagOverride, ...cacheOptions } = options ?? {};
 		const { key, etag } = this.getIntegrationKeyAndEtag(integration);
-		return this.get('currentAccount', `id:${key}`, etag, cacheable, options);
+		const connectionKey = connectionId ? `:${connectionId}` : '';
+		return this.get('currentAccount', `id:${key}${connectionKey}`, etagOverride ?? etag, cacheable, cacheOptions);
 	}
 
 	// getEnrichedAutolinks(
