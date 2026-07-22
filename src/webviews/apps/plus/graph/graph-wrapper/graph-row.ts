@@ -133,6 +133,9 @@ export interface RowRenderContext {
 	/** Commit/merge-only: resolved Undo Commit target (leaf worktree HEAD), when undo is offered. The
 	 *  optional `worktreePath` routes the undo to a non-active worktree; `branchName` labels the button. */
 	undoTarget?: { worktreePath?: string; branchName?: string };
+	/** Commit/merge-only: a WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the
+	 *  Jump to Working Changes action (the inverse of the WIP row's Jump to Branch Tip). */
+	hasWipRow?: boolean;
 	/** Right-click context for the author avatar zone (contributor menu) — stamped on the avatar element
 	 *  itself so it's NEARER than the row's own `commit.contextData` and wins there. */
 	avatarVscodeContext?: string;
@@ -779,8 +782,18 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					data-tooltip="Stash All Changes..."
 					aria-label="Stash All Changes..."
 				>
-					<code-icon icon="gl-stash-save"></code-icon>
-				</button>`;
+					<code-icon icon="gl-stash-save"></code-icon></button
+				>${ctx.commit.parents[0] != null
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							data-jump-sha=${ctx.commit.parents[0]}
+							data-tooltip="Jump to Branch Tip"
+							aria-label="Jump to Branch Tip"
+						>
+							<code-icon icon="download"></code-icon>
+						</button>`
+					: nothing}`;
 			break;
 		}
 		case 'stash':
@@ -831,7 +844,17 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 					aria-label="Open All Changes"
 				>
 					<code-icon icon="diff-multiple"></code-icon></button
-				>${isUnpushed
+				>${ctx.hasWipRow === true
+					? html`<button
+							class="gl-graph__row-action gl-graph__row-action--gated"
+							type="button"
+							data-jump-nearest-wip="true"
+							data-tooltip="Jump to Working Changes"
+							aria-label="Jump to Working Changes"
+						>
+							<code-icon icon="download" flip="block"></code-icon>
+						</button>`
+					: nothing}${isUnpushed
 					? html`<button
 							class="gl-graph__row-action gl-graph__row-action--persistent unpushed-push-button"
 							type="button"

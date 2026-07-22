@@ -818,6 +818,9 @@ export class GlLitGraph extends LitElement {
 				row.kind === 'workdir' && !isSecondaryWipSha(row.sha) ? c.workingTreeStats?.hasConflicts : undefined,
 			isUnpushed: commit.isUnpublished,
 			undoTarget: commit.undo,
+			// A WIP/workdir row sits on this commit (it's a worktree branch tip) — gates the inverse
+			// Jump to Working Changes action. `wipAnchorShas` holds workdir rows' first-parent anchors.
+			hasWipRow: this.wipAnchorShas.has(row.sha),
 			avatarVscodeContext: commit.avatarVscodeContext,
 		});
 	}
@@ -4880,6 +4883,30 @@ export class GlLitGraph extends LitElement {
 					this.dispatchEvent(
 						new CustomEvent('gl-graph-wiprowopen', { detail: { target: wipOpen, sha: sha } }),
 					);
+				}
+				event.stopPropagation();
+				return;
+			}
+
+			// The WIP row's "Jump to Branch Tip" button carries the tip sha directly (`parents[0]`, the
+			// commit the working changes sit on) — a client-side scroll+select via the same
+			// `gl-jump-to-commit` path the WIP details header uses (graph-wrapper's onJumpToCommit →
+			// ensureAndSelectCommit); NOT a host round-trip like data-row-action.
+			const jumpSha = el.getAttribute('data-jump-sha');
+			if (jumpSha != null) {
+				document.dispatchEvent(new CustomEvent('gl-jump-to-commit', { detail: { sha: jumpSha } }));
+				event.stopPropagation();
+				return;
+			}
+
+			// The inverse: a worktree branch-tip row's "Jump to Working Changes" button jumps to the WIP
+			// row sitting on this commit. Pass the row's own sha as `fromSha`; graph-wrapper's
+			// onJumpToNearestWip resolves it (exact-anchor match) to that worktree's WIP row — the same
+			// client-side path the commit details panel's chip uses.
+			if (el.getAttribute('data-jump-nearest-wip') != null) {
+				const sha = this.resolveSha(event);
+				if (sha != null) {
+					document.dispatchEvent(new CustomEvent('gl-jump-to-nearest-wip', { detail: { fromSha: sha } }));
 				}
 				event.stopPropagation();
 				return;
