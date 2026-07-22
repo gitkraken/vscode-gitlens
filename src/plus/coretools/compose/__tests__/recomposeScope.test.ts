@@ -23,7 +23,8 @@ function makeSvc(opts: {
 			getLog: async (rangeStr: string) => {
 				const shas = opts.log?.[rangeStr];
 				if (shas == null) return undefined;
-				return { commits: new Map(shas.map(s => [s, {}])) };
+				// Real log entries are GitCommits — the resolver reads `sha` and `parents` off them.
+				return { commits: new Map(shas.map(s => [s, { sha: s, parents: commits[s] ?? [] }])) };
 			},
 		},
 		getRepository: () => undefined,
@@ -92,7 +93,9 @@ suite('compose/recomposeScope resolveRecomposeScope', () => {
 	});
 
 	test('commitShas sub-selection → ok, widened to covering range, expandedFromSelection:true', async () => {
-		const svc = makeSvc({ branch: { name: 'main' }, head: 'h', commits: linear });
+		// The covering resolver logs from the base candidate's parent ('b' is the only candidate —
+		// 'a' has an in-selection parent) through HEAD, widening the selection to that range.
+		const svc = makeSvc({ branch: { name: 'main' }, head: 'h', commits: linear, log: { 'c..h': ['h', 'a', 'b'] } });
 		const result = await resolveRecomposeScope(container, svc, { commitShas: ['a', 'b'] });
 		assert.deepStrictEqual(result, {
 			ok: true,

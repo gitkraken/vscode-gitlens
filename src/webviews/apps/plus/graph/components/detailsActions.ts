@@ -146,7 +146,8 @@ export function getReviewDiffEndpoints(scope: ScopeSelection | undefined): { lhs
 		return { lhs: 'HEAD', rhs: uncommitted };
 	}
 
-	// includeShas is newest-first, so the range base is the oldest sha's parent
+	// Seeded scopes guarantee the range-base boundary commit is last (see GraphComposeScopeSeed);
+	// picker-driven scopes are in pane row order, where the bottom row is the visible range base.
 	const lhs = `${scope.includeShas.at(-1)}^`;
 	if (scope.includeUnstaged) return { lhs: lhs, rhs: uncommitted };
 	if (scope.includeStaged) return { lhs: lhs, rhs: uncommittedStaged };

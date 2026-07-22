@@ -3,9 +3,51 @@ import type { GitFileStatus } from '@gitlens/git/models/fileStatus.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { Container } from '../../../../container.js';
 import type { ComposeHunk, ComposePlan, UndoForceOptions } from '../../../../plus/coretools/compose/types.js';
-import type { ComposerHunk } from '../../composer/protocol.js';
 import type { CommitResult, ComposeCommitPlan, ProposedCommit, ProposedCommitFile } from '../graphService.js';
 import type { GraphComposeIntegration } from './integration.js';
+import type { ComposerHunk } from './protocol.js';
+
+export function createCombinedDiffForCommit(hunks: ComposerHunk[]): {
+	patch: string;
+	filePatches: Map<string, string[]>;
+} {
+	if (hunks.length === 0) {
+		return { patch: '', filePatches: new Map() };
+	}
+
+	// Group hunks by file (diffHeader)
+	const filePatches = new Map<string, string[]>();
+	for (const hunk of hunks) {
+		const diffHeader = hunk.diffHeader || `diff --git a/${hunk.fileName} b/${hunk.fileName}`;
+
+		let array = filePatches.get(diffHeader);
+		if (array == null) {
+			array = [];
+			filePatches.set(diffHeader, array);
+		}
+
+		// For rename hunks, the content is already properly formatted (the diffHeader carries the
+		// rename info); regular hunks combine the hunk header and content.
+		if (hunk.isRename) {
+			array.push('');
+		} else {
+			array.push(`${hunk.hunkHeader}\n${hunk.content}`);
+		}
+	}
+
+	// Build the complete patch string
+	let commitPatch = '';
+	for (const [header, hunkContents] of filePatches.entries()) {
+		commitPatch += `${header.trim()}\n`;
+		// Only add hunk contents if they exist (renames might have empty content)
+		const nonEmptyContents = hunkContents.filter(content => content.trim() !== '');
+		if (nonEmptyContents.length > 0) {
+			commitPatch += `${nonEmptyContents.join('\n')}\n`;
+		}
+	}
+
+	return { patch: commitPatch, filePatches: filePatches };
+}
 
 /** Stash message prefix used by every graph compose apply. Shared with {@link checkForAbandonedComposeStashes}. */
 export const graphComposeStashPrefix = 'gitlens-compose-';
@@ -25,7 +67,6 @@ export function libraryPlanToProposedCommits(
 		kind: 'wip-only' | 'wip+commits' | 'commits-only';
 	},
 	repoPath: string,
-	createCombinedDiffForCommit: (hunks: ComposerHunk[]) => { patch: string; filePatches: Map<string, string[]> },
 ): { commits: ProposedCommit[]; commitHunksByIndex: ComposerHunk[][] } {
 	const { plan, sourceHunks, headSha, kind } = planResult;
 	const hunkByIndex = new Map<number, ComposeHunk>();

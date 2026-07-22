@@ -201,39 +201,6 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when commit reachability fails to load */
 	'commitDetails/reachability/failed': DetailsReachabilityFailedEvent;
 
-	/** Sent when the Commit Composer is first loaded with repo data */
-	'composer/loaded': ComposerLoadedEvent;
-	/** Sent when the Commit Composer is reloaded */
-	'composer/reloaded': ComposerLoadedEvent;
-	/** Sent when the user adds unstaged changes to draft commits in the Commit Composer */
-	'composer/action/includedUnstagedChanges': ComposerEvent;
-	/** Sent when the user uses auto-compose in the Commit Composer */
-	'composer/action/compose': ComposerGenerateCommitsEvent;
-	/** Sent when the user fails an auto-compose operation in the Commit Composer */
-	'composer/action/compose/failed': ComposerGenerateCommitsFailedEvent;
-	/** Sent when the user uses recompose in the Commit Composer */
-	'composer/action/recompose': ComposerGenerateCommitsEvent;
-	/** Sent when the user fails a recompose operation in the Commit Composer */
-	'composer/action/recompose/failed': ComposerGenerateCommitsFailedEvent;
-	/** Sent when the user uses generate commit message in the Commit Composer */
-	'composer/action/generateCommitMessage': ComposerGenerateCommitMessageEvent;
-	/** Sent when the user fails a generate commit message operation in the Commit Composer */
-	'composer/action/generateCommitMessage/failed': ComposerGenerateCommitMessageFailedEvent;
-	/** Sent when the user changes the AI model in the Commit Composer */
-	'composer/action/changeAiModel': ComposerEvent;
-	/** Sent when the user finishes and commits in the Commit Composer */
-	'composer/action/finishAndCommit': ComposerEvent;
-	/** Sent when the user fails to finish and commit in the Commit Composer */
-	'composer/action/finishAndCommit/failed': ComposerFinishAndCommitFailedEvent;
-	/** Sent when the user uses the undo button in the Commit Composer */
-	'composer/action/undo': ComposerEvent;
-	/** Sent when the user uses the reset button in the Commit Composer */
-	'composer/action/reset': ComposerEvent;
-	/** Sent when the user is warned that the working directory has changed in the Commit Composer */
-	'composer/warning/workingDirectoryChanged': ComposerEvent;
-	/** Sent when the user is warned that the index has changed in the Commit Composer */
-	'composer/warning/indexChanged': ComposerEvent;
-
 	/** Sent when a conflict-prone git command (merge, rebase, cherry-pick, revert, stash apply/pop) is run */
 	'gitCommand/run': GitCommandRunEvent;
 	/** Sent when a conflict occurs while running a conflict-prone git command */
@@ -641,7 +608,7 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	'rebaseEditor/action/switchToText': RebaseEditorCompletionEventData;
 	/** Sent when the user toggles the commit ordering (ascending/descending) */
 	'rebaseEditor/action/toggleOrdering': RebaseEditorToggleOrderingEvent;
-	/** Sent when the user opens the Commit Composer from the rebase editor */
+	/** Sent when the user aborts the rebase to recompose its commits inline in the Commit Graph */
 	'rebaseEditor/action/recompose': RebaseEditorCompletionEventData;
 	/** Sent when the user clicks to show conflicts */
 	'rebaseEditor/action/showConflicts': RebaseEditorContextEventData;
@@ -2274,121 +2241,6 @@ export type InspectWebviewTelemetryContext = Pick<
 	'context.autolinks' | 'context.type' | 'context.uncommitted'
 >;
 
-export type ComposerTelemetryContext = ComposerContextEventData;
-type ComposerContextEventData = WebviewTelemetryContext & ComposerSessionContextEventData;
-type ComposerContextSessionData = {
-	'context.session.start': string;
-	'context.session.duration': number | undefined;
-};
-type ComposerContextDiffData = {
-	'context.diff.files.count': number;
-	'context.diff.hunks.count': number;
-	'context.diff.lines.count': number;
-	'context.diff.hash': string;
-	'context.diff.staged.exists': boolean;
-	'context.diff.unstaged.exists': boolean;
-	'context.diff.unstaged.included': boolean;
-};
-type ComposerContextCommitsData = {
-	'context.commits.initialCount': number;
-	'context.commits.autoComposedCount': number | undefined;
-	'context.commits.composedCount': number | undefined;
-	'context.commits.finalCount': number | undefined;
-};
-type ComposerContextOnboardingData = {
-	'context.onboarding.dismissed': boolean;
-	'context.onboarding.stepReached': number | undefined;
-};
-type ComposerContextAIData = {
-	'context.ai.enabled.org': boolean;
-	'context.ai.enabled.config': boolean;
-	'context.ai.model.id': string | undefined;
-	'context.ai.model.name': string | undefined;
-	'context.ai.model.provider.id': AIProviders | undefined;
-	'context.ai.model.temperature': number | undefined;
-	'context.ai.model.maxTokens.input': number | undefined;
-	'context.ai.model.maxTokens.output': number | undefined;
-	'context.ai.model.default': boolean | undefined;
-	'context.ai.model.hidden': boolean | undefined;
-};
-type ComposerContextOperationData = {
-	'context.operations.generateCommits.count': number;
-	'context.operations.generateCommits.cancelled.count': number;
-	'context.operations.generateCommits.error.count': number;
-	'context.operations.generateCommits.feedback.upvote.count': number;
-	'context.operations.generateCommits.feedback.downvote.count': number;
-	'context.operations.generateCommitMessage.count': number;
-	'context.operations.generateCommitMessage.cancelled.count': number;
-	'context.operations.generateCommitMessage.error.count': number;
-	'context.operations.finishAndCommit.error.count': number;
-	'context.operations.undo.count': number;
-	'context.operations.redo.count': number;
-	'context.operations.reset.count': number;
-};
-type ComposerContextWarningsData = {
-	'context.warnings.workingDirectoryChanged': boolean;
-	'context.warnings.indexChanged': boolean;
-};
-type ComposerContextErrorsData = {
-	'context.errors.safety.count': number;
-	'context.errors.operation.count': number;
-};
-
-type ComposerSessionContextEventData = ComposerContextSessionData &
-	ComposerContextDiffData &
-	ComposerContextCommitsData &
-	ComposerContextOnboardingData &
-	ComposerContextAIData &
-	ComposerContextOperationData &
-	ComposerContextWarningsData &
-	ComposerContextErrorsData & {
-		'context.source': Sources | undefined;
-		'context.mode': 'experimental' | 'preview';
-	};
-
-type ComposerEvent = ComposerContextEventData;
-
-type ComposerLoadedEvent = ComposerContextEventData &
-	Partial<{
-		'failure.reason': 'error';
-		'failure.error.message': string;
-	}>;
-
-type ComposerGenerateCommitsEvent = ComposerContextEventData & {
-	'customInstructions.used': boolean;
-	'customInstructions.length': number;
-	'customInstructions.hash': string;
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	'customInstructions.commitMessage.setting.used': boolean;
-	'customInstructions.commitMessage.setting.length': number;
-};
-
-type ComposerActionFailureEventData =
-	| {
-			'failure.reason': 'cancelled';
-			'failure.error.message'?: never;
-	  }
-	| {
-			'failure.reason': 'error';
-			'failure.error.message': string;
-	  };
-
-type ComposerGenerateCommitsFailedEvent = ComposerGenerateCommitsEvent & ComposerActionFailureEventData;
-
-type ComposerGenerateCommitMessageEvent = ComposerContextEventData & {
-	'customInstructions.setting.used': boolean;
-	'customInstructions.setting.length': number;
-	overwriteExistingMessage: boolean;
-};
-
-type ComposerGenerateCommitMessageFailedEvent = ComposerGenerateCommitMessageEvent & ComposerActionFailureEventData;
-
-type ComposerFinishAndCommitFailedEvent = ComposerContextEventData & {
-	'failure.reason': 'error';
-	'failure.error.message': string;
-};
-
 interface LaunchpadEventDataBase {
 	/** @order 1 */
 	instance: number;
@@ -2979,11 +2831,9 @@ export type WebviewTelemetryEvents = {
 				? GraphTelemetryContext
 				: K extends `timeline/${string}`
 					? TimelineTelemetryContext
-					: K extends `composer/${string}`
-						? ComposerTelemetryContext
-						: K extends `rebaseEditor/${string}`
-							? RebaseEditorTelemetryContext
-							: WebviewTelemetryContext)
+					: K extends `rebaseEditor/${string}`
+						? RebaseEditorTelemetryContext
+						: WebviewTelemetryContext)
 	>;
 };
 
@@ -3000,7 +2850,6 @@ export type Sources =
 	| 'cloud-patches'
 	| 'code-suggest'
 	| 'commandPalette'
-	| 'composer'
 	| 'deeplink'
 	| 'editor:hover'
 	| 'feature-badge'

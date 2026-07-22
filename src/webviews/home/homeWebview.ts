@@ -24,6 +24,7 @@ import type { AgentSessionState } from '../../agents/models/agentSessionState.js
 import { ActionRunnerType } from '../../api/actionRunners.js';
 import type { CreatePullRequestActionContext } from '../../api/gitlens.d.js';
 import { getAvatarUriFromGravatarEmail } from '../../avatars.js';
+import type { ComposerCommandArgs } from '../../commands/composer.js';
 import type { ExplainBranchCommandArgs } from '../../commands/explainBranch.js';
 import type { ExplainWipCommandArgs } from '../../commands/explainWip.js';
 import type { BranchGitCommandArgs } from '../../commands/git/branch.js';
@@ -71,7 +72,6 @@ import { openUrl } from '../../system/-webview/vscode/uris.js';
 import { openWorkspace } from '../../system/-webview/vscode/workspaces.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
 import { isWebviewContext } from '../../system/webview.js';
-import type { ComposerCommandArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { Change } from '../plus/patchDetails/protocol.js';
 import * as branchRefCommands from '../plus/shared/branchRefCommands.js';

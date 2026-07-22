@@ -23,8 +23,8 @@ import {
 	REDACTED_HUNK_CONTENT,
 	refinePlan,
 } from '../../../../plus/coretools/compose/utils.js';
-import type { ComposerHunk } from '../../composer/protocol.js';
 import type { ScopeSelection } from '../graphService.js';
+import type { ComposerHunk } from './protocol.js';
 import { graphComposeStashPrefix, toComposerHunk } from './utils.js';
 
 export interface GeneratePlanForGraphDetailsInput {
@@ -551,6 +551,8 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 		branchName: string;
 		headSha: string;
 		rewriteFromSha: string;
+		/** Oldest commit of the covering range — the rewrite base is its first parent. */
+		baseSha?: string;
 		selectedShas?: string[];
 		kind: 'wip-only' | 'wip+commits' | 'commits-only';
 	}> {
@@ -586,6 +588,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			branchName: branch.name,
 			headSha: headSha,
 			rewriteFromSha: covered.baseParentSha ?? rootSha,
+			baseSha: covered.baseSha,
 			selectedShas: covered.shas,
 			kind: hasWip ? 'wip+commits' : 'commits-only',
 		};
@@ -597,6 +600,7 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			branchName: string;
 			headSha: string;
 			rewriteFromSha: string;
+			baseSha?: string;
 			selectedShas?: string[];
 			kind: string;
 		},
@@ -616,7 +620,9 @@ export class GraphComposeIntegration extends ComposeToolsIntegration {
 			};
 		}
 
-		const oldestSha = resolved.selectedShas?.at(-1);
+		// The resolver's chosen base commit — NOT derived from log order, which doesn't reliably
+		// put the range-base boundary commit last when merges (or skewed commit dates) are present.
+		const oldestSha = resolved.baseSha;
 		if (oldestSha == null) {
 			throw new Error('Compose scope includeShas resolved to an empty selection');
 		}

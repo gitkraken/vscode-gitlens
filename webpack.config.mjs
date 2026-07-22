@@ -477,7 +477,6 @@ function getWebviewsConfigs(mode, env) {
 	let webviews = {
 		allowedSigners: { entry: './allowedSigners/allowedSigners.ts' },
 		commitDetails: { entry: './commitDetails/commitDetails.ts' },
-		composer: { entry: './plus/composer/composer.ts', plus: true },
 		graph: { entry: './plus/graph/graph.ts', plus: true },
 		home: { entry: './home/home.ts' },
 		rebase: { entry: './rebase/rebase.ts' },
@@ -585,11 +584,6 @@ function getWebviewConfig(webviews, overrides, mode, env) {
 		...Object.entries(webviews).map(([name, config]) => getHtmlPlugin(name, Boolean(config.plus), mode, env)),
 		getCspHtmlPlugin(mode, env),
 	];
-
-	// Add composer template compilation plugin when building composer webview
-	if ('composer' in webviews) {
-		plugins.push(new CompileComposerTemplatesPlugin());
-	}
 
 	// Keep `custom-elements.json` fresh during dev/watch builds (skipped in production and quick modes)
 	if (mode !== 'production' && !env.quick) {
@@ -1356,103 +1350,6 @@ class EsbuildTestsPlugin {
 				this.watchProcess = undefined;
 			}
 		});
-	}
-}
-
-/**
- * Webpack plugin to precompile Composer custom diff2html Hogan templates.
- * This avoids runtime eval and ensures templates are compiled at build time.
- */
-class CompileComposerTemplatesPlugin {
-	static name = 'CompileComposerTemplatesPlugin';
-
-	/** @type {Promise<void> | undefined} */
-	static _compilationPromise;
-
-	/**
-	 * @param {import('webpack').Compiler} compiler
-	 */
-	apply(compiler) {
-		compiler.hooks.beforeCompile.tapPromise(CompileComposerTemplatesPlugin.name, async () => {
-			// Deduplicate compilation across parallel builds
-			if (!CompileComposerTemplatesPlugin._compilationPromise) {
-				CompileComposerTemplatesPlugin._compilationPromise = this._compile();
-			}
-			return CompileComposerTemplatesPlugin._compilationPromise;
-		});
-	}
-
-	async _compile() {
-		/** @type {typeof import('@profoundlogic/hogan')} */
-		let Hogan;
-		try {
-			// Prefer root-level hogan.js if hoisted
-			// @ts-ignore
-			Hogan = await import('@profoundlogic/hogan');
-		} catch {
-			// Fallback: resolve from diff2html's nested dependency to support pnpm non-hoisted layout
-			const diff2htmlPkg = require.resolve('diff2html/package.json');
-			const hoganPath = require.resolve('hogan.js', {
-				paths: [path.join(path.dirname(diff2htmlPkg), 'node_modules')],
-			});
-			// @ts-ignore
-			Hogan = await import(pathToFileURL(hoganPath).href);
-		}
-		// @ts-ignore
-		Hogan = Hogan?.default || Hogan;
-
-		const srcPath = path.join(__dirname, 'src/webviews/apps/plus/composer/components/diff/diff-templates.ts');
-		const outPath = path.join(
-			__dirname,
-			'src/webviews/apps/plus/composer/components/diff/diff-templates.compiled.ts',
-		);
-
-		const source = fs.readFileSync(srcPath, 'utf8');
-
-		/**
-		 * @param {string} name
-		 * @returns {string}
-		 */
-		function extractTemplate(name) {
-			const re = new RegExp(`export const ${name} = \`([\\s\\S]*?)\`;`);
-			const m = source.match(re);
-			if (!m) throw new Error(`Template ${name} not found in ${srcPath}`);
-			return m[1];
-		}
-
-		const blockHeader = extractTemplate('blockHeaderTemplate');
-		const lineByLineFile = extractTemplate('lineByLineFileTemplate');
-		const sideBySideFile = extractTemplate('sideBySideFileTemplate');
-		const genericFilePath = extractTemplate('genericFilePathTemplate');
-
-		/**
-		 * @param {string} name
-		 * @param {string} tpl
-		 * @returns {string}
-		 */
-		function precompile(name, tpl) {
-			const code = Hogan.compile(tpl, { asString: true });
-			return `  "${name}": new Hogan.Template(${code})`;
-		}
-
-		const header = `/* oxlint-disable */\n// @ts-nocheck\n// Generated — DO NOT EDIT\nimport type { CompiledTemplates } from 'diff2html/lib-esm/hoganjs-utils.js';\nimport * as Hogan from '@profoundlogic/hogan';\n`;
-
-		const body = `export const compiledComposerTemplates: CompiledTemplates = {\n${precompile(
-			'generic-block-header',
-			blockHeader,
-		)},\n${precompile('line-by-line-file-diff', lineByLineFile)},\n${precompile(
-			'side-by-side-file-diff',
-			sideBySideFile,
-		)},\n${precompile('generic-file-path', genericFilePath)}\n};\n`;
-
-		const newContent = header + body;
-		const existingContent = fs.existsSync(outPath) ? fs.readFileSync(outPath, 'utf8') : '';
-
-		// Only write if content changed to avoid unnecessary rebuilds
-		if (newContent !== existingContent) {
-			fs.writeFileSync(outPath, newContent, 'utf8');
-			console.log(`[CompileComposerTemplatesPlugin] Wrote ${outPath}`);
-		}
 	}
 }
 

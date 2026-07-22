@@ -9,6 +9,7 @@ import { serializePullRequest } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { defer } from '@gitlens/utils/promise.js';
 import type { CompareWithCommandArgs } from '../../../../commands/compareWith.js';
+import type { ComposerCommandArgs } from '../../../../commands/composer.js';
 import type { Container } from '../../../../container.js';
 import { cherryPick, merge, rebase } from '../../../../git/actions/repository.js';
 import type { GlRepository } from '../../../../git/models/repository.js';
@@ -19,7 +20,6 @@ import type { StartReviewCommandArgs } from '../../../../plus/launchpad/startRev
 import type { StartWorkCommandArgs } from '../../../../plus/startWork/startWork.js';
 import { executeCommand } from '../../../../system/-webview/command.js';
 import { createCommandDecorator } from '../../../../system/decorators/command.js';
-import type { ComposerCommandArgs } from '../../../../webviews/plus/composer/registration.js';
 import type { CliCommandRequest, CliCommandResponse } from './gkCliService.js';
 
 type CliCommand =

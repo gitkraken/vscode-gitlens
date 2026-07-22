@@ -49,6 +49,7 @@ import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
 import type { GraphLaunchpadState } from '../graphLaunchpadState.js';
 import { graphLaunchpadContext } from '../graphLaunchpadState.js';
+import type { AnchorKey } from './anchorKey.js';
 import { anchorKey } from './anchorKey.js';
 import type { DetailsActions } from './detailsActions.js';
 import { countReviewFindingSeverities, getReviewDiffEndpoints, scopeSelectionEqual } from './detailsActions.js';
@@ -224,16 +225,21 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		const mode = this._state.activeMode.get();
 		if (mode !== 'review' && mode !== 'compose' && mode !== 'resolve') return undefined;
 
+		return this._crossPaneState?.runningOperations.get().get(this.engagedAnchorKey)?.[mode];
+	}
+
+	/** Anchor key the engaged mode's registry entry is looked up under — the locked anchor for
+	 *  commit/multicommit contexts, else the current selection. */
+	private get engagedAnchorKey(): AnchorKey {
 		const ctx = this._state.activeModeContext.get();
 		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
-		const key = isLockedCommit
+		return isLockedCommit
 			? anchorKey({
 					sha: this._state.activeModeSha.get(),
 					shas: this._state.activeModeShas.get(),
 					repoPath: this._state.activeModeRepoPath.get(),
 				})
 			: anchorKey({ sha: this.sha, shas: this.shas, repoPath: this.repoPath });
-		return this._crossPaneState?.runningOperations.get().get(key)?.[mode];
 	}
 
 	/** Per-mode exec state + has-result of the engaged anchor's entry — drives the suffix-icon
@@ -248,16 +254,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 				Record<'review' | 'compose' | 'resolve', { execState: RunningOperationExecState; hasResult: boolean }>
 		  >
 		| undefined {
-		const ctx = this._state.activeModeContext.get();
-		const isLockedCommit = ctx === 'commit' || ctx === 'multicommit';
-		const key = isLockedCommit
-			? anchorKey({
-					sha: this._state.activeModeSha.get(),
-					shas: this._state.activeModeShas.get(),
-					repoPath: this._state.activeModeRepoPath.get(),
-				})
-			: anchorKey({ sha: this.sha, shas: this.shas, repoPath: this.repoPath });
-		const bucket = this._crossPaneState?.runningOperations.get().get(key);
+		const bucket = this._crossPaneState?.runningOperations.get().get(this.engagedAnchorKey);
 		if (bucket == null) return undefined;
 
 		const out: Partial<
@@ -307,11 +304,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		composeScope?: GraphComposeScopeSeed;
 	};
 
-	/** Seed value for the compose panel's idle AI-instructions input on a fresh (cold) compose
-	 *  entry — parity with the standalone composer's `autoComposeInstructions`. Seed only; never
-	 *  triggers generation. Cleared on cancel/discard so it doesn't resurface on a later manual entry. */
+	/** Seed value for the compose panel's idle AI-instructions input, delivered by an external
+	 *  entry point (e.g. the MCP compose tool's instructions) — parity with the retired standalone
+	 *  composer's `autoComposeInstructions`. Seed only; never triggers generation. Scoped to the
+	 *  anchor it was delivered for and cleared when compose deactivates (plus cancel/discard), so
+	 *  it can't resurface on a later manual entry; the engaged entry's `basePrompt` always wins
+	 *  when a session exists. */
 	@state()
-	private _composeSeedInstructions?: string;
+	private _composeSeedInstructions?: { anchorKey: AnchorKey; instructions: string };
 
 	private _lastPushedWip?: unknown;
 	private _lastBranchState?: unknown;
@@ -1163,10 +1163,6 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			this._state.resolveFocusedFilePaths.set(focusedFilePaths);
 		}
 
-		if (mode === 'compose') {
-			this._composeSeedInstructions = composeInstructions;
-		}
-
 		this.suppressContentOverflow();
 		const selection: DetailsSelection = {
 			...this.currentSelection(),
@@ -1174,6 +1170,13 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			shas: undefined,
 			repoPath: repoPath,
 		};
+
+		if (mode === 'compose') {
+			this._composeSeedInstructions =
+				composeInstructions != null
+					? { anchorKey: anchorKey(selection), instructions: composeInstructions }
+					: undefined;
+		}
 		// Compare by full anchor key so primary↔secondary WIP re-clicks (which differ only in
 		// `repoPath` after both collapse to a `wip|...` key) stay distinct.
 		const engaged = anchorKey({
@@ -1370,6 +1373,14 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		if (this._graphState?.rows !== this._lastGraphRows) {
 			this._lastGraphRows = this._graphState?.rows;
 			this._branchSheetChangeStamp++;
+		}
+
+		// The externally-delivered compose seed is one-shot: once compose deactivates (toggle-off,
+		// mode/selection/repo switch, apply), drop it so a later manual entry starts empty. The
+		// seed is set just before the mode activates in the same update cycle, so an active
+		// compose never observes this clear.
+		if (this._composeSeedInstructions != null && this._state.activeMode.get() !== 'compose') {
+			this._composeSeedInstructions = undefined;
 		}
 
 		const selectionChanged =
@@ -2565,6 +2576,11 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 		// fall back to the resource for the resolved payload + idle case.
 		const composeEntry =
 			this.engagedRunningOperation?.kind === 'compose' ? this.engagedRunningOperation : undefined;
+		// The externally-delivered seed only prefills the anchor it was delivered for.
+		const seedInstructions =
+			this._composeSeedInstructions?.anchorKey === this.engagedAnchorKey
+				? this._composeSeedInstructions?.instructions
+				: undefined;
 		const composeResource = this._actions.resources.compose;
 		const composeValue = composeEntry?.result ?? composeResource.value.get();
 		const composeResult = composeValue && 'result' in composeValue ? composeValue.result : undefined;
@@ -2605,7 +2621,7 @@ export class GlGraphDetailsPanel extends SignalWatcher(LitElement) {
 			.fileLayout=${this._state.preferences.get()?.files?.layout ?? 'auto'}
 			.aiModel=${this._state.aiModel.get()}
 			.lastPrompt=${composeEntry?.prompt}
-			.basePrompt=${composeEntry?.basePrompt ?? this._composeSeedInstructions}
+			.basePrompt=${composeEntry?.basePrompt ?? seedInstructions}
 			.refineMode=${composeEntry?.refineMode ?? false}
 			.refineDraft=${composeEntry?.refineDraft}
 			.progressMessage=${this._state.composeProgressMessage.get()}

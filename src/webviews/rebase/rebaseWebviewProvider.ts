@@ -54,10 +54,8 @@ import { exists } from '../../system/-webview/vscode/uris.js';
 import { createCommandDecorator, getWebviewCommand } from '../../system/decorators/command.js';
 import type { IpcParams, IpcResponse } from '../ipc/handlerRegistry.js';
 import { ipcCommand, ipcRequest } from '../ipc/handlerRegistry.js';
-import type { ComposerWebviewShowingArgs } from '../plus/composer/registration.js';
 import type { ShowInCommitGraphCommandArgs } from '../plus/graph/registration.js';
 import type { WebviewHost } from '../webviewProvider.js';
-import type { WebviewPanelShowCommandArgs } from '../webviewsController.js';
 import type {
 	Author,
 	Commit,
@@ -663,7 +661,7 @@ export class RebaseWebviewProvider implements Disposable {
 			'context.session.duration': this.getSessionDuration(),
 		});
 
-		// Get commit SHAs from the rebase entries
+		// Capture everything derived from the todo document BEFORE aborting — the abort clears it.
 		const { processed } = this._todoDocument.parsed;
 
 		const firstShortSha = first(processed.commits.keys())!;
@@ -682,14 +680,20 @@ export class RebaseWebviewProvider implements Disposable {
 		}
 
 		const headCommitSha = commits.get(headShortSha)!.sha;
+		const repoPath = this.repoPath;
+		const branchName = this._branchName ?? undefined;
 
-		// Prefer the graph's inline compose mode when the range resolves cleanly. During an interactive
-		// rebase HEAD is often detached, so falling back to the standalone composer is the common case.
-		const repo = this.container.git.getRepository(this.repoPath);
+		// Abort FIRST (the user confirmed "Abort > Recompose") — the abort restores HEAD to the
+		// branch at its original tip, which is exactly the state the inline compose resolver
+		// requires. Mid-rebase HEAD is detached, so resolving before the abort could never go
+		// inline. The range endpoints are the original pre-rebase shas, which the abort restores.
+		await this.onAbort();
+
+		const repo = this.container.git.getRepository(repoPath);
 		const resolved =
 			repo != null
 				? await resolveRecomposeScope(this.container, repo.git, {
-						branchName: this._branchName ?? undefined,
+						branchName: branchName,
 						range: { base: baseCommitSha, head: headCommitSha },
 						includeWip: false,
 					})
@@ -698,26 +702,15 @@ export class RebaseWebviewProvider implements Disposable {
 		if (resolved?.ok) {
 			void executeCommand('gitlens.showGraph', {
 				action: 'enter-compose',
-				target: { sha: uncommitted, worktreePath: this.repoPath },
+				target: { sha: uncommitted, worktreePath: repoPath },
 				composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
 				source: { source: 'rebaseEditor' },
 			});
 		} else {
-			// Open the Commit Composer with the commits
-			void executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-				'gitlens.showComposerPage',
-				undefined,
-				{
-					repoPath: this.repoPath,
-					source: 'rebaseEditor',
-					mode: 'preview',
-					branchName: this._branchName ?? undefined,
-					range: { base: baseCommitSha, head: headCommitSha },
-				},
+			void window.showErrorMessage(
+				`Unable to recompose: ${resolved?.message ?? 'Repository not found'}. The rebase was aborted.`,
 			);
 		}
-
-		await this.onAbort();
 	}
 
 	@command('gitlens.pausedOperation.showConflicts:')

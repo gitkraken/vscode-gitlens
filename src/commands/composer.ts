@@ -1,11 +1,11 @@
+import type { Uri } from 'vscode';
 import { uncommitted } from '@gitlens/git/models/revision.js';
 import { Logger } from '@gitlens/utils/logger.js';
-import type { Source } from '../constants.telemetry.js';
+import type { Source, Sources } from '../constants.telemetry.js';
 import type { Container } from '../container.js';
 import { showGenericErrorMessage } from '../messages.js';
 import { getRepositoryOrShowPicker } from '../quickpicks/repositoryPicker.js';
 import { command, executeCommand } from '../system/-webview/command.js';
-import type { ComposerCommandArgs } from '../webviews/plus/composer/registration.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import {
@@ -13,6 +13,18 @@ import {
 	isCommandContextViewNodeHasRepository,
 	isCommandContextViewNodeHasWorktree,
 } from './commandContext.utils.js';
+
+export interface ComposerCommandArgs {
+	repoPath?: string | Uri;
+	source?: Sources | Source;
+	includedUnstagedChanges?: boolean;
+	branchName?: string;
+	/** Optional filter: if provided, only these commits are selectable for composition */
+	commitShas?: string[];
+	/** If provided, defines the commit range directly (skips merge target resolution) */
+	range?: { base: string; head: string };
+	autoComposeInstructions?: string;
+}
 
 /**
  * Opens the Commit Graph in the WIP details "Compose" mode for a repo's uncommitted changes —

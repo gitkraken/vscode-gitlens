@@ -5,8 +5,6 @@ import type { Container } from '../container.js';
 import { resolveRecomposeScope } from '../plus/coretools/compose/recomposeScope.js';
 import { command, executeCommand } from '../system/-webview/command.js';
 import { getNodeRepoPath } from '../views/nodes/abstract/viewNode.js';
-import type { ComposerWebviewShowingArgs } from '../webviews/plus/composer/registration.js';
-import type { WebviewPanelShowCommandArgs } from '../webviews/webviewsController.js';
 import { GlCommandBase } from './commandBase.js';
 import type { CommandContext } from './commandContext.js';
 import { isCommandContextViewNodeHasCommit } from './commandContext.utils.js';
@@ -95,34 +93,22 @@ export class RecomposeFromCommitCommand extends GlCommandBase {
 			const anchor = await resolveRecomposeAnchor(this.container, branch);
 			if (anchor == null) return;
 
-			// Prefer the graph's inline compose mode when the range resolves cleanly; otherwise fall
-			// back to the standalone composer below.
 			const resolved = await resolveRecomposeScope(this.container, anchor.svc, {
 				branchName: branchName,
 				range: { base: baseCommitSha, head: headCommitSha },
 				includeWip: false,
 			});
-			if (resolved.ok) {
-				void executeCommand('gitlens.showGraph', {
-					action: 'enter-compose',
-					target: { sha: uncommitted, worktreePath: anchor.worktreePath },
-					composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
-					source: { source: args.source ?? 'commandPalette' },
-				});
+			if (!resolved.ok) {
+				void window.showErrorMessage(`Unable to recompose from commit: ${resolved.message}`);
 				return;
 			}
 
-			await executeCommand<WebviewPanelShowCommandArgs<ComposerWebviewShowingArgs>>(
-				'gitlens.showComposerPage',
-				undefined,
-				{
-					repoPath: args.repoPath,
-					source: args.source,
-					mode: 'preview',
-					branchName: branchName,
-					range: { base: baseCommitSha, head: headCommitSha },
-				},
-			);
+			void executeCommand('gitlens.showGraph', {
+				action: 'enter-compose',
+				target: { sha: uncommitted, worktreePath: anchor.worktreePath },
+				composeScope: { shas: resolved.shas, includeWip: resolved.includeWip },
+				source: { source: args.source ?? 'commandPalette' },
+			});
 		} catch (ex) {
 			void window.showErrorMessage(`Failed to recompose from commit: ${ex}`);
 		}

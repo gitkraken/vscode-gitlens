@@ -330,6 +330,9 @@ export interface GraphActionTarget {
  *  (or in addition to) working changes. `shas` are child-first (HEAD-first), a contiguous
  *  first-parent range ending at HEAD. Absent = plain working-changes compose. */
 export interface GraphComposeScopeSeed {
+	/** Covering commit range ending at HEAD, child-first (HEAD-first); the final element is the
+	 *  range-base boundary commit (its first parent is the rewrite base). May include merge and
+	 *  side-branch commits. */
 	shas: string[];
 	includeWip: boolean;
 }
