@@ -99,6 +99,10 @@ function getSelfManagedApiBaseUrl(
 	}
 }
 
+export type SearchMyPullRequestsOptions = {
+	includeReviewRequested?: boolean;
+};
+
 export abstract class GitHostIntegration<
 	ID extends IntegrationIds = IntegrationIds,
 	T extends ResourceDescriptor = ResourceDescriptor,
@@ -1266,6 +1270,7 @@ export abstract class GitHostIntegration<
 		silent?: boolean,
 		connectionId?: string,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	async searchMyPullRequests(
 		repos?: T[],
@@ -1273,6 +1278,7 @@ export abstract class GitHostIntegration<
 		silent?: boolean,
 		connectionId?: string,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 	@trace()
 	async searchMyPullRequests(
@@ -1281,6 +1287,7 @@ export abstract class GitHostIntegration<
 		silent?: boolean,
 		connectionId?: string,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>> {
 		const scope = getScopedLogger();
 		// `connectionId` targets a specific account (multi-account); omitted reads the primary.
@@ -1300,6 +1307,7 @@ export abstract class GitHostIntegration<
 					cancellation,
 					silent,
 					state,
+					options,
 				);
 			} else {
 				result = {
@@ -1309,6 +1317,7 @@ export abstract class GitHostIntegration<
 						cancellation,
 						silent,
 						state,
+						options,
 					),
 				};
 			}
@@ -1401,6 +1410,7 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<PullRequest[] | undefined>;
 
 	/**
@@ -1417,6 +1427,7 @@ export abstract class GitHostIntegration<
 		cancellation?: AbortSignal,
 		silent?: boolean,
 		state?: PullRequestStateFilter,
+		options?: SearchMyPullRequestsOptions,
 	): Promise<IntegrationResult<PullRequest[] | undefined>>;
 
 	async searchPullRequests(
