@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `IntegrationService.resolveRepository`, which resolves a remote URL to its provider repository identity across every git host (`getRepoInfo` is now implemented for GitHub/GitHub Enterprise/GitLab self-hosted/Bitbucket Cloud, alongside the existing GitLab/Bitbucket Server/Azure); it returns a neutral resolution status (`resolved`/`not-found`/`error`/`no-connection`/`unsupported`) and never throws ([#5438](https://github.com/gitkraken/vscode-gitlens/issues/5438)) (plus/integrations)
 - Adds Trello as a real issue integration — a `TrelloIntegration` (boards as resources/projects, board issues mapped to the shared issue shape), the Trello provider-API client wiring, cloud auth via the shared provider (the app key from the token exchange is carried on the session), the `gl-provider-trello` glyph, and Trello in the supported cloud-integration descriptors/lists ([#5438](https://github.com/gitkraken/vscode-gitlens/issues/5438)) (plus/integrations)
 
+### Fixed
+
+- Fixes GitLab self-hosted repo-scoped reads (issues and pull requests) 404ing &mdash; `getSelfManagedApiBaseUrl` was producing a URL with a redundant `/api` segment, which then caused the provider SDK to double-append its own path; it now correctly strips these segments so the final request URL is correct ([#5526](https://github.com/gitkraken/vscode-gitlens/issues/5526)) (plus/integrations)
+
 ### Changed
 
 - Decouples the `GitLabApi`, `BitbucketApi`, and `AzureDevOpsApi` clients from `IntegrationServiceContext`, taking a narrow `ProviderApiConfig` instead (mirroring `GitHubApiConfig`); the manager wires them via new `createGitLabApi`/`createBitbucketApi`/`createAzureDevOpsApi` factories (plus/integrations)
