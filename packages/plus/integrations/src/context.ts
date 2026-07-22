@@ -155,7 +155,7 @@ export interface IntegrationCacheProvider {
 	getCurrentAccount(
 		integration: IntegrationBase,
 		cacheable: Cacheable<Account>,
-		options?: CacheExpiryOptions,
+		options?: CacheExpiryOptions & { connectionId?: string; etag?: string },
 	): CacheResult<Account>;
 	/** Evicts every cached pull request. A merge invalidates more than the merged pull request alone —
 	 *  a stacked merge lands every layer below it and retargets every layer above — and no caller can
